@@ -131,6 +131,104 @@ The waveform canvas reaches the same density by a different route: its bar/beat 
 the file service as a list, so it splits what it was sent (`subdivideGrid`) instead of computing a
 unit. Same threshold, so the `ArrangementRuler` over an audio clip and the wave under it agree.
 
+## The caret, and the rectangle it grows into
+
+The timeline's caret is here too, on both grids: `hjkl`/arrows move it, `v` grows it into a
+rectangle, Escape drops that, **Shift+drag** draws one with the pointer. Same keys, same marks —
+a primary wash with an outline — and the same rule that the caret disappears while a rectangle is
+live, because the rectangle IS the caret then, with two ends.
+
+The arithmetic is `src/gridCaret.ts`, pure and tested; `src/hooks/useGridCaret.ts` holds the
+state, the key listener and the drag. It is a **second** implementation rather than the
+timeline's, and deliberately: the timeline's caret walks rows by IDENTITY (`RowKey`), has a
+`LABEL` position no lane grid has, and refuses rows that cannot hold a clip. A clip editor's rows
+are a dense array — 128 pitches, or the rack's sounds — so the shared thing is the behaviour, not
+the code, and retrofitting one onto the other would have made both answer questions neither asks.
+
+What a cell IS differs, and that is the whole of the per-pane work:
+
+| pane | a row | a column |
+|---|---|---|
+| the roll | a pitch, top-down like the keys (`row = 127 − key`) | one step of the **ruler's current unit** |
+| the sequencer | a rack sound, then the keys the rack does not name | one step of the chosen precision |
+
+The roll's column following the zoom is the point rather than a side effect: the ladder is the
+resolution control everywhere else here (`packages/ui-waveform/docs/ticks.md`), so a finer caret
+is reached by opening the view, not by a second setting nobody would find. It is also why the
+caret resets when the unit changes — column 12 is a different MOMENT once the step halves, and
+that is not where you put it.
+
+### The selection reaches the transport
+
+**Shift+L loops it**, exactly as on the timeline, and that is what a rectangle over one bar of a
+take is *for*. The span runs to the FAR edge of the last column (`colSpan`'s +1), so a one-cell
+selection loops that step rather than nothing; with no rectangle the key clears the loop instead,
+which is what makes one key both set and unset it. **`t` sends the playhead to the caret.**
+
+Both convert through `songBeatOfCol`, and the conversion is shorter than it looks: a column's
+song beat is `clip.start + col × unit`, with the grid's own origin cancelling out. Both panes draw
+their first column at the canvas's left edge and stack the arrangement ruler over that same edge
+starting at the placement, so a windowed clip needs no special case — its window moved the local
+numbering, not where the material plays.
+
+The three verbs arrive as **commands** (`ui select`, `transport locate`, `transport loop`), so
+`App` dispatches them to whichever grid is on screen: the clip pane while it is open, the timeline
+otherwise. Zoom stays the timeline's alone — the roll zooms with the wheel and keeps no stack.
+`keys.ts` gained one condition, `clip_selection`, so ⇧L goes quiet with nothing to loop here for
+the same reason it does there.
+
+Two smaller rules, both the timeline's:
+
+- **A press moves the caret**, before anything else the press does. That is what makes `v`, `t`
+  and ⇧L mean the cell you just pointed at rather than one you last walked to.
+- **Escape is swallowed hard** (capture phase, `stopImmediatePropagation`). Bubbling, it would
+  drop the rectangle *and* be read by the shell as "close the pane" — one press doing two things.
+
+### Copying a rectangle, and pasting it at the caret
+
+`ui copy` (`c`) puts the rectangle's contents aside; a paste (`p`) puts them down with their
+**top-left corner under the caret**. That is the whole model — the clipboard holds coordinates
+relative to the corner, so where you put the caret decides both the shift in time and, on a roll,
+the transposition. `src/clipboard.ts` is the arithmetic, pure and tested.
+
+The clipboard is **one slot for both kinds**: copying is a single gesture with a single memory,
+and two clipboards would make "what does paste put down" a question about which pane you copied
+from three minutes ago. `ui copy` reads whichever grid is on screen, because only one rectangle is
+ever live.
+
+| copied from | what is held | pasted with | which runs |
+|---|---|---|---|
+| the timeline | placements, by lane offset and beat | `events paste` | `events add` |
+| the roll | notes, by semitones below the top row | `sequence notes paste` | `sequence note add` |
+| the sequencer | the same, through the rack's rows | `sequence notes paste` | `sequence note add` |
+
+**Two paste verbs, not one**, for the reason `track process` and `clip process` are two: the noun
+is the promise. Each names the material it puts down, so it also names the surface that answers —
+events onto the timeline's caret whatever else is on screen, notes into the open clip grid — and a
+paste never has to guess which pane you meant. `p` resolves to the verb for what is HELD
+(`clipboard_events` / `clipboard_notes` in `keys.ts`), so the key runs the same line you could
+type. A bare `paste` routed by "whichever grid is drawn" came first and was wrong in the way that
+family of commands is always wrong: the first word promised nothing, and the status line was the
+only place you could find out what had been pasted where.
+
+Four rules worth knowing, each of which could reasonably have gone the other way:
+
+- **A note or event is IN when it STARTS inside.** The rule `stepGrid`'s cells already follow, and
+  the only one that makes a rectangle's contents well defined — taking them by overlap would copy
+  the same note into two adjacent rectangles.
+- **A note's LENGTH is carried whole, uncut by the edge.** A copy is of the material; the rectangle
+  says which notes, not how long they are.
+- **What does not fit is DROPPED, not clamped.** A chord squashed onto key 0 is not the chord you
+  copied, and a rectangle three lanes tall pasted onto the last lane does not fold its lower two
+  onto it. The status line says how many were left.
+- **A paste is ONE command**, so it is one journal entry and one Ctrl+Z whatever it contained. The
+  pane hands the shell a command *line* rather than writing; `events add` exists for this, the
+  bulk counterpart of `sequence note add` (`packages/commands/docs/`).
+
+`ui copy` is a `ui` command because the clipboard is the shell's and no file moves. **Both pastes
+are bare-named**, because they write — the line that namespace draws, the same one `event move`
+and the file-tree verbs sit on the far side of.
+
 ## A clip with a window is CAGED to it
 
 A clip that states `from`/`to` shows that interval and **nothing else** — outside it is not drawn,

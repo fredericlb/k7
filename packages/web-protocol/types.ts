@@ -249,6 +249,10 @@ export interface WebClip {
   loopEnd?: number;
   // The clip is time-stretched: just the fact (markers stay engine-side), so the timeline can flag it.
   warped?: boolean;
+  // …and THIS event declines that map (`event disable warp`), so it plays at the sample's own
+  // rate. Both are sent: `warped` alone cannot tell "never stretched" from "stretched, switched
+  // off here", and the timeline draws the second as the icon with a line through it.
+  warpOff?: boolean;
   // Placed but silenced — the event-level `mute`. Still drawn (dimmed): an event you
   // can't see is a deleted one. The ENGINE is what skips it.
   disabled?: boolean;

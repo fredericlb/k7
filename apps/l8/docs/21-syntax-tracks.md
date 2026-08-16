@@ -35,6 +35,23 @@ sounds comes from the material's own `from`/`to` window (see Material), multipli
 There is no `length` and no `offset` here: trimming belongs to the clip, so every placement of it
 plays the same thing and no two lines can disagree about what that is.
 
+Two things a placement may switch OFF for itself, and both are written by
+`event disable <what>`:
+
+| field | absent means | what `event disable …` writes |
+|---|---|---|
+| `disabled: true` | it plays | `event disable play` — silenced, still drawn (dimmed) |
+| `warp: false` | it uses the clip's stretch map | `event disable warp` — plays at the sample's own rate |
+
+The polarities are opposite because the defaults are: an event plays unless told otherwise, and it
+warps because the CLIP is warped. `warp: false` is one placement declining a map that belongs to
+the material and is shared by every other placement of it — which is what you want when the map
+fits the song the clip was warped into and a second use of it wants the sample as recorded. The
+timeline draws that event's stretch icon with a line through it.
+
+Neither field is ever written at its default: switching one off and back on leaves the file
+exactly as it was.
+
 ## nodes/<name>.yaml — audio
 
 ```yaml schema=Module

@@ -115,7 +115,7 @@ function placementToClip(
   if (clipsMap[ref]) {
     const cm = clipsMap[ref];
     // Absent or malformed -> no warp, and the clip plays at its natural rate.
-    const warp =
+    const map =
       cm.warp && Array.isArray(cm.warp.markers) && cm.warp.markers.length >= 2
         ? {
             algorithm: String(cm.warp.algorithm ?? "elastique"),
@@ -125,6 +125,17 @@ function placementToClip(
             ]),
           }
         : undefined;
+    /**
+     * …unless THIS event declines it (`warp: false` on the placement). The map stays on the clip
+     * and every other placement of it keeps stretching; this one plays the sample as recorded.
+     *
+     * Dropped HERE rather than in the engine, because the engine is handed a compiled document
+     * and never asks why: an event with no `warp` in its ClipDoc is an event that does not warp,
+     * which is exactly what it should be told. `warpOff` rides along beside it so the SURFACE can
+     * still say the material is warped and this event is not — the timeline crosses its icon.
+     */
+    const off = p.warp === false;
+    const warp = off ? undefined : map;
     /**
      * The effective window: the clip's own, narrowed by the EVENT's (`from`/`to` on the
      * placement). The most restrictive edge wins — the larger `from`, the smaller `to` — so an
@@ -170,6 +181,10 @@ function placementToClip(
       ...(from != null ? { sourceFrom: from } : {}),
       ...(to != null ? { sourceTo: to } : {}),
       ...(warp ? { warp } : {}),
+      // Only when there is a map to decline. `warp: false` on an unwarped clip says nothing, and
+      // a surface crossing out an icon that was never drawn would be marking a state that is not
+      // one — see the timeline's `stretched`.
+      ...(off && map ? { warpOff: true } : {}),
     };
   }
   if (seqMap[ref]) {

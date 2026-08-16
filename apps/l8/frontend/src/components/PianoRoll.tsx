@@ -9,13 +9,24 @@ import { cn } from "@frediverse/ui/lib/utils";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import {
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
 import { clipLoop } from "../clipLoop";
+import {
+  type ClipGridHandle,
+  colSpan,
+  type OnGridSelection,
+  selBox,
+  songSecondsOfCol,
+} from "../gridCaret";
+import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { rollFit } from "../rollFit";
@@ -45,6 +56,11 @@ export function PianoRoll({
   clip,
   modes,
   onClose,
+  caretRef,
+  active = false,
+  setStatus,
+  onSelection,
+  onSetLoop,
   onSeek,
   onCreateNote,
   onSetVelocity,
@@ -57,6 +73,17 @@ export function PianoRoll({
   modes?: ReactNode;
   /** Absent when the frame around it owns the closing — see GraphSlotPane. */
   onClose?: () => void;
+  /** Where the shell reaches the caret: `v`, `t` and Shift+L are commands, so they arrive from
+   *  the command bar rather than from a key handler here. See ClipView's ClipViewHandle. */
+  caretRef?: RefObject<ClipGridHandle | null>;
+  /** Whether this pane owns the keys — the arrows must not move two carets at once. The editor's
+   *  own preview passes nothing and gets no caret, which is right: it is a preview. */
+  active?: boolean;
+  setStatus?: (s: string) => void;
+  /** Whether a rectangle is live — pushed up, since a condition cannot read a ref. */
+  onSelection?: OnGridSelection;
+  /** Set or clear the transport's loop region, in SONG seconds — Shift+L on the rectangle. */
+  onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
   /** Seek the transport, in SONG seconds — what a click on the arrangement ruler does. */
   onSeek?: (seconds: number) => void;
   // Draw a note via `sequence note new`; absent, the roll is read-only (no known sequence to write to).
@@ -83,6 +110,8 @@ export function PianoRoll({
   ) => void;
 }) {
   const notes = clip.notes;
+  // The sequence a note command names — the same rule every caller of `sequence note …` uses.
+  const seqId = clip.name || clip.id;
   const barBeats = Math.max(1, project.timeSigNumerator || 4);
   // The window that repeats, on this roll's own beat axis — null for a clip that states no loop.
   const loop = clipLoop(clip);
@@ -178,6 +207,132 @@ export function PianoRoll({
     barStride: gridStride,
   } = rulerScale("bars", ppb, barBeats, bps, gridEnd);
 
+  /**
+   * The caret, and the `v` rectangle over it — the timeline's, on the roll's own grid
+   * (gridCaret.ts). A row is a PITCH, top-down like the keys, and a column is one step of the
+   * ruler's current unit, so the caret walks exactly the lines that are drawn.
+   *
+   * That the column follows the ZOOM is the point rather than a side effect: the ladder is the
+   * resolution control everywhere else in this app (`packages/ui-waveform/docs/ticks.md`), so a
+   * finer caret is reached by opening the view, not by a second setting nobody would find.
+   */
+  const gridCols = Math.max(1, Math.ceil(canvasBeats / gridUnit));
+  const grid = useGridCaret({
+    active,
+    rows: N_NOTES,
+    cols: gridCols,
+    // The unit is in the key: a caret left at column 12 is a different MOMENT once the zoom
+    // halves the step, and that is not where it was put.
+    resetKey: `${clip.id}@${gridUnit}`,
+    onStatus: setStatus,
+  });
+  const { caret, box } = grid;
+  // Grid coordinates ⇄ the roll's own: a row is 127 − key, a column is a step off the origin.
+  const beatOfCol = useCallback(
+    (col: number) => origin + col * gridUnit,
+    [origin, gridUnit],
+  );
+  const colOfBeat = useCallback(
+    (beat: number) => Math.floor((beat - origin) / gridUnit + 1e-9),
+    [origin, gridUnit],
+  );
+
+  useImperativeHandle(
+    caretRef,
+    (): ClipGridHandle => ({
+      toggleSelect: grid.toggleSelect,
+      // `t`: the caret's step, as a moment in the SONG — through the placement, so it agrees
+      // with the arrangement ruler stacked above it.
+      seekToCaret: () =>
+        onSeek?.(
+          songSecondsOfCol(caret.col, gridUnit, clip.start, project.tempo),
+        ),
+      /**
+       * Shift+L: the rectangle becomes the loop region, running to the FAR edge of its last
+       * column so a one-cell selection loops that step rather than nothing. With no rectangle it
+       * CLEARS — one key that both sets and unsets, as on the timeline.
+       */
+      toggleLoop: () => {
+        const s = grid.sel;
+        if (!s) {
+          onSetLoop?.(0, 0, false);
+          return;
+        }
+        const { from, to } = colSpan(s);
+        const sec = (c: number) =>
+          songSecondsOfCol(c, gridUnit, clip.start, project.tempo);
+        onSetLoop?.(sec(from), sec(to), true);
+        grid.clearSelect();
+      },
+      /**
+       * `ui copy` — the notes the rectangle holds, in the rectangle's own coordinates. A row is a
+       * pitch here, so the corner is its TOP key and its left beat; `clipboard.ts` does the rest.
+       */
+      copy: () => {
+        const s = grid.sel;
+        if (!s) return null;
+        const b = selBox(s);
+        return copyNotes(
+          notes,
+          seqId,
+          127 - b.rowHi,
+          127 - b.rowLo,
+          beatOfCol(b.colLo),
+          beatOfCol(b.colHi + 1),
+        );
+      },
+      /**
+       * `paste` — one `sequence note add`, so a paste of twelve notes is one journal entry and
+       * one Ctrl+Z. It lands relative to the CARET: the rectangle's top-left goes under it, which
+       * is what makes a copied bar paste a bar later, or a chord paste a fourth up.
+       */
+      pasteLine: (c) => {
+        if (c.kind !== "notes")
+          return {
+            note: "le presse-papier tient des événements, pas des notes",
+          };
+        const out = pasteNotes(c, 127 - caret.row, beatOfCol(caret.col));
+        if (!out.length)
+          return { note: "rien à coller ici — tout tombe hors du clavier" };
+        const dropped = droppedCount(out.length, c);
+        return {
+          line: `sequence note add ${seqId} ${JSON.stringify(out)}`,
+          note:
+            `${out.length} note${out.length > 1 ? "s" : ""} collée${out.length > 1 ? "s" : ""}` +
+            (dropped ? ` — ${dropped} hors clavier, laissée(s)` : ""),
+        };
+      },
+    }),
+    [
+      grid,
+      caret.col,
+      caret.row,
+      gridUnit,
+      clip.start,
+      project.tempo,
+      onSeek,
+      onSetLoop,
+      notes,
+      seqId,
+      beatOfCol,
+    ],
+  );
+
+  // …and the flag the shell's conditional bindings read (see OnGridSelection).
+  useEffect(() => {
+    if (active) onSelection?.(!!box);
+  }, [active, box, onSelection]);
+
+  // What the rectangle is, in words. Pitches rather than rows: on a roll a row IS a note name,
+  // and "13 rows" says nothing you can act on.
+  useEffect(() => {
+    if (!active || !box) return;
+    const steps = box.colHi - box.colLo + 1;
+    setStatus?.(
+      `selection: ${steps} × ${gridUnit >= 1 ? `${gridUnit}b` : `1/${Math.round(1 / gridUnit)}`} · ${noteName(127 - box.rowHi)}–${noteName(127 - box.rowLo)} — ⇧L la boucle · v annule`,
+    );
+  }, [active, box, gridUnit, setStatus]);
+
   // --- left-click-drag to draw a note ----------------------------------------------
   // A live draft while dragging: pitch fixed at the press row, time from press to cursor.
   const [draft, setDraft] = useState<{
@@ -200,8 +355,38 @@ export function PianoRoll({
     return { beat, key };
   };
 
+  /** Where a pointer is, as a GRID cell — the caret's coordinates rather than the lane's. */
+  const cellAtEvent = (e: PointerEvent | React.PointerEvent) => {
+    const { beat, key } = atEvent(e);
+    return { row: 127 - key, col: colOfBeat(beat) };
+  };
+
   const onLanePointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0 || !onCreateNote) return; // left-draw only; middle pans
+    if (e.button !== 0) return; // left only; middle pans
+    /**
+     * SHIFT: the caret grows into the rectangle — anchored where it is (or where the rectangle
+     * already was), headed under the pointer, dragged across pitches and steps. The timeline's
+     * shifted press, and it runs before the draw-a-note branch so shift never draws.
+     *
+     * It is also why this handler no longer returns early when `onCreateNote` is absent: a
+     * read-only roll still has a caret, and a selection is not a write.
+     */
+    if (e.shiftKey) {
+      e.preventDefault();
+      const feed = grid.beginDrag(cellAtEvent(e));
+      const move = (ev: PointerEvent) => feed(cellAtEvent(ev));
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+      return;
+    }
+    // A press is where you are: the caret follows it, so `v`, `t` and ⇧L mean the cell you
+    // just pointed at. Before the draw, and whether or not the roll can write.
+    grid.placeCaret(cellAtEvent(e));
+    if (!onCreateNote) return;
     e.preventDefault();
     const { beat, key } = atEvent(e);
     drag.current = { k: key, t0: beat };
@@ -549,6 +734,36 @@ export function PianoRoll({
                 top={0}
                 height={gridH}
               />
+              {/* The caret cell, and the rectangle it grows into — under the notes, so a note
+                  never disappears behind its own selection. Gone while a rectangle is live: the
+                  rectangle IS the caret then, with two ends (the timeline's rule).
+                  pointer-events-none because both are marks, not targets: a press landing on one
+                  has to read as a press on the lane, which is what moves the caret. */}
+              {active && !box && (
+                <div
+                  className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
+                  style={{
+                    left: (beatOfCol(caret.col) - origin) * ppb,
+                    width: Math.max(1, gridUnit * ppb),
+                    top: caret.row * rowH,
+                    height: Math.max(1, rowH),
+                  }}
+                />
+              )}
+              {active && box && (
+                <div
+                  className="pointer-events-none absolute bg-primary/25 outline outline-1 -outline-offset-1 outline-primary"
+                  style={{
+                    left: (beatOfCol(box.colLo) - origin) * ppb,
+                    width: Math.max(
+                      1,
+                      (box.colHi - box.colLo + 1) * gridUnit * ppb,
+                    ),
+                    top: box.rowLo * rowH,
+                    height: Math.max(1, (box.rowHi - box.rowLo + 1) * rowH),
+                  }}
+                />
+              )}
               {/* No loop band, no repeat lines: the canvas IS the window now (rollFit cages it),
                   so the violet layer would frame everything and mark nothing. The header still
                   states the loop and its pass count in words. */}

@@ -42,10 +42,23 @@ export const LOCAL_COMMANDS = [
   "ui zoom", // frame the selection
   "ui zoom out", // back to the enclosing view
   "ui zoom reset", // back to the whole song
+  "ui copy", // the selected rectangle onto the shell's clipboard (events or notes)
   "transport locate", // move the playhead to the caret
   "transport loop", // set/clear the transport loop from the selection
   "transport record", // the global record enable (engine session state, over the wire)
   "transport replay", // back to where playback last started, and roll again (shift+space)
+  /**
+   * Bare-named because they WRITE — through `events add` and `sequence note add`, which are
+   * changes to the project. Their other half, `ui copy`, only fills a slot in this shell and
+   * stays `ui`; that asymmetry IS the rule at the head of this list.
+   *
+   * TWO verbs and not one `paste`, for the reason `track process` and `clip process` are two:
+   * the noun is the promise. Each names the material it puts down, so it also names the surface
+   * that answers — events onto the timeline's caret, notes onto the open clip grid's — and a
+   * paste never has to guess which pane you meant.
+   */
+  "events paste", // put copied events down on the timeline, at its caret
+  "sequence notes paste", // put copied notes down in the open roll or sequencer, at its caret
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
@@ -163,6 +176,18 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui zoom reset": {
     en: "Show the whole song",
     fr: "Afficher tout le morceau",
+  },
+  "ui copy": {
+    en: "Copy the selected events or notes",
+    fr: "Copier les événements ou notes sélectionnés",
+  },
+  "events paste": {
+    en: "Paste the copied events at the caret",
+    fr: "Coller les événements copiés au curseur",
+  },
+  "sequence notes paste": {
+    en: "Paste the copied notes at the caret",
+    fr: "Coller les notes copiées au curseur",
   },
   "transport locate": {
     en: "Move the playhead to the caret",
@@ -423,6 +448,9 @@ export function buildPaletteCommands(
     label: commandLabel(canonical),
     names: commandTranslations(canonical),
     readable: readable?.[lang] || canonical,
+    // The whole table too, for the one screen that offers a field per language. Everything else
+    // reads `readable` above — resolved once, so nothing downstream has to choose.
+    ...(readable ? { readableBy: { ...readable } } : {}),
     args,
   });
   const backend = backendCmds.map((c) => mk(c.command, c.args, c.readable));

@@ -48,12 +48,26 @@ describe("the catalogue the palette lists", () => {
     );
   });
 
+  it("keeps the WHOLE table beside it, for the screen that names a command per language", () => {
+    // The settings page places one field per locale and greys the catalogue's own words into
+    // each. It cannot get them from `readable`, which is one language by the time it is here.
+    expect(build("en")[0].readableBy).toEqual({
+      en: "Mute or unmute a track",
+      fr: "Couper ou rétablir le son d'une piste",
+    });
+    // …and the same table whichever language built the list: it is the catalogue, not a view of it.
+    expect(build("fr")[0].readableBy).toEqual(build("en")[0].readableBy);
+  });
+
   it("falls back to the command's name rather than listing a blank row", () => {
     const bare = buildPaletteCommands(
       [{ command: "track solo", args: [] }],
       "en",
     );
     expect(bare[0].readable).toBe("track solo");
+    // No table either: the line is not a translation, and a placeholder claiming to be one
+    // would offer the same English words as the French field's suggestion.
+    expect(bare[0].readableBy).toBeUndefined();
   });
 
   it("adds the shell's own commands, described too", () => {

@@ -9,8 +9,9 @@
 import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
-import { useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
 import { trackPlacing } from "../takeReview";
@@ -158,12 +159,28 @@ export function ClipView({
   command,
   onChanged,
   setStatus,
+  caretRef,
+  onSelection,
+  onSetLoop,
   onCreateNote,
   onSetVelocity,
   onSetNoteRange,
 }: {
   target: EditTarget;
   onClose: () => void;
+  /**
+   * Where the shell reaches this pane's CARET — `v`, `t` and Shift+L, which are commands and so
+   * arrive from the command bar rather than from a key handler.
+   *
+   * Forwarded straight to whichever of the two grids is drawn, so the shell holds one ref and
+   * never has to know which view a clip opened in. The tracker gets none: it is CodeMirror, and
+   * its cursor is its own (see SeqGridFile).
+   */
+  caretRef?: RefObject<ClipGridHandle | null>;
+  /** Whether the drawn grid has a rectangle — what makes ⇧L conditional (see OnGridSelection). */
+  onSelection?: OnGridSelection;
+  /** Set or clear the transport's loop region, in SONG seconds — Shift+L on a rectangle. */
+  onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
   /** Bumped by the shell after every command's reload — what keeps the open clip FRESH below. */
   reloadKey?: number;
   /** A write landed outside the command journal — the TRACKER writes its file directly, and the
@@ -334,6 +351,14 @@ export function ClipView({
             rack={rack}
             modes={modes}
             command={command}
+            // The caret is the DRAWN grid's, so the ref and `active` go to whichever of the two
+            // is on screen — one at a time, or the arrows would move two carets on one press.
+            caretRef={caretRef}
+            active
+            setStatus={setStatus}
+            onSelection={onSelection}
+            onSeek={onSeek}
+            onSetLoop={onSetLoop}
           />
         ) : view === "tracker" ? (
           // The tracker over the sequence FILE, headed the way the other two are — the pane's
@@ -391,6 +416,11 @@ export function ClipView({
                 project={project ?? target.project}
                 clip={clip}
                 modes={modes}
+                caretRef={caretRef}
+                active
+                setStatus={setStatus}
+                onSelection={onSelection}
+                onSetLoop={onSetLoop}
                 onSeek={onSeek}
                 onCreateNote={
                   onCreateNote

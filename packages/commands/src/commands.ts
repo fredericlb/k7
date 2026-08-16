@@ -86,6 +86,7 @@ import {
 } from "@studio/song/timecode";
 import {
   addTrackPlacement,
+  addTrackPlacements,
   keepTrackTake,
   movePlacementToTrack,
   moveTrackPlacement,
@@ -95,6 +96,7 @@ import {
   resizeTrackPlacement,
   selectTrackTake,
   setTrackPlacementDisabled,
+  setTrackPlacementWarp,
   trackTakes,
 } from "@studio/song/trackMix";
 import {
@@ -607,6 +609,74 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
  * argument may name — and that difference is worth a command each, since it is the promise the
  * noun makes. See processChain.ts and docs/processChain.md.
  */
+/**
+ * `event disable play|warp <track> <timecode> [on|off|toggle]` — switch off one aspect of one
+ * event, without removing it.
+ *
+ * One implementation, two commands, because the only thing that differs is WHICH property stops:
+ * `play` silences the event, `warp` makes it ignore the clip's stretch map. That difference is
+ * worth a command each for the reason `track process` and `clip process` are two — the word after
+ * the verb is the promise — and it is what leaves room for a third without renaming anything.
+ *
+ * In both, `on` means the DISABLING is on: the state belongs to this command's own verb, not to
+ * the event's. Toggling reads the current flag off the compiled clip.
+ *
+ * The two flags have opposite polarity in the FILE — `disabled: true` is written, `warp: false`
+ * is — because their defaults are opposite, and both writers delete rather than write the default
+ * (see trackMix). Which is why `aspect` selects the writer instead of the two sharing one.
+ */
+async function disableCommand(
+  a: string,
+  h: CommandHost,
+  aspect: "play" | "warp",
+): Promise<void> {
+  const verb = `event disable ${aspect}`;
+  const m = /^(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
+  if (!m) {
+    h.log([`usage: ${verb} <track> <timecode> [on|off|toggle]`]);
+    return;
+  }
+  const [, trackArg, atTc, stateArg] = m;
+  const found = resolveEvent(h, trackArg, atTc);
+  if (!found) return;
+  const { track, atBeats, hit, num, den } = found;
+  const state = (stateArg ?? "toggle").toLowerCase();
+  if (!["on", "off", "toggle"].includes(state)) {
+    h.log([`'${stateArg}' is not on, off or toggle`]);
+    return;
+  }
+  // What is currently OFF, read off the compiled event: silenced, or declining the warp.
+  const now = aspect === "play" ? !!hit.disabled : hit.warpOff === true;
+  const next = state === "toggle" ? !now : state === "on";
+  try {
+    const done =
+      aspect === "play"
+        ? setTrackPlacementDisabled(
+            h.songPath,
+            track.id,
+            atBeats,
+            num,
+            den,
+            next,
+          )
+        : // The writer takes "does it warp", so the disabling is inverted on the way in.
+          setTrackPlacementWarp(h.songPath, track.id, atBeats, num, den, !next);
+    if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+    const said =
+      aspect === "play"
+        ? next
+          ? "disabled"
+          : "enabled"
+        : next
+          ? "unwarped — plays at its own rate"
+          : "warped again";
+    h.log([`${track.id}: ${hit.name || hit.id} at ${atTc} ${said}`]);
+    await h.reload();
+  } catch (e) {
+    h.log([`${verb} failed: ${(e as Error).message}`]);
+  }
+}
+
 /**
  * The interval a clip PLAYS, in file seconds — its `from`/`to` resolved the way the compiler
  * resolves them (timecode spelling included), or null when it states none.
@@ -1346,45 +1416,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // event remove <track> <timecode> — drop that placement, addressed exactly as `event move` addresses it.
   // The clip itself stays: a placement is a REFERENCE, and an unplaced clip in clips/ is still yours.
-  // event disable <track> <timecode> [on|off|toggle]
-  "event.disable": async (a, h) => {
-    const m = /^(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
-    if (!m) {
-      h.log(["usage: event disable <track> <timecode> [on|off|toggle]"]);
-      return;
-    }
-    const [, trackArg, atTc, stateArg] = m;
-    const found = resolveEvent(h, trackArg, atTc);
-    if (!found) return;
-    const { track, atBeats, hit, num, den } = found;
-    const state = (stateArg ?? "toggle").toLowerCase();
-    if (!["on", "off", "toggle"].includes(state)) {
-      h.log([`'${stateArg}' is not on, off or toggle`]);
-      return;
-    }
-    // "on" means DISABLED — the command is `event disable`, so its `on` is its own verb,
-    // not the event's. Toggling reads the current flag off the compiled clip.
-    const next = state === "toggle" ? !hit.disabled : state === "on";
-    try {
-      if (
-        !setTrackPlacementDisabled(
-          h.songPath,
-          track.id,
-          atBeats,
-          num,
-          den,
-          next,
-        )
-      )
-        return h.log([`no event on '${track.id}' at ${atTc}`]);
-      h.log([
-        `${track.id}: ${hit.name || hit.id} at ${atTc} ${next ? "disabled" : "enabled"}`,
-      ]);
-      await h.reload();
-    } catch (e) {
-      h.log([`event disable failed: ${(e as Error).message}`]);
-    }
-  },
+  // event disable play|warp <track> <timecode> [on|off|toggle] — see disableCommand below.
+  "event.disablePlay": (a, h) => disableCommand(a, h, "play"),
+  "event.disableWarp": (a, h) => disableCommand(a, h, "warp"),
 
   // event resize <track> <timecode> <newStart> <newEnd> — both ends, one edit.
   "event.resize": async (a, h) => {
@@ -1493,6 +1527,117 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.reload();
     } catch (e) {
       h.log([`event add failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * events add <JSON [{track,ref,start,loop?}]> — a batch of already-placed events, put down in
+   * one step. The receiving half of a paste; `sequence note add` is its counterpart for notes.
+   *
+   * Everything is CHECKED before anything is written, and that ordering is the point: a paste is
+   * one gesture, so it lands whole or not at all. A loop of `event add` lines would be one journal
+   * entry each — twelve Ctrl+Z to undo one paste — and a bad entry halfway would leave the earlier
+   * ones placed with nothing on screen saying which.
+   *
+   * Grouped by lane so each file is rewritten ONCE (`addTrackPlacements`), whatever the rectangle
+   * spanned.
+   */
+  "events.add": async (a, h) => {
+    const payload = a.trim();
+    if (!payload) {
+      h.log([
+        'usage: events add <JSON [{track,ref,start,loop?}]>  (e.g. events add [{"track":"gtr","ref":"riff","start":"3:1"}])',
+      ]);
+      return;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(payload);
+    } catch (e) {
+      h.log([`bad events JSON: ${(e as Error).message}`]);
+      return;
+    }
+    if (!Array.isArray(raw) || !raw.length) {
+      h.log([
+        "events payload must be a non-empty JSON array of {track,ref,start}",
+      ]);
+      return;
+    }
+    const items = raw as {
+      track?: unknown;
+      ref?: unknown;
+      start?: unknown;
+      loop?: unknown;
+    }[];
+    const p = h.project();
+    const num = p.timeSigNumerator;
+    const den = p.timeSigDenominator;
+    // Lane id -> its placements, collected while everything is still checkable.
+    const byTrack = new Map<
+      string,
+      { ref: string; start: string; loop?: number }[]
+    >();
+    for (const [i, it] of items.entries()) {
+      const where = `events add [${i}]`;
+      if (
+        typeof it.track !== "string" ||
+        typeof it.ref !== "string" ||
+        typeof it.start !== "string"
+      ) {
+        h.log([`${where}: needs a string track, ref and start`]);
+        return;
+      }
+      const track = p.tracks.find(
+        (t) => t.id === it.track || t.name === it.track,
+      );
+      if (!track) {
+        h.log([`${where}: no track "${it.track}"`]);
+        return;
+      }
+      if (track.generated) {
+        h.log([
+          `${where}: '${track.id}' is generated by an algo pattern and holds no placements`,
+        ]);
+        return;
+      }
+      // A timecode this cannot read would be written verbatim and break the next load.
+      try {
+        parsePosition(it.start, num, den);
+      } catch (e) {
+        h.log([`${where}: bad timecode — ${(e as Error).message}`]);
+        return;
+      }
+      // The same refusal `event add` makes, and for the same reason: a placement naming a clip
+      // the compiler cannot resolve fails the WHOLE song, so this never writes one.
+      if (
+        !existsSync(join(h.songPath, "clips", `${it.ref}.yaml`)) &&
+        !existsSync(join(h.songPath, "sequences", `${it.ref}.yaml`))
+      ) {
+        h.log([
+          `${where}: no clip or sequence "${it.ref}" — a placement naming neither stops the project loading`,
+        ]);
+        return;
+      }
+      const list = byTrack.get(track.id) ?? [];
+      list.push({
+        ref: it.ref,
+        start: it.start,
+        ...(typeof it.loop === "number" && it.loop > 1
+          ? { loop: it.loop }
+          : {}),
+      });
+      byTrack.set(track.id, list);
+    }
+    try {
+      for (const [id, list] of byTrack)
+        addTrackPlacements(h.songPath, id, list);
+      const n = items.length;
+      h.log([
+        `added ${n} event${n === 1 ? "" : "s"} on ${[...byTrack.keys()].join(", ")}`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`events add failed: ${(e as Error).message}`]);
     }
   },
 

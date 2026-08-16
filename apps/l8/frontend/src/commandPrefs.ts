@@ -3,10 +3,28 @@
 // is the app's and is the same for everyone; this is the layer over it, and it is pure so the
 // settings page and every menu apply it the same way.
 
+/**
+ * What a person calls a command, per language: `{ en: "Trim", fr: "Rogner" }`.
+ *
+ * A bare string is what this field USED to be, and is still read — it was written when there was
+ * one field and no language attached to it, so it stands for every locale at once. Nothing
+ * rewrites it on load: a document is migrated when the person next edits that command, and until
+ * then it keeps saying what it always said.
+ */
+export type CommandLabel = string | Record<string, string>;
+
 /** One command's overrides. Every field optional — an untouched command has no entry at all. */
 export interface CommandPref {
-  /** What to call it. Empty or absent ⇒ the catalogue's own sentence, in the current locale. */
-  label?: string;
+  /**
+   * What to call it, in each language. Empty or absent for a locale ⇒ the catalogue's own
+   * sentence in that locale.
+   *
+   * Per locale and not one string, because a rename is a SENTENCE and a sentence is translated —
+   * the command's name stays the CLI's in every language (see CommandInfo.readable, which splits
+   * the two for the same reason). One field meant renaming while reading French also renamed
+   * what English showed, with nothing on screen saying so.
+   */
+  label?: CommandLabel;
   /** A lucide icon name, e.g. "Scissors". Absent ⇒ no icon; an unknown one draws nothing. */
   icon?: string;
   /** Where it sits in a menu. Absent ⇒ after everything ordered, in catalogue order. */
@@ -42,6 +60,21 @@ export type CommandPrefs = Record<string, CommandPref>;
 export interface CommandLike {
   canonical: string;
   readable?: string;
+}
+
+/**
+ * A person's name for a command in ONE locale, or "" when they have not given one.
+ *
+ * A legacy bare string answers for every locale, which is what it meant when it was the only
+ * field. No fallback BETWEEN locales otherwise: a command named only in French shows the
+ * catalogue's English sentence in English, which is the whole point of a field per language.
+ */
+export function labelIn(
+  label: CommandLabel | undefined,
+  locale: string,
+): string {
+  if (label === undefined) return "";
+  return (typeof label === "string" ? label : (label[locale] ?? "")).trim();
 }
 
 /**
@@ -98,11 +131,23 @@ export function entitiesOf(commands: readonly CommandLike[]): string[] {
 /** The heads a page needs to fold and to badge — computed once, handed to both. */
 export const commandHeads = headsOf;
 
-/** What to CALL a command: the person's own name for it, else the catalogue's sentence, else the
- *  line itself — which is always something, so a menu never draws a blank row. */
-export function labelOf(c: CommandLike, prefs: CommandPrefs): string {
-  const own = prefs[c.canonical]?.label?.trim();
-  return own || c.readable?.trim() || c.canonical;
+/**
+ * What to CALL a command: the person's own name for it IN THIS LOCALE, else the catalogue's
+ * sentence, else the line itself — which is always something, so a menu never draws a blank row.
+ *
+ * `c.readable` is already resolved to the locale by `buildPaletteCommands`, so the locale is
+ * needed here only to pick the override — the two halves are chosen in the same language.
+ */
+export function labelOf(
+  c: CommandLike,
+  prefs: CommandPrefs,
+  locale: string,
+): string {
+  return (
+    labelIn(prefs[c.canonical]?.label, locale) ||
+    c.readable?.trim() ||
+    c.canonical
+  );
 }
 
 /**
@@ -183,4 +228,35 @@ export function setCommandPref(
   if (Object.keys(merged).length) next[canonical] = merged;
   else delete next[canonical];
   return next;
+}
+
+/**
+ * Name a command in ONE language, leaving the others as they were.
+ *
+ * `locales` is taken rather than assumed because of the legacy shape: a bare string was one name
+ * standing for every language, so the first per-language edit EXPANDS it across `locales` before
+ * setting the one being typed in. Without that, renaming in French would silently drop the name
+ * English had been showing all along — the person would have to notice by switching language.
+ *
+ * A field emptied is an override taken back, not a blank name: the entry goes, and with it the
+ * whole `label` once no language names the command any more.
+ */
+export function setCommandLabel(
+  prefs: CommandPrefs,
+  canonical: string,
+  locale: string,
+  text: string,
+  locales: readonly string[],
+): CommandPrefs {
+  const current = prefs[canonical]?.label;
+  const byLocale: Record<string, string> =
+    typeof current === "string"
+      ? Object.fromEntries(locales.map((l) => [l, current]))
+      : { ...current };
+  byLocale[locale] = text;
+  for (const [l, v] of Object.entries(byLocale))
+    if (!v.trim()) delete byLocale[l];
+  return setCommandPref(prefs, canonical, {
+    label: Object.keys(byLocale).length ? byLocale : undefined,
+  });
 }

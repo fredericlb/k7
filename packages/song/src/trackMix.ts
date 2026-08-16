@@ -193,16 +193,22 @@ export function moveTrackPlacementsInRange(
   return moved;
 }
 
-/** Switch the placement at `fromBeats` on or off. Returns true if one was there. The
- *  flag is written when true and DELETED when false, so switching back leaves the file
- *  as it was rather than accumulating `disabled: false` on every event ever touched. */
-export function setTrackPlacementDisabled(
+/**
+ * Write one field of the placement at `fromBeats`. Returns true if one was there.
+ *
+ * `undefined` DELETES, which is how both callers below say "back to the default": switching a
+ * flag off and on again leaves the file exactly as it was, rather than accumulating a
+ * `disabled: false` on every event anybody ever touched.
+ */
+function setPlacementFieldAt(
   dir: string,
   id: string,
   fromBeats: number,
   num: number,
   den: number,
-  disabled: boolean,
+  key: string,
+  value: boolean | undefined,
+  what: string,
 ): boolean {
   let hit = false;
   editTrackStruct(
@@ -212,11 +218,59 @@ export function setTrackPlacementDisabled(
       const at = findPlacementAt(text, fromBeats, num, den);
       if (at < 0) return text;
       hit = true;
-      return setPlacementField(text, at, "disabled", disabled || undefined);
+      return setPlacementField(text, at, key, value);
     },
-    "disable a clip",
+    what,
   );
   return hit;
+}
+
+/** Switch the placement at `fromBeats` on or off. Written when true, deleted when false. */
+export function setTrackPlacementDisabled(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  num: number,
+  den: number,
+  disabled: boolean,
+): boolean {
+  return setPlacementFieldAt(
+    dir,
+    id,
+    fromBeats,
+    num,
+    den,
+    "disabled",
+    disabled || undefined,
+    "disable a clip",
+  );
+}
+
+/**
+ * Whether the placement at `fromBeats` plays the material's stretch map.
+ *
+ * The polarity is the OTHER way round from `disabled`, because the default is the other way
+ * round: warping is what a warped clip does everywhere, so `false` is the written value and
+ * `true` deletes the field. See PlacementSchema's `warp`.
+ */
+export function setTrackPlacementWarp(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  num: number,
+  den: number,
+  warp: boolean,
+): boolean {
+  return setPlacementFieldAt(
+    dir,
+    id,
+    fromBeats,
+    num,
+    den,
+    "warp",
+    warp ? undefined : false,
+    "set an event's warp",
+  );
 }
 
 /** What a resize touched — ONE event, now that the window it writes is the placement's own. */
@@ -378,6 +432,31 @@ export function addTrackPlacement(
     id,
     (text) => addPlacement(text, { ref, start }),
     `put "${ref}" on track "${id}"`,
+  );
+}
+
+/**
+ * Put SEVERAL placements on one lane, in ONE rewrite of its file.
+ *
+ * Not a loop over `addTrackPlacement`, and the difference is the whole reason it exists: that one
+ * reads, transforms and writes per placement, so a paste of twelve events would be twelve reads
+ * and twelve writes of the same file — and twelve chances to fail with half of them landed. The
+ * transforms are pure text (`addPlacement`), so folding them inside one `editTrackStruct` is both
+ * cheaper and atomic: either the lane's file gains all of them or it is untouched.
+ *
+ * Order is the caller's. They are appended as given, which is what a paste wants — the file's
+ * `events:` is a list, not a sorted index, and the compiler reads positions rather than order.
+ */
+export function addTrackPlacements(
+  dir: string,
+  id: string,
+  placements: { ref: string; start: string; loop?: number }[],
+): string {
+  return editTrackStruct(
+    dir,
+    id,
+    (text) => placements.reduce((t, p) => addPlacement(t, p), text),
+    `put ${placements.length} placement(s) on track "${id}"`,
   );
 }
 

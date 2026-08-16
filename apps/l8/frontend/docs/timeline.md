@@ -145,6 +145,25 @@ zoom is how you reach a finer position, and the furthest a click can move from t
 is half a column. A *drag* on the ruler is unchanged: it still sweeps a selection over whole
 beat cells.
 
+### …and so does a clip DRAG
+
+Dragging an event snaps to **the ruler's current unit**, not to whole beats. It snapped to beats
+at every zoom before, so the gesture and the grid disagreed in both directions: zoomed past the
+beat, the lines offered eighths the drag could not land on; zoomed out to bars, it still moved in
+beats you could not see. The zoom is the resolution control everywhere else here
+(`packages/ui-waveform/docs/ticks.md`); this makes the drag obey it.
+
+Three details, each of which could have gone the other way:
+
+- **The step is read at the GRAB** (`unitRef`, assigned during render beside `ppbRef`), not live.
+  A wheel notch mid-drag must not change what the gesture means under your hand.
+- **It snaps the OFFSET, not the resulting position** — which is why it is a unit and not the
+  `nearestTick` list the ruler's own gestures use. A take placed by hand at `4:2:2.43` keeps that
+  phase when you move it a bar; the zoom decides how FAR each step is, not where the grid is.
+- **In SECONDS mode the step is the seconds one**, converted through the tempo. `rulerScale`
+  returns both and the mode picks; a drag snapping to beats under a ruler ticking every five
+  seconds would land between every pair of lines.
+
 One cost to know: this is one DOM node per tick, on top of the one the ruler already draws —
 at the deepest zoom on a long song, ~1000 nodes becoming ~2000. It is a cost paid on a
 re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body no

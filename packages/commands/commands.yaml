@@ -859,6 +859,28 @@
       { name: clip, complete: clipTargets },
       { name: timecode, type: timecode },
     ]
+# The BULK form, and the receiving half of a paste: a JSON payload of already-placed events, put
+# down in ONE command. `sequence note add` is its exact counterpart for notes, and for the same
+# reason — a paste of twelve events looped over `event add` would be twelve journal entries, so
+# twelve Ctrl+Z to undo one gesture, and a failure halfway would leave half of it placed.
+#
+# Programmatic: the payload is built by whatever COPIED (the shell's clipboard, a script), so it
+# carries positions rather than a range to derive them from. One entry per event, each naming its
+# own lane, so a rectangle spanning several lanes is still one command.
+- command: "events add"
+  sid: events.add
+  readable:
+    en: "Put a batch of placed events on their tracks"
+    fr: "Poser un lot d'événements placés sur leurs pistes"
+  help: "put a batch of already-placed events down in one step (JSON payload — see `ui copy`)"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: events,
+        hint: 'JSON [{track,ref,start,loop?}] — start is a timecode',
+      },
+    ]
 - command: "event move"
   sid: event.move
   readable:
@@ -899,22 +921,47 @@
 # Drops one placement from a track, addressed the same way `event move` addresses it.
 # The clip/sequence itself stays in clips/ — a placement is a reference, and the same
 # material may sit on other tracks. Also on the timeline: right-click an event → Remove.
-# Silence ONE event without removing it — a track's mute, at the level of a placement.
-# The event stays in the file, so its position, length and fades survive being switched
-# off and on. `on|off|toggle`; omit and it toggles. The timeline draws a disabled event
-# dimmed, and the engine skips it.
-- command: "event disable"
-  sid: event.disable
+# `event disable <what>` — switch off ONE aspect of ONE event, without removing it. Two so far,
+# and the head is what makes room for a third: `disable` names the act, the word after it names
+# what stops. It was a bare `event disable` while silencing was the only thing you could switch
+# off; `play` is that command under a name that says which of an event's properties it means.
+#
+# Both take `on|off|toggle` and toggle when it is omitted, and in both `on` means the DISABLING
+# is on — the state belongs to the command's own verb, not to the event's.
+#
+# Silence one event — a track's mute at the level of a placement. It stays in the file, so its
+# position, length and fades survive being switched off and on. The timeline draws it dimmed,
+# and the ENGINE is what skips it.
+- command: "event disable play"
+  sid: event.disablePlay
   readable:
     en: "Silence one clip without removing it"
     fr: "Rendre un clip muet sans le supprimer"
-  help: "silence one event without removing it (e.g. event disable drums 2:1:1)"
+  help: "silence one event without removing it (e.g. event disable play drums 2:1:1)"
   surfaces: [cli]
   args:
     [
       { name: track, complete: tracks },
       { name: timecode, type: timecode },
-      { name: state, hint: "on · off · toggle (default) — 'on' means disabled" },
+      { name: state, hint: "on · off · toggle (default) — 'on' means silenced" },
+    ]
+# …and stop one event playing the material's STRETCH MAP, so the sample runs at its own rate.
+# A warp belongs to the clip — one map shared by every placement of it (song/docs/warp.md) — so
+# this is an event declining it, written `warp: false` on the placement. What it is for: the map
+# fits the song the clip was warped INTO, and a second use of that clip elsewhere wants the
+# sample as recorded. The only way before was to copy the file.
+- command: "event disable warp"
+  sid: event.disableWarp
+  readable:
+    en: "Play one clip at its own rate, unwarped"
+    fr: "Jouer un clip à son propre tempo, sans étirement"
+  help: "stop one event playing the clip's stretch map (e.g. event disable warp drums 2:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      { name: state, hint: "on · off · toggle (default) — 'on' means unwarped" },
     ]
 # Re-time an event: a new start AND a new end, in one edit. The end is a POSITION on the
 # timeline, not a duration — it is what you drag, and what you can read off the ruler.

@@ -58,6 +58,21 @@ export const PlacementSchema = z
     // the lane itself. The placement stays in the file, so its position, length and fades
     // survive being switched off and back on.
     disabled: z.boolean().optional(),
+    /**
+     * Whether THIS event plays the material's stretch map. Absent ⇒ yes, which is what every
+     * placement did before this existed.
+     *
+     * `warp: false` is the only value that says anything; `true` is the default written out. The
+     * polarity is that way round because a warp belongs to the CLIP — one map, shared by every
+     * placement of it (docs/warp.md) — and this is a placement declining it. A `noWarp: true`
+     * would name the same fact as a double negative, and a reader would have to work out which
+     * way `noWarp: false` pointed.
+     *
+     * What it is for: one map fits the song where the clip was warped INTO, and a second use of
+     * that clip somewhere else wants the sample at its own rate. Before this, the only way was to
+     * copy the file.
+     */
+    warp: z.boolean().optional(),
   })
   .strict()
   // A backwards window is refused where the line can be named, exactly as the clip's own is.

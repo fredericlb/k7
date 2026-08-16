@@ -18,6 +18,9 @@ export interface RawPlacement {
   from?: unknown;
   to?: unknown;
   disabled?: boolean; // silenced, but still placed — the event-level `mute`
+  // Whether this event plays the material's stretch map. Absent ⇒ yes; `false` is the only value
+  // that says anything, because the default is the other way round (see PlacementSchema).
+  warp?: boolean;
 }
 
 /** A track file's struct (tracks/<id>.yaml), any of the three kinds. */

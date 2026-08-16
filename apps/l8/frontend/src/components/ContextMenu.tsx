@@ -1,11 +1,13 @@
 // ContextMenu.tsx — the right-click popup shared by the timeline and the chains graph: it
-// lists WHAT each command does and on a pick PRE-WRITES one into the bar, never running it
-// (see contextMenu.ts). One instance lives in App; both surfaces open it through
-// openContextMenu. Dismisses on Escape, an outside click, a scroll, or losing focus.
+// lists WHAT each command does — the sentence only, never the line, which is a hover away — and
+// on a pick PRE-WRITES one into the bar (see contextMenu.ts). One instance lives in App; both
+// surfaces open it through openContextMenu. Dismisses on Escape, an outside click, a scroll, or
+// losing focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { CommandPrefs } from "../commandPrefs";
+import { type CommandPrefs, labelIn } from "../commandPrefs";
 import type { MenuItem } from "../contextMenu";
+import { useLocale } from "../i18n";
 import { useIcons } from "../lucideIcons";
 
 export function ContextMenu({
@@ -35,6 +37,10 @@ export function ContextMenu({
   // the honest degradation: the label is what an entry MEANS, the icon is how you recognise it
   // faster the second time. Cached after that, so every menu since is synchronous.
   const icons = useIcons();
+  // A person's name for a command is per LANGUAGE now, so picking one takes a locale. Read here
+  // rather than threaded down from App: this menu already reaches for its own `useIcons`, and the
+  // settings page that WRITES these names reads the locale the same way (CommandsSettings).
+  const { locale } = useLocale();
   const ref = useRef<HTMLDivElement>(null);
   // Start at the click, then clamp into the viewport once we can measure the menu.
   const [pos, setPos] = useState({ x, y });
@@ -79,8 +85,10 @@ export function ContextMenu({
       ref={ref}
       style={{ left: pos.x, top: pos.y }}
       // Bounded and scrollable: a track offers every command that takes one, which is sixteen
-      // rows, and a menu that runs off the bottom of the screen hides its own tail.
-      className="fixed z-50 max-h-[70vh] min-w-[13rem] max-w-[34rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      // rows, and a menu that runs off the bottom of the screen hides its own tail. Narrower
+      // since the command column went — 34rem was width for two columns, and a menu of sentences
+      // that wide leaves the eye travelling for nothing.
+      className="fixed z-50 max-h-[70vh] min-w-[13rem] max-w-[22rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="menu"
     >
       {items.map((it) => {
@@ -100,27 +108,31 @@ export function ContextMenu({
               onPick(it);
               onClose();
             }}
-            className="flex w-full items-center justify-between gap-6 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
+            className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
           >
-            {/* What it DOES leads, behind the icon this person gave it. The line stays beside it,
-              muted, because hiding what a pick is about to run — or write into the bar — is
-              opaque. The trailing … is the difference between the two: an item still owing an
-              argument asks for it, the rest just go.
+            {/* What it DOES, and only that. The command LINE used to sit beside it in mono, on the
+              argument that hiding what a pick is about to run is opaque — but a menu is read for
+              what it offers, not for how the offer is spelled, and a column of `track solo …`
+              beside a column of sentences saying the same thing twice is what actually made this
+              hard to scan. The line is still one hover away, in the title.
 
               The gutter is held whether or not there IS an icon, so the labels of a half-decorated
               menu still line up — a ragged left edge reads as a rendering fault. */}
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-                {Icon ? <Icon className="h-4 w-4" /> : null}
-              </span>
-              <span className="min-w-0 flex-1 truncate">
-                {pref?.label?.trim() || it.label}
-              </span>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+              {Icon ? <Icon className="h-4 w-4" /> : null}
             </span>
-            <span className="shrink-0 truncate font-mono text-xs text-muted-foreground">
-              {it.command.trimEnd()}
-              {it.complete ? "" : " …"}
+            {/* The person's name for it in THIS language, else the entry's own. `labelIn` is
+                what reads both shapes — a per-language map, and the bare string the field used
+                to be, which still stands for every locale until that command is next renamed. */}
+            <span className="min-w-0 flex-1 truncate">
+              {labelIn(pref?.label, locale) || it.label}
             </span>
+            {/* The one thing the line carried that the sentence does not: whether picking this
+                RUNS it or only fills the bar with it. It survives the line's removal because it
+                is the difference between an action and a question. */}
+            {!it.complete && (
+              <span className="shrink-0 text-muted-foreground">…</span>
+            )}
           </button>
         );
       })}

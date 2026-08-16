@@ -18,6 +18,10 @@ export const UI_EXACT: readonly string[] = [
   "popin close",
   "slot close",
   "select",
+  // The selected rectangle onto the shell's clipboard. `ui`, because the clipboard is this
+  // shell's and no file moves — its other half, `paste`, writes and so is bare-named. Exact, so
+  // it cannot swallow `ui copy path <file>`, which is a head below.
+  "copy",
   "zoom",
   "zoom out",
   "zoom reset",

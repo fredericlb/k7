@@ -26,11 +26,14 @@ import {
   entitiesOf,
   entityGroup,
   isPluralCommand,
+  labelIn,
   labelOf,
   moveCommand,
   orderCommands,
+  setCommandLabel,
   setCommandPref,
 } from "../commandPrefs";
+import { useLocale } from "../i18n";
 import { KEY_NONE, keyForCommand, keyLabel, keyToken } from "../keys";
 import { useIcons } from "../lucideIcons";
 import type { PaletteCommand } from "./CommandBar";
@@ -55,6 +58,9 @@ export function CommandsSettings({
 }) {
   const [entity, setEntity] = useState<string>("");
   const [q, setQ] = useState("");
+  // Every language the app is built with, so a language added to the catalogue grows a field here
+  // the same day — and the CURRENT one, only to mark which field is the one you are reading in.
+  const { locale, locales } = useLocale();
   // Shared with the context menus, so this page and they resolve a name the same way — and the
   // set is fetched once for both. Null for the first frames, which shows an empty icon button.
   const icons = useIcons();
@@ -76,7 +82,7 @@ export function CommandsSettings({
       (!entity || entityGroup(c.canonical, heads) === entity) &&
       (!needle ||
         c.canonical.toLowerCase().includes(needle) ||
-        labelOf(c, prefs).toLowerCase().includes(needle)),
+        labelOf(c, prefs, locale).toLowerCase().includes(needle)),
   );
 
   // Stable per (prefs, onChange), because the key-capture effect below depends on it.
@@ -210,14 +216,45 @@ export function CommandsSettings({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* The label. Placeholder is the catalogue's own sentence, so an empty field reads
-                  as "unchanged" rather than as "nameless". */}
-              <Input
-                value={prefs[c.canonical]?.label ?? ""}
-                placeholder={c.readable || c.canonical}
-                onChange={(e) => set(c.canonical, { label: e.target.value })}
-                className="h-7 flex-1 text-xs"
-              />
+              {/* The name, one field per language. Each placeholder is the catalogue's own
+                  sentence IN THAT language, so an empty field reads as "unchanged" rather than as
+                  "nameless" — and so the two fields show what they would each leave standing. The
+                  tag is the locale code: two letters cost less width than a legend would, and this
+                  row already carries five controls. */}
+              {locales.map((l) => (
+                <label
+                  key={l}
+                  className="flex min-w-0 flex-1 items-center gap-1"
+                  title={`nom en ${l}`}
+                >
+                  <span
+                    className={cn(
+                      "shrink-0 font-mono text-[10px] uppercase",
+                      l === locale
+                        ? "text-foreground"
+                        : "text-muted-foreground/60",
+                    )}
+                  >
+                    {l}
+                  </span>
+                  <Input
+                    value={labelIn(prefs[c.canonical]?.label, l)}
+                    placeholder={c.readableBy?.[l] || c.readable || c.canonical}
+                    onChange={(e) =>
+                      onChange(
+                        setCommandLabel(
+                          prefs,
+                          c.canonical,
+                          l,
+                          e.target.value,
+                          locales,
+                        ),
+                      )
+                    }
+                    className="h-7 min-w-0 flex-1 text-xs"
+                  />
+                </label>
+              ))}
               {/* The line, and — on the one that acts on SEVERAL — a mark saying so. A plural
                   verb lists under its singular (`events move` among the `event` ones), which is
                   where anyone would look for it; the badge is what keeps the two tellable apart

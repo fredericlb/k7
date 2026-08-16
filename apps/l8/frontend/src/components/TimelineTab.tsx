@@ -22,6 +22,7 @@ import {
   Repeat,
   StretchVertical,
   Timer,
+  TimerOff,
   Volume2,
 } from "lucide-react";
 import {
@@ -33,8 +34,16 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import {
+  type Clipboard,
+  copyEvents,
+  droppedCount,
+  type MaybeClipboard,
+  pasteEvents,
+} from "../clipboard";
 import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
+import type { PasteResult } from "../gridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import {
@@ -513,6 +522,10 @@ export interface TimelineHandle {
   zoomReset: () => void;
   seekToCaret: () => void;
   toggleLoop: () => void;
+  /** `ui copy` — the events the rectangle holds, in its own coordinates (clipboard.ts). */
+  copy: () => MaybeClipboard;
+  /** `paste` — the `events add` line that puts the clipboard down at the caret, or why not. */
+  pasteLine: (clip: Clipboard) => PasteResult;
   startMove: () => void;
   // The two header toggles, so `ui ruler` and `ui lanes` reach what the buttons reach.
   toggleRuler: () => void;
@@ -1023,10 +1036,23 @@ export function TimelineTab({
   // --- dragging a clip with the mouse -------------------------------------------
   // The pointer half of Move mode: same state, same commitMove, and the same same-material rule on the target lane.
   const ppbRef = useRef(PX_PER_BEAT); // assigned during render, below
+  /**
+   * The ruler's current UNIT in beats — a bar, a beat, a half, a sixteenth — assigned during
+   * render beside `ppbRef` and read on pointerdown.
+   *
+   * A drag snaps to it, which is the whole reason it is here. It snapped to whole BEATS at every
+   * zoom before, so the grid and the gesture disagreed in both directions: zoomed in past the
+   * beat the lines offered eighths the drag could not land on, and zoomed out to bars the drag
+   * still moved in beats you could not see. The zoom is the resolution control everywhere else
+   * here (`packages/ui-waveform/docs/ticks.md`); this makes the drag obey it.
+   */
+  const unitRef = useRef(1);
   const dragRef = useRef<{
     x: number;
     y: number;
     ppb: number;
+    /** The snap step, in beats — the ruler's unit at the moment of the grab. */
+    unit: number;
     moved: boolean;
     // WHICH clip is under the press, carried here rather than read back off `move`: a lane whose
     // clip cannot be moved sets no `move` at all, and a click on it still has to know what it hit.
@@ -1062,6 +1088,7 @@ export function TimelineTab({
         x: e.clientX,
         y: e.clientY,
         ppb: ppbRef.current,
+        unit: unitRef.current,
         moved: false,
         trackId: track.id,
         clipId: c.id,
@@ -1297,11 +1324,20 @@ export function TimelineTab({
         Math.abs(e.clientY - d.y) > DRAG_SLOP
       )
         d.moved = true;
-      // Whole beats, the grid the caret already uses, clamped so a clip can't be dragged before the song's start.
-      const offset = Math.max(
-        -m.origStart,
-        Math.round((e.clientX - d.x) / d.ppb),
-      );
+      /**
+       * Snapped to the RULER'S CURRENT UNIT, and clamped so a clip cannot be dragged before the
+       * song's start.
+       *
+       * `d.unit` is the step the grid was drawing when the clip was grabbed — a bar zoomed out, a
+       * sixteenth zoomed in. It is read at the GRAB rather than live, so a wheel notch mid-drag
+       * cannot change what the gesture means under your hand.
+       *
+       * The clamp lands on the unit too: `-origStart` rounded UP to a whole step, or a clip at
+       * bar 3 dragged hard left would stop at beat 0 off the grid it had been walking.
+       */
+      const step = Math.max(1e-6, d.unit);
+      const raw = Math.round((e.clientX - d.x) / (d.ppb * step)) * step;
+      const offset = Math.max(Math.ceil(-m.origStart / step) * step, raw);
       const lane = laneAtPoint(e.clientX, e.clientY);
       const src = projRef.current?.tracks.find((t) => t.id === m.trackId);
       const toTrackId =
@@ -1542,6 +1578,80 @@ export function TimelineTab({
       seekToCaret: () => {
         if (!proj || caret.beat === LABEL) return;
         onSeek?.((caret.beat * 60) / proj.tempo);
+      },
+      /**
+       * `ui copy` — the events inside the rectangle, relative to its corner.
+       *
+       * TRACK rows only, and their order on screen is the clipboard's row order: a group header
+       * holds no placements and a generated lane's are the scheduler's, rewritten every tick.
+       * They are skipped rather than counted, so pasting three lanes down lands on the three
+       * lanes that can hold something.
+       */
+      copy: () => {
+        const s = selRef.current;
+        if (!s) return null;
+        const a = rowIndexOf(visRows, s.anchor.row);
+        const b = rowIndexOf(visRows, s.head.row);
+        if (a < 0 || b < 0) return null;
+        const lo = Math.min(s.anchor.beat, s.head.beat);
+        const hi = Math.max(s.anchor.beat, s.head.beat);
+        const lanes = visRows
+          .slice(Math.min(a, b), Math.max(a, b) + 1)
+          .flatMap((r) =>
+            r.kind === "track" && !r.track.generated
+              ? [
+                  {
+                    events: r.track.clips.map((c) => ({
+                      ref: c.name || c.id,
+                      start: c.start,
+                    })),
+                  },
+                ]
+              : [],
+          );
+        return lanes.length ? copyEvents(lanes, lo, hi + 1) : null;
+      },
+      /**
+       * `paste` — one `events add`, so a rectangle of twelve placements is one journal entry.
+       *
+       * The lanes it can reach are the track rows from the CARET down; rows with nothing under
+       * them are dropped rather than folded onto the last lane. A label-selected caret has no
+       * beat to paste at, so the command goes quiet and says why.
+       */
+      pasteLine: (c) => {
+        if (c.kind !== "events")
+          return { note: "the clipboard holds notes, not events" };
+        if (!proj || caret.beat === LABEL)
+          return {
+            note: "put the caret in a lane first — a label is not a position",
+          };
+        const at = rowIndexOf(visRows, caret.row);
+        if (at < 0) return { note: "the caret is on no row" };
+        const lanes = visRows
+          .slice(at)
+          .flatMap((r) =>
+            r.kind === "track" && !r.track.generated ? [r.track.id] : [],
+          );
+        const out = pasteEvents(c, lanes, caret.beat);
+        if (!out.length)
+          return {
+            note: "nothing to paste here — no lane under the rectangle",
+          };
+        const num = proj.timeSigNumerator;
+        const den = proj.timeSigDenominator;
+        const payload = out.map((e) => ({
+          track: e.track,
+          ref: e.ref,
+          start: beatsToPosition(e.start, num, den),
+          ...(e.loop ? { loop: e.loop } : {}),
+        }));
+        const dropped = droppedCount(out.length, c);
+        return {
+          line: `events add ${JSON.stringify(payload)}`,
+          note:
+            `${out.length} event${out.length > 1 ? "s" : ""} pasted` +
+            (dropped ? ` — ${dropped} had no lane and were left` : ""),
+        };
       },
       // shift+L: the selection becomes the loop region, spanning [lo, hi+1) so the last selected cell is inside it.
       toggleLoop: () => {
@@ -1799,6 +1909,18 @@ export function TimelineTab({
   // (see beginVideoDrag). Assigned during render for the same reason `ppbRef` is.
   ticksRef.current = bars;
   bpsRef.current = bps;
+  /**
+   * …and the step a CLIP drag moves in, in beats: whatever the ruler is currently drawing.
+   *
+   * In seconds mode that is `secStep` converted through the tempo, not the musical `unit` —
+   * `rulerScale` returns both and the mode decides which is on screen. A drag snapping to beats
+   * under a ruler ticking every five seconds would land between every pair of lines.
+   *
+   * It snaps the OFFSET rather than the resulting position, which is deliberate and is what a
+   * tick list could not do: a take placed by hand at 4:2:2.43 keeps that phase when you move it a
+   * bar. The zoom decides how FAR each step is, not where the grid is.
+   */
+  unitRef.current = rulerMode === "seconds" ? secStep * bps : unit;
   // Both tick layers take the same seven, so the ruler and the grid cannot read different units.
   const tickProps = {
     mode: rulerMode,
@@ -2723,8 +2845,12 @@ export function TimelineTab({
                         // where it stops being a glyph and starts being grit.
                         const loopGlyphs =
                           !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
-                        // A time-stretched clip plays back at an altered rate — flag it with a countdown-timer icon.
+                        // A time-stretched clip plays back at an altered rate — flag it with a
+                        // countdown-timer icon. CROSSED when this event has declined the map
+                        // (`event disable warp`): the material is still warped, and this one
+                        // playing at its own rate is a state worth seeing rather than an absence.
                         const stretched = !!c.warped;
+                        const unwarped = !!c.warpOff;
                         // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
                         const moving =
                           !!move &&
@@ -2750,7 +2876,7 @@ export function TimelineTab({
                           <div
                             // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                             key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? " · stretched" : ""} — click to select, drag to move`}
+                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""} — click to select, drag to move`}
                             // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                             onPointerDown={(e) => beginClipDrag(e, t, c)}
                             onPointerMove={onClipDragMove}
@@ -2883,9 +3009,12 @@ export function TimelineTab({
                               {/* The loop badge that sat here is gone: the marks down the
                                   block say the same thing and say WHERE, which a badge in a
                                   corner never could. */}
-                              {stretched && (
-                                <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
-                              )}
+                              {stretched &&
+                                (unwarped ? (
+                                  <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                ) : (
+                                  <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                                ))}
                               {/* The name, on HOVER. A lane full of blocks each shouting its
                                   own name is noise you read past; what the eye wants at rest
                                   is the shape of the arrangement. Faded rather than

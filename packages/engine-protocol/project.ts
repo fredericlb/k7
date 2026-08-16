@@ -71,6 +71,15 @@ export interface ClipDoc {
   loopEnd: number; // midi (beats); 0 == no loop
   notes: NoteDoc[]; // midi only
   warp?: WarpDoc; // audio only: time-stretch settings, when the clip carries a `warp`
+  /**
+   * The clip HAS a stretch map and this event declines it (`warp: false` on the placement).
+   *
+   * `warp` above is already absent when that happens — the engine is handed a document, not a
+   * question, and an event that does not warp simply has no map. This is the second fact the
+   * ENGINE has no use for and a SURFACE does: the timeline draws the stretch icon crossed, which
+   * it could not do from an absence indistinguishable from "never warped".
+   */
+  warpOff?: boolean;
   // Silenced without being removed — a track's `mute`, at the level of one event. It is
   // carried to the engine rather than filtered out here, because the timeline still has
   // to DRAW it: a disabled event you can't see is a deleted one.

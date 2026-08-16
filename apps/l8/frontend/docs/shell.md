@@ -637,6 +637,13 @@ then the row above — so the grid READS the way it plays, and the symbols are w
 order, which is the order the hints, the sequencer's rows and the slice colours all walk.
 Samples only for now; the slice flavour has its own editor (the docked slicer).
 
+**Each filled pad carries a ✕ beside its ▶.** A drop could REPLACE a sample and nothing could
+take one back off, so a multi-file drop landing one cell over could only be undone by starting
+the rack again. Clearing revokes the pad's object URL, exactly as a replacing drop already did —
+these are blobs the document holds, and a builder filled and cleared a few times would otherwise
+carry every sample it had ever seen until the popin closed — and stops the audition when it is
+that pad playing, because a sound outliving the pad it came from reads as a fault.
+
 #### A sequence in the popin has TABS
 
 Text / Roll / Tracker, and only here. A popin was opened by a command that named this
@@ -900,6 +907,33 @@ Four decisions, and the last two are the load-bearing ones:
   label replaces the sentence the palette MATCHES on, deliberately: someone who renamed a command
   should find it by the name they gave it.
 
+#### A name is a SENTENCE, so there is one field per language
+
+The row carries one text field per locale the app is built with — `en` and `fr` today, read off
+Paraglide's `locales`, so a third language grows a third field the day it is added rather than the
+day somebody remembers this screen.
+
+It was one field, and one field meant one string for every language: renaming a command while
+reading French also renamed what English showed, with nothing on screen saying so. The split
+follows the line the catalogue already draws — `CommandInfo.readable` is `{en, fr}` while the
+command's NAME stays the CLI's in every language, because a name is an identifier and a sentence
+is an explanation. A person's override is a sentence, so it is translated too.
+
+Three consequences worth knowing:
+
+- **Each placeholder is the catalogue's own sentence IN THAT language**, which is why
+  `PaletteCommand` carries `readableBy` — the whole table — beside the `readable` that
+  `buildPaletteCommands` already resolved. A placeholder has to be what that field would leave
+  standing, or an empty field reads as "nameless" instead of "unchanged".
+- **No borrowing between languages.** A command named only in French shows the catalogue's English
+  sentence in English. Falling back to the other language would put French words in an English
+  menu, which is the thing this split exists to stop.
+- **A name saved before the split still reads**, in every language, and is not rewritten on load:
+  a bare string is what the field used to be and it stands for all locales. It is expanded across
+  them on the first per-language edit — `setCommandLabel` takes `locales` for exactly that, since
+  without it renaming in French would drop the name English had been showing, invisibly until you
+  switched.
+
 It lives in the ACCOUNT's preferences, not the rig's — what you call a command follows you to
 another browser, where which audio interface to open belongs to the machine. `L8Prefs` widens
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
@@ -1005,6 +1039,12 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 Two of those handles exist only for this: `EditorHandle` grew the tree's own verbs, and
 `FileTreeHandle` exposes the two things nothing else holds — the pins, which are that
 component's `localStorage`, and the OS file pickers, which are its two hidden inputs.
+
+Three of those rows now have TWO answers. `ui select`, `transport locate` and `transport loop`
+reach whichever grid is on screen: the clip pane's caret while it is open (the piano roll's or the
+sequencer's — see [clipEditors.md](clipEditors.md)), the timeline's otherwise. The commands are
+one thing, and which surface answers is a question about what you are looking at, not about the
+verb. `ui zoom` stays the timeline's alone: it is the only one that keeps a zoom stack.
 
 Three things are deliberately NOT commands, and the line is the same one every time — a
 command names something you could *ask for*, and none of these is:

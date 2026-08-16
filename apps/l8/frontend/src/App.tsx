@@ -50,6 +50,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, engines, moduleStore } from "./api";
 import { STUDIO_ICONS } from "./chainsIcons";
+import type { MaybeClipboard } from "./clipboard";
 import { canonicalizeCommand } from "./commandI18n";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
 import { AlternativePicker } from "./components/AlternativePicker";
@@ -95,6 +96,7 @@ import { TrackModulesPane } from "./components/TrackModulesPane";
 import { ViewportTab } from "./components/ViewportTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
 import { fuzzyScore } from "./fuzzy";
+import type { ClipGridHandle } from "./gridCaret";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
 import { useLogs } from "./hooks/useLogs";
@@ -460,6 +462,27 @@ export default function App({
       );
   }, [rolling]);
   const timelineRef = useRef<TimelineHandle>(null);
+  /**
+   * The clip pane's caret, when one is open. The same three verbs the timeline's handle answers
+   * (`v`, `t`, ⇧L), on whichever grid the pane is drawing — see gridCaret.ts's ClipGridHandle.
+   *
+   * `clipSel` mirrors "is a rectangle live" into a condition, because a ref cannot be read from
+   * a memo: `L` is a conditional binding and has to go quiet with nothing to loop, exactly as it
+   * does for the timeline.
+   */
+  const clipGridRef = useRef<ClipGridHandle>(null);
+  const [clipSel, setClipSel] = useState(false);
+  /**
+   * The shell's ONE clipboard — `ui copy` fills it, `paste` puts it down.
+   *
+   * One slot for both kinds rather than one per surface: copying is a single gesture with a
+   * single memory, and two clipboards would make "what does paste put down" a question about
+   * which pane you copied from three minutes ago. A paste of the wrong kind is refused by name
+   * (see clipboard.ts). A ref beside it, so the command handler reads it without re-binding.
+   */
+  const [clipboard, setClipboard] = useState<MaybeClipboard>(null);
+  const clipboardRef = useRef<MaybeClipboard>(null);
+  clipboardRef.current = clipboard;
   // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
   // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
   const chainsMidiRef = useRef<MidiControlApi | null>(null);
@@ -1308,9 +1331,18 @@ export default function App({
         setOpenBuilder((cur) => (cur === null ? "" : null));
         return true;
       }
-      // The timeline owns its selection + zoom + loop + move; the shell only dispatches.
+      /**
+       * The selection, the loop and `t` belong to whichever grid is ON SCREEN.
+       *
+       * The clip pane wins while it is open, because it is the thing you are looking at and it
+       * sits over the timeline. Both surfaces expose the same three, so the shell dispatches
+       * rather than deciding — the caret's rules are the pane's (TimelineHandle, ClipGridHandle).
+       * Zoom stays the timeline's alone: the roll zooms with the wheel and keeps no stack.
+       */
+      const clipGrid = graphSlot?.kind === "clip" ? clipGridRef.current : null;
       if (line === "select") {
-        timelineRef.current?.toggleSelect();
+        if (clipGrid) clipGrid.toggleSelect();
+        else timelineRef.current?.toggleSelect();
         return true;
       }
       if (line === "zoom") {
@@ -1326,11 +1358,70 @@ export default function App({
         return true;
       }
       if (line === "transport locate") {
-        timelineRef.current?.seekToCaret();
+        if (clipGrid) clipGrid.seekToCaret();
+        else timelineRef.current?.seekToCaret();
         return true;
       }
       if (line === "transport loop") {
-        timelineRef.current?.toggleLoop();
+        if (clipGrid) clipGrid.toggleLoop();
+        else timelineRef.current?.toggleLoop();
+        return true;
+      }
+      /**
+       * `ui copy` / `paste` — the rectangle put aside, and put down at the caret.
+       *
+       * Routed like the three above: whichever grid is on screen answers, so one pair of verbs
+       * covers events and notes without either naming the other's material. `ui copy` is a `ui`
+       * command because the clipboard is the SHELL's and no file moves; `paste` is bare-named
+       * because it writes — the line that namespace draws (see palette.ts).
+       *
+       * The pane hands back a command LINE rather than writing: the paste then travels the same
+       * journalled path a typed command takes, so one paste is one Ctrl+Z whatever it contained.
+       */
+      if (line === "copy") {
+        const got = clipGrid
+          ? clipGrid.copy()
+          : (timelineRef.current?.copy() ?? null);
+        if (!got) {
+          setStatus("nothing to copy — draw a rectangle with v first");
+          return true;
+        }
+        setClipboard(got);
+        setStatus(
+          got.kind === "notes"
+            ? `copied ${got.notes.length} note(s)`
+            : `copied ${got.events.length} event(s)`,
+        );
+        return true;
+      }
+      /**
+       * `events paste` / `sequence notes paste` — the clipboard put down at a caret.
+       *
+       * TWO verbs, and the split is what makes them need no routing: each names its material, so
+       * it names its surface too. Events land on the TIMELINE's caret whatever else is on screen
+       * — a clip pane holds notes and could not place a placement — and notes land in the open
+       * roll or sequencer. `ui copy` above still reads whichever grid is drawn, because there is
+       * only ever one rectangle live.
+       */
+      if (line === "events paste" || line === "sequence notes paste") {
+        const held = clipboardRef.current;
+        if (!held) {
+          setStatus("nothing on the clipboard — `ui copy` a rectangle first");
+          return true;
+        }
+        const notes = line === "sequence notes paste";
+        const pane = notes ? clipGridRef.current : timelineRef.current;
+        if (!pane) {
+          setStatus(
+            notes
+              ? "no clip open — click a MIDI event to paste notes into it"
+              : "no timeline here",
+          );
+          return true;
+        }
+        const out = pane.pasteLine(held);
+        if (out.line) void runCommand(out.line);
+        setStatus(out.note);
         return true;
       }
       // Toggle record over the wire. Reading the live snapshot keeps this out of the deps and always flips current.
@@ -2200,9 +2291,16 @@ export default function App({
     if (graphSlot) cond.graph_slot = "1";
     if (full) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
+    // A rectangle, on whichever grid drew it. `z` stays the timeline's (only it keeps a zoom
+    // stack), but ⇧L means "loop what is selected" wherever you are — see keys.ts.
     if (tlView.selecting) cond.timeline_selection = "1";
     if (tlView.zoomed) cond.timeline_zoomed = "1";
     if (tlView.loop) cond.timeline_loop = "1";
+    if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
+    // What the clipboard HOLDS, not merely that it holds something: `p` names one of two verbs
+    // now, and which one is a question about the material. Quiet with nothing held, the way every
+    // other conditional binding is.
+    if (clipboard) cond[`clipboard_${clipboard.kind}`] = "1";
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
     else if (editTarget?.kind === "clip") {
@@ -2211,7 +2309,18 @@ export default function App({
       else cond.hover_audio_clip = editTarget.clip.name;
     }
     return cond;
-  }, [anyPopin, caret, editTarget, graphSlot, tlView, focusPane, full, view]);
+  }, [
+    anyPopin,
+    caret,
+    clipboard,
+    clipSel,
+    editTarget,
+    graphSlot,
+    tlView,
+    focusPane,
+    full,
+    view,
+  ]);
 
   // Global keys. Every binding names a command and runs through runCommand.
   useEffect(() => {
@@ -2442,9 +2551,9 @@ export default function App({
     () =>
       orderCommands(paletteCommands, commandPrefs).map((c) => ({
         ...c,
-        readable: labelOf(c, commandPrefs),
+        readable: labelOf(c, commandPrefs, locale),
       })),
-    [paletteCommands, commandPrefs],
+    [paletteCommands, commandPrefs, locale],
   );
   paletteRef.current = allCommands;
   // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds —
@@ -3045,6 +3154,13 @@ export default function App({
                     // `SeqGridPane` takes for the same grid.
                     onChanged={bumpReload}
                     setStatus={setStatus}
+                    // The caret's three verbs, and the loop it sets — the timeline's own pair,
+                    // pointed at whichever grid this pane is drawing.
+                    caretRef={clipGridRef}
+                    onSelection={setClipSel}
+                    onSetLoop={(start, end, enabled) =>
+                      engineRef.current?.loop(start, end, enabled)
+                    }
                     // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are
                     // command lines like everything else here.
                     command={runCommand}

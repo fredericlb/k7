@@ -9,13 +9,25 @@ import { cn } from "@frediverse/ui/lib/utils";
 import type { WebRackSound } from "@studio/graph-model";
 import {
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
 import { clipLoop } from "../clipLoop";
+import {
+  type ClipGridHandle,
+  colSpan,
+  inBox,
+  type OnGridSelection,
+  selBox,
+  songSecondsOfCol,
+} from "../gridCaret";
+import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import {
   notesByCell,
@@ -48,6 +60,12 @@ export function SequencerPanel({
   rack,
   modes,
   command,
+  caretRef,
+  active = true,
+  setStatus,
+  onSelection,
+  onSeek,
+  onSetLoop,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -58,6 +76,18 @@ export function SequencerPanel({
   modes?: ReactNode;
   /** Runs a command line through the shell, which journals it — one press, one Ctrl+Z. */
   command: (line: string) => void | Promise<void>;
+  /** Where the shell reaches the caret: `v`, `t` and Shift+L are commands, so they arrive from
+   *  the command bar rather than from a key handler here. See ClipView's ClipViewHandle. */
+  caretRef?: RefObject<ClipGridHandle | null>;
+  /** Whether this pane owns the keys — the arrows must not move two carets at once. */
+  active?: boolean;
+  setStatus?: (s: string) => void;
+  /** Whether a rectangle is live — pushed up, since a condition cannot read a ref. */
+  onSelection?: OnGridSelection;
+  /** Seek the transport, in SONG seconds — what `t` on the caret does. */
+  onSeek?: (seconds: number) => void;
+  /** Set or clear the transport's loop region, in SONG seconds — Shift+L on the rectangle. */
+  onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
 }) {
   const notes = clip.notes;
   const seqId = clip.name || clip.id;
@@ -96,6 +126,129 @@ export function SequencerPanel({
   useEffect(() => {
     setPrec(PRECISIONS[2]);
   }, [clip.id]);
+
+  /**
+   * The caret, and the `v` rectangle over it — the timeline's, on this grid (see gridCaret.ts).
+   * The rows and the steps ARE the grid, so nothing has to be invented: a cell is a sound at a
+   * step, which is exactly what this panel is a picture of.
+   *
+   * Keyed on the precision as well as the clip, because a step is a different width at 1/8 than
+   * at 1/16 — a caret left at column 12 would be at a different MOMENT, which is not where you
+   * put it.
+   */
+  const grid = useGridCaret({
+    active,
+    rows: rows.length,
+    cols: cells.length,
+    resetKey: `${clip.id}@${prec.beats}`,
+    onStatus: setStatus,
+  });
+  const { caret, box } = grid;
+
+  // What the transport is told: a column's own beat of the song, through the placement. The
+  // grid's origin cancels — see songBeatOfCol.
+  const secondsOfCol = useCallback(
+    (col: number) =>
+      songSecondsOfCol(col, prec.beats, clip.start, project.tempo),
+    [prec.beats, clip.start, project.tempo],
+  );
+
+  // What the rectangle is, in words — the timeline says the same thing about its own, and for the
+  // same reason: a wash of colour does not say how many steps it covers or what to press next.
+  useEffect(() => {
+    if (!active || !box) return;
+    const steps = box.colHi - box.colLo + 1;
+    const lanes = box.rowHi - box.rowLo + 1;
+    setStatus?.(
+      `selection: ${steps} pas × ${lanes} son${lanes > 1 ? "s" : ""} — ⇧L la boucle · v annule`,
+    );
+  }, [active, box, setStatus]);
+
+  useImperativeHandle(
+    caretRef,
+    (): ClipGridHandle => ({
+      toggleSelect: grid.toggleSelect,
+      // `t`: the caret's step, as a moment in the song.
+      seekToCaret: () => onSeek?.(secondsOfCol(caret.col)),
+      /**
+       * Shift+L: the rectangle becomes the loop region. Its span runs to the FAR edge of the last
+       * selected step (`colSpan`'s +1), so a one-cell selection loops that one step rather than
+       * nothing — the rule the timeline's loop already follows.
+       *
+       * With no rectangle it CLEARS, which is what makes one key both set and unset it.
+       */
+      toggleLoop: () => {
+        const s = grid.sel;
+        if (!s) {
+          onSetLoop?.(0, 0, false);
+          return;
+        }
+        const { from, to } = colSpan(s);
+        onSetLoop?.(secondsOfCol(from), secondsOfCol(to), true);
+        grid.clearSelect();
+      },
+      /**
+       * `ui copy` — the notes the rectangle holds. A row here is a rack SOUND rather than a
+       * pitch, so the corner is taken through the rows' own notes: the sounds are listed in the
+       * rack's order, which is not the keyboard's, and a paste has to move by rows the way the
+       * eye reads them.
+       */
+      copy: () => {
+        const s = grid.sel;
+        if (!s) return null;
+        const b = selBox(s);
+        const keys = rows.slice(b.rowLo, b.rowHi + 1).map((r) => r.note);
+        if (!keys.length) return null;
+        return copyNotes(
+          notes,
+          seqId,
+          Math.min(...keys),
+          Math.max(...keys),
+          cells[b.colLo] ?? origin,
+          (cells[b.colHi] ?? origin) + prec.beats,
+        );
+      },
+      /** `paste` — one `sequence note add`, landing the rectangle's corner on the caret's cell. */
+      pasteLine: (c) => {
+        if (c.kind !== "notes")
+          return {
+            note: "le presse-papier tient des événements, pas des notes",
+          };
+        const topKey = rows[caret.row]?.note;
+        if (topKey === undefined)
+          return { note: "aucune ligne sous le curseur" };
+        const out = pasteNotes(c, topKey, cells[caret.col] ?? origin);
+        if (!out.length)
+          return { note: "rien à coller ici — tout tombe hors du clavier" };
+        const dropped = droppedCount(out.length, c);
+        return {
+          line: `sequence note add ${seqId} ${JSON.stringify(out)}`,
+          note:
+            `${out.length} note${out.length > 1 ? "s" : ""} collée${out.length > 1 ? "s" : ""}` +
+            (dropped ? ` — ${dropped} hors clavier, laissée(s)` : ""),
+        };
+      },
+    }),
+    [
+      grid,
+      caret.col,
+      caret.row,
+      secondsOfCol,
+      onSeek,
+      onSetLoop,
+      notes,
+      seqId,
+      rows,
+      cells,
+      origin,
+      prec.beats,
+    ],
+  );
+
+  // …and the flag the shell's conditional bindings read (see OnGridSelection).
+  useEffect(() => {
+    if (active) onSelection?.(!!box);
+  }, [active, box, onSelection]);
 
   /**
    * What the grid draws, in ONE pass over the notes rather than a scan per cell — sixteen rows
@@ -201,13 +354,51 @@ export function SequencerPanel({
   // elsewhere (the header, another pane) must not write a note.
   const pressed = useRef(false);
 
-  const onCellDown = (e: React.PointerEvent, row: Row, hit: WebNote | null) => {
+  const onCellDown = (
+    e: React.PointerEvent,
+    row: Row,
+    hit: WebNote | null,
+    at: { row: number; col: number },
+  ) => {
     e.preventDefault();
+    /**
+     * SHIFT: the caret grows into the rectangle, anchored where it already is (or where the
+     * rectangle already was) and headed under the pointer — the timeline's shifted press,
+     * restated for a grid of buttons. It runs BEFORE the note gestures, so shift-dragging over
+     * lit cells selects them instead of rewriting their velocities.
+     *
+     * The head's cell comes off the DOM the cells already carry (`data-row`/`data-col`) rather
+     * than from arithmetic on the pointer: the geometry is the browser's, and a second copy of
+     * it would drift the moment a row's height or the gap changed.
+     */
+    if (e.shiftKey) {
+      const feed = grid.beginDrag(at);
+      const onSelMove = (ev: PointerEvent) => {
+        const el = document
+          .elementFromPoint(ev.clientX, ev.clientY)
+          ?.closest?.("[data-col]");
+        const r = Number(el?.getAttribute("data-row"));
+        const c = Number(el?.getAttribute("data-col"));
+        feed(
+          Number.isFinite(r) && Number.isFinite(c) ? { row: r, col: c } : null,
+        );
+      };
+      const onSelUp = () => {
+        window.removeEventListener("pointermove", onSelMove);
+        window.removeEventListener("pointerup", onSelUp);
+      };
+      window.addEventListener("pointermove", onSelMove);
+      window.addEventListener("pointerup", onSelUp);
+      return;
+    }
     // Captured for both cases: the release then lands on the PRESSED cell wherever the
     // pointer went, which is what lets a short slip still mean this cell.
     e.currentTarget.setPointerCapture(e.pointerId);
     pressed.current = true;
     pressY.current = e.clientY;
+    // A press is also where you are: the caret follows it, which is what makes `v` and `t`
+    // mean the cell you just touched. Any live rectangle goes — two cannot both be current.
+    grid.placeCaret(at);
     if (!hit) return; // an empty cell has only the toggle — see onCellUp
     vDrag.current = {
       note: row.note,
@@ -373,7 +564,7 @@ export function SequencerPanel({
             ))}
           </div>
           <div className="relative">
-            {rows.map((row) => (
+            {rows.map((row, rowIndex) => (
               <div key={row.note} className="mb-0.5 flex h-14 gap-0.5">
                 {cells.map((cellStart, cellIndex) => {
                   // What the document says, then what a press said before it could — the ghost
@@ -407,6 +598,12 @@ export function SequencerPanel({
                   const live = ghost?.vel ?? hit?.vel ?? 1;
                   const lineY = (1 - live) * (CELL_H - 1);
                   const fill = row.known ? "emerald" : "amber";
+                  // Where the caret is, and whether the rectangle covers this cell. The caret is
+                  // hidden while a rectangle is live: the rectangle IS the caret then, with two
+                  // ends — the timeline's rule, so the two panes read the same.
+                  const isCaret =
+                    !box && caret.row === rowIndex && caret.col === cellIndex;
+                  const selected = !!box && inBox(box, rowIndex, cellIndex);
                   return (
                     <button
                       key={cellStart}
@@ -414,7 +611,14 @@ export function SequencerPanel({
                       data-cell={cellStart}
                       data-key={key}
                       data-note={row.note}
-                      onPointerDown={(e) => onCellDown(e, row, hit)}
+                      data-row={rowIndex}
+                      data-col={cellIndex}
+                      onPointerDown={(e) =>
+                        onCellDown(e, row, hit, {
+                          row: rowIndex,
+                          col: cellIndex,
+                        })
+                      }
                       onPointerMove={onCellMove}
                       onPointerUp={(e) => onCellUp(e, row, hit)}
                       title={
@@ -433,6 +637,13 @@ export function SequencerPanel({
                             : onBeat
                               ? "bg-muted/30 hover:bg-muted/60"
                               : "bg-muted/15 hover:bg-muted/40",
+                        // The caret and the rectangle, drawn as the timeline draws them: a
+                        // primary wash with an outline. An OUTLINE rather than a border, so the
+                        // mark costs the cell no width and the grid does not shift under it.
+                        selected &&
+                          "bg-primary/25 outline outline-1 -outline-offset-1 outline-primary",
+                        isCaret &&
+                          "outline outline-1 -outline-offset-1 outline-primary",
                       )}
                     >
                       {/* A lit cell reads as a LEVEL, the roll's split restated: above the

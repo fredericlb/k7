@@ -38,6 +38,15 @@ export interface PaletteCommand {
   names: string[];
   /** What it DOES, in the reader's language — see palette.ts. Never empty. */
   readable: string;
+  /**
+   * The same sentence in EVERY language the catalogue states it in, kept beside the resolved one.
+   *
+   * Only the settings screen reads it, and only to place a field per language with the right
+   * words greyed in each: a placeholder is what tells an empty field from a nameless command, and
+   * it has to be the sentence THAT field would leave standing. Absent on a command the catalogue
+   * describes in no language — `readable` falls back to the line, which is not a translation.
+   */
+  readableBy?: Record<string, string>;
   args: PaletteArg[];
 }
 

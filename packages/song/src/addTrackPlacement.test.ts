@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { addTrackPlacement } from "./trackMix";
+import { addTrackPlacement, addTrackPlacements } from "./trackMix";
 
 let dir: string;
 
@@ -82,5 +82,69 @@ describe("putting a clip on a lane", () => {
     writeFileSync(clip, "source: clips/riff.wav\n", "utf8");
     addTrackPlacement(dir, "gtr", "riff", "1:1");
     expect(readFileSync(clip, "utf8")).toBe("source: clips/riff.wav\n");
+  });
+});
+
+// The bulk form, which a PASTE lands through (`events add`). What it buys over a loop of the
+// singular is one rewrite of the lane's file: cheaper, and atomic — the file gains all of them
+// or none.
+describe("putting several on a lane at once", () => {
+  it("writes every one, keeping what was there", () => {
+    lane(
+      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\n',
+    );
+    addTrackPlacements(dir, "gtr", [
+      { ref: "riff", start: "3:1" },
+      { ref: "riff", start: "5:1" },
+      { ref: "solo", start: "7:1" },
+    ]);
+    const text = laneText();
+    expect(text).toContain("ref: first");
+    expect(text.match(/ref: riff/g)).toHaveLength(2);
+    expect(text).toContain('start: "7:1"');
+  });
+
+  it("keeps a loop count when one is given, and writes none otherwise", () => {
+    lane('extends: "@studio/audio-track"\n');
+    addTrackPlacements(dir, "gtr", [
+      { ref: "riff", start: "1:1", loop: 4 },
+      { ref: "solo", start: "9:1" },
+    ]);
+    const text = laneText();
+    expect(text).toContain("loop: 4");
+    expect(text.match(/loop:/g)).toHaveLength(1);
+  });
+
+  it("is ONE rewrite, so the same material may repeat at several positions", () => {
+    // The case a loop of the singular got wrong in spirit: each call re-reads the file, so the
+    // second placement is written against a document the first already changed. Folding the
+    // transforms means one read and one write whatever the count.
+    lane('extends: "@studio/audio-track"\n');
+    addTrackPlacements(
+      dir,
+      "gtr",
+      [1, 2, 3, 4].map((n) => ({ ref: "riff", start: `${n}:1` })),
+    );
+    expect(laneText().match(/ref: riff/g)).toHaveLength(4);
+  });
+
+  it("lands on the set the lane is PLAYING, like the singular", () => {
+    lane(
+      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+    );
+    addTrackPlacements(dir, "gtr", [{ ref: "riff", start: "2:1" }]);
+    const text = laneText();
+    const top = text.slice(
+      text.indexOf("events:"),
+      text.indexOf("alternatives:"),
+    );
+    expect(top).not.toContain("ref: riff");
+    expect(text).toContain("ref: riff");
+  });
+
+  it("refuses a lane that has no file, before writing anything", () => {
+    expect(() =>
+      addTrackPlacements(dir, "nosuch", [{ ref: "riff", start: "1:1" }]),
+    ).toThrow(/nosuch/);
   });
 });

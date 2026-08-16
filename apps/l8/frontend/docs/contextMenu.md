@@ -31,8 +31,7 @@ The ones worth knowing, because they change something and go at once:
 position; whether a line is finished is a different question, and two questions must not share
 one accident of formatting. A test pins that the two nevertheless always agree.
 
-A row that will ask shows a trailing `…` beside its line, so which is which is visible before
-you pick.
+A row that will ask shows a trailing `…`, so which is which is visible before you pick.
 
 ## Why the provider, and not the class
 
@@ -61,16 +60,29 @@ also pins the argument's **name**. That is the catalogue's own word for the role
 still derived rather than a list of chosen commands — but it is a seam, and if a third command
 of that shape ever appears it will be the thing to look at.
 
-## The rows say what the command DOES
+## The rows say what the command DOES, and only that
 
-The label is the catalogue's `help` — what it does — and the line sits beside it, muted. The line
-stays because a pick either runs it or writes it into the bar, and hiding which line that is
-would make the gesture opaque. Command names used to be the label, and `node bypass` twice over
-said nothing you did not already know from having right-clicked it.
+The label is the catalogue's `help` — what it does — or this person's own name for it, in the
+language being read. **The command line is not drawn.**
 
-The `(e.g. …)` tail is stripped, and only that. It answers "how do I type this", which the
-pre-written line answers better by being the line. Every other parenthetical — a value list,
-an aside — says what the command does and is kept.
+It was, in mono beside the label, on the argument that a pick either runs a line or writes it into
+the bar and hiding which would make the gesture opaque. That reasoning was sound and the result
+was still wrong: a menu is read for what it OFFERS, and a column of `track solo …` next to a
+column of sentences saying the same thing was two readings of one row. Sixteen of those is what
+made a track's menu hard to scan. The line is one hover away, in the row's `title`, which is where
+"what exactly will this type" belongs — a question you ask about one row, not about all of them.
+
+Two things survived the column's removal, both because they are not the line:
+
+- **The trailing `…`**, which says a pick will ASK rather than act. That is the difference between
+  an action and a question, and it is worth a character.
+- **The `(e.g. …)` strip** on the label. It answers "how do I type this", which the pre-written
+  line answers better by being the line. Every other parenthetical — a value list, an aside —
+  says what the command does and is kept.
+
+Command names used to be the label, and `node bypass` twice over said nothing you did not already
+know from having right-clicked it. That is the same mistake the mono column was making more
+quietly.
 
 A trailing space is left on the line exactly when an argument is still owed. That space is
 where the caret lands, and it is also what tells the bar to complete the next ARGUMENT rather

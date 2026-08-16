@@ -269,7 +269,10 @@ function toWebClip(c: TrackDoc["clips"][number]) {
     sourceName: c.source ? basename(c.source) : undefined,
     loopStart: c.loopStart,
     loopEnd: c.loopEnd,
-    warped: c.warp ? true : undefined,
+    // `warped` is "there is a map at play here", which a declined one is not — so an event with
+    // warping switched off draws the icon CROSSED rather than lit: `warpOff` is what says which.
+    warped: c.warp || c.warpOff ? true : undefined,
+    warpOff: c.warpOff ? true : undefined,
     disabled: c.disabled ? true : undefined,
     // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
     frozen: isFrozenClipId(c.id) ? true : undefined,

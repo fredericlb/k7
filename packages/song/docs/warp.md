@@ -48,6 +48,30 @@ for it is both pointless and a bug that path has (the engine's own comment recor
 So seeding changes no sound, which is right — a clip you have not stretched should sound exactly as
 it did. The **third** point is what makes it a warp.
 
+## One EVENT can decline it
+
+The map is the clip's, so every placement of that clip stretches by it. `event disable warp` is
+one placement saying no: it writes `warp: false` on the event (`PlacementSchema`), and the
+compiler simply omits the map from that event's `ClipDoc`.
+
+Dropped at the COMPILER rather than in the engine, deliberately. The engine is handed a document
+and never asks why — an event with no `warp` is an event that does not warp, which is exactly what
+it should be told, and nothing in `ProjectDoc.h` had to learn a new state.
+
+What the surfaces get instead is `warpOff` beside it, which the engine ignores. It exists because
+`warped` alone cannot tell *never stretched* from *stretched, switched off here*: the timeline
+draws the first as no icon, and the second as the stretch icon with a line through it. A `warp:
+false` on a clip that has no map at all sets nothing — there is no state to mark.
+
+The polarity is the opposite of `disabled`'s and follows the default: an event plays unless told
+otherwise (`disabled: true` is written), and it warps because the clip does (`warp: false` is
+written). Both writers DELETE rather than write the default, so a round trip leaves the file
+byte-identical.
+
+What it is for: the map fits the song the clip was warped INTO. A second use of that sample
+somewhere else — another tempo, another song, a one-shot — wants it at its own rate, and the only
+way before was to copy the file.
+
 ## `algorithm` is documentation
 
 The engine ignores it. A warp is realised through Tracktion's auto-tempo, with the intermediate

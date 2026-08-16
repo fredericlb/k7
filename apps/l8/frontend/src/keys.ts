@@ -70,9 +70,26 @@ export const KEYS: Record<string, Binding> = {
   Z: { if: "timeline_zoomed", command: "ui zoom out" },
   "0": { if: "timeline_zoomed", command: "ui zoom reset" },
   // Shift+L makes the selection the loop region, or clears it. Plain `l` stays the caret-right key.
+  // Three conditions rather than two: the clip pane's grids draw the same rectangle (gridCaret.ts),
+  // and looping it is the point of drawing one over a bar of a take.
   L: [
+    { if: "clip_selection", command: "transport loop" },
     { if: "timeline_selection", command: "transport loop" },
     { if: "timeline_loop", command: "transport loop" },
+  ],
+  // Copy the rectangle, paste it at the caret. Both conditional, so neither is a dead key: `c`
+  // needs something selected, `p` needs something held. Plain letters rather than Ctrl+C/Ctrl+V,
+  // which belong to the BROWSER's own copy of whatever text is selected — and which this shell
+  // deliberately never steals (see keyToken, which rejects every modifier chord).
+  c: [
+    { if: "clip_selection", command: "ui copy" },
+    { if: "timeline_selection", command: "ui copy" },
+  ],
+  // …and `p` resolves to the verb for what is HELD, so the key runs the same line you could type.
+  // Two commands rather than one, because each names its material and therefore its surface.
+  p: [
+    { if: "clipboard_events", command: "events paste" },
+    { if: "clipboard_notes", command: "sequence notes paste" },
   ],
 };
 

@@ -9,6 +9,7 @@ import {
   labelOf,
   moveCommand,
   orderCommands,
+  setCommandLabel,
   setCommandPref,
 } from "./commandPrefs";
 
@@ -77,22 +78,95 @@ describe("a plural verb", () => {
 });
 
 describe("what a command is called", () => {
-  it("prefers the person's own name", () => {
-    expect(labelOf(CMDS[0], { "clip trim": { label: "Rogner" } })).toBe(
-      "Rogner",
-    );
+  it("prefers the person's own name, in the language being read", () => {
+    const prefs = { "clip trim": { label: { en: "Trim", fr: "Rogner" } } };
+    expect(labelOf(CMDS[0], prefs, "fr")).toBe("Rogner");
+    expect(labelOf(CMDS[0], prefs, "en")).toBe("Trim");
   });
 
   it("falls back to the catalogue, then to the line itself", () => {
-    expect(labelOf(CMDS[0], {})).toBe("Trim a clip");
-    expect(labelOf({ canonical: "x y" }, {})).toBe("x y");
+    expect(labelOf(CMDS[0], {}, "fr")).toBe("Trim a clip");
+    expect(labelOf({ canonical: "x y" }, {}, "fr")).toBe("x y");
+  });
+
+  it("does NOT borrow another language's name", () => {
+    // The whole point of a field per language: a command named only in French shows the
+    // catalogue's own sentence in English, rather than a French name in an English menu.
+    const frOnly = { "clip trim": { label: { fr: "Rogner" } } };
+    expect(labelOf(CMDS[0], frOnly, "fr")).toBe("Rogner");
+    expect(labelOf(CMDS[0], frOnly, "en")).toBe("Trim a clip");
   });
 
   it("treats a blank override as no override, not as a blank name", () => {
     // A menu row with no text is worse than one with the catalogue's own words.
-    expect(labelOf(CMDS[0], { "clip trim": { label: "   " } })).toBe(
-      "Trim a clip",
+    expect(
+      labelOf(CMDS[0], { "clip trim": { label: { fr: "   " } } }, "fr"),
+    ).toBe("Trim a clip");
+  });
+
+  it("still reads a name saved BEFORE there was a field per language", () => {
+    // A bare string was one name with no language attached, so it stands for every locale — and
+    // nothing rewrites it on load: a document says what it always said until somebody edits it.
+    const legacy = { "clip trim": { label: "Rogner" } };
+    expect(labelOf(CMDS[0], legacy, "fr")).toBe("Rogner");
+    expect(labelOf(CMDS[0], legacy, "en")).toBe("Rogner");
+  });
+});
+
+describe("naming a command in one language", () => {
+  const LOCALES = ["en", "fr"];
+
+  it("leaves the other languages alone", () => {
+    const one = setCommandLabel({}, "clip trim", "fr", "Rogner", LOCALES);
+    expect(one["clip trim"].label).toEqual({ fr: "Rogner" });
+    const both = setCommandLabel(one, "clip trim", "en", "Trim", LOCALES);
+    expect(both["clip trim"].label).toEqual({ fr: "Rogner", en: "Trim" });
+  });
+
+  it("EXPANDS a legacy name across the languages before editing one", () => {
+    // The migration, and the reason `locales` is a parameter: without it, renaming in French
+    // would drop the name English had been showing all along — invisibly, until you switched.
+    const legacy: CommandPrefs = { "clip trim": { label: "Rogner" } };
+    const next = setCommandLabel(
+      legacy,
+      "clip trim",
+      "fr",
+      "Rogner un clip",
+      LOCALES,
     );
+    expect(next["clip trim"].label).toEqual({
+      en: "Rogner", // kept: it is what English was showing
+      fr: "Rogner un clip",
+    });
+  });
+
+  it("keeps the command's other overrides", () => {
+    const withIcon: CommandPrefs = { "clip trim": { icon: "Scissors" } };
+    const next = setCommandLabel(
+      withIcon,
+      "clip trim",
+      "fr",
+      "Rogner",
+      LOCALES,
+    );
+    expect(next["clip trim"]).toEqual({
+      icon: "Scissors",
+      label: { fr: "Rogner" },
+    });
+  });
+
+  it("emptying the last field takes the override back entirely", () => {
+    // An override given up must leave the document as it was — no `label: {}` behind, and no
+    // entry at all once nothing else is overridden, or the row would read as touched forever.
+    const one = setCommandLabel({}, "clip trim", "fr", "Rogner", LOCALES);
+    expect(setCommandLabel(one, "clip trim", "fr", "", LOCALES)).toEqual({});
+  });
+
+  it("emptying ONE field leaves the other naming the command", () => {
+    let p = setCommandLabel({}, "clip trim", "fr", "Rogner", LOCALES);
+    p = setCommandLabel(p, "clip trim", "en", "Trim", LOCALES);
+    p = setCommandLabel(p, "clip trim", "en", "  ", LOCALES);
+    expect(p["clip trim"].label).toEqual({ fr: "Rogner" });
   });
 });
 

@@ -77,6 +77,30 @@ export function RackBuilder({
   };
 
   /**
+   * Empty one pad.
+   *
+   * The object URL goes with it, exactly as a drop over an occupied pad revokes the one it
+   * replaces: these are blobs held by the document, and a builder you filled and cleared a few
+   * times would otherwise leak every sample it had ever seen until the popin closed.
+   *
+   * The audition is stopped as well when it is THIS pad that is playing — a sound outliving the
+   * pad it came from is a small thing that reads as a bug. `pause()` alone, without clearing the
+   * ref: the element is replaced by the next `play`, and a revoked URL cannot be replayed anyway.
+   */
+  const clearPad = (row: number, col: number) => {
+    setPads((prev) => {
+      const at = row * GRID + col;
+      const old = prev[at];
+      if (!old) return prev;
+      if (audio.current && audio.current.src === old.url) audio.current.pause();
+      URL.revokeObjectURL(old.url);
+      const next = [...prev];
+      next[at] = null;
+      return next;
+    });
+  };
+
+  /**
    * Drop N files on a cell: the first lands THERE, the rest fill onward in NOTE order — the
    * order the rack will play, so a handful of samples dropped on the bottom-left pad lays a
    * kit out the way a drum machine reads one.
@@ -214,14 +238,30 @@ export function RackBuilder({
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <span className="tabular-nums">{padNote(row, col)}</span>
                     {pad && (
-                      <button
-                        type="button"
-                        title={`écouter ${pad.file.name}`}
-                        onClick={() => play(pad)}
-                        className="ml-auto rounded p-0.5 hover:bg-accent hover:text-foreground"
-                      >
-                        <Play className="h-3 w-3" />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          title={`écouter ${pad.file.name}`}
+                          onClick={() => play(pad)}
+                          className="ml-auto rounded p-0.5 hover:bg-accent hover:text-foreground"
+                        >
+                          <Play className="h-3 w-3" />
+                        </button>
+                        {/* Emptying a pad, beside the button that plays it — a drop can REPLACE a
+                            sample but nothing could take one back off, so a pad filled by a
+                            multi-file drop landing one cell over could only be fixed by starting
+                            the rack again. Red on hover only: the grid is the picture here, and
+                            sixteen red crosses would read as sixteen warnings. */}
+                        <button
+                          type="button"
+                          title={`enlever ${pad.file.name} du pad`}
+                          aria-label="enlever ce sample"
+                          onClick={() => clearPad(row, col)}
+                          className="rounded p-0.5 hover:bg-destructive/20 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
                     )}
                   </div>
                   {pad ? (
