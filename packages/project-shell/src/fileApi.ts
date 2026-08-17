@@ -39,17 +39,70 @@ export function fileHeaders(extra?: HeadersInit): HeadersInit {
   };
 }
 
-export async function fget<T>(path: string): Promise<T> {
+/**
+ * How many times this app has WRITTEN through `fsend` — the fence under the sharing below.
+ *
+ * A GET may only join one issued in the same epoch. Without it, a component asking a
+ * millisecond after a command landed would be handed the answer to a question asked before it,
+ * which is the one way sharing a request can lie.
+ */
+let epoch = 0;
+
+/** GETs in flight, keyed `<epoch>\n<path>`, holding the BODY TEXT. Emptied as each settles. */
+const inFlight = new Map<string, Promise<string>>();
+
+/**
+ * GET a file-service route — and if the same one is already in the air, wait on THAT.
+ *
+ * Not a cache: nothing is kept once a request settles, so two calls a second apart are two
+ * requests. What it collapses is the burst — the derived views are asked for by several
+ * components at once, every one of them on the same `reloadKey`, and each answer costs the
+ * service a real compile or a real walk. In l8, four components re-fetch `/graph` on a reload
+ * and five `/project-doc` — whichever of them are mounted. The service answered each
+ * separately, with the same bytes, out of a memo they were all hitting: the revision walk in
+ * front of that memo is ~5 ms every time.
+ *
+ * The epoch above is the safety: a write moves it, so nothing issued after a command can be
+ * answered by a request issued before it. Everything else that changes the answer — another
+ * tab, a `git pull` — is what `/revision` polling is for, and it is no worse off than when
+ * every component asked separately: those two requests could always have straddled the change.
+ *
+ * What is shared is the BODY TEXT, and each caller parses it. That is deliberate and it is the
+ * whole difference between this and a cache: handing several components one parsed object would
+ * alias it, and a surface that fills its decks' clips into the document it was given would be
+ * writing into another component's state. Each caller pays the parse it always paid; what it
+ * stops paying is the round trip and the service's work behind it.
+ */
+export function fget<T>(path: string): Promise<T> {
+  const key = `${epoch}\n${path}`;
+  let body = inFlight.get(key);
+  if (!body) {
+    body = getOnce(path).finally(() => {
+      if (inFlight.get(key) === body) inFlight.delete(key);
+    });
+    inFlight.set(key, body);
+  }
+  return body.then((t) => JSON.parse(t) as T);
+}
+
+async function getOnce(path: string): Promise<string> {
   const res = await fetch(cfg().base + path, { headers: fileHeaders() });
+  const text = await res.text();
   if (!res.ok) {
+    let said: string | undefined;
+    try {
+      said = JSON.parse(text).error;
+    } catch {
+      /* not JSON — the service is not the one answering, or it fell over */
+    }
     const e: Error & { status?: number } = new Error(
-      (await res.json().catch(() => ({}))).error ?? `GET ${path} failed`,
+      said ?? `GET ${path} failed`,
     );
     // Carried for the callers that have to tell "nothing there" from "it went wrong".
     e.status = res.status;
     throw e;
   }
-  return res.json() as Promise<T>;
+  return text;
 }
 
 export async function fsend<T>(
@@ -57,10 +110,15 @@ export async function fsend<T>(
   path: string,
   body: unknown,
 ): Promise<T> {
+  // Both edges, and both matter: the first stops a GET issued while the write is in the air
+  // from joining one issued before it, the second covers the GET that follows the reply.
+  epoch++;
   const res = await fetch(cfg().base + path, {
     method,
     headers: fileHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
+  }).finally(() => {
+    epoch++;
   });
   if (!res.ok) {
     const e: Error & { status?: number } = new Error(

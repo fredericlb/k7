@@ -77,6 +77,47 @@ describe("the tree is rooted at the active project", () => {
     ws.setActiveProject("song.l8");
     expect(ws.workspaceInfo().projects.sort()).toEqual(["other.l8", "song.l8"]);
   });
+
+  it("finds a project at a depth, and inside another one", () => {
+    // Both are arrangements the address vocabulary supports (`songs/winter.l8`, and a nested
+    // set), so the scan may not stop at the first project it recognises.
+    mkdirSync(join(root, "albums", "winter.l8"), { recursive: true });
+    mkdirSync(join(root, "song.l8", "live.z0"), { recursive: true });
+    expect(new Workspace(root).workspaceInfo().projects.sort()).toEqual([
+      "albums/winter.l8",
+      "other.l8",
+      "song.l8",
+      "song.l8/live.z0",
+    ]);
+  });
+});
+
+// The list is the expensive half of a route polled every two seconds by every tab: 721
+// directories on a real workspace. It is therefore held, and the holding has to be right in
+// the one case that matters — a project this service just made.
+describe("the project list is scanned, not re-walked on every poll", () => {
+  it("shows a project it created straight away", () => {
+    ws.workspaceInfo(); // fills the cache
+    ws.createProject("audio", "brandnew.l8");
+    expect(ws.workspaceInfo().projects).toContain("brandnew.l8");
+  });
+
+  it("stops showing one it recycled", async () => {
+    ws.workspaceInfo();
+    await ws.deleteProject("other.l8");
+    expect(ws.workspaceInfo().projects).not.toContain("other.l8");
+  });
+
+  it("reuses the answer for a folder that appeared behind its back", () => {
+    // The trade, stated: a `git pull` or a hand-made folder is seen on the next rescan, not on
+    // the next poll. If this ever becomes false the window was removed, not merely shortened.
+    ws.workspaceInfo();
+    mkdirSync(join(root, "outside.l8"), { recursive: true });
+    expect(ws.workspaceInfo().projects).not.toContain("outside.l8");
+    expect(new Workspace(root).workspaceInfo().projects).toContain(
+      "outside.l8",
+    );
+  });
 });
 
 describe("opening a project st0 named out of a stale mirror", () => {

@@ -19,7 +19,7 @@ import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
 import { loadControllerLibrary } from "./controller";
 import { studioModules } from "./docModule";
 import { engineModules, engineRef } from "./engineCatalogue";
-import { cachedForModules } from "./moduleCache";
+import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
   mergeAuthored,
   resolveModuleMap,
@@ -517,6 +517,17 @@ function cloneModules(
   }
   return out;
 }
+
+/**
+ * One module-stamp walk for a series of reads — moduleCache.ts's, re-exported here.
+ *
+ * Here rather than through a subpath of its own because a caller that wants it is, by
+ * definition, a caller making several of the calls below in a row, and this is the door it
+ * already came through. `compileNodeProject` and `loadGraph` wrap themselves; a caller that
+ * makes two of THOSE, or two diagnostics, has to say so — and may only say it if it writes
+ * nothing, since a stale stamp would serve a module under a name nobody wrote.
+ */
+export { withModuleStamp };
 
 /**
  * A project's modules, keyed by the name a chain writes.

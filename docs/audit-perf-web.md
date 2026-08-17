@@ -96,6 +96,84 @@ onglet, plus trois `JSON.stringify` du morceau entier.
 Le compte de marches ne bouge pas — la marche était déjà là — mais la projection, elle, disparaît
 sur un cache plein.
 
+## Les lots A et B — le service de fichiers, et ce que le navigateur lui demande
+
+Mesuré sur le vrai poste, sur `lemo_mante/01.danse.l8` — un morceau de 15 pistes dans un dépôt
+de 721 répertoires — huit passes par point, en millisecondes :
+
+| | avant | après | |
+|---|---|---|---|
+| `GET /workspace` | 30,7 | **0,01** | 25,8 sur le rebalayage, une fois toutes les 5 s |
+| `GET /project-errors` | 48,5 | **29,2** | une marche d'empreinte au lieu de deux |
+| `GET /project-doc` | 4,9 | 4,9 | déjà mémoïsé ; c'est la marche du jeton |
+| `GET /graph` | 4,8 | 4,8 | idem |
+| `GET /module-libraries` | 14,4 | 14,4 | mesuré, laissé — voir plus bas |
+
+### `/workspace` construisait tout l'arbre du dépôt pour en garder cinq chemins
+
+La route est sondée toutes les deux secondes par chaque onglet, et ce que le sondage VEUT est
+`activeProject` (un autre onglet a changé de projet) et `lastTake` (une prise vient de tomber).
+Les deux sont gratuits. `projects` est le champ cher : `collect(this.walk(root))` allouait un
+`FileNode` par FICHIER du dépôt — un `toRel`, un `isBinary`, un objet — puis jetait l'arbre.
+
+Deux corrections. Le balayage ne construit plus rien : répertoires seulement, même `skip()`, même
+ordre (30,7 → 25,8 ms — l'allocation n'était donc PAS le gros du coût, les 721 `readdir` le sont).
+Puis la liste est tenue : rebalayée quand ce service a bougé un projet — les trois méthodes qui en
+créent, en importent ou en recyclent un le disent — et sinon au plus toutes les cinq secondes.
+
+Le compromis est écrit et testé : un dossier apparu derrière le dos du service (un `git pull`, un
+`mkdir` à la main) se voit au balayage suivant et pas au sondage suivant. `cachedProjectDoc` a
+refusé ce marché et devait le refuser — une COMPILATION périmée se trompe avec assurance sur une
+chanson. Une liste de projets en retard de cinq secondes est un sélecteur qui n'a pas encore vu un
+dossier : une attente, pas un mensonge.
+
+Le balayage descend toujours DANS un projet : `parseLaunch` décrit un `.m9` niché dans un `.l8`,
+donc s'arrêter au premier projet reconnu serait une règle que ce dépôt n'a jamais eue. Un test le
+fige, avec le projet en profondeur (`albums/winter.l8`).
+
+### `/project-errors` payait l'empreinte des modules deux fois
+
+`notSupportedModules` et `libraryModuleIssues` atteignent chacun `loadModuleRefs`, et chacun
+repayait la marche d'empreinte — 19 ms, alors que les DEUX lectures étaient déjà des succès de
+cache. Un `withModuleStamp` autour de la route couvre les deux, et un `withRevision` avec, pour la
+même raison qu'ailleurs. La route ne lit et n'écrit rien, ce qui est exactement la permission que
+`withModuleStamp` demande.
+
+`withModuleStamp` est ré-exporté par `@studio/song/loader` plutôt que par un sous-chemin de plus :
+un appelant qui en veut est, par définition, un appelant qui enchaîne des lectures de modules, et
+c'est la porte par laquelle il est déjà entré.
+
+### Le navigateur demandait la même chose à quatre ou cinq voix
+
+Sur un `reloadKey`, quatre composants montés redemandent `/graph` et cinq `/project-doc` — chacun
+sa requête, pour les mêmes octets, tirés d'un mémo qu'ils touchaient tous. Le mémo ne coûte rien ;
+la marche du jeton devant lui coûte 5 ms à chaque fois.
+
+`fget` regroupe donc les requêtes EN VOL : une route déjà en l'air est attendue plutôt que
+redemandée. Ce n'est pas un cache — rien ne survit à la requête dont il vient, donc deux appels à
+une seconde d'écart restent deux requêtes. Ce qu'il supprime est la rafale.
+
+Deux garde-fous, tous deux testés. Une ÉPOQUE, avancée par chaque écriture (`fsend`, aux deux
+bords) : une lecture émise après une commande ne peut pas être servie par une lecture émise avant.
+Et ce qui est partagé est le TEXTE de la réponse, chaque appelant l'analysant lui-même — donner un
+seul objet analysé à plusieurs composants les mettrait en alias, et une surface qui remplit les
+clips de ses platines dans le document qu'on lui a donné écrirait dans l'état d'un autre. Chacun
+paie l'analyse qu'il payait déjà ; ce qu'il cesse de payer est l'aller-retour.
+
+### Deux constats mesurés, et délibérément pas corrigés
+
+**Le clone profond de `loadModules` n'était pas le suspect.** L'audit le donnait comme cause n°1 de
+la variance. Mesuré : **0,21 ms** sur 575 refs, contre 19 ms pour l'appel entier. Le coût est la
+MARCHE D'EMPREINTE, pas le clone — et elle vaut ce qu'elle protège (une lecture de 295 ms), donc
+le remède n'est pas de la supprimer mais de la porter en portée, ce que fait `/project-errors`
+ci-dessus. C'est aujourd'hui le premier poste de dépense de tout ce voisinage.
+
+**`/module-libraries` ne gagne rien à être mis en cache.** Le seul jeton honnête pour lui est
+l'empreinte des modules, qui balaie les mêmes arbres et coûte 19 ms là où la marche en coûte 14 :
+le cache coûterait plus cher que ce qu'il évite. Et la profondeur ne peut pas être réduite —
+l'onglet Bibliothèques passe les sous-arbres tels quels à `foldModules`, qui a besoin du contenu
+d'un dossier de module pour en faire une ligne. Laissé tel quel, sciemment.
+
 ## Le lot C — le fil et le moteur
 
 Les trois constats qui touchaient le son, mesurés puis corrigés. Ils sont ici et non plus dans la
@@ -181,10 +259,7 @@ trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la re
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-| `GET /workspace` reconstruit tout l'arbre du dépôt, 2×/s et par onglet, pour n'en garder que les chemins de projet. `skip()` n'exclut ni `media/`, ni `renders/`, ni `_libraries` | `workspace.ts` (`workspaceInfo`, `walk`), poller `usePolls.ts` | demande un cache et un `skip()` élargi — deux décisions, pas une |
-| `projectErrors()` paie `moduleStamp` deux fois, hors de tout `withModuleStamp` (~20 ms le calcul, chiffre de `moduleCache.ts`) | `workspace.ts` | même remède que ci-dessus, mais dans `@studio/song` |
-| `/module-libraries` re-marche toutes les bibliothèques à chaque `reloadKey`, sans aucun cache | `EditorTab.tsx` → `workspace.ts` | c'est la « lecture de 295 ms » de `moduleCache.ts` |
-| `loadModules`/`loadModuleRefs` clonent en profondeur à chaque appel, cache touché ou non | `loader.ts` (`cloneModules`) | la raison est bonne (les appelants tamponnent `ui`/`cc` en place) ; « mémoïsé » veut dire O(modules) d'allocation, pas O(1). **C'est le suspect n°1 pour la variance ci-dessus** |
+| **La marche d'empreinte des modules coûte 19 ms et est payée par toute lecture hors portée.** C'est le premier poste de tout ce voisinage depuis que le reste a baissé | `song/src/moduleCache.ts` | la rendre moins chère veut dire ne plus `stat` 418 fichiers, donc un autre moyen de savoir qu'un dossier a bougé — un watcher, et sa propre discussion |
 | L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
 | `ViewportTab` s'abonne au playhead dans le corps du panneau, et embarque un relevé de debug à 5 Hz livré sans condition | `ViewportTab.tsx`, `VideoCanvas.tsx` | rien ne monte de composant ici : ça se corrige à la lecture et se vérifie à l'écran |
 
@@ -193,6 +268,7 @@ trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la re
 - **Le sondage `/revision` est unique et recompté** (`useRevision.ts`), requêtes en vol
   supprimées. Il n'existe **aucun** second timer sur cette route. Les autres timers visent
   d'autres routes et sont tous conditionnés.
+- **Le clone de `loadModules` coûte 0,21 ms**, pas 19 (ci-dessus). Ne pas le re-suspecter.
 - **Les cinq gros composants React respectent la règle des feuilles** de `timeline.md` : chaque
   lecteur à 20 Hz est son propre composant, et `Grid`, `RulerTicks`, `ClipContent`, `Node`,
   `Widget` sont mémoïsés sur des props primitives.
