@@ -64,6 +64,40 @@ the case carrying the intent: the length was a consequence of the repeat. Length
 looped clip means another pass, not a longer window — and a partial pass is not something
 `loop:` can express anyway.
 
+## Splitting is the same window, said twice
+
+`event split <track> <timecode> <at>` cuts one event in two, and it is worth reading here rather
+than on its own page: it writes nothing this document has not already described.
+
+**Two placements of one material.** The head keeps its `start` and gains a `to` at the cut; the
+tail is a COPY of the same placement, starting there, with its `from` at the cut. Nothing is
+rendered, nothing is copied on disk, and the material's own file is not touched — so the pair
+played back to back is exactly what the event was. That is the test a split has to pass, and it is
+why this is a placement edit and not a material one.
+
+It works on a clip and on a sequence for the same reason `event resize` does: a placement's window
+is *seconds* into an audio file and *beats* into a sequence, and `splitTrackPlacement` reads and
+writes them through the one pair of conversions. The cut arrives in timeline beats — it is where
+the caret is — and becomes material units once.
+
+The tail is copied rather than rebuilt from `ref` + `start`, and that is load-bearing: everything
+else the placement said is still true of the half that was cut off — its `warp: false`, its
+`disabled`, its `to`, and whatever a later schema adds. A tail built from the two fields the writer
+happens to know about would drop the rest, and the loss would only show when the tail played
+differently from the head.
+
+Three refusals, all of which would otherwise write a file that validates and plays something
+nobody asked for:
+
+- a cut on either edge of the event — one half would have no length, and a "split" that gives you
+  back what you started with plus nothing did not do what it says;
+- a cut outside it;
+- a **looped** event, refused by name. "The position of the cut" has as many answers as there are
+  passes, and picking one silently would be picking for the person. Set `loop` back to 1 first.
+
+`sequence note split` is the roll's counterpart on the other side of the reference: it cuts a NOTE
+rather than a placement, in `sequenceFile.ts`, and carries the note's velocity onto both halves.
+
 ## It used to write the material — and before that, `length`
 
 Two generations of this command are worth remembering. The first wrote `start` + `length`

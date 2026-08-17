@@ -374,6 +374,44 @@ export function setPlacementField(
   return doc.toString(OUT);
 }
 
+/**
+ * Copy the placement at `index`, apply `patch` to the copy, and append it — what a SPLIT writes
+ * for the second half.
+ *
+ * A copy rather than a fresh `{ ref, start }`, because everything else the placement carries is
+ * still true of the half that was cut off: its `warp: false`, its `disabled`, its `to`, and
+ * whatever a later schema adds. Rebuilding it from the two fields this knows about would quietly
+ * drop the rest, and the loss would only show when the tail played differently from the head.
+ *
+ * `undefined` in the patch CLEARS a field, the same rule `setPlacementField` follows. The copy is
+ * built from the placement's VALUES, so a comment written beside the original stays with the
+ * original — which is right: it was written about that event, and the second half is new.
+ */
+export function copyPlacementAt(
+  text: string,
+  index: number,
+  patch: Record<string, unknown>,
+): string {
+  const doc = parseDocument(text, OPTS);
+  const path = eventsToEdit(doc);
+  const events = doc.getIn(path);
+  if (!isSeq(events) || index < 0 || index >= events.items.length)
+    throw new Error(`no placement at index ${index}`);
+  const src =
+    ((doc.getIn([...path, index]) as { toJSON?: () => unknown })?.toJSON?.() as
+      | Record<string, unknown>
+      | undefined) ?? {};
+  const merged: Record<string, unknown> = { ...src };
+  for (const [k, v] of Object.entries(patch))
+    if (v === undefined) delete merged[k];
+    else merged[k] = v;
+  const copy = doc.createNode(merged);
+  copy.flow = true; // one placement per line, as the file already writes them
+  events.items.push(copy);
+  quoteTimecodes(doc);
+  return doc.toString(OUT);
+}
+
 /** Rewrite the `start` of the placement at `index`. Everything else it carries stays. */
 export function movePlacementAt(
   text: string,

@@ -458,10 +458,17 @@ export function PianoRoll({
   /**
    * --- drag a note's VELOCITY -------------------------------------------------------
    *
-   * The note's own box is the handle, and the line follows the pointer inside it: 0 at the bottom
-   * edge, 1 at the top, which is the geometry velocity is read with everywhere. That does mean a
-   * press on a note no longer starts drawing one over it — no loss, since two notes cannot share a
-   * key and a start anyway.
+   * The WHITE LINE is the handle — the mark that says what the note is worth is the thing you take
+   * hold of — and it follows the pointer inside the note: 0 at the bottom edge, 1 at the top, which
+   * is the geometry velocity is read with everywhere. That does mean a press on a note no longer
+   * starts drawing one over it — no loss, since two notes cannot share a key and a start anyway.
+   *
+   * It used to be the note's whole box, with the DIRECTION of the first movement deciding between
+   * velocity and a move. Two gestures sharing one surface meant neither could be started
+   * deliberately: a move that began with a little vertical drift set a velocity instead, and the
+   * only way to find out was to look at what had changed. Now every grip on a note is a place —
+   * the line sets, the right edge stretches, the body moves — which is the rule this app already
+   * follows on the waveform's slice handles and the timeline's events.
    *
    * Pointer CAPTURE, as the waveform's slice handles take: every move and the release land on this
    * element, so a fast drag off the note does not lose the gesture. A press that never MOVES
@@ -477,19 +484,24 @@ export function PianoRoll({
   /**
    * --- drag a note's TIME RANGE ------------------------------------------------------
    *
-   * The same press that sets velocity also moves and stretches, and WHICH of the three it is
-   * comes from the grip and then from the direction:
+   * Three grips on one note, and each is a PLACE rather than a direction:
    *
-   * - press within `EDGE_PX` of the note's right edge → stretch. An edge is a handle everywhere
-   *   else in this app (the waveform's slice, the timeline's event), so it is one here too.
-   * - press anywhere else → undecided until the pointer travels: mostly sideways moves the note,
-   *   mostly up/down sets its velocity. Deciding on the FIRST real movement rather than asking for
-   *   a modifier is what keeps the roll a one-handed instrument.
+   * - the white line, within `VEL_PX` of it → its velocity (above);
+   * - within `EDGE_PX` of the right edge → stretch. An edge is a handle everywhere else in this
+   *   app (the waveform's slice, the timeline's event), so it is one here too;
+   * - anywhere else on the body → move.
+   *
+   * A note with nothing to move it (`onSetNoteRange` absent) keeps its whole box as the velocity
+   * handle: there is no second gesture to tell it apart from, and a 10-pixel target for the only
+   * thing that surface can do would be a needlessly small one.
    *
    * Nothing is written until release, and a press that never travels writes nothing at all — a
    * stray click on a note must not rewrite where it is or what it is worth.
    */
   const EDGE_PX = 6;
+  /** How far either side of the white line still counts as holding it. A line is one pixel and
+   *  nobody can hit one; the same reasoning sizes the waveform's 12px slice grips. */
+  const VEL_PX = 5;
   interface TDrag {
     key: number;
     time: number; // where it starts NOW — how the command addresses it
@@ -502,7 +514,7 @@ export function PianoRoll({
   // Which gesture this press became, once it has travelled far enough to say. The ref is the live
   // one for the same reason the velocity drag's is: a command fired from a state updater runs
   // twice under StrictMode.
-  const gesture = useRef<"pending" | "vel" | "time" | null>(null);
+  const gesture = useRef<"vel" | "time" | null>(null);
   const pressAt = useRef<{ x: number; y: number } | null>(null);
   // The ref is the LIVE one and the state is only what to draw. The commit reads the ref, because
   // firing a command from inside a state updater would run it twice under StrictMode's double
@@ -521,14 +533,15 @@ export function PianoRoll({
   const onNotePointerDown = (
     e: React.PointerEvent,
     n: { key: number; time: number; duration: number; vel?: number },
+    onLine = false,
   ) => {
     if (e.button !== 0 || (!onSetVelocity && !onSetNoteRange)) return;
     e.preventDefault();
     e.stopPropagation(); // not a new note: this press belongs to the one already here
     e.currentTarget.setPointerCapture(e.pointerId);
     pressAt.current = { x: e.clientX, y: e.clientY };
-    // The right edge is a stretch handle, and it is claimed on the PRESS: a grip is a place, not
-    // a direction, so it does not wait to see which way the hand goes.
+    // Every grip is claimed on the PRESS: a grip is a place, not a direction, so none of them
+    // waits to see which way the hand goes.
     const right = e.currentTarget.getBoundingClientRect().right;
     const onEdge = !!onSetNoteRange && right - e.clientX <= EDGE_PX;
     const t: TDrag = {
@@ -541,29 +554,35 @@ export function PianoRoll({
     tDrag.current = t;
     const v = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
     vDrag.current = v;
-    gesture.current = onEdge ? "time" : "pending";
-    if (onEdge) setTDraw(t);
+    // The line sets, the edge stretches, the body moves — and a note with nowhere to move to
+    // keeps its body as the velocity handle rather than as a surface that does nothing.
+    gesture.current =
+      onLine && onSetVelocity
+        ? "vel"
+        : onSetNoteRange
+          ? "time"
+          : onSetVelocity
+            ? "vel"
+            : null;
+    if (gesture.current === "time") setTDraw(t);
   };
 
   const onNotePointerMove = (e: React.PointerEvent, top: number) => {
     if (!gesture.current) return;
     const from = pressAt.current;
-    // Undecided until the press has actually travelled. 4px, the same threshold the waveform's
-    // pins use to tell a click from a drag.
-    if (gesture.current === "pending" && from) {
-      const dx = e.clientX - from.x;
-      const dy = e.clientY - from.y;
-      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
-      gesture.current =
-        Math.abs(dx) > Math.abs(dy) && onSetNoteRange ? "time" : "vel";
-      if (gesture.current === "vel" && !onSetVelocity) {
-        gesture.current = null;
-        return;
-      }
-    }
     if (gesture.current === "vel") {
       const d = vDrag.current;
       if (!d) return;
+      // A press that has not travelled is a CLICK on the line, and a click must write nothing —
+      // 4px, the same threshold the waveform's pins use to tell one from a drag. Once it has
+      // moved the line follows continuously, so the note reads live under the hand.
+      if (
+        !d.moved &&
+        from &&
+        Math.abs(e.clientX - from.x) < 4 &&
+        Math.abs(e.clientY - from.y) < 4
+      )
+        return;
       const next = { ...d, vel: velAt(e.clientY, top), moved: true };
       vDrag.current = next;
       setVDraw(next);
@@ -846,10 +865,10 @@ export function PianoRoll({
                   <div
                     key={i}
                     title={`${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
-                      onSetVelocity ? " — drag up/down for velocity" : ""
+                      onSetVelocity ? " — drag the white line for velocity" : ""
                     }${
                       onSetNoteRange
-                        ? ", sideways to move, the right edge to stretch"
+                        ? ", the body to move, the right edge to stretch"
                         : ""
                     }`}
                     onPointerDown={(e) => onNotePointerDown(e, n)}
@@ -857,8 +876,10 @@ export function PianoRoll({
                     onPointerUp={endVDrag}
                     onLostPointerCapture={endVDrag}
                     className={cn(
-                      "absolute overflow-hidden rounded-[1px]",
-                      onSetVelocity && "cursor-ns-resize touch-none",
+                      "absolute overflow-hidden rounded-[1px] touch-none",
+                      onSetNoteRange
+                        ? "cursor-grab"
+                        : onSetVelocity && "cursor-ns-resize",
                       // A move outranks the velocity cursor while one is happening: the pointer
                       // should say which gesture it is IN, not which it could have started.
                       dragging &&
@@ -897,12 +918,34 @@ export function PianoRoll({
                     />
                     {/* The line itself: half the note's width, centred, so it reads as a mark ON the
                         note rather than as its edge. A note a couple of pixels tall has nowhere to
-                        put it — the level split above still says what it is worth. */}
+                        put it — the level split above still says what it is worth, and the body is
+                        then the only grip there is.
+
+                        It is also the velocity HANDLE, inside a grab zone `VEL_PX` either side: a
+                        one-pixel target is not one, and the same reasoning sizes the waveform's
+                        slice grips. The zone takes the press and the line inside it is drawn
+                        `pointer-events-none`, so what you see is the mark and what you catch is the
+                        band around it. */}
                     {h >= 4 && (
                       <div
-                        className="pointer-events-none absolute left-1/4 h-px w-1/2 bg-white"
-                        style={{ top: lineY }}
-                      />
+                        onPointerDown={(e) => onNotePointerDown(e, n, true)}
+                        onPointerMove={(e) => onNotePointerMove(e, top)}
+                        onPointerUp={endVDrag}
+                        onLostPointerCapture={endVDrag}
+                        className={cn(
+                          "absolute left-1/4 w-1/2",
+                          onSetVelocity && "cursor-ns-resize",
+                        )}
+                        style={{
+                          top: lineY - VEL_PX,
+                          height: 2 * VEL_PX + 1,
+                        }}
+                      >
+                        <div
+                          className="pointer-events-none absolute inset-x-0 h-px bg-white"
+                          style={{ top: VEL_PX }}
+                        />
+                      </div>
                     )}
                   </div>
                 );

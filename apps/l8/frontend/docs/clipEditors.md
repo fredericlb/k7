@@ -484,8 +484,8 @@ levels at a glance, before the lines themselves are looked for, and a note too s
 at all still says what it is worth. The fill colour lives on the two halves rather than on the box,
 which is what makes "80%" mean the note's own colour and not a wash of whatever is behind it.
 
-Dragging the note up or down moves the line and, on release, runs `sequence note velocity` — the
-same shape as the timeline's clip drag, where the gesture is the view's and the commit is a command.
+Dragging **the line** up or down moves it and, on release, runs `sequence note velocity` — the same
+shape as the timeline's clip drag, where the gesture is the view's and the commit is a command.
 
 Four things worth knowing:
 
@@ -495,11 +495,19 @@ Four things worth knowing:
   the command CLEARS the field at 1 rather than writing the schema's own default back into a file
   that never mentioned it. So a sequence nobody has touched stays byte-identical, and a roll can
   tell "full" from "unstated" — which is the same distinction, drawn the same way.
-- **The note is the handle.** There is no separate grip: at a typical row height of 20–40px a
-  handle inside the note would be a few pixels tall. The consequence is that a press on a note no
-  longer bubbles to the lane's draw-a-note gesture — no loss, since two notes cannot share a key
-  and a start, but it is the thing to remember if that gesture is ever wired up (App does not pass
-  `onCreateNote` today, so the roll's drawing is unreachable from the shell).
+- **The LINE is the handle**, inside a grab zone five pixels either side of it — a one-pixel target
+  is not one, and the same reasoning sizes the waveform's 12px slice grips. Every grip on a note is
+  a PLACE now: the line sets, the right edge stretches, the body moves. It used to be the note's
+  whole box, with the DIRECTION of the first movement choosing between velocity and a move, and two
+  gestures sharing one surface meant neither could be started deliberately — a move that began with
+  a little vertical drift set a velocity instead, and the only way to find out was to look at what
+  had changed. A note with nothing to move it (`onSetNoteRange` absent) keeps its whole box as the
+  velocity handle: there is no second gesture to tell it apart from.
+
+  The consequence, either way, is that a press on a note does not bubble to the lane's draw-a-note
+  gesture — no loss, since two notes cannot share a key and a start, but it is the thing to remember
+  if that gesture is ever wired up (App does not pass `onCreateNote` today, so the roll's drawing is
+  unreachable from the shell).
 - **A press that never moves commits nothing.** A stray click on a note must not silently rewrite
   what it is worth.
 

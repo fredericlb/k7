@@ -97,6 +97,7 @@ import {
   selectTrackTake,
   setTrackPlacementDisabled,
   setTrackPlacementWarp,
+  splitTrackPlacement,
   trackTakes,
 } from "@studio/song/trackMix";
 import {
@@ -114,6 +115,7 @@ import {
   removeNote,
   setNoteTimeRange,
   setNoteVelocity,
+  splitNote,
 } from "@studio/song/yaml/sequenceFile";
 import {
   applyAlternative,
@@ -1532,6 +1534,63 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
+   * event split <track> <timecode> <at> — cut one event in two at `at`.
+   *
+   * TWO PLACEMENTS OF ONE MATERIAL: the head keeps its start and stops at the cut, the tail is a
+   * copy of the same placement starting there. Nothing is rendered and the clip's own file is not
+   * touched, so played back to back the pair sounds exactly like the event did — which is the test
+   * a split has to pass, and the reason this is a placement edit and not a material one.
+   *
+   * It works on a clip and on a sequence for one reason: a placement's window is SECONDS into an
+   * audio file and BEATS into a sequence, and `splitTrackPlacement` converts through the same pair
+   * `event resize` uses. One verb, because from the timeline it is one gesture on one thing.
+   *
+   * The event is addressed by its START, like every other `event` verb, and the cut is its own
+   * argument — the timeline sends the caret's beat, and a person typing it reads both off the
+   * ruler. A "the event containing this beat" lookup would be a second way to address an event,
+   * and two would eventually disagree.
+   */
+  "event.split": async (a, h) => {
+    const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
+    if (!m) {
+      h.log(["usage: event split <track> <timecode> <at>  (where to cut)"]);
+      return;
+    }
+    const [, trackArg, atTc, cutTc] = m;
+    const found = resolveEvent(h, trackArg, atTc);
+    if (!found) return;
+    const { track, atBeats, hit, num, den, tempo } = found;
+    let cutBeats: number;
+    try {
+      cutBeats = parsePosition(cutTc, num, den);
+    } catch (e) {
+      h.log([`bad timecode: ${(e as Error).message}`]);
+      return;
+    }
+    try {
+      const done = splitTrackPlacement(
+        h.songPath,
+        track.id,
+        atBeats,
+        num,
+        den,
+        cutBeats,
+        tempo,
+      );
+      if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+      h.log([
+        `${track.id}: ${hit.name || hit.id} split at ${cutTc}`,
+        // The unit the second half's `from:` is written in, said out loud — it is what you would
+        // read in the file, and it is not the same unit for the two kinds of material.
+        `  two events now, one ${done.kind}: the tail opens at ${+done.at.toFixed(4)}${done.kind === "sequence" ? "b" : "s"} of ${done.material}`,
+      ]);
+      await h.reload();
+    } catch (e) {
+      h.log([`event split failed: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
    * event add <track> <clip> <timecode> — put an existing clip on a lane.
    *
    * The one ADDITIVE verb of this family, and named for what it makes: the clip already exists and
@@ -1916,6 +1975,56 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // Remove one note, addressed by key and start like every note edit — the step sequencer's
   // button-off. Same shape as noteVelocity below: resolve the file, rewrite, say what happened.
+  /**
+   * sequence note split <sequence> <note> <start> <at> — cut one note in two at beat `at`.
+   *
+   * The roll's counterpart of `event split`, and the same shape of act: the note keeps its head
+   * and a second note carries the rest, so what sounds is one attack where there was one and two
+   * where there are now two. Its VELOCITY rides onto both halves — what a note is worth is a
+   * property of the sound, and cutting it does not make the tail quieter.
+   *
+   * Addressed by key and start, like every note edit; `at` is in the same beats, which is what the
+   * roll's caret already gives it. Refused on either edge, where one half would have no length.
+   */
+  "sequence.splitNote": async (arg, h) => {
+    const [seqId, noteStr, startStr, atStr] = arg.trim().split(/\s+/);
+    if (!seqId || !noteStr || startStr === undefined || atStr === undefined) {
+      h.log(["usage: sequence note split <sequence> <note> <start> <at>"]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    if (k === null) {
+      h.log([
+        `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const [t, at] = [startStr, atStr].map(Number);
+    if (![t, at].every(Number.isFinite)) {
+      h.log(["start and at must be numbers (beats)"]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      h.snapshot?.(file);
+      writeFileSync(file, splitNote(text, k, t, at), "utf8");
+    } catch (e) {
+      h.log([`sequence note split: ${(e as Error).message}`]);
+      return;
+    }
+    h.log([
+      `${seqId}: ${noteStr} (k${k}) split at ${fmtBeat(at)} — two notes now`,
+    ]);
+    await h.reload();
+  },
+
   "sequence.removeNote": async (arg, h) => {
     const [seqId, noteStr, startStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined) {

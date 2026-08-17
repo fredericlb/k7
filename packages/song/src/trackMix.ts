@@ -10,6 +10,7 @@ import { materialWindowOf, type WindowValue } from "./yaml/materialFile";
 import { entityFileFor } from "./yaml/moduleIO";
 import {
   addPlacement,
+  copyPlacementAt,
   findPlacementAt,
   movePlacementAt,
   placementAt,
@@ -399,6 +400,118 @@ export function resizeTrackPlacement(
     "resize a clip",
   );
   return { ref, material: file.rel, kind, loops: next.loops };
+}
+
+/** What a split produced, for the log — `at` in the MATERIAL's own units (seconds, or beats). */
+export interface SplitReport {
+  ref: string;
+  material: string;
+  kind: MaterialKind;
+  at: number;
+}
+
+/**
+ * Cut the event at `fromBeats` in two, at the timeline position `atBeats`.
+ *
+ * TWO PLACEMENTS OF ONE MATERIAL, and that is the whole design: nothing is copied, nothing is
+ * rendered, and the clip's own file is not touched. The head keeps its `start` and gains a `to`
+ * at the cut; the tail is a COPY of the same placement starting at the cut, with its `from`
+ * there. Play them back to back and you hear what you heard before — which is the test a split
+ * has to pass, and the reason this is a placement edit rather than a material one.
+ *
+ * It works for a clip and for a sequence because the window does: a placement's `from`/`to` are
+ * SECONDS into an audio file and BEATS into a sequence, and `edge`/`fmt` are the same pair of
+ * conversions `resizeTrackPlacement` uses. The cut arrives in timeline beats — it is where the
+ * caret is — and becomes material units once, here.
+ *
+ * Refused rather than guessed at in three cases, all of which would produce a file that validates
+ * and plays something nobody asked for: a cut outside the event, a cut on either of its edges
+ * (one half would have no length), and a LOOPED event — where "the position of the cut" has as
+ * many answers as there are passes, and choosing one silently would be choosing for the person.
+ *
+ * Returns null when there is no such event. Sibling of `resizeTrackPlacement`; see
+ * `@studio/song`'s docs/clipResize.md.
+ */
+export function splitTrackPlacement(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  num: number,
+  den: number,
+  atBeats: number,
+  tempo: number,
+): SplitReport | null {
+  const own = entityFileFor(join(dir, "nodes"), "nodes", id);
+  if (!own) throw new Error(`track "${id}" has no file in nodes/`);
+  const text = readFileSync(own.path, "utf8");
+  const idx = findPlacementAt(text, fromBeats, num, den);
+  if (idx < 0) return null;
+  const placement = placementValues(text)[idx] ?? {};
+  const ref = String(placement.ref ?? "");
+  const found = materialFor(dir, ref);
+  if (!found)
+    throw new Error(
+      `'${ref}' is neither a clip nor a sequence in this project`,
+    );
+  const { kind, file } = found;
+
+  // As authored, exactly as a resize reads it — a timecode window resolves the way the compiler
+  // resolves it, so a split of a file spelled that way lands on the same numbers.
+  const edge = (v: WindowValue | undefined): number | undefined => {
+    if (v === undefined) return undefined;
+    if (typeof v === "number") return v;
+    const beats = parsePosition(v, num, den);
+    return kind === "sequence" ? beats : (beats * 60) / tempo;
+  };
+  const raw = (v: unknown): WindowValue | undefined =>
+    typeof v === "number" || typeof v === "string" ? v : undefined;
+  const mat = materialWindowOf(file.path);
+  const matFrom = edge(mat.from) ?? 0;
+  const matTo = edge(mat.to);
+  const evFrom = edge(raw(placement.from));
+  const evTo = edge(raw(placement.to));
+  // The EFFECTIVE window — the most restrictive pair wins, the rule every placement edit follows.
+  const winFrom = Math.max(matFrom, evFrom ?? 0);
+  const winTo =
+    matTo != null && evTo != null ? Math.min(matTo, evTo) : (matTo ?? evTo);
+
+  const loops = Math.max(1, Math.floor(Number(placement.loop ?? 1)) || 1);
+  if (loops > 1)
+    throw new Error(
+      `'${ref}' repeats ${loops} times here — set its loop back to 1 before splitting it`,
+    );
+
+  const dBeats = atBeats - fromBeats;
+  // The cut in the material's own units: beats for a sequence, seconds for a clip.
+  const at = winFrom + (kind === "sequence" ? dBeats : (dBeats * 60) / tempo);
+  if (!(dBeats > 0) || at <= winFrom + EDGE_EPS)
+    throw new Error("the cut has to be after the event starts");
+  if (winTo != null && at >= winTo - EDGE_EPS)
+    throw new Error("the cut has to be before the event ends");
+
+  const fmt = (u: number): WindowValue =>
+    kind === "sequence" ? beatsToPosition(u, num, den) : u;
+  // ONE write for both halves: a split is one act, and a file caught between the two would be an
+  // event playing material its neighbour plays as well.
+  editTrackStruct(
+    dir,
+    id,
+    (t) => {
+      const i = findPlacementAt(t, fromBeats, num, den);
+      if (i < 0) return t;
+      // The head stops at the cut. Never cleared: `at` is strictly inside the window, so it always
+      // says something the material's own `to` does not.
+      const head = setPlacementField(t, i, "to", fmt(at));
+      // …and the tail is the same placement, starting there. Appended, so the head keeps its
+      // index — which is what lets both edits share one lookup.
+      return copyPlacementAt(head, i, {
+        start: beatsToPosition(atBeats, num, den),
+        from: at > matFrom + EDGE_EPS ? fmt(at) : undefined,
+      });
+    },
+    "split an event",
+  );
+  return { ref, material: file.rel, kind, at };
 }
 
 /** Where a placement's material lives — `clips/<ref>` or `sequences/<ref>`, whichever exists. */

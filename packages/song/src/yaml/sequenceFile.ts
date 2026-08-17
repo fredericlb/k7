@@ -143,6 +143,46 @@ export function moveNote(
 }
 
 /**
+ * Cut one note in two at beat `at` — what the roll's split runs.
+ *
+ * The note keeps its identity and its head: `d` is shortened to `at - t`, and a SECOND note is
+ * appended from `at` for the rest. Rewriting the first rather than removing and adding two is what
+ * keeps the file's order and its velocity: the pair is one note that was made into two, not two
+ * notes that replaced one.
+ *
+ * The velocity rides onto both halves, deliberately. What a note is worth is a property of the
+ * sound, and cutting it in half does not make the second half quieter — a split that dropped the
+ * field would silently return the tail to full.
+ *
+ * `at` has to be strictly INSIDE the note. On either edge there is nothing to cut: one of the two
+ * halves would have no length, and a "split" that produced the note you started with plus nothing
+ * is a command that did not do what it says. Refused by name rather than nudged to the nearest
+ * grid line, because where to cut is the caller's decision and this one only carries it out.
+ */
+export function splitNote(
+  text: string,
+  k: number,
+  t: number,
+  at: number,
+): string {
+  const i = findNote(text, k, t);
+  if (i < 0) throw new Error(`no note k${k} at beat ${t}`);
+  const doc = parseDocument(text, OPTS);
+  const d = Number(doc.getIn(["notes", i, "d"]) ?? Number.NaN);
+  if (!Number.isFinite(d) || d <= 0)
+    throw new Error(`the note k${k} at beat ${t} has no length to split`);
+  if (at <= t + EPS || at >= t + d - EPS)
+    throw new Error(
+      `${at} is not inside the note — it runs ${t} to ${t + d}, and a split has to leave two`,
+    );
+  const v = doc.getIn(["notes", i, "v"]);
+  doc.setIn(["notes", i, "d"], at - t);
+  return appendNotes(doc.toString({ lineWidth: 0 }), [
+    { t: at, d: t + d - at, k, ...(typeof v === "number" ? { v } : {}) },
+  ]);
+}
+
+/**
  * Set one note's velocity — what the roll's velocity drag writes.
  *
  * `undefined` CLEARS the key rather than writing `v: 1`, so a note dragged back to full loses the
