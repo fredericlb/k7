@@ -10,6 +10,7 @@ import { setFoldersStill } from "@studio/song/moduleCache";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   closeModuleWatch,
+  moduleFoldersMoved,
   moduleFoldersStill,
   WALK_ANYWAY_MS,
   watchModuleFolders,
@@ -90,6 +91,34 @@ describe("moduleFoldersStill", () => {
     expect(moduleFoldersStill(dir)).toBe(false);
   });
 
+  // One watch per PROJECT, not one at a time: two people on one machine each have a session,
+  // each session's poll starts its own, and a change to one must not cost the other its answer.
+  it("keeps two projects apart", async () => {
+    const other = join(root, "other.l8");
+    mkdirSync(join(other, "modules", "audio", "chorus"), { recursive: true });
+    writeFileSync(
+      join(other, "modules", "audio", "chorus", "module.yaml"),
+      "# chorus\nplugin:\n  type: internal\n  name: Mixer\n",
+      "utf8",
+    );
+    watchModuleFolders(dir);
+    watchModuleFolders(other);
+    moduleFoldersStill(dir);
+    moduleFoldersStill(other);
+    expect(moduleFoldersStill(dir)).toBe(true);
+    expect(moduleFoldersStill(other)).toBe(true);
+
+    module_("delay"); // …only the first one moves
+    await settle();
+    expect(moduleFoldersStill(dir)).toBe(false);
+    expect(moduleFoldersStill(other)).toBe(true);
+
+    // …and closing one leaves the other watching.
+    closeModuleWatch(dir);
+    expect(moduleFoldersStill(dir)).toBe(false);
+    expect(moduleFoldersStill(other)).toBe(true);
+  });
+
   // The ceiling is what makes a MISSED event a delay rather than a permanent lie, so it is
   // stated as a number this test can read rather than left implicit.
   it("keeps a ceiling on how long it may be believed", () => {
@@ -107,6 +136,26 @@ describe("the vocabulary the oracle governs", () => {
     expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
     module_("delay");
     await settle();
+    expect(Object.keys(loadModules(dir)).sort()).toEqual(["delay", "reverb"]);
+  });
+
+  /**
+   * The case a watcher gets WRONG on its own, and the reason `moduleFoldersMoved` exists.
+   *
+   * `fs.watch` delivers on a later tick. A command that writes a module file and then rebuilds
+   * the graph — one HTTP request, synchronously — would ask before any event arrived, be told
+   * nothing had moved, and build from a vocabulary missing the node it had just created. The
+   * ceiling is no help: the ten seconds it would be wrong for are the ten that matter.
+   *
+   * So the process that writes says so. No event, no wait, no guess.
+   */
+  it("sees a module this process just wrote, before any event arrives", () => {
+    watchModuleFolders(dir);
+    setFoldersStill(moduleFoldersStill);
+    expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
+    moduleFoldersStill(dir); // settle: from here it would claim nothing moved
+    module_("delay");
+    moduleFoldersMoved();
     expect(Object.keys(loadModules(dir)).sort()).toEqual(["delay", "reverb"]);
   });
 

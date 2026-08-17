@@ -91,6 +91,24 @@ export function closeModuleWatch(dir?: string): void {
 }
 
 /**
+ * THIS process wrote something — treat every watch as moved, without waiting for an event.
+ *
+ * The one case a watcher cannot get right on its own. `fs.watch` delivers on a later tick, so a
+ * command that writes a module file and then rebuilds the graph — one request, synchronously —
+ * would ask before its own event arrived, be told nothing had moved, and build from a vocabulary
+ * missing the node it had just created. The ceiling is no help there: the ten seconds it would be
+ * wrong for are the ten that matter.
+ *
+ * Wired to `Workspace.invalidateProjectDoc`, which is this service's single "something changed"
+ * choke point. Deliberately blunt — every write, not only a module's: knowing which is knowing
+ * the answer, and one extra walk after a write is exactly what a write used to cost anyway. The
+ * five reads that follow it are still free, which was the point.
+ */
+export function moduleFoldersMoved(): void {
+  for (const w of watches.values()) w.gen++;
+}
+
+/**
  * Whether `dir`'s module folders are KNOWN not to have moved since the last walk.
  *
  * False is always a safe answer and is the answer whenever anything is uncertain: nobody is

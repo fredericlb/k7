@@ -9,8 +9,12 @@ instead.
 ## What it answers
 
 One bit: **have this project's module folders moved since the last walk?** Nothing else. The
-oracle is installed into `@studio/song` through `useFoldersStill`, and `false` always means
+oracle is installed into `@studio/song` through `setFoldersStill`, and `false` always means
 "walk", which is what everything that installs nothing gets.
+
+One watch per PROJECT, not one at a time: `startEngineForActive` runs per workspace, and every
+session's own `/workspace` poll starts its own. Two people on two projects each get the fast path,
+and a change to one does not cost the other its answer.
 
 Three things make it say no, and all three are one-directional — saying no costs a walk, saying
 yes wrongly costs a module served under a name nobody wrote:
@@ -22,6 +26,23 @@ yes wrongly costs a module served under a name nobody wrote:
 The first ask after starting a watch is also a no. The watcher has seen no events, but neither
 has it seen the folders, and the walk it forces is what gives every later answer something to be
 measured against.
+
+## Why a watcher is not enough on its own
+
+`fs.watch` delivers on a later tick. A command that WRITES a module file and then rebuilds the
+graph — one HTTP request, synchronously — asks before its own event has arrived. Told nothing had
+moved, it would build from a vocabulary missing the node it had just created, and the ceiling
+would be no help: the ten seconds it is wrong for are the ten that matter.
+
+So the process that writes says so, through `moduleFoldersMoved()`, wired to
+`Workspace.invalidateProjectDoc` — this service's single "something changed" choke point.
+Deliberately blunt: every write, not only a module's. Knowing which is knowing the answer, and one
+extra walk after a write is exactly what a write used to cost anyway; the five reads that follow
+it are still free, which was the point.
+
+The rule this is an instance of, for the next cache backed by a watcher: **a watcher reports the
+FILESYSTEM's events, and the process doing the writing is ahead of them.** Both sources have to be
+wired, not one or the other.
 
 ## Why the ceiling exists
 

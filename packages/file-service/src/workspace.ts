@@ -127,6 +127,7 @@ import {
   isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
+import { moduleFoldersMoved } from "./moduleWatch.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
 import {
   AUDIO_EXT,
@@ -747,6 +748,10 @@ export class Workspace {
   invalidateProjectDoc(): void {
     this.docCache = null;
     this.mutations++;
+    // …and tell the module watcher, which cannot learn this in time on its own: `fs.watch`
+    // delivers on a later tick, so a command that writes a module file and then rebuilds the
+    // graph in the same request would be told nothing had moved. See moduleWatch.ts.
+    moduleFoldersMoved();
   }
 
   /**

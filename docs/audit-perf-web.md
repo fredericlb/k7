@@ -424,8 +424,44 @@ Rationale complet : `packages/file-service/docs/moduleWatch.md`.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-| Le watcher de modules ne couvre qu'un projet à la fois, celui qui est servi | `file-service/src/moduleWatch.ts` | deux personnes sur deux projets du même poste : le second marche comme avant. Élargir veut dire décider quand on cesse de surveiller, ce qui est une question de cycle de vie et pas de vitesse |
-| Un rechargement paie encore six marches d'empreinte quand rien ne veille — hors du service de fichiers, c'est-à-dire pour la CLI | `song/src/moduleCache.ts` | c'est le plancher de la portée explicite, et le remède est celui qui existe déjà : un processus qui tient des poignées. La CLI n'en est pas un |
+*(Il n'en reste aucun. Les deux derniers étaient FAUX — voir juste en dessous.)*
+
+## Deux constats retirés, et un bug qu'ils ont fait sortir
+
+Les deux dernières lignes de ce tableau ne décrivaient rien. Elles sont retirées plutôt que
+laissées à re-vérifier, et la vérification a trouvé autre chose.
+
+**« Le watcher ne couvre qu'un projet à la fois. »** Faux. `watchModuleFolders` tient une entrée
+PAR PROJET, et `startEngineForActive` est appelé par workspace — chaque session sondant
+`/workspace` démarre la sienne. Deux personnes sur deux projets ont donc deux surveillances, et
+un changement dans l'une ne coûte pas sa réponse à l'autre. Un test le fige désormais
+(`moduleWatch.test.ts`, « keeps two projects apart »), parce que c'est le genre de propriété
+qu'on re-suppose.
+
+**« Hors du service de fichiers, c'est-à-dire pour la CLI. »** Il n'y a pas de CLI dans ce dépôt.
+Un seul paquet déclare un `bin` — `studio-file-service` — et les commentaires qui parlent de
+`l8 config` ou `l8 engine scan` décrivent un binaire qui vit ailleurs. Les seuls appelants des
+lecteurs de modules hors `@studio/song` et hors tests sont `packages/commands`, qui tourne DANS
+le service de fichiers, et un script de migration à usage unique. Le vocabulaire de modules n'a
+donc qu'un consommateur de longue durée, et il a le watcher.
+
+**Et c'est en le vérifiant qu'un vrai bug est apparu**, introduit par le watcher lui-même.
+`fs.watch` livre ses événements au tick suivant. Une commande qui ÉCRIT un fichier de module puis
+reconstruit le graphe — une seule requête, synchrone — demandait avant que son propre événement
+n'arrive, s'entendait répondre que rien n'avait bougé, et construisait à partir d'un vocabulaire
+sans le nœud qu'elle venait de créer. Le plafond de dix secondes n'aide pas : les dix secondes
+pendant lesquelles c'est faux sont justement celles qui comptent.
+
+Le remède est que le processus qui écrit le DISE : `moduleFoldersMoved()`, câblé sur
+`Workspace.invalidateProjectDoc` — le point de passage unique de « quelque chose a changé ».
+Délibérément brutal, toutes les écritures et pas seulement celles d'un module : savoir lesquelles
+c'est déjà savoir la réponse, et une marche de plus après une écriture est exactement ce qu'une
+écriture coûtait avant. Les cinq lectures qui suivent restent gratuites, ce qui était le but.
+Le test échoue sans l'appel — c'est ce qui prouve que le bug était réel.
+
+La leçon, pour la prochaine fois qu'un cache est adossé à un watcher : un watcher répond des
+événements du SYSTÈME DE FICHIERS, et le processus qui écrit est en avance sur eux. Les deux
+sources doivent être branchées, pas l'une ou l'autre.
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
 
