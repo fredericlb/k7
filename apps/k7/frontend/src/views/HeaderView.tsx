@@ -82,6 +82,9 @@ export function HeaderView({
       // `plain`: k7's page carries the colour and this bar is a surface with a rule under it —
       // which is what `.topbar` said in CSS before the shared bar said it in a prop.
       variant="plain"
+      // …and so was the z-index. The shared bar sticks at z-10; `.topbar` sat at 20, above the
+      // page's own layers, and dropping it would put the bar under them.
+      className="z-20"
       title={
         // A button, not a div: it navigates, and the mark has always been the way home.
         <button type="button" className="brand" onClick={onHome} title="Home">

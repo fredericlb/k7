@@ -2067,7 +2067,15 @@ export function TimelineTab({
           <StretchVertical className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      {/* `isolate` — a stacking context of its own, and it is load-bearing rather than tidy.
+          This pane stacks four layers against each other (a clip at z-10, an edge handle and the
+          playhead at z-20, the sticky gutters at z-30, the sticky ruler at z-40), and without it
+          those numbers compete with the SHELL's: the ruler's 40 beat the header's 20 and drew
+          straight over the cog menu, which is a plain absolute dropdown inside the header rather
+          than a portalled one. Contained, the whole pane participates outside at `auto` and the
+          header sits above it — while the full-screen overlays (settings at z-40, the builder at
+          z-30) still sit above the header, which is the order the shell needs. */}
+      <div ref={scrollRef} className="isolate min-h-0 flex-1 overflow-auto">
         <div
           style={{ width: GUTTER + laneW }}
           className="relative select-none font-mono text-xs"
