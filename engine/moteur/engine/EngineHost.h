@@ -516,6 +516,15 @@ int dumpPluginParams(const std::string& type);
 int dumpPluginParamsExternal(const std::string& format, const std::string& identifier,
                              const std::string& stateFile);
 
+// Every BUILT-IN's full parameter list — name, range and default, per plugin — as sentinel-fenced JSON.
+//
+// Not the same question as `--dump-params`, and that is why it is its own mode: that one emits the
+// NON-DEFAULT subset, the "preset" of an instance somebody configured, so on a freshly created plugin it
+// prints `{}` however many parameters the thing has. This one asks what a plugin type HAS, which is the
+// question the module builder needs answered before any instance exists. Wired from `--dump-builtin-params`;
+// `scripts/gen-builtin-params.mjs` turns its output into the table @studio/song ships.
+int dumpBuiltinParams();
+
 // Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
 // ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.
 // Wired from `--render <doc.json|-> --out <dir> [--stems]`.

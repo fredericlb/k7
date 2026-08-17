@@ -35,7 +35,7 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   AudioInputs.{h,cpp}      live-input device mapping
   AudioDevices.cpp          device enumerate/select + --list-audio-devices CLI
   OfflineRender.cpp         --render (offline bounce) + watchdogStack()
-  ParamDump.cpp             --dump-params / --dump-params-ext
+  ParamDump.cpp             --dump-params / --dump-params-ext / --dump-builtin-params
   PluginEditor.cpp          native plugin editor windows + PluginEditorController
   Recording.cpp             arming, takes, transport record listener
   FilePeak.cpp              one file's true peak (--peak), what a cold module is measured with
@@ -64,6 +64,10 @@ scripts/               Node harnesses that drive a running engine, not build ste
   track-delta.ts         `tracks` amends the document a session holds, and refuses the rest
   list-sessions.ts       what the supervisor sees, and drop-session
   broadcast-sessions.mjs per-session streaming
+  gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
+                         packages/song/src/builtinParams.generated.ts. The one script here that is a
+                         GENERATOR: run it after bumping Tracktion or adding a built-in, and commit
+                         its output. `npm run gen:builtin-params --workspace moteur`. docs/builtinParams.md.
   listen-headless.mjs    a headless listener
   measure-broadcast.mjs  the numbers behind docs/broadcast.md
   render-once.ts         one offline render

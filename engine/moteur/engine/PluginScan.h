@@ -25,6 +25,16 @@ namespace studio {
  */
 std::shared_ptr<const std::vector<PluginInfo>> cachedPluginInfos();
 
+/**
+ * Tracktion's built-ins plus ours, always available without scanning. `id` is each one's xmlTypeName,
+ * which `createNewPlugin` accepts, so these round-trip straight to instantiation.
+ *
+ * Exposed for `--dump-builtin-params`, which has to instantiate every one of them to read its parameters
+ * out. A second copy of the list would be exactly the drift the note above `registerBuiltInPlugins`
+ * already warns about — a plugin a project can name and nothing knows the parameters of.
+ */
+std::vector<PluginInfo> builtInPlugins();
+
 // Register the plugins l8 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
 // the two Tracktion ships without registering (the convolver, the AirWindows set).
 //

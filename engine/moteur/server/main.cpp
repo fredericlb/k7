@@ -354,6 +354,9 @@ int main(int argc, char** argv) {
         return studio::dumpPluginParamsExternal(argv[2], argv[3], argv[4]);
     if (argc >= 3 && std::string(argv[1]) == "--dump-params")
         return studio::dumpPluginParams(argv[2]);
+    // …and every built-in's FULL list — what a type has, not what an instance changed. See EngineHost.h.
+    if (argc >= 2 && std::string(argv[1]) == "--dump-builtin-params")
+        return studio::dumpBuiltinParams();
 
     // Audio-interface enumeration: print the devices as fenced JSON and exit, opening no device.
     if (argc >= 2 && std::string(argv[1]) == "--list-audio-devices")

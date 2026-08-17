@@ -9,11 +9,11 @@
 // It carries ranges too, which the learned names never have — a Volume drawn 0..1 because no meta arrived is not
 // a smaller problem than a missing name, it is a knob that writes the wrong number.
 //
-// Kept deliberately small: built-ins whose parameters l8 itself defines. An external plugin's are its own
-// and are read from it. Values mirror the constants at the top of engine/engine/MixerPlugin.cpp — change one and
-// change the other; mixerParams.test.ts fails when the NAMES drift, which is the half that silently breaks
-// bindings. See also engine/engine/PluginParams.cpp, which has the C++ twin of this idea for the built-ins that
-// register no automatable parameters at all (Chorus, Phaser).
+// The table itself is GENERATED (`builtinParams.generated.ts`), from a real instance of every built-in the
+// engine can create. This file is the half a human writes: the shape, and how a module's `plugin:` block finds
+// its entry. See engine/moteur/docs/builtinParams.md.
+
+import { BUILTIN_PLUGINS } from "./builtinParams.generated";
 
 /** A parameter's span. Structurally the engine protocol's ParamMeta, without the dependency for one type. */
 export interface ParamRange {
@@ -26,26 +26,57 @@ export interface BuiltinParam {
   name: string;
   min: number;
   max: number;
-  def: number;
+  /** Absent when the plugin publishes none — a state param usually does, an automatable one usually does not. */
+  def?: number;
+  /** A discrete parameter's named settings, in order. Each carries the VALUE that selects it, because the
+   *  mapping is not always index/(n-1). Absent for a continuous control. */
+  states?: { label: string; value: number }[];
 }
 
-/** Keyed by the `plugin.name` an internal module declares (`plugin: { type: internal, name: Mixer }`). */
-export const BUILTIN_PLUGIN_PARAMS: Record<string, BuiltinParam[]> = {
-  Mixer: [
-    // Stops at +6 dB where Tracktion's own fader does, and its floor is the -60 dB the UI reads as silence.
-    { name: "Volume", min: -60, max: 6, def: 0 },
-    // -1 hard left, 0 centre, +1 hard right — the way a pan is spoken.
-    { name: "Pan", min: -1, max: 1, def: 0 },
-    // Three fixed-frequency gains (200 Hz shelf, 1 kHz peak, 4 kHz shelf), generous for a strip at ±18.
-    { name: "Low", min: -18, max: 18, def: 0 },
-    { name: "Mid", min: -18, max: 18, def: 0 },
-    { name: "High", min: -18, max: 18, def: 0 },
-  ],
-};
+export interface BuiltinPluginInfo {
+  /** The display name — "4OSC", "Neural Amp Modeler". What the plugin picker shows. */
+  name: string;
+  /** "instrument" | "audioEffect" | "midiEffect" — what files a module under instruments/ or audio/. */
+  role: string;
+  /** Empty for a plugin whose state is genuinely not parameters (Patch Bay, Text, Insert). */
+  params: BuiltinParam[];
+}
 
-/** The parameters of whatever plugin a module declares, or undefined when it is not a built-in we define. */
-export function builtinParamsFor(plugin: unknown): BuiltinParam[] | undefined {
+export { BUILTIN_PLUGINS };
+
+/**
+ * Every built-in, by BOTH the spellings a module may use, lower-cased.
+ *
+ * This is the TypeScript twin of `resolveBuiltInType` in the engine's `EditBuilder.cpp`, and deliberately the
+ * same rule: a project may write the human form (`Chorus`, `Mixer`) or the internal id (`chorus`,
+ * `studio_mixer`), and both must find the same plugin. The engine matches on `name` or `identifier`,
+ * case-insensitively; so does this. The two disagreeing would be the worst shape available — a module that
+ * plays perfectly and shows an empty parameter list, or the reverse.
+ *
+ * Built once at module load: this is read per base module per hints gather.
+ */
+const BY_SPELLING: Map<string, BuiltinPluginInfo> = (() => {
+  const m = new Map<string, BuiltinPluginInfo>();
+  for (const [type, info] of Object.entries(BUILTIN_PLUGINS)) {
+    m.set(type.toLowerCase(), info);
+    // The display name never overwrites a type: a type is the addressable one, and "Delay" being
+    // both would otherwise depend on which came first in the object.
+    if (!m.has(info.name.toLowerCase())) m.set(info.name.toLowerCase(), info);
+  }
+  return m;
+})();
+
+/** The built-in a module declares, or undefined when it declares an external plugin or nothing. */
+export function builtinPluginFor(
+  plugin: unknown,
+): BuiltinPluginInfo | undefined {
   const p = plugin as { type?: unknown; name?: unknown } | undefined;
   if (p?.type !== "internal" || typeof p.name !== "string") return undefined;
-  return BUILTIN_PLUGIN_PARAMS[p.name];
+  return BY_SPELLING.get(p.name.trim().toLowerCase());
+}
+
+/** The parameters of whatever plugin a module declares, or undefined when it is not a built-in.
+ *  Undefined and empty are DIFFERENT: the second means a plugin whose state is not parameters. */
+export function builtinParamsFor(plugin: unknown): BuiltinParam[] | undefined {
+  return builtinPluginFor(plugin)?.params;
 }

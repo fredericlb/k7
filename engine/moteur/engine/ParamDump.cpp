@@ -7,10 +7,11 @@
 #include "EngineHost.h"
 
 #include "EngineTypes.h"     // Tracktion/JUCE + the te/tt/fs aliases
-#include "PluginScan.h"      // registerBuiltInPlugins
-#include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams
+#include "PluginScan.h"      // registerBuiltInPlugins / builtInPlugins
+#include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -31,7 +32,79 @@ void emitParamsJson(const juce::String& params, bool complete) {
               << kParamsEnd << std::endl;
 }
 
+// A JSON string literal. Hand-rolled because a parameter name is a plugin author's, and Tracktion ships
+// ones with quotes, slashes and non-ASCII in them.
+std::string jsonStr(const juce::String& s) {
+    return juce::JSON::toString(juce::var(s), true).toStdString();
+}
+
+// One number, printed so it round-trips through JSON.parse without a trailing `.0` problem or an
+// `inf` that is not valid JSON — a plugin with an unbounded range does exist, and it must not
+// produce a file the generator cannot read.
+std::string jsonNum(double v) {
+    if (!std::isfinite(v))
+        return "null";
+    std::ostringstream o;
+    o.precision(10);
+    o << v;
+    return o.str();
+}
+
 }  // namespace
+
+int dumpBuiltinParams() {
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    auto enginePtr = makeOfflineEngine();
+    auto& engine = *enginePtr;
+    registerBuiltInPlugins(engine);
+    auto edit = te::Edit::createSingleTrackEdit(engine);
+
+    std::ostringstream out;
+    out << "{";
+    bool firstPlugin = true;
+    for (const auto& info : builtInPlugins()) {
+        // Created for real, and that is the whole point: a plugin's parameters are registered by its
+        // CONSTRUCTOR (4OSC calls addParam 84 times there), so nothing short of an instance can list them.
+        auto plugin = edit->getPluginCache().createNewPlugin(juce::String(info.identifier), {});
+        if (plugin == nullptr) {
+            std::cerr << "[dump-builtin-params] could not create '" << info.identifier << "'\n";
+            continue;
+        }
+        // `withStates` ON: a discrete parameter's named settings are what makes a dropdown instead of a
+        // slider, and this runs once rather than per state frame — the reason that flag defaults to off.
+        const auto params = pluginParams(*plugin, true);
+        out << (firstPlugin ? "" : ",") << jsonStr(juce::String(info.identifier)) << ":{"
+            << "\"name\":" << jsonStr(juce::String(info.name))
+            << ",\"role\":" << jsonStr(juce::String(info.role))
+            << ",\"params\":[";
+        firstPlugin = false;
+        bool firstParam = true;
+        for (const auto& p : params) {
+            out << (firstParam ? "" : ",") << "{\"name\":" << jsonStr(p.name)
+                << ",\"min\":" << jsonNum(p.min) << ",\"max\":" << jsonNum(p.max)
+                << ",\"def\":" << (p.def.has_value() ? jsonNum(*p.def) : "null");
+            if (!p.states.empty()) {
+                out << ",\"states\":[";
+                bool firstState = true;
+                for (const auto& [label, value] : p.states) {
+                    out << (firstState ? "" : ",") << "{\"label\":" << jsonStr(label)
+                        << ",\"value\":" << jsonNum(value) << "}";
+                    firstState = false;
+                }
+                out << "]";
+            }
+            out << "}";
+            firstParam = false;
+        }
+        out << "]}";
+        // Dropped before the next one is made: twenty-seven live plugins on one edit is not what any of
+        // them expects, and an instrument holds voices.
+        plugin->deleteFromParent();
+    }
+    out << "}";
+    std::cout << "\n" << kParamsBegin << "\n" << out.str() << "\n" << kParamsEnd << std::endl;
+    return 0;
+}
 
 int dumpPluginParams(const std::string& type) {
     juce::ScopedJuceInitialiser_GUI juceInit;

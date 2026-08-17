@@ -177,8 +177,14 @@ std::vector<PluginInfo> scanOne(const juce::File& exe, juce::AudioPluginFormat& 
     return out;
 }
 
+}  // namespace
+
 // Tracktion's built-in plugins, always available without scanning. The id is each one's xmlTypeName, which
 // createNewPlugin accepts, so these round-trip straight to instantiation.
+//
+// The one thing in this file that is NOT file-local, because `--dump-builtin-params` has to instantiate every
+// entry to read its parameters out — and a second copy of the list is the exact drift the note below
+// `registerBuiltInPlugins` warns about. Declared in PluginScan.h.
 std::vector<PluginInfo> builtInPlugins() {
     // The category is assigned here rather than derived: a built-in declares none, and there are few enough to say
     // what each one IS. Same vocabulary as the AirWindows enum, so a module lands in the same folder either way.
@@ -226,6 +232,8 @@ std::vector<PluginInfo> builtInPlugins() {
         e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
     };
 }
+
+namespace {
 
 // The AirWindows effects, listed from the same X-macro that DECLARES them rather than retyped — 186 entries
 // would rot the first time Tracktion added one, and the macro is the only place class and display name are
