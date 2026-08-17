@@ -59,20 +59,68 @@ export function rackHits(
           key: nt.key,
         });
     if (!hits.length) continue;
-    hits.sort((a, b) => a.from - b.from);
     // Keyed by MODULE and not by chain: a pad knows which module it is drawn on, and a module
     // shared by two chains hears both. `chainName` is only how we got here.
     void chainName;
     for (const s of racks) out[s.module] = [...(out[s.module] ?? []), ...hits];
   }
+  /**
+   * Sorted AFTER the merge, and that is the bug this line fixes rather than a tidiness.
+   *
+   * Each chain's own hits used to be sorted before being concatenated, which is not the same
+   * thing: a module reached from TWO chains ended up with two sorted runs back to back, so the
+   * whole array was unsorted. `litAt` stops at the first note that has not begun — so it stopped
+   * at the end of the first run and never saw the second chain's notes at all.
+   */
+  for (const hits of Object.values(out)) hits.sort((a, b) => a.from - b.from);
   return out;
 }
 
-/** The keys sounding at `beat`. Linear over one lane's notes, which is a few hundred at worst. */
-export function litAt(hits: readonly Hit[], beat: number): Set<number> {
+/** The longest a note sounds, per module — what bounds `litAt`'s scan. See its note. */
+export function maxSpans(hits: Record<string, Hit[]>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [module, hs] of Object.entries(hits)) {
+    let max = 0;
+    for (const h of hs) max = Math.max(max, h.to - h.from);
+    out[module] = max;
+  }
+  return out;
+}
+
+/** The first index whose note has NOT begun by `beat`, in a list sorted by `from`. */
+function firstAfter(hits: readonly Hit[], beat: number): number {
+  let lo = 0;
+  let hi = hits.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (hits[mid].from > beat) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/**
+ * The keys sounding at `beat`.
+ *
+ * `maxSpan` is the longest note in the list, and passing it is what makes this cost the number of
+ * notes AROUND the playhead rather than the number BEFORE it. Without it the walk ran from index 0
+ * every frame, so a five-minute lane of sixteenths cost ~2400 comparisons per rack, twenty times a
+ * second, and the cost grew as the song played — the comment here used to say "a few hundred at
+ * worst", which is true of a pattern and not of an arrangement.
+ *
+ * The bound is exact rather than a heuristic: a note sounding at `beat` has `to > beat` and
+ * `to - from <= maxSpan`, so `from > beat - maxSpan`. Anything earlier cannot still be ringing.
+ * Absent, it defaults to Infinity and this is the old full walk — which is what the tests use.
+ */
+export function litAt(
+  hits: readonly Hit[],
+  beat: number,
+  maxSpan = Number.POSITIVE_INFINITY,
+): Set<number> {
   const on = new Set<number>();
-  for (const h of hits) {
-    if (h.from > beat) break; // sorted by start: nothing later can have begun
+  for (let i = firstAfter(hits, beat) - 1; i >= 0; i--) {
+    const h = hits[i];
+    if (beat - h.from >= maxSpan) break;
     if (h.to > beat) on.add(h.key);
   }
   return on;
@@ -142,17 +190,19 @@ export function useLiveRackLit(
     () => rackHits(project ?? null, graph ?? null),
     [project, graph],
   );
+  // Once per project + graph, never per frame: it is the bound `litAt` scans within.
+  const spans = useMemo(() => maxSpans(hits), [hits]);
   const tempo = project?.tempo || 120;
   useEffect(() => {
     const paint = (): void => {
       const beat = ((engineStore?.getSnapshot().playhead ?? 0) * tempo) / 60;
       const next: Record<string, ReadonlySet<number>> = {};
       for (const [module, h] of Object.entries(hits))
-        next[module] = litAt(h, beat);
+        next[module] = litAt(h, beat, spans[module]);
       store.set(next);
     };
     paint(); // the pads must be right before the first frame, not only after one
     return engineStore?.subscribe(paint);
-  }, [engineStore, hits, store, tempo]);
+  }, [engineStore, hits, spans, store, tempo]);
   return store;
 }

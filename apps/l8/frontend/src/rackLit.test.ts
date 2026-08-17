@@ -3,7 +3,13 @@
 // only part of the feature a test can reach without a browser.
 
 import { describe, expect, it } from "vitest";
-import { LiveRackLit, litAt, MIN_FLASH_BEATS, rackHits } from "./rackLit";
+import {
+  LiveRackLit,
+  litAt,
+  MIN_FLASH_BEATS,
+  maxSpans,
+  rackHits,
+} from "./rackLit";
 import type { WebGraph, WebProject } from "./types";
 
 /** A lane holding one MIDI clip, and a chain running it through a rack. */
@@ -72,6 +78,79 @@ describe("rackHits", () => {
     expect(rackHits(null, graph())).toEqual({});
     expect(rackHits(project([]), null)).toEqual({});
   });
+
+  it("sorts a module reached from TWO chains as one list, not two runs", () => {
+    /**
+     * The bug this pins. Each chain's hits were sorted before being concatenated, so a module
+     * heard by two lanes ended up with two sorted runs back to back — and `litAt` stops at the
+     * first note that has not begun, which is the end of the FIRST run. Everything the second
+     * lane played was invisible.
+     *
+     * `late` plays first in the file and starts at beat 8; `early` starts at beat 0. Before the
+     * fix the merged list read [8, 0] and a look at beat 0 walked off the end immediately.
+     */
+    const twoLanes = {
+      tempo: 120,
+      tracks: [
+        {
+          id: "late",
+          clips: [
+            {
+              id: "l",
+              type: "midi",
+              start: 8,
+              notes: [{ time: 0, duration: 1, key: 38 }],
+            },
+          ],
+        },
+        {
+          id: "early",
+          clips: [
+            {
+              id: "e",
+              type: "midi",
+              start: 0,
+              notes: [{ time: 0, duration: 1, key: 36 }],
+            },
+          ],
+        },
+      ],
+    } as unknown as WebProject;
+    const rack = [{ symbol: "BD", note: 36 }];
+    const bothIntoKit = {
+      chains: {
+        late: { from: "late", use: [{ module: "kit", rack }], out: [] },
+        early: { from: "early", use: [{ module: "kit", rack }], out: [] },
+      },
+    } as unknown as WebGraph;
+
+    const hits = rackHits(twoLanes, bothIntoKit);
+    expect(hits.kit.map((h) => h.from)).toEqual([0, 8]);
+    // …and the note of the lane that sorted second is reachable, which is what broke.
+    expect([...litAt(hits.kit, 0)]).toEqual([36]);
+    expect([...litAt(hits.kit, 8)]).toEqual([38]);
+  });
+});
+
+describe("maxSpans", () => {
+  it("reports the longest note per module — the bound litAt scans within", () => {
+    const hits = rackHits(
+      project([
+        { time: 0, duration: 1, key: 36 },
+        { time: 4, duration: 3, key: 38 },
+      ]),
+      graph(),
+    );
+    expect(maxSpans(hits)).toEqual({ kit: 3 });
+  });
+
+  it("floors at the display minimum, like the hits themselves", () => {
+    const hits = rackHits(
+      project([{ time: 0, duration: 0.05, key: 36 }]),
+      graph(),
+    );
+    expect(maxSpans(hits).kit).toBe(MIN_FLASH_BEATS);
+  });
 });
 
 describe("litAt", () => {
@@ -95,6 +174,26 @@ describe("litAt", () => {
   it("is empty before the first note and after the last", () => {
     expect(litAt(hits, -1).size).toBe(0);
     expect(litAt(hits, 99).size).toBe(0);
+  });
+
+  it("gives the same answer bounded as unbounded — the bound only limits the WALK", () => {
+    // The span here is 2 (the two-beat notes). Passing it must change the cost and nothing
+    // else; a bound that changed an answer would be an optimisation that lies.
+    for (const beat of [-1, 0, 0.99, 1, 2, 2.5, 3, 3.99, 4, 99])
+      expect([...litAt(hits, beat, 2)].sort()).toEqual(
+        [...litAt(hits, beat)].sort(),
+      );
+  });
+
+  it("does not walk back past the longest note", () => {
+    // A note far in the past cannot still be ringing, and this is what stops the scan growing
+    // with the playhead's position. `far` starts at 0 and the bound is 2, so a look at beat 50
+    // must not reach it — and must not report it either, since it stopped at beat 1.
+    const far = [
+      { from: 0, to: 1, key: 36 },
+      { from: 49, to: 51, key: 38 },
+    ];
+    expect([...litAt(far, 50, 2)]).toEqual([38]);
   });
 });
 

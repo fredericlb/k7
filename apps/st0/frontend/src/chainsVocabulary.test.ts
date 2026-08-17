@@ -49,8 +49,12 @@ describe("the chains vocabulary", () => {
     expect(values(["bypassed"], "0")).not.toContain("@out");
   });
 
-  it("keeps the file's two sections from the schema", () => {
-    expect(vocab.fieldsAt([])).toEqual(["modules", "bypassed"]);
+  it("keeps the file's sections from the schema", () => {
+    // Three, and the third is why this test is worth having: `positions:` arrived when nodes
+    // started remembering where they were dragged, and the vocabulary picked it up on its own
+    // because it is DERIVED from `GraphFileSchema`. Nothing here had to be authored — only
+    // this expectation had to catch up.
+    expect(vocab.fieldsAt([])).toEqual(["modules", "bypassed", "positions"]);
     // Inside one, the keys are node names — a vocabulary the schema cannot invent.
     expect(vocab.fieldsAt(["modules"])).toEqual([]);
   });
