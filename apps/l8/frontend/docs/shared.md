@@ -1,6 +1,6 @@
 # Le mode partagé — l8 ouvert sur un instantané gelé
 
-Une adresse en `/l8/@partage/<token>.l8` ouvre **cette application**, sans compte, sans moteur et
+Une adresse en `/l8/@shares/<token>.l8` ouvre **cette application**, sans compte, sans moteur et
 sans copie de travail. Ce qu'elle dessine est un instantané que st0 détient : trois documents
 compilés et des rendus audio. Le paquet est fabriqué ailleurs — voir
 [`packages/commands/docs/shareBundle.md`](../../../../packages/commands/docs/shareBundle.md) pour

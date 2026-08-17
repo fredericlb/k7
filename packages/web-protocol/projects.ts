@@ -151,14 +151,23 @@ export function parseLaunch(
   };
 }
 
+/**
+ * Percent-encode one path segment, leaving `@` alone.
+ *
+ * `encodeURIComponent` escapes it, and RFC 3986 does not: `@` is a `pchar`, legal literally in a
+ * path segment, and a browser keeps it that way in the address bar. So encoding it produced an
+ * address that did not match the one the person was looking at — which is how `@shares` and
+ * `@banc`, the two sentinels this file mints, were the only names it could get wrong.
+ */
+const encodeSegment = (s: string): string =>
+  encodeURIComponent(s).replace(/%40/g, "@");
+
 /** The `<base>/<repo>/<project>` prefix of an address. `base` of "" gives the path alone. */
 function launchPath(l: Launch, base: string): string {
   const parts = [
     ...segments(base),
-    encodeURIComponent(l.repo),
-    ...(l.project === "."
-      ? []
-      : segments(l.project).map((s) => encodeURIComponent(s))),
+    encodeSegment(l.repo),
+    ...(l.project === "." ? [] : segments(l.project).map(encodeSegment)),
   ];
   return `/${parts.join("/")}`;
 }
@@ -174,6 +183,13 @@ function launchPath(l: Launch, base: string): string {
  *
  * Falls back to `base` when the address names no project, which leaves the app mounted where
  * it has always been and lets its gate send you to st0.
+ *
+ * **A SLICE of the given path, never a rebuild of it.** React Router compares this string against
+ * `window.location.pathname` verbatim and renders NOTHING when it does not prefix it — so any
+ * re-encoding here is a chance to disagree with the address the browser actually holds, over a
+ * character that has two legal spellings. `%40shares` and `@shares` are the same address and this
+ * function must answer with whichever one it was handed, which slicing does by construction and
+ * spelling it out again cannot.
  */
 export function projectBasename(
   pathname: string,
@@ -181,7 +197,13 @@ export function projectBasename(
   base: string,
 ): string {
   const l = parseLaunch(pathname, app, base);
-  return l ? launchPath(l, base) : base;
+  if (!l) return base;
+  // parseLaunch already decided where the project ends; count the same segments off the raw path.
+  const depth =
+    segments(base).length +
+    1 +
+    (l.project === "." ? 0 : l.project.split("/").length);
+  return `/${segments(pathname).slice(0, depth).join("/")}`;
 }
 
 /**
@@ -251,7 +273,7 @@ export function benchProjectForChain(chainPath: string): string {
 }
 
 /**
- * A SHARED project: `/l8/@partage/<token>.l8`.
+ * A SHARED project: `/l8/@shares/<token>.l8`.
  *
  * The bench's sentinel again, for the bench's reason — `@` cannot begin a git short name, so this
  * can never collide with a real repository, and the gate sees it and takes another road: no st0
@@ -267,7 +289,7 @@ export function benchProjectForChain(chainPath: string): string {
  * link and l8 reads it back, and an address only one of them understands is a 404 nobody can
  * attribute.
  */
-export const SHARE_REPO = "@partage";
+export const SHARE_REPO = "@shares";
 
 /** Whether an address names a shared snapshot rather than a repository. */
 export function isShare(repo: string): boolean {
@@ -295,7 +317,9 @@ export function shareToken(project: string): string | null {
  * Only the tab knows which one it is.
  */
 export function shareUrl(origin: string, token: string): string {
-  return `${serviceUrl(origin, "l8")}/${SHARE_REPO}/${token}${L8}`;
+  // Through `launchUrl`, not spelled out beside it: this address is read back by `parseLaunch`
+  // and by `projectBasename`, and a second builder is a second place for the encoding to differ.
+  return launchUrl(origin, SHARE_REPO, `${token}${L8}`, "l8");
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   PROJECT_SUFFIXES,
   parseLaunch,
   projectApp,
+  projectBasename,
   projectLabel,
   SCAFFOLDED_APPS,
   SHARE_REPO,
@@ -156,6 +157,39 @@ describe("a shared snapshot's address", () => {
     expect(shareToken(at.project)).toBe(TOKEN);
   });
 
+  /**
+   * The bug this pins rendered a blank page and nothing else.
+   *
+   * `encodeURIComponent` escapes `@`, and RFC 3986 does not — it is a `pchar`, legal literally in
+   * a path segment, and a browser keeps it that way. So the link said `/l8/@shares/…`, the router
+   * was handed a basename of `/l8/%40shares/…`, React Router found that it did not prefix the
+   * location and refused to render ANYTHING. The two sentinels this file mints, `@shares` and
+   * `@banc`, were the only names it could get wrong.
+   */
+  it("writes a link with a literal @, and takes a basename off the path unchanged", () => {
+    const url = shareUrl("https://studio.frediver.se", TOKEN);
+    expect(url).toBe(`https://studio.frediver.se/l8/@shares/${TOKEN}.l8`);
+    const path = new URL(url).pathname;
+    expect(projectBasename(path, "l8", "/l8/")).toBe(path);
+  });
+
+  it("takes the OTHER spelling of the same address just as happily", () => {
+    // `%40shares` and `@shares` are one address, and an old bookmark may hold either. The
+    // basename is a SLICE of whatever it was handed, so both prefix their own location.
+    const escaped = `/l8/%40shares/${TOKEN}.l8`;
+    expect(parseLaunch(escaped, "l8", "/l8/")).toEqual({
+      repo: SHARE_REPO,
+      project: `${TOKEN}.l8`,
+    });
+    expect(projectBasename(escaped, "l8", "/l8/")).toBe(escaped);
+  });
+
+  it("keeps the app's own route BELOW the basename", () => {
+    // What the basename is for: everything after the project belongs to routes.ts.
+    const path = `/l8/@shares/${TOKEN}.l8/timeline`;
+    expect(projectBasename(path, "l8", "/l8/")).toBe(`/l8/@shares/${TOKEN}.l8`);
+  });
+
   it("refuses a project part that is not a token", () => {
     // The address is typed by anyone and then put into a URL, so it is checked here rather
     // than trusted and checked later.
@@ -193,7 +227,7 @@ describe("a shared snapshot's address", () => {
     // origin plus the route, whatever page URL it was derived from.
     const key = await shareKey(TOKEN);
     expect(
-      shareApiBase("https://studio.frediver.se/l8/@partage/x.l8", key),
+      shareApiBase("https://studio.frediver.se/l8/@shares/x.l8", key),
     ).toBe(`https://studio.frediver.se/api/public/share/${key}`);
     expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(
       `https://st0.priv.frediver.se/api/public/share/${key}`,

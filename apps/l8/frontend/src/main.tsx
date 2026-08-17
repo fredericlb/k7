@@ -36,7 +36,7 @@ installFreezeWatchdog();
 const profiling = PROFILING;
 
 /**
- * The secret, when this address is a SHARE — `/l8/@partage/<token>.l8` — and null otherwise.
+ * The secret, when this address is a SHARE — `/l8/@shares/<token>.l8` — and null otherwise.
  *
  * Read the same way the basename below is, out of the address and nothing else, so the two
  * cannot disagree about which project this tab is on. A branch here rather than three

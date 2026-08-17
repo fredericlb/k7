@@ -79,13 +79,20 @@ three requests, none of which remembers the others.
 
 ## The address
 
-`<origin>/l8/@partage/<token>.l8`
+`<origin>/l8/@shares/<token>.l8`
 
-`@` cannot begin a git short name, so `@partage` can never collide with a repository — the same
+`@` cannot begin a git short name, so `@shares` can never collide with a repository — the same
 sentinel, for the same reason, as `@banc`. The `.l8` on the end is what makes the whole thing
 work: `parseLaunch` ends a project at the last segment claiming the app's suffix, so the token
 becomes the PROJECT part of an ordinary address and `parseLaunch`, `projectBasename` and every
 route below them need no change at all.
+
+That `@` is also the one character in this address with two legal spellings, and it cost a blank
+page: `encodeURIComponent` escapes it and RFC 3986 does not. The link carried a literal `@`, the
+router was handed a basename carrying `%40`, and React Router — which compares the two verbatim —
+rendered nothing at all. `projectBasename` now returns a **slice** of the path it was given
+rather than a rebuild of it, which cannot disagree with the address the browser holds; and the
+two sentinels this vocabulary mints are no longer escaped, so a link reads the way it is written.
 
 The link is built **in the browser** (`shareUrl`), because the machine that rendered has no idea
 which origin you are reading this on — a checkout, the LAN proxy and the public host are three
