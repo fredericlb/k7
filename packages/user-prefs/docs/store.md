@@ -53,5 +53,32 @@ to clear — you could pick an engine and never un-pick one.
 médiathèque remember different things, and a union of every service's fields would be a
 shape no service actually has.
 
+### …and it is a GATE, which is not obvious and cost a feature
+
+A zod object **strips what it does not declare**, silently and by default. So a service whose
+schema has fallen behind its frontend accepts a write, answers `{ok:true}`, and stores less than
+it was handed — and the browser, holding the whole object in memory, sees nothing wrong until the
+next load.
+
+l8 lost its entire command layer that way. Renaming a command worked, the page said it had saved,
+and a reload showed the catalogue's own names again: `L8Prefs` had grown a `commands` field in the
+browser while `prefsSchema` still read `z.object({ engineId: z.string().optional() })` under a
+comment that said *one field so far*. On disk there was only ever the engine id.
+
+`droppedKeys` is the answer, and it is deliberately a **refusal** rather than a passthrough:
+
+- a write whose top-level keys do not all survive the parse comes back **400**, naming them —
+  *this service does not store `commands`*;
+- so the missing declaration is found the first time anyone saves, by whoever is looking at it,
+  instead of on somebody's next reload with nothing to point at.
+
+Passing unknown keys through would have been the other way to make the bug impossible, and it is
+worse: a typo'd field would then be stored for ever, and the schema would stop meaning anything.
+The host's schema is the contract; this only stops it failing in silence.
+
+**Adding a preference is therefore two edits**: the type the browser widens, and the schema the
+service declares. There is no way to arrange one place — the backend is a separate build and the
+frontend is a browser bundle — so the check is what holds them together.
+
 The router does not authenticate. It reads `req.user.sub`, which the host's `requireAuth`
 guarantees — mount it behind one.

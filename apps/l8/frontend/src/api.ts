@@ -75,6 +75,13 @@ async function json<T>(res: Response, what: string): Promise<T> {
  *
  * Widening `P` is how a host adds a field, exactly as `EnginePrefs`' own comment says: the schema
  * belongs to the host, and a union of every service's fields would be a shape no service has.
+ *
+ * It is HALF of adding one, though, and this comment used to stop here. The zod schema in
+ * `backend/src/server.ts` is what actually decides — a zod object strips what it does not
+ * declare — so `commands` was saved, answered `{ok:true}` and dropped for as long as that schema
+ * said "one field so far". Widening this type does not widen it. The router refuses such a write
+ * out loud now (`droppedKeys` in `@studio/user-prefs/router`), which is how the next one will be
+ * found in a second rather than on the next reload.
  */
 export interface L8Prefs extends EnginePrefs {
   commands?: CommandPrefs;

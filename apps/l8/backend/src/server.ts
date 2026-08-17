@@ -61,13 +61,42 @@ const { requireAuth } = await setupAuth(app, {
 const engine = mountEngineRegistry(app, { service: "l8", requireAuth });
 
 /**
- * What this service remembers about a person. One field so far: the engine they drive.
+ * One person's own layer over a command: what to call it, in each language, plus its icon, its
+ * place in a menu, its shortcut, and whether a right-click may offer it.
+ *
+ * The frontend's `commandPrefs.ts` owns the meaning; this is the shape on the wire. A structural
+ * copy and not an import, like st0's `St0Prefs` the other way round — the backend is a separate
+ * build and that one is a browser bundle.
+ *
+ * `label` takes a bare string too: that is what the field was before there was one per language,
+ * and a document written then still says what it always said (see `CommandLabel`).
+ */
+const commandPrefSchema = z.object({
+  label: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
+  icon: z.string().optional(),
+  order: z.number().optional(),
+  key: z.string().optional(),
+  menu: z.boolean().optional(),
+});
+
+/**
+ * What this service remembers about a person: the engine they drive, and what they have made of
+ * the command catalogue.
  *
  * `engineId` and not an address: an engine's IP moves between networks while its identity
  * does not, and the browser re-probes the addresses from the registry on every load anyway.
  * Storing a URL would pin the user to the network they first logged in from.
+ *
+ * **This schema is the GATE, not a description.** A zod object strips what it does not declare,
+ * so a field the frontend saves and this does not name is accepted, answered `{ok:true}`, and
+ * dropped — which is exactly what happened to `commands` for as long as this said "one field so
+ * far". The router refuses such a write out loud now (`droppedKeys`), but the rule to remember is
+ * that widening `L8Prefs` in the browser is only half of adding a preference.
  */
-const prefsSchema = z.object({ engineId: z.string().optional() });
+const prefsSchema = z.object({
+  engineId: z.string().optional(),
+  commands: z.record(z.string(), commandPrefSchema).optional(),
+});
 // Defaults under the home directory so a dev run works with no volume at all; a deploy
 // mounts one and points this at it. See packages/user-prefs/docs/store.md.
 const PREFS_DIR =

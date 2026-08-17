@@ -952,6 +952,16 @@ another browser, where which audio interface to open belongs to the machine. `L8
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
 writing this cannot wipe the engine id beside it.
 
+**And the backend's zod schema is what actually decides**, which is worth a paragraph because it
+cost this feature its persistence for a while. A zod object strips what it does not declare, so
+`backend/src/server.ts`'s `prefsSchema` — `z.object({ engineId })`, under a comment reading *one
+field so far* — accepted every command layer this page sent, answered `{ok:true}`, and wrote the
+engine id alone. Renaming a command worked, saving said it had worked, and a reload showed the
+catalogue's own names again; on disk there was only ever `{"engineId": "…"}`. Widening `L8Prefs`
+is half of adding a preference. The router refuses a write it would have to shorten now
+(`droppedKeys`, `packages/user-prefs/docs/store.md`), so the next omission is a 400 naming the
+field rather than a feature that quietly does not last the session.
+
 #### …and this page has a Save button, which nothing else in the shell does
 
 The app's rule is autosave — the editor writes as soon as the buffer parses, and every text pane

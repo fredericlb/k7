@@ -2,10 +2,28 @@
 // host's own requireAuth: this router never authenticates, it only reads `req.user.sub`,
 // which requireAuth guarantees. See docs/store.md.
 
-import { validate, wrap } from "@frediverse/http/route";
+import { wrap } from "@frediverse/http/route";
 import { Router } from "express";
 import type { z } from "zod";
 import type { PrefsStore } from "./store.ts";
+
+/**
+ * The top-level fields a schema DROPPED — sent, valid, and not in what came out.
+ *
+ * A zod object strips what it does not declare, silently and by default, so a service whose
+ * schema has fallen behind its frontend answers `{ok:true}` and stores less than it was handed.
+ * l8 lost the whole command layer that way: renaming commands worked, saving said it had, and a
+ * reload showed the catalogue's own names again — the schema still described the day it held one
+ * field. Nothing anywhere said so, which is what makes this worth a check rather than a comment.
+ *
+ * Answered as a list of names, because the useful sentence is "this service does not know
+ * `commands`" and the fix is to declare it.
+ */
+export function droppedKeys(sent: unknown, kept: unknown): string[] {
+  if (!sent || typeof sent !== "object") return [];
+  if (!kept || typeof kept !== "object") return [];
+  return Object.keys(sent).filter((k) => !(k in kept));
+}
 
 /**
  * The routes over one store, validating writes against `schema`.
@@ -32,17 +50,30 @@ export function preferencesRouter<S extends z.ZodType>(
     }),
   );
 
+  // Parsed here rather than through `validate`, which replaces `req.body` with the stripped
+  // result — and the two are exactly what has to be COMPARED (see droppedKeys).
   router.put(
     "/preferences",
-    validate(schema),
     wrap((req, res) => {
       const sub = (req as { user?: { sub?: string } }).user?.sub;
       if (!sub)
         return res.status(401).json({ error: "no user on the session" });
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success)
+        return res.status(400).json({
+          error: parsed.error.issues.map((i) => i.message).join("; "),
+        });
+      // Refused rather than stored short: a write that quietly keeps half of what it was given
+      // is a preference that comes back wrong on the next load, with nothing to point at.
+      const dropped = droppedKeys(req.body, parsed.data);
+      if (dropped.length)
+        return res.status(400).json({
+          error: `this service does not store ${dropped.join(", ")} — declare it in its preferences schema`,
+        });
       // Wholesale, not a merge: the browser holds the whole object and sends it back, so a
       // merge would make a field impossible to CLEAR — you could pick an engine and never
       // un-pick one.
-      store.write(sub, req.body as z.infer<S>);
+      store.write(sub, parsed.data as z.infer<S>);
       res.json({ ok: true });
     }),
   );
