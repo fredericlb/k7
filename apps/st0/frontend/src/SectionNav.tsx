@@ -1,15 +1,8 @@
-// SectionNav.tsx — les sections de st0, dans les deux formes que l'écran demande : une bande
-// d'onglets quand il y a la place, un menu hamburger quand il n'y en a pas. Une seule liste,
-// pour que les deux ne puissent pas diverger. Voir ../docs/responsive.md.
+// SectionNav.tsx — les sections de st0, en `AppHeaderItem` : la bande d'onglets et le menu
+// hamburger sont ceux de @frediverse/ui, cette liste est celle de st0. Le compte de chaque
+// section voyage sur le `trailing` de l'item. Voir ../docs/responsive.md.
 
-import { Button } from "@frediverse/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@frediverse/ui/sheet";
+import type { AppHeaderItem } from "@frediverse/ui/app-header";
 import { RECORDINGS_DIR } from "@studio/mediatek/types";
 import {
   Boxes,
@@ -17,12 +10,10 @@ import {
   FolderGit2,
   ListMusic,
   type LucideIcon,
-  Menu,
   Mic,
   Waves,
   Workflow,
 } from "lucide-react";
-import { useState } from "react";
 import { PROJECTS_SECTION, type SectionId } from "./routes";
 
 /**
@@ -49,121 +40,39 @@ export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];
 
-/** Ce que porte une ligne, quelle que soit la forme : l'icône, le nom, et combien il y en a. */
-function Row({
-  label,
-  Icon,
-  count,
-  active,
-}: {
-  label: string;
-  Icon: LucideIcon;
-  count: number;
-  active: boolean;
-}) {
-  return (
-    <>
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+/**
+ * Les sections, dans la forme que la barre partagée consomme.
+ *
+ * Le COMPTE part sur `trailing` et non dans le libellé : le libellé est la chaîne que le menu
+ * coche et qu'`aria-current` annonce, et un nombre fondu dedans serait lu comme une partie du nom
+ * de la page — et changerait à chaque fois que le catalogue change. Atténué et tabulaire, comme il
+ * l'a toujours été.
+ *
+ * Une fonction et non un tableau : `counts` et `section` changent, la liste non.
+ */
+export function sectionItems(
+  section: SectionId,
+  counts: Partial<Record<string, number>>,
+  onPick: (id: SectionId) => void,
+): AppHeaderItem[] {
+  return SECTIONS.map(({ id, label, icon: Icon }) => ({
+    label,
+    icon: <Icon className="h-4 w-4 shrink-0" />,
+    active: section === id,
+    onClick: () => onPick(id),
+    trailing: (
       <span
-        className={`shrink-0 tabular-nums text-xs ${active ? "" : "text-muted-foreground"}`}
+        className={`shrink-0 tabular-nums text-xs ${
+          section === id ? "" : "text-muted-foreground"
+        }`}
       >
-        {count}
+        {counts[id] ?? 0}
       </span>
-    </>
-  );
+    ),
+  }));
 }
 
-export function SectionNav({
-  section,
-  counts,
-  onPick,
-}: {
-  section: SectionId;
-  counts: Partial<Record<string, number>>;
-  onPick: (id: SectionId) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const here = SECTIONS.find((s) => s.id === section);
-
-  return (
-    <>
-      {/* Étroit : le hamburger, et le nom de la section À CÔTÉ. Un hamburger seul ne dit pas
-          où l'on est, et c'est la première chose qu'on demande à un écran de téléphone. */}
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            aria-label="Sections"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="border-b p-4">
-            <SheetTitle>Sections</SheetTitle>
-          </SheetHeader>
-          <nav className="flex flex-col p-2">
-            {SECTIONS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                // Le menu se referme sur le choix : il recouvre l'écran, et le laisser ouvert
-                // cacherait exactement ce qu'on vient de demander à voir.
-                onClick={() => {
-                  onPick(id);
-                  setOpen(false);
-                }}
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm ${
-                  section === id
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50"
-                }`}
-              >
-                <Row
-                  label={label}
-                  Icon={Icon}
-                  count={counts[id] ?? 0}
-                  active={section === id}
-                />
-              </button>
-            ))}
-          </nav>
-        </SheetContent>
-      </Sheet>
-      {here ? (
-        <span className="truncate text-sm font-medium md:hidden">
-          {here.label}
-        </span>
-      ) : null}
-
-      {/* Large : la bande d'onglets, telle qu'elle a toujours été. */}
-      <nav className="hidden items-center gap-1 md:flex">
-        {SECTIONS.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            type="button"
-            // Rien à vider ici : changer de section suffit, et l'effet qui suit `section`
-            // s'en charge — y compris quand c'est le bouton « précédent » ou un lien profond
-            // qui en change, ce que ce gestionnaire ne voit pas.
-            onClick={() => onPick(id)}
-            className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
-              section === id
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50"
-            }`}
-          >
-            <Row
-              label={label}
-              Icon={Icon}
-              count={counts[id] ?? 0}
-              active={section === id}
-            />
-          </button>
-        ))}
-      </nav>
-    </>
-  );
-}
+/** Le nom de la section où l'on est — ce que la barre met en sous-titre. Un hamburger seul ne dit
+ *  pas où l'on est, et c'est la première chose qu'on demande à un écran de téléphone. */
+export const sectionLabel = (section: SectionId): string | undefined =>
+  SECTIONS.find((s) => s.id === section)?.label;

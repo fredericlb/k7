@@ -61,6 +61,31 @@ per-frame to *report* rather than to draw belongs behind it too.
 full width** — with the transport controls and the pane toggles in the header. It is the
 wiring and the layout; almost nothing else.
 
+### The header is the shared bar, with l8's contents in it
+
+`@frediverse/ui/app-header` draws it — the same bar st0 and k7 use — and l8 fills its four slots:
+
+| slot | what l8 puts there |
+|---|---|
+| `title` / `subtitle` | `l8`, and the build stamp |
+| `children` | the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
+| `items` | the project's **screen surfaces** — the desk, and whatever else `surfaces/` declares |
+| `actions` | the pane row, Share, Settings — or, on a phone, the one menu they collapse into |
+
+The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
+control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens
+something that is already mounted, and Escape backs out of it: `aria-pressed`, not `aria-current`,
+and each one carries its key in its tooltip — which is why the row stays as it is rather than
+becoming labelled entries that would drop the shortcut. A **surface** is a page: declared by the
+project, reached by name, one at a time.
+
+Two things l8 asks the bar for. The padding: it is `px-5 py-3` by default and this app trims it
+through the inner box — every row of chrome is a row the panes don't get, and a phone in landscape
+is about 400 px tall. And the phone layout stays l8's own: the panes are the **bottom tab bar**
+there, and the header's right side collapses into `MobileMenu`. The bar's hamburger therefore holds
+the SURFACES and nothing else — which is not a duplicate of the tabs, and is the one list on that
+screen with nowhere else to go.
+
 There is a second layout, and it is not a second *choice*: a project whose `project.yaml` says
 `project_type: live` has no arrangement, so `App` draws **the chains graph on the whole screen**
 and the timeline's furniture goes with it — the transport (every control on it addresses a

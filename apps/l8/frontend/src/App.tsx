@@ -1,9 +1,11 @@
 ﻿// App.tsx — the l8 web shell: the global view (editor | timeline over chains), the
+
 // transport header, and the Shift-Shift command palette. A view is a LAYOUT, not a mode —
 // every pane stays mounted and `full`/`focus` only decide size and keys, so no open file,
 // caret or zoom is ever lost. Live engine state goes to an external store, never App state.
 // See docs/shell.md.
 
+import { AppHeader } from "@frediverse/ui/app-header";
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import {
@@ -2570,23 +2572,125 @@ export default function App({
     [screenSurfaces, locales],
   );
 
+  /**
+   * The bar's right side — what `AppHeader`'s `actions` slot holds.
+   *
+   * A JSX VALUE and not a nested component: a component declared inside this render would be a
+   * new type on every pass, and React would unmount the menus and the pane row each time. It is
+   * lifted out of the return only because it is ninety lines and a prop is no place to read them.
+   *
+   * These are controls, not pages, which is why they are here rather than in `items`: a pane
+   * button fullscreens something already mounted and Escape backs out of it, and each one carries
+   * its own key in its tooltip. The project's SCREEN surfaces are the pages, and they are `items`.
+   */
+  const headerActions = (
+    <div className="flex min-w-0 items-center gap-1">
+      {/* On a phone the whole right side collapses into one button: the view
+          toggles are gone (there is no studio view), the pane buttons became the
+          bottom tab bar, and what remains — sharing, settings, the metronome, the
+          bottom panels — is menu material rather than a row of icons. */}
+      {isMobile ? (
+        <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
+          {/* What is left of the header's right side once the view toggles are
+              gone (no studio view on a phone) and the pane buttons have become the
+              tab bar. The metronome and the panel toggles are NOT here: they live
+              in the footer, and a second copy would be one more thing to keep in
+              step for no gain. */}
+          <div className="flex items-center gap-1">
+            <ShareMenu
+              gitStatus={gitStatus}
+              busy={share.busy}
+              onRun={(c) => void runCommand(c)}
+            />
+            <SettingsMenu onRun={(c) => void runCommand(c)} />
+          </div>
+        </MobileMenu>
+      ) : (
+        <>
+          {/* Pane buttons, and no VIEW toggles beside them: there is one layout to
+              CHOOSE, and a toggle that is always on and cannot be turned off is a control
+              in name only. `live` is not one either — it is what the project IS, not a
+              layout you pick.
+
+              The row is drawn from the LAYOUT's fullscreenable set, not from PANES: in
+              `live` that set is empty and the nav disappears with it, because its one pane
+              already has the window and every button would either do nothing or hide the
+              only thing on screen. */}
+          <nav className="flex items-center gap-1">
+            {layout.fullscreen.map((p) => {
+              const Icon = PANE_META[p].icon;
+              const key = keyForCommand(`ui ${p}`, commandPrefs);
+              return (
+                <Button
+                  key={p}
+                  size="icon"
+                  variant={full === p ? "default" : "ghost"}
+                  aria-pressed={full === p}
+                  onClick={() => void runCommand(`ui ${full === p ? view : p}`)}
+                  title={
+                    full === p
+                      ? `${PANE_META[p].label} — back to the ${VIEW_META[view].label} view (esc)`
+                      : `${PANE_META[p].label} fullscreen${key ? ` (${key})` : ""}`
+                  }
+                  aria-keyshortcuts={key}
+                  aria-label={PANE_META[p].label}
+                >
+                  <Icon className="h-4 w-4" />
+                </Button>
+              );
+            })}
+          </nav>
+          <div className="mx-1 h-5 w-px bg-border" />
+          <ShareMenu
+            gitStatus={gitStatus}
+            busy={share.busy}
+            onRun={(c) => void runCommand(c)}
+          />
+          <SettingsMenu onRun={(c) => void runCommand(c)} />
+        </>
+      )}
+    </div>
+  );
+
   return (
     <EngineStoreProvider value={store}>
       <div className="relative flex h-full flex-col bg-background text-foreground">
-        <header
+        {/* The shared bar (@frediverse/ui/app-header) with l8's own contents in it: the
+            title and the build stamp are its slots, everything between them is `children`,
+            and the right side is `actions`.
+
+            WHAT GOES IN `items` — the project's SCREEN surfaces, and only those. The doc's line
+            is "a page goes in items, a control goes in actions", and a pane button is a control:
+            it fullscreens a pane that is already mounted and Escape backs out of it (aria-pressed,
+            not aria-current). A surface is a page — the desk, the viewport — declared by the
+            project and reached by name. Which is also why the panes keep their icon-only row: it
+            carries each pane's key in its tooltip, and this app advertises a shortcut wherever a
+            control is drawn.
+
+            The padding is overridden through the inner box: the shared bar is px-5 py-3 and every
+            row of chrome is a row the panes don't get — a phone in landscape is ~400px tall. */}
+        <AppHeader
+          variant="plain"
           className={cn(
-            "flex items-center border-b border-border px-3",
-            // Every row of chrome is a row the panes don't get, and a phone in landscape is ~400px tall.
-            isMobile ? "gap-2 py-1" : "gap-3 py-2",
+            "z-20",
+            isMobile
+              ? "[&>div]:gap-2 [&>div]:px-3 [&>div]:py-1"
+              : "[&>div]:px-3 [&>div]:py-2",
           )}
+          title="l8"
+          subtitle={VERSION}
+          items={screenSurfaces.map((s) => ({
+            label: s.id,
+            icon: <Disc3 className="h-4 w-4" />,
+            active: openSurface === s.id,
+            onClick: () => void runCommand(`ui surface ${s.id}`),
+          }))}
+          actions={headerActions}
         >
-          {/* left: title + project. flex-1 so the transport, in its own flex-1-flanked
-              centre section, sits at the true horizontal middle of the header. */}
+          {/* Between the two: what you are looking AT, and the transport over it. `mx-auto` on
+              the transport rather than a flex-1 either side — the shared bar owns the outer
+              layout now, and this is the closest thing to the true centre it leaves room for. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="font-semibold">l8</span>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {VERSION}
-            </span>
             <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
               {project?.name ?? "…"}
             </span>
@@ -2603,9 +2707,8 @@ export default function App({
                 workspace — pick a project ▶ in Editor
               </span>
             )}
-          </div>
 
-          {/* centre: transport — play/pause, stop, the clock, then record.
+            {/* centre: transport — play/pause, stop, the clock, then record.
               Each drops focus on click (blurOnClick): these are the buttons a mouse is
               most likely to land on right before reaching for Space, and a focused one
               eats the keypress. On play/pause the theft is invisible (the button does
@@ -2617,175 +2720,76 @@ export default function App({
               timeline has none: the clock would count bars nothing is written against and
               record would arm a lane with nowhere to put a take. Sound still reaches the
               engine, played by what is wired in the graph. See docs/surfaces.md. */}
-          {!noArrangement && (
-            <div className="flex shrink-0 items-center gap-1">
-              <Button
-                size="icon"
-                variant={playing ? "default" : "secondary"}
-                // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
-                disabled={transportWaiting}
-                onClick={(e) => {
-                  transport(playing ? "stop" : "play");
-                  blurOnClick(e);
-                }}
-                title={
-                  transportWaiting
-                    ? "Loading this project — the engine can't answer the transport yet"
-                    : playing
-                      ? m["transport.pause"]()
-                      : m["transport.play"]()
-                }
-                aria-label={
-                  transportWaiting
-                    ? "loading the project"
-                    : playing
-                      ? m["transport.pause"]()
-                      : m["transport.play"]()
-                }
-                aria-busy={transportWaiting}
-              >
-                {transportWaiting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : playing ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                size="icon"
-                variant="secondary"
-                onClick={(e) => {
-                  transport("stop");
-                  transport("rewind");
-                  blurOnClick(e);
-                }}
-                title={m["transport.stop"]()}
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-              <TransportClock
-                tempo={recInfo.tempo}
-                beatsPerBar={recInfo.beatsPerBar}
-              />
-              <Button
-                size="icon"
-                variant={recordEnabled ? "default" : "secondary"}
-                aria-pressed={recordEnabled}
-                onClick={(e) => {
-                  engineRef.current?.setRecordEnabled(!recordEnabled);
-                  blurOnClick(e);
-                }}
-                title={m["transport.record"]()}
-                aria-label={m["transport.record"]()}
-              >
-                <Circle
-                  className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+            {!noArrangement && (
+              <div className="mx-auto flex shrink-0 items-center gap-1">
+                <Button
+                  size="icon"
+                  variant={playing ? "default" : "secondary"}
+                  // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
+                  disabled={transportWaiting}
+                  onClick={(e) => {
+                    transport(playing ? "stop" : "play");
+                    blurOnClick(e);
+                  }}
+                  title={
+                    transportWaiting
+                      ? "Loading this project — the engine can't answer the transport yet"
+                      : playing
+                        ? m["transport.pause"]()
+                        : m["transport.play"]()
+                  }
+                  aria-label={
+                    transportWaiting
+                      ? "loading the project"
+                      : playing
+                        ? m["transport.pause"]()
+                        : m["transport.play"]()
+                  }
+                  aria-busy={transportWaiting}
+                >
+                  {transportWaiting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : playing ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  onClick={(e) => {
+                    transport("stop");
+                    transport("rewind");
+                    blurOnClick(e);
+                  }}
+                  title={m["transport.stop"]()}
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+                <TransportClock
+                  tempo={recInfo.tempo}
+                  beatsPerBar={recInfo.beatsPerBar}
                 />
-              </Button>
-            </div>
-          )}
-
-          {/* right: view toggles + menus, balancing the left so the centre stays centred */}
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
-            {/* On a phone the whole right side collapses into one button: the view
-                toggles are gone (there is no studio view), the pane buttons became the
-                bottom tab bar, and what remains — sharing, settings, the metronome, the
-                bottom panels — is menu material rather than a row of icons. */}
-            {isMobile ? (
-              <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
-                {/* What is left of the header's right side once the view toggles are
-                    gone (no studio view on a phone) and the pane buttons have become the
-                    tab bar. The metronome and the panel toggles are NOT here: they live
-                    in the footer, and a second copy would be one more thing to keep in
-                    step for no gain. */}
-                <div className="flex items-center gap-1">
-                  <ShareMenu
-                    gitStatus={gitStatus}
-                    busy={share.busy}
-                    onRun={(c) => void runCommand(c)}
+                <Button
+                  size="icon"
+                  variant={recordEnabled ? "default" : "secondary"}
+                  aria-pressed={recordEnabled}
+                  onClick={(e) => {
+                    engineRef.current?.setRecordEnabled(!recordEnabled);
+                    blurOnClick(e);
+                  }}
+                  title={m["transport.record"]()}
+                  aria-label={m["transport.record"]()}
+                >
+                  <Circle
+                    className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
                   />
-                  <SettingsMenu onRun={(c) => void runCommand(c)} />
-                </div>
-              </MobileMenu>
-            ) : (
-              <>
-                {/* Pane buttons, and no VIEW toggles beside them: there is one layout to
-                    CHOOSE, and a toggle that is always on and cannot be turned off is a control
-                    in name only. `live` is not one either — it is what the project IS, not a
-                    layout you pick.
-
-                    The row is drawn from the LAYOUT's fullscreenable set, not from PANES: in
-                    `live` that set is empty and the nav disappears with it, because its one pane
-                    already has the window and every button would either do nothing or hide the
-                    only thing on screen. */}
-                <nav className="flex items-center gap-1">
-                  {layout.fullscreen.map((p) => {
-                    const Icon = PANE_META[p].icon;
-                    const key = keyForCommand(`ui ${p}`, commandPrefs);
-                    return (
-                      <Button
-                        key={p}
-                        size="icon"
-                        variant={full === p ? "default" : "ghost"}
-                        aria-pressed={full === p}
-                        onClick={() =>
-                          void runCommand(`ui ${full === p ? view : p}`)
-                        }
-                        title={
-                          full === p
-                            ? `${PANE_META[p].label} — back to the ${VIEW_META[view].label} view (esc)`
-                            : `${PANE_META[p].label} fullscreen${key ? ` (${key})` : ""}`
-                        }
-                        aria-keyshortcuts={key}
-                        aria-label={PANE_META[p].label}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </Button>
-                    );
-                  })}
-                </nav>
-                {/* One button per SCREEN surface the project declares, after the panes and before
-                    the menus. They are not panes — the list is the project's, not the shell's
-                    (see routes.ts) — so they get their own group rather than joining the row
-                    above. Nothing is drawn for a project with no `surfaces/` folder.
-
-                    `split` surfaces are left out on purpose: one is already on screen, in the
-                    layout, and a button that "opened" it would name a screen there is none of.
-                    The pane row above is where the arrangement is reached. */}
-                {screenSurfaces.length > 0 && (
-                  <nav className="flex items-center gap-1">
-                    {screenSurfaces.map((s) => (
-                      <Button
-                        key={s.id}
-                        size="icon"
-                        variant={openSurface === s.id ? "default" : "ghost"}
-                        aria-pressed={openSurface === s.id}
-                        onClick={() => void runCommand(`ui surface ${s.id}`)}
-                        title={
-                          openSurface === s.id
-                            ? `${s.id} — revenir à la vue`
-                            : `${s.id} (${s.surface.type})`
-                        }
-                        aria-label={s.id}
-                      >
-                        <Disc3 className="h-4 w-4" />
-                      </Button>
-                    ))}
-                  </nav>
-                )}
-                <div className="mx-1 h-5 w-px bg-border" />
-                <ShareMenu
-                  gitStatus={gitStatus}
-                  busy={share.busy}
-                  onRun={(c) => void runCommand(c)}
-                />
-                <SettingsMenu onRun={(c) => void runCommand(c)} />
-              </>
+                </Button>
+              </div>
             )}
           </div>
-        </header>
-
+        </AppHeader>
         {/* main: the panes on top, an optional bottom split panel below */}
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">

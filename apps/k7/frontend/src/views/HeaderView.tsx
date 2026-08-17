@@ -1,3 +1,9 @@
+// HeaderView.tsx — k7's app bar, hosted in the shared @frediverse/ui AppHeader: the mark and the
+// build stamp on the left, the six sections as entries, and the controls that must stay reachable
+// on the right. The bar, the sm breakpoint and the hamburger are the shared component's; what is
+// in them is this app's.
+
+import { AppHeader, type AppHeaderItem } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import {
   DropdownMenu,
@@ -18,12 +24,19 @@ interface Props {
   onOpenSettings: () => void;
 }
 
-// Each nav entry carries an icon so the header can collapse to icons-only on
-// small screens (see the responsive rules in styles.css) instead of hiding
-// behind a hamburger.
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
+/**
+ * The sections, and they are ENTRIES rather than controls — which is the line AppHeader draws and
+ * the reason they are the ones behind the hamburger on a phone.
+ *
+ * The icons used to be what made the bar fit: below a breakpoint `styles.css` hid every label and
+ * left a row of glyphs, deliberately instead of a hamburger. That is the decision this adoption
+ * gives up — six anonymous glyphs are a row nobody can read either, and the shared bar collapses
+ * them into a menu that names them. The icons stay because a named entry with a glyph is still
+ * faster to find than a named entry without one.
+ */
 const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
   { key: "sessions", label: "Sessions", icon: "🎙" },
   { key: "moments", label: "Moments", icon: "◆" },
@@ -57,50 +70,50 @@ export function HeaderView({
     }
   };
 
+  const items: AppHeaderItem[] = NAV_ITEMS.map(({ key, label, icon }) => ({
+    label,
+    icon: <span className="nav-icon">{icon}</span>,
+    active: activeNav === key,
+    onClick: () => onNav(key),
+  }));
+
   return (
-    <header className="topbar">
-      <div className="topbar-inner">
-        <div className="topbar-left">
-          <div className="brand" onClick={onHome} title="Home">
-            {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
-            <img
-              className="brand-icon"
-              src={`${import.meta.env.BASE_URL}icon-192.png`}
-              alt=""
-            />
-            <span className="brand-text">
-              f<span style={{ color: "var(--red)" }}>·</span>rec
-            </span>
-          </div>
-          <span className="topbar-build">{VERSION}</span>
-        </div>
-
-        <nav className="topnav">
-          {NAV_ITEMS.map(({ key, label, icon }) => (
-            <button
-              key={key}
-              className={activeNav === key ? "active" : ""}
-              onClick={() => onNav(key)}
-              title={label}
-              aria-label={label}
-            >
-              <span className="nav-icon">{icon}</span>
-              <span className="nav-label">{label}</span>
-            </button>
-          ))}
-
+    <AppHeader
+      // `plain`: k7's page carries the colour and this bar is a surface with a rule under it —
+      // which is what `.topbar` said in CSS before the shared bar said it in a prop.
+      variant="plain"
+      title={
+        // A button, not a div: it navigates, and the mark has always been the way home.
+        <button type="button" className="brand" onClick={onHome} title="Home">
+          {/* BASE_URL, not "/": vite rewrites index.html, never a JSX string. */}
+          <img
+            className="brand-icon"
+            src={`${import.meta.env.BASE_URL}icon-192.png`}
+            alt=""
+          />
+          <span className="brand-text">
+            f<span style={{ color: "var(--red)" }}>·</span>rec
+          </span>
+        </button>
+      }
+      subtitle={VERSION}
+      items={items}
+      actions={
+        <>
+          {/* Favourites is a MENU over songs, not a page — so it stays inline rather than
+              collapsing with the sections. Empty, it draws nothing: a menu of nothing is a
+              button that disappoints. */}
           {favorites.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button
-                  className="topnav-fav-btn"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   title="Favorites"
                   aria-label="Favorites"
                 >
                   <span className="nav-icon">★</span>
-                  <span className="nav-label">Favorites</span>
-                  <span className="caret">▾</span>
-                </button>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-w-64">
                 {favorites.map((s) => (
@@ -121,18 +134,20 @@ export function HeaderView({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-        </nav>
 
-        <div className="topbar-right">
-          <button
-            className="topbar-settings"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onOpenSettings}
             title="Settings"
             aria-label="Settings"
           >
             <span className="nav-icon">⚙</span>
-          </button>
+          </Button>
 
+          {/* The one thing this bar DOES rather than opens, so it keeps its weight and its
+              label. Its error hangs off it — anchored to the button that failed, which is
+              where anyone would look for it. */}
           <div className="topbar-new-wrap">
             <Button
               className="topbar-new"
@@ -150,8 +165,8 @@ export function HeaderView({
               <p className="error topbar-error">🎤 {sessionError}</p>
             )}
           </div>
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 }

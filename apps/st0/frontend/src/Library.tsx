@@ -3,6 +3,7 @@
 // middle. Refetches a section only when ITS token moved, which is the whole reason the
 // service hands out one per section. The chrome follows l8 — same shell, same tree.
 
+import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import {
@@ -78,7 +79,7 @@ import {
   PROJECTS_SECTION,
   type SectionId,
 } from "./routes";
-import { SectionNav } from "./SectionNav";
+import { sectionItems, sectionLabel } from "./SectionNav";
 import { SongEditor } from "./SongEditor";
 import { takesOf } from "./songTakes";
 import { sortNodes } from "./treeOrder";
@@ -834,111 +835,120 @@ export function Library() {
     >
       <div className="flex h-full flex-col bg-background text-foreground">
         {/* The families moved from the side to the header, where l8 puts its views: the
-          side is worth more as the current zone's tree than as three fixed buttons. */}
-        <header className="flex items-center gap-2 border-b px-3 py-2 sm:gap-4 sm:px-6">
-          {/* Le titre disparaît en premier : sur un écran étroit, savoir DANS QUELLE section
-              on est vaut plus que savoir quelle app on regarde — le nom de la section est
-              juste à côté du hamburger. */}
-          <span className="hidden text-lg font-semibold tracking-tight sm:inline">
-            st0
-          </span>
-          <SectionNav section={section} counts={counts} onPick={setSection} />
-          {/* L'arborescence, sur écran étroit seulement : elle occupe 240 px fixes, ce qui ne
+          side is worth more as the current zone's tree than as three fixed buttons.
+          La barre elle-même est celle de @frediverse/ui : elle porte la bande d'onglets, le
+          point de bascule et le hamburger. Ce qui reste ici est ce que st0 met dedans.
+          Le nom de la SECTION est le sous-titre — sur un écran étroit, savoir où l'on est vaut
+          plus que savoir quelle app on regarde, et un hamburger seul ne le dit pas. */}
+        <AppHeader
+          variant="plain"
+          title="st0"
+          subtitle={sectionLabel(section)}
+          items={sectionItems(section, counts, setSection)}
+          className="z-20"
+          actions={
+            <>
+              {/* L'arborescence, sur écran étroit seulement : elle occupe 240 px fixes, ce qui ne
               laisse rien au contenu sur un téléphone. Elle devient un tiroir, et ce bouton est
               la seule façon de l'ouvrir. Absent là où il n'y en a pas — les dépôts, le moteur
               et la recherche dessinent toute la largeur eux-mêmes. */}
-          {hasTree ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden"
-              aria-label="Arborescence"
-              onClick={() => setTreeOpen(true)}
-            >
-              <FolderTree className="h-5 w-5" />
-            </Button>
-          ) : null}
-          {/* Chaque section que l'arbre ne sait pas écrire a son bouton ici : les morceaux
+              {hasTree ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="md:hidden"
+                  aria-label="Arborescence"
+                  onClick={() => setTreeOpen(true)}
+                >
+                  <FolderTree className="h-5 w-5" />
+                </Button>
+              ) : null}
+              {/* Chaque section que l'arbre ne sait pas écrire a son bouton ici : les morceaux
             parce que leur arborescence est déduite des tags, les enregistrements parce qu'un
-            enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md. */}
-          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
-            {section === "songs" ? (
-              <>
-                {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
+            enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md.
+            Plus de `ml-auto` : la barre partagée pousse déjà ses actions à droite. */}
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                {section === "songs" ? (
+                  <>
+                    {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
                     aller en chercher un qu'on n'a pas sont deux gestes, et celui-ci ne
                     remplace pas l'autre. Il MÈNE à une page — l'historique s'allonge — au
                     lieu d'ouvrir un dialogue. Voir docs/hunt.md. */}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSection("find")}
-                >
-                  {/* L'icône seule quand la place manque : le bouton reste atteignable, et
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSection("find")}
+                    >
+                      {/* L'icône seule quand la place manque : le bouton reste atteignable, et
                       c'est la phrase qui coûte les cent pixels dont l'en-tête manque. */}
-                  <Search className="h-4 w-4 sm:mr-1" />
-                  <span className="hidden sm:inline">Trouver des morceaux</span>
-                </Button>
-                <AddSong onDone={refresh} engine={choice} />
-              </>
-            ) : null}
-            {isZone ? (
-              <AddRecording onDone={refresh} onError={setError} />
-            ) : null}
-            {/* La version part avant tout le reste : c'est la seule chose ici dont on n'a
+                      <Search className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">
+                        Trouver des morceaux
+                      </span>
+                    </Button>
+                    <AddSong onDone={refresh} engine={choice} />
+                  </>
+                ) : null}
+                {isZone ? (
+                  <AddRecording onDone={refresh} onError={setError} />
+                ) : null}
+                {/* La version part avant tout le reste : c'est la seule chose ici dont on n'a
                 jamais besoin dans l'instant. */}
-            <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
-              {VERSION}
-            </span>
-          </div>
-          {/* The way out to the studio's other apps. First of the three icon buttons because
+                <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
+                  {VERSION}
+                </span>
+              </div>
+              {/* The way out to the studio's other apps. First of the three icon buttons because
             it is the only one that LEAVES: the two beside it change how this page behaves. */}
-          <OtherApps />
-          {/* Where sound comes out, beside the cog rather than inside it: it is changed while
+              <OtherApps />
+              {/* Where sound comes out, beside the cog rather than inside it: it is changed while
             listening — you hear it on the wrong machine and reach for it — whereas the cog
             holds things you set once. Its own button so it is one click, and its icon says
             the current answer without opening anything. */}
-          <PlaybackPicker
-            target={playback.target}
-            engineReady={choice.ready}
-            onChoose={playback.choose}
-          />
-          {/* One cog for the two things that belong to the person rather than the library:
+              <PlaybackPicker
+                target={playback.target}
+                engineReady={choice.ready}
+                onChoose={playback.choose}
+              />
+              {/* One cog for the two things that belong to the person rather than the library:
             which engine auditions a module, and signing out. One place, and it stays
             reachable while the editor is open — which is why the pick is threaded into it
             rather than read once: see useModuleEngine. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Réglages">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
-              <DropdownMenuLabel>Moteur</DropdownMenuLabel>
-              <div className="px-2 pb-2">
-                <EnginePicker
-                  ranked={choice.ranked}
-                  chosenId={choice.chosenId}
-                  onChoose={choice.choose}
-                  onRetry={choice.refresh}
-                />
-              </div>
-              {/* The page behind the picker: the tray's engine options, in the browser. */}
-              <DropdownMenuItem
-                onSelect={() => {
-                  setSection("engine");
-                  setPicked(null);
-                }}
-              >
-                <Activity className="mr-2 h-4 w-4" />
-                État du moteur
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void auth.logout()}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Se déconnecter
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" aria-label="Réglages">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Moteur</DropdownMenuLabel>
+                  <div className="px-2 pb-2">
+                    <EnginePicker
+                      ranked={choice.ranked}
+                      chosenId={choice.chosenId}
+                      onChoose={choice.choose}
+                      onRetry={choice.refresh}
+                    />
+                  </div>
+                  {/* The page behind the picker: the tray's engine options, in the browser. */}
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      setSection("engine");
+                      setPicked(null);
+                    }}
+                  >
+                    <Activity className="mr-2 h-4 w-4" />
+                    État du moteur
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void auth.logout()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Se déconnecter
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+        />
 
         {/* The engine page draws edge to edge for the same reason the repositories do:
           nothing it shows is on the volume. */}

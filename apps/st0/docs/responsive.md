@@ -9,19 +9,31 @@ Un seul point de bascule, `md` (768 px). Pas trois : chaque palier est une deuxi
 à vérifier, et ce qui casse ici casse d'un coup — au-dessous, la place manque pour toutes les
 colonnes à la fois ; au-dessus, elle suffit pour toutes.
 
-## Les sections : une liste, deux formes
+## Les sections : une liste, et la barre partagée
 
-`SectionNav.tsx` tient la liste et la rend deux fois — bande d'onglets au-dessus de `md`,
-hamburger au-dessous. **Une seule liste** : deux copies auraient divergé à la première section
-ajoutée, et une section qui n'existe que sur un écran est une section qu'on ne trouve pas.
+`SectionNav.tsx` tient la liste ; **la barre est celle de `@frediverse/ui`** (`AppHeader`), qui
+rend les deux formes — bande d'onglets au-dessus de son point de bascule, hamburger au-dessous.
+Une seule liste, comme avant : deux copies auraient divergé à la première section ajoutée, et une
+section qui n'existe que sur un écran est une section qu'on ne trouve pas. Ce qui a changé, c'est
+qui dessine les deux formes — st0 les écrivait à la main, et c'est exactement le composant que
+`ui: AppHeader adoptable by every app` a rendu partageable.
 
-Le nom de la section courante est écrit **à côté** du hamburger. Un hamburger seul ne dit pas où
-l'on est, et c'est la première question qu'on pose à un écran de téléphone. Le titre « st0 »
-disparaît le premier pour lui laisser la place : savoir dans quelle section on est vaut plus que
-savoir quelle app on regarde.
+Trois conséquences, et deux sont des choix qui survivent :
 
-Le menu se referme sur le choix — il recouvre l'écran, et le laisser ouvert cacherait exactement
-ce qu'on vient de demander à voir.
+- **Le compte de chaque section reste**, sur le `trailing` de l'item — un emplacement ajouté à
+  `AppHeaderItem` pour ça. Pas dans le libellé : le libellé est la chaîne que le menu coche et
+  qu'`aria-current` annonce, et un nombre fondu dedans serait lu comme une partie du nom de la
+  page — et changerait à chaque fois que le catalogue change.
+- **Le nom de la section courante reste dit**, en `subtitle` de la barre plutôt qu'à côté du
+  hamburger. Un hamburger seul ne dit pas où l'on est, et c'est la première question qu'on pose à
+  un écran de téléphone. Le titre « st0 » ne disparaît plus pour lui laisser la place : les deux
+  tiennent, séparés par un point.
+- **Le point de bascule des sections est celui de la barre** (`sm`, 640 px), pas le `md` du reste
+  de cette page. Un seul palier restait la règle tant que st0 dessinait tout ; la barre partagée
+  a le sien, et le faire bouger pour une app le ferait bouger pour toutes.
+
+Le menu se referme sur le choix — c'est le comportement du `DropdownMenu` qu'il utilise, là où
+st0 fermait un `Sheet` à la main.
 
 ## L'arbre : une colonne qui devient un tiroir
 
@@ -46,7 +58,8 @@ Ce qui part en premier est ce dont on n'a jamais besoin dans l'instant :
 | la version | `lg` | rien ne s'y décide |
 | le panneau des paramètres de module | `lg` | 384 px de plus ; ce qu'il montre s'atteint en ouvrant le module |
 | la phrase « Trouver des morceaux » | `sm` | l'icône reste, donc le bouton aussi |
-| le titre « st0 » | `sm` | remplacé par le nom de la section |
+| les onglets de section | `sm` | ils passent dans le hamburger de la barre partagée |
+| le nom de la section (sous-titre) | 420 px | seuil de `AppHeader`, pas le nôtre |
 
 Les éditeurs en deux volets (chaîne, playlist, morceau) **s'empilent** au lieu de se partager la
 largeur : deux moitiés d'un écran de téléphone font deux colonnes où rien ne tient. Le YAML
