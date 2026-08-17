@@ -205,8 +205,10 @@ const RECYCLE_DIR = "_recycle_bin";
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
 
-// Hidden files and deps are never shown/edited.
-const skip = (name: string): boolean =>
+// Hidden files and deps are never shown/edited — and, exported, never WATCHED either: the
+// strudel watcher prunes the same names, so "what this service considers part of a project"
+// is one list rather than two that drift.
+export const skip = (name: string): boolean =>
   name.startsWith(".") ||
   name === "node_modules" ||
   name === RECYCLE_DIR ||

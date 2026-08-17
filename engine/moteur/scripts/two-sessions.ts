@@ -1,13 +1,17 @@
 // two-sessions.ts — the proof that two services no longer clobber each other on one engine,
 // driven through the REAL clients rather than hand-rolled JSON, so it also proves the client
 // half. Two projects, two sessions: both apply, only one plays, and the idle one must not see
-// the other's transport. Usage: npx tsx engine/moteur/scripts/two-sessions.ts   (engine on :8833)
+// the other's transport. Plus two RAW sockets, which is the only way to see what was actually
+// SENT rather than what a client kept — see `wire` below.
+// Usage: npx tsx engine/moteur/scripts/two-sessions.ts [ws://host:port]   (default :8833; the
+// dev session's engine is on :8765)
 
 import { EngineClient } from "@studio/engine-client/engineClient";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import { SESSIONS } from "@studio/engine-protocol/sessions";
+import WebSocket from "ws";
 
-const URL = "ws://127.0.0.1:8833";
+const URL = process.argv[2] ?? process.env.STUDIO_ENGINE_WS ?? "ws://127.0.0.1:8833";
 
 // A minute of one held note through a 4osc — enough signal to be unambiguous, cheap to build.
 const doc = (name: string, key: number): ProjectDoc =>
@@ -81,6 +85,39 @@ function watch(c: EngineClient): Seen {
   return seen;
 }
 
+/**
+ * A raw socket, counting `state` frames BY the session they name.
+ *
+ * The clients above cannot show this: `forSession` drops another project's frames before the
+ * event fires, so a client sees the same thing whether the engine addressed its frames or shouted
+ * them at everyone. What the wire costs — a decode and a discard per frame, per tab, per session
+ * on the machine — is only visible here.
+ *
+ * `hello` is what declares the session, exactly as the browser client does. A socket that sends
+ * nothing declares nothing, which is the probe case the last count below covers.
+ */
+function wire(session?: string): Record<string, number> {
+  const seen: Record<string, number> = {};
+  const ws = new WebSocket(URL);
+  ws.on("open", () => {
+    if (session !== undefined)
+      ws.send(JSON.stringify({ session, type: "hello" }));
+  });
+  ws.on("error", () => {});
+  ws.on("message", (d) => {
+    let m: { type?: string; session?: string };
+    try {
+      m = JSON.parse(d.toString());
+    } catch {
+      return;
+    }
+    if (m.type !== "state") return;
+    const k = m.session ?? "(none)";
+    seen[k] = (seen[k] ?? 0) + 1;
+  });
+  return seen;
+}
+
 // Wrapped rather than top-level await: engine/moteur declares no `"type": "module"`, so tsx
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
@@ -88,6 +125,8 @@ async function main() {
   const st0 = new EngineClient(URL, SESSIONS.st0);
   const onL8 = watch(l8);
   const onSt0 = watch(st0);
+  const onWire = wire(SESSIONS.st0); // a surface on st0, watching the wire itself
+  const onProbe = wire(); // the tray: opens, says nothing, is gone
   l8.connect();
   st0.connect();
 
@@ -112,8 +151,25 @@ async function main() {
 
   console.log("l8    :", onL8);
   console.log("st0       :", onSt0);
+  console.log("sur le fil (st0) :", onWire);
+  console.log("sur le fil (sonde):", onProbe);
 
   const problems: string[] = [];
+  // What was SENT, not what was kept. A state frame is a per-track level array plus whatever
+  // waveform envelopes are subscribed, at 20 Hz: shouted at every socket, each tab decoded every
+  // other project's meters to throw them away, and one session playing kept every other
+  // session's tabs awake past their own idle divider.
+  if (!onWire[SESSIONS.st0])
+    problems.push("le socket st0 ne recoit aucune trame de sa propre session");
+  for (const sid of Object.keys(onWire))
+    if (sid !== SESSIONS.st0)
+      problems.push(
+        `le socket st0 a recu ${onWire[sid]} trame(s) de '${sid}' — les trames d'etat sont diffusees`,
+      );
+  for (const sid of Object.keys(onProbe))
+    problems.push(
+      `une sonde muette a recu ${onProbe[sid]} trame(s) de '${sid}' — elle n'a rien demande`,
+    );
   if (!onL8.playing)
     problems.push("l8 n'a jamais vu son transport partir");
   if (onL8.maxPlayhead < 1)

@@ -381,12 +381,14 @@ export class PatternClock {
       const to = this.cycleAt(this.nowSec()) + LOOKAHEAD_SEC * cps;
       if (to > from) {
         const startBeat = from * bpc;
+        let added = 0; // clips this window produced — zero means the doc did not change
         const midiNotes = new Map<string, ClipDoc["notes"]>(); // note-track id -> notes for this window
         for (const p of this.patterns) {
           for (const e of p.pattern.query(from, to)) {
             const r = this.resolve(e, p);
             if (!r) continue; // nothing to play (see resolve)
             if (r.sample) {
+              added++;
               pushTo(this.clips, r.trackId, {
                 id: `smp-${this.clipSeq++}`,
                 type: "audio",
@@ -415,6 +417,7 @@ export class PatternClock {
         }
         for (const [trackId, notes] of midiNotes) {
           if (!notes.length) continue;
+          added++;
           pushTo(this.clips, trackId, {
             id: `${trackId}-${this.clipSeq++}`,
             type: "midi",
@@ -431,7 +434,12 @@ export class PatternClock {
           });
         }
         this.scheduledCycle = to;
-        this.emit();
+        // Only when the document actually MOVED. A tick whose window held no event, and whose
+        // prune dropped nothing, rebuilds a doc identical to the one already sent — and sending
+        // it costs a stringify here, a parse there, and a full ProjectDiff in the engine, six or
+        // seven times a second for nothing. The window still advances: `scheduledCycle` is what
+        // says the pattern was read, and it is set above whatever came out.
+        if (added || pruned) this.emit();
         return;
       }
     }

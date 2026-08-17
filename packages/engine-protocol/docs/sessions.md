@@ -54,6 +54,13 @@ It is the only thing in the repo that would catch them drifting.
 with no `session` field through. The binary audio frames need no filter at all — the engine
 already routes those per socket.
 
+The 20 Hz `state` frame is now routed per socket *as well as* stamped: the engine remembers which
+project each connection named in its first real message and sends each frame only to those. That
+is an optimisation, not a second filter, and `forSession` still runs on the result. Read the two
+in that order — the engine addresses with what a socket has said so far, the client decides with
+what the frame says. Relaxing the client because the engine got tidier would make a socket that
+has not spoken yet read someone else's meters.
+
 That rule is safe because of something outside this package, and it is worth being exact about
 it. The unstamped replies are a **closed set**, not a tendency: `ENGINE_GLOBAL_REPLIES` in
 `sessions.ts` names all five, `PER_SESSION_REPLIES` names the rest, and `sessions.test.ts` pins

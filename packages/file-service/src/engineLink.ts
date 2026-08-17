@@ -3,6 +3,7 @@
 // service sent to each of them, so a re-send or a take resolves its workspace explicitly.
 // The PatternClock is the one real singleton — see docs/activeProject.md.
 
+import type { Stats } from "node:fs";
 import { basename, relative } from "node:path";
 import {
   argClass,
@@ -31,7 +32,7 @@ import type { CommandInfo } from "@studio/web-protocol";
 import chokidar from "chokidar";
 import { rootDir } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
-import type { Workspace } from "./workspace.ts";
+import { skip, type Workspace } from "./workspace.ts";
 
 const SURFACE = "cli" as const; // the one surface the shared registry defines
 const NO_PROJECT =
@@ -410,6 +411,34 @@ async function closeStrudelWatcher(): Promise<void> {
     /* already closing */
   }
 }
+/**
+ * What the watcher below refuses to carry — and it used to carry everything under the project.
+ *
+ * `ignoreInitial` only silences the first events; chokidar still walks and remembers the whole
+ * tree, so a project with a `media/` folder of takes had every one of them statted and held for
+ * the sake of a handful of `.strudel` files.
+ *
+ * Two rules, and the second is why this is not a blacklist of heavy folders. Directories are
+ * pruned by `skip()` — the file service's own idea of what is not part of a project, so there is
+ * no second list to keep in step and nothing a person could have authored inside one. FILES are
+ * kept only when they are patterns, wherever they sit: that is what makes `media/` cheap without
+ * anyone having to predict where a pattern is allowed to live.
+ *
+ * The two-call shape is chokidar 3's: a two-argument predicate is asked once with the path alone
+ * and again with its `Stats`. Nothing may be ignored on the first call, or a file would be
+ * dropped before its kind is known.
+ */
+export function outsideTheWatch(
+  dir: string,
+  p: string,
+  stats?: Stats,
+): boolean {
+  if (p === dir) return false;
+  const name = basename(p);
+  if (skip(name)) return true;
+  return stats?.isFile() ? !name.endsWith(".strudel") : false;
+}
+
 function watchStrudel(dir: string | null): void {
   if (strudelWatcher) {
     void closeStrudelWatcher(); // switching projects: the old handle can close in the background
@@ -420,7 +449,10 @@ function watchStrudel(dir: string | null): void {
       void patternClock.refreshPatterns(strudelPatterns(dir), dir);
   };
   strudelWatcher = chokidar
-    .watch(dir, { ignoreInitial: true })
+    .watch(dir, {
+      ignoreInitial: true,
+      ignored: (p: string, stats?: Stats) => outsideTheWatch(dir, p, stats),
+    })
     .on("add", onChange)
     .on("change", onChange)
     .on("unlink", onChange)

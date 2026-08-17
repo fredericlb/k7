@@ -533,7 +533,9 @@ int main(int argc, char** argv) {
 
     // Broadcast a JSON message to every connected client, on the engine thread where send() is safe.
     // For replies that are the MACHINE's — the device list, the installed-plugin catalogue, the
-    // session list. Everything about one project goes through broadcastTo. See docs/protocol.md.
+    // session list. Everything about one project goes through broadcastTo, and the one message
+    // that is neither — the 20 Hz state frame, which nobody asked for — is addressed per socket
+    // where it is emitted. See docs/protocol.md.
     auto broadcast = [&server](const json& j) {
         const auto payload = j.dump();
         for (auto& client : server.getClients())
@@ -581,9 +583,28 @@ int main(int argc, char** argv) {
     // SESSION"), so this is the arrangement rather than a restriction.
     std::unordered_map<const ix::WebSocket*, std::string> drivers;
 
+    // WHICH project each socket is about, so the 20 Hz state frame goes to the sockets that
+    // asked for that one instead of to every socket on the port. Same map shape and the same
+    // mutex as `listeners`, for the same reason.
+    //
+    // Learned from the first REAL message a connection sends — the very test that earns it a
+    // "[client] connected" line, because it answers the same question: is this a client, or a
+    // probe that will be gone in a millisecond. NOT from `role: "driver"`, which would leave the
+    // file service out: it declares nothing on purpose (see file-service/engineLink.ts) and its
+    // pattern clock runs off these frames.
+    //
+    // Registered ONCE per socket, like `drivers` — and here that is what keeps `drop-session`
+    // and `show-native-plugin-ui` from rebinding a socket, since both carry ANOTHER session's id
+    // as an override.
+    //
+    // Misrouting is not a correctness hazard, deliberately: every client still runs `forSession`
+    // (@studio/engine-protocol/sessions) over what arrives. This map decides what to SEND, never
+    // what is legal to read — so a socket that has not spoken yet costs a frame, never a wrong meter.
+    std::unordered_map<const ix::WebSocket*, std::string> subscribers;
+
     server.setOnClientMessageCallback(
         [&host, &broadcast, &broadcastTo, &loggedMx, &loggedConns, &listenersMx, &listeners,
-         &drivers, engineId, engineToken](
+         &drivers, &subscribers, engineId, engineToken](
             std::shared_ptr<ix::ConnectionState> conn,
             ix::WebSocket& ws, const ix::WebSocketMessagePtr& msg) {
             // Who is talking to us: the TUI, the web backend and the CLI all connect here, and an arrival or a drop explains
@@ -635,6 +656,12 @@ int main(int argc, char** argv) {
                         drivers.erase(d);
                         host.post([&host, sid] { host.removeDriver(sid); });
                     }
+
+                    // And stop addressing state frames to it. Keyed by raw pointer like the two
+                    // above, so an entry outliving its socket could be matched by a later one the
+                    // allocator put at the same address — costing that socket a frame its own
+                    // filter drops, never a wrong reading.
+                    subscribers.erase(&ws);
                 }
                 bool announced;
                 {
@@ -682,6 +709,11 @@ int main(int argc, char** argv) {
                 }
                 if (firstReal)
                     std::cerr << "[client] connected (" << conn->getRemoteIp() << ")\n";
+                // …and says which project to send it state about. A probe never asks and never
+                // gets one: it opens, asks its one question and is gone, so 20 frames a second
+                // at it were pure copy.
+                std::lock_guard<std::mutex> lk(listenersMx);
+                subscribers.emplace(&ws, session);
             }
 
             if (type == "project") {
@@ -1178,8 +1210,12 @@ int main(int argc, char** argv) {
             }
         });
 
-    // Push transport/meter state to all clients ~20x/second.
-    host.onState([&broadcast](const studio::EngineHost::EngineState& s) {
+    // Push transport/meter state ~20x/second to the sockets that asked about THIS project — not
+    // to every socket on the port. One engine holds several sessions, so a broadcast had every
+    // tab decoding levels and waveform envelopes for songs it is not showing, only to have
+    // `forSession` drop them; and since the idle divider is per session, one session playing woke
+    // every other session's tabs 20 times a second. That filter stays: this decides what to send.
+    host.onState([&server, &listenersMx, &subscribers](const studio::EngineHost::EngineState& s) {
         json wf = json::object();
         for (const auto& [key, envelopes] : s.waveformEnvelopes) {
             json arr = json::array();
@@ -1187,7 +1223,7 @@ int main(int argc, char** argv) {
                 arr.push_back({{"min", e.min}, {"max", e.max}});
             wf[key] = std::move(arr);
         }
-        broadcast(json{
+        const auto payload = json{
             {"type", "state"},
             // WHICH project this frame describes. Empty is the default session — what a
             // client that never asked for one drives.
@@ -1199,7 +1235,22 @@ int main(int argc, char** argv) {
             {"armed", s.armedTracks},
             {"recordEnabled", s.recordEnabled},
             {"waveform", std::move(wf)},
-        });
+        }.dump();
+
+        // Chosen under the lock, sent outside it. A server-side IXWebSocket send blocks until the
+        // peer's window drains, with no bound, so holding the lock across one would park every
+        // connection thread reaching the Close handler — the rule the audio sender below states
+        // at length. The shared_ptrs keep the sockets alive across the sends.
+        std::vector<std::shared_ptr<ix::WebSocket>> targets;
+        {
+            const auto clients = server.getClients();
+            std::lock_guard<std::mutex> lk(listenersMx);
+            for (auto& client : clients)
+                if (auto hit = subscribers.find(client.get());
+                    hit != subscribers.end() && hit->second == s.session)
+                    targets.push_back(client);
+        }
+        for (auto& client : targets) client->send(payload);
     }, 50);
 
     // A finished take: the file is closed and named, the brain turns it into a clip.

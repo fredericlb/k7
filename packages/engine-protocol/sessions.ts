@@ -96,6 +96,11 @@ export const PER_SESSION_REPLIES = [
  *
  * Which means the correctness of this one line lives in engine/moteur/server/main.cpp, in the
  * choice between its `broadcast` and `broadcastTo` verbs.
+ *
+ * `state` is now ADDRESSED as well as stamped — the engine sends each frame only to the sockets
+ * that named that project. This filter still runs on it, and must: addressing is an optimisation
+ * the engine makes with what a socket has said so far, while this is the rule. Nothing here may
+ * be relaxed because the engine got tidier.
  */
 export function forSession(
   frame: { session?: unknown },

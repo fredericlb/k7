@@ -104,6 +104,25 @@ makes a session non-idle.
 A client must not read the cadence as a signal: it is not a heartbeat, and
 `packages/engine-browser`'s store drops an identical frame anyway (`docs/meters.md`).
 
+### …and it goes only to the sockets that asked about that project
+
+The state frame is the one reply nobody requested, so it is the only one addressed by SOCKET
+rather than by verb. `main.cpp` remembers which session each connection named in its first real
+message — the same test that earns it a `[client] connected` line — and sends each frame to those
+sockets alone. It used to `broadcast`, so every socket on the port decoded every session's meters
+and waveform envelopes before its own `forSession` dropped them; and since the idle divider above
+is *per session*, one session playing kept every other session's tabs awake at 20 Hz. Measured on
+a machine holding three sessions (`scripts/two-sessions.ts`, which now counts frames on a raw
+socket): 200 frames received per socket in nine seconds, 34 of them wanted.
+
+Deliberately not `role: "driver"` — the file service declares nothing (its link would otherwise
+count as a driver and no project would ever look abandoned) and its pattern clock runs off these
+frames. And deliberately once per socket: `drop-session` and `show-native-plugin-ui` carry another
+session's id as an override, and a socket that rebound on those would go deaf.
+
+A probe — the tray asking for devices and hanging up — names nothing and now gets nothing, which
+is what it always wanted.
+
 ## server -> client, BINARY
 
 One message type, and the only binary this socket carries: a frame of master audio, sent

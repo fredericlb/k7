@@ -1,7 +1,9 @@
 # Audit — vitesse du côté web
 
 Le pendant de [engine/moteur/docs/audit-stabilite.md](../engine/moteur/docs/audit-stabilite.md)
-pour tout ce qui n'est pas du C++ : le service de fichiers, le compilateur, les surfaces.
+pour tout ce qui n'est pas du C++ : le service de fichiers, le compilateur, les surfaces — plus le
+FIL, où les deux se rejoignent et où le lot C a fini par toucher `main.cpp`. Ce qui reste au
+C++ seul (le rappel audio, `applyFull`, les drapeaux de compilation) est chez lui, pas ici.
 
 Il reprend sa règle de méthode, qui est la seule qui compte ici :
 
@@ -94,10 +96,88 @@ onglet, plus trois `JSON.stringify` du morceau entier.
 Le compte de marches ne bouge pas — la marche était déjà là — mais la projection, elle, disparaît
 sur un cache plein.
 
+## Le lot C — le fil et le moteur
+
+Les trois constats qui touchaient le son, mesurés puis corrigés. Ils sont ici et non plus dans la
+liste d'attente ci-dessous.
+
+### La trame d'état partait sur toutes les sockets
+
+`main.cpp` l'envoyait par `broadcast`, c'est-à-dire à chaque socket du port, à charge pour le
+client de la trier avec `forSession`. Ce tri reste — il est la RÈGLE — mais le moteur adresse
+désormais : il retient quelle session chaque connexion a nommée dans son premier vrai message et
+n'envoie la trame qu'à celles-là.
+
+C'est le premier message NON-SONDE qui déclare, c'est-à-dire le test exact qui vaut à une
+connexion sa ligne `[client] connected` : il pose la même question, « est-ce un client, ou une
+sonde partie dans la milliseconde ». Pas `role: "driver"`, qui laisserait le service de fichiers
+dehors — il ne déclare rien exprès, et son horloge de motifs vit de ces trames. Et une seule fois
+par socket : `drop-session` et `show-native-plugin-ui` portent l'id d'une AUTRE session en
+surcharge, donc une socket qui se rebindait dessus devenait sourde.
+
+**Mesuré** avec `engine/moteur/scripts/two-sessions.ts`, qui compte maintenant les trames sur une
+socket brute — la seule façon de voir ce qui a été ENVOYÉ plutôt que ce qu'un client a gardé. La
+machine tenait trois sessions (deux du banc, plus la vraie session st0 du poste), neuf secondes :
+
+| | avant | après |
+|---|---|---|
+| une socket qui suit `st0` | 200 trames, dont 34 pour elle | **34, toutes pour elle** |
+| une sonde muette (le plateau) | 200 | **0** |
+
+83 % de décodage jeté, par socket et par onglet. Et comme le diviseur d'inactivité est PAR
+SESSION, une session qui joue tenait éveillés à 20 Hz les onglets de toutes les autres.
+
+### L'horloge de motifs renvoyait le document entier, même inchangé
+
+Le vrai gaspillage n'était pas le document entier — c'en était un que rien n'avait touché.
+`tick()` émettait à chaque fenêtre franchie, y compris celles où le motif ne contenait aucun
+événement et où l'élagage n'avait rien retiré : le document reconstruit était alors identique au
+précédent, et il coûtait un `stringify` ici, une analyse là-bas et un `ProjectDiff` complet dans
+le moteur, six à sept fois par seconde. La fenêtre, elle, doit continuer d'avancer —
+`scheduledCycle` dit que le motif a été LU, pas qu'il a produit quelque chose.
+
+**Mesuré** par `packages/song/src/patternClock.test.ts`, sur `s("bd ~ ~ ~")` à 120 bpm : une
+mesure entière passait de **14 envois à 2**. Le test échoue avant le correctif (16 au lieu de 4,
+en comptant les deux de l'amorçage), ce qui est ce qui prouve que le constat était réel.
+
+Ce qui reste — le document entier quand il a VRAIMENT changé — demande un message partiel dans le
+protocole et une `ProjectDiff` qui l'accepte. À décider sur un chiffre, pas sur une impression :
+tel quel, le coût ne se paie plus que sur les fenêtres qui jouent quelque chose.
+
+### Le watcher strudel tenait tout le dossier de projet
+
+`chokidar.watch(dir, { ignoreInitial: true })` : `ignoreInitial` ne fait taire que les premiers
+événements, l'arbre entier est quand même parcouru et retenu. Un projet avec un `media/` de prises
+faisait tenir chacune d'elles pour une poignée de `.strudel`.
+
+Deux règles, et la seconde est ce qui évite une liste noire de dossiers lourds : les RÉPERTOIRES
+sont élagués par le `skip()` du service de fichiers — sa propre idée de ce qui n'appartient pas à
+un projet, donc pas de seconde liste à tenir en phase — et les FICHIERS ne sont gardés que si ce
+sont des motifs, où qu'ils soient. C'est ça qui rend `media/` gratuit sans que personne ait à
+prédire où un motif a le droit de vivre, et c'est le piège que ce constat annonçait : un `ignored`
+mal choisi rend une piste strudel sourde.
+
+**Mesuré** sur un projet synthétique (200 prises, 40 rendus, 300 objets git, 100 modules) en
+comptant ce que `getWatched()` rend :
+
+| | avant | après |
+|---|---|---|
+| entrées tenues | 649 | **5** |
+| répertoires surveillés | 8 | 5 |
+
+`packages/file-service/src/engineLink.test.ts` fige le prédicat, y compris l'appel en deux temps
+de chokidar 3 : rien ne peut être ignoré au premier appel, où le type n'est pas encore connu.
+
+**Et une correction au constat**, comme pour le jeton de révision : le relevé reprochait au
+watcher d'être un singleton « là où `startEngineForActive` est par espace de travail ». Ce n'en
+est pas un défaut. L'en-tête de `engineLink.ts` et le commentaire de `clockWs` disent la même
+chose depuis longtemps — l'horloge, son watcher et le `clientDoc` du navigateur sont UNE seule
+chose qui tourne, le dernier arrivé gagne, et c'est délibéré. Le watcher n'est pas un singleton de
+trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la relire.
+
 ## Ce qui reste, et n'a pas été fait
 
-Écrit ici plutôt que laissé à re-trouver. Aucun n'a été appliqué : chacun demande sa propre
-vérification, et les trois derniers touchent le son.
+Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
@@ -105,9 +185,7 @@ vérification, et les trois derniers touchent le son.
 | `projectErrors()` paie `moduleStamp` deux fois, hors de tout `withModuleStamp` (~20 ms le calcul, chiffre de `moduleCache.ts`) | `workspace.ts` | même remède que ci-dessus, mais dans `@studio/song` |
 | `/module-libraries` re-marche toutes les bibliothèques à chaque `reloadKey`, sans aucun cache | `EditorTab.tsx` → `workspace.ts` | c'est la « lecture de 295 ms » de `moduleCache.ts` |
 | `loadModules`/`loadModuleRefs` clonent en profondeur à chaque appel, cache touché ou non | `loader.ts` (`cloneModules`) | la raison est bonne (les appelants tamponnent `ui`/`cc` en place) ; « mémoïsé » veut dire O(modules) d'allocation, pas O(1). **C'est le suspect n°1 pour la variance ci-dessus** |
-| Chaque trame `state` part sur toutes les sockets, toutes sessions confondues ; le navigateur analyse celles des autres avant de les jeter | `moteur/server/main.cpp`, `engine-browser/src/engine.ts` | touche le C++ et le protocole |
-| L'horloge de motifs renvoie le `ProjectDoc` entier à 6,7 Hz pendant la lecture | `song/src/patternClock.ts` | idem, et ça change ce que le moteur reçoit |
-| Un watcher chokidar sur tout le dossier de projet pour attraper `*.strudel` | `file-service/src/engineLink.ts` | un `ignored` mal choisi rend une piste strudel sourde |
+| L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
 | `ViewportTab` s'abonne au playhead dans le corps du panneau, et embarque un relevé de debug à 5 Hz livré sans condition | `ViewportTab.tsx`, `VideoCanvas.tsx` | rien ne monte de composant ici : ça se corrige à la lecture et se vérifie à l'écran |
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
@@ -124,8 +202,14 @@ vérification, et les trois derniers touchent le son.
 
 1. `npm run bench` dans le paquet concerné, avant et après, **sur la même machine et sans
    réinstallation entre les deux**.
-2. Pour un coût qui ne se lit pas au chronomètre — un parcours de répertoire, une allocation —
-   compter l'appel plutôt que le mesurer : une sonde qui remplace `fs.readdirSync` le temps d'un
-   appel donne un entier, et un entier ne fluctue pas.
+2. Pour un coût qui ne se lit pas au chronomètre — un parcours de répertoire, une allocation, une
+   trame envoyée — compter l'appel plutôt que le mesurer : une sonde qui remplace `fs.readdirSync`,
+   une socket brute qui compte les trames, `getWatched()` qui rend ce que chokidar tient. Un entier
+   ne fluctue pas, et les trois chiffres du lot C sont tous de cette forme.
 3. `npx turbo run test --continue` reste le filet : une optimisation qui change une réponse est
    une régression, pas une optimisation.
+4. Pour le C++, en plus : `cmake --build --preset windows-msvc`, les **quatre** cibles de test
+   nommées puis `ctest -R studio_`, et un `--list-audio-devices`. Piège du poste de dev, payé une
+   fois ici : la session dev reconstruit toute seule, mais `Copy-Item` PRÉSERVE la date du fichier
+   source — un `main.cpp` restauré depuis une copie paraît plus vieux que son `.obj` et MSBuild
+   ne le recompile pas. Le binaire testé est alors l'ancien, et tout a l'air de marcher.
