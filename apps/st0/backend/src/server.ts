@@ -20,6 +20,8 @@ import { z } from "zod";
 import { huntRouter } from "./routes/hunt.ts";
 import { libraryRouter } from "./routes/library.ts";
 import { projectsRouter } from "./routes/projects.ts";
+import { publicShareRouter } from "./routes/publicShare.ts";
+import { sharesRouter } from "./routes/shares.ts";
 
 // Dev config from the root env.yaml, layered INTO process.env — not read into a value.
 // Everything downstream resolves the library through `process.env.STUDIO_MEDIATEK`, so a
@@ -85,6 +87,26 @@ app.use(
   bearerOrSession(requireAuth),
   projectsRouter({ verifyApiToken }),
 );
+
+/**
+ * THE ONE PUBLIC SURFACE, and its position on this page is load-bearing.
+ *
+ * A shared project is read by whoever holds its link and by nobody's session, so this router
+ * carries no guard at all — which only works because it is mounted ABOVE the `app.use("/api",
+ * requireAuth, …)` further down. Move it below and every shared link becomes a login redirect:
+ * nothing throws at boot, no test fails, and the symptom appears on somebody else's screen.
+ * `packages/engine-registry/mount.ts` writes up the same trap for the same reason.
+ *
+ * The failure is at least in the safe direction — a misplaced mount makes a share unreachable,
+ * never public — and `publicShareRouter` ends in a terminal 404 so a miss cannot fall through to
+ * that guard and come back 401 for something that does not exist. See docs/shares.md.
+ */
+app.use("/api/public/share", publicShareRouter());
+
+// The author's half of the same thing: uploading a snapshot, listing them, taking one back.
+// Same guard as the repositories, and for the same reason — the browser has a cookie, the file
+// service that renders and uploads is headless and carries the bearer.
+app.use("/api/shares", bearerOrSession(requireAuth), sharesRouter());
 
 // Finding songs on the Soulseek network, through a slskd daemon on another machine. Session
 // only, unlike the two above: this one SPENDS somebody's bandwidth and queue slots on a network
