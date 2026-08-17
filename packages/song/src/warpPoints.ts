@@ -79,6 +79,52 @@ export function seedWarp(beats: number, seconds: number): WarpMarker[] {
   ];
 }
 
+/**
+ * The map, made to describe a source of `seconds` again — after a bounce rewrote the file.
+ *
+ * The engine hands Tracktion the map's beat span as the length of the WHOLE source and lets
+ * auto-tempo stretch (`applyClipWarp`). So the map's last point has to sit at the file's end, or
+ * the engine reads the take's tempo off the wrong duration: a render that appended a two-second
+ * tail to an 17.92 s take turned 110 bpm into 98.9, played everything 11% slow, and — since an
+ * unlooped clip is capped at its window in SOURCE seconds — cut the phrase before its end.
+ *
+ * The material itself is untouched by a bounce: same start, same rate, sample for sample. So
+ * every existing point keeps its second, and only the END moves. What is appended continues at
+ * the map's own overall rate, which is the one thing here that is measured rather than assumed —
+ * a tail is not musical material, and the rate the take already had is the honest extension.
+ *
+ * Shortening is the same statement backwards: points past the new end describe audio that is no
+ * longer there, so they go, and the last one lands on the end. Two points are kept whatever
+ * happens, since a one-point map states nothing about rate and cannot be applied.
+ *
+ * `null` when nothing needs to change — the caller writes no file, which is what keeps a bounce
+ * that changed no duration a one-line diff.
+ */
+export function retimeWarpMarkers(
+  markers: readonly WarpMarker[],
+  seconds: number,
+): WarpMarker[] | null {
+  if (markers.length < 2 || !(seconds > 0)) return null;
+  const first = markers[0];
+  const last = markers[markers.length - 1];
+  const srcSpan = last[1] - first[1];
+  const beatSpan = last[0] - first[0];
+  if (!(srcSpan > 0) || !(beatSpan > 0)) return null;
+  // Already describes this file: a millisecond either way is the same end, and rewriting for it
+  // would churn the file on every bounce that changed nothing.
+  if (Math.abs(last[1] - seconds) <= SAME_SEC) return null;
+
+  const rate = beatSpan / srcSpan; // beats per source second, over the whole map
+  const kept = markers.filter((m) => m[1] < seconds - SAME_SEC);
+  // The first point is the anchor and stays whatever the new length is — a file trimmed to
+  // nothing before it would leave no map at all, and the floor below is what says so.
+  if (kept.length === 0) kept.push([first[0], first[1]]);
+  const at = kept[kept.length - 1];
+  const out: WarpMarker[] = kept.map((m): WarpMarker => [m[0], m[1]]);
+  out.push([at[0] + (seconds - at[1]) * rate, seconds]);
+  return out.length >= 2 ? out : null;
+}
+
 /** The complaint about the first pair that is out of order, or null. Both axes must rise: seconds
  *  because the source only runs one way, beats because the timeline does too. */
 function firstNonMonotonic(m: readonly WarpMarker[]): string | null {

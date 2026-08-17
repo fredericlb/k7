@@ -53,10 +53,33 @@ rewrites exactly one line — `source:` in `clips/<id>.yaml` — and:
 - its position, window, fades and loops are untouched, because none of them are in that line;
 - the original file stays on disk, so the whole edit is one line to undo.
 
-The clip's `from`/`to` window survives because the render is the **whole file**: same start,
-same sample rate, so the seconds it cuts at still mean the same thing. A chain with a tail
-(a reverb, a delay) makes the render longer than the source, which the window cannot notice —
-it is anchored at the beginning.
+The clip's `from`/`to` window survives because the render is the **whole file, unwarped, at
+position zero** (`bounceDoc`, and a test pins that document's shape): same start, same rate,
+sample for sample — measured on a real pair, zero frames of lag. So the seconds the window cuts at
+still mean the same moment. It is anchored at the beginning, and the render being longer is
+something it cannot notice.
+
+### …but the STRETCH MAP is not anchored at the beginning
+
+It is anchored at both ends, and that is what this got wrong. `applyClipWarp` hands Tracktion the
+map's beat span as the length of the *whole source*, so the last marker's second is what says how
+long the take is and therefore at what tempo it was played.
+
+**Every render is two seconds longer than its source**, tail or no tail: `fullRange` adds them
+unconditionally, for synth release and reverb. A 17.920 s take at 110 bpm came back 19.920 s, the
+engine read 32.834841 beats over 19.92 s as **98.9 bpm**, played 11% slow, and — an unlooped clip
+being capped at its window in SOURCE seconds — cut the phrase before its end. Two clips of
+`01.danse.l8` were in exactly that state, and the workaround that had been reached for was
+`warp: false` on the placement.
+
+So the repoint retimes the map as it goes: `retimeWarpMarkers` moves its END onto the render's
+length, continuing at the map's own rate, and touches nothing else
+(`@studio/song`'s `docs/warp.md`). A render that changed no duration leaves the clip file
+byte-identical.
+
+The two seconds are kept rather than trimmed, deliberately: a chain *can* legitimately lengthen
+material — a reverb tail is part of the treatment, and bouncing it is the point. What was wrong
+was the map describing a file that no longer existed, not the file being longer.
 
 Two placements of one clip are one file, so `track process` deduplicates its sources before
 rendering. Bouncing twice would have run the second pass over the first one's output.

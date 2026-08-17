@@ -30,12 +30,14 @@ import { resolveModule } from "@studio/song/moduleResolve";
 import type { PluginDoc, ProjectDoc } from "@studio/song/project";
 import { MIXER_PLUGIN } from "@studio/song/project";
 import { librariesDirFor } from "@studio/song/sharedFolders";
+import { retimeWarpMarkers, type WarpMarker } from "@studio/song/warpPoints";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { parse as parseYaml } from "yaml";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
 import { fileStamp } from "./recordTake";
 import { renderMixdown } from "./render";
+import { wavSeconds } from "./wavLength";
 
 /** What a chain of the médiathèque is named by, so the two vocabularies can't collide with the
  *  project's own chain names. The same token a module ref carries (see @studio/song's mediatekRoot). */
@@ -401,15 +403,23 @@ export function renderPath(
  * against SONG time and this clip starts at zero, so baking a curve in would apply it at the
  * wrong moment on every placement.
  */
-export function bounceThroughChain(
-  engineBin: string,
+/**
+ * The one-track document a bounce renders — the RAW file, and nothing else about the clip.
+ *
+ * Split out and exported because it carries a property the rest of this file depends on and
+ * cannot check: **no warp, no window, no offset, at position zero.** The render is therefore
+ * sample-for-sample aligned with the source, which is what lets `repointClips` leave every
+ * placement's `from`/`to` exactly as it found them — the seconds they cut at still mean the same
+ * moment of the same material. Carry the clip's warp in here and that stops being true for every
+ * clip in the project at once, silently.
+ */
+export function bounceDoc(
   project: ProjectDoc,
   source: string,
   chain: ResolvedChain,
-  outWav: string,
-): void {
+): ProjectDoc {
   const name = parsePath(source).name;
-  const doc = emptyDoc({
+  return emptyDoc({
     name: `${name} · ${chain.ref}`,
     tempo: project.tempo,
     sampleRate: project.sampleRate,
@@ -428,6 +438,16 @@ export function bounceThroughChain(
       }),
     ],
   });
+}
+
+export function bounceThroughChain(
+  engineBin: string,
+  project: ProjectDoc,
+  source: string,
+  chain: ResolvedChain,
+  outWav: string,
+): void {
+  const doc = bounceDoc(project, source, chain);
   const tmp = mkdtempSync(join(tmpdir(), "tbchain-"));
   try {
     const manifest = renderMixdown(engineBin, doc, tmp);
@@ -445,23 +465,49 @@ export function bounceThroughChain(
  * where it was, and only the material changes. The original file is untouched on disk, which
  * makes the whole edit one line to undo.
  *
- * The clip's `from`/`to` window stays valid because the render is the whole file: same start,
- * same rate, so the seconds it cuts at still mean the same thing.
+ * The clip's `from`/`to` window stays valid because the render is the whole file, UNWARPED and
+ * at position zero (see `bounceThroughChain`): same start, same rate, sample for sample, so the
+ * seconds it cuts at still mean the same thing. That is a property of the bounce document and
+ * `processChain.test.ts` pins it — a bounce that carried the clip's warp or its window would
+ * move the material under every one of these files.
+ *
+ * The clip's WARP MAP does not survive on its own, though, and that is what this also fixes.
+ * The engine reads the map's beat span as the length of the whole source (`applyClipWarp`), so
+ * a render whose file is a different length changes the tempo the take is read at. `--render`
+ * appends two seconds for reverb and release, which turned a 17.92 s take at 110 bpm into 98.9,
+ * played it 11% slow, and — an unlooped clip being capped at its window in SOURCE seconds — cut
+ * the phrase before its end. `retimeWarpMarkers` moves the map's end onto the new file's,
+ * continuing at the map's own rate, and touches nothing else.
  */
-export function repointClips(dir: string, from: string, to: string): string[] {
+export function repointClips(
+  dir: string,
+  from: string,
+  to: string,
+  /** The render's length in seconds — absent when it could not be read, and then the map is left alone. */
+  seconds?: number | null,
+): string[] {
   const moved: string[] = [];
   const rel = relative(dir, to).split("\\").join("/");
   for (const e of entityFiles(join(dir, "clips"), "clips")) {
-    let raw: { source?: unknown };
+    let raw: { source?: unknown; warp?: { markers?: unknown } };
     try {
       raw = (parseYaml(readFileSync(e.file.path, "utf8"), { version: "1.2" }) ??
-        {}) as { source?: unknown };
+        {}) as { source?: unknown; warp?: { markers?: unknown } };
     } catch {
       continue; // a clip file that won't parse is the compiler's to report, not this edit's
     }
     if (!raw.source || resolve(dir, String(raw.source)) !== resolve(from))
       continue;
     setFileValue(e.file.path, ["source"], rel);
+    // …and the map, when there is one and the file's length moved under it.
+    const markers = raw.warp?.markers;
+    if (seconds != null && Array.isArray(markers)) {
+      const retimed = retimeWarpMarkers(
+        markers.map((m): WarpMarker => [Number(m?.[0]), Number(m?.[1])]),
+        seconds,
+      );
+      if (retimed) setFileValue(e.file.path, ["warp", "markers"], retimed);
+    }
     moved.push(e.id);
   }
   return moved;
@@ -551,7 +597,8 @@ export function processWithChain(
       continue;
     }
     changed = true;
-    const moved = repointClips(dir, source, out);
+    // The render's own length, so a clip's stretch map can follow it — see repointClips.
+    const moved = repointClips(dir, source, out, wavSeconds(out));
     lines.push(
       `${show(source)} → ${show(out)}` +
         (moved.length

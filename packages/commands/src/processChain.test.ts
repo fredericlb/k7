@@ -17,23 +17,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
+  bounceDoc,
   chainNames,
   renderPath,
   repointClips,
   resolveChain,
   resolveTargets,
 } from "./processChain";
+import { wavSeconds } from "./wavLength";
 
 let ws: string;
 let dir: string;
 let library: string;
 
-/** 44 bytes of WAV header and no samples — enough to BE a file, which is all this asks. */
-function wav(path: string): void {
-  const b = Buffer.alloc(44);
+/**
+ * A WAV header and `seconds` of silence — enough to BE a file, and to have a LENGTH.
+ *
+ * The length matters since the render's duration is what a clip's stretch map is retimed onto.
+ * 16-bit stereo at 48k, so a second is 192 000 bytes: small enough to write a few of.
+ */
+function wav(path: string, seconds = 0): void {
+  const bytes = Math.round(seconds * 48000) * 4;
+  const b = Buffer.alloc(44 + bytes);
   b.write("RIFF", 0);
-  b.writeUInt32LE(36, 4);
+  b.writeUInt32LE(36 + bytes, 4);
   b.write("WAVEfmt ", 8);
   b.writeUInt32LE(16, 16);
   b.writeUInt16LE(1, 20);
@@ -43,7 +52,7 @@ function wav(path: string): void {
   b.writeUInt16LE(4, 32);
   b.writeUInt16LE(16, 34);
   b.write("data", 36);
-  b.writeUInt32LE(0, 40);
+  b.writeUInt32LE(bytes, 40);
   writeFileSync(path, b);
 }
 
@@ -271,9 +280,9 @@ describe("where the render lands", () => {
 
   it("STACKS a different chain — the clip now plays the warmed file, and that is the material", () => {
     const warm = renderPath("/songs/clips/riff.wav", "warm", "260816T101500");
-    expect(renderPath(warm, "bright", "260816T113000").replace(/\\/g, "/")).toBe(
-      "/songs/clips/riff_warm_260816T101500_bright_260816T113000.wav",
-    );
+    expect(
+      renderPath(warm, "bright", "260816T113000").replace(/\\/g, "/"),
+    ).toBe("/songs/clips/riff_warm_260816T101500_bright_260816T113000.wav");
   });
 });
 
@@ -306,5 +315,108 @@ describe("the repoint — the `in place` half", () => {
         join(dir, "clips", "loose_warm.wav"),
       ),
     ).toEqual([]);
+  });
+});
+
+/**
+ * From `01.danse.l8`: `clip process … normalize` bounced a 17.920 s take and wrote 19.920 s —
+ * `--render` appends two seconds for reverb and release. The clip's stretch map still ended at
+ * 17.92, and the engine reads that beat span as the length of the WHOLE source, so the take's
+ * 110 bpm was read as 98.9, everything played 11% slow, and the phrase was cut before its end.
+ */
+describe("the stretch map follows the render", () => {
+  /** A clip with a map: 8 beats over 4 seconds, which is 120 bpm. */
+  const warped = (secs: number): string => {
+    const src = join(dir, "clips", "take.wav");
+    wav(src, secs);
+    writeFileSync(
+      join(dir, "clips", "take.yaml"),
+      "# hand-written\nsource: clips/take.wav\nwarp:\n  algorithm: slice\n  markers:\n    - [0, 0]\n    - [4, 2]\n    - [8, 4]\n",
+      "utf8",
+    );
+    return src;
+  };
+  const markersOf = (): number[][] => {
+    const y = parseYaml(
+      readFileSync(join(dir, "clips", "take.yaml"), "utf8"),
+    ) as { warp: { markers: number[][] } };
+    return y.warp.markers;
+  };
+
+  it("moves the map's end onto the longer file, keeping the take's tempo", () => {
+    const src = warped(4);
+    const out = join(dir, "clips", "take_warm.wav");
+    wav(out, 6); // the render, two seconds longer
+    expect(repointClips(dir, src, out, wavSeconds(out))).toEqual(["take"]);
+    const m = markersOf();
+    expect(m[m.length - 1][1]).toBeCloseTo(6, 6);
+    // 12 beats over 6 s is the same 120 bpm the 8-over-4 map stated.
+    expect(m[m.length - 1][0]).toBeCloseTo(12, 6);
+    // …and the points that were already there did not move: the material did not either.
+    expect(m.slice(0, 3)).toEqual([
+      [0, 0],
+      [4, 2],
+      [8, 4],
+    ]);
+  });
+
+  it("leaves a map alone when the render is the same length", () => {
+    const src = warped(4);
+    const out = join(dir, "clips", "take_warm.wav");
+    wav(out, 4);
+    repointClips(dir, src, out, wavSeconds(out));
+    expect(markersOf()).toEqual([
+      [0, 0],
+      [4, 2],
+      [8, 4],
+    ]);
+    // …and the file is otherwise the surgical edit it always was.
+    expect(readFileSync(join(dir, "clips", "take.yaml"), "utf8")).toContain(
+      "# hand-written",
+    );
+  });
+
+  it("leaves a map alone when the length could not be read", () => {
+    const src = warped(4);
+    const out = join(dir, "clips", "take_warm.wav");
+    wav(out, 6);
+    repointClips(dir, src, out, null);
+    expect(markersOf()).toEqual([
+      [0, 0],
+      [4, 2],
+      [8, 4],
+    ]);
+  });
+
+  it("still repoints a clip that has no map at all", () => {
+    const out = join(dir, "clips", "riff_warm.wav");
+    wav(out, 6);
+    expect(
+      repointClips(dir, join(dir, "clips", "riff.wav"), out, wavSeconds(out)),
+    ).toEqual(["riff"]);
+  });
+});
+
+/**
+ * The property every one of the above rests on: the bounce renders the RAW file, unwarped, at
+ * position zero. A document carrying the clip's warp or its window would move the material under
+ * the clip files this repoints, and the seconds their `from`/`to` cut at would stop meaning what
+ * they meant.
+ */
+describe("what the bounce document holds", () => {
+  it("is the source alone — no warp, no window, no offset", () => {
+    const project = loadProject(dir);
+    const doc = bounceDoc(
+      project,
+      join(dir, "clips", "riff.wav"),
+      resolveChain(dir, project, "gtr"),
+    );
+    const clip = doc.tracks[0].clips[0];
+    expect(clip.warp).toBeUndefined();
+    expect(clip.sourceFrom ?? 0).toBe(0);
+    expect(clip.sourceTo ?? 0).toBe(0);
+    expect(clip.offset).toBe(0);
+    expect(clip.start).toBe(0);
+    expect(clip.length).toBe(0); // 0 == the file's natural length
   });
 });

@@ -79,6 +79,35 @@ markers becoming LoopInfo beat points so each segment stretches independently. T
 because the schema requires it and kept when one is already there; it records where the map came
 from and nothing else.
 
+## The map's end IS the file's end
+
+`applyClipWarp` hands Tracktion the map's beat span as the length of the **whole source** and lets
+auto-tempo stretch. So the last marker's second is not merely the last thing pinned — it is what
+tells the engine how long the take is, and therefore at what tempo it was played. A map whose end
+falls short of the file says the take is slower than it is.
+
+Which is what a bounce does to it. `clip process … normalize` renders the material through a chain
+and points the clip at the render, and `--render` appends **two seconds** for reverb and release: a
+17.920 s take at 110 bpm came back 19.920 s long, the engine read 32.834841 beats over 19.92 s as
+**98.9 bpm**, played everything 11% slow — and, since an unlooped clip is capped at its window in
+SOURCE seconds, cut the phrase before its end. Observed in `01.danse.l8`, on the two clips that had
+been normalised.
+
+`retimeWarpMarkers(markers, seconds)` is the repair, and `processChain` calls it as it repoints.
+Three rules, and each is the conservative one:
+
+- **every existing point keeps its second.** A bounce renders the raw file unwarped at position
+  zero (`bounceDoc`), so the material is sample-for-sample where it was — measured on the real
+  pair: zero frames of lag. Only the END moved.
+- **what is appended continues at the map's own overall rate.** A tail is not musical material,
+  and the rate the take already had is the one thing here that is measured rather than assumed.
+- **a shorter file is the same statement backwards**: points past the new end describe audio that
+  is not there, so they go and the last lands on the end. Two points are kept whatever happens — a
+  one-point map states nothing about rate and cannot be applied.
+
+It answers `null` when nothing needs to change, so a bounce that changed no duration leaves the
+clip file byte-identical rather than churning every map it touches.
+
 ## What is not there yet
 
 **Dragging a stretch point on the waveform.** The marks are drawn in the clip panel now — on the

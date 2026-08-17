@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   removeWarpPoint,
+  retimeWarpMarkers,
   seedWarp,
   setWarpPoint,
   type WarpMarker,
@@ -118,5 +119,90 @@ describe("seeding a clip that has none", () => {
   it("refuses a clip with no length to stretch", () => {
     expect(() => seedWarp(0, 4)).toThrow();
     expect(() => seedWarp(8, 0)).toThrow();
+  });
+});
+
+/**
+ * The bug this exists for, from `01.danse.l8`: `clip process … normalize` bounced a 17.920 s take
+ * through a chain and wrote a 19.920 s file — the render adds a two-second tail for reverb and
+ * release. The map still ended at 17.92, and the engine reads the map's beat span as the length of
+ * the WHOLE source, so the take's 110 bpm became 98.9, everything played 11% slow, and the phrase
+ * was cut before its end by the window cap.
+ */
+describe("retiming a map onto a bounced file", () => {
+  // 32.834841 beats over 17.92 s is 109.93 bpm — the real take.
+  const TAKE: WarpMarker[] = [
+    [0, 0],
+    [12, 6.555542],
+    [32.834841, 17.92],
+  ];
+  const bpm = (m: WarpMarker[]) =>
+    ((m[m.length - 1][0] - m[0][0]) / (m[m.length - 1][1] - m[0][1])) * 60;
+
+  it("follows a file the render made LONGER, keeping the take's tempo", () => {
+    const out = retimeWarpMarkers(TAKE, 19.92);
+    expect(out).not.toBeNull();
+    if (!out) return;
+    expect(out[out.length - 1][1]).toBe(19.92);
+    // The whole point: the engine now reads the same tempo off the longer file.
+    expect(bpm(out)).toBeCloseTo(bpm(TAKE), 6);
+    // …and every point that was already there is untouched — the material did not move.
+    expect(out.slice(0, 3)).toEqual(TAKE);
+  });
+
+  it("drops what a SHORTER file no longer holds, and lands on its end", () => {
+    const out = retimeWarpMarkers(TAKE, 10);
+    expect(out).not.toBeNull();
+    if (!out) return;
+    expect(out[out.length - 1][1]).toBe(10);
+    expect(out.some((m) => m[1] > 10)).toBe(false);
+    // Not the same tempo to the last decimal, and it cannot be: the map is PIECEWISE, so a
+    // prefix carries its own local rate. What is exact is the segment this appended — it
+    // continues at the map's overall rate — and the tempo the engine reads off the whole is
+    // then within a tenth of a percent, which is inaudible and honest.
+    const a = out[out.length - 2];
+    const b = out[out.length - 1];
+    expect((b[0] - a[0]) / (b[1] - a[1])).toBeCloseTo(
+      (TAKE[2][0] - TAKE[0][0]) / (TAKE[2][1] - TAKE[0][1]),
+      9,
+    );
+    expect(Math.abs(bpm(out) - bpm(TAKE)) / bpm(TAKE)).toBeLessThan(0.001);
+  });
+
+  it("keeps two points even when almost nothing is left", () => {
+    const out = retimeWarpMarkers(TAKE, 0.5);
+    expect(out).toHaveLength(2);
+    expect(out?.[1][1]).toBe(0.5);
+  });
+
+  // Nothing to say means nothing written: a bounce that changed no duration must leave the clip
+  // file byte-identical, or every run of every chain would churn every map it touched.
+  it("says nothing when the file is the length the map already claims", () => {
+    expect(retimeWarpMarkers(TAKE, 17.92)).toBeNull();
+    expect(retimeWarpMarkers(TAKE, 17.9205)).toBeNull(); // a millisecond is the same end
+  });
+
+  it("says nothing about a map it cannot read", () => {
+    expect(retimeWarpMarkers([[0, 0]], 10)).toBeNull();
+    expect(retimeWarpMarkers(TAKE, 0)).toBeNull();
+    expect(
+      retimeWarpMarkers(
+        [
+          [0, 0],
+          [0, 4],
+        ],
+        10,
+      ),
+    ).toBeNull();
+  });
+
+  it("stays monotonic, which is the map's one rule", () => {
+    for (const secs of [1, 5, 17.9, 19.92, 60]) {
+      const out = retimeWarpMarkers(TAKE, secs) ?? TAKE;
+      for (let i = 1; i < out.length; i++) {
+        expect(out[i][1]).toBeGreaterThan(out[i - 1][1]);
+        expect(out[i][0]).toBeGreaterThan(out[i - 1][0]);
+      }
+    }
   });
 });
