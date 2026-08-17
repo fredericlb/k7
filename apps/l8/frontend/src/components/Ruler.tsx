@@ -17,7 +17,7 @@ import {
   nearestTick,
   subdivideBeats,
 } from "@studio/ui-waveform";
-import { memo } from "react";
+import { memo, type RefObject, useEffect, useState } from "react";
 
 /**
  * What the ruler is READING IN. Not what the song is placed in — that is always beats.
@@ -94,9 +94,24 @@ export const rulerTicks = (
   barBeats: number,
   bps: number, // beats per second — the whole of the conversion, since there is no tempo map
   secStep: number,
+  /**
+   * The slice actually ON SCREEN, when the caller knows it — ticks outside are not built.
+   *
+   * What makes the zoom unbounded. The ladder floors at a 64th of a beat, so a whole-song list
+   * saturates at 64 nodes per beat: 19 000 for a three-minute song, 192 000 for a long set, and
+   * that ceiling — not the browser's — is what the zoom used to be clamped away from. Windowed,
+   * the count follows the PANE instead: about forty, at any zoom, on any length of song.
+   *
+   * It changes nothing else, and that is by construction: `index` is computed from the ORIGIN
+   * (`b / unit`), never from the first tick built, so the label stride and the three weights are
+   * the same lines whether or not the list starts where the view does.
+   */
+  view?: { lo: number; hi: number },
 ): RulerTick[] => {
+  const lo = Math.max(beatLo, view?.lo ?? beatLo);
+  const hi = Math.min(lastBeat, view?.hi ?? lastBeat);
   if (mode === "bars")
-    return tickBeats(beatLo, lastBeat, unit).map((b) => {
+    return tickBeats(lo, hi, unit).map((b) => {
       const { bar, onBeat, label } = tickAt(b, barBeats);
       return {
         beat: b,
@@ -109,9 +124,9 @@ export const rulerTicks = (
   const out: RulerTick[] = [];
   // From the ORIGIN and not from the first visible second, exactly as `tickBeats` is: a ladder
   // that started where the view does would re-place every line as you panned.
-  for (const sec of ticksUpTo(lastBeat / bps, secStep)) {
+  for (const sec of ticksUpTo(hi / bps, secStep)) {
     const beat = sec * bps;
-    if (beat < beatLo - 1e-9) continue;
+    if (beat < lo - 1e-9) continue;
     const whole = Math.abs(sec - Math.round(sec)) < 1e-6;
     out.push({
       beat,
@@ -125,6 +140,46 @@ export const rulerTicks = (
   }
   return out;
 };
+
+/** How far past each edge the ticks are still built, in px — a scroll must reveal lines, not a bare strip. */
+const VIEW_MARGIN_PX = 400;
+
+/**
+ * The beat range on screen, watched HERE rather than by the surface that owns the scroller.
+ *
+ * Inside the memoised tick layers on purpose. A scroll is a stream, and `timeline.md`'s rule is
+ * that live state is drawn by LEAVES: were the host to hold the scroll position, every scroll
+ * frame would re-render the whole arrangement to move forty lines. Held here, a scroll re-renders
+ * the lines and nothing else.
+ *
+ * `null` when there is no scroller to ask — a caller that passes none gets the whole range, which
+ * is what every surface did before and is still right for one that fits its pane.
+ */
+function useVisibleBeats(
+  scroller: RefObject<HTMLElement | null> | undefined,
+  beatLo: number,
+  ppb: number,
+): { lo: number; hi: number } | undefined {
+  const [box, setBox] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const el = scroller?.current;
+    if (!el) return;
+    const read = () => setBox({ left: el.scrollLeft, width: el.clientWidth });
+    read();
+    el.addEventListener("scroll", read, { passive: true });
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", read);
+      ro.disconnect();
+    };
+  }, [scroller]);
+  if (!box || !(ppb > 0)) return undefined;
+  return {
+    lo: beatLo + (box.left - VIEW_MARGIN_PX) / ppb,
+    hi: beatLo + (box.left + box.width + VIEW_MARGIN_PX) / ppb,
+  };
+}
 
 /** What a tick layer needs to rebuild its own list — all primitives, so a memo holds. */
 export interface TickProps {
@@ -189,33 +244,44 @@ export const RulerTicks = memo(function RulerTicks({
   secStep,
   ppb,
   barStride,
+  scroller,
 }: TickProps & {
   ppb: number;
   barStride: number;
+  /** The pane these lines scroll inside, so only the visible ones are built. See useVisibleBeats. */
+  scroller?: RefObject<HTMLElement | null>;
 }) {
+  const view = useVisibleBeats(scroller, beatLo, ppb);
   return (
     <>
-      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
-        (t) => (
-          // Three weights, so the coarse line still reads as the bar (or the minute) once the
-          // finer ones are drawn between them. Strided on the tick's index from the ORIGIN, or
-          // the surviving labels would change as scrolling moved the first one.
-          <div
-            key={t.key}
-            className={cn(
-              "pointer-events-none absolute top-0 h-full border-l pl-1",
-              t.level === 0
-                ? "border-border/50 text-muted-foreground"
-                : t.level === 1
-                  ? "border-border/30 text-muted-foreground/60"
-                  : "border-border/15",
-            )}
-            style={{ left: (t.beat - beatLo) * ppb }}
-          >
-            {labelled(t.index, barStride) ? t.label : ""}
-          </div>
-        ),
-      )}
+      {rulerTicks(
+        mode,
+        beatLo,
+        lastBeat,
+        unit,
+        barBeats,
+        bps,
+        secStep,
+        view,
+      ).map((t) => (
+        // Three weights, so the coarse line still reads as the bar (or the minute) once the
+        // finer ones are drawn between them. Strided on the tick's index from the ORIGIN, or
+        // the surviving labels would change as scrolling moved the first one.
+        <div
+          key={t.key}
+          className={cn(
+            "pointer-events-none absolute top-0 h-full border-l pl-1",
+            t.level === 0
+              ? "border-border/50 text-muted-foreground"
+              : t.level === 1
+                ? "border-border/30 text-muted-foreground/60"
+                : "border-border/15",
+          )}
+          style={{ left: (t.beat - beatLo) * ppb }}
+        >
+          {labelled(t.index, barStride) ? t.label : ""}
+        </div>
+      ))}
     </>
   );
 });
@@ -247,39 +313,50 @@ export const Grid = memo(function Grid({
   left0,
   top,
   height,
+  scroller,
 }: TickProps & {
   ppb: number;
   laneW: number;
   left0: number;
   top: number;
   height: number;
+  /** The pane these lines scroll inside, so only the visible ones are built. See useVisibleBeats. */
+  scroller?: RefObject<HTMLElement | null>;
 }) {
+  const view = useVisibleBeats(scroller, beatLo, ppb);
   return (
     <>
-      {rulerTicks(mode, beatLo, lastBeat, unit, barBeats, bps, secStep).map(
-        (t) => {
-          const left = (t.beat - beatLo) * ppb;
-          // A tick at the lane's right edge is a 1px border past the end of the box, and one
-          // pixel of horizontal scroll in a view that fits its pane exactly.
-          if (left >= laneW) return null;
-          return (
-            <div
-              key={`grid:${t.key}`}
-              className={cn(
-                "pointer-events-none absolute border-l border-dashed",
-                // The ruler's three weights, one step fainter: down here they cross the
-                // material rather than sitting in a header of their own.
-                t.level === 0
-                  ? "border-border/40"
-                  : t.level === 1
-                    ? "border-border/25"
-                    : "border-border/10",
-              )}
-              style={{ left: left0 + left, top, height }}
-            />
-          );
-        },
-      )}
+      {rulerTicks(
+        mode,
+        beatLo,
+        lastBeat,
+        unit,
+        barBeats,
+        bps,
+        secStep,
+        view,
+      ).map((t) => {
+        const left = (t.beat - beatLo) * ppb;
+        // A tick at the lane's right edge is a 1px border past the end of the box, and one
+        // pixel of horizontal scroll in a view that fits its pane exactly.
+        if (left >= laneW) return null;
+        return (
+          <div
+            key={`grid:${t.key}`}
+            className={cn(
+              "pointer-events-none absolute border-l border-dashed",
+              // The ruler's three weights, one step fainter: down here they cross the
+              // material rather than sitting in a header of their own.
+              t.level === 0
+                ? "border-border/40"
+                : t.level === 1
+                  ? "border-border/25"
+                  : "border-border/10",
+            )}
+            style={{ left: left0 + left, top, height }}
+          />
+        );
+      })}
     </>
   );
 });

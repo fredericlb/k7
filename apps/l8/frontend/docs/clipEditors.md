@@ -159,6 +159,10 @@ The waveform canvas reaches the same density by a different route: its bar/beat 
 the file service as a list, so it splits what it was sent (`subdivideGrid`) instead of computing a
 unit. Same threshold, so the `ArrangementRuler` over an audio clip and the wave under it agree.
 
+**The roll's zoom has no ceiling you can reach**, for the same reason the timeline's has none —
+one `useHZoom`, one derived limit, and tick layers that build only the lines on screen. The roll
+passes its own scroller to both. See `timeline.md`.
+
 ### …and the roll's gestures land on those lines, unless Ctrl says otherwise
 
 Drawing a note, moving one and stretching one all snap to `gridUnit` — the step the ruler is

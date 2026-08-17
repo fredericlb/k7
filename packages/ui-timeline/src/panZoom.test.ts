@@ -4,7 +4,7 @@
 // work on the timeline" turned out to mean.
 
 import { describe, expect, it } from "vitest";
-import { wheelFactor } from "./panZoom";
+import { MAX_LANE_PX, wheelFactor, zoomCeiling } from "./panZoom";
 
 describe("one wheel event on an arrangement", () => {
   it("takes a whole step per notch, whatever the delta says", () => {
@@ -39,5 +39,28 @@ describe("one wheel event on an arrangement", () => {
 
   it("does nothing at all for a delta of nothing", () => {
     expect(wheelFactor(0, true)).toBe(1);
+  });
+});
+
+// The ceiling used to be a flat 32, which is a number and not a reason — and it is the one people
+// MET: the wheel stopped, with nothing on screen to say why. It is derived now, from the only
+// limit that is really there.
+describe("how far a pane may zoom", () => {
+  it("is what the browser can still lay out, not a constant", () => {
+    // A laptop pane: thousands of times, which nobody reaches by turning a wheel.
+    expect(zoomCeiling(1200)).toBeGreaterThan(10_000);
+    // …and the lane it produces is inside the limit a browser will actually draw.
+    expect(1200 * zoomCeiling(1200)).toBeLessThanOrEqual(MAX_LANE_PX);
+  });
+
+  it("gives a NARROW pane more of it, since the limit is the lane and not the zoom", () => {
+    expect(zoomCeiling(400)).toBeGreaterThan(zoomCeiling(1200));
+    expect(400 * zoomCeiling(400)).toBeCloseTo(1200 * zoomCeiling(1200), 0);
+  });
+
+  it("never answers less than fit, whatever it is handed", () => {
+    expect(zoomCeiling(0)).toBeGreaterThanOrEqual(1);
+    expect(zoomCeiling(-5)).toBeGreaterThanOrEqual(1);
+    expect(zoomCeiling(Number.MAX_SAFE_INTEGER)).toBe(1);
   });
 });

@@ -186,12 +186,47 @@ step, a beat. Freed, that floor would refuse exactly the lengths you turned the 
 reach, so it drops to a 64th (`MIN_FREE_BEATS`) — short enough to be a real choice, long enough
 that an edge dragged past the other does not leave a placement that plays nothing.
 
-One cost to know: this is one DOM node per tick, on top of the one the ruler already draws —
-at the deepest zoom on a long song, ~1000 nodes becoming ~2000. It is a cost paid on a
+It is one DOM node per tick, on top of the one the ruler already draws — a cost paid on a
 re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body no
-longer subscribes to the transport at all (see "Live state is drawn by LEAVES" above). What
-remains unmemoised inside them is the geometry above their two early returns, which would have
-bought a 2× on a cost the ruler already paid.
+longer subscribes to the transport at all (see "Live state is drawn by LEAVES" above).
+
+### …and only the ticks you can SEE are built
+
+Both layers window themselves to the scroller they are given (`useVisibleBeats` in `Ruler.tsx`),
+with a 400px margin either side so a scroll reveals lines rather than a bare strip.
+
+The count is what made this necessary. The ladder floors at a 64th of a beat, so a whole-song
+list SATURATES at 64 nodes per beat: about 19 000 for a three-minute song and 192 000 for a long
+set. That was the real ceiling on the zoom — not the browser's — and `useHZoom`'s flat `max: 32`
+was what kept anyone from meeting it. Windowed, the count follows the PANE: about forty, at any
+zoom, on any length of song.
+
+A windowed tick is the SAME tick, by construction: `index` is computed from the ORIGIN
+(`b / unit`) and never from the first one built, so the label stride and the three weights do not
+shift as the window moves. `rulerTicks.test.ts` pins exactly that — every tick in a window is
+identical, field for field, to the one the whole-range list holds.
+
+The scroll position is held INSIDE the memoised layers rather than by the surface, and that is
+the same rule as everything else on this page: a scroll is a stream, and a host holding it would
+re-render the whole arrangement to move forty lines. Held there, a scroll re-renders the lines
+and nothing else.
+
+### The zoom has no ceiling you can reach
+
+`useHZoom` used to clamp at `32`, which is a number and not a reason — and it is the one people
+MET: the wheel simply stopped, with nothing on screen to say why. The clamp is derived now
+(`zoomCeiling`), from the only limit that is really there: a browser refuses to lay out an
+element past about 33.5 million pixels, and a lane wider than that is silently clipped —
+`scrollWidth` stops agreeing with the width we computed, and the anchored zoom drifts a little
+further off with every notch. On a laptop pane the ceiling is some 13 000×, which is one 64th of
+a beat filling the screen on a five-minute song.
+
+`min` stays 1, and that is a different kind of bound: 1 IS fit. Below it the pane would draw the
+whole thing plus empty space, and there is nothing further out to see.
+
+The ruler's own vertical-drag zoom reads the same `zoomCeiling`. It had its own hand-written
+`32` — a number written twice is two answers waiting to disagree, which is the same trap its
+neighbouring comment already records about `scrollLeft`.
 
 ## Clicking a header
 

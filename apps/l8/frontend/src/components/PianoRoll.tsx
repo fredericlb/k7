@@ -714,6 +714,7 @@ export function PianoRoll({
                   barBeats={barBeats}
                   bps={bps}
                   secStep={gridSecStep}
+                  scroller={bodyRef}
                   ppb={ppb}
                   barStride={gridStride}
                 />
@@ -776,6 +777,7 @@ export function PianoRoll({
                 barBeats={barBeats}
                 bps={bps}
                 secStep={gridSecStep}
+                scroller={bodyRef}
                 ppb={ppb}
                 laneW={laneW}
                 left0={0}

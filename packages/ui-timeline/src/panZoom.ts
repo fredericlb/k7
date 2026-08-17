@@ -56,10 +56,41 @@ export function wheelFactor(delta: number, pinch: boolean): number {
 }
 
 /**
+ * The widest a scaled lane may become, in px.
+ *
+ * There is no such thing as an unlimited zoom, and this is where the limit actually lives: a
+ * browser refuses to lay out an element past about 33.5 million pixels, and a lane that asked for
+ * more would be silently clipped — `scrollWidth` would stop agreeing with the width the caller
+ * computed, and the anchored zoom would drift a little further off with every notch.
+ *
+ * Half of it, so the margin is the browser's own rounding rather than a guess.
+ */
+export const MAX_LANE_PX = 16_000_000;
+
+/**
+ * How far a pane of `width` px may zoom before it meets that.
+ *
+ * Which is what replaced a flat `max: 32`. Thirty-two was a number, not a reason — and it is the
+ * one people MET: past it the wheel simply stopped, with nothing on screen to say why. Derived,
+ * the ceiling is about 13 000× on a laptop pane, which is one 64th of a beat filling the screen
+ * on a five-minute song. Nobody meets that either; what they meet is the material.
+ *
+ * The tick layers had a ceiling of their own and it was the real one — a whole-song list saturates
+ * at 64 nodes per beat. They window themselves to the pane now (`Ruler.tsx`'s `useVisibleBeats`),
+ * which is what makes this number the only one left.
+ */
+export const zoomCeiling = (width: number): number =>
+  width > 0 ? Math.max(1, MAX_LANE_PX / width) : 32;
+
+/**
  * Horizontal zoom for a scroll container, driven by the mouse wheel. Returns the current
- * factor (1 = fit, grows to `max`) and a setter; the caller multiplies its lane width by
- * it. `gutter` is the fixed, non-scaling left inset (a track-name / note-name column) so
- * the anchor maths lands on the right beat; pass 0 for a gutterless pane.
+ * factor (1 = fit, grows to whatever the pane can be drawn at) and a setter; the caller
+ * multiplies its lane width by it. `gutter` is the fixed, non-scaling left inset (a track-name /
+ * note-name column) so the anchor maths lands on the right beat; pass 0 for a gutterless pane.
+ *
+ * `min` is 1 and stays 1, and that is not the same kind of bound as the ceiling was: 1 IS fit, so
+ * below it the pane would draw the whole thing plus empty space. There is nothing further out to
+ * see. `max` is the derived ceiling above unless a caller states one.
  */
 export function useHZoom(
   ref: RefObject<HTMLElement | null>,
@@ -67,8 +98,12 @@ export function useHZoom(
   // Values that gate the container's existence — a pane that renders "loading…" mounts its scroller only later.
   deps: unknown[] = [],
 ) {
-  const { gutter = 0, min = 1, max = 32 } = opts;
+  const { gutter = 0, min = 1, max } = opts;
   const [zoom, setZoom] = useState(1);
+  // The ceiling, from the pane rather than from a constant — remeasured when the pane resizes,
+  // because a window dragged narrower can only be zoomed further, not less.
+  const [paneW, setPaneW] = useState(0);
+  const ceiling = max ?? zoomCeiling(Math.max(0, paneW - gutter));
   const zoomRef = useRef(zoom);
   // The scrollLeft to apply AFTER the width change renders: computed on the old width, correct on the new.
   const pendingLeft = useRef<number | null>(null);
@@ -81,6 +116,19 @@ export function useHZoom(
       pendingLeft.current = null;
     }
   }, [zoom, ref]);
+
+  // The pane's own width, for the ceiling. Its own observer rather than a prop: the hook already
+  // holds the element, and a caller measuring it again would be a second answer to one question.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => setPaneW(el.clientWidth);
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, ...deps]);
 
   /**
    * Zoom to `next`, keeping whatever is under `clientX` where it is.
@@ -126,7 +174,7 @@ export function useHZoom(
       // how much, and the two disagree on purpose. A ctrl-wheel is a trackpad pinch — a stream
       // of small deltas, scaled continuously — while Cmd+wheel is a Mac mouse, one notch per
       // detent. Both reach here; only the first is a pinch.
-      const next = clamp(cur * wheelFactor(delta, e.ctrlKey), min, max);
+      const next = clamp(cur * wheelFactor(delta, e.ctrlKey), min, ceiling);
       if (next === cur) return;
       // Keep the content under the cursor fixed: scale its x by the zoom ratio and offset the scroll. The gutter,
       // which doesn't scale, is subtracted and re-added around that.
@@ -160,7 +208,10 @@ export function useHZoom(
       e.preventDefault();
       const d = spread(e.touches);
       if (d <= 0) return;
-      zoomAt(clamp(pinch.zoom * (d / pinch.dist), min, max), centre(e.touches));
+      zoomAt(
+        clamp(pinch.zoom * (d / pinch.dist), min, ceiling),
+        centre(e.touches),
+      );
     };
     const onTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) pinch = null;
@@ -186,7 +237,7 @@ export function useHZoom(
       el.style.touchAction = hadTouchAction;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, min, max, zoomAt, ...deps]);
+  }, [ref, min, ceiling, zoomAt, ...deps]);
 
   return [zoom, setZoom, zoomAt] as const;
 }

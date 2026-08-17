@@ -14,7 +14,11 @@ import {
   MARKER_COLOR,
   ROW_H,
 } from "@studio/ui-timeline/lanes";
-import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
+import {
+  useHZoom,
+  usePanScroll,
+  zoomCeiling,
+} from "@studio/ui-timeline/panZoom";
 import { nearestTick } from "@studio/ui-waveform";
 import {
   Clock,
@@ -2061,6 +2065,7 @@ export function TimelineTab({
             ppb={ppb}
             laneW={laneW}
             left0={GUTTER}
+            scroller={scrollRef}
             top={ROW_H} // below the ruler, which draws its own solid tick
             height={contentH - ROW_H}
           />
@@ -2119,9 +2124,12 @@ export function TimelineTab({
                   }
                   if (gesture === -1) {
                     // Vertical drag → zoom, 1.005 per px: ~1.16× at 30px, precise near the start and exponential at distance.
+                    // The ceiling is the pane's, not a constant of its own: this is the SECOND
+                    // gesture that zooms, and a number written twice is two answers waiting to
+                    // disagree — which is what a hand-written 32 here already was.
                     const next = Math.max(
                       1,
-                      Math.min(32, zoomStart * 1.005 ** -dy),
+                      Math.min(zoomCeiling(availW), zoomStart * 1.005 ** -dy),
                     );
                     // Anchor: keep the beat under the cursor fixed after the width change.
                     // Through the package rather than by hand — the copy that used to live
@@ -2192,7 +2200,12 @@ export function TimelineTab({
                   waveform's ruler uses, so the two agree when stacked in the clip
                   editor). Strided on the bar's own index, not its position in `bars`, or
                   the surviving labels would change as scrolling moved the first one. */}
-              <RulerTicks {...tickProps} ppb={ppb} barStride={barStride} />
+              <RulerTicks
+                {...tickProps}
+                ppb={ppb}
+                barStride={barStride}
+                scroller={scrollRef}
+              />
               {/* The transport loop region, over its bar range. `overflow-hidden` above
                   clips it when it runs past the view, same as the bar markers. The engine
                   does the actual wrapping; this just shows what's looping. */}
