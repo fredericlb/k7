@@ -118,6 +118,10 @@ function wireEngine(session: string, e: EngineClient): void {
   e.on("open", () => {
     const l = links.get(session);
     if (l) l.ready = true;
+    // Whatever the clock believes the engine is holding, it no longer does — a fresh socket can
+    // mean a fresh engine. Said BEFORE anything is re-sent, so the first emit after this is a
+    // whole document and not a delta aimed at a project that is not there.
+    patternClock.forgetSent();
     try {
       const prefs = loadPreferences();
       if (prefs.audioDevice)
@@ -284,6 +288,10 @@ const patternClock = new PatternClock(
   (tracks) => {
     orbitTracks = tracks;
   },
+  // The delta channel: while only the lanes' clips move, the engine is handed those tracks and
+  // not the song. Same socket and the same outbox, so it cannot overtake the document it amends.
+  (doc: ProjectDoc, ids: string[]) =>
+    ensureEngine(clockWs)?.sendTracks(doc, ids),
 );
 
 /**

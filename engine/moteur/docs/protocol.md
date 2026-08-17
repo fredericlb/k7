@@ -42,6 +42,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | message | meaning |
 |---|---|
 | `{ type: "project", doc: {…ProjectDoc…} }` | set or update the song |
+| `{ type: "tracks", tracks: [{…TrackDoc…}] }` | replace just these tracks in the song already held — see below |
 | `{ type: "flush" }` | forget the song entirely |
 | `{ type: "transport", action: "play" \| "stop" \| "toggle" \| "rewind" }` | bare transport verbs |
 | `{ type: "transport", action: "seek", position: 12.5 }` | seconds |
@@ -65,6 +66,31 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
+
+### `tracks` — the delta, and what it deliberately cannot do
+
+The pattern clock rewrites a handful of lanes' clips six or seven times a second while the rest
+of the song sits still. It used to send `project` each time: 137 KB of document parsed and diffed
+to be told about eight notes, against 3.7 KB of tracks.
+
+The engine **merges into the document it holds and then runs the same `apply`**. That is what
+makes this cheap and boring at once: the diff, the incremental paths and the rebuild fallback are
+untouched, and there is no second way for a project to reach the engine — only a shorter way to
+say what moved.
+
+It **replaces by id**, and can neither add nor remove a track. Three consequences, all deliberate:
+
+- an id the session does not hold is a DISAGREEMENT — the brain believing we hold a project we do
+  not, which is what a restart looks like — so it is warned about and dropped. Appending would
+  hide exactly the case the reconnect re-send exists for;
+- a session holding nothing answers `error`, rather than starting a song out of a fragment;
+- the sender is responsible for a whole `project` whenever the SET of tracks changes.
+  `PatternClock` keeps the ids it last sent and falls back on any difference; it also forgets them
+  whenever the socket reopens, since a fresh socket can mean a fresh engine.
+
+No `busy` and no `applied` come back. This path is incremental by construction, and announcing a
+changeset six times a second would drown the one that matters — the full-document path still
+announces its own. `engine/moteur/scripts/track-delta.ts` exercises the three answers.
 
 ## server → client
 

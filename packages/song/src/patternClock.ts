@@ -123,11 +123,35 @@ export class PatternClock {
   private lastPlayheadSec = 0;
   private lastWallMs = 0;
 
+  /** The base the engine's document was built from, and the track ids it was built with. */
+  private sentBase: ProjectDoc | null = null;
+  private sentIds = "";
+
   constructor(
     private send: (doc: ProjectDoc) => void,
     private log: (line: string) => void = () => {},
     private onOrbits: (tracks: TrackDoc[]) => void = () => {}, // reports the live orbit tracks; [] when inactive
+    /**
+     * Replace just these tracks in the document the engine holds — the fast path out of `emit`.
+     *
+     * Optional: without it every tick sends a whole document, which is what this did and what a
+     * caller with no delta channel still gets. See `emit`.
+     */
+    private sendTracks?: (doc: ProjectDoc, ids: string[]) => void,
   ) {}
+
+  /**
+   * Forget what the engine is believed to hold, so the next emit sends a WHOLE document.
+   *
+   * Called when the link is (re)established: a fresh socket can mean a fresh engine, holding
+   * nothing, and a delta aimed at a document that is not there would be a lane that never sounds
+   * and no error anywhere. Cheap and deterministic, which is why it is said explicitly rather
+   * than inferred from a reply.
+   */
+  forgetSent(): void {
+    this.sentBase = null;
+    this.sentIds = "";
+  }
 
   get active(): boolean {
     return this.patterns.length > 0;
@@ -478,6 +502,8 @@ export class PatternClock {
     if (!this.base) return;
     if (!this.active) {
       this.onOrbits([]);
+      this.sentBase = this.base;
+      this.sentIds = "";
       this.send(this.base);
       return;
     }
@@ -488,6 +514,33 @@ export class PatternClock {
       this.declared.has(t.id) ? { ...t, clips: this.clips.get(t.id) ?? [] } : t,
     );
     this.onOrbits(liveTracks); // surfaces list lanes NOT in the project's own tracks; a declared one already is
-    this.send({ ...this.base, tracks: [...tracks, ...liveTracks] });
+    const doc = { ...this.base, tracks: [...tracks, ...liveTracks] };
+
+    /**
+     * A DELTA when only the lanes' clips moved, which is what a tick is.
+     *
+     * Everything but the strudel lanes is `base.tracks` verbatim — same objects, tick after tick
+     * — while the engine was handed the whole song six or seven times a second to be told about
+     * eight notes: 137 KB against 3.7 on a real project, plus a `docFromJson` and a diff that
+     * rebuilds four maps over every track, clip and plugin in it.
+     *
+     * The guard is the TRACK SET, not the content. A delta replaces tracks by id and can neither
+     * add nor remove one, so it is only honest while the ids are the ones the engine was last
+     * given — and the base must be the same object, since anything else in the song moving is
+     * exactly what a delta cannot carry. Either changes: send the document, and remember it.
+     */
+    const ids = doc.tracks.map((t) => t.id).join("\n");
+    if (
+      this.sendTracks &&
+      this.sentBase === this.base &&
+      this.sentIds === ids
+    ) {
+      const moved = [...this.declared.keys(), ...this.defs.keys()];
+      this.sendTracks(doc, moved);
+      return;
+    }
+    this.sentBase = this.base;
+    this.sentIds = ids;
+    this.send(doc);
   }
 }

@@ -29,4 +29,29 @@ export class EngineClient extends EngineControl {
   sendProject(doc: ProjectDoc): void {
     this.send({ type: "project", doc: withoutTakes(withGroupMix(doc)) });
   }
+
+  /**
+   * Replace just these tracks in the document the engine already holds.
+   *
+   * For the pattern clock, which rewrites a handful of lanes' clips six or seven times a second
+   * while the rest of the song sits still: 137 KB of document became 3.7 KB of tracks on a real
+   * project, and the engine stopped rebuilding its whole diff baseline to notice eight notes.
+   *
+   * It takes the WHOLE doc and the ids to send, deliberately, rather than the tracks alone. The
+   * fold above is what the engine plays — groups resolved onto their members, takes dropped —
+   * and folding a loose array could not do the group half at all. Folding the doc and then
+   * projecting means the delta is by construction a piece of the document a full send would have
+   * produced, which is the property that lets the engine merge it without thinking.
+   *
+   * REPLACES, never adds or removes: an id the engine does not hold is a disagreement, and it
+   * says so rather than growing a track nobody asked for. The caller is responsible for sending
+   * a whole document whenever the set of tracks changes — see PatternClock.emit.
+   */
+  sendTracks(doc: ProjectDoc, ids: readonly string[]): void {
+    const want = new Set(ids);
+    const tracks = withoutTakes(withGroupMix(doc)).tracks.filter((t) =>
+      want.has(t.id),
+    );
+    if (tracks.length) this.send({ type: "tracks", tracks });
+  }
 }

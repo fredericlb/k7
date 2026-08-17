@@ -123,6 +123,10 @@ std::string encodeStreamFrame(const studio::EngineHost::BroadcastChunk& chunk,
     return out;
 }
 
+// ONE track. Split out of docFromJson so the `tracks` delta reads a track exactly as a whole
+// document does — the two must not drift, and the delta is by construction a piece of a document.
+studio::TrackDoc trackFromJson(const json& t);
+
 studio::ProjectDoc docFromJson(const json& j) {
     studio::ProjectDoc doc;
     doc.name = j.value("name", std::string{"untitled"});
@@ -139,121 +143,122 @@ studio::ProjectDoc docFromJson(const json& j) {
         doc.countIn = s.value("countIn", 0);
     }
 
-    if (j.contains("tracks")) {
-        for (const auto& t : j.at("tracks")) {
-            studio::TrackDoc tr;
-            tr.id = t.value("id", std::string{});
-            tr.name = t.value("name", tr.id);
-            tr.role = t.value("role", std::string{"regular"});
-            tr.contentType = t.value("contentType", std::string{"audio"});
-            tr.color = t.value("color", std::string{});
-            tr.mute = t.value("mute", false);
-            tr.solo = t.value("solo", false);
-            tr.disabled = t.value("disabled", false);
-            tr.monitor = t.value("monitor", std::string{"auto"});
-            tr.inputGain = t.value("inputGain", 0.0);
-            if (t.contains("inputChannels"))
-                for (const auto& ch : t.at("inputChannels"))
-                    if (ch.is_number_integer() && ch.get<int>() > 0)
-                        tr.inputChannels.push_back(ch.get<int>());
-
-            if (t.contains("clips"))
-                for (const auto& c : t.at("clips")) {
-                    studio::ClipDoc cl;
-                    cl.id = c.value("id", std::string{});
-                    cl.type = c.value("type", std::string{"audio"}) == "midi"
-                                  ? studio::ClipType::Midi
-                                  : studio::ClipType::Audio;
-                    cl.name = c.value("name", std::string{});
-                    cl.source = c.value("source", std::string{});  // absolute path from Node
-                    cl.start = c.value("start", 0.0);
-                    cl.length = c.value("length", 0.0);
-                    cl.offset = c.value("offset", 0.0);
-                    cl.sourceFrom = c.value("sourceFrom", 0.0);
-                    cl.sourceTo = c.value("sourceTo", 0.0);
-                    cl.fadeIn = c.value("fadeIn", 0.0);
-                    cl.fadeOut = c.value("fadeOut", 0.0);
-                    cl.loopStart = c.value("loopStart", 0.0);
-                    cl.loopEnd = c.value("loopEnd", 0.0);
-                    cl.disabled = c.value("disabled", false);
-                    if (c.contains("warp")) {
-                        const auto& w = c.at("warp");
-                        cl.warp.algorithm = w.value("algorithm", std::string{});
-                        if (w.contains("markers"))
-                            for (const auto& m : w.at("markers"))
-                                cl.warp.markers.emplace_back(m.at(0).get<double>(),
-                                                             m.at(1).get<double>());
-                    }
-                    if (c.contains("notes"))
-                        for (const auto& n : c.at("notes")) {
-                            studio::NoteDoc nd;
-                            nd.time = n.value("time", 0.0);
-                            nd.duration = n.value("duration", 0.0);
-                            nd.key = n.value("key", 0);
-                            nd.vel = n.value("vel", 1.0);
-                            nd.channel = n.value("channel", 0);
-                            nd.rel = n.value("rel", 1.0);
-                            cl.notes.push_back(nd);
-                        }
-                    tr.clips.push_back(std::move(cl));
-                }
-
-            if (t.contains("plugins"))
-                for (const auto& p : t.at("plugins")) {
-                    studio::PluginDoc pl;
-                    pl.id = p.value("id", std::string{});
-                    pl.type = p.value("type", std::string{});
-                    pl.name = p.value("name", std::string{});
-                    pl.path = p.value("path", std::string{});
-                    pl.presetSave = p.value("presetSave", std::string{});
-                    pl.role = p.value("role", std::string{});
-                    pl.enabled = p.value("enabled", true);
-                    pl.namFile = p.value("namFile", std::string{});
-                    pl.dspGraph = p.value("dspGraph", std::string{});
-                    pl.sidechainFrom = p.value("sidechainFrom", std::string{});
-                    if (p.contains("params"))
-                        for (const auto& [k, v] : p.at("params").items())
-                            pl.params[k] = v.get<double>();
-                    // A rack instrument carries its sounds here: {symbol, note, clip} already resolved to absolute paths, turned
-                    // into SamplerPlugin sounds in EditBuilder::addPlugin.
-                    if (p.contains("rack") && p.at("rack").is_array())
-                        for (const auto& e : p.at("rack")) {
-                            studio::RackEntry re;
-                            re.symbol = e.value("symbol", std::string{});
-                            re.note = e.value("note", 0);
-                            re.clip = e.value("clip", std::string{});
-                            re.start = e.value("start", 0.0);
-                            re.length = e.value("length", 0.0);
-                            pl.rack.push_back(std::move(re));
-                        }
-                    tr.plugins.push_back(std::move(pl));
-                }
-
-            if (t.contains("sends"))
-                for (const auto& s : t.at("sends")) {
-                    studio::SendDoc sd;
-                    sd.to = s.value("to", std::string{});
-                    sd.level = s.value("level", 0.0);
-                    sd.enabled = s.value("enabled", false);
-                    tr.sends.push_back(std::move(sd));
-                }
-
-            if (t.contains("automation"))
-                for (const auto& a : t.at("automation")) {
-                    studio::AutomationDoc au;
-                    au.param = a.value("param", std::string{});
-                    au.pluginId = a.value("pluginId", std::string{});
-                    au.bipolar = a.value("bipolar", false);
-                    if (a.contains("points"))
-                        for (const auto& pt : a.at("points"))
-                            au.points.emplace_back(pt.at(0).get<double>(), pt.at(1).get<double>());
-                    tr.automation.push_back(std::move(au));
-                }
-
-            doc.tracks.push_back(std::move(tr));
-        }
-    }
+    if (j.contains("tracks"))
+        for (const auto& t : j.at("tracks")) doc.tracks.push_back(trackFromJson(t));
     return doc;
+}
+
+studio::TrackDoc trackFromJson(const json& t) {
+    studio::TrackDoc tr;
+    tr.id = t.value("id", std::string{});
+    tr.name = t.value("name", tr.id);
+    tr.role = t.value("role", std::string{"regular"});
+    tr.contentType = t.value("contentType", std::string{"audio"});
+    tr.color = t.value("color", std::string{});
+    tr.mute = t.value("mute", false);
+    tr.solo = t.value("solo", false);
+    tr.disabled = t.value("disabled", false);
+    tr.monitor = t.value("monitor", std::string{"auto"});
+    tr.inputGain = t.value("inputGain", 0.0);
+    if (t.contains("inputChannels"))
+        for (const auto& ch : t.at("inputChannels"))
+            if (ch.is_number_integer() && ch.get<int>() > 0)
+                tr.inputChannels.push_back(ch.get<int>());
+
+    if (t.contains("clips"))
+        for (const auto& c : t.at("clips")) {
+            studio::ClipDoc cl;
+            cl.id = c.value("id", std::string{});
+            cl.type = c.value("type", std::string{"audio"}) == "midi"
+                          ? studio::ClipType::Midi
+                          : studio::ClipType::Audio;
+            cl.name = c.value("name", std::string{});
+            cl.source = c.value("source", std::string{});  // absolute path from Node
+            cl.start = c.value("start", 0.0);
+            cl.length = c.value("length", 0.0);
+            cl.offset = c.value("offset", 0.0);
+            cl.sourceFrom = c.value("sourceFrom", 0.0);
+            cl.sourceTo = c.value("sourceTo", 0.0);
+            cl.fadeIn = c.value("fadeIn", 0.0);
+            cl.fadeOut = c.value("fadeOut", 0.0);
+            cl.loopStart = c.value("loopStart", 0.0);
+            cl.loopEnd = c.value("loopEnd", 0.0);
+            cl.disabled = c.value("disabled", false);
+            if (c.contains("warp")) {
+                const auto& w = c.at("warp");
+                cl.warp.algorithm = w.value("algorithm", std::string{});
+                if (w.contains("markers"))
+                    for (const auto& m : w.at("markers"))
+                        cl.warp.markers.emplace_back(m.at(0).get<double>(),
+                                                     m.at(1).get<double>());
+            }
+            if (c.contains("notes"))
+                for (const auto& n : c.at("notes")) {
+                    studio::NoteDoc nd;
+                    nd.time = n.value("time", 0.0);
+                    nd.duration = n.value("duration", 0.0);
+                    nd.key = n.value("key", 0);
+                    nd.vel = n.value("vel", 1.0);
+                    nd.channel = n.value("channel", 0);
+                    nd.rel = n.value("rel", 1.0);
+                    cl.notes.push_back(nd);
+                }
+            tr.clips.push_back(std::move(cl));
+        }
+
+    if (t.contains("plugins"))
+        for (const auto& p : t.at("plugins")) {
+            studio::PluginDoc pl;
+            pl.id = p.value("id", std::string{});
+            pl.type = p.value("type", std::string{});
+            pl.name = p.value("name", std::string{});
+            pl.path = p.value("path", std::string{});
+            pl.presetSave = p.value("presetSave", std::string{});
+            pl.role = p.value("role", std::string{});
+            pl.enabled = p.value("enabled", true);
+            pl.namFile = p.value("namFile", std::string{});
+            pl.dspGraph = p.value("dspGraph", std::string{});
+            pl.sidechainFrom = p.value("sidechainFrom", std::string{});
+            if (p.contains("params"))
+                for (const auto& [k, v] : p.at("params").items())
+                    pl.params[k] = v.get<double>();
+            // A rack instrument carries its sounds here: {symbol, note, clip} already resolved to absolute paths, turned
+            // into SamplerPlugin sounds in EditBuilder::addPlugin.
+            if (p.contains("rack") && p.at("rack").is_array())
+                for (const auto& e : p.at("rack")) {
+                    studio::RackEntry re;
+                    re.symbol = e.value("symbol", std::string{});
+                    re.note = e.value("note", 0);
+                    re.clip = e.value("clip", std::string{});
+                    re.start = e.value("start", 0.0);
+                    re.length = e.value("length", 0.0);
+                    pl.rack.push_back(std::move(re));
+                }
+            tr.plugins.push_back(std::move(pl));
+        }
+
+    if (t.contains("sends"))
+        for (const auto& s : t.at("sends")) {
+            studio::SendDoc sd;
+            sd.to = s.value("to", std::string{});
+            sd.level = s.value("level", 0.0);
+            sd.enabled = s.value("enabled", false);
+            tr.sends.push_back(std::move(sd));
+        }
+
+    if (t.contains("automation"))
+        for (const auto& a : t.at("automation")) {
+            studio::AutomationDoc au;
+            au.param = a.value("param", std::string{});
+            au.pluginId = a.value("pluginId", std::string{});
+            au.bipolar = a.value("bipolar", false);
+            if (a.contains("points"))
+                for (const auto& pt : a.at("points"))
+                    au.points.emplace_back(pt.at(0).get<double>(), pt.at(1).get<double>());
+            tr.automation.push_back(std::move(au));
+        }
+
+    return tr;
 }
 
 // Totals across the doc's tracks, for the one-line [project] summary.
@@ -772,6 +777,69 @@ int main(int argc, char** argv) {
                                       << " more\n";
                     }
                     broadcastTo(session, json{{"type", "busy"}, {"busy", false}});
+                });
+            } else if (type == "tracks") {
+                /**
+                 * REPLACE these tracks in the document this session already holds, and diff that.
+                 *
+                 * For the pattern clock, which rewrites a handful of lanes' clips six or seven
+                 * times a second while the rest of the song sits still. It used to send the whole
+                 * document each time: 137 KB parsed and diffed to be told about eight notes,
+                 * against 3.7 KB here.
+                 *
+                 * The merge is what makes this cheap AND boring: the doc is completed here and
+                 * `apply` is the same apply, so the diff, the incremental paths and the rebuild
+                 * fallback are untouched — there is no second way for a project to reach the
+                 * engine, only a shorter way to say what moved.
+                 *
+                 * Replaces only. An id this session does not hold is a DISAGREEMENT — the brain
+                 * believing we have a project we do not, which is what a restart looks like — so
+                 * it is warned about and dropped rather than appended. The file service re-sends
+                 * the whole document on reconnect and on its reconcile; growing a track nobody
+                 * asked for would hide exactly the case those exist for.
+                 */
+                std::vector<studio::TrackDoc> tracks;
+                try {
+                    for (const auto& t : j.at("tracks"))
+                        tracks.push_back(trackFromJson(t));
+                } catch (const std::exception& e) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", std::string("bad tracks: ") + e.what()}}
+                                .dump());
+                    return;
+                }
+                host.post([session, &host, &broadcastTo,
+                           tracks = std::move(tracks)]() mutable {
+                    studio::ProjectDoc doc = host.current(session);
+                    if (doc.tracks.empty()) {
+                        broadcastTo(session,
+                                    json{{"type", "error"},
+                                         {"message", "tracks: this session holds no project"}});
+                        return;
+                    }
+                    size_t unknown = 0;
+                    for (auto& t : tracks) {
+                        const auto it = std::find_if(
+                            doc.tracks.begin(), doc.tracks.end(),
+                            [&](const studio::TrackDoc& x) { return x.id == t.id; });
+                        if (it == doc.tracks.end()) {
+                            ++unknown;
+                            continue;
+                        }
+                        *it = std::move(t);
+                    }
+                    if (unknown > 0) {
+                        // Stamped, so the surface driving THIS project is the one told.
+                        studio::WarningScope scoped(session);
+                        studio::warn(std::to_string(unknown) +
+                                         " track(s) named in an update this project does not "
+                                         "hold — the whole document has to be re-sent",
+                                     "tracks");
+                    }
+                    // No `busy` and no `applied`: this path is incremental by construction (only
+                    // clips moved), and announcing a rebuild six times a second would drown the
+                    // one that matters. A change that DOES force a rebuild still logs its own.
+                    host.apply(session, doc, "");
                 });
             } else if (type == "broadcast") {
                 // Subscribe or unsubscribe THIS connection to the master audio stream. The

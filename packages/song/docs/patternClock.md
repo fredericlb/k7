@@ -66,3 +66,24 @@ filled in, plus a live track per undeclared lane appended after. A declared lane
 MERGED, not appended — it is already in `base.tracks` with the plugins its chain
 compiled, its mixer settings and its group, so only its clips come from here. Appending
 would give the engine two tracks sharing one id.
+
+### …and it sends the LANES, not the song
+
+Everything but the strudel lanes is `base.tracks` verbatim, tick after tick — the same objects —
+while the engine was handed the whole document to be told about eight notes: 137 KB against 3.7
+on a real project, plus a parse and a diff that rebuilds four maps over every track, clip and
+plugin in it. So a tick sends `tracks` (`engine/moteur/docs/protocol.md`), which replaces those
+lanes in the document the engine already holds.
+
+The guard is the TRACK SET, not the content. A delta replaces by id and can neither add nor
+remove, so it is only honest while the ids are the ones the engine was last given, and while the
+base is the same OBJECT — anything else in the song moving is exactly what a delta cannot carry.
+Either changes and the whole document goes out instead, and is remembered as the new baseline.
+
+Two more ways the baseline is dropped, both deliberate. `setBaseProject` is a fresh compile, so
+it always sends a document. And `forgetSent()` is called when the engine socket opens: a fresh
+socket can mean a fresh engine holding nothing, and a delta aimed at a document that is not there
+would be a lane that never sounds with no error anywhere.
+
+The delta channel is an OPTIONAL fourth constructor argument. A caller that wires none — the CLI,
+a test — keeps getting whole documents, which is what this did before and what still has to work.

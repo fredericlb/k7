@@ -222,6 +222,34 @@ Ce qui reste — le document entier quand il a VRAIMENT changé — demande un m
 protocole et une `ProjectDiff` qui l'accepte. À décider sur un chiffre, pas sur une impression :
 tel quel, le coût ne se paie plus que sur les fenêtres qui jouent quelque chose.
 
+### …et le delta, une fois le reste fait
+
+Ce qui restait après ça : l'horloge renvoyait le document ENTIER quand il avait vraiment changé.
+Mesuré sur un vrai projet — 15 pistes, 54 clips — et le rapport ne laisse pas de doute :
+
+| une trame d'horloge | |
+|---|---|
+| document entier | 137,6 Ko |
+| les seules pistes qui bougent | **3,7 Ko** |
+| à 6,7 Hz | 922 Ko/s → **25 Ko/s** |
+
+Plus, côté C++, un `docFromJson` et une `diff()` qui reconstruit quatre `std::map` sur chaque
+piste, clip et plugin du document — pour huit notes.
+
+Le moteur FUSIONNE dans le document qu'il tient, puis lance le même `apply`. C'est ce qui rend
+la chose à la fois bon marché et ennuyeuse : la diff, les chemins incrémentaux et le repli sur
+reconstruction sont intacts, et il n'y a pas une deuxième façon d'atteindre le moteur — seulement
+une façon plus courte de dire ce qui a bougé.
+
+Il REMPLACE par id, sans jamais ajouter ni retirer. Un id que la session ne tient pas est un
+DÉSACCORD — le cerveau croyant qu'on tient un projet qu'on ne tient pas, ce à quoi ressemble un
+redémarrage — donc il est signalé et jeté ; ajouter cacherait exactement le cas pour lequel le
+renvoi à la reconnexion existe. Et la garde côté horloge est le JEU DE PISTES, pas le contenu :
+au moindre écart, c'est le document entier qui part.
+
+`engine/moteur/scripts/track-delta.ts` éprouve les trois réponses contre un vrai moteur : refus
+sans projet chargé, silence sur une piste connue, avertissement sur une inconnue.
+
 ### Le watcher strudel tenait tout le dossier de projet
 
 `chokidar.watch(dir, { ignoreInitial: true })` : `ignoreInitial` ne fait taire que les premiers
@@ -396,8 +424,8 @@ Rationale complet : `packages/file-service/docs/moduleWatch.md`.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-| L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
-| Le watcher ne couvre qu'un projet à la fois, celui qui est servi | `file-service/src/moduleWatch.ts` | deux personnes sur deux projets du même poste : le second marche comme avant. Élargir veut dire décider quand on cesse de surveiller, ce qui est une question de cycle de vie et pas de vitesse |
+| Le watcher de modules ne couvre qu'un projet à la fois, celui qui est servi | `file-service/src/moduleWatch.ts` | deux personnes sur deux projets du même poste : le second marche comme avant. Élargir veut dire décider quand on cesse de surveiller, ce qui est une question de cycle de vie et pas de vitesse |
+| Un rechargement paie encore six marches d'empreinte quand rien ne veille — hors du service de fichiers, c'est-à-dire pour la CLI | `song/src/moduleCache.ts` | c'est le plancher de la portée explicite, et le remède est celui qui existe déjà : un processus qui tient des poignées. La CLI n'en est pas un |
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
 
