@@ -3,10 +3,10 @@
 // the project is open — a GL context and one <video> per layer are exactly the state that must
 // not be rebuilt every time you look elsewhere. See packages/song/docs/surfaces.md.
 
-import { useEngineState } from "@studio/engine-browser/store";
 import type { LaneDebug } from "@studio/ui-eyes/realtime";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { useMemo, useState } from "react";
+import { PROFILING } from "../profiling";
 import { sceneOf } from "../scene";
 import { VideoCanvas } from "./VideoCanvas";
 
@@ -21,10 +21,11 @@ export function ViewportTab({
   doc: WebVideoProject | null;
   error: string | null;
 }) {
-  // Transport play + playhead from the store, so only the renderer follows the frames. The two
-  // slices are subscribed separately: a `s => s` selector here would re-render the pane ~20x/s.
-  const playing = useEngineState((s) => s.playing);
-  const playhead = useEngineState((s) => s.playhead);
+  // NOTHING of the engine's state is read here, and that is the point: `VideoCanvas` takes the
+  // frames off a raw subscription and feeds its clock, so this pane commits on a document change
+  // and on nothing else. It used to subscribe to `playing` and `playhead` as two slices, with a
+  // comment saying that was what kept it off the 20 Hz path — but the playhead is the field that
+  // moves, so the pane and its subtree committed on every frame all the same.
   const [debug, setDebug] = useState<LaneDebug[]>([]);
 
   // Rebuilt only when the DOCUMENT changes, never on a playhead frame: the scene owns a GL
@@ -52,14 +53,11 @@ export function ViewportTab({
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col">
       <div className="min-h-0 flex-1">
-        <VideoCanvas
-          scene={scene}
-          playing={playing}
-          playhead={playhead}
-          onDebug={setDebug}
-        />
+        <VideoCanvas scene={scene} onDebug={PROFILING ? setDebug : undefined} />
       </div>
-      {/* Debug strip: per-lane sync error, the verification signal (should settle small). */}
+      {/* The strip: the format always, and — only while profiling — the per-lane sync error, the
+          verification signal that should settle small. It is a 5 Hz poll and a 5 Hz re-render of
+          this pane, which is a fair price for someone looking and none at all for anyone else. */}
       <div className="flex shrink-0 items-center gap-3 border-t border-border bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground">
         <span>
           {scene.viewport[0]}×{scene.viewport[1]}

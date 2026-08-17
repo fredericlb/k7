@@ -105,16 +105,33 @@ the scaffold's own picture-in-picture does.
 
 ## The frame follows the engine
 
-`ViewportTab` subscribes to `playing` and `playhead` (two slices, separately — a `s => s`
-selector would re-render the pane at ~20 Hz) and feeds them to an `EngineClock`, which
-interpolates with a wall clock between frames and announces a discontinuity so the driver can
-hard-seek every `<video>`.
+`VideoCanvas` feeds an `EngineClock`, which interpolates with a wall clock between frames and
+announces a discontinuity so the driver can hard-seek every `<video>`.
+
+**Off a raw store subscription, not through React.** `ViewportTab` reads nothing of the engine's
+state, and `VideoCanvas` renders nothing from it either: the subscription is an effect that calls
+`clock.feed` and returns. It used to be `useEngineState` on the pane, splitting `playing` and
+`playhead` into two slices, with a comment saying that was what kept the pane off the 20 Hz path.
+It was not, and could not be — the playhead is the field that MOVES, so the pane and everything
+under it committed on every frame to hand a number to an imperative clock no React output depends
+on. `timeline.md`'s rule is that live state is drawn by leaves; when nothing is *drawn* at all,
+the right leaf is no component. The chains renderer's cable canvas is the same arrangement, which
+is why `activeTrackIds` is deliberately not a hook.
+
+The clock is also fed once when the driver is built, from the store's current snapshot: a fresh
+clock knows nothing, and with the transport stopped the next frame can be 250 ms away — long
+enough to draw frame 0 of a song parked at 3:20.
 
 `@studio/ui-eyes` knows nothing about any of that: it takes a `SeekingClock`, so the renderer is
 independent of where its time comes from.
 
 The scene is rebuilt only when the DOCUMENT changes, never on a playhead frame — it owns a GL
 context and a `<video>` per layer.
+
+The strip under the frame shows the format always and the **per-lane sync error only while
+profiling** (`?profile=1`, `src/profiling.ts` — the same flag that arms the React Profiler). It
+is a 5 Hz poll and a 5 Hz re-render of the pane: fair for someone looking at it, and an
+instrument measuring itself for everyone else.
 
 ## The readers strip
 

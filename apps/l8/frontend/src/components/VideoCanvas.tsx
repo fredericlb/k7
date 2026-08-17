@@ -4,6 +4,7 @@
 // HOST (not the window) are each a bug already paid for once. eyes knows nothing about the
 // engine — this component owns the EngineClock and feeds it the reported playhead.
 
+import { useEngineStore } from "@studio/engine-browser/store";
 import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
@@ -25,13 +26,10 @@ function fit(
 
 export function VideoCanvas({
   scene,
-  playing,
-  playhead,
   onDebug,
 }: {
   scene: VideoScene;
-  playing: boolean;
-  playhead: number; // seconds, from the engine state frame
+  /** Per-lane drift, a few times a second. Omitted unless somebody is profiling — see profiling.ts. */
   onDebug?: (d: LaneDebug[]) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -39,6 +37,9 @@ export function VideoCanvas({
   const clockRef = useRef<EngineClock | null>(null);
   const onDebugRef = useRef(onDebug);
   onDebugRef.current = onDebug;
+  // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is
+  // not drawing. See the subscription below.
+  const store = useEngineStore();
 
   // Rebuild the driver on a scene change: video content changes rarely, so recreating beats a diff path.
   useEffect(() => {
@@ -54,6 +55,11 @@ export function VideoCanvas({
     }
     driverRef.current = driver;
     fit(driver, host, scene);
+    // Where the transport is RIGHT NOW. A fresh clock knows nothing, and the next frame can be
+    // 250 ms away with the transport stopped — long enough for a scene change to draw frame 0 of
+    // a song parked at 3:20.
+    const now = store.getSnapshot();
+    clock.feed(now.playing, now.playhead);
 
     // Poll the per-lane drift for the debug readout (not per-frame — the pane only needs it a few times a second).
     const dbg = onDebugRef.current
@@ -67,12 +73,29 @@ export function VideoCanvas({
       driverRef.current = null;
       clockRef.current = null;
     };
-  }, [scene]);
+  }, [scene, store]);
 
-  // Feed the clock every engine state frame; the driver's rAF loop interpolates between.
+  /**
+   * Feed the clock every engine state frame — off a RAW subscription, which renders nothing.
+   *
+   * The pane used to read `playing` and `playhead` through `useEngineState` and pass them down as
+   * props. Splitting the selector in two was not enough and could not be: the playhead is the
+   * field that MOVES, so the pane and its whole subtree committed ~20 times a second to hand a
+   * number to an imperative clock that no React output depends on. `timeline.md`'s rule is that
+   * live state is drawn by leaves; here nothing is drawn by React at all, so the right leaf is no
+   * component. Same arrangement as the chains renderer's cable canvas (`activeTrackIds` is
+   * deliberately not a hook, for this reason).
+   *
+   * The driver's rAF loop interpolates between frames, and `EngineClock.feed` decides for itself
+   * whether one was a seek.
+   */
   useEffect(() => {
-    clockRef.current?.feed(playing, playhead);
-  }, [playing, playhead]);
+    const feed = (): void => {
+      const s = store.getSnapshot();
+      clockRef.current?.feed(s.playing, s.playhead);
+    };
+    return store.subscribe(feed);
+  }, [store]);
 
   useEffect(() => {
     const host = hostRef.current;

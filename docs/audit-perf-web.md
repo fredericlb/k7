@@ -253,6 +253,42 @@ chose depuis longtemps — l'horloge, son watcher et le `clientDoc` du navigateu
 chose qui tourne, le dernier arrivé gagne, et c'est délibéré. Le watcher n'est pas un singleton de
 trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la relire.
 
+## Le lot D — deux feuilles qui redessinaient pour rien
+
+### Le viewport rendait sa vue vingt fois par seconde pour nourrir une horloge
+
+`ViewportTab` lisait `playing` et `playhead` par `useEngineState`, en deux tranches séparées,
+sous un commentaire disant que c'était ce qui le tenait hors du chemin à 20 Hz. Ce n'était pas
+vrai et ne pouvait pas l'être : le playhead est justement le champ qui BOUGE. Le panneau et tout
+son sous-arbre se validaient donc à chaque trame — pour passer un nombre à une horloge impérative
+dont aucune sortie React ne dépend.
+
+La règle de `timeline.md` est que l'état vivant est dessiné par les FEUILLES. Ici rien n'est
+dessiné par React du tout, donc la bonne feuille est l'absence de composant : `VideoCanvas`
+s'abonne au magasin directement (`store.subscribe`) et appelle `clock.feed`. Zéro rendu par
+trame. C'est l'arrangement qu'a déjà la toile de câbles des chaînes — la raison pour laquelle
+`activeTrackIds` n'est délibérément pas un hook.
+
+L'horloge est en plus nourrie une fois à la construction du pilote, depuis l'instantané courant :
+une horloge neuve ne sait rien, et transport à l'arrêt la trame suivante peut être à 250 ms —
+de quoi dessiner l'image 0 d'un morceau garé à 3:20.
+
+### Et le relevé de dérive était livré à tout le monde
+
+Un sondage à 5 Hz qui re-rendait le panneau à 5 Hz, embarqué sans condition, alors que le
+`Profiler` de React est correctement conditionné dans `main.tsx`. Les deux coûtent de la même
+façon et passent désormais par le MÊME drapeau (`src/profiling.ts`, `?profile=1`) : un instrument
+qu'on laisse tourner est une mesure de lui-même. Le format et l'avertissement WebCodecs restent
+affichés — ils ne coûtent rien et disent quelque chose.
+
+**Ce que je ne peux pas vérifier ici, et il faut le dire** : rien ne monte de composant dans ce
+dépôt (`apps/l8/AGENTS.md` le pose noir sur blanc). Ces deux corrections se prouvent à la lecture
+et par le contrat du magasin, plus `tsc` et `vite build` — pas par un rendu. À exercer à l'écran :
+le transport roule, l'image suit, et un `?profile=1` fait réapparaître la bande de dérive.
+
+Le second point du lot D — `rackLit` rebalayant depuis l'index 0 à chaque trame — a été corrigé
+plus tôt, avec le bug de tri qu'il cachait (`d2a0df6`).
+
 ## Ce qui reste, et n'a pas été fait
 
 Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
@@ -261,7 +297,6 @@ trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la re
 |---|---|---|
 | **La marche d'empreinte des modules coûte 19 ms et est payée par toute lecture hors portée.** C'est le premier poste de tout ce voisinage depuis que le reste a baissé | `song/src/moduleCache.ts` | la rendre moins chère veut dire ne plus `stat` 418 fichiers, donc un autre moyen de savoir qu'un dossier a bougé — un watcher, et sa propre discussion |
 | L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
-| `ViewportTab` s'abonne au playhead dans le corps du panneau, et embarque un relevé de debug à 5 Hz livré sans condition | `ViewportTab.tsx`, `VideoCanvas.tsx` | rien ne monte de composant ici : ça se corrige à la lecture et se vérifie à l'écran |
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
 
@@ -271,7 +306,10 @@ trop : il est la conséquence d'une décision écrite. Rien à faire, sauf la re
 - **Le clone de `loadModules` coûte 0,21 ms**, pas 19 (ci-dessus). Ne pas le re-suspecter.
 - **Les cinq gros composants React respectent la règle des feuilles** de `timeline.md` : chaque
   lecteur à 20 Hz est son propre composant, et `Grid`, `RulerTicks`, `ClipContent`, `Node`,
-  `Widget` sont mémoïsés sur des props primitives.
+  `Widget` sont mémoïsés sur des props primitives. Le viewport était l'exception ; il ne l'est
+  plus (lot D). Et sa correction dit la limite de la règle : « une feuille » est le bon remède
+  quand quelque chose est DESSINÉ, pas quand une valeur est simplement transmise à du code
+  impératif — là, le bon nombre de composants est zéro.
 - **`buildGraph` est linéaire** (ci-dessus). Ne pas y toucher pour la vitesse.
 
 ## Comment vérifier un changement ici

@@ -127,10 +127,14 @@ Two consequences of writing the DOM rather than rendering:
 
 ## Who is deliberately NOT, and why
 
-**`ViewportTab` is not a playhead.** It hands `playhead` and `playing` to `VideoCanvas`, which
-feeds `ui-eyes`' `EngineClock` — a clock that already interpolates, and whose realtime driver
-needs the raw anchor to tell drift from a seek. Putting a smoothed value in front of it would
-smooth twice and blunt exactly the discontinuity it hard-seeks on.
+**`ViewportTab` is not a playhead.** `VideoCanvas` feeds `ui-eyes`' `EngineClock` — a clock that
+already interpolates, and whose realtime driver needs the raw anchor to tell drift from a seek.
+Putting a smoothed value in front of it would smooth twice and blunt exactly the discontinuity it
+hard-seeks on.
+
+It is not a React reader either, any more. The frames reach the clock through a raw
+`store.subscribe`, so no component re-renders on one: feeding a clock is not drawing, and the
+pane used to commit its whole subtree 20 times a second to do it. See `picture.md`.
 
 **`WaveformView`'s line lives inside a canvas.** `currentTime` reaches
 `@studio/ui-waveform`'s `Waveform`, whose draw effect repaints the WHOLE canvas — grid, labels,

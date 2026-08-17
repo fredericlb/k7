@@ -49,6 +49,12 @@ for: `?profile=1`, or `studio.profile` in localStorage so it survives the reload
 investigation takes. `installFreezeWatchdog()` itself stays unconditional — the heartbeat and
 the `longtask` observer are cheap and are what turn "it froze" into evidence at all.
 
+The flag is `src/profiling.ts`, and it is deliberately ONE flag rather than one per instrument.
+The viewport's per-lane drift readout is behind the same one (`picture.md`): it polls at 5 Hz and
+re-renders its pane at 5 Hz, which is the same trade as the Profiler's — worth it while somebody
+is looking, and an instrument measuring itself the rest of the time. Anything else that costs
+per-frame to *report* rather than to draw belongs behind it too.
+
 ## The layout (`App.tsx`)
 
 `App` is the l8 web editor itself: the global view — **the timeline over the chains graph,
