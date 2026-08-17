@@ -30,6 +30,7 @@ import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { strudelPatterns } from "@studio/song/strudel";
 import type { CommandInfo } from "@studio/web-protocol";
 import chokidar from "chokidar";
+import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { rootDir } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import { skip, type Workspace } from "./workspace.ts";
@@ -468,12 +469,33 @@ export function startEngineForActive(ws: Workspace): void {
   const before = served.get(sessionOf(ws))?.project ?? null;
   const switching = before !== null && p !== before;
   watchStrudel(p);
+  // …and the module folders, for a different consumer: the strudel watcher RELOADS patterns, this
+  // one only lets `@studio/song` skip its stamp walk. Started here because this is where a project
+  // becomes the one being served, and closed in `unloadEngine` beside the other, which is what a
+  // caller about to rename the folder awaits.
+  watchModuleFolders(p);
   if (switching) {
     ensureEngine(ws)?.flush();
     // A document built for the project we are LEAVING must not survive into this one.
     dropClientProject();
+    // …nor its module watch, or every project ever opened would keep four directory handles
+    // for the life of the process — and on Windows a held handle is what refuses a rename.
+    forgetModuleWatch(before);
   }
   sendActiveProject(ws, p);
+}
+
+/**
+ * Close the module watch on `project`, unless somebody else is still being served it.
+ *
+ * Two people can have one shared project open, so "this session left it" is not "nobody is on
+ * it". Closing it under them would cost them the fast path and nothing else — the oracle
+ * answers false for a project it does not watch — but leaving it open when the folder is about
+ * to be renamed is the failure that matters, so the check is here rather than skipped.
+ */
+function forgetModuleWatch(project: string): void {
+  for (const s of served.values()) if (s.project === project) return;
+  closeModuleWatch(project);
 }
 
 // Recompile from disk and push — the explicit reload an out-of-band edit needs, since write() only invalidates.
@@ -611,6 +633,9 @@ export function prewarmEngineForActive(
  */
 export async function unloadEngine(ws: Workspace | null): Promise<void> {
   const leaving = sessionOf(ws);
+  // Read BEFORE `served.delete` below — this is the only record of which folder was being served,
+  // and the module watch on it has to be closed by name.
+  const leftProject = served.get(leaving)?.project ?? null;
   const e = ensureEngine(ws);
   if (e) {
     try {
@@ -632,6 +657,11 @@ export async function unloadEngine(ws: Workspace | null): Promise<void> {
   dropLink(leaving, { tellEngine: true });
   // Await the watcher close: a caller about to rename or delete must not race the OS releasing the handle.
   await closeStrudelWatcher();
+  // The module watch on THIS workspace's project, for the same reason: its roots sit inside the
+  // folder `deleteProject` is about to rename, and on Windows a handle inside one is what makes
+  // its parent refuse. Synchronous — `fs.watch` closes without a promise. Read above, before
+  // `served.delete` cleared the only record of which folder it was.
+  if (leftProject) forgetModuleWatch(leftProject);
 }
 
 /**

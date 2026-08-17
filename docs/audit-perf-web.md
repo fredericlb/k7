@@ -354,14 +354,50 @@ appels en remplaçant `fs.readdirSync` depuis un script — les imports nommés 
 sont figés à la liaison, et le compteur reste à zéro sans rien dire. Ajouter un compteur
 temporaire dans le module mesuré est la façon qui marche.
 
+### …puis un watcher, pour descendre sous une marche par route
+
+Six marches par rechargement était le plancher que la portée explicite permet : une portée ne
+va pas plus loin qu'une dérivation, et six routes sont six requêtes. Descendre plus bas demande
+de tenir l'empreinte ENTRE deux requêtes, donc quelque chose qui SAIT que les dossiers n'ont pas
+bougé.
+
+`@studio/song` reçoit pour cela une couture d'une ligne — `useFoldersStill(fn)`, un booléen — et
+rien d'autre : ni watcher, ni horloge, ni dépendance. `false` veut dire « marche », et c'est ce
+que reçoit tout ce qui n'installe rien : la CLI, les tests, un script. Un BIT et non un jeton,
+délibérément : la bibliothèque doit rendre l'empreinte que la marche aurait produite, sinon le
+mémo manque et relit toute la médiathèque à chaque changement de main. Et la première lecture
+d'un projet marche toujours, quoi qu'on lui réponde — c'est ce qui rend un watcher vide sûr.
+
+Le watcher est dans le service de fichiers, seul processus qui vive assez longtemps pour tenir
+des poignées. `fs.watch(root, {recursive:true})` plutôt que chokidar, pour deux raisons :
+UNE poignée par racine au lieu d'une par dossier (quatre contre cent cinquante), et sur Windows
+une poignée tenue sur `modules/` n'empêche pas de renommer un dossier de module À L'INTÉRIEUR —
+ce qu'un renommage de module est. Chokidar dit QUEL fichier a changé ; ici on veut un compteur.
+
+Et un plafond de dix secondes, qui est le cœur de l'argument de sûreté : `fs.watch` perd des
+événements. Sans plafond, un seul événement perdu laisserait le vocabulaire périmé POUR DE BON —
+la panne « sûre d'elle et fausse » que `cachedProjectDoc` documente et refuse. Avec, c'est un
+retard de dix secondes au pire. La marche reste la source de vérité ; le watcher dit seulement
+quand on peut la sauter.
+
+**Mesuré**, les deux bras alternés dans une seule invocation pour que la dérive de la machine
+sorte de la comparaison, médiane de cinq :
+
+| les six routes d'un rechargement | ms |
+|---|---|
+| sans le watcher | 230 |
+| avec | **108** |
+
+Rationale complet : `packages/file-service/docs/moduleWatch.md`.
+
 ## Ce qui reste, et n'a pas été fait
 
 Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-| Une marche d'empreinte reste à 19 ms, et un rechargement en paie six — une par route, ce qui est le minimum que la portée explicite permet | `song/src/moduleCache.ts` | descendre sous six veut dire tenir l'empreinte ENTRE deux requêtes, donc un watcher sur les dossiers de modules — un objet à état dans une bibliothèque pure, et sur Windows des poignées qui empêchent de renommer un dossier (voir le watcher strudel, lot C). À trancher, pas à laisser pourrir |
 | L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
+| Le watcher ne couvre qu'un projet à la fois, celui qui est servi | `file-service/src/moduleWatch.ts` | deux personnes sur deux projets du même poste : le second marche comme avant. Élargir veut dire décider quand on cesse de surveiller, ce qui est une question de cycle de vie et pas de vitesse |
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter
 

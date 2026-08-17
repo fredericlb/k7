@@ -28,6 +28,7 @@ import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
 import { pruneIdleLinks, setSelectedEngine } from "./engineLink.ts";
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
+import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
@@ -302,6 +303,10 @@ app.use(resolveWorkspace, filesRouter);
 
 app.listen(FILE_PORT, "0.0.0.0", () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.studio/root exists
+  // Let `@studio/song` skip its module-stamp walk while a watcher says nothing moved. HERE and
+  // nowhere else, deliberately: it is a property of being a long-lived process that holds file
+  // handles, which a CLI run, a test and a script are not. See moduleWatch.ts.
+  installModuleWatch();
   // Same for the media library. Tolerated rather than required: the root is overridable
   // and may point at a drive that isn't mounted, which must not stop the file service —
   // the catalogue then simply reports no library.

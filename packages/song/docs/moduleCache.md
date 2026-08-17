@@ -149,6 +149,25 @@ file **whatever its size** — it is open/read/close, not the content: 57 clip f
 is why a content-addressed cache (keep the read, compare the text, skip only the parse) was
 tried and dropped: perfectly safe, and it recovered only 12 ms of the 46.
 
+## The seam: something that already knows
+
+The walk is 20 ms and cannot be made cheaper — measured: half `readdir`, half `stat`, and the
+`stat`s are on the files whose content is genuinely read (291 `module.yaml`, 42 `ui.yaml`, the
+`nodes/`). A directory's own mtime does not move when a file inside it is edited, so there is no
+shortcut. What is left is asking less often, and a scope only reaches as far as one derivation.
+
+So `useFoldersStill(fn)` lets a process that WATCHES those roots answer instead. It is a single
+bit — "have they moved?" — and deliberately not a token: this file must hand back the stamp the
+walk would have produced, or the memo would miss and re-read the whole médiathèque every time
+the answer changed hands. The first read of a project always walks whatever the answer, which is
+what makes an empty or lying watcher safe rather than merely unlikely.
+
+Nothing here installs one. The file service does, in its `listen` callback, because holding file
+handles is a property of being a long-lived server — a CLI run, a test and a script keep walking
+exactly as before, and none of them pays for a watcher they would immediately close. The
+implementation, the platform quirks and the ceiling that heals a missed event live over there:
+`packages/file-service/docs/moduleWatch.md`.
+
 ## Where the time ends up
 
 Same song, same machine, warm:

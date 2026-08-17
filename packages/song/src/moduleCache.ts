@@ -68,6 +68,42 @@ function moduleStamp(dir: string): string {
   return `${(hash >>> 0).toString(36)}:${entries}:${newest}`;
 }
 
+/**
+ * Something that already KNOWS the module folders have not moved — a process watching them.
+ *
+ * A single bit, and deliberately not a token: this file must hand back the stamp the walk would
+ * have produced, or the memo below would miss and re-read the whole médiathèque every time the
+ * answer changed hands. `false` means "walk", which is what everything that installs nothing
+ * gets — the CLI, the tests, a script. That is what keeps a watcher, and the state and the
+ * platform quirks that come with one, out of this library. See docs/moduleCache.md.
+ */
+export type FoldersStill = (dir: string) => boolean;
+let still: FoldersStill | null = null;
+
+/** Install it, or `null` to go back to walking. The file service is the only caller. */
+export function setFoldersStill(f: FoldersStill | null): void {
+  still = f;
+}
+
+/** The last stamp walked per project, so a watcher's "nothing moved" can hand it back verbatim. */
+const walked = new Map<string, string>();
+
+/**
+ * The stamp, walked unless something is watching and says nothing has moved.
+ *
+ * The oracle is asked only when there IS a previous stamp to hand back: the first read of a
+ * project always walks, whatever anyone claims, which is what makes an empty watcher safe.
+ */
+function stampFor(dir: string): string {
+  const held = walked.get(dir);
+  if (held !== undefined && still?.(dir)) return held;
+  const fresh = moduleStamp(dir);
+  walked.set(dir, fresh);
+  if (walked.size > MAX_ENTRIES)
+    walked.delete(walked.keys().next().value as string);
+  return fresh;
+}
+
 /** One project's cached reads, all invalidated together by the one stamp they were built under. */
 interface Slot {
   stamp: string;
@@ -122,10 +158,10 @@ export function cachedForModules<T>(
 ): T {
   let stamp: string;
   if (scope?.dir === dir) {
-    scope.stamp ??= moduleStamp(dir); // lazily, so a scope that reads nothing walks nothing
+    scope.stamp ??= stampFor(dir); // lazily, so a scope that reads nothing walks nothing
     stamp = scope.stamp;
   } else {
-    stamp = moduleStamp(dir);
+    stamp = stampFor(dir);
   }
   let slot = memo.get(dir);
   if (slot && slot.stamp !== stamp) slot = undefined; // changed on disk — drop the whole slot
