@@ -112,11 +112,43 @@ export function notesByCell(
   return out;
 }
 
+/**
+ * How far inside its own step a note sits, in HUNDREDTHS of that step — a pad's nudge.
+ *
+ * 0..99 by construction, because a note belongs to the cell its start falls in (`notesByCell`):
+ * a hundredth is the resolution, the step is the range. That bound is also the gesture's, and it
+ * is what keeps a pad under the cursor while the wheel turns — see the panel's `onCellWheel`.
+ *
+ * Rounded, because it is a READING of a position rather than the position itself. A take
+ * recorded live lands wherever it landed, and the pad says which hundredth that is nearest.
+ */
+export const NUDGE_MAX = 99;
+export function nudgeOf(time: number, cellStart: number, step: number): number {
+  if (!(step > 0)) return 0;
+  const raw = Math.round(((time - cellStart) / step) * 100);
+  return Math.max(0, Math.min(NUDGE_MAX, raw));
+}
+
+/**
+ * …and back: the beat a pad nudged by `n` hundredths starts on.
+ *
+ * Rounded to six decimals, which is the same courtesy the velocity drag pays: the finest value
+ * this can produce is a hundredth of a 1/16 note — four decimals — so nothing is lost, and a
+ * file full of `4.092500000000001` would be noise in a diff. It also keeps the beat a later edit
+ * ADDRESSES identical to the one written, which is how a note is found again.
+ */
+export function nudgedTime(cellStart: number, step: number, n: number): number {
+  const t = cellStart + (Math.max(0, Math.min(NUDGE_MAX, n)) / 100) * step;
+  return Math.round(t * 1e6) / 1e6;
+}
+
 /** One optimistic edit: what a pad was set to before the document could say so. */
 export interface PadEdit {
   on: boolean;
   /** 0..1 for a velocity drag; absent means "on, at whatever the note carries". */
   vel?: number;
+  /** Hundredths of a step, for a nudge; absent means "wherever the note already is". */
+  nudge?: number;
 }
 
 /**
@@ -130,13 +162,23 @@ export interface PadEdit {
 export function settledEdits(
   pending: ReadonlyMap<string, PadEdit>,
   byCell: ReadonlyMap<string, WebNote>,
+  /** The cell starts, by the same key — a nudge is only readable against the step it is off. */
+  cellStartOf?: (key: string) => number | undefined,
+  step = 0,
 ): string[] {
   const out: string[] = [];
   for (const [key, edit] of pending) {
     const hit = byCell.get(key);
+    const cellStart = cellStartOf?.(key);
     const agrees = edit.on
       ? !!hit &&
-        (edit.vel === undefined || Math.abs((hit.vel ?? 1) - edit.vel) < 1e-6)
+        (edit.vel === undefined ||
+          Math.abs((hit.vel ?? 1) - edit.vel) < 1e-6) &&
+        // A nudge settles when the note is ON that hundredth. Without the cell it cannot be
+        // read at all, so an edit carrying one waits rather than being declared done.
+        (edit.nudge === undefined ||
+          (cellStart !== undefined &&
+            nudgeOf(hit.time, cellStart, step) === edit.nudge))
       : !hit;
     if (agrees) out.push(key);
   }

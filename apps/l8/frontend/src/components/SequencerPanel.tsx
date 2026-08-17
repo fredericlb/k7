@@ -30,7 +30,10 @@ import {
 import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import {
+  NUDGE_MAX,
   notesByCell,
+  nudgedTime,
+  nudgeOf,
   type PadEdit,
   PRECISIONS,
   type Precision,
@@ -46,6 +49,9 @@ import { noteName } from "./PianoRoll";
 const CELL_H = 56;
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
+// How long the wheel must be still before a nudge is written. Long enough that a flick is one
+// command rather than twenty, short enough that letting go feels like the end of the gesture.
+const NUDGE_SETTLE_MS = 250;
 
 /** One row of the grid: a rack sound, or a key the notes use that the rack does not name. */
 interface Row {
@@ -273,6 +279,21 @@ export function SequencerPanel({
   const [pending, setPending] = useState<ReadonlyMap<string, PadEdit>>(
     new Map(),
   );
+  /**
+   * A pad key back to its step's beat. The key ends in `@<cellIndex>`, so this is the cells
+   * array read the other way round — the one thing a nudge cannot be judged without.
+   *
+   * Through a ref, and STABLE: `cells` is rebuilt on every render, so a callback closing over it
+   * would change identity on every render, and the reconcile below — which has to name it as a
+   * dependency — would then run on every render instead of when a document lands.
+   */
+  const cellsRef = useRef(cells);
+  cellsRef.current = cells;
+  const cellStartOfKey = useCallback(
+    (key: string): number | undefined =>
+      cellsRef.current[Number(key.split("@")[1])],
+    [],
+  );
   const inFlight = useRef(0);
   useEffect(() => {
     setPending((cur) => {
@@ -281,13 +302,13 @@ export function SequencerPanel({
       // ghost that still disagrees was a command that FAILED (a destination taken meanwhile,
       // say) and must not stay on screen. While writes are out, only the settled ones go.
       if (inFlight.current === 0) return new Map();
-      const done = settledEdits(cur, byCell);
+      const done = settledEdits(cur, byCell, cellStartOfKey, prec.beats);
       if (!done.length) return cur;
       const next = new Map(cur);
       for (const k of done) next.delete(k);
       return next;
     });
-  }, [byCell]);
+  }, [byCell, cellStartOfKey, prec.beats]);
   // A different clip's ghosts are not this one's — and neither are a different PRECISION's: a
   // key is `<note>@<cellIndex>`, and an index counts cells of the step it was made at, so
   // "36@2" means one place at 1/8 and another at 1/16. The commands already fired still land;
@@ -426,6 +447,77 @@ export function SequencerPanel({
     d.moved = true;
     drawLevel(e.currentTarget, d.vel);
   };
+  /**
+   * --- shift + wheel: NUDGE the pad under the cursor -------------------------------------
+   *
+   * One notch is a HUNDREDTH of the sequence's own step — 1/16 at 120 bpm is 1.25 ms — so this
+   * is the micro-timing control: the grid says which step a hit is on, the nudge says how it
+   * sits against it. The value is drawn top-right of the pad, in hundredths, and only when
+   * there is one: a grid of zeroes would be noise over the thing it is annotating.
+   *
+   * Bounded by the pad's own step, 0..99, and that bound is the gesture's rather than a
+   * limitation. A note that left its step would be on ANOTHER step — the pad would vanish from
+   * under the cursor mid-turn, and the next notch would fall on an empty cell. To place a hit
+   * just before a beat, nudge the pad on the step BEFORE it: 95 hundredths of the previous step
+   * is five hundredths early, and the pad you are turning stays where your hand is.
+   *
+   * Shift, because a bare wheel scrolls the grid and this pane can be wider than the pane. React
+   * binds `onWheel` on the ELEMENT, where it is not passive, so `preventDefault` holds — the same
+   * reasoning the audio clip panel's zoom states.
+   */
+  const nudgeTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = nudgeTimers.current;
+    return () => {
+      for (const t of timers.values()) clearTimeout(t);
+    };
+  }, []);
+
+  const onCellWheel = (
+    e: React.WheelEvent,
+    row: Row,
+    hit: WebNote | null,
+    cellStart: number,
+  ) => {
+    if (!e.shiftKey || !hit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const key = e.currentTarget.getAttribute("data-key") ?? "";
+    const from = nudgeOf(hit.time, cellStart, prec.beats);
+    // Up is later, down is earlier — the wheel's own direction, and the same one the velocity
+    // drag reads: away from you is more.
+    const to = clamp(from + (e.deltaY < 0 ? 1 : -1), 0, NUDGE_MAX);
+    if (to === from) return;
+    paint(key, { on: true, vel: hit.vel, nudge: to });
+
+    /**
+     * The command waits for the wheel to STOP, unlike every other gesture here.
+     *
+     * A press is one command and a drag commits once on release, but a wheel is a stream — a
+     * flick is twenty notches, and each `sequence note` recompiles the project. So the pad is
+     * painted per notch and the write is deferred until the turning settles: one command, one
+     * line in the journal, one Ctrl+Z for the gesture a hand actually made.
+     *
+     * The note is addressed by where it is NOW (`hit.time`, which is the ghost's once one is
+     * painted) and moved to where the pad has got to by then, so the twenty notches in between
+     * cost nothing and leave nothing to reconcile.
+     */
+    const prev = nudgeTimers.current.get(key);
+    if (prev) clearTimeout(prev);
+    const at = hit.time;
+    nudgeTimers.current.set(
+      key,
+      setTimeout(() => {
+        nudgeTimers.current.delete(key);
+        const landed = nudgedTime(cellStart, prec.beats, to);
+        if (Math.abs(landed - at) < 1e-9) return;
+        run(
+          `sequence note move ${seqId} ${row.note} ${at} ${row.note} ${landed}`,
+        );
+      }, NUDGE_SETTLE_MS),
+    );
+  };
+
   const onCellUp = (e: React.PointerEvent, row: Row, hit: WebNote | null) => {
     const d = vDrag.current;
     const began = pressed.current;
@@ -507,6 +599,7 @@ export function SequencerPanel({
         </span>
         <span className="text-muted-foreground/70">
           cliquer pose/enlève · glisser règle la vélocité · ctrl+glisser déplace
+          · ⇧molette décale d'un centième de pas
         </span>
         {/* The precision — a closed set, so the grid never lands on a step nothing musical
             means. Session state of this panel, deliberately not written anywhere. */}
@@ -575,7 +668,7 @@ export function SequencerPanel({
                   // A cell painted ON before the document has a note stands in for one AT THE
                   // CELL'S START — which is exactly where `sequence note new` is putting it, so
                   // a velocity drag begun on the ghost addresses the right note once it lands.
-                  const hit: WebNote | null = ghost
+                  const base: WebNote | null = ghost
                     ? ghost.on
                       ? (doc ?? {
                           time: cellStart,
@@ -587,6 +680,21 @@ export function SequencerPanel({
                         })
                       : null
                     : doc;
+                  // A painted NUDGE moves the note the pad stands for, so the next notch reads
+                  // where the last one put it rather than where the document still says it is.
+                  const hit: WebNote | null =
+                    base && ghost?.nudge !== undefined
+                      ? {
+                          ...base,
+                          time: nudgedTime(cellStart, prec.beats, ghost.nudge),
+                        }
+                      : base;
+                  // …and what the corner says: hundredths of a step, drawn only when there are
+                  // any. Zero is where a pad sits by default, and a grid of zeroes would be
+                  // noise over the thing it annotates.
+                  const nudge = hit
+                    ? nudgeOf(hit.time, cellStart, prec.beats)
+                    : 0;
                   const onBar =
                     Math.abs(
                       cellStart / barBeats - Math.round(cellStart / barBeats),
@@ -621,9 +729,10 @@ export function SequencerPanel({
                       }
                       onPointerMove={onCellMove}
                       onPointerUp={(e) => onCellUp(e, row, hit)}
+                      onWheel={(e) => onCellWheel(e, row, hit, cellStart)}
                       title={
                         hit
-                          ? `${row.symbol} · beat ${+cellStart.toFixed(3)} · vel ${+live.toFixed(2)} — glisser règle la vélocité, ctrl+glisser déplace la note, cliquer enlève`
+                          ? `${row.symbol} · beat ${+cellStart.toFixed(3)}${nudge ? ` +${nudge}/100` : ""} · vel ${+live.toFixed(2)} — glisser règle la vélocité, ⇧molette décale, ctrl+glisser déplace, cliquer enlève`
                           : `${row.symbol} · beat ${+cellStart.toFixed(3)}`
                       }
                       className={cn(
@@ -677,6 +786,14 @@ export function SequencerPanel({
                             style={{ top: lineY }}
                           />
                         </>
+                      )}
+                      {/* The nudge, in hundredths of a step, in the corner the level bars leave
+                          free. Over the fill rather than beside it: the pad is 40px wide and a
+                          column of its own would have cost the grid a fifth of its width. */}
+                      {nudge > 0 && (
+                        <span className="pointer-events-none absolute top-0 right-0.5 font-mono text-[9px] text-white/80 leading-none tabular-nums">
+                          {nudge}
+                        </span>
                       )}
                     </button>
                   );

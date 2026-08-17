@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { rackFor } from "./rackFor";
 import {
+  NUDGE_MAX,
   noteInCell,
   notesByCell,
+  nudgedTime,
+  nudgeOf,
   type PadEdit,
   settledEdits,
   stepCells,
@@ -190,5 +193,52 @@ describe("settledEdits", () => {
     // A note the file states nothing for IS full — the schema's default.
     const full = new Map([["36@0", note(0, 36)]]);
     expect(settledEdits(new Map([["36@0", on(1)]]), full)).toEqual(["36@0"]);
+  });
+
+  // …and for the NUDGE, which is where the note sits inside its step. A ghost dropped before the
+  // move landed would snap the pad back to the step for the length of a round trip.
+  it("waits for the nudge, and cannot read one without the step", () => {
+    const at = (t: number) => new Map([["36@0", note(t, 36)]]);
+    const cell = () => 0;
+    const edit = new Map([["36@0", { on: true, nudge: 25 } as PadEdit]]);
+    expect(settledEdits(edit, at(0), cell, 1)).toEqual([]);
+    expect(settledEdits(edit, at(0.25), cell, 1)).toEqual(["36@0"]);
+    // No cell start, no reading: the edit waits rather than being declared done on a guess.
+    expect(settledEdits(edit, at(0.25))).toEqual([]);
+  });
+});
+
+describe("nudgeOf / nudgedTime", () => {
+  it("reads how far into its step a note sits, in hundredths", () => {
+    expect(nudgeOf(2, 2, 0.5)).toBe(0);
+    expect(nudgeOf(2.125, 2, 0.5)).toBe(25);
+    expect(nudgeOf(2.4975, 2, 0.5)).toBe(100 - 1); // clamped at the step's far edge
+  });
+
+  // A recorded take lands where it landed; the pad says which hundredth that is nearest.
+  it("rounds a position rather than demanding one", () => {
+    expect(nudgeOf(2.0031, 2, 0.5)).toBe(1);
+    expect(nudgeOf(2.0029, 2, 0.5)).toBe(1);
+  });
+
+  it("stays inside its own step, whichever way it is pushed", () => {
+    expect(nudgeOf(1.9, 2, 0.5)).toBe(0);
+    expect(nudgeOf(9, 2, 0.5)).toBe(NUDGE_MAX);
+    expect(nudgedTime(2, 0.5, -5)).toBe(2);
+    expect(nudgedTime(2, 0.5, 200)).toBeCloseTo(2 + 0.99 * 0.5, 9);
+  });
+
+  it("round-trips a nudge through the beat it names", () => {
+    for (const n of [0, 1, 37, 99])
+      expect(nudgeOf(nudgedTime(4, 0.25, n), 4, 0.25)).toBe(n);
+  });
+
+  // A beat that goes in a FILE, and is then used to find the note again. `4.092500000000001`
+  // would be noise in a diff and a different string to match on.
+  it("writes a beat a file can hold and an edit can address", () => {
+    expect(nudgedTime(4, 0.25, 37)).toBe(4.0925);
+    expect(nudgedTime(2, 0.5, 33)).toBe(2.165);
+    for (const n of [7, 33, 61, 99])
+      expect(String(nudgedTime(4, 0.25, n))).not.toMatch(/\d{8}/);
   });
 });

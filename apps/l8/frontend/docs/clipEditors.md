@@ -57,6 +57,34 @@ on. A drop outside the grid, onto its own cell, or onto one that already holds a
 nothing: (key, start) is how a note is addressed, and two on one pad would be the same note
 twice. The writer refuses that last case as well, as the last word.
 
+### Shift+wheel NUDGES the pad under the cursor
+
+One notch is a **hundredth of the sequence's own step** — at 1/16 and 120 bpm, 1.25 ms. The grid
+says which step a hit is on; the nudge says how it sits against it, which is the whole of a
+groove. The value is drawn top-right of the pad, in hundredths, and only when there is one: a
+grid of zeroes would be noise over the thing it annotates.
+
+**Bounded by the pad's own step, 0..99**, and that bound is the gesture rather than a limitation.
+A note that left its step would be on ANOTHER step: the pad would vanish from under the cursor
+mid-turn and the next notch would fall on an empty cell. To place a hit just *before* a beat,
+nudge the pad on the step before it — 95 hundredths of the previous step is five hundredths
+early, and the pad you are turning stays where your hand is.
+
+Two things it does differently from every other gesture here, both because a wheel is a stream
+rather than an act:
+
+- **The command waits for the wheel to stop** (250 ms). A press is one command and a drag commits
+  on release, but a flick is twenty notches, and each `sequence note` recompiles the project. So
+  the pad is painted per notch and written once — one line in the journal, one Ctrl+Z for the
+  gesture a hand actually made.
+- **The ghost carries the nudge**, so the next notch reads where the last one put the note rather
+  than where the document still says it is, and the command that finally goes addresses the note
+  by where it is NOW.
+
+Shift, because a bare wheel scrolls a grid that is usually wider than its pane. React binds
+`onWheel` on the element, where it is not passive, so `preventDefault` holds — the same reasoning
+the audio clip panel's zoom states.
+
 Keys the rack has no row for are **rows too**, not a count: they follow the rack's rows, high
 first, labelled by their pitch and drawn amber — a played take with keys the kit does not name
 must show, and stay editable, rather than read as data lost.
