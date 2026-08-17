@@ -16,7 +16,8 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench": "vitest bench --run"
   },
   "engines": {
     "node": ">=18"

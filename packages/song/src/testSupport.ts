@@ -4,13 +4,23 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { parseDocument, stringify } from "yaml";
+import { stringify } from "yaml";
 import { insertBetween, parseGraph, renameNode } from "./yaml/graphFile";
 
-/** Parse a YAML file into a Document. */
-export const readDoc = (file: string) =>
-  parseDocument(readFileSync(file, "utf8"), { version: "1.2" });
-
+/**
+ * The BENCH fixture, re-exported here rather than published as a subpath of its own.
+ *
+ * Same audience as everything else in this file — code that only tests and benches run — and
+ * `docs/inventaire.md` §1 counts 41 published subpaths nobody outside their package imports, so
+ * the reflex to publish every file is one worth not indulging. `benchProject.ts` stays its own
+ * file because building a song from nothing is not fixture surgery; this is only its door.
+ */
+export {
+  BENCH_SIZES,
+  type BenchSize,
+  benchProjectFiles,
+  writeBenchProject,
+} from "./benchProject";
 // The app's own writer — a test that used a second implementation would be testing that
 // one, not the one shipping.
 export {

@@ -82,7 +82,8 @@
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench": "vitest bench --run"
   },
   "engines": {
     "node": ">=18"

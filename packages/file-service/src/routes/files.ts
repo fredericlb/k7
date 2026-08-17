@@ -468,9 +468,22 @@ filesRouter.post(
     // req.userEmail lets commit/pull pin git to this user's deploy key (see makeHost).
     const output = await runWebCommand(req.ws!, line, req.userEmail, target);
     const ran = performance.now();
-    const rev = req.ws!.revision().rev;
+    /**
+     * The token AFTER the command, and the graph read in the same scope.
+     *
+     * One walk for the pair rather than two: `graphDoc()` opens its own scope when it is called
+     * outside one, and here it is called microseconds after the token was taken — the same
+     * instant, so the same answer. The walk before the command (above) stays its own: comparing
+     * two moments is the whole point of it. See `Workspace.withRevision`.
+     */
+    const { rev, graph } = req.ws!.withRevision(() => {
+      const rev = req.ws!.revision().rev;
+      return {
+        rev,
+        graph: rev !== before ? req.ws!.graphDoc() : undefined,
+      };
+    });
     const changed = rev !== before;
-    const graph = changed ? req.ws!.graphDoc() : undefined;
     // One line per WRITING command, in the shape the engine's `[applyFull]` uses: the two halves
     // of the wait, so "the insert is slow" can be answered without a profiler.
     if (changed)

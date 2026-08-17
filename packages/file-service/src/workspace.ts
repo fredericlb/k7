@@ -720,11 +720,41 @@ export class Workspace {
     this.mutations++;
   }
 
+  /**
+   * The token, held for the duration of ONE derivation.
+   *
+   * `graphDoc()` asked for it, then called `clipExtents()` → `cachedProjectDoc()`, which asked
+   * again — two full walks of the project per `GET /graph`, on a total cache HIT. `POST /command`
+   * managed four. Each is the 4.8 ms this file's own comment quotes, spent proving nothing had
+   * changed since the last one, microseconds earlier.
+   *
+   * Re-entrant rather than plumbed through the request: the nesting is already synchronous, so
+   * the outermost derivation opens the scope and the inner ones find it open. Exactly the shape
+   * `withModuleStamp` has in `@studio/song`, and for the same reason.
+   *
+   * `/revision` itself is unaffected — it is polled outside any scope and still walks.
+   */
+  private revScope: string | null = null;
+  withRevision<T>(fn: () => T): T {
+    if (this.revScope !== null) return fn(); // already inside one
+    this.revScope = this.freshRevision();
+    try {
+      return fn();
+    } finally {
+      this.revScope = null;
+    }
+  }
+
   // A cheap token that changes when the project's sources do, so clients poll it instead of the derivations.
   // See docs/workspace.md for why it is a mutation counter plus a walk, and deliberately not a content hash.
   revision(): { rev: string } {
+    return { rev: this.revScope ?? this.freshRevision() };
+  }
+
+  /** The walk itself. Only `withRevision` and an unscoped `revision()` reach it. */
+  private freshRevision(): string {
     const dir = this.activeProject;
-    if (!dir) return { rev: `none:${this.mutations}` };
+    if (!dir) return `none:${this.mutations}`;
     let count = 0;
     let newest = 0;
     const walk = (abs: string): void => {
@@ -753,7 +783,7 @@ export class Workspace {
       }
     };
     walk(dir);
-    return { rev: `${this.mutations}:${count}:${newest}` };
+    return `${this.mutations}:${count}:${newest}`;
   }
 
   // --- undo/redo journal -----------------------------------------------------
@@ -1803,27 +1833,54 @@ export class Workspace {
     return this.cachedProjectDoc(this.requireActive());
   }
 
+  /**
+   * The compiled song as the BROWSER wants it, memoised on the revision.
+   *
+   * The compile underneath was already cached; this projection of it was not — the only one of
+   * the three derived views (`graphDoc`, `hints`, this) that rebuilt on every request. And it is
+   * the most asked-for: three components are mounted for the app's life and each fetches it on
+   * the same `reloadKey`, so one command meant three full re-maps of every track, clip and note
+   * per tab, plus three `JSON.stringify` of the whole song.
+   *
+   * Same token, same rule, same reason as the other two: it moves for an edit made outside this
+   * service as well as for one of ours.
+   */
+  private webDocCache: { dir: string; rev: string; doc: WebProject } | null =
+    null;
+
   projectDoc(): WebProject {
-    const p = this.cachedProjectDoc(this.requireActive());
-    return {
-      name: p.name,
-      tempo: p.tempo,
-      timeSigNumerator: p.timeSigNumerator,
-      timeSigDenominator: p.timeSigDenominator,
-      tracks: toWebTracks(p.tracks),
-      groups: p.groups.map((g) => ({
-        id: g.id,
-        name: g.name,
-        color: g.color,
-        mute: g.mute,
-        solo: g.solo,
-      })),
-      metronome: p.settings.metronome,
-      countIn: p.settings.countIn,
-      strudel: p.strudel,
-      mode: p.mode,
-      markers: p.markers.map((m) => ({ beat: m.beat, name: m.name, tc: m.tc })),
-    };
+    return this.withRevision(() => {
+      const dir = this.requireActive();
+      const { rev } = this.revision();
+      const hit = this.webDocCache;
+      if (hit && hit.dir === dir && hit.rev === rev) return hit.doc;
+      const p = this.cachedProjectDoc(dir);
+      const doc: WebProject = {
+        name: p.name,
+        tempo: p.tempo,
+        timeSigNumerator: p.timeSigNumerator,
+        timeSigDenominator: p.timeSigDenominator,
+        tracks: toWebTracks(p.tracks),
+        groups: p.groups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          color: g.color,
+          mute: g.mute,
+          solo: g.solo,
+        })),
+        metronome: p.settings.metronome,
+        countIn: p.settings.countIn,
+        strudel: p.strudel,
+        mode: p.mode,
+        markers: p.markers.map((m) => ({
+          beat: m.beat,
+          name: m.name,
+          tc: m.tc,
+        })),
+      };
+      this.webDocCache = { dir, rev, doc };
+      return doc;
+    });
   }
 
   /**
@@ -1944,16 +2001,20 @@ export class Workspace {
   // builder. The cache below already refuses to key on anything but the active project, which is
   // why passing one costs nothing to explain: it takes the branch that was there for it.
   graphDoc(at?: string): WebGraph {
-    const dir = at ?? this.requireActive();
-    // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
-    if (dir !== this.activeProject)
-      return buildGraphDoc(dir, this.clipExtents(dir));
-    const { rev } = this.revision();
-    const hit = this.graphCache;
-    if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-    const graph = buildGraphDoc(dir, this.clipExtents(dir));
-    this.graphCache = { dir, rev, graph };
-    return graph;
+    // One scope for the whole derivation: `clipExtents` below reaches `cachedProjectDoc`, which
+    // asks for the token again, and that second walk proved nothing. See `withRevision`.
+    return this.withRevision(() => {
+      const dir = at ?? this.requireActive();
+      // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
+      if (dir !== this.activeProject)
+        return buildGraphDoc(dir, this.clipExtents(dir));
+      const { rev } = this.revision();
+      const hit = this.graphCache;
+      if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
+      const graph = buildGraphDoc(dir, this.clipExtents(dir));
+      this.graphCache = { dir, rev, graph };
+      return graph;
+    });
   }
 
   projectInfo(): ProjectInfo {
