@@ -52,8 +52,6 @@ import { setFileValue } from "./yaml/edit";
 import { ENTITY_SCHEMAS } from "./yaml/entitySchemas";
 import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
 import { GRAPH_BASE } from "./yaml/graphSchema";
-import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./yaml/mixViewFile";
-import type { MixView } from "./yaml/mixViewSchema";
 import { formatIssue } from "./yaml/moduleFile";
 import {
   entityFileFor,
