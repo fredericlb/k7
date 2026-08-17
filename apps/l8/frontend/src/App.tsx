@@ -116,6 +116,7 @@ import {
 import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
 import { isMixFormat, MIX_FORMATS, useShare } from "./hooks/useShare";
+import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
@@ -129,6 +130,7 @@ import {
   keyToken,
   resolveToken,
 } from "./keys";
+import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
 import { BARE_TRANSPORT, isUiLine, namesLine } from "./localCommands";
 import { headTokens, resolveEntry, resolveModuleFile } from "./localTargets";
@@ -589,8 +591,8 @@ export default function App({
     engineBusyRef,
     engineWarnings,
     watchWaveform,
-    transport,
-    seek,
+    transport: engineTransport,
+    seek: engineSeek,
     requestPluginParams,
     setPluginParam,
     watchPluginParams,
@@ -606,6 +608,23 @@ export default function App({
     setStatus,
     pushLog,
   );
+
+  /**
+   * On a snapshot, the transport is a browser clock over rendered audio instead of an engine.
+   *
+   * Substituted HERE, at the two verbs, and nowhere else: everything downstream — the bar, the
+   * keys, `transport play`, the playhead, `replayAtRef` just below — reads the same `store`
+   * frames whichever side is filling them, so none of it learns that there is no engine.
+   */
+  const player = useSnapshotPlayer(snapshot, store);
+  const transport = snapshot ? player.transport : engineTransport;
+  const seek = snapshot ? player.seek : engineSeek;
+  // Into the status line rather than a dialog: a browser refusing to autoplay, or one codec it
+  // will not take, is something to READ — the rest of the screen still works and is worth
+  // keeping. Same place the engine's own trouble goes.
+  useEffect(() => {
+    if (player.fault) setStatus(player.fault);
+  }, [player.fault]);
 
   // Where playback LAST STARTED, in seconds — what `transport replay` returns to. Read off the
   // store's frames rather than recorded when this shell presses play, so a start from anywhere
@@ -1045,7 +1064,22 @@ export default function App({
     midiSeqRef,
     quietCommand,
     bumpReload,
+    // On a snapshot these two are the LISTENER's, not the document's — which stem sounds.
+    local: frozen,
   });
+
+  /**
+   * …and on a snapshot, that is what reaches the audio: mute and solo resolved to one gain per
+   * lane, handed to the player.
+   *
+   * The resolution itself is `laneGains`, pure and tested: solo is a fact about the WHOLE set —
+   * one soloed lane silences every other — so no lane's answer follows from its own two flags,
+   * and that is exactly the kind of rule that should not live inside an effect.
+   */
+  const setLaneGains = player.setLaneGains;
+  useEffect(() => {
+    if (frozen) setLaneGains(laneGains(trackControls));
+  }, [frozen, trackControls, setLaneGains]);
 
   // Web MIDI capture, driven by record+play+midiArmed.
   useMidiRecording({

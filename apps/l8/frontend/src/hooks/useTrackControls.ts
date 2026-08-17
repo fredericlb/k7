@@ -15,6 +15,18 @@ export function useTrackControls(opts: {
   midiSeqRef: React.RefObject<Record<string, { seqId: string; start: number }>>;
   quietCommand: (line: string) => Promise<void>;
   bumpReload: () => void;
+  /**
+   * Mute and solo are the VIEWER's, not the document's — a shared snapshot.
+   *
+   * The two are normally writes: `m` rewrites the lane's bypass in `graph.yaml` and `s` rewrites
+   * `project.yaml`'s `soloed:` list, because a mute is a decision about the song and not a
+   * session flag. On a snapshot there is nothing to write to, and `fsend` would refuse — so
+   * these become what a listener means by them instead: which of the rendered stems is sounding.
+   *
+   * `arm` is untouched and stays a command: nothing arms without an engine, and the refusal
+   * saying so is better than a button that pretends.
+   */
+  local?: boolean;
 }): {
   trackControls: Record<string, TrackControlValues>;
   onTrackToggle: (id: string, control: "mute" | "solo" | "arm") => void;
@@ -28,6 +40,7 @@ export function useTrackControls(opts: {
     midiSeqRef,
     quietCommand,
     bumpReload,
+    local = false,
   } = opts;
 
   // Optimistic mute/solo by track id: the tap flips at once, and the override drops once the refetched doc agrees.
@@ -58,9 +71,11 @@ export function useTrackControls(opts: {
     for (const t of docTracks)
       m[t.id] = { mute: t.mute ? 1 : 0, solo: t.solo ? 1 : 0 };
     docMSRef.current = m;
-    // A fresh doc IS the source of truth — drop optimistic overrides it now reflects.
-    setOptMS({});
-  }, [docTracks]);
+    // A fresh doc IS the source of truth — drop optimistic overrides it now reflects. Except
+    // locally, where the doc is NOT the source of truth for these two and never catches up:
+    // clearing would silently un-mute every lane the moment anything re-read the project.
+    if (!local) setOptMS({});
+  }, [docTracks, local]);
 
   // Toggle mute/solo/arm — the same commands m/s/r run. Flip optimistically, run, and only THEN bump the reload:
   // refetching before the command settles reads stale state and leaves the button lagging.
@@ -81,11 +96,14 @@ export function useTrackControls(opts: {
         const cur = prev[id]?.[control] ?? docMSRef.current[id]?.[control] ?? 0;
         return { ...prev, [id]: { ...prev[id], [control]: cur ? 0 : 1 } };
       });
+      // Locally, the "optimistic" override IS the value: there is nothing to be optimistic
+      // about, no command to run and nothing to reconcile against.
+      if (local) return;
       void quietCommand(`track ${control} ${id}`)
         .then(bumpReload)
         .catch(bumpReload); // reconcile even if it failed
     },
-    [quietCommand, bumpReload, midiSeqRef, setMidiArmed],
+    [quietCommand, bumpReload, midiSeqRef, setMidiArmed, local],
   );
 
   // Commit a volume/pan knob from a graph track node — the counterpart of onTrackToggle,

@@ -105,20 +105,50 @@ digest du tout. Le refus est levé avec une phrase plutôt que laissé remonter 
 `undefined is not a function` : c'est un déploiement, pas un bug, et le remède est de servir la
 page en https.
 
-## Ce qui reste à faire : la lecture
+## La lecture : une horloge de navigateur qui remplit le même store
 
-Le son n'est pas encore joué. Ce qui est décidé, et pourquoi :
+`useSnapshotPlayer` substitue **deux verbes** — `transport` et `seek` — juste après
+`useEngineLink`, et rien d'autre. Tout ce qui est en aval — la barre, les touches,
+`transport play`, la tête de lecture, `replayAtRef` — lit les mêmes trames de `store`, quel que
+soit le côté qui les remplit. Aucun de ces morceaux n'apprend qu'il n'y a pas de moteur.
 
-**Un `<audio>` par stem, derrière un `MediaElementAudioSourceNode` et un `GainNode`** — et non le
-`SongPreloader` de z0, qui décode tout en `AudioBuffer`. Le nombre décide : douze stems de quatre
-minutes font ~58 Mo de mp3 à transférer et **~340 Mo décodés en mémoire**, ce qui est fatal sur un
-téléphone. Un élément média diffuse, fait ses requêtes Range — ce que `streamFile` sert déjà — et
-donne un `currentTime` pour la tête de lecture.
+**Un `<audio>` par fichier, et non un tampon décodé.** Le nombre décide : douze stems de quatre
+minutes, c'est ~58 Mo de mp3 à récupérer et **~340 Mo décodés**, ce qu'un téléphone n'a pas. Un
+élément média diffuse, fait ses requêtes Range — exactement ce que `streamFile` sert déjà — et
+porte le `currentTime` que ce hook publie comme tête de lecture.
 
-Le mixdown est **l'horloge** : il est toujours présent, il est ce qu'on entend par défaut, et les
-stems se resynchronisent sur lui plutôt que les uns sur les autres. Les coupures et les isolements
-de l8 deviennent des gains sur ces nœuds.
+Ce que ça coûte : plusieurs éléments ne partagent pas d'horloge. On ne le leur demande donc pas —
+**l'un d'eux EST l'horloge** et les autres sont remis dessus dès qu'ils dérivent, correction
+inaudible à 80 ms. Si ça s'entendait quand même, on peut décoder à la demande les seuls stems
+qu'on démute, sans rien défaire de ce qui est là.
 
-Ce que ça coûte : la synchronisation entre plusieurs éléments média n'est pas parfaite, et c'est
-le compromis assumé. La parade si ça s'entend est de décoder **à la demande** les seuls stems
-qu'on démute, ce que la forme ci-dessus permet d'ajouter sans être défaite.
+Le graphe audio se construit au **premier verbe de transport**, jamais au montage : un
+`AudioContext` fabriqué hors d'un geste utilisateur démarre suspendu, et des éléments en
+`preload="auto"` tireraient des mégaoctets pour quelqu'un qui lit le graphe et n'appuiera jamais
+sur lecture.
+
+Par défaut on entend **le mixdown**. À la première coupure on passe aux **stems**, une fois et
+pour la session : revenir au mixdown quand toutes les pistes sont rallumées serait une seconde
+couture audible pour quelqu'un qui ne fait qu'explorer, et les stems somment la même chanson.
+
+`levels` reste **vide** et non mis à zéro : un vumètre sans moteur derrière n'a pas de lecture, et
+une rangée de barres à -∞ serait une affirmation sur du silence que rien n'a mesuré.
+
+### Couper et isoler deviennent ce qu'un auditeur veut dire par là
+
+Normalement ce sont des ÉCRITURES : `m` réécrit le bypass de la piste dans `graph.yaml` et `s` la
+liste `soloed:` de `project.yaml`, parce qu'une coupure est une décision sur le morceau et pas un
+drapeau de session. Ici il n'y a rien où écrire, et `fsend` refuserait — alors `useTrackControls`
+prend un mode `local` où l'état optimiste EST la valeur : rien à lancer, rien à réconcilier.
+
+`arm` n'est pas touché et reste une commande : rien ne s'arme sans moteur, et le refus qui le dit
+vaut mieux qu'un bouton qui fait semblant.
+
+La résolution vers l'audio est `laneGains`, pure et testée — parce que **l'isolement est un fait
+sur l'ENSEMBLE** : une seule piste isolée fait taire toutes les autres, donc la réponse d'une
+piste ne se déduit pas de ses deux drapeaux à elle. C'est la règle que le moteur applique à
+`soloed:`, énoncée là où il n'y a pas de moteur pour l'appliquer.
+
+Un stem dont le rendu n'a correspondu à aucune piste (`track: ""`) est délibérément absent de la
+table : il sonne, et aucun bouton ne l'adresse — ce qui est honnête, là que l'accrocher à un
+identifiant inventé allumerait le bouton d'une autre piste.
