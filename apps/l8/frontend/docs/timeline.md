@@ -674,6 +674,29 @@ not drift is this app's own idea of it — the caret's "left of the first beat" 
 `useHZoom`'s anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
 click landing one column off, which reads as a rounding bug and is not one.
 
+### …and it STAYS, while the lanes pan under it
+
+`sticky left-0` on every gutter cell (`GUTTER_STICKY`), which is what the piano roll's key column
+has always done — the timeline was the one pane where panning right took the names off screen and
+left a wall of anonymous clips.
+
+Sticky cells inside the ONE scroller, not a second pane beside it. Two scroll containers means two
+scroll positions to keep in step, and a pixel of drift there shows up as a lane wearing its
+neighbour's name — which is the failure mode of every split-pane arrangement, and the reason it is
+worth stating rather than trying.
+
+Two details carry it:
+
+- **An opaque ground**, as a `before:` layer. Every tint this column wears is semi-transparent — a
+  group's `bg-muted/60`, the caret's `bg-primary/25`, a selection's `/20` — so a sticky cell with
+  nothing behind it has the clips sliding visibly through the names. `-z-10` puts the ground under
+  the cell's own content and above whatever scrolls past.
+- **A z-index that says what is in front of what.** The gutters are `z-30`: over the lane's own
+  layers (a selected clip is `z-10`; an edge handle, a marker and the playhead are `z-20`) and
+  under the ruler, which sticks the other way at `z-40`. So the playhead disappears behind the
+  names rather than drawing across them, and where the two stickies cross, the corner belongs to
+  the ruler.
+
 ## What a track key aims at
 
 Resolved here, because this is where the rows and groups are known; the keymap just

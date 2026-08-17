@@ -118,6 +118,26 @@ const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 const LABEL_SELECTED =
   "bg-primary/25 outline outline-1 -outline-offset-1 outline-primary";
 
+/**
+ * What holds the NAME COLUMN still while the lanes pan under it.
+ *
+ * `sticky left-0` on every gutter cell rather than a second scroll container beside the first:
+ * one scroller means one scroll position, so the names cannot drift a pixel out of step with the
+ * rows they name — which is the failure mode of every two-pane arrangement, and it shows up as a
+ * lane whose label belongs to its neighbour.
+ *
+ * The `before:` layer is the opaque GROUND, and it is not decoration: every tint this column wears
+ * — a group's `bg-muted/60`, the caret's `bg-primary/25`, a selection's `/20` — is
+ * semi-transparent, and a sticky cell with nothing behind it would have the clips sliding visibly
+ * through the names. `-z-10` puts it under the cell's own content and above whatever scrolls past.
+ *
+ * `z-30` is over the lane's layers (a selected clip is z-10; an edge handle, a marker and the
+ * playhead are z-20) and under the RULER, which sticks the other way at z-40. Where the two cross,
+ * the ruler wins — its own spacer is the corner, and a corner belongs to the header.
+ */
+const GUTTER_STICKY =
+  "sticky left-0 z-30 before:absolute before:inset-0 before:-z-10 before:bg-background before:content-['']";
+
 // `beat: LABEL` puts the caret on the row's label — the only position a group or generated lane can take.
 export const LABEL = -1;
 
@@ -2071,12 +2091,15 @@ export function TimelineTab({
           />
           {/* ruler */}
           <div
-            className="sticky top-0 z-10 flex bg-background"
+            className="sticky top-0 z-40 flex bg-background"
             style={{ height: ROW_H }}
           >
+            {/* The corner: sticky BOTH ways, so it holds while the ruler scrolls under it
+                horizontally and the lanes scroll under the ruler vertically. It needs no ground of
+                its own — the ruler row it sits in is opaque across the full width. */}
             <div
               style={{ width: GUTTER }}
-              className="shrink-0 border-r border-border"
+              className="sticky left-0 shrink-0 border-r border-border bg-background"
             />
             {/* The ruler is both the transport scrubber and a time-range selector. A plain
                 CLICK moves the playhead to the nearest DRAWN tick, and moves nothing else —
@@ -2289,6 +2312,7 @@ export function TimelineTab({
                     {...gutterProps(row)}
                     className={cn(
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/60 px-2",
+                      GUTTER_STICKY,
                       inSel && "bg-primary/20",
                       labelled && LABEL_SELECTED,
                     )}
@@ -2349,6 +2373,7 @@ export function TimelineTab({
                     {...gutterProps(row)}
                     className={cn(
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/40 px-2",
+                      GUTTER_STICKY,
                       inSel && "bg-primary/20",
                       labelled && LABEL_SELECTED,
                     )}
@@ -2495,6 +2520,7 @@ export function TimelineTab({
                     {...gutterProps(row)}
                     className={cn(
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/30 px-2 text-muted-foreground",
+                      GUTTER_STICKY,
                       // Indented past its lane — and past the lane's own indent when that lane
                       // is in a group, so the nesting reads at both levels.
                       "pl-5",
@@ -2582,7 +2608,10 @@ export function TimelineTab({
                   style={{ width: GUTTER }}
                   {...gutterProps(row)}
                   className={cn(
-                    "relative flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
+                    // No `relative`: GUTTER_STICKY positions it, and sticky is what anything
+                    // absolute inside anchors to. Two position classes would fight in `cn`.
+                    "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
+                    GUTTER_STICKY,
                     // On the row: a faint tint. Label selected: the full caret mark.
                     onRow && !labelled && "bg-primary/10",
                     inSel && "bg-primary/20",
