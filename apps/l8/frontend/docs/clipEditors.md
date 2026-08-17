@@ -394,13 +394,53 @@ answer it two ways:
 | | how the window shows |
 |---|---|
 | `WaveformView` (a clip file in the editor, `whole`) | shaded over the whole file, from the TEXT, live as you type — the view the window is JUDGED in |
-| `AudioClipPanel` (clicking an audio event) | it is the view: the pane is caged to `sourceWindow` |
+| `AudioClipPanel` (clicking an audio event) | the pane roams the FILE and the event's window is a band on it — see below |
 | the roll, placed sequence or `sequences/*.yaml` | it is the view: the canvas is caged to the pair |
 | the tracker and the inline grids | the band, drawn as ground under the notes |
 
 Where it is still a band it is deliberately colourless — a white wash with its two edges picked
 out. These panes already spend violet on a selection, blue on a warp, teal on a marker, emerald on
 a note; a seventh hue for the thing all of those sit *inside* would compete with every one of them.
+
+### The clip panel frames the EVENT, and acts only on it
+
+Clicking an audio event opens `AudioClipPanel` on the whole file, framed on the window **that
+event** plays: its span plus a bar of context either side (`frameWindow`). The wheel still reaches
+everything, and the header offers both ways out — *tout* for the file, *l'événement* to come back.
+
+Two spans, and keeping them apart is the whole design:
+
+| | what it is | what it decides |
+|---|---|---|
+| `reach` | the whole file | how far the wheel may go |
+| `act` | the window this event plays | what is framed, banded, and acted on |
+
+`act` is **not re-derived here**. The compiler already intersects the clip's own `from`/`to` with
+the placement's — `Math.max` of the froms, `Math.min` of the tos, in `nodeProject.ts` — so a
+`WebClip`'s `sourceFrom`/`sourceTo` IS the event's effective window, and `ClipView` passes it down.
+A second copy of that arithmetic in the browser is exactly how the two would come to disagree.
+
+It used to be **caged** to the clip's window instead, and to the *definition's*: the panel asks for
+`whole`, and in that mode `WaveformOps` reads `clips/<id>.yaml` rather than the compiled placement,
+which knows nothing about which event you clicked. So a phrase placed with `from: 3.51` drew the
+whole take, and there was no way to tell which part of it was the one on the lane.
+
+What acting "only on it" means, verb by verb:
+
+- **the trim gate** previews inside `act` and hands the same pair to the command, so the preview
+  and the act cannot disagree — `clip trim <clip> <gate> [from] [to]`, the bound intersected with
+  the clip's own window and never widening it;
+- **onsets** are pins inside `act` and plain rules outside it — visible, not touchable — and a
+  click past the edge adds nothing. Refused rather than clamped: an onset appearing a hair from
+  where the hand let go is an edit nobody made;
+- **the ruler** offsets from `act.from`, since `placedAt` is the beat that window starts playing
+  at. The file's head is not placed anywhere at all.
+
+**What a trim WRITES is still the clip's window**, which every placement of that clip shares — that
+is what `clip trim` means, and naming a narrower bound deliberately does not change it. The panel
+says so, in amber, beside the button, whenever the event is a slice rather than the whole file.
+Moving one placement alone is `event resize`; see `@studio/commands`' `commands.yaml`, which draws
+the same line from the other end.
 
 ### `whole` was cropping the picture it was shading
 

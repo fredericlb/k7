@@ -455,6 +455,10 @@ export function ClipView({
             beatsPerBar={(project ?? target.project).timeSigNumerator}
             // The clicked EVENT's beat — what puts the song's ruler over the wave.
             placedAt={clip.start}
+            // …and the slice of the file it plays, which the panel frames and acts on. Already the
+            // intersection of the clip's own window with this placement's — the compiler does that
+            // (nodeProject.ts), so there is nothing to re-derive and no second answer to keep.
+            eventWindow={{ from: clip.sourceFrom, to: clip.sourceTo }}
             onSeek={onSeek}
             command={command}
             onClose={onClose}

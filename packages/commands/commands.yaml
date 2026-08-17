@@ -237,6 +237,12 @@
 # things you want destroyed. One line to put back, where a rewritten wav is a restore from the
 # undo journal. The gate is dBFS, default -40 — below a room's floor on any usable take, above
 # true digital silence. Nothing above the gate changes nothing, and says so.
+#
+# `from`/`to`, in file seconds, narrow where it may look — what an EVENT is, since a placement
+# carries its own window and the clip panel opened on one shows a slice of the material rather
+# than all of it. Intersected with the clip's own window, never widening it. What it WRITES is
+# still the clip's window, which every placement shares: moving one placement alone is
+# `event resize`.
 - command: "clip trim"
   sid: clip.trim
   readable:
@@ -252,6 +258,18 @@
         type: number,
         optional: true,
         hint: "the gate in dBFS — a negative number, default -40",
+      },
+      {
+        name: from,
+        type: number,
+        optional: true,
+        hint: "only look inside this window — seconds into the file",
+      },
+      {
+        name: to,
+        type: number,
+        optional: true,
+        hint: "…and where it ends, in seconds",
       },
     ]
 

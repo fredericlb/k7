@@ -1,8 +1,9 @@
 // barWindow.ts — the window of a clip on screen: how many bars, from which bar, and which span
-// that is in seconds — all inside the INTERVAL the clip plays (`from`/`to`), because what lies
-// outside it is not drawn at all. Pure, because the interesting parts are the edges: an interval
-// shorter than the window, a part-bar interval, a project whose tempo has not arrived yet, and a
-// zoom that must keep the moment under the cursor where it is.
+// that is in seconds — inside the REACH the pane may roam (the whole file), with `frameWindow`
+// choosing the one it opens on: the event's own window plus a margin of context. Pure, because
+// the interesting parts are the edges: a span shorter than the window, a part-bar span, a project
+// whose tempo has not arrived yet, and a zoom that must keep the moment under the cursor where
+// it is.
 
 /** The interval the clip plays, in seconds of the file — its `from`/`to`, or the whole file. */
 export interface BarSpan {
@@ -55,6 +56,41 @@ export function barWindow(
       start: lo + start * barSec,
       end: Math.min(hi, lo + (start + shown) * barSec),
     },
+  };
+}
+
+/** Bars of context kept either side of the event when the panel opens on it. One bar is enough to
+ *  see where the phrase starts from and what runs into it; more and the event stops being framed. */
+export const FRAME_MARGIN_BARS = 1;
+
+/**
+ * The window the panel OPENS on: the act span, framed inside the reach with `margin` bars of
+ * context either side.
+ *
+ * The two spans are different things and that is the whole point of this function. `reach` is
+ * everywhere the pane may roam — the whole file, because a window can only be judged against what
+ * lies outside it. `act` is the slice this panel acts on: the event's own window, which is where
+ * the trim gate looks and where an onset may be placed. Opening on the reach would put a phrase
+ * somewhere in a minute of take; opening on the act alone would frame it with nothing to judge it
+ * against, and hide the material a trim would be giving back.
+ *
+ * Answered in the units `barWindow` takes — a bar count and a start in bars into the reach — so
+ * the result is a starting point the wheel then owns, not a second way of describing the view.
+ * The start may come back negative or past the end; `barWindow` clamps, and one clamp is enough.
+ */
+export function frameWindow(
+  reach: BarSpan,
+  act: BarSpan,
+  barSec: number,
+  margin = FRAME_MARGIN_BARS,
+): { bars: number; start: number } {
+  if (!(barSec > 0)) return { bars: 1, start: 0 };
+  const from = Math.max(reach.from, act.from);
+  const to = Math.min(reach.to, Math.max(act.to, act.from));
+  const actBars = Math.max(1, Math.ceil((to - from) / barSec));
+  return {
+    bars: actBars + 2 * margin,
+    start: Math.floor((from - reach.from) / barSec) - margin,
   };
 }
 

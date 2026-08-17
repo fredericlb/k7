@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorBars, barWindow, zoomBars } from "./barWindow";
+import { anchorBars, barWindow, frameWindow, zoomBars } from "./barWindow";
 
 // The clip panel shows twelve bars of the interval the clip PLAYS: a minute of take drawn across
 // a pane is a solid block, and what you came to look at is where the attacks are. The rest of the
@@ -70,6 +70,58 @@ describe("the window", () => {
     const w = barWindow({ from: 0, to: 5 }, 12, 120, 4);
     expect(w.allBars).toBe(3);
     expect(w.view.end).toBe(5);
+  });
+
+  /**
+   * What the panel OPENS on, once the two spans stopped being one.
+   *
+   * The pane may roam the whole file — a window can only be judged against what lies outside it —
+   * while the EVENT's own window is what it acts on. Opening on the file put a two-second phrase
+   * somewhere in a minute of take; opening on the event alone framed it with nothing to judge it
+   * against, and hid the material a trim would be giving back.
+   */
+  describe("framing the event", () => {
+    it("takes the event's bars plus a bar of context either side", () => {
+      // 20 s → 30 s is five bars; framed, seven, starting one bar before it.
+      expect(frameWindow(WHOLE, { from: 20, to: 30 }, 2)).toEqual({
+        bars: 7,
+        start: 9,
+      });
+    });
+
+    it("lands where it says it does, once barWindow has clamped it", () => {
+      const f = frameWindow(WHOLE, { from: 20, to: 30 }, 2);
+      expect(barWindow(WHOLE, f.bars, 120, 4, f.start).view).toEqual({
+        start: 18,
+        end: 32,
+      });
+    });
+
+    it("asks for a start BEFORE the file when the event opens it — barWindow owns that edge", () => {
+      // One clamp, in one place: a second one here would be a second answer to one question.
+      expect(frameWindow(WHOLE, { from: 0, to: 4 }, 2).start).toBe(-1);
+      expect(barWindow(WHOLE, 4, 120, 4, -1).view.start).toBe(0);
+    });
+
+    it("frames an event that is a sliver, rather than asking for no bars at all", () => {
+      // 0.3 s of a take is a fraction of a bar; a window of zero bars would draw nothing.
+      expect(frameWindow(WHOLE, { from: 10, to: 10.3 }, 2).bars).toBe(3);
+    });
+
+    it("does not reach outside the file for an event the file outgrew", () => {
+      // A `to` past the audio — a window written before a bounce shortened the render.
+      expect(frameWindow(WHOLE, { from: 55, to: 90 }, 2)).toEqual({
+        bars: 5,
+        start: 26,
+      });
+    });
+
+    it("survives a tempo that has not arrived, like everything else here", () => {
+      expect(frameWindow(WHOLE, { from: 1, to: 2 }, 0)).toEqual({
+        bars: 1,
+        start: 0,
+      });
+    });
   });
 
   it("survives a project whose tempo has not arrived", () => {

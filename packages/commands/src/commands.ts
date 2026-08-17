@@ -688,6 +688,40 @@ async function disableCommand(
  * `clip normalize` was the other caller and is gone with `track normalize`, normalising having
  * become a chain (docs/processChain.md) — which is why this now has a single one.
  */
+/** A window from two optional arguments: `null` for none given, `"bad"` for a pair that is not one. */
+export function boundArg(
+  fromArg: string | undefined,
+  toArg: string | undefined,
+): { from: number; to: number } | null | "bad" {
+  if (fromArg === undefined && toArg === undefined) return null;
+  const from = Number(fromArg);
+  const to = Number(toArg);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return "bad";
+  if (from < 0 || to <= from) return "bad";
+  return { from, to };
+}
+
+/**
+ * The more restrictive of two windows — the intersection, with `null` meaning "states none".
+ *
+ * The rule `event resize` already draws between a material's window and a placement's, applied
+ * here between a clip's and whatever bound a caller named. Answering the INTERSECTION is what
+ * stops an argument widening a window: `clip trim` may refine what a clip plays and may never
+ * reach back into material an earlier trim removed.
+ */
+export function narrowest(
+  a: { from: number; to: number } | null,
+  b: { from: number; to: number } | null,
+): { from: number; to: number } | null {
+  if (!a) return b;
+  if (!b) return a;
+  const from = Math.max(a.from, b.from);
+  const to = Math.min(a.to, b.to);
+  // An empty intersection is a caller asking about material this clip does not play. Its own
+  // window is the honest answer — the alternative is a trim that keeps nothing and says nothing.
+  return to > from ? { from, to } : a;
+}
+
 function clipWindow(
   h: CommandHost,
   clip: string,
@@ -944,7 +978,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // sensitivity (song/onsets.ts). Three verbs rather than one that takes a list: each is a thing a person
   // does, each is one line in the file, and each is one entry in the undo journal.
   /**
-   * clip trim <clip> [gate-dB] — cut the silence off both ends.
+   * clip trim <clip> [gate-dB] [from] [to] — cut the silence off both ends.
    *
    * It moves the clip's WINDOW (`from`/`to` in its sidecar), it does not touch the audio. A take's
    * head is the tail of a count-in and the player settling; its foot is a room and a hand leaving a
@@ -955,12 +989,25 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * digital silence. Where it lands is `trimWindow`'s decision and is tested there — BOUNDED to
    * the window the clip already has, so a re-trim refines it and never reaches back into material
    * an earlier trim removed (undo is how that comes back, deliberately).
+   *
+   * `from`/`to`, in FILE seconds, narrow that bound further and are what an EVENT is: a placement
+   * carries its own window, so the clip panel opened on one is looking at a slice of the material
+   * rather than at all of it, and a gate that reached outside what is on screen would cut on
+   * evidence nobody could see. Intersected with the clip's own window, never widening it —
+   * whichever pair is more restrictive wins, the same rule `event resize` follows.
+   *
+   * What it still writes is the CLIP's window, which every placement of that clip shares. That is
+   * the command's meaning and is deliberately not changed by naming a narrower bound: moving one
+   * placement alone is `event resize`, and the take this panel was built for has exactly one.
    */
   "clip.trim": async (a, h) => {
-    const [clip, gateArg] = a.trim().split(/\s+/).filter(Boolean);
+    const [clip, gateArg, fromArg, toArg] = a
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
     if (!clip) {
       h.log([
-        "usage: clip trim <clip> [gate-dB]  (e.g. clip trim prise-01 -40)",
+        "usage: clip trim <clip> [gate-dB] [from] [to]  (e.g. clip trim prise-01 -40)",
       ]);
       return;
     }
@@ -968,6 +1015,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     if (!Number.isFinite(gate) || gate > 0) {
       h.log([
         `'${gateArg}' is not a gate in dBFS — a negative number, e.g. -40`,
+      ]);
+      return;
+    }
+    const bound = boundArg(fromArg, toArg);
+    if (bound === "bad") {
+      h.log([
+        `'${fromArg} ${toArg}' is not a window in seconds — two numbers, the first smaller`,
       ]);
       return;
     }
@@ -982,7 +1036,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${clip}: no envelope yet — the engine builds it on first read`]);
       return;
     }
-    const win = trimWindow(env.peak, env.seconds, gate, clipWindow(h, clip));
+    const within = narrowest(clipWindow(h, clip), bound);
+    const win = trimWindow(env.peak, env.seconds, gate, within);
     if (!win) {
       h.log([
         `${clip}: nothing above ${gate} dB in its window — the gate is too high, or the take is silent`,

@@ -18,7 +18,7 @@ import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Play, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
-import { anchorBars, barWindow, zoomBars } from "../barWindow";
+import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -85,6 +85,7 @@ export function AudioClipPanel({
   trackOrder = NO_TRACKS,
   trackNames = NO_NAMES,
   placedAt = null,
+  eventWindow = null,
   takes = NO_TAKES,
   onPickTake,
   onKeepTake,
@@ -121,6 +122,15 @@ export function AudioClipPanel({
   /** The arrangement beat where the clip's window PLAYS — what puts the song's ruler over the
    *  wave. Null for a clip nothing places, which has no position in the song to point at. */
   placedAt?: number | null;
+  /**
+   * The window THIS EVENT plays, in seconds of the file — what the panel frames and acts on.
+   *
+   * The compiler has already intersected the clip's own `from`/`to` with the placement's
+   * (`nodeProject.ts`), so a `WebClip`'s `sourceFrom`/`sourceTo` IS this pair and nothing here
+   * has to re-derive it. Null for a clip opened outside any placement — a take being reviewed,
+   * a file in the editor — where the clip's own window is the answer and the waveform carries it.
+   */
+  eventWindow?: { from?: number; to?: number } | null;
   /**
    * Every version of this lane there is to listen to — its takes, then what it is playing.
    *
@@ -301,36 +311,89 @@ export function AudioClipPanel({
   // The corrected set — the file service has already applied the clip's corrections, so this is what
   // the onsets ARE rather than what the detector last thought.
   const onsets = wf?.transients ?? [];
+  /** Everywhere the pane may roam: the whole file. A window can only be judged against what lies
+   *  outside it, which is why this panel asks for the file (`whole`) and not for the placement. */
+  const reach = useMemo(() => ({ from: 0, to: wf?.seconds ?? 0 }), [wf]);
   /**
-   * The interval the clip PLAYS — its `from`/`to`, or the whole file when it states none. The
-   * panel is caged to it: what lies outside is not drawn, not zoomable-to, not clickable. Guarded
-   * against a window the file outgrew (a `to` past the audio) by clamping, and against one that
-   * does not run forwards by falling back to the whole file.
+   * The interval this EVENT plays — what the panel frames, shades, and acts on.
+   *
+   * The event's window first, because that is what you clicked: the compiler intersects the
+   * clip's `from`/`to` with the placement's, so `eventWindow` is already the narrower of the two.
+   * Failing that the clip's own (`wf.sourceWindow`), and failing that the whole file. Guarded
+   * against a window the file outgrew — a `to` past the audio, which a bounce that shortened the
+   * render leaves behind — by clamping, and against one that does not run forwards by falling
+   * back to the file.
+   *
+   * It no longer CAGES the view, and that is the change: what lies outside is drawn, dimmed by the
+   * band `Waveform` lights under the event, and reachable by the wheel. Acting on it is what
+   * stops at the edges.
    */
-  const span = useMemo(() => {
+  const act = useMemo(() => {
     const dur = wf?.seconds ?? 0;
-    const sw = wf?.sourceWindow;
-    const from = clamp(sw?.from ?? 0, 0, dur);
-    const to = clamp(sw?.to ?? dur, 0, dur);
+    const w = eventWindow ?? wf?.sourceWindow;
+    const from = clamp(w?.from ?? 0, 0, dur);
+    const to = clamp(w?.to ?? dur, 0, dur);
     return to > from ? { from, to } : { from: 0, to: dur };
-  }, [wf]);
+  }, [wf, eventWindow]);
+  /** Is the event a SLICE of the file, or all of it? Decides whether the frame is worth offering. */
+  const framed = act.from > 1e-6 || act.to < reach.to - 1e-6;
+  /**
+   * Is this second inside the event — the one question every act here asks.
+   *
+   * Refused rather than clamped: a click past the edge means the person was pointing at material
+   * this event does not play, and an onset quietly appearing on the edge instead would be an edit
+   * nobody made. The band under the wave is what says where the edge is.
+   */
+  const inside = (sec: number) =>
+    sec >= act.from - 1e-6 && sec <= act.to + 1e-6;
+  // The onsets split by that line: pins in, plain rules out. Same list, two ways of drawing it.
+  const inAct = onsets.filter(inside);
+  const outsideAct = onsets.filter((t) => !inside(t));
   /**
    * What a trim at this gate would KEEP — the preview, drawn as a selection over the wave.
    *
    * The SAME function the command runs (`trimWindow`), not a second implementation of it: a
    * preview that disagreed with the act would be worse than no preview. It reads the envelope the
    * panel already has, which is the same source the service gates on, so the only difference
-   * between the two is bucket resolution. Bounded to `span` exactly as the command bounds itself
-   * to the clip's window — a re-trim refines, it never reaches back.
+   * between the two is bucket resolution. Bounded to `act` — the EVENT's window — and the command
+   * is handed the same pair, so the two cannot disagree. On top of that the command intersects it
+   * with the clip's own window, which is what keeps a re-trim refining and never reaching back.
    */
   const keep = useMemo(
-    () => (gateOpen && wf ? trimWindow(wf.rms, wf.seconds, gate, span) : null),
-    [gateOpen, wf, gate, span],
+    () => (gateOpen && wf ? trimWindow(wf.rms, wf.seconds, gate, act) : null),
+    [gateOpen, wf, gate, act],
   );
   const seconds = (live.samples.length * live.intervalMs) / 1000;
-  // The window on the clip's interval: `asked.bars` bars from `asked.start`. The maths and its
-  // edges — a part-bar interval, a tempo that has not arrived — live in barWindow.ts.
-  const win = barWindow(span, asked.bars, tempo, beatsPerBar, asked.start);
+  // The window on the FILE: `asked.bars` bars from `asked.start`. The maths and its edges — a
+  // part-bar span, a tempo that has not arrived — live in barWindow.ts.
+  const win = barWindow(reach, asked.bars, tempo, beatsPerBar, asked.start);
+  /** Frame the event, with a bar of context either side — what the panel opens on. */
+  const frameOnEvent = useCallback(
+    () =>
+      setAsked(
+        frameWindow(
+          reach,
+          act,
+          (Math.max(1, beatsPerBar) * 60) / Math.max(1, tempo),
+        ),
+      ),
+    [reach, act, beatsPerBar, tempo],
+  );
+  /**
+   * …and do it when the event being looked at CHANGES — not on every re-read.
+   *
+   * The panel re-reads after every command, so re-framing on `wf` alone would throw away the zoom
+   * the person had set each time they moved an onset. Keyed on the window itself: a trim is the
+   * one edit that moves it, and following the new window there is right — it is what the act just
+   * produced.
+   */
+  const framedKey = `${clip ?? ""}|${act.from}|${act.to}`;
+  const lastFramed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wf || lastFramed.current === framedKey) return;
+    lastFramed.current = framedKey;
+    frameOnEvent();
+  }, [wf, framedKey, frameOnEvent]);
   // Beats per second — the whole of the conversion, since there is no tempo map.
   const bps = Math.max(1e-6, tempo / 60);
 
@@ -350,7 +413,7 @@ export function AudioClipPanel({
       if (r.width <= 0) return;
       const frac = clamp((clientX - r.left) / r.width, 0, 1);
       setAsked((a) => {
-        const cur = barWindow(span, a.bars, tempo, beatsPerBar, a.start);
+        const cur = barWindow(reach, a.bars, tempo, beatsPerBar, a.start);
         const next = clamp(
           nextBars({ bars: cur.shown, allBars: cur.allBars }),
           1,
@@ -358,11 +421,11 @@ export function AudioClipPanel({
         );
         return {
           bars: next,
-          start: anchorBars(cur.view, frac, next, cur.barSec, span.from),
+          start: anchorBars(cur.view, frac, next, cur.barSec, reach.from),
         };
       });
     },
-    [span, tempo, beatsPerBar],
+    [reach, tempo, beatsPerBar],
   );
 
   // What is shown RIGHT NOW, for the pinch to measure from: the gesture outlives any render, so
@@ -477,9 +540,10 @@ export function AudioClipPanel({
                 points d'étirement
               </span>
             )}
-            {/* What is on screen, and the way back to the whole take. Said out loud because a
-                window that showed only the first bars without saying so would read as a clip that
-                had been cut. */}
+            {/* What is on screen, and the two ways out of it: the whole FILE, and back to the
+                event. Said out loud because a window that showed only some bars without saying so
+                would read as a clip that had been cut — and because the pane now roams past the
+                event, so "tout" and "l'événement" are genuinely different places. */}
             {wf && win.allBars > 1 && (
               <span className="whitespace-nowrap tabular-nums">
                 {Math.round(win.shown)}/{win.allBars} mes.
@@ -490,6 +554,16 @@ export function AudioClipPanel({
                     onClick={() => setAsked({ bars: win.allBars, start: 0 })}
                   >
                     tout
+                  </button>
+                )}
+                {framed && (
+                  <button
+                    type="button"
+                    className="ml-1 underline hover:text-foreground"
+                    onClick={frameOnEvent}
+                    title={`revenir sur l'événement — ${act.from.toFixed(2)}s → ${act.to.toFixed(2)}s`}
+                  >
+                    l'événement
                   </button>
                 )}
               </span>
@@ -571,13 +645,28 @@ export function AudioClipPanel({
                     ? `garde ${keep.from.toFixed(2)}s → ${keep.to.toFixed(2)}s`
                     : "rien au-dessus de ce seuil"}
                 </p>
+                {/* The clip's window is what a trim writes, and every placement of that clip
+                    shares it — so a clip on several events is worth saying out loud, once, where
+                    the decision is taken. Moving one placement alone is `event resize`. */}
+                {framed && (
+                  <p className="mt-1 text-[11px] text-amber-500">
+                    cherche seulement dans l'événement — mais réécrit la fenêtre
+                    du CLIP, que toutes ses occurrences partagent
+                  </p>
+                )}
                 <Button
                   size="sm"
                   className="mt-2 w-full"
                   disabled={!keep || !!busy}
                   onClick={() => {
                     setGateOpen(false);
-                    if (clip) void run(`clip trim ${clip} ${gate}`, "trim");
+                    // The same bound the preview was drawn against, handed to the command — a
+                    // preview that disagreed with the act would be worse than no preview.
+                    if (clip)
+                      void run(
+                        `clip trim ${clip} ${gate}${framed ? ` ${act.from.toFixed(4)} ${act.to.toFixed(4)}` : ""}`,
+                        "trim",
+                      );
                   }}
                   title="déplace la fenêtre du clip — l'audio n'est pas touché"
                 >
@@ -765,7 +854,10 @@ export function AudioClipPanel({
             waveW > 0 &&
             win.view.end > win.view.start && (
               <ArrangementRuler
-                startBeat={placedAt + (win.view.start - span.from) * bps}
+                // `placedAt` is the beat the event's window starts playing at, so the song's beat
+                // under the view's left edge is measured from `act.from` — not from the file's
+                // head, which is not placed anywhere at all.
+                startBeat={placedAt + (win.view.start - act.from) * bps}
                 beats={(win.view.end - win.view.start) * bps}
                 ppb={waveW / ((win.view.end - win.view.start) * bps)}
                 barBeats={beatsPerBar}
@@ -840,9 +932,12 @@ export function AudioClipPanel({
                 view={win.view}
                 // The trim preview: what a cut at this gate would KEEP, while its menu is open.
                 selection={keep ? { start: keep.from, end: keep.to } : null}
+                // PINS inside the event, plain rules outside it (below) — the same split the whole
+                // panel now draws: what lies past this event's window is context you can see and
+                // not material you can act on.
                 markers={
                   editingOnsets
-                    ? onsets.map((t) => ({ id: t.toFixed(4), atSec: t }))
+                    ? inAct.map((t) => ({ id: t.toFixed(4), atSec: t }))
                     : undefined
                 }
                 // Bubbles low on the line, not tabs along the top: the top of a waveform is where the
@@ -853,12 +948,16 @@ export function AudioClipPanel({
                 warps={editingWarp ? wf.warpMarks : undefined}
                 // …and the onsets under them, as plain rules. A stretch point is placed by
                 // dropping a beat onto a hit, so the hits have to be on screen — as reference,
-                // not as pins: only the `onsets` view lets you touch them.
-                onsets={editingWarp ? onsets : undefined}
-                // No `sourceWindow` band: the view is CAGED to the clip's `from`/`to` (see `span`), so
-                // the window is the whole picture rather than a span inside it — a band would tint
-                // everything and mark nothing.
-                sourceWindow={null}
+                // not as pins: only the `onsets` view lets you touch them. In the onset editor
+                // the rules are what is OUTSIDE the event, for the same reason.
+                onsets={
+                  editingWarp ? onsets : editingOnsets ? outsideAct : undefined
+                }
+                // The EVENT's window, lit as ground with its two edges picked out — the pane roams
+                // the whole file now, so this band is what says which part is being worked on and
+                // where a trim or an onset may land. Passed only when it actually cuts something:
+                // a band over the whole picture would tint everything and mark nothing.
+                sourceWindow={framed ? act : null}
                 // A click on a mark refuses that onset; on a detected one that records a removal, on a
                 // hand-placed one it takes the addition back — one verb, because from here it is one act.
                 onMarkerClick={
@@ -871,22 +970,27 @@ export function AudioClipPanel({
                     : undefined
                 }
                 // …and dragging one MOVES it: the detector heard the attack a hair late, and saying
-                // where it belongs is one act, not a refusal followed by an addition.
+                // where it belongs is one act, not a refusal followed by an addition. Dropped
+                // outside the event it is not an edit at all — the pin came from inside, and a
+                // silent clamp would put it a hair from where the hand let go.
                 onMarkerMove={
                   editingOnsets
                     ? (m, to) =>
+                        inside(to) &&
                         void run(
                           `clip onset move ${clip} ${m.atSec.toFixed(4)} ${to.toFixed(4)}`,
                           `move:${m.id}`,
                         )
                     : undefined
                 }
-                // Anywhere else adds one. `onSeek` is the canvas's "you pointed at this second"; there
-                // is nothing to seek on a take that is not playing, so this is what pointing means here.
-                // Marks hidden, the click is stowed with them — no invisible onsets.
+                // Anywhere else adds one — anywhere INSIDE the event. `onSeek` is the canvas's "you
+                // pointed at this second"; there is nothing to seek on a take that is not playing,
+                // so this is what pointing means here. Marks hidden, the click is stowed with them
+                // — no invisible onsets.
                 onSeek={
                   editingOnsets
                     ? (sec) =>
+                        inside(sec) &&
                         void run(
                           `clip onset add ${clip} ${sec.toFixed(4)}`,
                           "add",
