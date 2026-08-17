@@ -30,8 +30,3 @@ export const HATCH =
 export function xOf(value: number, pxPerUnit: number, gutter: number): number {
   return gutter + value * pxPerUnit;
 }
-
-/** The inverse: what a page x means on the lane. Negative before the first tick, which callers test for. */
-export function valueAt(x: number, pxPerUnit: number, gutter: number): number {
-  return pxPerUnit > 0 ? (x - gutter) / pxPerUnit : 0;
-}

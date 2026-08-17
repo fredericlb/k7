@@ -48,9 +48,10 @@ import type {
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { loadUiLibrary } from "./uiLibrary";
-import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
 import { setFileValue } from "./yaml/edit";
 import { ENTITY_SCHEMAS } from "./yaml/entitySchemas";
+import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
+import { GRAPH_BASE } from "./yaml/graphSchema";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./yaml/mixViewFile";
 import type { MixView } from "./yaml/mixViewSchema";
 import { formatIssue } from "./yaml/moduleFile";
@@ -61,7 +62,6 @@ import {
   nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
-import { GRAPH_BASE } from "./yaml/graphSchema";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
 import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
 import { parsedYaml } from "./yaml/yamlCache";
@@ -944,28 +944,6 @@ export function loadSongs(dir: string, validate = false): string[] {
         .join("\n  ")}`,
     );
   return songRefs(value);
-}
-
-/**
- * The Mix desk's bindings, from `views/mix.yaml` — which panel control drives which module
- * param. Empty for a project that has no such file, which is every l8 song and every set that
- * has not bound anything.
- *
- * The control ids are NOT checked here, for the reason the schema states: they are the app's
- * vocabulary, not the format's. What IS checked is the shape, so a malformed file is a
- * reported error rather than a binding that silently does nothing.
- */
-export function loadMixView(dir: string, validate = false): MixView {
-  const file = entityFileFor(join(dir, VIEWS_DIR), "", MIX_VIEW_BASE);
-  if (!file) return {};
-  const { value, issues } = parseMixView(readFileSync(file.path, "utf8"));
-  if (issues.length && validate)
-    throw new Error(
-      `invalid ${VIEWS_DIR}/${MIX_VIEW_BASE}:\n  ${issues
-        .map((i) => formatIssue(file.rel, i))
-        .join("\n  ")}`,
-    );
-  return value ?? {};
 }
 
 /**

@@ -1,31 +1,3 @@
-export const AVAILABLE_EFFECTS = [
-  {
-    key: "speed",
-    label: "Speed",
-    min: 1,
-    max: 30,
-    step: 1,
-    defaultOff: 10,
-    format: (v: number) => `${(v / 10).toFixed(1)}x`,
-  },
-  {
-    key: "pitch",
-    label: "Pitch",
-    min: -12,
-    max: 12,
-    step: 1,
-    defaultOff: 0,
-    format: (v: number) => (v > 0 ? `+${v}` : `${v}`),
-  },
-  { key: "lowpass", label: "Low Pass" },
-  { key: "highpass", label: "High Pass" },
-  { key: "phaser", label: "Phaser" },
-  { key: "overdrive", label: "Overdrive" },
-  { key: "chorus", label: "Chorus" },
-  { key: "bitreduction", label: "Bit Reduction" },
-  { key: "pitchvar", label: "Pitch Wobble" },
-] as const;
-
 /** Extract playback rate from effects map. Returns 1.0 if not set. */
 export function getPlaybackRate(effects: Record<string, number>): number {
   const v = effects.speed;

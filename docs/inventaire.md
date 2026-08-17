@@ -22,6 +22,19 @@ Trois passes, toutes reproductibles :
    n'a plus d'appelant possible. Grossier exprès : un homonyme sauve un mort, jamais l'inverse,
    donc la liste est un plancher.
 
+**Deux pièges de RELEVÉ, découverts en rejouant les quatre passes :**
+
+- **Un renommage de fichier périme un chemin sans périmer le constat.** `chainRefFromCreate`
+  était listé sous `moduleInsert.ts`, qui n'existe plus — le fichier est `nodeInsert.ts`. Le
+  symbole, lui, a été ressuscité entre-temps. Une entrée peut donc être fausse deux fois.
+- **Un constat corrigé ne se retire pas tout seul.** Trois entrées décrivaient des problèmes
+  réparés depuis (`loginUrl`, les tests jamais joués, `isFileParam`). Un relevé qui n'est pas
+  rejoué devient un réquisitoire contre un dépôt qui a bougé.
+
+Corollaire : **`docs/audit-moteur.md` §C5 tient sa propre liste de code mort**, au périmètre
+qui chevauche celui-ci sans lui être identique. Les deux se lisent ensemble, ou une entrée
+périme des deux côtés sans que personne le voie.
+
 **Trois pièges de méthode, tous rencontrés en écrivant ceci :**
 
 - **Les extensions comptent.** `engine-host` écrit `from "./addresses.ts"`. Une recherche sur
@@ -96,17 +109,23 @@ et `/surface`. Les douze autres sont de la plomberie interne exposée.
 
 ## 2. Vraiment orphelin — rien ne l'atteint
 
+> **Relevé du 2026-08-17 : les suppressions faites.** `__hints_tmp.ts`, le script `serve` en
+> double, le baril mort de `z0-shared`, et quinze symboles (`valueAt`, `loadMixView`,
+> `setTrackFields`, `mediatekDirFor`, `isGeneratedTrack`, `readDoc`, `remoteListing`,
+> `forgetPlayers`, `hasLibraries`, `fileServiceLogPath`, `PORT_LEAD`, `EMPTY_SET`, `isYamlFile`,
+> `AVAILABLE_EFFECTS`, `localizedCommandNames`) plus les types `CurveType`, `EntityKind`,
+> `ViewBinding`, `ProjectSettings`, `SongEntryValue`. Et `EngineHost::waveformData()`, côté C++.
+> Les lignes ci-dessous sont donc ce qui RESTE.
+
 | quoi | où | note |
 |---|---|---|
-| `__hints_tmp.ts` | `packages/song/src/` | script de debug ad hoc (`process.argv[2]`, des `console.log`). Le nom `__…_tmp` dit qu'il ne devait pas survivre. |
 | `chains.tsx` | `packages/ui-turntables/src/` | la vue « chaîne d'une platine », ~60 lignes de colle. Personne ne la monte. Voir §6, c'est le bloc à trancher en entier. |
-| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. |
+| `index.ts` | `packages/ui-eyes/src/` | le baril de commodité. Son propre en-tête dit que « les sous-chemins sont la vraie API », et c'est exactement ce que font les appelants. **Gardé** parce que le supprimer emporte `export.ts` et `FrameClock` avec lui — c'est le bloc WebCodecs, une décision produit. Le baril JUMEAU de `z0-shared`, lui, ne tenait rien : supprimé. |
 | `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | remplacé par le registre ; il ne reste que de la prose qui en parle au passé. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (l8, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
 | export `AuthUser` | `apps/st0/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. |
-| script `"serve"` | `apps/l8/frontend/package.json` | doublon exact de `"dev": "vite"` juste en dessous, référencé nulle part. |
 
 ### Des SYMBOLES, pas des fichiers
 
@@ -118,24 +137,9 @@ répétés.
 | symbole | où | note |
 |---|---|---|
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | l'horloge que **l'exporteur** avance — et `export.ts` est déjà mort deux lignes plus haut. Le chemin WebCodecs est mort en entier : le baril, `exportScene`, et l'horloge qui le cadence. À trancher d'un bloc, comme §6. |
-| `valueAt` | `packages/ui-timeline/src/lanes.ts` | l'inverse de `xFor` ; les hôtes convertissent tous dans l'autre sens. |
-| `loadMixView` | `packages/song/src/loader.ts` | la vue Mix se lit désormais par `yaml/mixViewFile`. |
-| `setTrackFields` | `packages/song/src/trackMix.ts` | |
-| `mediatekDirFor` | `packages/song/src/mediatekRoot.ts` | |
-| `isFileParam`, `isDocRef` | `packages/song/src/moduleTypes.ts` | deux gardes de type que plus rien n'interroge. |
-| `isGeneratedTrack` | `packages/song/src/trackModule.ts` | |
-| `readDoc` | `packages/song/src/testSupport.ts` | un support de test qu'aucun test n'utilise. |
+| `isDocRef` | `packages/song/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. (`isFileParam`, avec qui elle était listée, a été **ressuscitée** : cinq sites, dont `commands.ts`.) |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
-| `remoteListing` | `packages/mediatek/src/remote.ts` | |
-| `forgetPlayers`, `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
-| `hasLibraries` | `packages/file-service/src/libraries.ts` | à côté de `LibrariesMovedError`, elle aussi sans lanceur. |
-| `fileServiceLogPath` | `packages/engine-client/src/paths.ts` | |
-| `PORT_LEAD` | `packages/ui-chains/src/graph.ts` | |
-| `EMPTY_SET` | `packages/ui-turntables/src/setList.ts` | |
-| `isYamlFile` | `packages/ui-editor/src/yaml/language.ts` | |
-| `AVAILABLE_EFFECTS` | `packages/player-web/src/audioEffects.ts` | la liste que l'UI d'effets aurait dessinée. |
-| `localizedCommandNames` | `apps/l8/frontend/src/commandI18n.ts` | |
-| `chainRefFromCreate` | `apps/l8/frontend/src/moduleInsert.ts` | |
+| `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
 | `knownPrefs` | `apps/st0/frontend/src/prefs.ts` | |
 | `requireDb`, `readRawAttachment`, `canRender` | `apps/z0/backend/src/{db,grist/load,render}.ts` | |
 | `drawButton`, `drawPlayerBox`, `drawSpinner`, `drawReloadIcon` | `apps/z0/presenter/src/canvas/drawHelpers.ts` | quatre primitives de dessin sur les six du fichier ; le présentateur ne dessine plus ni bouton ni boîte joueur. |
@@ -166,20 +170,60 @@ dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers
 
 ## 4. Duplication
 
-### Le client d'auth : deux moitiés du dépôt, deux comportements
+### Le client d'auth — ~~deux comportements~~ RÉGLÉ
 
-`loginUrl` doit être un **getter** — il capture l'adresse où l'on est *au moment du clic*.
+`loginUrl` doit être un **getter**, pour capturer l'adresse où l'on est *au moment du clic*.
+Les quatre copies (`k7`, `l8`, `st0`, `z0/editor-v2`) en sont une aujourd'hui. Ce constat
+disait « le correctif n'a pas voyagé » ; il a voyagé depuis. Gardé barré plutôt que retiré,
+pour que la prochaine passe ne le redécouvre pas comme une nouveauté.
 
-| forme | où |
+**`AuthUser` était déclarée neuf fois** — l8, st0, z0/editor-v2, et les six SPA de z0. Quatre de
+ces déclarations sont parties avec la déduplication ci-dessous ; il en reste cinq, et seule celle
+de l8 porte `email?: string | null` et `groups?: string[]`.
+
+### Le magasin d'auth de z0 : quatre fichiers identiques à l'octet — RÉGLÉ
+
+`apps/z0/{editor,monitor-web,presenter,remote}/src/lib/auth.ts` étaient **identiques à l'octet**
+(MD5 `20057DE8…`, ~100 lignes chacun) : le type `AuthUser`, le magasin de module, `bootstrap()`
+avec sa branche 401, `logout`, `useAuth`. Seul l'import du `fetch` local les distinguait — une
+différence d'import, pas de comportement, donc un paramètre.
+
+Et l'ironie était dans le fichier : sa ligne 88 disait « It lives in `z0-shared/account` rather
+than in six copies here », imprimée sous ses propres quatre-vingt-dix lignes de copie.
+
+Devenu `z0-shared/auth-store` (`createAuthStore(f)`), et les quatre fichiers font dix lignes.
+`buzzer` et `online` gardent les leurs : ceux-là diffèrent vraiment.
+
+### Le nom d'une note MIDI, six fois, en quatre orthographes
+
+La même table chromatique et la même arithmétique (`((k%12)+12)%12`, `Math.floor(k/12)-1`) :
+
+| où | constante |
 |---|---|
-| getter (correct) | `apps/k7/frontend/src/api.ts`, `apps/l8/frontend/src/api.ts` |
-| constante évaluée à l'import | `apps/st0/frontend/src/api.ts`, `apps/z0/editor-v2/src/api.ts` |
+| `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
+| `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (deux caractères : `C-`) |
+| `apps/l8/frontend/src/components/PianoRoll.tsx` | `NAMES`, exporté en `noteName` |
+| `apps/l8/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
+| `apps/k7/frontend/src/utils/pitch.ts` | `NOTE_NAMES` |
+| `apps/k7/packages/lyrics/src/chords.ts` | `SHARP` |
 
-Le commentaire qui explique pourquoi la constante est fausse a voyagé ; le correctif non.
+Deux détails aggravants. Les deux premières sont dans **le même dossier du même paquet**. Et
+`PianoRoll.tsx` porte le commentaire « one spelling of a key, wherever it is read » — vrai dans
+l8, faux dès qu'on passe dans `@studio/ui-editor`, dont l8 dépend déjà et qui en a deux à lui.
+Le prédicat suit : `isBlack = [1,3,6,8,10].includes(...)`, à l'identique dans deux fichiers.
 
-**`AuthUser` est déclarée neuf fois** — l8, st0, z0/editor-v2, et les six SPA de z0
-(`buzzer`, `editor`, `monitor-web`, `online`, `presenter`, `remote`). Les formes ont divergé :
-seule celle de l8 porte `email?: string | null` et `groups?: string[]`.
+Non traité : c'est une décision de **où poser la table**, pas un nettoyage.
+
+### Des copies STRUCTURELLES — celles qu'un import ne peut pas résoudre
+
+Trois duplications qu'on ne peut pas supprimer sans inverser une dépendance ou empoisonner un
+bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
+
+| ce qui est doublé | pourquoi ça reste |
+|---|---|
+| Le plancher `-100 dBFS` : `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), et trois fois dans `@studio/dsp` | `trimGate` est **sûr pour le navigateur** — le panneau de clip de l8 l'importe — et `peakPass` appelle `node:child_process`. Partager la constante ferait entrer un lanceur de processus dans le navigateur pour économiser un nombre. Essayé, annulé. Le C++ et le JSON généré ne peuvent pas importer du tout |
+| `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` ne dépend pas de `@studio/commands`. Les deux dépendent de `web-protocol`, qui tient déjà `RegionWaveform` — c'est là que ça irait |
+| Le détecteur de k7 : `backend/src/detect.ts` ≡ `packages/recorder/src/detect.ts` | Même forme que `detectTransients` ↔ `Waveform.cpp`, **sans** le test de contrat qui rend cet arrangement défendable : aucun test des deux côtés. L'en-tête de la copie renvoie à `backend/src/detect.js`, un chemin qui n'existe plus — la preuve qu'ils ont déjà divergé une fois |
 
 ### Cosmétique, mais réelle
 
@@ -206,7 +250,8 @@ propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
 
 | constat | où |
 |---|---|
-| Des tests qui ne tournent jamais : des fichiers `*.test.ts` et aucun script `test`, donc `turbo run test` les ignore. | `packages/translator` (2 fichiers), `packages/ui-waveform` (1) |
+| ~~Des tests qui ne tournent jamais~~ **RÉGLÉ** : `translator` et `ui-waveform` déclarent tous deux `"test": "vitest run"`. Les 25 paquets en ont un, sauf les trois qui n'ont aucun fichier de test (`engine-client`, `graph-model`, `ui-eyes`). | — |
+| Lues dans le code et absentes de **tout** fichier `.md`, en plus des quatorze ci-dessous : `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/l8/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
 | Importé sans être déclaré — ne se résout que par hoisting. | `engine-host` (`@frediverse/oidc`, `yaml`), `file-service` + `web-protocol` (`@studio/engine-protocol`), `translator` (`yaml`, `vitest`), `ui-editor` (`yaml`), `ui-waveform` (`vitest`), `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `l8-frontend` (`yaml`, `zod`, `vitest`), `st0-frontend` (`@studio/ui-editor`) |
 | `yaml` chez `l8-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. (Ce constat nommait `sliceWaveformWidget.ts`, supprimé depuis ; les deux fichiers ci-dessus l'ont repris.) | `apps/l8/frontend` |
 | Aucun bloc `dependencies` alors que le paquet importe `@studio/engine-protocol` ; et `zod` + `@types/express` sont déclarés en devDeps sans qu'une seule ligne les importe. | `packages/web-protocol` |
@@ -232,6 +277,14 @@ par platine. Trois symboles tiennent debout les uns par les autres et par rien d
 par platine fait partie des options annoncées. Inscrit ici plutôt que laissé silencieux : c'est
 la différence entre un état connu et de la pourriture. Voir
 [packages/ui-turntables/docs/mix.md](../packages/ui-turntables/docs/mix.md).
+
+**Et voici le chaînon qui manquait à ce paragraphe.** `apps/m9` et `apps/v1` existent sur le
+disque, ne sont **ni suivis par git ni ignorés**, et ne figurent dans aucun `workspaces`. Or `m9`
+est nommé comme application vivante dans une vingtaine de fichiers suivis — `apps/st0/backend`,
+la config vite de l8, cinq pages de `apps/st0/docs/` — et jusque dans `M9_ICONS`, ici même. La
+chaîne par platine n'a pas d'hôte *dans ce dépôt* parce que son hôte n'y a jamais atterri. Ce
+n'est donc pas du code mort : c'est du code dont l'hôte est ailleurs, ce qui se tranche
+autrement.
 
 ## 7. Généré, sans effet
 

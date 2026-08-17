@@ -9,7 +9,6 @@ import { exportSub } from "@studio/song/loader";
 import { parsePosition } from "@studio/song/timecode";
 
 export type Polarity = "unipolar" | "bipolar";
-export type CurveType = "lfo" | "custom";
 export type LfoShape = "sine" | "triangle" | "saw" | "square";
 
 const LFO_SHAPES: readonly LfoShape[] = ["sine", "triangle", "saw", "square"];

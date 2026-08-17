@@ -6,7 +6,15 @@
  *  silence, so a take recorded with the preamp up does not trim to nothing. */
 export const DEFAULT_TRIM_DB = -40;
 
-const MIN_DB = -100; // what a zero bucket reads as — the scale's floor, not a magic number
+/**
+ * What a zero bucket reads as — the scale's floor, not a magic number.
+ *
+ * The SAME floor `peakPass.ts` declares as `PEAK_FLOOR_DB`, and deliberately not imported from
+ * there: this file is browser-safe and l8's clip panel imports it, while `peakPass` reaches for
+ * `node:child_process`. Sharing the constant would drag a process spawner into the browser to
+ * save one number. The duplication is structural — see `docs/inventaire.md`.
+ */
+const MIN_DB = -100;
 
 export interface TrimWindow {
   /** Seconds into the FILE where the sound starts and stops. `from` < `to` always. */

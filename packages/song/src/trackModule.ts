@@ -77,11 +77,6 @@ export const trackModules = (): Record<string, LoadedModule> =>
 export const isTrack = (m: { kind?: unknown } | null | undefined): boolean =>
   m?.kind === "track";
 
-/** …and is it one whose events are STREAMED rather than written down (a strudel lane)? */
-export const isGeneratedTrack = (
-  m: { kind?: unknown; generated?: unknown } | null | undefined,
-): boolean => isTrack(m) && m?.generated === true;
-
 /**
  * A GROUP lane — one that holds member names and carries no signal.
  *

@@ -200,7 +200,6 @@ export const ProjectFileSchema = z
   })
   .strict();
 
-export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 export type ProjectFile = z.infer<typeof ProjectFileSchema>;
 
 /** settings.yaml — project-level preferences, a flat file of its own. */

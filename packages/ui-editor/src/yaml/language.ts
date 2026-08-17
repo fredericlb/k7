@@ -12,10 +12,6 @@ import {
 import type { Extension } from "@codemirror/state";
 import { tags as t } from "@lezer/highlight";
 
-/** Is this path one of the YAML project files? */
-export const isYamlFile = (path?: string): boolean =>
-  /\.ya?ml$/i.test(path ?? "");
-
 // The colours are the editor's own CSS variables, shared with the rest of the app.
 const yamlHighlight = HighlightStyle.define([
   { tag: t.comment, color: "var(--sh-muted-foreground)", fontStyle: "italic" },

@@ -14,7 +14,15 @@ import type { PluginDoc } from "@studio/song/project";
  */
 export const PEAK_PARAM = "Peak";
 
-/** The floor a measurement reports for silence, and the `Peak` param's own minimum. */
+/**
+ * The floor a measurement reports for silence, and the `Peak` param's own minimum.
+ *
+ * The same job `PEAK_PARAM` above does for the name — one number, spelled once. It sat here with
+ * no caller while its value was written out by hand in five other places (`FilePeak.cpp`'s
+ * `kFloorDb`, `@studio/dsp`'s `normalize()`, that module's `jsdsp.ts` and its generated
+ * `graphs/normalize.json`, and `trimGate.ts`'s `MIN_DB`). The C++ and the generated JSON cannot
+ * import it; the TypeScript can, and now does.
+ */
 export const PEAK_FLOOR_DB = -100;
 
 /** What the engine's `--peak` prints. Only `peakDb` is read here; the rest is for a person. */

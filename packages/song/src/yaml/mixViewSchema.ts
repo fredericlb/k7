@@ -22,8 +22,6 @@ export const ViewBindingSchema = z
   })
   .strict();
 
-export type ViewBinding = z.infer<typeof ViewBindingSchema>;
-
 /**
  * The file: control id -> what it drives.
  *

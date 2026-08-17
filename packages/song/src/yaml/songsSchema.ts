@@ -51,4 +51,3 @@ export const SongsFileSchema = z
   .strict();
 
 export type SongsFile = z.infer<typeof SongsFileSchema>;
-export type SongEntryValue = z.infer<typeof SongEntry>;

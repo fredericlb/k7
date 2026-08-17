@@ -337,10 +337,6 @@ const CSS = `
 .dgx-hd .dgx-ticon { font-size:13px; }
 .dgx-nm.stub { color:#f87171; }
 .dgx-nm.unsupported { color:#fbbf24; }
-.dgx-chip { font-size:8.5px; text-transform:uppercase; letter-spacing:.12em; font-weight:600;
-  padding:2px 5px 1px; border-radius:5px; color:var(--accent);
-  background:color-mix(in srgb,var(--accent) 13%,transparent);
-  border:1px solid color-mix(in srgb,var(--accent) 32%,transparent); }
 .dgx-sub { font:10px ui-monospace,monospace; color:var(--faint); }
 .dgx-sub.stub { color:#f87171; }
 .dgx-sub.unsupported { color:#fbbf24; }
@@ -1761,8 +1757,19 @@ function NodeInner({
     (!!n.chains && !!selected && n.chains.includes(selected)) ||
     (n.kind === "module" && !!n.module && n.module === selected);
   // Every node responds to a tap. A module can flag four ways (missing/stub/unknownPlugin/notSupported), all red.
-  const red = n.missing || n.stub || n.unknownPlugin || n.notSupported;
-  const flagCls = red ? " stub" : "";
+  /**
+   * A node with a problem. Two colours, not one — which is what `docs/graphFlags.md` has always
+   * said and what this file has never drawn: a plugin the engine could load but WON'T
+   * (`not_supported`) is amber, everything else it cannot find at all is red.
+   *
+   * The `.k-unsupported`, `.dgx-nm.unsupported`, `.dgx-sub.unsupported` and `.dgx-far.unsupported`
+   * rules were all unreachable, because `notSupported` folded into `red` here and the class was
+   * only ever `stub`. So a not-supported plugin drew a red card, contradicting its own flag line
+   * and `hosting.md`'s promise of "an unsupported plugin amber".
+   */
+  const amber = !!n.notSupported;
+  const red = n.missing || n.stub || n.unknownPlugin || amber;
+  const flagCls = amber ? " unsupported" : red ? " stub" : "";
   const flagText = n.missing
     ? "module not found"
     : n.stub
@@ -1774,7 +1781,7 @@ function NodeInner({
           : null;
   const cls = [
     "dgx-node",
-    `k-${red ? "stub" : n.kind}`,
+    `k-${amber ? "unsupported" : red ? "stub" : n.kind}`,
     "tappable",
     sel ? "sel" : "",
     n.frozen ? "frozen" : "", // the frost wash, on the point and on everything inside its render

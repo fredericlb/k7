@@ -89,11 +89,6 @@ export function engineLogPath(): string {
   return join(studioDir(), ".studio-engine.log");
 }
 
-/** The old separate file-service log (pre-merge). No longer written; kept as a name. */
-export function fileServiceLogPath(): string {
-  return join(studioDir(), ".studio-file-service.log");
-}
-
 /** The MERGED log: the engine's and the file service's output, interleaved and tagged.
  *  This is what "Show logs" opens and what the file service serves to the web UI's Logs
  *  panel — one place for everything the engine side says. */

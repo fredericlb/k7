@@ -282,11 +282,5 @@ export async function state(userEmail: string): Promise<PlayerState> {
   };
 }
 
-/** Pour les tests : oublier les processus suivis, sans y toucher. */
-export function forgetPlayers(): void {
-  for (const [, p] of players) p.ipc?.destroy();
-  players.clear();
-}
-
 /** Exporté pour le test du garde-fou, qui n'a pas à connaître `sep`. */
 export const PATH_SEP = sep;

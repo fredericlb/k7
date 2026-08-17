@@ -32,8 +32,6 @@ export interface SetList {
   absent: boolean;
 }
 
-export const EMPTY_SET: SetList = { entries: [], issues: [], absent: true };
-
 /**
  * A string as the browser SEARCHES it: lower case, accents folded.
  *

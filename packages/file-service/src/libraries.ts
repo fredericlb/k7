@@ -494,8 +494,3 @@ export async function commitLibraries(
 
 /** Where the libraries are mounted in this workspace, whether or not anything is there. */
 export const librariesDir = (root: string): string => join(root, LIBRARIES_DIR);
-
-/** Is the mount there and populated? What a route checks before blaming a missing module. */
-export const hasLibraries = (root: string): boolean =>
-  existsSync(join(root, LIBRARIES_DIR)) &&
-  isPopulated(join(root, LIBRARIES_DIR));

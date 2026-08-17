@@ -463,10 +463,6 @@ export const NODE_MIN_W = 72;
 // stylesheet because a cable has to END at the socket, so the drawing and the CSS have to agree on where it
 // is; the renderer interpolates this into the sheet so there is one number and not two.
 export const PORT_PLATE = 13;
-// How far a cable runs straight out of a socket before it starts bending, so it leaves the plate square on
-// the way a real one does. Purely cosmetic, and small enough not to fight dagre's routing.
-/** Unused since cables went straight — the lead only existed to square a curve's exit. */
-export const PORT_LEAD = 16;
 
 // Module-UI grid geometry in graph units, shared with the renderer so hit areas and drawing agree by construction.
 // See docs/graphBuild.md for what UI_HEADER and CELL are sized against.

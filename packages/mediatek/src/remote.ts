@@ -301,18 +301,3 @@ export async function pushSongBpm(
     throw new RemoteError(`mediatek bpm: ${res.status} ${res.statusText}`);
   return (await res.json()) as { set: boolean };
 }
-
-/** The catalogue as the hosted service reports it — what a surface LISTS, as opposed to
- *  what this machine happens to hold. */
-export async function remoteListing(
-  cfg: RemoteConfig,
-  family: Family,
-): Promise<FamilyListing> {
-  const res = await fetch(
-    `${cfg.base.replace(/\/+$/, "")}/api/mediatek/list?family=${encodeURIComponent(family)}`,
-    { headers: cfg.token ? { authorization: `Bearer ${cfg.token}` } : {} },
-  );
-  if (!res.ok)
-    throw new RemoteError(`mediatek list: ${res.status} ${res.statusText}`);
-  return (await res.json()) as FamilyListing;
-}

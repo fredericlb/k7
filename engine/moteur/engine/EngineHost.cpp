@@ -664,20 +664,6 @@ void EngineHost::disableWaveformTap(const std::string& session, const std::strin
     impl_->session(session).waveformPlugins.erase(it);
 }
 
-std::vector<WaveformEnvelope> EngineHost::waveformData(const std::string& session,
-                                                       const std::string& id,
-                                                       const std::string& side) {
-    auto* s = impl_->find(session);
-    if (s == nullptr) return {};
-    const std::string key = id + ":" + side;
-    auto it = s->waveformPlugins.find(key);
-    if (it == s->waveformPlugins.end()) return {};
-
-    auto* tapPlugin = dynamic_cast<studio::WaveformTapPlugin*>(it->second.get());
-    if (!tapPlugin) return {};
-    return tapPlugin->tap().drain();
-}
-
 std::map<std::string, std::vector<WaveformEnvelope>> EngineHost::drainAllWaveformTaps(const std::string& session) {
     std::map<std::string, std::vector<WaveformEnvelope>> result;
     auto* s = impl_->find(session);

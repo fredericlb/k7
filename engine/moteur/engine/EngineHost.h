@@ -209,11 +209,10 @@ public:
     // Disable waveform tapping for a module. Removes the tap plugin from the chain.
     void disableWaveformTap(const std::string& session, const std::string& id, const std::string& side);
 
-    // Drain a module's accumulated envelope points, empty when no tap is active. Thread-safe (lock-free read).
-    std::vector<WaveformEnvelope> waveformData(const std::string& session,
-                                               const std::string& id,
-                                               const std::string& side);
-
+    // `waveformData` drained ONE module's tap and was here with no caller — the only method in this
+    // header without one. `drainAllWaveformTaps` below superseded it: the state timer drains every
+    // tap per broadcast rather than asking module by module, so there was never a second reader.
+    //
     // Drain every active tap, keyed "chain:module:side" — called by the state timer for each broadcast.
     std::map<std::string, std::vector<WaveformEnvelope>> drainAllWaveformTaps(const std::string& session);
 

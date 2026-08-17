@@ -74,16 +74,3 @@ export function localizeCommandLine(line: string): string {
     CANONICALS.map((c) => ({ from: c, to: localizeCommand(c) })),
   );
 }
-
-/** Every command name, for command-name completion — so a partial finds its command. */
-export function localizedCommandNames(): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const c of CANONICALS)
-    for (const name of commandTranslations(c))
-      if (!seen.has(name)) {
-        seen.add(name);
-        out.push(name);
-      }
-  return out;
-}

@@ -215,5 +215,3 @@ export const ENTITY_SCHEMAS = {
   curves: CurveSchema,
   video_tracks: VideoTrackSchema,
 } as const;
-
-export type EntityKind = keyof typeof ENTITY_SCHEMAS;

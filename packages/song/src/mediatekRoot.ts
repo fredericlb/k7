@@ -38,9 +38,3 @@ export function mediatekRoot(): string {
     process.env.STUDIO_MEDIATEK || join(homedir(), ".studio", "mediatek"),
   );
 }
-
-/** One of the library's two halves — `modules/` for what a chain names, `library/` for the
- *  assets a module loads. Both are found here rather than joined by hand at each call site. */
-export function mediatekDirFor(kind: "modules" | "library"): string {
-  return join(mediatekRoot(), kind);
-}

@@ -548,25 +548,6 @@ export function trackTakes(
   return takeValues(readFileSync(found.path, "utf8"));
 }
 
-/** Apply `fields` to track `id`. Returns the path written. */
-export function setTrackFields(
-  dir: string,
-  id: string,
-  fields: TrackFields,
-): string {
-  return editTrackStruct(
-    dir,
-    id,
-    (text) => {
-      let out = text;
-      for (const [k, v] of Object.entries(fields))
-        if (v !== undefined) out = setTrackField(out, k, v);
-      return out;
-    },
-    `set ${Object.keys(fields).join(", ")}`,
-  );
-}
-
 // A lane's ALTERNATIVES lived here. They belong to the MODULE a lane is now, so the verbs are
 // `node alternative …` (projectEdit.ts) and which clip list an edit above lands in is
 // yaml/trackFile.ts's `clipsToEdit`. See docs/alternatives.md.

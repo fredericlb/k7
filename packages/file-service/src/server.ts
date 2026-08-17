@@ -11,6 +11,7 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
+import type { WorkspaceList } from "@studio/web-protocol";
 import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
@@ -133,9 +134,15 @@ app.use(requireEngineToken);
 app.use(resolveUser);
 
 // The workspace picker needs only the user, so it is registered BEFORE resolveWorkspace.
+// Typed by the envelope `web-protocol` already declares for it: the type existed and described
+// this reply, and nothing was held to it — so the wire and its description could drift with
+// nobody the wiser. Naming it here is what makes the declaration true.
 app.get(
   "/workspaces",
-  wrap((req, res) => res.json({ workspaces: listWorkspaces(req.userEmail!) })),
+  wrap((req, res) => {
+    const reply: WorkspaceList = { workspaces: listWorkspaces(req.userEmail!) };
+    res.json(reply);
+  }),
 );
 const newWsBody = z.object({ name: z.string().min(1) });
 app.post(
