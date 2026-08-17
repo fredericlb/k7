@@ -128,8 +128,9 @@ placement by (id, start) — without that, a cell wrote its note and lit nothing
 drags snapped back on release.
 
 They share their pan/zoom hook (`@studio/ui-timeline/panZoom`, and
-[timeline.md](timeline.md) says why a plain wheel scrolls) and nothing else about their drawing:
-one draws 128 key rows, the other a canvas envelope.
+[timeline.md](timeline.md) says how a mouse wheel is told from a trackpad slide — one zooms, the
+other pans) and nothing else about their drawing: one draws 128 key rows, the other a canvas
+envelope.
 
 ## The ruler subdivides with the zoom, and the material carries its lines
 

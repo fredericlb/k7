@@ -357,25 +357,52 @@ A zoom is a mode you can forget you are in — the lanes look normal, they just 
 somewhere other than beat 1 — so the status line says so on every line and names the way
 out.
 
-## The wheel pans, the pinch zooms
+## The wheel zooms, the trackpad slide pans, the middle button drags
 
-`useHZoom` (`usePanZoom.ts`) intercepts a wheel event only when `ctrlKey` or `metaKey` is set.
-A **pinch** on a Mac trackpad — and on a Windows precision touchpad — arrives exactly that way,
-synthesised by the browser; **two fingers sliding** arrive as a plain wheel, indistinguishable
-from a mouse wheel. There is no third signal, so while the plain wheel zoomed, every attempt to
-pan a trackpad zoomed the timeline instead.
+A **mouse wheel zooms** the timeline, anchored under the cursor; **two fingers sliding** on a
+trackpad still pan; a **pinch** zooms; and **holding the middle button** pans, on both axes
+(`usePanScroll`).
 
-A plain wheel is now handed straight **back to the browser** rather than pan being re-implemented
-on `scrollLeft`: the pane is already an `overflow-auto` scroller, so the native scroll is the
-pan — both axes at once, with momentum, axis locking and rubber-banding for free. The cost is
-that a mouse wheel scrolls instead of zooming, and zooming with a mouse means holding Ctrl.
+The hard part is that a wheel and a trackpad send *the same event*. A pinch is the one gesture the
+browser marks — it synthesises `ctrlKey`, on a Mac trackpad and on a Windows precision touchpad
+alike — and `isZoomWheel` reads that. Everything else arrives as a plain wheel whatever produced
+it, which is why this pane spent a while with the plain wheel meaning PAN: while it zoomed, every
+attempt to push a trackpad about zoomed the timeline instead, and there was no signal to tell the
+two apart.
+
+There is one, and the chains graph found it first — three signals, most reliable first, now read
+here too by `isMouseWheel` (`@studio/ui-timeline/panZoom`):
+
+1. a `deltaMode` of lines or pages: only a real wheel is ever reported that way (Firefox does it);
+2. `wheelDeltaY`, which Chrome and Safari still carry — a detent is a multiple of **120**, the
+   number the Windows API gave it, where a trackpad reports three times its pixel delta and lands
+   there only by accident. This is what separates a Mac mouse from a Mac trackpad;
+3. failing both, the delta's SHAPE: a notch is integral, vertical only and large; a finger's is
+   small and often fractional.
+
+It is **wrong in one direction only**, deliberately: an unrecognised device is read as a surface
+and keeps panning. A trackpad that zooms when you meant to pan is a broken trackpad; a mouse that
+pans is merely a mouse that does not zoom yet.
+
+**What a mouse gives up is the vertical wheel.** The lanes no longer walk past under the wheel —
+that gesture is now the zoom — so scrolling a tall project means the middle-button drag, which
+pans both axes, or the keyboard (`j`/`k` move the caret and the pane follows). **Shift+wheel** is
+left to the browser, which already reads it as "scroll sideways", so a mouse keeps one scroll
+gesture; the pinch is tested first, so Ctrl+Shift+wheel is still a pinch with a finger resting on
+Shift. A trackpad keeps
+the native scroll, and everything it brings: momentum, axis locking, rubber-banding, both axes at
+once. None of that is re-implemented on `scrollLeft`; the pane is already an `overflow-auto`
+scroller and a plain slide is simply handed back to the browser.
 
 `overscroll-behavior: none` sits on the root (`index.css`) because of this: a pane that has hit
 its end no longer preventDefaults, and without it the leftover scroll bounces the whole shell.
 
-The piano roll and the waveform take the same hook, so they behave the same. The chains graph
-draws the same line in its own camera — it translates rather than scrolls, so the rule is shared
-and the code is not (`packages/ui-chains-react/docs/camera.md`).
+The piano roll and the waveform take the same hook, so they behave the same — one gesture
+vocabulary across the panes that draw time, which matters more than any one of them. The chains
+graph draws the same line in its own camera and holds its own copy of the three signals: it
+translates rather than scrolls, and neither package may depend on the other
+(`packages/ui-chains-react/docs/camera.md`, and `docs/inventaire.md` records the duplication —
+both sides are tested, so it cannot drift in silence).
 
 ## Fit to pane, not scroll
 
@@ -608,7 +635,8 @@ Three gestures reach the same anchored zoom (`useHZoom` in `@studio/ui-timeline`
 not scale alike:
 
 - a **wheel notch** is one event and a discrete decision, so it takes a whole step (15%),
-  whatever delta the browser puts on it;
+  whatever delta the browser puts on it. Bare on a mouse, since `isMouseWheel` recognises the
+  device; with Cmd or Ctrl it is the same step, which is how a trackpad asks for one;
 - a **trackpad pinch** arrives as Ctrl+wheel — a stream of small continuous deltas, dozens a
   second. Given the notch's step it multiplied 1.15 per event and hit the zoom limit before the
   fingers had finished moving, which is how "pinch does not work" was really spelled. It scales

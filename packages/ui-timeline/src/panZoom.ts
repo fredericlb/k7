@@ -1,8 +1,9 @@
 // panZoom.ts — navigation for the media panes, which scale to FIT by default (so there is
 // nothing to scroll until you zoom). useHZoom scales horizontally, anchored so the point under
-// the cursor stays put — by trackpad PINCH, by Cmd/Ctrl+wheel and by two fingers, but NOT by a
-// plain wheel, which is the pan (see isZoomWheel); usePanScroll pans on a MIDDLE-mouse drag —
-// not Space-drag, because Space is the transport toggle in every app that mounts these.
+// the cursor stays put — by a mouse WHEEL, by trackpad pinch, by Cmd/Ctrl+wheel and by two
+// fingers, but not by a trackpad slide, which stays the pan (isZoomWheel + isMouseWheel);
+// usePanScroll pans on a MIDDLE-mouse drag — not Space-drag, because Space is the transport
+// toggle in every app that mounts these.
 // Unit-free on purpose: the caller multiplies its own lane width, in beats or in seconds.
 
 import {
@@ -18,18 +19,95 @@ const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
 /**
- * Which gesture a wheel event IS: a zoom, or a pan.
+ * A wheel event that zooms whatever the DEVICE is: a trackpad pinch, or the same intention
+ * spelled with a modifier.
  *
  * On a Mac trackpad — and on a Windows precision touchpad — a PINCH arrives as a wheel event
  * with `ctrlKey` set, synthesised by the browser; two fingers sliding arrive as a plain wheel.
- * There is no other signal, and it is why a plain wheel no longer zooms here: a trackpad has no
- * way to say "scroll" other than the plain wheel, so keeping zoom on it made every attempt to
- * pan zoom instead. `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+ * `metaKey` joins it because Cmd+scroll is the same intention on a Mac mouse.
+ *
+ * A plain wheel is answered by `isMouseWheel` below: on a mouse it zooms, on a surface it slides.
  *
  * The chains graph draws the same line, in its own camera (`@studio/ui-chains-react`): a pane
  * here scrolls and that one translates, so the rule is shared but not the code.
  */
-const isZoomWheel = (e: WheelEvent): boolean => e.ctrlKey || e.metaKey;
+const isZoomWheel = (e: { ctrlKey: boolean; metaKey: boolean }): boolean =>
+  e.ctrlKey || e.metaKey;
+
+/** Below this, a pixel-mode delta is a finger rather than a detent. A notch is ~100 (Chrome). */
+const MOUSE_NOTCH_MIN = 40;
+
+/**
+ * A mouse WHEEL rather than a surface — two fingers on a trackpad, a touchscreen's inertia.
+ *
+ * They arrive as the same event and mean opposite things here. A wheel is a detent, discrete, and
+ * the natural thing for it to do over an arrangement is ZOOM — which is what this pane was asked
+ * for. A trackpad slide is a hand pushing the view about, and zooming there is what made every
+ * attempt to pan a trackpad zoom instead; that is why a plain wheel stopped zooming in the first
+ * place. So the two are told apart rather than legislated over.
+ *
+ * Three signals, most reliable first:
+ *
+ * 1. `deltaMode` other than pixels — lines or pages. Only a real wheel is ever reported that
+ *    way (Firefox does it for mice), so it settles the question on its own.
+ * 2. `wheelDeltaY`, the legacy field Chrome and Safari still carry. A mouse reports it in
+ *    multiples of 120 — the detent, from the Windows API that named it — while a trackpad
+ *    reports three times its pixel delta, which lands on 120 only by accident. This is what
+ *    separates a Mac trackpad from a Mac mouse, and nothing standard does.
+ * 3. Failing both (Firefox in pixel mode), the shape of the delta: a notch is integral, has no
+ *    horizontal component, and is LARGE, where a finger's is small and often fractional.
+ *
+ * Wrong in one direction only, by design: an unrecognised device is treated as a surface, so it
+ * keeps the behaviour that was there before. A trackpad that zooms is a broken trackpad; a mouse
+ * that pans is merely a mouse that does not zoom yet.
+ *
+ * The graph decided this before the arrangement did and holds the same three signals
+ * (`@studio/ui-chains-react`'s `camera.ts`). Written twice because neither package may depend on
+ * the other — recorded in `docs/inventaire.md`, and tested on both sides so it cannot drift in
+ * silence.
+ */
+export function isMouseWheel(e: {
+  deltaX: number;
+  deltaY: number;
+  deltaMode: number;
+  wheelDeltaY?: number;
+}): boolean {
+  if (e.deltaMode !== 0) return true;
+  const legacy = e.wheelDeltaY;
+  if (typeof legacy === "number" && legacy !== 0)
+    return Math.abs(legacy) % 120 === 0;
+  if (e.deltaX !== 0) return false;
+  return Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= MOUSE_NOTCH_MIN;
+}
+
+/**
+ * What one wheel event over an arrangement MEANS: zoom it, or leave the scroll to the browser.
+ *
+ * The whole rule, in one place and testable — the hook that uses it is an effect on a DOM node,
+ * which nothing in this repo can mount, so a condition written inline there could only be
+ * verified by hand.
+ *
+ * Order matters, and each line answers a different question:
+ *
+ * 1. a pinch (or Cmd/Ctrl+wheel) zooms whatever the device — it is the one gesture the browser
+ *    marks for us, and Ctrl+Shift+wheel is still a pinch with a finger resting on Shift;
+ * 2. SHIFT is left alone, because every browser already reads it as "scroll sideways". It is
+ *    the one scroll gesture a mouse keeps once the bare wheel has become the zoom;
+ * 3. otherwise it is the device that decides — `isMouseWheel` above.
+ */
+export function wheelZooms(e: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  deltaX: number;
+  deltaY: number;
+  deltaMode: number;
+  wheelDeltaY?: number;
+}): boolean {
+  if (isZoomWheel(e)) return true;
+  if (e.shiftKey) return false;
+  return isMouseWheel(e);
+}
 
 /** One wheel notch's worth of zoom. A whole step, because a notch is a discrete decision. */
 const WHEEL_STEP = 1.15;
@@ -157,10 +235,12 @@ export function useHZoom(
     const el = ref.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      // Only a pinch zooms. Two fingers sliding are handed BACK to the browser, whose native
-      // scroll is the pan — with the momentum, the axis locking and the rubber-banding a
-      // hand-rolled scrollLeft would have to counterfeit, and on both axes at once.
-      if (!isZoomWheel(e)) return;
+      // A wheel notch zooms, a pinch zooms, a trackpad SLIDE is handed back to the browser —
+      // whose native scroll is the pan, with the momentum, the axis locking and the rubber-banding
+      // a hand-rolled scrollLeft would have to counterfeit, on both axes at once. Which is what a
+      // mouse gives up by zooming: the wheel no longer walks the lanes vertically, and its pan is
+      // the middle-drag (usePanScroll) or Shift+wheel. The rule itself is `wheelZooms`, tested.
+      if (!wheelZooms(e)) return;
       // preventDefault stops the page moving, and the browser zooming the whole PAGE on the
       // same gesture — its own Ctrl+wheel zoom is exactly the gesture we just claimed.
       e.preventDefault();
