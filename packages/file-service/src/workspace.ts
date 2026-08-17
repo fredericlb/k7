@@ -38,6 +38,7 @@ import {
 import {
   buildShareBundle,
   type ShareBundle,
+  uploadShare,
 } from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
@@ -131,6 +132,7 @@ import {
   isHistoryDir,
   ProjectHistory,
 } from "./history.ts";
+import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { moduleFoldersMoved } from "./moduleWatch.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
 import {
@@ -1843,6 +1845,46 @@ export class Workspace {
       },
       { name: web.name || basename(dir), mode: web.mode },
     );
+  }
+
+  /**
+   * Render the snapshot and send it to st0. Answers the secret the link is built from.
+   *
+   * The credential is NOT k7's `.settings.json` pair but the machine's own st0 bearer —
+   * `mediatekBase()` / `mediatekToken()`, the `service:l8` token `npm run tokens` already writes
+   * into the supervisor's settings for the library pull. Sharing needed no new plumbing: this
+   * service has been talking to st0 with it all along.
+   *
+   * A service token has no person of its own, so the user is named on every call (`?user=`) —
+   * the same arrangement, and the same accepted cost, that `/ssh-key/private` documents.
+   */
+  async shareLink(
+    userEmail: string,
+  ): Promise<{ token: string; bytes: number }> {
+    const base = mediatekBase();
+    const token = mediatekToken();
+    if (!base)
+      throw new Error("no médiathèque to share to — this machine caches none");
+    if (!token)
+      throw new Error(
+        "no médiathèque token on this machine — run `npm run tokens`",
+      );
+    const dir = this.requireActive();
+    const bundle = this.buildShare();
+    try {
+      const link = await uploadShare(bundle, {
+        base,
+        token,
+        user: userEmail,
+        // Where it came from, for the author's own list. Never served publicly.
+        origin: { repo: basename(this.root), project: basename(dir) },
+      });
+      return { token: link.token, bytes: link.bytes };
+    } finally {
+      // The upload streams from these files, so they live until it is over — and go whether it
+      // ended well or not. A share of a long song is half a gigabyte of temp.
+      bundle.cleanup();
+    }
   }
 
   // Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for artist and title.

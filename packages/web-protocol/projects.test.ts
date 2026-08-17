@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  BENCH_REPO,
   benchChainPath,
   benchProjectForChain,
   HAS_SCAFFOLD,
+  isShare,
   launchUrl,
   PROJECT_SUFFIXES,
+  parseLaunch,
   projectApp,
   projectLabel,
   SCAFFOLDED_APPS,
+  SHARE_REPO,
+  shareToken,
+  shareUrl,
 } from "./projects.ts";
 
 describe("projectApp", () => {
@@ -119,5 +125,47 @@ describe("a chain opened on the bench", () => {
     expect(benchChainPath("chains/./x.l8")).toBeNull();
     expect(benchChainPath("chains//x.l8")).toBeNull();
     expect(benchChainPath("chains/..\\x.l8")).toBeNull();
+  });
+});
+
+/**
+ * A SHARED project's address, and the reason it is spelled with the app's own suffix: it makes
+ * the token the PROJECT part of an ordinary address, so `parseLaunch` and everything under it
+ * need no change at all. These are what pin that.
+ */
+describe("a shared snapshot's address", () => {
+  const TOKEN = "Ck7bQ2mR9xLpN4wZaB1dEf3gH5jK8sT0uV6yW2nA";
+
+  it("is a repository name no git repository can have", () => {
+    expect(SHARE_REPO.startsWith("@")).toBe(true);
+    expect(isShare(SHARE_REPO)).toBe(true);
+    expect(isShare("songs")).toBe(false);
+    expect(isShare(BENCH_REPO)).toBe(false);
+  });
+
+  it("parses back through the ORDINARY reader, with nothing taught to it", () => {
+    const url = shareUrl("https://studio.frediver.se", TOKEN);
+    const at = parseLaunch(new URL(url).pathname, "l8", "/l8/");
+    expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.l8` });
+    if (!at) throw new Error("unreachable — the expect above would have failed");
+    expect(isShare(at.repo)).toBe(true);
+    expect(shareToken(at.project)).toBe(TOKEN);
+  });
+
+  it("refuses a project part that is not a token", () => {
+    // The address is typed by anyone and then put into a URL, so it is checked here rather
+    // than trusted and checked later.
+    expect(shareToken("winter.l8")).toBeNull(); // too short to be a secret
+    expect(shareToken(`${TOKEN}`)).toBeNull(); // no suffix: not a project at all
+    expect(shareToken("../../etc/passwd.l8")).toBeNull();
+    expect(shareToken("a/b.l8")).toBeNull();
+    expect(shareToken(".l8")).toBeNull();
+  });
+
+  it("takes the base64url alphabet, which is what mints a token", () => {
+    // `randomBytes(32).toString("base64url")` — letters, digits, `-` and `_`, never `+/=`.
+    expect(shareToken(`${"-_".repeat(11)}.l8`)).toBe("-_".repeat(11));
+    expect(shareToken(`${"a".repeat(30)}+.l8`)).toBeNull();
+    expect(shareToken(`${"a".repeat(30)}=.l8`)).toBeNull();
   });
 });

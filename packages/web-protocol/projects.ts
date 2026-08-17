@@ -251,6 +251,54 @@ export function benchProjectForChain(chainPath: string): string {
 }
 
 /**
+ * A SHARED project: `/l8/@partage/<token>.l8`.
+ *
+ * The bench's sentinel again, for the bench's reason — `@` cannot begin a git short name, so this
+ * can never collide with a real repository, and the gate sees it and takes another road: no st0
+ * lookup, no clone, no engine, no account. What it opens is a frozen snapshot st0 holds.
+ *
+ * The `.l8` on the end is not decoration. `parseLaunch` ends a project at the last segment
+ * claiming the app's suffix, so spelling the token this way makes it the PROJECT part of an
+ * ordinary address — which means `parseLaunch`, `projectBasename` and every route below them
+ * need no change at all, the token lands inside the router's basename, and a reload or a pasted
+ * link simply re-reads it. The three other shapes considered all cost a special case somewhere.
+ *
+ * Here rather than in st0 for the same reason as everything else in this file: st0 writes the
+ * link and l8 reads it back, and an address only one of them understands is a 404 nobody can
+ * attribute.
+ */
+export const SHARE_REPO = "@partage";
+
+/** Whether an address names a shared snapshot rather than a repository. */
+export function isShare(repo: string): boolean {
+  return repo === SHARE_REPO;
+}
+
+/**
+ * The secret out of a share address, or null when the project part is not one.
+ *
+ * Checked rather than trusted, exactly as `benchChainPath` is: this comes off an address anyone
+ * can type and is then put into a URL. One segment, base64url and nothing else — which is what
+ * `randomBytes(32).toString("base64url")` produces and what a traversal is not.
+ */
+export function shareToken(project: string): string | null {
+  if (!project.endsWith(L8)) return null;
+  const token = project.slice(0, -L8.length);
+  return /^[A-Za-z0-9_-]{22,}$/.test(token) ? token : null;
+}
+
+/**
+ * The link itself, from the origin the browser is on and the secret st0 answered with.
+ *
+ * Built HERE and not on the machine that rendered: that machine has no idea which origin you are
+ * reading this on, and a checkout, the LAN proxy and the public host are three different answers.
+ * Only the tab knows which one it is.
+ */
+export function shareUrl(origin: string, token: string): string {
+  return `${serviceUrl(origin, "l8")}/${SHARE_REPO}/${token}${L8}`;
+}
+
+/**
  * How a project is NAMED in an engine claim — `<repo>/<projet>`.
  *
  * Here rather than in each gate, and beside the address it is derived from, for the same reason

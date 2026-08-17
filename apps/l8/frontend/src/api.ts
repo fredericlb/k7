@@ -257,6 +257,19 @@ export const api = {
       title?: string;
       stems?: number;
     }>("POST", "/share/k7", meta ?? {}),
+  /**
+   * Freeze this project and send it to st0. Answers the SECRET, not the address.
+   *
+   * The link is built in the browser (`shareUrl`), because the machine that renders has no idea
+   * which origin you are reading this on — a checkout, the LAN proxy and the public host are
+   * three different answers to that, and only the tab knows which one it is.
+   */
+  shareLink: () =>
+    fsend<{ ok: true; token: string; bytes: number }>(
+      "POST",
+      "/share/link",
+      {},
+    ),
   prewarmWaveforms: () =>
     fsend<WaveformStatus>("POST", "/waveforms/prewarm", {}),
   waveformStatus: () => fget<WaveformStatus>("/waveforms/status"),

@@ -11,6 +11,7 @@ import {
   Download,
   GitCommitHorizontal,
   GitPullRequestArrow,
+  Link2,
   Radio,
   Share2,
 } from "lucide-react";
@@ -136,6 +137,17 @@ export function ShareMenu({
             Export WAV
           </button>
           <div className="my-1 border-t border-border" />
+          {/* The two that PUBLISH, and they publish different things: k7 gets a release, a link
+              gets a frozen copy of the project itself — playable and readable by anyone who has
+              it, with no account and no engine. See packages/commands/docs/shareBundle.md. */}
+          <button
+            className={item}
+            disabled={busy}
+            onClick={() => run("project share link")}
+          >
+            <Link2 className="h-4 w-4 text-muted-foreground" />
+            Partager un lien
+          </button>
           <button
             className={item}
             disabled={busy}

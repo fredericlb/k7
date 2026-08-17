@@ -87,6 +87,7 @@ export const LOCAL_COMMANDS = [
   "project redo",
   "project export",
   "project share k7",
+  "project share link",
   "project import",
   "fs file new",
   "fs folder new",
@@ -307,6 +308,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "project share k7": {
     en: "Publish this song to k7",
     fr: "Publier ce morceau sur k7",
+  },
+  "project share link": {
+    en: "Share a frozen copy by link",
+    fr: "Partager une copie gelée par lien",
   },
   "project import": {
     en: "Import a .dawproject or an .als",

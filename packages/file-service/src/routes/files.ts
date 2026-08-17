@@ -630,6 +630,27 @@ filesRouter.post(
   }),
 );
 
+/**
+ * Freeze this project and send it to st0, answering the secret its link is built from.
+ *
+ * No body: there is nothing to ask. A share is a snapshot of what is open, and every choice it
+ * could offer — which format, which tracks, a title — is either already the project's or is a
+ * decision this command deliberately does not make (see @studio/commands' docs/shareBundle.md).
+ *
+ * Slow, and honestly so: it is a full render. The caller greys its menu, exactly as the mixdown's
+ * does.
+ */
+filesRouter.post(
+  "/share/link",
+  wrap(async (req, res) => {
+    try {
+      res.json({ ok: true, ...(await req.ws!.shareLink(req.userEmail!)) });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
 filesRouter.get(
   "/project",
   wrap((req, res) => res.json(req.ws!.projectInfo())),

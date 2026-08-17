@@ -6,6 +6,7 @@
 // Commit and pull are NOT here: they are `project commit` / `project pull` in the catalogue,
 // and the menu dispatches those rather than calling their routes a second time.
 
+import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";
 import { api } from "../api";
 
@@ -31,6 +32,7 @@ export interface Share {
   busy: boolean;
   exportMix: (format: MixFormat) => Promise<void>;
   shareK7: () => Promise<void>;
+  shareLink: () => Promise<void>;
 }
 
 export function useShare(onStatus: (s: string) => void): Share {
@@ -85,5 +87,48 @@ export function useShare(onStatus: (s: string) => void): Share {
     }
   }, [onStatus]);
 
-  return { busy, exportMix, shareK7 };
+  /**
+   * Freeze this project and put its link on the clipboard.
+   *
+   * It ASKS first, and the question names what leaves rather than saying "are you sure": a
+   * snapshot carries every track's name, every marker's name, every module's name and the text of
+   * every note in the graph, to anyone the link reaches. That is the feature, and it is also the
+   * kind of thing that ships without anyone thinking about it.
+   *
+   * The address is built in the browser (`shareUrl`), because only the tab knows which origin it
+   * is on — the machine that rendered does not.
+   */
+  const shareLink = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Partager une version gelée de ce projet ?\n\n" +
+          "Toute personne ayant le lien pourra l'écouter et voir les pistes, les chaînes et " +
+          "les paramètres des modules — sans compte. Le nom des pistes, des repères, des " +
+          "modules et le texte des notes en font partie.\n\n" +
+          "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur st0.",
+      )
+    )
+      return;
+    setBusy(true);
+    onStatus("rendu du partage… (le morceau entier, ça prend un moment)");
+    try {
+      const { token, bytes } = await api.shareLink();
+      const url = shareUrl(window.location.origin, token);
+      const mb = Math.round(bytes / 1048576);
+      try {
+        await navigator.clipboard.writeText(url);
+        onStatus(`lien copié — ${mb} Mo partagés : ${url}`);
+      } catch {
+        // A refused clipboard must not lose the link: it is the whole point of the command, and
+        // it exists exactly once.
+        onStatus(`partagé (${mb} Mo) — ${url}`);
+      }
+    } catch (e) {
+      onStatus(`partage impossible : ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [onStatus]);
+
+  return { busy, exportMix, shareK7, shareLink };
 }

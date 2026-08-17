@@ -1758,6 +1758,10 @@ export default function App({
         void share.shareK7();
         return true;
       }
+      if (line === "project share link") {
+        void share.shareLink();
+        return true;
+      }
       // The dialog reports what the translation did and then offers to open the result.
       if (line.startsWith("project import")) {
         const arg = s.slice("project import".length).trim();
