@@ -3,7 +3,7 @@
 // and schedules its events (module notes / sample one-shots / default 4OSC notes)
 // just ahead of the (interpolated) playhead. Full rationale: docs/patternClock.md.
 
-import { loadModuleRefs, loadModules } from "./loader";
+import { loadModuleRefs, loadModules, withModuleStamp } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
 import type { ClipDoc, PluginDoc, ProjectDoc, TrackDoc } from "./project";
 import { enginePlugin } from "./project";
@@ -57,8 +57,12 @@ function loadInstruments(dir: string | null): Map<string, PluginDoc> {
   let modules: Record<string, any>;
   let moduleRefs: Record<string, any>;
   try {
-    modules = loadModules(dir);
-    moduleRefs = loadModuleRefs(dir);
+    // Both reads under one stamp walk: this runs on every `refreshPatterns`, which a watcher
+    // fires on any `.strudel` save. See moduleCache.ts.
+    [modules, moduleRefs] = withModuleStamp(dir, () => [
+      loadModules(dir),
+      loadModuleRefs(dir),
+    ]);
   } catch {
     return map;
   }

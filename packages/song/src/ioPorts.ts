@@ -11,6 +11,7 @@ import {
   loadModules,
   loadProjectRoot,
   splitModuleKey,
+  withModuleStamp,
 } from "./loader";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 
@@ -46,6 +47,12 @@ function describe(ref: string): { name: string; namespace: string } {
  * labels are a property of the RIG, and a test has no rig.
  */
 export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
+  return withModuleStamp(dir, () => ioPortsIn(dir, prefs));
+}
+
+// Reads twice — the refs, then the project's own modules — so one stamp walk covers the pair,
+// exactly as compileNodeProject and loadGraph do. See moduleCache.ts.
+function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
   type Io = { kind?: string; io?: string; channel?: unknown };
   // No try/catch left: the shared roots are found by location now, so a folder that is not
   // there is simply not a root — where a declaration naming a missing one used to throw.

@@ -289,13 +289,78 @@ le transport roule, l'image suit, et un `?profile=1` fait réapparaître la band
 Le second point du lot D — `rackLit` rebalayant depuis l'index 0 à chaque trame — a été corrigé
 plus tôt, avec le bug de tri qu'il cachait (`d2a0df6`).
 
+## L'empreinte des modules — pas moins chère, moins souvent
+
+C'était le premier poste de dépense du voisinage après les lots A à D. Deux questions, dans
+l'ordre : peut-on la rendre moins chère, et sinon, la paie-t-on trop souvent ?
+
+### Non, elle ne peut pas être moins chère
+
+Mesuré, sur le même projet : **329 `readdir` = 11,7 ms, 419 `stat` = 11,9 ms**, moitié-moitié.
+
+- `readdirSync(recursive: true)` ne gagne rien (23,6 ms contre 23,5) : il stat en interne pour
+  décider de descendre. Impasse.
+- Les 419 `stat` sont sur des fichiers dont le contenu est VRAIMENT lu : 291 `module.yaml`,
+  42 `ui.yaml`, 68 fichiers de `nodes/`. Restent une quinzaine de `jsdsp.ts` et `.vstpreset`
+  dont seul le CHEMIN est retenu — 4 % du total. Rétrécir `DEFINITION` ne vaut pas son risque.
+- La mtime d'un DOSSIER ne bouge pas quand le contenu d'un fichier change (NTFS), donc elle ne
+  peut pas remplacer les `stat` de fichiers. C'est ce qui ferme la porte.
+- Un cache à l'horloge est refusé par `moduleCache.ts` lui-même, et à raison : le dépôt écrit
+  des fichiers de module dans ses tests puis les relit aussitôt.
+
+### Oui, elle était payée deux fois par route
+
+Trois routes lisaient le vocabulaire deux fois hors de toute portée — `ioPorts` (refs +
+modules), `projectHints` (idem) et `graphDoc` sur reconstruction (compile + graphe). Chacune
+payait deux marches pour prouver, la seconde fois, ce que la première venait d'établir. Elles
+s'enveloppent maintenant elles-mêmes, comme `compileNodeProject` et `loadGraph` le font depuis
+toujours — dans `@studio/song` pour les deux premières, donc la CLI en profite aussi.
+
+**Et hoisser une portée rendait les choses PLUS lentes, ce que seule la mesure a montré.**
+`withModuleStamp` n'était pas ré-entrant : une portée imbriquée sur le même projet ouvrait une
+portée NEUVE et jetait l'empreinte déjà payée. Envelopper `graphDoc`, dont le contenu ouvre déjà
+deux portées, ajoutait donc une marche au lieu d'en retirer une. Corrigé de la même façon que
+`withRevision` l'était — `if (scope?.dir === dir) return fn()` — avec un test qui fige le
+contrat : à l'intérieur d'une portée, les dossiers de modules sont tenus pour immobiles, et
+l'appel imbriqué doit honorer la MÊME promesse plutôt que re-vérifier en douce.
+
+### Et payée par des routes qui n'avaient aucun cache
+
+`projectErrors`, `moduleCatalogue`, `ioPorts` et `baseModules` relisaient tout le vocabulaire à
+CHAQUE requête — 21 à 43 ms — là où `graphDoc`, `projectDoc` et `hints` sont mémoïsés sur le
+jeton de révision depuis longtemps. Les quatre passent par un helper unique (`onRevision`)
+plutôt que par quatre champs écrits à la main.
+
+Ce qui a demandé d'élargir le jeton, et c'est la partie qui vaut d'être lue : deux fichiers
+HORS du projet décident de ces réponses — le cache de scan du moteur (`~/.studio/exts.json`,
+d'où sortent les modules `@engine/…`) et les préférences de la machine
+(`~/.studio/preferences.yaml`, d'où sort l'étiquette d'un canal). Le jeton ne les regardait pas.
+`hints()` avait donc ce trou depuis le jour où il a été mémoïsé : après un rescan de plugins, sa
+liste de plugins restait périmée jusqu'à une édition sans rapport. Deux `stat` de plus sur une
+marche qui en fait des centaines le referment pour toutes les vues d'un coup — dans le JETON, et
+non dans chaque cache, parce que c'est une propriété de « qu'est-ce qui a changé », pas de l'un
+des lecteurs.
+
+**Mesuré en MARCHES, les deux bras dans la même invocation** — le poste était trop chargé pour
+que la montre serve à quoi que ce soit ce jour-là, et un entier ne fluctue pas :
+
+| | avant | après |
+|---|---|---|
+| un rechargement (les six routes) | 10 marches | **6** |
+| les mêmes, rien n'ayant bougé | 4 marches | **0** |
+
+Une note d'outillage, parce qu'elle m'a coûté une mesure fausse : on ne peut PAS compter les
+appels en remplaçant `fs.readdirSync` depuis un script — les imports nommés d'un module `node:`
+sont figés à la liaison, et le compteur reste à zéro sans rien dire. Ajouter un compteur
+temporaire dans le module mesuré est la façon qui marche.
+
 ## Ce qui reste, et n'a pas été fait
 
 Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-| **La marche d'empreinte des modules coûte 19 ms et est payée par toute lecture hors portée.** C'est le premier poste de tout ce voisinage depuis que le reste a baissé | `song/src/moduleCache.ts` | la rendre moins chère veut dire ne plus `stat` 418 fichiers, donc un autre moyen de savoir qu'un dossier a bougé — un watcher, et sa propre discussion |
+| Une marche d'empreinte reste à 19 ms, et un rechargement en paie six — une par route, ce qui est le minimum que la portée explicite permet | `song/src/moduleCache.ts` | descendre sous six veut dire tenir l'empreinte ENTRE deux requêtes, donc un watcher sur les dossiers de modules — un objet à état dans une bibliothèque pure, et sur Windows des poignées qui empêchent de renommer un dossier (voir le watcher strudel, lot C). À trancher, pas à laisser pourrir |
 | L'horloge de motifs renvoie le `ProjectDoc` entier quand il a changé, pas un delta | `song/src/patternClock.ts`, et la `ProjectDiff` du moteur | demande un message partiel dans le protocole, donc les deux côtés d'un coup |
 
 ## Ce qui est déjà bon, et qu'il ne faut pas re-suspecter

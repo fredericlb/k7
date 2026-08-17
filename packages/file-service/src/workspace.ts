@@ -40,7 +40,7 @@ import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
 import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
-import { engineModules } from "@studio/song/engineCatalogue";
+import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { projectHints } from "@studio/song/hints";
 import { type IoPort, ioPorts } from "@studio/song/ioPorts";
 import {
@@ -70,6 +70,7 @@ import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
+  PREFS_PATH,
   setAudioDevice,
   setEditorVim,
   setInputPair,
@@ -215,6 +216,15 @@ export const skip = (name: string): boolean =>
   name === RECYCLE_DIR ||
   isHistoryDir(name) || // the undo/redo journal, never listed or diffed
   name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)
+
+/** One file's mtime, or 0 when it is not there — absent is a state, not a failure. */
+const mtimeOf = (path: string): number => {
+  try {
+    return statSync(path).mtimeMs;
+  } catch {
+    return 0;
+  }
+};
 
 // Rename, retrying briefly while Windows releases a lingering handle; a non-transient error still throws.
 async function renameWithRetry(
@@ -775,7 +785,14 @@ export class Workspace {
     const dir = this.activeProject;
     if (!dir) return `none:${this.mutations}`;
     let count = 0;
-    let newest = 0;
+    // …and the two files OUTSIDE the project that a derived view still reads: the engine's scan
+    // cache (`@engine/…` modules come out of it) and the machine's preferences (a channel's
+    // label). Two stats on a walk of hundreds, and without them the views memoised on this token
+    // were wrong after a plugin rescan or a `system channel set` until the next edit — which
+    // `hints()` already was, quietly, before anything else was keyed here.
+    let newest = mtimeOf(EXTS_PATH);
+    const prefsAt = mtimeOf(PREFS_PATH);
+    if (prefsAt > newest) newest = prefsAt;
     const walk = (abs: string): void => {
       let entries: Dirent[];
       try {
@@ -1606,13 +1623,37 @@ export class Workspace {
     return this.read(rel);
   }
 
+  /**
+   * A derived view, memoised on the revision token — the rule `hints`, `graphDoc` and
+   * `projectDoc` each state for themselves, said once for the three below that had no cache
+   * at all and read the whole module vocabulary on every request.
+   *
+   * Same token and therefore the same guarantee: it moves for an edit made outside this service
+   * as well as for one of ours. `build` may only READ — everything keyed here is a projection of
+   * the folder, and a builder that wrote would be memoising its own side effect away.
+   */
+  private derived = new Map<
+    string,
+    { dir: string; rev: string; value: unknown }
+  >();
+  private onRevision<T>(key: string, build: (dir: string) => T, empty: T): T {
+    try {
+      const dir = this.requireActive();
+      const { rev } = this.revision();
+      const hit = this.derived.get(key);
+      if (hit && hit.dir === dir && hit.rev === rev) return hit.value as T;
+      const value = build(dir);
+      this.derived.set(key, { dir, rev, value });
+      return value;
+    } catch {
+      // No project open, or a folder that will not read: the empty answer, never a cached one.
+      return empty;
+    }
+  }
+
   /** The declared I/O — what the panel lists and meters. Empty with no project open. */
   ioPorts(): IoPort[] {
-    try {
-      return ioPorts(this.requireActive());
-    } catch {
-      return [];
-    }
+    return this.onRevision("ioPorts", (dir) => ioPorts(dir), []);
   }
 
   /**
@@ -1622,15 +1663,16 @@ export class Workspace {
    * sits beside the projects, not inside one, and that is the only space the editor speaks.
    */
   moduleCatalogue(): CatalogueModule[] {
-    try {
-      // An ENGINE module has no file — `path` stays absent rather than becoming "".
-      return moduleCatalogue(this.requireActive()).map((m) => ({
-        ...m,
-        path: m.path ? this.toRel(m.path) : undefined,
-      }));
-    } catch {
-      return [];
-    }
+    return this.onRevision(
+      "moduleCatalogue",
+      (dir) =>
+        // An ENGINE module has no file — `path` stays absent rather than becoming "".
+        moduleCatalogue(dir).map((m) => ({
+          ...m,
+          path: m.path ? this.toRel(m.path) : undefined,
+        })),
+      [],
+    );
   }
 
   /**
@@ -1641,11 +1683,7 @@ export class Workspace {
    * fraction of the payload, and the shell prefetches it, so opening the picker awaits nothing.
    */
   baseModules(): string[] {
-    try {
-      return listBaseModules(this.requireActive());
-    } catch {
-      return [];
-    }
+    return this.onRevision("baseModules", (dir) => listBaseModules(dir), []);
   }
 
   /**
@@ -1877,10 +1915,13 @@ export class Workspace {
    * saved is one walk, not one read — both reads were already cache hits.
    */
   projectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
-    const dir = this.activeProject;
-    if (!dir) return { errors: [], diagnostics: [] };
-    return this.withRevision(() =>
-      withModuleStamp(dir, () => this.projectErrorsIn(dir)),
+    return this.onRevision(
+      "projectErrors",
+      (dir) =>
+        this.withRevision(() =>
+          withModuleStamp(dir, () => this.projectErrorsIn(dir)),
+        ),
+      { errors: [], diagnostics: [] },
     );
   }
   private projectErrorsIn(dir: string): {
@@ -2098,20 +2139,28 @@ export class Workspace {
   // builder. The cache below already refuses to key on anything but the active project, which is
   // why passing one costs nothing to explain: it takes the branch that was there for it.
   graphDoc(at?: string): WebGraph {
-    // One scope for the whole derivation: `clipExtents` below reaches `cachedProjectDoc`, which
-    // asks for the token again, and that second walk proved nothing. See `withRevision`.
-    return this.withRevision(() => {
-      const dir = at ?? this.requireActive();
-      // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
-      if (dir !== this.activeProject)
-        return buildGraphDoc(dir, this.clipExtents(dir));
-      const { rev } = this.revision();
-      const hit = this.graphCache;
-      if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
-      const graph = buildGraphDoc(dir, this.clipExtents(dir));
-      this.graphCache = { dir, rev, graph };
-      return graph;
-    });
+    // TWO scopes for the whole derivation, and both are the same idea one level apart. The
+    // revision token, because `clipExtents` below reaches `cachedProjectDoc`, which asks for it
+    // again. And the module stamp, because on a rebuild this compiles the project (one walk) and
+    // then builds the graph (another) — 19 ms each, both proving the module folders had not
+    // moved since the line before. Nothing here writes, which is the permission the stamp asks.
+    return this.withRevision(() =>
+      withModuleStamp(at ?? this.activeProject ?? this.root, () =>
+        this.graphDocIn(at),
+      ),
+    );
+  }
+  private graphDocIn(at?: string): WebGraph {
+    const dir = at ?? this.requireActive();
+    // The token describes the ACTIVE project; for anything else there is nothing honest to key on, so build it.
+    if (dir !== this.activeProject)
+      return buildGraphDoc(dir, this.clipExtents(dir));
+    const { rev } = this.revision();
+    const hit = this.graphCache;
+    if (hit && hit.dir === dir && hit.rev === rev) return hit.graph;
+    const graph = buildGraphDoc(dir, this.clipExtents(dir));
+    this.graphCache = { dir, rev, graph };
+    return graph;
   }
 
   projectInfo(): ProjectInfo {

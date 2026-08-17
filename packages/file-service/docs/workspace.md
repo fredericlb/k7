@@ -25,13 +25,21 @@ The one that pays for itself is the compile behind `/project-errors`, which the 
 asked for every 2 seconds whether or not anything had moved. Folding a file walk (~2ms)
 in front of it turns a constant cost into one paid per edit.
 
-**Two ingredients, because neither is sufficient alone:**
+**Three ingredients, because none is sufficient alone:**
 
 - `mutations` — our own writes, so an edit through the API is reflected instantly, even
   inside a single filesystem-timestamp tick.
 - the files — count + newest mtime over the project's files, so an edit made OUT of
   process (a `git pull`, another tab, an external editor) moves it too. There is no
   watcher here; this walk is what stands in for one.
+- **two files outside the project**, folded into the same "newest mtime": the engine's scan
+  cache (`~/.studio/exts.json`) and the machine's preferences (`~/.studio/preferences.yaml`).
+  Every view keyed on this token reads one of them — `@engine/…` modules come out of the scan,
+  a channel's label out of the preferences — and neither is in the project, so a plugin rescan
+  or a `system channel set` left the memoised answers stale until an unrelated edit moved the
+  token. `hints()` had that hole quietly from the day it was keyed here; two stats on a walk of
+  hundreds close it for every view at once, which is why they belong in the TOKEN rather than
+  in each cache.
 
 Deliberately NOT a content hash: reading every file would cost more than some of the
 things this is meant to guard. Count+mtime misses a change that preserves both — in
@@ -67,6 +75,12 @@ refreshes its tree and its completion vocabulary together, so a command that nev
 file the editor is showing still rebuilt the tracks, the clips, the per-plugin params and the
 path map. 150 ms on a real song, on the one process that is also compiling the answer to that
 command.
+
+`projectErrors()`, `moduleCatalogue()`, `ioPorts()` and `baseModules()` are the rest, and they
+go through one helper (`onRevision`) rather than four hand-written cache fields: the same token,
+the same rule, and one place to read it. Each was a full read of the module vocabulary on EVERY
+request — 21 to 43 ms, on routes a mounted panel asks for on each reload. `build` may only READ;
+a builder that wrote would be memoising its own side effect away.
 
 ## `recordChange` re-reads only what moved
 

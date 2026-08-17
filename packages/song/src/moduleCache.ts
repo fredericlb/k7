@@ -91,11 +91,19 @@ let scope: { dir: string; stamp?: string } | null = null;
  * points are those callers; anything outside a scope still stamps per read, as before.
  */
 export function withModuleStamp<T>(dir: string, fn: () => T): T {
+  // Already inside one for this project: keep it, so the stamp stays paid once. Opening a fresh
+  // scope here threw the enclosing one's stamp away and walked again — which is how HOISTING a
+  // scope over two calls that each open their own (a compile and a graph build) made things
+  // slower rather than faster, measured at +19 ms a level. Re-entrant exactly as `withRevision`
+  // is in the file service, and for the same reason.
+  if (scope?.dir === dir) return fn();
   const outer = scope;
   scope = { dir };
   try {
     return fn();
   } finally {
+    // Restored rather than cleared: a scope for ANOTHER folder may enclose this one — the graph
+    // of a library chain built while a project is open — and the two stamps are not the same.
     scope = outer;
   }
 }

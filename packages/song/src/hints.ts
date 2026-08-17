@@ -18,6 +18,7 @@ import {
   loadModules,
   loadProjectRoot,
   loadVideoTracks,
+  withModuleStamp,
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
@@ -132,8 +133,13 @@ const safe = <T>(f: () => T, dflt: T): T => {
 };
 
 // The entities of the project at `dir`, sorted. Reference names (modules, sources,
-// targets, base module refs) plus the param names seen per base module.
+// targets, base module refs) plus the param names seen per base module. Reads the module
+// vocabulary twice, so one stamp walk covers the pair — see moduleCache.ts.
 export function projectHints(dir: string): Hints {
+  return withModuleStamp(dir, () => projectHintsIn(dir));
+}
+
+function projectHintsIn(dir: string): Hints {
   const moduleRefs = safe(() => loadModuleRefs(dir), {} as Record<string, any>);
   const modules = safe(() => loadModules(dir), {} as Record<string, any>);
   // The completion/link vocabulary is the names the chains DERIVE to — a track's id for
