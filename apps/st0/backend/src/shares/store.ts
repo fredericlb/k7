@@ -13,28 +13,13 @@ import {
 import { join } from "node:path";
 import { mediatekDir } from "@studio/mediatek/layout";
 import { fileFor } from "@studio/user-prefs";
+import type { ShareSummary } from "@studio/web-protocol";
 
 /**
- * What the author sees, and what the public routes never serve.
- *
- * `token` is the secret in the link and is held in the clear so the section can offer *copy
- * link* — the same posture `.projects/ssh/` already takes with everybody's private deploy key.
- * It is blanked on revocation, so a revoked row cannot be copied back out of the screen.
+ * What the author sees, and what the public routes never serve. The shape is the WIRE's, since
+ * a row is handed to the browser verbatim — one declaration, so the two cannot drift.
  */
-export interface ShareRecord {
-  /** `sha256(token)`. The directory's name, and the `:key` in every route. */
-  key: string;
-  /** The secret. Blank once revoked. */
-  token: string;
-  /** The project's name, for the list and for the visitor's header. */
-  name: string;
-  /** Where it came from, for the author's list alone — never served publicly. */
-  origin: { repo: string; project: string };
-  createdAt: string;
-  bytes: number;
-  stems: number;
-  revokedAt?: string;
-}
+export type ShareRecord = ShareSummary;
 
 /** A dot-directory, so `writablePath` refuses it and no family scan ever walks it. */
 export function sharesDir(): string {

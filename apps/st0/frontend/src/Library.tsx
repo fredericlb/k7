@@ -34,7 +34,7 @@ import {
   type FaceablePlugin,
 } from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
-import type { RepoSummary } from "@studio/web-protocol";
+import type { RepoSummary, ShareSummary } from "@studio/web-protocol";
 import {
   Activity,
   AudioLines,
@@ -52,7 +52,13 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
-import { auth, engineMachine, library, projects } from "./api";
+import {
+  auth,
+  engineMachine,
+  library,
+  projects,
+  shares as sharesApi,
+} from "./api";
 import { assetNodes, folderAt } from "./assetTree";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
@@ -97,6 +103,9 @@ type FamilyId = Exclude<
 /** Poll interval for the revision map. Cheap on the server (a walk per family, only when
  *  something moved) and slow enough that a library nobody is touching costs nothing. */
 const POLL_MS = 3000;
+
+/** Les partages dans la carte des jetons déjà vus. Pas une section : ils vivent DANS Projets. */
+const SHARES_KEY = "shares";
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
@@ -389,6 +398,9 @@ export function Library() {
   const [recordings, setRecordings] = useState<RecordingDay[]>([]);
   // …and the repositories, apart for the same reason and one more: they are not on the volume.
   const [repos, setRepos] = useState<RepoSummary[]>([]);
+  // Les partages, dans la même section et sur le même poll — mais leur propre route, parce que
+  // ce ne sont pas des dépôts : des instantanés gelés, dont st0 tient les octets.
+  const [shares, setShares] = useState<ShareSummary[]>([]);
   // The module whose parameters are on screen. Modules only — a sample has none to ask for.
   const [picked, setPicked] = useState<MediatekEntry | null>(null);
   // Derived, not stored: the tree IS the entry list in another shape, so a second copy
@@ -732,6 +744,23 @@ export function Library() {
     }
   }, []);
 
+  /**
+   * Les partages, rechargés dans le même tick que les dépôts.
+   *
+   * Muet quoi qu'il arrive : c'est la carte du bas de la section, et un service de partage en
+   * panne ne doit pas mettre une bannière rouge par-dessus une liste de dépôts qui, elle,
+   * s'affiche très bien. La carte dit elle-même quand elle n'a rien.
+   */
+  const loadShares = useCallback(async (rev: string) => {
+    try {
+      const r = await sharesApi.list();
+      seen.current[SHARES_KEY] = rev;
+      setShares(r.shares);
+    } catch {
+      /* la carte reste sur ce qu'elle tenait */
+    }
+  }, []);
+
   /** The zone's own reload — its own route, and its own token in the same map. */
   const loadZone = useCallback(async (rev: string) => {
     try {
@@ -813,6 +842,18 @@ export function Library() {
       } catch (e) {
         if (!stop && isProjects) setError((e as Error).message);
       }
+      // Les partages sur le MÊME tick, et seulement en regardant la section : ils ne comptent
+      // dans aucun badge, et un partage naît dans l8 sur une autre machine — personne n'attend
+      // de le voir arriver depuis un autre écran d'ici. Un troisième minuteur pour ça serait
+      // une requête de plus toutes les trois secondes, pour toujours, pour rien.
+      if (!isProjects || stop) return;
+      try {
+        const { revision } = await sharesApi.revision();
+        if (!stop && seen.current[SHARES_KEY] !== revision)
+          await loadShares(revision);
+      } catch {
+        /* la carte garde ce qu'elle tenait, et le dit */
+      }
     };
     void tick();
     const t = setInterval(() => void tick(), POLL_MS);
@@ -820,7 +861,7 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isProjects, loadProjects]);
+  }, [isProjects, loadProjects, loadShares]);
 
   return (
     /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
@@ -841,7 +882,8 @@ export function Library() {
           Le nom de la SECTION est le sous-titre — sur un écran étroit, savoir où l'on est vaut
           plus que savoir quelle app on regarde, et un hamburger seul ne le dit pas. */}
         <AppHeader
-          variant="plain"
+          // No `variant`: the house look, the accent tinted over the page. It was `plain`
+          // when the alternative was a solid accent bar — see @frediverse/ui's docs/app-header.md.
           title="st0"
           subtitle={sectionLabel(section)}
           items={sectionItems(section, counts, setSection)}
@@ -971,6 +1013,7 @@ export function Library() {
           <div className="flex min-h-0 flex-1 flex-col">
             <ProjectsSection
               repos={repos}
+              shares={shares}
               busy={present === null && repos.length === 0}
               // The open repository is in the ADDRESS, in the same slot a module's file uses —
               // so a link to one survives a reload. See routes.ts.
@@ -983,6 +1026,7 @@ export function Library() {
                 // Force the next tick to reload: the write moved the revision, but waiting a
                 // whole poll for a click you just made reads as the click not working.
                 seen.current[PROJECTS_SECTION] = "";
+                seen.current[SHARES_KEY] = "";
               }}
             />
           </div>

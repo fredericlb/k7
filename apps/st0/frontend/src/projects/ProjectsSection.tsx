@@ -3,7 +3,12 @@
 // ouvert vient de l'URL (routes.ts), pas d'un état local. Voir ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
-import type { FileNode, RepoProject, RepoSummary } from "@studio/web-protocol";
+import type {
+  FileNode,
+  RepoProject,
+  RepoSummary,
+  ShareSummary,
+} from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
 import { projects as api } from "../api";
 import { LibrariesCard } from "./LibrariesCard";
@@ -14,10 +19,12 @@ import {
 } from "./machine";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
+import { SharesCard } from "./SharesCard";
 import { SshKeyCard } from "./SshKeyCard";
 
 export function ProjectsSection({
   repos,
+  shares,
   busy,
   openId,
   machine,
@@ -25,6 +32,8 @@ export function ProjectsSection({
   onChanged,
 }: {
   repos: RepoSummary[];
+  /** Les instantanés gelés publiés depuis l8. Poll de la section, comme les dépôts. */
+  shares: ShareSummary[];
   busy: boolean;
   /** L'id du dépôt ouvert, tiré de l'adresse, ou null pour la liste. */
   openId: string | null;
@@ -207,7 +216,11 @@ export function ProjectsSection({
             onRemove={remove}
             onRefresh={refresh}
           />
+          {/* Sous la liste, et pas au-dessus : les partages SORTENT des dépôts qu'elle
+              montre, et c'est un écran qu'on ouvre pour retirer quelque chose, jamais pour
+              commencer par là. La clé de déploiement reste tout en bas, réglée une fois. */}
           <div className="mt-auto">
+            <SharesCard shares={shares} onChanged={onChanged} />
             <SshKeyCard />
           </div>
         </>

@@ -780,6 +780,33 @@ export interface RepoSummary extends RepoStatus {
   projects: RepoProject[] | null;
 }
 
+/**
+ * One frozen snapshot a person has shared, as their own Projets section lists them.
+ *
+ * The AUTHOR's view and nobody else's: `origin` names a repository and a folder on the machine
+ * it came from, and the public routes serve none of this — they serve the snapshot's manifest.
+ *
+ * `token` rides along in the clear because it IS the copy-link button, the same posture
+ * `.projects/ssh/` already takes with everybody's deploy key. It is blanked on revocation, so a
+ * revoked row cannot be copied back out of the screen it is still drawn on.
+ */
+export interface ShareSummary {
+  /** `sha256(token)` — the directory's name on the volume, and the `:key` in every route. */
+  key: string;
+  /** The secret in the link. Blank once revoked. */
+  token: string;
+  /** The project's name, for this list and for the visitor's header. */
+  name: string;
+  /** Where it came from. For the author alone: it says what is on their disk. */
+  origin: { repo: string; project: string };
+  createdAt: string;
+  /** Everything the snapshot weighs on the volume — the number that makes the cost visible. */
+  bytes: number;
+  stems: number;
+  /** Set once revoked. The row SURVIVES dated: a share that vanished would leave a doubt. */
+  revokedAt?: string;
+}
+
 /** An engine as the browser sees it — the secret token is never sent to the client. */
 export interface PublicEngine {
   id: string;

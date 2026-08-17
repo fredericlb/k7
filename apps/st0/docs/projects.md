@@ -63,6 +63,10 @@ qu'on joue et qu'on committe vit sur la machine du moteur, et c'est le file serv
 fait. Le pourquoi et le comment sont dans
 [packages/git-repos/docs/mirror.md](../../../packages/git-repos/docs/mirror.md).
 
+La seule chose lourde que ce service détient à propos d'un projet est un **partage** — une copie
+gelée, publiée exprès, dont il est bel et bien la seule copie. Ce n'est pas une exception à la
+règle du dessus, et [shares.md](shares.md) ouvre en disant pourquoi.
+
 Les deux tiennent ensemble : un nom de dossier est une question sur l'ensemble des chemins, et
 l'ensemble des chemins est exactement ce qu'est un arbre git. Aucun contenu de fichier n'est
 nécessaire, donc aucun n'est téléchargé. Une règle qui aurait dû **ouvrir** un fichier ne

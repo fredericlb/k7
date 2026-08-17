@@ -18,12 +18,17 @@ import {
   type RepoRef,
   type RepoStatus,
   type RepoSummary,
+  type ShareSummary,
   type SshKeyInfo,
   USER_HEADER,
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
-import { launchUrl, type ProjectApp } from "@studio/web-protocol/projects";
+import {
+  launchUrl,
+  type ProjectApp,
+  shareUrl,
+} from "@studio/web-protocol/projects";
 import { mediatekModuleRefs } from "./moduleRefs";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
@@ -596,6 +601,34 @@ export const projects = {
    */
   openIn: (repoName: string, project: string, app: ProjectApp): string =>
     launchUrl(window.location.origin, repoName, project, app),
+};
+
+/** `/api/shares`, its own prefix again — mounted ABOVE the `/api` fence, not under `projects`. */
+const sget = async <T>(path: string, what: string): Promise<T> =>
+  json(await fetch(`${BASE}/api/shares${path}`), what);
+
+/**
+ * The frozen snapshots this person has published, and taking one back.
+ *
+ * Read-only from here except for the revoke: a share is CREATED by l8, on the machine that can
+ * render one, and this screen is where it is watched and withdrawn. See ../../docs/shares.md.
+ */
+export const shares = {
+  list: () => sget<{ shares: ShareSummary[]; revision: string }>("", "shares"),
+  revision: () => sget<{ revision: string }>("/revision", "revision"),
+
+  /** Delete the bytes. The row stays, dated — the list keeps saying what was published. */
+  revoke: async (key: string): Promise<void> => {
+    const res = await fetch(`${BASE}/api/shares/${key}`, { method: "DELETE" });
+    if (!res.ok) throw await failed(res, "revoke");
+  },
+
+  /**
+   * The link, built from the origin the browser is on — the same call l8 makes after a render.
+   * st0 stores the secret and never the address: which host this account is read on is a
+   * property of the tab, not of the snapshot.
+   */
+  url: (token: string): string => shareUrl(window.location.origin, token),
 };
 
 /** `/api/hunt`, its own prefix like the projects one, and for the same reason: it is not the
