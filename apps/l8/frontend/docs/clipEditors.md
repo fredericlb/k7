@@ -131,6 +131,43 @@ The waveform canvas reaches the same density by a different route: its bar/beat 
 the file service as a list, so it splits what it was sent (`subdivideGrid`) instead of computing a
 unit. Same threshold, so the `ArrangementRuler` over an audio clip and the wave under it agree.
 
+### …and the roll's gestures land on those lines, unless Ctrl says otherwise
+
+Drawing a note, moving one and stretching one all snap to `gridUnit` — the step the ruler is
+drawing and the caret is walking. **Hold Ctrl and the gesture follows the pointer exactly.** The
+rule, the arithmetic and the modifier are `src/snap.ts`, shared with the timeline
+(`timeline.md`), so the two surfaces cannot come to mean different things.
+
+The roll used to be free at every zoom, which made it the odd one out: the ruler drew lines, the
+caret walked them, the timeline's drags landed on them, and only a note ignored them. That is a
+change in what an unmodified drag does, and it is the intended one — a finer position is reached
+by opening the view, and Ctrl is how the old behaviour is asked for.
+
+Two details the timeline settled first, kept identical here:
+
+- **The OFFSET snaps, not the resulting position.** A note played in by hand at 2.43 keeps that
+  phase when you move it a beat.
+- **The modifier is read live**, off each pointer event, so a note can be begun on the grid and
+  finished off it.
+
+**Drawing snaps to CELLS, not to lines**, and that difference is the roll's own. The same press
+places the caret, which belongs to the cell you pointed *inside* — a floor. A note landing on the
+nearest *line* — a round — would sit one cell away from the caret half the time, and the two would
+disagree about where you had just clicked. So `drawSpan` starts the note at the pressed cell's
+beat and ends it at the FAR edge of the last one, the way `colSpan` reads the rectangle: drag
+across three cells, get three cells of note. A press that never leaves its cell still returns a
+zero-length span, which is what leaves the length to the command's default — the behaviour a plain
+click has always had.
+
+`atEvent` therefore stays unsnapped, and the raw beat is what the gesture remembers. The grid is
+applied where the span is READ, so Ctrl pressed or released mid-drag changes the whole answer
+rather than half of it.
+
+**In the step sequencer, Ctrl+drag means something else** — it MOVES a note to another cell (see
+above). No contradiction: that grid has no free positions to reach, so there is nothing there for
+Ctrl to suspend. Worth knowing before assuming one modifier means one thing across all three
+views.
+
 ## The caret, and the rectangle it grows into
 
 The timeline's caret is here too, on both grids: `hjkl`/arrows move it, `v` grows it into a

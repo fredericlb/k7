@@ -10,7 +10,10 @@ import {
 // below is one where a wrong answer is invisible on screen until the reload.
 // See docs/picture.md.
 
-/** No snapping: these are about the maths, not about the ruler that feeds it. */
+/**
+ * No snapping — which is both how the maths is isolated from the ruler that feeds it, and the
+ * REAL snapper the handler passes while Ctrl is held (`snap.ts`, docs/timeline.md).
+ */
 const free = (sec: number) => Math.max(0, sec);
 /** Snap to whole seconds, standing in for whatever the ruler happens to be drawing. */
 const toSecond = (sec: number) => Math.max(0, Math.round(sec));

@@ -59,6 +59,7 @@ import {
   rowTarget,
   stepRow,
 } from "../rows";
+import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import { TrackIcon, trackIcon } from "../trackIcons";
 import type { WebProject, WebTrack, WebVideoTrack } from "../types";
@@ -97,6 +98,10 @@ const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
+// The shortest an event may be left by a FREE resize. The grid's own step is the floor while
+// there is one; once Ctrl has suspended it, this is — a 64th, short enough to be a real choice
+// and long enough that an edge dragged past the other does not leave a placement nothing plays.
+const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4; // beats drawn for a length-0 clip
 // How wide a pass must be before its loop mark also gets the glyph. The rule alone stays down to
 // `placedRepeats`' own floor; the 8px icon needs its own width plus air, or a fast loop draws a
@@ -1139,24 +1144,29 @@ export function TimelineTab({
     const r = resizeRef.current;
     if (r?.pending) return; // already written and only still drawn — a hover must not re-time it
     if (!r) return;
-    // Whole beats, the same grid the move drag and the caret use.
+    // Whole beats, the same grid the move drag and the caret use — unless Ctrl is down, which
+    // frees the edge, as it frees every other drag here.
     //
     // Measured from where the edge WAS when grabbed, never from where it is now: `d` is
     // an absolute offset from the grab point, so adding it to the live value re-applied
     // it on every pointermove and the edge ran away from the cursor in whichever
     // direction you moved. Both branches read origStart/origEnd for that reason.
-    const d = Math.round((e.clientX - r.x) / r.ppb);
+    const free = freeSnap(e);
+    const d = snapTo((e.clientX - r.x) / r.ppb, free ? 0 : 1);
     // An edge may not cross the other: a zero or negative length is an event that exists
-    // and plays nothing, and the command refuses it anyway.
+    // and plays nothing, and the command refuses it anyway. The floor is the grid's own step
+    // while there is one — a beat — and a 64th once the gesture is free, because the whole
+    // point of freeing it is to reach a length the grid cannot express.
+    const min = free ? MIN_FREE_BEATS : 1;
     const next =
       r.edge === "start"
         ? {
-            start: Math.max(0, Math.min(r.origEnd - 1, r.origStart + d)),
+            start: Math.max(0, Math.min(r.origEnd - min, r.origStart + d)),
             end: r.origEnd,
           }
         : {
             start: r.origStart,
-            end: Math.max(r.origStart + 1, r.origEnd + d),
+            end: Math.max(r.origStart + min, r.origEnd + d),
           };
     if (next.start !== r.start || next.end !== r.end)
       setResize({ ...r, ...next });
@@ -1257,8 +1267,11 @@ export function TimelineTab({
     if (Math.abs(e.clientX - v.x) > DRAG_SLOP) v.moved = true;
     // Snapped to the ruler's own ticks, whichever unit it is reading — you aimed at a line, not
     // at a pixel. Which is also how a finer position is reached: open the zoom and the ruler
-    // subdivides, exactly as it does for the caret.
+    // subdivides, exactly as it does for the caret. Ctrl suspends it, as on every other drag
+    // here: a shot then follows the pointer to the frame.
+    const free = freeSnap(e);
     const snapSec = (sec: number): number => {
+      if (free) return Math.max(0, sec);
       const t = nearestTick(ticksRef.current, sec * bpsRef.current);
       return t === null ? Math.max(0, sec) : Math.max(0, t / bpsRef.current);
     };
@@ -1325,19 +1338,21 @@ export function TimelineTab({
       )
         d.moved = true;
       /**
-       * Snapped to the RULER'S CURRENT UNIT, and clamped so a clip cannot be dragged before the
-       * song's start.
+       * Snapped to the RULER'S CURRENT UNIT — unless Ctrl is down, which frees the gesture.
        *
        * `d.unit` is the step the grid was drawing when the clip was grabbed — a bar zoomed out, a
        * sixteenth zoomed in. It is read at the GRAB rather than live, so a wheel notch mid-drag
-       * cannot change what the gesture means under your hand.
+       * cannot change what the gesture means under your hand. The MODIFIER is read live, and that
+       * asymmetry is the point: the step is what the gesture means, Ctrl is the hand.
        *
-       * The clamp lands on the unit too: `-origStart` rounded UP to a whole step, or a clip at
-       * bar 3 dragged hard left would stop at beat 0 off the grid it had been walking.
+       * The arithmetic (and the clamp at the song's start) is `snap.ts`'s, where it can be tested.
        */
-      const step = Math.max(1e-6, d.unit);
-      const raw = Math.round((e.clientX - d.x) / (d.ppb * step)) * step;
-      const offset = Math.max(Math.ceil(-m.origStart / step) * step, raw);
+      const offset = dragOffset(
+        e.clientX - d.x,
+        d.ppb,
+        freeSnap(e) ? 0 : d.unit,
+        m.origStart,
+      );
       const lane = laneAtPoint(e.clientX, e.clientY);
       const src = projRef.current?.tracks.find((t) => t.id === m.trackId);
       const toTrackId =
@@ -2876,7 +2891,7 @@ export function TimelineTab({
                           <div
                             // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                             key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""} — click to select, drag to move`}
+                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""} — click to select, drag to move (ctrl : hors grille)`}
                             // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                             onPointerDown={(e) => beginClipDrag(e, t, c)}
                             onPointerMove={onClipDragMove}

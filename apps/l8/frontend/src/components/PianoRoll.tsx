@@ -30,6 +30,7 @@ import { useGridCaret } from "../hooks/useGridCaret";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { rollFit } from "../rollFit";
+import { freeSnap, snapTo } from "../snap";
 import type { WebClip, WebProject } from "../types";
 import { ArrangementRuler, Grid, RulerTicks, rulerScale } from "./Ruler";
 
@@ -342,6 +343,18 @@ export function PianoRoll({
   } | null>(null);
   const drag = useRef<{ k: number; t0: number } | null>(null);
 
+  /**
+   * The step a gesture moves in: the grid the roll is drawing, or none while Ctrl is held.
+   *
+   * The roll used to be free at every zoom, which made it the odd one out — the ruler draws
+   * lines, the caret walks them, the timeline's drags land on them, and only a note ignored
+   * them. `gridUnit` is the ladder's answer for the current zoom, so a finer position is reached
+   * by opening the view, exactly as it is for the caret (`packages/ui-waveform/docs/ticks.md`).
+   * Ctrl is what gets the old behaviour back for one gesture.
+   */
+  const stepAt = (e: PointerEvent | React.PointerEvent): number =>
+    freeSnap(e) ? 0 : gridUnit;
+
   const atEvent = (e: PointerEvent | React.PointerEvent) => {
     const r = laneRef.current!.getBoundingClientRect();
     // Lane x → an ABSOLUTE beat: the lane's left edge is the origin, and a windowed clip cannot
@@ -359,6 +372,34 @@ export function PianoRoll({
   const cellAtEvent = (e: PointerEvent | React.PointerEvent) => {
     const { beat, key } = atEvent(e);
     return { row: 127 - key, col: colOfBeat(beat) };
+  };
+
+  /**
+   * The span a draw gesture covers, in beats: the CELLS it was dragged across.
+   *
+   * Cells and not lines, and that is the whole of it: the same press places the caret, which
+   * belongs to the cell you pointed INSIDE. A note landing on the nearest line instead would sit
+   * one cell away from the caret half the time — the two would disagree about where you clicked.
+   *
+   * So the start is the pressed cell's own beat, and the end is the FAR edge of the last one, the
+   * way `colSpan` reads the rectangle: drag across three cells and you get three cells of note.
+   * A press that never leaves its cell returns a zero-length span, which is the caller's cue to
+   * let the command choose the length — the behaviour a plain click has always had.
+   *
+   * Ctrl (`step: 0`) gives back the raw beats, which is what the roll did at every zoom before.
+   */
+  const drawSpan = (
+    a: number,
+    b: number,
+    step: number,
+  ): { from: number; to: number } => {
+    if (step <= 0) return { from: Math.min(a, b), to: Math.max(a, b) };
+    const lo = Math.min(colOfBeat(a), colOfBeat(b));
+    const hi = Math.max(colOfBeat(a), colOfBeat(b));
+    return {
+      from: beatOfCol(lo),
+      to: hi > lo ? beatOfCol(hi) + step : beatOfCol(lo),
+    };
   };
 
   const onLanePointerDown = (e: React.PointerEvent) => {
@@ -388,13 +429,16 @@ export function PianoRoll({
     grid.placeCaret(cellAtEvent(e));
     if (!onCreateNote) return;
     e.preventDefault();
+    // The RAW beat is what is remembered; the grid is applied where the span is read, so Ctrl
+    // pressed or released mid-drag changes the whole answer rather than half of it.
     const { beat, key } = atEvent(e);
     drag.current = { k: key, t0: beat };
     setDraft({ k: key, t0: beat, t1: beat });
     const move = (ev: PointerEvent) => {
-      if (!drag.current) return;
-      const { beat: b } = atEvent(ev);
-      setDraft({ k: drag.current.k, t0: drag.current.t0, t1: b });
+      const d = drag.current;
+      if (!d) return;
+      const { from, to } = drawSpan(d.t0, atEvent(ev).beat, stepAt(ev));
+      setDraft({ k: d.k, t0: from, t1: to });
     };
     const up = (ev: PointerEvent) => {
       window.removeEventListener("pointermove", move);
@@ -403,11 +447,9 @@ export function PianoRoll({
       drag.current = null;
       setDraft(null);
       if (!d) return;
-      const { beat: b } = atEvent(ev);
-      const t0 = Math.min(d.t0, b);
-      const t1 = Math.max(d.t0, b);
-      // A plain click (no real drag) leaves the length to the command's default.
-      onCreateNote(d.k, t0, t1 - t0 > 0.01 ? t1 : t0);
+      const { from, to } = drawSpan(d.t0, atEvent(ev).beat, stepAt(ev));
+      // A press that never left its cell leaves the length to the command's default.
+      onCreateNote(d.k, from, to - from > 0.01 ? to : from);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
@@ -529,7 +571,12 @@ export function PianoRoll({
     }
     const d = tDrag.current;
     if (!d || !from) return;
-    const next = { ...d, dBeats: (e.clientX - from.x) / Math.max(1, ppb) };
+    // The OFFSET snaps, not the resulting position — the timeline's rule, and it means a note
+    // played in by hand at 2.43 keeps that phase when you move it a beat. Ctrl frees it, live.
+    const next = {
+      ...d,
+      dBeats: snapTo((e.clientX - from.x) / Math.max(1, ppb), stepAt(e)),
+    };
     tDrag.current = next;
     setTDraw(next);
   };
@@ -597,7 +644,8 @@ export function PianoRoll({
           )}
           {onCreateNote && (
             <span className="ml-2 text-muted-foreground/70">
-              · drag to draw · pinch to zoom · middle-drag pan
+              · drag to draw · ctrl: hors grille · pinch to zoom · middle-drag
+              pan
             </span>
           )}
         </span>

@@ -164,6 +164,28 @@ Three details, each of which could have gone the other way:
   returns both and the mode picks; a drag snapping to beats under a ruler ticking every five
   seconds would land between every pair of lines.
 
+### …and Ctrl suspends it
+
+**Hold Ctrl and the drag follows the pointer exactly.** It applies to all three of this view's
+gestures — moving an event, dragging either of its edges, and moving or trimming a picture
+placement — so there is one rule to hold rather than three exceptions to remember. `src/snap.ts`
+states it once (`freeSnap`, `snapTo`, `dragOffset`) and is where its arithmetic is tested; the
+piano roll reads the same two functions (`clipEditors.md`).
+
+The modifier is read **live**, off each pointer event, and that is deliberately the opposite of
+the step above. The step is what the gesture MEANS and must not move under your hand; the
+modifier is the hand. Press it halfway through a drag and the rest of the drag is free; let go
+and it snaps again from wherever it is.
+
+`⌘` counts too, and only for macOS, where Ctrl+click *is* the right button and the gesture would
+otherwise be unreachable. It is not a second binding to learn: it is the one that works on the
+machine you are on.
+
+One consequence, on the resize only: the shortest an event may be left is normally the grid's own
+step, a beat. Freed, that floor would refuse exactly the lengths you turned the grid off to
+reach, so it drops to a 64th (`MIN_FREE_BEATS`) — short enough to be a real choice, long enough
+that an edge dragged past the other does not leave a placement that plays nothing.
+
 One cost to know: this is one DOM node per tick, on top of the one the ruler already draws —
 at the deepest zoom on a long song, ~1000 nodes becoming ~2000. It is a cost paid on a
 re-render, **not** on a playhead frame: `Grid` and `RulerTicks` are memoised and the body no
