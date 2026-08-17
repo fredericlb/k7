@@ -63,18 +63,24 @@ export interface CommandLike {
 }
 
 /**
- * A person's name for a command in ONE locale, or "" when they have not given one.
+ * A person's name for a command in ONE locale, AS AUTHORED, or "" when they have not given one.
  *
  * A legacy bare string answers for every locale, which is what it meant when it was the only
  * field. No fallback BETWEEN locales otherwise: a command named only in French shows the
  * catalogue's English sentence in English, which is the whole point of a field per language.
+ *
+ * It used to trim, and that broke the SPACE BAR on the settings page. This is the value of a
+ * CONTROLLED input: typing "Rogner" then a space held "Rogner " in state and rendered "Rogner"
+ * back into the field, so the space disappeared as it was typed and a two-word name could not be
+ * entered at all. Trimming belongs where a name is DISPLAYED — `labelOf`, the context menu — and
+ * never where one is being typed.
  */
 export function labelIn(
   label: CommandLabel | undefined,
   locale: string,
 ): string {
   if (label === undefined) return "";
-  return (typeof label === "string" ? label : (label[locale] ?? "")).trim();
+  return typeof label === "string" ? label : (label[locale] ?? "");
 }
 
 /**
@@ -144,7 +150,8 @@ export function labelOf(
   locale: string,
 ): string {
   return (
-    labelIn(prefs[c.canonical]?.label, locale) ||
+    // Trimmed HERE and not in `labelIn`, which answers the settings field — see its header.
+    labelIn(prefs[c.canonical]?.label, locale).trim() ||
     c.readable?.trim() ||
     c.canonical
   );

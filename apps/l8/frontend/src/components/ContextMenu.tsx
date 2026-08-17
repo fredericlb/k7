@@ -123,9 +123,11 @@ export function ContextMenu({
             </span>
             {/* The person's name for it in THIS language, else the entry's own. `labelIn` is
                 what reads both shapes — a per-language map, and the bare string the field used
-                to be, which still stands for every locale until that command is next renamed. */}
+                to be, which still stands for every locale until that command is next renamed.
+                Trimmed here, because it answers as AUTHORED: the settings field is a controlled
+                input and cannot be handed back a value with the space just typed removed. */}
             <span className="min-w-0 flex-1 truncate">
-              {labelIn(pref?.label, locale) || it.label}
+              {labelIn(pref?.label, locale).trim() || it.label}
             </span>
             {/* The one thing the line carried that the sentence does not: whether picking this
                 RUNS it or only fills the bar with it. It survives the line's removal because it

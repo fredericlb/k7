@@ -939,6 +939,13 @@ Three consequences worth knowing:
   them on the first per-language edit — `setCommandLabel` takes `locales` for exactly that, since
   without it renaming in French would drop the name English had been showing, invisibly until you
   switched.
+- **`labelIn` answers as AUTHORED, and the trim lives at the two places a name is drawn**
+  (`labelOf`, the context menu's row). It used to trim, and that broke the space bar: it is the
+  value of a controlled input, so typing `Rogner` then a space held `"Rogner "` in state and
+  rendered `"Rogner"` straight back into the field. The space vanished as it was typed and a name
+  of more than one word could not be entered at all. What somebody is still typing is not what a
+  menu draws — a blank-only override is already dropped on write, so nothing needed the reader to
+  tidy up after them.
 
 It lives in the ACCOUNT's preferences, not the rig's — what you call a command follows you to
 another browser, where which audio interface to open belongs to the machine. `L8Prefs` widens

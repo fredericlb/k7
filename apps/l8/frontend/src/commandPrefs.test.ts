@@ -6,6 +6,7 @@ import {
   entityGroup,
   entityOf,
   isPluralCommand,
+  labelIn,
   labelOf,
   moveCommand,
   orderCommands,
@@ -110,6 +111,33 @@ describe("what a command is called", () => {
     const legacy = { "clip trim": { label: "Rogner" } };
     expect(labelOf(CMDS[0], legacy, "fr")).toBe("Rogner");
     expect(labelOf(CMDS[0], legacy, "en")).toBe("Rogner");
+  });
+});
+
+/**
+ * The space bar did not work in the settings page's name fields, and this is where it broke.
+ *
+ * `labelIn` is the VALUE of a controlled input. It trimmed, so typing "Rogner" then a space held
+ * "Rogner " in state and rendered "Rogner" straight back into the field: the space disappeared as
+ * it was typed, and a name of more than one word could not be entered at all. What a person is
+ * still typing is not what a menu draws — so the reader answers as authored, and the trim lives
+ * at the two places a name is DISPLAYED.
+ */
+describe("the text a field is handed back", () => {
+  it("is what was typed, space and all", () => {
+    const p = setCommandLabel({}, "clip trim", "fr", "Rogner ", ["en", "fr"]);
+    expect(labelIn(p["clip trim"].label, "fr")).toBe("Rogner ");
+  });
+
+  it("is empty for a language nobody named, and for no override at all", () => {
+    expect(labelIn({ fr: "Rogner" }, "en")).toBe("");
+    expect(labelIn(undefined, "fr")).toBe("");
+  });
+
+  it("does not put the half-typed space in a MENU — that is displayed, not edited", () => {
+    expect(
+      labelOf(CMDS[0], { "clip trim": { label: { fr: "Rogner " } } }, "fr"),
+    ).toBe("Rogner");
   });
 });
 
