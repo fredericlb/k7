@@ -589,10 +589,21 @@ export function TimelineTab({
   onTrackToggle,
   laneNodes,
   onNodeMenu,
+  readOnly = false,
   ref,
 }: {
   active: boolean;
   reloadKey: number;
+  /**
+   * Nothing here can be written — a shared snapshot.
+   *
+   * What it takes away is the EDITING GESTURES, and only those: the caret still moves, a clip
+   * still opens, m and s still work (locally), the ruler still seeks. `fsend` is what actually
+   * refuses a write, one level down and for every surface at once; this is about not offering a
+   * grip that leads nowhere. A drag that runs and snaps back is worse than one that never
+   * starts, and a resize handle that lights up under the cursor is a promise.
+   */
+  readOnly?: boolean;
   /**
    * Is a take rolling, and from which beat — so an armed lane can draw it as it grows.
    *
@@ -1130,7 +1141,11 @@ export function TimelineTab({
       // lane's real placements are still in its file, unlisted here — a drag would rewrite one of
       // those (the render sits at bar 1, and so does many a first take). See
       // packages/song/docs/freeze.md.
-      if (track.generated || c.frozen) return;
+      //
+      // …and a read-only DOCUMENT joins them, which is the third reading of the same sentence:
+      // there is a clip to look at and nothing to write. A drag that ran and then snapped back
+      // is the one outcome worse than a drag that never starts.
+      if (readOnly || track.generated || c.frozen) return;
       setSel(null);
       setMove({
         trackId: track.id,
@@ -1143,7 +1158,7 @@ export function TimelineTab({
         dragging: true,
       });
     },
-    [],
+    [readOnly],
   );
 
   // Resizing an event by its edge. Kept apart from the move drag: a move changes only
@@ -3022,47 +3037,52 @@ export function TimelineTab({
                               ))}
                             {/* Edge handles. Narrow strips inside the block's own ends,
                                 so they never overlap the neighbouring event and the body
-                                between them still drags the whole clip. */}
-                            {(["start", "end"] as const).map((edge) => (
-                              <div
-                                key={edge}
-                                className={cn(
-                                  "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
-                                  edge === "start" ? "left-0" : "right-0",
-                                  "hover:bg-primary/60",
-                                )}
-                                onPointerDown={(e) => {
-                                  // Stop it here or the clip's own move drag starts too.
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  (
-                                    e.currentTarget as HTMLElement
-                                  ).setPointerCapture?.(e.pointerId);
-                                  const end =
-                                    c.start +
-                                    (c.length > 0 ? c.length : NATURAL);
-                                  setResize({
-                                    trackId: t.id,
-                                    clipId: c.id,
-                                    edge,
-                                    origStart: c.start,
-                                    origEnd: end,
-                                    start: c.start,
-                                    end,
-                                    x: e.clientX,
-                                    ppb,
-                                  });
-                                }}
-                                onPointerMove={onResizeMove}
-                                onPointerUp={commitResize}
-                                onPointerCancel={() => setResize(null)}
-                                title={
-                                  edge === "start"
-                                    ? "drag to move this event's start"
-                                    : "drag to move this event's end"
-                                }
-                              />
-                            ))}
+                                between them still drags the whole clip.
+
+                                Absent on a read-only document, not inert: `cursor-ew-resize`
+                                and a hover highlight are a PROMISE, and a handle that lights
+                                up under the cursor and then refuses is worse than none. */}
+                            {!readOnly &&
+                              (["start", "end"] as const).map((edge) => (
+                                <div
+                                  key={edge}
+                                  className={cn(
+                                    "absolute inset-y-0 z-20 w-1.5 cursor-ew-resize",
+                                    edge === "start" ? "left-0" : "right-0",
+                                    "hover:bg-primary/60",
+                                  )}
+                                  onPointerDown={(e) => {
+                                    // Stop it here or the clip's own move drag starts too.
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    (
+                                      e.currentTarget as HTMLElement
+                                    ).setPointerCapture?.(e.pointerId);
+                                    const end =
+                                      c.start +
+                                      (c.length > 0 ? c.length : NATURAL);
+                                    setResize({
+                                      trackId: t.id,
+                                      clipId: c.id,
+                                      edge,
+                                      origStart: c.start,
+                                      origEnd: end,
+                                      start: c.start,
+                                      end,
+                                      x: e.clientX,
+                                      ppb,
+                                    });
+                                  }}
+                                  onPointerMove={onResizeMove}
+                                  onPointerUp={commitResize}
+                                  onPointerCancel={() => setResize(null)}
+                                  title={
+                                    edge === "start"
+                                      ? "drag to move this event's start"
+                                      : "drag to move this event's end"
+                                  }
+                                />
+                              ))}
                             <div className="flex items-center gap-0.5 leading-tight">
                               {/* Kind at a glance: a note for MIDI/sequence clips, a speaker
                                 for audio. */}

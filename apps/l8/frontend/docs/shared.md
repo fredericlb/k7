@@ -34,7 +34,22 @@ entrée de barre de commandes et un menu contextuel plus loin, et la vingt-sixi�
 découverte en production.
 
 Ce que `snapshot` fait dans `App` est donc une question de ce qu'on **dessine**, jamais de ce
-qu'on empêche. Les deux menus de l'en-tête disparaissent parce qu'ils n'ont pas de sens ici :
+qu'on empêche — mais il faut le faire, et le premier essai ne l'avait pas fait assez : les clips
+se traînaient encore, le geste marchait à l'écran et ne produisait rien. **Un glissé qui se
+déroule puis revient en place est pire qu'un glissé qui ne démarre pas**, et une poignée de
+redimensionnement qui s'allume sous le curseur est une promesse. Donc :
+
+- `TimelineTab` prend un `readOnly` qui rejoint la garde déjà là pour une piste générée et un
+  clip gelé (`if (readOnly || track.generated || c.frozen) return`) — troisième lecture de la
+  même phrase : il y a un clip à regarder et rien à écrire. La pression est toujours suivie,
+  parce qu'un CLIC est une demande de VOIR le clip et ne demande rien au disque ;
+- les poignées de bord ne sont pas inertes, elles sont **absentes** ;
+- les cinq rappels d'édition du graphe (`onConnect`, `onDisconnect`, `onReplug`, `onMoveNode`,
+  `onEdgeInsert`) et celui de l'image (`onVideoEdit`) sont **optionnels et déjà gardés par le
+  moteur de rendu** : un instantané n'en passe aucun, et les prises ne sont pas offertes. Aucun
+  drapeau supplémentaire n'a été nécessaire de ce côté.
+
+Les deux menus de l'en-tête disparaissent parce qu'ils n'ont pas de sens ici :
 Partager publie CE projet quelque part (il n'y a pas de projet, seulement une copie), et Réglages
 change de moteur, d'espace de travail et de préférences de compte — dont un visiteur n'a rien. Un
 menu grisé aurait été une invitation à se connecter, c'est-à-dire exactement ce que le partage
@@ -108,7 +123,18 @@ page en https.
 ## La lecture : une horloge de navigateur qui remplit le même store
 
 `useSnapshotPlayer` substitue **deux verbes** — `transport` et `seek` — juste après
-`useEngineLink`, et rien d'autre. Tout ce qui est en aval — la barre, les touches,
+`useEngineLink`, et rien d'autre.
+
+Deux endroits attendaient quand même un moteur, et rendaient le transport inutilisable :
+
+- `waitingForEngine` était `!!ws?.activeProject && !engineReady`. La réponse en conserve de
+  `/workspace` dit `activeProject: "."`, et `engineReady` ne devient jamais vrai sans socket —
+  donc « waiting for engine… » pour toujours, et la barre grisée avec. Sur un instantané il n'y a
+  aucun moteur à attendre : ce drapeau est faux d'emblée ;
+- les quatre verbes nus retombaient sur le service de fichiers quand `connected` était faux
+  (`if (!connected || engineBusyRef.current) return false`), ce qui est le bon compromis quand il
+  Y A un service derrière. Ici il n'y en a pas, donc la barre d'espace ne faisait rien. Le chemin
+  local est le seul qui puisse répondre, et il répond toujours. Tout ce qui est en aval — la barre, les touches,
 `transport play`, la tête de lecture, `replayAtRef` — lit les mêmes trames de `store`, quel que
 soit le côté qui les remplit. Aucun de ces morceaux n'apprend qu'il n'y a pas de moteur.
 

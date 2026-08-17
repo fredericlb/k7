@@ -1518,7 +1518,10 @@ export default function App({
        * for exactly that window. Fast when it can be, honest when it cannot.
        */
       if (BARE_TRANSPORT.includes(line)) {
-        if (!connected || engineBusyRef.current) return false;
+        // On a snapshot there IS no slow path: falling through would post the verb to a file
+        // service that is not there, and Space would do nothing. `transport` is already the
+        // browser player here, so it is always the one that can answer.
+        if (!frozen && (!connected || engineBusyRef.current)) return false;
         transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
@@ -1853,6 +1856,7 @@ export default function App({
       // answered here or handed to the service. Stale, this would send Space to the server for
       // ever — the flag is false on the first render of every session.
       connected,
+      frozen,
       setFull,
       setView,
       toggleMixer,
@@ -2519,7 +2523,9 @@ export default function App({
     if (isMobile && full === null && first) setFull("timeline");
   }, [isMobile, full, view]);
 
-  const waitingForEngine = !!ws?.activeProject && !engineReady;
+  // …and never on a snapshot: there is no engine coming, so this would be true for ever, and it
+  // is what greys the transport out. What plays here is the browser, and it is ready at once.
+  const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
 
   // The take's start, taken on the edge `rolling` goes true. `recInfo.tempo` converts the store's
   // seconds; the snapshot is READ, never subscribed to — see where `takeStart` is declared.
@@ -3046,7 +3052,10 @@ export default function App({
                     takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
                     orbit={orbit}
                     videoTracks={videoTracks}
-                    onVideoEdit={applyVideoEdit}
+                    // The picture drag guards on this handler's own presence, so a snapshot
+                    // simply has none — one less flag to thread for the same effect.
+                    onVideoEdit={frozen ? undefined : applyVideoEdit}
+                    readOnly={frozen}
                     setStatus={setStatus}
                     onEditTarget={setEditTarget}
                     // A clicked clip shows its content where the graph is — the waveform for
@@ -3170,26 +3179,44 @@ export default function App({
                       void runCommand(`module ${kind} ${mod} ${f}`)
                     }
                     onContextMenu={openContextMenu}
-                    onEdgeInsert={insertIntoChain}
-                    onCanvasInsert={placeInGraph}
+                    onEdgeInsert={frozen ? undefined : insertIntoChain}
+                    onCanvasInsert={frozen ? undefined : placeInGraph}
                     // The patch cable's landing runs the verb outright: both ends were
                     // clicked, so there is nothing left for the bar to ask. Its two
-                    // siblings likewise — a lifted cable dropped on the canvas deletes
-                    // its arrow, landed on another jack it moves one end.
-                    onConnect={(from, to) =>
-                      void runCommand(`graph chain connect ${from} ${to}`)
+                    // siblings likewise — a lifted cable dropped on the canvas deletes its
+                    // arrow, landed on another jack it moves one end.
+                    //
+                    // All five are OPTIONAL props the renderer already guards on, so a
+                    // snapshot passes none and the grips are not offered at all — the same
+                    // bargain the timeline's edge handles take, without a flag of its own.
+                    onConnect={
+                      frozen
+                        ? undefined
+                        : (from, to) =>
+                            void runCommand(`graph chain connect ${from} ${to}`)
                     }
-                    onDisconnect={(from, to) =>
-                      void runCommand(`graph chain disconnect ${from} ${to}`)
+                    onDisconnect={
+                      frozen
+                        ? undefined
+                        : (from, to) =>
+                            void runCommand(
+                              `graph chain disconnect ${from} ${to}`,
+                            )
                     }
-                    onReplug={(from, to, nf, nt) =>
-                      void runCommand(
-                        `graph chain replug ${from} ${to} ${nf} ${nt}`,
-                      )
+                    onReplug={
+                      frozen
+                        ? undefined
+                        : (from, to, nf, nt) =>
+                            void runCommand(
+                              `graph chain replug ${from} ${to} ${nf} ${nt}`,
+                            )
                     }
                     // A dropped header likewise: the drag already said everything.
-                    onMoveNode={(mod, x, y) =>
-                      void runCommand(`graph move ${mod} ${x} ${y}`)
+                    onMoveNode={
+                      frozen
+                        ? undefined
+                        : (mod, x, y) =>
+                            void runCommand(`graph move ${mod} ${x} ${y}`)
                     }
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}
