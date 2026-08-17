@@ -121,9 +121,14 @@ export function retimeWarpMarkers(
   if (kept.length === 0) kept.push([first[0], first[1]]);
   const at = kept[kept.length - 1];
   const out: WarpMarker[] = kept.map((m): WarpMarker => [m[0], m[1]]);
-  out.push([at[0] + (seconds - at[1]) * rate, seconds]);
+  // Six decimals, which is what every marker an importer writes already carries — a microsecond
+  // and a millionth of a beat. The map goes in a file a person reads and a diff shows, and
+  // `36.49944379017857` beside `15.336937` is noise in both.
+  out.push([round6(at[0] + (seconds - at[1]) * rate), round6(seconds)]);
   return out.length >= 2 ? out : null;
 }
+
+const round6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 
 /** The complaint about the first pair that is out of order, or null. Both axes must rise: seconds
  *  because the source only runs one way, beats because the timeline does too. */

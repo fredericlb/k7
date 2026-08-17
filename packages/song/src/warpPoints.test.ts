@@ -144,8 +144,10 @@ describe("retiming a map onto a bounced file", () => {
     expect(out).not.toBeNull();
     if (!out) return;
     expect(out[out.length - 1][1]).toBe(19.92);
-    // The whole point: the engine now reads the same tempo off the longer file.
-    expect(bpm(out)).toBeCloseTo(bpm(TAKE), 6);
+    // The whole point: the engine now reads the same tempo off the longer file. To within the
+    // six decimals the point is WRITTEN at — a millionth of a beat over 36 is where this stops,
+    // and it is nine orders of magnitude below anything audible.
+    expect(Math.abs(bpm(out) - bpm(TAKE)) / bpm(TAKE)).toBeLessThan(1e-7);
     // …and every point that was already there is untouched — the material did not move.
     expect(out.slice(0, 3)).toEqual(TAKE);
   });
@@ -162,9 +164,9 @@ describe("retiming a map onto a bounced file", () => {
     // then within a tenth of a percent, which is inaudible and honest.
     const a = out[out.length - 2];
     const b = out[out.length - 1];
-    expect((b[0] - a[0]) / (b[1] - a[1])).toBeCloseTo(
-      (TAKE[2][0] - TAKE[0][0]) / (TAKE[2][1] - TAKE[0][1]),
-      9,
+    const want = (TAKE[2][0] - TAKE[0][0]) / (TAKE[2][1] - TAKE[0][1]);
+    expect(Math.abs((b[0] - a[0]) / (b[1] - a[1]) - want) / want).toBeLessThan(
+      1e-7,
     );
     expect(Math.abs(bpm(out) - bpm(TAKE)) / bpm(TAKE)).toBeLessThan(0.001);
   });
@@ -173,6 +175,16 @@ describe("retiming a map onto a bounced file", () => {
     const out = retimeWarpMarkers(TAKE, 0.5);
     expect(out).toHaveLength(2);
     expect(out?.[1][1]).toBe(0.5);
+  });
+
+  // The map goes in a file a person reads and a diff shows. Every marker an importer writes
+  // carries six decimals — a microsecond, a millionth of a beat — and `36.49944379017857`
+  // beside `15.336937` is noise in both.
+  it("writes a point at the precision the others are written at", () => {
+    const out = retimeWarpMarkers(TAKE, 19.92);
+    expect(out?.[out.length - 1]).toEqual([36.499444, 19.92]);
+    for (const m of out ?? [])
+      for (const v of m) expect(String(v)).not.toMatch(/\.\d{7,}/);
   });
 
   // Nothing to say means nothing written: a bounce that changed no duration must leave the clip
