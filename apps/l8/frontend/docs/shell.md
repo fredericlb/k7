@@ -945,6 +945,35 @@ another browser, where which audio interface to open belongs to the machine. `L8
 `EnginePrefs`, which is the extension point that type documents, and `patchPrefs` merges, so
 writing this cannot wipe the engine id beside it.
 
+#### …and this page has a Save button, which nothing else in the shell does
+
+The app's rule is autosave — the editor writes as soon as the buffer parses, and every text pane
+here follows it. This page is the second exception after the module builder, and the reason is
+not taste: **it was unusable to type in**.
+
+Three costs, all paid per character:
+
+- a `PATCH` of the whole preferences document down the wire, per keystroke;
+- a `setState` at the ROOT of the app — `commandPrefs` lives in `App`, because the menus, the
+  key listener and the palette all read it — so the entire shell re-rendered behind the overlay,
+  every character, with the timeline and the graph still mounted underneath;
+- `keyForCommand(canonical, prefs)` called once per ROW to fill the shortcut cell, and that call
+  builds the whole effective map. Two hundred rows, two hundred rebuilds, per character.
+
+So the page holds a **draft** and writes once, on the button. The middle cost goes because the
+draft lives in the leaf; the first because there is one write per save; the third because the
+effective map is now built once per edit and inverted into `canonical → label`. The rows are
+`memo`ised on top of that, which works only because `setCommandPref` copies the document
+shallowly: every untouched command's entry keeps its identity, so one row comes back and not two
+hundred.
+
+Two things follow from the button and are worth knowing:
+
+- **A shortcut assigned here does not run until it is saved.** The app reads the SAVED document;
+  the header says `non enregistré` while the two differ, and `annuler` throws the draft away.
+- **Leaving asks.** Unsaved edits are what a Save button makes possible to lose, so `← retour`
+  confirms while the draft is dirty. That is the only thing autosave never had to answer for.
+
 **Shortcuts are the fourth field of that layer.** Each row of the page carries a key cell:
 click it, press a key, and the pref stores the raw `keyToken` (`"g"`, `"shift+space"`) under
 `key:`. Escape renounces the capture, Backspace removes the shortcut (stored as `KEY_NONE` when

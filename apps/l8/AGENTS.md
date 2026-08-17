@@ -178,11 +178,15 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   package's `docs/store.md`, in particular why a save can come back saying it landed somewhere
   else.
 
-  **The builder is the one screen here with a Save button**, and the exception is deliberate: a
-  module is four files describing one thing, and on a shared one a save is a *publish* — a
-  commit and a push onto a repository other people read. Ctrl+S and `:w` mean that button, and
-  they save all four files, not the pane you are looking at. `useAutosave`'s `manual` mode is
-  what turns the timer off while keeping its validation and its held-back buffers.
+  **The builder is one of the two screens here with a Save button**, and the exception is
+  deliberate: a module is four files describing one thing, and on a shared one a save is a
+  *publish* — a commit and a push onto a repository other people read. Ctrl+S and `:w` mean that
+  button, and they save all four files, not the pane you are looking at. `useAutosave`'s `manual`
+  mode is what turns the timer off while keeping its validation and its held-back buffers.
+
+  The other is the **Commands settings page**, and for a different reason: what it edits is one
+  account-wide document held at the root of the app, so a write-through was a round trip *and* a
+  re-render of the whole shell per keystroke (`frontend/docs/shell.md`).
 
   The file tree has a **second tab, Libraries**, listing every level a module can live at —
   `@project`, `@workspace`, `@st0`, `@engine` — nearest first, which is precedence. They come

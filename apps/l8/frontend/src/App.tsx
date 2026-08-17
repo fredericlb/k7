@@ -539,8 +539,9 @@ export default function App({
       )
       .catch(() => {}); // never saved any: the defaults are the catalogue's own
   }, []);
-  // Optimistic, and the write is not awaited: the page is a list of small edits, and each one
-  // waiting on a round trip would make renaming a command feel like saving a file.
+  // Optimistic, and the write is not awaited — the button that calls it has already gone quiet.
+  // ONE call per Save: the settings page holds its edits in a draft, because this state is the
+  // app's root and a setState per keystroke re-renders the whole shell behind the overlay.
   const saveCommandPrefs = useCallback((next: CommandPrefs) => {
     setCommandPrefs(next);
     void engines.patchPrefs({ commands: next }).catch(() => {});
@@ -3720,7 +3721,7 @@ export default function App({
               // A page that arranged only one of them would order a menu it does not draw.
               commands={allCommands}
               prefs={commandPrefs}
-              onChange={saveCommandPrefs}
+              onSave={saveCommandPrefs}
               onBack={() => setSettingsScreen(null)}
             />
           </div>
