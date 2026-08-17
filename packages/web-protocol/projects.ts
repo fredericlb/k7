@@ -4,7 +4,7 @@
 // and the apps, which read them back — so they are stated here, browser-safe, and nowhere else.
 // See apps/st0/docs/projects.md and packages/project-shell/docs/launch.md.
 
-import { type StudioService, serviceUrl } from "./services.ts";
+import { type StudioService, serviceUrl, studioOrigin } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
 export type ProjectApp = Extract<StudioService, "l8" | "z0">;
@@ -296,6 +296,47 @@ export function shareToken(project: string): string | null {
  */
 export function shareUrl(origin: string, token: string): string {
   return `${serviceUrl(origin, "l8")}/${SHARE_REPO}/${token}${L8}`;
+}
+
+/**
+ * The KEY a token addresses — `sha256(token)`, in hex, computed by whoever holds the link.
+ *
+ * st0 stores the hash and names the directory with it, so the SECRET is never a path segment:
+ * a path segment reaches every access log, every `Referer` and every proxy's error page, and the
+ * link is the whole of the protection. The price is that the page has to do the hashing, and
+ * `crypto.subtle` exists only in a SECURE CONTEXT — over plain http on something that is not
+ * localhost there is no digest at all. That refusal is thrown with a sentence rather than left to
+ * surface as `undefined is not a function`, because it is a real deployment and not a bug: the
+ * fix is to serve the page over https, and nothing about the share is wrong.
+ *
+ * Here beside `shareUrl` because the two are one round trip — st0 mints the token from the key
+ * and the viewer gets back to the key from the token — and a hash spelled two ways is a 404
+ * nobody can attribute.
+ */
+export async function shareKey(token: string): Promise<string> {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle)
+    throw new Error(
+      "opening a share needs a secure context (https), because the address is hashed in the browser",
+    );
+  const digest = await subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token),
+  );
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+/**
+ * Where a snapshot answers: st0's ONE unauthenticated prefix, on the origin the page is on.
+ *
+ * st0 has no path prefix — it answers the origin root — so this is the bare origin plus the
+ * route. `public` is IN the path on purpose: it is a comment that survives a refactor, and one
+ * nobody confuses with `/api/shares`, which is the author's half and is behind the guard.
+ */
+export function shareApiBase(origin: string, key: string): string {
+  return `${studioOrigin(origin)}/api/public/share/${key}`;
 }
 
 /**

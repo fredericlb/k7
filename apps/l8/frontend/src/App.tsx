@@ -43,6 +43,7 @@ import {
   Circle,
   Disc3,
   Loader2,
+  Lock,
   Pause,
   Play,
   Square,
@@ -87,6 +88,7 @@ import {
 import { RackBuilder } from "./components/RackBuilder";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
+import { type OpenShare, ShareDownload } from "./components/SharedGate";
 import { ShareMenu } from "./components/ShareMenu";
 import { SurfaceTab } from "./components/SurfaceTab";
 import {
@@ -187,6 +189,7 @@ export default function App({
   userEmail,
   onQuitWorkspace,
   onChangeEngine,
+  snapshot,
 }: {
   engineUrl: EngineUrl;
   /** What the link to that engine measured — the footer's Q badge. Null when the gate
@@ -198,7 +201,24 @@ export default function App({
   onQuitWorkspace: () => void;
   /** Back to the engine picker — see SettingsMenu. */
   onChangeEngine: () => void;
+  /**
+   * The FROZEN snapshot this shell is drawing, when it was opened through a share link.
+   *
+   * Undefined is the ordinary case and everything below reads it that way. Present, it means
+   * there is no engine, no working copy and no account behind this screen — so the panes that
+   * edit a file are not offered and the transport is a browser clock over rendered audio. The
+   * refusal itself is NOT here: it is `fsend`, one level down, which is what makes this prop a
+   * matter of what to draw rather than of what to prevent. See docs/shared.md.
+   *
+   * `snapshot` and not `share`, because `share` is already this shell's word for the ACT of
+   * publishing one (`useShare`, the Partager menu) — and the two would have sat six lines apart.
+   */
+  snapshot?: OpenShare;
 }) {
+  // Read once and passed around as a boolean: almost everywhere the question is "is this
+  // editable", not "which snapshot is it", and a truthy object at those call sites invites
+  // reaching into it from places that have no business knowing there is a manifest.
+  const frozen = !!snapshot;
   // The layout: null is the global view, a pane name is that pane expanded; `focus` is which pane owns the keys.
   const [full, setFull] = useState<Pane | null>(null);
   // A phone gets tabs, not the studio layout — the tab bar just drives `full`. See docs/shell.md.
@@ -735,6 +755,7 @@ export default function App({
     }, []),
     hasTimeline,
     hasViewport,
+    frozen,
   );
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -771,8 +792,8 @@ export default function App({
   // which could only ever name the pane UNDER the timeline and so had nothing to say about a
   // layout with no timeline in it. See `viewPanes` in routes.ts.
   const layout = useMemo(
-    () => viewPanes(view, hasTimeline, hasViewport),
-    [view, hasTimeline, hasViewport],
+    () => viewPanes(view, hasTimeline, hasViewport, frozen),
+    [view, hasTimeline, hasViewport, frozen],
   );
   const ringPanes = layout.ring;
 
@@ -2587,6 +2608,28 @@ export default function App({
    * button fullscreens something already mounted and Escape backs out of it, and each one carries
    * its own key in its tooltip. The project's SCREEN surfaces are the pages, and they are `items`.
    */
+  /**
+   * The two menus at the end of the bar — or, on a frozen snapshot, the one thing a visitor
+   * may take away.
+   *
+   * Both menus go, and neither is merely disabled: Partager publishes THIS project somewhere
+   * (there is no project here, only a copy of one), and Réglages changes engine, workspace and
+   * account-wide preferences, none of which a visitor has. A greyed-out menu would be an
+   * invitation to sign in, which is exactly what a share exists to avoid needing.
+   */
+  const headerTools = snapshot ? (
+    <ShareDownload base={snapshot.base} />
+  ) : (
+    <>
+      <ShareMenu
+        gitStatus={gitStatus}
+        busy={share.busy}
+        onRun={(c) => void runCommand(c)}
+      />
+      <SettingsMenu onRun={(c) => void runCommand(c)} />
+    </>
+  );
+
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
       {/* On a phone the whole right side collapses into one button: the view
@@ -2600,14 +2643,7 @@ export default function App({
               tab bar. The metronome and the panel toggles are NOT here: they live
               in the footer, and a second copy would be one more thing to keep in
               step for no gain. */}
-          <div className="flex items-center gap-1">
-            <ShareMenu
-              gitStatus={gitStatus}
-              busy={share.busy}
-              onRun={(c) => void runCommand(c)}
-            />
-            <SettingsMenu onRun={(c) => void runCommand(c)} />
-          </div>
+          <div className="flex items-center gap-1">{headerTools}</div>
         </MobileMenu>
       ) : (
         <>
@@ -2645,12 +2681,7 @@ export default function App({
             })}
           </nav>
           <div className="mx-1 h-5 w-px bg-border" />
-          <ShareMenu
-            gitStatus={gitStatus}
-            busy={share.busy}
-            onRun={(c) => void runCommand(c)}
-          />
-          <SettingsMenu onRun={(c) => void runCommand(c)} />
+          {headerTools}
         </>
       )}
     </div>
@@ -2674,7 +2705,8 @@ export default function App({
             The padding is overridden through the inner box: the shared bar is px-5 py-3 and every
             row of chrome is a row the panes don't get — a phone in landscape is ~400px tall. */}
         <AppHeader
-          variant="plain"
+          // No `variant`: the house look, the accent tinted over the page. It was `plain`
+          // when the alternative was a solid accent bar — see @frediverse/ui's docs/app-header.md.
           className={cn(
             "z-20",
             isMobile
@@ -2696,16 +2728,29 @@ export default function App({
               layout now, and this is the closest thing to the true centre it leaves room for. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
-              {project?.name ?? "…"}
+              {snapshot?.manifest.name || project?.name || "…"}
             </span>
+            {/* Said once, where the version normally goes, and dressed as a state rather than
+                a warning: this is not a fault, it is the whole point of the link. The reason it
+                is HERE is that a visitor has no other way to learn it — every refusal below is a
+                thing that will not happen when you try, and telling someone up front beats
+                letting them find out by clicking. */}
+            {snapshot && (
+              <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
+              </span>
+            )}
             {/* The alternatives of the workspace repo, right after the title: which
-                version of the song you are on is part of what you are looking at. */}
-            <AlternativePicker
-              reloadKey={reloadKey}
-              onSwitch={(name) =>
-                void runCommand(`project alternative switch ${name}`)
-              }
-            />
+                version of the song you are on is part of what you are looking at.
+                A snapshot has no repository at all — there is nothing to switch between. */}
+            {!frozen && (
+              <AlternativePicker
+                reloadKey={reloadKey}
+                onSwitch={(name) =>
+                  void runCommand(`project alternative switch ${name}`)
+                }
+              />
+            )}
             {ws && !ws.activeProject && (
               <span className="truncate rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
                 workspace — pick a project ▶ in Editor

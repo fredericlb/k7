@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   BENCH_REPO,
@@ -12,6 +13,8 @@ import {
   projectLabel,
   SCAFFOLDED_APPS,
   SHARE_REPO,
+  shareApiBase,
+  shareKey,
   shareToken,
   shareUrl,
 } from "./projects.ts";
@@ -147,7 +150,8 @@ describe("a shared snapshot's address", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
     const at = parseLaunch(new URL(url).pathname, "l8", "/l8/");
     expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.l8` });
-    if (!at) throw new Error("unreachable — the expect above would have failed");
+    if (!at)
+      throw new Error("unreachable — the expect above would have failed");
     expect(isShare(at.repo)).toBe(true);
     expect(shareToken(at.project)).toBe(TOKEN);
   });
@@ -167,5 +171,32 @@ describe("a shared snapshot's address", () => {
     expect(shareToken(`${"-_".repeat(11)}.l8`)).toBe("-_".repeat(11));
     expect(shareToken(`${"a".repeat(30)}+.l8`)).toBeNull();
     expect(shareToken(`${"a".repeat(30)}=.l8`)).toBeNull();
+  });
+
+  /**
+   * The hash the viewer derives, checked against the one st0 stored — `createHash("sha256")` in
+   * `apps/st0/backend/src/shares/store.ts`. The two are computed by different APIs on different
+   * machines and only ever meet as a directory name, so a disagreement would be a 404 on every
+   * link ever minted, with nothing anywhere saying why.
+   */
+  it("hashes a token to the key st0 named the directory with", async () => {
+    const key = await shareKey(TOKEN);
+    expect(key).toBe(createHash("sha256").update(TOKEN).digest("hex"));
+    // The shape st0's `isKey` gate demands before any path join.
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    // A different token is a different directory: this is the whole of the protection.
+    expect(await shareKey(`${TOKEN}x`)).not.toBe(key);
+  });
+
+  it("addresses st0 at the origin root, under the one unauthenticated prefix", async () => {
+    // st0 has no path prefix — it answers the origin itself — so a share's API is the bare
+    // origin plus the route, whatever page URL it was derived from.
+    const key = await shareKey(TOKEN);
+    expect(
+      shareApiBase("https://studio.frediver.se/l8/@partage/x.l8", key),
+    ).toBe(`https://studio.frediver.se/api/public/share/${key}`);
+    expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(
+      `https://st0.priv.frediver.se/api/public/share/${key}`,
+    );
   });
 });

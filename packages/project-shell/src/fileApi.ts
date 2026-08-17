@@ -14,6 +14,25 @@ export interface FileCfg {
   userEmail: string; // trusted (Phase-2 local trust)
   workspace: string; // the folder on that machine holding the repository
   engineToken: string; // the light LAN gate (from the whoami probe)
+  /**
+   * A FROZEN document — a shared snapshot st0 serves, with no file service behind it at all.
+   *
+   * The whole read-only mode is this one field, and that is deliberate: `fsend` is the only way
+   * anything in these apps writes (~25 call sites in project.ts alone), so refusing here refuses
+   * everywhere, once, with a sentence — instead of neutering feature by feature and discovering
+   * the twenty-sixth one in production.
+   *
+   * `canned` answers the routes a snapshot HAS no answer for. A share carries the three compiled
+   * documents and nothing else: no `/tree`, no `/hints`, no `/git/status`. Without it every hook
+   * that asks for one would draw an error banner about a file service that is not merely down but
+   * absent by design. The values are JSON TEXT and not objects, for `fget`'s reason — several
+   * components parse the same body and must not be handed one object to alias.
+   */
+  frozen?: {
+    /** What to say when something tries to write. Read by whatever catches the throw. */
+    why: string;
+    canned: Record<string, string>;
+  };
 }
 
 let fileCfg: FileCfg | null = null;
@@ -74,6 +93,10 @@ const inFlight = new Map<string, Promise<string>>();
  * stops paying is the round trip and the service's work behind it.
  */
 export function fget<T>(path: string): Promise<T> {
+  // A canned answer short-circuits before the request, and is parsed per caller exactly as a
+  // real body is — same rule, so a component cannot tell which kind it got.
+  const stock = fileCfg?.frozen?.canned[path];
+  if (stock !== undefined) return Promise.resolve(JSON.parse(stock) as T);
   const key = `${epoch}\n${path}`;
   let body = inFlight.get(key);
   if (!body) {
@@ -105,11 +128,20 @@ async function getOnce(path: string): Promise<string> {
   return text;
 }
 
+/** Thrown instead of writing when the open document is frozen. Its own type so a caller can tell
+ *  "this cannot be done here" from "the service refused", which read the same as a plain Error. */
+export class ReadOnlyDocument extends Error {}
+
 export async function fsend<T>(
   method: string,
   path: string,
   body: unknown,
 ): Promise<T> {
+  // THE choke point. Every write in every app that mounts this shell goes through here, so a
+  // frozen document is enforced in one place rather than by hiding buttons — a hidden button is
+  // still a keyboard shortcut, a command bar entry and a context menu away.
+  const frozen = cfg().frozen;
+  if (frozen) throw new ReadOnlyDocument(frozen.why);
   // Both edges, and both matter: the first stops a GET issued while the write is in the air
   // from joining one issued before it, the second covers the GET that follows the reply.
   epoch++;

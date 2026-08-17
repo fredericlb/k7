@@ -20,8 +20,17 @@ export function stateForLocation(
   timeline = true,
   /** The same for the frame — `/viewport` names no pane in a song that carries no picture. */
   viewport = false,
+  /** …and for a frozen snapshot, which has no source: `/editor` names no pane in one. */
+  frozen = false,
 ): RouteState | null {
-  const next = fromLocation(pathname, search, state.view, timeline, viewport);
+  const next = fromLocation(
+    pathname,
+    search,
+    state.view,
+    timeline,
+    viewport,
+    frozen,
+  );
   return sameRoute(next, state) ? null : next;
 }
 
@@ -47,9 +56,17 @@ export function urlForState(
   search: string,
   timeline = true,
   viewport = false,
+  frozen = false,
 ): string | null {
   if (sameRoute(state, prev)) return null;
-  const url = fromLocation(pathname, search, state.view, timeline, viewport);
+  const url = fromLocation(
+    pathname,
+    search,
+    state.view,
+    timeline,
+    viewport,
+    frozen,
+  );
   if (sameRoute(state, url)) return null;
   return toPath(state);
 }
@@ -65,6 +82,8 @@ export function useViewRoute(
   timeline: boolean,
   /** Whether it declares a viewport surface — the same fact, about the frame. */
   viewport: boolean,
+  /** Whether this is a shared snapshot — a fact about the DOCUMENT, not about the project. */
+  frozen = false,
 ): void {
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,6 +99,7 @@ export function useViewRoute(
       state,
       timeline,
       viewport,
+      frozen,
     );
     if (next) apply(next);
     // `state` is deliberately NOT a dependency: this direction reacts to the LOCATION, and including it
@@ -87,7 +107,7 @@ export function useViewRoute(
     // `timeline` and `viewport` ARE: the surfaces land a moment after the shell, and a `/timeline`
     // or `/viewport` deep link has to be re-read once the project has said whether it has one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search, timeline, viewport]);
+  }, [location.pathname, location.search, timeline, viewport, frozen]);
 
   // state → URL.
   useEffect(() => {
@@ -100,9 +120,18 @@ export function useViewRoute(
       location.search,
       timeline,
       viewport,
+      frozen,
     );
     if (url === null) return;
     // Entering help pushes so Back leaves it; everything else replaces (see the header).
     navigate(url, { replace: !(state.help && !before.help) });
-  }, [state, navigate, location.pathname, location.search, timeline, viewport]);
+  }, [
+    state,
+    navigate,
+    location.pathname,
+    location.search,
+    timeline,
+    viewport,
+    frozen,
+  ]);
 }

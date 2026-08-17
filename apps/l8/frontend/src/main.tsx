@@ -1,9 +1,12 @@
-import { projectBasename } from "@studio/project-shell/launch";
+import { parseLaunch, projectBasename } from "@studio/project-shell/launch";
+import { isShare, shareToken } from "@studio/web-protocol/projects";
 import { Profiler } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import App from "./App";
 import { AuthGate } from "./components/AuthGate";
 import { EngineGate } from "./components/EngineGate";
+import { SharedGate } from "./components/SharedGate";
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { PROFILING } from "./profiling";
@@ -32,6 +35,23 @@ installFreezeWatchdog();
  */
 const profiling = PROFILING;
 
+/**
+ * The secret, when this address is a SHARE — `/l8/@partage/<token>.l8` — and null otherwise.
+ *
+ * Read the same way the basename below is, out of the address and nothing else, so the two
+ * cannot disagree about which project this tab is on. A branch here rather than three
+ * conditional gates: a share has no account, no engine and no working copy, so `AuthGate →
+ * EngineGate → ProjectGate` is not a stack with parts switched off — it is the wrong stack.
+ */
+const sharedToken = (() => {
+  const at = parseLaunch(
+    window.location.pathname,
+    "l8",
+    import.meta.env.BASE_URL,
+  );
+  return at && isShare(at.repo) ? shareToken(at.project) : null;
+})();
+
 // The gates before the editor, the router outside them (so a deep link survives sign-in), and NO React.StrictMode
 // — its double-mount thrashes the WebGL compositor's context and froze Firefox. See docs/shell.md.
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -48,15 +68,34 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     )}
   >
     <LocaleProvider>
-      <AuthGate>
-        {profiling ? (
-          <Profiler id="app" onRender={reportCommit}>
+      {sharedToken ? (
+        <SharedGate token={sharedToken}>
+          {(share) => (
+            <App
+              snapshot={share}
+              // No engine to reach, ever — and `null` is the ONE answer EngineClient already
+              // understands as that: it backs off and asks again instead of treating it as a
+              // failed connection. So the shell mounts whole, its store stays at rest, and
+              // nothing in it needed a second code path for "there is no engine".
+              engineUrl={() => null}
+              engineLatency={null}
+              userEmail=""
+              onQuitWorkspace={() => {}}
+              onChangeEngine={() => {}}
+            />
+          )}
+        </SharedGate>
+      ) : (
+        <AuthGate>
+          {profiling ? (
+            <Profiler id="app" onRender={reportCommit}>
+              <EngineGate />
+            </Profiler>
+          ) : (
             <EngineGate />
-          </Profiler>
-        ) : (
-          <EngineGate />
-        )}
-      </AuthGate>
+          )}
+        </AuthGate>
+      )}
     </LocaleProvider>
   </BrowserRouter>,
 );

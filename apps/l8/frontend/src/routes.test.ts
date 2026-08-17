@@ -187,6 +187,26 @@ describe("viewPanes", () => {
     expect(viewPanes("live", true, true).fullscreen).not.toContain("editor");
   });
 
+  it("drops the editor from a FROZEN layout, and from its addresses", () => {
+    // A shared snapshot has no source at all — no /tree and no /file — so the editor is not a
+    // pane whose document is read-only, it is a pane with nothing behind it. Dropped in the one
+    // list the number keys, the mobile tabs, `ui editor` and every address all read.
+    expect(viewPanes("global", true, false, true)).toEqual({
+      ring: ["timeline", "chains"],
+      fullscreen: ["timeline", "chains"],
+    });
+    expect(fromLocation("/editor", "", "global", true, false, false).full).toBe(
+      "editor",
+    );
+    expect(fromLocation("/editor", "", "global", true, false, true)).toEqual(
+      st(),
+    );
+    // …and the panes it DOES have are untouched: frozen is about the source, not the song.
+    expect(
+      fromLocation("/timeline", "", "global", true, false, true).full,
+    ).toBe("timeline");
+  });
+
   it("refuses `/viewport` as an address when there is no picture", () => {
     expect(fromLocation("/viewport", "", "global", true, true).full).toBe(
       "viewport",

@@ -88,11 +88,18 @@ export interface Layout {
  * pane and belongs to no layout (docs/shell.md). A `global` view with no timeline lands in the
  * same place from the other side, and keeps its editor: it is a song whose arrangement is
  * simply not declared, not a rig.
+ *
+ * `frozen` is the third of these, and the only one that is not about the project: a SHARED
+ * snapshot has no source at all — no `/tree`, no `/file` — so the editor is not a pane whose
+ * document happens to be read-only, it is a pane with nothing behind it. Dropping it here rather
+ * than hiding a button is the point: this list is what the number keys, the mobile tabs, `ui
+ * editor` and every address all read, so one omission closes them together.
  */
 export function viewPanes(
   view: View,
   timeline: boolean,
   viewport = false,
+  frozen = false,
 ): Layout {
   const picture: Pane[] = viewport ? ["viewport"] : [];
   if (view === "live") {
@@ -101,7 +108,7 @@ export function viewPanes(
   }
   const arrangement: Pane[] = timeline ? ["timeline"] : [];
   const ring: Pane[] = [...picture, ...arrangement, "chains"];
-  return { ring, fullscreen: ["editor", ...ring] };
+  return { ring, fullscreen: frozen ? ring : ["editor", ...ring] };
 }
 
 const isPane = (s: string): s is Pane => (PANES as string[]).includes(s);
@@ -150,6 +157,8 @@ export function fromLocation(
   // while picture is the exception — so the optimistic default that keeps `/timeline` working on
   // the first frame would make `/viewport` briefly parse for every song that has no picture at all.
   viewport = false,
+  // A shared snapshot, which has no source to edit — so `/editor` must not parse into one either.
+  frozen = false,
 ): RouteState {
   const seg = pathname.replace(/^\/+|\/+$/g, "");
   const panelParam = new URLSearchParams(search).get("panel") ?? "";
@@ -196,7 +205,7 @@ export function fromLocation(
       return { ...base, surface: decoded };
     }
   }
-  const layout = viewPanes(current, timeline, viewport);
+  const layout = viewPanes(current, timeline, viewport, frozen);
   // A pane the CURRENT layout cannot fullscreen is not an address here — `/timeline` typed at a
   // live project, or at one that declares no timeline surface, names a pane that project hasn't
   // got. It falls through to the layout's own screen rather than 404ing, for the same reason an
