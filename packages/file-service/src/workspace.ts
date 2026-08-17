@@ -35,6 +35,10 @@ import {
   shareToK7,
   transcode,
 } from "@studio/commands/render";
+import {
+  buildShareBundle,
+  type ShareBundle,
+} from "@studio/commands/share-bundle";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
@@ -1799,6 +1803,46 @@ export class Workspace {
       cleanup();
       throw e;
     }
+  }
+
+  /**
+   * The frozen snapshot `project share link` sends to st0 — rendered here, uploaded by the caller.
+   *
+   * The three documents are what a BROWSER draws a project from, and each is here for a reason
+   * the next person should not have to re-derive:
+   *
+   * - `project-doc.json` (`WebProject`) is the arrangement. It carries `sourceName` — the audio
+   *   file's NAME and never its path — so it says what a clip is called without saying where
+   *   anything lives on this machine.
+   * - `graph.json` (`WebGraph`) is the chains, the modules and their AUTHORED parameter values.
+   *   That is the feature: "see the modules without editing them" is this document.
+   * - `surfaces.json` is what the project DECLARES, verbatim. A project with a viewport surface
+   *   is shared with that surface still declared and no video beside it; the snapshot says which
+   *   media it carries (`media.video: false`) rather than editing the project's own claims.
+   *
+   * Three documents are deliberately NOT here. `video-doc` carries workspace-relative media paths
+   * (`toWebVideoTracks`) and the share is audio-only anyway; `project-errors` quotes file paths
+   * and lines of YAML; `/tree` and `/file` are the source itself. A share shows the song, not the
+   * folder it was made in.
+   *
+   * Nothing here writes to the project. Freezing a shared copy is a RENDER, not `node freeze` ×N.
+   */
+  buildShare(): ShareBundle {
+    const dir = this.requireActive();
+    const engine = findEngineBinary();
+    if (!engine)
+      throw new Error("engine binary not found — cannot render the share");
+    const web = this.projectDoc();
+    return buildShareBundle(
+      engine,
+      this.cachedProjectDoc(dir),
+      {
+        "project-doc.json": web,
+        "graph.json": this.graphDoc(),
+        "surfaces.json": this.surfaces(),
+      },
+      { name: web.name || basename(dir), mode: web.mode },
+    );
   }
 
   // Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for artist and title.

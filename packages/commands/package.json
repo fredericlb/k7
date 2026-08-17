@@ -11,6 +11,7 @@
     "./timeline": "./src/timeline.ts",
     "./recordTake": "./src/recordTake.ts",
     "./render": "./src/render.ts",
+    "./share-bundle": "./src/shareBundle.ts",
     "./waveform": "./src/waveform.ts",
     "./trim-gate": "./src/trimGate.ts"
   },
