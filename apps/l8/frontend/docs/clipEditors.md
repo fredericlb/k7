@@ -299,26 +299,36 @@ Four rules worth knowing, each of which could reasonably have gone the other way
 are bare-named**, because they write — the line that namespace draws, the same one `event move`
 and the file-tree verbs sit on the far side of.
 
-## A clip with a window is CAGED to it
+## A clip with a window is FRAMED on it — it used to be caged
 
-A clip that states `from`/`to` shows that interval and **nothing else** — outside it is not drawn,
-not scrollable-to, not clickable:
+Both editors used to show the window and **nothing else**: outside it was not drawn, not
+scrollable-to, not clickable. Neither does now, and they gave it up for the same reason — a window
+can only be judged against what lies outside it, and material a trim or a resize would give back is
+material you have to be able to see. What replaced the cage is one shape, drawn twice:
 
-- the **roll** (`src/rollFit.ts`): the canvas spans the window. Notes wholly outside do not exist
-  on screen; a note over the edge is drawn at its true beats and cut where the window ends
-  (`overflow-hidden` on the lane is the cage's edge). The header counts what the cage hides —
-  `4 notes (+2 hors fenêtre)` — so a windowed file does not read as data lost. The grid stays
-  **absolute**: a window opening at bar 3 says 3, not 1. The later passes of a looped clip are the
-  same picture again, so the canvas stops at the window's end, and the playhead **folds** back into
-  the window (`localBeat % win`) instead of walking off along the placed extent.
-- the **audio clip panel** (`AudioClipPanel`, the pane a click on an audio event opens): the
-  bar-window arithmetic (`src/barWindow.ts`) takes the clip's interval, so the twelve-bar default,
-  the anchored zoom and the "tout" button all move inside `from`/`to`. It still asks the service
-  for the WHOLE file (`whole`), so onset seconds stay file-absolute; only the view is caged.
+| | the reach | the act |
+|---|---|---|
+| the **roll** (`src/rollFit.ts`) | the whole sequence, rounded up to a bar | the clip's window in beats (`clipLoop`) |
+| the **audio clip panel** (`AudioClipPanel`, `src/barWindow.ts`) | the whole file | the EVENT's window in seconds |
 
-The one deliberate exception is **`WaveformView` in `whole` mode** — the strip a `clips/*.yaml`
-opens in the editor. Its entire purpose is to show the file the window is judged against, and it
-is where the `from`/`to` handles live; caging it would leave nothing to drag them over.
+Each opens **framed** on its act — the window plus a margin either side, a fifth of it on the roll
+and a bar on the panel — and the wheel reaches the rest. The act is drawn as ground, a colourless
+wash with its two edges picked out, and what is outside it is context: dimmed on the roll (a note
+that sounds in no pass is 30% and takes no pointer), plain on the panel.
+
+Editing stops at the edges, and is **refused rather than clamped** in both: a note drawn outside
+the window would be a note you drew, saw, and never heard, and an onset appearing at the edge
+instead of under the pointer is an edit nobody made.
+
+Two things the roll keeps from the cage. The grid stays **absolute** — a window opening at bar 3
+says 3, not 1 — and the playhead still **folds** back into the window (`localBeat % win`) instead
+of walking off along the placed extent, because the later passes of a looped clip really are the
+same picture again. The pitch fit also still reads only the notes the window contains, so a stray
+note three octaves down cannot squash the pitches that are actually playing.
+
+**`WaveformView` in `whole` mode** — the strip a `clips/*.yaml` opens in the editor — was the one
+pane that never caged, and it is now the rule rather than the exception. Its purpose is to show the
+file the window is judged against, and it is where the `from`/`to` handles live.
 
 ## What the roll OPENS on, without a window
 
@@ -395,7 +405,7 @@ answer it two ways:
 |---|---|
 | `WaveformView` (a clip file in the editor, `whole`) | shaded over the whole file, from the TEXT, live as you type — the view the window is JUDGED in |
 | `AudioClipPanel` (clicking an audio event) | the pane roams the FILE and the event's window is a band on it — see below |
-| the roll, placed sequence or `sequences/*.yaml` | it is the view: the canvas is caged to the pair |
+| the roll, placed sequence or `sequences/*.yaml` | the canvas spans the sequence and the pair is a band on it — the panel's shape, in beats |
 | the tracker and the inline grids | the band, drawn as ground under the notes |
 
 Where it is still a band it is deliberately colourless — a white wash with its two edges picked
@@ -430,6 +440,11 @@ What acting "only on it" means, verb by verb:
 - **the trim gate** previews inside `act` and hands the same pair to the command, so the preview
   and the act cannot disagree — `clip trim <clip> <gate> [from] [to]`, the bound intersected with
   the clip's own window and never widening it;
+- **the middle button pans**, as it does on every scrolling pane through `usePanScroll`. Written
+  out here because this pane does not scroll — it draws a view span, so the drag moves the window
+  rather than a `scrollLeft` — with the same direction (the view follows the hand) and the same two
+  precautions: the capture phase, so a child stopping propagation cannot swallow it, and a
+  `mousedown` preventDefault for Firefox's autoscroll puck;
 - **onsets** are pins inside `act` and plain rules outside it — visible, not touchable — and a
   click past the edge adds nothing. Refused rather than clamped: an onset appearing a hair from
   where the hand let go is an edit nobody made;
@@ -520,9 +535,14 @@ Velocity had to be added to the wire to draw it at all: `WebNote` carried `time`
 
 ## What is deliberately NOT drawn
 
-In the caged panes — the roll and the audio clip panel — the area outside the window is not drawn
-**at all**: what does not play is not on screen, which is the strongest possible statement of it.
-In the panes that still show more than the window (the tracker, the inline grids, `WaveformView`'s
-whole view), the outside is not dimmed either — the band lights what plays rather than greying
-what does not, because for a repeated clip the pane past the window is not silence, it is the next
-pass, and one rule that reads as "this does not play" would be wrong in the commoner case.
+Nothing is hidden any more: every pane here shows more than the window and marks it instead. The
+roll and the audio clip panel used to hide it — *what does not play is not on screen* — which was
+the strongest possible statement and the wrong one, because it also hid what a trim would give
+back.
+
+The outside is treated two ways, and the difference is real. On the **roll**, a note outside the
+window is dimmed and inert: a sequence's window is its pattern, so a note before or after it sounds
+in no pass at all, and saying so is honest. In the **tracker, the inline grids and `WaveformView`'s
+whole view**, the outside is not dimmed — the band lights what plays rather than greying what does
+not, because for a repeated AUDIO clip the pane past the window is not silence, it is the next
+pass, and a rule reading "this does not play" would be wrong in the commoner case.

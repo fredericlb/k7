@@ -1,6 +1,7 @@
 // rollFit.ts — what the piano roll OPENS on and how far its canvas runs. A clip that states a
-// window (`from`/`to`) is CAGED to it: the canvas spans the window and nothing else is drawn.
-// Without one, frame what is used with a margin and let the canvas run to the placed extent.
+// window (`from`/`to`) is FRAMED on it, with a margin of context either side, and the canvas still
+// runs over the whole sequence: a window is judged against what lies outside it. Without one,
+// frame what is used and run to the placed extent.
 // Pure, because this is the arithmetic that decides what a clip appears as.
 
 import type { ClipLoop } from "./clipLoop";
@@ -30,11 +31,13 @@ export interface RollFit {
 /**
  * The view for one clip.
  *
- * **With a window** (`from`/`to` — the loop pair, for MIDI): the view IS the window. Notes outside
- * it do not sound and are not shown, and the later passes of a looped clip are the same picture
- * again — so the canvas stops at the window's end rather than running to the placed extent. The
- * pitch fit reads only the notes the window contains, for the same reason the time axis skips the
- * octaves nothing uses.
+ * **With a window** (`from`/`to` — the loop pair, for MIDI): the view is FRAMED on the window, with
+ * a margin of context either side, and the canvas runs over the whole sequence. It used to be
+ * caged to it — the canvas stopped at the window's end and nothing outside was drawn — which is
+ * the same thing the audio clip panel did and the same reason it stopped: a window can only be
+ * judged against what lies outside it, and material a window would give back is material you have
+ * to be able to see. The pitch fit still reads only the notes the window contains, so a stray note
+ * three octaves down cannot squash the pitches that are actually playing.
  *
  * **Without one**: frame what is USED, with a margin, on both axes — the time axis is the one that
  * had stopped doing so (it framed `[0, clip.length]`; measured on LEMO - DANSE, `da.dub`'s drums
@@ -72,21 +75,27 @@ export function rollFit(
   const hiKey = Math.min(127, hiNote + pMargin);
   const rows = Math.max(1, hiKey - loKey + 1);
 
+  const seqEnd = notes.reduce((mx, n) => Math.max(mx, n.time + n.duration), 0);
+
   if (loop) {
+    // The margin is a fraction of the WINDOW, not of the sequence: what you want either side of a
+    // two-beat window is a beat, not a fifth of a four-minute file.
+    const tMargin = Math.max(bar / 2, MARGIN * loop.win);
     return {
       loKey,
       hiKey,
       rows,
-      loBeat: loop.from,
-      hiBeat: loop.to,
-      beats: loop.win,
+      loBeat: Math.max(0, loop.from - tMargin),
+      hiBeat: loop.to + tMargin,
+      beats: Math.max(bar, loop.to - loop.from + 2 * tMargin),
       placedEnd,
-      canvasBeats: loop.win,
-      origin: loop.from,
+      // Everywhere the wheel may reach: the whole sequence, and never less than the window.
+      // Rounded up to a bar so the canvas ends on a line the ruler draws.
+      canvasBeats: Math.ceil(Math.max(seqEnd, loop.to, bar) / bar) * bar,
+      origin: 0,
     };
   }
 
-  const seqEnd = notes.reduce((mx, n) => Math.max(mx, n.time + n.duration), 0);
   const seqStart = notes.length
     ? notes.reduce((mn, n) => Math.min(mn, n.time), Number.POSITIVE_INFINITY)
     : 0;

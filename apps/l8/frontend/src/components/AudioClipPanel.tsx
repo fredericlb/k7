@@ -432,6 +432,70 @@ export function AudioClipPanel({
   // its baseline cannot live in the effect's closure — re-binding mid-pinch would drop the fingers.
   const shownRef = useRef(win.shown);
   shownRef.current = win.shown;
+  // …and where the window actually SITS, in bars into the reach. The CLAMPED start, not `asked`:
+  // a drag has to begin from what is on screen, and `asked` may be past an edge `barWindow` pulled
+  // it back from. Same reason it is a ref — the pan outlives the render that started it.
+  const atRef = useRef({ start: 0, bars: 1 });
+  atRef.current = {
+    start: win.barSec > 0 ? (win.view.start - reach.from) / win.barSec : 0,
+    bars: win.shown,
+  };
+
+  /**
+   * Middle-drag pans, as it does on every other pane here (`usePanScroll`) — and it has to be
+   * written out because this one does not SCROLL: it draws a view span, so panning moves the
+   * window rather than a `scrollLeft`. The gesture is the same and so is its direction: the view
+   * follows the hand, dragging right reveals what is to the left.
+   *
+   * Capture phase and a `mousedown` preventDefault, both copied from `usePanScroll` for the
+   * reasons that live there: a bubble listener never fires if a child stops propagation, and the
+   * middle-click autoscroll puck is a mousedown default that has to be cancelled on Firefox.
+   */
+  useEffect(() => {
+    const el = waveBox.current;
+    if (!el || rolling || !wf) return;
+    let from: { x: number; start: number; barPx: number } | null = null;
+    const onMove = (e: PointerEvent) => {
+      const f = from;
+      if (!f) return;
+      // Pixels back into bars, and negated: the window goes the other way from the hand.
+      setAsked((a) => ({
+        ...a,
+        start: f.start - (e.clientX - f.x) / f.barPx,
+      }));
+    };
+    const stop = () => {
+      if (!from) return;
+      from = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", stop);
+      el.style.cursor = "";
+    };
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 1) return; // middle button only
+      const w = el.getBoundingClientRect().width;
+      const bars = atRef.current.bars;
+      if (w <= 0 || bars <= 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      from = { x: e.clientX, start: atRef.current.start, barPx: w / bars };
+      el.style.cursor = "grabbing";
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", stop);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    el.addEventListener("pointerdown", onDown, { capture: true });
+    el.addEventListener("mousedown", onMouseDown, { capture: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown, { capture: true });
+      el.removeEventListener("mousedown", onMouseDown, { capture: true });
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", stop);
+      el.style.cursor = "";
+    };
+  }, [rolling, wf]);
 
   /**
    * Two fingers on the wave, where there is no wheel at all — the same gesture and the same

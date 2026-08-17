@@ -1,9 +1,9 @@
 ﻿// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip. A clip that states a window
-// (`from`/`to`) is CAGED to it: the canvas spans the window and what is outside is not drawn;
-// without one it opens zoomed to fit its notes and the canvas runs to the placed extent
+// (`from`/`to`) is FRAMED on it with a margin either side, the canvas still spanning the whole
+// sequence: what is outside sounds in no pass, so it is drawn dimmed and cannot be edited
 // (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note (press = pitch + start,
-// release = end) via `sequence note new`; a pinch zooms time, a plain wheel and a middle-drag
-// pan. Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
+// release = end) via `sequence note new`; a wheel zooms time and a middle-drag pans.
+// Drawn by the Editor bottom panel and, when a clip is clicked, where the graph is (ClipView).
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
@@ -148,11 +148,26 @@ export function PianoRoll({
   const fitHiK = fit.hiKey;
   const fitBeatLo = fit.loBeat;
 
-  // Only what the window contains is drawn. A note over the edge is kept and CUT there — the lane
-  // clips it — so material half-in still reads as present; one wholly outside does not exist here.
+  // Everything the canvas spans is drawn. A note over an edge is kept and CUT there — the lane
+  // clips it — so material half-in still reads as present.
   const visNotes = notes.filter(
     (n) => n.time < origin + canvasBeats && n.time + n.duration > origin,
   );
+  /**
+   * The window THIS EVENT plays, and the one question every edit here asks.
+   *
+   * The same split the audio clip panel draws: the canvas is everywhere the wheel may roam, `act`
+   * is the slice being worked on. A note outside it does not sound — the engine plays the window —
+   * so it is drawn dimmed, as context, and refused as a target. Null for a clip that states no
+   * window, where the whole sequence IS the event.
+   */
+  const act = loop ? { from: loop.from, to: loop.to } : null;
+  const inAct = (beat: number) =>
+    !act || (beat >= act.from - 1e-6 && beat <= act.to + 1e-6);
+  // A note belongs to the event when it SOUNDS in it — the same overlap test the compiler uses,
+  // not "starts inside", or a note held across the window's start would read as somebody else's.
+  const notePlays = (n: { time: number; duration: number }) =>
+    !act || (n.time < act.to - 1e-6 && n.time + n.duration > act.from + 1e-6);
 
   // A PLACED clip stacks the ARRANGEMENT's ruler over its own: the roll is a magnified piece of
   // the song, and its header should say where in the song you are looking. A sequence FILE has
@@ -432,6 +447,11 @@ export function PianoRoll({
     // The RAW beat is what is remembered; the grid is applied where the span is read, so Ctrl
     // pressed or released mid-drag changes the whole answer rather than half of it.
     const { beat, key } = atEvent(e);
+    // Outside the event's window a new note would not sound: the engine plays the window, so it
+    // would be a note you drew, saw, and never heard. Refused rather than clamped — a note
+    // appearing at the edge instead of under the pointer is a note nobody drew there. The caret
+    // still moved, because looking is not writing.
+    if (!inAct(beat)) return;
     drag.current = { k: key, t0: beat };
     setDraft({ k: key, t0: beat, t1: beat });
     const move = (ev: PointerEvent) => {
@@ -833,9 +853,24 @@ export function PianoRoll({
                   }}
                 />
               )}
-              {/* No loop band, no repeat lines: the canvas IS the window now (rollFit cages it),
-                  so the violet layer would frame everything and mark nothing. The header still
-                  states the loop and its pass count in words. */}
+              {/* THE EVENT'S WINDOW, as ground — the span this placement plays, lit under
+                  everything with its two edges picked out. The same mark the audio clip panel
+                  draws over its wave, for the same reason and in the same grammar: the canvas
+                  roams the whole sequence, and this is what says which part of it sounds and
+                  where an edit may land.
+
+                  Colourless on purpose. This pane already spends primary on the caret, emerald on
+                  a note and violet on a loop; a fifth hue for the thing all of those sit INSIDE
+                  would compete with every one of them. */}
+              {act && (
+                <div
+                  className="pointer-events-none absolute inset-y-0 z-0 border-x border-white/50 bg-white/[0.06]"
+                  style={{
+                    left: (act.from - origin) * ppb,
+                    width: Math.max(1, (act.to - act.from) * ppb),
+                  }}
+                />
+              )}
               {visNotes.map((n, i) => {
                 const top = keyTop(n.key);
                 const h = Math.max(1, rowH - 1);
@@ -861,25 +896,41 @@ export function PianoRoll({
                     ? n.duration
                     : Math.max(MIN_NOTE_BEATS, n.duration + tDraw.dBeats)
                   : n.duration;
+                // Does this note SOUND in the event? One that does not is context: drawn, so the
+                // window can be judged against what is around it, and not a target — dragging it
+                // would edit material this placement does not play.
+                const plays = notePlays(n);
                 return (
                   <div
                     key={i}
-                    title={`${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
-                      onSetVelocity ? " — drag the white line for velocity" : ""
-                    }${
-                      onSetNoteRange
-                        ? ", the body to move, the right edge to stretch"
-                        : ""
-                    }`}
-                    onPointerDown={(e) => onNotePointerDown(e, n)}
-                    onPointerMove={(e) => onNotePointerMove(e, top)}
-                    onPointerUp={endVDrag}
-                    onLostPointerCapture={endVDrag}
+                    title={
+                      plays
+                        ? `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b · vel ${+live.toFixed(2)}${
+                            onSetVelocity
+                              ? " — drag the white line for velocity"
+                              : ""
+                          }${
+                            onSetNoteRange
+                              ? ", the body to move, the right edge to stretch"
+                              : ""
+                          }`
+                        : `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b — outside this event's window`
+                    }
+                    onPointerDown={
+                      plays ? (e) => onNotePointerDown(e, n) : undefined
+                    }
+                    onPointerMove={
+                      plays ? (e) => onNotePointerMove(e, top) : undefined
+                    }
+                    onPointerUp={plays ? endVDrag : undefined}
+                    onLostPointerCapture={plays ? endVDrag : undefined}
                     className={cn(
                       "absolute overflow-hidden rounded-[1px] touch-none",
-                      onSetNoteRange
-                        ? "cursor-grab"
-                        : onSetVelocity && "cursor-ns-resize",
+                      !plays && "pointer-events-none opacity-30",
+                      plays &&
+                        (onSetNoteRange
+                          ? "cursor-grab"
+                          : onSetVelocity && "cursor-ns-resize"),
                       // A move outranks the velocity cursor while one is happening: the pointer
                       // should say which gesture it is IN, not which it could have started.
                       dragging &&
