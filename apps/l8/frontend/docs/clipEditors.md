@@ -164,6 +164,32 @@ unit. Same threshold, so the `ArrangementRuler` over an audio clip and the wave 
 one `useHZoom`, one derived limit, and tick layers that build only the lines on screen. The roll
 passes its own scroller to both. See `timeline.md`.
 
+### Both edges of a note stretch it, as both edges of an event do
+
+`sequence note timerange` always took a new start AND a new end, so this was a gesture the command
+had been waiting for: the left edge moves the start and leaves the end, the right edge moves the
+end and leaves the start, the body moves both. One verb, three grips — the same arrangement the
+timeline's events have, in the same vocabulary (`mode: "move" | "start" | "end"`, the timeline's
+`edge`), so the two panes cannot come to mean different things.
+
+The rules are the timeline's too, and for its reasons:
+
+- **an edge may not cross the other.** The floor is `MIN_NOTE_BEATS`, a 64th — short enough to be
+  a real choice, long enough that a note dragged to nothing does not vanish from the roll;
+- **the offset is measured from the grab**, never from where the edge is now: added to the live
+  value it would be re-applied on every `pointermove` and the edge would run away from the cursor;
+- **a drag that ends where it began writes nothing.**
+
+The grips are BOXES — two six-pixel strips, one per edge — and not a hit-test on the press, which
+is what lets the cursor say where the handle is *before* you commit to the drag. They are the last
+children of the note, so on one narrower than two grips they cover the body and the right one wins
+the overlap: the timeline resolves that same collision the same way, its handles being DOM siblings
+with the right one painting last. Invisible, deliberately: the note's own edge is the mark, and a
+pair of drawn tabs on every note in a dense roll would be all you could see.
+
+`tSpan` answers where a drag has taken the note, and **the ghost and the commit both read it** —
+two copies of that arithmetic is a preview that lands somewhere else than the write.
+
 ### …and the roll's gestures land on those lines, unless Ctrl says otherwise
 
 Drawing a note, moving one and stretching one all snap to `gridUnit` — the step the ruler is
@@ -512,7 +538,7 @@ Four things worth knowing:
   tell "full" from "unstated" — which is the same distinction, drawn the same way.
 - **The LINE is the handle**, inside a grab zone five pixels either side of it — a one-pixel target
   is not one, and the same reasoning sizes the waveform's 12px slice grips. Every grip on a note is
-  a PLACE now: the line sets, the right edge stretches, the body moves. It used to be the note's
+  a PLACE now: the line sets, **either edge** stretches, the body moves. It used to be the note's
   whole box, with the DIRECTION of the first movement choosing between velocity and a move, and two
   gestures sharing one surface meant neither could be started deliberately — a move that began with
   a little vertical drift set a velocity instead, and the only way to find out was to look at what

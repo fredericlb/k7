@@ -504,12 +504,17 @@ export function PianoRoll({
   /**
    * --- drag a note's TIME RANGE ------------------------------------------------------
    *
-   * Three grips on one note, and each is a PLACE rather than a direction:
+   * Four grips on one note, and each is a PLACE rather than a direction:
    *
    * - the white line, within `VEL_PX` of it → its velocity (above);
-   * - within `EDGE_PX` of the right edge → stretch. An edge is a handle everywhere else in this
-   *   app (the waveform's slice, the timeline's event), so it is one here too;
+   * - within `EDGE_PX` of EITHER edge → stretch that end, the other staying where it is. Both
+   *   edges are handles on the timeline's events and on the waveform's slices, so both are here;
    * - anywhere else on the body → move.
+   *
+   * The RIGHT edge is tested first, and that decides a note narrower than two grips: its two zones
+   * overlap and one of them has to win. The timeline settles the same overlap the same way — its
+   * handles are DOM siblings and the right one paints last — so a narrow thing stretches from its
+   * end in both panes rather than one each.
    *
    * A note with nothing to move it (`onSetNoteRange` absent) keeps its whole box as the velocity
    * handle: there is no second gesture to tell it apart from, and a 10-pixel target for the only
@@ -526,7 +531,9 @@ export function PianoRoll({
     key: number;
     time: number; // where it starts NOW — how the command addresses it
     dur: number;
-    mode: "move" | "resize";
+    // Which end is in hand, or the whole note. The timeline's own vocabulary for the same
+    // gesture (`edge: "start" | "end"`), so the two panes cannot come to mean different things.
+    mode: "move" | "start" | "end";
     dBeats: number; // how far it has travelled, in beats
   }
   const [tDraw, setTDraw] = useState<TDrag | null>(null);
@@ -550,34 +557,40 @@ export function PianoRoll({
     return clamp(1 - y / Math.max(1, rowH - 1), 0, 1);
   };
 
+  /**
+   * A press on a note, and `grip` says WHICH of its four it landed on.
+   *
+   * Named by the element that took the press rather than hit-tested from its coordinates: each
+   * grip is its own box now — the line, the two edges — so the geometry that decides is the
+   * browser's own, and there is no second copy of it here to disagree with what the cursor
+   * showed. Absent ⇒ the body, which is the note itself.
+   */
   const onNotePointerDown = (
     e: React.PointerEvent,
     n: { key: number; time: number; duration: number; vel?: number },
-    onLine = false,
+    grip?: "line" | "start" | "end",
   ) => {
     if (e.button !== 0 || (!onSetVelocity && !onSetNoteRange)) return;
     e.preventDefault();
     e.stopPropagation(); // not a new note: this press belongs to the one already here
     e.currentTarget.setPointerCapture(e.pointerId);
     pressAt.current = { x: e.clientX, y: e.clientY };
-    // Every grip is claimed on the PRESS: a grip is a place, not a direction, so none of them
-    // waits to see which way the hand goes.
-    const right = e.currentTarget.getBoundingClientRect().right;
-    const onEdge = !!onSetNoteRange && right - e.clientX <= EDGE_PX;
+    // Claimed on the PRESS: a grip is a place, not a direction, so none of them waits to see
+    // which way the hand goes.
     const t: TDrag = {
       key: n.key,
       time: n.time,
       dur: n.duration,
-      mode: onEdge ? "resize" : "move",
+      mode: grip === "start" || grip === "end" ? grip : "move",
       dBeats: 0,
     };
     tDrag.current = t;
     const v = { key: n.key, time: n.time, vel: n.vel ?? 1, moved: false };
     vDrag.current = v;
-    // The line sets, the edge stretches, the body moves — and a note with nowhere to move to
+    // The line sets, an edge stretches, the body moves — and a note with nowhere to move to
     // keeps its body as the velocity handle rather than as a surface that does nothing.
     gesture.current =
-      onLine && onSetVelocity
+      grip === "line" && onSetVelocity
         ? "vel"
         : onSetNoteRange
           ? "time"
@@ -623,13 +636,37 @@ export function PianoRoll({
   /**
    * Commit whichever gesture this was.
    *
-   * A resize keeps the start and moves the end; a move slides both and keeps the length. Both go
-   * through ONE command, because on the roll they are one gesture with two grips — see
-   * `sequence note timerange`.
+   * A move slides both ends and keeps the length; an edge moves that end and leaves the other
+   * where it is. All three go through ONE command, because on the roll they are one gesture with
+   * three grips — see `sequence note timerange`.
+   *
+   * An edge may not cross the other, which is the timeline's rule and the same arithmetic: the
+   * floor is `MIN_NOTE_BEATS`, short enough to be a real choice and long enough that a note left
+   * behind still sounds. Measured from where the note WAS when grabbed, never from where it is
+   * now — `dBeats` is an absolute offset from the grab point.
    *
    * A move is clamped at zero rather than refused: dragging a note off the front of the sequence
    * means "to the beginning", and a gesture that silently did nothing would read as a dead roll.
    */
+  /** Where a drag has taken the note, whichever grip it is on. One answer, read by the PREVIEW
+   *  and by the commit — two copies of it would be a ghost that lands somewhere else. */
+  const tSpan = (t: TDrag): { start: number; end: number } => {
+    if (t.mode === "move") {
+      const start = Math.max(0, t.time + t.dBeats);
+      return { start, end: start + t.dur };
+    }
+    const end = t.time + t.dur;
+    return t.mode === "start"
+      ? {
+          start: Math.max(0, Math.min(end - MIN_NOTE_BEATS, t.time + t.dBeats)),
+          end,
+        }
+      : {
+          start: t.time,
+          end: Math.max(t.time + MIN_NOTE_BEATS, end + t.dBeats),
+        };
+  };
+
   const endVDrag = () => {
     const g = gesture.current;
     const v = vDrag.current;
@@ -642,11 +679,7 @@ export function PianoRoll({
     setTDraw(null);
     if (g === "vel" && v?.moved) onSetVelocity?.(v.key, v.time, v.vel);
     if (g === "time" && t && Math.abs(t.dBeats) > 1e-6) {
-      const start = t.mode === "move" ? Math.max(0, t.time + t.dBeats) : t.time;
-      const end =
-        t.mode === "move"
-          ? start + t.dur
-          : Math.max(t.time + MIN_NOTE_BEATS, t.time + t.dur + t.dBeats);
+      const { start, end } = tSpan(t);
       onSetNoteRange?.(t.key, t.time, start, end);
     }
   };
@@ -887,15 +920,11 @@ export function PianoRoll({
                 // land on a different note than the write will.
                 const dragging =
                   !!tDraw && tDraw.key === n.key && tDraw.time === n.time;
-                const drawStart =
-                  dragging && tDraw.mode === "move"
-                    ? Math.max(0, n.time + tDraw.dBeats)
-                    : n.time;
-                const drawDur = dragging
-                  ? tDraw.mode === "move"
-                    ? n.duration
-                    : Math.max(MIN_NOTE_BEATS, n.duration + tDraw.dBeats)
-                  : n.duration;
+                // The SAME arithmetic the commit runs (`tSpan`), so the ghost lands exactly where
+                // the write will — an edge drawn from a second copy of this would drift from it.
+                const span = dragging && tDraw ? tSpan(tDraw) : null;
+                const drawStart = span ? span.start : n.time;
+                const drawDur = span ? span.end - span.start : n.duration;
                 // Does this note SOUND in the event? One that does not is context: drawn, so the
                 // window can be judged against what is around it, and not a target — dragging it
                 // would edit material this placement does not play.
@@ -911,7 +940,7 @@ export function PianoRoll({
                               : ""
                           }${
                             onSetNoteRange
-                              ? ", the body to move, the right edge to stretch"
+                              ? ", the body to move, either edge to stretch"
                               : ""
                           }`
                         : `${noteName(n.key)} · ${n.time}–${n.time + n.duration}b — outside this event's window`
@@ -934,9 +963,9 @@ export function PianoRoll({
                       // A move outranks the velocity cursor while one is happening: the pointer
                       // should say which gesture it is IN, not which it could have started.
                       dragging &&
-                        (tDraw?.mode === "resize"
-                          ? "cursor-ew-resize"
-                          : "cursor-grabbing"),
+                        (tDraw?.mode === "move"
+                          ? "cursor-grabbing"
+                          : "cursor-ew-resize"),
                     )}
                     style={{
                       top,
@@ -979,7 +1008,7 @@ export function PianoRoll({
                         band around it. */}
                     {h >= 4 && (
                       <div
-                        onPointerDown={(e) => onNotePointerDown(e, n, true)}
+                        onPointerDown={(e) => onNotePointerDown(e, n, "line")}
                         onPointerMove={(e) => onNotePointerMove(e, top)}
                         onPointerUp={endVDrag}
                         onLostPointerCapture={endVDrag}
@@ -997,6 +1026,38 @@ export function PianoRoll({
                           style={{ top: VEL_PX }}
                         />
                       </div>
+                    )}
+
+                    {/* The two STRETCH grips, one per edge — the timeline's arrangement, and the
+                        reason a note is resized the same way an event is. Boxes rather than a
+                        hit-test on the press: the cursor then says where the handle IS before you
+                        commit to the drag, which a coordinate test cannot do.
+
+                        LAST in the note, so on a narrow one they paint over the body and the right
+                        grip over the left — the same overlap the timeline resolves the same way.
+                        Invisible: the note's own edge is the mark, and a pair of drawn tabs on
+                        every note in a dense roll would be all you could see. */}
+                    {onSetNoteRange && plays && (
+                      <>
+                        <div
+                          onPointerDown={(e) =>
+                            onNotePointerDown(e, n, "start")
+                          }
+                          onPointerMove={(e) => onNotePointerMove(e, top)}
+                          onPointerUp={endVDrag}
+                          onLostPointerCapture={endVDrag}
+                          className="absolute inset-y-0 left-0 cursor-ew-resize"
+                          style={{ width: EDGE_PX }}
+                        />
+                        <div
+                          onPointerDown={(e) => onNotePointerDown(e, n, "end")}
+                          onPointerMove={(e) => onNotePointerMove(e, top)}
+                          onPointerUp={endVDrag}
+                          onLostPointerCapture={endVDrag}
+                          className="absolute inset-y-0 right-0 cursor-ew-resize"
+                          style={{ width: EDGE_PX }}
+                        />
+                      </>
                     )}
                   </div>
                 );
