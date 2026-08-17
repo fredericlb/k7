@@ -38,3 +38,23 @@ export function laneGains(
     }),
   );
 }
+
+/**
+ * Does what should sound match what the MIXDOWN already sounds like?
+ *
+ * The crossing rule, and the one that was wrong. A snapshot's mixdown is rendered FROM the
+ * document, so a lane the document itself mutes is already absent from it — there is nothing to
+ * do, and the mixdown is the one file whose timing cannot be wrong because it is one file.
+ * Reading "this lane is silent" as "the visitor silenced it" put every project that mutes
+ * anything onto a set of unsynchronised stems before a single click, which is the loudest
+ * possible way to be wrong.
+ *
+ * Compared over the LANES WE HAVE, not over the mixdown's keys: a lane the render knew nothing
+ * about defaults to sounding, which is what an unmentioned lane does in a mix.
+ */
+export function matchesMixdown(
+  want: Record<string, number>,
+  mixdown: Record<string, number>,
+): boolean {
+  return Object.keys(want).every((id) => want[id] === (mixdown[id] ?? 1));
+}

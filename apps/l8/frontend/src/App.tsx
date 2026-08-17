@@ -1075,11 +1075,27 @@ export default function App({
    * The resolution itself is `laneGains`, pure and tested: solo is a fact about the WHOLE set —
    * one soloed lane silences every other — so no lane's answer follows from its own two flags,
    * and that is exactly the kind of rule that should not live inside an effect.
+   *
+   * Run TWICE, and the second run is what tells the player whether anything actually changed:
+   * the mixdown was rendered from the document, so a lane the document mutes is already absent
+   * from it. Only a difference between the two is the visitor asking for something the render
+   * does not already say.
    */
   const setLaneGains = player.setLaneGains;
   useEffect(() => {
-    if (frozen) setLaneGains(laneGains(trackControls));
-  }, [frozen, trackControls, setLaneGains]);
+    if (!frozen) return;
+    setLaneGains(
+      laneGains(trackControls),
+      laneGains(
+        Object.fromEntries(
+          docTracks.map((t) => [
+            t.id,
+            { mute: t.mute ? 1 : 0, solo: t.solo ? 1 : 0 },
+          ]),
+        ),
+      ),
+    );
+  }, [frozen, trackControls, docTracks, setLaneGains]);
 
   // Web MIDI capture, driven by record+play+midiArmed.
   useMidiRecording({

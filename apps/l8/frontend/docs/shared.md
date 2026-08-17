@@ -139,14 +139,41 @@ Deux endroits attendaient quand même un moteur, et rendaient le transport inuti
 soit le côté qui les remplit. Aucun de ces morceaux n'apprend qu'il n'y a pas de moteur.
 
 **Un `<audio>` par fichier, et non un tampon décodé.** Le nombre décide : douze stems de quatre
-minutes, c'est ~58 Mo de mp3 à récupérer et **~340 Mo décodés**, ce qu'un téléphone n'a pas. Un
-élément média diffuse, fait ses requêtes Range — exactement ce que `streamFile` sert déjà — et
-porte le `currentTime` que ce hook publie comme tête de lecture.
+minutes décodent en plus d'un gigaoctet de float32, ce qu'aucun téléphone n'a. Un élément média
+diffuse, fait ses requêtes Range — exactement ce que `streamFile` sert déjà — et porte le
+`currentTime` que ce hook publie comme tête de lecture.
 
-Ce que ça coûte : plusieurs éléments ne partagent pas d'horloge. On ne le leur demande donc pas —
-**l'un d'eux EST l'horloge** et les autres sont remis dessus dès qu'ils dérivent, correction
-inaudible à 80 ms. Si ça s'entendait quand même, on peut décoder à la demande les seuls stems
-qu'on démute, sans rien défaire de ce qui est là.
+### Ce que ça coûte, et les trois règles qui le paient
+
+Un élément média **ne se planifie pas**. `AudioBufferSourceNode.start(when)` est précis à
+l'échantillon, `el.play()` veut dire « bientôt » : plusieurs éléments lancés dans le même tick
+démarrent chacun quand il a fini de tamponner, à des centaines de millisecondes d'écart. Sur un
+jeu de stems ce n'est pas de la dérive, c'est une cacophonie — et c'est exactement ce qu'on a
+entendu au premier essai.
+
+1. **On ne joue que le groupe qui SONNE.** Le mixdown, ou les stems, jamais les deux. Treize flux
+   simultanés pour quelqu'un qui ne coupe jamais rien, ce serait la bande passante de tout
+   l'instantané pour entendre un fichier.
+2. **Rien ne démarre avant que chaque voix du groupe puisse jouer**, depuis la même position. Un
+   stem lent retarde le groupe de son propre tamponnage au lieu d'arriver en retard pour toujours.
+   Un compteur de génération annule un démarrage dépassé par un stop, un seek ou la traversée.
+3. **La dérive se corrige au `playbackRate`, pas au `currentTime`.** Écrire `currentTime` sur un
+   élément qui joue le fait re-tamponner, donc il décroche davantage, donc la correction suivante
+   est plus grande : le bégaiement s'auto-entretient. Un coup de pouce à ±4 % est inaudible et
+   referme l'écart en une seconde ou deux. Le saut dur reste pour le seul cas qu'aucun taux
+   survivable ne rattrape : une demi-seconde d'écart, qui est perdu et non en retard.
+
+### Traverser vers les stems : contre le MIXDOWN, jamais contre le silence
+
+Le mixdown est rendu **à partir du document**. Une piste que le document coupe est donc déjà
+absente du fichier. Lire « cette piste est muette » comme « le visiteur l'a coupée » faisait
+passer aux stems tout projet qui coupe quoi que ce soit, **avant le moindre clic** — la façon la
+plus bruyante possible de se tromper, puisque le mixdown est le seul fichier dont le calage ne
+peut pas être faux : il est seul.
+
+`matchesMixdown` est cette règle, pure et testée : `App` calcule `laneGains` **deux fois**, une
+fois sur les contrôles à l'écran et une fois sur le document, et seule une différence est le
+visiteur qui demande quelque chose que le rendu ne dit pas déjà.
 
 Le graphe audio se construit au **premier verbe de transport**, jamais au montage : un
 `AudioContext` fabriqué hors d'un geste utilisateur démarre suspendu, et des éléments en
