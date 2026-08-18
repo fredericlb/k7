@@ -525,6 +525,40 @@ int dumpPluginParamsExternal(const std::string& format, const std::string& ident
 // `scripts/gen-builtin-params.mjs` turns its output into the table @studio/song ships.
 int dumpBuiltinParams();
 
+/**
+ * One parameter of a plugin TYPE — what it is called, what it spans, and its named settings.
+ *
+ * A plain struct, like PluginInfo beside it and for the same reason: the server serialises this
+ * and must not see JUCE. The same three facts `ParamRef` carries, minus the getters — nothing is
+ * instantiated on the other side of this boundary, so there is nothing to get.
+ */
+struct PluginParamInfo {
+    std::string name;
+    double min = 0.0, max = 1.0;
+    bool hasDefault = false;
+    double def = 0.0;
+    /** A discrete parameter's settings in order, each with the VALUE that selects it. Empty for
+     *  a continuous one; the mapping is not always index/(n-1), so it travels rather than being
+     *  recomputed. */
+    std::vector<std::pair<std::string, double>> states;
+};
+
+/**
+ * Every parameter of the plugin `format`/`identifier` names — an EXTERNAL one, by instantiating
+ * it and asking.
+ *
+ * The built-ins are answered from a table generated once (`--dump-builtin-params`, committed);
+ * an installed plugin cannot be, because which ones exist is a fact about this machine. The scan
+ * cache carries a plugin's name, format and category and no parameters, so this is the only way
+ * to learn them — the plugin's constructor is where they are registered.
+ *
+ * Runs on an OFFLINE engine of its own: the live one holds the audio device, and this must not
+ * touch it. Empty when the plugin cannot be resolved or created, which the caller reports —
+ * a missing plugin is a fact about the machine, not an error in the request.
+ */
+std::vector<PluginParamInfo> pluginParamsOf(const std::string& format,
+                                            const std::string& identifier);
+
 // Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
 // ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.
 // Wired from `--render <doc.json|-> --out <dir> [--stems]`.

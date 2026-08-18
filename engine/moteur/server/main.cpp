@@ -1000,6 +1000,48 @@ int main(int argc, char** argv) {
                         reply(cached);
                     }
                 }
+            } else if (type == "list-plugin-params") {
+                // Every parameter of an installed plugin TYPE, by instantiating it and asking.
+                //
+                // The built-ins are answered from a table generated once and committed; an installed plugin cannot
+                // be, because which ones exist is a fact about THIS machine. The scan cache carries a plugin's name
+                // and format and no parameters, so nothing short of a live instance can list them.
+                //
+                // DETACHED, like a scan and for the same reason: loading a plugin binary is the slowest thing asked
+                // of this port, some of them take seconds, and holding the message thread would stall the transport
+                // of everything else running on this engine. The reply is broadcast, so a connection that closed
+                // meanwhile costs nothing.
+                const std::string fmt = j.value("format", std::string{});
+                const std::string id = j.value("id", std::string{});
+                if (fmt.empty() || id.empty()) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", "list-plugin-params needs a format and an id"}}
+                                .dump());
+                } else {
+                    std::thread([&broadcast, fmt, id] {
+                        json arr = json::array();
+                        for (const auto& p : studio::pluginParamsOf(fmt, id)) {
+                            json one{{"name", p.name}, {"min", p.min}, {"max", p.max}};
+                            if (p.hasDefault) one["def"] = p.def;
+                            if (!p.states.empty()) {
+                                json states = json::array();
+                                for (const auto& [label, value] : p.states)
+                                    states.push_back({{"label", label}, {"value", value}});
+                                one["states"] = states;
+                            }
+                            arr.push_back(one);
+                        }
+                        std::cerr << "[plugin-param-list] " << id << ": " << arr.size() << " parameters\n";
+                        // `plugin-param-LIST`, because `plugin-params` is already the reply
+                        // carrying a loaded INSTANCE's current values. What a plugin TYPE has and
+                        // what one instance is set to are different questions, and one name for
+                        // both would feed a list into the client's live-value path.
+                        broadcast(json{{"type", "plugin-param-list"},
+                                       {"format", fmt},
+                                       {"id", id},
+                                       {"params", arr}});
+                    }).detach();
+                }
             } else if (type == "list-edit-plugins") {
                 // Snapshot the plugin instances in EVERY session for the tray's submenu, each row naming the
                 // session it is in. ENGINE-GLOBAL like list-sessions, and for the same reason: the asker is the

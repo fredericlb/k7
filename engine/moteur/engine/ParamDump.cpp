@@ -132,6 +132,74 @@ int dumpPluginParams(const std::string& type) {
     return 0;
 }
 
+namespace {
+
+/**
+ * The PluginDescription a format and an identifier name, or false.
+ *
+ * No plugin CODE runs here — `findAllTypesForFile` reads the already-scanned type info off the
+ * binary. Factored out because two callers resolve the same way and only one of them then wants
+ * the plugin's state: the param query below simply creates it and asks what it has.
+ */
+bool describeExternal(const std::string& formatName, const std::string& identifier,
+                      juce::PluginDescription& desc) {
+    juce::AudioPluginFormatManager formats;
+    formats.addDefaultFormats();
+    for (auto* f : formats.getFormats()) {
+        if (f->getName() != juce::String(formatName)) continue;
+        juce::OwnedArray<juce::PluginDescription> types;
+        f->findAllTypesForFile(types, juce::String(identifier));
+        if (!types.isEmpty()) {
+            desc = *types[0];
+            return true;
+        }
+        break;
+    }
+    return false;
+}
+
+}  // namespace
+
+std::vector<PluginParamInfo> pluginParamsOf(const std::string& formatName,
+                                            const std::string& identifier) {
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    // An engine of its OWN, opening no device. The live host holds the interface, and an ASIO
+    // driver is single-client — a query that borrowed it would wedge the thing making sound.
+    auto enginePtr = makeOfflineEngine();
+    auto& engine = *enginePtr;
+    registerBuiltInPlugins(engine);
+    auto edit = te::Edit::createSingleTrackEdit(engine);
+
+    juce::PluginDescription desc;
+    if (!describeExternal(formatName, identifier, desc)) {
+        std::cerr << "[plugin-params] no " << formatName << " plugin at '" << identifier << "'\n";
+        return {};
+    }
+    auto plugin = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    if (plugin == nullptr) {
+        std::cerr << "[plugin-params] could not create '" << identifier << "'\n";
+        return {};
+    }
+    std::vector<PluginParamInfo> out;
+    // `withStates` ON, as the built-in dump has it: a discrete parameter's named settings are
+    // what make a dropdown instead of a slider, and this runs once per ASK rather than per frame.
+    for (const auto& p : pluginParams(*plugin, true)) {
+        PluginParamInfo info;
+        info.name = p.name.toStdString();
+        info.min = p.min;
+        info.max = p.max;
+        info.hasDefault = p.def.has_value();
+        info.def = p.def.value_or(0.0);
+        for (const auto& [label, value] : p.states)
+            info.states.emplace_back(label.toStdString(), value);
+        out.push_back(std::move(info));
+    }
+    // Dropped before the edit goes: an external plugin holds a binary open, and the message queue
+    // is drained by the caller's own teardown.
+    plugin->deleteFromParent();
+    return out;
+}
+
 int dumpPluginParamsExternal(const std::string& formatName, const std::string& identifier,
                              const std::string& stateFile) {
     juce::ScopedJuceInitialiser_GUI juceInit;
@@ -141,19 +209,8 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     registerBuiltInPlugins(engine);
     auto edit = te::Edit::createSingleTrackEdit(engine);
 
-    // Resolve a PluginDescription via its format — no plugin code runs here, only the already-scanned type info.
-    juce::AudioPluginFormatManager formats;
-    formats.addDefaultFormats();
     juce::PluginDescription desc;
-    bool found = false;
-    for (auto* f : formats.getFormats()) {
-        if (f->getName() != juce::String(formatName)) continue;
-        juce::OwnedArray<juce::PluginDescription> types;
-        f->findAllTypesForFile(types, juce::String(identifier));
-        if (!types.isEmpty()) { desc = *types[0]; found = true; }
-        break;
-    }
-    if (!found) {
+    if (!describeExternal(formatName, identifier, desc)) {
         std::cerr << "[dump-params-ext] no " << formatName << " plugin at '" << identifier << "'\n";
         emitParamsJson("{}", false);
         return 2;

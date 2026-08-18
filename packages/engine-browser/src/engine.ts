@@ -105,6 +105,24 @@ type BusyCb = (busy: boolean) => void;
 type SessionsCb = (sessions: EngineSessionInfo[]) => void;
 type DevicesCb = (devices: EngineAudioDevice[]) => void;
 type PluginListCb = (plugins: EnginePluginInfo[]) => void;
+/**
+ * One parameter of an installed plugin TYPE — what it is called, what it spans, its settings.
+ *
+ * The same three facts `@studio/song`'s `BuiltinParam` carries, and deliberately the same shape:
+ * a panel is generated from either, and a second spelling would mean two generators.
+ */
+export interface EnginePluginParam {
+  name: string;
+  min: number;
+  max: number;
+  def?: number;
+  states?: { label: string; value: number }[];
+}
+type PluginParamListCb = (p: {
+  format: string;
+  id: string;
+  params: EnginePluginParam[];
+}) => void;
 type EditPluginsCb = (plugins: EngineEditPlugin[]) => void;
 /** An engine-side problem: `subject` is what it is about (a plugin id), "" when general. */
 export interface EngineWarning {
@@ -153,7 +171,10 @@ interface EngineMessage {
   recordEnabled?: boolean;
   waveform?: Record<string, WaveformEnvelope[]>;
   id?: string;
-  params?: Record<string, number>;
+  // Two replies carry `params`, and they are different things — the same arrangement `devices`
+  // below is in, and told apart the same way, by `type` which the dispatch has already read.
+  // `plugin-param-list` (a plugin TYPE's list) is an array; the live feeds are name -> value.
+  params?: Record<string, number> | EnginePluginParam[];
   module?: string;
   presets?: PresetInfo[];
   meta?: Record<string, ParamMeta>;
@@ -170,6 +191,10 @@ interface EngineMessage {
   // which the dispatch reads first, so one field is enough and a union would be ceremony.
   devices?: EngineAudioDevice[] | EngineInputDevice[];
   plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
+  // 'plugin-params': which plugin was asked about, echoed back beside the `id` above. The ask
+  // takes seconds — a plugin binary has to load — so a caller may have moved on, and this is
+  // what a late reply is matched against rather than being trusted to be the one still wanted.
+  format?: string;
 }
 
 export class EngineClient {
@@ -188,6 +213,7 @@ export class EngineClient {
   private sessionsCbs = new Set<SessionsCb>();
   private devicesCbs = new Set<DevicesCb>();
   private pluginListCbs = new Set<PluginListCb>();
+  private pluginParamListCbs = new Set<PluginParamListCb>();
   private editPluginsCbs = new Set<EditPluginsCb>();
   // Raw audio frames, handed on undecoded: this client's job is to route bytes, and
   // @studio/engine-browser/stream is what knows how to read them.
@@ -433,10 +459,14 @@ export class EngineClient {
       });
     else if (m.type === "plugin-params" && m.id)
       for (const cb of this.paramsCbs)
-        cb({ id: m.id, params: m.params ?? {}, meta: m.meta ?? undefined });
+        cb({
+          id: m.id,
+          params: (m.params ?? {}) as Record<string, number>,
+          meta: m.meta ?? undefined,
+        });
     else if (m.type === "plugin-params-live" && m.id)
       for (const cb of this.liveParamsCbs)
-        cb({ id: m.id, params: m.params ?? {} });
+        cb({ id: m.id, params: (m.params ?? {}) as Record<string, number> });
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
@@ -462,6 +492,21 @@ export class EngineClient {
     else if (m.type === "plugins")
       for (const cb of this.pluginListCbs)
         cb((m.plugins ?? []) as EnginePluginInfo[]);
+    else if (m.type === "plugin-param-list")
+      // `plugin-param-LIST`, not `plugin-params`: that name was already taken, by the reply
+      // carrying a loaded INSTANCE's current values (just below). The two are different
+      // questions — what a plugin type HAS versus what this one is set to — and sharing a name
+      // would have fed a type's list into the live-value path, which reads it as a map.
+      //
+      // The format and the id ride back with the answer, because the ask is slow — loading a
+      // plugin binary takes seconds — and a caller may have moved on or asked about another.
+      // Matching on them is what stops a late reply from filling in the wrong panel.
+      for (const cb of this.pluginParamListCbs)
+        cb({
+          format: m.format ?? "",
+          id: m.id ?? "",
+          params: (m.params ?? []) as EnginePluginParam[],
+        });
     else if (m.type === "edit-plugins")
       for (const cb of this.editPluginsCbs)
         cb((m.plugins ?? []) as EngineEditPlugin[]);
@@ -577,6 +622,21 @@ export class EngineClient {
   // The CACHED plugin catalogue (no scanning). Reply arrives on onPlugins.
   listPlugins(): void {
     this.send({ type: "list-plugins" });
+  }
+  /**
+   * Every parameter of one INSTALLED plugin, by `format` and the `id` the catalogue reports —
+   * for it, the id is the file. Reply arrives on `onPluginParamList`.
+   *
+   * SLOW, and the reason is the answer: the engine has to load the plugin binary to ask what it
+   * registered, which for a big instrument is seconds. It does that on a thread of its own and
+   * on an engine that opens no device, so nothing playing is disturbed — but a caller should
+   * expect a wait and say so on screen rather than looking broken.
+   *
+   * Only for EXTERNALS. What the engine ships is answered from `@studio/song`'s generated table
+   * with nothing running at all, which is both faster and available with no engine at hand.
+   */
+  listPluginParams(format: string, id: string): void {
+    this.send({ type: "list-plugin-params", format, id });
   }
   // An INCREMENTAL rescan — the engine's exts.json cache is on its machine, so the full
   // rescan (cache deleted first) stays with the supervisor. See engine-host/engineQueries.
@@ -710,6 +770,10 @@ export class EngineClient {
   onPlugins(cb: PluginListCb): () => void {
     this.pluginListCbs.add(cb);
     return () => this.pluginListCbs.delete(cb);
+  }
+  onPluginParamList(cb: PluginParamListCb): () => void {
+    this.pluginParamListCbs.add(cb);
+    return () => this.pluginParamListCbs.delete(cb);
   }
   onEditPlugins(cb: EditPluginsCb): () => void {
     this.editPluginsCbs.add(cb);
