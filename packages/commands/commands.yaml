@@ -498,6 +498,23 @@
   surfaces: [cli]
   args: [{ name: name, hint: "the curve's id — it is the filename, so letters, digits, '_' and '-'" }]
 
+# --- surfaces (the special views a project asks for) ---
+# A project draws nothing it has not declared: the arrangement, the frame and the desk are all
+# files in surfaces/. There is no layout argument — every type is drawn in exactly one, and the
+# schema refuses the other, so it is derived. See packages/song/docs/surfaces.md.
+- command: "surface new"
+  sid: surface.create
+  readable:
+    en: "Add a surface — the arrangement, the frame or the desk"
+    fr: "Ajouter une surface — l'arrangement, l'image ou les platines"
+  help: "declare a special view (e.g. surface new timeline, or surface new turntables desk)"
+  surfaces: [cli]
+  args:
+    [
+      { name: type, complete: surfaceTypes },
+      { name: id, hint: "the surface's id — the filename, and what /surface/<id> says. Defaults to the type." },
+    ]
+
 # --- markers (timeline cue points) ---
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
 # the name is the rest of the line, so it may contain spaces. Stored in project.cue's

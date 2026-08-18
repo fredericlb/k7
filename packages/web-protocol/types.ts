@@ -468,6 +468,9 @@ export type ArgProvider =
   // the builder rather than by a verb. See packages/song/docs/nodes.md.
   | "nodes"
   | "sequenceFiles"
+  // The kinds of SURFACE the editor can draw — a closed set of words, not something read off the
+  // project: the file being named is the one the command is about to create.
+  | "surfaceTypes"
   | "tracks";
 export interface CommandArg {
   name: string;

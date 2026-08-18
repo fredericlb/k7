@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { alternativesOf } from "@studio/song/alternatives";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { parsePosition } from "@studio/song/timecode";
+import { SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
 import { parse as parseYaml } from "yaml";
 import {
   type CommandHost,
@@ -146,6 +147,11 @@ const PROVIDERS = {
   // The chains a bounce can run: this project's, then the médiathèque's under `@st0/`.
   // Both in one list because the command takes either — see processChain.ts.
   chains: (h) => chainNames(h.songPath, h.project()),
+  // The kinds of surface there are, from the schema's own enum rather than retyped: a fourth one
+  // has to be added there anyway (it is what the parser accepts), and a list here that had to be
+  // kept in step would offer a type the file would then be refused for. Takes no host — the set
+  // is the editor's, not the project's, which is exactly why `type` is an enum at all.
+  surfaceTypes: () => [...SURFACE_TYPES],
   // Sequence FILE ids, read off disk: a sequence's file id can differ from the midi-clip name collectSequences reports.
   sequenceFiles: (h) => {
     try {
@@ -289,6 +295,9 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
+  // A closed set of words the EDITOR has components for, which is what `choice` colours. Not
+  // "file": the surface's file does not exist yet — naming its type is what creates it.
+  surfaceTypes: "choice",
 };
 
 export function argClass(a: ArgSpec): ArgClass {
@@ -315,6 +324,8 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   markerNames: "a marker of this project",
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
+  surfaceTypes:
+    "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",
 };
 
 // What a scalar class accepts, for arguments with no provider and no hint — nothing else in the palette says it.

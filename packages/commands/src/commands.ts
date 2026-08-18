@@ -78,6 +78,7 @@ import {
   setModuleParam,
   unlinkChainNode,
 } from "@studio/song/projectEdit";
+import { createSurfaceFile } from "@studio/song/surfaces";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -117,6 +118,7 @@ import {
   setNoteVelocity,
   splitNote,
 } from "@studio/song/yaml/sequenceFile";
+import { isSurfaceType } from "@studio/song/yaml/surfaceSchema";
 import {
   applyAlternative,
   cancelAlternative,
@@ -2607,6 +2609,39 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`created ${rel}`]);
     } catch (e) {
       h.log([`curve new: ${(e as Error).message}`]);
+    }
+  },
+
+  /**
+   * surface new <type> [id] — declare a special view: the arrangement, the frame, or the desk.
+   *
+   * A project draws nothing it has not asked for, and until now the only way to ask was to write
+   * the file by hand — which the two `surfaceIssues` warnings tell you to do, naming a file you
+   * then have to create in the editor of the project that is missing it.
+   *
+   * NO layout argument. `SURFACE_LAYOUTS_BY_TYPE` already says which one each type is drawn in
+   * and every type has exactly one, so the only thing an argument could add is a way to be
+   * refused by the schema a moment later. See createSurfaceFile.
+   */
+  "surface.create": async (a, h) => {
+    const usage =
+      "usage: surface new <turntables|timeline|viewport> [id]  (e.g. surface new turntables desk)";
+    const [type, id] = a.trim().split(/\s+/);
+    // Narrowed here rather than cast: the word came off a command line, and `isSurfaceType` is
+    // the schema's own answer to "is this one of them" — so the list in the message cannot drift
+    // from the list the parser accepts.
+    if (!type || !isSurfaceType(type)) {
+      h.log([type ? `unknown surface type '${type}'` : usage, usage]);
+      return;
+    }
+    try {
+      const rel = createSurfaceFile(h.songPath, type, id || type);
+      // The surface list is what decides the panes and the header's buttons, so the shell has to
+      // re-read before any of it appears — this is the one command whose effect IS the layout.
+      h.reload();
+      h.log([`created ${rel}`]);
+    } catch (e) {
+      h.log([`surface new: ${(e as Error).message}`, usage]);
     }
   },
 

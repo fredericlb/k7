@@ -27,6 +27,32 @@ mapping:
 
 The id is the **filename**, as in every flat entity folder here.
 
+## Adding one
+
+```
+surface new timeline           → surfaces/timeline.yaml
+surface new viewport           → surfaces/viewport.yaml
+surface new turntables desk    → surfaces/desk.yaml
+```
+
+**There is no `layout` argument**, and that is the point: the table below already says which one
+each type is drawn in, and every type has exactly one — so an argument could only ever be right,
+or be refused by the schema a moment later. Deriving it means `createSurfaceFile` writes a file
+the parser accepts by construction, which is the whole job of a scaffold.
+
+The id defaults to the type. It stays an argument because it is what the header button and
+`/surface/<id>` say, and `desk` reads better than `turntables` on a set.
+
+Two things it refuses. The file already existing is the ordinary one. The other is **a second
+`split` surface of the same type**: only the first is drawn — `App.tsx` takes it and the pane ring
+has one slot — so a second is a file that changes nothing and shows nothing. A `view` surface is
+not refused; each gets its own header button, so several are a real arrangement.
+
+It writes **no `mapping:`**. Which components a type needs is the surface's own business —
+`@studio/song` does not know what a `crossfade` is (see below) — so a skeleton written here would
+be one package guessing at another's vocabulary, stale the day the desk grew a knob. An unmapped
+desk says so on the desk, next to the knob that does nothing.
+
 ## The three fields
 
 | field | what it says | validated |

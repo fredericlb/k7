@@ -3,7 +3,7 @@
 // (yaml/surfaceFile.ts), so an app can read one out of the file service without this.
 // Full rationale: docs/surfaces.md.
 
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Diagnostic } from "./loader";
 import { projectModeOf } from "./projectMode";
@@ -15,6 +15,11 @@ import {
   parseSurface,
   SURFACES_DIR,
 } from "./yaml/surfaceFile";
+import {
+  SURFACE_LAYOUTS_BY_TYPE,
+  SURFACE_TYPES,
+  type SurfaceType,
+} from "./yaml/surfaceSchema";
 
 // The shapes are the WIRE's, declared beside the browser-safe parser and imported back here, so
 // the side that walks the disk and the side that receives the payload cannot drift.
@@ -67,6 +72,66 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
 }
 
 /**
+ * Scaffold `surfaces/<id>.yaml` and return its project-relative path.
+ *
+ * **The layout is DERIVED, never asked for.** `SURFACE_LAYOUTS_BY_TYPE` already says which one
+ * each type can be drawn in, and every type has exactly one today — so a `layout` argument could
+ * only ever be right or refused by the schema a moment later. Deriving it means the file this
+ * writes is one the parser accepts by construction, which is the whole job of a scaffold.
+ *
+ * The id defaults to the type, because that is what a project usually has one of. It stays an
+ * argument for the case the docs use — `surfaces/desk.yaml` reads better than `turntables.yaml`
+ * on a set, and the id is what the header button and `/surface/<id>` say.
+ *
+ * Two refusals, and they are different:
+ *
+ * - the FILE exists — the ordinary "that name is taken", as every other scaffold here answers;
+ * - a `split` surface of this type is already declared. Only one can be drawn: `App.tsx` takes
+ *   the FIRST of each and the pane ring has one slot for it, so a second is a file that changes
+ *   nothing and shows nothing — the shape of thing that gets edited for an hour before anyone
+ *   works out it was never on screen. A `view` surface is not refused: each gets its own header
+ *   button, so several are a real arrangement.
+ */
+export function createSurfaceFile(
+  dir: string,
+  type: SurfaceType,
+  id: string = type,
+): string {
+  // Kept although the type says so: this is reached from a command line, where the word is a
+  // string until `isSurfaceType` has looked at it, and a caller that skipped that check would
+  // otherwise write a file the parser refuses.
+  if (!(SURFACE_TYPES as readonly string[]).includes(type))
+    throw new Error(
+      `unknown surface type '${type}' — ${SURFACE_TYPES.join(", ")}`,
+    );
+  // The filename IS the id, exactly as it is for a curve and every other flat entity folder.
+  if (!/^[A-Za-z0-9_-]+$/.test(id))
+    throw new Error(
+      `invalid surface name '${id}' — letters, digits, '_' and '-' only`,
+    );
+  const layout = SURFACE_LAYOUTS_BY_TYPE[type][0];
+  const rel = `${SURFACES_DIR}/${id}.yaml`;
+  if (existsSync(join(dir, rel)))
+    throw new Error(`surface '${id}' already exists (${rel})`);
+  if (layout === "split") {
+    const taken = projectSurfaces(dir).surfaces.find(
+      (s) => s.surface.type === type && s.surface.layout === "split",
+    );
+    if (taken)
+      throw new Error(
+        `this project already declares a ${type} surface (${taken.file}), and only one is drawn`,
+      );
+  }
+  mkdirSync(join(dir, SURFACES_DIR), { recursive: true });
+  // No `mapping:`, deliberately. Which components a type needs is the SURFACE's business —
+  // `@studio/song` does not know what a crossfade is (docs/surfaces.md), so a skeleton written
+  // here would be this package guessing at another's vocabulary and going stale the day it grew a
+  // control. An unmapped desk says so on the desk, next to the knob that does not work.
+  writeFileSync(join(dir, rel), `type: ${type}\nlayout: ${layout}\n`, "utf8");
+  return rel;
+}
+
+/**
  * Just the diagnostics, for the array `workspace.ts` assembles beside the other checkers — plus
  * the two about a surface that is NOT there.
  *
@@ -94,10 +159,13 @@ export function surfaceIssues(dir: string): Diagnostic[] {
       line: 1,
       col: 1,
       severity: "warning",
+      // Names the COMMAND rather than the file to write. It used to spell the two lines out,
+      // which meant reading a diagnostic, opening a folder that may not exist, and typing a
+      // pair the schema is about to check — for a file whose whole content is derivable from
+      // the word `timeline`.
       message:
         `this project is an arrangement and declares no timeline, so nothing draws its lanes — ` +
-        `add ${SURFACES_DIR}/timeline.yaml with \`type: timeline\` and \`layout: split\` ` +
-        `(packages/song/docs/surfaces.md)`,
+        `run \`surface new timeline\` (packages/song/docs/surfaces.md)`,
     });
   if (isVideoProject(dir) && !declares("viewport"))
     diagnostics.push({
@@ -107,8 +175,7 @@ export function surfaceIssues(dir: string): Diagnostic[] {
       severity: "warning",
       message:
         `this project has video lanes and declares no viewport, so nothing composites them — ` +
-        `add ${SURFACES_DIR}/viewport.yaml with \`type: viewport\` and \`layout: split\` ` +
-        `(packages/song/docs/surfaces.md)`,
+        `run \`surface new viewport\` (packages/song/docs/surfaces.md)`,
     });
   return diagnostics;
 }

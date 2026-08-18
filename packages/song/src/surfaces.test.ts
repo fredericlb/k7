@@ -3,11 +3,17 @@
 // type, the layout, and the fact that an unwired component is NOT a load error.
 // See docs/surfaces.md.
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { projectSurfaces, surfaceIssues } from "./surfaces";
+import { createSurfaceFile, projectSurfaces, surfaceIssues } from "./surfaces";
 import { parseSurface } from "./yaml/surfaceFile";
 
 let root: string;
@@ -236,5 +242,102 @@ describe("a song with video lanes and no viewport", () => {
       "warning",
       "warning",
     ]);
+  });
+});
+
+/**
+ * `surface new` — the writer behind the command. What matters is that the file it produces is one
+ * the parser above accepts BY CONSTRUCTION, and that it refuses the two states that would leave
+ * somebody editing a file nothing draws.
+ */
+describe("createSurfaceFile", () => {
+  const project = (): string => {
+    const dir = join(root, "song.l8");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
+    return dir;
+  };
+
+  it("derives the layout, so the file it writes always parses", () => {
+    // No layout argument anywhere: SURFACE_LAYOUTS_BY_TYPE already says which one each type is
+    // drawn in, so asking could only produce a pair the schema refuses a moment later.
+    const dir = project();
+    for (const [type, layout] of [
+      ["timeline", "split"],
+      ["viewport", "split"],
+      ["turntables", "view"],
+    ] as const) {
+      const rel = createSurfaceFile(dir, type);
+      expect(rel).toBe(`surfaces/${type}.yaml`);
+      const { value, issues } = parseSurface(
+        readFileSync(join(dir, rel), "utf8"),
+      );
+      expect(issues, type).toEqual([]);
+      expect(value).toEqual({ type, layout });
+    }
+    expect(
+      projectSurfaces(dir)
+        .surfaces.map((s) => s.id)
+        .sort(),
+    ).toEqual(["timeline", "turntables", "viewport"]);
+  });
+
+  it("takes an id, because that is what the header button says", () => {
+    const dir = project();
+    expect(createSurfaceFile(dir, "turntables", "desk")).toBe(
+      "surfaces/desk.yaml",
+    );
+    expect(projectSurfaces(dir).surfaces[0].surface.type).toBe("turntables");
+  });
+
+  it("writes NO mapping — which components a type needs is not this package's business", () => {
+    // @studio/song does not know what a crossfade is (docs/surfaces.md). A skeleton written here
+    // would be one package guessing at another's vocabulary, stale the day the desk grew a knob.
+    const dir = project();
+    createSurfaceFile(dir, "turntables", "desk");
+    expect(readFileSync(join(dir, "surfaces/desk.yaml"), "utf8")).toBe(
+      "type: turntables\nlayout: view\n",
+    );
+  });
+
+  it("refuses a SECOND split surface of the same type", () => {
+    // Only one is drawn — App.tsx takes the first of each and the pane ring has one slot — so a
+    // second is a file that changes nothing and shows nothing.
+    const dir = project();
+    createSurfaceFile(dir, "timeline");
+    expect(() => createSurfaceFile(dir, "timeline", "second")).toThrow(
+      /already declares a timeline/,
+    );
+  });
+
+  it("allows several VIEW surfaces, which each get their own button", () => {
+    const dir = project();
+    createSurfaceFile(dir, "turntables", "desk");
+    expect(() => createSurfaceFile(dir, "turntables", "warmup")).not.toThrow();
+  });
+
+  it("refuses a name that is taken, and one a path could not carry", () => {
+    const dir = project();
+    createSurfaceFile(dir, "timeline");
+    expect(() => createSurfaceFile(dir, "timeline")).toThrow(/already exists/);
+    expect(() => createSurfaceFile(dir, "viewport", "../escape")).toThrow(
+      /invalid surface name/,
+    );
+  });
+
+  it("refuses a type nothing draws, naming the ones there are", () => {
+    // Reached from a command line, where the word is a string until something checks it.
+    expect(() => createSurfaceFile(project(), "mixer" as never)).toThrow(
+      /unknown surface type 'mixer'/,
+    );
+  });
+
+  it("clears the warning the project was showing", () => {
+    // The whole point: `surfaceIssues` tells an arrangement with no timeline to add the file, and
+    // the editor you would add it in is inside that project. Now a command does it.
+    const dir = project();
+    expect(surfaceIssues(dir).map((d) => d.severity)).toEqual(["warning"]);
+    createSurfaceFile(dir, "timeline");
+    expect(surfaceIssues(dir)).toEqual([]);
   });
 });

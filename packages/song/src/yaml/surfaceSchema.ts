@@ -22,6 +22,11 @@ import { ViewBindingSchema } from "./mixViewSchema";
 export const SURFACE_TYPES = ["turntables", "timeline", "viewport"] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
 
+/** Is this word one of them? For the places a TYPED string arrives — a command line, a query —
+ *  so the narrowing happens once, here, instead of as a cast at each of them. */
+export const isSurfaceType = (s: string): s is SurfaceType =>
+  (SURFACE_TYPES as readonly string[]).includes(s);
+
 /**
  * Where a surface goes: its own screen off the header (`view`), or a slot in the layout that
  * shares the window with the graph (`split`).
