@@ -28,12 +28,15 @@ import {
   SONG_FILE,
   type SongVariant,
 } from "@studio/mediatek/types";
+import { builtinPluginForRef } from "@studio/song/builtinParams";
 import {
   engineFaceModule,
   FACE_CATEGORIES,
   type FaceablePlugin,
 } from "@studio/song/engineFace";
+import { paramPanel } from "@studio/song/paramPanel";
 import type { BuilderPane } from "@studio/ui-module-builder";
+import { extendsRefOf, writeUiFile } from "@studio/ui-module-builder/module-ui";
 import type { RepoSummary, ShareSummary } from "@studio/web-protocol";
 import {
   Activity,
@@ -566,6 +569,36 @@ export function Library() {
     seen.current[section] = "";
     setError(null);
   }, [section]);
+
+  /**
+   * Draw a module's panel from the parameters of the plugin it is a face for.
+   *
+   * The whole reason a face module exists is to carry a `ui.yaml` — `@engine/<slug>` is a ref
+   * with nothing on disk behind it, so there is nowhere else to put one. Until now that panel
+   * was drawn by hand, knob by knob, against a parameter list you had to have the plugin loaded
+   * somewhere else to read. `paramPanel` draws all of it: every parameter bound, each with the
+   * range the plugin publishes, grouped into tabs (packages/song/docs/paramPanel.md).
+   *
+   * A plugin the ENGINE ships is answered from the generated table, with no engine running and
+   * nothing to wait for. An EXTERNAL one is not in it — the scan cache carries a plugin's name
+   * and format and no parameters — so it gets the empty grid it always got, and the builder
+   * opens on it exactly as before. Silently: "this VST has no parameter list yet" is a fact
+   * about the scan, not a failure of the click, and the empty panel says it plainly enough.
+   *
+   * `writeUiFile("")` and not a hand-rolled dump: it is the same writer the builder's own grid
+   * saves through, so a generated panel and a drawn one are the same file byte for byte.
+   */
+  const writePanel = useCallback(
+    async (dir: string, base: string): Promise<void> => {
+      const params = builtinPluginForRef(base)?.params;
+      if (!params?.length) return;
+      await library.writeFile(
+        `${section}/${dir}/${UI_FILE}`,
+        writeUiFile("", paramPanel(params)),
+      );
+    },
+    [section],
+  );
 
   /**
    * Recharger MORCEAUX, quelle que soit la section ouverte.
@@ -1453,11 +1486,80 @@ export function Library() {
                                 `${section}/${dir}/${MODULE_FILE}`,
                                 face.text,
                               )
+                              // …and its panel, drawn from the plugin's own parameters. See
+                              // `writePanel`: a plugin the engine ships arrives with every knob
+                              // on it, a VST arrives with an empty grid, and neither costs a
+                              // second click.
+                              .then(() => writePanel(dir, face.base))
                               // Straight into the builder, on the PANEL: drawing the face is the only
                               // reason this module exists — everything it does comes from `extends`.
                               .then(() => openFile(`${dir}/${UI_FILE}`))
                               .then(refresh)
                               .catch((e: Error) => setError(e.message));
+                          },
+                        },
+                        {
+                          /**
+                           * …and the same panel for a module that already exists.
+                           *
+                           * Every face drawn before this generator did was drawn by hand, and most
+                           * of them were never drawn at all — two hundred plugins is not a number
+                           * anyone works through knob by knob. This is the one action that turns
+                           * that around, so it is offered on the MODULE and not buried in the
+                           * builder: the tree is where you see which ones have no panel.
+                           *
+                           * It OVERWRITES. A generated panel is derived from the plugin, so
+                           * re-running it after a Tracktion bump is how a panel gains the knobs a
+                           * new version added — and the confirmation says what that costs, because
+                           * a panel somebody arranged by hand is exactly what it would replace.
+                           */
+                          key: "engine-panel",
+                          label: "Redessiner le panneau depuis le greffon",
+                          when: (t) =>
+                            section === "modules" &&
+                            t.dir &&
+                            isModuleFolder(entries, t.path),
+                          run: (t) => {
+                            void (async () => {
+                              try {
+                                // Asked here rather than through a `confirm` on TreeAction: that
+                                // type is in commons, shared with phare, and widening it for one
+                                // action in one app is a change two repos would carry.
+                                if (
+                                  !window.confirm(
+                                    `Redessiner le panneau de « ${t.name} » à partir des paramètres du greffon ?\n\n` +
+                                      `Tous ses paramètres seront posés, rangés en onglets. Ce qui est dans ` +
+                                      `ui.yaml aujourd'hui est remplacé — y compris une disposition faite à la main.`,
+                                  )
+                                )
+                                  return;
+                                // The module's own file says which plugin it is a face for, and
+                                // that is the only place it is written down: `@engine/<slug>` is
+                                // what `extends` carries, and the folder name is a slug of the
+                                // same thing but lossy — two plugins can slug alike.
+                                const { content } = await library.readFile(
+                                  `${section}/${t.path}/${MODULE_FILE}`,
+                                );
+                                const base = extendsRefOf(content);
+                                const plugin = builtinPluginForRef(base);
+                                if (!plugin?.params.length) {
+                                  setError(
+                                    base
+                                      ? `Aucune liste de paramètres pour « ${base} » — un greffon externe n'en publie pas encore.`
+                                      : `« ${t.name} » n'hérite d'aucun greffon du moteur.`,
+                                  );
+                                  return;
+                                }
+                                await writePanel(t.path, base!);
+                                setNotice(
+                                  `${plugin.name} : ${plugin.params.length} paramètres posés`,
+                                );
+                                openFile(`${t.path}/${UI_FILE}`);
+                                refresh();
+                              } catch (e) {
+                                setError((e as Error).message);
+                              }
+                            })();
                           },
                         },
                         {

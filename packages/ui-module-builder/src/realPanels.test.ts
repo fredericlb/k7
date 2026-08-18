@@ -9,8 +9,10 @@
 // not gain them for a test. It draws a browser's screen; `node:fs` reaching it is the thing that
 // absence prevents.
 
+import { builtinPluginForRef } from "@studio/song/builtinParams";
+import { paramPanel } from "@studio/song/paramPanel";
 import { describe, expect, it } from "vitest";
-import { hasMalformedUiFile, readUiFile } from "./moduleUi";
+import { hasMalformedUiFile, readUiFile, writeUiFile } from "./moduleUi";
 
 /** `packages/dsp/modules/tempo/ui.yaml`, verbatim — block mappings, a meter, quoted binds. */
 const TEMPO = `# panel for @st0/audio/utility/tempo
@@ -76,5 +78,50 @@ describe("what MALFORMED actually means", () => {
   it("is NOT a file that fails to parse as YAML at all", () => {
     // That is the code pane's news, and it says it better — with a line and a column.
     expect(hasMalformedUiFile("widgets: [unclosed\n")).toBe(false);
+  });
+});
+
+/**
+ * A GENERATED panel, read back by the same parser the builder greys itself out on.
+ *
+ * st0 writes these through `writeUiFile("")` — the writer the grid itself saves through — so a
+ * generated panel and a hand-drawn one are the same file. That is the property worth pinning:
+ * the generator produces `ui.yaml`, and `ui.yaml` is what this editor round-trips.
+ */
+describe("a panel generated from a plugin's parameters", () => {
+  for (const ref of ["@engine/chorus-ensemble", "@engine/4osc"])
+    it(`round-trips ${ref}`, () => {
+      const plugin = builtinPluginForRef(ref);
+      expect(plugin, ref).toBeTruthy();
+      const text = writeUiFile("", paramPanel(plugin!.params));
+      expect(hasMalformedUiFile(text), ref).toBe(false);
+      // …and every parameter is still bound after the trip through YAML. A panel that parsed
+      // but had lost its binds would be a grid of knobs that move nothing.
+      const ui = readUiFile(text);
+      const bound = Object.values(ui.widgets).flatMap((w) =>
+        w.type === "tabs"
+          ? Object.values(w.pages ?? {}).flatMap((p) =>
+              Object.values(p).map((x) => x.bind),
+            )
+          : [w.bind],
+      );
+      expect(bound.slice().sort()).toEqual(
+        plugin!.params
+          .map((p) => p.name)
+          .slice()
+          .sort(),
+      );
+    });
+
+  it("writes the terse one-line-per-widget shape these files have by hand", () => {
+    // The same `writeUiFile` the grid saves through, so a generated file does not read as
+    // machine output sitting in a folder of hand-written ones.
+    const text = writeUiFile(
+      "",
+      paramPanel(builtinPluginForRef("@engine/chorus-ensemble")!.params),
+    );
+    expect(text).toContain(
+      "w1: { type: knob, col: 0, row: 0, label: Speed, bind: Speed, min: 0, max: 1 }",
+    );
   });
 });

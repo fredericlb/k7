@@ -63,6 +63,26 @@ A **dropdown** when the plugin named its settings (`Wave Shape` → None, Sine, 
 Nothing infers a toggle from a `0..1` range: that would draw a switch over every mix control on
 the panel. A parameter is a knob unless the plugin itself said it has named states.
 
+## Who calls it
+
+**st0's Modules tree**, in two places:
+
+- *Nouveau module depuis un greffon…* — the face and its panel are written together, so a module
+  that exists only to carry a `ui.yaml` arrives carrying one.
+- *Redessiner le panneau depuis le greffon* — on a module that already has a face. This is the one
+  that matters at the scale of the ask: two hundred plugins is not a number anyone works through
+  knob by knob, and every face drawn before this was drawn by hand or not at all. It **overwrites**,
+  and asks first — re-running it after a Tracktion bump is how a panel gains the knobs a new
+  version added, and a hand-arranged layout is exactly what it would replace.
+
+Both go through `writeUiFile("")`, the writer the builder's own grid saves through, so a generated
+panel and a drawn one are the same file — one line per widget, in the shape these files already
+have by hand.
+
+An EXTERNAL plugin gets nothing and no error: the panel it always had, empty, and the builder opens
+on it as before. "This VST has no parameter list yet" is a fact about the scan rather than a
+failure of the click.
+
 ## Where the parameters come from
 
 `BUILTIN_PLUGINS`, generated from a real instance of every built-in the engine can create — see
