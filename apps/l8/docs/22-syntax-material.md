@@ -101,6 +101,35 @@ points:
   - { time: "5:1:1", value: 0 }
 ```
 
+## curves/<id>.yaml — adsr
+
+An envelope, in **milliseconds**, restarted every time an event fires it — where the two curves
+above are functions of song time and run whether anything plays or not. Bind it like any other
+curve; what makes it an envelope is that `trigger` names the module whose note-ons restart it,
+and leaving that out means the module the curve drives (a filter envelope follows its own synth).
+
+All four stages are durations, sustain included. A keyboard holds sustain until you let the key
+go; this envelope is laid down in advance from the notes it will be fired by, so its length has
+to be knowable — there is no note-off to wait for. `level` is the one value that is not a time:
+where decay lands and sustain holds.
+
+Milliseconds, and not bars, for the reason the LFO is the other way round: an envelope is a
+gesture of the hand, and a 20 ms attack is 20 ms whatever the tempo.
+
+```yaml schema=Curve
+type: adsr
+attack: 5           # ms, 0 is instant
+decay: 120          # ms, down to `level`
+sustain: 200        # ms — a HOLD, not a level
+release: 400        # ms, back to nothing
+level: 0.6          # 0..1, where decay lands
+polarity: unipolar  # unipolar | bipolar
+```
+
+Two notes closer together than the envelope is long do not stack: the running one is cut where
+the next fires. One automation lane holds one value, so there is nothing to sum. Per-note
+modulation, where overlapping notes each keep their own envelope, is the plugin's own business.
+
 ## clips/<id>.yaml — corrected onsets
 
 The engine detects onsets in the audio itself — the transient marks the slicer cuts on, and the grey

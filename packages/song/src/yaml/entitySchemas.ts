@@ -145,9 +145,33 @@ export const CustomCurveSchema = z
   })
   .strict();
 
+/**
+ * An envelope, in MILLISECONDS, restarted by an event rather than read off song time.
+ *
+ * The four stages are all durations — sustain included, which a keyboard's ADSR does not do.
+ * A keyboard holds sustain until note-OFF, and this envelope has no note-off to wait for: it is
+ * baked from the note-ONs of whatever feeds it, so its length has to be knowable in advance.
+ * `level` is the one thing that is not a duration — where decay lands and sustain holds.
+ *
+ * Milliseconds and not beats: an envelope is a gesture of the hand, and a 20ms attack is 20ms
+ * at any tempo. Every other curve here is written in bars for the opposite reason.
+ */
+export const AdsrCurveSchema = z
+  .object({
+    type: z.literal("adsr"),
+    polarity: Polarity.optional(),
+    attack: z.number().min(0).optional(), // ms, 0 -> instant
+    decay: z.number().min(0).optional(), // ms
+    sustain: z.number().min(0).optional(), // ms — a HOLD, see above
+    release: z.number().min(0).optional(), // ms
+    level: z.number().min(0).max(1).optional(), // where decay lands (default 0.5)
+  })
+  .strict();
+
 export const CurveSchema = z.discriminatedUnion("type", [
   LfoCurveSchema,
   CustomCurveSchema,
+  AdsrCurveSchema,
 ]);
 
 const Px = z.number();

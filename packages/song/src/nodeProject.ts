@@ -8,7 +8,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bypassedOf } from "./chainsGraph";
-import { bakeCurve, loadCurves } from "./curves";
+import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import { activeFreezePlans } from "./freeze";
 import {
   type Chain,
@@ -578,6 +578,9 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     pluginId: string;
     param: string;
     curve: string;
+    // The module whose note-ons retrigger the curve — its own, unless the binding names
+    // another. Only an ADSR reads it; a curve of song time is fired by nothing.
+    trigger: string;
   }[] = [];
   for (const [name, c] of Object.entries(chains)) {
     const owner = ownerOf(name, c);
@@ -598,6 +601,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
             pluginId: `${name}:${step.module}`,
             param: String(a.param),
             curve: String(a.curve),
+            trigger: String(a.trigger ?? step.module),
           });
       if (!module) continue; // dangling module ref — already reported by the ref-check loop
       if (module.kind !== "plugin") continue; // an io module contributes no track processor
@@ -876,6 +880,41 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       automation: [],
     });
 
+  /**
+   * Every note-on a lane plays, in song beats — what fires an envelope bound to it.
+   *
+   * The clips are the COMPILED ones, so a note's beat is its clip's start plus its own offset
+   * and nothing has to re-resolve a placement. A looping clip repeats its window, exactly as
+   * the engine plays it, so a one-bar pattern fires the envelope once per pass rather than once.
+   *
+   * Sorted and deduplicated: two notes struck together are one trigger, because one automation
+   * lane holds one value — the same reason bakeAdsr cuts rather than sums.
+   */
+  const noteOns = (track: TrackDoc | undefined): number[] => {
+    if (!track) return [];
+    const out: number[] = [];
+    for (const c of track.clips) {
+      if (c.type !== "midi") continue;
+      const loop = c.loopEnd > c.loopStart ? c.loopEnd - c.loopStart : 0;
+      const span = c.length > 0 ? c.length : Number.POSITIVE_INFINITY;
+      for (const n of c.notes) {
+        if (loop > 0) {
+          if (n.time < c.loopStart || n.time >= c.loopEnd) continue;
+          for (let k = 0; k * loop < span; k++) {
+            const at = n.time - c.loopStart + k * loop;
+            if (at >= span) break;
+            out.push(c.start + at);
+          }
+        } else if (n.time < span) {
+          out.push(c.start + n.time);
+        }
+      }
+    }
+    return [...new Set(out.map((b) => Math.round(b * 1e6) / 1e6))].sort(
+      (a, b) => a - b,
+    );
+  };
+
   // Baked here, once every track exists: an LFO is sampled over the song's length (the furthest clip end).
   if (rawAutomations.length) {
     const curvesMap = (() => {
@@ -890,11 +929,34 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       0,
     );
     const byId = new Map(tracks.map((t) => [t.id, t]));
+    // Which lane plays each module, so a curve triggered by ANOTHER module's notes finds them.
+    // Built from the same chains the automations were read off, so the two cannot disagree.
+    const laneOfModule = new Map<string, string>();
+    for (const [name, c] of Object.entries(chains)) {
+      const owner = ownerOf(name, c);
+      if (owner) for (const step of c.use) laneOfModule.set(step.module, owner);
+    }
     for (const ra of rawAutomations) {
       const curve = curvesMap[ra.curve];
       const track = byId.get(ra.owner);
       if (!curve || !track) continue;
-      const baked = bakeCurve(curve, num, den, songBeats);
+      /**
+       * An envelope is placed by its EVENTS; every other curve is a function of song time.
+       *
+       * The events are the note-ons of the lane that feeds the triggering module — which is the
+       * lane this automation already belongs to, since a chain's owner is what plays it. So the
+       * note starts are read straight off the clips already compiled onto that track, and a
+       * module fed by nothing simply never fires: an empty trigger list bakes to no points, and
+       * a lane with no points leaves the parameter alone.
+       */
+      const baked =
+        curve.type === "adsr"
+          ? bakeAdsr(
+              curve,
+              noteOns(byId.get(laneOfModule.get(ra.trigger) ?? ra.owner)),
+              tempo,
+            )
+          : bakeCurve(curve, num, den, songBeats);
       if (!baked.points.length) continue;
       track.automation.push({
         param: ra.param,

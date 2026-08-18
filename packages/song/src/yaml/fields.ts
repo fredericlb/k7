@@ -3,8 +3,8 @@
 // kind of file answers for itself, which a single flat table could not do.
 
 import type { z } from "zod";
-import { GraphFileSchema } from "./graphSchema";
 import {
+  AdsrCurveSchema,
   AudioClipSchema,
   CustomCurveSchema,
   LfoCurveSchema,
@@ -15,6 +15,7 @@ import {
   VideoTrackSchema,
   WarpSchema,
 } from "./entitySchemas";
+import { GraphFileSchema } from "./graphSchema";
 import {
   AlternativeSchema,
   ModuleSchema,
@@ -125,10 +126,16 @@ function sequenceFields(path: string[]): string[] {
   return [];
 }
 
-/** Both curve flavours', since `type` decides which and it may not be written yet. */
+/** Every curve flavour's, since `type` decides which and it may not be written yet. */
 function curveFields(path: string[]): string[] {
   if (path.length === 0)
-    return [...new Set([...keys(LfoCurveSchema), ...keys(CustomCurveSchema)])];
+    return [
+      ...new Set([
+        ...keys(LfoCurveSchema),
+        ...keys(CustomCurveSchema),
+        ...keys(AdsrCurveSchema),
+      ]),
+    ];
   if (path[0] === "points") return ["time", "value"];
   return [];
 }

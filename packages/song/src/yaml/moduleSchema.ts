@@ -199,9 +199,20 @@ export type ControllerFile = z.infer<typeof ControllerFileSchema>;
 /** The widget kinds, for a picker that must offer exactly what the schema accepts. */
 export type WidgetType = Widget["type"];
 
-/** A curve driving a named param — how a module is automated. */
+/**
+ * A curve driving a named param — how a module is automated.
+ *
+ * `trigger` names the module whose NOTE-ONS restart the curve, and only an envelope reads it:
+ * a curve of song time is fired by nothing and runs whether anything plays or not. Absent, an
+ * envelope is triggered by the module it drives, which is the case that needs no saying — a
+ * filter envelope on a synth follows that synth's notes.
+ */
 export const AutomationSchema = z
-  .object({ param: z.string().min(1), curve: z.string().min(1) })
+  .object({
+    param: z.string().min(1),
+    curve: z.string().min(1),
+    trigger: z.string().min(1).optional(),
+  })
   .strict();
 
 /** One TAKE: another list of placements this lane could be playing. See docs/takes.md. */

@@ -32,7 +32,49 @@ export interface CustomCurve {
   points: CurvePoint[]; // at least one; kept in time order (sorted defensively)
 }
 
-export type Curve = LfoCurve | CustomCurve;
+/**
+ * An envelope in MILLISECONDS, restarted by an event instead of read off song time.
+ *
+ * All four stages are durations, sustain included — see AdsrCurveSchema for why a baked
+ * envelope cannot hold until a note-off it will never be told about. `level` is where decay
+ * lands and sustain holds; it is the only value here that is not a time.
+ */
+export interface AdsrCurve {
+  type: "adsr";
+  polarity: Polarity;
+  attack: number; // ms
+  decay: number; // ms
+  sustain: number; // ms — a hold at `level`
+  release: number; // ms
+  level: number; // 0..1
+}
+
+export type Curve = LfoCurve | CustomCurve | AdsrCurve;
+
+/** Where decay lands when the file does not say — half up, the least opinionated envelope. */
+export const ADSR_DEFAULT_LEVEL = 0.5;
+
+/** The envelope's own length, in ms. What one trigger occupies before it is over. */
+export const adsrMs = (c: AdsrCurve): number =>
+  c.attack + c.decay + c.sustain + c.release;
+
+/**
+ * The envelope's unit value `ms` after its trigger, 0..1. Flat 0 once it is over.
+ *
+ * Written as a function of elapsed time rather than of song position, because that is what an
+ * envelope IS — the trigger decides where it starts, and this decides nothing but its shape.
+ */
+export function adsrUnit(c: AdsrCurve, ms: number): number {
+  if (ms <= 0) return 0;
+  if (ms < c.attack) return ms / c.attack;
+  const d = ms - c.attack;
+  if (d < c.decay) return 1 - (1 - c.level) * (d / c.decay);
+  const h = d - c.decay;
+  if (h < c.sustain) return c.level;
+  const r = h - c.sustain;
+  if (r < c.release) return c.level * (1 - r / c.release);
+  return 0;
+}
 
 const clamp = (v: number, lo: number, hi: number) =>
   v < lo ? lo : v > hi ? hi : v;
@@ -68,8 +110,30 @@ export function parseCurve(id: string, raw: any): Curve {
     }));
     return { type: "custom", polarity, points };
   }
+  if (type === "adsr") {
+    // Every stage defaults to 0 but the level: an envelope with no times written is an instant
+    // spike, which is a legible thing to see and fix. A missing LEVEL is not — it would mean a
+    // decay to silence and a sustain that holds nothing.
+    const ms = (v: any, what: string) => {
+      const n = Number(v ?? 0);
+      if (!(n >= 0) || !Number.isFinite(n))
+        throw new Error(
+          `curve '${id}': adsr ${what} must be a duration in ms (got ${v})`,
+        );
+      return n;
+    };
+    return {
+      type: "adsr",
+      polarity,
+      attack: ms(raw.attack, "attack"),
+      decay: ms(raw.decay, "decay"),
+      sustain: ms(raw.sustain, "sustain"),
+      release: ms(raw.release, "release"),
+      level: clamp(Number(raw.level ?? ADSR_DEFAULT_LEVEL), 0, 1),
+    };
+  }
   throw new Error(
-    `curve '${id}': unknown type '${type}' (expected "lfo" or "custom")`,
+    `curve '${id}': unknown type '${type}' (expected "lfo", "custom" or "adsr")`,
   );
 }
 
@@ -126,10 +190,15 @@ export function sampleCurve(
   den: number,
 ): number {
   const barBeats = num * (4 / den); // quarter notes per bar
+  // An ADSR has no value at a song position — only at a time SINCE A TRIGGER, which this
+  // signature knows nothing about. Untriggered it is silent, which is what 0 says. Its real
+  // reading is `adsrUnit`, and `bakeAdsr` is what places it against the events.
   const unit =
-    curve.type === "lfo"
-      ? lfoUnit(curve, beat, barBeats)
-      : customUnit(curve, beat, num, den);
+    curve.type === "adsr"
+      ? 0
+      : curve.type === "lfo"
+        ? lfoUnit(curve, beat, barBeats)
+        : customUnit(curve, beat, num, den);
   // unit is 0..1; polarity picks the range it leaves in.
   return curve.polarity === "bipolar" ? unit * 2 - 1 : unit;
 }
@@ -164,6 +233,78 @@ export interface BakedCurve {
   points: [number, number][];
 }
 
+/** ms -> quarter-note beats at `tempo` BPM. */
+const msToBeats = (ms: number, tempo: number) => (ms / 1000) * (tempo / 60);
+
+/**
+ * An envelope laid down at each of `triggers` (song beats), as engine breakpoints.
+ *
+ * Five points per trigger — the corners of the shape — because the engine interpolates between
+ * breakpoints and every stage here is a straight line. Sampling on a grid would be both coarser
+ * and larger.
+ *
+ * A trigger arriving before the last envelope has finished CUTS it: the running shape is held at
+ * the value it had reached, then the new one starts from 0 at its own instant. One automation
+ * lane is one parameter, and one parameter has one value — the two cannot sum. (A per-VOICE
+ * envelope, where overlapping notes each keep their own, is what the plugin's own matrix does
+ * and what this deliberately is not.)
+ */
+export function bakeAdsr(
+  curve: AdsrCurve,
+  triggers: readonly number[],
+  tempo: number,
+): BakedCurve {
+  const bipolar = curve.polarity === "bipolar";
+  const at = [...triggers].sort((a, b) => a - b);
+  const A = msToBeats(curve.attack, tempo);
+  const D = msToBeats(curve.decay, tempo);
+  const S = msToBeats(curve.sustain, tempo);
+  const R = msToBeats(curve.release, tempo);
+  const beatsToMs = (b: number) => (b * 60000) / tempo;
+  const out: [number, number][] = [];
+  const EPS = 1e-6; // a microbeat — under a sample at any tempo, and the point grid's own step
+  const put = (beat: number, unit: number) => {
+    const v = bipolar ? unit * 2 - 1 : unit;
+    const last = out[out.length - 1];
+    // A corner on the beat one already sits at is NUDGED past it, never dropped.
+    //
+    // Dropping was the first rule and it was wrong: a zero-length stage puts two corners on one
+    // beat, so an instant attack popped the point before it — which, where one envelope's
+    // release meets the next one's trigger, was the release's own landing. The ramp down
+    // vanished and the parameter simply stayed up. A vertical pair a microbeat apart IS what an
+    // instant stage looks like, and the engine interpolates it as the step it is.
+    const v6 = round6(v);
+    const coincident = !!last && beat <= last[0] + EPS / 2;
+    // Coincident AND the same value says nothing the point before it did not — two zero-length
+    // stages in a row, or one envelope ending where the next begins. Only a coincident CHANGE
+    // is worth a pair.
+    if (coincident && last[1] === v6) return;
+    out.push([round6(coincident ? last[0] + EPS : beat), v6]);
+  };
+  for (let i = 0; i < at.length; i++) {
+    const t = at[i];
+    const next = i + 1 < at.length ? at[i + 1] : Number.POSITIVE_INFINITY;
+    const corners: [number, number][] = [
+      [t, 0],
+      [t + A, 1],
+      [t + A + D, curve.level],
+      [t + A + D + S, curve.level],
+      [t + A + D + S + R, 0],
+    ];
+    for (const [b, u] of corners) {
+      // Strictly past, not at: an envelope that ENDS exactly where the next one starts has
+      // nothing left to cut, and nudging it a microbeat earlier would only add a point.
+      if (b > next) {
+        // Cut short: the value the shape had actually reached when the next trigger landed, so
+        // the line into it is the envelope's own and not a shortcut from the corner before.
+        put(next - 1e-6, adsrUnit(curve, beatsToMs(next - t)));
+        break;
+      }
+      put(b, u);
+    }
+  }
+  return { bipolar, points: out };
+}
 // Bake over the song: a custom curve emits verbatim, an LFO samples on a grid, widened to respect the point cap.
 export function bakeCurve(
   curve: Curve,
@@ -173,6 +314,11 @@ export function bakeCurve(
 ): BakedCurve {
   const bipolar = curve.polarity === "bipolar";
   let beats: number[];
+  if (curve.type === "adsr") {
+    // No triggers here — bakeAdsr is the entry point that has them. Flat 0 is what an envelope
+    // nothing fires is worth, and it keeps this function total over the union.
+    return { bipolar, points: [[0, bipolar ? -1 : 0]] };
+  }
   if (curve.type === "custom") {
     beats = curve.points
       .map((p) => parsePosition(p.time, num, den))
