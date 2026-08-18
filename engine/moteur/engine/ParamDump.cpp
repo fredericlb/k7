@@ -14,11 +14,13 @@
 #include "PluginScan.h"      // registerBuiltInPlugins / builtInPlugins
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
 
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 
 namespace studio {
@@ -199,6 +201,64 @@ struct ParamQueryEngine {
  *  Tracktion offers. Costs the caller nothing it was not already spending — the ask is seconds. */
 std::mutex paramQueryMutex;
 
+/** How long a plugin gets to finish loading before we report what it has. */
+constexpr int kParamListTimeoutMs = 15000;
+
+/**
+ * Wait until the plugin has actually BUILT its parameter list, and say so if it never does.
+ *
+ * `createNewPlugin` does not always come back with a loaded plugin. Tracktion asks
+ * `requiresAsyncInstantiation` and, for the plugins that say yes, creates the instance on a
+ * background thread — `ExternalPlugin::startPluginInstanceCreation`. `buildParameterList()` then
+ * runs inside the completion callback, later, on the message thread. Ask before that lands and the
+ * plugin truthfully reports NOTHING.
+ *
+ * The tell that a zero is about the LOAD and never about the plugin: `buildParameterList` adds
+ * `dryGain` and `wetGain` unconditionally, before it looks at the instance at all, so anything
+ * loaded reports at least two. Zero cannot mean "it has none" — only that the list was never
+ * built. That is what this waits on, rather than on the `isInitialisingAsync` flag: the flag is
+ * cleared at the top of `completePluginInstanceCreation` and the list is built at the bottom of
+ * it, so watching the flag would reopen the same race a few lines narrower.
+ *
+ * Waiting is only half of it. `createNewPlugin` hands back a Plugin whether or not an instance was
+ * ever made — that object is what draws a red box in a project whose plugin is missing — so a
+ * plugin that REFUSED to load also sits here reporting zero, for ever. Measured on this machine:
+ * of forty external plugins, twenty-seven never load at all (Arturia's CS-80 V4, Prophet-5 V,
+ * DX7 V, Piano V3 and the rest, `getLoadError` saying so), while ARP 2600 V3, Jup-8 V4, Mini V3
+ * and three more load and answer with hundreds. Reading those twenty-seven as "this plugin
+ * publishes nothing" is the mistake this function exists to stop: it is a fact about the machine —
+ * a licence, an installation — and the caller can act on it only if it is told.
+ */
+bool waitForParameterList(te::Plugin& plugin, const std::string& identifier) {
+    auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(kParamListTimeoutMs);
+    while (plugin.getNumAutomatableParameters() == 0) {
+        // Not merely slow — REFUSED. `createNewPlugin` hands back a Plugin whatever happens; that
+        // object is what draws a red box in a project whose plugin is missing, so "not null" has
+        // never meant "loaded". `getLoadError` is the question that does, and it is empty while an
+        // async load is still in flight, so it is only conclusive once nothing is in flight.
+        if (ext && !ext->isInitialisingAsync()) {
+            const auto err = ext->getLoadError();
+            if (err.isNotEmpty()) {
+                std::cerr << "[plugin-params] '" << identifier
+                          << "' did not load: " << err.toStdString() << "\n";
+                return false;
+            }
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+            std::cerr << "[plugin-params] '" << identifier << "' still had no parameter list after "
+                      << kParamListTimeoutMs << "ms — reporting what it has\n";
+            return true;
+        }
+        // Slept, not pumped: this runs on the socket's detached thread, and the callback that
+        // builds the list is dispatched to the MESSAGE thread, which the server is already
+        // running. Pumping from here would be a second thread claiming the message loop.
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    return true;
+}
+
 ParamQueryEngine& paramQueryEngine() {
     static ParamQueryEngine* held = [] {
         auto* q = new ParamQueryEngine();
@@ -226,6 +286,12 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
         shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     if (plugin == nullptr) {
         std::cerr << "[plugin-params] could not create '" << identifier << "'\n";
+        return std::nullopt;
+    }
+    // A plugin this machine cannot LOAD is `nullopt`, exactly like one it cannot find: both are
+    // "no answer about this plugin", and neither is "this plugin has no parameters".
+    if (!waitForParameterList(*plugin, identifier)) {
+        plugin->deleteFromParent();
         return std::nullopt;
     }
     std::vector<PluginParamInfo> out;

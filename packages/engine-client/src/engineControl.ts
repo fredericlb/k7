@@ -203,9 +203,10 @@ export class EngineControl extends EventEmitter {
           this.emit("pluginParamList", {
             format: String(msg.format ?? ""),
             id: String(msg.id ?? ""),
-            // Whether the plugin was LOADED at all, which an empty list cannot say. A plugin
-            // that loads and declares nothing to a host is ordinary; one this machine could not
-            // load is a fault, and only the flag tells a caller which it is looking at.
+            // Whether the plugin was LOADED at all, which an empty list cannot say — and on this
+            // machine twenty-seven refuse to, which read as twenty-seven plugins publishing
+            // nothing until the engine started asking. One is a licence to go and fix, the other
+            // is a fact about the plugin; only the flag tells a caller which it has.
             found: msg.found !== false,
             params: (msg.params ?? []) as PluginParamInfo[],
           });

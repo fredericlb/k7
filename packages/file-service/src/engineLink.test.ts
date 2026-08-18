@@ -433,19 +433,20 @@ describe("awaitPluginParams", () => {
   });
 
   /**
-   * THREE outcomes, told apart — and the third is why the flag exists at all.
+   * THREE outcomes, told apart — and the MIDDLE one is why the flag exists at all.
    *
-   * Measured on this machine: twenty-seven Arturia synths load perfectly and declare not one
-   * parameter to their host. Read as failure, that is twenty-seven plugins somebody is sent to
-   * go and fix; read correctly, it is a fact about how those plugins expose their controls.
+   * Measured on this machine: twenty-seven plugins refuse to load outright. They arrived as an
+   * empty parameter list, indistinguishable from a plugin that publishes none, and were reported
+   * as exactly that — so the answer to "why has this synth no parameters?" was made a fact about
+   * the plugin when it is a fact about the machine, and nobody was sent to look at the licence.
    */
   it("tells silence, an unloadable plugin and an empty list apart", async () => {
     const c = spy();
 
-    const declaresNone = awaitPluginParams(c, "VST3", "C:/vst/CS-80.vst3");
+    const declaresNone = awaitPluginParams(c, "VST3", "C:/vst/Quiet.vst3");
     c.emit("pluginParamList", {
       format: "VST3",
-      id: "C:/vst/CS-80.vst3",
+      id: "C:/vst/Quiet.vst3",
       found: true,
       params: [],
     });

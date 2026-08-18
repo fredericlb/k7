@@ -179,11 +179,17 @@ déroulantes — jamais un fader, un `meter`, un sélecteur de fichier ni une di
 
 Gardés sciemment, pour deux raisons qui ne dépendent pas du générateur. C'est la **seule** façon
 d'apprendre les paramètres d'un greffon installé — un greffon les enregistre dans son
-constructeur, et le cache de scan n'en porte aucun. Et les deux corrections qu'ils ont values
-sont réelles : le moteur reconstruisait un `te::Engine` par question et une quarantaine de
-questions d'affilée le tuaient (mesuré, deux fois) ; et une liste vide confondait « je n'arrive
-pas à charger ce greffon » avec « il se charge et ne déclare rien », ce que vingt-sept synthés
-Arturia font sans que rien n'aille mal.
+constructeur, et le cache de scan n'en porte aucun. Et les corrections qu'ils ont values sont
+réelles : le moteur reconstruisait un `te::Engine` par question et une quarantaine de questions
+d'affilée le tuaient (mesuré, deux fois) ; il demandait sa liste à un greffon avant que le
+chargement asynchrone ne l'ait construite ; et une liste vide confondait « je n'arrive pas à
+charger ce greffon » avec « il se charge et n'en publie aucun ».
+
+Cette dernière était un diagnostic faux écrit ici même : vingt-sept greffons de cette machine ont
+été décrits comme ne déclarant rien alors qu'ils **refusent de se charger** (`getLoadError` le dit
+depuis toujours, personne ne le lui demandait). La réponse à « pourquoi ce synthé n'a-t-il aucun
+paramètre » était donc un fait sur le greffon là où c'est un fait sur la machine — une licence,
+une installation — et personne n'était envoyé au seul endroit où c'est réparable.
 
 Qui les rallumera : un module builder qui propose la liste des paramètres d'un VST à lier, ou un
 générateur qui saurait dessiner autre chose que des boutons.

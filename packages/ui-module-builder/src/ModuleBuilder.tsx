@@ -37,6 +37,7 @@ import {
   Lock,
   type LucideIcon,
   Pencil,
+  RefreshCw,
   Save,
   SlidersHorizontal,
 } from "lucide-react";
@@ -143,6 +144,7 @@ export function ModuleBuilder({
   onSetPreset,
   pluginParamNames,
   pluginParamMeta,
+  onScanParams,
   inputDevices,
   onRegroupInputs,
   baseModules,
@@ -189,6 +191,25 @@ export function ModuleBuilder({
   pluginParamNames?: string[];
   // …and what each spans, so a bound widget adopts the real range instead of the placeholder 0..1.
   pluginParamMeta?: Record<string, ParamMeta>;
+  /**
+   * Ask the MACHINE what this module's plugin has, by loading one on purpose.
+   *
+   * The list above is what the OPEN PROJECT happens to have instantiated, which is the right
+   * default and leaves one hole: a module the project does not wire has no live plugin, so an
+   * external one shows nothing to bind to. This is the way out of that hole — not a second
+   * source of truth but the same one, asked deliberately instead of opportunistically.
+   *
+   * SLOW, and the caller has to say so: it loads a plugin binary, which is seconds. It resolves
+   * to what the plugin published, `null` when this machine cannot find or LOAD it — and those are
+   * different answers, because the second is a licence or an installation and the first is not.
+   *
+   * Optional, like `onRegroupInputs` and for the same reason: a host with no engine passes
+   * nothing and the button is simply not drawn, rather than drawn and dead.
+   */
+  onScanParams?: (base: string) => Promise<{
+    names: string[];
+    meta: Record<string, ParamMeta>;
+  } | null>;
   // The interface's inputs as the engine GROUPS them, for an `io: in` module's channel picker.
   // A prop for the same reason `pluginParamNames` is one, and one more: which sets exist is a
   // question only the machine holding the sound card answers, and it answers it over a socket.
@@ -624,7 +645,52 @@ export function ModuleBuilder({
   // The PATH goes in too: a module under `io/IN/` states nothing about itself and is still an input.
   const io = content == null ? null : ioOf(content, path);
 
-  // Every addressable param, unioned from all FOUR sources — none of them is complete on its own.
+  /**
+   * What a deliberate scan of this module's plugin came back with, and what to say about it.
+   *
+   * Kept for as long as the builder is open and never persisted: it is a fact about a binary on
+   * one machine, and writing it into the module file would be recording somebody else's plugin
+   * version as if it were part of the module.
+   *
+   * The NOTE matters as much as the names. Two of the three answers produce no rows — a plugin
+   * that publishes nothing, and one this machine cannot load — and without a sentence they are
+   * indistinguishable from a button that did nothing at all.
+   */
+  const [scanned, setScanned] = useState<{
+    names: string[];
+    meta: Record<string, ParamMeta>;
+  } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
+  // The plugin to ask about is what this module EXTENDS, and only an `@engine/…` ref names one a
+  // machine can load — a jsdsp module or a rack has no binary behind it, and a `@st0/…` ref names
+  // another module rather than a plugin. The button is drawn only when there is something to ask.
+  const scanBase =
+    content == null
+      ? ""
+      : (extendsRefOf(content) ?? "").startsWith("@engine/")
+        ? (extendsRefOf(content) ?? "")
+        : "";
+  const runScan = useCallback(() => {
+    if (!onScanParams || scanning || !scanBase) return;
+    setScanning(true);
+    setScanNote(null);
+    void onScanParams(scanBase)
+      .then((found) => {
+        setScanned(found);
+        setScanNote(
+          !found
+            ? "cette machine n'arrive pas à charger ce greffon — le journal du moteur dit lequel des deux : introuvable, ou création refusée. C'est une licence ou une installation, pas le greffon."
+            : found.names.length
+              ? `${found.names.length} paramètres lus dans le greffon`
+              : "le greffon se charge et ne publie aucun paramètre à son hôte",
+        );
+      })
+      .catch((e: Error) => setScanNote(`lecture impossible : ${e.message}`))
+      .finally(() => setScanning(false));
+  }, [onScanParams, scanning, scanBase]);
+
+  // Every addressable param, unioned from all FIVE sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
     const bound = new Set(
@@ -637,6 +703,9 @@ export function ModuleBuilder({
     const names = new Set([
       ...Object.keys(set),
       ...(pluginParamNames ?? []),
+      // …and what a SCAN asked for on purpose, which is the same plugin read the same way — the
+      // difference is only that nothing had to have instantiated it first.
+      ...(scanned?.names ?? []),
       ...params,
       ...(declared ?? []).map((p) => p.name),
       // Track intrinsics belong here too: this list is the only place a binding can be picked up from.
@@ -660,10 +729,13 @@ export function ModuleBuilder({
         // The authored value lives at the file's TOP level for an io setting, not under `params:`.
         value: set[name] ?? authoredIoValue(content, name),
         bound: bound.has(name),
-        // Most specific first: the LOADED plugin, then what this module declares, then the base's, then
-        // the io table. A live report wins because it came from the instance this module actually is.
+        // Most specific first: the LOADED plugin, then a scan of that same plugin, then what this
+        // module declares, then the base's, then the io table. A live report wins because it came
+        // from the instance this module actually is; a scan is the same binary asked in the
+        // abstract, so it ranks under it and over anything written down.
         meta:
           pluginParamMeta?.[name] ??
+          scanned?.meta[name] ??
           declaredMeta[name] ??
           baseMeta[name] ??
           ioMeta[name],
@@ -677,6 +749,7 @@ export function ModuleBuilder({
     baseMeta,
     pluginParamNames,
     pluginParamMeta,
+    scanned,
   ]);
 
   // The same values as NUMBERS, for the preview's widgets. The pane above keeps them as text
@@ -925,7 +998,12 @@ export function ModuleBuilder({
             </div>
             <div className="min-h-0 flex-1">
               {pane === "params" ? (
-                <ParamsPane rows={paramRows} />
+                <ParamsPane
+                  rows={paramRows}
+                  onScan={onScanParams && scanBase ? runScan : undefined}
+                  scanning={scanning}
+                  scanNote={scanNote}
+                />
               ) : (
                 <YamlPane
                   path={sidecar ? sidecar.path : path}
@@ -1053,6 +1131,9 @@ function shortValue(raw: string): string {
 // Filtered, because a real plugin has dozens — a list you can only scroll is one you don't read.
 function ParamsPane({
   rows,
+  onScan,
+  scanning,
+  scanNote,
 }: {
   rows: {
     name: string;
@@ -1060,6 +1141,12 @@ function ParamsPane({
     bound: boolean;
     meta?: ParamMeta;
   }[];
+  /** Absent ⇒ no button: a host with no engine cannot ask, and a dead control is worse than none. */
+  onScan?: () => void;
+  scanning?: boolean;
+  /** What the last scan answered — the empty and the refused cases, which have no rows to show for
+   *  themselves and would otherwise read as a button that did nothing. */
+  scanNote?: string | null;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -1085,12 +1172,41 @@ function ParamsPane({
           placeholder="filter…"
           className="ml-auto h-6 w-32 px-2 text-xs"
         />
+        {/* Loading a plugin binary is seconds, so the button says it is working and cannot be
+            pressed twice. It sits with the LIST rather than in the header: what it changes is
+            what is in this pane, not the module. */}
+        {onScan && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-2 text-xs"
+            disabled={scanning}
+            onClick={onScan}
+            title="Load this module's plugin and read its parameters — takes a few seconds"
+          >
+            {scanning ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">
+              {scanning ? "lecture…" : "greffon"}
+            </span>
+          </Button>
+        )}
       </div>
+      {scanNote && (
+        <div className="shrink-0 border-b border-border px-2 py-1 text-[11px] text-muted-foreground">
+          {scanNote}
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto">
         {shown.length === 0 ? (
           <div className="p-3 text-xs text-muted-foreground">
             {rows.length === 0
-              ? "no parameters known — the module sets none, and the engine has no live plugin to ask"
+              ? onScan
+                ? "no parameters known — the project instantiates no plugin for this module. Ask the plugin itself with the button above."
+                : "no parameters known — the module sets none, and the engine has no live plugin to ask"
               : `nothing matches "${q.trim()}"`}
           </div>
         ) : (

@@ -1042,9 +1042,10 @@ int main(int argc, char** argv) {
                         // both would feed a list into the client's live-value path.
                         //
                         // `found` carries the difference an empty array cannot: a plugin this
-                        // machine could not load, versus one that loaded and declares nothing to
-                        // a host. The second is ordinary — a whole vendor's synths do it — and
-                        // reporting it as a failure tells somebody to go and fix what is not broken.
+                        // machine could not find, create or LOAD, versus one that loaded and
+                        // publishes nothing. On this machine twenty-seven refuse to load — a
+                        // licence, an installation — and calling that "no parameters" sends
+                        // nobody to the one place the fix is.
                         broadcast(json{{"type", "plugin-param-list"},
                                        {"format", fmt},
                                        {"id", id},

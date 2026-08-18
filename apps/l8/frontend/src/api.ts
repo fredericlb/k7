@@ -6,6 +6,7 @@
 
 import { engineAccess } from "@studio/engine-browser/access";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
+import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
@@ -277,6 +278,36 @@ export const api = {
   // should be doing while the transport plays. See useWarmWaveforms.
   cancelWaveformPrewarm: () =>
     fsend<WaveformStatus>("POST", "/waveforms/cancel", {}),
+
+  /**
+   * Ask the MACHINE what an `@engine/…` plugin has, by loading one on purpose.
+   *
+   * The builder's parameter list is normally what the OPEN PROJECT instantiates, which is the
+   * right default (`docs/moduleBuilder.md`) and leaves a hole: a module the project does not wire
+   * has no live plugin, so an external one shows nothing to bind to. This is that hole's exit,
+   * and it is the same plugin read the same way — one instance, on an offline engine that opens
+   * no device, so it cannot disturb what is playing.
+   *
+   * SECONDS, because it loads a binary. `null` is "this machine cannot find or LOAD it" — a
+   * licence, an installation — and is deliberately not the same answer as an empty list, which
+   * means the plugin loaded and publishes nothing.
+   */
+  scanPluginParams: async (
+    ref: string,
+  ): Promise<{ names: string[]; meta: Record<string, ParamMeta> } | null> => {
+    const { found, params } = await fget<{
+      found?: boolean;
+      params?: { name: string; min: number; max: number; def?: number }[];
+    }>(`/plugin-params?ref=${encodeURIComponent(ref)}`);
+    if (found === false) return null;
+    const list = params ?? [];
+    return {
+      names: list.map((p) => p.name),
+      meta: Object.fromEntries(
+        list.map((p) => [p.name, { min: p.min, max: p.max, def: p.def }]),
+      ),
+    };
+  },
 
   // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
   // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.

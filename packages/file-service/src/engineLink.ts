@@ -409,8 +409,12 @@ interface PluginParamFrame {
  *
  * THREE outcomes, not two, and flattening them is what made this shape necessary. `undefined`
  * from the wait below is "the engine never answered"; `found: false` is "it answered, and this
- * machine cannot load that plugin"; `found: true, params: []` is "it loaded and declares nothing
- * to a host" — which is ordinary, common, and not a fault to report as one.
+ * machine cannot find, create or LOAD that plugin"; `found: true, params: []` is "it loaded and
+ * publishes none".
+ *
+ * The middle one is where the interesting failures live: twenty-seven plugins on the machine this
+ * was written on refuse to load, and until the engine checked `getLoadError` they arrived here as
+ * the third case — reported as plugins with nothing to offer, when what they need is a licence.
  */
 export interface PluginParamAnswer {
   found: boolean;

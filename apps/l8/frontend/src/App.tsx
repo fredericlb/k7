@@ -3966,6 +3966,15 @@ export default function App({
                   ? pluginParamMeta[builderPlugin.pluginId]
                   : undefined
               }
+              // Ask the MACHINE what this module's plugin has, by loading one on purpose. The
+              // props above are what the OPEN PROJECT happens to instantiate, which leaves a
+              // module the project does not wire with nothing to bind to; this is the way out,
+              // and it is the same plugin read the same way.
+              //
+              // The builder passes the `@engine/…` ref its module extends, and draws the button
+              // only when there is one — a jsdsp module or a rack has no binary to load. The
+              // machine resolves that ref against its own scan; see api.ts.
+              onScanParams={api.scanPluginParams}
               // The sockets an `io: in` module can listen on. Empty with no engine attached, which
               // is the honest answer: which inputs exist is the sound card's to say.
               inputDevices={inputDevices}

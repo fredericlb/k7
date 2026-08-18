@@ -557,10 +557,14 @@ struct PluginParamInfo {
  * touch it — kept for the run and shared by every query. See the definition for why.
  *
  * `nullopt` and an EMPTY vector are different answers, and telling them apart is worth a whole
- * return type: `nullopt` is "this machine could not resolve or create the plugin", an empty
- * vector is "it loaded and declares no parameters to a host". The second is common and is not a
- * fault — measured, twenty-seven of one vendor's synths do exactly that — and a caller that read
- * both as failure told somebody their plugins were broken when they were not.
+ * return type: `nullopt` is "this machine could not find, create OR LOAD the plugin", an empty
+ * vector is "it loaded and genuinely publishes none".
+ *
+ * The third word in that list was missing for a while and it mattered. `createNewPlugin` returns a
+ * Plugin whether or not an instance was made, so twenty-seven plugins that refuse to load on this
+ * machine came back as an empty parameter list — and were reported as plugins that publish
+ * nothing. They are not: it is a licence or an installation, and only `nullopt` sends anyone to
+ * look at it.
  */
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& format,
                                                            const std::string& identifier);

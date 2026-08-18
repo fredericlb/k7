@@ -11,6 +11,7 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
+import { engineModuleOf } from "@studio/song/moduleTypes";
 import type { WorkspaceList } from "@studio/web-protocol";
 import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
@@ -315,16 +316,33 @@ app.get(
  * no automatable parameters — so the two must not arrive spelt the same way.
  *
  * `found` rides back for the same reason one notch down: a plugin this machine cannot LOAD and
- * one that loads and declares nothing are both an empty list, and only the first is worth
- * telling somebody about.
+ * one that loads and publishes nothing are both an empty list, and only the first is worth
+ * telling somebody about — it is a licence or an installation, not a fact about the plugin.
  */
 app.get(
   "/plugin-params",
   wrap(async (req, res) => {
-    const format = String(req.query.format ?? "");
-    const id = String(req.query.id ?? "");
+    // Two ways to name a plugin, and the machine resolves the friendlier one. `ref` is an
+    // `@engine/<slug>` — what a module's `extends:` carries — and only this side can turn it into
+    // a binary, because the scan cache is here; a browser holding the ref would otherwise have to
+    // fetch the whole catalogue to send back one path. `engineModuleOf` is the shared rule, so the
+    // plugin found is the one a compiled document would load.
+    const ref = String(req.query.ref ?? "");
+    let format = String(req.query.format ?? "");
+    let id = String(req.query.id ?? "");
+    if (ref) {
+      const hit = scannedPlugins().find(
+        (p) => p.id && engineModuleOf(p)?.ref === ref,
+      );
+      if (!hit?.id) {
+        res.status(404).json({ error: `no scanned plugin for "${ref}"` });
+        return;
+      }
+      format = hit.format;
+      id = hit.id;
+    }
     if (!format || !id) {
-      res.status(400).json({ error: "format and id are required" });
+      res.status(400).json({ error: "format and id, or ref, are required" });
       return;
     }
     const answer = await pluginParams(format, id);
