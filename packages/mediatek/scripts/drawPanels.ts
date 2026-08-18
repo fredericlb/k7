@@ -1,8 +1,17 @@
-// One-shot: draw a `ui.yaml` for every module in the médiathèque that is a face for an engine
-// plugin, from that plugin's own parameters. Re-runnable — it reads the plugin every time and
-// writes what it finds, which is what makes it the thing to run after a Tracktion bump.
+// One-shot: draw a `ui.yaml` for every module in a library that is a face for an engine plugin,
+// from that plugin's own parameters. Re-runnable — it reads the plugin every time and writes
+// what it finds, which is what makes it the thing to run after a Tracktion bump.
 //
-//   npx tsx packages/mediatek/scripts/drawPanels.ts [--only-missing] [--dry-run] [--no-backup]
+//   npx tsx packages/mediatek/scripts/drawPanels.ts [opts] [<modules-dir>]
+//     --only-missing   leave the modules that already have a panel alone
+//     --dry-run        say what it would write, write nothing
+//     --no-backup      skip the copy of what is about to be replaced
+//
+// TWO libraries, and the folder argument is why. The médiathèque (the default) is st0's
+// catalogue; a WORKSPACE's `_libraries/modules` is what a song actually resolves `@st0/…`
+// against, and the médiathèque fills it exactly once, when it is empty (`seedIfEmpty`). After
+// that they are two copies of one catalogue that nothing keeps in step, so drawing panels in one
+// leaves the other's blank — which is precisely how this argument came to exist.
 //
 // A pass over a folder rather than a verb, for migrateUis.ts' reason: two hundred and fifty
 // panels is something you run once on a library, not a command that sits in every palette for
@@ -15,8 +24,9 @@ import {
   readdirSync,
   readFileSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { EngineClient } from "@studio/engine-client/engineClient";
 import type { BuiltinParam } from "@studio/song/builtinParams";
 import { builtinPluginForRef } from "@studio/song/builtinParams";
@@ -31,9 +41,19 @@ import { putFile } from "../src/write.ts";
 const onlyMissing = process.argv.includes("--only-missing");
 const dryRun = process.argv.includes("--dry-run");
 const noBackup = process.argv.includes("--no-backup");
+/** The one non-flag argument: which `modules/` folder to draw. Default is the médiathèque's. */
+const targetArg = process.argv.slice(2).find((a) => !a.startsWith("--"));
 const ENGINE_URL = `ws://127.0.0.1:${process.env.STUDIO_ENGINE_PORT || 8765}`;
-/** Long, because this is the wait for a plugin BINARY to load — some take seconds. */
-const ASK_TIMEOUT_MS = 30_000;
+/**
+ * How long one plugin gets to load and answer.
+ *
+ * A minute, and it was measured up to it: thirty seconds drew 205 panels on one run and 202 on
+ * the next, the three that fell out being large Arturia instruments that had answered before.
+ * A cold plugin binary, a sample bank on a slow disk and a machine already serving audio add up,
+ * and the cost of waiting too long is a slower pass while the cost of waiting too little is a
+ * panel silently not drawn.
+ */
+const ASK_TIMEOUT_MS = 60_000;
 
 /** Every folder under `modules/` holding a `module.yaml` — the scan's own rule for "a module". */
 function moduleDirs(dir: string, out: string[] = []): string[] {
@@ -103,9 +123,21 @@ function askEngine(
   });
 }
 
-const root = familyDir("modules");
+const root = targetArg ? resolve(targetArg) : familyDir("modules");
+if (!existsSync(root)) {
+  console.error(`no such folder: ${root}`);
+  process.exit(2);
+}
 const dirs = moduleDirs(root).sort();
-const rel = (abs: string) => relative(mediatekDir(), abs).split(sep).join("/");
+/**
+ * A path to SHOW and to key the backup by, relative to whichever library this is.
+ *
+ * The médiathèque's own root when that is what we are drawing, so the line printed is the same
+ * `modules/…` a route would take; the library folder's parent otherwise, which for a workspace
+ * mount reads `modules/audio/reverb/ui.yaml` just the same.
+ */
+const base = targetArg ? dirname(root) : mediatekDir();
+const rel = (abs: string) => relative(base, abs).split(sep).join("/");
 
 // Read every module first, so the run can say what it is about to do before it does any of it.
 type Job = { dir: string; ref: string; hasUi: boolean };
@@ -123,6 +155,7 @@ for (const dir of dirs) {
 }
 
 const overwriting = jobs.filter((j) => j.hasUi);
+console.log(`library: ${root}`);
 console.log(
   `${dirs.length} module(s): ${jobs.length} to draw, ${notAFace} face no engine plugin` +
     (onlyMissing
@@ -146,6 +179,20 @@ function backup(stamp: string): string {
     copyFileSync(join(j.dir, UI_FILE), dst);
   }
   return into;
+}
+
+/**
+ * Write one panel, by whichever route owns the folder it lands in.
+ *
+ * `putFile` for the médiathèque, because writing there is not only writing: it bumps the
+ * family's revision, which is what makes st0's tree notice a file whose neighbours did not
+ * change. For any other library it is the wrong call twice over — `writablePath` confines to the
+ * médiathèque and would refuse the path outright, and there is no revision out there to move.
+ */
+function writePanel(dir: string, text: string): void {
+  const path = join(dir, UI_FILE);
+  if (targetArg) writeFileSync(path, text, "utf8");
+  else putFile(rel(path), text);
 }
 
 const engine = new EngineClient(ENGINE_URL);
@@ -210,11 +257,10 @@ try {
       empty.push(j.ref);
       continue;
     }
-    const path = `${rel(j.dir)}/${UI_FILE}`;
-    if (!dryRun) putFile(path, writeUiFile("", paramPanel(params)));
+    if (!dryRun) writePanel(j.dir, writeUiFile("", paramPanel(params)));
     drawn++;
     console.log(
-      `  ${params.length.toString().padStart(4)} ${from.padEnd(6)} ${path}`,
+      `  ${params.length.toString().padStart(4)} ${from.padEnd(6)} ${rel(join(j.dir, UI_FILE))}`,
     );
   }
 } finally {
