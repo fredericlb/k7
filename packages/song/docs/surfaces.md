@@ -30,10 +30,13 @@ The id is the **filename**, as in every flat entity folder here.
 ## Adding one
 
 ```
-surface new timeline           → surfaces/timeline.yaml
-surface new viewport           → surfaces/viewport.yaml
-surface new turntables desk    → surfaces/desk.yaml
+project surface new timeline           → surfaces/timeline.yaml
+project surface new viewport           → surfaces/viewport.yaml
+project surface new turntables desk    → surfaces/desk.yaml
 ```
+
+Under `project`, with the markers and the alternatives: a surface is a property of the **project**
+— what it draws — rather than of a track, a node or a clip inside it.
 
 **There is no `layout` argument**, and that is the point: the table below already says which one
 each type is drawn in, and every type has exactly one — so an argument could only ever be right,

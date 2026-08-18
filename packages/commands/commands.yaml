@@ -500,14 +500,16 @@
 
 # --- surfaces (the special views a project asks for) ---
 # A project draws nothing it has not declared: the arrangement, the frame and the desk are all
-# files in surfaces/. There is no layout argument — every type is drawn in exactly one, and the
-# schema refuses the other, so it is derived. See packages/song/docs/surfaces.md.
-- command: "surface new"
-  sid: surface.create
+# files in surfaces/. Under `project` with the markers and the alternatives, because a surface is
+# a property of the PROJECT rather than of anything in it. There is no layout argument — every
+# type is drawn in exactly one, and the schema refuses the other, so it is derived.
+# See packages/song/docs/surfaces.md.
+- command: "project surface new"
+  sid: project.surface.create
   readable:
     en: "Add a surface — the arrangement, the frame or the desk"
     fr: "Ajouter une surface — l'arrangement, l'image ou les platines"
-  help: "declare a special view (e.g. surface new timeline, or surface new turntables desk)"
+  help: "declare a special view (e.g. project surface new timeline, or project surface new turntables desk)"
   surfaces: [cli]
   args:
     [

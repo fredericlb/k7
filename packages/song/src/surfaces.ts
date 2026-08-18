@@ -165,7 +165,7 @@ export function surfaceIssues(dir: string): Diagnostic[] {
       // the word `timeline`.
       message:
         `this project is an arrangement and declares no timeline, so nothing draws its lanes — ` +
-        `run \`surface new timeline\` (packages/song/docs/surfaces.md)`,
+        `run \`project surface new timeline\` (packages/song/docs/surfaces.md)`,
     });
   if (isVideoProject(dir) && !declares("viewport"))
     diagnostics.push({
@@ -175,7 +175,7 @@ export function surfaceIssues(dir: string): Diagnostic[] {
       severity: "warning",
       message:
         `this project has video lanes and declares no viewport, so nothing composites them — ` +
-        `run \`surface new viewport\` (packages/song/docs/surfaces.md)`,
+        `run \`project surface new viewport\` (packages/song/docs/surfaces.md)`,
     });
   return diagnostics;
 }

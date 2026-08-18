@@ -246,7 +246,7 @@ describe("a song with video lanes and no viewport", () => {
 });
 
 /**
- * `surface new` — the writer behind the command. What matters is that the file it produces is one
+ * `project surface new` — the writer behind it. What matters is that the file it produces is one
  * the parser above accepts BY CONSTRUCTION, and that it refuses the two states that would leave
  * somebody editing a file nothing draws.
  */

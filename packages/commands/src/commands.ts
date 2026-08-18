@@ -2613,19 +2613,22 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * surface new <type> [id] — declare a special view: the arrangement, the frame, or the desk.
+   * project surface new <type> [id] — declare a special view: the arrangement, the frame, or the desk.
    *
    * A project draws nothing it has not asked for, and until now the only way to ask was to write
    * the file by hand — which the two `surfaceIssues` warnings tell you to do, naming a file you
    * then have to create in the editor of the project that is missing it.
    *
+   * Under `project`, beside the markers and the alternatives: a surface is a property of the
+   * PROJECT — what it draws — rather than of a track, a node or a clip inside it.
+   *
    * NO layout argument. `SURFACE_LAYOUTS_BY_TYPE` already says which one each type is drawn in
    * and every type has exactly one, so the only thing an argument could add is a way to be
    * refused by the schema a moment later. See createSurfaceFile.
    */
-  "surface.create": async (a, h) => {
+  "project.surface.create": async (a, h) => {
     const usage =
-      "usage: surface new <turntables|timeline|viewport> [id]  (e.g. surface new turntables desk)";
+      "usage: project surface new <turntables|timeline|viewport> [id]  (e.g. project surface new turntables desk)";
     const [type, id] = a.trim().split(/\s+/);
     // Narrowed here rather than cast: the word came off a command line, and `isSurfaceType` is
     // the schema's own answer to "is this one of them" — so the list in the message cannot drift
@@ -2641,7 +2644,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.reload();
       h.log([`created ${rel}`]);
     } catch (e) {
-      h.log([`surface new: ${(e as Error).message}`, usage]);
+      h.log([`project surface new: ${(e as Error).message}`, usage]);
     }
   },
 
