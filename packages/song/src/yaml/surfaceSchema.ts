@@ -4,7 +4,7 @@
 // Full rationale: docs/surfaces.md.
 
 import { z } from "zod";
-import { ViewBindingSchema } from "./mixViewSchema";
+import { MixViewSchema } from "./mixViewSchema";
 
 /**
  * The kinds of surface there are: m9's desk, the ARRANGEMENT — the timeline — and the FRAME.
@@ -66,6 +66,50 @@ export const SURFACE_LAYOUTS_BY_TYPE: Record<
 };
 
 /**
+ * Which components each type has, and what each one wants — `[id, note]`, in the order a
+ * scaffolded surface lists them. What `project surface new` writes as `<id>: null # <note>`.
+ *
+ * `timeline` and `viewport` have none, and that is not an omission: a mapping says which module a
+ * component MOVES, and neither has a component that moves one. The arrangement draws the
+ * project's own lanes and the frame composites its own layers.
+ *
+ * **The desk's vocabulary, written out here, and held to the original by a test.** The two notes
+ * above say `@studio/song` does not know what a `crossfade` is, and that is still the rule — what
+ * it protects against is a copy going STALE. `@studio/ui-turntables` owns the real list
+ * (`MIX_CONTROLS`, `REQUIRED_CONTROLS`) and cannot be imported from here in either direction: it
+ * reaches `@studio/engine-browser` through `deck.ts`, and this package's node-side half would
+ * drag `node:fs` back the other way. So the copy lives in this BROWSER-SAFE module, where that
+ * package's own `mapping.test.ts` can import it without pulling the disk in, and fail the day the
+ * desk grows a control the scaffold does not offer. The rule survives; its enforcement moved.
+ */
+export const SURFACE_MAPPING_SKELETON: Record<
+  SurfaceType,
+  readonly (readonly [string, string])[]
+> = {
+  timeline: [],
+  viewport: [],
+  turntables: [
+    ["crossfade", "un module crossfade — son param de mélange"],
+    ...["A", "B"].flatMap(
+      (d) =>
+        [
+          [
+            `deck${d}.tempo`,
+            `un module tempo — l'étirement de la platine ${d}`,
+          ],
+          [`deck${d}.eqLow`, `un module eq — le grave de la platine ${d}`],
+          [`deck${d}.eqMid`, "le MÊME module eq — son médium"],
+          [`deck${d}.eqHigh`, "le MÊME module eq — son aigu"],
+          [
+            `deck${d}.filter`,
+            `un module filter — le filtre de la platine ${d}`,
+          ],
+        ] as const,
+    ),
+  ],
+};
+
+/**
  * A surface: what to draw, where, and what its components move.
  *
  * `mapping` is `views/mix.yaml`'s map, key for key — control id -> `{ module, param }` — and it
@@ -85,7 +129,12 @@ export const SurfaceSchema = z
   .object({
     type: z.enum(SURFACE_TYPES),
     layout: z.enum(SURFACE_LAYOUTS),
-    mapping: z.record(z.string().min(1), ViewBindingSchema).optional(),
+    // `MixViewSchema` itself, not a record built the same way. It was the latter, and the two
+    // drifted the first time one of them grew: `null` — a component named and not wired, which
+    // is what a scaffolded desk is made of — became legal in one and stayed refused in the other,
+    // so the file `project surface new` writes would not load. Exactly the failure the note
+    // below predicts, arriving through the schema instead of through the shape.
+    mapping: MixViewSchema.optional(),
   })
   .strict()
   // …and the PAIR, which neither enum can see on its own. On `layout`, so the squiggle lands on

@@ -273,7 +273,12 @@ describe("createSurfaceFile", () => {
         readFileSync(join(dir, rel), "utf8"),
       );
       expect(issues, type).toEqual([]);
-      expect(value).toEqual({ type, layout });
+      // The mapping is the skeleton's business, tested below; what this one is about is that
+      // every type comes out with the layout it is drawn in and a file the parser accepts.
+      expect({ type: value?.type, layout: value?.layout }).toEqual({
+        type,
+        layout,
+      });
     }
     expect(
       projectSurfaces(dir)
@@ -290,13 +295,31 @@ describe("createSurfaceFile", () => {
     expect(projectSurfaces(dir).surfaces[0].surface.type).toBe("turntables");
   });
 
-  it("writes NO mapping — which components a type needs is not this package's business", () => {
-    // @studio/song does not know what a crossfade is (docs/surfaces.md). A skeleton written here
-    // would be one package guessing at another's vocabulary, stale the day the desk grew a knob.
+  it("scaffolds a desk's mapping: every component, a null, and what it wants", () => {
+    // `null` and not a comment: a key that is THERE is validated the moment it is filled in,
+    // where a commented line is not something a parser can ever tell you that you got wrong.
     const dir = project();
     createSurfaceFile(dir, "turntables", "desk");
-    expect(readFileSync(join(dir, "surfaces/desk.yaml"), "utf8")).toBe(
-      "type: turntables\nlayout: view\n",
+    const text = readFileSync(join(dir, "surfaces/desk.yaml"), "utf8");
+    expect(text).toContain("mapping:\n");
+    expect(text).toContain("crossfade: null #");
+    for (const d of ["A", "B"])
+      for (const s of ["tempo", "eqLow", "eqMid", "eqHigh", "filter"])
+        expect(text, `deck${d}.${s}`).toContain(`deck${d}.${s}: null #`);
+    // …and it still parses, with the mapping read back as declared-but-unwired.
+    const { value, issues } = parseSurface(text);
+    expect(issues).toEqual([]);
+    expect(value?.mapping?.crossfade).toBeNull();
+  });
+
+  it("scaffolds NO mapping for the two types that have no components", () => {
+    // A mapping says which module a component MOVES. The arrangement draws the project's own
+    // lanes and the frame composites its own layers — neither has one, so an empty `mapping:`
+    // would be a line inviting something that does not exist.
+    const dir = project();
+    createSurfaceFile(dir, "timeline");
+    expect(readFileSync(join(dir, "surfaces/timeline.yaml"), "utf8")).toBe(
+      "type: timeline\nlayout: split\n",
     );
   });
 

@@ -88,6 +88,12 @@ export function resolveBindings(
       });
       continue;
     }
+    // NAMED and not wired — what a scaffolded surface is made of. Silently skipped here on
+    // purpose: `unmappedControls` is what reports it, once, as the gate over the whole desk.
+    // Reporting it again here would print two sentences about one unfilled line, and this one
+    // would be the less useful of the two — it can only say the line is empty, where the gate
+    // says which components a desk needs before it is a desk.
+    if (!b) continue;
     const found = steps.get(b.module);
     if (!found) {
       problems.push({

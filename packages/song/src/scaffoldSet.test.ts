@@ -186,6 +186,10 @@ describe("a scaffolded set", () => {
     // param on that module. A typo here is a control that silently does nothing.
     const modules = loadGraph(dir).modules;
     for (const b of Object.values(deskMapping(dir))) {
+      // A scaffolded SET wires every line — `null` is what `project surface new` leaves behind,
+      // and this scaffold is the other one, which knows the modules it just wrote.
+      expect(b, "the set scaffold wires every control").not.toBeNull();
+      if (!b) continue;
       expect(modules[b.module], `module ${b.module}`).toBeDefined();
       expect(
         Object.keys(modules[b.module].params ?? {}),
@@ -385,7 +389,7 @@ describe("a scaffolded set", () => {
     // Deck A's knobs never name deck B's module: that was the exact ambiguity that moved
     // these bindings out of the module's own controller.yaml.
     for (const [id, b] of Object.entries(view))
-      if (id.startsWith("deckA.eq")) expect(b.module).toBe("eqA");
+      if (id.startsWith("deckA.eq")) expect(b?.module).toBe("eqA");
   });
 
   it("MUTES deck B, so the crossfader can actually take it away", () => {

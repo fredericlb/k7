@@ -21,6 +21,19 @@ export interface MixControl {
   range: readonly [number, number];
   /** Where it sits with nothing done to it — what a reset returns to. */
   home: number;
+  /**
+   * What KIND of module this control expects to drive, in one word, for a scaffolded surface to
+   * say beside the line you have to fill in.
+   *
+   * A hint and not a check. Nothing verifies it — a set is free to wire a fader to whatever it
+   * likes, and `resolveBindings` only asks whether the named module EXISTS. It is here because
+   * `deckA.eqLow:` on its own tells you nothing about what belongs on the other side, and the
+   * answer is a fact about the desk rather than about any one project.
+   *
+   * Absent for the controls that drive no param at all — `transport`, `sync`, `listen` — which
+   * is the same line `REQUIRED_CONTROLS` draws, from the same fact.
+   */
+  wants?: string;
 }
 
 /**
@@ -46,6 +59,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     // about what is loaded rather than about the control. 0 is the tempo module's own "leave
     // it alone", which is the honest stand-in.
     home: 0,
+    wants: "tempo",
   },
   {
     id: `${deck}.sync`,
@@ -69,6 +83,9 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     kind: "fader" as const,
     range: EQ_DB,
     home: 0,
+    // One EQ module per deck, three bands on it — so all three lines name the same module and
+    // differ by their param, which is what a skeleton has to make obvious.
+    wants: "eq",
   })),
   {
     id: `${deck}.filter`,
@@ -78,6 +95,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     // is doing nothing — the same reading an EQ gain gets.
     range: FILTER_RANGE,
     home: 0,
+    wants: "filter",
   },
 ];
 
@@ -95,6 +113,7 @@ export const MIX_CONTROLS: readonly MixControl[] = [
     kind: "fader",
     range: [0, 1],
     home: MIX_CENTRE,
+    wants: "crossfade",
   },
   ...DECKS.flatMap((d, i) => perDeck(d, String.fromCharCode(65 + i))),
   {

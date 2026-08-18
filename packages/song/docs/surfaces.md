@@ -51,10 +51,41 @@ Two things it refuses. The file already existing is the ordinary one. The other 
 has one slot — so a second is a file that changes nothing and shows nothing. A `view` surface is
 not refused; each gets its own header button, so several are a real arrangement.
 
-It writes **no `mapping:`**. Which components a type needs is the surface's own business —
-`@studio/song` does not know what a `crossfade` is (see below) — so a skeleton written here would
-be one package guessing at another's vocabulary, stale the day the desk grew a knob. An unmapped
-desk says so on the desk, next to the knob that does nothing.
+### It scaffolds the mapping
+
+A `turntables` surface comes out with every component listed, each waiting for a module:
+
+```yaml
+type: turntables
+layout: view
+mapping:
+  crossfade: null # un module crossfade — son param de mélange
+  deckA.tempo: null # un module tempo — l'étirement de la platine A
+  deckA.eqLow: null # un module eq — le grave de la platine A
+  deckA.eqMid: null # le MÊME module eq — son médium
+  …
+```
+
+**`null`, not a comment.** A commented line is not something a parser will ever tell you that you
+got wrong; a key that is *there* is validated the moment you fill it in. Absent and null mean the
+same thing downstream — `unmappedControls` reports both, because both are unwired — so the
+skeleton costs nothing and answers the question a bare `mapping:` leaves open, which is what the
+ids even are. `MixViewSchema` takes `ViewBindingSchema.nullable()` for exactly this.
+
+`timeline` and `viewport` get **no `mapping:` at all**, and that is not an omission: a mapping
+says which module a component MOVES, and neither has a component that moves one. The arrangement
+draws the project's own lanes; the frame composites its own layers.
+
+**The list is duplicated, and a test is what keeps it true.** The rule below still holds —
+`@studio/song` does not know what a `crossfade` is — but the two packages cannot import each other
+in either direction: `@studio/ui-turntables`' `controls.ts` reaches `deck.ts` reaches
+`@studio/engine-browser`, and `song/src/surfaces.ts` is the disk walk, so pulling it into a screen
+package drags `node:fs` in. So `SURFACE_MAPPING_SKELETON` lives in **`yaml/surfaceSchema.ts`**,
+the browser-safe module beside the other two tables — where `ui-turntables/mapping.test.ts` can
+import it without the disk, and fail the day the desk grows a control the scaffold does not offer
+or offers one it does not require. What the boundary protects against is the copy going stale;
+only the enforcement moved. Each note is checked against the control's own `wants`, so an
+expectation that changes takes the scaffold's sentence with it.
 
 ## The three fields
 
@@ -163,7 +194,8 @@ there is none of.
 
 ## `mapping` is `views/mix.yaml`'s binding, reused
 
-Key for key: control id → `{ module, param }`, the same `ViewBindingSchema`. It is the same map
+Key for key: control id → `{ module, param }` **or `null`** for one that is named and not wired
+yet — the same `ViewBindingSchema`, nullable. It is the same map
 because it is the same question, asked by a surface instead of by m9's desk — and reusing it is
 what keeps `module` meaning "the name the **chains file** uses" in both places. A second shape
 that happened to agree would drift the first time one of them grew a field.
