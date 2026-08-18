@@ -78,7 +78,8 @@
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
-    "./builtinParams": "./src/builtinParams.ts"
+    "./builtinParams": "./src/builtinParams.ts",
+    "./paramPanel": "./src/paramPanel.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
