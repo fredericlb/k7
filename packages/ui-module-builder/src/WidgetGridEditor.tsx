@@ -2,7 +2,8 @@
 // authored by placing widgets on cells instead of writing YAML. It owns nothing — every
 // edit produces a fresh ModuleUI and calls onChange. A widget is bound by DRAGGING a row
 // from the Parameters pane (paramDrag.ts), which carries the range with it, so this
-// component needs to know nothing about the engine.
+// component needs to know nothing about the engine. It edits ONE widget map at a time —
+// the panel's, or one page of a tabs widget — which is docs/pages.md.
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
@@ -101,13 +102,52 @@ const covers = (w: Widget, c: number, r: number) =>
   r >= w.row &&
   r < w.row + span(w.rowSpan);
 
-// The first cell (row-major) no widget covers — where a freshly added widget lands.
-function firstFree(ui: ModuleUI): { col: number; row: number } {
-  const ws = Object.values(ui.widgets);
-  for (let r = 0; r < ui.rows; r++)
-    for (let c = 0; c < ui.cols; c++)
+// The first cell (row-major) no widget covers — where a freshly added widget lands. It takes a
+// MAP rather than the panel, because the grid may be editing one page of a tabs widget: a cell
+// is free with respect to what is drawn beside it, and a page's widgets are drawn alone.
+function firstFree(
+  widgets: Record<string, Widget>,
+  cols: number,
+  rows: number,
+): { col: number; row: number } {
+  const ws = Object.values(widgets);
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
       if (!ws.some((w) => covers(w, c, r))) return { col: c, row: r };
   return { col: 0, row: 0 }; // full grid — stack on the origin, the user can move it
+}
+
+/** Which widget map the grid edits: the panel itself (`null`), or one page of a tabs widget. */
+export type PageRef = { tabs: string; name: string } | null;
+
+/** The map `at` names — the panel's widgets, or the page's (empty if it has none yet). */
+export function widgetsAt(ui: ModuleUI, at: PageRef): Record<string, Widget> {
+  return at ? (ui.widgets[at.tabs]?.pages?.[at.name] ?? {}) : ui.widgets;
+}
+
+/**
+ * `ui` with the map at `at` replaced — the one write path, so no operation has to know
+ * whether it is editing the panel or a page.
+ *
+ * The nesting is spread at every level on purpose: writing `pages: { [name]: next }` would
+ * drop the tabs widget's OTHER pages, and there is nothing on screen that would say so until
+ * the file is saved and a page you were not looking at has gone.
+ */
+export function writeWidgetsAt(
+  ui: ModuleUI,
+  at: PageRef,
+  next: Record<string, Widget>,
+): ModuleUI {
+  if (!at) return { ...ui, widgets: next };
+  const tabs = ui.widgets[at.tabs];
+  if (!tabs) return ui; // the page's owner has gone: refuse rather than invent one
+  return {
+    ...ui,
+    widgets: {
+      ...ui.widgets,
+      [at.tabs]: { ...tabs, pages: { ...tabs.pages, [at.name]: next } },
+    },
+  };
 }
 
 // A stable, unused id. Ids are the base→module override key, so existing widgets must never renumber.
@@ -141,19 +181,46 @@ export function WidgetGridEditor({
   onChange: (ui: ModuleUI) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  /**
+   * WHICH widget map the grid is editing: the panel itself (`null`), or one PAGE of a tabs
+   * widget. A tabs widget's pages are real widget maps — the renderer draws one at a time,
+   * over the panel's own grid — so placing a widget "on a page" is writing into that map and
+   * nowhere else. Until this existed the builder could make pages and never fill them.
+   */
+  const [page, setPage] = useState<PageRef>(null);
+  // …and the same thing checked against the document, so a page whose tabs widget or name has
+  // gone (deleted, renamed, or the file re-read from disk) takes the grid back to the panel
+  // instead of writing into a map that is not there any more.
+  const at: PageRef =
+    page && ui.widgets[page.tabs]?.pages?.[page.name] ? page : null;
+  /** The map being edited — the panel's widgets, or the page's. */
+  const widgets = widgetsAt(ui, at);
+  /** The panel's tabs widgets, whose pages the breadcrumb offers. Top level only, per addWidget. */
+  const tabsWidgets = Object.entries(ui.widgets).filter(
+    ([, w]) => w.type === "tabs",
+  );
   // The widget a parameter is currently hovering over, so it can light up as the target.
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   // Which gesture is live, so pointermove knows whether it's moving or resizing.
   const drag = useRef<{ id: string; mode: "move" | "resize" } | null>(null);
 
+  /** Write the edited map back where it came from. Every operation below goes through it. */
+  const writeWidgets = useCallback(
+    (next: Record<string, Widget>) => onChange(writeWidgetsAt(ui, at, next)),
+    [ui, at, onChange],
+  );
+
+  /** Enter a page, or come back to the panel. The selection is per map, so it clears. */
+  const enter = (p: PageRef) => {
+    setPage(p);
+    setSelected(null);
+  };
+
   const patch = useCallback(
     (id: string, w: Partial<Widget>) =>
-      onChange({
-        ...ui,
-        widgets: { ...ui.widgets, [id]: { ...ui.widgets[id], ...w } },
-      }),
-    [ui, onChange],
+      writeWidgets({ ...widgets, [id]: { ...widgets[id], ...w } }),
+    [widgets, writeWidgets],
   );
 
   const setGrid = (d: Partial<Pick<ModuleUI, "cols" | "rows">>) =>
@@ -181,7 +248,7 @@ export function WidgetGridEditor({
       : TOGGLE_BINDS.has(p.name)
         ? "toggle"
         : "knob";
-    const id = nextId(ui.widgets);
+    const id = nextId(widgets);
     const w: Widget = {
       type,
       col,
@@ -194,14 +261,18 @@ export function WidgetGridEditor({
         : {}),
       ...(type === "dropdown" ? { options: p.meta?.states ?? [] } : {}),
     };
-    onChange({ ...ui, widgets: { ...ui.widgets, [id]: w } });
+    writeWidgets({ ...widgets, [id]: w });
     setSelected(id);
   };
 
   const addWidget = (type: WidgetType) => {
     if (disabled) return;
-    const id = nextId(ui.widgets);
-    const { col, row } = firstFree(ui);
+    // One level of pages, deliberately: the format nests, but a grid that could descend
+    // forever would need a breadcrumb nobody could read at a glance. The button is disabled
+    // rather than silently doing nothing — see the palette below.
+    if (type === "tabs" && at) return;
+    const id = nextId(widgets);
+    const { col, row } = firstFree(widgets, ui.cols, ui.rows);
     const w: Widget =
       type === "label"
         ? { type, col, row, text: "Label" }
@@ -230,14 +301,14 @@ export function WidgetGridEditor({
                       ? { min: 0, max: 1 }
                       : {}),
                   };
-    onChange({ ...ui, widgets: { ...ui.widgets, [id]: w } });
+    writeWidgets({ ...widgets, [id]: w });
     setSelected(id);
   };
 
   const removeWidget = (id: string) => {
-    const widgets = { ...ui.widgets };
-    delete widgets[id];
-    onChange({ ...ui, widgets });
+    const next = { ...widgets };
+    delete next[id];
+    writeWidgets(next);
     setSelected((s) => (s === id ? null : s));
   };
 
@@ -261,7 +332,7 @@ export function WidgetGridEditor({
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
-    const w = ui.widgets[d.id];
+    const w = widgets[d.id];
     if (!w) return;
     const { col, row } = cellAt(e.clientX, e.clientY);
     if (d.mode === "move") {
@@ -298,7 +369,7 @@ export function WidgetGridEditor({
     (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
   };
 
-  const sel = selected ? ui.widgets[selected] : null;
+  const sel = selected ? widgets[selected] : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -312,9 +383,13 @@ export function WidgetGridEditor({
             key={t.type}
             size="sm"
             variant="secondary"
-            disabled={!!disabled}
+            disabled={!!disabled || (t.type === "tabs" && !!at)}
             onClick={() => addWidget(t.type)}
-            title={`Add ${t.label}`}
+            title={
+              t.type === "tabs" && at
+                ? "Tabs inside a page is not editable here — go back to Panel"
+                : `Add ${t.label}`
+            }
           >
             <t.icon className="mr-1 h-3.5 w-3.5" />
             {t.label}
@@ -337,6 +412,53 @@ export function WidgetGridEditor({
           />
         </div>
       </div>
+
+      {/* Where the grid is writing. Only drawn once the panel HAS a tabs widget: until then
+          there is one map and a breadcrumb would name it for nothing. */}
+      {tabsWidgets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1">
+          <button
+            type="button"
+            onClick={() => enter(null)}
+            className={cn(
+              "rounded px-2 py-0.5 text-xs",
+              at
+                ? "text-muted-foreground hover:text-foreground"
+                : "bg-secondary text-foreground",
+            )}
+          >
+            Panel
+          </button>
+          {tabsWidgets.map(([tid, tw]) => (
+            <span key={tid} className="flex items-center gap-1">
+              <span className="text-muted-foreground/50">/</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {tid}
+              </span>
+              {Object.keys(tw.pages ?? {}).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => enter({ tabs: tid, name })}
+                  className={cn(
+                    "rounded px-2 py-0.5 text-xs",
+                    at?.tabs === tid && at.name === name
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {name}
+                </button>
+              ))}
+              {!Object.keys(tw.pages ?? {}).length && (
+                <span className="px-1 text-[10px] text-muted-foreground/60">
+                  no pages
+                </span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* the grid canvas */}
       <div
@@ -390,8 +512,32 @@ export function WidgetGridEditor({
             );
           })}
 
+          {/* The PANEL behind the page: its widgets are drawn whichever page is showing, so
+              editing a page against a blank grid would hide every collision. Inert and dim —
+              they belong to the other map, and one click of "Panel" reaches them. The tabs
+              widget itself is left out: it is the bar, not content beside it. */}
+          {at &&
+            Object.entries(ui.widgets)
+              .filter(([id]) => id !== at.tabs)
+              .map(([id, w]) => (
+                <div
+                  key={`under:${id}`}
+                  className="pointer-events-none m-0.5 flex flex-col items-center justify-center overflow-hidden rounded border border-dashed border-border/50 bg-background/30 px-1 text-center opacity-40"
+                  style={{
+                    gridColumn: `${w.col + 1} / span ${span(w.colSpan)}`,
+                    gridRow: `${w.row + 1} / span ${span(w.rowSpan)}`,
+                  }}
+                >
+                  <span className="max-w-full truncate text-[10px] leading-tight text-muted-foreground">
+                    {w.type === "label"
+                      ? w.text || "label"
+                      : w.label || w.bind || w.type}
+                  </span>
+                </div>
+              ))}
+
           {/* placed widgets */}
-          {Object.entries(ui.widgets).map(([id, w]) => {
+          {Object.entries(widgets).map(([id, w]) => {
             const Icon = ICON[w.type];
             const isSel = id === selected;
             return (
@@ -457,9 +603,11 @@ export function WidgetGridEditor({
             on the left. Fixing it re-enables the grid.
           </p>
         )}
-        {!disabled && !Object.keys(ui.widgets).length && (
+        {!disabled && !Object.keys(widgets).length && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Empty grid — add a widget above, then drag to place and resize it.
+            {at
+              ? `"${at.name}" is empty — add a widget above and it lands on this page.`
+              : "Empty grid — add a widget above, then drag to place and resize it."}
           </p>
         )}
       </div>
