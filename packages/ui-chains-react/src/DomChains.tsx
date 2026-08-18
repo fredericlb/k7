@@ -498,9 +498,30 @@ const CSS = `
   align-items:center; justify-content:center; }
 .dgx-w.drag { cursor:ns-resize; }
 .dgx-w.tap { cursor:pointer; }
-.dgx-wlab { font-size:8px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
+/* A SELECT reads as the control; its caption is a heading over it, not a foot under it — and
+   pinned out of the flow so the select itself is what .dgx-w's justify-content centres, rather
+   than the pair of them. left/right rather than a width so a long name ellipsises in place. */
+/* A caption BESIDE its select, when the box is wide enough for both. In the flow, so the pair
+   is what .dgx-w centres — there is nothing to pin here. */
+.dgx-selrow { display:flex; align-items:center; gap:4px; max-width:100%; min-width:0; }
+.dgx-selrow .dgx-wlab { margin-top:0; flex:none; }
+.dgx-selrow .dgx-sel { min-width:0; }
+.dgx-wlab.top { position:absolute; top:1px; left:2px; right:2px; margin-top:0;
+  overflow:hidden; text-overflow:ellipsis;
+  /* Centred by text-align, not by the flex box: out of the flow, this span is no longer a
+     child .dgx-w's align-items can centre, and left/right make it span the whole width — so
+     without this the name sits against the left edge. */
+  text-align:center; }
+/* 6px, down from 8. A caption names a control that is already drawn — it is read once and
+   then recognised by position — so it can be smaller than anything it labels, and the two
+   pixels go back to the panel. */
+.dgx-wlab { font-size:6px; text-transform:uppercase; letter-spacing:.09em; color:var(--dim);
   margin-top:1px; white-space:nowrap; }
 .dgx-wval { font:10px ui-monospace,monospace; color:#e7e6ea; font-variant-numeric:tabular-nums; }
+/* A 'label' widget's own text — a heading over a group, not a reading. It borrowed .dgx-wval
+   above, which is why shrinking captions alone would have left it 4px larger than everything
+   it heads; its own class is what lets the two move apart. 8px, down from that 10. */
+.dgx-wtext { font:8px ui-monospace,monospace; color:#e7e6ea; }
 .dgx-slider { width:80%; height:5px; border-radius:3px; background:#08080b; border:1px solid #212129; overflow:hidden; }
 .dgx-slider i { display:block; height:100%; background:var(--sand); }
 
@@ -853,7 +874,33 @@ interface EdgeGeom extends CableGeom {
 // --- controls ----------------------------------------------------------------
 
 // A knob dial as an SVG arc, value normalised 0..1. An unknown value leaves the pointer off and travel unfilled.
-function Knob({ t, known, size }: { t: number; known: boolean; size: number }) {
+/**
+ * `text` is the reading, drawn in the middle of the dial.
+ *
+ * Which is why the pointer is a rim TICK rather than a line from the centre: it used to run
+ * from (c,c) to the rim, straight through where the number now sits. It starts at 62% of the
+ * radius instead — the same gesture, from outside the text.
+ *
+ * The font is a fraction of the dial rather than a fixed size: a knob here is anything from
+ * 14px to 60-odd depending on the cells it was given, and one size would be either unreadable
+ * on the small ones or absurd on the large.
+ *
+ * And it is DROPPED when the reading does not fit inside the tick — measured against the text
+ * actually being drawn, not a guess at its width. A one-row knob is 21px whatever its colSpan
+ * (the height is what binds: a row less the caption), and "-100" needs 14px of middle it has
+ * not got. Better no reading than one over its own pointer.
+ */
+function Knob({
+  t,
+  known,
+  size,
+  text,
+}: {
+  t: number;
+  known: boolean;
+  size: number;
+  text?: string;
+}) {
   const START = Math.PI * 0.75,
     SWEEP = Math.PI * 1.5;
   const c = size / 2;
@@ -866,6 +913,12 @@ function Knob({ t, known, size }: { t: number; known: boolean; size: number }) {
   };
   const a = START + SWEEP * Math.max(0, Math.min(1, t));
   const [ix, iy] = pt(a);
+  // The pointer starts here rather than at the centre, leaving the middle to the reading.
+  const tickR = R * 0.72;
+  const [tx, ty] = [c + Math.cos(a) * tickR, c + Math.sin(a) * tickR];
+  const font = Math.max(6, Math.round(size * 0.2));
+  // Monospace advance is ~0.6em; the -1 keeps a hair between the last glyph and the pointer.
+  const readable = !!text && text.length * 0.6 * font <= 2 * (tickR - 1);
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <circle cx={c} cy={c} r={c - 1} fill="#0e0e12" stroke="#26262d" />
@@ -886,8 +939,8 @@ function Knob({ t, known, size }: { t: number; known: boolean; size: number }) {
             strokeLinecap="round"
           />
           <line
-            x1={c}
-            y1={c}
+            x1={tx}
+            y1={ty}
             x2={ix}
             y2={iy}
             stroke="#e7e6ea"
@@ -895,6 +948,20 @@ function Knob({ t, known, size }: { t: number; known: boolean; size: number }) {
             strokeLinecap="round"
           />
         </>
+      )}
+      {readable && (
+        <text
+          x={c}
+          y={c}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill={known ? "#e7e6ea" : "var(--faint)"}
+          fontSize={font}
+          fontFamily="ui-monospace, monospace"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {text}
+        </text>
       )}
     </svg>
   );
@@ -989,10 +1056,22 @@ function TabsWidget({
   const TAB_H = 16; // px for the tab bar
 
   return (
-    <div className="dgx-w" style={style} onClick={(e) => e.stopPropagation()}>
+    // `justifyContent` inline, against .dgx-w's own `center`: the bar has to sit at the TOP
+    // of its box because that is what the sub-widget offset below assumes (`+ TAB_H`). Centred,
+    // the two disagreed by half the leftover height — a page's first row overlapped the bar on a
+    // one-row box and hung 26px under it on the next, with no row an author could pick that was
+    // flush. Inline rather than a class so it beats the stylesheet whatever the order.
+    <div
+      className="dgx-w"
+      style={{ ...style, justifyContent: "flex-start" }}
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* tab bar */}
       <div
-        className="flex overflow-hidden"
+        // `w-full`, because .dgx-w is a centring flex column: without it the bar is sized to
+        // its NAMES and parked in the middle of the widget, which is what left "General"
+        // reading "Gene…" with empty box on either side of it.
+        className="flex w-full overflow-hidden"
         style={{ height: TAB_H, borderBottom: "1px solid #2f2f36" }}
       >
         {pageNames.map((name) => (
@@ -1002,7 +1081,10 @@ function TabsWidget({
               e.stopPropagation();
               setActivePage(name);
             }}
-            className="flex-1 truncate px-1 text-center text-[8px] leading-none text-muted-foreground hover:text-foreground"
+            // `flex-auto`, not `flex-1`: basis is the NAME's width, so the spare space is
+            // shared out rather than cut into equal slices that clip a long page name next to
+            // a short one. `truncate` stays as the last resort, for a name wider than the box.
+            className="flex-auto truncate px-1 text-center text-[8px] leading-none text-muted-foreground hover:text-foreground"
             style={{
               borderBottom:
                 name === current
@@ -1356,6 +1438,14 @@ function WidgetInner({
   const caption =
     w.type === "label" || w.type === "button" ? undefined : w.label;
 
+  // …and where a DROPDOWN's goes. Not the library kind: its body is a file name at 100% width
+  // (.dgx-file), so there is no room beside it to compete for and nothing to gain by trying.
+  const beside =
+    w.type === "dropdown" &&
+    !w.library &&
+    !!caption &&
+    captionFitsBeside(caption, w.options ?? [], r.w);
+
   // A control never selects the node; an inert one (label, meter, undrivable knob) lets the click fall through.
   const interact: React.HTMLAttributes<HTMLDivElement> & { className: string } =
     actuable && draggable(w)
@@ -1392,7 +1482,14 @@ function WidgetInner({
   let body: React.ReactNode = null;
   if (w.type === "knob") {
     const size = Math.min(r.w, r.h - (caption ? 11 : 0)) - 4;
-    body = <Knob t={t} known={known} size={Math.max(14, size)} />;
+    body = (
+      <Knob
+        t={t}
+        known={known}
+        size={Math.max(14, size)}
+        text={fmtValue(value)}
+      />
+    );
   } else if (w.type === "slider") {
     body = (
       <div className="dgx-slider">
@@ -1455,7 +1552,7 @@ function WidgetInner({
       </span>
     );
   } else if (w.type === "label") {
-    body = <span className="dgx-wval">{w.text ?? ""}</span>;
+    body = <span className="dgx-wtext">{w.text ?? ""}</span>;
   } else if (w.type === "meter") {
     body = <div className="dgx-meter" />;
   } else if (w.type === "filepicker" || (w.type === "dropdown" && w.library)) {
@@ -1525,11 +1622,52 @@ function WidgetInner({
       // a tooltip repeating the word already on screen is noise.
       title={padSymbol ?? undefined}
     >
-      {body}
-      {caption && <span className="dgx-wlab">{caption}</span>}
+      {/* A dropdown's caption goes BESIDE its select where the box has room for both, and
+          above it where it has not — see captionFitsBeside. Every other widget draws its
+          caption underneath, as it always did. */}
+      {caption && w.type === "dropdown" && !beside && (
+        <span className="dgx-wlab top">{caption}</span>
+      )}
+      {beside ? (
+        <div className="dgx-selrow">
+          <span className="dgx-wlab">{caption}</span>
+          {body}
+        </div>
+      ) : (
+        body
+      )}
+      {caption && w.type !== "dropdown" && (
+        <span className="dgx-wlab">{caption}</span>
+      )}
     </div>
   );
 }
+/**
+ * Does a dropdown's caption fit BESIDE its select, rather than above it?
+ *
+ * Measured from the glyph counts, not from the DOM: the real widths only exist after a reflow,
+ * and this runs for every widget of every node on every frame that touches one. The constants
+ * are `.dgx-wlab` (6px, uppercase) and `.dgx-sel` (9px monospace) — if either size moves, these
+ * move with it.
+ *
+ * The select is priced at its WIDEST option, because that is what it must be able to show: a
+ * dropdown that fits while reading "Sine" and clips on "Saw down" would rearrange itself as you
+ * used it.
+ */
+const CAP_ADV = 6 * 0.62; // uppercase advance at .dgx-wlab's size
+const SEL_ADV = 9 * 0.6; // monospace advance at .dgx-sel's size
+const SEL_CHROME = 26; // border, padding and the native arrow
+const GAP = 4; // .dgx-selrow's gap
+function captionFitsBeside(
+  caption: string,
+  options: { label: string }[],
+  boxW: number,
+): boolean {
+  const widest = options.reduce((m, o) => Math.max(m, o.label.length), 1);
+  const need = caption.length * CAP_ADV + GAP + widest * SEL_ADV + SEL_CHROME;
+  return need <= boxW - 4; // less .dgx-w's own breathing room
+}
+
 // Memoised: it holds its own param tap now, so a frame that did not move THIS number must not redraw it.
 const Widget = memo(WidgetInner);
 
