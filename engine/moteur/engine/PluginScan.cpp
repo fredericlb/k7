@@ -233,8 +233,6 @@ std::vector<PluginInfo> builtInPlugins() {
     };
 }
 
-namespace {
-
 // The AirWindows effects, listed from the same X-macro that DECLARES them rather than retyped — 186 entries
 // would rot the first time Tracktion added one, and the macro is the only place class and display name are
 // already paired. Each registers its controls, so they arrive fully addressable with no native UI.
@@ -247,8 +245,6 @@ std::vector<PluginInfo> airWindowsPlugins() {
    #endif
     return out;
 }
-
-}  // namespace
 
 // The registrations that MUST match builtInPlugins() above: that list is what a project can name, this is what
 // can then be created. They are kept adjacent on purpose — the two drifting apart is a plugin the UI offers and

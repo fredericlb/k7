@@ -59,10 +59,17 @@ int dumpBuiltinParams() {
     registerBuiltInPlugins(engine);
     auto edit = te::Edit::createSingleTrackEdit(engine);
 
+    // BOTH lists. AirWindows is 186 of the plugins a project can name, registered separately and
+    // therefore missed the first time this walked only `builtInPlugins()` — which is exactly what
+    // an empty panel on `@engine/chorus-ensemble` was.
+    auto all = builtInPlugins();
+    for (auto& aw : airWindowsPlugins())
+        all.push_back(std::move(aw));
+
     std::ostringstream out;
     out << "{";
     bool firstPlugin = true;
-    for (const auto& info : builtInPlugins()) {
+    for (const auto& info : all) {
         // Created for real, and that is the whole point: a plugin's parameters are registered by its
         // CONSTRUCTOR (4OSC calls addParam 84 times there), so nothing short of an instance can list them.
         auto plugin = edit->getPluginCache().createNewPlugin(juce::String(info.identifier), {});

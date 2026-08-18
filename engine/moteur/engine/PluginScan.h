@@ -35,6 +35,17 @@ std::shared_ptr<const std::vector<PluginInfo>> cachedPluginInfos();
  */
 std::vector<PluginInfo> builtInPlugins();
 
+/**
+ * …and the AirWindows set, 186 of them, from the same X-macro that declares them.
+ *
+ * A SECOND list rather than part of the one above because they are registered separately and
+ * come from a third party's header — but everything that asks "what can this engine create
+ * without scanning" wants both, which `cachedPluginInfos` already concatenates. Exposed for the
+ * same reason: `--dump-builtin-params` walked only the first, so `@engine/chorus-ensemble` and
+ * 185 siblings had no parameters and therefore no panel.
+ */
+std::vector<PluginInfo> airWindowsPlugins();
+
 // Register the plugins l8 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
 // the two Tracktion ships without registering (the convolver, the AirWindows set).
 //

@@ -234,6 +234,28 @@ describe("the generated built-in table", () => {
     );
   });
 
+  /**
+   * The AirWindows set — 186 of the plugins a project can name, and they were all missing.
+   *
+   * They are registered from their own X-macro, in a list beside the built-ins rather than in
+   * it, so a dump that walked only `builtInPlugins()` produced a table where seven eighths of
+   * the engine's catalogue had no parameters. The symptom was an empty panel on
+   * `@engine/chorus-ensemble`, which reads as "the generator does not work" rather than as
+   * "that plugin was never asked".
+   */
+  it("carries the AirWindows effects too, not just the Tracktion built-ins", () => {
+    expect(builtinPluginForRef("@engine/chorus-ensemble")?.name).toBe(
+      "Chorus Ensemble",
+    );
+    expect(
+      builtinParamsFor({ type: "internal", name: "Chorus Ensemble" })?.map(
+        (p) => p.name,
+      ),
+    ).toEqual(["Speed", "Range", "Dry Level", "Wet Level"]);
+    // A count rather than a list: what matters is that the second list is in there at all.
+    expect(Object.keys(BUILTIN_PLUGINS).length).toBeGreaterThan(150);
+  });
+
   it("carries every plugin the engine can create", () => {
     // A count rather than a list: the point is that regenerating after adding a built-in is not optional,
     // and a table that lost entries is the silent version of this feature not working.
