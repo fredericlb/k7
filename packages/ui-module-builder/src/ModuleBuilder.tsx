@@ -16,7 +16,10 @@ import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
-import { builtinParamsFor } from "@studio/song/builtinParams";
+import {
+  builtinPluginFor,
+  builtinPluginForRef,
+} from "@studio/song/builtinParams";
 import { FILE_PARAMS } from "@studio/song/moduleTypes";
 import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type {
@@ -48,6 +51,7 @@ import { InputChannelBar } from "./InputChannelBar";
 import {
   applyPresetToText,
   channelOf,
+  extendsRefOf,
   hasMalformedPresets,
   hasMalformedUiFile,
   ioOf,
@@ -567,20 +571,29 @@ export function ModuleBuilder({
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
   /**
-   * …and the module's OWN `plugin:` block, looked up in the built-in table.
+   * …and the built-in the module's own file names, looked up in the generated table.
    *
-   * The source that needed no project. `paramsByBase` is keyed by a base ref of the OPEN song, and l8 hands
+   * The source that needs no project. `paramsByBase` is keyed by a base ref of the OPEN song, and l8 hands
    * this component `paramRef={null}` when it opens a module from the file tree — so a module in the
    * libraries repository had nothing at all: not a base of this project, not instantiated, no engine behind
-   * the overlay. That is `_libraries/modules/instruments/4osc/module.yaml`, and it is where a shared module
-   * is authored, which makes it the case that mattered most.
+   * the overlay. That is `_libraries/modules/instruments/4osc/module.yaml`, where a shared module is
+   * authored, which makes it the case that mattered most.
    *
-   * The file says which plugin it is in two words, and the table says what that plugin has.
+   * TWO ways a file names one, and the second is the one that file actually uses:
+   *
+   *   plugin: { type: internal, name: 4OSC }   — a module that declares the plugin
+   *   extends: "@engine/4osc"                  — a module that is only a FACE for one
+   *
+   * The whole of that file is the second line. Reading only the first found nothing, which is why the list
+   * was still empty after the table existed.
    */
-  const declared = useMemo(
-    () => (content == null ? undefined : builtinParamsFor(readPlugin(content))),
-    [content],
-  );
+  const declared = useMemo(() => {
+    if (content == null) return undefined;
+    return (
+      builtinPluginFor(readPlugin(content)) ??
+      builtinPluginForRef(extendsRefOf(content))
+    )?.params;
+  }, [content]);
 
   // What KIND of module this is — an input, an output, or an ordinary plugin. Two things turn on it:
   // what the params list can offer, and whether there is a socket to point the module at.

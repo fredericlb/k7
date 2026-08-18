@@ -59,23 +59,31 @@ and the builder overlay holds no engine link. So every source was empty and the 
 with them: 4OSC, 68 parameters, none of them offerable. l8 passes `paramRef={null}` when it opens
 a module from the file tree, so `paramsByBase` was not even consulted.
 
-The fourth source needs no project at all. The file says which plugin it is —
+The fourth source needs no project at all: the file names its plugin, and `@studio/song` says what
+that plugin has, out of a table **generated from a real instance of every built-in the engine can
+create** (`engine/moteur/docs/builtinParams.md`). Names and ranges both, which matters — a widget
+bound with no range is drawn 0..1, and on a `-36..+36` semitone knob that is not cosmetic: it
+writes the wrong number into the file.
+
+**Two ways a file names one, and the second is the one a library module uses:**
 
 ```yaml
-plugin:
-  type: internal
-  name: 4OSC
+plugin: { type: internal, name: 4OSC }   # a module that DECLARES the plugin
+extends: "@engine/4osc"                  # a module that is only a FACE for one
 ```
 
-— and `@studio/song`'s `builtinParamsFor` says what that plugin has, out of a table **generated
-from a real instance of every built-in the engine can create** (`engine/moteur/docs/builtinParams.md`).
-Names and ranges both, which matters: a widget bound with no range is drawn 0..1, and on a
-`-36..+36` semitone knob that is not a cosmetic problem — it writes the wrong number into the file.
+The whole of `_libraries/modules/instruments/4osc/module.yaml` is that second line, plus two
+comments. Reading only the first found nothing, so the list stayed empty even once the table
+existed — the fix was half a fix, and the file said so.
 
-It is deliberately shallow. A module that only `extends` another states no plugin of its own, and
-inheriting one would mean resolving a ref this component cannot resolve; that module still has the
-two learned sources and the live engine's report. An EXTERNAL plugin is unaffected either way —
-its parameters are its own and only a loaded instance can list them.
+`@engine/<slug>` is `slugifyPluginName(displayName)`, the one rule `engineModuleOf` applies on the
+machine and `baseModuleRefs` applies in a browser; `builtinPluginForRef` calls it rather than
+restating it. Only the engine namespace resolves this way — a `@st0/…` or a project-local ref
+names a FILE, which has to be read, and this seam exists for the case where there is nothing to
+read.
+
+An EXTERNAL plugin is unaffected either way: its parameters are its own and only a loaded instance
+can list them.
 
 Order, when several answer: the **loaded plugin** first (it is the instance this module actually
 is), then what the module declares, then the base's, then the io table.

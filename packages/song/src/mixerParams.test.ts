@@ -9,7 +9,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { BUILTIN_PLUGINS, builtinParamsFor } from "./builtinParams";
+import {
+  BUILTIN_PLUGINS,
+  builtinParamsFor,
+  builtinPluginForRef,
+} from "./builtinParams";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
 import { writeModule, writeNode, writeYaml } from "./testSupport";
@@ -85,6 +89,31 @@ describe("the generated built-in table", () => {
       min: -36,
       max: 36,
     });
+  });
+
+  /**
+   * The file the report was actually about, verbatim from
+   * `_libraries/modules/instruments/4osc/module.yaml`. It declares no plugin — the whole file is
+   * one `extends:` — so reading only a `plugin:` block found nothing and the list stayed empty
+   * even after this table existed.
+   */
+  it("resolves the `@engine/<slug>` ref a library module is written as", () => {
+    expect(builtinPluginForRef("@engine/4osc")?.name).toBe("4OSC");
+    // The slug is `slugifyPluginName(displayName)`, so a multi-word plugin lands too — which is
+    // the case a bare lower-casing would have missed.
+    expect(builtinPluginForRef("@engine/neural-amp-modeler")?.name).toBe(
+      "Neural Amp Modeler",
+    );
+    expect(builtinPluginForRef("@engine/mixer")?.name).toBe("Mixer");
+  });
+
+  it("resolves ONLY the engine namespace — every other ref names a file", () => {
+    // A `@st0/…` or a project-local ref has to be read and resolved; this seam exists for the
+    // case where there is nothing to read.
+    expect(builtinPluginForRef("@st0/instruments/4osc")).toBeUndefined();
+    expect(builtinPluginForRef("instruments/fourosc")).toBeUndefined();
+    expect(builtinPluginForRef("@engine/nope")).toBeUndefined();
+    expect(builtinPluginForRef(null)).toBeUndefined();
   });
 
   it("answers to the human form and the internal id alike", () => {
