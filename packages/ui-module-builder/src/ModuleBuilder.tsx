@@ -929,9 +929,20 @@ export function ModuleBuilder({
                 // offers the module's own assets/. A fixed list now, not a scan of the project:
                 // the choices belong to the module, so there is nothing project-wide to read.
                 assetParams={[...FILE_PARAMS]}
-                // Two reasons a grid does not take a drag, and they mean the same thing to it:
-                // the panel does not parse, or nothing here is being written yet.
-                disabled={!parsable || !!readOnly}
+                // Three reasons a grid takes no drag, and they mean the same thing to IT and to
+                // nobody else — so it is told which, and only the FAULT gets a warning. A shared
+                // module opens locked, and saying its panel would not parse was false for every
+                // module in a library. `!uiFile` is the fetch having failed, which is "this path
+                // has no panel", not "the panel is broken".
+                disabled={
+                  !uiFile
+                    ? "locked"
+                    : !parsable
+                      ? "unparsable"
+                      : readOnly
+                        ? "locked"
+                        : false
+                }
                 onChange={onUiChange}
               />
             </div>

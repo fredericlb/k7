@@ -125,8 +125,19 @@ export function WidgetGridEditor({
   // The params that take a FILE rather than a number (moduleTypes.FILE_PARAMS) — a dropdown
   // bound to one offers the module's own assets/ instead of the param's settings.
   assetParams?: string[];
-  // The `ui:` block wouldn't parse: show the grid read-only so a save can't clobber text we misread.
-  disabled?: boolean;
+  /**
+   * Why the grid takes no gesture — false when it does.
+   *
+   * A REASON and not a boolean, because the two do not mean the same thing to the person reading
+   * the screen even though they mean the same thing to the grid. `unparsable` is a FAULT in the
+   * file, and the note below says how to fix it. `locked` is everything else — a shared module
+   * opened read-only, or a path with no panel to edit — which is an ordinary way to arrive here
+   * and has nothing to warn about.
+   *
+   * They were one boolean, and the note spoke for both: every module in a library announced that
+   * its panel would not parse, about files that parse perfectly.
+   */
+  disabled?: false | "unparsable" | "locked";
   onChange: (ui: ModuleUI) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -301,7 +312,7 @@ export function WidgetGridEditor({
             key={t.type}
             size="sm"
             variant="secondary"
-            disabled={disabled}
+            disabled={!!disabled}
             onClick={() => addWidget(t.type)}
             title={`Add ${t.label}`}
           >
@@ -314,14 +325,14 @@ export function WidgetGridEditor({
             label="cols"
             value={ui.cols}
             min={1}
-            disabled={disabled}
+            disabled={!!disabled}
             onChange={(cols) => setGrid({ cols })}
           />
           <Stepper
             label="rows"
             value={ui.rows}
             min={1}
-            disabled={disabled}
+            disabled={!!disabled}
             onChange={(rows) => setGrid({ rows })}
           />
         </div>
@@ -437,11 +448,13 @@ export function WidgetGridEditor({
             );
           })}
         </div>
-        {disabled && (
+        {/* Only the FAULT gets a warning. A locked module says so in the header, beside the
+            button that unlocks it, and repeating it here in amber would read as something
+            being wrong with a file that is perfectly fine. */}
+        {disabled === "unparsable" && (
           <p className="mt-3 text-xs text-amber-500">
-            This file's <code>ui:</code> block couldn't be parsed for visual
-            editing — edit it as text on the left. Fixing it re-enables the
-            grid.
+            This panel couldn't be parsed for visual editing — edit it as text
+            on the left. Fixing it re-enables the grid.
           </p>
         )}
         {!disabled && !Object.keys(ui.widgets).length && (
@@ -457,7 +470,7 @@ export function WidgetGridEditor({
           id={selected}
           w={sel}
           assetParams={assetParams}
-          disabled={disabled}
+          disabled={!!disabled}
           onPatch={(p) => patch(selected, p)}
           onDelete={() => removeWidget(selected)}
         />
@@ -577,7 +590,7 @@ function Inspector({
           <select
             className={FIELD_CLS}
             value={w.type}
-            disabled={disabled}
+            disabled={!!disabled}
             onChange={(e) => onPatch(retype(w, e.target.value as WidgetType))}
           >
             {TYPES.map((t) => (
@@ -593,7 +606,7 @@ function Inspector({
             <input
               className={FIELD_CLS}
               value={w.text ?? ""}
-              disabled={disabled}
+              disabled={!!disabled}
               onChange={(e) => onPatch({ text: e.target.value })}
             />
           </Field>
@@ -610,7 +623,7 @@ function Inspector({
                 </span>
                 <button
                   type="button"
-                  disabled={disabled}
+                  disabled={!!disabled}
                   onClick={() => onPatch({ bind: undefined })}
                   className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   title="Unbind"
@@ -630,7 +643,7 @@ function Inspector({
           <input
             className={FIELD_CLS}
             value={w.label ?? ""}
-            disabled={disabled}
+            disabled={!!disabled}
             placeholder="(optional)"
             onChange={(e) => onPatch({ label: e.target.value || undefined })}
           />
@@ -695,7 +708,7 @@ function Inspector({
             <select
               className={FIELD_CLS}
               value={w.source ?? "output"}
-              disabled={disabled}
+              disabled={!!disabled}
               onChange={(e) =>
                 onPatch({ source: e.target.value as "input" | "output" })
               }
@@ -713,7 +726,7 @@ function Inspector({
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.min ?? ""}
-                disabled={disabled}
+                disabled={!!disabled}
                 onChange={(e) => onPatch({ min: num(e.target.value) })}
               />
             </Field>
@@ -722,7 +735,7 @@ function Inspector({
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.max ?? ""}
-                disabled={disabled}
+                disabled={!!disabled}
                 onChange={(e) => onPatch({ max: num(e.target.value) })}
               />
             </Field>
@@ -731,7 +744,7 @@ function Inspector({
                 className={FIELD_CLS}
                 inputMode="decimal"
                 value={w.step ?? ""}
-                disabled={disabled}
+                disabled={!!disabled}
                 placeholder="(optional)"
                 onChange={(e) => onPatch({ step: num(e.target.value) })}
               />
@@ -740,7 +753,7 @@ function Inspector({
               <select
                 className={FIELD_CLS}
                 value={w.curve ?? "lin"}
-                disabled={disabled}
+                disabled={!!disabled}
                 onChange={(e) =>
                   onPatch({
                     curve: e.target.value === "log" ? "log" : undefined,
@@ -763,7 +776,7 @@ function Inspector({
               <Button
                 size="sm"
                 variant="ghost"
-                disabled={disabled}
+                disabled={!!disabled}
                 onClick={addPage}
               >
                 <Plus className="mr-1 h-3 w-3" /> Add page
@@ -774,12 +787,12 @@ function Inspector({
                 <input
                   className={FIELD_CLS}
                   value={name}
-                  disabled={disabled}
+                  disabled={!!disabled}
                   onChange={(e) => renamePage(name, e.target.value)}
                 />
                 <button
                   className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
-                  disabled={disabled}
+                  disabled={!!disabled}
                   onClick={() => removePage(name)}
                   title="Remove page"
                 >

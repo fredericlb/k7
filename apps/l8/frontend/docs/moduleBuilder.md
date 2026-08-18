@@ -85,6 +85,19 @@ gives it. For a shared module that is usually already true — you are editing i
 song uses it — which is what made the module bench unnecessary. See
 [sharedModules.md](sharedModules.md).
 
+## The grid greys out for three reasons, and only one is a fault
+
+`WidgetGridEditor` takes a REASON, not a boolean: `"unparsable"`, `"locked"`, or false.
+
+It took a boolean, and its note spoke for both halves — so **every module in a library announced
+that its panel would not parse**, about files that parse perfectly. A shared module opens
+read-only by design; that is how you arrive at one, not something wrong with it. The third case
+is a path with no panel at all, which the store answers by failing, and that is not a fault
+either.
+
+Only `"unparsable"` gets the amber note, because only that one has something to fix and a way to
+fix it. Locked says so in the header, beside the button that unlocks it.
+
 ## Read-only, and the one host that uses it
 
 The builder takes `readOnly` and `onRequestEdit`. Both exist for shared modules: one shows the
