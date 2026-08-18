@@ -69,6 +69,7 @@ import {
   setClipWarp,
   setClipWindow,
   setModuleAsset,
+  setModuleAutomationBinding,
   setModuleBypass,
   setModuleChannel,
   setModuleExtends,
@@ -2597,6 +2598,60 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // curve new <name> scaffolds curves/<name>.yaml — an LFO, the one shape with defaults
   // worth having (see createCurveFile). Binding it is a separate step: a module's
   // `automation:` names the curve, so the curve has to exist first.
+  /**
+   * node automate <module> <param> <curve> [trigger] — point a parameter at a curve.
+   *
+   * The param may contain spaces ("Filter Freq"), so it is taken as everything between the
+   * module and the LAST one or two words rather than split on whitespace: a quoted argument
+   * would be a second spelling of a thing this bar has never needed quotes for.
+   *
+   * `none` for the curve takes the binding off — the same word `node param` uses for a value
+   * it removes, rather than a second verb whose only job is to undo this one.
+   */
+  "node.automate": async (a, h) => {
+    const parts = a.trim().split(/s+/).filter(Boolean);
+    if (parts.length < 3) {
+      h.log([
+        "usage: node automate <module> <param> <curve> [trigger]",
+        "       (e.g. node automate osc Filter Freq sweep)",
+      ]);
+      return;
+    }
+    const module = parts[0];
+    // The last word is the curve unless the one before it is ALSO a known module — which is
+    // what a trigger is, and the only shape that tells the two apart without quoting.
+    const known = new Set(
+      collectPluginModules(h.project()).map((b) => b.module),
+    );
+    const hasTrigger = parts.length >= 4 && known.has(parts[parts.length - 1]);
+    const trigger = hasTrigger ? parts[parts.length - 1] : undefined;
+    const curve = parts[parts.length - (hasTrigger ? 2 : 1)];
+    const param = parts.slice(1, parts.length - (hasTrigger ? 2 : 1)).join(" ");
+    if (!param) {
+      h.log([
+        "node automate: no parameter named between the module and the curve",
+      ]);
+      return;
+    }
+    try {
+      const path = setModuleAutomationBinding(
+        h.songPath,
+        module,
+        param,
+        curve === "none" ? null : curve,
+        trigger,
+      );
+      await h.reload();
+      h.log([
+        curve === "none"
+          ? `${module}: ${param} is no longer automated (${path})`
+          : `${module}: ${param} <- ${curve}${trigger ? `, fired by ${trigger}` : ""}`,
+      ]);
+    } catch (e) {
+      h.log([`node automate: ${(e as Error).message}`]);
+    }
+  },
+
   "curve.create": async (a, h) => {
     const name = a.trim();
     if (!name) {

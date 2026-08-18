@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { alternativesOf } from "@studio/song/alternatives";
+import { loadCurves } from "@studio/song/curves";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { parsePosition } from "@studio/song/timecode";
 import { SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
@@ -147,6 +148,16 @@ const PROVIDERS = {
   // The chains a bounce can run: this project's, then the médiathèque's under `@st0/`.
   // Both in one list because the command takes either — see processChain.ts.
   chains: (h) => chainNames(h.songPath, h.project()),
+  // The project's curves, by id — what `node automate` binds. Read off disk rather than off the
+  // compiled project: a curve nothing binds yet is exactly the one you are about to bind, and
+  // the document only carries the bound ones' baked points.
+  curves: (h) => {
+    try {
+      return Object.keys(loadCurves(h.songPath)).sort();
+    } catch {
+      return []; // a broken curve file costs the completion, not the command
+    }
+  },
   // The kinds of surface there are, from the schema's own enum rather than retyped: a fourth one
   // has to be added there anyway (it is what the parser accepts), and a list here that had to be
   // kept in step would offer a type the file would then be refused for. Takes no host — the set
@@ -287,6 +298,7 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   // A chain is a named thing picked from a closed list, like an alternative — it is neither a
   // module nor anything on disk the `file` class would colour.
   chains: "choice",
+  curves: "choice",
   modules: "module",
   // A node is drawn as a module is — it is one, in use — so the palette colours them alike.
   nodes: "module",
@@ -315,6 +327,7 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   clipTargets:
     "a clip of this project, or one audio file (e.g. clips/kick.wav)",
   chains: "a chain of this project, or one the médiathèque holds (@st0/<path>)",
+  curves: "an automation curve of this project (curves/<id>.yaml)",
   modules: "a module of this project",
   nodes: "a node of this project — one of its uses of a module",
   baseModules:

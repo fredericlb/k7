@@ -177,6 +177,52 @@ export function setModuleList(
   return String(doc);
 }
 
+/**
+ * Bind a curve to one of a module's params, or take the binding away (`curve` null).
+ *
+ * Keyed by PARAM: one parameter is driven by one curve, so binding a second replaces the first
+ * rather than stacking two lanes onto one knob. That is the model's rule, not this writer's —
+ * the compiler bakes one automation lane per (plugin, param) and a second would silently win.
+ *
+ * Surgical, like every writer here: the entry is edited in place, so the rest of the file —
+ * comments, order, the params above it — comes back untouched.
+ */
+export function setModuleAutomation(
+  text: string,
+  param: string,
+  curve: string | null,
+  trigger?: string,
+): string {
+  const doc = parseDocument(text, PARSE_OPTIONS);
+  const list = doc.getIn(["automations"]) as
+    | { items?: unknown[]; delete?: (i: number) => void }
+    | undefined;
+  const items = Array.isArray(list?.items) ? list.items : [];
+  const at = items.findIndex((it) => {
+    const p = (it as { get?: (k: string) => unknown }).get?.("param");
+    return String(p) === param;
+  });
+  if (curve === null) {
+    if (at < 0) return text; // nothing bound to that param — nothing to take off
+    // Counted BEFORE the delete: `items` is the document's own array, not a copy, so removing
+    // the entry shortens it under us and "was this the last one" would always read false.
+    const wasOnly = items.length === 1;
+    doc.deleteIn(["automations", at]);
+    // …and the empty list goes with the last entry: `automations: []` says something was
+    // authored and then emptied, which is not what taking a binding off means.
+    if (wasOnly) doc.deleteIn(["automations"]);
+    return String(doc);
+  }
+  const entry: Record<string, string> = { param, curve };
+  // Only when it is not the default. The compiler reads an absent trigger as the module being
+  // automated, so writing that would be noise that goes stale the day the binding moves.
+  if (trigger) entry.trigger = trigger;
+  if (at >= 0) doc.setIn(["automations", at], entry);
+  else doc.setIn(["automations", items.length], entry);
+  quoteTimecodes(doc);
+  return String(doc);
+}
+
 export function setModuleValue(
   text: string,
   path: (string | number)[],

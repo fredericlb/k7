@@ -517,6 +517,33 @@
       { name: id, hint: "the surface's id — the filename, and what /surface/<id> says. Defaults to the type." },
     ]
 
+# Bind a curve to one of a module's parameters — the other half of `curve new`, and what a
+# cable dropped from a curve onto a knob runs. Keyed by PARAM: one knob is driven by one
+# curve, so binding a second replaces the first rather than stacking two lanes onto it.
+#
+# `trigger` is for an ENVELOPE (a curve of type adsr): the module whose note-ons restart it.
+# Left out, it is the module being automated — a filter envelope follows its own synth. It is
+# what the event cable on the graph writes.
+- command: "node automate"
+  sid: node.automate
+  readable:
+    en: "Drive a module's parameter with a curve"
+    fr: "Piloter un paramètre de module avec une courbe"
+  help: "bind a curve to a param (e.g. node automate osc 'Filter Freq' sweep)"
+  surfaces: [cli]
+  args:
+    [
+      { name: module, complete: modules },
+      { name: param, hint: "the parameter's name, as the module writes it" },
+      { name: curve, complete: curves, hint: "a curve id — 'none' takes the binding off" },
+      {
+        name: trigger,
+        complete: modules,
+        optional: true,
+        hint: "an envelope's trigger: the module whose note-ons restart it",
+      },
+    ]
+
 # --- markers (timeline cue points) ---
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
 # the name is the rest of the line, so it may contain spaces. Stored in project.cue's

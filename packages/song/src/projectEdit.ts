@@ -3,7 +3,6 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import { GRAPH_BASE, GRAPH_FILE } from "./yaml/graphSchema";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import {
@@ -38,8 +37,13 @@ import {
   setNodePosition,
   unlinkNode,
 } from "./yaml/graphFile";
+import { GRAPH_BASE, GRAPH_FILE } from "./yaml/graphSchema";
 import { setMaterialWindow } from "./yaml/materialFile";
-import { setModuleList, setModuleValue } from "./yaml/moduleFile";
+import {
+  setModuleAutomation,
+  setModuleList,
+  setModuleValue,
+} from "./yaml/moduleFile";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
 
 // --- module files -------------------------------------------------------------
@@ -109,6 +113,24 @@ function sharedModuleFileOf(
   const folder = join(root, ...rest);
   const found = moduleFileFor(folder, "", node ?? "module");
   return found ? { folder, path: found.path } : null;
+}
+
+/**
+ * Bind a curve to a module's param — the file half of the cable dropped on a knob.
+ *
+ * `curve` null takes the binding away. `trigger` names the module whose note-ons restart an
+ * envelope; absent means the module being automated, which is what the compiler assumes.
+ */
+export function setModuleAutomationBinding(
+  dir: string,
+  module: string,
+  param: string,
+  curve: string | null,
+  trigger?: string,
+): string {
+  return editModuleFile(dir, module, (text) =>
+    setModuleAutomation(text, param, curve, trigger),
+  );
 }
 
 /** Set (or remove, with `null`) one value in a module file — changes that value and nothing else, comments and layout included. */

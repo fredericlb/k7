@@ -460,6 +460,8 @@ export type ArgProvider =
   | "categories"
   | "chains"
   | "clipTargets"
+  // An automation CURVE of this project, by id — what `node automate` points a param at.
+  | "curves"
   | "markerNames"
   | "modules"
   | "moduleAlternatives"
