@@ -68,9 +68,16 @@ import type { ModuleStore } from "./store";
 import { WidgetGridEditor } from "./WidgetGridEditor";
 import { YamlPane } from "./YamlPane";
 
-/** Which of the module's three files the code pane is showing. Named for the BUILDER, not just `Pane`:
- *  l8 has panes of its own and a shared package must not squat the word. */
-export type BuilderPane = "module" | "panel" | "presets" | "jsdsp";
+/**
+ * What the left column is showing. Named for the BUILDER, not just `Pane`: l8 has panes of its
+ * own and a shared package must not squat the word.
+ *
+ * `params` is the odd one and deliberately so — every other entry is a FILE on disk, this one is
+ * the module's parameter list. It joined the strip because it was a third of the column's height
+ * at all times, on every tab, for a list you reach for while binding and ignore the rest of the
+ * time. The cost is that the text and the parameters are no longer on screen together.
+ */
+export type BuilderPane = "module" | "panel" | "presets" | "jsdsp" | "params";
 
 /**
  * The `plugin.type` a module file declares, read off the raw text.
@@ -541,6 +548,23 @@ export function ModuleBuilder({
       setPublishing(false);
     }
   }, [moduleSave, panelSave, dspSave, presetsSave, store, path, setStatus]);
+  /**
+   * Ctrl+S on the parameters pane.
+   *
+   * Everywhere else the shortcut is CodeMirror's, wired to `onSave` — and this is the one pane
+   * with no CodeMirror in it, so without this the documented rule ("Ctrl+S and `:w` mean the
+   * Save button, and they save all four files") would quietly have an exception.
+   */
+  useEffect(() => {
+    if (pane !== "params") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "s" || !(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      void saveAll();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pane, saveAll]);
 
   // What Save has to offer: any of the four differing from disk. Derived, never a flag —
   // the same rule the rest of this screen follows.
@@ -851,6 +875,8 @@ export function ModuleBuilder({
                         ],
                       ] as const)
                     : []),
+                  // Not a file, and last for that reason — see BuilderPane.
+                  ["params", "parameters", false, true, null],
                   [
                     "presets",
                     baseName(presetFile?.path) ?? PRESETS_BASENAME,
@@ -898,27 +924,31 @@ export function ModuleBuilder({
               )}
             </div>
             <div className="min-h-0 flex-1">
-              <YamlPane
-                path={sidecar ? sidecar.path : path}
-                content={sidecar ? sidecar.content : content}
-                hints={completionHints ?? undefined}
-                vimMode={vimMode}
-                readOnly={readOnly}
-                onChange={
-                  pane === "panel"
-                    ? onPanelChange
-                    : pane === "presets"
-                      ? onPresetsChange
-                      : pane === "jsdsp"
-                        ? onDspChange
-                        : onCodeChange
-                }
-                // Ctrl+S and vim's `:w` mean Save — the same button, not just this pane.
-                onSave={() => void saveAll()}
-              />
+              {pane === "params" ? (
+                <ParamsPane rows={paramRows} />
+              ) : (
+                <YamlPane
+                  path={sidecar ? sidecar.path : path}
+                  content={sidecar ? sidecar.content : content}
+                  hints={completionHints ?? undefined}
+                  vimMode={vimMode}
+                  readOnly={readOnly}
+                  onChange={
+                    pane === "panel"
+                      ? onPanelChange
+                      : pane === "presets"
+                        ? onPresetsChange
+                        : pane === "jsdsp"
+                          ? onDspChange
+                          : onCodeChange
+                  }
+                  // Ctrl+S and vim's `:w` mean Save — the same button, not just this pane.
+                  onSave={() => void saveAll()}
+                />
+              )}
             </div>
-            {/* Above the params, because it is not one: `channel:` is what the module IS, where
-                `@gain` is something you bind a knob to. Only an input has it. */}
+            {/* Under whichever pane is up, because it is not one of them: `channel:` is what the
+                module IS, where `@gain` is something you bind a knob to. Only an input has it. */}
             {io === "in" && (
               <InputChannelBar
                 key={path}
@@ -929,11 +959,11 @@ export function ModuleBuilder({
                 onRegroup={onRegroupInputs}
               />
             )}
-            <ParamsPane rows={paramRows} />
           </div>
-          {/* Right column, split the same way as the left: the thing you EDIT above, a
-              read-only view of what it produces below, both 30% tall. The grid draws the
-              panel's geometry; the preview draws the node that geometry becomes. */}
+          {/* Right column: the thing you EDIT above, a read-only view of what it produces
+              below at 30% tall. The grid draws the panel's geometry; the preview draws the node
+              that geometry becomes. It used to be "split the same way as the left" — the left is
+              one pane at a time now that the parameters are a tab of their own. */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="min-h-0 flex-1">
               <WidgetGridEditor
@@ -1038,10 +1068,11 @@ function ParamsPane({
     : rows;
 
   return (
-    <div className="flex h-[30%] min-h-0 shrink-0 grow-0 flex-col border-t border-border bg-card/30">
+    // A pane now, so it fills the column rather than taking a fixed third of it. No border-t
+    // either: there is nothing above it any more to be separated from.
+    <div className="flex h-full min-h-0 flex-col bg-card/30">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-2 py-1">
         <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-xs font-medium">Parameters</span>
         <span className="hidden text-[10px] text-muted-foreground sm:inline">
           drag onto a widget, or onto empty grid
         </span>

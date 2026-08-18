@@ -13,8 +13,10 @@ the module, so its panel has no scanned parameter list — `IO_IN_BINDS` gives i
 `@monitor` to bind — and it has one question no plugin module has: *which of the interface's
 inputs am I?*
 
-That question used to be answerable only by typing `channel:` into the file. The bar above
-the params pane answers it by picking.
+That question used to be answerable only by typing `channel:` into the file. The bar under
+the left column's pane answers it by picking — under whichever pane is up, because it belongs
+to the module rather than to any one of them. (It used to sit above the parameter list, back
+when that list was always on screen; the list is a tab now.)
 
 ## A module rarely SAYS it is an input
 
