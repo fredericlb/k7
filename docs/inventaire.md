@@ -168,6 +168,26 @@ production. Ce n'est **pas** un oubli : ils sont documentés délibérément
 Si on les supprimait, `@studio/engine-browser` et `@studio/engine-protocol` sortiraient des
 dépendances de `player-web` avec eux — ils ne servent qu'à ces deux fichiers.
 
+### Demander à un greffon ce qu'il a — une chaîne entière sans appelant
+
+`list-plugin-params` / `plugin-param-list` dans le moteur, `pluginParamsOf`
+(`engine/moteur/engine/ParamDump.cpp`), `listPluginParams` dans les deux clients,
+`awaitPluginParams` et la route `GET /plugin-params` du service de fichiers : **rien ne les
+appelle**. Ils ont été écrits pour un générateur de panneaux qui a été retiré, parce qu'un
+panneau déduit d'une liste de paramètres ne sait produire que des boutons et des listes
+déroulantes — jamais un fader, un `meter`, un sélecteur de fichier ni une disposition.
+
+Gardés sciemment, pour deux raisons qui ne dépendent pas du générateur. C'est la **seule** façon
+d'apprendre les paramètres d'un greffon installé — un greffon les enregistre dans son
+constructeur, et le cache de scan n'en porte aucun. Et les deux corrections qu'ils ont values
+sont réelles : le moteur reconstruisait un `te::Engine` par question et une quarantaine de
+questions d'affilée le tuaient (mesuré, deux fois) ; et une liste vide confondait « je n'arrive
+pas à charger ce greffon » avec « il se charge et ne déclare rien », ce que vingt-sept synthés
+Arturia font sans que rien n'aille mal.
+
+Qui les rallumera : un module builder qui propose la liste des paramètres d'un VST à lier, ou un
+générateur qui saurait dessiner autre chose que des boutons.
+
 ## 4. Duplication
 
 ### Le client d'auth — ~~deux comportements~~ RÉGLÉ

@@ -304,8 +304,8 @@ app.get(
  * Beside `/plugins` and per machine for the same reason, but it is not read off the cache: the
  * scan carries a plugin's name, format and path and no parameters, because a plugin registers
  * them in its constructor. So this loads one and asks, on an offline engine of the engine's own
- * making, and takes SECONDS. The médiathèque draws a module's whole panel from the answer
- * (packages/song/docs/paramPanel.md); a built-in needs no engine at all and never gets here.
+ * making, and takes SECONDS. A built-in needs no engine at all and never gets here — its list is
+ * in `@studio/song`'s generated table.
  *
  * `format` and `id` together, because `id` is the binary's path: a display name can belong to
  * two formats of one plugin, and the engine resolves the pair, not the name.

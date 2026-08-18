@@ -5,10 +5,6 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-// The panel generator's own parameter type, not a second spelling of it: what comes back over
-// this route is fed straight to `paramPanel`, and a lookalike interface here would be a shape
-// that compiles until the day one of them gains a field.
-import type { BuiltinParam } from "@studio/song/builtinParams";
 import type { FaceablePlugin } from "@studio/song/engineFace";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import { libraryModuleStore } from "@studio/ui-module-builder/library-store";
@@ -297,45 +293,6 @@ export const engineMachine = {
       "plugins",
     );
     return plugins ?? [];
-  },
-
-  /**
-   * …et ce qu'UN d'entre eux a : tous les paramètres d'un greffon installé.
-   *
-   * Le scan n'en dit rien — un greffon enregistre ses paramètres dans son constructeur — donc
-   * la machine en charge une instance et la lui demande. C'est LENT (des secondes pour un gros
-   * synthé), d'où le `signal` : celui qui a cliqué ailleurs entre-temps n'a plus rien à attendre.
-   *
-   * Le couple format + identifiant, jamais le nom seul : `id` est le chemin du binaire, et deux
-   * greffons peuvent porter le même nom d'affichage.
-   *
-   * TROIS issues, et les aplatir serait mentir à quelqu'un. `null` = on ne peut pas savoir
-   * (moteur éteint, origine non autorisée) ; `found: false` = la machine n'arrive pas à charger
-   * ce greffon ; `found: true, params: []` = il se charge et ne déclare aucun paramètre à son
-   * hôte — ce qui est ordinaire, fréquent, et n'est pas une panne. Seule la deuxième mérite
-   * qu'on aille voir quelque chose.
-   */
-  pluginParams: async (
-    fileBase: string,
-    token: string,
-    format: string,
-    id: string,
-    signal?: AbortSignal,
-  ): Promise<{ found: boolean; params: BuiltinParam[] } | null> => {
-    try {
-      const res = await fetch(
-        `${fileBase}/plugin-params?format=${encodeURIComponent(format)}&id=${encodeURIComponent(id)}`,
-        { headers: machineHeaders(token), signal },
-      );
-      if (!res.ok) return null;
-      const body = await json<{ found?: boolean; params?: BuiltinParam[] }>(
-        res,
-        "plugin-params",
-      );
-      return { found: body.found !== false, params: body.params ?? [] };
-    } catch {
-      return null; // moteur injoignable, ou requête abandonnée
-    }
   },
 
   /**

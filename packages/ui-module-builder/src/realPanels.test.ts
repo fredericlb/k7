@@ -9,8 +9,6 @@
 // not gain them for a test. It draws a browser's screen; `node:fs` reaching it is the thing that
 // absence prevents.
 
-import { builtinPluginForRef } from "@studio/song/builtinParams";
-import { paramPanel } from "@studio/song/paramPanel";
 import { describe, expect, it } from "vitest";
 import { hasMalformedUiFile, readUiFile, writeUiFile } from "./moduleUi";
 
@@ -82,44 +80,72 @@ describe("what MALFORMED actually means", () => {
 });
 
 /**
- * A GENERATED panel, read back by the same parser the builder greys itself out on.
+ * A panel BUILT rather than parsed, read back by the parser the builder greys itself out on.
  *
- * st0 writes these through `writeUiFile("")` — the writer the grid itself saves through — so a
- * generated panel and a hand-drawn one are the same file. That is the property worth pinning:
- * the generator produces `ui.yaml`, and `ui.yaml` is what this editor round-trips.
+ * There was a generator here that turned a plugin's parameter list into one of these, and these
+ * tests pinned its round trip. It is gone — it could only ever emit knobs and dropdowns, so run
+ * over a library it flattened a mixer's channel strip into five knobs in a row. What is worth
+ * keeping is the property underneath, which is about `writeUiFile` and not about where the
+ * widgets came from: whatever this editor writes, it must be able to read back.
  */
-describe("a panel generated from a plugin's parameters", () => {
-  for (const ref of ["@engine/chorus-ensemble", "@engine/4osc"])
-    it(`round-trips ${ref}`, () => {
-      const plugin = builtinPluginForRef(ref);
-      expect(plugin, ref).toBeTruthy();
-      const text = writeUiFile("", paramPanel(plugin!.params));
-      expect(hasMalformedUiFile(text), ref).toBe(false);
-      // …and every parameter is still bound after the trip through YAML. A panel that parsed
-      // but had lost its binds would be a grid of knobs that move nothing.
-      const ui = readUiFile(text);
-      const bound = Object.values(ui.widgets).flatMap((w) =>
-        w.type === "tabs"
-          ? Object.values(w.pages ?? {}).flatMap((p) =>
-              Object.values(p).map((x) => x.bind),
-            )
-          : [w.bind],
-      );
-      expect(bound.slice().sort()).toEqual(
-        plugin!.params
-          .map((p) => p.name)
-          .slice()
-          .sort(),
-      );
-    });
+describe("a panel written by the grid rather than by hand", () => {
+  it("round-trips every widget's bind through YAML", () => {
+    // A panel that parsed but had lost its binds would be a grid of knobs that move nothing.
+    const built = {
+      cols: 2,
+      rows: 2,
+      widgets: {
+        w1: {
+          type: "fader" as const,
+          col: 0,
+          row: 0,
+          rowSpan: 2,
+          label: "Volume",
+          bind: "Volume",
+          min: -60,
+          max: 6,
+        },
+        w2: {
+          type: "knob" as const,
+          col: 1,
+          row: 0,
+          label: "Pan",
+          bind: "Pan",
+          min: -1,
+          max: 1,
+        },
+      },
+    };
+    const text = writeUiFile("", built);
+    expect(hasMalformedUiFile(text)).toBe(false);
+    const ui = readUiFile(text);
+    expect(
+      Object.values(ui.widgets)
+        .map((w) => w.bind)
+        .sort(),
+    ).toEqual(["Pan", "Volume"]);
+    // The span survives, which is the half a parameter list could never have supplied.
+    expect(ui.widgets.w1.rowSpan).toBe(2);
+  });
 
   it("writes the terse one-line-per-widget shape these files have by hand", () => {
-    // The same `writeUiFile` the grid saves through, so a generated file does not read as
+    // The same `writeUiFile` the grid saves through, so a file it wrote does not read as
     // machine output sitting in a folder of hand-written ones.
-    const text = writeUiFile(
-      "",
-      paramPanel(builtinPluginForRef("@engine/chorus-ensemble")!.params),
-    );
+    const text = writeUiFile("", {
+      cols: 4,
+      rows: 1,
+      widgets: {
+        w1: {
+          type: "knob" as const,
+          col: 0,
+          row: 0,
+          label: "Speed",
+          bind: "Speed",
+          min: 0,
+          max: 1,
+        },
+      },
+    });
     expect(text).toContain(
       "w1: { type: knob, col: 0, row: 0, label: Speed, bind: Speed, min: 0, max: 1 }",
     );

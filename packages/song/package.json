@@ -69,7 +69,6 @@
     "./yaml/mixViewSchema": "./src/yaml/mixViewSchema.ts",
     "./yaml/surfaceFile": "./src/yaml/surfaceFile.ts",
     "./yaml/surfaceSchema": "./src/yaml/surfaceSchema.ts",
-    "./projectMode": "./src/projectMode.ts",
     "./surfaces": "./src/surfaces.ts",
     "./projectType": "./src/projectType.ts",
     "./scaffoldBench": "./src/scaffoldBench.ts",
@@ -78,8 +77,7 @@
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
-    "./builtinParams": "./src/builtinParams.ts",
-    "./paramPanel": "./src/paramPanel.ts"
+    "./builtinParams": "./src/builtinParams.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

@@ -53,31 +53,12 @@ export function enginePluginFor(
   ref: string,
   plugins: ScannedName[],
 ): PluginBlock {
-  const found = scannedForRef(ref, plugins);
-  return found ? (engineModuleOf(found)?.plugin ?? undefined) : undefined;
-}
-
-/**
- * The scanned RECORD an `@engine/…` ref names — the plugin, not just how to load it.
- *
- * `enginePluginFor` above answers "what goes in the `plugin:` block", which is the format and
- * the name; asking the engine for a plugin's PARAMETERS needs the scan's `id` as well — the
- * binary's own path, since two plugins can share a display name. Rather than widen that return
- * type, the matching is here and both read it, so there is still one rule for which scanned
- * plugin a ref means.
- *
- * First wins, as the catalogue does: two scans of one plugin are one module.
- */
-export function scannedForRef<T extends { name: string; format?: string }>(
-  ref: string,
-  plugins: readonly T[],
-): T | undefined {
   if (!ref.startsWith(ENGINE)) return undefined;
-  // The format is passed through but plays no part in the REF — a slug of the name is the
-  // whole of it — so a record that carries no format still matches the one it names.
-  for (const p of plugins)
-    if (engineModuleOf({ name: p.name, format: p.format ?? "" })?.ref === ref)
-      return p;
+  for (const p of plugins) {
+    const named = engineModuleOf(p);
+    // First wins, as the catalogue does: two scans of one plugin are one module.
+    if (named?.ref === ref) return named.plugin;
+  }
   return undefined;
 }
 
