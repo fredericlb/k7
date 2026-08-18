@@ -147,15 +147,14 @@ par l'ouverture suivante.
 - **Pas un morceau.** Rien n'y est arrangé, rien n'y est enregistré (`recordDir` n'y est pas
   posé, la piste n'a pas de clip). Ce qu'on veut garder d'un essai, on le garde dans la chaîne.
 
-  Ça a fini par avoir un nom : le banc est un projet **`live`** (`project_type: live` dans son
-  `project.yaml`), c'est-à-dire un projet l8 sans timeline. l8 l'ouvre donc sur le graphe des
-  chaînes, plein écran, sans transport ni minimap. Voir
-  [packages/song/docs/projectMode.md](../../../packages/song/docs/projectMode.md).
+  Le banc ne déclare donc **aucune surface** : pas de `surfaces/timeline.yaml`, pas de
+  `surfaces/viewport.yaml`. l8 l'ouvre sur le graphe des chaînes, plein écran, sans transport
+  ni minimap — un projet dessine ce qu'il DÉCLARE, et celui-ci ne déclare rien. Voir
+  [packages/song/docs/surfaces.md](../../../packages/song/docs/surfaces.md).
 
-  Les bancs déjà créés sont repris à l'ouverture : le dossier est régénéré à chaque fois, mais
-  `project.yaml` ne l'est pas — il n'est écrit qu'une fois — donc `ensureBenchProject` y ajoute
-  la ligne si elle manque, en préservant les commentaires
-  (`packages/file-service/src/benchLive.test.ts`).
+  Il a porté un temps une ligne `project_type: live` dans son `project.yaml`, plus une
+  migration qui l'ajoutait aux bancs déjà créés. Les deux ont disparu avec le champ : le
+  silence dit la même chose, et ne peut pas contredire le dossier.
 
 ## Ce qu'il faut vérifier dans un navigateur
 

@@ -166,11 +166,18 @@ describe("projectSurfaces", () => {
   });
 });
 
-describe("an arrangement that declares no timeline", () => {
+describe("a project holding material and declaring no timeline", () => {
   const TIMELINE = "type: timeline\nlayout: split\n";
 
-  it("is warned about — it would open onto its graph with nothing to say why", () => {
-    const dir = withSurface("desk", DESK);
+  /** Put a sequence in the folder -- the material a timeline would have drawn. */
+  const arranged = (dir: string): string => {
+    mkdirSync(join(dir, "sequences"), { recursive: true });
+    writeFileSync(join(dir, "sequences", "melody.yaml"), "notes: []\n");
+    return dir;
+  };
+
+  it("is warned about: it would open onto its graph with nothing to say why", () => {
+    const dir = arranged(withSurface("desk", DESK));
     const warn = surfaceIssues(dir).filter((d) => d.severity === "warning");
     expect(warn.length).toBe(1);
     expect(warn[0].message).toContain("timeline");
@@ -179,26 +186,28 @@ describe("an arrangement that declares no timeline", () => {
   });
 
   it("is silent once it declares one", () => {
-    expect(surfaceIssues(withSurface("timeline", TIMELINE))).toEqual([]);
-  });
-
-  it("is silent for a LIVE project, which has no arrangement to draw", () => {
-    const dir = withSurface("desk", DESK);
-    writeFileSync(
-      join(dir, "project.yaml"),
-      'project_type: live\nproject:\n  name: "rig"\n',
+    expect(surfaceIssues(arranged(withSurface("timeline", TIMELINE)))).toEqual(
+      [],
     );
-    expect(surfaceIssues(dir)).toEqual([]);
   });
 
-  it("warns a project with no surfaces/ folder at all", () => {
-    // `projectSurfaces` stays silent about the missing folder — that is the ordinary case. The
+  it("is silent for a project holding nothing arranged: a mix, or a bare rig", () => {
+    // What `project_type: live` used to answer, answered by the FOLDER instead: no clips, no
+    // sequences, so there is nothing a timeline would have shown and nothing to warn about.
+    // Strictly better than the declaration was, because a folder cannot disagree with itself.
+    expect(surfaceIssues(withSurface("desk", DESK))).toEqual([]);
+  });
+
+  it("warns a project with material and no surfaces/ folder at all", () => {
+    // `projectSurfaces` stays silent about the missing folder, which is the ordinary case. The
     // missing ARRANGEMENT is a different sentence, and this is the one project that gets both.
     const dir = join(root, "plain.l8");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir).diagnostics).toEqual([]);
-    expect(surfaceIssues(dir).map((d) => d.severity)).toEqual(["warning"]);
+    expect(surfaceIssues(arranged(dir)).map((d) => d.severity)).toEqual([
+      "warning",
+    ]);
   });
 });
 
@@ -359,6 +368,9 @@ describe("createSurfaceFile", () => {
     // The whole point: `surfaceIssues` tells an arrangement with no timeline to add the file, and
     // the editor you would add it in is inside that project. Now a command does it.
     const dir = project();
+    // With something in it a timeline would have drawn -- which is what the warning is about.
+    mkdirSync(join(dir, "sequences"), { recursive: true });
+    writeFileSync(join(dir, "sequences", "melody.yaml"), "notes: []\n");
     expect(surfaceIssues(dir).map((d) => d.severity)).toEqual(["warning"]);
     createSurfaceFile(dir, "timeline");
     expect(surfaceIssues(dir)).toEqual([]);

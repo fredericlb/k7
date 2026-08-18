@@ -2,25 +2,19 @@
 // médiathèque's modules in, and nothing else. One track through a mixer to OUT, and everything
 // else is the catalogue, which is not in the folder. Rationale: apps/st0/docs/banc.md.
 
-import { GRAPH_FILE } from "./yaml/graphSchema";
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { DEFAULT_COUNT_IN } from "./project";
 import { writeProjectFiles } from "./scaffold";
+import { GRAPH_FILE } from "./yaml/graphSchema";
 
 const q = (s: string) => JSON.stringify(s);
 
 /** The marker that makes this project the one allowed to save at `@st0` level. */
 export const BENCH_MARKER = "mediatekBench";
 
-/**
- * The bench is a LIVE project — the exact line its `project.yaml` carries.
- *
- * Exported as the whole line, and used by the file service to bring an EXISTING bench forward
- * (`ensureBenchProject`): the folder is regenerated on every open, but `project.yaml` is written
- * once and would otherwise still say "arrangement" on every bench made before this. One string,
- * so the writer and the migration cannot spell it two ways.
- */
-export const BENCH_MODE_LINE = "project_type: live";
+// `BENCH_MODE_LINE` was here — `project_type: live`, plus a migration in the file service that
+// wrote it into benches made before the mode existed. Both are gone with the mode: a bench draws
+// no timeline because it declares no `surfaces/timeline.yaml`, which is what it never had.
 
 /**
  * The bench's own furniture, named once.
@@ -60,7 +54,6 @@ export function benchFiles(name: string): Record<string, string> {
       `#\n` +
       `# banc.md le dit déjà : « pas un morceau ». Rien n'y est arrangé, rien n'y est\n` +
       `# enregistré — d'où "live", qui est exactement ça : un graphe, et pas de timeline.\n` +
-      `${BENCH_MODE_LINE}\n` +
       `project:\n` +
       `  name: ${q(name)}\n` +
       `  tempo: 120\n` +

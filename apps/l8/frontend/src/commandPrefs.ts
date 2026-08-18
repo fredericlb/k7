@@ -1,4 +1,4 @@
-﻿// commandPrefs.ts — what a PERSON has made of the command catalogue: what each command is called
+// commandPrefs.ts — what a PERSON has made of the command catalogue: what each command is called
 // on their screen, which icon it wears, and the order the menus list them in. The catalogue itself
 // is the app's and is the same for everyone; this is the layer over it, and it is pure so the
 // settings page and every menu apply it the same way.

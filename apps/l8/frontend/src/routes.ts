@@ -1,22 +1,14 @@
-// routes.ts — the URL <-> view mapping, in one place. The screen is three ORTHOGONAL
-// pieces: `view` (the layout) and `full` (a fullscreened pane) own the PATH, while
-// `panel` is a modifier on whichever screen you're on and rides as a query parameter.
-// See docs/shellRouting.md.
+// routes.ts — the URL <-> screen mapping, in one place. `full` (a fullscreened pane) owns the
+// PATH, while `panel` is a modifier on whichever screen you're on and rides as a query
+// parameter. There is one LAYOUT and it is not addressable: which panes it holds is what the
+// project declares. See docs/shellRouting.md.
 
 export type Pane = "editor" | "viewport" | "timeline" | "chains";
-/**
- * The layouts. `global` is the timeline over the graph; `live` is the graph and nothing else.
- *
- * A layout is the shell's own idea of which panes are on screen, and it is `viewPanes` below
- * that every pane ring and every fullscreen exit reads. Going through it rather than through a
- * table is what keeps "which panes are on screen" answerable in one place: whether a project
- * draws picture, or an arrangement, is a PANE and not a layout, so this list stays at two.
- *
- * `live` is NOT chosen from the header: it is what the open PROJECT is (project.yaml's
- * `project_type`), so it is derived rather than toggled, and the shell refuses to leave it.
- * See packages/song/docs/projectMode.md and docs/shellRouting.md.
- */
-export type View = "global" | "live";
+// `View` was here: `global` (the timeline over the graph) or `live` (the graph alone), derived
+// from `project.yaml`'s `project_type`. Both are gone. There is ONE layout now, and which panes
+// it holds is what the project DECLARES in `surfaces/` -- so the layout list collapsed into
+// `viewPanes`' arguments, which is where the answer already came from. See docs/shellRouting.md
+// and packages/song/docs/surfaces.md.
 // `docs` was a third panel — a project's notes and to-dos, listed in one place. It is gone:
 // a note is a doc module IN the graph now, toggled beside the mixer. See
 // packages/song/docs/docModules.md.
@@ -24,7 +16,6 @@ export type Panel = "graph" | "logs";
 
 /** The part of the shell's state the URL carries. */
 export interface RouteState {
-  view: View;
   full: Pane | null;
   panel: Panel | null;
   help: boolean;
@@ -80,14 +71,11 @@ export interface Layout {
  * arrangement over the graph. The number keys and the mobile tabs read it, so a ring that
  * disagreed with the column would make `2` land somewhere the eye did not expect.
  *
- * `live` with nothing declared fullscreens NOTHING, and that is not an omission: its one pane
- * already has the whole window, so every `full` value would either be a no-op or hide the only
- * thing on screen. A rig that declares a VIEWPORT has two panes and so has fullscreens — a rig
- * with picture is a real thing, and the declaration is what says so. The editor is absent from
- * live's lists either way and still reachable: `ui file` brings it as a POPIN, which is not a
- * pane and belongs to no layout (docs/shell.md). A `global` view with no timeline lands in the
- * same place from the other side, and keeps its editor: it is a song whose arrangement is
- * simply not declared, not a rig.
+ * A project that declares NEITHER is left with the graph alone, and it keeps its editor: it
+ * is a song whose arrangement has not been written down, and the pane you would write it in
+ * is the editor. This used to be two cases -- a `live` project fullscreened nothing at all,
+ * while a `global` one with no timeline landed here -- and the difference was the editor. One
+ * of them had to go when the mode did, and this is the half that leaves you somewhere to work.
  *
  * `frozen` is the third of these, and the only one that is not about the project: a SHARED
  * snapshot has no source at all — no `/tree`, no `/file` — so the editor is not a pane whose
@@ -96,16 +84,11 @@ export interface Layout {
  * editor` and every address all read, so one omission closes them together.
  */
 export function viewPanes(
-  view: View,
   timeline: boolean,
   viewport = false,
   frozen = false,
 ): Layout {
   const picture: Pane[] = viewport ? ["viewport"] : [];
-  if (view === "live") {
-    const ring: Pane[] = [...picture, "chains"];
-    return { ring, fullscreen: viewport ? ring : [] };
-  }
   const arrangement: Pane[] = timeline ? ["timeline"] : [];
   const ring: Pane[] = [...picture, ...arrangement, "chains"];
   return { ring, fullscreen: frozen ? ring : ["editor", ...ring] };
@@ -115,9 +98,8 @@ const isPane = (s: string): s is Pane => (PANES as string[]).includes(s);
 const isPanel = (s: string): s is Panel => (PANELS as string[]).includes(s);
 
 /**
- * The path + search for a screen. `view` reaches the URL only when there is a second layout to
- * name — `live` is derived from the project rather than chosen, so the only paths left are a
- * fullscreened pane and the root.
+ * The path + search for a screen. With one layout there is nothing to name but a fullscreened
+ * pane, a surface, the chain builder and the docs -- so those are the only paths there are.
  */
 export function toPath(s: RouteState): string {
   // Help wins, then the chain builder, then a surface, then a fullscreened pane. The order is the
@@ -137,18 +119,17 @@ export function toPath(s: RouteState): string {
 }
 
 /**
- * Read a location back into state. Unknown paths fall back to the global view rather
+ * Read a location back into state. Unknown paths fall back to the layout rather
  * than 404ing inside the app — the URL bar is user-editable, and a typo should land
  * somewhere usable.
  *
- * `view` is deliberately NOT inferred for a fullscreen path: the caller keeps whatever
- * layout it had. With one layout left that is a distinction without a difference, and it stays
- * because the rule is the routing's and not the layout list's.
+ * There is no layout to infer: `viewPanes` answers from what the project declares, and this
+ * reads an address against that answer -- an address naming a pane the project has not got
+ * falls through to the layout rather than parsing into a screen nothing will draw.
  */
 export function fromLocation(
   pathname: string,
   search: string,
-  current: View,
   // Whether the project declares a timeline, for the same reason `viewPanes` takes it: `/timeline`
   // must not parse into a pane nothing will mount. Defaulted, so a caller that has not got the
   // surface list yet reads addresses exactly as it did before.
@@ -164,7 +145,6 @@ export function fromLocation(
   const panelParam = new URLSearchParams(search).get("panel") ?? "";
   const panel = isPanel(panelParam) ? panelParam : null;
   const base = {
-    view: current,
     full: null,
     panel,
     help: false,
@@ -205,11 +185,10 @@ export function fromLocation(
       return { ...base, surface: decoded };
     }
   }
-  const layout = viewPanes(current, timeline, viewport, frozen);
-  // A pane the CURRENT layout cannot fullscreen is not an address here — `/timeline` typed at a
-  // live project, or at one that declares no timeline surface, names a pane that project hasn't
-  // got. It falls through to the layout's own screen rather than 404ing, for the same reason an
-  // unknown segment does.
+  const layout = viewPanes(timeline, viewport, frozen);
+  // A pane the layout cannot fullscreen is not an address here: `/timeline` at a project that
+  // declares no timeline surface names a pane that project hasn't got. It falls through to the
+  // layout's own screen rather than 404ing, for the same reason an unknown segment does.
   if (isPane(seg) && layout.fullscreen.includes(seg))
     return { ...base, full: seg };
   // `/video` is an alias for `/viewport`, so an old bookmark lands on the frame rather than

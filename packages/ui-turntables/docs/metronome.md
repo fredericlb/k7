@@ -1,4 +1,4 @@
-﻿# Le métronome
+# Le métronome
 
 Un bouton dans la barre du bas, à côté du transport. Allumé, un clic marque le temps de la
 musique, avec le premier temps de chaque mesure plus haut. Éteint ou noir le reste du temps.

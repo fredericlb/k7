@@ -38,9 +38,6 @@ export function emptyDoc(over: Partial<ProjectDoc> = {}): ProjectDoc {
     tracks: [],
     groups: [],
     strudel: false,
-    // A preview and a deck are neither shape, so the default is the one that assumes least:
-    // `arrangement` is what a folder that says nothing is, everywhere else too.
-    mode: "arrangement",
     markers: [],
     settings: DEFAULT_SETTINGS,
     ...over,

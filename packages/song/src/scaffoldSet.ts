@@ -5,8 +5,8 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
-import { GRAPH_FILE } from "./yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
+import { GRAPH_FILE } from "./yaml/graphSchema";
 
 const q = (s: string) => JSON.stringify(s);
 
@@ -20,11 +20,10 @@ export function setProjectFiles(name: string): Record<string, string> {
     "project.yaml":
       `# A SET: two decks meeting at a crossfade, and a list of songs to play through them.\n` +
       `#\n` +
-      `# \`project_type: live\` is what says there is no arrangement — nothing here is placed in\n` +
-      `# time, so there is no timeline to draw and no transport to roll. What makes it a set\n` +
-      `# rather than a bare rig is the two files below it: \`songs.yaml\`, and a \`turntables\`\n` +
-      `# surface in \`surfaces/\`. See packages/song/docs/setProject.md.\n` +
-      `project_type: live\n` +
+      `# There is no arrangement, and nothing here says so: a project draws what it DECLARES,\n` +
+      `# and this one declares no \`surfaces/timeline.yaml\`. What makes it a set rather than a\n` +
+      `# bare rig is the two files it DOES have: \`songs.yaml\`, and the \`turntables\` surface in\n` +
+      `# \`surfaces/\`. See packages/song/docs/setProject.md.\n` +
       `project:\n` +
       `  name: ${q(name)}\n` +
       `  # The rate the decks are played at. No tempo and no time signature: a set has no bars.\n` +

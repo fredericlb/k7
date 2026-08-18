@@ -37,6 +37,7 @@ export function ChainsBuilder({
   open,
   onClose,
   vimMode,
+  onLog,
   focusNode,
 }: {
   open: string;
@@ -45,6 +46,9 @@ export function ChainsBuilder({
   focusNode?: string | null;
   /** The shell's editing mode, passed through so this pane behaves like every other one. */
   vimMode: boolean;
+  /** Report a command (or its failure) into the shell's log — the same sink App's own commands
+   *  use, so one transcript holds everything that ran whatever it was aimed at. */
+  onLog?: (kind: "cmd" | "error", text: string) => void;
   onClose: () => void;
 }) {
   const [chains, setChains] = useState<LibraryChain[] | null>(null);
@@ -94,14 +98,20 @@ export function ChainsBuilder({
   const command = useCallback(
     async (line: string) => {
       if (!chosen) return;
+      // Reported to the shell's transcript, WITH where it was aimed. These verbs run against a
+      // library chain and not the open song, so a bare line in the log would claim an edit to
+      // the project that never happened — and the log's promise is every command, not every
+      // command that touched the song.
+      onLog?.("cmd", `› [${chosen.ref}] ${line}`);
       try {
         await projectApi.command(line, chosen.path);
         setRev((r) => r + 1);
       } catch (e) {
         setError((e as Error).message);
+        onLog?.("error", `[${chosen.ref}] ${(e as Error).message}`);
       }
     },
-    [chosen],
+    [chosen, onLog],
   );
 
   /** The node id the drawing selects: the focused file without its extension, or none. */

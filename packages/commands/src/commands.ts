@@ -1,4 +1,4 @@
-﻿// commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
+// commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
 // runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.

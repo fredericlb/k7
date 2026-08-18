@@ -1,4 +1,4 @@
-﻿// ClipView.tsx — a clip's CONTENT: the AudioClipPanel for audio, the piano roll for MIDI, and for
+// ClipView.tsx — a clip's CONTENT: the AudioClipPanel for audio, the piano roll for MIDI, and for
 // a live sequence FILE the roll of the notes parsed out of its text. Each draws its own header and
 // close button. Two hosts mount it — the Editor bottom panel, and the graph slot when a clip is
 // clicked in the timeline (see docs/shell.md).
@@ -36,9 +36,6 @@ const FALLBACK_PROJECT: WebProject = {
   timeSigNumerator: 4,
   timeSigDenominator: 4,
   strudel: false,
-  // Only the tempo and the signature are read off this; the shape of the project says nothing
-  // about how one clip's roll is drawn. `arrangement` because it is the default everywhere else.
-  mode: "arrangement",
   tracks: [],
   groups: [],
   metronome: false,

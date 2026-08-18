@@ -1,4 +1,4 @@
-﻿// ProjectGate.tsx — l8's wrapper over the shared gate. The resolving, cloning and opening are
+// ProjectGate.tsx — l8's wrapper over the shared gate. The resolving, cloning and opening are
 // @studio/project-shell's (m9 mounts the same thing); what belongs here is the wording, which
 // is paraglide's, and what to render once the project is open. See @studio/project-shell docs/launch.md.
 

@@ -2,19 +2,13 @@
 // already reaches the output. The rest of the bench is the catalogue, mirrored in by the file
 // service — see packages/file-service/src/bench.ts.
 
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { projectModeOf } from "./projectMode";
-import {
-  BENCH_EDGES,
-  BENCH_MODE_LINE,
-  benchFiles,
-  scaffoldBench,
-} from "./scaffoldBench";
+import { BENCH_EDGES, benchFiles, scaffoldBench } from "./scaffoldBench";
 import { ProjectFileSchema } from "./yaml/projectSchema";
 
 describe("the module bench", () => {
@@ -57,15 +51,18 @@ describe("the module bench", () => {
     expect(raw).toContain("mediatekBench: true");
   });
 
-  it("is a LIVE project — a graph, and no timeline", () => {
-    // banc.md said this before the field existed: « pas un morceau ». Nothing is arranged and
-    // nothing is recorded here, so a bench that opened with a timeline over the graph would be
-    // giving half the window to a pane that can never have anything in it.
-    expect(readFileSync(join(dir, "project.yaml"), "utf8")).toContain(
-      BENCH_MODE_LINE,
+  it("declares no timeline — a graph, and nothing arranged", () => {
+    // banc.md said this before there was any way to write it down: « pas un morceau ». Nothing is
+    // arranged and nothing is recorded here, so a bench that opened with a timeline over the
+    // graph would be giving half the window to a pane that can never have anything in it.
+    //
+    // It says so by SILENCE now rather than with a `project_type: live` line: a project draws the
+    // surfaces it declares, and the bench declares none. The two halves of that are pinned here —
+    // no surface file, and nothing in the header claiming otherwise.
+    expect(existsSync(join(dir, "surfaces"))).toBe(false);
+    expect(readFileSync(join(dir, "project.yaml"), "utf8")).not.toContain(
+      "project_type",
     );
-    expect(projectModeOf(dir)).toBe("live");
-    expect(compileNodeProject(dir).mode).toBe("live");
   });
 
   it("is a project.yaml the schema accepts", () => {

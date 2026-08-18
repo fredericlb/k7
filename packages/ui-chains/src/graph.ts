@@ -197,6 +197,16 @@ export interface GraphNode extends Carried, Flags {
    *  has it when it is an envelope — the only curve with anything to be restarted by. */
   eventIn?: boolean;
   /**
+   * A curve node's BINDING: the curve's own id, and the module param it drives when it drives
+   * one. Absent `module`/`param` ⇒ a free card, bound to nothing yet.
+   *
+   * Carried rather than parsed back out of the node id, which spells the same thing: a module
+   * ref may itself contain a colon (`synth:lead`), so `crv:env1@synth:lead:Filter Freq` has no
+   * unambiguous reading. The renderer needs all three to write `node automate`, and a gesture
+   * that guessed them wrong would rewrite somebody else's binding.
+   */
+  curveOf?: { curve: string; module?: string; param?: string };
+  /**
    * This node sits in a row read ACROSS, not in a column read down — `moduleRow`'s doing.
    *
    * All it changes is where a cable meets it: sockets on the left and right edges instead of the
@@ -1200,6 +1210,7 @@ export function buildGraph(
           // Only an envelope has anything to be restarted BY. The socket is what says so, and
           // it is why the two curve kinds are told apart in the node's second line.
           eventIn: curve.type === "adsr",
+          curveOf: { curve: a.curve, module: s.module, param: a.param },
           dim: false,
           missing: false,
           stub: false,
@@ -1402,6 +1413,8 @@ export function buildGraph(
         sub: curveSubLabel(curve),
         kind: "curve",
         eventIn: curve.type === "adsr",
+        // No module or param: this card is bound to nothing, which is what makes it free.
+        curveOf: { curve: id },
         dim: false,
         missing: false,
         stub: false,

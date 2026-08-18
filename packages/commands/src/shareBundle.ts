@@ -41,8 +41,6 @@ export interface ShareStem {
 export interface ShareManifest {
   schema: number;
   name: string;
-  /** `WebProject.mode` — the viewer's layout in one field, so it need not read the whole doc first. */
-  mode: string;
   createdAt: string;
   media: {
     mix: { file: string; bytes: number };
@@ -118,7 +116,7 @@ export function buildShareBundle(
   doc: ProjectDoc,
   /** Filename → the JSON to write beside the audio. The viewer asks for these by name. */
   docs: Record<string, unknown>,
-  meta: { name: string; mode: string },
+  meta: { name: string },
 ): ShareBundle {
   const dir = mkdtempSync(join(tmpdir(), "tbshare-"));
   const cleanup = () => {
@@ -181,7 +179,6 @@ export function buildShareBundle(
     const manifest: ShareManifest = {
       schema: SHARE_SCHEMA,
       name: meta.name,
-      mode: meta.mode,
       createdAt: new Date().toISOString(),
       // `video: false` is stated rather than left out: a project may declare a viewport surface,
       // and `surfaces.json` goes up verbatim so the snapshot never lies about the project. What

@@ -1,4 +1,4 @@
-﻿# Le tempo d'une platine, et le sync
+# Le tempo d'une platine, et le sync
 
 Un fader vertical à côté de chaque vinyle, deux boutons SYNC aux extrémités de la barre du
 bas. Le bouton dit **qui mène** : appuyer à gauche met les deux disques sur le tempo du

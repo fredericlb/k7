@@ -1,4 +1,4 @@
-﻿# Le disque, et ce qu'il montre
+# Le disque, et ce qu'il montre
 
 Le vinyle n'est plus seulement un décor qui tourne : il **remplit** à mesure que le morceau
 passe — vide à 0 %, plein à 100 % — et porte les repères sous forme de cercles.

@@ -1,4 +1,4 @@
-﻿# AGENTS.md — l8
+# AGENTS.md — l8
 
 A **text-based DAW**. Your song is a folder of YAML files; the terminal or a web editor
 is your studio.
@@ -86,13 +86,13 @@ matches before changing it:
 ### Layout: panes, not tabs
 
 `App.tsx` stacks the panes the project declares, full width: the **frame over the timeline over
-the graph**. The EDITOR has no slot in either layout — it is fullscreened deliberately
+the graph**. The EDITOR has no slot in the layout — it is fullscreened deliberately
 (`ui editor`) or arrives as a popin when a command sends it to a file
 (`frontend/docs/shell.md`). A pane that IS in the layout is **mounted exactly once and never
 unmounted**; `hidden` takes it off screen, which is what lets the editor be restyled into a
 popin without losing its undo history, and what keeps the viewport's GL context alive while you
-are looking elsewhere. Two views: `global` and `live` (the graph alone). `full` sits on top of a
-view to fullscreen one pane.
+are looking elsewhere. One layout, holding whichever of those panes the project declares; `full`
+sits on top of it to fullscreen one.
 
 **A note is a MODULE, not a panel.** The Docs panel is gone, and with it the `docs:`/`todos:`
 fields modules and tracks carried — both schemas are `.strict()`, so a file still holding one
@@ -127,19 +127,22 @@ round trip while the sound stays where you put it — see
 A component with no mapping is reported on the surface itself, not by refusing the project.
 Read `packages/song/docs/surfaces.md`.
 
-**`view` is the one piece of screen state nobody chooses.** It is what the open PROJECT is —
-`project.yaml`'s `project_type`, `arrangement` or `live` — and a live project has no timeline at
-all, so the transport, the minimap and the pane buttons go with it. `viewPanes` in `src/routes.ts`
-says what each layout does with the panes, and its empty `fullscreen` list for `live` is what
-closes the header buttons, the number keys, `ui <pane>` and the mobile tabs in one place. Read
-`packages/song/docs/projectMode.md` before touching any of it.
+**There is ONE layout, and nobody chooses it either.** Which panes it holds is what the open
+project DECLARES: `viewPanes` in `src/routes.ts` takes the surface flags and answers with the
+pane ring and the fullscreen list, and that one list closes the header buttons, the number keys,
+`ui <pane>` and the mobile tabs together. A project with no `surfaces/timeline.yaml` draws no
+timeline, and the transport and the minimap go with it.
 
-The vocabulary is three words, not two, and `src/routes.ts` is where they are declared —
+> There were two layouts, `global` and `live`, picked by `project.yaml`'s `project_type`. Both
+> that field and the `View` type are gone — they answered a question `surfaces/` answers better
+> and could contradict. Read `packages/song/docs/surfaces.md` before touching any of it.
+
+The vocabulary is two words, and `src/routes.ts` is where they are declared —
 read it before changing layout. A **pane** is one of four (`editor | viewport | timeline |
 chains`) and is what `full` fullscreens; two of them, `timeline` and `viewport`, are mounted
 only when the project declares the matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
 the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
-drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. A **view** is the arrangement of panes. All three are URL state (`src/hooks/useViewRoute.ts`); see
+drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
 
 ### Commands are the CLI's, verbatim

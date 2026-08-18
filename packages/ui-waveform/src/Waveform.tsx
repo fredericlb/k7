@@ -1,4 +1,4 @@
-﻿import {
+import {
   memo,
   useEffect,
   useLayoutEffect,

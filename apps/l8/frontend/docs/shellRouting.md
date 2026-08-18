@@ -9,8 +9,7 @@ rather than a component tree:
 
 | piece | meaning |
 |---|---|
-| `view` | the layout — `global` (timeline over chains) or `live` (chains alone, no timeline). Entirely derived: it is what the open PROJECT is, and nothing offers a choice. |
-| `full` | which single pane has the whole screen, or `null` for the layout above. |
+| `full` | which single pane has the whole screen, or `null` for the layout. |
 | `panel` | the side panel (graph, docs, logs), independent of both. |
 | `surface` | a `view` surface the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
 
@@ -27,40 +26,39 @@ a function of what the project declares rather than a constant.
 
 ### The layout is the project's, not the user's
 
-`view` is derived: `project.yaml`'s `project_type` says whether the folder is a song or a rig,
-and a rig has no timeline to show. So there is no toggle, `ui global` typed at a live project is
-refused out loud, and `viewPanes` (in `routes.ts`) is what each layout does with the panes.
-Whether a project draws picture is a PANE rather than a layout — the `viewport` surface — so
-the layout list stays at two:
+There is ONE layout, and which panes it holds is a function of what the project DECLARES.
+`viewPanes` (in `routes.ts`) is that function:
 
 ```ts
-viewPanes("global", true,  false) // { ring: ["timeline", "chains"],             fullscreen: ["editor", …ring] }
-viewPanes("global", true,  true)  // { ring: ["viewport", "timeline", "chains"], fullscreen: ["editor", …ring] }
-viewPanes("global", false, false) // { ring: ["chains"],                         fullscreen: ["editor", "chains"] }
-viewPanes("live",   _,     false) // { ring: ["chains"],                         fullscreen: [] }
-viewPanes("live",   _,     true)  // { ring: ["viewport", "chains"],             fullscreen: […ring] }
+viewPanes(true,  false) // { ring: ["timeline", "chains"],             fullscreen: ["editor", …ring] }
+viewPanes(true,  true)  // { ring: ["viewport", "timeline", "chains"], fullscreen: ["editor", …ring] }
+viewPanes(false, false) // { ring: ["chains"],                         fullscreen: ["editor", "chains"] }
+viewPanes(false, true)  // { ring: ["viewport", "chains"],             fullscreen: ["editor", …ring] }
 ```
 
 A **function**, because two of the panes are surfaces the project declares rather than panes the
-shell hands out. The second and third arguments are those declarations, and they have to reach
-here: a list naming a pane nothing will mount is a screen that cannot be drawn.
+shell hands out. Its arguments are those declarations, and they have to reach here: a list
+naming a pane nothing will mount is a screen that cannot be drawn.
 
 The ring is built TOP-DOWN, in the order the panes are stacked on screen — the number keys and
 the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
-the eye did not expect. And a rig that declares a viewport has its fullscreens: `live`'s
-empty list is about having ONE pane, not about being a rig.
+the eye did not expect.
 
-That empty `fullscreen` is load-bearing. The header buttons, the number keys, `ui <pane>` and the
-mobile tabs all reach the screen through `fullscreen()`, so one empty list closes all four at
-once instead of four guards that could disagree. `fromLocation` reads the same function:
-`/timeline` typed at a live project — or at one that declares no timeline — names a pane that
-project has not got, and falls through to its own screen rather than parsing into a state that
-cannot be drawn.
+That list is load-bearing. The header buttons, the number keys, `ui <pane>` and the mobile tabs
+all reach the screen through `fullscreen()`, so one list closes all four at once instead of four
+guards that could disagree. `fromLocation` reads the same function: `/timeline` typed at a
+project that declares no timeline names a pane that project has not got, and falls through to
+the layout rather than parsing into a state nothing can draw.
 
-Full rationale, including why the field is not `type`:
-[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
+> **There were TWO layouts.** `global` and `live`, chosen by nothing — `project.yaml`'s
+> `project_type` said which, and a `live` folder had no timeline. Both the field and the `View`
+> type are gone. They answered a question `surfaces/` answers better, and could contradict it:
+> a folder calling itself `live` while declaring a timeline was a legal state nothing resolved.
+> The one visible difference is the EDITOR — `live` fullscreened nothing at all, and a project
+> with no timeline now keeps its editor, which is where you would write the arrangement it has
+> not got. See [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-`full` and `view` are the SCREEN, so they own the path. `panel` is a modifier on whatever
+`full` is the SCREEN, so it owns the path. `panel` is a modifier on whatever
 screen you are on — you can have the mixer open over the timeline or over the chains — so
 it is a query parameter. Nesting it (`/timeline/mixer`) would say it belongs to the
 timeline, which it does not.

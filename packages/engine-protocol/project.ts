@@ -8,18 +8,11 @@
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.
 
-/**
- * Which of l8's two shapes a project has — a song placed in time, or a graph with no timeline.
- *
- * Here rather than in `@studio/song` because `ProjectDoc` carries it and this file is the one
- * TypeScript counterpart to the C++ mirror. `@studio/song` owns the YAML key (`project_type`),
- * the default and the list of values, and pins that list against THIS type with `satisfies` —
- * the same direction `PROJECT_TYPES` is pinned against `ProjectApp`, so the two can never drift
- * into disagreeing about what a mode is.
- *
- * The engine ignores it: it is handed tracks and plays them whichever shape they came from.
- */
-export type ProjectMode = "arrangement" | "live";
+// `ProjectMode` was here — "arrangement" or "live", the shape a folder declared in
+// `project.yaml`'s `project_type`. It is gone, and so is `ProjectDoc.mode` below: what a project
+// draws is what its `surfaces/` folder says (packages/song/docs/surfaces.md), which is a better
+// answer to the same question because it is the one the screen actually reads. The engine never
+// looked at either — it is handed tracks and plays them.
 
 // A named timeline marker from project.yaml's `markers` map; `beat` is that timecode in timeline beats.
 export interface Marker {
@@ -202,12 +195,6 @@ export interface ProjectDoc {
   tracks: TrackDoc[];
   groups: GroupDoc[]; // what the tracks' `group` pointers refer to; the engine ignores it
   strudel: boolean; // whether any track streams from an algo/ pattern — surfaces skip the clock poll when false
-  // Which of l8's two shapes this project has — "arrangement" or "live". Ignored by the engine,
-  // which plays the tracks it is given either way, and here for the same reason `strudel` is:
-  // it is a fact the COMPILER already knows and every surface would otherwise re-read
-  // project.yaml to learn. A live project has no timeline, so l8 draws the graph alone.
-  // See packages/song/docs/projectMode.md.
-  mode: ProjectMode;
   markers: Marker[]; // sorted by beat
   settings: SettingsDoc; // always present, defaulted when settings.yaml is absent
 }

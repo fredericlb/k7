@@ -3,9 +3,15 @@
 An `.l8` folder like any other, read by the same loader out of the same `@studio/song`. Not a
 dialect: the node project you already know, with one entity fewer and two files more.
 
+> **The archetype that writes one is called `mix`.** That pair of names is deliberate and is the
+> only place it exists: `mix` is what you ASK for in st0's "Nouveau projet", named like its two
+> neighbours `arrangement` and `video` after the surface it opens on; a *set* is what lands on
+> disk, and this page is about the folder. One word cannot be right for both audiences.
+> `scaffoldSet` writes it; `PROJECT_SHAPES` lists it.
+
 | file | what it holds |
 |---|---|
-| `project.yaml` | the set's settings, plus `project_type: live` — there is no arrangement |
+| `project.yaml` | the set's settings, and nothing about shape — there is no arrangement because none is declared |
 | `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
 | `graph.yaml` | the routing segments, exactly as in a song |
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
@@ -63,8 +69,10 @@ because the two signals feed different readers, and that is exactly why it is **
 `projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is accepted and ignored
 is worse than one that is refused.
 
-The values are `l8` and `z0`. A set declares nothing at the root: it is an `.l8`, and
-`project_type: live` plus its desk surface are what say what it is.
+The values are `l8` and `z0`. A set declares nothing at the root: it is an `.l8`, and what says
+what it is is the pair of files above — a `songs.yaml` and a `turntables` surface. It once said
+`project_type: live` too; that field is gone, because a folder saying it had no arrangement while
+its `surfaces/` said otherwise was a contradiction nothing could resolve.
 
 `type` is a ROOT key, beside `trackOrder` and `markers`, and not a `project:` setting. The tier
 inside `project:` is the SONG's own settings — its tempo, its rate. This is a fact about the

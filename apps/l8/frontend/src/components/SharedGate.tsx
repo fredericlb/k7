@@ -24,7 +24,6 @@ import { m } from "../paraglide/messages.js";
 export interface ShareManifest {
   schema: number;
   name: string;
-  mode: string;
   createdAt: string;
   media: {
     mix: { file: string; bytes: number };

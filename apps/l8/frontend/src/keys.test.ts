@@ -22,25 +22,22 @@ describe("the Escape ladder", () => {
         popin: "1",
         graph_slot: "1",
         fullscreen: "1",
-        current_view: "global",
       }),
     ).toBe("ui popin close");
   });
 
   it("puts the graph back when no overlay is up", () => {
-    expect(
-      esc({ graph_slot: "1", fullscreen: "1", current_view: "global" }),
-    ).toBe("ui slot close");
+    expect(esc({ graph_slot: "1", fullscreen: "1" })).toBe("ui slot close");
   });
 
   // The slot sits INSIDE the chains pane, so a fullscreened pane holding an open clip has to
   // give the clip up first — leaving the layout before the thing you were reading is backwards.
   it("leaves a fullscreened pane only once the slot is empty", () => {
-    expect(esc({ fullscreen: "1", current_view: "global" })).toBe("ui global");
+    expect(esc({ fullscreen: "1" })).toBe("ui global");
   });
 
   it("falls back to the bottom panel", () => {
-    expect(esc({ current_view: "global" })).toBe("ui close");
+    expect(esc({})).toBe("ui close");
   });
 });
 
@@ -85,9 +82,7 @@ describe("effectiveKeys / resolveToken", () => {
 
   it("the conditional bindings stay the app's — the esc ladder resolves as ever", () => {
     const eff = effectiveKeys({ "transport toggle": { key: "p" } });
-    expect(resolveToken("esc", { current_view: "global" }, eff)).toBe(
-      "ui close",
-    );
+    expect(resolveToken("esc", {}, eff)).toBe("ui close");
   });
 
   it("keyForCommand reads the person's key first, and the default without prefs", () => {

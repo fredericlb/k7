@@ -1,4 +1,4 @@
-﻿# Les contrôles du pupitre, et comment les lier à un paramètre
+# Les contrôles du pupitre, et comment les lier à un paramètre
 
 Rien sur ce pupitre n'est câblé en dur. Chaque contrôle porte un identifiant, et ce qu'il
 DÉPLACE est écrit dans le projet — repointer une ligne de `views/mix.yaml` suffit à envoyer le

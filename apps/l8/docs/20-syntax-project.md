@@ -15,25 +15,20 @@ The song header: tempo, rate, meter — plus what the song borrows from outside 
 # repository IS the project and there is no suffix to read.
 type: l8
 
-# Which SHAPE this project has.
+# What this project DRAWS is not written here at all: it is the `surfaces/`
+# folder beside this file, one YAML per screen. A `surfaces/timeline.yaml`
+# is what puts an arrangement on screen; a folder without one opens on its
+# chains graph, and the transport and the minimap go with the timeline.
 #
-# `arrangement` is a song: a timeline, clips placed in bars, a transport that
-# rolls through it. It is the default and it is what every project written
-# before this line existed is, so it can be left out.
+# A SET adds two files rather than a keyword: a `songs.yaml` and a
+# `surfaces/desk.yaml`. Two decks meeting at a crossfade, a list to play
+# through them, and no timeline. Nothing else distinguishes one.
 #
-# `live` is a RIG: no timeline at all. Nothing is placed in time, so l8 draws
-# the chains graph on the whole screen and drops the arrangement with it — the
-# timeline pane, the transport, the minimap. What you get is the signal path
-# and the command bar. The chain bench (`/l8/@banc/chains/<path>.l8`) is one.
-#
-# A SET is a `live` project too, plus two files: a `songs.yaml` and a
-# `surfaces/desk.yaml`. Two decks meeting at a crossfade, a list to play through
-# them, and no arrangement to speak of. Nothing else distinguishes one.
-#
-# Every shape keeps the same files: tracks are still what a chain starts from,
-# and a module is still edited by opening its file — right-click a node in the
-# graph and the editor comes up over it.
-project_type: arrangement
+# There used to be a `project_type:` line here saying `arrangement` or
+# `live`. It is gone: it was a second declaration free to disagree with the
+# surfaces, and the surfaces are what the screen actually reads. A file that
+# still carries the line still opens; nothing looks at it, and you can drop
+# it next time you edit.
 
 project:
   name: my-song

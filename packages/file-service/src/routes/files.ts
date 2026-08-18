@@ -16,7 +16,7 @@ import {
   listModulePresets,
   saveModuleAsPreset,
 } from "@studio/song/presets";
-import { PROJECT_SHAPES } from "@studio/song/projectMode";
+import { PROJECT_SHAPES } from "@studio/song/yaml/projectSchema";
 import express, { Router } from "express";
 import { z } from "zod";
 import {
@@ -369,11 +369,14 @@ filesRouter.post(
 // Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
 const createProjectBody = z.object({
   /**
-   * Which file map to write: a song, a rig, or a set.
+   * The ARCHETYPE: `arrangement`, `mix` or `video` — each named after the surface it opens on.
    *
    * One field, because there is one question. Every project is an `.l8` folder, so "which app
    * opens this" has no answers to arbitrate; what is left is which scaffold runs. See
-   * projectLifecycle.ts, and `PROJECT_SHAPES` for why a set is a shape rather than a mode.
+   * projectLifecycle.ts, and `PROJECT_SHAPES` for why an archetype is not a mode.
+   *
+   * A caller newer than this service gets a 400 naming the enum, which is the right failure:
+   * a shape guessed at would land a folder whose contents nobody asked for.
    */
   shape: z.enum(PROJECT_SHAPES),
   name: z.string().min(1),

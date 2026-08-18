@@ -3,7 +3,6 @@
 // up is what once put `libraries_from` at the top level doing nothing. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
-import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { z } from "zod";
 import { TIMECODE } from "./placementSchema";
@@ -87,70 +86,33 @@ const _everyAppIsAType: _EveryAppIsAType = true;
 void _everyAppIsAType;
 
 /**
- * What an l8 project is WORKED as — a song arranged in time, or a rig that is only a graph.
+ * The ARCHETYPES — what you can ask for when creating a project.
  *
- * A SECOND axis, orthogonal to `type` above: that one says which app opens the folder, this one
- * says which of l8's two shapes the folder has. The two never substitute for each other — every
- * value here is legal in an `.l8` folder and in no other dialect.
+ * Each is named after the SURFACE it opens on, because that is the whole of what is being chosen:
  *
- * `arrangement` is every song ever written here, which is why the key is optional and its absence
- * means `arrangement`. A required key would turn every existing project into one that will not
- * open, and this object's parent is `.strict()`.
+ * | archetype | the surfaces it writes, and what fills them |
+ * |---|---|
+ * | `arrangement` | `timeline` — a lane, a synth, a pattern |
+ * | `mix` | `turntables` — two decks meeting at a crossfade, an empty `songs.yaml` |
+ * | `video` | `timeline` + `viewport` — the arrangement, plus a lane of picture |
  *
- * `live` is a project with **no timeline**: nothing is placed in time, so there is no arrangement
- * to scroll and l8 draws the chains graph alone. The module bench is the generated example
- * (`scaffoldBench.ts`) — apps/st0/docs/banc.md already describes exactly that shape, down to
- * "pas un morceau": a track, a chain, an output, and nothing arranged.
+ * This used to be one of TWO lists. Beside it was `PROJECT_MODES` — `arrangement` or `live`,
+ * `project.yaml`'s `project_type`, what a folder said it WAS — and a `MODE_FOR_SHAPE` table
+ * relating them. Both are gone. The mode's last two jobs, closing the layout down when there is
+ * no timeline and silencing the warning about one, are `surfaces/` questions and are answered
+ * there now: a project draws what it DECLARES (docs/surfaces.md). A second field saying almost
+ * the same thing could only ever drift from it — a folder declaring a timeline while calling
+ * itself `live` was a legal state nothing could resolve.
  *
- * Named `ProjectMode` in TypeScript and `project_type` in YAML, deliberately. `ProjectType` is
- * taken above by the dialect and two types of that name would be read as one; `project_type` is
- * what this is called from the outside — the project's type, within l8. Full rationale:
- * docs/projectMode.md.
+ * So there is one list, and it names archetypes rather than kinds of folder: every project is an
+ * `.l8` folder that opens in l8, and what differs is the screen it asks for.
+ *
+ * **`mix` writes a SET**, and that pair of names is the one mismatch here. `mix` is what you ASK
+ * for, named like its two neighbours; a set is what lands on disk — `songs.yaml`, decks, a desk
+ * — and docs/setProject.md is its page. One word cannot be right for both audiences.
  */
-export const PROJECT_MODES = [
-  "arrangement",
-  "live",
-] as const satisfies readonly ProjectMode[];
-export type { ProjectMode };
-
-/** Compile-time exhaustiveness: a mode missing from the list above makes this `never`. */
-type _EveryModeIsListed =
-  Exclude<ProjectMode, (typeof PROJECT_MODES)[number]> extends never
-    ? true
-    : never;
-const _everyModeIsListed: _EveryModeIsListed = true;
-void _everyModeIsListed;
-
-/** What a folder that says nothing is: every project written before `live` existed. */
-export const DEFAULT_PROJECT_MODE: ProjectMode = "arrangement";
-
-/**
- * What you can ASK FOR when creating a project — which is not the same list as `PROJECT_MODES`.
- *
- * A mode is what a folder IS, and there are two: with an arrangement, or without. A shape is
- * what a scaffold WRITES, and there are three, because two different folders are both `live`:
- *
- * | shape | mode | and what makes it that shape |
- * |---|---|---|
- * | `audio` | `arrangement` | a lane, a synth, a pattern, a timeline surface, a lane of picture |
- * | `live` | `live` | the same signal path with the arrangement taken out |
- * | `set` | `live` | two decks meeting at a crossfade, `songs.yaml`, a `turntables` surface |
- *
- * So a set is not a kind of project and not a third mode: it is a rig that declares a desk and
- * carries a set list. See docs/setProject.md.
- *
- * The two names stay apart because they answer different questions, and a single field
- * answering both would have to lie about one of them.
- */
-export const PROJECT_SHAPES = ["audio", "live", "set"] as const;
+export const PROJECT_SHAPES = ["arrangement", "mix", "video"] as const;
 export type ProjectShape = (typeof PROJECT_SHAPES)[number];
-
-/** The mode a shape's folder declares. Two of the three are `live`; that is the point. */
-export const MODE_FOR_SHAPE: Record<ProjectShape, ProjectMode> = {
-  audio: "arrangement",
-  live: "live",
-  set: "live",
-};
 
 /**
  * v1's marker key: a WALL-CLOCK position — `90`, `12.5`, `1:30`, `1:30.5`.
@@ -175,11 +137,19 @@ export const ProjectFileSchema = z
     // The folder's SUFFIX stays authoritative (see projectType.ts): this is written down so
     // a reader — and a loader handed an absolute path with no name to read — knows too.
     type: z.enum(PROJECT_TYPES).optional(),
-    // A ROOT sibling for the SAME reason `type` is, and it is the same kind of fact: which
-    // entities the folder is allowed to hold. A live project has no arrangement, so this is not
-    // one of the song's settings any more than the dialect is — putting it in `project:` beside
-    // `tempo` would say it were a knob on a song rather than what the folder is.
-    project_type: z.enum(PROJECT_MODES).optional(),
+    /**
+     * Accepted and IGNORED — the one remnant of `project_type`.
+     *
+     * Nothing reads it. What a project draws is what its `surfaces/` folder says, and the mode
+     * that used to answer that is gone (see `PROJECT_SHAPES` above). The line stays in the schema
+     * because this object is `.strict()` and every set, rig and bench already on disk carries it:
+     * dropping the key outright would turn a notion we stopped needing into a folder that no
+     * longer opens, which is a worse trade than one dead line.
+     *
+     * Not an enum any more, deliberately. Refusing a typo in a field nobody consults would be a
+     * compile error about nothing. Delete the line from a project.yaml whenever you next edit it.
+     */
+    project_type: z.string().optional(),
     trackOrder: z.array(z.string()).optional(), // tracks' order, bottom-first — a root sibling, read as root.trackOrder
     // The soloed lanes, by id — solo as PROJECT STATE, several at once: any entry silences
     // every lane not listed (the engine's applySoloMute resolves it across the mixer). A root

@@ -135,7 +135,10 @@ set says it wants a desk.
 still on disk, its lanes still compile, nothing draws them. That absence is worth a sentence, so
 `surfaceIssues` raises a **warning** (not an error: the project is valid, it opens, and the
 editor you would add the file in is inside it). A `live` project is silent — a rig has no
-arrangement, which is what `project_type` says ([projectMode.md](projectMode.md)).
+arrangement to draw. `hasMaterial` is what makes them silent: a folder with no `clips/`, no
+`sequences/` and no `video_tracks/` holds nothing a timeline would have drawn. `project_type:
+live` used to answer this, and answered it worse — it was a second declaration, free to
+disagree with the folder it described.
 
 ## …and so is the frame
 
@@ -279,7 +282,7 @@ naming one would name a pane that will not be mounted. The same flags reach `fro
 that cannot be drawn — the same rule `live` follows, arriving from the other side.
 
 The surface list lands a moment after the shell, so there is **one frame with no timeline** on
-open, as `mode` also flashes ([projectMode.md](projectMode.md)) and for the same reason.
+open, which is the same frame every other fact off the surface list flashes for.
 
 So it behaves like the help page: it comes over the layout, which is left exactly as it was
 underneath — the timeline keeps its caret and the graph its camera. The address is

@@ -53,6 +53,7 @@ import {
   CLIP_LIST_MAX,
   cablePath,
   type EdgeInsert,
+  eventPoint,
   type GraphNode,
   headerFontPx,
   type Jack,
@@ -521,6 +522,11 @@ const CSS = `
 .dgx-selrow { display:flex; align-items:center; gap:4px; max-width:100%; min-width:0; }
 .dgx-selrow .dgx-wlab { margin-top:0; flex:none; }
 .dgx-selrow .dgx-sel { min-width:0; }
+/* A widget offering to take a curve's cable. Mauve like the automation it is about to become,
+   and the whole box lights rather than an outline: the target is the CONTROL, and a hairline
+   on a 21px knob is not a thing a cable can be aimed at. */
+.dgx-land { cursor:copy; border-radius:4px; outline:1.5px solid ${MAUVE};
+  background:color-mix(in srgb,${MAUVE} 18%,transparent); }
 .dgx-wlab.top { position:absolute; top:1px; left:2px; right:2px; margin-top:0;
   overflow:hidden; text-overflow:ellipsis;
   /* Centred by text-align, not by the flex box: out of the flow, this span is no longer a
@@ -1348,6 +1354,7 @@ function WidgetInner({
   onPickAsset,
   onWatchWaveform,
   onContextParam,
+  onLandAutomation,
   styleOverride,
 }: {
   n: GraphNode;
@@ -1368,6 +1375,15 @@ function WidgetInner({
   ) => void;
   /** Right-click on this control — the host's menu for the PARAM it drives (see GraphMenuCtx). */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
+  /**
+   * A curve's cable is in hand: this widget is a LANDING TARGET, and clicking it binds the
+   * curve to the param it drives.
+   *
+   * Only passed while such a cable is out — so the ordinary press (a knob's drag, a toggle's
+   * tap) is untouched the rest of the time, rather than every widget growing a mode it has to
+   * check on every press.
+   */
+  onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
 }) {
   const r = widgetRect(w);
@@ -1628,6 +1644,34 @@ function WidgetInner({
     );
   }
 
+  /**
+   * A curve's cable is in hand and this widget can take it: the whole control becomes a target.
+   *
+   * Only a PLUGIN param, and for the reason the right-click menu gives: an `@` bind is a module
+   * field (a word, not a number) and a track widget drives a mixer control, neither of which a
+   * curve has anything to say to. A label or a waveform binds nothing at all.
+   *
+   * It takes over the press, so a knob does not start turning under a cable that was about to
+   * land on it — which is the one thing that would make the gesture feel broken.
+   */
+  const landing = !!onLandAutomation && !!w.bind && !w.bind.startsWith("@");
+  if (landing)
+    return (
+      <div
+        className="dgx-w dgx-land"
+        style={style}
+        title={`bind the curve to ${w.label || w.bind}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          onLandAutomation?.(n, w);
+        }}
+      >
+        {body}
+        {caption && <span className="dgx-wlab">{caption}</span>}
+      </div>
+    );
+
   return (
     <div
       {...interact}
@@ -1828,6 +1872,10 @@ function NodeInner({
   sinkPlay,
   onTapJack,
   patchWant,
+  onLandAutomation,
+  onStartAutomation,
+  onStartEvent,
+  onLandEvent,
   onHeaderDrag,
 }: {
   n: GraphNode;
@@ -1886,7 +1934,16 @@ function NodeInner({
     seeking: "in" | "out";
     type: WebSignal;
     node: string;
+    kind: "signal" | "automation" | "event";
   } | null;
+  /** A curve's cable landed on one of this node's widgets — bind it to that param. */
+  onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
+  /** Its other end: a press on this curve's output starts that cable. */
+  onStartAutomation?: (n: GraphNode) => void;
+  /** A press on one of this module's event sockets starts an event cable. */
+  onStartEvent?: (n: GraphNode, event: string) => void;
+  /** …and it landed on this envelope's ear. */
+  onLandEvent?: (n: GraphNode) => void;
   /** The header was pressed on a node the host lets you move — the pin gesture. Absent, the
    *  header is inert and the press pans, exactly as it always did. */
   onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
@@ -2254,8 +2311,23 @@ function NodeInner({
           signal it carries and a curve carries none. */}
       {n.kind === "curve" && (
         <span
-          className="dgx-port out"
+          className={`dgx-port out${onStartAutomation ? " plug" : ""}`}
+          title={
+            onStartAutomation
+              ? "drag onto a knob to bind this curve to it"
+              : undefined
+          }
           style={{ ["--jc" as string]: MAUVE, top: "50%" }}
+          // The press starts the cable, exactly as a free signal jack does. stopPropagation for
+          // the same reason: the press must not also arm a pan under the cable being drawn.
+          onPointerDown={
+            onStartAutomation
+              ? (e) => {
+                  e.stopPropagation();
+                  onStartAutomation(n);
+                }
+              : undefined
+          }
         >
           <i />
         </span>
@@ -2264,9 +2336,26 @@ function NodeInner({
           an envelope has it — a curve of song time is fired by nothing. */}
       {n.eventIn && (
         <span
-          className="dgx-port ev evin"
-          title="event in — a note-on restarts this envelope"
+          className={`dgx-port ev evin${
+            patchWant?.kind === "event" && n.curveOf?.module ? " plug" : ""
+          }`}
+          title={
+            n.curveOf?.module
+              ? "event in — a note-on restarts this envelope"
+              : "event in — bind this curve to a param first, then a note-on can fire it"
+          }
           style={{ ["--jc" as string]: cableColorFor("event"), top: "50%" }}
+          // Only a BOUND envelope can take one: the trigger is written onto the binding, and a
+          // free card has none to write it on. The socket is drawn either way — it says what
+          // the curve is — but it only lights, and only answers, when there is somewhere to go.
+          onPointerUp={
+            patchWant?.kind === "event" && n.curveOf?.module
+              ? (e) => {
+                  e.stopPropagation();
+                  onLandEvent?.(n);
+                }
+              : undefined
+          }
         >
           <i />
         </span>
@@ -2275,8 +2364,16 @@ function NodeInner({
       {(n.events ?? []).map((name, i, all) => (
         <span
           key={`ev:${name}`}
-          className="dgx-port ev evout"
-          title={`${name} — fires an envelope bound to this module`}
+          className={`dgx-port ev evout${onStartEvent ? " plug" : ""}`}
+          title={`${name} — drag onto an envelope's ear to make it fire that envelope`}
+          onPointerDown={
+            onStartEvent
+              ? (e) => {
+                  e.stopPropagation();
+                  onStartEvent(n, name);
+                }
+              : undefined
+          }
           style={{
             ["--jc" as string]: cableColorFor("event"),
             // The same fractions eventPoint uses, so the cable meets the hole.
@@ -2405,6 +2502,10 @@ function NodeInner({
             onPickAsset={onPickAsset}
             onWatchWaveform={onWatchWaveform}
             onContextParam={onContextParam}
+            // A curve's cable is in hand and this widget could take it — see onLandAutomation.
+            onLandAutomation={
+              patchWant?.kind === "automation" ? onLandAutomation : undefined
+            }
           />
         ))
       ) : (
@@ -2708,6 +2809,7 @@ export function DomChains({
   onCanvasInsert,
   onConnect,
   onDisconnect,
+  onAutomate,
   onReplug,
   onMoveNode,
   onCamReady,
@@ -2793,6 +2895,19 @@ export function DomChains({
    * `onReplug` — the jacks offer to pick a cable up only when the drop has somewhere to go.
    */
   onDisconnect?: (from: string, to: string) => void;
+  /**
+   * A curve cable landed — bind `curve` to `module`'s `param`, optionally fired by `trigger`.
+   *
+   * One callback for both cables, because both write one line of the same verb. Absent, the
+   * curve sockets are inert and no card offers to take one: a host that cannot run commands
+   * (the médiathèque, the decks) draws the graph and edits nothing.
+   */
+  onAutomate?: (
+    module: string,
+    param: string,
+    curve: string,
+    trigger?: string,
+  ) => void;
   /**
    * A lifted cable's loose end landed on another jack: the arrow from→to becomes
    * newFrom→newTo (only one end differs). Ready for `graph chain replug`, verbatim — one gesture,
@@ -2977,6 +3092,7 @@ export function DomChains({
     onCanvasInsert,
     onConnect,
     onDisconnect,
+    onAutomate,
     onReplug,
     onMoveNode,
     command,
@@ -3000,6 +3116,7 @@ export function DomChains({
     onCanvasInsert,
     onConnect,
     onDisconnect,
+    onAutomate,
     onReplug,
     onMoveNode,
     command,
@@ -4198,6 +4315,17 @@ export function DomChains({
   // plugged, and what the loose end seeks is the side it came off. Landing writes connect
   // or replug; a click on bare canvas deletes what existed and drops what did not.
   const [patch, setPatch] = useState<{
+    /**
+     * WHAT is being drawn, because the three cables land on different things.
+     *
+     * `signal` runs socket to socket and is gated by type. `automation` leaves a curve and
+     * lands on a WIDGET — a knob, not a hole — which is why the landing test could not simply
+     * be widened. `event` runs socket to socket again, but only from a module's note-on into
+     * an envelope's ear.
+     */
+    kind?: "signal" | "automation" | "event";
+    /** The curve this cable belongs to, on both of the two that involve one. */
+    curve?: { curve: string; module?: string; param?: string };
     type: WebSignal;
     seeking: "in" | "out"; // which side of a jack lands the loose end
     fixedRef: string; // the plugged end's chains address
@@ -4260,6 +4388,59 @@ export function DomChains({
     }
     setPatchNow(null);
   };
+
+  /**
+   * The three halves of the two curve cables.
+   *
+   * Both commit through ONE callback, because both write one line: `node automate <module>
+   * <param> <curve> [trigger]`. An automation cable supplies the first three; an event cable
+   * supplies the trigger and reads the other three off the envelope it landed on — which is why
+   * a curve node carries its binding (`curveOf`) rather than having it parsed back out of an id.
+   */
+  const startAutomation = useCallback((n: GraphNode) => {
+    suppressClick.current = false;
+    if (!n.curveOf) return;
+    setPatchNow({
+      kind: "automation",
+      curve: n.curveOf,
+      type: "event", // mauve, and never type-matched against a signal jack
+      seeking: "in",
+      fixedRef: n.id,
+      fixedNode: n.id,
+      fixedAt: jackPoint(n, "out", 0),
+    });
+  }, []);
+
+  const landAutomation = useCallback((n: GraphNode, w: WebWidget) => {
+    const cur = patchRef.current;
+    if (!cur?.curve || !n.module || !w.bind) return;
+    cb.current.onAutomate?.(n.module, w.bind, cur.curve.curve);
+    setPatchNow(null);
+  }, []);
+
+  const startEvent = useCallback((n: GraphNode, event: string) => {
+    suppressClick.current = false;
+    setPatchNow({
+      kind: "event",
+      type: "event",
+      seeking: "in",
+      fixedRef: n.id,
+      fixedNode: n.id,
+      fixedAt: eventPoint(n, "out", Math.max(0, n.events?.indexOf(event) ?? 0)),
+      // The module the note-on leaves — what becomes the binding's `trigger`.
+      curve: { curve: "", module: n.module ?? n.label },
+    });
+  }, []);
+
+  const landEvent = useCallback((n: GraphNode) => {
+    const cur = patchRef.current;
+    const b = n.curveOf;
+    // A free card has no binding to write a trigger onto — the socket is not armed for one,
+    // and this is the second guard rather than the only one.
+    if (cur?.kind !== "event" || !b?.module || !b.param) return;
+    cb.current.onAutomate?.(b.module, b.param, b.curve, cur.curve?.module);
+    setPatchNow(null);
+  }, []);
 
   const tapJack = useCallback(
     (
@@ -4369,7 +4550,12 @@ export function DomChains({
   const patchWant = useMemo(
     () =>
       patch
-        ? { seeking: patch.seeking, type: patch.type, node: patch.fixedNode }
+        ? {
+            seeking: patch.seeking,
+            type: patch.type,
+            node: patch.fixedNode,
+            kind: patch.kind ?? "signal",
+          }
         : null,
     [patch],
   );
@@ -4640,6 +4826,12 @@ export function DomChains({
                 sinkPlay={sinkPlay}
                 onTapJack={onConnect ? tapJack : undefined}
                 patchWant={patchWant}
+                // The curve cables, all four halves gated on the one callback that commits
+                // them: a host that cannot run a command draws the sockets and offers nothing.
+                onStartAutomation={onAutomate ? startAutomation : undefined}
+                onLandAutomation={onAutomate ? landAutomation : undefined}
+                onStartEvent={onAutomate ? startEvent : undefined}
+                onLandEvent={onAutomate ? landEvent : undefined}
                 // EVERY node — everything on the graph is a node, and what is a node can be
                 // put somewhere: a module by its chains name, a track by its id, a curve by
                 // its curve id, the sink by "OUT" (all jackRef's answer). Only the mixer row

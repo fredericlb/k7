@@ -105,7 +105,7 @@ export async function createProjectOnMachine(
   uri: string,
   folder: string,
   onStep: (s: string) => void,
-  /** Quel gabarit écrire : une chanson, un rig live, ou un set. */
+  /** Quel gabarit écrire : `arrangement`, `mix` ou `video`. */
   shape: ProjectShape,
 ): Promise<{ project: string; gripe: string | null }> {
   const workspace = await ensureWorkspace(m, uri, onStep);

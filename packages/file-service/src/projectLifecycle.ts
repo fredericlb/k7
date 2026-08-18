@@ -6,9 +6,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import type { ProjectShape } from "@studio/song/projectMode";
 import { scaffold } from "@studio/song/scaffold";
 import { scaffoldSet } from "@studio/song/scaffoldSet";
+import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";
@@ -129,19 +129,44 @@ export function importProjectInto(
 }
 
 /**
+ * Which scaffold each ARCHETYPE runs — the one place the three are told apart.
+ *
+ * A `Record<ProjectShape, …>` rather than a chain of `if`s, for the reason `HAS_SCAFFOLD` is
+ * one: a fourth archetype added to `PROJECT_SHAPES` fails to compile here until somebody says
+ * what it writes. The alternative — an `else` quietly running the song scaffold — is how a
+ * folder ends up with a suffix saying one thing and its contents another.
+ *
+ * The two callees disagree about their second argument, and the table is where that shows:
+ * `scaffoldSet` is handed the LABEL (`winter`), `scaffold` the folder name (`winter.l8`), so a
+ * new mix calls itself one thing and a new song another. Preserved rather than quietly
+ * levelled — what a project calls itself is on screen, and changing it is its own decision.
+ */
+const SCAFFOLD_FOR_SHAPE: Record<
+  ProjectShape,
+  (dir: string, name: string) => void
+> = {
+  arrangement: (dir, name) => void scaffold(dir, name, "arrangement"),
+  // The label a project CALLS itself drops the suffix — `winter.l8` is the folder, "winter"
+  // is the mix. projectLabel is the one place that rule is stated.
+  mix: (dir, name) => void scaffoldSet(dir, projectLabel(name)),
+  video: (dir, name) => void scaffold(dir, name, "video"),
+};
+
+/**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
- * relative path. This is the web command bar's `new project <shape> <name>`.
+ * relative path. This is `POST /project/create`, which st0's "Nouveau projet" calls.
  *
- * Every one of them is an `.l8` folder, and `shape` picks the file map:
+ * Every one of them is an `.l8` folder, and `shape` — the ARCHETYPE — picks the file map. Each
+ * is named after the surface it opens on, because that is the whole of what is being chosen:
  *
- * | shape | what it writes |
+ * | archetype | what it writes |
  * |---|---|
- * | `audio` | a song: a lane, a synth, a pattern, a timeline surface, a lane of picture |
- * | `live` | a rig: the same signal path with the arrangement taken out |
- * | `set` | two decks meeting at a crossfade, a set list, and a `turntables` surface |
+ * | `arrangement` | a `timeline` surface: a lane, a synth, a pattern |
+ * | `mix` | a `turntables` surface: two decks meeting at a crossfade, an empty set list |
+ * | `video` | `timeline` + `viewport`: the arrangement, plus a lane of picture |
  *
- * One kind of folder, three shapes. A cut is a song carrying `video_tracks/`, and a set is a
- * song carrying `songs.yaml` and a desk — neither needs a folder kind of its own. See
+ * One kind of folder, three archetypes. A cut is a song carrying `video_tracks/`, and a mix is
+ * a project carrying `songs.yaml` and a desk — neither needs a folder kind of its own. See
  * packages/song/docs/setProject.md and docs/picture.md.
  *
  * The name is sanitised to a single top-level segment (no separators, no leading dot
@@ -160,9 +185,6 @@ export function createProjectIn(
   if (abs === host.root) throw new Error("project name required");
   if (existsSync(abs) && readdirSync(abs).length)
     throw new Error(`"${name}" already exists and is not empty`);
-  // The label a project CALLS itself drops the suffix — `winter.l8` is the folder, "winter"
-  // is the set. projectLabel is the one place that rule is stated.
-  if (shape === "set") scaffoldSet(abs, projectLabel(name));
-  else scaffold(abs, name, shape === "live" ? "live" : "arrangement");
+  SCAFFOLD_FOR_SHAPE[shape](abs, name);
   return { project: host.toRel(abs) };
 }

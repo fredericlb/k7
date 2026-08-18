@@ -1,4 +1,4 @@
-﻿# The shell (`App.tsx` and `main.tsx`)
+# The shell (`App.tsx` and `main.tsx`)
 
 ## What wraps the editor (`main.tsx`)
 
@@ -86,13 +86,11 @@ there, and the header's right side collapses into `MobileMenu`. The bar's hambur
 the SURFACES and nothing else — which is not a duplicate of the tabs, and is the one list on that
 screen with nowhere else to go.
 
-There is a second layout, and it is not a second *choice*: a project whose `project.yaml` says
-`project_type: live` has no arrangement, so `App` draws **the chains graph on the whole screen**
-and the timeline's furniture goes with it — the transport (every control on it addresses a
-position in a song), the minimap (a second view of that song), the pane buttons, the mobile tabs.
-The chain bench is one. The editor is still one right-click away, as a popin, which is what keeps
-the builder reachable there. See
-[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
+There used to be a second layout, and it was not a second *choice*: a project whose
+`project.yaml` said `project_type: live` had no arrangement, so `App` drew the chains graph on
+the whole screen. Both the field and the layout are gone. They answered a question the
+`surfaces/` folder answers better — and could contradict it, since nothing stopped a folder
+calling itself `live` while declaring a timeline.
 
 **The timeline itself is a SURFACE, and the project has to ask for it.** `surfaces/timeline.yaml`
 (`type: timeline`, `layout: split`) is what puts it in the layout; a folder without one opens on
@@ -493,9 +491,10 @@ mounts or unmounts anything:
   screen. That snap is what moves the keys to the graph when a live project opens)
 - `panel` — the side panel, independent of both
 
-`view` is the fourth piece and the only one nobody chooses: it is what the open PROJECT is. See
+There is no fourth piece: the LAYOUT is not state at all any more. Which panes it holds is a
+function of what the project declares, read fresh wherever it is needed. See
 [shellRouting.md](shellRouting.md) and
-[packages/song/docs/projectMode.md](../../../../packages/song/docs/projectMode.md).
+[packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
 `f` expands what you are on, Escape backs out. Because nothing is torn down by any of
 that, the state that would be expensive to rebuild — the open file and its undo history,
@@ -1094,6 +1093,30 @@ That is a rule, not a coincidence, and it is what makes the palette a real answe
 you want done" rather than a shortcut list for the half of the app somebody remembered to
 wire. It also means a gesture is describable: a bug report, a doc page and a key binding can
 all name the same thing.
+
+### …and the log holds every one of them
+
+The Logs panel is a **transcript of what ran**, not of what was typed. Every command reaches it
+as a `cmd` line, whichever way it was triggered — the bar, a key, a button, a right-click, a
+cable dropped on a knob — because `runCommand` and `quietCommand` are the only two doors and
+both log before they dispatch. The buffer is the shell's and fills whether the panel is open or
+not; only the tray's merged process log is polled on demand (`useLogs`).
+
+Three cases needed saying out loud, because each is a command nobody typed:
+
+- **The picker's first half.** Choosing a module from the canvas menu runs a `module new` ahead
+  of the `node new` you were prompted for. It used to go through unrecorded, so a transcript
+  showed a node appearing with no module ever created.
+- **A rewritten line.** `canonicalizeCommand` may turn what was typed into another spelling —
+  a translated verb name. The log shows both, `typed ⇒ ran`, since a transcript holding a line
+  you cannot retype is worse than a slightly longer one.
+- **A command aimed elsewhere.** The chains builder's verbs run against a library chain, not the
+  open song, so its lines carry the chain's ref: `› [process/normalize] node new x`. Without it
+  the transcript would claim an edit to the project that never happened.
+
+What is deliberately NOT in there: anything that goes through a ROUTE rather than a verb — a
+file write, a module save, a probe. Those are not commands, and a log that mixed them would stop
+answering the question it exists for.
 
 Keeping it costs one habit — **the button runs the command, it does not call the handler**.
 Where the two would otherwise be two copies of one behaviour, the behaviour moved:

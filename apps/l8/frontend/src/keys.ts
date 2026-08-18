@@ -36,11 +36,11 @@ export const KEYS: Record<string, Binding> = {
   t: "transport locate",
   // Esc backs out ONE layer, first match winning, outermost thing on screen first: a popin
   // shadows the graph slot, which shadows a fullscreen pane, which shadows the bottom panel.
-  // `{current_view}` returns you to the layout you were in, the way `f` interpolates `{focus_pane}`.
+  // `ui global` is the layout itself, which with one of them is just "leave the fullscreen".
   esc: [
     { if: "popin", command: "ui popin close" },
     { if: "graph_slot", command: "ui slot close" },
-    { if: "fullscreen", command: "ui {current_view}" },
+    { if: "fullscreen", command: "ui global" },
     "ui close",
   ],
   // m is context-sensitive like `e`: on a clip it names the bare `event move` (the timeline's move mode),

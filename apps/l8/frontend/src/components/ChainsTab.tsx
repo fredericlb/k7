@@ -63,6 +63,7 @@ export function ChainsTab({
   onEdgeInsert,
   onCanvasInsert,
   onConnect,
+  onAutomate,
   onDisconnect,
   onReplug,
   onMoveNode,
@@ -169,6 +170,14 @@ export function ChainsTab({
   // The patch cable landed: a free output clicked, then a free input — both as graph.yaml
   // addresses (`name` or `name#port`), ready for `graph chain connect`.
   onConnect?: (from: string, to: string) => void;
+  // A curve's cable landed on a knob, or a note-on landed on an envelope's ear — both write
+  // one line of `node automate`. Pure pass-through to the canvas, like onConnect beside it.
+  onAutomate?: (
+    module: string,
+    param: string,
+    curve: string,
+    trigger?: string,
+  ) => void;
   // A lifted cable dropped on the bare canvas — ready for `graph chain disconnect`.
   onDisconnect?: (from: string, to: string) => void;
   // A lifted cable's end landed on another jack — ready for `graph chain replug`.
@@ -822,6 +831,7 @@ export function ChainsTab({
             onEdgeInsert={onEdgeInsert}
             onCanvasInsert={onCanvasInsert}
             onConnect={onConnect}
+            onAutomate={onAutomate}
             onDisconnect={onDisconnect}
             onReplug={onReplug}
             onMoveNode={onMoveNode}

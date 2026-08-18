@@ -8,7 +8,6 @@ import {
 } from "./routes";
 
 const st = (o: Partial<RouteState> = {}): RouteState => ({
-  view: "global",
   full: null,
   panel: null,
   help: false,
@@ -76,33 +75,25 @@ describe("fromLocation", () => {
     ]) {
       const path = toPath(s);
       const [pathname, search] = path.split("?");
-      expect(
-        fromLocation(pathname, search ? `?${search}` : "", s.view),
-      ).toEqual(s);
+      expect(fromLocation(pathname, search ? `?${search}` : "")).toEqual(s);
     }
   });
 
-  it("keeps the current layout under a fullscreen pane", () => {
-    // The path must not force `view`: with one layout that is invisible, and the rule is the
-    // routing's rather than the layout list's — a second layout would rely on it again.
-    expect(fromLocation("/timeline", "", "global").view).toBe("global");
-  });
-
-  it("falls back to the global view on a path it doesn't know", () => {
+  it("falls back to the layout on a path it doesn't know", () => {
     // The URL bar is user-editable; a typo should land somewhere usable rather than
     // leaving the shell with no screen at all.
-    expect(fromLocation("/nonsense", "", "global")).toEqual(st());
-    expect(fromLocation("/", "", "global")).toEqual(st());
+    expect(fromLocation("/nonsense", "")).toEqual(st());
+    expect(fromLocation("/", "")).toEqual(st());
   });
 
   it("ignores a panel it doesn't know", () => {
-    expect(fromLocation("/", "?panel=wat", "global").panel).toBeNull();
+    expect(fromLocation("/", "?panel=wat").panel).toBeNull();
   });
 
   it("tolerates trailing and doubled slashes", () => {
-    expect(fromLocation("/timeline/", "", "global").full).toBe("timeline");
+    expect(fromLocation("/timeline/", "").full).toBe("timeline");
     // `/video` is an alias for the frame; without one declared it lands on the layout.
-    expect(fromLocation("//video//", "", "global")).toEqual(st());
+    expect(fromLocation("//video//", "")).toEqual(st());
   });
 
   it("reads a surface id WITHOUT checking it exists", () => {
@@ -110,117 +101,92 @@ describe("fromLocation", () => {
     // that was validated here would parse to "no surface" on every deep link and quietly drop
     // you on the layout. The screen resolves it once the list lands, and says so if there is
     // no such file.
-    expect(fromLocation("/surface/desk", "", "global").surface).toBe("desk");
-    expect(fromLocation("/surface/nope", "", "global").surface).toBe("nope");
-    expect(fromLocation("/surface/a%20b", "", "global").surface).toBe("a b");
+    expect(fromLocation("/surface/desk", "").surface).toBe("desk");
+    expect(fromLocation("/surface/nope", "").surface).toBe("nope");
+    expect(fromLocation("/surface/a%20b", "").surface).toBe("a b");
   });
 
   it("is not a surface without an id", () => {
-    expect(fromLocation("/surface/", "", "global")).toEqual(st());
-    expect(fromLocation("/surface", "", "global")).toEqual(st());
+    expect(fromLocation("/surface/", "")).toEqual(st());
+    expect(fromLocation("/surface", "")).toEqual(st());
   });
 
   it("keeps a hand-typed % that is not an escape", () => {
     // Same rule `parseLaunch` follows: keep it rather than throwing on an address someone typed.
-    expect(fromLocation("/surface/100%", "", "global").surface).toBe("100%");
+    expect(fromLocation("/surface/100%", "").surface).toBe("100%");
   });
 });
 
 describe("viewPanes", () => {
-  it("gives `global` its timeline only when the project declares one", () => {
+  it("gives the layout its timeline only when the project declares one", () => {
     // The timeline is a `split` surface now, not a pane the shell hands out — so the layout is
     // a function of what the PROJECT says rather than a table. See packages/song/docs/surfaces.md.
-    expect(viewPanes("global", true)).toEqual({
+    expect(viewPanes(true)).toEqual({
       ring: ["timeline", "chains"],
       fullscreen: ["editor", "timeline", "chains"],
     });
-    expect(viewPanes("global", false)).toEqual({
+    expect(viewPanes(false)).toEqual({
       ring: ["chains"],
       fullscreen: ["editor", "chains"],
     });
   });
 
-  it("keeps the editor when the arrangement is missing, and drops it in `live`", () => {
-    // The two look alike on screen and are not the same fact: a song with no timeline surface is
-    // a song that has not declared one, and its files are still what you are there to edit. A
-    // rig fullscreens nothing at all — its one pane already has the window.
-    expect(viewPanes("global", false).fullscreen).toContain("editor");
-    expect(viewPanes("live", true)).toEqual({
-      ring: ["chains"],
-      fullscreen: [],
-    });
-    expect(viewPanes("live", false).fullscreen).toEqual([]);
+  it("keeps the editor when the arrangement is missing", () => {
+    // A project with no timeline surface is one that has not declared an arrangement, and its
+    // files are still what you are there to edit. `live` used to fullscreen NOTHING here, on
+    // the grounds that its single pane already had the window; that layout went with the mode,
+    // and this is the half of the pair that leaves you somewhere to work.
+    expect(viewPanes(false).fullscreen).toContain("editor");
+    expect(viewPanes(false).ring).toEqual(["chains"]);
   });
 
   it("refuses `/timeline` as an address when there is no timeline", () => {
     // The same rule that already refuses it in a live project: an address must not parse into a
     // pane nothing will mount.
-    expect(fromLocation("/timeline", "", "global", true).full).toBe("timeline");
-    expect(fromLocation("/timeline", "", "global", false)).toEqual(st());
-    expect(fromLocation("/timeline", "", "live", true)).toEqual(
-      st({ view: "live" }),
-    );
+    expect(fromLocation("/timeline", "", true).full).toBe("timeline");
+    expect(fromLocation("/timeline", "", false)).toEqual(st());
   });
 
   it("puts the FRAME above the arrangement when the project declares one", () => {
     // The ring is read by the number keys and the mobile tabs, so its order is the order the
     // panes are stacked on screen — frame, arrangement, graph.
-    expect(viewPanes("global", true, true)).toEqual({
+    expect(viewPanes(true, true)).toEqual({
       ring: ["viewport", "timeline", "chains"],
       fullscreen: ["editor", "viewport", "timeline", "chains"],
     });
     // Picture with no arrangement: a cut that is all shots and no lanes is a real song folder.
-    expect(viewPanes("global", false, true)).toEqual({
+    expect(viewPanes(false, true)).toEqual({
       ring: ["viewport", "chains"],
       fullscreen: ["editor", "viewport", "chains"],
     });
-  });
-
-  it("gives a RIG its fullscreens back once it declares a viewport", () => {
-    // `live`'s empty fullscreen list is about having ONE pane, not about being a rig — a rig
-    // with picture has two, and hiding either behind no address would be the blank screen.
-    expect(viewPanes("live", true, true)).toEqual({
-      ring: ["viewport", "chains"],
-      fullscreen: ["viewport", "chains"],
-    });
-    // …and the editor stays out of a live layout, as it always has: `ui file` is a popin.
-    expect(viewPanes("live", true, true).fullscreen).not.toContain("editor");
   });
 
   it("drops the editor from a FROZEN layout, and from its addresses", () => {
     // A shared snapshot has no source at all — no /tree and no /file — so the editor is not a
     // pane whose document is read-only, it is a pane with nothing behind it. Dropped in the one
     // list the number keys, the mobile tabs, `ui editor` and every address all read.
-    expect(viewPanes("global", true, false, true)).toEqual({
+    expect(viewPanes(true, false, true)).toEqual({
       ring: ["timeline", "chains"],
       fullscreen: ["timeline", "chains"],
     });
-    expect(fromLocation("/editor", "", "global", true, false, false).full).toBe(
-      "editor",
-    );
-    expect(fromLocation("/editor", "", "global", true, false, true)).toEqual(
-      st(),
-    );
+    expect(fromLocation("/editor", "", true, false, false).full).toBe("editor");
+    expect(fromLocation("/editor", "", true, false, true)).toEqual(st());
     // …and the panes it DOES have are untouched: frozen is about the source, not the song.
-    expect(
-      fromLocation("/timeline", "", "global", true, false, true).full,
-    ).toBe("timeline");
+    expect(fromLocation("/timeline", "", true, false, true).full).toBe(
+      "timeline",
+    );
   });
 
   it("refuses `/viewport` as an address when there is no picture", () => {
-    expect(fromLocation("/viewport", "", "global", true, true).full).toBe(
-      "viewport",
-    );
-    expect(fromLocation("/viewport", "", "global", true, false)).toEqual(st());
+    expect(fromLocation("/viewport", "", true, true).full).toBe("viewport");
+    expect(fromLocation("/viewport", "", true, false)).toEqual(st());
   });
 
   it("lands an old `/video` bookmark on the frame", () => {
     // It was the picture pane's address for a year. Subject to the same check as any other, so
     // a song without picture still falls through to its layout rather than to a dead pane.
-    expect(fromLocation("/video", "", "global", true, true).full).toBe(
-      "viewport",
-    );
-    expect(fromLocation("/video", "", "global", true, false)).toEqual(st());
+    expect(fromLocation("/video", "", true, true).full).toBe("viewport");
+    expect(fromLocation("/video", "", true, false)).toEqual(st());
   });
 });
 

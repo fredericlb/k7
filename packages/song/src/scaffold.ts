@@ -1,15 +1,26 @@
-// scaffold.ts — the file map + writer for a new l8 song: a minimal, immediately
-// playable node project (one MIDI track through a 4OSC synth + a live Strudel pattern),
-// with a lane of PICTURE over it. Every file is hand-authored, not serialised, because its
-// `#` comments are the one worked example a reader gets.
+// scaffold.ts — the file map + writer for the two TIMELINE archetypes: `arrangement`, a
+// minimal immediately-playable node project (one MIDI track through a 4OSC synth + a live
+// Strudel pattern), and `video`, the same thing with a lane of PICTURE over it. The third
+// archetype, `mix`, is scaffoldSet.ts. Every file is hand-authored, not serialised, because
+// its `#` comments are the one worked example a reader gets.
 // Full rationale: docs/scaffold.md, and docs/picture.md for the video half.
 
-import { GRAPH_FILE } from "./yaml/graphSchema";
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_COUNT_IN } from "./project";
-import { DEFAULT_PROJECT_MODE, type ProjectMode } from "./yaml/projectSchema";
+import { GRAPH_FILE } from "./yaml/graphSchema";
+import type { ProjectShape } from "./yaml/projectSchema";
+
+/**
+ * The archetypes THIS module writes — the two that draw a timeline.
+ *
+ * `mix` is excluded rather than defaulted away, so `scaffold(dir, name, "mix")` does not
+ * compile: it would otherwise write a song into a folder whose whole point is that it has no
+ * arrangement. scaffoldSet.ts answers for that one, and projectLifecycle.ts is where the three
+ * are dispatched.
+ */
+export type TimelineShape = Exclude<ProjectShape, "mix">;
 
 const q = (s: string) => JSON.stringify(s);
 
@@ -22,30 +33,46 @@ const SAMPLE_VIDEO = resolve(
   "sample.mp4",
 ); // packages/song/samples/video/sample.mp4
 
-// The files of a minimal node project, keyed by path relative to the project folder.
-export function projectFiles(name: string): Record<string, string> {
-  const projectYaml =
+/**
+ * The two lines a lane of picture needs, appended to the header by the `video` archetype alone.
+ *
+ * An `arrangement` gets neither, and that is what separates the two archetypes rather than
+ * leaving one of them a folder short: `loadVideoProject` REQUIRES a viewport, so a header
+ * carrying one is a promise that something composites into it. Writing it everywhere would put
+ * a frame around nothing in every project with no shot to place.
+ */
+const PICTURE_HEADER =
+  `\n` +
+  `  # PICTURE. A song carries its own, and these two lines are what a lane of it needs.\n` +
+  `  #\n` +
+  `  # \`viewport\` is the frame every lane draws into: [width, height, fps]. There is no\n` +
+  `  # default — a frame invented by the loader would silently letterbox every shot, and you\n` +
+  `  # would find out at the export. The fps is used by EXPORT only; playing back follows\n` +
+  `  # the transport.\n` +
+  `  viewport: [1280, 720, 30]\n` +
+  `\n` +
+  `  # Draw order, bottom first. It is the ORDER and the membership at once: a name with no\n` +
+  `  # file is an error, and a lane no name lists is an error too — otherwise it would\n` +
+  `  # compile perfectly and simply never appear.\n` +
+  `  layers: [main]\n`;
+
+/** The project header. Its picture half is the only line the two archetypes disagree about. */
+function projectYaml(name: string, picture: boolean): string {
+  return (
     `project:\n` +
     `  name: ${q(name)}\n` +
     `  tempo: 120\n` +
     `  sampleRate: 48000\n` +
     `  timeSignature: "4/4"\n` +
-    `\n` +
-    `  # PICTURE. A song carries its own, and these two lines are what a lane of it needs.\n` +
-    `  #\n` +
-    `  # \`viewport\` is the frame every lane draws into: [width, height, fps]. There is no\n` +
-    `  # default — a frame invented by the loader would silently letterbox every shot, and you\n` +
-    `  # would find out at the export. The fps is used by EXPORT only; playing back follows\n` +
-    `  # the transport.\n` +
-    `  viewport: [1280, 720, 30]\n` +
-    `\n` +
-    `  # Draw order, bottom first. It is the ORDER and the membership at once: a name with no\n` +
-    `  # file is an error, and a lane no name lists is an error too — otherwise it would\n` +
-    `  # compile perfectly and simply never appear.\n` +
-    `  layers: [main]\n`;
+    (picture ? PICTURE_HEADER : "")
+  );
+}
 
+/** The files of a minimal node project — the `arrangement` archetype, keyed by path relative to
+ *  the project folder. `videoProjectFiles` is this map with a lane of picture added. */
+export function projectFiles(name: string): Record<string, string> {
   const base: Record<string, string> = {
-    "project.yaml": projectYaml,
+    "project.yaml": projectYaml(name, false),
 
     // Project settings, in their own file — count_in is bars before an armed track starts (0 = immediately).
     "settings.yaml": `metronome: false\ncount_in: ${DEFAULT_COUNT_IN}\n`,
@@ -191,10 +218,30 @@ export function projectFiles(name: string): Record<string, string> {
       `# the only layout a timeline draws in. See packages/song/docs/surfaces.md.\n` +
       `type: timeline\n` +
       `layout: split\n`,
+  };
 
-    // …and the FRAME, declared the same way. A song's picture and a song's sound are one folder
-    // now, so a new project gets a lane of each: the alternative was a feature you could only
-    // discover by reading about it.
+  return base;
+}
+
+/**
+ * The files of a `video` project: the arrangement above, plus the picture it composites.
+ *
+ * Built by ADDING to the song map rather than by restating it, so the graph, the synth and the
+ * settings cannot drift between the two archetypes. Only the header is re-derived, because the
+ * viewport is a line inside it rather than a file of its own.
+ *
+ * The split is what the two archetypes ARE. An `arrangement` is not a video project with its
+ * picture deleted — it never had a frame to letterbox into, and `loadVideoProject` says so out
+ * loud rather than composing nothing. See docs/picture.md.
+ */
+export function videoProjectFiles(name: string): Record<string, string> {
+  return {
+    ...projectFiles(name),
+    "project.yaml": projectYaml(name, true),
+
+    // The FRAME, declared the way the timeline is. A song's picture and a song's sound are one
+    // folder, so this archetype gets a lane of each: the alternative was a feature you could
+    // only discover by reading about it.
     "surfaces/viewport.yaml":
       `# The FRAME — the video lanes composited with WebGL, drawn against the playhead.\n` +
       `#\n` +
@@ -228,68 +275,15 @@ export function projectFiles(name: string): Record<string, string> {
       `x: 0\ny: 0\nw: 1280\nh: 720\n` +
       `events:\n  - { ref: sample, start: 0, length: 6, source_from: 0 }\n`,
   };
-
-  return base;
 }
 
-/**
- * The files of a LIVE l8 project — a rig rather than a song.
- *
- * The same folder shape with the arrangement taken out: no sequence, no clip, no pattern, and no
- * placement anywhere. Those are the things that only mean something on a timeline, and this
- * project has none — l8 draws the chains graph on the whole screen (docs/projectMode.md). Leaving
- * them in would scaffold material the shell has no way to show.
- *
- * What is left is a signal path you can play THROUGH: a lane, an instrument, the output. The lane
- * extends `@studio/sequence-track`, so it carries notes and a MIDI controller plays the synth the
- * moment the engine is up — which is what makes this a rig and not an empty folder. Swap the synth
- * for a live input by following the template in `modules/io/OUT/module.yaml`.
- *
- * Built by taking the shared entries out of the song map rather than by restating them, so the
- * output sink, the settings and the synth cannot drift between the two shapes.
- */
-export function liveProjectFiles(name: string): Record<string, string> {
-  const song = projectFiles(name);
-  return {
-    "project.yaml":
-      `# A LIVE project: no timeline. Nothing is placed in time, so l8 opens on the\n` +
-      `# chains graph alone — no arrangement, no transport, no minimap. Setting the line\n` +
-      `# below to \`arrangement\` is half of getting a song back; the other half is a\n` +
-      `# \`surfaces/timeline.yaml\`, which is what draws one (packages/song/docs/surfaces.md).\n` +
-      `project_type: live\n` +
-      `\n` +
-      `project:\n` +
-      `  name: ${q(name)}\n` +
-      // A tempo and a signature all the same: they are what the metronome, a MIDI capture and
-      // any pattern lane count in, none of which need an arrangement to exist.
-      `  tempo: 120\n` +
-      `  sampleRate: 48000\n` +
-      `  timeSignature: "4/4"\n`,
-
-    "settings.yaml": song["settings.yaml"],
-    "modules/io/OUT/module.yaml": song["modules/io/OUT/module.yaml"],
-    "modules/instruments/synth/module.yaml":
-      song["modules/instruments/synth/module.yaml"],
-
-    [GRAPH_FILE]:
-      `# The signal graph, as SEGMENTS: each module says where its signal goes next — the\n` +
-      `# lane "live" included, since a lane is a module too. This IS the project: with no\n` +
-      `# timeline, the graph is the whole of what l8 shows, and wiring it is the work.\n` +
-      `#\n` +
-      `# Right-click a node to act on it; its module's own file opens over the graph.\n` +
-      `modules:\n` +
-      `  live: [ synth ]\n` +
-      `  synth: [ OUT ]\n`,
-
-    // No `events:` key at all — not an empty list. A live lane is not an arrangement with
-    // nothing in it; it is a lane that is played rather than written.
-    "nodes/live.yaml":
-      `# Played, not arranged: a MIDI controller reaches the synth through the chain above.\n` +
-      `extends: "@studio/sequence-track"\n`,
-
-    "curves/.gitignore": song["curves/.gitignore"],
-  };
-}
+// `liveProjectFiles` was here, and wrote the third archetype: a rig, the signal path with the
+// arrangement taken out and no surface at all. It is gone with the archetype — an entry in a menu
+// of surfaces whose whole description is "none of them" is not a choice anyone makes on purpose.
+//
+// The MODE it wrote is untouched: `project_type: live` is still a legal header, l8 still opens
+// one, and `mix` still declares it (scaffoldSet.ts). What no longer exists is a way to ASK for
+// the bare rig — you start from a mix and throw the desk away. See docs/projectMode.md.
 
 /** Write a project's file map under `dir`, making the folders it implies. Shared with the m9
  *  scaffold, which writes a different map the same way. */
@@ -306,22 +300,26 @@ export function writeProjectFiles(
 }
 
 /**
- * Write a new l8 project. `mode` picks the map: a song with a timeline, or a live rig.
+ * Write a new l8 project. `shape` picks the map: an arrangement, or the same plus its picture.
  *
- * A song also gets the bundled sample video COPIED into it, because its picture lane places it.
+ * `video` also gets the bundled sample video COPIED into it, because its picture lane places it.
  * Copied rather than referenced where it sits: a project that pointed into the installed package
- * would stop opening the day the package moved, and a song is a folder you commit. A live rig
- * gets none — it has no arrangement, so it has nothing to place a shot on.
+ * would stop opening the day the package moved, and a song is a folder you commit. An
+ * `arrangement` gets none — it declares no viewport, so it has nothing to place a shot in.
+ *
+ * The default is `arrangement`, which is what every caller written before the archetypes were
+ * named already meant by `scaffold(dir, name)`.
  */
 export function scaffold(
   dir: string,
   name: string,
-  mode: ProjectMode = DEFAULT_PROJECT_MODE,
+  shape: TimelineShape = "arrangement",
 ): string[] {
-  const files = mode === "live" ? liveProjectFiles(name) : projectFiles(name);
+  const picture = shape === "video";
+  const files = picture ? videoProjectFiles(name) : projectFiles(name);
   writeProjectFiles(dir, files);
 
-  if (mode !== "live") {
+  if (picture) {
     if (!existsSync(SAMPLE_VIDEO))
       throw new Error(
         `bundled sample video missing (${SAMPLE_VIDEO}) — the @studio/song package is incomplete`,
@@ -334,7 +332,7 @@ export function scaffold(
   // the machine's media library because of WHERE they are (sharedFolders.ts). The three
   // `ensure*` calls that used to write those lists into project.yaml wrote down facts the
   // loader already knew, and left a project wrong whenever one of them moved.
-  return mode === "live"
-    ? Object.keys(files)
-    : [...Object.keys(files), "clips/sample.mp4"];
+  return picture
+    ? [...Object.keys(files), "clips/sample.mp4"]
+    : Object.keys(files);
 }

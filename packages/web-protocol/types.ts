@@ -2,7 +2,6 @@
 // The backend serves the files of one l8 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
-import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ProjectApp } from "./projects.ts";
 
 // A node in the project file tree: dirs carry `children`, files a `kind` (`binary` is shown, not edited).
@@ -513,11 +512,6 @@ export interface WebProject {
   metronome: boolean;
   // Whether any track streams from an algo/ pattern; false == the shell need not poll the pattern clock.
   strudel: boolean;
-  // Which of l8's two shapes this project has. `live` means there is no arrangement at all, so
-  // the shell draws the chains graph alone — no timeline pane, no transport, no minimap. It
-  // rides on the COMPILED doc rather than being read from project.yaml by the browser, because
-  // the browser reads no YAML: see packages/song/docs/projectMode.md.
-  mode: ProjectMode;
   // Count-in length in BARS from settings.yaml (0 == none); the engine applies the actual pre-roll.
   countIn: number;
   // Named timeline markers, sorted by beat. Empty when the song has none.

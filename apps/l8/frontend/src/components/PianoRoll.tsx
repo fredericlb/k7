@@ -1,4 +1,4 @@
-﻿// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip. A clip that states a window
+// PianoRoll.tsx — a piano-roll view/editor of a MIDI clip. A clip that states a window
 // (`from`/`to`) is FRAMED on it with a margin either side, the canvas still spanning the whole
 // sequence: what is outside sounds in no pass, so it is drawn dimmed and cannot be edited
 // (rollFit.ts, docs/clipEditors.md). Left-click-drag draws a note (press = pitch + start,

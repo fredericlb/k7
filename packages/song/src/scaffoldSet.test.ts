@@ -16,7 +16,6 @@ import { loadGraph } from "./graph";
 import { loadLanes, loadSongs } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
-import { projectModeOf } from "./projectMode";
 import { projectTypeOf } from "./projectType";
 import { scaffoldSet } from "./scaffoldSet";
 import { parseSurface } from "./yaml/surfaceFile";
@@ -229,11 +228,13 @@ describe("a scaffolded set", () => {
   });
 
   it("is an ordinary l8 project with no arrangement", () => {
-    // A set is a SHAPE, not a dialect: `project_type: live` says there is no timeline, and the
-    // `turntables` surface beside it says there is a desk. Nothing else distinguishes one.
+    // A set is an ARCHETYPE, not a dialect, and what says there is no timeline is that no
+    // `surfaces/timeline.yaml` was written — the `turntables` file beside it being the one
+    // surface it does declare. Nothing else distinguishes one.
     scaffoldSet(dir, "winter");
     expect(projectTypeOf(dir)).toBe("l8");
-    expect(projectModeOf(dir)).toBe("live");
+    expect(existsSync(join(dir, "surfaces", "timeline.yaml"))).toBe(false);
+    expect(existsSync(join(dir, "surfaces", "desk.yaml"))).toBe(true);
   });
 
   it("derives one chain: deck A through the crossfade to OUT", () => {

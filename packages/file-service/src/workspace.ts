@@ -86,7 +86,6 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
-import type { ProjectShape } from "@studio/song/projectMode";
 import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import {
@@ -102,6 +101,7 @@ import { isVideoProject, loadVideoProject } from "@studio/song/videoProject";
 import { videoDuration } from "@studio/song/videoTracks";
 import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
+import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type {
   FileContent,
   FileNode,
@@ -1843,7 +1843,7 @@ export class Workspace {
         "graph.json": this.graphDoc(),
         "surfaces.json": this.surfaces(),
       },
-      { name: web.name || basename(dir), mode: web.mode },
+      { name: web.name || basename(dir) },
     );
   }
 
@@ -2100,7 +2100,6 @@ export class Workspace {
         metronome: p.settings.metronome,
         countIn: p.settings.countIn,
         strudel: p.strudel,
-        mode: p.mode,
         markers: p.markers.map((m) => ({
           beat: m.beat,
           name: m.name,

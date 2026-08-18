@@ -1,6 +1,6 @@
-// NewProject.tsx — « Nouveau projet » dans le bloc d'un dépôt : le type, le nom, et le dossier
-// déduit montré AVANT de créer — comme AddSong montre l'arborescence avant l'envoi, parce
-// qu'ici aussi c'est le nom qui décide de tout. Voir ../../docs/projects.md.
+// NewProject.tsx — « Nouveau projet » dans le bloc d'un dépôt : l'archétype, le nom, et le
+// dossier déduit montré AVANT de créer — comme AddSong montre l'arborescence avant l'envoi,
+// parce qu'ici aussi c'est le nom qui décide de tout. Voir ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -18,31 +18,38 @@ import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
 /**
- * Les trois FORMES d'un projet — une seule rangée, là où il y en avait deux.
+ * Les trois ARCHÉTYPES — une seule rangée, là où il y en avait deux.
  *
  * La rangée du dessus choisissait l'APPLICATION, donc le suffixe du dossier : `.l8`, `.m9`.
  * Il n'y en a plus qu'une, donc cette question n'a plus de réponses à départager — et ce qui
- * distinguait un set d'une chanson (des platines et une liste de morceaux) est un GABARIT, pas
- * une application. Les deux rangées n'en font donc plus qu'une.
+ * distingue ces trois-là est un GABARIT, pas une application. Les deux rangées n'en font donc
+ * plus qu'une.
+ *
+ * Chacun porte le nom de la SURFACE sur laquelle il s'ouvre, parce que c'est exactement ce
+ * qu'on choisit ici : un projet ne se distingue plus par ce qu'il EST — tout est un `.l8` — mais
+ * par l'écran qu'il déclare (packages/song/docs/surfaces.md). Un quatrième existait, « live » :
+ * le graphe seul, aucune surface. Il est parti avec ce nommage, une entrée dont la description
+ * entière est « aucune des trois » n'étant pas un choix qu'on fait exprès. Le MODE `live`, lui,
+ * reste — c'est ce que déclare un mix.
  *
  * z0 possède bien les dossiers `.z0` et n'a aucun gabarit : il n'a jamais eu sa place ici, et
  * n'en a plus besoin d'une. Voir `PROJECT_SHAPES` dans @studio/song.
  */
 const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
   {
-    id: "audio",
-    label: "chanson",
-    what: "la timeline au-dessus du graphe — son et image",
+    id: "arrangement",
+    label: "arrangement",
+    what: "la timeline au-dessus du graphe — une piste, un synthé, un motif",
   },
   {
-    id: "live",
-    label: "live",
-    what: "un rig : le graphe seul, pas de timeline",
+    id: "mix",
+    label: "mix",
+    what: "deux platines, un crossfade, et une liste de morceaux vide",
   },
   {
-    id: "set",
-    label: "set",
-    what: "deux platines, un crossfade, et une liste à jouer",
+    id: "video",
+    label: "vidéo",
+    what: "la timeline et le viewport — l'arrangement, plus une piste d'image",
   },
 ];
 
@@ -62,7 +69,7 @@ export function NewProject({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [shape, setShape] = useState<ProjectShape>("audio");
+  const [shape, setShape] = useState<ProjectShape>("arrangement");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
@@ -110,8 +117,8 @@ export function NewProject({
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            {/* La forme : elle décide du GABARIT écrit dans le dossier. Le suffixe, lui, ne se
-                choisit plus — il n'y en a qu'un. */}
+            {/* L'archétype : il décide du GABARIT écrit dans le dossier. Le suffixe, lui, ne
+                se choisit plus — il n'y en a qu'un. */}
             <div className="flex items-center gap-2">
               {SHAPES.map((sh) => (
                 <Button

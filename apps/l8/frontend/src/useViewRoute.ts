@@ -1,4 +1,4 @@
-// useViewRoute.ts — keep the shell's screen (view/full/panel/help) and the browser's URL
+// useViewRoute.ts — keep the shell's screen (full/panel/help/surface) and the browser's URL
 // in step, both directions, without lifting a dozen writers into route components. The
 // hazard is a feedback loop between the layout and passive effects, so both decisions are
 // pure functions tested as a SEQUENCE. See docs/shellRouting.md.
@@ -23,14 +23,7 @@ export function stateForLocation(
   /** …and for a frozen snapshot, which has no source: `/editor` names no pane in one. */
   frozen = false,
 ): RouteState | null {
-  const next = fromLocation(
-    pathname,
-    search,
-    state.view,
-    timeline,
-    viewport,
-    frozen,
-  );
+  const next = fromLocation(pathname, search, timeline, viewport, frozen);
   return sameRoute(next, state) ? null : next;
 }
 
@@ -59,14 +52,7 @@ export function urlForState(
   frozen = false,
 ): string | null {
   if (sameRoute(state, prev)) return null;
-  const url = fromLocation(
-    pathname,
-    search,
-    state.view,
-    timeline,
-    viewport,
-    frozen,
-  );
+  const url = fromLocation(pathname, search, timeline, viewport, frozen);
   if (sameRoute(state, url)) return null;
   return toPath(state);
 }

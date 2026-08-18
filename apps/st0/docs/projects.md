@@ -1,4 +1,4 @@
-﻿# Projets — les dépôts git appartiennent à la médiathèque
+# Projets — les dépôts git appartiennent à la médiathèque
 
 La médiathèque est la porte d'entrée du studio : c'est là qu'on voit ses morceaux, ses
 samples, ses modules. Ses **dépôts git** y ont maintenant leur place aussi, dans une sixième
@@ -53,9 +53,10 @@ z0 ; c'est tout, et `packages/web-protocol/projects.ts` est la règle entière. 
 suffixe n'est pas un projet, même s'il contient un `project.yaml`.
 
 Deux suffixes, parce que deux applications ouvrent un projet. Tout ce qu'un projet l8 peut
-ÊTRE est une **forme** à l'intérieur de `.l8` plutôt qu'une sorte de dossier : une chanson
-porte ses pistes vidéo et sa surface `viewport` (`packages/song/docs/picture.md`), un set porte
-son `songs.yaml` et sa surface `turntables` (`packages/song/docs/setProject.md`).
+ÊTRE tient dans les **surfaces** qu'il déclare à l'intérieur de `.l8`, plutôt que dans une sorte
+de dossier : un `viewport` et des pistes vidéo pour l'image (`packages/song/docs/picture.md`), un
+`songs.yaml` et une surface `turntables` pour un set (`packages/song/docs/setProject.md`). C'est
+pour ça que les trois archétypes du menu de création portent le nom de leur surface — plus bas.
 
 **st0 ne fait jamais de copie de travail.** Il tient un miroir *bare* et *sans blobs* de
 chaque dépôt, uniquement pour répondre « qu'est-ce qu'il y a dedans ». La copie qu'on édite,
@@ -198,7 +199,7 @@ l'adresse est un chemin et non des paramètres — ce qui supprime le `sessionSt
 
 ## Créer et supprimer un projet — pas ici, sur la machine
 
-Le bloc de chaque dépôt porte un **« Nouveau projet »** (le type, et un nom), et chaque
+Le bloc de chaque dépôt porte un **« Nouveau projet »** (l'archétype, et un nom), et chaque
 projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par st0, et
 c'est la conséquence directe de la règle du haut de cette page.
 
@@ -252,13 +253,39 @@ la fixe des deux côtés. Le dossier obtenu est affiché sous le champ **avant**
 comme `AddSong` montre l'arborescence déduite avant l'envoi : ici aussi c'est le nom qui
 décide de tout.
 
+### Les trois archétypes, nommés d'après leur surface
+
+Le menu offre `arrangement`, `mix` et `video`, et chacun porte le nom de l'**écran sur lequel il
+s'ouvre** :
+
+| archétype | surfaces | ce qu'il écrit |
+|---|---|---|
+| `arrangement` | `timeline` | une piste, un synthé, un motif |
+| `mix` | `turntables` | deux platines, un crossfade, un `songs.yaml` vide |
+| `video` | `timeline` + `viewport` | l'arrangement, plus une piste d'image |
+
+C'est exactement ce qu'on choisit là : tout est un dossier `.l8` ouvert par le même l8, donc
+« quelle sorte de projet » n'a plus de réponses à départager — ce qui diffère est la surface que
+le projet DÉCLARE (`packages/song/docs/surfaces.md`). Un quatrième existait, `live` : le graphe
+seul, aucune surface. Il est parti avec ce nommage — une entrée dont la description entière est
+« aucune des trois » n'est pas un choix qu'on fait exprès. Le MODE `live`, lui, reste : c'est ce
+que `mix` déclare, et un rig écrit à la main s'ouvre toujours.
+
+`createProjectIn` les distingue dans un `Record<ProjectShape, …>` et non dans une suite de `if` :
+un quatrième archétype ajouté à `PROJECT_SHAPES` ne compilera plus tant que personne n'aura dit ce
+qu'il écrit. La même raison que `HAS_SCAFFOLD`, plus bas.
+
+> **Le service de fichiers connaît ces noms, et une machine en retard le dit.** `shape` voyage
+> jusqu'à `POST /project/create`, dont le `z.enum` est `PROJECT_SHAPES`. Une machine dont le
+> service est plus ancien que ces trois-là répond 400 — l'échec est visible et nommé, ce qui vaut
+> mieux qu'un gabarit deviné à côté.
+
 ### Posséder un suffixe et pouvoir être créé sont deux questions
 
 `ProjectApp` vaut `"l8" | "z0"` — k7 n'a pas de projets. Mais le menu ne reflète PAS ce type :
 il reflète `SCAFFOLDED_APPS`, et confondre les deux fabrique un dossier dont le suffixe dit une
-chose et le contenu une autre. Une seule application y figure, donc le menu offre les trois
-**formes** d'un projet l8 plutôt qu'une liste d'applications — voir `PROJECT_SHAPES` dans
-`@studio/song`.
+chose et le contenu une autre. Une seule application y figure, donc le menu offre les archétypes
+d'un projet l8 plutôt qu'une liste d'applications — voir `PROJECT_SHAPES` dans `@studio/song`.
 
 Créer demande un **gabarit** — une carte de fichiers que le file-service sait écrire
 (`createProjectIn`, et les modules `scaffold*` de `@studio/song`). z0 possède bien les

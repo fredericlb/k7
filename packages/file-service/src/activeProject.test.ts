@@ -98,7 +98,7 @@ describe("the tree is rooted at the active project", () => {
 describe("the project list is scanned, not re-walked on every poll", () => {
   it("shows a project it created straight away", () => {
     ws.workspaceInfo(); // fills the cache
-    ws.createProject("audio", "brandnew.l8");
+    ws.createProject("arrangement", "brandnew.l8");
     expect(ws.workspaceInfo().projects).toContain("brandnew.l8");
   });
 

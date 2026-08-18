@@ -1,4 +1,4 @@
-﻿# La waveform des platines
+# La waveform des platines
 
 Sous chaque vinyle, une bande qui **défile sous la tête de lecture** : le morceau glisse, la
 tête reste au milieu. Ce n'est pas la waveform des autres surfaces du dépôt et ça ne doit pas

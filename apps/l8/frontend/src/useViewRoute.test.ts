@@ -14,7 +14,6 @@ import { stateForLocation, urlForState } from "./useViewRoute";
 // order React runs them, with the passive side seeing the pre-apply state.
 
 const GLOBAL: RouteState = {
-  view: "global",
   full: null,
   panel: null,
   help: false,

@@ -1,4 +1,4 @@
-﻿// AudioClipPanel.tsx — ONE panel for an audio clip, whether it is being recorded or being worked
+// AudioClipPanel.tsx — ONE panel for an audio clip, whether it is being recorded or being worked
 // on. While a take rolls it draws the envelope the engine is pushing, growing; the moment the
 // recorder closes the file it draws that file instead, with its onsets, its threshold and the
 // button that brings it up to level. Same waveform, same place, one view of one clip.

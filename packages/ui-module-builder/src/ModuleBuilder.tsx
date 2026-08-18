@@ -1,4 +1,4 @@
-﻿// ModuleBuilder.tsx — the full-screen module editor: a file's text on the LEFT, a visual grid
+// ModuleBuilder.tsx — the full-screen module editor: a file's text on the LEFT, a visual grid
 // of the module's widgets on the RIGHT. TWO files, one screen — `module.yaml` says what the
 // module is, `ui.yaml` beside it says how it's drawn — and the grid always edits the second,
 // rewriting it in place so typing flows the other way whenever it still parses (the grid greys

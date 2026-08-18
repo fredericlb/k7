@@ -3,7 +3,6 @@
 // the assemblers coerce. This is the typed seam that used to be `any` end to end, so a mistyped field name in
 // an assembler is now a compile error rather than an `undefined` that flows to the engine.
 
-import type { ProjectMode } from "@studio/engine-protocol/project";
 import type { ModuleKind } from "./moduleTypes";
 
 /** One entry of a lane's `events:` list — a placement of a clip/sequence by ref. */
@@ -287,12 +286,10 @@ export interface RawProjectRoot {
   };
   /** The dialect the folder declares — "l8" or "m9". A root sibling; see projectSchema.ts. */
   type?: string;
-  /**
-   * Which of l8's two shapes the folder has. A root sibling too, and typed as the UNION rather
-   * than as `string` like `type` above: this file is post-Zod, the schema's enum has already
-   * refused anything else, and a looser type here would only make every reader re-narrow it.
-   */
-  project_type?: ProjectMode;
+  // Accepted and ignored — see projectSchema.ts. Typed as `string` because nothing narrows it:
+  // no reader is left, and the key only survives so a folder written before the notion went away
+  // still parses against a `.strict()` schema.
+  project_type?: string;
   trackOrder?: string[];
   // The soloed lanes — solo as project state, resolved by the engine (see projectSchema.ts).
   soloed?: string[];

@@ -1,4 +1,4 @@
-﻿# Choisir un morceau
+# Choisir un morceau
 
 **On clique au centre du vinyle.** Le milieu d'un disque est là où son nom est écrit, donc
 c'est là qu'on appuie pour en changer. Le disque lui-même reste `pointer-events-none` : seule

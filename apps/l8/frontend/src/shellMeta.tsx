@@ -7,7 +7,6 @@ import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
   FileCode,
-  LayoutGrid,
   Loader2,
   type LucideIcon,
   MonitorPlay,
@@ -18,7 +17,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { m } from "./paraglide/messages.js";
-import type { Pane, Panel, View } from "./routes";
+import type { Pane, Panel } from "./routes";
 
 // The panes, not tabs: a "view" is a LAYOUT over the same instances, and the default one stacks the
 // frame over the timeline over the graph. `editor` is in this list because it can be FULLSCREENED and
@@ -37,17 +36,8 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   chains: { icon: Workflow, label: "Chains" },
 };
 
-// The layouts and the pane each puts in its main slot. `global` stacks the timeline over that
-// pane; `live` has no timeline to stack, so the same pane simply takes the window. Which panes
-// each shows — and which it may fullscreen — is `viewPanes` in routes.ts; these are the icons.
-// A live layout is never OFFERED: it is what the open project is, so nothing here draws a toggle.
-export const VIEW_META: Record<
-  View,
-  { icon: LucideIcon; label: string; third: Pane }
-> = {
-  global: { icon: LayoutGrid, label: "Global", third: "chains" },
-  live: { icon: Workflow, label: "Live", third: "chains" },
-};
+// `VIEW_META` was here: an icon and a label for `global` and `live`. Both layouts are gone --
+// there is one, and which panes it holds is what the project declares (routes.ts).
 
 // The bottom panels: `graph` is the caret track's path, `logs` what happened.
 //

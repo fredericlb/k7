@@ -17,7 +17,6 @@ import {
   CHAIN_FILE,
   chainToBench,
 } from "@studio/song/benchChain";
-import { projectModeOf } from "@studio/song/projectMode";
 import { BENCH_EDGES, scaffoldBench } from "@studio/song/scaffoldBench";
 import { setFileValue } from "@studio/song/yaml/edit";
 import {
@@ -41,27 +40,11 @@ export const BENCH_WORKSPACE = "Banc";
 // no project could reach; the library is a submodule in the workspace now, so the bench sees it
 // the way a song does and there is nothing to copy. Two hundred folders per open, gone with it.
 
-/**
- * Bring a bench made before `live` existed forward, in place.
- *
- * The folder is regenerated on every open but `project.yaml` is NOT — it is written once, and
- * `graph.yaml`/`nodes/` are deliberately what survives. So a bench that already existed would
- * keep saying "arrangement" forever and open with a timeline over the graph, which is the one
- * shape a bench has never been.
- *
- * Comment-preserving and idempotent: `setFileValue` rewrites the document rather than the text,
- * so the French header the scaffold wrote is still there afterwards, and a bench already saying
- * `live` is not touched at all.
- */
-function ensureLive(projectFile: string): void {
-  try {
-    if (projectModeOf(dirname(projectFile)) === "live") return;
-    setFileValue(projectFile, ["project_type"], "live");
-  } catch {
-    // A bench whose header will not parse is the compile's problem to report, with a line
-    // number. Failing the OPEN here would leave no way to reach the editor that fixes it.
-  }
-}
+// `ensureLive` was here: it wrote `project_type: live` into a bench made before that field
+// existed, because a bench's project.yaml is written ONCE and would otherwise have kept opening
+// with a timeline over the graph. Both it and the field are gone. A bench draws no timeline
+// because it declares no `surfaces/timeline.yaml`, and it never has — so there is nothing left
+// to bring forward, on an old bench or a new one.
 
 /**
  * The scaffold both benches share. Answers the project folder.
@@ -79,7 +62,6 @@ function ensureBenchProject(userEmail: string, project: string): string {
   const dir = join(workspaceRoot(slugify(userEmail), BENCH_WORKSPACE), project);
   const projectFile = join(dir, "project.yaml");
   if (!existsSync(projectFile)) scaffoldBench(dir, basename(project, ".l8"));
-  else ensureLive(projectFile);
   return dir;
 }
 

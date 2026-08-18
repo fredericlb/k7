@@ -1,4 +1,4 @@
-﻿# La vue Mix lit le projet
+# La vue Mix lit le projet
 
 Mix était la seule vue qui ne parlait pas du projet ouvert : elle listait tout le cache de
 la médiathèque sur la machine choisie, et l'arbre du projet disparaissait parce qu'il

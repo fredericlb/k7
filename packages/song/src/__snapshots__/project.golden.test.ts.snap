@@ -4,7 +4,6 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
 {
   "groups": [],
   "markers": [],
-  "mode": "arrangement",
   "name": "rack-demo",
   "recordDir": "<abs>",
   "sampleRate": 48000,
@@ -198,7 +197,6 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
     },
   ],
   "markers": [],
-  "mode": "arrangement",
   "name": "synth-demo",
   "recordDir": "<abs>",
   "sampleRate": 48000,

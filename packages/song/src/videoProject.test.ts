@@ -37,11 +37,11 @@ function clip(id: string, source: string): void {
   writeFileSync(join(dir, "clips", basename(source)), "", "utf8");
 }
 
-describe("a scaffolded l8 song", () => {
+describe("a scaffolded `video` project", () => {
   it("carries picture, compiled from the same folder as its sound", () => {
-    // One scaffold, one folder, two compiles: a new song has an audio lane AND a lane of
+    // One scaffold, one folder, two compiles: a `video` project has an audio lane AND a lane of
     // picture, without either needing a different KIND of project.
-    scaffold(dir, "demo");
+    scaffold(dir, "demo", "video");
     const doc = loadVideoProject(dir);
 
     expect(doc.name).toBe("demo");
@@ -56,15 +56,18 @@ describe("a scaffolded l8 song", () => {
   it("says nothing about tempo, which the OTHER compile of the same folder owns", () => {
     // The two documents describe one folder and share no field, which is what keeps picture
     // out of the engine's document without anything having to strip it on the way.
-    scaffold(dir, "demo");
+    scaffold(dir, "demo", "video");
     const doc = loadVideoProject(dir) as unknown as Record<string, unknown>;
     expect(doc.tempo).toBeUndefined();
     expect(doc.timeSignature).toBeUndefined();
     expect(doc.sampleRate).toBeUndefined();
   });
 
-  it("gives a LIVE rig none — a rig has no arrangement to place a shot on", () => {
-    scaffold(dir, "rig", "live");
+  it("gives an `arrangement` none — no viewport declared, so no frame to composite into", () => {
+    // This is the whole difference between the two timeline archetypes. An arrangement is not a
+    // video project with its picture deleted: it never declared a frame, and saying so out loud
+    // beats letterboxing every shot into one the loader invented.
+    scaffold(dir, "demo");
     expect(() => loadVideoProject(dir)).toThrow(/viewport is required/);
   });
 });

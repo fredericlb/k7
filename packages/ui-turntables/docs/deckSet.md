@@ -1,4 +1,4 @@
-﻿# Les platines comme document
+# Les platines comme document
 
 `useDeckSet` possède ce que les deux platines SONT — ce qui est chargé, à quel tempo, où sont
 le crossfader et les six potards d'EQ — et tous les gestes qui changent l'un ou l'autre. Il est

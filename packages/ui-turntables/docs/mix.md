@@ -1,4 +1,4 @@
-﻿# La vue Mix — le pupitre
+# La vue Mix — le pupitre
 
 ```
 ┌───┬──────────────┬───┬───┬──────────────┬───┐

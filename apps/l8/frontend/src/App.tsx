@@ -1,9 +1,8 @@
-﻿// App.tsx — the l8 web shell: the global view (editor | timeline over chains), the
-
-// transport header, and the Shift-Shift command palette. A view is a LAYOUT, not a mode —
-// every pane stays mounted and `full`/`focus` only decide size and keys, so no open file,
-// caret or zoom is ever lost. Live engine state goes to an external store, never App state.
-// See docs/shell.md.
+// App.tsx — the l8 web shell: the panes the project DECLARES (editor | timeline over
+// chains), the file tree, the command bar, the mixer, the clip editors, the transport
+// header, and the Shift-Shift command palette. One layout, and every pane in it stays
+// mounted — `full`/`focus` only decide size and keys, so no open file, caret or zoom is
+// ever lost. Live engine state goes to an external store, never App state. See docs/shell.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Badge } from "@frediverse/ui/badge";
@@ -146,7 +145,7 @@ import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
-import { type Pane, type Panel, type View, viewPanes } from "./routes";
+import { type Pane, type Panel, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
@@ -158,7 +157,6 @@ import {
   PANEL_META,
   PANES,
   TransportClock,
-  VIEW_META,
 } from "./shellMeta";
 import {
   placedBeat,
@@ -226,7 +224,6 @@ export default function App({
   // A phone gets tabs, not the studio layout — the tab bar just drives `full`. See docs/shell.md.
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [view, setView] = useState<View>("global");
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -666,8 +663,8 @@ export default function App({
    * and `surfaceIssues` says so beside its other diagnostics rather than leaving the absence to
    * be guessed at.
    *
-   * The list arrives a moment after the shell, so this is false for a frame or two on open —
-   * the same flash `mode` pays, and paid in the same place (docs/projectMode.md).
+   * The list arrives a moment after the shell, so this is false for a frame or two on open.
+   * Paid here rather than by holding the whole shell back on a fetch.
    */
   const timelineSurface = useMemo(
     () =>
@@ -757,7 +754,6 @@ export default function App({
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
     {
-      view,
       full,
       panel,
       help: showHelp,
@@ -765,7 +761,6 @@ export default function App({
       builder: openBuilder,
     },
     useCallback((next) => {
-      setView(next.view);
       setFull(next.full);
       setPanel(next.panel);
       setShowHelp(next.help);
@@ -784,7 +779,7 @@ export default function App({
   // biome-ignore lint/correctness/useExhaustiveDependencies: the layout changing IS the signal.
   useEffect(() => {
     setEditorPopin(false);
-  }, [full, view]);
+  }, [full]);
 
   // Optimistic, like the mixer: the editor switches modality on the click and the write's answer settles it.
   const toggleVim = useCallback(async () => {
@@ -806,24 +801,21 @@ export default function App({
   // editor is reached deliberately (`ui editor`) or arrives as a popin when a command sends it
   // to a file. That is what `visible("editor")` reads to decide between the two — see
   // docs/shell.md.
-  // The layout's own list, not "the timeline plus one": `live` has no timeline, and a ring that
-  // still named it would hand the keys to a pane that is not drawn. It replaces `thirdPane`,
-  // which could only ever name the pane UNDER the timeline and so had nothing to say about a
-  // layout with no timeline in it. See `viewPanes` in routes.ts.
+  // The layout's own list, not "the timeline plus one": a project may declare no timeline, and
+  // a ring that still named it would hand the keys to a pane that is not drawn. It replaces
+  // `thirdPane`, which could only ever name the pane UNDER the timeline and so had nothing to
+  // say about a layout with no timeline in it. See `viewPanes` in routes.ts.
   const layout = useMemo(
-    () => viewPanes(view, hasTimeline, hasViewport, frozen),
-    [view, hasTimeline, hasViewport, frozen],
+    () => viewPanes(hasTimeline, hasViewport, frozen),
+    [hasTimeline, hasViewport, frozen],
   );
   const ringPanes = layout.ring;
 
-  // Read off the LAYOUT rather than off the project doc, and not only because the doc arrives a
-  // frame later: everything below this asks "is there a timeline on screen", which is a question
-  // about the view. The effect further down is the one place that turns the project into a view.
-  const live = view === "live";
-  // …and the arrangement's own half of that question, which is now the SURFACE's answer rather
-  // than the view's: a `global` project that declares no timeline draws none either. Everything
-  // that goes with an arrangement — the transport, the minimap, the pane it sits in — reads this.
-  const noArrangement = live || !hasTimeline;
+  // Whether there is an arrangement on screen, which is the SURFACE's answer and now the only
+  // one: everything that goes with a timeline -- the transport, the minimap, the pane it sits
+  // in -- reads this. `view === "live"` was the other half of it, and there is no view left to
+  // ask: a project that declares no timeline draws none, whatever it used to call itself.
+  const noArrangement = !hasTimeline;
 
   // The popin IS the active pane while it is up: it is what the keys are for, and the pane
   // underneath must not also answer them.
@@ -863,7 +855,7 @@ export default function App({
     full === "timeline" ||
     (full === null && !ringPanes.includes("chains")) ||
     // Expanded lanes give the timeline the whole column — which can only happen in a layout that
-    // HAS a timeline. In `live` the graph is the only pane, and nothing may take it away.
+    // HAS a timeline. Without one the graph is the only pane, and nothing may take it away.
     (full === null && ringPanes.includes("timeline") && tlView.expanded);
 
   const timelineVisible = visible("timeline");
@@ -910,22 +902,22 @@ export default function App({
    * Give one pane the whole screen — the ONE road there, taken by the header buttons, the number
    * keys, `ui <pane>` and the mobile tabs alike.
    *
-   * A layout that cannot fullscreen the pane refuses instead, which is what makes `live` hold:
-   * its list is empty (`viewPanes`), so every one of those roads is closed at the same point
-   * rather than at four. Refused out loud — a key that does nothing reads as a broken key.
+   * A layout that cannot fullscreen a pane it hasn't got refuses instead: the roads are all
+   * closed at this one point rather than at four. Refused out loud, because a key that does
+   * nothing reads as a broken key.
    */
   const fullscreen = useCallback(
     (p: Pane) => {
       if (!layout.fullscreen.includes(p)) {
         setStatus(
-          `this project is \`live\` — the graph has the whole screen, and there is no ${PANE_META[p].label.toLowerCase()} pane to expand.`,
+          `this project declares no ${PANE_META[p].label.toLowerCase()} surface, so there is no such pane to expand.`,
         );
         return;
       }
       setFull(p);
       focusOn(p);
     },
-    [focusOn, view],
+    [focusOn, layout],
   );
 
   const paneProps = (p: Pane) => ({
@@ -998,7 +990,6 @@ export default function App({
     doc: projectDoc,
     mixerStrips,
     hasStrudel,
-    mode,
     midiSeqRef,
   } = useProjectDoc(reloadKey, {
     // If the currently-armed track lost its sequence, disarm it.
@@ -1006,33 +997,10 @@ export default function App({
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
   });
 
-  /**
-   * The layout FOLLOWS the project: a `live` folder has no arrangement, so it has no `global`.
-   *
-   * Derived and not chosen — there is no toggle for this anywhere in the shell, and the effect
-   * runs on every doc load rather than once, so a project.yaml edited from `arrangement` to
-   * `live` in the editor moves the screen on the next reload instead of after a refresh.
-   *
-   * `full` is cleared with it. A live layout fullscreens nothing (`viewPanes`), so a `full` left
-   * over from the project that was open before would name a pane this one cannot draw.
-   */
-  const liveProject = mode === "live";
-  useEffect(() => {
-    setView(liveProject ? "live" : "global");
-    setFull(null);
-  }, [liveProject]);
-
-  /**
-   * The layout this PROJECT is entitled to — what "back to the view" means here.
-   *
-   * A ref, because the callbacks that reset the screen (opening a project, `ui global`, a command
-   * that needs the graph slot) are `useCallback`s half the shell depends on being stable; making
-   * them re-bind whenever the doc reloads would ripple through every key handler and every menu.
-   * Those call sites used to write `"global"` literally, which was correct while it was the only
-   * layout and would strand a live project in a screen it has not got now that it is not.
-   */
-  const baseViewRef = useRef<View>("global");
-  baseViewRef.current = liveProject ? "live" : "global";
+  // Two things stood here, and both were the mode's: an effect that snapped the layout to
+  // `live` or `global` on every doc load, and a `baseViewRef` holding which of the two this
+  // project was entitled to. There is one layout now, so there is nothing to snap to and
+  // nothing to remember -- the call sites that read the ref just clear `full`.
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey.
   const quietCommand = useCallback(
@@ -1138,7 +1106,6 @@ export default function App({
       setFull(null);
       // The layout the project that was open had — the doc effect above corrects it a moment
       // later, once THIS project's doc says which shape it is.
-      setView(baseViewRef.current);
     } catch (e) {
       setStatus(`open error: ${(e as Error).message}`);
     }
@@ -1338,22 +1305,15 @@ export default function App({
         return true;
       }
       if (line === "global") {
-        // The layout is the PROJECT's and not a choice, so in a live project this names a screen
-        // it has not got. Say so — running it silently, or quietly landing on `live` instead,
-        // would both leave someone believing they had switched.
-        if (baseViewRef.current !== "global") {
-          setStatus(
-            "this project is `live` — it has no timeline, so there is no global view. Change `project_type` in project.yaml to arrange it.",
-          );
-          return true;
-        }
-        setView(line);
+        // Back to the layout: with one of them, that is exactly "leave the fullscreen". The
+        // refusal that used to live here was the mode's -- `ui global` in a `live` project
+        // named a screen it had not got. Every project has this one.
         setFull(null);
         return true;
       }
       if ((PANES as string[]).includes(line)) {
-        // …and likewise for a pane this layout cannot fullscreen: in `live` the graph already has
-        // the window, so `ui timeline` names a pane that is not drawn. `fullscreen` is left to
+        // …and likewise for a pane this layout cannot fullscreen: with no timeline surface the
+        // graph already has the window, so `ui timeline` names a pane that is not drawn.
         // decide, since it is what the header buttons and the number keys go through too.
         fullscreen(line as Pane);
         return true;
@@ -1571,7 +1531,6 @@ export default function App({
           // behind a fullscreened timeline is a command that reported success and did nothing.
           // The project's own layout, not `global` — in `live` the slot is already the screen.
           setFull(null);
-          setView(baseViewRef.current);
           setGraphSlot({ kind: "grid", path, view: seq.view });
         }
         return true;
@@ -1874,7 +1833,6 @@ export default function App({
       connected,
       frozen,
       setFull,
-      setView,
       toggleMixer,
       toggleDocs,
       clearLogs,
@@ -1913,8 +1871,12 @@ export default function App({
   const runCommand = useCallback(
     async (line: string) => {
       if (!line.trim()) return;
-      pushLog("cmd", `› ${line.trim()}`);
+      const typed = line.trim();
       const s = canonicalizeCommand(line);
+      // What was typed, and — when the catalogue rewrote it — what actually ran. A translated
+      // or aliased name is the one case where the transcript would otherwise show a line you
+      // could not retype.
+      pushLog("cmd", typed === s ? `› ${typed}` : `› ${typed}   ⇒ ${s}`);
       // Here rather than in the bar, because this is where EVERY command passes: the palette,
       // a key binding, a context menu. What you reach for by shortcut is still what you reach
       // for, and the palette should offer it first when you do come looking. Through a ref, so
@@ -1938,7 +1900,14 @@ export default function App({
       const ensure = madeRef ? pendingModule.current : null;
       pendingModule.current = null;
       try {
-        if (ensure) await api.command(ensure);
+        // Logged like anything else that RUNS. It is the picker's first half — the module the
+        // typed `node new` needs — and it used to go through unrecorded, so a transcript showed
+        // a node appearing with no module ever created. What the log promises is every command,
+        // not every command somebody typed.
+        if (ensure) {
+          pushLog("cmd", `› ${ensure}`);
+          await api.command(ensure);
+        }
         const { output, graph } = await api.command(s);
         setStatus(output.length ? output.join("  ·  ") : `ran: ${s}`);
         for (const o of output) pushLog("info", o);
@@ -2374,7 +2343,6 @@ export default function App({
   const conditions = useMemo<ConditionCtx>(() => {
     const cond: ConditionCtx = {};
     cond.focus_pane = focusPane;
-    cond.current_view = view;
     // The two layers Esc backs out of before it touches the layout. `popin` counts every
     // registered overlay, not just this shell's own: one that closes ITSELF still has to
     // shadow the slot, or one Escape would close two things. See popins.ts.
@@ -2410,7 +2378,6 @@ export default function App({
     tlView,
     focusPane,
     full,
-    view,
   ]);
 
   // Global keys. Every binding names a command and runs through runCommand.
@@ -2546,7 +2513,10 @@ export default function App({
   useEffect(() => {
     const [first] = layout.fullscreen;
     if (isMobile && full === null && first) setFull("timeline");
-  }, [isMobile, full, view]);
+    // The layout has no mobile form, so entering mobile lands on a pane -- the timeline, being the
+    // one that says what a song is. A project that fullscreens nothing is skipped: forcing `full`
+    // there would put the layout in a state `viewPanes` says cannot exist.
+  }, [isMobile, full]);
 
   // …and never on a snapshot: there is no engine coming, so this would be true for ever, and it
   // is what greys the transport out. What plays here is the browser, and it is ready at once.
@@ -2731,10 +2701,12 @@ export default function App({
                   size="icon"
                   variant={full === p ? "default" : "ghost"}
                   aria-pressed={full === p}
-                  onClick={() => void runCommand(`ui ${full === p ? view : p}`)}
+                  onClick={() =>
+                    void runCommand(`ui ${full === p ? "global" : p}`)
+                  }
                   title={
                     full === p
-                      ? `${PANE_META[p].label} — back to the ${VIEW_META[view].label} view (esc)`
+                      ? `${PANE_META[p].label} — back to the layout (esc)`
                       : `${PANE_META[p].label} fullscreen${key ? ` (${key})` : ""}`
                   }
                   aria-keyshortcuts={key}
@@ -2989,6 +2961,7 @@ export default function App({
                       open={openBuilder}
                       focusNode={builderNode}
                       vimMode={vimMode}
+                      onLog={pushLog}
                       onClose={() => setOpenBuilder(null)}
                     />
                   ) : null
@@ -3048,19 +3021,18 @@ export default function App({
                   {...paneProps("timeline")}
                   className={cn(
                     "flex min-h-0 min-w-0",
-                    // Off screen for good in a LIVE project, and still MOUNTED — the invariant in
-                    // docs/shell.md is that no layout unmounts a pane, so its caret and zoom stack
-                    // survive a project.yaml edited back to `arrangement` without a reload.
-                    live
-                      ? "hidden"
-                      : // Expanded lanes take the whole height, exactly as `full timeline` does: the
-                        // pane below has stood down for them — see where `tlView.expanded` is read.
-                        full === "timeline" ||
-                          (full === null && tlView.expanded)
-                        ? "flex-1"
-                        : full === "chains"
-                          ? "hidden"
-                          : "h-1/2 shrink-0 border-b border-border",
+                    // Expanded lanes take the whole height, exactly as `full timeline` does: the
+                    // pane below has stood down for them — see where `tlView.expanded` is read.
+                    //
+                    // A `live ? "hidden"` branch opened this chain, for a project whose mode said
+                    // there was no arrangement while its surfaces said there was. That state could
+                    // not be resolved and no longer exists: the pane is mounted when the project
+                    // declares the surface, full stop.
+                    full === "timeline" || (full === null && tlView.expanded)
+                      ? "flex-1"
+                      : full === "chains"
+                        ? "hidden"
+                        : "h-1/2 shrink-0 border-b border-border",
                     ringFor("timeline"),
                   )}
                 >
@@ -3088,7 +3060,6 @@ export default function App({
                     // a view drawn behind a fullscreened timeline is a click that did nothing.
                     onOpenClip={(t) => {
                       setFull(null);
-                      setView(baseViewRef.current);
                       setGraphSlot({ kind: "clip", target: t });
                     }}
                     // …and the bare lane puts the graph back. Symmetric on purpose: what a click
@@ -3219,6 +3190,20 @@ export default function App({
                         ? undefined
                         : (from, to) =>
                             void runCommand(`graph chain connect ${from} ${to}`)
+                    }
+                    // Both curve cables write one line of the same verb: the automation one
+                    // supplies module/param/curve, the event one adds the trigger. Quoted
+                    // param, because a plugin's names have spaces ("Filter Freq") and the bar
+                    // splits on them.
+                    onAutomate={
+                      frozen
+                        ? undefined
+                        : (module, param, curve, trigger) =>
+                            void runCommand(
+                              `node automate ${module} ${param} ${curve}${
+                                trigger ? ` ${trigger}` : ""
+                              }`,
+                            )
                     }
                     onDisconnect={
                       frozen
