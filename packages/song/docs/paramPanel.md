@@ -151,6 +151,45 @@ Three things about it are load-bearing:
 - **`id` is the binary's path, never the display name.** Two plugins can be called the same thing;
   only the path resolves to one.
 
-An empty list is a **real answer** — a plugin that publishes nothing — and is kept distinct from
-"nothing answered" all the way up. The caller writes a file from it, so the two must not arrive
-spelt alike.
+### Three outcomes, and none of them is the other two
+
+An empty list is a **real answer**, and it arrives with a flag saying which kind:
+
+| | what it means | is it a fault? |
+|---|---|---|
+| nothing came back | no engine to ask, or it never answered | maybe — go and look |
+| `found: false` | this machine cannot LOAD that plugin | yes, and the engine log says why |
+| `found: true`, no params | it loaded and declares nothing to a host | **no** |
+
+The third is not a corner case. On the machine this was written on, **twenty-seven Arturia synths**
+load perfectly and publish not one parameter — CS-80 V4, Prophet-5 V, DX7 V, Piano V3 and the rest
+expose their controls only inside their own window. Six of their stablemates (ARP 2600 V3, Jup-8
+V4, Mini V3, Wurli V2, Jun-6 V, Genome) publish hundreds. Reading them all as failure sends someone
+to fix twenty-seven things that are not broken, which is why the flag exists rather than a count.
+
+`nullopt` versus an empty vector is the same distinction in C++, and it is what the return type of
+`pluginParamsOf` is for.
+
+### One engine for every query, because forty killed the old one
+
+`pluginParamsOf` used to build a `te::Engine` of its own per question and destroy it on the way
+out. Drawing a panel for a whole library asks it forty times in a row, and that **killed the engine
+twice** — after which every later ask timed out into a socket nobody was listening on.
+
+It now holds one offline engine for the run, serialised by a mutex, and creates each plugin into
+the same edit before dropping it — which is exactly what `dumpBuiltinParams` has always done with
+two hundred and twelve of them. The pass that crashed twice and took over ten minutes now takes
+**fifteen seconds**.
+
+## Drawing a whole library at once
+
+`npx tsx packages/mediatek/scripts/drawPanels.ts [--only-missing] [--dry-run] [--no-backup]`
+
+A pass over the médiathèque rather than a verb, for `migrateUis.ts`' reason: two hundred and fifty
+panels is something you run once on a library — or again after a Tracktion bump — not a command
+that sits in every palette for ever. It **overwrites**, and copies what it is about to replace into
+`.cache/ui-backup-<stamp>/` first; `.cache` is a dot-directory, so the médiathèque's file API and
+every family scan step over it.
+
+Measured on a library of 261 modules: 246 are faces, 205 gain a panel, 40 plugins declare nothing,
+one cannot be loaded at all.

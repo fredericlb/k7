@@ -392,10 +392,24 @@ describe("awaitPluginParams", () => {
     c.emit("pluginParamList", {
       format: "VST3",
       id: "C:/vst/Serum.vst3",
+      found: true,
       params: [knob],
     });
-    expect(await p).toEqual([knob]);
+    expect(await p).toEqual({ found: true, params: [knob] });
     expect(c.attached()).toBe(0);
+  });
+
+  it("reads a frame with no `found` as loaded", async () => {
+    // An engine too old to send the flag answered at all, which it could only do by loading
+    // something. Defaulting the other way would report every plugin on it as unloadable.
+    const c = spy();
+    const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3");
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Serum.vst3",
+      params: [knob],
+    });
+    expect((await p)?.found).toBe(true);
   });
 
   it("IGNORES another plugin's list", async () => {
@@ -406,27 +420,46 @@ describe("awaitPluginParams", () => {
     c.emit("pluginParamList", {
       format: "VST3",
       id: "C:/vst/Diva.vst3",
+      found: true,
       params: [{ name: "Wrong", min: 0, max: 1 }],
     });
     c.emit("pluginParamList", {
       format: "VST3",
       id: "C:/vst/Serum.vst3",
+      found: true,
       params: [knob],
     });
-    expect(await p).toEqual([knob]);
+    expect((await p)?.params).toEqual([knob]);
   });
 
-  it("tells 'no answer' apart from 'no parameters'", async () => {
-    // The caller WRITES a panel from this. An empty list is a real answer — a plugin that
-    // publishes nothing — and a silent engine is not, so the two must not arrive spelt alike.
+  /**
+   * THREE outcomes, told apart — and the third is why the flag exists at all.
+   *
+   * Measured on this machine: twenty-seven Arturia synths load perfectly and declare not one
+   * parameter to their host. Read as failure, that is twenty-seven plugins somebody is sent to
+   * go and fix; read correctly, it is a fact about how those plugins expose their controls.
+   */
+  it("tells silence, an unloadable plugin and an empty list apart", async () => {
     const c = spy();
-    const empty = awaitPluginParams(c, "VST3", "C:/vst/Quiet.vst3");
+
+    const declaresNone = awaitPluginParams(c, "VST3", "C:/vst/CS-80.vst3");
     c.emit("pluginParamList", {
       format: "VST3",
-      id: "C:/vst/Quiet.vst3",
+      id: "C:/vst/CS-80.vst3",
+      found: true,
       params: [],
     });
-    expect(await empty).toEqual([]);
+    expect(await declaresNone).toEqual({ found: true, params: [] });
+
+    const cannotLoad = awaitPluginParams(c, "VST3", "C:/vst/Broken.vst3");
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Broken.vst3",
+      found: false,
+      params: [],
+    });
+    expect(await cannotLoad).toEqual({ found: false, params: [] });
+
     expect(
       await awaitPluginParams(c, "VST3", "C:/vst/Gone.vst3", 5),
     ).toBeUndefined();

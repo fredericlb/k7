@@ -1019,8 +1019,9 @@ int main(int argc, char** argv) {
                                 .dump());
                 } else {
                     std::thread([&broadcast, fmt, id] {
+                        const auto found = studio::pluginParamsOf(fmt, id);
                         json arr = json::array();
-                        for (const auto& p : studio::pluginParamsOf(fmt, id)) {
+                        for (const auto& p : found.value_or(std::vector<studio::PluginParamInfo>{})) {
                             json one{{"name", p.name}, {"min", p.min}, {"max", p.max}};
                             if (p.hasDefault) one["def"] = p.def;
                             if (!p.states.empty()) {
@@ -1031,14 +1032,23 @@ int main(int argc, char** argv) {
                             }
                             arr.push_back(one);
                         }
-                        std::cerr << "[plugin-param-list] " << id << ": " << arr.size() << " parameters\n";
+                        std::cerr << "[plugin-param-list] " << id << ": "
+                                  << (found ? std::to_string(arr.size()) + " parameters"
+                                            : std::string{"could not be loaded"})
+                                  << "\n";
                         // `plugin-param-LIST`, because `plugin-params` is already the reply
                         // carrying a loaded INSTANCE's current values. What a plugin TYPE has and
                         // what one instance is set to are different questions, and one name for
                         // both would feed a list into the client's live-value path.
+                        //
+                        // `found` carries the difference an empty array cannot: a plugin this
+                        // machine could not load, versus one that loaded and declares nothing to
+                        // a host. The second is ordinary — a whole vendor's synths do it — and
+                        // reporting it as a failure tells somebody to go and fix what is not broken.
                         broadcast(json{{"type", "plugin-param-list"},
                                        {"format", fmt},
                                        {"id", id},
+                                       {"found", found.has_value()},
                                        {"params", arr}});
                     }).detach();
                 }

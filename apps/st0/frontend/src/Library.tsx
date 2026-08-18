@@ -607,26 +607,35 @@ export function Library() {
    * its own in its constructor. So that machine loads one and asks it, which takes SECONDS.
    * See packages/song/docs/paramPanel.md.
    *
-   * `null` and an empty list stay different answers: "no engine to ask" is not "this plugin has
-   * no knobs", and only the first is worth telling somebody to go and fix.
+   * The answer says WHY it is empty, because the three reasons take three different sentences:
+   * nothing to ask at all (`null`), a plugin this machine cannot load (`found: false`), and a
+   * plugin that loads and declares no parameters to a host (`found: true` and none) — the last
+   * being ordinary rather than a fault, which twenty-seven of one vendor's synths turn out to be.
    */
   const paramsForRef = useCallback(
     async (
       base: string,
-    ): Promise<{ name: string; params: BuiltinParam[] } | null> => {
+    ): Promise<{
+      name: string;
+      found: boolean;
+      params: BuiltinParam[];
+    } | null> => {
+      // Whether the TABLE knows it, not whether it lists knobs. Patch Bay, Text and Insert are
+      // in it with none — their state is not parameters — and reading that as "unknown" sent a
+      // built-in to the engine, which has no EXTERNAL plugin by that name and rightly said so.
       const builtin = builtinPluginForRef(base);
-      if (builtin?.params.length)
-        return { name: builtin.name, params: builtin.params };
+      if (builtin)
+        return { name: builtin.name, found: true, params: builtin.params };
       const scan = scannedForRef(base, scanned);
       if (!scan?.format || !scan.id || !choice.fileBase || !choice.token)
         return null;
-      const params = await engineMachine.pluginParams(
+      const answer = await engineMachine.pluginParams(
         choice.fileBase,
         choice.token,
         scan.format,
         scan.id,
       );
-      return params ? { name: scan.name, params } : null;
+      return answer ? { name: scan.name, ...answer } : null;
     },
     [scanned, choice.fileBase, choice.token],
   );
@@ -1588,8 +1597,15 @@ export function Library() {
                                 const plugin = await paramsForRef(base);
                                 if (!plugin?.params.length) {
                                   setNotice(null);
+                                  // Trois silences, trois phrases. Dire « le moteur est
+                                  // injoignable » à propos d'un greffon qui s'est chargé et ne
+                                  // déclare rien envoie chercher une panne qui n'existe pas.
                                   setError(
-                                    `Aucune liste de paramètres pour « ${base} » — un greffon externe demande que le moteur de cette machine soit joignable pour être interrogé.`,
+                                    !plugin
+                                      ? `Aucune liste de paramètres pour « ${base} » — un greffon externe demande que le moteur de cette machine soit joignable pour être interrogé.`
+                                      : plugin.found
+                                        ? `« ${plugin.name} » se charge mais ne déclare aucun paramètre à son hôte : il n'y a rien à poser sur un panneau. Ce n'est pas une panne — certains greffons n'exposent leurs réglages que dans leur propre fenêtre.`
+                                        : `Cette machine n'arrive pas à charger « ${base} ». Le journal du moteur dit lequel des deux : greffon introuvable, ou création refusée.`,
                                   );
                                   return;
                                 }

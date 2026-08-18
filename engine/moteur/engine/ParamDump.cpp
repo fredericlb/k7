@@ -3,6 +3,10 @@
 // enumerate a plugin's automatable parameters and print { params, complete } as
 // sentinel-fenced JSON. `complete` means the params fully reproduce the plugin state
 // (so the preset can be dropped).
+//
+// `pluginParamsOf` at the bottom is the one that is NOT a CLI: the socket's answer to "what
+// does this plugin have", served from one offline engine kept for the run. See its comment for
+// why that engine is shared, and docs/builtinParams.md for what reads the answer.
 
 #include "EngineHost.h"
 
@@ -11,6 +15,8 @@
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
 
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -160,25 +166,67 @@ bool describeExternal(const std::string& formatName, const std::string& identifi
 
 }  // namespace
 
-std::vector<PluginParamInfo> pluginParamsOf(const std::string& formatName,
-                                            const std::string& identifier) {
+namespace {
+
+/**
+ * The offline engine every parameter query shares — built on the first ask, kept for the run.
+ *
+ * ONE PER PROCESS, not one per question, and that difference is the whole of this. Each query
+ * used to build a `te::Engine` of its own and destroy it on the way out; forty of those in a
+ * row killed the engine, twice, measured on a pass that drew a panel for every module in a
+ * library of two hundred and sixty. Nothing in Tracktion promises that constructing and tearing
+ * down whole engines beside a live one is safe, and it is not.
+ *
+ * That ONE engine can host every plugin in turn is not a hope: `dumpBuiltinParams` above creates
+ * two hundred and twelve of them in a single edit, one at a time, and always has. This is the
+ * same shape with the engine kept alive between calls — so a batch is also far cheaper than it
+ * was, since building the engine was most of what each query cost.
+ *
+ * Still an engine of its own rather than the live host's: that one holds the audio interface,
+ * and an ASIO driver is single-client — a query that borrowed it would wedge the thing making
+ * sound. `makeOfflineEngine` opens no device.
+ *
+ * LEAKED deliberately — `new`, never deleted. A destructor would run at process exit in an order
+ * nothing here controls, which is the same teardown crash moved to the end of the run.
+ */
+struct ParamQueryEngine {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    // An engine of its OWN, opening no device. The live host holds the interface, and an ASIO
-    // driver is single-client — a query that borrowed it would wedge the thing making sound.
-    auto enginePtr = makeOfflineEngine();
-    auto& engine = *enginePtr;
-    registerBuiltInPlugins(engine);
-    auto edit = te::Edit::createSingleTrackEdit(engine);
+    std::unique_ptr<te::Engine> engine;
+    std::unique_ptr<te::Edit> edit;
+};
+
+/** Serialises the queries: one edit, and two plugins being built into it at once is not a thing
+ *  Tracktion offers. Costs the caller nothing it was not already spending — the ask is seconds. */
+std::mutex paramQueryMutex;
+
+ParamQueryEngine& paramQueryEngine() {
+    static ParamQueryEngine* held = [] {
+        auto* q = new ParamQueryEngine();
+        q->engine = makeOfflineEngine();
+        registerBuiltInPlugins(*q->engine);
+        q->edit = te::Edit::createSingleTrackEdit(*q->engine);
+        return q;
+    }();
+    return *held;
+}
+
+}  // namespace
+
+std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
+                                                           const std::string& identifier) {
+    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    auto& shared = paramQueryEngine();
 
     juce::PluginDescription desc;
     if (!describeExternal(formatName, identifier, desc)) {
         std::cerr << "[plugin-params] no " << formatName << " plugin at '" << identifier << "'\n";
-        return {};
+        return std::nullopt;
     }
-    auto plugin = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    auto plugin =
+        shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     if (plugin == nullptr) {
         std::cerr << "[plugin-params] could not create '" << identifier << "'\n";
-        return {};
+        return std::nullopt;
     }
     std::vector<PluginParamInfo> out;
     // `withStates` ON, as the built-in dump has it: a discrete parameter's named settings are
@@ -194,8 +242,8 @@ std::vector<PluginParamInfo> pluginParamsOf(const std::string& formatName,
             info.states.emplace_back(label.toStdString(), value);
         out.push_back(std::move(info));
     }
-    // Dropped before the edit goes: an external plugin holds a binary open, and the message queue
-    // is drained by the caller's own teardown.
+    // Dropped before the next query is served, as the built-in dump drops each of its own: the
+    // edit outlives this call now, and an instrument left on it holds voices and a binary open.
     plugin->deleteFromParent();
     return out;
 }

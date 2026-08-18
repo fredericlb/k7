@@ -9,6 +9,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -552,12 +553,17 @@ struct PluginParamInfo {
  * cache carries a plugin's name, format and category and no parameters, so this is the only way
  * to learn them — the plugin's constructor is where they are registered.
  *
- * Runs on an OFFLINE engine of its own: the live one holds the audio device, and this must not
- * touch it. Empty when the plugin cannot be resolved or created, which the caller reports —
- * a missing plugin is a fact about the machine, not an error in the request.
+ * Runs on an OFFLINE engine of its own — the live one holds the audio device and this must not
+ * touch it — kept for the run and shared by every query. See the definition for why.
+ *
+ * `nullopt` and an EMPTY vector are different answers, and telling them apart is worth a whole
+ * return type: `nullopt` is "this machine could not resolve or create the plugin", an empty
+ * vector is "it loaded and declares no parameters to a host". The second is common and is not a
+ * fault — measured, twenty-seven of one vendor's synths do exactly that — and a caller that read
+ * both as failure told somebody their plugins were broken when they were not.
  */
-std::vector<PluginParamInfo> pluginParamsOf(const std::string& format,
-                                            const std::string& identifier);
+std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& format,
+                                                           const std::string& identifier);
 
 // Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
 // ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.

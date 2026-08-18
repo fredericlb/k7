@@ -1,4 +1,4 @@
-﻿// api.ts — one server now: st0's own backend, same-origin. The catalogue lives
+// api.ts — one server now: st0's own backend, same-origin. The catalogue lives
 // there, so browsing it needs no engine and no local service. The LOCAL cache is what the
 // moteur plays from, and nothing on this screen reads it.
 
@@ -309,9 +309,11 @@ export const engineMachine = {
    * Le couple format + identifiant, jamais le nom seul : `id` est le chemin du binaire, et deux
    * greffons peuvent porter le même nom d'affichage.
    *
-   * `null` veut dire « on ne peut pas savoir » — moteur éteint, origine non autorisée. Un
-   * tableau VIDE est une vraie réponse, et l'appelant doit pouvoir les distinguer : il écrit un
-   * panneau à partir de ce qui revient.
+   * TROIS issues, et les aplatir serait mentir à quelqu'un. `null` = on ne peut pas savoir
+   * (moteur éteint, origine non autorisée) ; `found: false` = la machine n'arrive pas à charger
+   * ce greffon ; `found: true, params: []` = il se charge et ne déclare aucun paramètre à son
+   * hôte — ce qui est ordinaire, fréquent, et n'est pas une panne. Seule la deuxième mérite
+   * qu'on aille voir quelque chose.
    */
   pluginParams: async (
     fileBase: string,
@@ -319,18 +321,18 @@ export const engineMachine = {
     format: string,
     id: string,
     signal?: AbortSignal,
-  ): Promise<BuiltinParam[] | null> => {
+  ): Promise<{ found: boolean; params: BuiltinParam[] } | null> => {
     try {
       const res = await fetch(
         `${fileBase}/plugin-params?format=${encodeURIComponent(format)}&id=${encodeURIComponent(id)}`,
         { headers: machineHeaders(token), signal },
       );
       if (!res.ok) return null;
-      const { params } = await json<{ params?: BuiltinParam[] }>(
+      const body = await json<{ found?: boolean; params?: BuiltinParam[] }>(
         res,
         "plugin-params",
       );
-      return params ?? [];
+      return { found: body.found !== false, params: body.params ?? [] };
     } catch {
       return null; // moteur injoignable, ou requête abandonnée
     }

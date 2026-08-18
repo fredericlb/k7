@@ -399,6 +399,21 @@ export interface PluginParamListingClient {
 interface PluginParamFrame {
   format: string;
   id: string;
+  /** Whether the machine could LOAD it — see `PluginParamAnswer.found`. */
+  found?: boolean;
+  params: PluginParamInfo[];
+}
+
+/**
+ * What one plugin answered: whether it loaded, and what it then declared.
+ *
+ * THREE outcomes, not two, and flattening them is what made this shape necessary. `undefined`
+ * from the wait below is "the engine never answered"; `found: false` is "it answered, and this
+ * machine cannot load that plugin"; `found: true, params: []` is "it loaded and declares nothing
+ * to a host" — which is ordinary, common, and not a fault to report as one.
+ */
+export interface PluginParamAnswer {
+  found: boolean;
   params: PluginParamInfo[];
 }
 
@@ -411,25 +426,26 @@ interface PluginParamFrame {
  * from it would carry the wrong plugin's knobs, silently, which is the one failure mode a
  * generated panel must not have.
  *
- * An empty array is a real answer: the plugin was found and has no parameters, or it could not
- * be created at all. The engine prints which on its own log; the caller reports the same thing
- * either way.
+ * An empty list is a real answer and arrives with `found: true`. `undefined` is reserved for
+ * silence — see `PluginParamAnswer` for why the three are kept apart.
  */
 export function awaitPluginParams(
   c: PluginParamListingClient,
   format: string,
   id: string,
   timeoutMs: number = PLUGIN_PARAMS_TIMEOUT_MS,
-): Promise<PluginParamInfo[] | undefined> {
+): Promise<PluginParamAnswer | undefined> {
   return new Promise((res) => {
-    const done = (v?: PluginParamInfo[]): void => {
+    const done = (v?: PluginParamAnswer): void => {
       clearTimeout(timer);
       c.off("pluginParamList", onList);
       res(v);
     };
     const onList = (p: PluginParamFrame): void => {
       if (p.id !== id) return; // another surface's question, not the answer to this one
-      done(p.params);
+      // An engine too old to send the flag loaded SOMETHING to answer at all, so absent reads
+      // as true — the same default the client applies.
+      done({ found: p.found !== false, params: p.params });
     };
     const timer = setTimeout(() => done(undefined), timeoutMs);
     c.on("pluginParamList", onList);
@@ -448,7 +464,7 @@ export function awaitPluginParams(
 export async function pluginParams(
   format: string,
   id: string,
-): Promise<PluginParamInfo[] | undefined> {
+): Promise<PluginParamAnswer | undefined> {
   const c = ensureEngine(null);
   // No `isReady` check, unlike the arm and the session listing. Those are asked mid-session on a
   // link something else already opened; this is the FIRST thing to want the bare session on many

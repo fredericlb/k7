@@ -313,6 +313,10 @@ app.get(
  * A 503 rather than an empty list when the engine cannot be reached or does not answer. The
  * caller writes a panel from what comes back, and an empty one is a REAL answer — a plugin with
  * no automatable parameters — so the two must not arrive spelt the same way.
+ *
+ * `found` rides back for the same reason one notch down: a plugin this machine cannot LOAD and
+ * one that loads and declares nothing are both an empty list, and only the first is worth
+ * telling somebody about.
  */
 app.get(
   "/plugin-params",
@@ -323,14 +327,14 @@ app.get(
       res.status(400).json({ error: "format and id are required" });
       return;
     }
-    const params = await pluginParams(format, id);
-    if (params === undefined) {
+    const answer = await pluginParams(format, id);
+    if (answer === undefined) {
       res
         .status(503)
         .json({ error: "the engine did not answer — is it running?" });
       return;
     }
-    res.json({ params });
+    res.json(answer);
   }),
 );
 
