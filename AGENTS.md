@@ -68,6 +68,14 @@ They are named `@studio/*` rather than `@l8/*` because l8 is only one of
 their consumers: `apps/st0` drives them too, and z0's moteur-backed player is
 behind the seam `@studio/player-web` already had.
 
+**In production the four apps above are ONE image**, `apps/studio/docker/` — st0 at the
+origin root, l8, k7 and z0 under their prefixes, four backends beside one nginx that owns
+the path routing. Same shape as phare's monolith, and for the same reason: they already
+shared a hostname, a session cookie and st0's prefixless `/auth/*`, so four images only
+meant the edge held a path table that belongs next to the apps. `engine/moteur` and
+`engine/capot` are not in it and never will be — they run on the musician's machine.
+`docs/versioning.md` is the page, including what one container costs.
+
 Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 [dev.md](docs/dev.md) (what `npm run dev` starts), [versioning.md](docs/versioning.md),
 and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md) and

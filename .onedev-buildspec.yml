@@ -35,7 +35,7 @@ jobs:
   maxRetries: 3
   retryDelay: 30
   timeout: 3600
-- name: build and publish k7 image
+- name: build and publish studio image
   steps:
   - type: CheckoutStep
     name: checkout
@@ -53,7 +53,7 @@ jobs:
     interpreter:
       type: DefaultInterpreter
       commands: |
-        # YY.MMDDHHmm in Europe/Paris — becomes the image tag and the stamp the
+        # YY.MMDDHHmm in Europe/Paris — becomes the image tag and the stamp every
         # SPA header shows. Falls back to UTC if the image lacks timezone data.
         node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version
     runAs: 1000:1000
@@ -68,163 +68,10 @@ jobs:
   - type: BuildImageStep
     name: build and push image
     buildPath: .
-    dockerfile: apps/k7/docker/Dockerfile
+    dockerfile: apps/studio/docker/Dockerfile
     output:
       type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/k7:latest dev.frediver.se/frediverse/studio/k7:@commit_hash@ dev.frediver.se/frediverse/studio/k7:@build_version@
-    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
-    condition: SUCCESSFUL
-    optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: master
-    userMatch: anyone
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 3600
-- name: build and publish z0 image
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: compute build version
-    runInContainer: true
-    image: node:22-alpine
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        # YY.MMDDHHmm in Europe/Paris — becomes the image tag and the stamp the
-        # SPA header shows. Falls back to UTC if the image lacks timezone data.
-        node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version
-    runAs: 1000:1000
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetBuildVersionStep
-    name: set build version
-    buildVersion: '@file:build_version@'
-    condition: SUCCESSFUL
-    optional: false
-  - type: BuildImageStep
-    name: build and push image
-    buildPath: .
-    dockerfile: apps/z0/docker/Dockerfile
-    output:
-      type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/z0:latest dev.frediver.se/frediverse/studio/z0:@commit_hash@ dev.frediver.se/frediverse/studio/z0:@build_version@
-    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
-    condition: SUCCESSFUL
-    optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: master
-    userMatch: anyone
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 3600
-- name: build and publish l8 image
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: compute build version
-    runInContainer: true
-    image: node:22-alpine
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        # YY.MMDDHHmm in Europe/Paris — becomes the image tag and the stamp the
-        # SPA header shows. Falls back to UTC if the image lacks timezone data.
-        node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version
-    runAs: 1000:1000
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetBuildVersionStep
-    name: set build version
-    buildVersion: '@file:build_version@'
-    condition: SUCCESSFUL
-    optional: false
-  - type: BuildImageStep
-    name: build and push image
-    buildPath: .
-    dockerfile: apps/l8/docker/Dockerfile
-    output:
-      type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/l8:latest dev.frediver.se/frediverse/studio/l8:@commit_hash@ dev.frediver.se/frediverse/studio/l8:@build_version@
-    moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
-    condition: SUCCESSFUL
-    optional: false
-  triggers:
-  - type: BranchUpdateTrigger
-    branches: master
-    userMatch: anyone
-  jobDependencies:
-  - jobName: lint and test
-    requireSuccessful: true
-  retryCondition: never
-  maxRetries: 3
-  retryDelay: 30
-  timeout: 3600
-- name: build and publish st0 image
-  steps:
-  - type: CheckoutStep
-    name: checkout
-    cloneCredential:
-      type: HttpCredential
-      accessTokenSecret: submodule-token
-    withLfs: false
-    withSubmodules: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: CommandStep
-    name: compute build version
-    runInContainer: true
-    image: node:22-alpine
-    interpreter:
-      type: DefaultInterpreter
-      commands: |
-        # YY.MMDDHHmm in Europe/Paris — becomes the image tag and the stamp the
-        # SPA header shows. Falls back to UTC if the image lacks timezone data.
-        node -e "const f=t=>new Date().toLocaleString('sv-SE',{timeZone:t});let d;try{d=f('Europe/Paris')}catch{d=f('UTC')}process.stdout.write(d.slice(2,4)+'.'+d.slice(5,7)+d.slice(8,10)+d.slice(11,13)+d.slice(14,16))" > build_version
-    runAs: 1000:1000
-    useTTY: true
-    condition: SUCCESSFUL
-    optional: false
-  - type: SetBuildVersionStep
-    name: set build version
-    buildVersion: '@file:build_version@'
-    condition: SUCCESSFUL
-    optional: false
-  - type: BuildImageStep
-    name: build and push image
-    buildPath: .
-    dockerfile: apps/st0/docker/Dockerfile
-    output:
-      type: RegistryOutput
-      tags: dev.frediver.se/frediverse/studio/st0:latest dev.frediver.se/frediverse/studio/st0:@commit_hash@ dev.frediver.se/frediverse/studio/st0:@build_version@
+      tags: dev.frediver.se/frediverse/studio/studio:latest dev.frediver.se/frediverse/studio/studio:@commit_hash@ dev.frediver.se/frediverse/studio/studio:@build_version@
     moreOptions: --build-arg BASE_IMAGE=dev.frediver.se/frediverse/base:latest --build-arg APP_VERSION=@build_version@
     condition: SUCCESSFUL
     optional: false
