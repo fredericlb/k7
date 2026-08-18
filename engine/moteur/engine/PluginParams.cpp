@@ -7,6 +7,9 @@
 #include <cmath>
 #include <iostream>
 #include <map>
+#include <set>
+#include <string>
+#include <utility>
 
 namespace studio {
 
@@ -26,16 +29,28 @@ std::vector<std::pair<juce::String, te::AutomatableParameter*>> namedParams(te::
 
 namespace {
 
-// --- built-ins that register no automatable parameters ------------------------
+// --- built-in controls that are NOT automatable parameters --------------------
 //
-// Chorus and Phaser keep their controls as CachedValue members bound to ValueTree properties rather than calling
-// addParam(), and nothing enumerates those — so without this table the engine reports them as having no
-// parameters at all. The defaults come from each constructor and are exact; the RANGES are ours, read off how
-// applyToBuffer() consumes the value and advisory only. See docs/builtinParams.md.
+// Several Tracktion built-ins keep controls as CachedValue members bound to ValueTree properties rather than
+// calling addParam(), and nothing enumerates those — so without this table the engine cannot report them. The
+// defaults come from each constructor and are exact; the RANGES are ours, read off how the value is consumed
+// and advisory only. See docs/builtinParams.md.
+//
+// It is a SUPPLEMENT, not a fallback. Chorus and Phaser register nothing at all, which is how it started; 4OSC
+// registers 68 and still keeps its wave shapes here, so a plugin with both kinds has to report both. Reporting
+// only the automatable half was a synth whose oscillators could be tuned and not chosen.
 struct StateParam {
-    const char* property;  // the ValueTree property the CachedValue is bound to
-    const char* name;      // display name, the key l8 addresses it by
+    // OWNED strings, not literals. 4OSC's are built per oscillator — "waveShape1".."waveShape4" — so they
+    // cannot be literals, and a `const char*` into a vector of std::string dangles the moment that vector
+    // grows past its reserve. It did: the four wave shapes silently vanished from the dump while the
+    // hand-written entries beside them survived, which is what a reallocation looks like from outside.
+    std::string property;  // the ValueTree property the CachedValue is bound to
+    std::string name;      // display name, the key l8 addresses it by
     double min, max, def;
+    // A DISCRETE control's settings in order, empty for a continuous one. Only where the plugin's own header
+    // NAMES them: an int whose meanings are not written down anywhere gets a range and no labels, because a
+    // guessed label is worse than a number — it reads as knowledge.
+    std::vector<std::pair<const char*, double>> states{};
 };
 
 struct StateParamSet {
@@ -43,19 +58,73 @@ struct StateParamSet {
     std::vector<StateParam> params;
 };
 
+// FourOscPlugin::WaveShape, in its own order. `none` is a real setting — it is how an oscillator is switched off.
+const std::vector<std::pair<const char*, double>>& waveShapes() {
+    static const std::vector<std::pair<const char*, double>> v{
+        {"None", 0}, {"Sine", 1}, {"Triangle", 2}, {"Saw up", 3},
+        {"Saw down", 4}, {"Square", 5}, {"Random", 6}};
+    return v;
+}
+
 const std::vector<StateParamSet>& stateParamTable() {
-    static const std::vector<StateParamSet> table{
-        {"chorus",
-         {{"depthMs", "Depth", 0.0, 20.0, 3.0},
-          {"speedHz", "Speed", 0.0, 10.0, 1.0},
-          {"width", "Width", 0.0, 1.0, 0.5},
-          {"mixProportion", "Mix", 0.0, 1.0, 0.5}}},
-        {"phaser",
-         {{"depth", "Depth", 0.0, 10.0, 5.0},
-          {"rate", "Rate", 0.0, 10.0, 0.4},
-          {"feedback", "Feedback", 0.0, 1.0, 0.7}}},
-    };
+    static const std::vector<StateParamSet> table = [] {
+        std::vector<StateParamSet> t{
+            {"chorus",
+             {{"depthMs", "Depth", 0.0, 20.0, 3.0},
+              {"speedHz", "Speed", 0.0, 10.0, 1.0},
+              {"width", "Width", 0.0, 1.0, 0.5},
+              {"mixProportion", "Mix", 0.0, 1.0, 0.5}}},
+            {"phaser",
+             {{"depth", "Depth", 0.0, 10.0, 5.0},
+              {"rate", "Rate", 0.0, 10.0, 0.4},
+              {"feedback", "Feedback", 0.0, 1.0, 0.7}}},
+        };
+
+        // 4OSC. The names mirror its automatable ones — "Wave Shape 1" beside "Tune 1" — because they sit in one
+        // list on screen and a widget binds by name. The per-oscillator properties are `<id><n>`, which is what
+        // `oscID` builds; the defaults are each `referTo`'s, and oscillator ONE starts on a sine while the other
+        // three start at none, which is exactly what makes a fresh 4OSC a single sine.
+        std::vector<StateParam> four;
+        for (int n = 1; n <= 4; ++n) {
+            const auto s = std::to_string(n);
+            four.push_back({"waveShape" + s, "Wave Shape " + s, 0.0, 6.0,
+                            n == 1 ? 1.0 : 0.0, waveShapes()});
+            four.push_back({"voices" + s, "Voices " + s, 1.0, 8.0, 1.0});
+        }
+        for (int n = 1; n <= 2; ++n) {
+            const auto s = std::to_string(n);
+            four.push_back({"lfoWaveShape" + s, "LFO Shape " + s, 0.0, 6.0,
+                            n == 1 ? 1.0 : 0.0, waveShapes()});
+        }
+        // No labels on these three: `filterType`, `filterSlope` and `voiceMode` are plain ints in the header
+        // with no enum naming their values. A range lets you set one; an invented label would claim to know
+        // which is which. Slope's default of 12 says its unit is dB/octave, and that is as far as the source goes.
+        four.push_back({"filterType", "Filter Type", 0.0, 5.0, 0.0});
+        four.push_back({"filterSlope", "Filter Slope", 12.0, 24.0, 12.0});
+        four.push_back({"voiceMode", "Voice Mode", 0.0, 2.0, 2.0});
+        four.push_back({"voices", "Voices", 1.0, 32.0, 32.0});
+        four.push_back({"ampAnalog", "Amp Analog", 0.0, 1.0, 1.0});
+        // The four built-in effects' ON switches. Their depth/mix knobs ARE automatable and already listed, and
+        // a knob that does nothing because the effect is off is the worst version of this list being incomplete.
+        four.push_back({"distortionOn", "Distortion On", 0.0, 1.0, 0.0});
+        four.push_back({"reverbOn", "Reverb On", 0.0, 1.0, 0.0});
+        four.push_back({"delayOn", "Delay On", 0.0, 1.0, 0.0});
+        four.push_back({"chorusOn", "Chorus On", 0.0, 1.0, 0.0});
+        // The delay TIME, whose three companions (feedback, crossfeed, mix) are automatable and this is not.
+        four.push_back({"delay", "Delay", 0.0, 4.0, 1.0});
+        t.push_back({"4osc", std::move(four)});
+        return t;
+    }();
     return table;
+}
+
+/** A state param's settings in the shape a ParamRef carries them — `const char*` labels become juce::Strings. */
+std::vector<std::pair<juce::String, double>> states(const StateParam& sp) {
+    std::vector<std::pair<juce::String, double>> out;
+    out.reserve(sp.states.size());
+    for (const auto& [label, value] : sp.states)
+        out.emplace_back(juce::String(label), value);
+    return out;
 }
 
 const std::vector<StateParam>* stateParamsFor(te::Plugin& plugin) {
@@ -234,21 +303,26 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
         for (auto& extra : nonAutomatableParams(plugin, seen, withStates))
             out.push_back(std::move(extra));
     }
-    if (!out.empty())
-        return out;
-
-    // No registered parameters — fall back to this plugin type's authored property set. A read takes the authored
+    // …then this plugin type's authored property set. APPENDED, not a fallback: 4OSC registers 68 automatable
+    // parameters and still keeps its wave shapes on the ValueTree, so a plugin with both kinds must report both.
+    // Guarded by name, so an entry that duplicates a registered one never shadows it. A read takes the authored
     // default when the property is absent, exactly as the plugin's own CachedValue::referTo does, so an untouched
     // plugin reports its real resting state rather than 0.
     const auto* sps = stateParamsFor(plugin);
     if (sps == nullptr)
         return out;
+    std::set<juce::String> already;
+    for (const auto& p : out)
+        already.insert(p.name);
     for (const auto& sp : *sps) {
-        const juce::Identifier id{sp.property};
+        const juce::String name{sp.name};
+        if (already.count(name) != 0)
+            continue;
+        const juce::Identifier id{juce::String(sp.property)};
         auto* state = &plugin.state;
         // Written with no UndoManager on purpose: these arrive from a knob drag at interactive rates, and one undo step
         // per frame would be useless and unbounded. The plugins re-read the value every block, so it takes effect.
-        out.push_back({sp.name,
+        out.push_back({name,
                        [state, id, def = sp.def] { return (double)state->getProperty(id, def); },
                        [state, id, lo = sp.min, hi = sp.max](double v) {
                            // Clamped, unlike an AutomatableParameter write: this goes straight into a real-time buffer calculation (a
@@ -257,7 +331,11 @@ std::vector<ParamRef> pluginParams(te::Plugin& plugin, bool withStates) {
                        },
                        sp.def,
                        sp.min,
-                       sp.max});
+                       sp.max,
+                       // The settings, when the plugin's header names them — what makes a wave shape a
+                       // dropdown rather than a knob sweeping 0..6 through six things with no order.
+                       // Under `withStates` like every other source of them, so the 20 Hz path stays free.
+                       withStates ? states(sp) : std::vector<std::pair<juce::String, double>>{}});
     }
     return out;
 }

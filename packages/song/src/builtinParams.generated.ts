@@ -5,11 +5,12 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/moteur/docs/builtinParams.md.
 //
-// 26 plugins, 130 parameters.
+// 26 plugins, 150 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
-/** Keyed by xmlTypeName — what a module's `plugin.name` should say, and what createNewPlugin takes. */
+/** Keyed by xmlTypeName, which is what `createNewPlugin` takes. A module may name a built-in by this OR by
+ *  its display name — `builtinPluginFor` accepts both, exactly as the engine's `resolveBuiltInType` does. */
 export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
   "4osc": {
     name: "4OSC",
@@ -113,6 +114,110 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
       { name: "Mix #3", min: 0, max: 1, def: 0 },
       { name: "Legato", min: 0, max: 500, def: 0 },
       { name: "Level", min: -100, max: 0, def: 0 },
+      {
+        name: "Wave Shape 1",
+        min: 0,
+        max: 6,
+        def: 1,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      { name: "Voices 1", min: 1, max: 8, def: 1 },
+      {
+        name: "Wave Shape 2",
+        min: 0,
+        max: 6,
+        def: 0,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      { name: "Voices 2", min: 1, max: 8, def: 1 },
+      {
+        name: "Wave Shape 3",
+        min: 0,
+        max: 6,
+        def: 0,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      { name: "Voices 3", min: 1, max: 8, def: 1 },
+      {
+        name: "Wave Shape 4",
+        min: 0,
+        max: 6,
+        def: 0,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      { name: "Voices 4", min: 1, max: 8, def: 1 },
+      {
+        name: "LFO Shape 1",
+        min: 0,
+        max: 6,
+        def: 1,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      {
+        name: "LFO Shape 2",
+        min: 0,
+        max: 6,
+        def: 0,
+        states: [
+          { label: "None", value: 0 },
+          { label: "Sine", value: 1 },
+          { label: "Triangle", value: 2 },
+          { label: "Saw up", value: 3 },
+          { label: "Saw down", value: 4 },
+          { label: "Square", value: 5 },
+          { label: "Random", value: 6 },
+        ],
+      },
+      { name: "Filter Type", min: 0, max: 5, def: 0 },
+      { name: "Filter Slope", min: 12, max: 24, def: 12 },
+      { name: "Voice Mode", min: 0, max: 2, def: 2 },
+      { name: "Voices", min: 1, max: 32, def: 32 },
+      { name: "Amp Analog", min: 0, max: 1, def: 1 },
+      { name: "Distortion On", min: 0, max: 1, def: 0 },
+      { name: "Reverb On", min: 0, max: 1, def: 0 },
+      { name: "Delay On", min: 0, max: 1, def: 0 },
+      { name: "Chorus On", min: 0, max: 1, def: 0 },
+      { name: "Delay", min: 0, max: 4, def: 1 },
     ],
   },
   sampler: {

@@ -92,6 +92,62 @@ describe("the generated built-in table", () => {
   });
 
   /**
+   * A wave shape is not an automatable parameter — it is a `CachedValue<int>` on the ValueTree, like
+   * Chorus's whole control set. The state table used to be a FALLBACK, reached only when a plugin
+   * registered nothing at all, so 4OSC's 68 automatable params hid it: a synth whose oscillators could
+   * be tuned and not chosen. It is a supplement now.
+   */
+  it("carries a control that is NOT an automatable parameter, beside ones that are", () => {
+    const p = builtinParamsFor({ type: "internal", name: "4OSC" });
+    const names = p?.map((x) => x.name) ?? [];
+    for (const n of [1, 2, 3, 4]) expect(names).toContain(`Wave Shape ${n}`);
+    // …and the automatable ones are still all there. Appended, never shadowing.
+    expect(names).toContain("Tune 1");
+    expect(names.length).toBeGreaterThan(80);
+  });
+
+  it("gives a wave shape its SETTINGS, so it draws as a list and not a sweep", () => {
+    // Six shapes in an order nobody would guess from a 0..6 knob, and `None` is a real one — it is
+    // how an oscillator is switched off. The VALUE rides with each label because the mapping is the
+    // plugin's, not index/(n-1).
+    const shape = builtinParamsFor({ type: "internal", name: "4OSC" })?.find(
+      (x) => x.name === "Wave Shape 1",
+    );
+    expect(shape?.states?.map((s) => s.label)).toEqual([
+      "None",
+      "Sine",
+      "Triangle",
+      "Saw up",
+      "Saw down",
+      "Square",
+      "Random",
+    ]);
+    expect(shape?.states?.find((s) => s.label === "Sine")?.value).toBe(1);
+    // Oscillator one starts on a sine and the other three at none — which is what makes a fresh
+    // 4OSC one sine rather than four stacked.
+    expect(shape?.def).toBe(1);
+    expect(
+      builtinParamsFor({ type: "internal", name: "4OSC" })?.find(
+        (x) => x.name === "Wave Shape 2",
+      )?.def,
+    ).toBe(0);
+  });
+
+  it("still reports the plugins that register NOTHING but state", () => {
+    // The case the table was built for. A supplement must not have cost them anything.
+    expect(
+      builtinParamsFor({ type: "internal", name: "chorus" })?.map(
+        (x) => x.name,
+      ),
+    ).toEqual(["Depth", "Speed", "Width", "Mix"]);
+    expect(
+      builtinParamsFor({ type: "internal", name: "phaser" })?.map(
+        (x) => x.name,
+      ),
+    ).toEqual(["Depth", "Rate", "Feedback"]);
+  });
+
+  /**
    * The file the report was actually about, verbatim from
    * `_libraries/modules/instruments/4osc/module.yaml`. It declares no plugin — the whole file is
    * one `extends:` — so reading only a `plugin:` block found nothing and the list stayed empty

@@ -33,7 +33,7 @@ The script instantiates every entry of `builtInPlugins()` — the same list
 committed**, so nothing in the build depends on a C++ binary; re-run it after bumping Tracktion
 or adding a built-in.
 
-Today: **26 plugins, 130 parameters**.
+Today: **26 plugins, 150 parameters** — 88 of them 4OSC's.
 
 `withStates` is on, unlike the hot path: a discrete parameter's named settings are what make a
 dropdown instead of a slider, and collecting them costs one pass here rather than one per state
@@ -45,13 +45,38 @@ internal id (`chorus`, `studio_mixer`), case-insensitively — because that is e
 engine's `resolveBuiltInType` does in `EditBuilder.cpp`. The two disagreeing would be the worst
 available shape: a module that plays perfectly and shows an empty parameter list.
 
-## The built-ins that register nothing at all
+## Controls that are not automatable parameters — and the table is a SUPPLEMENT
 
 Chorus and Phaser keep their controls as `juce::CachedValue<float>` members bound to ValueTree
 properties (`depthMs.referTo (state, IDs::depthMs, um, 3.0f)`) instead of calling `addParam()`.
 Nothing enumerates those, so the engine carries their metadata by hand in `PluginParams.cpp`'s
-`stateParamTable()` — and `pluginParams()` falls back to it when the automatable walk comes up
-empty. The generator therefore picks them up too, without knowing they are special.
+`stateParamTable()`.
+
+That table used to be reached **only when the automatable walk came up empty**, which was right
+for the two plugins it was written for and wrong the moment a plugin had both kinds. 4OSC has
+both: 68 registered parameters, and its **wave shapes** on the ValueTree — so its 68 hid them, and
+it read as a synth whose oscillators could be tuned but not chosen.
+
+It is appended now, guarded by name so an entry can never shadow a registered one. 4OSC's 20 state
+controls are in it:
+
+| what | why it is here |
+|---|---|
+| `Wave Shape 1..4`, `LFO Shape 1..2` | `CachedValue<int>`, and the only ones whose settings the header NAMES |
+| `Voices 1..4`, `Voices`, `Voice Mode` | ints with no automatable twin |
+| `Filter Type`, `Filter Slope` | the same, and see below |
+| `Amp Analog` | a bool |
+| `Distortion/Reverb/Delay/Chorus On` | the four built-in effects' switches — their depth and mix knobs ARE automatable, and a knob doing nothing because the effect is off is the worst version of an incomplete list |
+| `Delay` | the delay TIME, whose three companions are automatable and it is not |
+
+**Named settings only where the plugin names them.** `FourOscPlugin::WaveShape` is an enum in the
+header — `none, sine, triangle, sawUp, sawDown, square, random` — so a wave shape carries those
+seven labels with the value that selects each, and draws as a list. `filterType`, `filterSlope`
+and `voiceMode` are plain ints with no enum anywhere: they get a range and no labels, because an
+invented label is worse than a number — it reads as knowledge. Slope's default of 12 says its unit
+is dB/octave, and that is as far as the source goes.
+
+The generator picks all of this up without knowing any of it is special.
 
 The **defaults** in that table are copied from each plugin's constructor and are exact. The
 **ranges** are ours: the plugin never publishes one, so they are read off how `applyToBuffer()`
