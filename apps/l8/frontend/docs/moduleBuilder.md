@@ -46,9 +46,39 @@ knobs that move the real thing (the params store and the setter go in **together
 that moves without changing anything is worse than one that does not move). The subscription is
 paired with the overlay, so closing it stops the feed.
 
-Not found: the builder is exactly what it has always been here — the text, the grid and the
-module's own preset shelf. That is an ordinary state and not an error. Every binding is typed
-rather than picked, which is what editing a module the project does not use has always been.
+Not found: the text, the grid, the module's own preset shelf — and, since the built-in table
+below, **still a parameter list for a built-in**. That is an ordinary state and not an error.
+
+## …except for a built-in, which is knowable without any of that
+
+The paragraph above was the whole story, and it was wrong about the case that matters most.
+
+A module in the LIBRARIES repository — `_libraries/modules/instruments/4osc/module.yaml`, which
+is where a shared module is authored — is not a base of the open song, is not instantiated by it,
+and the builder overlay holds no engine link. So every source was empty and the bind dropdown
+with them: 4OSC, 68 parameters, none of them offerable. l8 passes `paramRef={null}` when it opens
+a module from the file tree, so `paramsByBase` was not even consulted.
+
+The fourth source needs no project at all. The file says which plugin it is —
+
+```yaml
+plugin:
+  type: internal
+  name: 4OSC
+```
+
+— and `@studio/song`'s `builtinParamsFor` says what that plugin has, out of a table **generated
+from a real instance of every built-in the engine can create** (`engine/moteur/docs/builtinParams.md`).
+Names and ranges both, which matters: a widget bound with no range is drawn 0..1, and on a
+`-36..+36` semitone knob that is not a cosmetic problem — it writes the wrong number into the file.
+
+It is deliberately shallow. A module that only `extends` another states no plugin of its own, and
+inheriting one would mean resolving a ref this component cannot resolve; that module still has the
+two learned sources and the live engine's report. An EXTERNAL plugin is unaffected either way —
+its parameters are its own and only a loaded instance can list them.
+
+Order, when several answer: the **loaded plugin** first (it is the instance this module actually
+is), then what the module declares, then the base's, then the io table.
 
 **The rule this puts on a chain.** Wire the module you want to work on, by the name a chain
 gives it. For a shared module that is usually already true — you are editing it because this
@@ -81,6 +111,9 @@ The suites here mount nothing, so none of this is covered by a green run:
   its factory presets are populated;
 - drag one of those parameters onto a widget → the widget adopts the plugin's real range;
 - turn a knob in the builder's card → the value moves in the graph too, and the sound changes;
-- open the builder on a module the project does NOT instantiate → an empty parameter list, and
-  everything else still editable;
+- open the builder on a module the project does NOT instantiate, declaring an EXTERNAL plugin →
+  an empty parameter list, and everything else still editable;
+- open `_libraries/modules/instruments/4osc/module.yaml` from the Libraries tab, with no project
+  using it and no engine → the bind dropdown lists 4OSC's parameters, `Tune 1` offers -36..+36,
+  and dragging one onto a knob gives it that range rather than 0..1;
 - close the builder, then watch the engine log → no subscription left behind.

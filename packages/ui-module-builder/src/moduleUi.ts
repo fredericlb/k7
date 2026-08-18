@@ -254,6 +254,27 @@ export function writeUiFile(text: string, ui: ModuleUI): string {
 }
 
 /**
+ * The `plugin:` block a module declares, or null — `{ type: "internal", name: "4OSC" }`.
+ *
+ * Read off the FILE rather than resolved through the project, which is the whole point: a module in the
+ * libraries repository is not a base of the open song, so nothing in `paramsByBase` describes it, and the
+ * builder had no way to learn what plugin it is. The file says so in two words.
+ *
+ * Shallow on purpose — a module that only `extends` another states no plugin here, and inheriting one would
+ * mean resolving a ref this component cannot resolve. That case still has the two learned sources and the
+ * live engine's report; this is for the one they all miss.
+ */
+export function readPlugin(
+  fileText: string,
+): { type: string; name: string } | null {
+  const raw = (docOf(fileText)?.toJS() as { plugin?: unknown } | null)?.plugin;
+  const p = raw as { type?: unknown; name?: unknown } | null | undefined;
+  if (!p || typeof p !== "object") return null;
+  if (typeof p.type !== "string" || typeof p.name !== "string") return null;
+  return { type: p.type, name: p.name };
+}
+
+/**
  * A module's `io:` direction ("in" / "out" / …), or null when it is an ordinary plugin module. What an
  * INPUT can be bound to differs from what a plugin can (see IO_IN_BINDS), and only an input has a socket
  * to point at (see InputChannelBar).

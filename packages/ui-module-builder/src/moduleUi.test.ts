@@ -6,6 +6,7 @@ import {
   hasParsableUi,
   ioOf,
   readParams,
+  readPlugin,
   readUi,
   setChannelIn,
   writeUi,
@@ -71,6 +72,40 @@ describe("reading", () => {
   it("reads the extends ref, and nothing when there is none", () => {
     expect(extendsRefOf(MODULE)).toBe("instruments/fourosc");
     expect(extendsRefOf("plugin:\n  name: 4osc\n")).toBe(null);
+  });
+});
+
+/**
+ * The `plugin:` block, which is how a module in a LIBRARY gets a parameter list at all.
+ *
+ * `_libraries/modules/instruments/4osc/module.yaml` is not a base of the open song, is not
+ * instantiated, and the builder overlay holds no engine link — so every other source is empty and
+ * the bind dropdown was too. The file states which plugin it is; that is the one thing available.
+ */
+describe("the plugin a module declares", () => {
+  it("reads the two words the built-in table is keyed on", () => {
+    expect(readPlugin("plugin:\n  type: internal\n  name: 4osc\n")).toEqual({
+      type: "internal",
+      name: "4osc",
+    });
+    expect(readPlugin('plugin:\n  type: vst3\n  name: "Serum"\n')).toEqual({
+      type: "vst3",
+      name: "Serum",
+    });
+  });
+
+  it("is null for a module that only EXTENDS one", () => {
+    // Deliberately shallow: inheriting the plugin means resolving a ref this component cannot
+    // resolve. That module still has the two learned sources and the live engine's report.
+    expect(readPlugin(MODULE)).toBe(null);
+  });
+
+  it("is null rather than throwing on a half-written or partial block", () => {
+    // Completion on a file being typed is exactly when this runs.
+    expect(readPlugin("plugin: [unclosed\n")).toBe(null);
+    expect(readPlugin("plugin:\n  type: internal\n")).toBe(null); // no name yet
+    expect(readPlugin("plugin: 4osc\n")).toBe(null); // a scalar, not the block
+    expect(readPlugin("")).toBe(null);
   });
 });
 

@@ -16,6 +16,7 @@ import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
+import { builtinParamsFor } from "@studio/song/builtinParams";
 import { FILE_PARAMS } from "@studio/song/moduleTypes";
 import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type {
@@ -52,6 +53,7 @@ import {
   ioOf,
   type ModuleUI,
   readParams,
+  readPlugin,
   readPresetsFile,
   readUiFile,
   setChannelIn,
@@ -564,12 +566,28 @@ export function ModuleBuilder({
   // better when there is one — it comes from the loaded plugin — so this only fills what that has not.
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
+  /**
+   * …and the module's OWN `plugin:` block, looked up in the built-in table.
+   *
+   * The source that needed no project. `paramsByBase` is keyed by a base ref of the OPEN song, and l8 hands
+   * this component `paramRef={null}` when it opens a module from the file tree — so a module in the
+   * libraries repository had nothing at all: not a base of this project, not instantiated, no engine behind
+   * the overlay. That is `_libraries/modules/instruments/4osc/module.yaml`, and it is where a shared module
+   * is authored, which makes it the case that mattered most.
+   *
+   * The file says which plugin it is in two words, and the table says what that plugin has.
+   */
+  const declared = useMemo(
+    () => (content == null ? undefined : builtinParamsFor(readPlugin(content))),
+    [content],
+  );
+
   // What KIND of module this is — an input, an output, or an ordinary plugin. Two things turn on it:
   // what the params list can offer, and whether there is a socket to point the module at.
   // The PATH goes in too: a module under `io/IN/` states nothing about itself and is still an input.
   const io = content == null ? null : ioOf(content, path);
 
-  // Every addressable param, unioned from all three sources — none of them is complete on its own.
+  // Every addressable param, unioned from all FOUR sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
     const bound = new Set(
@@ -583,12 +601,21 @@ export function ModuleBuilder({
       ...Object.keys(set),
       ...(pluginParamNames ?? []),
       ...params,
+      ...(declared ?? []).map((p) => p.name),
       // Track intrinsics belong here too: this list is the only place a binding can be picked up from.
       ...TRACK_BINDS,
       ...ioBinds.map((b) => b.name),
     ]);
     // The io binds bring their OWN ranges — there is no plugin to have reported any.
     const ioMeta = Object.fromEntries(ioBinds.map((b) => [b.name, b.meta]));
+    // …and the declared built-in's, which is the only range a module in a LIBRARY has: nothing there is
+    // instantiated, so no live report will ever arrive to fill it in.
+    const declaredMeta = Object.fromEntries(
+      (declared ?? []).map((p) => [
+        p.name,
+        { min: p.min, max: p.max, def: p.def },
+      ]),
+    );
     return [...names]
       .sort((a, b) => a.localeCompare(b))
       .map((name) => ({
@@ -596,9 +623,24 @@ export function ModuleBuilder({
         // The authored value lives at the file's TOP level for an io setting, not under `params:`.
         value: set[name] ?? authoredIoValue(content, name),
         bound: bound.has(name),
-        meta: pluginParamMeta?.[name] ?? baseMeta[name] ?? ioMeta[name],
+        // Most specific first: the LOADED plugin, then what this module declares, then the base's, then
+        // the io table. A live report wins because it came from the instance this module actually is.
+        meta:
+          pluginParamMeta?.[name] ??
+          declaredMeta[name] ??
+          baseMeta[name] ??
+          ioMeta[name],
       }));
-  }, [content, io, ui, params, baseMeta, pluginParamNames, pluginParamMeta]);
+  }, [
+    content,
+    io,
+    ui,
+    params,
+    declared,
+    baseMeta,
+    pluginParamNames,
+    pluginParamMeta,
+  ]);
 
   // The same values as NUMBERS, for the preview's widgets. The pane above keeps them as text
   // because a value is whatever the file says; a knob needs a position, so anything that isn't

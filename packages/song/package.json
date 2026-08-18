@@ -77,7 +77,8 @@
     "./videoDoc": "./src/videoDoc.ts",
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
-    "./moduleTypes": "./src/moduleTypes.ts"
+    "./moduleTypes": "./src/moduleTypes.ts",
+    "./builtinParams": "./src/builtinParams.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
