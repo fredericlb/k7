@@ -299,12 +299,31 @@ export default function App({
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
   const [openItem, setOpenItem] = useState<MinimapItem | null>(null);
-  // The timeline caret: the minimap needs its row, and m/s need its id (commands address a track by name).
+  // The timeline caret: the minimap needs its row, m/s need its id (commands address a track by
+  // name), and the two timecodes are what let a command act on what you are looking at without
+  // asking for it back — see commandFill.ts' `caretAnswers`.
   const [caret, setCaret] = useState<{
     row: RowKey;
     beat: number;
     trackId: string | null;
+    tc: string | null;
+    eventTc: string | null;
   } | null>(null);
+  /**
+   * The caret as the COMMAND BAR reads it — a track, a moment, and the event it is over.
+   *
+   * A separate shape from the state above because the two are about different things: that one is
+   * the timeline's own cursor (a row and a beat, which the minimap draws), this one is what a
+   * command line can name. Narrowing here keeps `commandFill` free of the timeline's vocabulary,
+   * which is what lets it be tested — nothing in this app mounts a component.
+   */
+  const caretAim = useMemo(
+    () =>
+      caret
+        ? { track: caret.trackId, at: caret.tc, eventStart: caret.eventTc }
+        : null,
+    [caret],
+  );
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [ws, setWs] = useState<WorkspaceInfo | null>(null);
   // The take this tab has already dismissed. The server keeps naming the last one for ever — "the
@@ -3621,6 +3640,7 @@ export default function App({
                 onRun={(line) => void runCommand(line)}
                 onClose={() => cmdRef.current?.blur()}
                 onPending={setBarPending}
+                caret={caretAim}
               />
             </div>
           </>
@@ -3712,6 +3732,7 @@ export default function App({
                 onClose={() => setPaletteOpen(false)}
                 onPending={setBarPending}
                 onFocusChange={onBarFocusChange}
+                caret={caretAim}
                 autoFocus
               />
             </div>

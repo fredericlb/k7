@@ -115,6 +115,60 @@ export function applyOffer(
 }
 
 /**
+ * What the timeline CARET is looking at, in the vocabulary a command line speaks.
+ *
+ * Timecodes rather than beats, because that is what an argument of class `timecode` holds — the
+ * conversion needs the time signature and belongs where the grid is drawn (`TimelineTab`'s
+ * `onCaret`), not here and not in a handler.
+ */
+export interface CaretAim {
+  /** The track it is on. Null on a video lane, a group header, or nothing at all. */
+  track: string | null;
+  /** Where it is. Null when it is parked on a row's label rather than in time. */
+  at: string | null;
+  /** Where the event UNDER it starts — how every `event` verb addresses one. Null on bare lane. */
+  eventStart: string | null;
+}
+
+/**
+ * Which caret facts answer which of a command's params, per command — **by param NAME**.
+ *
+ * The same key `applyOffer` uses, and for the same reason: a source knows what it is holding, not
+ * where a command happens to ask for it. So this table says nothing about order or arity, and a
+ * command that grows an argument keeps working.
+ *
+ * An EXPLICIT list, not "fill anything called `track`". A caret is always somewhere, so a blanket
+ * rule would silently pre-answer `track delete` and `event remove` with whatever the caret last
+ * touched — and a form that opens already complete is one Enter from doing it. Every entry here is
+ * a command where acting on what you are looking at IS the intent.
+ */
+const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
+  // The verb this exists for. `commands.yaml` has said so since it was written: the event is
+  // addressed by its start, "the cut is its own argument, which is what the caret gives".
+  "event split": { track: "track", timecode: "eventStart", at: "at" },
+};
+
+/**
+ * The caret's answers to one command, ready for `applyOffer`. Empty when it has none.
+ *
+ * A fact the caret cannot supply is simply absent, so a form still opens on it: park on empty
+ * lane and `event split` arrives knowing the track and the cut, asking only which event.
+ */
+export function caretAnswers(
+  canonical: string,
+  caret: CaretAim | null,
+): Record<string, string> {
+  const wanted = caret && CARET_ANSWERS[canonical];
+  if (!wanted) return {};
+  const out: Record<string, string> = {};
+  for (const [param, fact] of Object.entries(wanted)) {
+    const v = fact && caret[fact];
+    if (v) out[param] = v;
+  }
+  return out;
+}
+
+/**
  * Whether the field with the keyboard is asking for `kind`.
  *
  * The inlet for a gesture that knows a VALUE and not a command: a click on the ruler produces a

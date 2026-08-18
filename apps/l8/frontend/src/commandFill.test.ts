@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   applyOffer,
+  type CaretAim,
   canRun,
+  caretAnswers,
   emptyValues,
   enterAction,
   firstMissing,
@@ -276,5 +278,78 @@ describe("enterAction", () => {
       kind: "take",
       value: "audio/ir",
     });
+  });
+});
+
+/**
+ * What the CARET answers, and what it deliberately does not.
+ *
+ * `event split` asked for a track, an event and a cut — three things you had just parked on and
+ * had to type back. These pin that it now answers all three, and that the answering is opt-in:
+ * a caret is always somewhere, so a rule that filled anything called `track` would quietly
+ * pre-answer every destructive verb in the catalogue.
+ */
+describe("caretAnswers", () => {
+  // `event split <track> <timecode> <at>`, as commands.yaml declares it: the event is addressed
+  // by its START, and the cut is the third argument.
+  const SPLIT: PaletteArg[] = [
+    arg("track", "track"),
+    arg("timecode", "timecode"),
+    arg("at", "timecode"),
+  ];
+  const on = (over: Partial<CaretAim> = {}): CaretAim => ({
+    track: "drums",
+    at: "3:1:1",
+    eventStart: "2:1:1",
+    ...over,
+  });
+
+  it("answers every field of a split, so nothing is asked back", () => {
+    const answers = caretAnswers("event split", on());
+    expect(answers).toEqual({ track: "drums", timecode: "2:1:1", at: "3:1:1" });
+    // …and that is a runnable line, which is what lets the bar dispatch without opening a form.
+    const filled = applyOffer(SPLIT, answers, emptyValues(SPLIT), 0);
+    expect(filled?.values).toEqual(["drums", "2:1:1", "3:1:1"]);
+    expect(canRun(SPLIT, filled!.values)).toBe(true);
+  });
+
+  it("distinguishes WHERE the caret is from WHERE the event starts", () => {
+    // The two are different timecodes and land in different fields. Feeding the caret's own
+    // position as the event's address would split whatever starts under the cut, or nothing.
+    const answers = caretAnswers("event split", on());
+    expect(answers.timecode).not.toBe(answers.at);
+    expect(answers.timecode).toBe("2:1:1");
+  });
+
+  it("leaves the field it cannot answer empty, rather than guessing", () => {
+    // Parked on bare lane: the track and the cut are known, the event is not. The form must open
+    // on that hole — inventing an event start here would cut a clip nobody pointed at.
+    const answers = caretAnswers("event split", on({ eventStart: null }));
+    expect(answers).toEqual({ track: "drums", at: "3:1:1" });
+    const filled = applyOffer(SPLIT, answers, emptyValues(SPLIT), 0);
+    expect(canRun(SPLIT, filled!.values)).toBe(false);
+    expect(firstMissing(SPLIT, filled!.values)).toBe(1);
+  });
+
+  it("says nothing on a row's label, where there is no moment", () => {
+    // The caret parked on a track name is on a ROW, not at a time. `tc` is null there and the
+    // whole point of carrying null rather than beat -1 is that it cannot become a timecode.
+    expect(
+      caretAnswers("event split", on({ at: null, eventStart: null })),
+    ).toEqual({
+      track: "drums",
+    });
+  });
+
+  it("answers NOTHING for a command that did not ask", () => {
+    // The opt-in. `event remove` takes a track and a timecode by the same names, and a caret that
+    // filled them would put a destructive line one Enter away from a cursor that merely moved.
+    expect(caretAnswers("event remove", on())).toEqual({});
+    expect(caretAnswers("track delete", on())).toEqual({});
+  });
+
+  it("answers nothing when there is no caret at all", () => {
+    // A project with no arrangement surface draws no timeline, so there is no caret to read.
+    expect(caretAnswers("event split", null)).toEqual({});
   });
 });

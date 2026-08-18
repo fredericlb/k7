@@ -643,8 +643,24 @@ export function TimelineTab({
   // The bare lane was clicked — no clip. The counterpart of `onOpenClip`: the shell puts the
   // graph back where a clip's content had gone. The caret has already moved off the clip.
   onEmptyClick?: () => void;
-  // The caret: its position (the minimap draws it) and the track it is on (m/s act on that track by name).
-  onCaret: (c: Caret & { trackId: string | null }) => void;
+  /**
+   * The caret: its position (the minimap draws it), the track it is on (m/s act on that track by
+   * name), and the same two facts as TIMECODES — where it is, and where the event under it starts.
+   *
+   * The timecodes are computed here rather than by the shell because this component is the only
+   * one that knows the beat grid: `beatsToPosition` needs the time signature, and a consumer that
+   * had to fetch one to read the caret would be reading it a tick late. They are what lets a
+   * command address what the caret is looking at — see commandFill.ts' `caretAnswers`.
+   */
+  onCaret: (
+    c: Caret & {
+      trackId: string | null;
+      /** Where the caret is. Null when it is parked on a row's label rather than in time. */
+      tc: string | null;
+      /** Where the event under it STARTS — how every `event` verb addresses one. Null on bare lane. */
+      eventTc: string | null;
+    },
+  ) => void;
   // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
   // What state the timeline is in, for the key conditions — and for `expanded`, which the SHELL
   // acts on: tall lanes need the height the pane below is holding. See docs/shell.md.
@@ -949,8 +965,21 @@ export function TimelineTab({
     return !target || target.kind === "video" ? null : target.id;
   }, [caretRow]);
   useEffect(() => {
-    onCaret({ ...caret, trackId: caretTrackId });
-  }, [caret, caretTrackId, onCaret]);
+    // The grid, read here rather than passed in: a beat means nothing without the time signature,
+    // and a project that has not loaded yet has no grid to state one against.
+    const at = (beat: number): string | null =>
+      proj
+        ? beatsToPosition(beat, proj.timeSigNumerator, proj.timeSigDenominator)
+        : null;
+    onCaret({
+      ...caret,
+      trackId: caretTrackId,
+      // LABEL is "parked on the row's name", which is a row and not a moment — reporting beat -1
+      // as a timecode would hand a command a position nothing is at.
+      tc: caret.beat === LABEL ? null : at(caret.beat),
+      eventTc: clipUnderCaret ? at(clipUnderCaret.start) : null,
+    });
+  }, [caret, caretTrackId, clipUnderCaret, proj, onCaret]);
 
   // Click a header: the row itself is selected — the caret parked on its label, the position
   // `h` off the view's first beat already puts it in. A live rectangle is dropped, because its

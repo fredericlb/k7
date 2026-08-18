@@ -18,6 +18,9 @@ import {
 } from "react";
 import {
   applyOffer,
+  type CaretAim,
+  canRun,
+  caretAnswers,
   emptyValues,
   enterAction,
   firstMissing,
@@ -143,9 +146,27 @@ export const CommandBar = forwardRef<
      * question from the one the shell is asking.
      */
     onFocusChange?: (focused: boolean) => void;
+    /**
+     * What the timeline caret is looking at, so a command can address it instead of asking.
+     *
+     * A PROP and not a hook: the bar is mounted twice (docked and as the phone's popin) and is
+     * drawn by the shell, which already holds the caret — a context read here would be a second
+     * subscription to the same state, re-rendering the bar on every arrow key. Absent when no
+     * timeline is on screen, which is a project without an arrangement surface.
+     */
+    caret?: CaretAim | null;
   }
 >(function CommandBar(
-  { commands, listArg, onRun, onClose, autoFocus, onPending, onFocusChange },
+  {
+    commands,
+    listArg,
+    onRun,
+    onClose,
+    autoFocus,
+    onPending,
+    onFocusChange,
+    caret,
+  },
   ref,
 ) {
   const [value, setValue] = useState("");
@@ -311,13 +332,40 @@ export const CommandBar = forwardRef<
 
   // --- the command field -------------------------------------------------------
 
+  /**
+   * Open a command's form — unless there is nothing left to ask.
+   *
+   * Three outcomes, and the middle one is the point. A command with no params runs at once, as it
+   * always has. A command the CARET can answer completely runs at once too: `event split` needs a
+   * track, an event and a cut, and parking on a clip states all three — asking them back is asking
+   * you to retype what you are looking at. Anything else opens the form, seeded with whatever the
+   * caret did supply, and `start` lands the keyboard on the first real hole.
+   *
+   * Only commands named in `CARET_ANSWERS` are seeded, so this cannot turn a destructive verb into
+   * a one-keystroke one by accident. See commandFill.ts.
+   */
   const pickCommand = (spec: PaletteCommand) => {
     if (spec.args.length === 0) {
       onRun(spec.canonical); // nothing to ask — run at once
       reset();
       return;
     }
-    start(spec);
+    const answers = caretAnswers(spec.canonical, caret ?? null);
+    const seeded = applyOffer(spec.args, answers, emptyValues(spec.args), 0);
+    if (!seeded) {
+      start(spec);
+      return;
+    }
+    if (canRun(spec.args, seeded.values)) {
+      onRun(
+        [spec.canonical, ...lineArgs(seeded.values).map(quoteArg)]
+          .join(" ")
+          .trim(),
+      );
+      reset();
+      return;
+    }
+    start(spec, seeded.values);
   };
 
   const commitCommand = () => {

@@ -197,6 +197,37 @@ So the same drag reads differently depending on how far you have got, and that i
 from a bare `event move` it answers three params at once, and from `event move ge.rythm` it
 answers the two that are left.
 
+### The caret answers before you are asked
+
+A gesture answers a field you have already opened. The **caret** answers before the form exists:
+when you pick a command, whatever the timeline caret is looking at is offered first, and if that
+completes the line the bar dispatches it instead of opening a form at all.
+
+`event split` is what this was built for. It takes a track, the event's start and the cut — and
+parking on a clip states all three, so asking them back was asking you to retype what you were
+looking at. `commands.yaml` had said so since the verb was written: *"the cut is its own argument,
+which is what the caret gives."*
+
+The caret speaks the same currency a gesture does, **param names** (`caretAnswers`, `commandFill.ts`):
+
+| param | what the caret supplies |
+|---|---|
+| `track` | the lane it is on — null on a video lane or a group header |
+| `timecode` | where the event under it **starts**, which is how every `event` verb addresses one |
+| `at` | where the caret itself is |
+
+Two of those are different timecodes and it matters: feeding the caret's own position as the
+event's address would split whatever begins under the cut, or nothing at all.
+
+**It is opt-in per command, and that is not caution for its own sake.** A caret is always
+somewhere, so a rule that filled anything called `track` would silently pre-answer `event remove`
+and `track delete` — leaving a destructive line one Enter away from a cursor that had merely
+moved. `CARET_ANSWERS` names the commands where acting on what you are looking at *is* the intent;
+everything else opens its form empty exactly as before.
+
+A fact the caret cannot supply is left blank rather than guessed, so the form still opens on the
+hole: on bare lane, `event split` arrives knowing the track and the cut and asks only which event.
+
 ### A value that knows its kind but not the command
 
 A click on the ruler produces a timecode and has no idea which param wanted one. That is the
