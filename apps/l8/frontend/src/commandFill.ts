@@ -128,6 +128,16 @@ export interface CaretAim {
   at: string | null;
   /** Where the event UNDER it starts — how every `event` verb addresses one. Null on bare lane. */
   eventStart: string | null;
+  /**
+   * The lanes the selection rectangle covers, comma-joined, and its span. Null when none is drawn.
+   *
+   * `tracks` keeps EVERY lane the rectangle touched, several included. A verb that only works on
+   * one is the one that has to say so — dropping the extras here would turn "you selected two
+   * lanes" into a command that silently acted on whichever came first.
+   */
+  selTracks: string | null;
+  selFrom: string | null;
+  selTo: string | null;
 }
 
 /**
@@ -146,6 +156,10 @@ const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
   // The verb this exists for. `commands.yaml` has said so since it was written: the event is
   // addressed by its start, "the cut is its own argument, which is what the caret gives".
   "event split": { track: "track", timecode: "eventStart", at: "at" },
+  // Split's inverse, answered by the RECTANGLE rather than by where the caret sits — what to
+  // rejoin is a range, and a range is what you drew. `tracks` carries every lane it covered,
+  // including two: the handler refuses that, and it has to be able to, so nothing is dropped here.
+  "event join": { tracks: "selTracks", from: "selFrom", to: "selTo" },
 };
 
 /**

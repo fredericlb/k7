@@ -504,14 +504,187 @@ export function splitTrackPlacement(
       const head = setPlacementField(t, i, "to", fmt(at));
       // …and the tail is the same placement, starting there. Appended, so the head keeps its
       // index — which is what lets both edits share one lookup.
+      //
+      // Its `to` is the ORIGINAL event's, restored explicitly. The copy is taken from `head`,
+      // which by this line already ends at the cut, so leaving it would hand the tail
+      // `from == to`: a second half that plays nothing at all. It did, and nothing caught it —
+      // the tests asked whether `to:` and `from:` appeared in the file, which they did, on the
+      // same placement. `undefined` CLEARS, which is right when the event never stated one.
       return copyPlacementAt(head, i, {
         start: beatsToPosition(atBeats, num, den),
         from: at > matFrom + EDGE_EPS ? fmt(at) : undefined,
+        to: raw(placement.to),
       });
     },
     "split an event",
   );
   return { ref, material: file.rel, kind, at };
+}
+
+/** What a join produced, for the log. `joined` is how many placements became the one left. */
+export interface JoinReport {
+  ref: string;
+  material: string;
+  kind: MaterialKind;
+  joined: number;
+}
+
+/**
+ * Put the events starting in [fromBeats, toBeats] back together — `splitTrackPlacement`'s inverse.
+ *
+ * ONE PLACEMENT OUT OF SEVERAL, and, like the split, nothing is copied, rendered or written to any
+ * material: the first placement keeps its `start` and its `from`, takes the last one's `to`, and
+ * the others are dropped. Play the result and you hear what the run played — the same test the
+ * split has to pass, read backwards.
+ *
+ * That test is also what this REFUSES, because a merge that had to invent a sample would be a
+ * different feature (one that renders). Four cases, each named where it is caught:
+ *
+ * - **fewer than two events** — one event is already one event, and zero is a rectangle over
+ *   nothing. Null rather than an error: the caller says it better, knowing what was selected.
+ * - **more than one material** — `bass.wav` followed by `gtr.wav` cannot become one placement
+ *   without rendering. The message names both.
+ * - **a gap or an overlap in TIME** — two halves that were dragged apart are no longer the run
+ *   they were, and closing the gap would move when something sounds.
+ * - **a gap in the MATERIAL** — two copies of one clip laid back to back are contiguous on the
+ *   timeline and are NOT one event: joining them would silently drop a playthrough. The `to` of
+ *   each must be the `from` of the next, which is exactly the pair a split leaves behind.
+ *
+ * A looped event is refused for the reason it is refused by the split: what its window is has as
+ * many answers as it has passes.
+ *
+ * Returns null when the range holds fewer than two events. See docs/clipResize.md.
+ */
+export function joinTrackPlacements(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  toBeats: number,
+  num: number,
+  den: number,
+  tempo: number,
+): JoinReport | null {
+  const own = entityFileFor(join(dir, "nodes"), "nodes", id);
+  if (!own) throw new Error(`track "${id}" has no file in nodes/`);
+  const text = readFileSync(own.path, "utf8");
+
+  // Selected the way `events move` selects — by where an event STARTS, both ends inclusive — so
+  // one rectangle means the same set of events whichever verb reads it.
+  const startOf = (p: Record<string, unknown>): number | null => {
+    try {
+      return parsePosition(String(p.start ?? "1:1:1"), num, den);
+    } catch {
+      return null; // an unparseable start falls in no range
+    }
+  };
+  const picked = placementValues(text)
+    .map((p, index) => ({ p, index, start: startOf(p) }))
+    .filter(
+      (e): e is { p: Record<string, unknown>; index: number; start: number } =>
+        e.start !== null &&
+        e.start >= fromBeats - EDGE_EPS &&
+        e.start <= toBeats + EDGE_EPS,
+    )
+    .sort((a, b) => a.start - b.start);
+  if (picked.length < 2) return null;
+
+  const ref = String(picked[0].p.ref ?? "");
+  const other = picked.find((e) => String(e.p.ref ?? "") !== ref);
+  if (other)
+    throw new Error(
+      `these are not one event: '${ref}' and '${String(other.p.ref ?? "")}' are different material — joining them would mean rendering a new one`,
+    );
+  const found = materialFor(dir, ref);
+  if (!found)
+    throw new Error(
+      `'${ref}' is neither a clip nor a sequence in this project`,
+    );
+  const { kind, file } = found;
+
+  // The same reading a split does, so the two agree about where an event's window is.
+  const edge = (v: WindowValue | undefined): number | undefined => {
+    if (v === undefined) return undefined;
+    if (typeof v === "number") return v;
+    const beats = parsePosition(v, num, den);
+    return kind === "sequence" ? beats : (beats * 60) / tempo;
+  };
+  const raw = (v: unknown): WindowValue | undefined =>
+    typeof v === "number" || typeof v === "string" ? v : undefined;
+  const mat = materialWindowOf(file.path);
+  const matFrom = edge(mat.from) ?? 0;
+  const matTo = edge(mat.to);
+  // Material units back to timeline beats: a sequence's window IS beats, a clip's is seconds.
+  const toBeatsOf = (units: number) =>
+    kind === "sequence" ? units : (units * tempo) / 60;
+
+  const win = picked.map((e) => {
+    const loops = Math.max(1, Math.floor(Number(e.p.loop ?? 1)) || 1);
+    if (loops > 1)
+      throw new Error(
+        `'${ref}' repeats ${loops} times at ${beatsToPosition(e.start, num, den)} — set its loop back to 1 before joining it`,
+      );
+    const evFrom = edge(raw(e.p.from));
+    const evTo = edge(raw(e.p.to));
+    return {
+      ...e,
+      from: Math.max(matFrom, evFrom ?? 0),
+      to:
+        matTo != null && evTo != null ? Math.min(matTo, evTo) : (matTo ?? evTo),
+    };
+  });
+
+  for (let i = 0; i < win.length - 1; i++) {
+    const a = win[i];
+    const b = win[i + 1];
+    const at = beatsToPosition(b.start, num, den);
+    // Every event but the last has to state where it ends, or there is nothing to check the next
+    // one against — and nothing to carry over to the placement that survives.
+    if (a.to == null)
+      throw new Error(
+        `the event before ${at} does not say where it ends, so it cannot be joined to what follows`,
+      );
+    const gap = b.start - (a.start + toBeatsOf(a.to - a.from));
+    if (Math.abs(gap) > EDGE_EPS)
+      throw new Error(
+        gap > 0
+          ? `there is a gap before ${at} — these events do not touch, and closing it would move when they sound`
+          : `the events around ${at} overlap — they are not one run`,
+      );
+    if (Math.abs(b.from - a.to) > EDGE_EPS)
+      throw new Error(
+        `at ${at} the next event restarts '${ref}' rather than continuing it — joining them would drop a playthrough`,
+      );
+  }
+
+  const last = win[win.length - 1];
+  editTrackStruct(
+    dir,
+    id,
+    (t) => {
+      // The tail's end onto the head, then the rest dropped from the HIGHEST index down, so an
+      // earlier removal cannot renumber a later one. One write: a file caught between two of
+      // these would be a lane playing the same material twice over.
+      let out = setPlacementField(
+        t,
+        win[0].index,
+        "to",
+        // Cleared when it reaches the material's own end — the same rule a resize follows, so a
+        // fully rejoined event is spelled exactly like one that was never split.
+        matTo != null && last.to != null && last.to >= matTo - EDGE_EPS
+          ? undefined
+          : last.to != null
+            ? kind === "sequence"
+              ? beatsToPosition(last.to, num, den)
+              : last.to
+            : undefined,
+      );
+      for (const e of win.slice(1).sort((a, b) => b.index - a.index))
+        out = removePlacementAt(out, e.index);
+      return out;
+    },
+    "join events",
+  );
+  return { ref, material: file.rel, kind, joined: picked.length };
 }
 
 /** Where a placement's material lives — `clips/<ref>` or `sequences/<ref>`, whichever exists. */

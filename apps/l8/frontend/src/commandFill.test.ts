@@ -301,6 +301,9 @@ describe("caretAnswers", () => {
     track: "drums",
     at: "3:1:1",
     eventStart: "2:1:1",
+    selTracks: null,
+    selFrom: null,
+    selTo: null,
     ...over,
   });
 
@@ -351,5 +354,38 @@ describe("caretAnswers", () => {
   it("answers nothing when there is no caret at all", () => {
     // A project with no arrangement surface draws no timeline, so there is no caret to read.
     expect(caretAnswers("event split", null)).toEqual({});
+  });
+
+  // `event join` is answered by the RECTANGLE, not by where the caret sits: what to rejoin is a
+  // range, and a range is what you drew.
+  describe("and the rectangle, for a join", () => {
+    const JOIN: PaletteArg[] = [
+      arg("tracks", "track"),
+      arg("from", "timecode"),
+      arg("to", "timecode"),
+    ];
+    const dragged = (tracks: string) =>
+      on({ selTracks: tracks, selFrom: "2:1:1", selTo: "4:1:1" });
+
+    it("fills the whole line from one rectangle", () => {
+      const answers = caretAnswers("event join", dragged("drums"));
+      const filled = applyOffer(JOIN, answers, emptyValues(JOIN), 0);
+      expect(filled?.values).toEqual(["drums", "2:1:1", "4:1:1"]);
+      expect(canRun(JOIN, filled!.values)).toBe(true);
+    });
+
+    it("passes on EVERY lane the rectangle covered, two included", () => {
+      // The refusal is the handler's, and it can only make it if what it receives is what was
+      // selected. Quietly keeping the first lane here would run a join nobody asked for on it.
+      expect(caretAnswers("event join", dragged("drums,bass")).tracks).toBe(
+        "drums,bass",
+      );
+    });
+
+    it("says nothing when no rectangle is drawn", () => {
+      // A caret parked on a clip is not a range. `event join` then opens its form empty, which is
+      // right: it is asking which stretch, and nobody has said.
+      expect(caretAnswers("event join", on())).toEqual({});
+    });
   });
 });

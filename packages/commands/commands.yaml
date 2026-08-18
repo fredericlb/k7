@@ -1090,6 +1090,28 @@
       { name: timecode, type: timecode },
       { name: at, type: timecode, hint: "where to cut — inside the event" },
     ]
+# Put a run of events back together — `event split` read backwards. The first placement keeps its
+# start and takes the last one's end; the rest are dropped. Nothing is rendered and no material is
+# touched, which is what decides everything this refuses: a different clip, a gap, an overlap, or a
+# neighbour that RESTARTS the material rather than continuing it would each need a new file.
+#
+# It takes `tracks` — the plural — although it acts on ONE lane, and that is deliberate: the
+# timeline's selection rectangle can span several, so the refusal has to be sayable. An argument
+# that could only ever hold one would push that error into whatever built the line, and the CLI
+# would not get it. See `events move`, which feeds this one its first three arguments.
+- command: "event join"
+  sid: event.join
+  readable:
+    en: "Join clips back into one"
+    fr: "Refusionner des clips en un seul"
+  help: "put a run of events back together (e.g. event join drums 2:1:1 4:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: tracks, complete: tracks, hint: "one track — a range over several cannot be joined" },
+      { name: from, type: timecode },
+      { name: to, type: timecode, hint: "the range's end, inclusive" },
+    ]
 - command: "event remove"
   sid: event.remove
   readable:

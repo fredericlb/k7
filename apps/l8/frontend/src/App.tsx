@@ -308,6 +308,7 @@ export default function App({
     trackId: string | null;
     tc: string | null;
     eventTc: string | null;
+    selection: { tracks: string; from: string; to: string } | null;
   } | null>(null);
   /**
    * The caret as the COMMAND BAR reads it — a track, a moment, and the event it is over.
@@ -320,7 +321,14 @@ export default function App({
   const caretAim = useMemo(
     () =>
       caret
-        ? { track: caret.trackId, at: caret.tc, eventStart: caret.eventTc }
+        ? {
+            track: caret.trackId,
+            at: caret.tc,
+            eventStart: caret.eventTc,
+            selTracks: caret.selection?.tracks ?? null,
+            selFrom: caret.selection?.from ?? null,
+            selTo: caret.selection?.to ?? null,
+          }
         : null,
     [caret],
   );

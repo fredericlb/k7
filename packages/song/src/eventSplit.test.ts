@@ -80,6 +80,45 @@ describe("cutting an audio event", () => {
     }
   });
 
+  /**
+   * THE TAIL HAS TO PLAY SOMETHING, and for a long time it did not.
+   *
+   * The tail is copied from the head, and the head has by then been given the cut as its `to` — so
+   * the copy came out with `from == to`: a second half of zero length, silent. The test above
+   * passed throughout, because it asks whether `to:` and `from:` appear in the file and they did,
+   * on the same placement. "Both halves are there" is not "both halves sound".
+   *
+   * Read as a window rather than as text, which is what makes it a test of the split's own claim:
+   * play them back to back and you hear what you heard before.
+   */
+  it("gives the tail the EVENT's end, not the cut — a silent half is not a half", () => {
+    const dir = clipSong('events:\n  - { ref: kick, start: "1:1", to: 5 }\n');
+    try {
+      split(dir, 0, 4);
+      const events = [...lane(dir).matchAll(/\{[^}]*\}/g)].map((m) => m[0]);
+      expect(events).toHaveLength(2);
+      // The head: from the event's start to the cut. The tail: from the cut to where it ended.
+      expect(events[0]).toContain("to: 2");
+      expect(events[1]).toContain("from: 2");
+      expect(events[1]).toContain("to: 5");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("clears the tail's end when the event never stated one", () => {
+    // Nothing to restore, and a `to` inherited from the head would be the zero-length half again.
+    const dir = clipSong('events:\n  - { ref: kick, start: "1:1" }\n');
+    try {
+      split(dir, 0, 4);
+      const events = [...lane(dir).matchAll(/\{[^}]*\}/g)].map((m) => m[0]);
+      expect(events[1]).toContain("from: 2");
+      expect(events[1]).not.toContain("to:");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("leaves the CLIP's own file alone — the material is not what was cut", () => {
     const dir = clipSong('events:\n  - { ref: kick, start: "1:1" }\n');
     try {

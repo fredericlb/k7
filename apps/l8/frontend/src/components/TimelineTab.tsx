@@ -659,6 +659,16 @@ export function TimelineTab({
       tc: string | null;
       /** Where the event under it STARTS — how every `event` verb addresses one. Null on bare lane. */
       eventTc: string | null;
+      /**
+       * The RECTANGLE, when one is drawn: the lanes it covers comma-joined, and its span.
+       *
+       * The same three values `feedEventsMove` sends, computed once here — but reported
+       * unconditionally rather than only while the bar is filling `events move`, because a
+       * command can now be answered by the selection BEFORE its form exists (`event join`).
+       * `tracks` keeps every lane the rectangle touched, including several: a verb that only
+       * works on one has to be the one to say so.
+       */
+      selection: { tracks: string; from: string; to: string } | null;
     },
   ) => void;
   // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
@@ -964,22 +974,7 @@ export function TimelineTab({
     // no track id on one, so every consumer downstream refuses it without having to know why.
     return !target || target.kind === "video" ? null : target.id;
   }, [caretRow]);
-  useEffect(() => {
-    // The grid, read here rather than passed in: a beat means nothing without the time signature,
-    // and a project that has not loaded yet has no grid to state one against.
-    const at = (beat: number): string | null =>
-      proj
-        ? beatsToPosition(beat, proj.timeSigNumerator, proj.timeSigDenominator)
-        : null;
-    onCaret({
-      ...caret,
-      trackId: caretTrackId,
-      // LABEL is "parked on the row's name", which is a row and not a moment — reporting beat -1
-      // as a timecode would hand a command a position nothing is at.
-      tc: caret.beat === LABEL ? null : at(caret.beat),
-      eventTc: clipUnderCaret ? at(clipUnderCaret.start) : null,
-    });
-  }, [caret, caretTrackId, clipUnderCaret, proj, onCaret]);
+  // …reported to the shell further down, once the selection rectangle it also carries exists.
 
   // Click a header: the row itself is selected — the caret parked on its label, the position
   // `h` off the view's first beat already puts it in. A live rectangle is dropped, because its
@@ -1837,25 +1832,56 @@ export function TimelineTab({
     };
   }, [sel, visRows]);
 
-  // While the bar is filling `events move`, the rectangle ANSWERS its region — and re-answers
-  // on every change, so a shift+drag grows the fields live. Track lanes only: a group holds no
-  // placements, picture has no verbs, and a generated lane's file has no `events:` to rewrite.
-  useEffect(() => {
-    if (!feedEventsMove || !selBox || !proj) return;
+  /**
+   * The lanes a rectangle covers that can actually hold events, comma-joined, and its span.
+   *
+   * Track lanes only: a group holds no placements, picture has no verbs, and a generated lane's
+   * file has no `events:` to rewrite. Null when there is no rectangle, or none of what it covers
+   * is a lane — which is the honest answer, not an empty string.
+   */
+  const selRange = useMemo(() => {
+    if (!selBox || !proj) return null;
     const ids = visRows
       .slice(selBox.rowLo, selBox.rowHi + 1)
       .flatMap((r) =>
         r.kind === "track" && !r.track.generated ? [r.track.id] : [],
       );
-    if (!ids.length) return;
+    if (!ids.length) return null;
     const num = proj.timeSigNumerator;
     const den = proj.timeSigDenominator;
-    feedEventsMove(
-      ids.join(","),
-      beatsToPosition(selBox.beatLo, num, den),
-      beatsToPosition(selBox.beatHi, num, den),
-    );
-  }, [feedEventsMove, selBox, visRows, proj]);
+    return {
+      tracks: ids.join(","),
+      from: beatsToPosition(selBox.beatLo, num, den),
+      to: beatsToPosition(selBox.beatHi, num, den),
+    };
+  }, [selBox, visRows, proj]);
+
+  // The caret, whole: where it is, what it is over, and what it has selected. One payload because
+  // one gesture moves all three, and a command reads whichever of them it can use.
+  useEffect(() => {
+    // The grid, read here rather than passed in: a beat means nothing without the time signature,
+    // and a project that has not loaded yet has no grid to state one against.
+    const at = (beat: number): string | null =>
+      proj
+        ? beatsToPosition(beat, proj.timeSigNumerator, proj.timeSigDenominator)
+        : null;
+    onCaret({
+      ...caret,
+      trackId: caretTrackId,
+      // LABEL is "parked on the row's name", which is a row and not a moment — reporting beat -1
+      // as a timecode would hand a command a position nothing is at.
+      tc: caret.beat === LABEL ? null : at(caret.beat),
+      eventTc: clipUnderCaret ? at(clipUnderCaret.start) : null,
+      selection: selRange,
+    });
+  }, [caret, caretTrackId, clipUnderCaret, selRange, proj, onCaret]);
+
+  // While the bar is filling `events move`, the rectangle ANSWERS its region — and re-answers
+  // on every change, so a shift+drag grows the fields live. Track lanes only, for `selRange`'s reasons.
+  useEffect(() => {
+    if (!feedEventsMove || !selRange) return;
+    feedEventsMove(selRange.tracks, selRange.from, selRange.to);
+  }, [feedEventsMove, selRange]);
 
   useEffect(() => {
     if (!active) return;
