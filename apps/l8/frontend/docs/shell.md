@@ -81,10 +81,27 @@ project, reached by name, one at a time.
 
 Two things l8 asks the bar for. The padding: it is `px-5 py-3` by default and this app trims it
 through the inner box — every row of chrome is a row the panes don't get, and a phone in landscape
-is about 400 px tall. And the phone layout stays l8's own: the panes are the **bottom tab bar**
-there, and the header's right side collapses into `MobileMenu`. The bar's hamburger therefore holds
-the SURFACES and nothing else — which is not a duplicate of the tabs, and is the one list on that
-screen with nowhere else to go.
+is about 400 px tall. And on a phone the bar is handed **no `items` at all**: `AppHeader` folds
+that prop into a hamburger of its own below 640 px, and l8's `actions` already collapse into one —
+two hamburgers side by side being two answers to "where do I go". The surfaces are in l8's,
+alongside the panes.
+
+### On a phone, one menu holds everywhere there is to go
+
+There was a **bottom tab bar**, one tab per pane. It is gone and its contents are in `MobileMenu`:
+the panes, the project's screen surfaces, then the tools. Three reasons, and the last is the one
+that settles it:
+
+- it spent a row of a screen that is ~400 px tall in landscape on a control used a few times a
+  session, and the panes are what you came to look at;
+- it could only ever hold the panes, so the surfaces sat in a second hamburger beside the first;
+- **it never worked.** `onSelect` dispatched the bare pane name, and `runLocalCommand` refuses
+  that — pane names are `ui` verbs, so a tap set the status line to *"timeline" is a ui command*
+  and changed nothing else. The menu rows send `ui <pane>`.
+
+A pane row is `aria-current`, not `aria-pressed`. On the desktop a pane button toggles fullscreen
+and Escape backs out of it; on a phone there is no layout to back out to, so picking one means
+"show me that" and the current row is where you are, not a switch left on.
 
 There used to be a second layout, and it was not a second *choice*: a project whose
 `project.yaml` said `project_type: live` had no arrangement, so `App` drew the chains graph on
@@ -1192,15 +1209,17 @@ state in `App`:
 
 ## Mobile
 
-A phone gets tabs, not the studio layout: the panes are too small side by side and there is
-no pointer to drag a splitter with. `full` already means "one pane, whole screen", so the
-tab bar just drives it and the global view is never entered — which is why entering mobile
-has to land on a tab. Timeline is the default, being the one pane that says what the song
-*is*: the editor needs a keyboard and the graph needs room.
+A phone shows ONE pane, not the studio layout: the panes are too small side by side and there is
+no pointer to drag a splitter with. `full` already means "one pane, whole screen", so the menu
+just drives it and the global view is never entered — which is why entering mobile has to land on
+a pane. Timeline is the default, being the one pane that says what the song *is*: the editor needs
+a keyboard and the graph needs room.
 
 Every row of chrome is a row the panes do not get. On a phone in landscape the whole window
 is about 400px tall, so the header and footer are trimmed to what a touch target needs and
-no more.
+no more — and it is why the bottom tab bar became menu rows rather than staying a row of its own.
+The one control that could not simply move is the command bar's opener: a phone has no
+double-Shift, so the menu carries it.
 
 ## The PWA manifest uses RELATIVE urls, deliberately
 

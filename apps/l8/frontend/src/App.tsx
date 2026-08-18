@@ -47,6 +47,7 @@ import {
   Play,
   Square,
   StickyNote,
+  Terminal,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -78,7 +79,7 @@ import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
 import { Minimap, type MinimapItem } from "./components/Minimap";
-import { MobileMenu, MobileTabBar } from "./components/MobileChrome";
+import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
   type ModulePick,
   ModulePicker,
@@ -221,7 +222,7 @@ export default function App({
   const frozen = !!snapshot;
   // The layout: null is the global view, a pane name is that pane expanded; `focus` is which pane owns the keys.
   const [full, setFull] = useState<Pane | null>(null);
-  // A phone gets tabs, not the studio layout — the tab bar just drives `full`. See docs/shell.md.
+  // A phone shows one pane, not the studio layout — the hamburger drives `full`. See docs/shell.md.
   const isMobile = useIsMobile();
   const [mobileMenu, setMobileMenu] = useState(false);
   // The timeline, because it is what the default view opens on — see ringPanes.
@@ -2694,17 +2695,55 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
-      {/* On a phone the whole right side collapses into one button: the view
-          toggles are gone (there is no studio view), the pane buttons became the
-          bottom tab bar, and what remains — sharing, settings, the metronome, the
-          bottom panels — is menu material rather than a row of icons. */}
+      {/* On a phone the whole right side collapses into ONE button, and everywhere there is
+          to go is inside it: the panes, the project's own screen surfaces, and the command
+          bar. There is no studio view to toggle and no layout to go back to, so a pane is a
+          destination here rather than a fullscreen switch — always `ui <pane>`, never
+          `ui global`.
+
+          The surfaces are here and NOT in `AppHeader`'s `items` (see its call below): that
+          prop draws its own hamburger under 640px, and two hamburgers on one bar is two
+          answers to "where do I go". The metronome and the panel toggles stay out — they
+          live in the footer, and a second copy is one more thing to keep in step. */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
-          {/* What is left of the header's right side once the view toggles are
-              gone (no studio view on a phone) and the pane buttons have become the
-              tab bar. The metronome and the panel toggles are NOT here: they live
-              in the footer, and a second copy would be one more thing to keep in
-              step for no gain. */}
+          <div className="flex flex-col">
+            {layout.fullscreen.map((p) => (
+              <MobileMenuItem
+                key={p}
+                icon={PANE_META[p].icon}
+                label={PANE_META[p].label}
+                current={full === p}
+                onSelect={() => {
+                  setMobileMenu(false);
+                  void runCommand(`ui ${p}`);
+                }}
+              />
+            ))}
+            {screenSurfaces.map((s) => (
+              <MobileMenuItem
+                key={s.id}
+                icon={Disc3}
+                label={s.id}
+                current={openSurface === s.id}
+                onSelect={() => {
+                  setMobileMenu(false);
+                  void runCommand(`ui surface ${s.id}`);
+                }}
+              />
+            ))}
+            {/* The command bar has no keyboard opener on a phone — there is no double-Shift —
+                so it needs a control of its own, and this is now the only place for one. */}
+            <MobileMenuItem
+              icon={Terminal}
+              label="Commandes"
+              onSelect={() => {
+                setMobileMenu(false);
+                setPaletteOpen(true);
+              }}
+            />
+          </div>
+          <div className="h-px bg-border" />
           <div className="flex items-center gap-1">{headerTools}</div>
         </MobileMenu>
       ) : (
@@ -2766,6 +2805,11 @@ export default function App({
             carries each pane's key in its tooltip, and this app advertises a shortcut wherever a
             control is drawn.
 
+            EMPTY on a phone, and that is the one exception. This prop folds itself into a
+            hamburger of its own below 640px, which next to `actions`' hamburger would be two
+            buttons a thumb has to choose between to answer one question. The surfaces are in
+            that other menu instead — see `headerActions`.
+
             The padding is overridden through the inner box: the shared bar is px-5 py-3 and every
             row of chrome is a row the panes don't get — a phone in landscape is ~400px tall. */}
         <AppHeader
@@ -2779,12 +2823,16 @@ export default function App({
           )}
           title="l8"
           subtitle={VERSION}
-          items={screenSurfaces.map((s) => ({
-            label: s.id,
-            icon: <Disc3 className="h-4 w-4" />,
-            active: openSurface === s.id,
-            onClick: () => void runCommand(`ui surface ${s.id}`),
-          }))}
+          items={
+            isMobile
+              ? []
+              : screenSurfaces.map((s) => ({
+                  label: s.id,
+                  icon: <Disc3 className="h-4 w-4" />,
+                  active: openSurface === s.id,
+                  onClick: () => void runCommand(`ui surface ${s.id}`),
+                }))
+          }
           actions={headerActions}
         >
           {/* Between the two: what you are looking AT, and the transport over it. `mx-auto` on
@@ -3621,7 +3669,7 @@ export default function App({
 
             Desktop only, both for the same reason: they are a second view of the timeline and a
             permanent prompt, and the vertical band they cost is the one thing a phone has least
-            of. The phone gets the tab bar below instead, and the bar as a popin it opens.
+            of. The phone gets the bar as a popin, opened from the hamburger.
 
             The bar is DOCKED rather than summoned: it is where you type, so it is always there,
             the way a terminal's prompt is. It never autofocuses — a shell that opened with the
@@ -3691,29 +3739,12 @@ export default function App({
           </div>
         )}
 
-        {/* The tab bar takes the minimap's place — one tab per pane, plus the command
-            bar's opener (a phone has no double-Shift to summon it with).
+        {/* A tab bar stood here, one tab per pane. It is in the hamburger now — see
+            `headerActions`. A row of chrome is a row the panes do not get, and a phone in
+            landscape is ~400px tall; the panes are what you came to look at. */}
 
-            The tabs come from the LAYOUT's fullscreenable set, so a live project shows none: its
-            one pane is already the whole phone, and a tab that is always on and cannot be turned
-            off is the control the header's view toggles were deleted for being. The BAR still
-            renders — its opener is the only way to a command bar on a phone, and taking that
-            away would leave a live project with a graph and no way to wire it. */}
-        {isMobile && (
-          <MobileTabBar
-            tabs={layout.fullscreen.map((pn) => ({
-              id: pn,
-              icon: PANE_META[pn].icon,
-              label: PANE_META[pn].label,
-            }))}
-            current={full}
-            onSelect={(pn) => void runCommand(pn)}
-            onOpenCommandBar={() => setPaletteOpen(true)}
-          />
-        )}
-
-        {/* The PHONE's command bar, which has to be summoned — opened by the tab bar's button
-            and by the right-click menus, which prewrite a command into it. Its suggestion list
+        {/* The PHONE's command bar, which has to be summoned — opened from the hamburger and by
+            the right-click menus, which prewrite a command into it. Its suggestion list
             opens upward — see CommandBar.
 
             Still not modal, and that is the whole point: no backdrop, and `pointer-events-none`

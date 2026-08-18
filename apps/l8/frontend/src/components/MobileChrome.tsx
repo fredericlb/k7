@@ -1,11 +1,18 @@
-// MobileChrome.tsx — the two pieces of shell a phone gets: a hamburger holding what the
-// header's right side used to show, and a bottom tab bar in place of the studio layout
-// (there is no global view on a phone — `full` is simply never null and the tabs drive
-// it). A plain popover, not a DropdownMenu, since what it holds is itself menus.
+// MobileChrome.tsx — the ONE piece of shell a phone gets: a hamburger holding everything the
+// header's right side would show, plus every screen there is to go to. There is no global view
+// on a phone — `full` is never null — so the menu is what drives it.
+//
+// There was a bottom tab bar here too, one tab per pane. It went: it spent a row of a screen
+// that is ~400px tall in landscape on a control used a few times a session, it could hold only
+// the panes (the project's own `view` surfaces were in a second hamburger next to the first),
+// and it never worked — it dispatched the bare pane name, which the local dispatcher refuses,
+// so a tap only ever printed "that is a ui command". One menu, one place to go somewhere.
+//
+// A plain popover, not a DropdownMenu, since what it holds is itself menus.
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
-import { type LucideIcon, Menu, Terminal, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { usePopin } from "../popins";
 
@@ -66,52 +73,43 @@ export function MobileMenu({
   );
 }
 
-// The bottom tab bar: where a thumb reaches, and under the panes so it never covers the current tab.
-export function MobileTabBar<P extends string>({
-  tabs,
+/**
+ * One row of that menu — a place to go, or a thing to open.
+ *
+ * `aria-current` and not `aria-pressed`: on a phone these are NAVIGATION. A pane button on the
+ * desktop toggles fullscreen and Escape backs out of it, which is a pressed control; here there
+ * is no layout to back out to, so picking a row means "show me that", and the current one is
+ * where you are rather than a switch left on.
+ *
+ * A full-width hit target with the label beside the icon, because the row a thumb misses is the
+ * one drawn as an icon with a caption under it — which is what the tab bar was.
+ */
+export function MobileMenuItem({
+  icon: Icon,
+  label,
   current,
   onSelect,
-  onOpenCommandBar,
 }: {
-  tabs: { id: P; icon: LucideIcon; label: string }[];
-  current: P | null;
-  onSelect: (id: P) => void;
-  onOpenCommandBar: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  current?: boolean;
+  onSelect: () => void;
 }) {
   return (
-    <nav
-      className="flex shrink-0 items-stretch border-t border-border bg-card/60"
-      // Clear of a phone's home indicator / gesture bar.
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    <button
+      type="button"
+      role="menuitem"
+      aria-current={current}
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm",
+        current
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+      )}
     >
-      {tabs.map(({ id, icon: Icon, label }) => (
-        <button
-          key={id}
-          type="button"
-          aria-current={current === id}
-          onClick={() => onSelect(id)}
-          className={cn(
-            "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px]",
-            current === id
-              ? "text-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Icon className="h-5 w-5" />
-          {label}
-        </button>
-      ))}
-      {/* The command bar has no keyboard opener on a phone (there is no double-Shift), so
-          it needs a control of its own. */}
-      <button
-        type="button"
-        onClick={onOpenCommandBar}
-        className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] text-muted-foreground hover:text-foreground"
-        aria-label="Command bar"
-      >
-        <Terminal className="h-5 w-5" />
-        Command
-      </button>
-    </nav>
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }

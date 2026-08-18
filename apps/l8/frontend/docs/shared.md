@@ -62,7 +62,7 @@ de source** — ni `/tree`, ni `/file` — donc ce n'est pas un panneau dont le 
 être figé, c'est un panneau derrière lequel il n'y a rien.
 
 Le retirer de cette liste-là, et pas d'un bouton, est le point : la même liste est lue par les
-touches numériques, les onglets mobiles, `ui editor` et **chaque adresse**. Une seule omission
+touches numériques, le menu du téléphone, `ui editor` et **chaque adresse**. Une seule omission
 les ferme ensemble. `fromLocation` prend le même drapeau, sinon `/editor` collé dans la barre
 d'adresse ouvrirait un panneau que rien ne monte.
 

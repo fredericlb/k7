@@ -148,13 +148,16 @@ What being docked actually buys, beyond one less keystroke:
   of the panes exactly when you were pointing at them. A row that is always there is a row the
   panes were never given.
 
-The phone keeps the popin, opened from the tab bar. It has no minimap to sit under, and a
+The phone keeps the popin, opened from the hamburger. It has no minimap to sit under, and a
 permanent prompt would cost the band a phone has least of — the same trade that keeps the
 minimap off it.
 
-Both forms are the same component. The phone's opens focused, because you opened it on purpose
-from the tab bar; the docked one never takes the keyboard by itself, since a shell that started
-with it captured could not be typed into.
+That opener is the one thing in the menu that is not a place to go, and it has to be there: a
+phone has no double-Shift, so without it the bar could not be summoned at all.
+
+Both forms are the same component. The phone's opens focused, because you opened it on purpose;
+the docked one never takes the keyboard by itself, since a shell that started with it captured
+could not be typed into.
 
 ### On a phone it goes away when it loses the keyboard
 
