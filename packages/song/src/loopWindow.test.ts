@@ -39,7 +39,7 @@ const place = (p: Record<string, unknown>) =>
 const melody = () =>
   compileNodeProject(dir)
     .tracks.flatMap((t) => t.clips)
-    .find((c) => c.id === "melody")!;
+    .find((c) => c.name === "melody")!;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-loop-"));

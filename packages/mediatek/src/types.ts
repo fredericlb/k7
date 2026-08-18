@@ -1,19 +1,24 @@
 // types.ts — what the mediatek catalogue hands out. Types only, shared by the scan, the
 // HTTP routes and every surface that lists the library.
 
-/** The five things the mediatek holds. Each is scanned, indexed and invalidated ALONE. */
-export type Family = "songs" | "samples" | "modules" | "chains" | "playlists";
+/**
+ * The three things the mediatek holds. Each is scanned, indexed and invalidated ALONE.
+ *
+ * There were five. `modules` and `chains` left with the editing: a module is authored in l8,
+ * against a project where the plugin it names is actually LOADED, and it is committed to the
+ * account's library repository — which is a git repository somebody owns, not a folder on this
+ * volume. Two places holding the same modules meant one of them was always the stale copy, and
+ * the hosted one could not be the true one: nothing here can instantiate a plugin.
+ *
+ * What is left is what the médiathèque is FOR: bytes nobody edits in a text editor.
+ * See apps/st0/docs/projects.md and packages/song/docs/sharedFolders.md.
+ */
+export type Family = "songs" | "samples" | "playlists";
 
-export const FAMILIES: readonly Family[] = [
-  "songs",
-  "samples",
-  "modules",
-  "chains",
-  "playlists",
-];
+export const FAMILIES: readonly Family[] = ["songs", "samples", "playlists"];
 
 /** Narrow an untrusted query value to a Family, or undefined. Here rather than in each HTTP
- *  shell: both had their own copy, and a fifth family would have had to find them both. */
+ *  shell: both had their own copy, and a fourth family would have had to find them both. */
 export const asFamily = (v: unknown): Family | undefined =>
   FAMILIES.includes(v as Family) ? (v as Family) : undefined;
 
@@ -74,9 +79,18 @@ export const SONG_FILE = "song.yaml";
 export interface SongVariant {
   /** What the sidecar calls it — the key, and what a surface shows. */
   name: string;
-  /** What it names, verbatim: a file name, or a chain's path/name. */
+  /** What it names, verbatim: a file beside the master. */
   ref: string;
-  kind: "file" | "chain";
+  /**
+   * Whether that file is actually THERE.
+   *
+   * It used to be `"file" | "chain"`: a value naming a file in the folder was a file variant,
+   * anything else named a chain the médiathèque held. The chains family is gone, so the second
+   * case is no longer another kind of variant — it is a sidecar naming something that is not
+   * there, which is a thing to report rather than to resolve. A chain-backed variant written
+   * before this reads as `missing`, which is exactly what it now is.
+   */
+  kind: "file" | "missing";
 }
 
 /** One catalogued thing. Deliberately flat and family-agnostic: a listing is a listing,

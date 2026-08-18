@@ -32,12 +32,12 @@ a restart cheap.
 
 ## A listing is entries, and a tree is a filesystem
 
-A tree draws itself from the entry PATHS: `modules/audio/reverb` puts `audio` on screen
+A tree draws itself from the entry PATHS: `songs/Miles/Kind of Blue` puts `Miles` on screen
 because something is filed under it. That works right up to the thing on disk that is **not
 an entry**, and there are two of those:
 
 - the folder `POST /folder` just made — "somewhere to drop into before the first file";
-- a file dropped where no catalogue reaches (`modules/<type>` lists directories, so a file
+- a file dropped where no catalogue reaches (`samples/<kind>` lists packs, so a file
   beside them is nobody's entry).
 
 Both answered 200 and appeared nowhere, which reads as the call having done nothing at all.
@@ -53,8 +53,8 @@ files of its own showed neither, and read as having been flattened on the way in
 
 ## Why the token is per family
 
-`familyRevision()` is computed for each family separately — `songs`, `samples`, `modules`,
-`chains` and `playlists`.
+`familyRevision()` is computed for each family separately — `songs`, `samples` and
+`playlists`.
 
 One token for the whole library would mean importing a track invalidates the module list,
 and the families move at completely different rates — a sample pack is dropped in once and

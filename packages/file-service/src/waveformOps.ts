@@ -8,6 +8,7 @@ import { readdirSync, unlinkSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { beatGrid, regionWaveform } from "@studio/commands/waveform";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import { materialRefOf } from "@studio/song/nodeProject";
 import { resolveOnsets } from "@studio/song/onsets";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { loadAudioClipDoc } from "@studio/song/project";
@@ -200,9 +201,15 @@ export class WaveformOps {
       num: p.timeSigNumerator,
       den: p.timeSigDenominator,
     };
+    // The MATERIAL this id names. A clip's id identifies a PLACEMENT (`bass_2_0@16`), and the
+    // two lookups below want different things out of it: `findClip` wants the placement, while
+    // `clips/<ref>.yaml` and the onset corrections are properties of the file every placement of
+    // it shares. Handed a bare material name — which this route also is, for the whole-file view
+    // — `materialRefOf` returns it unchanged.
+    const ref = materialRefOf(clipId);
     const clip = whole
-      ? (loadAudioClipDoc(dir, clipId, grid) ?? findClip(p, clipId))
-      : (findClip(p, clipId) ?? loadAudioClipDoc(dir, clipId, grid));
+      ? (loadAudioClipDoc(dir, ref, grid) ?? findClip(p, clipId))
+      : (findClip(p, clipId) ?? loadAudioClipDoc(dir, ref, grid));
     if (!clip) throw new Error(`no clip '${clipId}'`);
     if (clip.type !== "audio")
       throw new Error(`'${clipId}' is not an audio clip`);
@@ -230,7 +237,7 @@ export class WaveformOps {
     // are file seconds, and the region mapping is what turns them into the display seconds a surface draws.
     // Resolved here rather than in each surface, so the slice widget, the clip block and the take review all
     // draw the same onsets without knowing corrections exist. See song/onsets.ts.
-    const edits = clipOnsets(dir, clipId);
+    const edits = clipOnsets(dir, ref);
     const corrected = {
       ...env,
       transients: resolveOnsets(env.transients, edits),

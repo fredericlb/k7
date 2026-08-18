@@ -2033,6 +2033,11 @@ export default function App({
     x: number;
     y: number;
   } | null>(null);
+  // What the entry under the pointer DOES, borrowing the status line for as long as the menu is
+  // open. Its own state and not `setStatus`: the status line carries what the app last DID, and a
+  // sentence read on the way past must not survive the menu it was read in, nor bury what was
+  // there before it. See ContextMenu.tsx's `onHint`.
+  const [menuHint, setMenuHint] = useState("");
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it. The deferral below exists only for
@@ -2077,6 +2082,10 @@ export default function App({
   // the state directly would pin whatever it was on the first render.
   const cmdPrefs = useRef<CommandPrefs>({});
   cmdPrefs.current = commandPrefs;
+  // …and the language, for the third time: the entries' descriptions are resolved when the menu
+  // opens, so the one it reads has to be the one on screen at that moment.
+  const cmdLocale = useRef(locale);
+  cmdLocale.current = locale;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
     // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
     // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
@@ -2086,7 +2095,12 @@ export default function App({
       ctx.kind === "module" && ctx.id.startsWith("@engine/")
         ? { ...ctx, ambient: true }
         : ctx;
-    const items = contextMenu(full, cmdCatalogue.current, cmdPrefs.current);
+    const items = contextMenu(
+      full,
+      cmdCatalogue.current,
+      cmdPrefs.current,
+      cmdLocale.current,
+    );
     if (items.length) setMenu({ items, x, y });
   }, []);
   /**
@@ -2119,18 +2133,25 @@ export default function App({
         // any other — they ARE an alternative, and hiding them would leave no way back to them.
         ...names.map((name) => ({
           label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
+          description:
+            name === current
+              ? "The settings this node is playing now"
+              : `Play this node with the "${name}" settings instead`,
           command: `node alternative select ${module} ${name}`,
           complete: true,
           verb: "node alternative select",
         })),
         {
           label: "New alternative…",
+          description:
+            "Add another set of settings, starting from the module's own",
           command: `node alternative create ${module} `,
           complete: false,
           verb: "node alternative create",
         },
         {
           label: "Copy this one…",
+          description: "Add another set of settings, copied from the one on",
           command: `node alternative copy ${module} `,
           complete: false,
           verb: "node alternative copy",
@@ -2148,6 +2169,10 @@ export default function App({
                   n.frozen === "at"
                     ? "Unfreeze"
                     : "Freeze (bake everything upstream)",
+                description:
+                  n.frozen === "at"
+                    ? "Go back to playing this node live"
+                    : "Render everything upstream to a file, and play that",
                 command: `node freeze ${module}`,
                 complete: true,
                 verb: "node freeze",
@@ -3514,7 +3539,13 @@ export default function App({
                 connected ? "engine connected" : "engine disconnected"
               }
             />
-            <span className="truncate">{status || project?.root}</span>
+            {/* The open menu speaks FIRST, and only while it is open: a right-click menu names its
+                commands and says no more, so this is where the sentence about the one you are
+                pointing at goes. It borrows the line rather than writing it — closing the menu
+                gives back whatever the app last said. */}
+            <span className="truncate">
+              {menuHint || status || project?.root}
+            </span>
             {/* The play button spins for this too — it is the control being blocked, and the one you are reaching
                 for when it matters. This line stays because it NAMES what is being waited for, which a spinner on
                 a button cannot. engineBusy gets no line of its own: same meaning, and it is usually too brief to
@@ -3787,6 +3818,9 @@ export default function App({
             x={menu.x}
             y={menu.y}
             onPick={pickMenuItem}
+            // What the row under the pointer does, into the status line. Stable, because the menu
+            // also calls it from an unmount cleanup — see ContextMenu.tsx.
+            onHint={setMenuHint}
             onClose={() => setMenu(null)}
           />
         )}

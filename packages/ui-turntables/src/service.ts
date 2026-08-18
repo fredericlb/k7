@@ -1,7 +1,7 @@
 // service.ts — the CHOSEN machine's file service, the only thing that knows where the
 // médiathèque's cache sits on that disk. m9 needs it because the moteur opens file
 // paths, not URLs, and the paths are that machine's. The same route, written down:
-// apps/st0/docs/chainPreview.md, "Two disks, and the trap between them".
+// apps/st0/docs/playback.md, « Deux disques ».
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { fileHeaders } from "@studio/project-shell/fileApi";

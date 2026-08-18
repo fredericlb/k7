@@ -30,6 +30,9 @@ const CATALOGUE: CommandInfo[] = [
   {
     command: "track pan",
     help: "set a track's pan on its mixer strip, -1 left … +1 right",
+    // The catalogue's own sentence, in both languages — what the status line says when there is
+    // one. `help` is the CLI's fuller line and stays the fallback.
+    readable: { en: "Pan a track", fr: "Panoramiquer une piste" },
     args: [a("track", "track", "tracks"), a("-1..1", "number")],
   },
   {
@@ -45,6 +48,15 @@ const CATALOGUE: CommandInfo[] = [
       a("timecode", "timecode"),
       a("newTimecode", "timecode"),
       a("toTrack", "track", "tracks", true),
+    ],
+  },
+  {
+    command: "event consolidate",
+    help: "write one new clip over a range (e.g. event consolidate drums 2:1 6:1)",
+    args: [
+      a("tracks", "track", "tracks"),
+      a("from", "timecode"),
+      a("to", "timecode"),
     ],
   },
   {
@@ -112,6 +124,8 @@ const CATALOGUE: CommandInfo[] = [
 
 const lines = (items: { command: string }[]) => items.map((i) => i.command);
 const labels = (items: { label: string }[]) => items.map((i) => i.label);
+const says = (items: { label: string; description: string }[], label: string) =>
+  items.find((i) => i.label === label)?.description;
 
 describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
@@ -125,6 +139,7 @@ describe("a track", () => {
       "track pan gtr ",
       "event remove gtr ",
       "event move gtr ",
+      "event consolidate gtr ",
       "ui file gtr",
     ]);
   });
@@ -136,14 +151,39 @@ describe("a track", () => {
     expect(lines(menu)).toContain("track gain gtr "); // a dB is
   });
 
-  it("says what each command DOES", () => {
-    expect(labels(menu)[0]).toBe("toggle a track's (or group's) mute");
+  it("names each command, and drops the word that names what was clicked", () => {
+    // You aimed at the track: repeating "track" down six rows puts a column of the word you
+    // already know between the eye and the only word that differs.
+    expect(labels(menu)).toEqual([
+      "mute",
+      "gain",
+      "pan",
+      // …and a head naming something ELSE stays: these two are about one placement on the lane,
+      // and `ui file` about the file behind it. That is exactly what the head is saying.
+      "event remove",
+      "event move",
+      "event consolidate",
+      "ui file",
+    ]);
+  });
+
+  it("says what each command DOES in its description, for the status line", () => {
+    expect(says(menu, "mute")).toBe("toggle a track's (or group's) mute");
   });
 
   it("drops the (e.g. …) tail, which the pre-written line already answers", () => {
-    expect(labels(menu)).toContain(
+    expect(says(menu, "gain")).toBe(
       "set a track's gain in dB on its mixer strip",
     );
+  });
+
+  it("prefers the catalogue's sentence, in the language being read", () => {
+    // `readable` is written for a person reading a list; `help` is the CLI's line and carries
+    // caveats. The NAME stays the CLI's in both languages — only the sentence is translated.
+    expect(says(menu, "pan")).toBe("Pan a track");
+    const fr = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE, {}, "fr");
+    expect(says(fr, "pan")).toBe("Panoramiquer une piste");
+    expect(labels(fr)).toEqual(labels(menu));
   });
 
   it("offers nothing a track cannot answer", () => {
@@ -161,6 +201,12 @@ describe("a group", () => {
     expect(
       lines(contextMenu({ kind: "group", id: "drums" }, CATALOGUE)),
     ).toEqual(["track mute drums", "track solo drums"]);
+  });
+
+  it("drops the same head a track's menu does — it is a track's two verbs", () => {
+    expect(
+      labels(contextMenu({ kind: "group", id: "drums" }, CATALOGUE)),
+    ).toEqual(["mute", "solo"]);
   });
 });
 
@@ -187,6 +233,8 @@ describe("a take", () => {
     ]);
     // A click that answered every argument leaves nothing for the bar to collect: both run.
     expect(items.every((i) => i.complete)).toBe(true);
+    // The take is a row UNDER a track, so "track" is the word you already know.
+    expect(labels(items)).toEqual(["take select", "take delete"]);
   });
 
   it("is NOT derived — `<track> <number>` is also a gain", () => {
@@ -210,6 +258,21 @@ describe("a module node", () => {
       "node param lead ",
       "module clone lead ",
       "ui file lead",
+    ]);
+  });
+
+  it("drops `node`, and only `node` — what you clicked is the USE", () => {
+    // `module clone` and `module cc` act on the module BEHIND the node, and follow it into every
+    // project that loads it. That is a different subject, and its head is what says so.
+    expect(
+      labels(contextMenu({ kind: "module", id: "lead" }, CATALOGUE)),
+    ).toEqual([
+      "bypass",
+      "graph unlink",
+      "replace",
+      "param",
+      "module clone",
+      "ui file",
     ]);
   });
 
@@ -250,13 +313,61 @@ describe("a clip", () => {
       "ui file riff",
       "event remove gtr 2:1:1",
       "event move gtr 2:1:1 ",
+      "event consolidate gtr 2:1:1 ",
     ]);
+  });
+
+  it("drops `event`, which is what you right-clicked", () => {
+    // The rows read "remove", "move" — and on the real catalogue "consolidate", "split virtual".
+    // `ui file` keeps its head: it is about the material's file, not about this placement.
+    const l = labels(
+      contextMenu(
+        { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
+        CATALOGUE,
+      ),
+    );
+    expect(l).toEqual(["ui file", "remove", "move", "consolidate"]);
   });
 
   it("says nothing about a placement it was not told the address of", () => {
     expect(lines(contextMenu({ kind: "clip", id: "riff" }, CATALOGUE))).toEqual(
       ["ui file riff"],
     );
+  });
+
+  it("fills a RANGE verb from the rectangle the click landed in", () => {
+    // The bug this pins, reported from the app: right-click inside a selection, pick consolidate,
+    // and the bar asked for `to`. The placement says where it STARTS and nothing more, so a verb
+    // taking a span arrived one argument short — while the rectangle was holding the answer, and
+    // the palette was already reading it (commandFill).
+    const l = lines(
+      contextMenu(
+        {
+          kind: "clip",
+          id: "riff",
+          track: "gtr",
+          tc: "2:1:1",
+          sel: { tracks: "gtr", from: "2:1:1", to: "6:1:1" },
+        },
+        CATALOGUE,
+      ),
+    );
+    expect(l).toContain("event consolidate gtr 2:1:1 6:1:1");
+    // …and ONCE. The placement-shaped derivation matches its leading arguments too, so without
+    // the filter it appeared twice — the second half-filled, which is the one that asks.
+    expect(l.filter((x) => x.startsWith("event consolidate"))).toHaveLength(1);
+  });
+
+  it("still asks for the range when no rectangle is drawn", () => {
+    // The other half of the rule: a caret on an event says nothing about how far to reach, so the
+    // verb arrives short and the bar collects the rest. Its trailing space is that question.
+    const l = lines(
+      contextMenu(
+        { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
+        CATALOGUE,
+      ),
+    );
+    expect(l).toContain("event consolidate gtr 2:1:1 ");
   });
 
   it("never offers the `clip …` family — an event is a placement, not the material", () => {
@@ -309,6 +420,31 @@ describe("a param", () => {
     );
     expect(lines(bound)).toContain("module cc amp Cutoff none");
   });
+
+  it("keeps every head — none of them names the control you clicked", () => {
+    // `node param`, `module cc`, `ui midi learn`: three heads, three different subjects, and a
+    // param is none of them. There is no word here that repeating would be noise.
+    expect(labels(menu)).toEqual(["ui midi learn", "node param"]);
+  });
+
+  it("names the unbind apart from the bind, which is the same verb", () => {
+    // `none` is a literal the entry writes, not a value you are being asked for — so it belongs
+    // in the name, rather than being asked for.
+    const bound = contextMenu(
+      {
+        kind: "param",
+        id: "amp",
+        param: "Cutoff",
+        label: "Cutoff",
+        cc: { ch: 1, cc: 74 },
+      },
+      CATALOGUE,
+    );
+    expect(labels(bound)).toContain("module cc none");
+    expect(says(bound, "module cc none")).toBe(
+      "remove the MIDI binding on this param",
+    );
+  });
 });
 
 describe("the ruler and its markers", () => {
@@ -323,10 +459,50 @@ describe("the ruler and its markers", () => {
       lines(contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE)),
     ).toEqual(["project marker delete Chorus"]);
   });
+
+  it("drops `project` from both — the ruler is the project's", () => {
+    expect(
+      labels(contextMenu({ kind: "marker-add", tc: "5:1" }, CATALOGUE)),
+    ).toEqual(["marker new"]);
+    expect(
+      labels(contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE)),
+    ).toEqual(["marker delete"]);
+  });
+
+  it("obeys what the person turned off, like every other menu", () => {
+    // This case used to go straight to `build`, around the one filter every entry passes
+    // through, so a verb taken off the right-click came back on this menu alone.
+    expect(
+      contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE, {
+        "project marker delete": { menu: false },
+      }),
+    ).toEqual([]);
+  });
+});
+
+// The list is DERIVED: the command written tomorrow lands on a menu without anyone looking at
+// it. Two rows reading alike is worse than a head repeated ten times, so the shortening is all
+// or nothing — one clash and every row keeps its full name.
+describe("two rows that would read alike", () => {
+  it("keeps every head rather than draw one name twice", () => {
+    const CLASH: CommandInfo[] = [
+      ...CATALOGUE,
+      // A verb that IS its own head. Shortening `track mute` would spell it the same way.
+      {
+        command: "mute",
+        help: "mute a track",
+        args: [a("t", "track", "tracks")],
+      },
+    ];
+    const l = labels(contextMenu({ kind: "track", id: "gtr" }, CLASH));
+    expect(l).toContain("track mute");
+    expect(l).toContain("mute");
+    expect(new Set(l).size).toBe(l.length);
+  });
 });
 
 describe("the menu's contract", () => {
-  it("carries a label, a line, the verb behind it, and whether the line is finished — nothing else", () => {
+  it("carries a name, a sentence, a line, the verb behind it, and whether the line is finished — nothing else", () => {
     // No handlers, no ids to dispatch on: every entry is text the bar could have been typed into,
     // which is what stops the menu growing a vocabulary of its own.
     //
@@ -344,11 +520,15 @@ describe("the menu's contract", () => {
         expect(typeof item.command).toBe("string");
         expect(item.command.length).toBeGreaterThan(0);
         expect(item.label.length).toBeGreaterThan(0);
+        // The sentence is always THERE, even when it is empty: the status line reads it on every
+        // hover, and a row that carried none would leave the previous row's still standing.
+        expect(typeof item.description).toBe("string");
         expect(typeof item.verb).toBe("string");
         expect(item.command.startsWith(item.verb)).toBe(true);
         expect(Object.keys(item).sort()).toEqual([
           "command",
           "complete",
+          "description",
           "label",
           "verb",
         ]);
@@ -372,13 +552,14 @@ describe("the menu's contract", () => {
       expect(item.complete).toBe(!item.command.endsWith(" "));
   });
 
-  it("falls back to the command's name when the catalogue has no line for it", () => {
-    // The shell's own commands are not in the catalogue; each carries its own description, and a
-    // row must never come out blank if one is ever forgotten.
+  it("names a command the catalogue has never heard of", () => {
+    // The shell's own commands are not in the catalogue; each carries its own sentence, and the
+    // name is the line's own, so a row can never come out blank.
     const l = contextMenu({ kind: "track", id: "gtr" }, []);
     expect(l).toEqual([
       {
-        label: "open the track's own file, tracks/<id>.yaml",
+        label: "ui file",
+        description: "open the track's own file, tracks/<id>.yaml",
         command: "ui file gtr",
         complete: true,
         // The verb without the entity — `ui file`, not `ui file gtr`. Two entries for the same

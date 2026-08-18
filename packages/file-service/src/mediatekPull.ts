@@ -135,14 +135,12 @@ export async function pullOnce(): Promise<void> {
  * the scoped pull would leave it holding whatever happened to be cached for other songs.
  *
  * It deliberately does NOT record a revision. `markSynced`'s claim is "this cache is in step with
- * the owner", and while that is now true for modules it is not for songs — letting the scoped
- * loop keep its own bookkeeping is cheaper than teaching it about a second kind of pass.
+ * the owner", and that is not true for the songs the scoped loop pulls — letting it keep its own
+ * bookkeeping is cheaper than teaching it about a second kind of pass.
  *
  * Never throws, same as `pullOnce`: an unreachable library must cost the refresh, not the open.
  */
-export async function syncMediatekFamily(
-  family: "modules" | "songs" | "chains",
-): Promise<void> {
+export async function syncMediatekFamily(family: Family): Promise<void> {
   const base = mediatekBase();
   if (!base) return;
   try {

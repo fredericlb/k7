@@ -9,11 +9,16 @@ title: So What
 artist: Miles Davis
 variants:
   instrumental: instrumental.wav     # a file beside the master
-  sans-voix: blindtest/vocal-strip   # a chain the médiathèque holds
 ```
 
-Two kinds, and they are told apart by looking in the folder: a value naming a **file that is
-there** is a file variant, anything else names a **chain**.
+A variant is a **file beside the master**, and the folder is what settles it: a value naming a
+file that is there is a variant, anything else is reported as `missing`.
+
+> There were TWO kinds. A value that named no file in the folder named a **chain the médiathèque
+> held** — `sans-voix: blindtest/vocal-strip` — which was drawn as a graph, auditioned through a
+> moteur, and bounced to a file beside the master by a « Process » button. The chains family left
+> the catalogue with the modules, so that whole half is gone: a sidecar still written that way
+> now reads, correctly, as naming something the folder has not got.
 
 ## Adding one: the file goes in, and the sidecar says so
 

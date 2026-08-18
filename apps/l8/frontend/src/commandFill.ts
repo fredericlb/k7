@@ -159,7 +159,10 @@ const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
   // Split's inverse, answered by the RECTANGLE rather than by where the caret sits — what to
   // rejoin is a range, and a range is what you drew. `tracks` carries every lane it covered,
   // including two: the handler refuses that, and it has to be able to, so nothing is dropped here.
-  "event join": { tracks: "selTracks", from: "selFrom", to: "selTo" },
+  //
+  // `event join` sat here too, taking the same three. It is gone with the virtual split: one verb
+  // rejoins a range now, whatever is in it.
+  "event consolidate": { tracks: "selTracks", from: "selFrom", to: "selTo" },
 };
 
 /**

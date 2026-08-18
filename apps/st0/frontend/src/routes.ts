@@ -3,17 +3,20 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The seven things the header offers, plus two sections with NO TAB, each reached by a button
+/** The five things the header offers, plus two sections with NO TAB, each reached by a button
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
  *  des morceaux », opened from Morceaux). `recordings` and `projects` are sections and not
  *  families — see Library.tsx. A section id may not collide with a path the proxy claims above
  *  st0's catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see
- *  docs/routing.md. */
+ *  docs/routing.md.
+ *
+ *  `modules` and `chains` were sections here. Both left with the editing: a module is authored
+ *  in l8, against a project where the plugin it names is actually LOADED, and committed to the
+ *  account's library repository. An address under either name now falls through to Projets like
+ *  any other unknown path. */
 export const SECTION_IDS = [
   "songs",
   "samples",
-  "modules",
-  "chains",
   "playlists",
   "recordings",
   "projects",
@@ -29,18 +32,13 @@ export const PROJECTS_SECTION = "projects";
  * The sections whose address carries a second half — everything else is a listing, and a path
  * under one of those names nothing.
  *
- * A LIST rather than four `head === …` tests, because it stopped being two: `chains` opened an
- * editor and pushed `/chains/x/chains.yaml`, which read back as the bare section and shut the
- * editor a tick later — the loop useLibraryRoute exists to avoid, entered through the one door
- * it does not guard, a URL the app writes and cannot read. `songs` now opens one too.
+ * A LIST rather than three `head === …` tests, because it has changed size twice: `chains` once
+ * opened an editor and pushed `/chains/x/graph.yaml`, which read back as the bare section and
+ * shut the editor a tick later — the loop useLibraryRoute exists to avoid, entered through the
+ * one door it does not guard, a URL the app writes and cannot read. That section is gone; the
+ * shape of the mistake is why this is a list.
  */
-const CARRIES: readonly string[] = [
-  "songs",
-  "modules",
-  "chains",
-  "playlists",
-  "projects",
-];
+const CARRIES: readonly string[] = ["songs", "playlists", "projects"];
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);

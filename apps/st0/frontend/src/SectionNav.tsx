@@ -5,19 +5,21 @@
 import type { AppHeaderItem } from "@frediverse/ui/app-header";
 import { RECORDINGS_DIR } from "@studio/mediatek/types";
 import {
-  Boxes,
   Disc3,
   FolderGit2,
   ListMusic,
   type LucideIcon,
   Mic,
   Waves,
-  Workflow,
 } from "lucide-react";
 import { PROJECTS_SECTION, type SectionId } from "./routes";
 
 /**
- * Les sections : les dépôts, puis les cinq familles et la zone de captures brutes.
+ * Les sections : les dépôts, puis les trois familles et la zone de captures brutes.
+ *
+ * MODULES et CHAÎNES en faisaient partie. Les deux sont parties avec l'édition : un module
+ * s'écrit dans l8, contre un projet où le greffon qu'il nomme est réellement CHARGÉ, et se
+ * committe dans le dépôt de bibliothèques du compte. Ce volume n'en tient plus aucun.
  *
  * PROJETS ouvre la marche parce que c'est là que l'app démarre (`DEFAULT_SECTION`), et une
  * bande d'onglets dont le premier n'est pas l'écran d'accueil se lit comme une erreur. C'est
@@ -34,8 +36,6 @@ export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: PROJECTS_SECTION, label: "Projets", icon: FolderGit2 },
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
-  { id: "modules", label: "Modules", icon: Boxes },
-  { id: "chains", label: "Chaînes", icon: Workflow },
   { id: "playlists", label: "Playlists", icon: ListMusic },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];

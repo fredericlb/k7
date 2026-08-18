@@ -3,7 +3,7 @@
 
 import type { MediatekEntry, SongVariant } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { ORIGINAL, renderNames, takesOf } from "./songTakes";
+import { ORIGINAL, takesOf } from "./songTakes";
 
 const song = (
   master: string | null,
@@ -24,7 +24,7 @@ describe("takesOf", () => {
     const takes = takesOf(
       song("so-what.wav", [
         { name: "instrumental", ref: "instrumental.wav", kind: "file" },
-        { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "chain" },
+        { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "missing" },
       ]),
     );
     expect(takes.map((t) => t.name)).toEqual([
@@ -45,7 +45,7 @@ describe("takesOf", () => {
     const [, file, chain] = takesOf(
       song("so-what.wav", [
         { name: "instrumental", ref: "instrumental.wav", kind: "file" },
-        { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "chain" },
+        { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "missing" },
       ]),
     );
     expect(file.file).toBe("instrumental.wav");
@@ -63,14 +63,5 @@ describe("takesOf", () => {
     expect(takesOf(song("so-what.wav"))).toHaveLength(1);
   });
 });
-
-describe("renderNames", () => {
-  // Two names because a machine with no ffmpeg files the bounce as wav, and mp3 first because
-  // that is the one asked for.
-  it("offers mp3 before wav", () => {
-    expect(renderNames("sans-voix")).toEqual([
-      "sans-voix.mp3",
-      "sans-voix.wav",
-    ]);
-  });
-});
+// `describe("renderNames")` stood here, over the two names a chain variant's bounce could
+// take. Nothing bounces any more — the chains that were bounced left the catalogue.

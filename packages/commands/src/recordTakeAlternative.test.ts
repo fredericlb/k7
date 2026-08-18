@@ -67,7 +67,7 @@ const take = () => {
 const played = (): string[] =>
   loadProject(dir)
     .tracks.find((t) => t.id === "gtr")
-    ?.clips.map((c) => c.id) ?? [];
+    ?.clips.map((c) => c.name) ?? [];
 
 describe("a take recorded on a lane running its FIRST set", () => {
   it("lands where it is played — the case that always worked", () => {

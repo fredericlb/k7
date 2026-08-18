@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { currentUser } from "../api";
-import { cacheRoot, playablePath } from "../engine/chainPreview";
+import { cacheRoot, playablePath } from "../engine/songPreview";
 import { takesOf } from "../songTakes";
 import { usePlayback } from "./PlaybackProvider";
 import { effectiveTarget, type PlaybackTarget } from "./targets";

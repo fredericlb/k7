@@ -33,6 +33,25 @@ one accident of formatting. A test pins that the two nevertheless always agree.
 
 A row that will ask shows a trailing `…`, so which is which is visible before you pick.
 
+## A range verb needs the rectangle, not the click
+
+A placement answers *where it starts* and nothing more. That is enough for `event remove` and
+`event move`, and one argument short for every verb that takes a **span** — `event consolidate`
+and `events move`. Derived from the click alone they arrived incomplete, so the
+bar opened and asked for an end the selection was already holding.
+
+So the clip context carries `sel`, the rectangle the click landed in, and the range verbs are
+derived from **three** slots rather than two. They then arrive complete and run, like everything
+else the click answers in full.
+
+They are derived twice — the two-slot shape matches their leading arguments as well — so the
+complete ones win and the half-filled duplicates are dropped. A verb offered twice, once ready
+and once asking, is a menu that looks like it has two different commands with one name.
+
+Without a rectangle nothing changes: the verb arrives short, shows its `…`, and the bar collects
+the range. That is the same rule the palette follows, and `commandFill.ts` reads the same three
+values — one selection, two readers, one meaning.
+
 ## Why the provider, and not the class
 
 `CommandArg` carries two things about what an argument names. `kind` is its **class** — the
@@ -60,29 +79,62 @@ also pins the argument's **name**. That is the catalogue's own word for the role
 still derived rather than a list of chosen commands — but it is a seam, and if a third command
 of that shape ever appears it will be the thing to look at.
 
-## The rows say what the command DOES, and only that
+## Three questions, three places
 
-The label is the catalogue's `help` — what it does — or this person's own name for it, in the
-language being read. **The command line is not drawn.**
+A row raises three: *what is this called*, *what does it do*, *what exactly will it type*. They
+are asked at different moments, so they are answered in different places.
 
-It was, in mono beside the label, on the argument that a pick either runs a line or writes it into
-the bar and hiding which would make the gesture opaque. That reasoning was sound and the result
-was still wrong: a menu is read for what it OFFERS, and a column of `track solo …` next to a
-column of sentences saying the same thing was two readings of one row. Sixteen of those is what
-made a track's menu hard to scan. The line is one hover away, in the row's `title`, which is where
-"what exactly will this type" belongs — a question you ask about one row, not about all of them.
+| question | where | what it is |
+|---|---|---|
+| what is it called | **the row** | the command's name, minus the word naming what you clicked — "consolidate" |
+| what does it do | **the status bar**, while the pointer is on the row | `MenuItem.description` |
+| what will it type | the row's `title` tooltip | `runs: …` / `fills the bar: …`, the whole line |
 
-Two things survived the column's removal, both because they are not the line:
+The row used to hold the *sentence* instead — the catalogue's `help`, or this person's own name
+for it. That was right about one thing: `node bypass` written where you had just right-clicked a
+node says nothing you did not know. It was wrong about the rest. A menu of ten sentences is
+**read**, one row at a time, and a menu of ten names is **scanned**; you open a right-click menu
+knowing what you came for, and the sentence is what you want about the *one* row you are not sure
+of. So it moved to the place that shows one row at a time — and the name came back, minus its
+redundant half.
 
-- **The trailing `…`**, which says a pick will ASK rather than act. That is the difference between
-  an action and a question, and it is worth a character.
-- **The `(e.g. …)` strip** on the label. It answers "how do I type this", which the pre-written
-  line answers better by being the line. Every other parenthetical — a value list, an aside —
-  says what the command does and is kept.
+### The word that gets dropped
 
-Command names used to be the label, and `node bypass` twice over said nothing you did not already
-know from having right-clicked it. That is the same mistake the mono column was making more
-quietly.
+`CLICKED_HEAD` in `contextMenu.ts`: one word per context, dropped off the front of every row
+that starts with it. On an event, `event consolidate` reads "consolidate".
+
+A head that names **something else** stays, and that is the whole value of dropping the one that
+does not. On an event's menu, `ui file` is about the material's file and `events move` about a
+whole range of them — neither is this placement, and their head is the word saying so.
+
+It is one word chosen per context, not "the head most rows share": a track's menu is nine
+`event …` rows against six `track …` ones, and the commonest head there is the wrong one.
+
+Shortening is **all or nothing**. The list is derived, so the command written tomorrow lands on
+some menu without anyone looking at it; if shortening would make two rows read alike, every row
+on that menu keeps its full name. Two identical rows are worse than one word repeated ten times.
+
+One entry names itself: the `module cc … none` unbind, which shares its verb with the bind on
+the same menu. `none` is a literal the entry writes rather than a value you are being asked for,
+so it belongs in the name rather than being asked for.
+
+### The sentence
+
+`MenuItem.description` is the catalogue's `readable` in the language being read — the 60-character
+line written for a person scanning a list — falling back to `help` with its `(e.g. …)` tail
+stripped, since that answers "how do I type this", which the pre-written line answers better by
+being the line. An entry carrying its own `help` (the shell's own commands, the unbind) wins
+outright over the catalogue's: for `module cc none`, the catalogue's sentence says the opposite of
+what that row does.
+
+The host draws it: `onHint` reports the row under the pointer — or under the keyboard focus, since
+these are buttons and tabbing through the menu is a way of reading it — and `App.tsx` puts it in
+the footer, ahead of the status text, for as long as the menu is open. It **borrows** that line
+rather than writing it: closing the menu gives back whatever the app last said, so a sentence read
+on the way past never survives as something the app appears to have done.
+
+The trailing **`…`** survives all of this unchanged: it says a pick will ASK rather than act,
+which is the difference between an action and a question, and is worth a character on every row.
 
 A trailing space is left on the line exactly when an argument is still owed. That space is
 where the caret lands, and it is also what tells the bar to complete the next ARGUMENT rather

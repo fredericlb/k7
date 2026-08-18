@@ -18,7 +18,7 @@ gauche, et le reste de la largeur se coupe en deux.
 └────────┴─────────────────────┴─────────────────────┘
 ```
 
-C'est `ChainEditor` à l'identique — texte à gauche, ce que le texte décrit à droite — et
+C'est la forme que `ChainEditor` avait — texte à gauche, ce que le texte décrit à droite — et
 volontairement : les deux familles posent la même question, et un troisième agencement
 n'aurait rien ajouté qu'une chose de plus à apprendre.
 

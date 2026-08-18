@@ -133,6 +133,25 @@ describe("the time axis, unwindowed", () => {
     expect(f.canvasBeats % 4).toBe(0); // whole bars
   });
 
+  it("stops AT the clip, with nothing beyond to write in", () => {
+    // Reported from the app on a consolidated clip: the roll drew the bar after it. The canvas
+    // used to add eight bars of room past the end, so a four-beat clip got a forty-beat canvas —
+    // nine bars you could roam into and drop a note the placement would never play.
+    const f = fitFor(
+      clip({
+        length: 4,
+        notes: [note(3.013803, 0.479722, 47), note(3.485962, 0.514038, 46)],
+      }),
+    );
+    expect(f.canvasBeats).toBe(4);
+  });
+
+  it("still reaches a LONG clip's own end", () => {
+    // The bound is the clip, not the notes: one note at beat 0 in a twenty-bar placement still
+    // gets all twenty to look at, because that is what the placement plays.
+    expect(fitFor(clip({ length: 80, notes: [note(0)] })).canvasBeats).toBe(80);
+  });
+
   it("gives an empty sequence a bar to look at", () => {
     const f = fitFor(clip({}));
     expect(f.beats).toBeGreaterThanOrEqual(4);

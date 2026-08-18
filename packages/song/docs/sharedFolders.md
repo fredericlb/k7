@@ -22,13 +22,18 @@ whole of it, and `POST /open` is where it runs, on every launch rather than only
 setting can be added after a workspace already exists, which is true of every workspace that
 predates the feature.
 
-### An empty repository is filled once, from the catalogue
+### A new repository gets its first commit
 
-A library repository somebody just created has nothing in it, and every `@st0/…` ref in every
-song already written names something that lives in the hosted médiathèque. So the first machine
-to mount an EMPTY one copies the catalogue in — `modules/` and `chains/` — commits it and pushes
-it. That is the migration, and it runs exactly once: a repository with a `modules/` folder is
-not empty any more, which is a question about the checkout rather than a flag anybody keeps.
+A library repository somebody just created has no COMMITS, and a gitlink has to point at one —
+`git submodule add` on an unborn HEAD fails. So the first machine to mount one makes an empty
+root commit and pushes it, which is all `registerSubmodule` needs; l8 fills the repository
+afterwards, one module at a time.
+
+> It used to SEED it instead, copying `modules/` and `chains/` in from the hosted médiathèque,
+> because that volume was the catalogue and every `@st0/…` ref already written named something
+> living there. The volume holds neither family now — a module is authored in l8, where the
+> plugin it names is actually loaded — so there is nothing left to copy from and no migration to
+> run. `initIfEmpty` is what remains of `seedIfEmpty`.
 
 Three details are load-bearing:
 

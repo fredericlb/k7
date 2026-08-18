@@ -94,7 +94,7 @@ describe("recording over what a lane is playing", () => {
     expect(takes()[0].events).toEqual([{ ref: "riff", start: "3:1" }]);
     const now = playing();
     expect(now).toHaveLength(1);
-    expect(now[0].id).toBe(id);
+    expect(now[0].name).toBe(id);
   });
 
   it("leaves an event alone when the take lands somewhere else", () => {
@@ -135,7 +135,7 @@ describe("recording round a loop", () => {
     expect(takes()[1].events).toEqual([{ ref: ids[1], start: "3:1" }]);
     const now = playing();
     expect(now).toHaveLength(1);
-    expect(now[0].id).toBe(ids[2]);
+    expect(now[0].name).toBe(ids[2]);
   });
 });
 

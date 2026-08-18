@@ -22,32 +22,23 @@ import { AUDIO_ACCEPT, isAudio } from "@studio/mediatek/media";
 import { PLAYLIST_EXT, playlistStub } from "@studio/mediatek/playlist";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import {
-  CHAINS_FILE,
   type MediatekEntry,
   RECORDINGS_DIR,
   SONG_FILE,
   type SongVariant,
 } from "@studio/mediatek/types";
-import {
-  engineFaceModule,
-  FACE_CATEGORIES,
-  type FaceablePlugin,
-} from "@studio/song/engineFace";
-import type { BuilderPane } from "@studio/ui-module-builder";
 import type { RepoSummary, ShareSummary } from "@studio/web-protocol";
 import {
   Activity,
   AudioLines,
-  Boxes,
   Disc3,
+  FileQuestion,
   FolderTree,
   ListMusic,
   Loader2,
   LogOut,
-  Pencil,
   Search,
   Settings,
-  Workflow,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
@@ -59,15 +50,13 @@ import {
   projects,
   shares as sharesApi,
 } from "./api";
-import { assetNodes, folderAt } from "./assetTree";
-import { ChainEditor } from "./ChainEditor";
+import { folderAt } from "./assetTree";
 import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
-import { EngineList, EnginePicker } from "./engine/EnginePicker";
+import { EnginePicker } from "./engine/EnginePicker";
 
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
-import { ModuleView } from "./ModuleView";
 import { OtherApps } from "./OtherApps";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { MiniPlayer } from "./playback/MiniPlayer";
@@ -80,7 +69,6 @@ import { projectCount } from "./projects/count";
 import { ProjectsSection } from "./projects/ProjectsSection";
 import {
   DEFAULT_SECTION,
-  fileOf,
   folderOf,
   PROJECTS_SECTION,
   type SectionId,
@@ -110,36 +98,9 @@ const SHARES_KEY = "shares";
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-/** The three files a module is: what it does, how it looks, and its named settings (see `@studio/song`'s
- *  docs/uiLibrary.md and docs/userPresets.md). The TREE no longer draws them — a module is one row, and
- *  the builder edits all three — but the ADDRESS still names one, so a deep link opens the right pane. */
-const MODULE_FILE = "module.yaml";
-const UI_FILE = "ui.yaml";
-const PRESETS_FILE = "presets.yaml";
-
-/** Which pane the file in the address opens the builder on. */
-const PANE_OF: Record<string, BuilderPane> = {
-  [MODULE_FILE]: "module",
-  [UI_FILE]: "panel",
-  [PRESETS_FILE]: "presets",
-};
-
-/**
- * Does this entry HOLD a `module.yaml`? That file is what makes a folder a module.
- *
- * Being listed under `modules/` is not enough, and the scanner says so out loud: a folder with
- * no module file is listed anyway, flagged `catalogued: false`, because "it is what a folder you
- * just made looks like, and one you cannot see is one you cannot drop into" (see scan.ts). Those
- * are CATEGORIES — `audio/filter` holding `auto-wah` — and a category has to stay a folder you
- * can open and fill. Reading the entry's family alone folded every one of them into a module.
- */
-const holdsModuleFile = (e: MediatekEntry): boolean =>
-  e.family === "modules" && !!e.files?.includes(MODULE_FILE);
-
-/** The file that IS a chain, the same way `module.yaml` is a module. Imported rather than
- *  restated: it moved into types.ts (which opens no `node:fs`) so the browser could have it. */
-const holdsChainsFile = (e: MediatekEntry): boolean =>
-  e.family === "chains" && !!e.files?.includes(CHAINS_FILE);
+// The three files a module is, the `PANE_OF` map from the address to the builder's pane, and
+// `holdsModuleFile` / `holdsChainsFile` — the two rows that were a folder on disk and a leaf in
+// the tree — all stood here. They went with the families.
 
 /** Is this entry a SONG? The family alone answers, unlike the two above: a song folder is
  *  what the scan stopped at, so every entry in the family is one — sidecar or not. A folder
@@ -148,7 +109,7 @@ const isSong = (e: MediatekEntry): boolean => e.family === "songs";
 
 /** Is this entry a PLAYLIST? The family answers, as it does for a song — but the entry is the
  *  FILE here rather than the folder around it, which is why nothing below pairs it with a
- *  canonical name the way `SONG_FILE` and `CHAINS_FILE` are paired. See
+ *  canonical name the way `SONG_FILE` is paired. See
  *  packages/mediatek/docs/playlists.md. */
 const isPlaylist = (e: MediatekEntry): boolean => e.family === "playlists";
 
@@ -163,30 +124,7 @@ const isPlaylist = (e: MediatekEntry): boolean => e.family === "playlists";
  */
 const TOP_LEVEL = "\u0000";
 
-/** Where a module keeps what it LOADS — samples, IRs, amp profiles — as opposed to what it IS.
- *  The same folder `@studio/song` resolves a module's own assets out of, so a file dropped here
- *  is one the engine will find. Named once; the scan uses its own copy (scan.ts's ASSETS_DIR). */
-const ASSETS_DIR = "assets";
-
 /**
- * Is this tree path a MODULE?
- *
- * The one entry that is a FOLDER on disk and a LEAF in the tree, so neither `t.dir` nor the
- * path's shape can answer — only the listing can.
- */
-const isModuleFolder = (
-  entries: MediatekEntry[] | null,
-  path: string,
-): boolean => {
-  const e = path ? entryAt(entries, path) : null;
-  return !!e && holdsModuleFile(e);
-};
-
-/** The same question for a CHAIN, which is the row that is a folder on disk and a leaf in the
- *  tree — so `t.dir` says no about it, and a delete has to know better. */
-const holdsChain = (entries: MediatekEntry[] | null, path: string): boolean => {
-  const e = path ? entryAt(entries, path) : null;
-  return !!e && holdsChainsFile(e);
 };
 
 /** …and for a SONG, which is a folder on disk and a leaf in the tree like a chain, and the
@@ -270,10 +208,10 @@ function treeOf(
         // A SONG is the third of that kind, and folds for neither reason: it holds its
         // variants, and a file dropped on it becomes one — which needs a row that is a drop
         // target, and the shared tree only makes folders into those.
-        const folds =
-          leaf &&
-          (!["modules", "chains", "songs"].includes(e.family) ||
-            holdsChainsFile(e));
+        // A SONG folds for neither reason: it holds its variants, and a file dropped on it
+        // becomes one — which needs a row that is a drop target, and the shared tree only
+        // makes folders into those.
+        const folds = leaf && e.family !== "songs";
         node = folds
           ? { name: part, path: sofar }
           : { name: part, path: sofar, dir: true, children: [] };
@@ -281,14 +219,12 @@ function treeOf(
         // A module's children: what its `assets/` folder holds, nested as it is on disk — a NAM
         // pack is a folder per amp. Named at their real path, so a drop, a rename and a delete
         // all address the file that is actually there. See assetTree.ts.
-        if (leaf && holdsModuleFile(e))
-          node.children = assetNodes(e.assets ?? [], `${sofar}/${ASSETS_DIR}`);
         // A song's children: the versions its sidecar declares. Named by that sidecar and NOT
         // by a file, because half of them are not files — a chain variant names a template in
         // another family — so the name is the one thing every variant has and the only one
         // that is unique within a song. The path is therefore an identity, the way the
         // synthesised root's is, and nothing addresses it as a file. See variantAt.
-        else if (leaf && isSong(e))
+        if (leaf && isSong(e))
           node.children = (e.variants ?? []).map((v) => ({
             name: v.name,
             path: `${sofar}/${v.name}`,
@@ -401,8 +337,6 @@ export function Library() {
   // Les partages, dans la même section et sur le même poll — mais leur propre route, parce que
   // ce ne sont pas des dépôts : des instantanés gelés, dont st0 tient les octets.
   const [shares, setShares] = useState<ShareSummary[]>([]);
-  // The module whose parameters are on screen. Modules only — a sample has none to ask for.
-  const [picked, setPicked] = useState<MediatekEntry | null>(null);
   // Derived, not stored: the tree IS the entry list in another shape, so a second copy
   // could only ever disagree with it.
   //
@@ -435,21 +369,6 @@ export function Library() {
   // to comes from a listing that arrives later, so a deep link would otherwise have to be
   // replayed once the entries land. Here it simply resolves the moment they do, and `null`
   // covers both "nothing open" and "not loaded yet" — the catalogue shows through until then.
-  const editing = useMemo(() => {
-    const dir = folderOf(file);
-    const entry = dir ? entryAt(entries, dir) : null;
-    if (!entry || !holdsModuleFile(entry)) return null;
-    return { entry, pane: PANE_OF[fileOf(file) ?? ""] ?? "module" };
-  }, [entries, file]);
-  // The same derivation for a CHAIN. Its own memo rather than a branch inside the one above:
-  // the two editors take different props, and a union that carried both would be read apart
-  // again at every use.
-  const editingChain = useMemo(() => {
-    const dir = folderOf(file);
-    const entry = dir ? entryAt(entries, dir) : null;
-    return entry && holdsChainsFile(entry) ? entry : null;
-  }, [entries, file]);
-  // …and for a SONG, whose address names its sidecar the same way. Third memo, same reason.
   const editingSong = useMemo(() => {
     const dir = folderOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
@@ -462,25 +381,16 @@ export function Library() {
     const entry = file ? entryAt(entries, file) : null;
     return entry && isPlaylist(entry) ? entry : null;
   }, [entries, file]);
-  /** Whichever of the four is open. What the tree marks active and opens down to, and what
+  /** Whichever of the two is open. What the tree marks active and opens down to, and what
    *  the middle of the screen is showing — three questions with one answer. */
-  const opened =
-    editing?.entry ?? editingChain ?? editingSong ?? editingPlaylist;
-  /**
-   * Where a drop lands, family-relative — `assets/` when the row it fell on is a MODULE.
-   *
-   * The tree hands over the folder that was hit, and for a module that folder holds its
-   * definition; what is being dropped is material it loads. Every other row keeps the path it
-   * gave, including a row INSIDE a module's assets, whose own folder is already the right one.
-   */
+  const opened = editingSong ?? editingPlaylist;
+  /** Where a drop lands, family-relative. It used to re-root a drop onto a MODULE into that
+   *  module's `assets/`; nothing on this volume is a module any more. */
   const assetsTarget = useCallback(
-    (dir: string): string => {
-      const at = isModuleFolder(entries, dir) ? `${dir}/${ASSETS_DIR}` : dir;
-      return at ? `${section}/${at}` : section;
-    },
-    [entries, section],
+    (dir: string): string => (dir ? `${section}/${dir}` : section),
+    [section],
   );
-  /** Open the builder on one of a module's files, or close it. The URL is the only writer. */
+  /** Open the screen on a song's sidecar or a playlist, or close it. The URL is the only writer. */
   const openFile = useCallback((rel: string | null) => {
     setFile(rel);
     // Le tiroir se referme sur ce qu'on vient d'ouvrir : il recouvre l'écran, et le laisser
@@ -501,11 +411,7 @@ export function Library() {
    * section down to its first level and no further.
    */
   const [revealed, setRevealed] = useState<string | null>(TOP_LEVEL);
-  const target = opened
-    ? relative(opened.path)
-    : picked
-      ? relative(picked.path)
-      : null;
+  const target = opened ? relative(opened.path) : null;
   useEffect(() => {
     if (target) setRevealed(target);
   }, [target]);
@@ -519,36 +425,15 @@ export function Library() {
   // Tenue ICI parce que ce composant REND le provider — il est donc au-dessus du contexte, et
   // c'est lui qui porte l'arbre dont le clic droit remplit la file. Voir playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
-  // What the chosen MACHINE has scanned — the vocabulary for "give this plugin a face", and
-  // for filling the library with all of them at once. It comes from that machine's file
-  // service, not from this app's backend, which is hosted and has no scan cache of its own.
-  // Empty is "cannot say" — an unreachable engine, or an origin it hasn't been told to
-  // trust — never "no plugins", which is why nothing is refused on the strength of it.
-  const [scanned, setScanned] = useState<FaceablePlugin[]>([]);
-  useEffect(() => {
-    if (section !== "modules" || !choice.fileBase || !choice.token)
-      return setScanned([]);
-    let alive = true;
-    void engineMachine
-      .plugins(choice.fileBase, choice.token)
-      .then((list) => alive && setScanned(list))
-      .catch(() => alive && setScanned([]));
-    return () => {
-      alive = false;
-    };
-  }, [section, choice.fileBase, choice.token]);
-  // …and their names, which is all the single-plugin field matches against. Deduplicated
-  // because two formats of one plugin are one name to type.
-  const plugins = useMemo(
-    () => [...new Set(scanned.map((p) => p.name))].sort(),
-    [scanned],
-  );
+  // The machine's plugin scan was read here, so every scanned plugin could be given a
+  // module in the library. That pass went with the `modules` family.
+
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
-  // The folder PICKER, beside the drag. A module is a folder, so "add a module" has to be able to name one —
-  // and a drag-and-drop that fails does so silently, which is a bad only-way-in. `webkitdirectory` is the
-  // input's property, not the click's, hence a dedicated hidden input; `webkitRelativePath` is what it fills.
+  // The folder PICKER, beside the drag: a drag-and-drop that fails does so silently, which is a
+  // bad only-way-in. `webkitdirectory` is the input's property, not the click's, hence a
+  // dedicated hidden input; `webkitRelativePath` is what it fills.
   const pickRef = useRef<HTMLInputElement>(null);
   // The RESOLVED target, not the row that was clicked: a module's row means its `assets/`, and
   // mapping it here keeps the picker and the drop landing in the same place.
@@ -798,7 +683,6 @@ export function Library() {
   useEffect(() => {
     setEntries(null);
     setUnlisted([]);
-    setPicked(null);
     setNotice(null);
     setTreeOpen(false);
     seen.current[section] = "";
@@ -982,7 +866,6 @@ export function Library() {
                   <DropdownMenuItem
                     onSelect={() => {
                       setSection("engine");
-                      setPicked(null);
                     }}
                   >
                     <Activity className="mr-2 h-4 w-4" />
@@ -1038,54 +921,10 @@ export function Library() {
           </div>
         ) : (
           <div className="relative flex min-h-0 flex-1">
-            {/* MODULES is gated on a live engine. Not a nag: a module is what a plugin is, and
-            only a loaded plugin can say what its parameters are called, what they span and
-            what presets it ships. Without one the builder edits YAML blind — every binding
-            typed from memory, every range guessed — which is worse than being told to pick
-            an engine first. The header stays reachable above this, so the other sections
-            are one click away.
-
-            Not over the EDITOR, which has always been reachable past this gate — a deep link
-            opened one before the gate existed, and the builder says for itself, in its
-            footer, that an absent engine leaves the plugin's parameters empty.
-
-            GONE, with the builder it gated. Modules are read-only here now: the catalogue
-            lists them, the tree opens them, and building one happens in l8 — in the Libraries
-            tab of whatever project is open, where a real engine means the plugin is actually
-            loaded. */}
-            {!editing &&
-              section === "modules" &&
-              choice.loaded &&
-              !choice.ready && (
-                <div className="absolute inset-0 z-20 flex items-start justify-center overflow-auto bg-background/95 p-8">
-                  <Card className="w-full max-w-md space-y-3 p-5">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <Boxes className="h-4 w-4" /> Un moteur est nécessaire
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      Les modules se construisent contre un greffon chargé :
-                      c'est lui qui donne les noms des paramètres, leurs bornes
-                      et ses presets d'usine. Sans moteur, l'éditeur ne peut que
-                      deviner.
-                    </p>
-                    <div className="rounded-md border p-1">
-                      <EngineList
-                        ranked={choice.ranked}
-                        chosenId={choice.chosenId}
-                        onChoose={choice.choose}
-                        onRetry={choice.refresh}
-                      />
-                    </div>
-                    {/* The remembered choice pointing at a machine that is off is the case a bare
-                  "aucun moteur" would hide — say which, so the answer is "turn it on". */}
-                    {choice.chosenId && (
-                      <p className="text-xs text-muted-foreground">
-                        Le moteur retenu ne répond pas depuis ce navigateur.
-                      </p>
-                    )}
-                  </Card>
-                </div>
-              )}
+            {/* An engine gate stood here, over the Modules section: a module is what a plugin
+            is, and only a loaded plugin can say what its parameters are called. The gate went
+            when the builder did, the read-only view went with the family, and now the section
+            itself is gone. Modules are l8's, in the Libraries tab of whatever project is open. */}
             {/* Le voile du tiroir. Il ferme au clic, et il n'existe qu'ouvert : un élément
                 invisible qui couvre l'écran est un élément qui avale les clics. */}
             {treeOpen && (
@@ -1096,7 +935,7 @@ export function Library() {
                 onClick={() => setTreeOpen(false)}
               />
             )}
-            {/* The zone being explored, as a tree: /songs, /samples or /modules. Same
+            {/* The zone being explored, as a tree: /songs, /samples or /playlists. Same
             component l8 uses for a workspace, fed from the entry paths.
 
             En colonne dès qu'il y a la place, en TIROIR quand il n'y en a pas : 240 px fixes
@@ -1164,16 +1003,9 @@ export function Library() {
                 // Open down to it, so a reloaded deep link lands on a tree showing where it is
                 // rather than one collapsed to the root. Sticky — see `revealed`.
                 reveal={revealed}
-                // A MODULE is a row you edit: clicking it opens the builder, on the PANEL, which is
-                // what people come to this screen for and what the "Éditer" button already chose.
-                // Anything else just selects.
-                // A module is a folder row you OPEN: its chevron unfolds the assets, its name opens
-                // the builder. Without this the click would only fold it, and the one gesture this
-                // screen exists for would need a second one to reach.
-                opensOnName={(n) =>
-                  isModuleFolder(entries, n.path) ||
-                  isSongFolder(entries, n.path)
-                }
+                // A SONG is a folder row you OPEN: its chevron unfolds its versions, its name
+                // opens its sidecar. Anything else just selects.
+                opensOnName={(n) => isSongFolder(entries, n.path)}
                 onOpen={(n) => {
                   // A VARIANT row opens its SONG: it is a line of that sidecar, and the editor
                   // showing the sidecar is where it can be renamed, re-pointed or removed.
@@ -1182,34 +1014,24 @@ export function Library() {
                     return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
                   const entry = entryAt(entries, n.path);
                   if (!entry) return;
-                  if (holdsModuleFile(entry)) openFile(`${n.path}/${UI_FILE}`);
-                  // A chain has one file, so the address names it rather than a pane.
-                  else if (holdsChainsFile(entry))
-                    openFile(`${n.path}/${CHAINS_FILE}`);
-                  // …and a song names its sidecar, which is the left half of what opens.
-                  else if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
+                  // A song names its sidecar, which is the left half of what opens.
+                  if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
                   // A playlist names NOTHING extra: the row already is the file, so the path
                   // the tree hands over is the whole of the address.
                   else if (isPlaylist(entry)) openFile(n.path);
-                  else setPicked(entry);
                 }}
-                // A module, a chain and a song each wear the glyph of their own tab. Without one
-                // the row would read as a plain file, which is the one thing none of them is.
-                // A variant wears the two SongVariants draws, for the same reason it draws them:
-                // a sibling file and a chain are different things to go looking for.
+                // A song and a playlist each wear the glyph of their own tab. Without one the
+                // row would read as a plain file, which is the one thing neither of them is. A
+                // variant wears the two SongVariants draws, for the same reason it draws them.
                 icon={(n) => {
                   const v = variantAt(entries, n.path);
                   if (v)
                     return v.variant.kind === "file" ? (
                       <AudioLines className="h-4 w-4 shrink-0" />
                     ) : (
-                      <Workflow className="h-4 w-4 shrink-0" />
+                      <FileQuestion className="h-4 w-4 shrink-0" />
                     );
                   const e = entryAt(entries, n.path);
-                  if (e && holdsModuleFile(e))
-                    return <Boxes className="h-4 w-4 shrink-0" />;
-                  if (e && holdsChainsFile(e))
-                    return <Workflow className="h-4 w-4 shrink-0" />;
                   if (e && isSong(e))
                     return <Disc3 className="h-4 w-4 shrink-0" />;
                   if (e && isPlaylist(e))
@@ -1338,12 +1160,7 @@ export function Library() {
                         {
                           key: "new-file",
                           label: "Nouveau fichier…",
-                          // Not inside a MODULE, folder though its row now is: the tree draws a
-                          // module's assets and nothing else, so a file created beside module.yaml
-                          // would answer 200 and appear nowhere. The builder makes those.
-                          when: (t) =>
-                            (t.dir || t.root) &&
-                            !isModuleFolder(entries, t.path),
+                          when: (t) => t.dir || t.root,
                           prompt: { placeholder: "nom.yaml", submit: "Créer" },
                           run: (t, value) =>
                             void library
@@ -1354,118 +1171,11 @@ export function Library() {
                               .then(refresh)
                               .catch((e: Error) => setError(e.message)),
                         },
-                        {
-                          key: "engine-faces-all",
-                          // The count is in the LABEL because this writes without asking again:
-                          // the prompt below names ONE plugin, and an empty answer runs nothing,
-                          // so it cannot serve as a confirmation. What is about to be created
-                          // should be written on the thing you click.
-                          label: () =>
-                            `Ajouter les ${scanned.length} greffons du moteur`,
-                          // On the section's own row only. It fills the whole family — each
-                          // plugin lands under its type and its category — so offering it on a
-                          // folder would suggest it fills THAT folder.
-                          when: (t) =>
-                            section === "modules" &&
-                            !t.path &&
-                            scanned.length > 0,
-                          run: () => {
-                            setNotice("création des modules…");
-                            void library
-                              .addEngineFaces(scanned)
-                              .then(({ created, scanned: n }) => {
-                                // Idempotent, so "nothing created" is the ordinary second run
-                                // and not a failure — it has to read as one.
-                                setNotice(
-                                  created.length
-                                    ? `${created.length} module(s) créé(s) sur ${n} greffons scannés.`
-                                    : `Les ${n} greffons scannés ont déjà un module ici.`,
-                                );
-                                refresh();
-                              })
-                              .catch((e: Error) => {
-                                setNotice(null);
-                                setError(e.message);
-                              });
-                          },
-                        },
-                        {
-                          // Only on a CATEGORY folder, which is what makes the category chosen by where
-                          // you clicked rather than by a second prompt — and `io` never offers it,
-                          // because it is the engine's own IN/OUT and no scanned plugin is one.
-                          key: "engine-face",
-                          label: "Nouveau module depuis un greffon…",
-                          // Any folder under a type, at any depth — the module lands where you
-                          // clicked. Never inside a module: a module holds files, not modules.
-                          when: (t) =>
-                            section === "modules" &&
-                            t.dir &&
-                            !isModuleFolder(entries, t.path) &&
-                            FACE_CATEGORIES.includes(t.path.split("/")[0]),
-                          prompt: {
-                            placeholder:
-                              "nom du greffon, tel que le moteur le rapporte",
-                            submit: "Créer",
-                            // Re-evaluated on every keystroke, which is what turns a blind field
-                            // into a picker without a list widget: the machine's scan IS the
-                            // vocabulary, so matching against it is the difference between naming
-                            // a plugin and guessing at one.
-                            hint: (_t, value) => {
-                              if (!plugins.length)
-                                return "cette machine n'a rapporté aucun greffon scanné";
-                              const q = value.trim().toLowerCase();
-                              if (!q)
-                                return `${plugins.length} greffons scannés`;
-                              const hits = plugins.filter((p) =>
-                                p.toLowerCase().includes(q),
-                              );
-                              return hits.length
-                                ? hits.slice(0, 4).join(" · ")
-                                : "aucun greffon de ce nom";
-                            },
-                          },
-                          run: (t, value) => {
-                            // Checked against the scan rather than taken on trust. A name that
-                            // matches nothing writes a module whose `extends` names a ref that does
-                            // not exist — and a dangling `extends` costs the inheritance silently
-                            // (resolveModule returns the child), so it would surface much later,
-                            // as a module that mysteriously loads no plugin.
-                            const named = plugins.find(
-                              (p) =>
-                                p.toLowerCase() === value.trim().toLowerCase(),
-                            );
-                            if (plugins.length && !named) {
-                              setError(
-                                `« ${value} » n'est pas un greffon que cette machine a scanné.`,
-                              );
-                              return;
-                            }
-                            let face: ReturnType<typeof engineFaceModule>;
-                            try {
-                              // The CATEGORY is the type folder — it decides the module's ports and
-                              // its kind — while the module lands in the folder that was clicked,
-                              // which may be a category below it.
-                              face = engineFaceModule(
-                                named ?? value,
-                                t.path.split("/")[0],
-                              );
-                            } catch (e) {
-                              setError((e as Error).message);
-                              return;
-                            }
-                            const dir = `${t.path}/${face.module}`;
-                            void library
-                              .writeFile(
-                                `${section}/${dir}/${MODULE_FILE}`,
-                                face.text,
-                              )
-                              // Straight into the builder, on the PANEL: drawing the face is the only
-                              // reason this module exists — everything it does comes from `extends`.
-                              .then(() => openFile(`${dir}/${UI_FILE}`))
-                              .then(refresh)
-                              .catch((e: Error) => setError(e.message));
-                          },
-                        },
+                        // Two entries stood here: "Ajouter les N greffons du moteur", which
+                        // turned a machine's whole plugin scan into library modules, and
+                        // "Nouveau module depuis un greffon…" for one at a time. Both went
+                        // with the `modules` family; the capability belongs in l8 and is not
+                        // ported yet.
                         {
                           key: "rename",
                           label: "Renommer…",
@@ -1489,14 +1199,12 @@ export function Library() {
                           label: (t) => `Supprimer ${t.name}`,
                           when: (t) => !t.root,
                           danger: true,
-                          // A CHAIN is the row that is a folder on disk and a leaf in the tree, so
+                          // A SONG is the row that is a folder on disk and a leaf in the tree, so
                           // asking `t.dir` alone would delete it with the single-file route and
-                          // leave the folder behind. A module answers both since it holds assets.
+                          // leave the folder behind.
                           run: (t) =>
                             void (
-                              t.dir ||
-                              isModuleFolder(entries, t.path) ||
-                              holdsChain(entries, t.path)
+                              t.dir || isSongFolder(entries, t.path)
                                 ? library.removeTree(`${section}/${t.path}`)
                                 : library.remove(`${section}/${t.path}`)
                             )
@@ -1508,27 +1216,10 @@ export function Library() {
               />
             </aside>
 
-            {/* A module, READ-ONLY. The builder was here and is in l8 now: only a live plugin
-            can say what its parameters are called, and the médiathèque has no project to load
-            one into. The address is unchanged, so old links still open the module — they land
-            on its text rather than on a builder. */}
-            {editing ? (
-              <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <ModuleView
-                  entry={editing.entry}
-                  onBack={() => openFile(null)}
-                />
-              </main>
-            ) : editingChain ? (
-              <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-                <ChainEditor
-                  entry={editingChain}
-                  vimMode={localStorage.getItem("st0.vim") === "1"}
-                  onBack={() => openFile(null)}
-                  onSaved={refresh}
-                />
-              </main>
-            ) : editingSong ? (
+            {/* A module view and a chain editor stood at the head of this chain of screens.
+            Both went with their families: what a plugin's parameters are called is a fact about
+            a LOADED plugin, and the médiathèque has no project to load one into. */}
+            {editingSong ? (
               <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <SongEditor
                   entry={editingSong}
@@ -1626,7 +1317,7 @@ export function Library() {
                               // the entry IS the file.
                               isPlaylist(e)
                               ? openFile(relative(e.path))
-                              : setPicked((p) => (p?.id === e.id ? null : e))
+                              : undefined
                         }
                       >
                         <span className="min-w-0 flex-1 truncate">
@@ -1671,38 +1362,8 @@ export function Library() {
               </main>
             )}
 
-            {/* Only for modules. It used to carry the plugin's live parameter list, which meant
-            loading the plugin — a one-module throwaway project sent to this tab's engine. That
-            is gone with the builder: a parameter list is a fact about a LOADED plugin, and the
-            place a plugin is loaded is a project. What stays is the way in. */}
-            {!editing && section === "modules" && picked ? (
-              // Caché sous `lg` : 384 px de plus à côté de l'arbre et du contenu, il
-              // n'y a pas d'écran étroit où les trois tiennent. Ce qu'il montre est
-              // atteignable en ouvrant le module.
-              <aside className="hidden w-96 shrink-0 overflow-auto border-l p-4 lg:block">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    {picked.name}
-                  </span>
-                  <Button
-                    size="sm"
-                    // The module's own text, read-only. The address is the one it always was,
-                    // so a link kept from before still lands on this module.
-                    onClick={() =>
-                      openFile(`${relative(picked.path)}/${UI_FILE}`)
-                    }
-                  >
-                    <Pencil className="mr-1 h-3.5 w-3.5" /> Ouvrir
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Les modules se construisent dans l8, onglet Bibliothèques de
-                  l'arborescence : c'est là qu'un greffon est réellement chargé,
-                  donc la seule place où ses paramètres, leurs bornes et ses
-                  presets d'usine existent.
-                </p>
-              </aside>
-            ) : null}
+            {/* A third column stood here, for a picked MODULE: its name, a way into its text,
+            and a line saying where modules are built. It went with the family. */}
 
             {/* A song's variants used to be a fourth column here, shown only while nothing was
             open. Clicking a song now OPENS it, so that condition could never be met again —

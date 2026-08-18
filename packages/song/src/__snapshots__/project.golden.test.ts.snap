@@ -22,7 +22,7 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
         {
           "fadeIn": 0,
           "fadeOut": 0,
-          "id": "beat",
+          "id": "beat@0",
           "length": 4,
           "loopEnd": 0,
           "loopStart": 0,
@@ -653,7 +653,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
         {
           "fadeIn": 0,
           "fadeOut": 0,
-          "id": "melody",
+          "id": "melody@0",
           "length": 8,
           "loopEnd": 0,
           "loopStart": 0,

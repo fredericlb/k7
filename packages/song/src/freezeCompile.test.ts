@@ -92,7 +92,7 @@ describe("a freeze inside one lane's run", () => {
       "renders/gone.wav",
     );
     const doc = compileNodeProject(p);
-    expect(trackOf(doc, "gtr")?.clips.map((c) => c.id)).toEqual(["riff"]);
+    expect(trackOf(doc, "gtr")?.clips.map((c) => c.name)).toEqual(["riff"]);
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual(["amp", "cab"]);
   });
 });

@@ -64,7 +64,7 @@ join(root, entry.path, master) → a path the engine can open                  (
 sendProject(doc); transport()  → the document FIRST, then the verb
 ```
 
-The document is `chainPreviewDoc(path, name, [])` — a master is the audio itself, so the
+The document is `songPreviewDoc(path, name)` — a master is the audio itself, so the
 chain is empty. That degenerate case is why there is no second document builder here.
 
 ### A cache root is not a copy

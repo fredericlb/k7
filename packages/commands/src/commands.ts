@@ -37,6 +37,10 @@ import {
   loadProjectRoot,
   moduleRefOf,
 } from "@studio/song/loader";
+import {
+  consolidateSequenceMaterial,
+  splitSequenceMaterial,
+} from "@studio/song/materialCut";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
 import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
@@ -89,7 +93,6 @@ import {
 import {
   addTrackPlacement,
   addTrackPlacements,
-  joinTrackPlacements,
   keepTrackTake,
   movePlacementToTrack,
   moveTrackPlacement,
@@ -100,7 +103,6 @@ import {
   selectTrackTake,
   setTrackPlacementDisabled,
   setTrackPlacementWarp,
-  splitTrackPlacement,
   trackTakes,
 } from "@studio/song/trackMix";
 import {
@@ -130,6 +132,7 @@ import {
   pull,
   switchAlternative,
 } from "./git";
+import { consolidateAudioMaterial, splitAudioMaterial } from "./materialRender";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
@@ -1538,21 +1541,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * event split <track> <timecode> <at> — cut one event in two at `at`.
+   * event split <track> <timecode> <at> — cut the MATERIAL in two.
    *
-   * TWO PLACEMENTS OF ONE MATERIAL: the head keeps its start and stops at the cut, the tail is a
-   * copy of the same placement starting there. Nothing is rendered and the clip's own file is not
-   * touched, so played back to back the pair sounds exactly like the event did — which is the test
-   * a split has to pass, and the reason this is a placement edit and not a material one.
+   * `virtual`'s pair. Where that one leaves two placements of one material, this writes two
+   * materials and points a placement at each — so the halves can then be trimmed, processed or
+   * warped apart, which is the whole reason to want it.
    *
-   * It works on a clip and on a sequence for one reason: a placement's window is SECONDS into an
-   * audio file and BEATS into a sequence, and `splitTrackPlacement` converts through the same pair
-   * `event resize` uses. One verb, because from the timeline it is one gesture on one thing.
+   * The KIND decides which half of the implementation runs, and they are genuinely different
+   * acts: a sequence is divided note by note in text (@studio/song's materialCut), while audio is
+   * RENDERED twice through the engine (materialRender). So this one needs a machine and the
+   * virtual split does not — and when there is no engine binary it says exactly that rather than
+   * failing somewhere further in.
    *
-   * The event is addressed by its START, like every other `event` verb, and the cut is its own
-   * argument — the timeline sends the caret's beat, and a person typing it reads both off the
-   * ruler. A "the event containing this beat" lookup would be a second way to address an event,
-   * and two would eventually disagree.
+   * What was cut is left on disk, both kinds. Another placement on another lane may still be
+   * playing it, and nothing here can know what was meant to be kept.
    */
   "event.split": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
@@ -1563,7 +1565,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const [, trackArg, atTc, cutTc] = m;
     const found = resolveEvent(h, trackArg, atTc);
     if (!found) return;
-    const { track, atBeats, hit, num, den, tempo } = found;
+    const { track, atBeats, hit, num, den } = found;
     let cutBeats: number;
     try {
       cutBeats = parsePosition(cutTc, num, den);
@@ -1572,22 +1574,44 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     try {
-      const done = splitTrackPlacement(
-        h.songPath,
-        track.id,
-        atBeats,
-        num,
-        den,
-        cutBeats,
-        tempo,
-      );
-      if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
-      h.log([
-        `${track.id}: ${hit.name || hit.id} split at ${cutTc}`,
-        // The unit the second half's `from:` is written in, said out loud — it is what you would
-        // read in the file, and it is not the same unit for the two kinds of material.
-        `  two events now, one ${done.kind}: the tail opens at ${+done.at.toFixed(4)}${done.kind === "sequence" ? "b" : "s"} of ${done.material}`,
-      ]);
+      if (hit.type === "audio") {
+        const bin = findEngineBinary();
+        if (!bin)
+          return h.log([
+            "event split: no engine on this machine — cutting audio means rendering two files",
+          ]);
+        const done = splitAudioMaterial(
+          bin,
+          h.songPath,
+          h.project(),
+          track.id,
+          atBeats,
+          cutBeats,
+          num,
+          den,
+        );
+        if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+        h.log([
+          `${track.id}: ${done.from} split at ${cutTc}, into two rendered clips`,
+          `  ${done.head.file} (${+done.head.seconds.toFixed(3)}s) and ${done.tail.file} (${+done.tail.seconds.toFixed(3)}s)`,
+          `  '${done.from}' is untouched — another lane may still be playing it`,
+        ]);
+      } else {
+        const done = splitSequenceMaterial(
+          h.songPath,
+          track.id,
+          atBeats,
+          cutBeats,
+          num,
+          den,
+        );
+        if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+        h.log([
+          `${track.id}: ${done.from} split at ${cutTc}, into two sequences`,
+          `  ${done.head.file} (${done.head.notes} notes) and ${done.tail.file} (${done.tail.notes})`,
+          `  '${done.from}' is untouched — another lane may still be playing it`,
+        ]);
+      }
       await h.reload();
     } catch (e) {
       h.log([`event split failed: ${(e as Error).message}`]);
@@ -1595,85 +1619,83 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * event join <tracks> <from> <to> — put a run of events back together.
+   * event consolidate <tracks> <from> <to> — write one material over a range.
    *
-   * `event.split` read backwards, and the same kind of edit: the first placement keeps its start
-   * and takes the last one's end, the rest are dropped. Nothing is rendered, so what the run
-   * played is what the one event plays — the test a join has to pass, and the reason
-   * `joinTrackPlacements` refuses a different material, a gap, an overlap and a neighbour that
-   * restarts the material rather than continuing it. Each of those would need a new file.
+   * Put a range back together, whatever is in it — a split rejoined, two materials merged, a
+   * stack flattened, all by one act. `event join` stood beside it and only ever rewrote
+   * placements, which meant it held out for the one arrangement where nothing had to be written;
+   * it is gone with the virtual split, and this writes in every case.
    *
-   * It takes `tracks` and then insists on ONE, which reads odd until you see where the line comes
-   * from: the timeline's selection rectangle, which spans whatever it was dragged over. Refusing
-   * here rather than in whatever built the line is what gives the CLI the same message, and what
-   * keeps "join across two lanes" from meaning something invented — the events on two lanes are
-   * two runs, and stacking them is a mixdown.
+   * ONE lane, and `tracks` is plural deliberately: the timeline's rectangle
+   * can span several, so the refusal has to be sayable here rather than in whatever built the
+   * line. A consolidation across two lanes has no obvious answer — one file, or one per lane —
+   * so it is refused rather than guessed.
+   *
+   * GAPS SURVIVE. The new material spans the whole range and silence where nothing played is part
+   * of it, which is what makes the result play back identically — the same test a split has.
    */
-  "event.join": async (a, h) => {
+  "event.consolidate": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log(["usage: event join <track> <from> <to>  (the range, inclusive)"]);
+      h.log(["usage: event consolidate <track> <from> <to>"]);
       return;
     }
     const [, tracksArg, fromTc, toTc] = m;
-    const p = h.project();
-    const named = [...new Set(tracksArg.split(",").filter(Boolean))];
-    if (named.length !== 1) {
-      h.log([
-        `join works on one lane at a time — this names ${named.length}: ${named.join(", ")}`,
-        "  events on two lanes are two runs; putting them together is a mixdown, not a join",
+    const ids = [...new Set(tracksArg.split(",").filter(Boolean))];
+    if (ids.length !== 1)
+      return h.log([
+        `event consolidate takes ONE track — ${ids.length ? ids.join(", ") : "none"} given; a rectangle over several has no single file to write`,
       ]);
-      return;
-    }
-    const track = p.tracks.find(
-      (x) => x.id === named[0] || x.name === named[0],
-    );
-    if (!track) {
-      h.log([
-        `no track "${named[0]}"${p.tracks.length ? ` — try: ${p.tracks.map((x) => x.id).join(", ")}` : ""}`,
-      ]);
-      return;
-    }
-    if (track.generated) {
-      h.log([
-        `can't join events on '${track.id}': it is generated by an algo pattern and holds no placements`,
-      ]);
-      return;
-    }
-    const num = p.timeSigNumerator;
-    const den = p.timeSigDenominator;
-    let fromBeats: number;
+    const found = resolveEvent(h, ids[0], fromTc);
+    if (!found) return;
+    const { track, atBeats: fromBeats, hit, num, den } = found;
     let toBeats: number;
     try {
-      fromBeats = parsePosition(fromTc, num, den);
       toBeats = parsePosition(toTc, num, den);
     } catch (e) {
       h.log([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     try {
-      const done = joinTrackPlacements(
-        h.songPath,
-        track.id,
-        fromBeats,
-        toBeats,
-        num,
-        den,
-        p.tempo,
-      );
-      // Null is "fewer than two events here", which is not a failure — it is a rectangle that
-      // caught one event, or none. Said plainly rather than as an error.
-      if (!done)
-        return h.log([
-          `nothing to join on '${track.id}' between ${fromTc} and ${toTc} — a join needs at least two events`,
+      if (hit.type === "audio") {
+        const bin = findEngineBinary();
+        if (!bin)
+          return h.log([
+            "event consolidate: no engine on this machine — consolidating audio means rendering a file",
+          ]);
+        const done = consolidateAudioMaterial(
+          bin,
+          h.songPath,
+          h.project(),
+          track.id,
+          fromBeats,
+          toBeats,
+          num,
+          den,
+        );
+        if (!done) return h.log([`nothing on '${track.id}' in that range`]);
+        h.log([
+          `${track.id}: ${done.replaced} event(s) consolidated into ${done.written.file}`,
+          `  ${+done.written.seconds.toFixed(3)}s rendered from ${done.from.join(", ")}`,
         ]);
-      h.log([
-        `${track.id}: ${done.joined} events joined into one`,
-        `  one ${done.kind} again: ${done.material}`,
-      ]);
+      } else {
+        const done = consolidateSequenceMaterial(
+          h.songPath,
+          track.id,
+          fromBeats,
+          toBeats,
+          num,
+          den,
+        );
+        if (!done) return h.log([`nothing on '${track.id}' in that range`]);
+        h.log([
+          `${track.id}: ${done.replaced} event(s) consolidated into ${done.written.file}`,
+          `  ${done.written.notes} notes, from ${done.from.join(", ")}`,
+        ]);
+      }
       await h.reload();
     } catch (e) {
-      h.log([`event join failed: ${(e as Error).message}`]);
+      h.log([`event consolidate failed: ${(e as Error).message}`]);
     }
   },
 

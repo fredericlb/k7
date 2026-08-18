@@ -1,8 +1,8 @@
-// ContextMenu.tsx — the right-click popup shared by the timeline and the chains graph: it
-// lists WHAT each command does — the sentence only, never the line, which is a hover away — and
-// on a pick PRE-WRITES one into the bar (see contextMenu.ts). One instance lives in App; both
-// surfaces open it through openContextMenu. Dismisses on Escape, an outside click, a scroll, or
-// losing focus.
+// ContextMenu.tsx — the right-click popup shared by the timeline and the chains graph: it names
+// each command, reports what the one under the pointer DOES through `onHint`, and on a pick
+// PRE-WRITES its line into the bar (see contextMenu.ts). One instance lives in App; both surfaces
+// open it through openContextMenu. Dismisses on Escape, an outside click, a scroll, or losing
+// focus.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { type CommandPrefs, labelIn } from "../commandPrefs";
@@ -16,6 +16,7 @@ export function ContextMenu({
   x,
   y,
   onPick,
+  onHint,
   onClose,
 }: {
   items: MenuItem[];
@@ -31,6 +32,19 @@ export function ContextMenu({
   // The WHOLE item, not its line: whether every argument is already filled decides whether the
   // host runs it or hands it to the bar, and only the item knows (see contextMenu.ts).
   onPick: (item: MenuItem) => void;
+  /**
+   * What the entry under the pointer DOES, for the host to draw somewhere the whole menu is not
+   * — the status bar. "" when the pointer is on no entry, and once more when the menu goes.
+   *
+   * A sentence per row was tried in the row itself and is what made a long menu unreadable; a
+   * `title` tooltip is the browser's and appears a second late, over the next entry down. This
+   * is the third place, and the only one that is the same place every time: you learn where to
+   * look once, and the row you are ON is the one being explained.
+   *
+   * Must be STABLE — it is called from an unmount cleanup, which a changing identity would fire
+   * on every render.
+   */
+  onHint?: (description: string) => void;
   onClose: () => void;
 }) {
   // Null until the set lands. A menu opened first thing draws its labels and no icons, which is
@@ -78,6 +92,10 @@ export function ContextMenu({
     };
   }, [onClose]);
 
+  // The menu going takes its line with it — otherwise the last thing hovered stays in the status
+  // bar over a screen that no longer has a menu on it, reading as something the app just did.
+  useEffect(() => () => onHint?.(""), [onHint]);
+
   if (!items.length) return null;
 
   return (
@@ -86,10 +104,13 @@ export function ContextMenu({
       style={{ left: pos.x, top: pos.y }}
       // Bounded and scrollable: a track offers every command that takes one, which is sixteen
       // rows, and a menu that runs off the bottom of the screen hides its own tail. Narrower
-      // since the command column went — 34rem was width for two columns, and a menu of sentences
-      // that wide leaves the eye travelling for nothing.
-      className="fixed z-50 max-h-[70vh] min-w-[13rem] max-w-[22rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
+      // again now the rows are NAMES — "split virtual", not a sentence about it — so the width
+      // a sentence needed was width the eye had to travel for nothing.
+      className="fixed z-50 max-h-[70vh] min-w-[11rem] max-w-[18rem] overflow-y-auto rounded-md border border-border bg-popover py-1 text-sm shadow-md"
       role="menu"
+      // One handler for the whole list rather than one per row: leaving the menu for the gap
+      // between two rows should clear the line, and only the container sees that.
+      onPointerLeave={() => onHint?.("")}
     >
       {items.map((it) => {
         const pref = prefs[it.verb];
@@ -108,13 +129,17 @@ export function ContextMenu({
               onPick(it);
               onClose();
             }}
+            // The status line follows the pointer, and the KEYBOARD too: these are buttons, so
+            // tabbing through the menu is a way of reading it, and a focused row nothing explains
+            // would be the same menu with the explanation switched off.
+            onPointerEnter={() => onHint?.(it.description)}
+            onFocus={() => onHint?.(it.description)}
             className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
           >
-            {/* What it DOES, and only that. The command LINE used to sit beside it in mono, on the
-              argument that hiding what a pick is about to run is opaque — but a menu is read for
-              what it offers, not for how the offer is spelled, and a column of `track solo …`
-              beside a column of sentences saying the same thing twice is what actually made this
-              hard to scan. The line is still one hover away, in the title.
+            {/* The NAME of the command, minus the word naming what you right-clicked:
+              "consolidate" on an event, not "event consolidate" and not a sentence about it. What it
+              does went to the status bar (`onHint`), and the line it will write is in the title —
+              three questions, three places, and the row answers the one you scan for.
 
               The gutter is held whether or not there IS an icon, so the labels of a half-decorated
               menu still line up — a ragged left edge reads as a rendering fault. */}
@@ -129,9 +154,8 @@ export function ContextMenu({
             <span className="min-w-0 flex-1 truncate">
               {labelIn(pref?.label, locale).trim() || it.label}
             </span>
-            {/* The one thing the line carried that the sentence does not: whether picking this
-                RUNS it or only fills the bar with it. It survives the line's removal because it
-                is the difference between an action and a question. */}
+            {/* Whether picking this RUNS it or only fills the bar with it — the difference
+                between an action and a question, and worth a character on every row. */}
             {!it.complete && (
               <span className="shrink-0 text-muted-foreground">…</span>
             )}

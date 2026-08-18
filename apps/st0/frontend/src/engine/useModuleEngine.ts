@@ -48,7 +48,7 @@ export interface ModuleEngine {
   warning: EngineWarning | null;
   /** The chosen machine's file service, as its own probe reported it — null when none answered.
    *  The médiathèque is hosted and the moteur opens PATHS, so anything that plays audio has to
-   *  find it on that machine's disk. See docs/chainPreview.md, which walks the same route. */
+   *  find it on that machine's disk. See docs/playback.md, which walks the same route. */
   fileBase: string | null;
   /** What leaves whatever is playing, in dB. -100 is nothing. */
   outputLevel: number;

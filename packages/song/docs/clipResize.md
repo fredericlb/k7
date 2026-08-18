@@ -64,27 +64,20 @@ the case carrying the intent: the length was a consequence of the repeat. Length
 looped clip means another pass, not a longer window — and a partial pass is not something
 `loop:` can express anyway.
 
-## Splitting is the same window, said twice
+## Splitting used to be the same window, said twice
 
-`event split <track> <timecode> <at>` cuts one event in two, and it is worth reading here rather
-than on its own page: it writes nothing this document has not already described.
+`event split` cut an event into TWO PLACEMENTS OF ONE MATERIAL: the head kept its `start` and
+gained a `to` at the cut, the tail was a copy of the same placement opening there. Nothing was
+rendered and the material's own file was untouched — so it wrote nothing this page had not already
+described, which is why it was documented here.
 
-**Two placements of one material.** The head keeps its `start` and gains a `to` at the cut; the
-tail is a COPY of the same placement, starting there, with its `from` at the cut. Nothing is
-rendered, nothing is copied on disk, and the material's own file is not touched — so the pair
-played back to back is exactly what the event was. That is the test a split has to pass, and it is
-why this is a placement edit and not a material one.
+It does not work that way any more. `event split` writes two materials now, and the old behaviour
+was removed rather than kept beside it: a split whose halves cannot diverge is not why anyone cuts
+an event in two. See [materialCut.md](materialCut.md).
 
-It works on a clip and on a sequence for the same reason `event resize` does: a placement's window
-is *seconds* into an audio file and *beats* into a sequence, and `splitTrackPlacement` reads and
-writes them through the one pair of conversions. The cut arrives in timeline beats — it is where
-the caret is — and becomes material units once.
-
-The tail is copied rather than rebuilt from `ref` + `start`, and that is load-bearing: everything
-else the placement said is still true of the half that was cut off — its `warp: false`, its
-`disabled`, its `to`, and whatever a later schema adds. A tail built from the two fields the writer
-happens to know about would drop the rest, and the loss would only show when the tail played
-differently from the head.
+What survives here is everything about the WINDOW itself — `from`/`to` on a material, the
+intersection with a placement's own pair, and the units each is written in. A split still reads
+them to find where the cut falls.
 
 Three refusals, all of which would otherwise write a file that validates and plays something
 nobody asked for:

@@ -14,7 +14,7 @@ import {
   useState,
 } from "react";
 import { engineMachine, library, type MachinePlayerState } from "../api";
-import { chainPreviewDoc } from "../engine/chainPreview";
+import { songPreviewDoc } from "../engine/songPreview";
 import { type ModuleEngine, useModuleEngine } from "../engine/useModuleEngine";
 import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
@@ -301,10 +301,7 @@ export function PlaybackProvider({
         if (loadedEnginePath !== what.enginePath) engine.reset();
         setLoadedEnginePath(what.enginePath);
         setEngineAt(from);
-        engine.play(
-          chainPreviewDoc(what.enginePath, docNameOf(what), []),
-          from,
-        );
+        engine.play(songPreviewDoc(what.enginePath, docNameOf(what)), from);
         return;
       }
       // The engine keeps whatever it had; it is simply no longer what we are listening to.
@@ -362,7 +359,7 @@ export function PlaybackProvider({
       if (loadedEnginePath !== now.enginePath) engine.reset();
       setLoadedEnginePath(now.enginePath);
       setEngineAt(from);
-      engine.play(chainPreviewDoc(now.enginePath, docNameOf(now), []), from);
+      engine.play(songPreviewDoc(now.enginePath, docNameOf(now)), from);
       return;
     }
     const el = audioRef.current;
