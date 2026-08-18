@@ -1,12 +1,12 @@
 // SharesCard.tsx — les liens de partage : les instantanés gelés qu'un projet a publiés, et le
 // bouton qui les retire. C'est le SEUL endroit où un partage se reprend, et le seul où son
-// coût en octets se voit — il n'expire jamais tout seul. Voir ../../docs/shares.md.
+// coût en octets se voit — il n'expire jamais tout seul. Voir apps/st0/docs/shares.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { ShareSummary } from "@studio/web-protocol";
 import { Check, Copy, Link2, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { shares as api } from "../api";
+import { shares as api } from "./api";
 
 function bytes(n: number): string {
   if (n < 1024 * 1024) return `${Math.round(n / 1024)} ko`;

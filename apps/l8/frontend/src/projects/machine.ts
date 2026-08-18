@@ -3,14 +3,10 @@
 // et le file-service sait déjà la faire. Voir ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
-import { engineMachine } from "../api";
+import { engineMachine, type Machine } from "./api";
 import { commitOutcome } from "./commitOutcome";
 
-/** La machine choisie : son file-service et le jeton qui en ouvre la porte. */
-export interface Machine {
-  fileBase: string;
-  token: string;
-}
+export type { Machine };
 
 /** Assez souvent pour que la progression de git bouge à l'écran, assez rare pour ne pas
  *  marteler une machine qui, elle, travaille. */
@@ -37,15 +33,11 @@ export async function ensureWorkspace(
   uri: string,
   onStep: (s: string) => void,
 ): Promise<string> {
-  const already = await engineMachine.workspaceForRepo(
-    m.fileBase,
-    m.token,
-    uri,
-  );
+  const already = await engineMachine.workspaceForRepo(m, uri);
   if (already) return already;
 
   onStep("clonage du dépôt sur la machine…");
-  let job = await engineMachine.startClone(m.fileBase, m.token, uri);
+  let job = await engineMachine.startClone(m, uri);
   const until = Date.now() + CLONE_CAP_MS;
   while (!job.done) {
     if (Date.now() > until)
@@ -53,7 +45,7 @@ export async function ensureWorkspace(
         "le clonage n'en finit pas — voir les journaux de la machine",
       );
     await sleep(CLONE_POLL_MS);
-    const next = await engineMachine.cloneJob(m.fileBase, m.token, job.id);
+    const next = await engineMachine.cloneJob(m, job.id);
     // Oublié par la machine : elle ne tient les jobs terminés que quelques minutes. On ne peut
     // plus dire comment il s'est fini, et prétendre qu'il a réussi serait pire que d'échouer.
     if (!next) throw new Error("la machine a oublié ce clonage — réessayez");
@@ -83,8 +75,7 @@ export async function commitAndPush(
   message: string,
 ): Promise<string | null> {
   const out = await engineMachine.command(
-    m.fileBase,
-    m.token,
+    m,
     workspace,
     // Le message est le reste de la ligne, sans guillemets ; un retour à la ligne en ferait
     // deux commandes.
@@ -111,8 +102,7 @@ export async function createProjectOnMachine(
   const workspace = await ensureWorkspace(m, uri, onStep);
   onStep(`création de ${folder}…`);
   const project = await engineMachine.createProject(
-    m.fileBase,
-    m.token,
+    m,
     workspace,
     folder,
     shape,
@@ -134,7 +124,7 @@ export async function deleteProjectOnMachine(
 ): Promise<{ gripe: string | null }> {
   const workspace = await ensureWorkspace(m, uri, onStep);
   onStep(`suppression de ${path}…`);
-  await engineMachine.deleteProject(m.fileBase, m.token, workspace, path);
+  await engineMachine.deleteProject(m, workspace, path);
   onStep("commit et envoi…");
   return { gripe: await commitAndPush(m, workspace, `delete project ${path}`) };
 }

@@ -68,19 +68,12 @@ which it now does, literally.
 unreachable — the edge would never hand the request here. The section ids are safe today,
 and `routes.test.ts` now asserts it rather than leaving it to be remembered.
 
-## The second half is not always a file
-
-`projects` carries something after its name like the three below it, but what it carries is a
-**repository id**, not a path inside a folder:
-
-```
-/projects                        the list of repositories
-/projects/3f9a1c2b7e40           …and the tree of the one that is open
-```
-
-It reuses `RouteState.file` deliberately. It is the same question — *what, inside this section,
-are you looking at* — and a field of its own would be null for most of the sections while
-meaning exactly what this one already means.
+> **`projects` was a seventh section here**, and the one case where the second half of an
+> address was not a file but a repository id. It is l8's home page now
+> (`apps/l8/frontend/docs/projects.md`), so `/projects` is an unknown first segment like any
+> other typo and falls back to the default — which is worth knowing when an old bookmark lands
+> on Morceaux instead of on a blank screen. The routes it called are still this service's; only
+> the screen moved.
 
 ## Two sections have no tab
 

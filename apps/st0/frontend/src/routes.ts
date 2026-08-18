@@ -3,12 +3,18 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The seven things the header offers, plus two sections with NO TAB, each reached by a button
+/** The six things the header offers, plus two sections with NO TAB, each reached by a button
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
- *  des morceaux », opened from Morceaux). `recordings` and `projects` are sections and not
- *  families — see Library.tsx. A section id may not collide with a path the proxy claims above
- *  st0's catch-all (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see
- *  docs/routing.md. */
+ *  des morceaux », opened from Morceaux). `recordings` is a section and not a family — see
+ *  Library.tsx. A section id may not collide with a path the proxy claims above st0's catch-all
+ *  (`/l8`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see docs/routing.md.
+ *
+ *  `projects` was a seventh, and the app's default: the account's git repositories, their
+ *  projects, the libraries, the deploy key and the shares. All of it is l8's home page now —
+ *  the médiathèque is what a project draws ON, and the level above a project belongs to the
+ *  editor that opens one. What did NOT move is the backend: `/api/projects` and `/api/shares`
+ *  are still this service's, and l8 calls them across the origin. See
+ *  apps/l8/frontend/docs/projects.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
@@ -16,14 +22,10 @@ export const SECTION_IDS = [
   "chains",
   "playlists",
   "recordings",
-  "projects",
   "engine",
   "find",
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
-
-/** Named, like `RECORDINGS_DIR` is, so the section that is not a family reads as one thing. */
-export const PROJECTS_SECTION = "projects";
 
 /**
  * The sections whose address carries a second half — everything else is a listing, and a path
@@ -34,13 +36,7 @@ export const PROJECTS_SECTION = "projects";
  * editor a tick later — the loop useLibraryRoute exists to avoid, entered through the one door
  * it does not guard, a URL the app writes and cannot read. `songs` now opens one too.
  */
-const CARRIES: readonly string[] = [
-  "songs",
-  "modules",
-  "chains",
-  "playlists",
-  "projects",
-];
+const CARRIES: readonly string[] = ["songs", "modules", "chains", "playlists"];
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);
@@ -61,11 +57,6 @@ export interface RouteState {
    * A PLAYLIST is the one that needs no such pairing: its file IS the entry (see
    * packages/mediatek/docs/playlists.md), so the whole of this string is the entry's path and
    * `folderOf` has nothing to take off it. Same slot, same question, one level less of it.
-   *
-   * Under `projects` it is not a file but a REPOSITORY id — the section has no builder, and
-   * what the address has to carry is which repository is open. Same slot, because it is the
-   * same question ("what, inside this section, are you looking at") and a second field would
-   * be empty for most of the sections.
    */
   file: string | null;
 }
@@ -73,12 +64,12 @@ export interface RouteState {
 /**
  * Where the app opens with no address to go on.
  *
- * Projets, not Morceaux: the médiathèque is the studio's front door, and the first thing you
- * want at a front door is your own work. The catalogue is what a project DRAWS ON, so it is
- * one tab away rather than in the way. Note the consequence for `fromLocation` — an unknown
- * address now lands on the repositories too.
+ * Morceaux again. It was Projets for as long as this app held the repositories — the argument
+ * being that the first thing you want at a front door is your own work — and that argument did
+ * not lose, it MOVED: the repositories are l8's home page now, so the front door for one's own
+ * work is over there. What is left here is the catalogue, and its first family is the songs.
  */
-export const DEFAULT_SECTION: SectionId = PROJECTS_SECTION;
+export const DEFAULT_SECTION: SectionId = "songs";
 
 /**
  * Percent-encoding, per segment.

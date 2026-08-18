@@ -105,5 +105,5 @@ snapshot carries every track's name, every marker's name, every module's name an
 every note in the graph, to anyone the link reaches. That is the feature, and it is also the kind
 of thing that ships without anyone thinking about it.
 
-A share has no expiry. It lives until it is revoked, from Projets on st0 — see
+A share has no expiry. It lives until it is revoked, from l8's own home page — see
 `apps/st0/docs/shares.md` for where the bytes live and what revoking one actually does.

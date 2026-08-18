@@ -8,7 +8,7 @@ import { cn } from "@frediverse/ui/lib/utils";
 import type { RepoRef } from "@studio/web-protocol";
 import { LibraryBig, Loader2, Pencil, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
-import { projects } from "../api";
+import { projects } from "./api";
 
 export function LibrariesCard() {
   // `undefined` = pas encore lu, `null` = lu et il n'y en a pas. Les deux se dessinent

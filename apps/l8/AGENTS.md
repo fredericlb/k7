@@ -33,9 +33,11 @@ The file service does **not** share the session cookie. Its CORS allowlist
 (`packages/file-service/src/cors.ts`) is the actual security boundary: deny-by-default,
 loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
 
-`AuthGate` → `EngineGate` → `ProjectGate` → editor. The engine picker is unreachable
-until logged in. Auth falls back to a "Dev User" stub when no `OIDC_*` env is set, but
-login is still mandatory.
+`AuthGate` → `EngineGate` → `ProjectGate` → editor, when the address names a project.
+When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the projects page, which
+needs the account and neither an engine nor a project (`frontend/docs/projects.md`). The engine
+picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
+`OIDC_*` env is set, but login is still mandatory.
 
 **`/auth/*` belongs to st0, not to this backend.** Everything is served under one host
 (`st0.priv.frediver.se/<service>`), so there is one session cookie — `studio.sid`, signed with the
@@ -56,6 +58,7 @@ matches before changing it:
 
 | page | covers |
 |---|---|
+| `projects.md` | the HOME page — `/l8/` with no project in it: the repositories, the libraries, the shares, the key |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |
@@ -207,8 +210,9 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   replaced the module **bench**; `frontend/docs/sharedModules.md` is the page to read, and
   `@banc` now opens only a library CHAIN.
 
-  **l8 will not open a project without a libraries repository.** The account declares one in
-  st0's Projets section, and `ProjectGate` refuses before it clones anything — see
+  **l8 will not open a project without a libraries repository.** The account declares one on
+  this app's own home page — the card above everything else — and `ProjectGate` refuses before it
+  clones anything. See `frontend/docs/projects.md` and
   `packages/project-shell/docs/launch.md`.
 - **Chains** — dagre (`@studio/ui-chains`) for layout, `@studio/ui-chains-react`'s
   `DomChains.tsx` for drawing: HTML nodes over a canvas of signal cables, with an SVG layer
@@ -242,10 +246,16 @@ a `registry.ts` here.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 
-## l8 is opened ON a project — it does not pick one
+## l8 is opened ON a project — and the HOME page is where one is chosen
 
-**This app no longer owns workspaces.** st0 owns the repositories (`apps/st0/docs/projects.md`)
-and links here with an ADDRESS — the repository by its short name, then the project folder:
+**This app still does not own workspaces**, and never will: st0 stores the repositories
+(`apps/st0/docs/projects.md`) and the engine's machine holds every working copy. What this app
+owns is the SCREEN above a project, at `/l8/` with nothing after it — the repositories, the
+projects inside them, the libraries repository, the published shares and the deploy key. It was
+st0's Projets section until it moved here; the routes did not move with it, and
+`frontend/docs/projects.md` is the page that says why.
+
+A project is named by an ADDRESS — the repository by its short name, then the project folder:
 
 ```
 /l8/songs/first.l8
@@ -255,8 +265,10 @@ and links here with an ADDRESS — the repository by its short name, then the pr
 `ProjectGate` asks st0 for the git URI behind that name
 (`GET /api/projects/by-name/:name`), resolves it to a folder on the chosen engine's machine —
 `GET /workspaces/by-repo`, cloning it with a visible progress bar if that machine has never
-seen it — then opens the project. Arriving with no project in the address redirects to st0's
-`/projects`; there is deliberately no fallback picker.
+seen it — then opens the project. Arriving with no project in the address is not an error to
+redirect away from any more: it is the home page, and `main.tsx` branches on `parseLaunch`
+before mounting anything. There is still deliberately no SECOND picker — z0's editor comes back
+to this one.
 
 **The project is the router's `basename`** (`projectBasename` in `main.tsx`), which is why
 there is no storage anywhere near it: React Router only writes below its basename, so
@@ -268,9 +280,12 @@ that did not exist could never get out of it. Read
 The gate itself is that package's too, and z0's editor mounts the same one; `components/ProjectGate.tsx`
 is a wrapper holding this app's wording and what to render once the project is open.
 
-Gone from here: `WorkspaceGate`, `WorkspaceSelect`, `SshKeyPage`, and `api.listWorkspaces` /
-`createWorkspace` / `sshKey` / `generateSshKey`. The deploy key is st0's now — one key per
-person, which the file service fetches a copy of (`packages/git-repos/docs/keys.md`).
+Gone from here for good: `WorkspaceGate`, `WorkspaceSelect`, and `api.listWorkspaces` /
+`createWorkspace` — a picker over the folders under `~/.studio/root/<you>/`, which is the wrong
+level entirely. The home page lists REPOSITORIES, which belong to a person rather than to a
+machine, and a workspace is what the gate resolves one INTO. The deploy key is still st0's —
+one key per person, which the file service fetches a copy of
+(`packages/git-repos/docs/keys.md`); what came back here is the card that shows it.
 
 Identity is still the OIDC email → folder slug → `~/.studio/root/<slug>/<workspace>`, and the
 active project is still remembered per-workspace in a `.studio-active` marker. What changed is

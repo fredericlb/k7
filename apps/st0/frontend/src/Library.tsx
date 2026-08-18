@@ -1,5 +1,5 @@
-// Library.tsx — the catalogue: the sections as header tabs (the families, the repositories and
-// the raw capture zone), the current one's files as a tree down the side, its contents in the
+// Library.tsx — the catalogue: the sections as header tabs (the families and the raw capture
+// zone), the current one's files as a tree down the side, its contents in the
 // middle. Refetches a section only when ITS token moved, which is the whole reason the
 // service hands out one per section. The chrome follows l8 — same shell, same tree.
 
@@ -34,7 +34,7 @@ import {
   type FaceablePlugin,
 } from "@studio/song/engineFace";
 import type { BuilderPane } from "@studio/ui-module-builder";
-import type { RepoSummary, ShareSummary } from "@studio/web-protocol";
+import { sortNodes } from "@studio/web-protocol/tree";
 import {
   Activity,
   AudioLines,
@@ -52,19 +52,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AddRecording } from "./AddRecording";
 import { AddSong } from "./AddSong";
-import {
-  auth,
-  engineMachine,
-  library,
-  projects,
-  shares as sharesApi,
-} from "./api";
+import { auth, engineMachine, library } from "./api";
 import { assetNodes, folderAt } from "./assetTree";
 import { ChainEditor } from "./ChainEditor";
 import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
 import { EngineList, EnginePicker } from "./engine/EnginePicker";
-
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
 import { ModuleView } from "./ModuleView";
@@ -76,36 +69,21 @@ import { PlaybackProvider } from "./playback/PlaybackProvider";
 import { QueueAdvance } from "./playback/QueueAdvance";
 import { usePlaybackTarget } from "./playback/usePlaybackTarget";
 import { usePlayQueue } from "./playback/usePlayQueue";
-import { projectCount } from "./projects/count";
-import { ProjectsSection } from "./projects/ProjectsSection";
-import {
-  DEFAULT_SECTION,
-  fileOf,
-  folderOf,
-  PROJECTS_SECTION,
-  type SectionId,
-} from "./routes";
+import { DEFAULT_SECTION, fileOf, folderOf, type SectionId } from "./routes";
 import { sectionItems, sectionLabel } from "./SectionNav";
 import { SongEditor } from "./SongEditor";
 import { takesOf } from "./songTakes";
-import { sortNodes } from "./treeOrder";
 import { useLibraryRoute } from "./useLibraryRoute";
 
 /** The five that ARE families — the only ids `/list` and `/manifest` accept. Subtracted rather
  *  than listed, so a new family is one entry in `SECTION_IDS`; the cost is that every section
  *  which is NOT one has to be named here, or it silently becomes a family the poll would ask
  *  the server for. */
-type FamilyId = Exclude<
-  SectionId,
-  typeof RECORDINGS_DIR | typeof PROJECTS_SECTION | "engine" | "find"
->;
+type FamilyId = Exclude<SectionId, typeof RECORDINGS_DIR | "engine" | "find">;
 
 /** Poll interval for the revision map. Cheap on the server (a walk per family, only when
  *  something moved) and slow enough that a library nobody is touching costs nothing. */
 const POLL_MS = 3000;
-
-/** Les partages dans la carte des jetons déjà vus. Pas une section : ils vivent DANS Projets. */
-const SHARES_KEY = "shares";
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
@@ -355,9 +333,6 @@ export function Library() {
   // The capture zone is a section without a family behind it: no `/list`, no entries, no
   // module pane. Everything below reads this rather than testing the string twice.
   const isZone = section === RECORDINGS_DIR;
-  // The repositories go further: not on the volume at all, so no tree down the side either —
-  // the section draws its own screen edge to edge.
-  const isProjects = section === PROJECTS_SECTION;
   // The cog's engine-status page — a section with no tab, no tree and no library poll:
   // everything it shows comes from the engine's own socket. See engine/EnginePage.tsx.
   const isEngine = section === "engine";
@@ -372,7 +347,7 @@ export function Library() {
    * Dérivé ici et non dans la branche qui le rend, parce que l'EN-TÊTE en a besoin : c'est
    * lui qui porte le bouton du tiroir, et il est au-dessus de la branche.
    */
-  const hasTree = !isProjects && !isEngine && !isFind;
+  const hasTree = !isEngine && !isFind;
   // Le tiroir de l'arborescence sur écran étroit. Fermé au départ : sur un téléphone, ce
   // qu'on veut voir en arrivant est le contenu, pas la façon d'y naviguer.
   const [treeOpen, setTreeOpen] = useState(false);
@@ -381,7 +356,7 @@ export function Library() {
   // song, it is an invisible one — and a capture is named by the clock, so a renamed one
   // would be a capture at an hour it was not made. Both have a header button instead; see
   // packages/mediatek/docs/songs.md and docs/recordings.md.
-  const editable = section !== "songs" && !isZone && !isProjects;
+  const editable = section !== "songs" && !isZone;
   const [present, setPresent] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
@@ -396,11 +371,6 @@ export function Library() {
   // The capture zone's own listing. Held APART from `entries` because it is apart: nothing
   // here is a catalogue entry, and it arrives from its own route.
   const [recordings, setRecordings] = useState<RecordingDay[]>([]);
-  // …and the repositories, apart for the same reason and one more: they are not on the volume.
-  const [repos, setRepos] = useState<RepoSummary[]>([]);
-  // Les partages, dans la même section et sur le même poll — mais leur propre route, parce que
-  // ce ne sont pas des dépôts : des instantanés gelés, dont st0 tient les octets.
-  const [shares, setShares] = useState<ShareSummary[]>([]);
   // The module whose parameters are on screen. Modules only — a sample has none to ask for.
   const [picked, setPicked] = useState<MediatekEntry | null>(null);
   // Derived, not stored: the tree IS the entry list in another shape, so a second copy
@@ -649,8 +619,7 @@ export function Library() {
    * would delete every morceau underneath. The tree opens no menu at all when nothing passes,
    * which is how those rows keep the browser's own.
    *
-   * Empty for the other two non-editable sections: the capture zone has no entries to match,
-   * and the repositories draw no tree.
+   * Empty for the capture zone too, which has no entries to match.
    */
   const songActions = useMemo<TreeAction<TreeNode>[]>(
     () =>
@@ -729,44 +698,6 @@ export function Library() {
     }
   }, []);
 
-  /**
-   * The repositories' own reload. Its own SERVICE, not just its own route — hence its own
-   * poll below rather than a third branch inside the catalogue's.
-   *
-   * `loud` is whether a failure is worth an error banner: this now runs on EVERY section, and
-   * a repository service that is down must not put a red message across Morceaux. On the
-   * Projets section it is the screen's own subject, so there it speaks.
-   */
-  const loadProjects = useCallback(async (rev: string, loud: boolean) => {
-    try {
-      const { repos: list } = await projects.list();
-      seen.current[PROJECTS_SECTION] = rev;
-      setRepos(list);
-      // Les PROJETS et non les dépôts — c'est ce que l'onglet nomme. Voir projects/count.ts.
-      setCounts((c) => ({ ...c, [PROJECTS_SECTION]: projectCount(list) }));
-      if (loud) setError(null);
-    } catch (e) {
-      if (loud) setError((e as Error).message);
-    }
-  }, []);
-
-  /**
-   * Les partages, rechargés dans le même tick que les dépôts.
-   *
-   * Muet quoi qu'il arrive : c'est la carte du bas de la section, et un service de partage en
-   * panne ne doit pas mettre une bannière rouge par-dessus une liste de dépôts qui, elle,
-   * s'affiche très bien. La carte dit elle-même quand elle n'a rien.
-   */
-  const loadShares = useCallback(async (rev: string) => {
-    try {
-      const r = await sharesApi.list();
-      seen.current[SHARES_KEY] = rev;
-      setShares(r.shares);
-    } catch {
-      /* la carte reste sur ce qu'elle tenait */
-    }
-  }, []);
-
   /** The zone's own reload — its own route, and its own token in the same map. */
   const loadZone = useCallback(async (rev: string) => {
     try {
@@ -809,7 +740,7 @@ export function Library() {
   // count on switch. The zone is in that map beside the families, so there is still exactly
   // one poll for everything the volume holds.
   useEffect(() => {
-    if (isProjects || isEngine || isFind) return; // not on the volume — nothing of theirs to poll here
+    if (isEngine || isFind) return; // not on the volume — nothing of theirs to poll here
     let stop = false;
     const tick = async () => {
       try {
@@ -829,45 +760,13 @@ export function Library() {
       stop = true;
       clearInterval(t);
     };
-  }, [isEngine, isFind, isProjects, isZone, load, loadZone, section]);
+  }, [isEngine, isFind, isZone, load, loadZone, section]);
 
-  // The repositories' poll, separate because they come from a DIFFERENT service. Folding them
-  // into the loop above would make every library tick depend on `/api/projects` answering,
-  // and a git fetch that hangs would stop the catalogue from refreshing.
-  // Sur TOUTE section, et pas seulement la sienne : le badge de l'en-tête annonce un nombre en
-  // permanence, donc il doit être connu en permanence. Gardé derrière `isProjects`, il valait
-  // zéro partout ailleurs — un chiffre faux, pas un chiffre absent.
-  useEffect(() => {
-    let stop = false;
-    const tick = async () => {
-      try {
-        const { revision } = await projects.revision();
-        if (stop) return;
-        if (seen.current[PROJECTS_SECTION] !== revision)
-          await loadProjects(revision, isProjects);
-      } catch (e) {
-        if (!stop && isProjects) setError((e as Error).message);
-      }
-      // Les partages sur le MÊME tick, et seulement en regardant la section : ils ne comptent
-      // dans aucun badge, et un partage naît dans l8 sur une autre machine — personne n'attend
-      // de le voir arriver depuis un autre écran d'ici. Un troisième minuteur pour ça serait
-      // une requête de plus toutes les trois secondes, pour toujours, pour rien.
-      if (!isProjects || stop) return;
-      try {
-        const { revision } = await sharesApi.revision();
-        if (!stop && seen.current[SHARES_KEY] !== revision)
-          await loadShares(revision);
-      } catch {
-        /* la carte garde ce qu'elle tenait, et le dit */
-      }
-    };
-    void tick();
-    const t = setInterval(() => void tick(), POLL_MS);
-    return () => {
-      stop = true;
-      clearInterval(t);
-    };
-  }, [isProjects, loadProjects, loadShares]);
+  // The repositories had a SECOND poll here, on `/api/projects` and `/api/shares`, running on
+  // every section because the tab's badge had to hold a number at all times. Both are l8's home
+  // page now, so this screen is back to one poll for one volume — which is the shape the comment
+  // above always claimed. The routes are untouched and still this service's; only the caller
+  // moved. See apps/l8/frontend/docs/projects.md.
 
   return (
     /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
@@ -998,8 +897,7 @@ export function Library() {
           }
         />
 
-        {/* The engine page draws edge to edge for the same reason the repositories do:
-          nothing it shows is on the volume. */}
+        {/* The engine page draws edge to edge, because nothing it shows is on the volume. */}
         {isEngine ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
             <EnginePage choice={choice} />
@@ -1011,29 +909,6 @@ export function Library() {
             <FindSongs
               onBack={() => setSection("songs")}
               onFiled={refreshSongs}
-            />
-          </div>
-        ) : /* The repositories draw the whole row themselves: there is no library tree to put
-          down the side, because nothing here is on the volume. */
-        isProjects ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ProjectsSection
-              repos={repos}
-              shares={shares}
-              busy={present === null && repos.length === 0}
-              // The open repository is in the ADDRESS, in the same slot a module's file uses —
-              // so a link to one survives a reload. See routes.ts.
-              openId={file}
-              // Créer et supprimer un projet se font sur la machine, pas ici — voir
-              // projects/machine.ts et ../../docs/projects.md.
-              machine={choice}
-              onOpen={(id) => setFile(id)}
-              onChanged={() => {
-                // Force the next tick to reload: the write moved the revision, but waiting a
-                // whole poll for a click you just made reads as the click not working.
-                seen.current[PROJECTS_SECTION] = "";
-                seen.current[SHARES_KEY] = "";
-              }}
             />
           </div>
         ) : (
@@ -1271,8 +1146,8 @@ export function Library() {
                 // Every target needs at least one action that passes its `when`, or the menu
                 // does not open AT ALL — the shared tree returns early rather than showing an
                 // empty one. Folders and the root would otherwise have none, since the two
-                // below are file-only. The zone and the repositories lean on that same early
-                // return: no menu opens at all there.
+                // below are file-only. The capture zone leans on that same early return: no
+                // menu opens at all there.
                 //
                 // SONGS get one action and only one — see `songActions`. That family's tree
                 // still cannot write, which is what `editable` says and why the branch is not

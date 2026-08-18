@@ -10,6 +10,7 @@ import { SharedGate } from "./components/SharedGate";
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
 import { PROFILING } from "./profiling";
+import { Home } from "./projects/Home";
 import "./index.css";
 /**
  * The waveform's own wrapper and marker rules. A plain stylesheet, not Tailwind, so the `@source`
@@ -36,21 +37,21 @@ installFreezeWatchdog();
 const profiling = PROFILING;
 
 /**
- * The secret, when this address is a SHARE — `/l8/@shares/<token>.l8` — and null otherwise.
+ * Which of the three things this address is, read out of the address and nothing else — the
+ * same way the basename below is, so the two cannot disagree about what this tab is on.
  *
- * Read the same way the basename below is, out of the address and nothing else, so the two
- * cannot disagree about which project this tab is on. A branch here rather than three
- * conditional gates: a share has no account, no engine and no working copy, so `AuthGate →
- * EngineGate → ProjectGate` is not a stack with parts switched off — it is the wrong stack.
+ * A branch here rather than gates switched off inside one stack. A SHARE has no account, no
+ * engine and no working copy, so `AuthGate → EngineGate → ProjectGate` is not that stack with
+ * parts disabled — it is the wrong stack. And `/l8/` with nothing after it is no longer a
+ * mistake to redirect away from: it is the HOME, the screen where projects are chosen, which
+ * needs the account but neither an engine nor a project. See projects/Home.tsx.
  */
-const sharedToken = (() => {
-  const at = parseLaunch(
-    window.location.pathname,
-    "l8",
-    import.meta.env.BASE_URL,
-  );
-  return at && isShare(at.repo) ? shareToken(at.project) : null;
-})();
+const at = parseLaunch(
+  window.location.pathname,
+  "l8",
+  import.meta.env.BASE_URL,
+);
+const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
 
 // The gates before the editor, the router outside them (so a deep link survives sign-in), and NO React.StrictMode
 // — its double-mount thrashes the WebGL compositor's context and froze Firefox. See docs/shell.md.
@@ -87,7 +88,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </SharedGate>
       ) : (
         <AuthGate>
-          {profiling ? (
+          {/* No project in the address: the home page, where one is chosen. It is behind the
+              account and nothing else — no engine is required to LIST repositories, and the two
+              buttons that do need one say so themselves. The Profiler is for the editor's commit
+              storm and has nothing to bill here. */}
+          {!at ? (
+            <Home />
+          ) : profiling ? (
             <Profiler id="app" onRender={reportCommit}>
               <EngineGate />
             </Profiler>

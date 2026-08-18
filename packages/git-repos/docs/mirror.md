@@ -78,7 +78,7 @@ Disk on the hosted volume, and one `git fetch` per refresh. Neither is free, so:
 
 `buildTree` returns `FileNode[]` — the **same** type the file service serves from `/tree`
 (`packages/web-protocol/types.ts:6`), including the `project?: boolean` flag on directories.
-That is deliberate: st0's Projets section and l8's own file tree then draw the same rows from
+That is deliberate: l8's home page and l8's own file tree then draw the same rows from
 the same shape, and "is this folder a project" has one spelling across the repo.
 
 `-r` without `-t` lists blobs only, so directories arrive implied by the paths rather than as

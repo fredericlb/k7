@@ -1,6 +1,6 @@
-// OtherApps.tsx — the header's app switcher: the studio's other front doors, k7 and z0.
-// st0 answers at the origin itself, so both are plain same-origin paths and a link is the
-// whole navigation — one that opens a NEW TAB. See ../../docs/otherApps.md.
+// OtherApps.tsx — the header's app switcher: the studio's other front doors — l8's projects,
+// k7, z0. st0 answers at the origin itself, so all three are plain same-origin paths and a link
+// is the whole navigation — one that opens a NEW TAB. See ../../docs/otherApps.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,7 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { SERVICE_PATHS } from "@studio/web-protocol/services";
-import { Gamepad2, LayoutGrid, type LucideIcon, Mic } from "lucide-react";
+import {
+  FolderGit2,
+  Gamepad2,
+  LayoutGrid,
+  type LucideIcon,
+  Mic,
+} from "lucide-react";
 
 /** The apps reachable from here, in the order they are worth reaching. */
 const OTHER_APPS: {
@@ -20,6 +26,16 @@ const OTHER_APPS: {
   hint: string;
   icon: LucideIcon;
 }[] = [
+  // l8 FIRST, and it was absent for a long time: an editor opened on one project is not a place
+  // you visit, and a bare `/l8` landed on an app with nothing to open. It has a home page now —
+  // the repositories, which used to be a section HERE — so the link means something, and it is
+  // the only way from the médiathèque to one's own projects. See ../../docs/otherApps.md.
+  {
+    href: `${SERVICE_PATHS.l8}/`,
+    label: "l8",
+    hint: "vos projets — les dépôts, les morceaux, les partages",
+    icon: FolderGit2,
+  },
   {
     href: `${SERVICE_PATHS.k7}/`,
     label: "k7",

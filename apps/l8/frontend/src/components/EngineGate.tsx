@@ -74,9 +74,12 @@ export function EngineGate() {
   }, [relook, phase.k]);
 
   /**
-   * Which project this tab is claiming, read from the address exactly as the router's basename
-   * is. Null when there is none, which sends us to st0 a moment later anyway — and which must
-   * NOT claim, or every stray `/l8/` would fight the real tabs for an engine.
+   * Which project this tab is claiming, read from the address exactly as the router's basename is.
+   *
+   * Never null in practice any more: `main.tsx` only mounts this gate when `parseLaunch` found a
+   * project, and draws the home page otherwise. The null branch stays because the rule behind it
+   * does — a screen with no project must NOT claim, or it would fight the real tabs for an
+   * engine — and it is now enforced one level up, where the home page probes without holding.
    */
   const claimProject = useMemo(() => {
     const target = parseLaunch(

@@ -1,7 +1,7 @@
-// treeOrder.ts — the order every tree on this screen is drawn in: alphabetical, folders and
-// files mixed together, blind to case and accents, and "2" before "10". One comparator, so the
-// families' tree and a repository's read the same way rather than each in the order its own
-// listing happened to arrive in.
+// tree.ts — the order a FileNode tree is drawn in: alphabetical, folders and files mixed
+// together, blind to case and accents, and "2" before "10". Here rather than in an app because
+// two of them draw the same tree — st0 its families, l8 a repository's — and an order that
+// differed between them would make one listing unreadable in the other's terms.
 
 // Intl rather than `<`: "Ébène" belongs beside "Ebene", and a take numbered 10 after one numbered 2.
 const collator = new Intl.Collator("fr", {

@@ -74,7 +74,7 @@ Deux tables et une phrase, toutes dans `@studio/web-protocol` :
 
 Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 
-- ouvrir une session `.z0` depuis les Projets de st0 → l'adresse est
+- ouvrir une session `.z0` depuis la page d'accueil de l8 → l'adresse est
   `/z0/editor-v2/<dépôt>/<session.z0>` et ne bouge plus ;
 - recharger → la même session, pas st0 ;
 - ouvrir un dépôt que cette machine n'a jamais vu → la barre de progression de git, puis la

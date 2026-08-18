@@ -50,8 +50,8 @@ en même temps, ce service ne minant pas de session mais en vérifiant une.
 supposition : là où l'IdP ne renvoie pas d'email, `subOf` utilise déjà le `sub` pour les deux,
 les deux orthographes sont une seule chaîne et l'annuaire est vide par construction.
 
-Une personne dont on demande la clé a nécessairement ouvert Projets pour y ajouter le dépôt,
-donc l'annuaire la connaît avant que la machine ne la nomme. L'écriture est au mieux-effort :
+Une personne dont on demande la clé a nécessairement ouvert la page d'accueil de l8 pour y
+ajouter le dépôt, donc l'annuaire la connaît avant que la machine ne la nomme. L'écriture est au mieux-effort :
 un volume en lecture seule coûte le pont, jamais la requête qui passait par là. Elle est aussi
 mémoïsée en mémoire, parce que `/revision` est **sondée** et qu'un annuaire relu à chaque
 sondage serait une lecture de fichier par tick.

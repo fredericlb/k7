@@ -7,23 +7,21 @@ import { RECORDINGS_DIR } from "@studio/mediatek/types";
 import {
   Boxes,
   Disc3,
-  FolderGit2,
   ListMusic,
   type LucideIcon,
   Mic,
   Waves,
   Workflow,
 } from "lucide-react";
-import { PROJECTS_SECTION, type SectionId } from "./routes";
+import type { SectionId } from "./routes";
 
 /**
- * Les sections : les dépôts, puis les cinq familles et la zone de captures brutes.
+ * Les sections : les cinq familles, et la zone de captures brutes.
  *
- * PROJETS ouvre la marche parce que c'est là que l'app démarre (`DEFAULT_SECTION`), et une
- * bande d'onglets dont le premier n'est pas l'écran d'accueil se lit comme une erreur. C'est
- * aussi la section la plus éloignée du volume : elle n'est pas dessus du tout — un dépôt
- * appartient à une personne, ce service n'en fait jamais de copie de travail, et son listing
- * vient de `/api/projects` et non du catalogue. Voir ../../docs/projects.md.
+ * PROJETS ouvrait la marche, et l'app y démarrait. Les dépôts sont la page d'accueil de l8
+ * maintenant — c'était la section la plus éloignée de ce volume, la seule qui n'était pas
+ * dessus du tout, et le niveau au-dessus d'un projet appartient à l'éditeur qui en ouvre un.
+ * Les routes, elles, n'ont pas bougé d'ici. Voir apps/l8/frontend/docs/projects.md.
  *
  * ENREGISTREMENTS n'est pas une famille non plus — c'est un dossier à la racine, sans entrée
  * de catalogue et sans listing à demander à `/list`. Il est ici parce que l'écran s'organise
@@ -31,7 +29,6 @@ import { PROJECTS_SECTION, type SectionId } from "./routes";
  * Voir packages/mediatek/docs/recordings.md.
  */
 export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
-  { id: PROJECTS_SECTION, label: "Projets", icon: FolderGit2 },
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
   { id: "modules", label: "Modules", icon: Boxes },

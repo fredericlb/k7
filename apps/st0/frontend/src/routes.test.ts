@@ -49,10 +49,18 @@ describe("fromLocation", () => {
 
   it("lands on the default section rather than 404ing inside the app", () => {
     // The URL bar is user-editable, and a typo should not be a dead screen. The bare origin
-    // is the studio's front door, and what it opens on is your own repositories.
+    // opens on the catalogue's first family — the repositories are l8's home page now.
     expect(fromLocation("/")).toEqual(st());
-    expect(fromLocation("/")).toEqual(st({ section: "projects" }));
+    expect(fromLocation("/")).toEqual(st({ section: "songs" }));
     expect(fromLocation("/nope/deep/path")).toEqual(st());
+  });
+
+  it("no longer knows the repositories, which moved to l8's home", () => {
+    // Not a section any more, so it is an unknown first segment like any other typo — and a
+    // bookmark on the old address lands somewhere usable rather than on a blank screen.
+    // See apps/l8/frontend/docs/projects.md.
+    expect(fromLocation("/projects")).toEqual(st());
+    expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(st());
   });
 
   it("drops a file under a section that cannot open one", () => {
@@ -116,7 +124,6 @@ describe("fromLocation", () => {
       songs(),
       st({ section: "modules" }),
       st({ section: "recordings" }),
-      st({ section: "projects" }),
       st({ section: "modules", file: "audio/reverb/presets.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
       st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
@@ -124,9 +131,6 @@ describe("fromLocation", () => {
       // three above — no folder to pair it with. See packages/mediatek/docs/playlists.md.
       st({ section: "playlists", file: "ete-2026.yaml" }),
       st({ section: "playlists", file: "live/repet du jeudi.yaml" }),
-      // Under `projects` the second half is a repository id, not a file — same slot,
-      // different meaning. See routes.ts.
-      st({ section: "projects", file: "3f9a1c2b7e40" }),
       // The cog's engine-status page: a section with no tab, and no file to carry.
       st({ section: "engine" }),
       // « Trouver des morceaux », the other tabless one — a PAGE rather than a dialogue,
@@ -145,13 +149,6 @@ describe("fromLocation", () => {
       section: "find",
       file: null,
     });
-  });
-
-  it("opens a repository from the address, so a link to one survives a reload", () => {
-    expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(
-      st({ section: "projects", file: "3f9a1c2b7e40" }),
-    );
-    expect(fromLocation("/projects")).toEqual(st({ section: "projects" }));
   });
 
   it("keeps the new section clear of the paths the proxy claims above st0", () => {

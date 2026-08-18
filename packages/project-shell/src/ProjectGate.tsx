@@ -1,6 +1,6 @@
 // ProjectGate.tsx — resolve the repository this app was opened on into a folder on the
 // engine's machine, cloning it if that machine has never seen it, then open the project and
-// render the app. Neither l8 nor m9 picks anything here: st0 owns the repositories, and
+// render the app. No app picks anything here: a project is chosen on l8's home page, and
 // arriving with no target sends you back there. See docs/launch.md.
 
 import { isBench, type ProjectApp } from "@studio/web-protocol/projects";
@@ -188,8 +188,12 @@ export function ProjectGate({
     window.location.href = projectsUrl(window.location.href);
   }, [onQuit]);
 
-  // No target at all: `/l8/` on its own, or a hand-typed address. st0 is where a project is
-  // chosen, so go there rather than inventing a picker this app does not own.
+  // No target at all — a hand-typed address, or an app mounted with nothing after its prefix.
+  // `projectsUrl` is l8's home page, the one screen where a project is chosen, so go there
+  // rather than inventing a second picker this app would then have to keep in step.
+  //
+  // l8 itself no longer reaches this: its `main.tsx` draws that home page instead of mounting
+  // the gate. This is the road for every OTHER app that mounts one — z0's editor today.
   useEffect(() => {
     if (!target) window.location.replace(projectsUrl(window.location.href));
   }, [target]);

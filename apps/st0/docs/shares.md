@@ -155,7 +155,11 @@ agir pour quiconque est dessus.
 
 ## Révoquer
 
-Dans la section Projets, sous la liste des dépôts (`projects/SharesCard.tsx`).
+Dans l8, sur sa page d'accueil, sous la liste des dépôts
+(`apps/l8/frontend/src/projects/SharesCard.tsx`). Les deux bouts d'un partage sont donc l8
+maintenant : c'est lui qui rend le paquet et l'envoie ici, et lui qui le retire. Ça a vécu dans
+la section Projets de ce service tant que cette section existait ; ce qui reste ici est ce que
+cette page décrit — les octets, l'index, les routes.
 
 **Les octets partent d'abord, l'index est marqué ensuite.** Cet ordre est tout : effacer le
 dossier est ce qui tue un lien qui a fuité, et ça ne doit dépendre d'aucune écriture qui suit.

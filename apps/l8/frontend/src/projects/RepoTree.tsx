@@ -5,6 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import type { FileNode, RepoSummary } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
+import { sortNodes } from "@studio/web-protocol/tree";
 import {
   ArrowLeft,
   ChevronDown,
@@ -17,7 +18,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { sortNodes } from "../treeOrder";
 
 function Row({
   node,

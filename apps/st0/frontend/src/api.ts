@@ -12,23 +12,12 @@ import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,
-  type FileNode,
   type Hints,
   type PublicEngine,
-  type RepoRef,
-  type RepoStatus,
-  type RepoSummary,
-  type ShareSummary,
-  type SshKeyInfo,
   USER_HEADER,
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
-import {
-  launchUrl,
-  type ProjectApp,
-  shareUrl,
-} from "@studio/web-protocol/projects";
 import { mediatekModuleRefs } from "./moduleRefs";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
@@ -528,112 +517,13 @@ export const engineMachine = {
  */
 export const engines = engineAccess<PublicEngine, St0Prefs>(BASE, json);
 
-/** `/api/projects` rather than `/api/mediatek`, so it needs its own two verbs. */
-const pget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${BASE}/api/projects${path}`), what);
-const psend = async <T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> =>
-  json(
-    await fetch(`${BASE}/api/projects${path}`, {
-      method,
-      headers: body ? { "content-type": "application/json" } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    }),
-    path,
-  );
-
 /**
- * The user's git repositories — the Projets section.
- *
- * NOT the médiathèque: a repository belongs to a person, not to the volume, and this service
- * never makes a working copy of one. It keeps a bare blobless mirror to answer "what is in
- * there", and l8 does the actual checkout on the engine's machine. See ../../docs/projects.md.
+ * `/api/projects` and `/api/shares` were both clients here — the repositories, the libraries,
+ * the deploy key and the frozen snapshots. The ROUTES are untouched and still this service's:
+ * it owns the volume they are stored on, and it is the one side that outlives every engine.
+ * What left is the drawing, to l8's home page, which now calls them across the origin. See
+ * apps/l8/frontend/docs/projects.md.
  */
-export const projects = {
-  list: () => pget<{ repos: RepoSummary[]; revision: string }>("", "projects"),
-  revision: () => pget<{ revision: string }>("/revision", "revision"),
-  add: (uri: string, label?: string) =>
-    psend<{ repo: RepoSummary }>("POST", "", { uri, label }),
-  remove: (id: string) => psend<{ ok: true }>("DELETE", `/${id}`),
-  refresh: (id: string) => psend<RepoStatus>("POST", `/${id}/refresh`),
-
-  /**
-   * The repository's tree. 202 means "known, but the mirror is still being fetched" — a
-   * state of its own, and neither an error nor an empty repository, so it is returned rather
-   * than thrown.
-   */
-  tree: async (
-    id: string,
-  ): Promise<{
-    nodes: FileNode[];
-    projects: { path: string; app: ProjectApp }[];
-  } | null> => {
-    const res = await fetch(`${BASE}/api/projects/${id}/tree`);
-    if (res.status === 202) return null;
-    return json(res, "tree");
-  },
-
-  sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
-  generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
-
-  /**
-   * The LIBRARY repository — the modules and chains every project of this account inherits.
-   *
-   * `libraries: null` is the ordinary state of a new account and not an error, which is why
-   * the route answers 200 with a null rather than a 404: this screen ACTS on it, and so does
-   * l8, which will not open a project without one.
-   */
-  libraries: () =>
-    pget<{ libraries: RepoRef | null }>("/libraries", "libraries"),
-  /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
-  setLibraries: (uri: string) =>
-    psend<{ libraries: RepoRef }>("PUT", "/libraries", { uri }),
-  clearLibraries: () => psend<{ ok: true }>("DELETE", "/libraries"),
-
-  /**
-   * Where a project opens — l8 or m9, whichever its folder name claims. Derived from the
-   * page's own origin rather than declared: every studio service sits at a fixed path under
-   * one origin, so dev and production differ by that origin and nothing else.
-   *
-   * A PATH, `/l8/<repo>/<project>`, and the repository by its short NAME. The editor asks us
-   * back for the URI (`/api/projects/by-name/:name`), which keeps a host, a port and a user
-   * out of an address bar that gets bookmarked and pasted.
-   * See packages/project-shell/docs/launch.md.
-   */
-  openIn: (repoName: string, project: string, app: ProjectApp): string =>
-    launchUrl(window.location.origin, repoName, project, app),
-};
-
-/** `/api/shares`, its own prefix again — mounted ABOVE the `/api` fence, not under `projects`. */
-const sget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${BASE}/api/shares${path}`), what);
-
-/**
- * The frozen snapshots this person has published, and taking one back.
- *
- * Read-only from here except for the revoke: a share is CREATED by l8, on the machine that can
- * render one, and this screen is where it is watched and withdrawn. See ../../docs/shares.md.
- */
-export const shares = {
-  list: () => sget<{ shares: ShareSummary[]; revision: string }>("", "shares"),
-  revision: () => sget<{ revision: string }>("/revision", "revision"),
-
-  /** Delete the bytes. The row stays, dated — the list keeps saying what was published. */
-  revoke: async (key: string): Promise<void> => {
-    const res = await fetch(`${BASE}/api/shares/${key}`, { method: "DELETE" });
-    if (!res.ok) throw await failed(res, "revoke");
-  },
-
-  /**
-   * The link, built from the origin the browser is on — the same call l8 makes after a render.
-   * st0 stores the secret and never the address: which host this account is read on is a
-   * property of the tab, not of the snapshot.
-   */
-  url: (token: string): string => shareUrl(window.location.origin, token),
-};
 
 /** `/api/hunt`, its own prefix like the projects one, and for the same reason: it is not the
  *  médiathèque's volume that answers but a daemon on another machine. */

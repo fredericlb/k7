@@ -5,7 +5,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Check, Copy, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import { projects } from "../api";
+import { projects } from "./api";
 
 export function SshKeyCard() {
   const [key, setKey] = useState<string | null>(null);

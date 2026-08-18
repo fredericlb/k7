@@ -15,7 +15,8 @@ Order is PRECEDENCE — nearest first.
 
 ## `_libraries` is a git submodule
 
-The account registers ONE library repository with st0 (`apps/st0/docs/projects.md`), and the
+The account registers ONE library repository with st0, from l8's home page
+(`apps/l8/frontend/docs/projects.md`), and the
 file service mounts it into every workspace it makes — `git submodule add` where the workspace
 is a repository, a plain clone where it is not. `packages/file-service/src/libraries.ts` is the
 whole of it, and `POST /open` is where it runs, on every launch rather than only on clone: the

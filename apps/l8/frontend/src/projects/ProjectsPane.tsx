@@ -1,6 +1,6 @@
-// ProjectsSection.tsx — la section Projets : la liste des dépôts, ou l'arborescence de celui
-// qui est ouvert. Détient l'asynchrone pour les deux vues présentationnelles à côté. Le dépôt
-// ouvert vient de l'URL (routes.ts), pas d'un état local. Voir ../../docs/projects.md.
+// ProjectsPane.tsx — le corps de la page d'accueil : la liste des dépôts, ou l'arborescence de
+// celui qui est ouvert. Détient l'asynchrone pour les deux vues présentationnelles à côté. Le
+// dépôt ouvert vient de l'adresse (Home.tsx), pas d'un état local. Voir ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type {
@@ -10,7 +10,7 @@ import type {
   ShareSummary,
 } from "@studio/web-protocol";
 import { useCallback, useEffect, useState } from "react";
-import { projects as api } from "../api";
+import { projects as api } from "./api";
 import { LibrariesCard } from "./LibrariesCard";
 import {
   createProjectOnMachine,
@@ -22,7 +22,7 @@ import { RepoTree } from "./RepoTree";
 import { SharesCard } from "./SharesCard";
 import { SshKeyCard } from "./SshKeyCard";
 
-export function ProjectsSection({
+export function ProjectsPane({
   repos,
   shares,
   busy,
@@ -32,7 +32,7 @@ export function ProjectsSection({
   onChanged,
 }: {
   repos: RepoSummary[];
-  /** Les instantanés gelés publiés depuis l8. Poll de la section, comme les dépôts. */
+  /** Les instantanés gelés publiés par `project share link`. Poll de la page, comme les dépôts. */
   shares: ShareSummary[];
   busy: boolean;
   /** L'id du dépôt ouvert, tiré de l'adresse, ou null pour la liste. */
@@ -42,11 +42,13 @@ export function ProjectsSection({
    *
    * Créer et supprimer un projet passent OBLIGATOIREMENT par elle : st0 ne tient qu'un miroir
    * bare, sans blobs et balayé au bout de quinze jours — la copie qu'on committe vit là-bas, et
-   * le file-service sait déjà l'échafauder, la supprimer et la pousser. Voir ../../docs/projects.md.
+   * le file-service sait déjà l'échafauder, la supprimer et la pousser. Que cet écran soit
+   * maintenant DANS l8 n'y change rien : c'est toujours une autre machine que celle qui sert
+   * cette page. Voir ../../docs/projects.md.
    */
-  machine: { fileBase: string | null; token: string | null };
+  machine: Machine | null;
   onOpen: (id: string | null) => void;
-  /** À appeler après toute écriture, pour que la section recharge sans attendre le poll. */
+  /** À appeler après toute écriture, pour que la page recharge sans attendre le poll. */
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -92,10 +94,9 @@ export function ProjectsSection({
   /** Ce qui empêche d'écrire, en une phrase, ou "". Dit sur le bouton plutôt que découvert au
    *  clic : n'avoir aucune machine joignable est un état ordinaire de cette page, qui elle
    *  fonctionne parfaitement sans. */
-  const blocked =
-    machine.fileBase && machine.token
-      ? ""
-      : "aucune machine moteur joignable — créer ou supprimer un projet se fait sur la machine, pas ici";
+  const blocked = machine
+    ? ""
+    : "aucune machine moteur joignable — créer ou supprimer un projet se fait sur la machine, pas ici";
 
   /** Le miroir de st0 ne verra le changement qu'après un `git fetch`, et le poll n'en fait un
    *  qu'au plus toutes les dix minutes. On le demande donc explicitement, sinon la liste
@@ -111,9 +112,8 @@ export function ProjectsSection({
   /** La machine, ou un refus qui se lit. Les boutons sont déjà grisés sans elle ; arriver ici
    *  quand même veut dire qu'elle a disparu entre l'ouverture du dialogue et le clic. */
   const chosen = useCallback((): Machine => {
-    const { fileBase, token } = machine;
-    if (!fileBase || !token) throw new Error(blocked);
-    return { fileBase, token };
+    if (!machine) throw new Error(blocked);
+    return machine;
   }, [machine, blocked]);
 
   const create = useCallback(
@@ -186,11 +186,11 @@ export function ProjectsSection({
     // `repo?.fetching` est là exprès : un rafraîchissement qui se termine doit relire l'arbre.
   }, [openId, repo?.fetching]);
 
-  // Le dépôt des bibliothèques passe AVANT tout le reste de la section, arborescence comprise :
-  // c'est la première chose à régler sur un compte neuf, et rien d'autre ici — ni un projet
-  // créé, ni un projet ouvert — ne fonctionne tant qu'elle ne l'est pas.
+  // Le dépôt des bibliothèques passe AVANT tout le reste, arborescence comprise : c'est la
+  // première chose à régler sur un compte neuf, et rien d'autre ici — ni un projet créé, ni un
+  // projet ouvert — ne fonctionne tant qu'elle ne l'est pas.
   return (
-    <div className="flex h-full flex-col overflow-auto">
+    <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <LibrariesCard />
       {repo ? (
         <RepoTree

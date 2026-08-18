@@ -94,7 +94,8 @@ describe("projectBasename", () => {
   });
 
   it("falls back to the mount when the address names no project", () => {
-    // The app still mounts; its gate is what sends you to st0.
+    // The app still mounts — for l8 that address IS the home page, and for anything else the
+    // gate redirects there. Either way the router needs a basename, and it is the mount.
     expect(projectBasename("/l8/", "l8", L8)).toBe(L8);
   });
 
@@ -189,9 +190,18 @@ describe("launchUrl", () => {
 });
 
 describe("projectsUrl", () => {
-  it("is st0's Projets section, which answers the origin root", () => {
+  it("is l8's home — its mount with no project after it", () => {
     expect(projectsUrl("https://st0.priv.frediver.se/l8/band/a.l8")).toBe(
-      "https://st0.priv.frediver.se/projects",
+      "https://st0.priv.frediver.se/l8/",
     );
+  });
+
+  // The whole point of the address it answers: `parseLaunch` must read it back as "no project",
+  // or the home would resolve itself as a repository named `l8` and clone something.
+  it("names no project, which is what makes it the home", () => {
+    const home = new URL(
+      projectsUrl("https://st0.priv.frediver.se/l8/band/a.l8"),
+    );
+    expect(parseLaunch(home.pathname, "l8", L8)).toBe(null);
   });
 });

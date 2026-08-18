@@ -269,7 +269,7 @@ The suites here mount nothing, so none of this is covered by a green run:
 
 - with **no libraries repository** on the account, open any project → l8 refuses with "no
   libraries repository" and a button back to st0, before it clones anything;
-- add an **empty** repository in st0's Projets section (the card is above everything else), then
+- add an **empty** repository from l8's home page (the card is above everything else), then
   open a project → `_libraries/` is there beside it, filled with the catalogue st0 already held,
   committed and pushed, with `.gitmodules` staged in the workspace. Look at the repository on
   your git host: `modules/` and `chains/` are in it;

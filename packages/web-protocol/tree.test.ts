@@ -1,8 +1,8 @@
-// treeOrder.test.ts — what the one order promises: it reaches every level, it reads names the
+// tree.test.ts — what the one order promises: it reaches every level, it reads names the
 // way a person does, and it leaves the listing it was handed alone.
 
 import { describe, expect, it } from "vitest";
-import { sortNodes } from "./treeOrder";
+import { sortNodes } from "./tree";
 
 // The minimum the comparator reads — a folder row and a file row differ only by `children`,
 // which is what both trees hand it.
