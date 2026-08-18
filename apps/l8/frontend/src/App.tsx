@@ -2340,6 +2340,15 @@ export default function App({
       if (!modulePicker) return;
       setModulePicker(null);
       const { info, at } = modulePicker;
+      // The picker's one non-module offer. A curve is a node like any other, so it is created
+      // from the same menu — but there is no catalogue to pick from and nothing to splice it
+      // into: only a person can name it, and it drives nothing until a param binds it. So the
+      // bar is prewritten, exactly as `node new` is when the module catalogue is empty.
+      if (pick.newCurve) {
+        prewriteCommand("curve new ");
+        offerSpawnAt(at);
+        return;
+      }
       /**
        * TWO lines, and the split is the vocabulary's: what the pick needs is a module (created,
        * or noded if it is already there) and then that node WIRED — an arrow to splice into, or

@@ -23,6 +23,10 @@ export interface PickerModule {
 
 /** What the picker hands back. */
 export interface ModulePick {
+  /** Not a module at all: the picker's one other offer, "new curve…". The canvas menu creates
+   *  nodes, and a curve is a node — so it belongs here rather than in a second menu nobody
+   *  would look in. The caller prewrites `curve new`, because only a person can name it. */
+  newCurve?: true;
   ref: string; // "instruments/synth" (this project) or "@engine/audio/delay/adt"
   /** null ⇒ a base module this project already defines. The caller needs to know: one
    *  already exists to instantiate, the other has to be created first. */
@@ -79,6 +83,25 @@ const CURRENT = "current";
  * node never becomes a ref of its own. That matters here, because instantiating is
  * what picking one of these leads to.
  */
+/**
+ * The picker's one non-module branch.
+ *
+ * A curve that already exists is already ON the graph — an unbound one draws as a free card
+ * now — so there is nothing to "add" for it and the only useful offer is a new one.
+ */
+const CURVE_BRANCH: TreeNode<ModulePick> = {
+  key: "curves",
+  label: "curves",
+  children: [
+    {
+      key: "curves/new",
+      label: "new curve…",
+      hint: "an LFO, a drawn shape, or an envelope fired by note-ons",
+      entry: { newCurve: true, ref: "", namespace: null, type: "", name: "" },
+    },
+  ],
+};
+
 export function buildTree(
   baseModules: (PickerModule | string)[],
 ): TreeNode<ModulePick>[] {
@@ -259,7 +282,7 @@ export function ModulePicker({
     <TreePicker<ModulePick>
       x={x}
       y={y}
-      tree={buildTree(baseModules)}
+      tree={[...buildTree(baseModules), CURVE_BRANCH]}
       search={(q) => searchModules(baseModules, q)}
       searchLimit={SEARCH_LIMIT}
       placeholder="search modules…"
