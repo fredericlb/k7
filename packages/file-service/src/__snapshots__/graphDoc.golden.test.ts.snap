@@ -15,6 +15,9 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
         {
           "category": "instruments",
           "emits": "audio",
+          "events": [
+            "note-on",
+          ],
           "hasNativePluginUI": false,
           "module": "kit",
           "params": {},
@@ -89,6 +92,9 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
           ],
           "category": "instruments",
           "emits": "audio",
+          "events": [
+            "note-on",
+          ],
           "hasNativePluginUI": false,
           "module": "lead",
           "params": {
@@ -151,6 +157,9 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
         {
           "category": "instruments",
           "emits": "audio",
+          "events": [
+            "note-on",
+          ],
           "hasNativePluginUI": false,
           "module": "synth-pad",
           "params": {

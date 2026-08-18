@@ -55,7 +55,13 @@ export interface WebModuleUI {
   widgets: Record<string, WebWidget>;
 }
 // What a cable carries, derived from the module's TYPE FOLDER (see loader.ts MODULE_TYPES). Colours the cable.
-export type WebSignal = "audio" | "midi" | "video";
+/**
+ * What a wire carries. `event` is the odd one and stays out of the signal path: nothing is
+ * processed, an instant is announced — a note-on that restarts an envelope. It is a WebSignal so
+ * a socket can be typed and coloured like any other, and never so an event may be plugged into
+ * an audio input; the two lists that hold them are separate for that reason.
+ */
+export type WebSignal = "audio" | "midi" | "video" | "event";
 
 // A module's type folder. The graph draws an icon per kind, which `emits` can't stand in for.
 /**
@@ -99,6 +105,10 @@ export interface WebChainStep {
    *  is what every module has and what a node with no list draws. All of them are shown at once:
    *  an output is offered rather than required, so there is nothing to reveal progressively. */
   outputs?: { name: string; type: WebSignal }[];
+  /** The EVENTS this module announces, by name — "note-on" on an instrument. Drawn as labelled
+   *  sockets down its right edge, under the signal outputs, and never mixed with them: an event
+   *  is not something the chain carries. Absent on a module that announces none, which is most. */
+  events?: string[];
   // The files this module loads, by param name ("nam"), relative to its own assets/ — the dropdown's current choice.
   assets?: Record<string, string>;
   // …and what it may choose FROM: the module's own assets/, walked. Per module and not per
@@ -186,10 +196,14 @@ export interface WebCc {
 export interface WebAutomation {
   param: string;
   curve: string; // a curve id (keys WebGraph.curves)
+  /** The module whose events restart the curve — what the event cable on the graph IS. Only an
+   *  envelope reads it; a curve of song time is fired by nothing. Absent means the module this
+   *  binding is on, which is the case nobody needs to say. */
+  trigger?: string;
 }
 // A curve's shape, enough to LABEL its node — the full definition stays on disk.
 export interface WebCurve {
-  type: "lfo" | "custom";
+  type: "lfo" | "custom" | "adsr";
   shape?: "sine" | "triangle" | "saw" | "square"; // lfo only
 }
 export interface WebChain {

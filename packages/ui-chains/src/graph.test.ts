@@ -127,21 +127,22 @@ describe("buildGraph", () => {
       warnings: [],
     });
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // One curve node PER CURVE, purple (kind "curve"), labelled by curve id + shape —
-    // a curve is a node like everything else on the graph, however many params it drives.
-    expect(byId["crv:sweep"]).toMatchObject({
+    // One curve node per BINDING, purple (kind "curve"), labelled by the curve's id + shape.
+    // The id carries which binding it is; the label does not, so two instances of one curve
+    // read as the same curve.
+    expect(byId["crv:sweep@synth:Filter Freq"]).toMatchObject({
       kind: "curve",
       label: "sweep",
       sub: "custom",
     });
-    expect(byId["crv:wobble"]).toMatchObject({
+    expect(byId["crv:wobble@synth:Osc1 Tune"]).toMatchObject({
       kind: "curve",
       label: "wobble",
       sub: "lfo triangle",
     });
     // The widget-bound automation carries a node-local widget offset; the other doesn't.
-    const withWidget = edges.find((e) => e.source === "crv:sweep");
-    const noWidget = edges.find((e) => e.source === "crv:wobble");
+    const withWidget = edges.find((e) => e.source.startsWith("crv:sweep@"));
+    const noWidget = edges.find((e) => e.source.startsWith("crv:wobble@"));
     expect(withWidget?.target).toBe("mod:synth");
     expect(withWidget?.automation).toMatchObject({ param: "Filter Freq" });
     expect(withWidget?.automation?.widget).toBeTruthy();
@@ -169,8 +170,20 @@ describe("buildGraph", () => {
       curves: { sweep: { type: "custom" } },
       warnings: [],
     });
-    expect(nodes.filter((n) => n.kind === "curve")).toHaveLength(1);
-    expect(edges.filter((e) => e.source === "crv:sweep")).toHaveLength(2);
+    // TWO nodes, one per binding — and this test used to assert the opposite.
+    //
+    // One node per curve was right while a curve node had no input: two cards for one shape
+    // were duplication, and "where is this curve" had two answers. A curve node LISTENS now —
+    // an envelope is restarted by an event, and which module fires it is a fact about the
+    // BINDING. One card could not say that the same shape follows the drums here and the synth
+    // there. They stay legibly one curve: same label, one file.
+    expect(nodes.filter((n) => n.kind === "curve")).toHaveLength(2);
+    expect(edges.filter((e) => e.source.startsWith("crv:sweep@"))).toHaveLength(
+      2,
+    );
+    expect(nodes.filter((n) => n.kind === "curve").map((n) => n.label)).toEqual(
+      ["sweep", "sweep"],
+    );
   });
 
   it("skips an automation whose curve is missing from the graph", () => {

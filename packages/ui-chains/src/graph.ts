@@ -54,6 +54,9 @@ const CARRIED = [
   // below turns it into the node's pads, and the renderer needs the row again to know what a
   // tapped pad should sound.
   "rack",
+  // What the module ANNOUNCES — its note-on. Carried straight through: the node draws a socket
+  // per name, and nothing here derives anything from it.
+  "events",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */
@@ -186,6 +189,13 @@ export interface GraphNode extends Carried, Flags {
    *  renderer because how many a node shows depends on what is wired to it, which is a fact
    *  about the graph and not about the DOM. Not from the step: it depends on what is wired. */
   jacks?: { in: Jack[]; out: Jack[] };
+  /* `events` — what this node announces — is CARRIED from the step; see CARRIED above. It is
+     drawn as labelled sockets down the right edge, apart from `jacks.out`: those are the signal
+     path, and an event is not something the chain carries. One list would let a cable be dragged
+     from a note-on into an audio input — the drawing allowing what the model forbids. */
+  /** This node LISTENS for events: one socket on its left edge, above the signal ones. A curve
+   *  has it when it is an envelope — the only curve with anything to be restarted by. */
+  eventIn?: boolean;
   /**
    * This node sits in a row read ACROSS, not in a column read down — `moduleRow`'s doing.
    *
@@ -361,6 +371,27 @@ export interface GraphEdge {
  * The sockets are spread evenly down the node's edge (a third and two thirds for two), matching the `top`
  * the renderer sets on each plate: one rule, so the cable meets the hole rather than landing near it.
  */
+/**
+ * An EVENT socket's centre — the right edge for a module that announces one, the left for a
+ * curve that listens.
+ *
+ * Its own function rather than a branch inside `jackPoint`, because it does not spread down the
+ * same edge: signal runs top to bottom here, so the sides are free and an event never has to
+ * share a rank with a flow socket. The renderer places its plates from the same fractions.
+ */
+export function eventPoint(
+  n: GraphNode,
+  side: "in" | "out",
+  index: number,
+): Pt {
+  const count = Math.max(1, side === "out" ? (n.events?.length ?? 1) : 1);
+  const i = Math.min(Math.max(0, index), count - 1);
+  return {
+    x: side === "in" ? n.x - PORT_PLATE / 2 : n.x + n.w + PORT_PLATE / 2,
+    y: n.y + (n.h * (i + 1)) / (count + 1),
+  };
+}
+
 export function jackPoint(n: GraphNode, side: "in" | "out", index: number): Pt {
   const count = Math.max(1, (n.jacks?.[side] ?? []).length);
   const i = Math.min(Math.max(0, index), count - 1);
@@ -404,6 +435,18 @@ export function cablePath(
 ): Pt[] {
   const pts = e.points;
   if (pts.length < 2) return pts;
+  // An EVENT cable meets the side edges, not the top and bottom: it leaves a socket the module
+  // announces and lands on the one the envelope listens with, and neither is on the signal path.
+  // Its own branch rather than a widened jackPoint, since the two ends are indexed differently —
+  // one per announced event on the way out, always the one on the way in.
+  if (e.signal === "event" && src && tgt) {
+    const i = Math.max(0, src.events?.indexOf(e.sourcePort ?? "") ?? 0);
+    return hangPoints(
+      eventPoint(src, "out", i),
+      eventPoint(tgt, "in", 0),
+      true, // always sideways: both ends are on a left or right edge
+    );
+  }
   const fromIndex = e.sourcePort
     ? (src?.jacks?.out.findIndex((j) => j.name === e.sourcePort) ?? -1)
     : 0;
@@ -914,7 +957,11 @@ function widgetCenter(
 
 // A curve node's secondary line: the kind, plus the LFO shape. ASCII only — the BitmapText atlas is the default set.
 function curveSubLabel(curve: WebCurve): string {
-  return curve.type === "lfo" ? `lfo ${curve.shape ?? "sine"}` : "custom";
+  if (curve.type === "lfo") return `lfo ${curve.shape ?? "sine"}`;
+  // An envelope says so rather than borrowing "custom": it is the one curve here that is not a
+  // function of song time, and a reader who cannot tell the two apart cannot tell why one of
+  // them has a socket on its left.
+  return curve.type === "adsr" ? "adsr" : "custom";
 }
 
 // Build nodes and unpositioned edges from the chain graph, mirroring the signal path. See docs/graphBuild.md.
@@ -950,6 +997,8 @@ export function buildGraph(
 } {
   const nodes = new Map<string, RawNode>();
   const edges = new Map<string, RawEdge>(); // keyed by "source->target" so a connection is drawn once
+  // Which curves a binding put on the graph, so the ones nothing binds can be drawn beside them.
+  const boundCurves = new Set<string>();
 
   const isChain = (n: string) => n in graph.chains;
   const isTrack = (n: string) => graph.tracks.includes(n);
@@ -1123,19 +1172,34 @@ export function buildGraph(
         if (e) e.weight = (e.weight ?? 1) + 4;
       }
 
-      // One curve node PER CURVE — everything on the graph is a node, and a curve is one
-      // thing however many params it drives: each binding is an EDGE out of the same node,
-      // exactly as a module feeding two places is one card with two cables. (It was one
-      // node per binding, which drew a reused curve twice and made "where is this curve"
-      // two answers.) The edges bypass link() and carry the automation payload drawn purple.
+      /**
+       * One curve node PER BINDING — so the same curve may appear several times.
+       *
+       * This is a REVERSAL, and the reason the old rule died is worth keeping. It used to be one
+       * node per curve: a curve was one thing however many params it drove, each binding an edge
+       * out of the same card, and drawing it twice was duplication that made "where is this
+       * curve" two answers.
+       *
+       * That held while a curve node had no INPUT. It has one now — an envelope is restarted by
+       * an event, and which module fires it is per binding. One card with two event sockets
+       * could not say that the same shape is fired by the drums here and by the synth there;
+       * two cards say it by standing apart. The shape is still one file on disk, and the label
+       * is still the curve's id, so the two instances are legibly the same curve.
+       *
+       * The id carries the binding, which is what makes them distinct nodes rather than one.
+       */
       for (const a of s.automations ?? []) {
         const curve = graph.curves?.[a.curve];
         if (!curve) continue; // the curve was dropped (missing file) — nothing to draw
-        const cid = `crv:${a.curve}`;
+        boundCurves.add(a.curve);
+        const cid = `crv:${a.curve}@${s.module}:${a.param}`;
         add(cid, {
           label: a.curve,
           sub: curveSubLabel(curve),
           kind: "curve",
+          // Only an envelope has anything to be restarted BY. The socket is what says so, and
+          // it is why the two curve kinds are told apart in the node's second line.
+          eventIn: curve.type === "adsr",
           dim: false,
           missing: false,
           stub: false,
@@ -1143,14 +1207,32 @@ export function buildGraph(
           unknownPlugin: false,
           hasNativePluginUI: false,
         });
-        // The param is part of the key: one curve may drive two params of one module.
-        const key = `${cid}->${moduleId(s.module)}:${a.param}`;
+        // The node id already names the binding, so the edge key is just its two ends.
+        const key = `${cid}->${moduleId(s.module)}`;
         edges.set(key, {
           id: key,
           source: cid,
           target: moduleId(s.module),
           automation: { param: a.param, widget: widgetCenter(s.ui, a.param) },
         });
+        // …and, for an envelope, the cable that FIRES it: from the announcing module's note-on
+        // into the curve's event socket. It runs the other way to the automation edge above —
+        // events in, values out — which is what makes the pair readable as a loop on the graph.
+        //
+        // The trigger defaults to the module being automated, which is what the compiler does
+        // (nodeProject.ts). Drawn from the same field, so the picture cannot claim one source
+        // while the bake uses another.
+        if (curve.type === "adsr") {
+          const from = moduleId(a.trigger ?? s.module);
+          const ek = `ev:${from}->${cid}`;
+          edges.set(ek, {
+            id: ek,
+            source: from,
+            target: cid,
+            signal: "event",
+            sourcePort: "note-on",
+          });
+        }
       }
     });
     if (!c.use.length)
@@ -1303,6 +1385,31 @@ export function buildGraph(
     from.add(e.sourcePort ?? "");
     left.set(e.source, from);
   }
+  /**
+   * The curves nothing binds — drawn free-standing, one card each, driving nothing yet.
+   *
+   * A curve is a node like everything else here, so `curve new` has to put something on the
+   * graph: an unreferenced curve used to draw nothing at all, which made the verb's result
+   * invisible and the canvas menu's "add a curve" a promise with no picture behind it.
+   *
+   * Its id has no binding in it, which is exactly what tells it apart from an instance: one
+   * free card per curve, and one bound card per binding.
+   */
+  for (const [id, curve] of Object.entries(graph.curves ?? {}))
+    if (!boundCurves.has(id))
+      add(`crv:${id}`, {
+        label: id,
+        sub: curveSubLabel(curve),
+        kind: "curve",
+        eventIn: curve.type === "adsr",
+        dim: false,
+        missing: false,
+        stub: false,
+        notSupported: false,
+        unknownPlugin: false,
+        hasNativePluginUI: false,
+      });
+
   // What LEAVES a node decides its output jack's colour; what its first input takes is not on the
   // step (a module says what it emits, not what it eats), so an unfed input borrows the cable that
   // reaches it. Neither is load-bearing: a jack with no signal to claim stays neutral.

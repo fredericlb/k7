@@ -208,6 +208,9 @@ const CABLE: Record<WebSignal, string> = {
   midi: "#5b9bd5", // blue
   audio: "#d98b45", // orange
   video: "#5fa871", // green
+  // An event carries no signal, so it takes automation's mauve rather than a fourth voice on
+  // the palette: what it drives is a curve, and the value coming back is already that colour.
+  event: MAUVE,
 };
 // An untyped cable (a source that says nothing) stays the neutral sand rather than claiming a signal it doesn't know.
 const cableColorFor = (s?: WebSignal): string => (s ? CABLE[s] : SAND);
@@ -471,6 +474,18 @@ const CSS = `
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05); transform:translateX(-50%); }
 .dgx-port.in  { top:-${PORT_PLATE}px;    border-bottom-width:0; border-radius:4px 4px 0 0; }
 .dgx-port.out { bottom:-${PORT_PLATE}px; border-top-width:0;    border-radius:0 0 4px 4px; }
+/* An EVENT socket sits on a SIDE edge, where signal never goes: inputs and outputs run down the
+   card, so the left and right are free and the two can never be confused for one another. It is
+   also the only socket that says its name — an event is announced, and "note-on" is the whole of
+   what the announcement means. */
+.dgx-port.ev { width:${PORT_PLATE}px; height:17px; transform:translateY(-50%); }
+.dgx-port.ev.evout { right:-${PORT_PLATE}px; left:auto; border-left-width:0;  border-radius:0 4px 4px 0; }
+.dgx-port.ev.evin  { left:-${PORT_PLATE}px;             border-right-width:0; border-radius:4px 0 0 4px; }
+/* The name, outside the plate and clear of the card. 6px like every other caption here. */
+.dgx-evlab { position:absolute; font-size:6px; text-transform:uppercase; letter-spacing:.09em;
+  color:var(--dim); white-space:nowrap; transform:translateY(-50%); pointer-events:none; }
+.dgx-evlab.evout { left:calc(100% + ${PORT_PLATE + 3}px); }
+.dgx-evlab.evin  { right:calc(100% + ${PORT_PLATE + 3}px); }
 /* …and the barrel, seen end on: a dark bore with a bright ring, coloured by what the port
    carries so a socket matches the cable that belongs in it. */
 .dgx-port i { width:9px; height:9px; border-radius:50%;
@@ -2245,6 +2260,35 @@ function NodeInner({
           <i />
         </span>
       )}
+      {/* An envelope LISTENS: one socket on its left edge, where the note-on cable lands. Only
+          an envelope has it — a curve of song time is fired by nothing. */}
+      {n.eventIn && (
+        <span
+          className="dgx-port ev evin"
+          title="event in — a note-on restarts this envelope"
+          style={{ ["--jc" as string]: cableColorFor("event"), top: "50%" }}
+        >
+          <i />
+        </span>
+      )}
+      {/* …and a module ANNOUNCES, down its right edge, each socket saying which event it is. */}
+      {(n.events ?? []).map((name, i, all) => (
+        <span
+          key={`ev:${name}`}
+          className="dgx-port ev evout"
+          title={`${name} — fires an envelope bound to this module`}
+          style={{
+            ["--jc" as string]: cableColorFor("event"),
+            // The same fractions eventPoint uses, so the cable meets the hole.
+            top: `${((i + 1) / (all.length + 1)) * 100}%`,
+          }}
+        >
+          <i />
+          <span className="dgx-evlab evout" style={{ top: "50%" }}>
+            {name}
+          </span>
+        </span>
+      ))}
       {n.kind !== "curve" &&
         (["in", "out"] as const).map((side) =>
           (n.jacks?.[side] ?? []).map((p, i, all) => {

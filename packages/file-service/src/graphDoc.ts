@@ -215,6 +215,16 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           // than once for the graph, because there is no shared library any more — the choices
           // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
           assetChoices: assetChoicesFor(dir, module, moduleRefs, assets),
+          /**
+           * The EVENTS this module announces. One for now — an instrument's note-on, which is
+           * what an envelope is fired by.
+           *
+           * Read off the module's TYPE FOLDER, exactly as its icon is: an instrument is a thing
+           * that is played, so it has note-ons by being one. Nothing is authored, which is the
+           * point of testing with this one — the day a second event is worth having, this is
+           * where a module gets to declare its own.
+           */
+          events: module?.category === "instruments" ? ["note-on"] : undefined,
           // Its type folder — the node's icon. From the module itself, never its base: a kind comes from where IT lives.
           category: module?.category as WebChainStep["category"],
           // What leaves this module — the colour of the cable to the next one.
@@ -389,7 +399,25 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),
     modules,
-    curves: Object.keys(usedCurves).length ? usedCurves : undefined,
+    /**
+     * EVERY curve the project has, not only the bound ones.
+     *
+     * It was the bound ones, and an unreferenced curve drew nothing — which made `curve new`
+     * a verb whose result you could not see. A curve is a node like everything else here, so
+     * one that drives nothing yet is a card waiting to be wired, exactly as a module with no
+     * cable is. `usedCurves` is still what records each SHAPE, so a bound curve's label is
+     * unchanged; the rest are added beside it.
+     */
+    curves: (() => {
+      const all: WebGraph["curves"] = { ...usedCurves };
+      for (const [id, cv] of Object.entries(allCurves))
+        if (!all[id])
+          all[id] = {
+            type: cv.type,
+            shape: cv.type === "lfo" ? cv.shape : undefined,
+          };
+      return Object.keys(all).length ? all : undefined;
+    })(),
     warnings: g.warnings,
   };
 }
