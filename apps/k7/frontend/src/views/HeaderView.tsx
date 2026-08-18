@@ -79,11 +79,13 @@ export function HeaderView({
 
   return (
     <AppHeader
-      // `plain`: k7's page carries the colour and this bar is a surface with a rule under it —
-      // which is what `.topbar` said in CSS before the shared bar said it in a prop.
-      variant="plain"
-      // …and so was the z-index. The shared bar sticks at z-10; `.topbar` sat at 20, above the
-      // page's own layers, and dropping it would put the bar under them.
+      // No `variant`: the house look (`tint`) is the default now. It was `plain` — the quiet
+      // option back when the default was a solid accent — on the reason the old doc gave for
+      // it, "an app whose page carries the colour". The tint IS that reason answered: 20 % of
+      // the accent over the page, so the bar belongs to the page instead of sitting on it.
+      //
+      // The z-index is not the same kind of choice and stays: the shared bar sticks at z-10,
+      // `.topbar` sat at 20 above the page's own layers, and dropping it puts the bar under them.
       className="z-20"
       title={
         // A button, not a div: it navigates, and the mark has always been the way home.
