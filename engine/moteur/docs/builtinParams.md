@@ -69,12 +69,25 @@ controls are in it:
 | `Distortion/Reverb/Delay/Chorus On` | the four built-in effects' switches — their depth and mix knobs ARE automatable, and a knob doing nothing because the effect is off is the worst version of an incomplete list |
 | `Delay` | the delay TIME, whose three companions are automatable and it is not |
 
-**Named settings only where the plugin names them.** `FourOscPlugin::WaveShape` is an enum in the
-header — `none, sine, triangle, sawUp, sawDown, square, random` — so a wave shape carries those
-seven labels with the value that selects each, and draws as a list. `filterType`, `filterSlope`
-and `voiceMode` are plain ints with no enum anywhere: they get a range and no labels, because an
-invented label is worse than a number — it reads as knowledge. Slope's default of 12 says its unit
-is dB/octave, and that is as far as the source goes.
+**Named settings only where the plugin names them — and "is there an enum" is the wrong question
+to stop at.** `FourOscPlugin::WaveShape` *is* an enum (`none, sine, triangle, sawUp, sawDown,
+square, random`), so a wave shape carries those seven labels with the value that selects each and
+draws as a list. The other three have no enum and are named all the same:
+
+| control | where its values are named |
+|---|---|
+| `voiceMode` | `isMono()`, `isLegato()`, `isPoly()` — three predicates in the header |
+| `filterType` | the calls it selects in `updateFilter`: `makeLowPass`, `makeHighPass`, `makeBandPass`, `makeNotchFilter`, and 0 skips the filter |
+| `filterSlope` | `filterSlopeValue == 24` is the test that cascades the second pole pair — so 12 or 24, and the values ARE the dB/octave |
+
+Read off the code that CONSUMES the value, which is exactly how this table's ranges have always
+been derived. What is still refused is a label nobody wrote down: an invented one is worse than a
+number, because it reads as knowledge.
+
+**4OSC is polyphonic**, and the table says so now: `Voice Mode` defaults to Poly, with 32 voices
+and voice stealing on. `Voices` means something only in Poly — the other two modes reduce the pool
+to one whatever it says (`valueTreePropertyChanged`). The per-oscillator `Voices 1..4` is a
+different number: unison copies within one voice, which `Detune` and `Spread` act on.
 
 The generator picks all of this up without knowing any of it is special.
 

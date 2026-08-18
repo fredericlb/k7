@@ -133,6 +133,41 @@ describe("the generated built-in table", () => {
     ).toBe(0);
   });
 
+  it("says 4OSC is POLYPHONIC, in the vocabulary the plugin uses for it", () => {
+    // `isMono/isLegato/isPoly` are three predicates in FourOscPlugin.h, not an enum — which is why
+    // "is there an enum" was the wrong question to stop at. Poly is the default, and `Voices`
+    // means something only there: the other two modes reduce the pool to one whatever it says.
+    const p = builtinParamsFor({ type: "internal", name: "4OSC" });
+    const mode = p?.find((x) => x.name === "Voice Mode");
+    expect(mode?.states).toEqual([
+      { label: "Mono", value: 0 },
+      { label: "Legato", value: 1 },
+      { label: "Poly", value: 2 },
+    ]);
+    expect(mode?.def).toBe(2);
+    expect(p?.find((x) => x.name === "Voices")).toMatchObject({
+      min: 1,
+      max: 32,
+      def: 32,
+    });
+  });
+
+  it("names the filter's types after the calls they select", () => {
+    // `makeLowPass`, `makeHighPass`, `makeBandPass`, `makeNotchFilter` in `updateFilter`, and 0 is
+    // the branch that skips the filter entirely. Read off the code that consumes the value, which
+    // is how this table's RANGES have always been derived.
+    const p = builtinParamsFor({ type: "internal", name: "4OSC" });
+    expect(
+      p?.find((x) => x.name === "Filter Type")?.states?.map((s) => s.label),
+    ).toEqual(["Off", "Low-pass", "High-pass", "Band-pass", "Notch"]);
+    // Two poles or four — `filterSlopeValue == 24` is the test that cascades the second pair, so
+    // the values are the dB/octave themselves and not an index.
+    expect(p?.find((x) => x.name === "Filter Slope")?.states).toEqual([
+      { label: "12 dB/oct", value: 12 },
+      { label: "24 dB/oct", value: 24 },
+    ]);
+  });
+
   it("still reports the plugins that register NOTHING but state", () => {
     // The case the table was built for. A supplement must not have cost them anything.
     expect(

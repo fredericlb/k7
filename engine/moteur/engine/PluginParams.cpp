@@ -96,12 +96,20 @@ const std::vector<StateParamSet>& stateParamTable() {
             four.push_back({"lfoWaveShape" + s, "LFO Shape " + s, 0.0, 6.0,
                             n == 1 ? 1.0 : 0.0, waveShapes()});
         }
-        // No labels on these three: `filterType`, `filterSlope` and `voiceMode` are plain ints in the header
-        // with no enum naming their values. A range lets you set one; an invented label would claim to know
-        // which is which. Slope's default of 12 says its unit is dB/octave, and that is as far as the source goes.
-        four.push_back({"filterType", "Filter Type", 0.0, 5.0, 0.0});
-        four.push_back({"filterSlope", "Filter Slope", 12.0, 24.0, 12.0});
-        four.push_back({"voiceMode", "Voice Mode", 0.0, 2.0, 2.0});
+        // These three have no ENUM, and are named all the same — which is why "is there an enum" was the
+        // wrong question to stop at. `isMono/isLegato/isPoly` are three predicates in the header, and the
+        // filter's types and slope are named by the calls they select in `updateFilter`. Read off the code
+        // that consumes the value, exactly as this table's ranges always have been.
+        four.push_back({"filterType", "Filter Type", 0.0, 4.0, 0.0,
+                        {{"Off", 0}, {"Low-pass", 1}, {"High-pass", 2},
+                         {"Band-pass", 3}, {"Notch", 4}}});
+        // Two poles or four: `filterSlopeValue == 24` is the test that cascades the second pair.
+        four.push_back({"filterSlope", "Filter Slope", 12.0, 24.0, 12.0,
+                        {{"12 dB/oct", 12}, {"24 dB/oct", 24}}});
+        four.push_back({"voiceMode", "Voice Mode", 0.0, 2.0, 2.0,
+                        {{"Mono", 0}, {"Legato", 1}, {"Poly", 2}}});
+        // How many notes at once, and it only means anything in Poly — the other two modes keep ONE voice
+        // whatever this says (`valueTreePropertyChanged` reduces the pool to 1). Voice stealing is on.
         four.push_back({"voices", "Voices", 1.0, 32.0, 32.0});
         four.push_back({"ampAnalog", "Amp Analog", 0.0, 1.0, 1.0});
         // The four built-in effects' ON switches. Their depth/mix knobs ARE automatable and already listed, and
