@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { BUILTIN_PLUGINS, type BuiltinParam } from "./builtinParams";
 import {
+  familyToken,
   groupParams,
   PANEL_COLS,
   paramPanel,
@@ -38,6 +39,32 @@ describe("splitIndex", () => {
   it("takes the separator with it", () => {
     expect(splitIndex("osc_2").stem).toBe("osc");
     expect(splitIndex("Band-3").stem).toBe("Band");
+  });
+});
+
+describe("familyToken", () => {
+  it("reads the bare index Tracktion writes", () => {
+    expect(familyToken("Tune 1")).toBe("1");
+    expect(familyToken("osc_2")).toBe("2");
+    expect(familyToken("Band-3")).toBe("3");
+  });
+
+  it("reads the glued token a real VST writes", () => {
+    // Arturia's spelling, and the one that made this exist: the index rides on a word, so
+    // splitting on the digits alone would have found no families in a 312-param plugin.
+    expect(familyToken("Width Osc1")).toBe("Osc1");
+    expect(familyToken("Amount FM1 Osc1")).toBe("Osc1");
+    expect(familyToken("Tracking1")).toBe("Tracking1");
+  });
+
+  it("says nothing about a name that ends in a word", () => {
+    expect(familyToken("Filter Freq")).toBeNull();
+    expect(familyToken("Volume")).toBeNull();
+  });
+
+  it("still refuses a DEDUP suffix", () => {
+    // Same reason as the word families below: ` #2` is proof two names collided.
+    expect(familyToken("Mix #2")).toBeNull();
   });
 });
 
@@ -170,6 +197,42 @@ describe("when NOT to make tabs", () => {
       knobs(["Band 1", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"]),
     );
     expect(groups.map((t) => t.tab)).toEqual(["Général"]);
+  });
+
+  it("folds a tab of ONE into the remainder", () => {
+    // Measured on Arturia's ARP 2600, which names eight params `HardwareDisplayControl1`…`8`:
+    // a perfect family signal and eight tabs holding one knob each. A tab that shows you one
+    // knob is the click `FAMILY_MIN` refuses, arriving from the other end.
+    const groups = groupParams(
+      knobs([
+        "Widget1",
+        "Widget2",
+        "Widget3",
+        "Pair1",
+        "Gain Pair1",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+      ]),
+    );
+    expect(groups.map((t) => t.tab)).toEqual(["Pair1", "Général"]);
+    const rest = groups[1].params.map((p) => p.name);
+    for (const n of ["Widget1", "Widget2", "Widget3"])
+      expect(rest).toContain(n);
+  });
+
+  it("puts no ceiling on how many tabs a big plugin gets", () => {
+    // The cap that looked obviously right and was not. Twelve tabs on a 312-param plugin left a
+    // `Général` of 193 — the wall of knobs rebuilt behind one click. Twenty families of four is
+    // twenty tabs, because that is what the plugin is.
+    const names: string[] = [];
+    for (let i = 1; i <= 20; i++)
+      for (const w of ["Tune", "Level", "Pan", "Wave"]) names.push(`${w} ${i}`);
+    expect(groupParams(knobs(names))).toHaveLength(20);
   });
 
   it("has nothing to say about a plugin with no parameters", () => {

@@ -52,12 +52,47 @@ const leadWord = (name: string): string =>
   splitIndex(name).stem.split(/[ _-]+/)[0] ?? "";
 
 /**
+ * The token that says WHICH ONE — `Tune 1` → `1`, `Width Osc1` → `Osc1` — or null.
+ *
+ * Two spellings of one signal, and the second is what real plugins use. Tracktion separates the
+ * index (`Tune 1`); Arturia glues it to a word (`Width Osc1`, `Amount FM1 Osc1`), and so do most
+ * VSTs — a bare index is rare outside a plugin whose parts have no names of their own.
+ *
+ * The tell is the same either way: **the last token ends in a digit**. A trailing `Osc1` is not a
+ * control called Osc1, it is the first oscillator; `1` is that statement with the noun left out.
+ * Grouping on the whole token rather than on the digits keeps the tab named the way the plugin
+ * names it — `Osc1` where it said Osc1, `1` where it said 1.
+ *
+ * The separators are `splitIndex`'s, and for the same reasons: space, underscore and hyphen split;
+ * a ` #n` dedup suffix is excluded, exactly as it is excluded from the word families below.
+ */
+export function familyToken(name: string): string | null {
+  const last =
+    name
+      .trim()
+      .split(/[ _-]+/)
+      .pop() ?? "";
+  if (!last || last.startsWith("#") || !/\d$/.test(last)) return null;
+  return last;
+}
+
+/**
+ * How many params a tab needs to be worth being one.
+ *
+ * A tab holding ONE knob is a click that shows you one knob — the same trade `FAMILY_MIN`
+ * refuses, arriving from the other end. Measured on a real VST: Arturia's ARP 2600 names eight
+ * params `HardwareDisplayControl1`…`8`, a perfect family signal and eight tabs of one.
+ */
+const TAB_MIN_PARAMS = 2;
+
+/**
  * Which tab each param belongs in, in the order the tabs should appear.
  *
  * Two signals, and which one gets to speak about a given param is the whole design.
  *
- * 1. **A trailing number** — `Tune 1`, `Level 1`, `Pan 1` — puts a param on the page of the
- *    thing it belongs to. Four oscillators of seven controls are four pages of seven.
+ * 1. **A trailing token ending in a digit** — `Tune 1`, `Level 1`, `Pan 1`, or `Width Osc1`,
+ *    `Fine Tune Osc1` — puts a param on the page of the thing it belongs to. Four oscillators of
+ *    seven controls are four pages of seven, whichever of the two spellings the plugin uses.
  * 2. **A shared leading word**, among the params that carry NO number — `Filter Freq`,
  *    `Filter Type`, `Filter Slope`. An author who prefixes a dozen params has already grouped
  *    them, and the panel's job is to notice rather than to re-decide.
@@ -85,16 +120,16 @@ export function groupParams(
     else tabs.push({ tab, params: [p] });
   };
 
-  // Numbered first. At least TWO numbers, or it is not a family — one `Band 1` is a param that
+  // Numbered first. At least TWO tokens, or it is not a family — one `Band 1` is a param that
   // happens to end in a digit, and a tab of it would be a page with one knob on it.
-  const indices = new Set(
-    params.map((p) => splitIndex(p.name).index).filter((i) => i !== null),
+  const tokens = new Set(
+    params.map((p) => familyToken(p.name)).filter((t) => t !== null),
   );
-  const byNumber = indices.size >= 2;
+  const byToken = tokens.size >= 2;
   const plain: BuiltinParam[] = [];
   for (const p of params) {
-    const { index } = splitIndex(p.name);
-    if (byNumber && index !== null) put(String(index), p);
+    const token = familyToken(p.name);
+    if (byToken && token) put(token, p);
     else plain.push(p);
   }
 
@@ -125,12 +160,37 @@ export function groupParams(
     put(!deduped(p.name) && families.has(w) ? w : GENERAL, p);
   }
 
+  return settle(tabs);
+}
+
+/**
+ * Fold away the tabs too small to be worth one, and put the remainder last.
+ *
+ * There is no cap on how MANY tabs come out, and that is a measurement rather than an omission.
+ * A ceiling of twelve looked obviously right until the numbers came back: on Arturia's ARP 2600
+ * V3 (312 params) it gave a tidy bar of twelve tabs and a `Général` holding 193 of them — the
+ * wall of knobs rebuilt behind one click, three quarters of it. Without the cap: 35 tabs,
+ * remainder 82. A cap does not remove knobs, it moves NAMED ones (`Tracking1`…`4`, `Envelope1`,
+ * `Chorus`, `Mix`) into the one pile that has no name, which is the worst place for them.
+ * Thirty-five tabs on a plugin with three hundred parameters is what that plugin IS.
+ */
+function settle(
+  tabs: { tab: string; params: BuiltinParam[] }[],
+): { tab: string; params: BuiltinParam[] }[] {
+  const general = tabs.find((t) => t.tab === GENERAL) ?? {
+    tab: GENERAL,
+    params: [],
+  };
+  const kept: { tab: string; params: BuiltinParam[] }[] = [];
+  for (const t of tabs) {
+    if (t.tab === GENERAL) continue;
+    if (t.params.length < TAB_MIN_PARAMS) general.params.push(...t.params);
+    else kept.push(t);
+  }
   // The remainder last, wherever it was picked up. It is what did not sort, so it reads as the
   // end of the list rather than as one subject among the others.
-  return [
-    ...tabs.filter((t) => t.tab !== GENERAL),
-    ...tabs.filter((t) => t.tab === GENERAL),
-  ];
+  if (general.params.length) kept.push(general);
+  return kept;
 }
 
 /**

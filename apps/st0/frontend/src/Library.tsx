@@ -28,7 +28,10 @@ import {
   SONG_FILE,
   type SongVariant,
 } from "@studio/mediatek/types";
-import { builtinPluginForRef } from "@studio/song/builtinParams";
+import {
+  type BuiltinParam,
+  builtinPluginForRef,
+} from "@studio/song/builtinParams";
 import {
   engineFaceModule,
   FACE_CATEGORIES,
@@ -68,6 +71,7 @@ import { EngineStatusBar } from "./EngineStatusBar";
 import { EnginePage } from "./engine/EnginePage";
 import { EngineList, EnginePicker } from "./engine/EnginePicker";
 
+import { scannedForRef } from "./engine/resolvePlugin";
 import { useEngineChoice } from "./engine/useEngineChoice";
 import { FindSongs } from "./FindSongs";
 import { ModuleView } from "./ModuleView";
@@ -579,25 +583,52 @@ export function Library() {
    * somewhere else to read. `paramPanel` draws all of it: every parameter bound, each with the
    * range the plugin publishes, grouped into tabs (packages/song/docs/paramPanel.md).
    *
-   * A plugin the ENGINE ships is answered from the generated table, with no engine running and
-   * nothing to wait for. An EXTERNAL one is not in it — the scan cache carries a plugin's name
-   * and format and no parameters — so it gets the empty grid it always got, and the builder
-   * opens on it exactly as before. Silently: "this VST has no parameter list yet" is a fact
-   * about the scan, not a failure of the click, and the empty panel says it plainly enough.
-   *
    * `writeUiFile("")` and not a hand-rolled dump: it is the same writer the builder's own grid
    * saves through, so a generated panel and a drawn one are the same file byte for byte.
    */
   const writePanel = useCallback(
-    async (dir: string, base: string): Promise<void> => {
-      const params = builtinPluginForRef(base)?.params;
-      if (!params?.length) return;
+    async (dir: string, params: readonly BuiltinParam[]): Promise<void> => {
+      if (!params.length) return;
       await library.writeFile(
         `${section}/${dir}/${UI_FILE}`,
         writeUiFile("", paramPanel(params)),
       );
     },
     [section],
+  );
+
+  /**
+   * …and where those parameters come from, which is two different places.
+   *
+   * A plugin the engine SHIPS is answered from the generated table (212 of them, committed):
+   * instant, offline, and true of every machine, because a built-in is part of the binary. An
+   * external one cannot be — which VSTs exist is a fact about ONE machine — and the scan cache
+   * carries a name, a format and a path and no parameters at all, because a plugin registers
+   * its own in its constructor. So that machine loads one and asks it, which takes SECONDS.
+   * See packages/song/docs/paramPanel.md.
+   *
+   * `null` and an empty list stay different answers: "no engine to ask" is not "this plugin has
+   * no knobs", and only the first is worth telling somebody to go and fix.
+   */
+  const paramsForRef = useCallback(
+    async (
+      base: string,
+    ): Promise<{ name: string; params: BuiltinParam[] } | null> => {
+      const builtin = builtinPluginForRef(base);
+      if (builtin?.params.length)
+        return { name: builtin.name, params: builtin.params };
+      const scan = scannedForRef(base, scanned);
+      if (!scan?.format || !scan.id || !choice.fileBase || !choice.token)
+        return null;
+      const params = await engineMachine.pluginParams(
+        choice.fileBase,
+        choice.token,
+        scan.format,
+        scan.id,
+      );
+      return params ? { name: scan.name, params } : null;
+    },
+    [scanned, choice.fileBase, choice.token],
   );
 
   /**
@@ -1486,11 +1517,13 @@ export function Library() {
                                 `${section}/${dir}/${MODULE_FILE}`,
                                 face.text,
                               )
-                              // …and its panel, drawn from the plugin's own parameters. See
-                              // `writePanel`: a plugin the engine ships arrives with every knob
-                              // on it, a VST arrives with an empty grid, and neither costs a
-                              // second click.
-                              .then(() => writePanel(dir, face.base))
+                              // …and its panel, drawn from the plugin's own parameters, so a new
+                              // face arrives with every knob on it. A VST costs the seconds the
+                              // engine needs to load it; nothing here is blocked on the answer,
+                              // and a plugin nothing can ask about simply lands with an empty
+                              // grid, exactly as it did before.
+                              .then(() => paramsForRef(face.base))
+                              .then((p) => writePanel(dir, p?.params ?? []))
                               // Straight into the builder, on the PANEL: drawing the face is the only
                               // reason this module exists — everything it does comes from `extends`.
                               .then(() => openFile(`${dir}/${UI_FILE}`))
@@ -1541,16 +1574,26 @@ export function Library() {
                                   `${section}/${t.path}/${MODULE_FILE}`,
                                 );
                                 const base = extendsRefOf(content);
-                                const plugin = builtinPluginForRef(base);
-                                if (!plugin?.params.length) {
+                                if (!base) {
                                   setError(
-                                    base
-                                      ? `Aucune liste de paramètres pour « ${base} » — un greffon externe n'en publie pas encore.`
-                                      : `« ${t.name} » n'hérite d'aucun greffon du moteur.`,
+                                    `« ${t.name} » n'hérite d'aucun greffon du moteur.`,
                                   );
                                   return;
                                 }
-                                await writePanel(t.path, base!);
+                                // Dit AVANT d'attendre, parce que c'est long : charger un greffon
+                                // externe prend des secondes, et une action qui ne dit rien
+                                // pendant ce temps-là se lit comme un clic perdu. Un greffon
+                                // interne répond dans la foulée et ce message ne se voit pas.
+                                setNotice(`${base} : lecture du greffon…`);
+                                const plugin = await paramsForRef(base);
+                                if (!plugin?.params.length) {
+                                  setNotice(null);
+                                  setError(
+                                    `Aucune liste de paramètres pour « ${base} » — un greffon externe demande que le moteur de cette machine soit joignable pour être interrogé.`,
+                                  );
+                                  return;
+                                }
+                                await writePanel(t.path, plugin.params);
                                 setNotice(
                                   `${plugin.name} : ${plugin.params.length} paramètres posés`,
                                 );

@@ -16,6 +16,7 @@ export type {
   EditPluginInfo,
   EngineState,
   PluginInfo,
+  PluginParamInfo,
   RecordedTake,
   TransportAction,
 } from "./engineControl";

@@ -81,6 +81,14 @@ export interface FaceablePlugin {
   instrument?: boolean;
   /** The plugin's OWN category, as the scan spells it: `Fx|Delay`, `instrument|synth`. */
   category?: string;
+  /**
+   * …and the pair that ADDRESSES it rather than files it: the format, and the binary the scan
+   * found it in. Nothing here reads either — filing a plugin needs its name and its category
+   * and nothing else — but they ride in the same scan reply, and the one thing a face cannot
+   * do without them is ask the engine what the plugin's PARAMETERS are.
+   */
+  format?: string;
+  id?: string;
 }
 
 /**

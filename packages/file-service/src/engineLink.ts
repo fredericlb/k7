@@ -19,6 +19,7 @@ import {
   type AudioDeviceInfo,
   EngineClient,
   type PluginInfo,
+  type PluginParamInfo,
   type RecordedTake,
 } from "@studio/engine-client/engineClient";
 import type { SessionInfo } from "@studio/engine-client/engineControl";
@@ -377,6 +378,86 @@ function enginePlugins(
     });
     fire(c);
   });
+}
+
+/**
+ * How long the engine gets to load a plugin and list its parameters.
+ *
+ * Twenty seconds, against two for a session listing and four for the cached plugin list. This
+ * one CONSTRUCTS the plugin — the only way to learn what it has — and a large sampler or an
+ * Arturia synth measured seconds of that on this machine. The timeout is what stops a wedged
+ * plugin from holding a request forever, not a latency budget.
+ */
+export const PLUGIN_PARAMS_TIMEOUT_MS = 20_000;
+
+/** The slice of EngineClient this needs, so the wait can be tested without a socket. */
+export interface PluginParamListingClient {
+  on(event: "pluginParamList", fn: (p: PluginParamFrame) => void): unknown;
+  off(event: "pluginParamList", fn: (p: PluginParamFrame) => void): unknown;
+  listPluginParams(format: string, id: string): void;
+}
+interface PluginParamFrame {
+  format: string;
+  id: string;
+  params: PluginParamInfo[];
+}
+
+/**
+ * Ask the engine what one installed plugin's parameters are. `undefined` = it never answered.
+ *
+ * MATCHED ON THE ID, and that is the whole reason this is not a `once`. The reply is broadcast
+ * to every socket on the engine, so another surface asking about a different plugin would
+ * otherwise resolve this wait with an answer to somebody else's question — and the panel drawn
+ * from it would carry the wrong plugin's knobs, silently, which is the one failure mode a
+ * generated panel must not have.
+ *
+ * An empty array is a real answer: the plugin was found and has no parameters, or it could not
+ * be created at all. The engine prints which on its own log; the caller reports the same thing
+ * either way.
+ */
+export function awaitPluginParams(
+  c: PluginParamListingClient,
+  format: string,
+  id: string,
+  timeoutMs: number = PLUGIN_PARAMS_TIMEOUT_MS,
+): Promise<PluginParamInfo[] | undefined> {
+  return new Promise((res) => {
+    const done = (v?: PluginParamInfo[]): void => {
+      clearTimeout(timer);
+      c.off("pluginParamList", onList);
+      res(v);
+    };
+    const onList = (p: PluginParamFrame): void => {
+      if (p.id !== id) return; // another surface's question, not the answer to this one
+      done(p.params);
+    };
+    const timer = setTimeout(() => done(undefined), timeoutMs);
+    c.on("pluginParamList", onList);
+    c.listPluginParams(format, id);
+  });
+}
+
+/**
+ * …asked of THIS machine's engine, on the bare session.
+ *
+ * No workspace, deliberately: which plugins exist and what they have is a fact about the
+ * MACHINE, exactly like `/plugins` and its scan cache. The médiathèque asks it while no project
+ * is open at all — it edits a library — and routing it through a session would send it to a
+ * room the engine holds nothing in.
+ */
+export async function pluginParams(
+  format: string,
+  id: string,
+): Promise<PluginParamInfo[] | undefined> {
+  const c = ensureEngine(null);
+  // No `isReady` check, unlike the arm and the session listing. Those are asked mid-session on a
+  // link something else already opened; this is the FIRST thing to want the bare session on many
+  // machines, so it routinely arrives while the socket is still dialling — and `send` buffers
+  // until open, so asking anyway is what makes the first click work. An engine that is not there
+  // costs the timeout instead of an instant no, which is the right side to be wrong on for a
+  // question whose honest answer takes seconds.
+  if (!c) return undefined;
+  return awaitPluginParams(c, format, id);
 }
 
 function safeBaseModules(dir: string): string[] {

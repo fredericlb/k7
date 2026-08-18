@@ -26,7 +26,11 @@ import {
 } from "./context.ts";
 import { allowedOrigin, originPolicySummary } from "./cors.ts";
 import { syncAllRepos } from "./demos.ts";
-import { pruneIdleLinks, setSelectedEngine } from "./engineLink.ts";
+import {
+  pluginParams,
+  pruneIdleLinks,
+  setSelectedEngine,
+} from "./engineLink.ts";
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
@@ -292,6 +296,42 @@ app.get(
   wrap((_req, res) =>
     res.json({ pluginNames: scannedPluginNames(), plugins: scannedPlugins() }),
   ),
+);
+
+/**
+ * …and what ONE of them HAS — every parameter of an installed plugin type.
+ *
+ * Beside `/plugins` and per machine for the same reason, but it is not read off the cache: the
+ * scan carries a plugin's name, format and path and no parameters, because a plugin registers
+ * them in its constructor. So this loads one and asks, on an offline engine of the engine's own
+ * making, and takes SECONDS. The médiathèque draws a module's whole panel from the answer
+ * (packages/song/docs/paramPanel.md); a built-in needs no engine at all and never gets here.
+ *
+ * `format` and `id` together, because `id` is the binary's path: a display name can belong to
+ * two formats of one plugin, and the engine resolves the pair, not the name.
+ *
+ * A 503 rather than an empty list when the engine cannot be reached or does not answer. The
+ * caller writes a panel from what comes back, and an empty one is a REAL answer — a plugin with
+ * no automatable parameters — so the two must not arrive spelt the same way.
+ */
+app.get(
+  "/plugin-params",
+  wrap(async (req, res) => {
+    const format = String(req.query.format ?? "");
+    const id = String(req.query.id ?? "");
+    if (!format || !id) {
+      res.status(400).json({ error: "format and id are required" });
+      return;
+    }
+    const params = await pluginParams(format, id);
+    if (params === undefined) {
+      res
+        .status(503)
+        .json({ error: "the engine did not answer — is it running?" });
+      return;
+    }
+    res.json({ params });
+  }),
 );
 
 // There is no /ssh-key here any more. st0 owns the studio's git identity — it generates the

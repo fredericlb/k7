@@ -35,6 +35,15 @@ export const EXTS_PATH = join(homedir(), ".studio", "exts.json");
 export interface ScannedPlugin {
   name: string;
   format: string;
+  /**
+   * The binary the scan found it in — JUCE's `fileOrIdentifier`, written by `PluginScan.cpp`.
+   *
+   * The one field here that ADDRESSES a plugin rather than describing it: asking the engine to
+   * load one and list its parameters resolves this and not the name, because two plugins can
+   * share a display name and only a path names one. Nothing that files or draws a module needs
+   * it, which is why it went unread for as long as it did.
+   */
+  id?: string;
   manufacturer?: string;
   role?: string; // "instrument" | "audioEffect" | "midiEffect"
   instrument?: boolean;
@@ -72,6 +81,7 @@ export function scannedPlugins(file = EXTS_PATH): ScannedPlugin[] {
         plugins.push({
           name: String(p.name),
           format: String(p.format),
+          id: p.id ? String(p.id) : undefined,
           manufacturer: p.manufacturer ? String(p.manufacturer) : undefined,
           role: p.role ? String(p.role) : undefined,
           instrument: p.instrument === true,

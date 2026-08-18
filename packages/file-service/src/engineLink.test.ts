@@ -55,6 +55,7 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
 
 const {
   awaitArm,
+  awaitPluginParams,
   enginePreview,
   ensureEngine,
   outsideTheWatch,
@@ -341,5 +342,99 @@ describe("awaitArm", () => {
     expect(c.attached()).toBe(0);
     c.emit("engineError", "a later, unrelated failure");
     expect(out).toHaveLength(1); // still just the timeout line
+  });
+});
+
+/**
+ * Waiting for one plugin's parameter list.
+ *
+ * The same shape as the arm above and the same hazard, one notch worse: `plugin-param-list` is
+ * engine-GLOBAL — it carries no session, so it reaches every socket on the engine — and the
+ * question takes seconds, which is exactly long enough for a second one to be asked. What is
+ * built from the answer is a module's whole panel, so taking somebody else's reply would write
+ * one plugin's knobs into another plugin's file, with nothing saying so.
+ */
+describe("awaitPluginParams", () => {
+  class ListSpy {
+    asked: [string, string][] = [];
+    listeners = new Map<string, Set<(...a: never[]) => void>>();
+    on(event: string, fn: (...a: never[]) => void) {
+      (
+        this.listeners.get(event) ??
+        this.listeners.set(event, new Set()).get(event)
+      )?.add(fn);
+    }
+    off(event: string, fn: (...a: never[]) => void) {
+      this.listeners.get(event)?.delete(fn);
+    }
+    listPluginParams(format: string, id: string) {
+      this.asked.push([format, id]);
+    }
+    emit(event: string, arg: unknown) {
+      for (const fn of [...(this.listeners.get(event) ?? [])])
+        (fn as (a: unknown) => void)(arg);
+    }
+    attached() {
+      let n = 0;
+      for (const s of this.listeners.values()) n += s.size;
+      return n;
+    }
+  }
+  const spy = () =>
+    new ListSpy() as unknown as ListSpy &
+      Parameters<typeof awaitPluginParams>[0];
+  const knob = { name: "Cutoff", min: 0, max: 1 };
+
+  it("asks by format AND id, and resolves with the list", async () => {
+    const c = spy();
+    const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3");
+    expect(c.asked).toEqual([["VST3", "C:/vst/Serum.vst3"]]);
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Serum.vst3",
+      params: [knob],
+    });
+    expect(await p).toEqual([knob]);
+    expect(c.attached()).toBe(0);
+  });
+
+  it("IGNORES another plugin's list", async () => {
+    // The reply is broadcast and the ask is slow, so two of these overlap routinely. Resolving
+    // on the first frame to arrive would draw Diva's panel into Serum's ui.yaml.
+    const c = spy();
+    const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3", 200);
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Diva.vst3",
+      params: [{ name: "Wrong", min: 0, max: 1 }],
+    });
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Serum.vst3",
+      params: [knob],
+    });
+    expect(await p).toEqual([knob]);
+  });
+
+  it("tells 'no answer' apart from 'no parameters'", async () => {
+    // The caller WRITES a panel from this. An empty list is a real answer — a plugin that
+    // publishes nothing — and a silent engine is not, so the two must not arrive spelt alike.
+    const c = spy();
+    const empty = awaitPluginParams(c, "VST3", "C:/vst/Quiet.vst3");
+    c.emit("pluginParamList", {
+      format: "VST3",
+      id: "C:/vst/Quiet.vst3",
+      params: [],
+    });
+    expect(await empty).toEqual([]);
+    expect(
+      await awaitPluginParams(c, "VST3", "C:/vst/Gone.vst3", 5),
+    ).toBeUndefined();
+  });
+
+  it("lets go of its listener on a timeout", async () => {
+    const c = spy();
+    await awaitPluginParams(c, "VST3", "C:/vst/Gone.vst3", 5);
+    expect(c.attached()).toBe(0);
   });
 });

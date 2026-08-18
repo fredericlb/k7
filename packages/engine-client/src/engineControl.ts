@@ -38,6 +38,21 @@ export interface PluginInfo {
   id: string;
 }
 
+/**
+ * One parameter of an installed plugin TYPE — its name, what it spans, its named settings.
+ *
+ * The same three facts `@studio/song`'s `BuiltinParam` and the browser client's
+ * `EnginePluginParam` carry, in the same shape and for the same reason: one panel generator
+ * reads all three, and a second spelling would mean a second generator.
+ */
+export interface PluginParamInfo {
+  name: string;
+  min: number;
+  max: number;
+  def?: number;
+  states?: { label: string; value: number }[];
+}
+
 export interface AudioDeviceInfo {
   name: string;
   type: string; // the driver backend offering it ("ASIO", "Windows Audio", …)
@@ -177,6 +192,20 @@ export class EngineControl extends EventEmitter {
             path: String(msg.path ?? ""),
           });
           break;
+        // A plugin TYPE's whole list, on its own event and under its own name — `plugin-params`
+        // below is a loaded INSTANCE's current values, a name → number map. Sharing either would
+        // feed a list into the path that reads it as a map.
+        //
+        // The format and the id ride back with the answer, because the ask takes seconds and a
+        // caller may have asked about another plugin meanwhile. Matching on them is what stops a
+        // late reply from answering the wrong question.
+        case "plugin-param-list":
+          this.emit("pluginParamList", {
+            format: String(msg.format ?? ""),
+            id: String(msg.id ?? ""),
+            params: (msg.params ?? []) as PluginParamInfo[],
+          });
+          break;
         case "plugin-params":
           this.emit("pluginParams", {
             id: String(msg.id ?? ""),
@@ -252,6 +281,23 @@ export class EngineControl extends EventEmitter {
   // first — that cache is the engine's, which is why the unlink lives in engine-host's engineQueries.
   rescanPlugins(force = false): void {
     this.send({ type: "rescan-plugins", ...(force ? { force: true } : {}) });
+  }
+
+  /**
+   * Every parameter an installed plugin TYPE has, by loading one and asking. Replies with a
+   * 'pluginParamList' event carrying the format and id back.
+   *
+   * SLOW — seconds, for a plugin whose binary has to be loaded and constructed — because that
+   * is the only way to learn them: a plugin registers its parameters in its constructor, and
+   * the scan cache carries a name, a format and a path and nothing else. The engine answers on
+   * a thread of its own, on an offline engine that opens no device, so asking does not disturb
+   * whatever is playing.
+   *
+   * `id` is the scan's `fileOrIdentifier` — the binary, not the display name. Two plugins can
+   * share a name; only the path resolves to one.
+   */
+  listPluginParams(format: string, id: string): void {
+    this.send({ type: "list-plugin-params", format, id });
   }
 
   // Which plugin INSTANCES the engine's edits hold — what is in the SONGS, unlike listPlugins'

@@ -5,6 +5,10 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
+// The panel generator's own parameter type, not a second spelling of it: what comes back over
+// this route is fed straight to `paramPanel`, and a lookalike interface here would be a shape
+// that compiles until the day one of them gains a field.
+import type { BuiltinParam } from "@studio/song/builtinParams";
 import type { FaceablePlugin } from "@studio/song/engineFace";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import { libraryModuleStore } from "@studio/ui-module-builder/library-store";
@@ -296,6 +300,43 @@ export const engineMachine = {
   },
 
   /**
+   * …et ce qu'UN d'entre eux a : tous les paramètres d'un greffon installé.
+   *
+   * Le scan n'en dit rien — un greffon enregistre ses paramètres dans son constructeur — donc
+   * la machine en charge une instance et la lui demande. C'est LENT (des secondes pour un gros
+   * synthé), d'où le `signal` : celui qui a cliqué ailleurs entre-temps n'a plus rien à attendre.
+   *
+   * Le couple format + identifiant, jamais le nom seul : `id` est le chemin du binaire, et deux
+   * greffons peuvent porter le même nom d'affichage.
+   *
+   * `null` veut dire « on ne peut pas savoir » — moteur éteint, origine non autorisée. Un
+   * tableau VIDE est une vraie réponse, et l'appelant doit pouvoir les distinguer : il écrit un
+   * panneau à partir de ce qui revient.
+   */
+  pluginParams: async (
+    fileBase: string,
+    token: string,
+    format: string,
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<BuiltinParam[] | null> => {
+    try {
+      const res = await fetch(
+        `${fileBase}/plugin-params?format=${encodeURIComponent(format)}&id=${encodeURIComponent(id)}`,
+        { headers: machineHeaders(token), signal },
+      );
+      if (!res.ok) return null;
+      const { params } = await json<{ params?: BuiltinParam[] }>(
+        res,
+        "plugin-params",
+      );
+      return params ?? [];
+    } catch {
+      return null; // moteur injoignable, ou requête abandonnée
+    }
+  },
+
+  /**
    * Quel espace de travail de cette machine tient déjà ce dépôt, ou `null`.
    *
    * st0 nomme un dépôt par son URI et ne sait rien des dossiers de cette machine-là — c'est
@@ -358,9 +399,13 @@ export const engineMachine = {
    * dossier. Il n'y a plus qu'un suffixe — tout projet est un `.l8` — donc ce que le nom disait
    * autrefois (quelle application l'ouvre) n'a plus de question à trancher.
    *
-   * `shape` est ce qui reste, et c'est ce qui décide du GABARIT écrit : une chanson, un rig,
-   * ou un set (deux platines, un crossfade, une liste). Il ne peut pas voyager par le nom, et
-   * c'est pour ça qu'il est un champ. Voir `PROJECT_SHAPES` dans @studio/song.
+   * `shape` est ce qui reste, et c'est l'ARCHÉTYPE : `arrangement` (une timeline), `mix` (deux
+   * platines, un crossfade, une liste vide) ou `video` (la timeline et le viewport). Il ne peut
+   * pas voyager par le nom, et c'est pour ça qu'il est un champ. Voir `PROJECT_SHAPES` dans
+   * @studio/song.
+   *
+   * Un service de fichiers plus ancien que ces trois noms répond 400 sur son `z.enum` : c'est le
+   * bon échec — mieux vaut « archétype inconnu » qu'un gabarit deviné à côté.
    */
   createProject: async (
     fileBase: string,
