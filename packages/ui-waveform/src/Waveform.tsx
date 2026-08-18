@@ -1,4 +1,11 @@
-﻿import { memo, useEffect, useMemo, useRef, useState } from "react";
+﻿import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   labelled,
   labelMinPx,
@@ -218,16 +225,33 @@ function WaveformInner({
   // Which edge of the editing moment is being dragged, if any.
   const editDrag = useRef<"start" | "end" | null>(null);
 
-  // Track container width so the canvas is responsive.
-  useEffect(() => {
+  /**
+   * Track the container's width, so the canvas is responsive.
+   *
+   * MEASURED SYNCHRONOUSLY FIRST, in a layout effect, and only then observed. The observer alone
+   * left the first paint drawn at the `useState` guess — a canvas sized in px, so a box wider than
+   * the guess showed the wave stopping short of its own frame. Invisible on a component that
+   * mounts once with the pane; plainly wrong on one that REMOUNTS, which is what l8's clip panel
+   * does after a take: `lecture de la prise…` replaces the waveform while the file is fetched, so
+   * the picture that comes back is a fresh mount starting from the guess again.
+   *
+   * A zero is IGNORED rather than floored to 1. A box measured before layout, or while its pane is
+   * `hidden`, reports nothing — and a pane that never changes size afterwards never fires the
+   * observer a second time, so flooring it would latch a one-pixel canvas for as long as the panel
+   * stays open. Keeping the last real width is wrong for at most one resize; latching is forever.
+   *
+   * No floor besides that: a floor wider than the box is a canvas drawn wider than it is shown,
+   * and the marker pins do not follow that stretch. A narrow pane gets a narrow waveform, which is
+   * simply what it has room for.
+   */
+  useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      // 1, not 200: a floor wider than the box is a canvas drawn wider than it is shown, and the
-      // marker pins do not follow that stretch. A narrow pane gets a narrow waveform, which is
-      // simply what it has room for.
-      setWidth(Math.max(1, Math.floor(entries[0].contentRect.width)));
-    });
+    const measure = (w: number) => {
+      if (w > 0) setWidth(Math.floor(w));
+    };
+    measure(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((e) => measure(e[0].contentRect.width));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
