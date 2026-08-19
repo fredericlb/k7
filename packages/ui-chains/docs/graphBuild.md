@@ -116,6 +116,55 @@ and `arg` is absent.
 
 An **authored** panel wins over all of this, exactly as for a rack.
 
+## One function answers "which panel", for the drawing and for the size
+
+`stepUI` picks it: the authored grid if there is one, else a rack's pads, else an input's
+sockets. Both readers go through it — the node's `ui` and `nodeSize` — and that is the whole
+reason it exists.
+
+It did not use to be. The node took its panel from `carryStep` (the step's raw `ui`) with the two
+synthesised ones spliced in beside it, and only the SIZE came from `stepUI`. The two agreed about
+everything except the one thing `stepUI` alone did: fold the module's base list into the authored
+panel (`withBaseOptions`). So a widget bound to **`@base`** had its entries computed, measured,
+and then dropped — every base dropdown in the app drew `none` and nothing else, on a panel whose
+author had written exactly what the format asks for and had no way to see it was not working.
+
+The list cannot live in the `ui.yaml`: which bases exist changes every time somebody snapshots
+one, so a panel listing them would be a copy of a directory going stale between saves. The author
+writes `bind: @base` and says nothing more; the entries are the folder's, and they arrive on the
+step. Same contract as `@channel`, whose sets are the machine's — see `@studio/song`'s
+`docs/intrinsics.md`.
+
+## A REHEARSAL moves, and writes nothing
+
+`rehearsal` on `DomChains` says this graph is a card being **tried out** rather than a song being
+edited — the module builder's preview is the one that sets it. Two things follow.
+
+**Every widget answers the mouse.** `actuable` normally asks "is there anywhere to send this" —
+`pluginWritable`, `trackWritable`, `offlineWritable` — and draws a widget read-only when the
+answer is no, which is the honest thing on a real graph. On the builder's card the answer was no
+for as long as no plugin happened to be loaded, so the panel being authored was a picture until
+somebody opened the plugin behind it: you could not check that a dropdown listed the right
+settings, or that a knob's range ran the right way, which is most of what looking at the card is
+for. A rehearsal needs nowhere to send a value because the optimistic override IS the value, so
+its widgets move regardless. A rack pad is the exception and still asks: it wants a *sound*, and
+a rehearsal cannot invent one.
+
+**Nothing is committed.** Both commit paths write into a file through the command line — `node
+param <module> <name> <value>` for a plugin param, `node param <module> @<field> <label>` for a
+module field — and in the builder there is no project node for either to reach, so they wrote
+into somebody else's song or did nothing at all. Under `rehearsal` both are skipped.
+
+What is NOT skipped is the socket: `setPluginParam` still fires when the host wired it, because
+the plugin behind a preview is an orphan instance no project owns. Turning its knobs is how you
+*hear* the module, and nothing about that is saved either.
+
+Module fields get one extra thing under rehearsal: an optimistic override. The normal path
+refuses optimism on purpose — the engine learns a field by rebuilding, so the reload IS how it
+takes effect and showing the value early would be a guess about a round-trip. In a rehearsal
+there is no round-trip to guess about, so without the override a dropdown would open, list its
+entries, and snap back to what it was.
+
 ## …and the clips the lane holds
 
 Under the controls, a track node lists **what is on the lane** — the clip refs, in playing

@@ -246,6 +246,9 @@ export function ModuleBuilder({
   renderPreview?: (view: {
     ui: ModuleUI;
     params: Record<string, number>;
+    // The module's named bases, for the one widget whose entries are not in the panel: a
+    // dropdown bound to `@base` is filled by the graph from this, not by the file.
+    bases: readonly string[];
   }) => ReactNode;
 }) {
   const [content, setContent] = useState<string | null>(null);
@@ -1210,7 +1213,7 @@ export function ModuleBuilder({
             </div>
             {renderPreview && (
               <div className="h-[30%] min-h-0 shrink-0 grow-0 border-t border-border">
-                {renderPreview({ ui, params: paramValues })}
+                {renderPreview({ ui, params: paramValues, bases })}
               </div>
             )}
           </div>

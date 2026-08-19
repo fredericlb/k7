@@ -4085,7 +4085,7 @@ export default function App({
               // Its knobs are LIVE when a plugin was found: the store and the setter go in
               // together, because a knob that moves without changing anything is worse than one
               // that does not move.
-              renderPreview={({ ui, params }) => (
+              renderPreview={({ ui, params, bases }) => (
                 <ModulePreview
                   icons={STUDIO_ICONS}
                   command={runCommand}
@@ -4093,6 +4093,7 @@ export default function App({
                   path={builder.path}
                   ui={ui}
                   params={params}
+                  bases={bases}
                   paramsStore={builderPlugin ? pluginParamsStore : undefined}
                   onSetParam={builderPlugin ? setPluginParam : undefined}
                 />

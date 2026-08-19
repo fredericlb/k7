@@ -39,6 +39,48 @@ describe("one module as a graph", () => {
     expect(g.chains[PREVIEW_CHAIN].use[0].ui?.cols).toBe(2);
     expect(g.chains[PREVIEW_CHAIN].use[0].params).toEqual({ drive: 0.7 });
   });
+
+  it("carries the module's bases, and says nothing when it has none", () => {
+    // The absence is read as "no base control here", so an empty folder must not arrive as [].
+    const none = modulePreviewGraph("fuzz", "modules/audio/fuzz", ui(), {}, []);
+    expect(none.chains[PREVIEW_CHAIN].use[0].bases).toBeUndefined();
+    const some = modulePreviewGraph("fuzz", "modules/audio/fuzz", ui(), {}, [
+      "warm",
+    ]);
+    expect(some.chains[PREVIEW_CHAIN].use[0].bases).toEqual(["warm"]);
+  });
+});
+
+describe("the base dropdown, which the panel cannot fill in itself", () => {
+  const withBaseWidget = (bases?: readonly string[]) =>
+    buildGraph(
+      modulePreviewGraph(
+        "fuzz",
+        "modules/audio/fuzz",
+        {
+          cols: 2,
+          rows: 1,
+          widgets: {
+            b: { type: "dropdown" as const, col: 0, row: 0, bind: "@base" },
+          },
+        },
+        {},
+        bases,
+      ),
+    ).nodes.find((n) => n.kind === "module");
+
+  it("lists the module's bases, with `none` first so a choice can be undone", () => {
+    // What the author wrote is `bind: @base` and nothing else — the entries are the FOLDER's,
+    // and they reach the card through the step rather than through the panel.
+    const w = withBaseWidget(["warm", "bright"])?.ui?.widgets.b;
+    expect(w?.options?.map((o) => o.label)).toEqual(["none", "warm", "bright"]);
+  });
+
+  it("still draws `none` alone when nothing was passed", () => {
+    // The old behaviour, and now the honest one: a module with no bases has one entry, not none.
+    const w = withBaseWidget()?.ui?.widgets.b;
+    expect(w?.options?.map((o) => o.label)).toEqual(["none"]);
+  });
 });
 
 describe("the grid the card draws", () => {

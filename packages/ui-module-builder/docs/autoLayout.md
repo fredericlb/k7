@@ -37,7 +37,7 @@ and nothing on screen would say so.
 Names are matched **lowercased with `_` and `-` read as spaces**, so `MPE_PitchBend_3` and
 `Pitch Bend` are the same string to look at.
 
-## Preset and MIDI lead, and that is the point
+## Preset and MIDI lead, and are then left out
 
 A modern instrument publishes dozens of parameters that are not sound. Piano V3 alone has
 sixteen `VST_ProgramChange_*`, sixteen `MPE_PitchBend_*`, sixteen `MPE_Aftertouch_*` and a whole
@@ -45,26 +45,87 @@ KeyLab remote — `Select Preset`, `Browse Back`, `HardwareDisplayControl1..8`, 
 action`. Left among the knobs, each is a knob nobody will ever turn sitting where a real one
 could have been.
 
-They are **not dropped**. They go to a page called what they are, which you delete in one
-gesture if you do not want it. A guess that silently discards is a guess you cannot check.
+So they are **matched in order to be skipped** — the two families carry a `drop` flag, and
+`groupParams` never opens a page for them. Two of the proposal's dozen pages spent on program
+changes and browser navigation is the wrong answer to "a hundred and fifty parameters and
+nowhere to put them".
 
-## Matching order and reading order are different questions
+Matched rather than simply unmatched, because the two are not the same: an unmatched name falls
+into **Other**, where it is plumbing nobody recognised sitting beside `String Tension`.
+`familyOf` still names them `Preset` and `MIDI`, `isPlumbing` is the predicate, and the pinned
+collisions above (`Navigate through filters`, `Pitch Transpose`) still mean what they meant.
 
-`Track` — the `@` namespace, `@volume` `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` — has
-to ask **before** `Mix`, because `@volume` reads as a level to every word test there is. It
-also has to be drawn **after** it: those are the lane's controls and the input's, offered on
-every module because a panel may want them, and a plugin's panel that OPENED on them would be
-the other mistake.
+Nothing is lost by it. The params list offers every parameter the module has, plumbing included,
+and a panel that really does want a preset button is one drag away from one. A plugin that
+publishes **nothing but** plumbing gets an empty grid rather than a page of it — which is what
+that plugin honestly has to show.
 
-One list cannot answer both. So the table is the matching order and a `tail` flag is the
-reading order, with `Other` after even that.
+## `General` is the front page
+
+The `@` namespace — `@volume` `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` `@base` — is
+matched **first**, because `@volume` reads as a level to every word test there is and `Mix`
+would take it. It is also **drawn** first, and the panel opens on it.
+
+Those are the module's own controls rather than the plugin's: the lane's, the input's, and
+`@base`, which decides what the plugin sounds like at all. A proposal that opened on the eighth
+reverb parameter would have put the one page you always want behind eleven you sometimes do.
+
+So one order answers both questions and the table IS the tab bar, with `Other` last: it is where
+the guess gave up, and a page of leftovers ahead of a page of reverb controls would say the
+opposite of what the layout is for. (`General` used to be drawn last, under a `tail` flag, on the
+argument that a plugin's panel should open on the plugin. The flag is gone with it.)
+
+The pages are named in English like the rest of the table — one language per tab bar, and the
+other eleven are `Reverb`, `Filter`, `Envelope`…
+
+## `@base` takes the first row alone
+
+On whichever page holds it, which is `General`. It is not a control like the others: it names
+the `.vstpreset` the plugin is **built from** (`@studio/song`'s `docs/userPresets.md`), so every
+knob underneath is describing that base. Sixth in a row of dials it reads as one more setting;
+alone on the top line it reads as the choice the rest hangs off.
+
+`placeGroup` is the whole of it, and a page without a base is laid out exactly as before, from
+the first row down — the gap is spent only where it says something. The panel's height comes from
+that placement rather than from a parameter count, since the page holding the base is one row
+taller than its parameters alone would make it.
+
+## …and the module's own blend takes the opposite corner
+
+A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` joins `General` too, and lands **bottom right**.
+
+It says how much of this module you hear at all, as against how much of what went into it — a
+question about the module, like `@base`, not about the shape of its sound. So the two hold
+opposite corners of the front page: the base at the top left, the blend at the bottom right,
+where an output stage sits on a real panel.
+
+What makes one "the module's own" is the **family, not the word**. `Reverb Dry/Wet`, `Delay Mix`
+and `Chorus Wet` all carry a blend word, and the effect families ask before `Mix` does — so a
+blend word still sitting in `Mix` at the end is one no effect claimed. `isBlend` is that test in
+one line, and there is no second list of effect names to keep in step with the first.
+
+Several are right-**aligned** together, ending at the panel's edge: a `dry` and a `wet` are two
+halves of one control (one crossfade versus two independent gains — the difference is whether the
+sum is locked), and splitting them across the row would say they were unrelated. If the bottom
+row's right-hand end is already occupied, the panel grows a row rather than stacking the blend on
+a knob.
 
 ## What it draws, and where
 
 The proposal is **one tabs widget** on row 0, spanning the panel, with the pages under it from
-row 1 down — six to a row, `AUTO_COLS`. Row 0 is left to the bar because a page's `col`/`row`
-are the **panel's** grid rather than an offset inside the tabs widget's box (`pages.md`), so a
-widget placed on row 0 would be drawn over the bar.
+row 1 down — six parameters to a row, `AUTO_PER_ROW`. Row 0 is left to the bar because a page's
+`col`/`row` are the **panel's** grid rather than an offset inside the tabs widget's box
+(`pages.md`), so a widget placed on row 0 would be drawn over the bar.
+
+A parameter gets a **slot** rather than a cell: `KNOB_SPAN` × `KNOB_SPAN`, which is 2×2. So the
+panel is twelve cells wide (`AUTO_COLS` = six slots) and a row of parameters is two cells tall. A
+dropdown takes the slot's width and not its height — it is one row of text with nothing to put
+under it, where a knob is a dial with its label beneath.
+
+**Only here.** A knob added from the palette, or made by dropping a parameter on bare grid, is
+still one cell: those are single deliberate gestures onto a grid whose shape the author already
+has in mind, and making one bigger is a drag. This function places a hundred and fifty at once
+onto a grid it sizes itself, which is the case that needs an opinion about how big a knob is.
 
 Every page shares that grid, so `rows` is sized to the **biggest** page: a panel tall enough for
 the reverb page is what makes the oscillator page fit too.

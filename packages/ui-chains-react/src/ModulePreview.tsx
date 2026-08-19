@@ -21,6 +21,7 @@ export function ModulePreview({
   path,
   ui,
   params,
+  bases,
   sourceInput,
   onPickSourceInput,
   sourceArmed,
@@ -30,8 +31,9 @@ export function ModulePreview({
 }: {
   /** The host's glyphs — the graph's own requirement, and this only passes them along. */
   icons: ChainsIcons;
-  /** The host's command line. A preview is read-only, so this is only ever reached by a node's
-   *  own menu; a host with no command bar passes one that says so out loud. */
+  /** The host's command line. A preview writes nothing of its own (`rehearsal` below), so this is
+   *  only ever reached by a node's own menu; a host with no command bar passes one that says so
+   *  out loud. */
   command: (line: string) => void | Promise<void>;
   /** The module's name — the card's label, and half its engine address. */
   name: string;
@@ -40,6 +42,15 @@ export function ModulePreview({
   /** The grid AS EDITED, not as saved: the point is to see a widget land before saving it. */
   ui: Parameters<typeof visibleGrid>[0];
   params: Record<string, number>;
+  /**
+   * The named bases the module may be set to — its own `base/` folder plus its ancestors'.
+   *
+   * A widget bound to `@base` says nothing about its own entries: the folder's contents change
+   * every time a base is snapshotted, so the graph fills them at draw time and this is where
+   * they come in. Without it that dropdown draws "none" alone, and the one thing you cannot
+   * check by reading the panel you just wrote is the one thing the preview would not show.
+   */
+  bases?: readonly string[];
   /**
    * What the source node is fed from, as its chip reads — an interface input, so the module
    * can be HEARD treating something you play rather than only inspected.
@@ -61,12 +72,13 @@ export function ModulePreview({
   sourceArmed?: boolean;
   onToggleSourceArm?: () => void;
   /**
-   * The loaded plugin's live values, and how to change one — what turns the module's own
-   * widgets from a picture into controls.
+   * The loaded plugin's live values, and how to change one — what makes the module's own widgets
+   * SOUND rather than merely move.
    *
-   * This component said "Read-only" at the top and meant it: no store, no writer, so every
-   * knob on the card drew the authored value and ignored the mouse. Both or neither — a knob
-   * that moves and changes nothing is worse than one that plainly does not move.
+   * Both or neither. They are no longer what decides whether a widget answers the mouse: under
+   * `rehearsal` every widget turns and holds its position locally, because a panel is authored
+   * long before any plugin is loaded and "is this dropdown the right way round" is a question
+   * about the panel, not about the plugin. What these two add is the sound.
    */
   paramsStore?: PluginParamsStore;
   onSetParam?: (id: string, name: string, value: number) => void;
@@ -78,10 +90,10 @@ export function ModulePreview({
 
   const laid = useMemo(() => {
     const { nodes, edges } = buildGraph(
-      modulePreviewGraph(name, path, ui, params),
+      modulePreviewGraph(name, path, ui, params, bases),
     );
     return layout(nodes, edges);
-  }, [name, path, ui, params]);
+  }, [name, path, ui, params, bases]);
 
   return (
     <div className="h-full w-full">
@@ -127,6 +139,10 @@ export function ModulePreview({
         }
         pluginParamsStore={paramsStore}
         setPluginParam={onSetParam}
+        // Always: this card is the panel being WRITTEN, tried out. A module field is committed by
+        // a command that edits a file, and the builder has no project node for one to reach — so
+        // a base dropdown here shows the entry you picked and leaves the module alone.
+        rehearsal
       />
     </div>
   );

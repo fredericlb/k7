@@ -1197,6 +1197,9 @@ export function buildGraph(
       const chains = existing?.chains
         ? [...new Set([...existing.chains, name])]
         : [name];
+      // Read once: the node's panel and the node's size are the same answer, and asking twice is
+      // how they came apart in the first place.
+      const ui = stepUI(s, opts.inputDevices);
       add(mid, {
         label: s.module,
         // Only the SHARED case earns a sub line: editing this module reaches more than one chain. See docs/graphBuild.md.
@@ -1215,17 +1218,14 @@ export function buildGraph(
         // Everything the step itself says, in one move — see CARRIED/FLAGS. Listing them here
         // is what let `assetChoices` reach the browser and stop short of the node.
         ...carryStep(s),
-        // A RACK with no panel of its own draws its sounds: one pad per symbol. After
-        // `carryStep`, which brought the authored `ui` — and only when there was none, so a rack
-        // that HAS written a panel keeps it (see `rackUI`).
-        ...(!s.ui && s.rack?.length ? { ui: rackUI(s.rack) } : {}),
-        // …and a live INPUT with no panel of its own draws its socket. `monitor` is the marker:
-        // the file service sets it for an io "in" step and for nothing else, so it says "this is an
-        // input" without a second field meaning the same thing. Authored panel still wins.
-        ...(!s.ui && !s.rack?.length && s.monitor !== undefined
-          ? { ui: inputUI(opts.inputDevices ?? [], s.channel) }
-          : {}),
-        ...nodeSize(stepUI(s, opts.inputDevices)), // as big as its grid needs
+        // The panel the node actually DRAWS, over the raw one `carryStep` brought: the authored
+        // grid with its base list folded in, or the one synthesised for a rack or a live input.
+        // `stepUI` answers that once for both readers — the node used to pick the panel here and
+        // the size from `stepUI`, and the two agreed on everything except the one thing only
+        // `stepUI` did: a widget bound to `@base` had its entries computed and then dropped, so
+        // that dropdown drew "none" alone on every card in the app.
+        ui,
+        ...nodeSize(ui), // as big as its grid needs
         // …and a NOTE is as big as its text. `g.modules` is keyed by doc modules alone, so a
         // hit here IS "this node is a note" — no second field, and no lookup table to keep in
         // step with one. The size overrides the one above: a note has no widget grid.

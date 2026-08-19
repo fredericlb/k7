@@ -65,7 +65,9 @@ const hasOwnLabel = (w: Widget) =>
   !!w.label && !(w.type === "button" && w.label === BUTTON_PLACEHOLDER_LABEL);
 
 // Which widget kinds carry a `bind` — a label shows fixed text, tabs/waveform aren't parameter controls.
-const bindable = (w: Widget) =>
+// Exported because it is also the answer to "why did that drop bounce": the three kinds below are the
+// only ones a dragged parameter is refused by, and the refusal has no other cause worth looking for.
+export const bindable = (w: Pick<Widget, "type">) =>
   w.type !== "label" && w.type !== "tabs" && w.type !== "waveform";
 
 // …and which carry a RANGE. Not a dropdown: it addresses its param by named setting, and its options are the set.
@@ -629,8 +631,14 @@ export function WidgetGridEditor({
                 }}
                 title={w.type === "label" ? w.text : w.bind}
               >
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <span className="mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
+                {/* The glyph and the caption take no pointer, so every drag event over the tile
+                    targets the TILE. They are what a tile is made of and they fill it, so a
+                    parameter dragged onto a widget is nearly always over one of them — and each
+                    crossing fired `dragleave` on the tile, cleared the highlight and let the
+                    cursor fall back to "no". The empty cells never had the problem because they
+                    have no children, which is why dropping on bare grid always worked. */}
+                <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
+                <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
                   {w.type === "label"
                     ? w.text || "label"
                     : w.label || w.bind || w.type}
@@ -672,6 +680,7 @@ export function WidgetGridEditor({
           assetParams={assetParams}
           disabled={!!disabled}
           onPatch={(p) => patch(selected, p)}
+          onBind={(p) => bindParam(selected, sel, p)}
           onDelete={() => removeWidget(selected)}
         />
       )}
@@ -721,6 +730,7 @@ function Inspector({
   assetParams,
   disabled,
   onPatch,
+  onBind,
   onDelete,
 }: {
   id: string;
@@ -728,6 +738,10 @@ function Inspector({
   assetParams?: string[];
   disabled?: boolean;
   onPatch: (w: Partial<Widget>) => void;
+  /** Bind a dropped parameter — the SAME path a drop on the grid takes, range and all. Not
+   *  `onPatch({ bind })`: that would set the name and leave the widget without the settings or
+   *  the range that travelled with it, which is most of what the gesture is for. */
+  onBind: (p: ParamDrag) => void;
   onDelete: () => void;
 }) {
   const isLabel = w.type === "label";
@@ -745,6 +759,9 @@ function Inspector({
     const n = Number(t);
     return Number.isFinite(n) ? n : undefined;
   };
+
+  // Whether a parameter is over the bind field — the ring that says the drop will land.
+  const [over, setOver] = useState(false);
 
   const pages = w.pages ?? {};
   const pageNames = Object.keys(pages);
@@ -811,31 +828,62 @@ function Inspector({
             />
           </Field>
         ) : isTabs || isWaveform || isLibrary ? null : (
-          // Read-only: a binding is made by dragging a row from the Parameters list. The chip names it, and clears it.
+          // Not a text field: a binding is made by dragging a row from the Parameters list, onto
+          // this or onto the widget in the grid. The chip names it, and clears it.
+          //
+          // Both halves are the SAME drop target, because the empty half says "drag a parameter
+          // here" and was for a long time the one place in the builder that meant it as a
+          // picture: it carried no handlers at all, so a drop onto the words asking for one was
+          // refused by the browser with a forbidden cursor and nothing to say why.
           <Field label="Bound param">
-            {w.bind ? (
-              <div className="flex items-center gap-1">
-                <span
-                  className="min-w-0 flex-1 truncate rounded border border-border bg-muted/40 px-2 py-1 font-mono text-xs"
-                  title={w.bind}
-                >
-                  {w.bind}
-                </span>
-                <button
-                  type="button"
-                  disabled={!!disabled}
-                  onClick={() => onPatch({ bind: undefined })}
-                  className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  title="Unbind"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="rounded border border-dashed border-border px-2 py-1 text-xs text-muted-foreground">
-                drag a parameter here
-              </div>
-            )}
+            <div
+              onDragOver={(e) => {
+                if (disabled || !isParamDrag(e.dataTransfer)) return;
+                e.preventDefault(); // "yes, you may drop here"
+                e.dataTransfer.dropEffect = "copy";
+                if (!over) setOver(true);
+              }}
+              onDragLeave={() => setOver(false)}
+              onDrop={(e) => {
+                setOver(false);
+                if (disabled) return;
+                const p = readParamDrag(e.dataTransfer);
+                if (!p) return;
+                e.preventDefault();
+                onBind(p);
+              }}
+              // The children take no pointer, so every drag event lands on this div rather than on
+              // the chip inside it — same reason the widget tiles in the grid do it.
+              className={cn(
+                "[&_*]:pointer-events-none",
+                over && "rounded ring-2 ring-primary",
+              )}
+            >
+              {w.bind ? (
+                <div className="flex items-center gap-1">
+                  <span
+                    className="min-w-0 flex-1 truncate rounded border border-border bg-muted/40 px-2 py-1 font-mono text-xs"
+                    title={w.bind}
+                  >
+                    {w.bind}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={!!disabled}
+                    onClick={() => onPatch({ bind: undefined })}
+                    // …except this one, which is a control and has to stay clickable.
+                    className="pointer-events-auto shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                    title="Unbind"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="rounded border border-dashed border-border px-2 py-1 text-xs text-muted-foreground">
+                  drag a parameter here
+                </div>
+              )}
+            </div>
           </Field>
         )}
 

@@ -24,6 +24,20 @@ const OPTS = { version: "1.2" as const, lineWidth: 0 };
 /** A fresh, empty UI for a file that has none yet — small enough to see the whole grid. */
 export const EMPTY_UI: ModuleUI = { cols: 4, rows: 2, widgets: {} };
 
+/**
+ * How many cells a knob takes in an AUTO-ORGANISED panel, both ways: 2×2.
+ *
+ * Only there. A knob added from the palette or made by dropping a parameter stays one cell: those
+ * are single, deliberate gestures onto a grid whose shape the author already has in mind, and
+ * resizing one is a drag. `autoOrganize` places a hundred and fifty at once onto a grid it sizes
+ * itself, and a wall of one-cell dials is a panel nobody can read — so the proposal is the one
+ * that gets an opinion about how big a knob should be.
+ *
+ * It lives here rather than in autoLayout.ts because it is a fact about the widget, not about the
+ * guessing: `moduleUi` is where the grid's shape is spoken about.
+ */
+export const KNOB_SPAN = 2;
+
 /** The document, or null when the text doesn't parse at all (mid-keystroke). */
 function docOf(fileText: string): ReturnType<typeof parseDocument> | null {
   try {

@@ -806,6 +806,11 @@ interface Channels {
   // …and the same question for a RACK pad, which asks for a sound rather than a value: can this
   // host make one? A pad on a host that cannot is drawn and inert, never clickable-and-silent.
   rackTriggerable: boolean;
+  // Is this graph a REHEARSAL — see the prop. The three flags above ask "is there anywhere to
+  // send this", and a rehearsal's answer is that there is nowhere and none is needed: the
+  // override IS the value. Without it the builder's card drew every widget read-only until a
+  // plugin happened to be loaded, which is exactly the panel you cannot try out yet.
+  rehearsal: boolean;
   /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
   rackLit?: RackLitStore;
 }
@@ -1459,16 +1464,19 @@ function WidgetInner({
   // like when its host gave no way back. Read-only is honest; draggable-and-ignored is not.
   const actuable =
     tgt !== null &&
-    (tgt.kind === "offline"
-      ? ch.offlineWritable
-      : tgt.kind === "track"
-        ? ch.trackWritable
-        : // A RACK pad writes nothing, so none of the three channels answers for it. What it
-          // needs is a host that can make a sound; without one the pad draws and stays inert,
-          // which is the same honesty the three flags above are for.
-          tgt.kind === "rack"
-          ? ch.rackTriggerable
-          : ch.pluginWritable);
+    // A RACK pad writes nothing, so none of the channels answers for it. What it needs is a host
+    // that can make a sound; without one the pad draws and stays inert, which is the same honesty
+    // the flags below are for — and a rehearsal cannot invent a sound, so this one is asked first.
+    (tgt.kind === "rack"
+      ? ch.rackTriggerable
+      : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer,
+        // so its widgets move whether or not a plugin happens to be loaded behind them.
+        ch.rehearsal ||
+        (tgt.kind === "offline"
+          ? ch.offlineWritable
+          : tgt.kind === "track"
+            ? ch.trackWritable
+            : ch.pluginWritable));
   const value = widgetValue(n, w, ch, live);
   const known = value !== undefined;
   const t = known ? widgetNorm(w, value) : 0;
@@ -2853,6 +2861,7 @@ export function DomChains({
   trackControls,
   onTrackToggle,
   onTrackSet,
+  rehearsal,
   motion = true,
 }: {
   /** The glyphs the nodes wear. Required, so no caller can render a graph without them. */
@@ -3010,6 +3019,19 @@ export function DomChains({
   ) => void;
   /** A play button on the sink. Omit it and there is none — see SinkPlay. */
   sinkPlay?: SinkPlay;
+  /**
+   * This graph is a REHEARSAL: a picked module field is shown and never written.
+   *
+   * The module builder's preview card is the case. A field is normally committed by a command
+   * that edits a file (`setModuleField`), and in the builder there is no project node for that
+   * command to reach — so a base dropdown either wrote into somebody else's song or did nothing
+   * at all, and either way the panel being written could not be tried out.
+   *
+   * Only module FIELDS are held back. A plugin param still goes down the socket, because the
+   * plugin behind a preview is an orphan instance that no project owns: turning its knobs is
+   * how you hear the module, and nothing about it is saved either.
+   */
+  rehearsal?: boolean;
   pluginParamsStore?: PluginParamsStore;
   setPluginParam?: (id: string, name: string, value: number) => void;
   /**
@@ -3824,6 +3846,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      rehearsal: !!rehearsal,
       rackLit,
     }),
     [
@@ -3837,6 +3860,7 @@ export function DomChains({
       trackWritable,
       offlineWritable,
       rackTriggerable,
+      rehearsal,
       rackLit,
     ],
   );
@@ -3846,6 +3870,10 @@ export function DomChains({
   // Assigned on every render, never in an effect — an effect would serve one render's stale value.
   const chRef = useRef(ch);
   chRef.current = ch;
+  // Read through a ref by the window listeners, which are bound once and would otherwise hold
+  // whichever value the flag had on the render that bound them.
+  const rehearsalRef = useRef(false);
+  rehearsalRef.current = !!rehearsal;
   const selRef = useRef(selected);
   selRef.current = selected;
 
@@ -3958,7 +3986,14 @@ export function DomChains({
             cb.current.onTrackSet?.(d.tgt.trackId, d.tgt.control, d.value);
           // A module FIELD is a named setting, not a range — nothing here can be dragged
           // to a new one, so a drag that reached one commits nothing rather than guessing.
-        } else if (d.tgt.kind === "plugin" && d.node.module) {
+        } else if (
+          d.tgt.kind === "plugin" &&
+          d.node.module &&
+          !rehearsalRef.current
+        ) {
+          // Not in a rehearsal: this line WRITES the value into the module's file, and the
+          // builder's card is the panel being written rather than a module being set. What the
+          // socket already carried is what a rehearsal is for — turn it, hear it, keep nothing.
           cb.current.command(
             `node param ${d.node.module} ${JSON.stringify(d.tgt.name)} ${d.value}`,
           );
@@ -4232,9 +4267,21 @@ export function DomChains({
    * on the spot rather than at call time.
    */
   const setModuleField = useCallback(
-    (w: WebWidget, tgt: { module: string; field: string }, value: number) => {
+    (
+      // The whole target, not just its two names: a rehearsal keys its override by it.
+      w: WebWidget,
+      tgt: { kind: "module"; module: string; field: string },
+      value: number,
+    ) => {
       const opt = w.options?.find((o) => o.value === value);
       if (!opt) return; // a field with no named settings — nothing to write
+      // A rehearsal shows the pick and writes nothing. The optimism the next paragraph refuses
+      // is the ONLY thing that can answer here: there is no round-trip to wait for, so without
+      // it the dropdown would open, list its entries and then snap back to what it was.
+      if (rehearsal) {
+        setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
+        return;
+      }
       // `arg` where the entry SAYS one thing and SETS another: a socket reads "Input 1 + 2" and
       // writes `1,2`. Everywhere else the word on screen is the word in the file.
       //
@@ -4245,7 +4292,7 @@ export function DomChains({
         `node param ${tgt.module} @${tgt.field} ${opt.arg ?? opt.label}`,
       );
     },
-    [],
+    [rehearsal],
   );
 
   // A dropdown's chosen setting: the same commit path as a toggle, but the value is the option's, not a flip.
@@ -4266,12 +4313,12 @@ export function DomChains({
       }
       setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
       cb.current.setPluginParam?.(tgt.pluginId, tgt.name, value);
-      if (n.module)
+      if (n.module && !rehearsal)
         cb.current.command(
           `node param ${n.module} ${JSON.stringify(tgt.name)} ${value}`,
         );
     },
-    [setModuleField],
+    [setModuleField, rehearsal],
   );
 
   const tapWidget = useCallback(
@@ -4315,12 +4362,12 @@ export function DomChains({
         return;
       }
       cb.current.setPluginParam?.(tgt.pluginId, tgt.name, next);
-      if (n.module)
+      if (n.module && !rehearsal)
         cb.current.command(
           `node param ${n.module} ${JSON.stringify(tgt.name)} ${next}`,
         );
     },
-    [setModuleField],
+    [setModuleField, rehearsal],
   );
   const insert = useCallback(
     (info: EdgeInsert, x: number, y: number, at: { x: number; y: number }) => {

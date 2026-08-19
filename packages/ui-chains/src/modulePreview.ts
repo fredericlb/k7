@@ -71,12 +71,21 @@ export function visibleGrid(ui: {
   };
 }
 
-/** The smallest graph that draws `module` as the card it will be in a chain. */
+/**
+ * The smallest graph that draws `module` as the card it will be in a chain.
+ *
+ * `bases` is the module's own `base/` folder plus its ancestors', and it is passed for one
+ * reason: a widget bound to `@base` carries no entries of its own — the graph fills them from
+ * the step (`withBaseOptions`), because which bases exist changes every time somebody snapshots
+ * one. Without it the preview drew that dropdown holding "none" and nothing else, which is the
+ * one widget you cannot check by looking at the panel you just wrote.
+ */
 export function modulePreviewGraph(
   module: string,
   path: string,
   ui: Parameters<typeof visibleGrid>[0],
   params: Record<string, number>,
+  bases?: readonly string[],
 ): WebGraph {
   return {
     tracks: [PREVIEW_SOURCE],
@@ -95,6 +104,9 @@ export function modulePreviewGraph(
             pluginId: previewPluginId(module),
             ui: visibleGrid(ui),
             params,
+            // Absent on a module with none, which the graph reads as "no base control here" —
+            // so an empty list must not become an empty array (types.ts says so).
+            ...(bases?.length ? { bases: [...bases] } : {}),
           },
         ],
         out: [{ to: "OUT", gain: 1 }],
