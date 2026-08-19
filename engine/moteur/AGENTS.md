@@ -128,11 +128,42 @@ external plugin at once. It is a one-liner, and it does not announce itself: Tra
 which reads as a licence or a bad install and sends you to the plugin vendor. `EditBuilder` and
 `ParamDump` both do it; a third creation site must too.
 
+**A CLI must drain the message queue before it returns.** `~ExternalPlugin` frees no plugin: it
+hands the instance to Tracktion's `AsyncPluginDeleter`, which parks it and starts a 100 ms
+`juce::Timer`, one instance freed per fire. The server and the tray run a message loop, so that
+timer fires. A CLI runs none — so the instances are still alive when JUCE's `DeletedAtShutdown`
+tears the deleter down and it drains them itself, mid-shutdown, and the process dies of a SIGSEGV
+*after* printing a correct answer. Intermittent, load-dependent, and worse than a plain failure:
+`execFileSync` raises on the exit code, so the caller throws away a dump it already has. One
+`runDispatchLoopUntil` before returning is the whole fix — `ParamDump.cpp` and
+`OfflineRender.cpp`'s `drainMessageQueue` both do it.
+
+Note what that is *not*. **Creating** a plugin needs no pump here:
+`VST3PluginFormat::requiresUnblockedMessageThreadDuringCreation` returns false in this JUCE, so
+`ExternalPlugin::requiresAsyncInstantiation` is false and the instance is built synchronously on
+the calling thread — LADSPA the same, and AudioUnit is the only format that ever answers yes.
+An empty `--dump-params-ext` is the `knownPluginList` omission above, never an async one. The
+pump-during-creation theory reads convincingly and is wrong — check what
+`requiresAsyncInstantiation` actually returns for the format in hand before designing around it.
+
 ### .vstpreset
 
 Uses JUCE's `VST3PluginFormat::setStateFromVSTPresetFile` and the `ExtensionsVisitor`
 VST3 client to write the Steinberg container. Text params fully reproduce a plugin's
 state where possible; `.vstpreset` is the fallback for plugins that need opaque state.
+
+**Read one through `EditBuilder::loadVstPreset`, never `setStateInformation`.** A `.vstpreset`
+is a Steinberg *container* — header, class id, chunk offsets — and `setStateInformation` wants
+JUCE's own VST3 state format, so handed the raw file it takes none of it and returns `void`.
+There is nothing to test and no error to print: the plugin keeps its defaults and every caller
+downstream believes them. `--dump-params-ext` did that, and reported `complete: true` on the
+defaults it never replaced, which told the translator to drop the musician's preset.
+
+And expect `complete: false` from the big commercial instruments once a preset really loads.
+Their patch is not in their automatable parameters — an Arturia Wurli V2 reports the same 50
+values loaded from a preset as untouched, Mini V3 the same 77, checked against the JUCE
+`AudioProcessorParameter`s and not just Tracktion's cache. That is the flag working: keep the
+`.vstpreset`.
 
 ## Building
 

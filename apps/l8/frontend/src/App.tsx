@@ -4043,6 +4043,10 @@ export default function App({
               // only when there is one — a jsdsp module or a rack has no binary to load. The
               // machine resolves that ref against its own scan; see api.ts.
               onScanParams={api.scanPluginParams}
+              // …and the same ref, opened rather than read. Only for a plugin this machine
+              // SCANNED — the builder drops the built-ins itself, since they draw no window —
+              // and on an instance in no project, so it can be opened while one is playing.
+              onShowNativeUI={api.showPluginNativeUI}
               // The sockets an `io: in` module can listen on. Empty with no engine attached, which
               // is the honest answer: which inputs exist is the sound card's to say.
               inputDevices={inputDevices}

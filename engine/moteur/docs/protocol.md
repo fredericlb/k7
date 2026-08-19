@@ -65,6 +65,8 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
 | `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
+| `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
+| `{ type: "snapshot-plugin-base", format, id, path }` | keep what that orphan is holding: its state written to `path` as a `.vstpreset`. Refuses when no window was opened — see `plugin-base-saved` |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
 ### `tracks` — the delta, and what it deliberately cannot do
@@ -103,6 +105,7 @@ announces its own. `engine/moteur/scripts/track-delta.ts` exercises the three an
 | `{ type: "state", playing, playhead, levels, inputLevels, waveform }` | the ~20 Hz state frame |
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
 | `{ type: "plugin-params", id, params, meta }` | the state to persist; `meta` only on the get- reply |
+| `{ type: "plugin-base-saved", format, id, path, ok }` | whether the snapshot wrote. `ok:false` leaves no file — no instance open, or a plugin with no state to give |
 | `{ type: "presets", module, presets: [{name,source,index,path}, …] }` | |
 | `{ type: "edit-plugins", plugins: [{id,name,hasNativePluginUI}, …] }` | what the loaded project holds |
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |

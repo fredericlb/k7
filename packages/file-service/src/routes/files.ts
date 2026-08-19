@@ -25,6 +25,7 @@ import {
   prewarmEngineForActive,
   reloadActiveProject,
   runWebCommand,
+  snapshotPluginBase,
   startEngineForActive,
   strudelOrbitTracks,
   takeJustRecorded,
@@ -36,6 +37,7 @@ import {
 } from "../engineLink.ts";
 import { commitLibraries, ensureLibraries } from "../libraries.ts";
 import { readLog } from "../logs.ts";
+import { resolvePlugin } from "../pluginRef.ts";
 import {
   preferences,
   setAudioDevicePref,
@@ -831,6 +833,69 @@ filesRouter.post(
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }
+  }),
+);
+
+/**
+ * Snapshot the plugin's CURRENT state into the module's `base/` folder, under a name.
+ *
+ * The counterpart to `/presets/save` above, for the plugins that one cannot serve. A preset is a
+ * list of named numbers (`presets.yaml`), which is everything a module's `params:` can hold — and
+ * for a big commercial instrument it is not the sound. An Arturia patch lives in opaque chunk
+ * state: loaded from a `.vstpreset`, Wurli V2 reports the same 50 parameter values as an untouched
+ * one, Mini V3 the same 77. Written as numbers, that patch is the factory default with a name on
+ * it. A base is the blob, so the sound actually travels with the module.
+ *
+ * From the ORPHAN instance — the one the module builder's "Native UI" button opens, which belongs
+ * to no project. That is what makes this usable at all: a module is authored against a plugin the
+ * open project need not load, and often there is no project. It also means the state being kept is
+ * exactly what somebody dialled in by hand in the plugin's own window, and nothing else.
+ *
+ * Three answers, because three things can go wrong and only one of them is the user's to fix:
+ * 404 the ref names no scanned plugin, 503 no engine answered, 409 the engine answered that there
+ * was nothing to keep — no window was ever opened for this plugin, so a snapshot would be the
+ * factory defaults wearing a name somebody chose for a sound they thought they had made.
+ */
+const snapshotBaseBody = z.object({
+  /** The module file being edited. The FOLDER comes from it here — the builder never builds a path. */
+  path: z.string().min(1),
+  name: z.string().min(1),
+  /** `@engine/<slug>`: which plugin's orphan to read. The module's own `extends:`, as the scan and
+   *  the window both take. */
+  ref: z.string().min(1),
+});
+filesRouter.post(
+  "/module-base/snapshot",
+  validate(snapshotBaseBody),
+  wrap(async (req, res) => {
+    const { path, name, ref } = req.body as z.infer<typeof snapshotBaseBody>;
+    const plugin = resolvePlugin(ref, "", "");
+    if ("error" in plugin) {
+      res.status(plugin.status).json({ error: plugin.error });
+      return;
+    }
+    let where: { abs: string; path: string };
+    try {
+      where = req.ws!.baseSnapshotPath(path, name);
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+      return;
+    }
+    const wrote = await snapshotPluginBase(plugin.format, plugin.id, where.abs);
+    if (wrote === undefined) {
+      res
+        .status(503)
+        .json({ error: "the engine did not answer — is it running?" });
+      return;
+    }
+    if (!wrote.ok) {
+      res.status(409).json({
+        error:
+          "nothing to snapshot — open the plugin's window with « Native UI » and set it up first",
+      });
+      return;
+    }
+    res.json({ path: where.path });
   }),
 );
 

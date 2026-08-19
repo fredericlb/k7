@@ -13,6 +13,8 @@
 #include "EngineTypes.h"     // Tracktion/JUCE + the te/tt/fs aliases
 #include "PluginScan.h"      // registerBuiltInPlugins / builtInPlugins
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
+#include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
+#include "Warnings.h"       // warn — an orphan belongs to no session, so it warns unstamped
 
 #include <chrono>
 #include <iostream>
@@ -296,7 +298,66 @@ ParamQueryEngine& paramQueryEngine() {
     return *held;
 }
 
+/**
+ * The orphans being kept alive, keyed by format and identifier. Never emptied.
+ *
+ * `pluginParamsOf` drops its plugin the moment it has read the list, and says why: an instrument
+ * left on the shared edit holds voices and a binary open. An orphan opened for its own WINDOW
+ * cannot be dropped on the same principle — the window is still on screen and the user is turning
+ * its knobs — so it is held instead, one per plugin, until the process ends. A handful of loaded
+ * synths is what the feature costs, and it buys a reopen that is a visibility flip rather than
+ * another fourteen seconds of loading.
+ */
+std::unordered_map<std::string, te::Plugin::Ptr> orphanPlugins;
+
+/** Format and identifier as one map key. A newline, because neither half can contain one. */
+std::string orphanKey(const std::string& formatName, const std::string& identifier) {
+    return formatName + "\n" + identifier;
+}
+
 }  // namespace
+
+te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string& identifier) {
+    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    const auto key = orphanKey(formatName, identifier);
+    if (auto it = orphanPlugins.find(key); it != orphanPlugins.end() && it->second != nullptr)
+        return it->second;
+
+    auto& shared = paramQueryEngine();
+    juce::PluginDescription desc;
+    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
+        warn("no " + formatName + " plugin at '" + identifier + "'");
+        return {};
+    }
+    auto plugin =
+        shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    if (plugin == nullptr) {
+        warn("could not create '" + identifier + "'");
+        return {};
+    }
+    // The same wait, and the same reading of it: a plugin this machine refuses to load reports an
+    // empty parameter list for ever, and telling that apart from "it has none" is the whole of it.
+    // Sleeping rather than pumping is safe even when this runs on the message thread, because every
+    // format this engine hosts builds its instance synchronously — see the note in AGENTS.md.
+    if (!waitForParameterList(*plugin, identifier)) {
+        plugin->deleteFromParent();
+        warn("'" + identifier + "' did not load — a licence or an installation, not the plugin");
+        return {};
+    }
+    orphanPlugins[key] = plugin;
+    return plugin;
+}
+
+te::Plugin::Ptr orphanPluginIfLoaded(const std::string& formatName,
+                                     const std::string& identifier) {
+    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    auto it = orphanPlugins.find(orphanKey(formatName, identifier));
+    return it == orphanPlugins.end() ? te::Plugin::Ptr{} : it->second;
+}
+
+bool prepareNativePluginUI(const std::string& formatName, const std::string& identifier) {
+    return orphanPluginFor(formatName, identifier) != nullptr;
+}
 
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
                                                            const std::string& identifier) {
@@ -356,8 +417,7 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
         return 2;
     }
 
-    // Instantiate the external plugin and restore its state from the .vstpreset bytes. A .vstpreset is a Steinberg
-    // container: if setStateInformation() rejects it, parse via Steinberg::Vst::PresetFile and feed the chunks.
+    // Instantiate the external plugin and restore its state from the .vstpreset.
     auto plugin = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     auto* ext = dynamic_cast<te::ExternalPlugin*>(plugin.get());
     if (ext == nullptr) {
@@ -365,16 +425,39 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
         emitParamsJson("{}", false);
         return 2;
     }
-    juce::MemoryBlock state;
-    if (juce::File(juce::String(stateFile)).loadFileAsData(state))
-        if (auto* inst = ext->getAudioPluginInstance())
-            inst->setStateInformation(state.getData(), (int)state.getSize());
+    // `loadVstPreset`, not `setStateInformation`, and the difference is the whole point of this CLI.
+    //
+    // A .vstpreset is a Steinberg PresetFile — a container, with a header, the plugin's class id and
+    // chunk offsets around the state. `setStateInformation` expects JUCE's own VST3 state format, so
+    // handed the raw container it takes none of it and returns void: no error, no exception, nothing
+    // to test. What this printed was the fresh instance's defaults, `complete: true`, with the same
+    // 77 parameters for a saved Mini V3 patch as for a plugin that had never been touched — a
+    // confident answer to a question it never asked, and the translator wrote those defaults into
+    // the chain as the musician's sound.
+    //
+    // `EditBuilder::loadVstPreset` has parsed the container correctly all along
+    // (`VST3PluginFormat::setStateFromVSTPresetFile`), and both the rack load and the editor's
+    // preset-picker go through it. Being the third caller rather than the second hand-rolled
+    // version is the fix; the comment that used to sit here described the container accurately and
+    // then proposed writing that parser again.
+    if (!loadVstPreset(*plugin, juce::File(juce::String(stateFile))))
+        std::cerr << "[dump-params-ext] no state applied from '" << stateFile
+                  << "' — the params below are the plugin's own defaults\n";
 
     const auto params = paramsJson(*plugin);
     const auto values = currentParamValues(*plugin);
 
     // Completeness: a fresh instance carrying only these params must reproduce the exact state. Only then is
     // dropping the opaque preset lossless.
+    //
+    // Expect `false` from the big commercial instruments, and do not go looking for the bug. Their
+    // patch is not in their automatable parameters: an Arturia Wurli V2 loaded from a .vstpreset
+    // reports the same 50 values as an untouched one, and Mini V3 the same 77 — checked against the
+    // JUCE `AudioProcessorParameter`s directly, not just Tracktion's cache in front of them, so this
+    // is the plugin's own answer and not a value gone stale. What the preset changed is opaque
+    // chunk state, which is exactly what `complete: false` is for: keep the .vstpreset. Saying
+    // `true` there was the damage the old `setStateInformation` call did — it applied nothing, so
+    // the round-trip trivially matched, and the translator dropped a preset for the defaults.
     bool complete = false;
     if (auto* inst = ext->getAudioPluginInstance()) {
         juce::MemoryBlock a;
@@ -388,8 +471,32 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
                 complete = (a == b);
             }
         }
+        // Handed back like every other instance in this file — this was the one creation site that
+        // never did, so the comparison instance stayed in the cache until the Edit went.
+        plugin2->deleteFromParent();
     }
     emitParamsJson(params, complete);
+
+    // The answer is printed; now let the message thread actually FREE the plugins, which is not
+    // something their destructors do. `~ExternalPlugin` hands the instance to Tracktion's
+    // `AsyncPluginDeleter`, which parks it in an array and starts a 100 ms `juce::Timer` — one
+    // instance freed per fire. The server and the tray run a message loop, so that timer fires; a
+    // CLI runs none, so both instances were still alive when JUCE's shutdown reached
+    // `DeletedAtShutdown` and the deleter's destructor drained them itself, entering a modal state
+    // on a Component in the middle of teardown.
+    //
+    // That is an intermittent SIGSEGV *after* a perfect answer has been printed: 7 of 32 runs before
+    // this, 0 of 32 after, on Arturia's Prophet-5 V, CS-80 V4 and Jup-8 V4. Intermittent and
+    // load-dependent — it disappears for twenty clean runs and comes back — so measure it over a
+    // batch, never on one run. And it is the worst shape available, because `execFileSync` in the
+    // translator (`packages/translator/src/params.ts`) raises on a non-zero exit and throws away the
+    // dump it already has: a perfect answer read as "the engine returned no params".
+    //
+    // Same remedy and the same reason as `drainMessageQueue` in OfflineRender.cpp; longer than that
+    // one's 200 ms because the deleter frees ONE plugin per fire and this path makes two.
+    plugin->deleteFromParent();
+    plugin = nullptr;  // the cache's reference is gone with deleteFromParent; this drops ours
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(500);
     return 0;
 }
 
