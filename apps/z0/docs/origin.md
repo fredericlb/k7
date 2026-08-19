@@ -21,13 +21,13 @@ The repo-root `proxy config` handles z0 in three blocks, and the order matters b
 
 `redirectUriFor` builds `<origin><X-Forwarded-Prefix>/auth/callback`. z0 set the header so
 its callback would be `/z0/auth/callback` rather than the origin root's, which belongs to
-st0 — the service with no prefix, the one that mints `studio.sid`.
+pl8 — the service with no prefix, the one that mints `studio.sid`.
 
 It could not work, and the reason is not z0's: **the IdP has only the prefixless callback
 registered on this client.** Asking for the prefixed one is refused at the authorization
 endpoint, before any password is typed, so no account could sign into z0 at all. A service
 mounted under a path cannot own an OIDC flow here. The header had one purpose and that
-purpose was unreachable, so it is gone; the account login is st0's. Full account in
+purpose was unreachable, so it is gone; the account login is pl8's. Full account in
 [auth.md](auth.md).
 
 ## Why a second cookie still exists

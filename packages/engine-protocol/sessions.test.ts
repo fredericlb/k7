@@ -24,7 +24,7 @@ describe("sessionFor", () => {
   });
 
   it("separates one person's services", () => {
-    expect(sessionFor("l8", "a@x.org")).not.toBe(sessionFor("st0", "a@x.org"));
+    expect(sessionFor("l8", "a@x.org")).not.toBe(sessionFor("pl8", "a@x.org"));
   });
 
   // A surface with no user — a deck on the machine in front of you — is unchanged.

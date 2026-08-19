@@ -1,5 +1,5 @@
 // api.ts — the two services this screen talks to, and they are not the same machine:
-// st0 (same origin, session cookie) OWNS the repositories, the libraries, the deploy key and
+// pl8 (same origin, session cookie) OWNS the repositories, the libraries, the deploy key and
 // the shares; the file service on the chosen ENGINE owns every working copy, so creating and
 // deleting a project happen there. Neither half moved when this screen did — only the drawing
 // did. See ../../docs/projects.md.
@@ -25,15 +25,16 @@ import {
 import { serviceUrl } from "@studio/web-protocol/services";
 
 /**
- * st0's origin — another service on the SAME origin, and the one serving its ROOT, so
- * `serviceUrl` returns the bare origin here rather than a path under it.
+ * Where pl8 answers — another service on the SAME origin, under `/pl8`.
  *
  * DERIVED rather than declared: every studio service sits at a fixed path under one origin, so
  * dev and production differ by the origin the page was served from and nothing else. It was a
  * build-time branch naming a host of its own once, which is the same fact written twice and
- * only true until a deployment moves.
+ * only true until a deployment moves. It has since been worth the indirection twice over — this
+ * constant needed no edit when the médiathèque stopped serving the origin root and moved under
+ * a prefix, because the table it reads did.
  *
- * It lived in `../api` as an app-wide constant while the settings menu linked out to st0's
+ * It lived in `../api` as an app-wide constant while the settings menu linked out to pl8's
  * Modules section. That section is gone — a module is authored here now — and the constant went
  * with its last caller. This screen is the new one, so it is spelled where it is used instead of
  * being put back at the top of the app for one importer.
@@ -41,11 +42,11 @@ import { serviceUrl } from "@studio/web-protocol/services";
  * `globalThis.location`, not `window`: this module is imported by tests that run in node, where
  * reading `window` at module scope is a ReferenceError before any test has started.
  */
-const MEDIATEK_URL = serviceUrl(globalThis.location?.origin ?? "", "st0");
+const PL8_URL = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
 /** Where the catalogue answers — the header's link out. Exported for `Home.tsx`, which needs the
  *  address and none of the verbs below. */
-export const mediatekUrl = (): string => MEDIATEK_URL;
+export const pl8Url = (): string => PL8_URL;
 
 /** The error the far side carried, or a status code when it carried none. Its `status` rides
  *  along: a 202 and a 404 are answers here, not failures, and callers tell them apart. */
@@ -63,12 +64,14 @@ async function json<T>(res: Response, what: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-// ── st0: the repositories, the libraries, the key ───────────────────────────────
-// `MEDIATEK_URL` and not a relative path: l8 is mounted under `/l8` and st0 answers the origin
-// root, so a bare `/api/projects` from here would be l8's own backend — which has no such route.
+// ── pl8: the repositories, the libraries, the key ───────────────────────────────
+// `PL8_URL` and not a relative path: l8 is mounted at the origin ROOT now, so a bare
+// `/api/projects` from here would be l8's own backend — which has no such route. It was a
+// relative path that was wrong before the swap and an absolute one that is wrong after; only
+// asking the table each time is right in both.
 
 const pget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${MEDIATEK_URL}/api/projects${path}`), what);
+  json(await fetch(`${PL8_URL}/api/projects${path}`), what);
 
 const psend = async <T>(
   method: string,
@@ -76,7 +79,7 @@ const psend = async <T>(
   body?: unknown,
 ): Promise<T> =>
   json(
-    await fetch(`${MEDIATEK_URL}/api/projects${path}`, {
+    await fetch(`${PL8_URL}/api/projects${path}`, {
       method,
       headers: body ? { "content-type": "application/json" } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -87,7 +90,7 @@ const psend = async <T>(
 /**
  * The account's git repositories.
  *
- * st0 answers, and always will: a repository belongs to a PERSON rather than to a machine, and
+ * pl8 answers, and always will: a repository belongs to a PERSON rather than to a machine, and
  * the hosted service is the one side that outlives every engine and holds the whole list. What
  * it keeps of one is a bare blobless mirror — enough to answer "what is in there" and nothing
  * more. The checkout is the engine's, further down. See ../../docs/projects.md.
@@ -111,7 +114,7 @@ export const projects = {
     nodes: FileNode[];
     projects: { path: string; app: ProjectApp }[];
   } | null> => {
-    const res = await fetch(`${MEDIATEK_URL}/api/projects/${id}/tree`);
+    const res = await fetch(`${PL8_URL}/api/projects/${id}/tree`);
     if (res.status === 202) return null;
     return json(res, "tree");
   },
@@ -144,16 +147,16 @@ export const projects = {
     launchUrl(window.location.origin, repoName, project, app),
 };
 
-// ── st0: the shares ─────────────────────────────────────────────────────────────
+// ── pl8: the shares ─────────────────────────────────────────────────────────────
 
 const sget = async <T>(path: string, what: string): Promise<T> =>
-  json(await fetch(`${MEDIATEK_URL}/api/shares${path}`), what);
+  json(await fetch(`${PL8_URL}/api/shares${path}`), what);
 
 /**
  * The frozen snapshots this person has published, and taking one back.
  *
  * Both ends are l8's now. `project share link` renders the bundle here, on the machine that has
- * an engine, and uploads it to st0 — which holds the only copy and serves it to people with no
+ * an engine, and uploads it to pl8 — which holds the only copy and serves it to people with no
  * account at all. This screen is where one is watched and withdrawn. See ../../docs/shares.md.
  */
 export const shares = {
@@ -162,13 +165,13 @@ export const shares = {
 
   /** Delete the bytes. The row stays, dated — the list keeps saying what was published. */
   revoke: async (key: string): Promise<void> => {
-    const res = await fetch(`${MEDIATEK_URL}/api/shares/${key}`, {
+    const res = await fetch(`${PL8_URL}/api/shares/${key}`, {
       method: "DELETE",
     });
     if (!res.ok) throw await failed(res, "revoke");
   },
 
-  /** The link, built from the origin the browser is on. st0 holds the secret and never the
+  /** The link, built from the origin the browser is on. pl8 holds the secret and never the
    *  address: which host this account is read on is a property of the tab, not of the snapshot. */
   url: (token: string): string => shareUrl(window.location.origin, token),
 };

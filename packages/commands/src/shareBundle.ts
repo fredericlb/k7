@@ -201,7 +201,7 @@ export function buildShareBundle(
 
 /** Where the snapshot goes, and who it is filed under. */
 export interface ShareTarget {
-  /** st0's base URL — `mediatekBase()` on the machine that renders. */
+  /** pl8's base URL — `mediatekBase()` on the machine that renders. */
   base: string;
   /** The machine's `service:l8` bearer — `mediatekToken()`. */
   token: string;
@@ -224,10 +224,10 @@ async function ok(res: Response, what: string): Promise<unknown> {
 }
 
 /**
- * Send a bundle to st0, in the three steps that service's upload takes.
+ * Send a bundle to pl8, in the three steps that service's upload takes.
  *
  * Draft, then one raw PUT per file, then finish — and NOT a multipart form, which is k7's
- * convention rather than st0's: `express.raw` is what every upload route there takes, because a
+ * convention rather than pl8's: `express.raw` is what every upload route there takes, because a
  * 400 MB master must never be a field in a form parse. The global `express.json` is 8 MB, so the
  * manifest travels as JSON and the audio does not.
  *
@@ -243,7 +243,7 @@ export async function uploadShare(
 ): Promise<ShareLink> {
   const auth = { Authorization: `Bearer ${to.token}` };
   // EVERY call carries `?user=`, not just the first: the credential is the MACHINE's
-  // (`service:l8`), so each request has to name the person again or st0 files it under a service
+  // (`service:l8`), so each request has to name the person again or pl8 files it under a service
   // that owns nothing. The three steps are three requests and none of them remembers the others.
   const user = `user=${encodeURIComponent(to.user)}`;
   const api = `${to.base.replace(/\/+$/, "")}/api/shares`;

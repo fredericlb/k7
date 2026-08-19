@@ -80,9 +80,9 @@ void ids_are_sorted_and_copied() {
     SessionRegistry<Payload> reg;
     reg.emplace("m9");
     reg.emplace("l8");
-    reg.emplace("st0");
+    reg.emplace("pl8");
     // std::map ordering, and a COPY — the caller walks it without holding the lock.
-    CHECK((reg.ids() == std::vector<std::string>{"l8", "m9", "st0"}));
+    CHECK((reg.ids() == std::vector<std::string>{"l8", "m9", "pl8"}));
 }
 
 // One writer growing the map while two readers work it, which is the shape of the real fault:

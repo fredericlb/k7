@@ -95,7 +95,7 @@ beforeAll(async () => {
   // Assemble the app exactly like server.ts, minus the Grist boot.
   gameState.gristClient = null; // persistence no-ops
   gameState.db = new Database();
-  gameState.currentGame = gameState.db.createEmptyGameWithId("TEST01");
+  gameState.currentGame = gameState.db.createEmptyGameWithId("TEPL81");
   gameState.gameSelected = true;
   gameState.registrationStarted = true;
   gameState.registrationComplete = false;
@@ -166,7 +166,7 @@ it("plays a full round: register → done → next → buzz race → judge → s
   const connected = await monitor.waitFor("connected");
   expect(connected.payload).toMatchObject({
     gameSelected: true,
-    gameId: "TEST01",
+    gameId: "TEPL81",
   });
 
   // Two buzzers connect with tokens (users, not admins) and register.

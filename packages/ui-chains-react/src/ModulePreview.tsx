@@ -2,7 +2,7 @@
 // renderer half only: the graph is @studio/ui-chains' modulePreview.ts, and between them runs
 // the same buildGraph → layout → DomChains pipeline the full graph does. Its controls are LIVE
 // where the host wires them — the source's arm, the module's own knobs.
-// See apps/st0/docs/playback.md.
+// See apps/pl8/docs/playback.md.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
 import { buildGraph, layout } from "@studio/ui-chains/graph";

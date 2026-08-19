@@ -46,7 +46,7 @@ The list, and `DomChains` on the chosen chain with the patch cable, the splice a
 component's single `command`, which is the one place that knows the edit is aimed somewhere other
 than the song — and it bumps a revision so the drawing re-reads the file the verb just changed.
 
-A chain drawn without its gestures would be a picture of one, which st0 already has
+A chain drawn without its gestures would be a picture of one, which pl8 already has
 (`ChainView`, read-only, beside the YAML).
 
 ## The text half
@@ -64,9 +64,9 @@ what the graph draws on the next read.
 - **Creating a chain.** Adding a NODE to one works and is tested (`chainNodeNew.test.ts`): pointed
   at a template, `node new` writes into that chain's own `nodes/` and puts the node in its graph.
   Making a new chain from nothing has no verb yet.
-- **Committing.** The library is a git repository (`st0-libraries`) and an edit leaves it dirty.
+- **Committing.** The library is a git repository (`pl8-libraries`) and an edit leaves it dirty.
   Nothing in this screen publishes.
 - **The engine.** A chain edited here is not heard. That is what the bench is for
-  (`apps/st0/docs/banc.md`) — a real project whose `graph.yaml` is the chain, with the catalogue
+  (`apps/pl8/docs/banc.md`) — a real project whose `graph.yaml` is the chain, with the catalogue
   mirrored beside it so a plugin actually loads. The two are complementary: this edits the
   topology in place, the bench auditions it.

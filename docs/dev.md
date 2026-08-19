@@ -2,16 +2,24 @@
 
 ```bash
 npm run dev                        # every app + the engine + the tray, under Tilt
-npm run dev -- native st0-frontend # only the named Tilt resources
+npm run dev -- native pl8-frontend # only the named Tilt resources
 npm run dev:native                 # only the engine and the tray, no Tilt
 npm run vscode                     # the browser editor at /dev, on its own
 ```
 
 ## Where it answers
 
-**`https://st0.priv.frediver.se`** — one origin, one path per service (`/l8`,
-`/k7`, `/z0`), with st0 answering the root. The same shape production has under
+**`https://st0.priv.frediver.se`** — one origin, one path per service (`/pl8`,
+`/k7`, `/z0`), with **l8** answering the root. The same shape production has under
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
+
+The hostname is still `st0.…` and does not follow the rename: it is a DNS name in a router,
+not a fact this repo owns, and the médiathèque that was `st0` is `pl8` under `/pl8` now.
+
+> **The LAN proxy's path table lives on the other machine.** It is the one piece of this
+> topology not versioned here, and the swap needs it: `/` must reach l8's dev server (5223)
+> and `/pl8` pl8's (5224), where it was the other way round. Until it is changed, the studio
+> opens on the médiathèque and `/pl8` answers nothing.
 
 Nothing on this workstation terminates TLS any more. The name resolves to the **LAN server**,
 which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run
@@ -98,7 +106,7 @@ port over the network; the LAN is the trust boundary.
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
 `serve-web` then answers `403` to a bare `code.priv.frediver.se` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
-this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at st0's
+this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at pl8's
 backend (which owns `/auth`) so the studio session gates it.
 
 The first run downloads a server build (~100 MB) and answers `202` with a self-reloading

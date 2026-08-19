@@ -4,7 +4,7 @@ An `.l8` folder like any other, read by the same loader out of the same `@studio
 dialect: the node project you already know, with one entity fewer and two files more.
 
 > **The archetype that writes one is called `mix`.** That pair of names is deliberate and is the
-> only place it exists: `mix` is what you ASK for in st0's "Nouveau projet", named like its two
+> only place it exists: `mix` is what you ASK for in pl8's "Nouveau projet", named like its two
 > neighbours `arrangement` and `video` after the surface it opens on; a *set* is what lands on
 > disk, and this page is about the folder. One word cannot be right for both audiences.
 > `scaffoldSet` writes it; `PROJECT_SHAPES` lists it.
@@ -43,7 +43,7 @@ has a surface — which is the whole of what a host owes it.
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
 plays lives in the médiathèque, and what it says about playing it is the graph.
 
-**And no `modules/` either.** A set uses modules; it does not own any. st0 holds the only
+**And no `modules/` either.** A set uses modules; it does not own any. pl8 holds the only
 editable catalogue, so a crossfade copied into the project would be a second crossfade
 nobody maintains and nobody would notice drifting from the one everybody else uses. An
 node is the whole use:
@@ -64,7 +64,7 @@ second one optional, come from what it extends. That is the mechanism, not a sho
 Two things can say what a project is, and it matters which one is believed.
 
 The folder's **suffix** decides. `@studio/web-protocol/projects` already answers "which app
-opens this" from the name alone, and st0 asks that question of a **bare blobless git
+opens this" from the name alone, and pl8 asks that question of a **bare blobless git
 mirror** — every path, no file bodies — so any rule that had to open a file could not run
 where the question is actually asked. Making the file authoritative would put the app that
 opened a folder at odds with the loader reading it.

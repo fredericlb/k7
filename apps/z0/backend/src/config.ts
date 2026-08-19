@@ -2,14 +2,14 @@ import { loadEnv } from "./env.ts";
 
 // What the shared auth package can't decide for us.
 //
-// There is no OIDC flow here at all any more — st0 owns the account login for
+// There is no OIDC flow here at all any more — pl8 owns the account login for
 // the whole origin, because only the prefixless callback is registered (see
 // docs/auth.md). So `scopes` is gone with it: nothing in this process asks the
 // IdP for anything. What's left:
 //   adminGroups   which groups are privileged is per-app authorization policy
 //   sessionSecret needed to decode a session OUTSIDE the middleware chain: on a
 //                 WebSocket upgrade, which never sees req.session (ws.ts), and
-//                 for st0's `studio.sid`, which this backend reads but never
+//                 for pl8's `studio.sid`, which this backend reads but never
 //                 writes. It must be env.yaml `common`'s — the same constraint
 //                 l8, m9 and k7 are under. See docs/auth.md.
 //

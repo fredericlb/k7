@@ -6,7 +6,7 @@
 // makes this a translation of the edges and not a conversion.
 //
 // The pair has to be exactly reversible or saving damages the chain, so both directions live here,
-// beside each other, under one set of round-trip tests. See apps/st0/docs/banc.md.
+// beside each other, under one set of round-trip tests. See apps/pl8/docs/banc.md.
 
 import { formatChains, parseGraph } from "./yaml/graphFile";
 import type { GraphFile } from "./yaml/graphSchema";

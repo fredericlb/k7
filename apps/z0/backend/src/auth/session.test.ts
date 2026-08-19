@@ -16,7 +16,7 @@ import {
 } from "./session.ts";
 
 // ONE secret, `common`'s: it signs the guest cookie here and verifies the one
-// st0 signed. Two cookies, one key — see the "renamed" case below for why that
+// pl8 signed. Two cookies, one key — see the "renamed" case below for why that
 // is safe.
 const SECRET = "the-shared-studio-secret";
 
@@ -36,13 +36,13 @@ const studioCookie = (user: Record<string, unknown>, secret = SECRET) =>
   sessionCookieHeader(user, { cookieName: STUDIO_COOKIE_NAME, secret });
 
 describe("studioUser", () => {
-  it("reads st0's session and tags it as an account", () => {
+  it("reads pl8's session and tags it as an account", () => {
     const u = studioUser(studioCookie({ sub: "abc", name: "Fred" }));
     expect(u).toMatchObject({ sub: "abc", name: "Fred", kind: "user" });
   });
 
   it("carries the groups through, which is what the admin gate reads", () => {
-    // st0 has to request the `groups` scope for this to be non-empty — see its
+    // pl8 has to request the `groups` scope for this to be non-empty — see its
     // server.ts. Without it every admin surface 403s with nothing to look at.
     const u = studioUser(studioCookie({ sub: "a", groups: ["admins"] }));
     expect(isAdmin(u)).toBe(true);

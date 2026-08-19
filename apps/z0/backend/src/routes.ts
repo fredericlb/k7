@@ -65,7 +65,7 @@ import { dataDir } from "./state.ts";
 export function registerRoutes(app: Express): void {
   // Auth endpoints (always public — the middleware lets /auth/* through).
   // ALL of them are ours now: there is no /auth/login or /auth/callback here
-  // any more, because the account login is st0's (docs/auth.md). What is left
+  // any more, because the account login is pl8's (docs/auth.md). What is left
   // is the guest flows, plus /me and /logout — and /logout expires only
   // bt_session, since z0 does not sign studio.sid.
   app.post("/auth/logout", handleAuthLogout);

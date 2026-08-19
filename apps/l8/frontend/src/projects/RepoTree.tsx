@@ -1,5 +1,5 @@
 // RepoTree.tsx — l'arborescence d'un dépôt, telle que le miroir la lit, avec un bouton
-// « Ouvrir dans l8 » sur chaque dossier qui est un projet. Lecture seule : st0 ne fait pas de
+// « Ouvrir dans l8 » sur chaque dossier qui est un projet. Lecture seule : pl8 ne fait pas de
 // copie de travail, il n'y a donc rien à écrire ici. Voir ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";

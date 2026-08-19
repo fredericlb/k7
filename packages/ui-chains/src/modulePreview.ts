@@ -1,7 +1,7 @@
 // modulePreview.ts — one module as a WebGraph: a source, a chain, the module, a sink. The
 // smallest graph that draws a module as the card it will be in a chain, built in the browser
 // from the panel being edited. Framework-agnostic; the renderer is @studio/ui-chains-react's
-// ModulePreview. See apps/st0/docs/playback.md — the page lives with the builder.
+// ModulePreview. See apps/pl8/docs/playback.md — the page lives with the builder.
 
 import type {
   WebGraph,

@@ -27,7 +27,7 @@ const playable = (m: DeckModule): boolean =>
  * in it names a file. l8 happens to produce one from a compiled project folder because
  * that is where l8' truth lives; nothing says the compiler is its only producer.
  *
- * That retires the plan's own tension #3, which read: *"Une chaîne st0 ou m9 sans
+ * That retires the plan's own tension #3, which read: *"Une chaîne pl8 ou m9 sans
  * dossier YAML ne peut pas produire de WebGraph aujourd'hui. Pour la v1 : ces apps écrivent
  * un dossier de projet jetable — moche, immédiat"*. There is no folder here, jetable or
  * otherwise: m9's state IS the graph, and the same buildGraph → layout → DomChains

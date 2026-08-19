@@ -1,6 +1,6 @@
 # La page d'accueil — l8 ouvre un projet, et c'est ici qu'on le choisit
 
-`/l8/` sans rien après est un écran, et non une adresse à corriger : les dépôts git du compte,
+`/` sans rien après est un écran, et non une adresse à corriger : les dépôts git du compte,
 les projets qu'ils contiennent, le dépôt des bibliothèques, les partages publiés et la clé de
 déploiement. C'est de là qu'on part, et c'est là qu'on revient en quittant un morceau.
 
@@ -10,10 +10,10 @@ dit ce que l'écran fait, et — puisque c'est un déménagement — pourquoi il
 
 ## Pourquoi ça a bougé, et ce qui n'a PAS bougé
 
-**Ce qui a bougé est le dessin, et rien d'autre.** Les routes sont toujours celles de st0 :
+**Ce qui a bougé est le dessin, et rien d'autre.** Les routes sont toujours celles de pl8 :
 `/api/projects`, `/api/shares`, `/api/projects/ssh-key`. Le volume est toujours le sien, les
 miroirs bare aussi, la clé aussi, et les octets d'un partage aussi. Rien de tout cela n'a de
-raison de déménager, et [apps/st0/docs/projects.md](../../st0/docs/projects.md) est la page qui
+raison de déménager, et [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) est la page qui
 dit pourquoi ce service en est le bon dépositaire.
 
 Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où ils pèsent :
@@ -25,7 +25,7 @@ Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où
    que ce soit à éditer. Les modules et les chaînes ont fait le même trajet, dans la même
    semaine et pour la même raison : on les ÉCRIT, et on écrit ici.
 2. **La machine était déjà de ce côté-ci.** Créer et supprimer un projet passent par le service
-   de fichiers du moteur — le miroir de st0 est bare et sans blobs, il ne peut rien écrire (et
+   de fichiers du moteur — le miroir de pl8 est bare et sans blobs, il ne peut rien écrire (et
    ne doit pas, voir sa page). La médiathèque devait donc tendre le bras vers une machine dont
    elle ne fait rien d'autre. l8 y est branché en permanence : c'est là que le projet s'ouvre,
    se compile et se joue.
@@ -39,6 +39,26 @@ Playlists ensuite (`playlists.md`) — et ce qui reste est exactement ce qu'on n
 tête — « la première chose qu'on veut à une porte d'entrée, c'est son propre travail » — n'a pas
 perdu : il a déménagé avec l'écran.
 
+## …et l'adresse a fini par suivre
+
+Cet écran est devenu **la porte d'entrée elle-même**. l8 répond à la racine de l'origine
+(`st0.priv.frediver.se`, `studio.frediver.se`), et la médiathèque — qui s'appelle **pl8** depuis
+ce déménagement — est passée sous `/pl8`. C'est la conclusion de l'argument ci-dessus plutôt
+qu'une décision neuve : si la première chose qu'on veut à une porte d'entrée est son propre
+travail, alors la page qui liste ce travail EST la porte d'entrée, et la laisser derrière un
+préfixe qu'il fallait savoir taper était le dernier reste de l'ancienne disposition.
+
+**Le lien vers pl8 est dans l'en-tête de CETTE page, et seulement ici.** Ouvert sur un projet, l8
+dessine l'en-tête de l'éditeur, où un lien qui fait quitter la session n'a rien à faire ; sur
+l'accueil, rien ne tourne et le catalogue est précisément ce dont le prochain projet va se
+servir. Le bouton part dans le MÊME onglet, à l'inverse du lien qui vient d'en face
+(`apps/pl8/docs/otherApps.md`) : là-bas la médiathèque joue peut-être quelque chose et partir
+l'arrêterait, ici la page est une liste et le bouton « précédent » la rend telle quelle.
+
+Ce qui n'a **pas** suivi : `/auth/*`. L'IdP ne connaît qu'un seul `redirect_uri`, sans préfixe,
+donc c'est toujours le backend de pl8 qui sert ces routes — à la racine, sous l'application de
+quelqu'un d'autre. Voir `packages/web-protocol/services.ts`.
+
 Les playlists sont le cas qui ne suit pas tout à fait ce motif, et il vaut d'être distingué :
 elles ne sont pas parties parce qu'on les ÉCRIT — bien qu'on les écrive — mais parce qu'elles ne
 portent aucun octet. Ce sont des noms de morceaux qui, eux, restent là-bas. Le fichier appartient
@@ -48,14 +68,17 @@ sauvegarde. Voir `playlists.md`.
 ## Ce que l'adresse dit, et ce qu'elle ne dit pas
 
 ```
-/l8/                      la page d'accueil
-/l8/?repo=<id>            …avec l'arborescence d'un dépôt ouverte
-/l8/band/leclip.l8        un projet — la page d'accueil ne s'affiche plus du tout
+/                  la page d'accueil — l8 répond à la racine de l'origine
+/?repo=<id>        …avec l'arborescence d'un dépôt ouverte
+/band/leclip.l8    un projet — la page d'accueil ne s'affiche plus du tout
 ```
 
 **Le chemin appartient au lancement.** `parseLaunch` le lit avant que quoi que ce soit ne soit
-monté, et le premier segment après `/l8/` est le nom court d'un dépôt : il n'y a donc aucun
-segment qu'on puisse ajouter ici sans qu'il se lise comme un dépôt à ouvrir. Le dépôt déplié
+monté, et le PREMIER segment de l'adresse est le nom court d'un dépôt : il n'y a donc aucun
+segment qu'on puisse ajouter ici sans qu'il se lise comme un dépôt à ouvrir. C'est aussi ce qui
+rend inouvrable un dépôt qui s'appellerait `pl8`, `k7`, `z0`, `api` ou `auth` — l'origine
+revendique ces préfixes avant l8, et la requête n'arrive jamais jusqu'ici
+(`apps/studio/docker/nginx.conf`). Le dépôt déplié
 voyage dans la **query**, qui est exactement ce qu'un routeur de SPA possède — c'est l'argument
 de [packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md) pris
 dans l'autre sens. Et elle se met en signet, se recopie, et répond au bouton « précédent ».
@@ -70,16 +93,16 @@ morceaux éteints :
 
 | l'adresse | ce qui est monté |
 |---|---|
-| `/l8/@shares/<token>.l8` | `SharedGate` — ni compte, ni moteur, ni copie de travail |
-| `/l8/` | `AuthGate` → `Home` — le compte, et rien d'autre |
-| `/l8/<dépôt>/<projet>` | `AuthGate` → `EngineGate` → `ProjectGate` → l'éditeur |
+| `/@shares/<token>.l8` | `SharedGate` — ni compte, ni moteur, ni copie de travail |
+| `/` | `AuthGate` → `Home` — le compte, et rien d'autre |
+| `/<dépôt>/<projet>` | `AuthGate` → `EngineGate` → `ProjectGate` → l'éditeur |
 
-La ligne du milieu est neuve, et c'est elle qui remplace un `window.location.replace` vers st0.
+La ligne du milieu est neuve, et c'est elle qui remplace un `window.location.replace` vers pl8.
 Le `Profiler` reste sur la troisième seulement : il facture chaque commit du sous-arbre pour en
 retenir les rares longs, et cette page-ci n'a pas de rafales de commits à mesurer.
 
 **Aucun moteur n'est exigé.** Lister les dépôts, ouvrir une arborescence, régler les
-bibliothèques, révoquer un partage, lire la clé : tout ça est st0, sur la session. Seuls
+bibliothèques, révoquer un partage, lire la clé : tout ça est pl8, sur la session. Seuls
 « Nouveau projet » et « Supprimer » ont besoin d'une machine, ils sont grisés sans elle **et
 disent pourquoi**. Une page qu'un sélecteur de moteur barrerait entièrement serait une page où
 l'on ne peut plus poser de clé de déploiement le jour où le moteur est éteint — c'est-à-dire le
@@ -200,16 +223,16 @@ l'ouvre. Les deux arbres du dépôt dessinent donc les mêmes lignes.
 
 ## Le trajet complet
 
-1. Sur la page d'accueil, on colle une URI SSH. st0 génère la clé de déploiement si elle
+1. Sur la page d'accueil, on colle une URI SSH. pl8 génère la clé de déploiement si elle
    n'existe pas encore, enregistre le dépôt et lance le miroir en tâche de fond.
 2. La liste affiche chaque dépôt avec **ses projets en retrait dessous** ; un clic sur l'un
    d'eux part directement dans son application, **dans un nouvel onglet**. Le nom du dépôt, lui,
    ouvre l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
-3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/l8/band/leclip.l8` pour
+3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/band/leclip.l8` pour
    une chanson — une ADRESSE, et le dépôt par son **nom court**, pas par son URI : une barre
    d'adresse se copie et se colle, et une URI SSH y traîne une machine, un port et un
    utilisateur.
-4. L'application redemande à st0 l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
+4. L'application redemande à pl8 l'URI derrière ce nom (`GET /api/projects/by-name/:name`).
    Deux dépôts qui répondent au même nom court font un 409 plutôt qu'un choix silencieux.
 5. Puis elle demande au file service `GET /workspaces/by-repo?uri=` : cette machine
    connaît-elle ce dépôt ?
@@ -227,7 +250,7 @@ son côté serait exactement la deuxième chose à tenir en phase que ce paquet 
 ## Créer et supprimer un projet — sur la machine, pas ici
 
 Le bloc de chaque dépôt porte un **« Nouveau projet »** (l'archétype, et un nom), et chaque
-projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par st0.
+projet un petit **« Supprimer »** avec confirmation. Ni l'un ni l'autre n'est fait par pl8.
 
 C'est le seul endroit de cette page où le déménagement change quelque chose de réel : l'écran et
 la machine sont maintenant du même côté. La médiathèque appelait ces routes **depuis le
@@ -330,7 +353,7 @@ machine, et seul l'envoi a manqué — hors ligne, pas d'amont. Le dialogue se f
 affiche « créé, mais : … ». Supprimer le projet pour faire propre serait jeter le travail de
 quelqu'un pour une panne de réseau, et lever inviterait à recommencer une création qui a eu lieu.
 
-Après coup, on demande explicitement à st0 un `git fetch` de son miroir : le poll n'en fait un
+Après coup, on demande explicitement à pl8 un `git fetch` de son miroir : le poll n'en fait un
 qu'au plus toutes les dix minutes, et la liste serait sinon restée telle quelle — un clic qui a
 l'air de n'avoir rien fait.
 
@@ -338,14 +361,14 @@ l'air de n'avoir rien fait.
 
 La carte du bas liste les instantanés gelés que ce compte a publiés, et c'est le seul endroit
 où l'on en retire un. **Les deux bouts sont l8 maintenant** : `project share link` fabrique le
-paquet ici, sur la machine qui a un moteur et peut donc rendre du son, et l'envoie à st0 — qui
+paquet ici, sur la machine qui a un moteur et peut donc rendre du son, et l'envoie à pl8 — qui
 en détient l'unique copie et le sert à des gens sans compte.
 
 Que la révocation ait vécu dans la médiathèque était le dernier morceau d'une chose coupée en
 deux. Ce que le paquet contient et pourquoi est dans
 [packages/commands/docs/shareBundle.md](../../../packages/commands/docs/shareBundle.md) ; ce que
-st0 en fait, y compris pourquoi héberger ça ne contredit pas « st0 ne fait jamais de copie de
-travail », est dans [apps/st0/docs/shares.md](../../st0/docs/shares.md).
+pl8 en fait, y compris pourquoi héberger ça ne contredit pas « pl8 ne fait jamais de copie de
+travail », est dans [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
 
 Ce que cette carte doit dire, elle le dit :
 
@@ -367,7 +390,7 @@ et les partages sont le **même écran** et viennent du **même service**, donc 
 les partages sur le même tick.
 
 Un `git fetch` coûte du réseau, donc le miroir n'est pas rafraîchi à chaque affichage : à
-l'ajout, sur le bouton, et au plus une fois par dix minutes côté st0. C'est la raison pour
+l'ajout, sur le bouton, et au plus une fois par dix minutes côté pl8. C'est la raison pour
 laquelle `useGitStatus` dans l'éditeur est déjà sur un timer de dix minutes.
 
 ### Le jeton dit « à jour », pas « en main »
@@ -385,7 +408,7 @@ faire.
 Les suites d'ici tournent dans node et ne montent rien : `commitOutcome` et `projectName` sont
 couverts, l'écran ne l'est pas. Ce qu'un run vert ne dit pas :
 
-- ouvrir `/l8/` sans être connecté → l'écran de connexion, puis la page d'accueil (et pas la
+- ouvrir `/` sans être connecté → l'écran de connexion, puis la page d'accueil (et pas la
   médiathèque) ;
 - **sans machine moteur** : la liste s'affiche, « Nouveau projet » et « Supprimer » sont gris et
   leur info-bulle dit pourquoi, la clé et les bibliothèques se règlent quand même ;

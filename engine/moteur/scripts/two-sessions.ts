@@ -122,20 +122,20 @@ function wire(session?: string): Record<string, number> {
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
   const l8 = new EngineClient(URL, SESSIONS.l8);
-  const st0 = new EngineClient(URL, SESSIONS.st0);
+  const pl8 = new EngineClient(URL, SESSIONS.pl8);
   const onL8 = watch(l8);
-  const onSt0 = watch(st0);
-  const onWire = wire(SESSIONS.st0); // a surface on st0, watching the wire itself
+  const onPl8 = watch(pl8);
+  const onWire = wire(SESSIONS.pl8); // a surface on pl8, watching the wire itself
   const onProbe = wire(); // the tray: opens, says nothing, is gone
   l8.connect();
-  st0.connect();
+  pl8.connect();
 
   await wait(500);
   l8.sendProject(doc("depuis-l8", 45));
-  st0.sendProject(doc("depuis-st0", 64));
+  pl8.sendProject(doc("depuis-pl8", 64));
   await wait(3000);
 
-  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit st0's
+  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit pl8's
   // record light and made rolling either one record into both.
   l8.setRecordEnabled(true);
   await wait(1000);
@@ -145,13 +145,13 @@ async function main() {
   l8.transport("play");
   await wait(4000);
 
-  // A flush is about ONE project. Unstamped, st0 read l8's `flushed` as its own.
+  // A flush is about ONE project. Unstamped, pl8 read l8's `flushed` as its own.
   l8.flush();
   await wait(1000);
 
   console.log("l8    :", onL8);
-  console.log("st0       :", onSt0);
-  console.log("sur le fil (st0) :", onWire);
+  console.log("pl8       :", onPl8);
+  console.log("sur le fil (pl8) :", onWire);
   console.log("sur le fil (sonde):", onProbe);
 
   const problems: string[] = [];
@@ -159,12 +159,12 @@ async function main() {
   // waveform envelopes are subscribed, at 20 Hz: shouted at every socket, each tab decoded every
   // other project's meters to throw them away, and one session playing kept every other
   // session's tabs awake past their own idle divider.
-  if (!onWire[SESSIONS.st0])
-    problems.push("le socket st0 ne recoit aucune trame de sa propre session");
+  if (!onWire[SESSIONS.pl8])
+    problems.push("le socket pl8 ne recoit aucune trame de sa propre session");
   for (const sid of Object.keys(onWire))
-    if (sid !== SESSIONS.st0)
+    if (sid !== SESSIONS.pl8)
       problems.push(
-        `le socket st0 a recu ${onWire[sid]} trame(s) de '${sid}' — les trames d'etat sont diffusees`,
+        `le socket pl8 a recu ${onWire[sid]} trame(s) de '${sid}' — les trames d'etat sont diffusees`,
       );
   for (const sid of Object.keys(onProbe))
     problems.push(
@@ -174,33 +174,33 @@ async function main() {
     problems.push("l8 n'a jamais vu son transport partir");
   if (onL8.maxPlayhead < 1)
     problems.push("la tete de lecture de l8 n'a pas avance");
-  if (onSt0.frames === 0)
+  if (onPl8.frames === 0)
     problems.push(
-      "st0 ne recoit aucune trame d'etat (session filtree a tort)",
+      "pl8 ne recoit aucune trame d'etat (session filtree a tort)",
     );
-  if (onSt0.playing)
-    problems.push("st0 a vu le transport de l8 — les sessions fuient");
-  if (onSt0.maxPlayhead > 0.5)
-    problems.push("la tete de lecture de l8 a fuit vers st0");
+  if (onPl8.playing)
+    problems.push("pl8 a vu le transport de l8 — les sessions fuient");
+  if (onPl8.maxPlayhead > 0.5)
+    problems.push("la tete de lecture de l8 a fuit vers pl8");
   if (!onL8.recordEnabled)
     problems.push("l8 n'a jamais vu son propre record-enable");
-  if (onSt0.recordEnabled)
-    problems.push("st0 a vu le record-enable de l8 — le drapeau est global");
+  if (onPl8.recordEnabled)
+    problems.push("pl8 a vu le record-enable de l8 — le drapeau est global");
   if (onL8.applied !== 1)
     problems.push(`l8 attend 1 'applied', en a vu ${onL8.applied}`);
-  if (onSt0.applied !== 1)
+  if (onPl8.applied !== 1)
     problems.push(
-      `st0 attend 1 'applied' (le sien), en a vu ${onSt0.applied} — reponses non estampillees`,
+      `pl8 attend 1 'applied' (le sien), en a vu ${onPl8.applied} — reponses non estampillees`,
     );
   if (onL8.flushed !== 1)
     problems.push(`l8 attend 1 'flushed', en a vu ${onL8.flushed}`);
-  if (onSt0.flushed !== 0)
+  if (onPl8.flushed !== 0)
     problems.push(
-      `st0 a recu le 'flushed' de l8 (${onSt0.flushed}) — reponses non estampillees`,
+      `pl8 a recu le 'flushed' de l8 (${onPl8.flushed}) — reponses non estampillees`,
     );
 
   l8.close();
-  st0.close();
+  pl8.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);
     process.exit(1);

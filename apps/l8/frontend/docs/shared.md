@@ -1,10 +1,10 @@
 # Le mode partagé — l8 ouvert sur un instantané gelé
 
-Une adresse en `/l8/@shares/<token>.l8` ouvre **cette application**, sans compte, sans moteur et
-sans copie de travail. Ce qu'elle dessine est un instantané que st0 détient : trois documents
+Une adresse en `/@shares/<token>.l8` ouvre **cette application**, sans compte, sans moteur et
+sans copie de travail. Ce qu'elle dessine est un instantané que pl8 détient : trois documents
 compilés et des rendus audio. Le paquet est fabriqué ailleurs — voir
 [`packages/commands/docs/shareBundle.md`](../../../../packages/commands/docs/shareBundle.md) pour
-ce qu'il contient, et [`apps/st0/docs/shares.md`](../../../st0/docs/shares.md) pour où il vit et
+ce qu'il contient, et [`apps/pl8/docs/shares.md`](../../../pl8/docs/shares.md) pour où il vit et
 comment on le retire.
 
 ## Une branche, pas trois portes conditionnelles
@@ -100,7 +100,7 @@ instantané est fabriqué à partir d'un projet qui compilait, par la machine qu
 ## L'adresse est un `base`, et c'est tout ce qu'il a fallu
 
 `cfg().base` est une chaîne posée une fois. Rien n'exige que ce soit le service de fichiers qui
-réponde derrière, donc st0 sert les mêmes formes GET depuis le paquet et l8 ne s'en aperçoit pas.
+réponde derrière, donc pl8 sert les mêmes formes GET depuis le paquet et l8 ne s'en aperçoit pas.
 
 La seule couture à ajuster était le NOM : `fget` demande `/project-doc` parce que c'est la route
 du service de fichiers, et l'instantané appelle les mêmes octets `project-doc.json` parce qu'un
@@ -113,7 +113,7 @@ dessine pas.
 
 ## La clé se calcule ici
 
-`shareKey(token)` fait un `sha256` dans le navigateur, parce que st0 range le HACHÉ et jamais le
+`shareKey(token)` fait un `sha256` dans le navigateur, parce que pl8 range le HACHÉ et jamais le
 secret : un segment de chemin atteint chaque journal d'accès. Cela demande `crypto.subtle`, donc
 un **contexte sécurisé** — sur du http en clair, ailleurs que sur localhost, il n'y a pas de
 digest du tout. Le refus est levé avec une phrase plutôt que laissé remonter en

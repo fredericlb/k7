@@ -1,5 +1,5 @@
 // mediatek.ts — the media library as THIS MACHINE holds it. The library itself is hosted
-// now (see apps/st0/backend); what lives here is a cache the moteur plays from, so
+// now (see apps/pl8/backend); what lives here is a cache the moteur plays from, so
 // these routes report what is cached and pull down what is missing. Mounted BEFORE
 // resolveWorkspace: a cache is per machine, like /workspaces is per user.
 
@@ -45,7 +45,7 @@ export const mediatekRouter: Router = Router();
 /**
  * Analyse one file of the hosted library: waveform envelope, transient onsets, tempo.
  *
- * This exists because **st0 cannot decode audio**. It is a Node + nginx container with no
+ * This exists because **pl8 cannot decode audio**. It is a Node + nginx container with no
  * engine, and the engine is what owns decoding — so the hosted library holds the bytes and
  * this machine, which has an engine, does the work and hands the result back.
  *

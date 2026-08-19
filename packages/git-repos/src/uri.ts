@@ -25,7 +25,7 @@ export function isSshGitUri(uri: string): boolean {
  * One repository's identity, as `host[:port]/path` with no `.git` and no SSH user.
  *
  * The point is that `git@host:me/repo.git` and `ssh://git@host/me/repo` are the SAME
- * repository, and the two sides of this feature learn about it by different routes — st0
+ * repository, and the two sides of this feature learn about it by different routes — pl8
  * from what a person pasted, the file service from a checkout's `remote.origin.url`, which
  * git may have rewritten. Comparing the raw strings would clone a repo that is already
  * there. See docs/mirror.md.

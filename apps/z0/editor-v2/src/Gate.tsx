@@ -1,5 +1,5 @@
 // Gate.tsx — sign in, then pick the machine the project lives on. Two conditions before a
-// third (ProjectShell): st0 names the repository, and it has to be on that machine before
+// third (ProjectShell): pl8 names the repository, and it has to be on that machine before
 // anything opens. Same shape as m9's gate, and deliberately so — a second dialect of "which
 // engine am I on" is how two apps end up disagreeing about one account.
 
@@ -36,7 +36,7 @@ export function Gate() {
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {
     // Remembered before opening, and the failure is quiet: a save that did not land costs
     // the choice surviving the session, not the project about to open.
-    // `patchPrefs`, and here it is load-bearing: this writes into st0's document, which is not
+    // `patchPrefs`, and here it is load-bearing: this writes into pl8's document, which is not
     // ours and has a second field — where the médiathèque's playback comes out. A PUT of
     // `{engineId}` alone erased it, so choosing a machine in this editor silently reset the
     // médiathèque's audio destination.

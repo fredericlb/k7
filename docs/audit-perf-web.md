@@ -195,11 +195,11 @@ surcharge, donc une socket qui se rebindait dessus devenait sourde.
 
 **Mesuré** avec `engine/moteur/scripts/two-sessions.ts`, qui compte maintenant les trames sur une
 socket brute — la seule façon de voir ce qui a été ENVOYÉ plutôt que ce qu'un client a gardé. La
-machine tenait trois sessions (deux du banc, plus la vraie session st0 du poste), neuf secondes :
+machine tenait trois sessions (deux du banc, plus la vraie session pl8 du poste), neuf secondes :
 
 | | avant | après |
 |---|---|---|
-| une socket qui suit `st0` | 200 trames, dont 34 pour elle | **34, toutes pour elle** |
+| une socket qui suit `pl8` | 200 trames, dont 34 pour elle | **34, toutes pour elle** |
 | une sonde muette (le plateau) | 200 | **0** |
 
 83 % de décodage jeté, par socket et par onglet. Et comme le diviseur d'inactivité est PAR

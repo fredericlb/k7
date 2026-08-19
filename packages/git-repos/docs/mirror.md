@@ -1,11 +1,11 @@
 # Knowing what is in a repository without cloning it
 
-st0 lists your git repositories and shows what is inside them, and it must do that on a
+pl8 lists your git repositories and shows what is inside them, and it must do that on a
 **hosted** machine that has no business holding your working copy. The working copy belongs
 on the machine the engine runs on, where the file service puts it — that is where a file gets
 edited, played and committed.
 
-So st0 keeps a **bare, blobless mirror** instead:
+So pl8 keeps a **bare, blobless mirror** instead:
 
 ```
 git clone --mirror --filter=blob:none -- <ssh-uri> <dir>
@@ -43,7 +43,7 @@ could not run here at all. The two questions are different and both still exist 
   checkout, where the file can actually be read.
 
 A `.l8` folder with no `project.yaml` is therefore listed and openable, and fails to compile
-once open, with l8's own error saying so. That is the honest order: st0 cannot know, and
+once open, with l8's own error saying so. That is the honest order: pl8 cannot know, and
 pretending otherwise would mean fetching blobs for every folder in every repository. It is
 also what lets m9 open a `.m9` folder that is chains and local modules rather than a song.
 

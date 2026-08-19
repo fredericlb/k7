@@ -1,5 +1,5 @@
 // index.ts — the engine registry as a mountable pair: a store and the routes over it.
-// Shared because l8 is no longer its only consumer — st0 must offer the same pick,
+// Shared because l8 is no longer its only consumer — pl8 must offer the same pick,
 // and m9 will. See docs/shared.md.
 
 export {

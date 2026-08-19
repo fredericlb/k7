@@ -1157,7 +1157,7 @@ function makeHost(
  *
  * The git verbs are `project commit` and `project pull` — this listed a bare `commit|pull`,
  * which matches NEITHER, so both were refused with "no project" whenever none was open. It
- * went unnoticed because l8's command bar always has one; st0 creating a project it never
+ * went unnoticed because l8's command bar always has one; pl8 creating a project it never
  * opens is the first caller to arrive without.
  *
  * These are VERBS FROM `commands.yaml`, and this list has drifted from it once already —

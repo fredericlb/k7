@@ -146,7 +146,7 @@ re-téléchargement d'octets qui n'ont pas changé.
 
 ## Le miroir de la médiathèque a été retiré
 
-`apps/st0/backend/src/mirror/k7.ts`, sa route `POST /api/mirror/k7` et sa
+`apps/pl8/backend/src/mirror/k7.ts`, sa route `POST /api/mirror/k7` et sa
 page de doc tiraient ces versions depuis Grist, une par une, en les retrouvant par leur clé
 amont. Rien de tout cela n'a plus de sens : k7 **pousse** au moment de la publication, donc
 il n'y a plus rien à tirer. La médiathèque n'a plus de dépendance sur Grist du tout —
@@ -163,7 +163,7 @@ enveloppe — et les fichiers de partition (`Songs.SheetFiles`), qui ne sont pas
 **On ne configure plus rien à la main.** `npm run tokens` écrit les deux lignes ; voir
 `docs/tokens.md` à la racine.
 
-`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — st0 sert la racine de
+`MEDIATEK_URL` a pour défaut l'adresse **fixe** du service — pl8 sert la racine de
 l'origine, donc c'est `https://studio.frediver.se` tout court :
 une origine, un chemin par service, donc un déploiement n'a rien à choisir. Un **checkout** est
 l'exception, et c'est le script qui l'écrit : le nom public sort jusqu'au proxy du LAN pour

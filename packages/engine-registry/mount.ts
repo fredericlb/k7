@@ -111,7 +111,7 @@ export function mountEngineRegistry(
  * Express's default handler, which prints nine lines of stack and names neither the method nor
  * the path: a normal disconnect dressed as a crash, and undiagnosable.
  *
- * Only st0 had it, and all three relay the same bytes.
+ * Only pl8 had it, and all three relay the same bytes.
  *
  * MOUNT IT LAST — after every route. Four arguments, `_next` included and unused: that shape is
  * how Express tells an error handler from an ordinary middleware, and dropping it silently

@@ -64,7 +64,7 @@ to that is the piece still to write — deliberately not guessed at here, becaus
 wants may differ.
 
 The **médiathèque** does not wait on it, and this page used to imply otherwise.
-`songPreviewDoc` (`apps/st0/frontend/src/engine/songPreview.ts`) already builds that document
+`songPreviewDoc` (`apps/pl8/frontend/src/engine/songPreview.ts`) already builds that document
 by hand — the song's master as the clip, the chain's steps as the track's plugins — which is
 what both auditioning a chain and bouncing a variant run on. See
 `packages/mediatek/docs/variants.md`. What is missing is the *authored* path: a `modules/io/FILE`

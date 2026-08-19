@@ -87,7 +87,7 @@ already repaints the canvas every frame, and already stops itself when nothing i
 
 ## Where it is off
 
-`motion={false}` on **st0's chain view**, whose layout is rebuilt on every keystroke. A node is
+`motion={false}` on **pl8's chain view**, whose layout is rebuilt on every keystroke. A node is
 identified by its name, so typing `reverb` is six nodes arriving and five leaving, and the
 picture would never be still long enough to read. l8's graph redraws after a *command*, which is
 the change worth animating.

@@ -1,7 +1,7 @@
 // server.ts — l8/web backend: the engine registry, and later serving the frontend. File
 // operations moved to the engine-side file service, which the browser reaches directly — so
 // this hosted piece knows WHO you are and WHICH engines exist, never what is on any engine's
-// disk. It only VERIFIES the session; st0 mints it. Runs under tsx to import the brain's TS.
+// disk. It only VERIFIES the session; pl8 mints it. Runs under tsx to import the brain's TS.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -41,9 +41,9 @@ app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
 // Auth: the browser must be logged in before it can list or select engines (shared
 // @frediverse/oidc). No routes are mounted — see below — so a login sends the browser to
-// st0's /auth and comes back here with a cookie this only checks.
+// pl8's /auth and comes back here with a cookie this only checks.
 const { requireAuth } = await setupAuth(app, {
-  // Shared across every studio service: one origin, one session. ST0 owns the flow
+  // Shared across every studio service: one origin, one session. PL8 owns the flow
   // now — it serves the origin root, and `redirectUriFor` names `<origin>/auth/callback`
   // with no prefix, which is only true for the service that has no prefix. This backend
   // used to own it, from when l8 was what the bare origin redirected to. It VERIFIES the
@@ -56,7 +56,7 @@ const { requireAuth } = await setupAuth(app, {
   service: "l8-backend",
 });
 
-// OUR registry, not the registry: st0 holds its own, and an engine heartbeats to both.
+// OUR registry, not the registry: pl8 holds its own, and an engine heartbeats to both.
 // See packages/engine-registry/docs/shared.md for why that is not one central one.
 const engine = mountEngineRegistry(app, { service: "l8", requireAuth });
 
@@ -65,7 +65,7 @@ const engine = mountEngineRegistry(app, { service: "l8", requireAuth });
  * place in a menu, its shortcut, and whether a right-click may offer it.
  *
  * The frontend's `commandPrefs.ts` owns the meaning; this is the shape on the wire. A structural
- * copy and not an import, like st0's `St0Prefs` the other way round — the backend is a separate
+ * copy and not an import, like pl8's `Pl8Prefs` the other way round — the backend is a separate
  * build and that one is a browser bundle.
  *
  * `label` takes a bare string too: that is what the field was before there was one per language,
@@ -116,7 +116,7 @@ app.use(engineErrorHandler);
 
 const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
-  // "verifies auth", not "auth": st0 mints the session, this only checks it.
+  // "verifies auth", not "auth": pl8 mints the session, this only checks it.
   console.log(`🎛  l8-web backend on ${url}  (registry; verifies auth)`);
   // The legacy file goes with the shared goodbye rather than beside it: the socle installs the
   // signal handlers and exits in them, so a second handler here would never run.

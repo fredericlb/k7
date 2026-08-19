@@ -45,7 +45,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# be read, corrected and committed, not filled in by hand.\n` +
       `#\n` +
       `# A ref is \`@st0/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
-      `# st0 shows: \`songs/<artiste>/<album>/<titre>\`. Quote them — a plain scalar may not\n` +
+      `# pl8 shows: \`songs/<artiste>/<album>/<titre>\`. Quote them — a plain scalar may not\n` +
       `# open with \`@\` in YAML.\n` +
       `#\n` +
       `# \`markers\` is the desk's eight cue buttons, positional, in seconds into the FILE —\n` +
@@ -103,7 +103,7 @@ export function setProjectFiles(name: string): Record<string, string> {
     [`nodes/${CROSSFADE}.yaml`]:
       `# The crossfader, as a NODE of the médiathèque's module.\n` +
       `#\n` +
-      `# The module is NOT copied into this project, and that is the point: st0 owns the only\n` +
+      `# The module is NOT copied into this project, and that is the point: pl8 owns the only\n` +
       `# editable catalogue, so a copy here would be a second crossfade nobody maintains and\n` +
       `# nobody would notice drifting. A use of a module you do not own needs no local folder\n` +
       `# for it — see packages/song/docs/nodes.md.\n` +

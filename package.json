@@ -22,9 +22,9 @@
     "apps/l8",
     "apps/l8/frontend",
     "apps/l8/backend",
-    "apps/st0",
-    "apps/st0/frontend",
-    "apps/st0/backend",
+    "apps/pl8",
+    "apps/pl8/frontend",
+    "apps/pl8/backend",
     "engine/moteur",
     "engine/capot"
   ],

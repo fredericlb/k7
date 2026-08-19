@@ -11,14 +11,14 @@ the same string.
 ## ONE image, like phare's
 
 Every hosted app of this repo ships in a single container — `apps/studio/docker/` —
-st0 at the origin root, l8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
+l8 at the origin root, pl8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
 backends beside one nginx that owns the path routing. It replaced four images (k7, l8,
-st0, z0), each with its own Dockerfile, nginx.conf and build job.
+pl8, z0), each with its own Dockerfile, nginx.conf and build job.
 
 The reason is the origin. These apps were never independent: they share one hostname,
-one session cookie, and one prefixless `/auth/*` that only st0 can own (the IdP has a
-single redirect_uri registered — `apps/z0/docs/origin.md` is the post-mortem of trying
-otherwise). Four images meant the EDGE held the path table, so which app answered which
+one session cookie, and one prefixless `/auth/*` that pl8's backend owns wherever its own
+SPA sits (the IdP has a single redirect_uri registered — `apps/z0/docs/origin.md` is the
+post-mortem of trying otherwise). Four images meant the EDGE held the path table, so which app answered which
 prefix was configuration living outside this repo, and each image had to be told which
 prefix to strip. Now the edge sends the whole origin **unstripped** and one nginx.conf,
 versioned next to the apps, decides. Deploying is one pull.
@@ -97,7 +97,7 @@ mode — which reads like `VITE_APP_VERSION` should be filtered out of task envi
 and left out of the cache key. It is not, because turbo infers the framework from each
 workspace and adds Vite's `VITE_*` to the env key automatically.
 
-Measured on turbo 2.10.8: `turbo run build --filter=st0` with two different values
+Measured on turbo 2.10.8: `turbo run build --filter=pl8` with two different values
 produced two different task hashes (`d459578664edb92f` / `04f869a3a312cc63`) and a fresh
 bundle each time, correctly stamped. So the variable both reaches the build and busts
 the cache.
@@ -132,8 +132,8 @@ All nine SPAs, now all in one image, so the nine stamps are always the same stri
 
 | public path | SPA | render site |
 |---|---|---|
-| `/` | `st0-frontend` | `apps/st0/frontend/src/Library.tsx` — header, after the subtitle |
-| `/l8` | `l8-frontend` | `apps/l8/frontend/src/App.tsx` — header, after the title |
+| `/` | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — header, after the subtitle |
+| `/` | `l8-frontend` | `apps/l8/frontend/src/App.tsx` — header, after the title |
 | `/k7` | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
 | `/z0` | `z0-online` | `src/App.tsx` — header |
 | `/z0/editor` | `z0-editor` | `src/views/EditorView.tsx` — `.topbar` |
@@ -148,7 +148,7 @@ agree or the SPA loads and its assets 404 — which is why the Dockerfile's COPY
 the nginx `location` list read in the same order as this table.
 
 Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
-is Tailwind (l8, st0, z0-online), a small class in the app's CSS file
+is Tailwind (l8, pl8, z0-online), a small class in the app's CSS file
 everywhere else. There is deliberately **no** shared version component: putting it in
 `z0-shared`'s auth badge would have landed it in six places at once, but that badge
 is an inline topbar item in three apps and a fixed top-right overlay in the other three.

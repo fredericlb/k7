@@ -12,7 +12,7 @@ went through `hints.paths`, which by construction only holds the project's **own
 came back "couldn't resolve".
 
 So the builder moved — three times. First to l8' settings panel; then out of l8 entirely, into
-`apps/st0` where the modules themselves live; and then back, because a parameter list is a fact
+`apps/pl8` where the modules themselves live; and then back, because a parameter list is a fact
 about a LOADED plugin and only a project loads one (`apps/l8/frontend/docs/moduleBuilder.md`).
 l8 is its only host now. What answers the "a module is a workspace thing" objection is not where
 the builder lives but **which tree you opened it from**: the file tree's Libraries tab lists the
@@ -43,7 +43,7 @@ Nothing here saves any more. A workspace's `_modules` is read-only without excep
 shared module still forks (`moduleFork.md`), for everybody, which is what read-only does here instead of
 refusing.
 
-Edits to a MÉDIATHÈQUE module happen against st0's own service, from l8's Libraries tab — a
+Edits to a MÉDIATHÈQUE module happen against pl8's own service, from l8's Libraries tab — a
 second store over the same builder, and the confirmation in front of it is there because that
 library has no fork to fall back on. A workspace's `_modules` has no such tab and no such route:
 it is read-only, and a save aimed at it forks. The panel is the one thing that still saves in place:

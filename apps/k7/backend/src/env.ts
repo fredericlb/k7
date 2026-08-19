@@ -18,7 +18,7 @@ const raw = defineEnv(
     // server-to-server call takes the loopback port instead (verified: fetching
     // https://st0.priv.frediver.se from node fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY, in the
     // browser beside it works). See docs/tokens.md.
-    MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "st0")),
+    MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "pl8")),
     // Written by `npm run tokens` too — signed with the médiathèque's own API_TOKEN_SECRET,
     // which that script generates. Without it the library refuses the push: its routes are
     // behind a session or a bearer, never open.

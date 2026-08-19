@@ -112,7 +112,7 @@ deux fichiers à la même seconde sont **deux fichiers**.
 ## L'API est la voie principale
 
 La route est derrière le même `bearerOrSession` que le reste de la bibliothèque (voir
-`apps/st0/backend/src/server.ts`). Un enregistreur sans navigateur n'a donc rien de
+`apps/pl8/backend/src/server.ts`). Un enregistreur sans navigateur n'a donc rien de
 particulier à faire : il présente un jeton d'API — celui que `POST /api/token` délivre — et
 pousse ses octets bruts.
 

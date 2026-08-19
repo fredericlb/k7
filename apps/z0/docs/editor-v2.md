@@ -14,14 +14,14 @@ qu'un formulaire ne se pose par-dessus et ne commence à le cacher.
 
 C'est ce qu'il faut savoir en premier, parce que tout le reste en découle. Les six autres SPA
 de z0 parlent au backend z0 — invités sans compte sur `bt_session`, état en Grist et SQLite —
-même si, depuis [auth.md](auth.md), elles prennent leur connexion de **compte** chez st0 comme
+même si, depuis [auth.md](auth.md), elles prennent leur connexion de **compte** chez pl8 comme
 tout le monde. Le v2, lui, ne parle **jamais** au backend du jeu.
 
 | ce qu'il lui faut | d'où ça vient |
 |---|---|
-| qui vous êtes | `/auth/*` à la racine de l'origine — st0 |
-| quelles machines existent, laquelle est la vôtre | `/api/engines*` — le registre de st0 |
-| quels dépôts vous avez | `GET /api/projects/by-name/<dépôt>` — st0 |
+| qui vous êtes | `/auth/*` à la racine de l'origine — pl8 |
+| quelles machines existent, laquelle est la vôtre | `/api/engines*` — le registre de pl8 |
+| quels dépôts vous avez | `GET /api/projects/by-name/<dépôt>` — pl8 |
 | les fichiers du projet | le file service de la machine choisie, en direct |
 
 La raison est qu'aucune de ces quatre questions n'a de réponse côté z0. Le backend du jeu ne
@@ -41,7 +41,7 @@ Exactement celles de m9, montées depuis `@studio/project-shell`
 
 1. **connexion** — la session studio ;
 2. **la machine** — celle qui tient la copie de travail ; le choix reste sur le compte ;
-3. **le projet** — st0 traduit le nom du dépôt en URI, le file service dit s'il est déjà là,
+3. **le projet** — pl8 traduit le nom du dépôt en URI, le file service dit s'il est déjà là,
    le clone avec la progression de git sinon, puis `POST /open` sur le dossier `.z0`.
 
 Aucune n'est réécrite ici : une deuxième façon de répondre à « ce dépôt est-il sur cette
@@ -63,7 +63,7 @@ projet, et un rechargement relit la même chose.
 Deux tables et une phrase, toutes dans `@studio/web-protocol` :
 
 - **`.z0` est un suffixe de projet.** `PROJECT_SUFFIXES` ne connaissait que `.l8` et `.m9`, et
-  disait en toutes lettres que z0 ne possédait pas de projets. Désormais st0 liste les dossiers
+  disait en toutes lettres que z0 ne possédait pas de projets. Désormais pl8 liste les dossiers
   `.z0` d'un dépôt, le file service accepte d'en ouvrir un (`isProjectDir`), et le message qui
   refuse les autres énumère les suffixes au lieu d'en citer deux à la main.
 - **`z0` est dans `SERVICE_PATHS`.** Il en était absent *à cause de la session* — le jeu a son
@@ -76,7 +76,7 @@ Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 
 - ouvrir une session `.z0` depuis la page d'accueil de l8 → l'adresse est
   `/z0/editor-v2/<dépôt>/<session.z0>` et ne bouge plus ;
-- recharger → la même session, pas st0 ;
+- recharger → la même session, pas pl8 ;
 - ouvrir un dépôt que cette machine n'a jamais vu → la barre de progression de git, puis la
   liste des fichiers ; recommencer → aucun clone ;
 - cliquer chaque fichier → le YAML brut, commentaires compris ;

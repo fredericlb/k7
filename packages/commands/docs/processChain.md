@@ -139,7 +139,7 @@ about that file says so afterwards.
 engine is playing (see `@studio/file-service`'s `docs/render.md`). Each source is rendered
 through a separate short-lived engine, from a one-track document holding the file at position 0
 with its natural length and the chain as the plugins on it — the same shape the médiathèque
-auditions a variant through (`apps/st0/docs/playback.md`).
+auditions a variant through (`apps/pl8/docs/playback.md`).
 
 Nothing else of the song travels with it. **Automation in particular does not**: a curve is
 written against song time and this clip starts at zero, so baking one in would apply it at the

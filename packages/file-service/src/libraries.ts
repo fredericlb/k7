@@ -152,7 +152,7 @@ const isPopulated = (dir: string): boolean => {
  *
  * Its own error because it is the one outcome nobody should fix automatically: rewriting the
  * submodule would swap every `@st0/…` module under a project that is already using them, and
- * doing that silently while opening a song is how a mix changes for no visible reason. st0
+ * doing that silently while opening a song is how a mix changes for no visible reason. pl8
  * says the same thing on the card that changes the setting.
  */
 export class LibrariesMovedError extends Error {}
@@ -247,7 +247,7 @@ export async function ensureLibraries(
     // Before anything is written into the workspace: from here on there is a folder inside
     // somebody's song repository that is not the song's, and `project commit` sweeps the tree.
     await excludeFromProjectRepo(root, env);
-    // The deploy key, which st0 owns and this machine keeps a copy of.
+    // The deploy key, which pl8 owns and this machine keeps a copy of.
     await ensureKey(userEmail);
     if (declared) {
       // Declared but empty: an ordinary fresh clone of a workspace that already committed it.

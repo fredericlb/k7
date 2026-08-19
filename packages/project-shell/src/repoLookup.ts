@@ -1,4 +1,4 @@
-// repoLookup.ts — the two calls an editor makes to st0: the git URI behind the short name in
+// repoLookup.ts — the two calls an editor makes to pl8: the git URI behind the short name in
 // its own address, and the account's library repository. Separate from project.ts because that
 // file is the FILE SERVICE's routes, on the engine's machine; this is the hosted médiathèque,
 // same origin as the page.
@@ -6,8 +6,9 @@
 import type { RepoRef } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 
-/** st0, which answers the bare origin — see `@studio/web-protocol/services`. */
-const st0 = (): string => serviceUrl(globalThis.location?.origin ?? "", "st0");
+/** Where pl8 answers — `/pl8` on this origin. Asked of the table rather than spelled, which is
+ *  what let this file survive the swap that moved the médiathèque off the origin root. */
+const pl8 = (): string => serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
 /** A refusal in the SERVER's words, since it is the side that can be specific. */
 async function failed(res: Response, fallback: string): Promise<Error> {
@@ -18,10 +19,10 @@ async function failed(res: Response, fallback: string): Promise<Error> {
 }
 
 /**
- * Resolve `/l8/<repo>/…`'s repo name to the repository st0 holds under it.
+ * Resolve `/<repo>/…`'s repo name to the repository pl8 holds under it.
  *
  * Same origin as the page — every studio service sits at a fixed path under one origin — so
- * the session cookie rides along without asking, and there is no CORS to arrange. It is st0
+ * the session cookie rides along without asking, and there is no CORS to arrange. It is pl8
  * that must answer: it owns the repositories, and it is the only side that knows the URI.
  *
  * The error is the SERVER's words, because it is the one that can be specific (unknown name,
@@ -29,7 +30,7 @@ async function failed(res: Response, fallback: string): Promise<Error> {
  */
 export async function repoByName(name: string): Promise<RepoRef> {
   const res = await fetch(
-    `${st0()}/api/projects/by-name/${encodeURIComponent(name)}`,
+    `${pl8()}/api/projects/by-name/${encodeURIComponent(name)}`,
     { headers: { Accept: "application/json" } },
   );
   if (!res.ok)
@@ -51,9 +52,9 @@ export async function repoByName(name: string): Promise<RepoRef> {
  * down. Only the second is worth a diagnosis.
  */
 export async function librariesRepo(): Promise<RepoRef | null> {
-  const res = await fetch(`${st0()}/api/projects/libraries`, {
+  const res = await fetch(`${pl8()}/api/projects/libraries`, {
     headers: { Accept: "application/json" },
   });
-  if (!res.ok) throw await failed(res, "could not ask st0 for the libraries");
+  if (!res.ok) throw await failed(res, "could not ask pl8 for the libraries");
   return (await res.json()).libraries ?? null;
 }

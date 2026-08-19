@@ -50,8 +50,8 @@ rien dire. Sur ces lignes-là aucun menu ne s'ouvre du tout, le menu du navigate
 la main (voir `commons/packages/ui/docs/file-tree.md`).
 
 Ce qui est verrouillé est l'**arborescence**, pas le contenu : `song.yaml` s'édite comme
-n'importe quel YAML, dans l'écran scindé que st0 ouvre en cliquant un morceau (voir
-`apps/st0/docs/songPlayer.md`). Le sidecar est la vérité — le titre affiché, le tempo, les
+n'importe quel YAML, dans l'écran scindé que pl8 ouvre en cliquant un morceau (voir
+`apps/pl8/docs/songPlayer.md`). Le sidecar est la vérité — le titre affiché, le tempo, les
 variantes — et le dossier n'est qu'une adresse ; corriger l'un ne déplace donc rien.
 
 ## Pas de niveau de provenance — trois segments, jamais quatre

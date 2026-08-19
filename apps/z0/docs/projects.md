@@ -251,7 +251,7 @@ dans la médiathèque :
 | `offboarding-bedrock.z0` | 4 catégories, 4 manches |
 | médiathèque | **279 morceaux** filés, **26 variantes** (`stems`, `8bit`, `handmade`) |
 
-L'import est passé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que st0
+L'import est passé par `addSong` / `addSongVariant` de `@studio/mediatek` — le code que pl8
 appelle lui-même — et non par un écrivain maison : la forme du dossier et le sidecar sont
 donc exactement ceux que la médiathèque écrit. `songs/A-Ha/Album inconnu/Take on me/` tient
 maintenant `original.mp3`, `8bit.mp3` et `handmade.mp3` sous un seul `song.yaml`, ce qui est
@@ -274,7 +274,7 @@ des 304 adresses citées existe sur le volume avec un master**.
    toucher au YAML.
 3. **`.z0` n'est pas encore un suffixe de projet.** `packages/web-protocol/projects.ts` dit
    `l8` et `m9`, et écrit noir sur blanc que « k7 et z0 ne possèdent pas de projets ». Les
-   dossiers sont donc dans le dépôt et invisibles dans la liste de st0 tant que z0 n'y est
+   dossiers sont donc dans le dépôt et invisibles dans la liste de pl8 tant que z0 n'y est
    pas ajouté — un `ProjectApp` de plus, et le routage vers `/z0` qui va avec.
 
 Le chargeur Grist (`backend/src/grist/`) est intact : rien ne lit encore ces YAML.

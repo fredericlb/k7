@@ -94,7 +94,7 @@ Two consequences worth knowing:
 ## The tempo
 
 The engine also estimates a **bpm** while it is decoding, and writes it into the sidecar. It is
-what st0 seeds a song's `song.yaml` with; the person edits it afterwards, and nothing
+what pl8 seeds a song's `song.yaml` with; the person edits it afterwards, and nothing
 overwrites an edited value.
 
 **0 means "no tempo found"** — silence, one sustained note, free time — and is never a guess.

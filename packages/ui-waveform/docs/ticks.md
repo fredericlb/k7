@@ -44,7 +44,7 @@ working rather than a limitation:
   column is capped at `MAX_COLUMN_PX`.
 - **No grid, no snap.** `nearestTick` returns null on an empty list and the caller seeks
   exactly where the pointer was. This is what keeps a waveform with no musical grid — k7's
-  rehearsal takes, st0's song player — scrubbing continuously, and it is why the behaviour
+  rehearsal takes, pl8's song player — scrubbing continuously, and it is why the behaviour
   is not gated behind a prop: the data already says whether snapping means anything here.
 
 ## Both rulers, one rule

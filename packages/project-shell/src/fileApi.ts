@@ -15,7 +15,7 @@ export interface FileCfg {
   workspace: string; // the folder on that machine holding the repository
   engineToken: string; // the light LAN gate (from the whoami probe)
   /**
-   * A FROZEN document — a shared snapshot st0 serves, with no file service behind it at all.
+   * A FROZEN document — a shared snapshot pl8 serves, with no file service behind it at all.
    *
    * The whole read-only mode is this one field, and that is deliberate: `fsend` is the only way
    * anything in these apps writes (~25 call sites in project.ts alone), so refusing here refuses

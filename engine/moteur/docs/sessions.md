@@ -90,7 +90,7 @@ literals is precisely how the eighteenth gets forgotten. A new reply has to *cho
 choice is reviewable in one word.
 
 Before this, only `state` and `session-dropped` were stamped, and `forSession` passes a frame
-with no session at all. So an st0 module audition made l8 flash `busy` and clear its warning
+with no session at all. So an pl8 module audition made l8 flash `busy` and clear its warning
 badges, and l8 received `applied`, `flushed` and `recorded` for a project it did not own.
 
 **`forSession` was left alone**, and that is deliberate. Pass-on-absence is what keeps a current

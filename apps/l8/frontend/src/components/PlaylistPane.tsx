@@ -74,9 +74,9 @@ export function PlaylistPane({
   /**
    * The transport, and the whole of it: one element, playing one file at a time.
    *
-   * st0's playlist pane drove a shared `PlaybackProvider` — a mini player that outlived the
+   * pl8's playlist pane drove a shared `PlaybackProvider` — a mini player that outlived the
    * screen, with a browser/engine destination behind it. None of that came over, deliberately.
-   * That machinery exists because st0 is a LISTENING app whose bottom bar follows you across
+   * That machinery exists because pl8 is a LISTENING app whose bottom bar follows you across
    * every section; this shell is an editor with a transport of its own already, driving the
    * engine over a project, and a second thing claiming the word "playing" would be two
    * transports on one screen. What a set list needs while you build it is to hear the line you
@@ -142,7 +142,7 @@ export function PlaylistPane({
   // --- adding ----------------------------------------------------------------------
   //
   // Two buttons, because they are two acts: SEARCH is "one of the morceaux I already have",
-  // UPLOAD is "this file on my disk, filed and then named here". st0 had only the first, since
+  // UPLOAD is "this file on my disk, filed and then named here". pl8 had only the first, since
   // its own Morceaux tab was one click away; from here the médiathèque is another app, and a
   // set list you cannot finish without leaving is a set list you leave.
   //
@@ -181,10 +181,10 @@ export function PlaylistPane({
    * up — because the folder is derived over there (`songFolder`) and a second derivation here
    * would be a second spelling of one song, wrong the first time a tag carries an accent.
    *
-   * The tags are guessed from the file name and not asked for. st0's own upload has a dialogue
+   * The tags are guessed from the file name and not asked for. pl8's own upload has a dialogue
    * with three fields, and it is right to: that screen is where a library is CURATED. Here the
    * question being answered is "put this in my set", and stopping to fill a form in the middle
-   * of it is the interruption. A wrong guess is fixed in st0, on the song itself.
+   * of it is the interruption. A wrong guess is fixed in pl8, on the song itself.
    */
   const upload = useCallback(
     async (file: File) => {

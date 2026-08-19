@@ -1,7 +1,8 @@
 // api.ts — the typed client. Three destinations now:
-//   • the hosted backend (same-origin under /l8, cookie): auth (/auth/*) + the engine registry.
+//   • the hosted backend (same-origin at the ROOT, cookie): the engine registry. /auth/* is
+//     prefixless too but is pl8's backend's — see packages/web-protocol/services.ts.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
-//   • st0's médiathèque (same-origin at the ROOT, cookie): the songs a playlist names.
+//   • pl8's médiathèque (same-origin under /pl8, cookie): the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
@@ -13,6 +14,7 @@ import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
+import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
 import type {
@@ -25,10 +27,14 @@ import type {
   WebWaveform,
 } from "./types";
 
-// The app is mounted under a path (st0.priv.frediver.se/l8), so every backend path
-// below carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed here
-// so the literals keep reading as paths.
-// Exported because the engine probe needs it too: the relay answers under this same prefix.
+// The app is mounted at the ORIGIN ROOT (st0.priv.frediver.se), so BASE is the empty string and
+// every backend path below is simply what it reads as. BASE_URL is vite's `base`; it ends in a
+// slash, trimmed here so the literals keep reading as paths — and `/` trims to "".
+//
+// Kept as a derived constant rather than deleted now that it is empty: it was `/l8` until the
+// médiathèque moved to `/pl8`, this app is the one whose mount can still change, and a prefix
+// spelled into thirty routes is not something to have to find again. The engine probe imports
+// it for the same reason — the relay answers under this same prefix, whatever it is.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
@@ -48,7 +54,8 @@ async function json<T>(res: Response, what: string): Promise<T> {
 
 /**
  * Everything this browser does to reach an engine: the registry's five routes, the probe, the
- * choice and the lease — bound to `/l8` once. One object rather than five hand-spelled routes,
+ * choice and the lease — bound to this app's own prefix once (`BASE`, now the origin root).
+ * One object rather than five hand-spelled routes,
  * which is the drift `@studio/engine-browser/registry` exists to stop. See that package's
  * docs/access.md.
  */
@@ -98,7 +105,8 @@ export const api = {
   // A GETTER, not a constant: it must capture where you are when you click, and
   // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
   // Without it login falls back to APP_ROOT — which used to be this app because it
-  // owned the origin, and is now the bare st0.priv.frediver.se that belongs to nobody.
+  // owned the origin, and owns it again — so the fallback is this app's home page. Left in
+  // place all the same: it lands you on the projects list rather than back where you clicked.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;
@@ -120,7 +128,7 @@ export const api = {
   // moves between networks while its identity does not, and the browser re-probes on load.
 
   // --- Workspaces + file ops (engine-side file service, cross-origin) ---
-  // The shared half — resolving st0's repository to a folder here, the tree, the files, the
+  // The shared half — resolving pl8's repository to a folder here, the tree, the files, the
   // derived views, the repo's git, the CLI's verbs. Spread rather than re-listed, so this app
   // and z0's editor cannot drift on a route name. See @studio/project-shell.
   ...projectApi,
@@ -138,7 +146,7 @@ export const api = {
   createPlaylist: (name: string) =>
     fsend<{ path: string }>("POST", "/playlists", { name }),
   // `createProject` and `deleteProject` were here, for the two verbs this app has stopped
-  // carrying. The routes are the file service's and st0 calls them — see apps/st0/docs/projects.md.
+  // carrying. The routes are the file service's and pl8 calls them — see apps/pl8/docs/projects.md.
   // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its
   // path. One `shape` where there were a `type` and a `mode`: every project is an `.l8` folder
   // now, so "which app opens it" has no answers left. See @studio/song's PROJECT_SHAPES.
@@ -249,7 +257,7 @@ export const api = {
       stems?: number;
     }>("POST", "/share/k7", meta ?? {}),
   /**
-   * Freeze this project and send it to st0. Answers the SECRET, not the address.
+   * Freeze this project and send it to pl8. Answers the SECRET, not the address.
    *
    * The link is built in the browser (`shareUrl`), because the machine that renders has no idea
    * which origin you are reading this on — a checkout, the LAN proxy and the public host are
@@ -360,36 +368,46 @@ export const api = {
 };
 
 /**
- * The MÉDIATHÈQUE — st0's hosted catalogue of songs, reached across the origin.
+ * The MÉDIATHÈQUE — pl8's hosted catalogue of songs, reached across the origin.
  *
  * A fourth data path, and the only one this app has that is neither the registry nor the
  * engine's machine. It exists because a playlist moved here and its songs did not: a set list
  * is the account's document and belongs in the repository, while a master is 40 MB of audio
  * that belongs on a volume somebody backs up. So the file naming songs is ours and the songs
- * themselves stay st0's, and this is the seam between the two.
+ * themselves stay pl8's, and this is the seam between the two.
  *
- * **No `BASE`.** Every other same-origin call in this file is under `/l8`; these are not. st0
- * has no path prefix — it answers the origin root — so `/api/mediatek/*` is where its routes
- * are for every service under this host. Same reason `/auth/*` is spelled bare at the top of
- * this file, and the same mistake to make: `${BASE}/api/mediatek/list` 404s, silently, into an
- * empty catalogue that reads as "you have no songs".
+ * **`PL8`, never `BASE`.** These calls are the other service's, and this app's own `BASE` is now
+ * the EMPTY string — so a bare `/api/mediatek/list` would reach l8's own backend, which has no
+ * such route, and 404 silently into an empty catalogue that reads as "you have no songs". That
+ * bare spelling was correct for as long as the médiathèque answered the origin root; it stopped
+ * being correct the day it moved to `/pl8`, and it would have gone on looking correct.
  *
- * The session cookie carries the auth (`bearerOrSession` on st0's side), which is also what
+ * DERIVED through `serviceUrl` rather than spelled `/pl8`, which is the same argument
+ * `projects/api.ts` makes: the prefix belongs to one table, and this file has already been
+ * wrong once by holding a copy of it.
+ *
+ * `/auth/*` at the top of this file stays bare, and is NOT an inconsistency: the OIDC flow is
+ * pl8's backend's but answers at the origin root, because the IdP knows one prefixless
+ * redirect_uri. See packages/web-protocol/services.ts.
+ *
+ * The session cookie carries the auth (`bearerOrSession` on pl8's side), which is also what
  * makes `songUrl` work as an `<audio src>`: a media element cannot set a header, and it does
  * not have to when the bytes are same-origin.
  */
+const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
+
 export const mediatek = {
   /** The whole songs family. One call, no paging: the catalogue is a few hundred entries and
    *  the search over it is done in the browser, where a keystroke costs nothing. */
   listSongs: async (): Promise<MediatekEntry[]> => {
-    const res = await fetch("/api/mediatek/list?family=songs");
+    const res = await fetch(`${PL8}/api/mediatek/list?family=songs`);
     if (!res.ok) throw new Error(`médiathèque ${res.status}`);
     return ((await res.json()) as FamilyListing).entries;
   },
 
   /** One file's bytes, as an address rather than a fetch — this is what a row plays. */
   songUrl: (path: string) =>
-    `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+    `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
   /**
    * File one audio file as a song. The THREE TAGS go up and never a path: the médiathèque
@@ -406,7 +424,7 @@ export const mediatek = {
   ): Promise<{ path: string; master: string; replaced: boolean }> => {
     const q = new URLSearchParams({ filename: file.name, ...tags });
     if (opts.replace) q.set("replace", "1");
-    const res = await fetch(`/api/mediatek/song?${q}`, {
+    const res = await fetch(`${PL8}/api/mediatek/song?${q}`, {
       method: "POST",
       headers: { "content-type": "application/octet-stream" },
       body: file,

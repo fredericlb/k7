@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "What every app that opens a project needs before it can draw anything: the launch parameters st0 sends, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. l8 and m9 both mount it.",
+  "description": "What every app that opens a project needs before it can draw anything: the launch parameters pl8 sends, the file service transport, the repository -> workspace resolution (cloning when this machine has never seen it), and the gate that does all three. l8 and m9 both mount it.",
   "types": "./src/launch.ts",
   "exports": {
     "./launch": "./src/launch.ts",

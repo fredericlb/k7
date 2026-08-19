@@ -29,7 +29,7 @@ describe("loadAppConfig", () => {
     expect(cfg.auth).not.toHaveProperty("allowedReturnOrigins");
   });
 
-  it("asks the IdP for nothing — st0 runs the flow now", () => {
+  it("asks the IdP for nothing — pl8 runs the flow now", () => {
     // `scopes` used to live here and be handed to setupAuth. This backend
     // mounts no login, so a scope list here would be config nothing reads.
     process.env.OIDC_SCOPES = "openid, email , groups";
@@ -37,7 +37,7 @@ describe("loadAppConfig", () => {
   });
 
   it("carries ONE session secret, used for both cookies", () => {
-    // It signs bt_session and verifies st0's studio.sid. A second key would buy
+    // It signs bt_session and verifies pl8's studio.sid. A second key would buy
     // nothing — the cookie's name is inside the signature, see
     // auth/session.test.ts — and this one must be `common`'s or the account
     // login silently stops working.

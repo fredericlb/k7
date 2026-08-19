@@ -106,7 +106,7 @@ files; and which folder a module lives in is the loader's business rather than s
 files by hand. The two SHARED levels need no dropping — the file tree is the song's own files and
 they were never in it.
 
-This was not always so. The first version of this tab read st0's hosted `/api/mediatek/list`
+This was not always so. The first version of this tab read pl8's hosted `/api/mediatek/list`
 and wrote back to its volume, because the modules lived there and the machine only had a cache
 of them. Two path spaces that spelled a module identically, two stores, and a sync after every
 save. Putting the library in the workspace deleted all of it.
@@ -252,8 +252,8 @@ Nothing to commit is not a failure either — two saves with no edit between the
 
 ## What stayed on the bench
 
-`@banc` is still there, and still opens **one library chain** — `/l8/@banc/chains/<path>.l8`,
-from the chain's screen in st0. A chain is a routing you hear, and editing one against nothing
+`@banc` is still there, and still opens **one library chain** — `/@banc/chains/<path>.l8`,
+from the chain's screen in pl8. A chain is a routing you hear, and editing one against nothing
 is half the job; it has no second home the way a module now does. The `@in`/`@out` edge
 translation is unchanged (`packages/song/src/benchChain.ts`).
 
@@ -268,9 +268,9 @@ resolves there the way it does in a song, and two hundred folders per open went 
 The suites here mount nothing, so none of this is covered by a green run:
 
 - with **no libraries repository** on the account, open any project → l8 refuses with "no
-  libraries repository" and a button back to st0, before it clones anything;
+  libraries repository" and a button back to pl8, before it clones anything;
 - add an **empty** repository from l8's home page (the card is above everything else), then
-  open a project → `_libraries/` is there beside it, filled with the catalogue st0 already held,
+  open a project → `_libraries/` is there beside it, filled with the catalogue pl8 already held,
   committed and pushed, with `.gitmodules` staged in the workspace. Look at the repository on
   your git host: `modules/` and `chains/` are in it;
 - open a project in a SECOND workspace → the library clones with its content and is not seeded
@@ -303,6 +303,6 @@ The suites here mount nothing, so none of this is covered by a green run:
 - `project commit` → a commit in the submodule and a gitlink bump in the workspace; another
   machine that clones the workspace gets the same modules at the same commit;
 - open a second project in the same workspace → the same `_libraries`, not a second copy;
-- change the libraries repository in st0, then reopen a workspace that already has the old one →
+- change the libraries repository in pl8, then reopen a workspace that already has the old one →
   it is left alone, and the refusal names both URIs rather than rewriting the submodule;
-- open `/l8/@banc/modules.l8` → a refusal that says where a module is edited now.
+- open `/@banc/modules.l8` → a refusal that says where a module is edited now.

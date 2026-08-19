@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
 // Two consequences of an app being opened ON a project instead of picking one: the tree is
-// the project's rather than the clone's, and a project st0 named out of a stale mirror has
+// the project's rather than the clone's, and a project pl8 named out of a stale mirror has
 // to be refused HERE, by name and by existence. See docs/activeProject.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -120,7 +120,7 @@ describe("the project list is scanned, not re-walked on every poll", () => {
   });
 });
 
-describe("opening a project st0 named out of a stale mirror", () => {
+describe("opening a project pl8 named out of a stale mirror", () => {
   it("refuses a `.l8` folder that is not there, saying so", () => {
     // The name rule alone says yes here, and the failure then surfaced much later as
     // @studio/song's "unsupported song" — true, and about the wrong thing.

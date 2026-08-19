@@ -11,9 +11,9 @@ the whole audio side. Two workspaces live here:
 | Package | Role |
 |---|---|
 | `frontend` (`l8-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
-| `backend` (`l8-backend`) | Express — **the engine registry only**, plus verifying the session st0 mints. It has no file routes and no auth routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
+| `backend` (`l8-backend`) | Express — **the engine registry only**, plus verifying the session pl8 mints. It has no file routes and no auth routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
-Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se/l8`
+Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se`
 by the LAN reverse proxy.
 
 ## The browser talks to THREE servers
@@ -21,7 +21,7 @@ by the LAN reverse proxy.
 | | `backend` | `@studio/file-service` | `engine/moteur` |
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | the engine registry (auth is st0's) | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
+| owns | the engine registry (auth is pl8's) | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
 | reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
@@ -39,17 +39,20 @@ needs the account and neither an engine nor a project (`frontend/docs/projects.m
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
-**`/auth/*` belongs to st0, not to this backend.** Everything is served under one host
+**`/auth/*` belongs to pl8's backend, not to this one — and that is true even though THIS app
+is now the service with no prefix.** Everything is served under one host
 (`st0.priv.frediver.se/<service>`), so there is one session cookie — `studio.sid`, signed with the
 `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register with the IdP.
-That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can only be served
-by the service that has no prefix: st0, which answers the origin root. This backend owned it
-while the bare origin merely redirected here, and now passes `mountRoutes: []` exactly as z0
-and k7 always have — it verifies the cookie and mounts no auth routes.
+That `redirect_uri` is `<origin>/auth/callback`, and pl8's backend has served it since it was
+the app at the root. Moving the flow here when the two swapped would have meant re-registering
+at the IdP for nothing, so `nginx.conf` routes `/auth/` to pl8 by name and this backend keeps
+passing `mountRoutes: []`, exactly as z0 and k7 always have — it verifies the cookie and mounts
+no auth routes. Spell auth calls BARE (`/auth/me`), never under `BASE`.
 
 Two consequences to know: logging out anywhere logs you out of every studio service, and
-**st0 being down means nobody can log into l8 either** — you will see l8's own 401, which
-does not say so. API calls stay under each service's prefix; only auth sits at the root.
+**pl8 being down means nobody can log into l8 either** — you will see l8's own 401, which
+does not say so. API calls stay under each service's prefix; auth sits at the root, and so,
+separately, does this app.
 
 ## Frontend architecture
 
@@ -58,8 +61,8 @@ matches before changing it:
 
 | page | covers |
 |---|---|
-| `projects.md` | the HOME page — `/l8/` with no project in it: the repositories, the libraries, the shares, the key |
-| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over st0's song catalogue |
+| `projects.md` | the HOME page — `/` with no project in it: the repositories, the libraries, the shares, the key |
+| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over pl8's song catalogue |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |
@@ -70,14 +73,15 @@ matches before changing it:
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
-| `shared.md` | the OTHER shared: `/l8/@shares/<token>.l8` — this app opened on a frozen snapshot, with no account, no engine and no source |
+| `shared.md` | the OTHER shared: `/@shares/<token>.l8` — this app opened on a frozen snapshot, with no account, no engine and no source |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
 
 ### Three data paths (`src/api.ts`)
 
-1. **Backend** (same-origin `/api/*`) — auth + engine registry only, through
+1. **Backend** (same-origin `/api/*`, at the origin root since l8 answers it) — the engine
+   registry only; `/auth/*` is prefixless too but is pl8's backend's — through
    `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns the probe, the
    policy and the lease). Don't spell those routes here again.
 2. **File service** (absolute URL) — everything file-shaped (`/tree`, `/file`, `/hints`,
@@ -179,7 +183,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
   (`@studio/ui-editor/autosave`, whose `docs/autosave.md` is the page to read first). The MODULE
   BUILDER is the one screen that does have one — see Modules below. `:w` and
   Ctrl+S mean "now", not "at all" — they flush the timer and cannot overrule the rule.
-- **Modules** — `@studio/ui-module-builder`, the same component st0 runs, as a full-screen
+- **Modules** — `@studio/ui-module-builder`, the same component pl8 runs, as a full-screen
   overlay over the shell. It is reached by the **Builder** button on a module file's editor
   toolbar, not by opening the file: `module.yaml` must still open its text, because that is the
   path a shared module forks through. `src/api.ts`'s `moduleStore` is the seam — see that
@@ -235,7 +239,7 @@ interpolate conditions into command names (`f` → `{focus_pane}`).
 ## The backend in detail
 
 **Two source files**: `server.ts` and `types/express.d.ts`. That is the whole thing — the
-registry itself is `@studio/engine-registry`, shared with st0 and the decks because each
+registry itself is `@studio/engine-registry`, shared with pl8 and the decks because each
 service holds its own copy of it (that package's `docs/shared.md` says why). Don't look for
 a `registry.ts` here.
 
@@ -243,27 +247,27 @@ a `registry.ts` here.
 - Engine-facing routes (`/api/registry/{heartbeat,deregister}`) stay open — that is the
   supervisor, authenticated by its own token.
 - The Vite dev server proxies `/api` to the backend, and **not** `/auth` — the proxy sends
-  that to st0 origin-wide, so a proxy here would forward to routes that no longer exist.
+  that to pl8 origin-wide, so a proxy here would forward to routes that no longer exist.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 
 ## l8 is opened ON a project — and the HOME page is where one is chosen
 
-**This app still does not own workspaces**, and never will: st0 stores the repositories
-(`apps/st0/docs/projects.md`) and the engine's machine holds every working copy. What this app
-owns is the SCREEN above a project, at `/l8/` with nothing after it — the repositories, the
+**This app still does not own workspaces**, and never will: pl8 stores the repositories
+(`apps/pl8/docs/projects.md`) and the engine's machine holds every working copy. What this app
+owns is the SCREEN above a project, at `/` with nothing after it — the repositories, the
 projects inside them, the libraries repository, the published shares and the deploy key. It was
-st0's Projets section until it moved here; the routes did not move with it, and
+pl8's Projets section until it moved here; the routes did not move with it, and
 `frontend/docs/projects.md` is the page that says why.
 
 A project is named by an ADDRESS — the repository by its short name, then the project folder:
 
 ```
-/l8/songs/first.l8
-/l8/band/albums/winter.l8/timeline      …with the app's own route following it
+/songs/first.l8
+/band/albums/winter.l8/timeline      …with the app's own route following it
 ```
 
-`ProjectGate` asks st0 for the git URI behind that name
+`ProjectGate` asks pl8 for the git URI behind that name
 (`GET /api/projects/by-name/:name`), resolves it to a folder on the chosen engine's machine —
 `GET /workspaces/by-repo`, cloning it with a visible progress bar if that machine has never
 seen it — then opens the project. Arriving with no project in the address is not an error to
@@ -284,7 +288,7 @@ is a wrapper holding this app's wording and what to render once the project is o
 Gone from here for good: `WorkspaceGate`, `WorkspaceSelect`, and `api.listWorkspaces` /
 `createWorkspace` — a picker over the folders under `~/.studio/root/<you>/`, which is the wrong
 level entirely. The home page lists REPOSITORIES, which belong to a person rather than to a
-machine, and a workspace is what the gate resolves one INTO. The deploy key is still st0's —
+machine, and a workspace is what the gate resolves one INTO. The deploy key is still pl8's —
 one key per person, which the file service fetches a copy of
 (`packages/git-repos/docs/keys.md`); what came back here is the card that shows it.
 

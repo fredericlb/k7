@@ -97,7 +97,7 @@ est. Deux tests la figent.
 
 ⚠️ Le module `audio/filter/lowpass` de la médiathèque a exactement le même défaut :
 `geolerp(20000, 200, t)`, donc son `Amount` fonctionne **à l'envers** de ce que sa doc annonce
-(fermé à 0, ouvert à 100). Il est dans le catalogue de st0, pas dans ce dépôt.
+(fermé à 0, ouvert à 100). Il est dans le catalogue de pl8, pas dans ce dépôt.
 
 ## Le chemin, et la synchro dans les deux sens
 

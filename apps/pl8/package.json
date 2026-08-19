@@ -1,0 +1,9 @@
+{
+  "name": "pl8",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The media library: what studio owns, in one place — songs, samples, modules, chains and playlists — and the module builder, since only the library is editable. Served under /pl8, one link from l8's home page.",
+  "scripts": {
+    "dev": "turbo run dev --filter=pl8-frontend --filter=pl8-backend"
+  }
+}

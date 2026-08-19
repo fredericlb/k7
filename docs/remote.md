@@ -127,7 +127,7 @@ an open-source repo, acceptable because nothing here is reachable from outside t
 The trust boundary IS the LAN: the proxy (traefik) lives on another machine, so the
 console and the editor bind `0.0.0.0` — their ports answer any LAN peer, proxied or
 not. The day any of it leaves the dev network, the remedy is a forward-auth rule on
-the proxy pointed at st0's backend, which owns `/auth` for the origin.
+the proxy pointed at pl8's backend, which owns `/auth` for the origin.
 
 ## Reaching it from another machine
 

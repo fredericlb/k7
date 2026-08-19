@@ -1,5 +1,5 @@
 // takes.ts — the versions of a song a surface puts on tabs: its master first, then what the
-// sidecar declares. Pure, and here rather than in either app because BOTH read it now — st0's
+// sidecar declares. Pure, and here rather than in either app because BOTH read it now — pl8's
 // player draws the tabs, l8's playlist resolves a line to one. See docs/variants.md.
 
 import type { MediatekEntry } from "./types.ts";

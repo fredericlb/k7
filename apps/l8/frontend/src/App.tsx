@@ -279,7 +279,7 @@ export default function App({
    *
    * Matched on the chain step's NAME. A node named after the module it extends is therefore
    * the one that lights this up — which is the rule the bench is built around
-   * (apps/st0/docs/banc.md). No match is an ordinary state: the grid still edits, the bindings
+   * (apps/pl8/docs/banc.md). No match is an ordinary state: the grid still edits, the bindings
    * are just typed rather than picked.
    */
   const [builderPlugin, setBuilderPlugin] = useState<{
@@ -1397,7 +1397,7 @@ export default function App({
       }
       // `project new` and `project delete` were answered here. Both are gone with the
       // workspace this app stopped showing: it is opened ON one project and lists no others,
-      // so neither verb had anything left to name. st0 owns the repositories — see
+      // so neither verb had anything left to name. pl8 owns the repositories — see
       // packages/project-shell/docs/launch.md.
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());

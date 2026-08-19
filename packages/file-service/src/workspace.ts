@@ -174,17 +174,17 @@ function parseCompileError(msg: string): Diagnostic[] {
 /**
  * A project is any directory whose NAME claims an app — `mysong.l8`, `party.z0`.
  *
- * The name, not a `project.yaml` inside, because st0 has to answer the same question from a
+ * The name, not a `project.yaml` inside, because pl8 has to answer the same question from a
  * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
  * sides, so what the médiathèque lists and what this tree marks cannot disagree. See
- * packages/web-protocol/projects.ts and apps/st0/docs/projects.md.
+ * packages/web-protocol/projects.ts and apps/pl8/docs/projects.md.
  *
  * `isProjectFolder` (a `project.yaml` exists) is still the COMPILER's question, and
  * `@studio/song` still asks it: a `.l8` folder with no project file opens and then fails to
  * compile, with the loader's own error saying so.
  *
  * It must EXIST, though — the name rule on its own answers "yes" for a folder that is not
- * there, and st0 names one out of a mirror that can be a fetch behind this machine's clone.
+ * there, and pl8 names one out of a mirror that can be a fetch behind this machine's clone.
  * See docs/activeProject.md.
  */
 export const isProjectDir = (dir: string): boolean => {
@@ -628,7 +628,7 @@ export class Workspace {
     if (this.isRecycled(abs))
       throw new Error(`project is in the recycle bin: ${rel}`);
     // Said apart from the name rule below because it is the one that actually happens, and the
-    // one with a fix: st0 links here out of a mirror that can be behind this machine's clone.
+    // one with a fix: pl8 links here out of a mirror that can be behind this machine's clone.
     if (!existsSync(abs))
       throw new Error(
         `no project '${rel}' in this workspace — it may have been renamed or removed since ` +
@@ -1971,7 +1971,7 @@ export class Workspace {
   }
 
   /**
-   * The frozen snapshot `project share link` sends to st0 — rendered here, uploaded by the caller.
+   * The frozen snapshot `project share link` sends to pl8 — rendered here, uploaded by the caller.
    *
    * The three documents are what a BROWSER draws a project from, and each is here for a reason
    * the next person should not have to re-derive:
@@ -2011,12 +2011,12 @@ export class Workspace {
   }
 
   /**
-   * Render the snapshot and send it to st0. Answers the secret the link is built from.
+   * Render the snapshot and send it to pl8. Answers the secret the link is built from.
    *
-   * The credential is NOT k7's `.settings.json` pair but the machine's own st0 bearer —
+   * The credential is NOT k7's `.settings.json` pair but the machine's own pl8 bearer —
    * `mediatekBase()` / `mediatekToken()`, the `service:l8` token `npm run tokens` already writes
    * into the supervisor's settings for the library pull. Sharing needed no new plumbing: this
-   * service has been talking to st0 with it all along.
+   * service has been talking to pl8 with it all along.
    *
    * A service token has no person of its own, so the user is named on every call (`?user=`) —
    * the same arrangement, and the same accepted cost, that `/ssh-key/private` documents.

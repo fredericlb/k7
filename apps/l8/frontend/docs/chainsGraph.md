@@ -257,7 +257,7 @@ re-cached *inside* the command, and the client's `/project-doc` fetch is a cache
 it. The same 401 ms is spent, but inside a request the client is already waiting on, and the
 canvas redraws when the reply lands instead of a fetch and a parse later. Two things fall out
 of it: `graphDoc()` fills the service's `graphCache`, so a host that ignores the new field —
-st0 — finds a warm cache on its next `GET /graph`; and keying it on the revision keeps
+pl8 — finds a warm cache on its next `GET /graph`; and keying it on the revision keeps
 non-writing commands (`transport play`) exactly as cheap as they were.
 
 ### The placeholder is a one-shot, and so is the seed

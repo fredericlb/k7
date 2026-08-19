@@ -23,9 +23,9 @@ export interface LibrarySource {
 }
 
 export interface RemoteConfig {
-  /** The library's fixed address — `https://studio.frediver.se` in production, since st0
-   *  answers the origin root. Derived by every caller, never typed:
-   *  see `@studio/web-protocol/services` and docs/tokens.md. */
+  /** The library's fixed address — `https://studio.frediver.se/pl8` in production. Derived by
+   *  every caller and never typed, which is what let it survive the médiathèque moving off the
+   *  origin root: see `@studio/web-protocol/services` and docs/tokens.md. */
   base: string;
   /** A personal access token — a headless service has no cookie jar. */
   token?: string;
@@ -282,7 +282,7 @@ export async function pushRecording(
  * One way only, and from the machine that did the analysing: the hosted service has no engine
  * and cannot decode audio, so this is how a number it could not compute reaches it. It never
  * overwrites an edited value — `set: false` is the ordinary answer for a song somebody has
- * already corrected. See apps/st0/docs/… and packages/file-service/docs/waveformCache.md.
+ * already corrected. See apps/pl8/docs/… and packages/file-service/docs/waveformCache.md.
  */
 export async function pushSongBpm(
   cfg: RemoteConfig,

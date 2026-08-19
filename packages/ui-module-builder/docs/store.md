@@ -9,11 +9,11 @@ same screen, chosen by which tab of its file tree the click came from:
 
 | | a WORKSPACE | a LIBRARY |
 |---|---|---|
-| server | `@studio/file-service`, on the engine's machine, cross-origin | st0, same-origin |
+| server | `@studio/file-service`, on the engine's machine, cross-origin | pl8, same-origin |
 | paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
 | auth | `x-studio-{user,workspace,engine-token}` headers | the session cookie |
 | a save into a shared library | **redirected** — the module is forked into the project | written in place, for everyone |
-| hosts | l8's Project tab | l8's Libraries tab, st0's own module screen |
+| hosts | l8's Project tab | l8's Libraries tab, pl8's own module screen |
 
 Those two path columns read alike and are not alike — the same string names two different files
 — which is exactly the trap a shared component falls into if it builds its own paths. So it
@@ -37,7 +37,7 @@ write(path, text)   // save; may answer with where the content actually landed
 
 `@studio/ui-module-builder/library-store` implements all of it over three calls — read one
 file, write one file, hints — because a library serves FILES and the sidecars are siblings of
-the file you were given. l8's Libraries tab and st0's module screen both take it.
+the file you were given. l8's Libraries tab and pl8's module screen both take it.
 
 That derivation is deliberate here and deliberately *not* done over a workspace, which is worth
 stating because it looks like an inconsistency. Over a workspace the SERVER decides where a
@@ -73,7 +73,7 @@ if every file landed — `flush()` reports that, and a file held back because it
 compile reports false, since committing a module whose `module.yaml` is still yesterday's would
 put a half-edit in front of everybody.
 
-`hints()` is allowed to be nearly empty. st0's is: most of `Hints` describes a SONG — its
+`hints()` is allowed to be nearly empty. pl8's is: most of `Hints` describes a SONG — its
 tracks, clips, chains — and a library has none of those. What survives there is the list of
 modules a sibling may `extend`.
 

@@ -1,4 +1,4 @@
-// sshKeys.ts — the deploy key this machine clones with. It is NOT made here any more: st0
+// sshKeys.ts — the deploy key this machine clones with. It is NOT made here any more: pl8
 // owns the studio's git identity and this fetches a copy over the channel the two services
 // already share (MEDIATEK_URL + MEDIATEK_TOKEN). One key per person, one to register with a
 // git host. Why the private half is allowed to travel: packages/git-repos/docs/keys.md.
@@ -25,7 +25,7 @@ export class NoKeyError extends Error {
 }
 
 /**
- * Make sure this user's key is on disk, fetching it from st0 if it is not.
+ * Make sure this user's key is on disk, fetching it from pl8 if it is not.
  *
  * Idempotent and cheap once the key is there — the common case does no network at all. A
  * fetch failure is reported with the library's own words where it has any, because "no key
@@ -45,8 +45,8 @@ export async function ensureKey(userEmail: string): Promise<void> {
       "no SSH key on this machine, and no API token (MEDIATEK_TOKEN) to fetch one with — paste a token into this machine's settings",
     );
   // Named, because the token a machine holds is a SERVICE's and has no key of its own. The
-  // email is what this service knows a person by; st0 files them under their OIDC subject and
-  // bridges the two. See apps/st0/docs/sshKeyForService.md.
+  // email is what this service knows a person by; pl8 files them under their OIDC subject and
+  // bridges the two. See apps/pl8/docs/sshKeyForService.md.
   const res = await fetch(
     `${base.replace(/\/+$/, "")}/api/projects/ssh-key/private?user=${encodeURIComponent(userEmail)}`,
     { headers: { authorization: `Bearer ${token}` } },

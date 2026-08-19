@@ -1,4 +1,4 @@
-// machine.ts — créer et supprimer un projet passent par la MACHINE, pas par st0 : son miroir
+// machine.ts — créer et supprimer un projet passent par la MACHINE, pas par pl8 : son miroir
 // est bare, sans blobs, et balayé au bout de quinze jours. La copie qu'on committe vit là-bas,
 // et le file-service sait déjà la faire. Voir ../../docs/projects.md.
 
@@ -115,7 +115,7 @@ export async function createProjectOnMachine(
 }
 
 /** …et le supprimer. Le service le recycle (corbeille) ; c'est le commit qui le retire du
- *  dépôt, donc des autres machines et du miroir de st0. */
+ *  dépôt, donc des autres machines et du miroir de pl8. */
 export async function deleteProjectOnMachine(
   m: Machine,
   uri: string,

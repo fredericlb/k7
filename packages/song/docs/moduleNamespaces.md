@@ -20,15 +20,24 @@ structural instead: the root's parent folder is named `_libraries`. See
 
 ## `@st0`, and why the cache folder is still called `mediatek`
 
-The media library's level is named after **the app that serves it**. It was `@mediatek` while
+The media library's level was named after **the app that served it**. It was `@mediatek` while
 that app was `apps/mediatek`; the app became `apps/st0` and the ref did not follow, so for a
-while a chain named a library by a word that no longer appeared anywhere else in the repo.
+while a chain named a library by a word that no longer appeared anywhere else in the repo. That
+is what `migrateNamespace.ts` was written for, and the level was moved once, to `@st0`.
+
+**It has not moved since, and will not.** That app is `apps/pl8` today — renamed when l8 took
+the origin root and the médiathèque moved to `/pl8` — and the level is still `@st0`. The name
+follows the *folder of modules*, which did not move, rather than the *path on the origin*, which
+did. The price of moving it is the whole reason: a level is written into user files, so every
+chain in every repository on every machine would have to be rewritten at once, and the failure
+signature is a `?` on a graph node and nothing else. Once was worth it to stop a word that
+appeared nowhere; twice would be to chase a URL.
 
 What did *not* move is `~/.studio/mediatek`. That is a **cache path** on one machine, not a name
 anybody writes in a file — nothing resolves a ref through it, and renaming it would be a
 migration of a folder on every machine in exchange for nothing. `$STUDIO_MEDIATEK` and the
 `@studio/mediatek` package stay for the same reason: the médiathèque is still what the thing is
-called, and `st0` is what serves it.
+called, and `pl8` is what serves it.
 
 ### Nothing accepts the old spelling
 
@@ -160,7 +169,7 @@ module and a single place to fix it.
 
 ## Giving the WHOLE scan a face
 
-`engineFaces()` does for a library what `engineFaceModule()` does for one plugin, and st0
+`engineFaces()` does for a library what `engineFaceModule()` does for one plugin, and pl8
 offers it on the modules section itself. On the machine this was measured against: 252 plugins
 scanned, 242 modules written, 10 skipped.
 

@@ -1,6 +1,6 @@
 // SharedGate.tsx — the gate a SHARED link goes through, instead of AuthGate → EngineGate →
 // ProjectGate. No account, no engine, no working copy: it hashes the token out of the address,
-// asks st0 for the snapshot's manifest, and points the file transport at it, frozen.
+// asks pl8 for the snapshot's manifest, and points the file transport at it, frozen.
 // See docs/shared.md.
 
 import { Button } from "@frediverse/ui/button";

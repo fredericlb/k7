@@ -18,7 +18,7 @@
  * and l8 is what opens one (`@studio/song/docs/playlists.md`).
  *
  * What is left is exactly what the médiathèque is FOR: bytes nobody edits in a text editor.
- * See apps/st0/docs/projects.md and packages/song/docs/sharedFolders.md.
+ * See apps/pl8/docs/projects.md and packages/song/docs/sharedFolders.md.
  */
 export type Family = "songs" | "samples";
 
@@ -65,7 +65,7 @@ export const CHAINS_FILE = "graph.yaml";
 export const NODES_DIR = "nodes";
 
 /** The sidecar that makes a folder a SONG and carries its title, its provenance and its
- *  variants. Here for the same reason CHAINS_FILE is: st0 opens one in an editor, and a
+ *  variants. Here for the same reason CHAINS_FILE is: pl8 opens one in an editor, and a
  *  browser reaching for the name must not pull `node:fs` in with it. scan.ts re-exports it. */
 export const SONG_FILE = "song.yaml";
 

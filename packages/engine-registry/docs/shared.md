@@ -6,7 +6,7 @@ in-memory copy. That is deliberate; the two obvious alternatives are both worse.
 ## The problem it solves
 
 The registry answers one question: *which engines can this browser reach?* Until now only
-l8 asked it, so it lived in l8' backend. Then st0's module preview and m9's
+l8 asked it, so it lived in l8' backend. Then pl8's module preview and m9's
 deck started driving engines too — and both had the question hardcoded to `127.0.0.1:8765`
 (`probeLocalEngine`), because there was no registry of theirs to consult.
 
@@ -16,8 +16,8 @@ service, which is the point of this whole line of work.
 
 ## Why not one central registry the others query
 
-Because then l8-backend is a dependency of st0-backend, at request time, for the
-list a user sees on first load. A l8 deploy would take st0's engine picker down with
+Because then l8-backend is a dependency of pl8-backend, at request time, for the
+list a user sees on first load. A l8 deploy would take pl8's engine picker down with
 it, and the two are deployed separately on purpose. The registry is 120 lines of `Map` — the
 coupling would cost far more than the duplication.
 
@@ -53,11 +53,11 @@ chose qui protégeait encore le heartbeat était que le routeur avait déjà ré
 Trois dérives avaient déjà eu lieu, que le socle supprime par construction :
 
 - **La limite de corps.** Le relais fait de ces backends un tuyau vers un quatrième service,
-  qui accepte 8 Mo. l8 l'avait relevée, st0 et m9 non : la même requête passait ou faisait 413
+  qui accepte 8 Mo. l8 l'avait relevée, pl8 et m9 non : la même requête passait ou faisait 413
   selon l'origine depuis laquelle le navigateur l'envoyait. C'est maintenant
   `ENGINE_BODY_LIMIT`, un seul nombre.
 - **Le gestionnaire d'erreur.** Un corps qui cesse d'arriver lève **dans** le parseur, là où
-  aucun `try/catch` de route ne le voit. Seul st0 en avait un ; les trois relaient les mêmes
+  aucun `try/catch` de route ne le voit. Seul pl8 en avait un ; les trois relaient les mêmes
   octets. C'est `engineErrorHandler`, à monter en DERNIER.
 - **Le départ.** Un service qui laisse son fichier d'annonce derrière lui est battu vers un
   port mort pour toujours. Le socle installe SIGINT et SIGTERM, et `alsoOnStop` est là pour ce
@@ -73,5 +73,5 @@ first one's project.
 
 Sessions removed that danger — two apps on one engine now hold two projects. The flag
 survives as **information** ("someone is on this"), and per-service registries mean it no
-longer even spans services: l8' registry knows nothing about the st0 tab holding the
+longer even spans services: l8' registry knows nothing about the pl8 tab holding the
 same engine. Retiring it is its own decision, not a side effect of this move.

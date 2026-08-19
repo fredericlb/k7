@@ -184,7 +184,7 @@ export default function App() {
     refreshMoments();
   };
 
-  // No sign-in screen of our own: anonymous means leave for st0's /auth/login and
+  // No sign-in screen of our own: anonymous means leave for pl8's /auth/login and
   // come back by return_to. The card below is only what's left when that trip
   // failed — see auth.ts.
   useEffect(() => {
@@ -201,7 +201,7 @@ export default function App() {
         setAuthChecked(true);
       })
       .catch(() => {
-        // A real failure (network, st0 down), not a 401 — logging in won't fix it.
+        // A real failure (network, pl8 down), not a 401 — logging in won't fix it.
         setUser(null);
         setAuthChecked(true);
       });
@@ -414,7 +414,7 @@ export default function App() {
     );
   }
 
-  // Reached only when the automatic trip to st0 did not bring a session back, so
+  // Reached only when the automatic trip to pl8 did not bring a session back, so
   // this is a recovery screen, not the way in.
   if (!user) {
     return <LoginView loginUrl={api.loginUrl} />;

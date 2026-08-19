@@ -1,5 +1,5 @@
 // Where a z0 SPA sends the browser to sign in, and what signing out has to
-// close. One rule for the six of them: the ACCOUNT login belongs to st0, at the
+// close. One rule for the six of them: the ACCOUNT login belongs to pl8, at the
 // origin root — z0 owns only the guest cookie. See apps/z0/docs/auth.md.
 
 // The service prefix, not any SPA's: z0's backend answers under /z0/api while a
@@ -10,9 +10,9 @@ const Z0 = "/z0";
 const post = (path: string): Promise<Response> =>
   fetch(path, { method: "POST", credentials: "include" });
 
-// A login that does not stick reads as a loop: st0 knows you, so it bounces the
+// A login that does not stick reads as a loop: pl8 knows you, so it bounces the
 // browser straight back, and the gate reappears unchanged. The cause is always
-// the same shape — z0's SESSION_SECRET is not the one st0 signed `studio.sid`
+// the same shape — z0's SESSION_SECRET is not the one pl8 signed `studio.sid`
 // with — but the backend cannot detect it: a wrong key and no cookie both just
 // fail to verify. So the SPA notices instead, by remembering that it asked.
 const RETURNING = "z0.auth.returning";
@@ -38,7 +38,7 @@ export function cameBackStillAnonymous(): boolean {
 }
 
 /**
- * Sign in. st0 serves the origin root, so its `/auth/login` is prefixless —
+ * Sign in. pl8 serves the origin root, so its `/auth/login` is prefixless —
  * and that is not a detail: the IdP has only `<origin>/auth/callback`
  * registered, so a flow run under `/z0` is refused before the user ever sees a
  * password field.
@@ -56,7 +56,7 @@ export function login(): void {
 /**
  * Sign out, and close whatever the principal actually holds.
  *
- * A guest holds z0's `bt_session` and nothing else. An account holds st0's
+ * A guest holds z0's `bt_session` and nothing else. An account holds pl8's
  * `studio.sid`, which z0's backend can read but never expire — it does not sign
  * it. Posting only to z0 would leave an account user still signed in, with a
  * "Se déconnecter" button that reloads into the same session forever.
