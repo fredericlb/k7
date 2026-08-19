@@ -13,6 +13,7 @@
 #include "EngineTypes.h"     // Tracktion/JUCE + the te/tt/fs aliases
 #include "PluginScan.h"      // registerBuiltInPlugins / builtInPlugins
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
+#include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
 
 #include <chrono>
 #include <iostream>
@@ -143,14 +144,31 @@ int dumpPluginParams(const std::string& type) {
 namespace {
 
 /**
- * The PluginDescription a format and an identifier name, or false.
+ * The PluginDescription a format and an identifier name, REGISTERED with the engine about to
+ * create it — or false.
  *
- * No plugin CODE runs here — `findAllTypesForFile` reads the already-scanned type info off the
- * binary. Factored out because two callers resolve the same way and only one of them then wants
- * the plugin's state: the param query below simply creates it and asks what it has.
+ * The registration is not a detail, it is what makes the plugin LOAD. `createNewPlugin` builds an
+ * `ExternalPlugin` from the description and then throws the description away: `initialiseFully`
+ * looks the plugin up again, in `PluginManager::knownPluginList`, and instantiates nothing when
+ * that search comes back empty. Nothing seeds that list here — the moteur runs no Tracktion scan
+ * and persists no plugin list (`%APPDATA%/Studio/Settings.xml` has no `pluginList` key at all),
+ * so on a fresh engine it is empty and EVERY external plugin failed, whatever the plugin was.
+ *
+ * What it looked like is the reason this went unnoticed for so long: Tracktion's
+ * `getLoadError()` answers "there is no instance" with a sentence about the plugin —
+ * `ERROR! - This plugin couldn't be loaded!` — which reads as a licence or an installation, a
+ * fact about the machine that no code could fix. It is neither. `EditBuilder::makeExternalPlugin`
+ * has always done this one line, with a comment saying why; the param query is simply the second
+ * place that creates an external plugin, and it did not.
+ *
+ * No plugin CODE runs to find it — `findAllTypesForFile` reads the already-scanned type info off
+ * the binary. Factored out because two callers resolve the same way and only one of them then
+ * wants the plugin's state: the param query below simply creates it and asks what it has. Taking
+ * the engine here rather than leaving the caller to remember is the point — the two callers are
+ * exactly the two that forgot.
  */
-bool describeExternal(const std::string& formatName, const std::string& identifier,
-                      juce::PluginDescription& desc) {
+bool describeExternal(te::Engine& engine, const std::string& formatName,
+                      const std::string& identifier, juce::PluginDescription& desc) {
     juce::AudioPluginFormatManager formats;
     formats.addDefaultFormats();
     for (auto* f : formats.getFormats()) {
@@ -159,6 +177,7 @@ bool describeExternal(const std::string& formatName, const std::string& identifi
         f->findAllTypesForFile(types, juce::String(identifier));
         if (!types.isEmpty()) {
             desc = *types[0];
+            engine.getPluginManager().knownPluginList.addType(desc);
             return true;
         }
         break;
@@ -222,12 +241,20 @@ constexpr int kParamListTimeoutMs = 15000;
  *
  * Waiting is only half of it. `createNewPlugin` hands back a Plugin whether or not an instance was
  * ever made — that object is what draws a red box in a project whose plugin is missing — so a
- * plugin that REFUSED to load also sits here reporting zero, for ever. Measured on this machine:
- * of forty external plugins, twenty-seven never load at all (Arturia's CS-80 V4, Prophet-5 V,
- * DX7 V, Piano V3 and the rest, `getLoadError` saying so), while ARP 2600 V3, Jup-8 V4, Mini V3
- * and three more load and answer with hundreds. Reading those twenty-seven as "this plugin
- * publishes nothing" is the mistake this function exists to stop: it is a fact about the machine —
- * a licence, an installation — and the caller can act on it only if it is told.
+ * plugin that never loaded also sits here reporting zero, for ever. Saying so rather than
+ * answering "this plugin publishes nothing" is why this returns a bool at all.
+ *
+ * What it must NOT be read as is a verdict on the plugin. This block used to record a
+ * measurement — twenty-seven of forty external plugins "never load at all", Arturia's CS-80 V4,
+ * Prophet-5 V, DX7 V and Piano V3 among them, put down to a licence or an installation. Every one
+ * of those loads. They were never asked to: nothing had registered them with this engine, so
+ * Tracktion looked the description up, found nothing, and built no instance — and `getLoadError`
+ * reports that absence in the words of a plugin that failed (see `describeExternal`). CS-80 V4
+ * answers with 719 parameters, Prophet-5 V with 603, Piano V3 with 151.
+ *
+ * The lesson worth keeping: a zero here says something about this PROCESS at least as often as
+ * about the machine, so read the two apart before believing a sentence Tracktion wrote about
+ * somebody else's binary.
  */
 bool waitForParameterList(te::Plugin& plugin, const std::string& identifier) {
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
@@ -278,7 +305,7 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
     auto& shared = paramQueryEngine();
 
     juce::PluginDescription desc;
-    if (!describeExternal(formatName, identifier, desc)) {
+    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
         std::cerr << "[plugin-params] no " << formatName << " plugin at '" << identifier << "'\n";
         return std::nullopt;
     }
@@ -324,14 +351,13 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     auto edit = te::Edit::createSingleTrackEdit(engine);
 
     juce::PluginDescription desc;
-    if (!describeExternal(formatName, identifier, desc)) {
+    if (!describeExternal(engine, formatName, identifier, desc)) {
         std::cerr << "[dump-params-ext] no " << formatName << " plugin at '" << identifier << "'\n";
         emitParamsJson("{}", false);
         return 2;
     }
 
-    // Instantiate the external plugin and restore its state from the .vstpreset bytes. A .vstpreset is a Steinberg
-    // container: if setStateInformation() rejects it, parse via Steinberg::Vst::PresetFile and feed the chunks.
+    // Instantiate the external plugin and restore its state from the .vstpreset.
     auto plugin = edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
     auto* ext = dynamic_cast<te::ExternalPlugin*>(plugin.get());
     if (ext == nullptr) {
@@ -339,16 +365,39 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
         emitParamsJson("{}", false);
         return 2;
     }
-    juce::MemoryBlock state;
-    if (juce::File(juce::String(stateFile)).loadFileAsData(state))
-        if (auto* inst = ext->getAudioPluginInstance())
-            inst->setStateInformation(state.getData(), (int)state.getSize());
+    // `loadVstPreset`, not `setStateInformation`, and the difference is the whole point of this CLI.
+    //
+    // A .vstpreset is a Steinberg PresetFile — a container, with a header, the plugin's class id and
+    // chunk offsets around the state. `setStateInformation` expects JUCE's own VST3 state format, so
+    // handed the raw container it takes none of it and returns void: no error, no exception, nothing
+    // to test. What this printed was the fresh instance's defaults, `complete: true`, with the same
+    // 77 parameters for a saved Mini V3 patch as for a plugin that had never been touched — a
+    // confident answer to a question it never asked, and the translator wrote those defaults into
+    // the chain as the musician's sound.
+    //
+    // `EditBuilder::loadVstPreset` has parsed the container correctly all along
+    // (`VST3PluginFormat::setStateFromVSTPresetFile`), and both the rack load and the editor's
+    // preset-picker go through it. Being the third caller rather than the second hand-rolled
+    // version is the fix; the comment that used to sit here described the container accurately and
+    // then proposed writing that parser again.
+    if (!loadVstPreset(*plugin, juce::File(juce::String(stateFile))))
+        std::cerr << "[dump-params-ext] no state applied from '" << stateFile
+                  << "' — the params below are the plugin's own defaults\n";
 
     const auto params = paramsJson(*plugin);
     const auto values = currentParamValues(*plugin);
 
     // Completeness: a fresh instance carrying only these params must reproduce the exact state. Only then is
     // dropping the opaque preset lossless.
+    //
+    // Expect `false` from the big commercial instruments, and do not go looking for the bug. Their
+    // patch is not in their automatable parameters: an Arturia Wurli V2 loaded from a .vstpreset
+    // reports the same 50 values as an untouched one, and Mini V3 the same 77 — checked against the
+    // JUCE `AudioProcessorParameter`s directly, not just Tracktion's cache in front of them, so this
+    // is the plugin's own answer and not a value gone stale. What the preset changed is opaque
+    // chunk state, which is exactly what `complete: false` is for: keep the .vstpreset. Saying
+    // `true` there was the damage the old `setStateInformation` call did — it applied nothing, so
+    // the round-trip trivially matched, and the translator dropped a preset for the defaults.
     bool complete = false;
     if (auto* inst = ext->getAudioPluginInstance()) {
         juce::MemoryBlock a;
@@ -362,8 +411,32 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
                 complete = (a == b);
             }
         }
+        // Handed back like every other instance in this file — this was the one creation site that
+        // never did, so the comparison instance stayed in the cache until the Edit went.
+        plugin2->deleteFromParent();
     }
     emitParamsJson(params, complete);
+
+    // The answer is printed; now let the message thread actually FREE the plugins, which is not
+    // something their destructors do. `~ExternalPlugin` hands the instance to Tracktion's
+    // `AsyncPluginDeleter`, which parks it in an array and starts a 100 ms `juce::Timer` — one
+    // instance freed per fire. The server and the tray run a message loop, so that timer fires; a
+    // CLI runs none, so both instances were still alive when JUCE's shutdown reached
+    // `DeletedAtShutdown` and the deleter's destructor drained them itself, entering a modal state
+    // on a Component in the middle of teardown.
+    //
+    // That is an intermittent SIGSEGV *after* a perfect answer has been printed: 7 of 32 runs before
+    // this, 0 of 32 after, on Arturia's Prophet-5 V, CS-80 V4 and Jup-8 V4. Intermittent and
+    // load-dependent — it disappears for twenty clean runs and comes back — so measure it over a
+    // batch, never on one run. And it is the worst shape available, because `execFileSync` in the
+    // translator (`packages/translator/src/params.ts`) raises on a non-zero exit and throws away the
+    // dump it already has: a perfect answer read as "the engine returned no params".
+    //
+    // Same remedy and the same reason as `drainMessageQueue` in OfflineRender.cpp; longer than that
+    // one's 200 ms because the deleter frees ONE plugin per fire and this path makes two.
+    plugin->deleteFromParent();
+    plugin = nullptr;  // the cache's reference is gone with deleteFromParent; this drops ours
+    juce::MessageManager::getInstance()->runDispatchLoopUntil(500);
     return 0;
 }
 

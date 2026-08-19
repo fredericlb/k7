@@ -1043,9 +1043,10 @@ int main(int argc, char** argv) {
                         //
                         // `found` carries the difference an empty array cannot: a plugin this
                         // machine could not find, create or LOAD, versus one that loaded and
-                        // publishes nothing. On this machine twenty-seven refuse to load — a
-                        // licence, an installation — and calling that "no parameters" sends
-                        // nobody to the one place the fix is.
+                        // publishes nothing. Calling the first "no parameters" draws an empty
+                        // panel and blames the plugin — which is exactly what it did while every
+                        // external plugin was failing for one missing line (see describeExternal
+                        // in ParamDump.cpp): the flag was right and its explanation was not.
                         broadcast(json{{"type", "plugin-param-list"},
                                        {"format", fmt},
                                        {"id", id},
