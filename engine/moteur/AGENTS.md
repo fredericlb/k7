@@ -118,6 +118,16 @@ missing plugin must warn, not crash. Plugin scanning is a separate CLI path — 
 own `scan` subcommand (`studio-moteur scan`, `scan --force` to start over), which writes
 `~/.studio/exts.json`.
 
+**Add the description to `knownPluginList` before you create it**, on whichever engine is
+about to. `createNewPlugin` keeps none of what you hand it: `initialiseFully` looks the plugin
+up again in `PluginManager::knownPluginList` and instantiates *nothing* when that search comes
+back empty. Our scan writes `exts.json` and never touches Tracktion's list, and no plugin list
+is persisted in `Settings.xml` — so on a fresh engine it is empty, and the omission fails every
+external plugin at once. It is a one-liner, and it does not announce itself: Tracktion's
+`getLoadError()` answers "there is no instance" with `ERROR! - This plugin couldn't be loaded!`,
+which reads as a licence or a bad install and sends you to the plugin vendor. `EditBuilder` and
+`ParamDump` both do it; a third creation site must too.
+
 ### .vstpreset
 
 Uses JUCE's `VST3PluginFormat::setStateFromVSTPresetFile` and the `ExtensionsVisitor`

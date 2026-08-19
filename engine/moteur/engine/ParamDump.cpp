@@ -143,14 +143,31 @@ int dumpPluginParams(const std::string& type) {
 namespace {
 
 /**
- * The PluginDescription a format and an identifier name, or false.
+ * The PluginDescription a format and an identifier name, REGISTERED with the engine about to
+ * create it — or false.
  *
- * No plugin CODE runs here — `findAllTypesForFile` reads the already-scanned type info off the
- * binary. Factored out because two callers resolve the same way and only one of them then wants
- * the plugin's state: the param query below simply creates it and asks what it has.
+ * The registration is not a detail, it is what makes the plugin LOAD. `createNewPlugin` builds an
+ * `ExternalPlugin` from the description and then throws the description away: `initialiseFully`
+ * looks the plugin up again, in `PluginManager::knownPluginList`, and instantiates nothing when
+ * that search comes back empty. Nothing seeds that list here — the moteur runs no Tracktion scan
+ * and persists no plugin list (`%APPDATA%/Studio/Settings.xml` has no `pluginList` key at all),
+ * so on a fresh engine it is empty and EVERY external plugin failed, whatever the plugin was.
+ *
+ * What it looked like is the reason this went unnoticed for so long: Tracktion's
+ * `getLoadError()` answers "there is no instance" with a sentence about the plugin —
+ * `ERROR! - This plugin couldn't be loaded!` — which reads as a licence or an installation, a
+ * fact about the machine that no code could fix. It is neither. `EditBuilder::makeExternalPlugin`
+ * has always done this one line, with a comment saying why; the param query is simply the second
+ * place that creates an external plugin, and it did not.
+ *
+ * No plugin CODE runs to find it — `findAllTypesForFile` reads the already-scanned type info off
+ * the binary. Factored out because two callers resolve the same way and only one of them then
+ * wants the plugin's state: the param query below simply creates it and asks what it has. Taking
+ * the engine here rather than leaving the caller to remember is the point — the two callers are
+ * exactly the two that forgot.
  */
-bool describeExternal(const std::string& formatName, const std::string& identifier,
-                      juce::PluginDescription& desc) {
+bool describeExternal(te::Engine& engine, const std::string& formatName,
+                      const std::string& identifier, juce::PluginDescription& desc) {
     juce::AudioPluginFormatManager formats;
     formats.addDefaultFormats();
     for (auto* f : formats.getFormats()) {
@@ -159,6 +176,7 @@ bool describeExternal(const std::string& formatName, const std::string& identifi
         f->findAllTypesForFile(types, juce::String(identifier));
         if (!types.isEmpty()) {
             desc = *types[0];
+            engine.getPluginManager().knownPluginList.addType(desc);
             return true;
         }
         break;
@@ -222,12 +240,20 @@ constexpr int kParamListTimeoutMs = 15000;
  *
  * Waiting is only half of it. `createNewPlugin` hands back a Plugin whether or not an instance was
  * ever made — that object is what draws a red box in a project whose plugin is missing — so a
- * plugin that REFUSED to load also sits here reporting zero, for ever. Measured on this machine:
- * of forty external plugins, twenty-seven never load at all (Arturia's CS-80 V4, Prophet-5 V,
- * DX7 V, Piano V3 and the rest, `getLoadError` saying so), while ARP 2600 V3, Jup-8 V4, Mini V3
- * and three more load and answer with hundreds. Reading those twenty-seven as "this plugin
- * publishes nothing" is the mistake this function exists to stop: it is a fact about the machine —
- * a licence, an installation — and the caller can act on it only if it is told.
+ * plugin that never loaded also sits here reporting zero, for ever. Saying so rather than
+ * answering "this plugin publishes nothing" is why this returns a bool at all.
+ *
+ * What it must NOT be read as is a verdict on the plugin. This block used to record a
+ * measurement — twenty-seven of forty external plugins "never load at all", Arturia's CS-80 V4,
+ * Prophet-5 V, DX7 V and Piano V3 among them, put down to a licence or an installation. Every one
+ * of those loads. They were never asked to: nothing had registered them with this engine, so
+ * Tracktion looked the description up, found nothing, and built no instance — and `getLoadError`
+ * reports that absence in the words of a plugin that failed (see `describeExternal`). CS-80 V4
+ * answers with 719 parameters, Prophet-5 V with 603, Piano V3 with 151.
+ *
+ * The lesson worth keeping: a zero here says something about this PROCESS at least as often as
+ * about the machine, so read the two apart before believing a sentence Tracktion wrote about
+ * somebody else's binary.
  */
 bool waitForParameterList(te::Plugin& plugin, const std::string& identifier) {
     auto* ext = dynamic_cast<te::ExternalPlugin*>(&plugin);
@@ -278,7 +304,7 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
     auto& shared = paramQueryEngine();
 
     juce::PluginDescription desc;
-    if (!describeExternal(formatName, identifier, desc)) {
+    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
         std::cerr << "[plugin-params] no " << formatName << " plugin at '" << identifier << "'\n";
         return std::nullopt;
     }
@@ -324,7 +350,7 @@ int dumpPluginParamsExternal(const std::string& formatName, const std::string& i
     auto edit = te::Edit::createSingleTrackEdit(engine);
 
     juce::PluginDescription desc;
-    if (!describeExternal(formatName, identifier, desc)) {
+    if (!describeExternal(engine, formatName, identifier, desc)) {
         std::cerr << "[dump-params-ext] no " << formatName << " plugin at '" << identifier << "'\n";
         emitParamsJson("{}", false);
         return 2;
