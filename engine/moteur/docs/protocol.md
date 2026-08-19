@@ -65,6 +65,7 @@ are in `packages/engine-protocol/docs/sessions.md`.
 | `{ type: "list-sessions" }` | → a `sessions` reply. Engine-global: it is the one question whose answer is about the OTHER sessions |
 | `{ type: "drop-session", session: "m9" }` | forget a session outright — edit, plugins, meters and tap. → `session-dropped` |
 | `{ type: "show-native-plugin-ui", id: "chain:module" }` | open the plugin's own window |
+| `{ type: "show-native-plugin-ui-of", format, id }` | the same window for a plugin in NO project — an ORPHAN instance on the offline engine, saved nowhere. `format`+`id` name a binary, as `list-plugin-params` does |
 | `{ type: "broadcast", on: true }` | send me the master audio (this connection only) |
 
 ### `tracks` — the delta, and what it deliberately cannot do

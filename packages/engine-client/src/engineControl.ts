@@ -305,6 +305,21 @@ export class EngineControl extends EventEmitter {
     this.send({ type: "list-plugin-params", format, id });
   }
 
+  /**
+   * …and that plugin's own window, on an ORPHAN instance in no project.
+   *
+   * Same binary and the same seconds as the list above, for the other half of the same question:
+   * what a parameter is called, and what the plugin looks like when you turn it. The instance
+   * lives on the engine's offline edit, on no track and no session, and NOTHING it is told is
+   * saved — it is somewhere to look at a plugin, never somewhere to set one.
+   *
+   * The window opens on the ENGINE's screen. There is no reply, and there is nothing useful one
+   * could say: a caller elsewhere on the network has told a musician's machine to show a window.
+   */
+  showNativePluginUIOf(format: string, id: string): void {
+    this.send({ type: "show-native-plugin-ui-of", format, id });
+  }
+
   // Which plugin INSTANCES the engine's edits hold — what is in the SONGS, unlike listPlugins'
   // installed catalogue. Engine-global: it answers for every session, each row naming its own.
   listEditPlugins(): void {

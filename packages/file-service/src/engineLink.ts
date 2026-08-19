@@ -480,6 +480,27 @@ export async function pluginParams(
   return awaitPluginParams(c, format, id);
 }
 
+/**
+ * …and the same plugin's own WINDOW, opened on an orphan instance.
+ *
+ * On the bare session for the same reason as `pluginParams` above: which plugins exist, what they
+ * have, and what they look like are all facts about the MACHINE, and the caller is a module being
+ * authored rather than a project being played.
+ *
+ * FIRE-AND-FORGET, unlike the param query, and not for want of trying: the window opens on the
+ * engine's screen, so the only thing that could be awaited is the engine saying it drew one, which
+ * tells the caller nothing it can act on. What CAN be reported is the one failure worth a sentence
+ * — no engine to ask — which is what the boolean is. Everything past that (a plugin that will not
+ * load, a plugin with no editor) reaches the human on the warning channel, where the engine's own
+ * account of it is better than anything this could invent.
+ */
+export function showNativePluginUIOf(format: string, id: string): boolean {
+  const c = ensureEngine(null);
+  if (!c) return false;
+  c.showNativePluginUIOf(format, id);
+  return true;
+}
+
 function safeBaseModules(dir: string): string[] {
   try {
     return listBaseModules(dir);

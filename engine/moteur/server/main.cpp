@@ -1121,6 +1121,35 @@ int main(int argc, char** argv) {
                     std::cerr << "[native-plugin-ui] open '" << id << "'\n";
                     host.showNativePluginUI(session, id);
                 });
+            } else if (type == "show-native-plugin-ui-of") {
+                // …and the same window for a plugin that is in NO project: `format` and `id` name an
+                // installed binary, exactly as `list-plugin-params` does, and the engine opens the
+                // plugin's own UI on an orphan instance. What that instance is told is not saved
+                // anywhere — see showNativePluginUIOf in EngineHost.h.
+                //
+                // Both threads, in order. Loading the binary is seconds, so it happens DETACHED like
+                // the param query beside it; holding the message thread that long stalls the
+                // transport of every session on this engine. Only the window needs the message
+                // thread, and by then the instance is already loaded, so that part is quick.
+                const std::string fmt = j.value("format", std::string{});
+                const std::string id = j.value("id", std::string{});
+                if (fmt.empty() || id.empty()) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", "show-native-plugin-ui-of needs a format and an id"}}
+                                .dump());
+                } else {
+                    std::thread([&host, fmt, id] {
+                        std::cerr << "[native-plugin-ui] loading '" << id << "'" << "\n";
+                        if (!studio::prepareNativePluginUI(fmt, id)) {
+                            std::cerr << "[native-plugin-ui] '" << id << "' did not load" << "\n";
+                            return;   // prepareNativePluginUI has already warned, which reaches a human
+                        }
+                        host.post([fmt, id] {
+                            std::cerr << "[native-plugin-ui] open '" << id << "'" << "\n";
+                            studio::showNativePluginUIOf(fmt, id);
+                        });
+                    }).detach();
+                }
             } else if (type == "set-plugin-param") {
                 // Set one plugin parameter on the LIVE edit, for a control being dragged: `name` is its display name, `value`
                 // in its native range. This does NOT persist — the client writes the value to the project on release — so an

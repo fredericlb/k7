@@ -31,6 +31,7 @@ import {
   pluginParams,
   pruneIdleLinks,
   setSelectedEngine,
+  showNativePluginUIOf,
 } from "./engineLink.ts";
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
@@ -319,32 +320,51 @@ app.get(
  * one that loads and publishes nothing are both an empty list, and only the first is worth
  * telling somebody about — it is a licence or an installation, not a fact about the plugin.
  */
+/**
+ * Two ways to name a plugin, resolved to the one the engine takes.
+ *
+ * `ref` is an `@engine/<slug>` — what a module's `extends:` carries — and only this side can turn
+ * it into a binary, because the scan cache is here; a browser holding the ref would otherwise have
+ * to fetch the whole catalogue to send back one path. `engineModuleOf` is the shared rule, so the
+ * plugin found is the one a compiled document would load.
+ *
+ * Only EXTERNALS are in that cache, which is the filter as well as the lookup: a built-in resolves
+ * to nothing here and never should, since it needs no engine to answer for it and draws no window.
+ *
+ * Returns the error to send, or the pair. Shared by the two routes below because they take the
+ * same argument for the same reason — one asks what the plugin has, the other opens it.
+ */
+function resolvePlugin(
+  ref: string,
+  format: string,
+  id: string,
+): { format: string; id: string } | { status: number; error: string } {
+  if (ref) {
+    const hit = scannedPlugins().find(
+      (p) => p.id && engineModuleOf(p)?.ref === ref,
+    );
+    if (!hit?.id)
+      return { status: 404, error: `no scanned plugin for "${ref}"` };
+    return { format: hit.format, id: hit.id };
+  }
+  if (!format || !id)
+    return { status: 400, error: "format and id, or ref, are required" };
+  return { format, id };
+}
+
 app.get(
   "/plugin-params",
   wrap(async (req, res) => {
-    // Two ways to name a plugin, and the machine resolves the friendlier one. `ref` is an
-    // `@engine/<slug>` — what a module's `extends:` carries — and only this side can turn it into
-    // a binary, because the scan cache is here; a browser holding the ref would otherwise have to
-    // fetch the whole catalogue to send back one path. `engineModuleOf` is the shared rule, so the
-    // plugin found is the one a compiled document would load.
-    const ref = String(req.query.ref ?? "");
-    let format = String(req.query.format ?? "");
-    let id = String(req.query.id ?? "");
-    if (ref) {
-      const hit = scannedPlugins().find(
-        (p) => p.id && engineModuleOf(p)?.ref === ref,
-      );
-      if (!hit?.id) {
-        res.status(404).json({ error: `no scanned plugin for "${ref}"` });
-        return;
-      }
-      format = hit.format;
-      id = hit.id;
-    }
-    if (!format || !id) {
-      res.status(400).json({ error: "format and id, or ref, are required" });
+    const found = resolvePlugin(
+      String(req.query.ref ?? ""),
+      String(req.query.format ?? ""),
+      String(req.query.id ?? ""),
+    );
+    if ("error" in found) {
+      res.status(found.status).json({ error: found.error });
       return;
     }
+    const { format, id } = found;
     const answer = await pluginParams(format, id);
     if (answer === undefined) {
       res
@@ -353,6 +373,48 @@ app.get(
       return;
     }
     res.json(answer);
+  }),
+);
+
+/**
+ * …and what one of them LOOKS LIKE — the plugin's own window, opened on this machine.
+ *
+ * Beside `/plugin-params` and taking the same `ref`, because it answers the other half of the same
+ * question. A module is authored against a plugin by NAME, and a list of parameter names does not
+ * tell you what `Amount Mod2` does; the plugin's own UI does, and it is the thing the plugin author
+ * actually designed.
+ *
+ * The instance is an ORPHAN — no track, no session, no project — and NOTHING IT IS TOLD IS SAVED.
+ * That is what makes it safe to open while something is playing, and it is also the limit worth
+ * saying out loud: it is somewhere to LOOK at a plugin, not somewhere to set one. Values still
+ * belong in the module's text.
+ *
+ * The window opens on THIS machine's screen, which is the engine's — so a browser on another
+ * machine will be told the request succeeded and see nothing. That is not a bug this can fix: a
+ * native plugin UI is a native window, and it draws where the plugin is loaded.
+ *
+ * 202 rather than 200: everything past "an engine took it" happens out of band, and the engine's
+ * warning channel is where a plugin that will not load or has no editor gets to say so.
+ */
+app.get(
+  "/plugin-native-ui",
+  wrap((req, res) => {
+    const found = resolvePlugin(
+      String(req.query.ref ?? ""),
+      String(req.query.format ?? ""),
+      String(req.query.id ?? ""),
+    );
+    if ("error" in found) {
+      res.status(found.status).json({ error: found.error });
+      return;
+    }
+    if (!showNativePluginUIOf(found.format, found.id)) {
+      res
+        .status(503)
+        .json({ error: "the engine did not answer — is it running?" });
+      return;
+    }
+    res.status(202).json({ opening: found.id });
   }),
 );
 

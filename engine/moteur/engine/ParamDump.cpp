@@ -14,6 +14,7 @@
 #include "PluginScan.h"      // registerBuiltInPlugins / builtInPlugins
 #include "PluginParams.h"    // paramsJson / currentParamValues / applyPluginParams / pluginParams
 #include "EditBuilder.h"     // loadVstPreset — the ONE reader of a .vstpreset container
+#include "Warnings.h"       // warn — an orphan belongs to no session, so it warns unstamped
 
 #include <chrono>
 #include <iostream>
@@ -297,7 +298,59 @@ ParamQueryEngine& paramQueryEngine() {
     return *held;
 }
 
+/**
+ * The orphans being kept alive, keyed by format and identifier. Never emptied.
+ *
+ * `pluginParamsOf` drops its plugin the moment it has read the list, and says why: an instrument
+ * left on the shared edit holds voices and a binary open. An orphan opened for its own WINDOW
+ * cannot be dropped on the same principle — the window is still on screen and the user is turning
+ * its knobs — so it is held instead, one per plugin, until the process ends. A handful of loaded
+ * synths is what the feature costs, and it buys a reopen that is a visibility flip rather than
+ * another fourteen seconds of loading.
+ */
+std::unordered_map<std::string, te::Plugin::Ptr> orphanPlugins;
+
+/** Format and identifier as one map key. A newline, because neither half can contain one. */
+std::string orphanKey(const std::string& formatName, const std::string& identifier) {
+    return formatName + "\n" + identifier;
+}
+
 }  // namespace
+
+te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string& identifier) {
+    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    const auto key = orphanKey(formatName, identifier);
+    if (auto it = orphanPlugins.find(key); it != orphanPlugins.end() && it->second != nullptr)
+        return it->second;
+
+    auto& shared = paramQueryEngine();
+    juce::PluginDescription desc;
+    if (!describeExternal(*shared.engine, formatName, identifier, desc)) {
+        warn("no " + formatName + " plugin at '" + identifier + "'");
+        return {};
+    }
+    auto plugin =
+        shared.edit->getPluginCache().createNewPlugin(te::ExternalPlugin::xmlTypeName, desc);
+    if (plugin == nullptr) {
+        warn("could not create '" + identifier + "'");
+        return {};
+    }
+    // The same wait, and the same reading of it: a plugin this machine refuses to load reports an
+    // empty parameter list for ever, and telling that apart from "it has none" is the whole of it.
+    // Sleeping rather than pumping is safe even when this runs on the message thread, because every
+    // format this engine hosts builds its instance synchronously — see the note in AGENTS.md.
+    if (!waitForParameterList(*plugin, identifier)) {
+        plugin->deleteFromParent();
+        warn("'" + identifier + "' did not load — a licence or an installation, not the plugin");
+        return {};
+    }
+    orphanPlugins[key] = plugin;
+    return plugin;
+}
+
+bool prepareNativePluginUI(const std::string& formatName, const std::string& identifier) {
+    return orphanPluginFor(formatName, identifier) != nullptr;
+}
 
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& formatName,
                                                            const std::string& identifier) {

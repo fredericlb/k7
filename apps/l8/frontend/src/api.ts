@@ -288,6 +288,25 @@ export const api = {
     };
   },
 
+  /**
+   * …and that same plugin's own WINDOW, on an instance belonging to no project.
+   *
+   * The other half of `scanPluginParams`. That one answers what the parameters are CALLED, which
+   * is what a bind list needs; this opens what the plugin itself draws, which is how you find out
+   * what one of those names does before binding a widget to it.
+   *
+   * ORPHAN, and the limit matters more than the feature: the engine loads the plugin on its
+   * offline edit, on no track and no session, so NOTHING TOUCHED IN THAT WINDOW IS SAVED. It is
+   * for looking, and the module's text is still where a value is set.
+   *
+   * The window opens on the ENGINE's machine. Same seconds as the scan, since it is the same
+   * binary being loaded, so a caller has to say it is working.
+   */
+  showPluginNativeUI: (ref: string) =>
+    fget<{ opening: string }>(
+      `/plugin-native-ui?ref=${encodeURIComponent(ref)}`,
+    ),
+
   // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
   // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.
   listUserPresets: (ref: string) =>

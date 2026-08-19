@@ -29,6 +29,7 @@ import type {
   PresetInfo,
 } from "@studio/web-protocol";
 import {
+  AppWindow,
   ArrowLeft,
   ChevronDown,
   Folder,
@@ -145,6 +146,7 @@ export function ModuleBuilder({
   pluginParamNames,
   pluginParamMeta,
   onScanParams,
+  onShowNativeUI,
   inputDevices,
   onRegroupInputs,
   baseModules,
@@ -206,6 +208,16 @@ export function ModuleBuilder({
    * Optional, like `onRegroupInputs` and for the same reason: a host with no engine passes
    * nothing and the button is simply not drawn, rather than drawn and dead.
    */
+  /**
+   * Open the plugin's OWN window, on an instance belonging to no project — the other half of
+   * `onScanParams`, which names the parameters this one lets you look at.
+   *
+   * Absent ⇒ no button, like the scan: a host with no engine cannot open anything.
+   *
+   * Resolves when an engine has TAKEN the request, not when a window is on screen — the window
+   * draws on the engine's machine, which may not be this one. Rejects only when nobody took it.
+   */
+  onShowNativeUI?: (base: string) => Promise<unknown>;
   onScanParams?: (base: string) => Promise<{
     names: string[];
     meta: Record<string, ParamMeta>;
@@ -690,6 +702,34 @@ export function ModuleBuilder({
       .finally(() => setScanning(false));
   }, [onScanParams, scanning, scanBase]);
 
+  /**
+   * The same plugin, opened rather than read — and the narrower base, because only an INSTALLED
+   * plugin has a window.
+   *
+   * `scanBase` is any `@engine/…` ref, and Tracktion's own built-ins are addressed that way too.
+   * They wrap no AudioProcessor and draw nothing, so offering the button on one would be a control
+   * that can only fail. `builtinPluginForRef` is the same table that answers their parameters
+   * without an engine, so what is left after it is exactly what this machine SCANNED: a VST.
+   */
+  const nativeUiBase =
+    scanBase && !builtinPluginForRef(scanBase) ? scanBase : "";
+  const [openingUi, setOpeningUi] = useState(false);
+  const runNativeUi = useCallback(() => {
+    if (!onShowNativeUI || openingUi || !nativeUiBase) return;
+    setOpeningUi(true);
+    setScanNote(null);
+    void onShowNativeUI(nativeUiBase)
+      .then(() =>
+        // Said every time, not once: the window is the plugin's own and looks exactly like the one
+        // that DOES save in a project, so "this one does not" is the thing a user has to be told.
+        setScanNote(
+          "fenêtre du greffon ouverte sur la machine du moteur — c'est une instance à part, rien de ce qu'on y touche n'est enregistré",
+        ),
+      )
+      .catch((e: Error) => setScanNote(`ouverture impossible : ${e.message}`))
+      .finally(() => setOpeningUi(false));
+  }, [onShowNativeUI, openingUi, nativeUiBase]);
+
   // Every addressable param, unioned from all FIVE sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
@@ -1003,6 +1043,10 @@ export function ModuleBuilder({
                   onScan={onScanParams && scanBase ? runScan : undefined}
                   scanning={scanning}
                   scanNote={scanNote}
+                  onNativeUi={
+                    onShowNativeUI && nativeUiBase ? runNativeUi : undefined
+                  }
+                  openingUi={openingUi}
                 />
               ) : (
                 <YamlPane
@@ -1134,6 +1178,8 @@ function ParamsPane({
   onScan,
   scanning,
   scanNote,
+  onNativeUi,
+  openingUi,
 }: {
   rows: {
     name: string;
@@ -1144,9 +1190,13 @@ function ParamsPane({
   /** Absent ⇒ no button: a host with no engine cannot ask, and a dead control is worse than none. */
   onScan?: () => void;
   scanning?: boolean;
-  /** What the last scan answered — the empty and the refused cases, which have no rows to show for
-   *  themselves and would otherwise read as a button that did nothing. */
+  /** What the last scan OR window-open answered — the empty and the refused cases, which have no
+   *  rows to show for themselves and would otherwise read as a button that did nothing. */
   scanNote?: string | null;
+  /** Absent ⇒ no button, for either reason: no engine to ask, or a built-in, which draws no
+   *  window. Only an installed plugin has one. */
+  onNativeUi?: () => void;
+  openingUi?: boolean;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -1191,6 +1241,28 @@ function ParamsPane({
             )}
             <span className="ml-1 hidden sm:inline">
               {scanning ? "lecture…" : "greffon"}
+            </span>
+          </Button>
+        )}
+        {/* Beside the scan and not instead of it: the two ask the same binary for different
+            things, and a bind list still comes from the names. Loading it is the same few
+            seconds, so this says it is working in the same way. */}
+        {onNativeUi && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-2 text-xs"
+            disabled={openingUi}
+            onClick={onNativeUi}
+            title="Open the plugin's own window — a separate instance, on the engine's machine. Nothing touched in it is saved."
+          >
+            {openingUi ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <AppWindow className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">
+              {openingUi ? "ouverture…" : "Native UI"}
             </span>
           </Button>
         )}

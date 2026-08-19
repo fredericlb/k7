@@ -68,4 +68,23 @@ juce::String paramsJson(te::Plugin& plugin);
 // name -> value (the non-default subset) for re-applying a dumped set in the completeness check.
 std::unordered_map<std::string, double> currentParamValues(te::Plugin& plugin);
 
+/**
+ * An installed plugin instantiated on nothing, kept for the process — ParamDump.cpp's, since that is
+ * where the one offline engine lives.
+ *
+ * ORPHAN in the strict sense: it sits on the shared offline edit, on no track, wired to nothing,
+ * belonging to no session and saved nowhere. That is what makes it answerable at all — the module
+ * being authored may name a plugin the open project does not load, or there may be no project.
+ *
+ * Declared in the params header because asking is what an orphan is FOR. `pluginParamsOf` reads its
+ * parameter list and drops it in the same breath; this hands the same instance back and keeps it,
+ * for the caller that wants the plugin's own window instead of a list of names — the difference
+ * being that a window stays on screen and the instance behind it has to still be there.
+ *
+ * Null when this machine cannot find, create or LOAD the plugin, exactly as `pluginParamsOf`
+ * returns `nullopt` for those three. SECONDS on the first call for a given plugin (it loads a
+ * binary), instant thereafter. Any thread — it takes the same lock the param query does.
+ */
+te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string& identifier);
+
 }  // namespace studio
