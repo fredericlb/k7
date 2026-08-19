@@ -110,6 +110,26 @@ sum is locked), and splitting them across the row would say they were unrelated.
 row's right-hand end is already occupied, the panel grows a row rather than stacking the blend on
 a knob.
 
+## It always ends on an empty row
+
+One slot row of air under the tallest page, whatever that page holds. Two reasons, and the second
+is the one that made it a rule rather than a nicety:
+
+- a panel whose bottom control sits flush against its edge reads as **cropped** — as though the
+  next row were there and simply not being drawn;
+- the grid editor needs somewhere to **drop** a parameter that is not already on top of a widget.
+  Without the empty row, adding the first control past the proposal means resizing the panel
+  before you can aim at anything, which is a strange first thing to have to do to a layout that
+  was just made for you.
+
+A **slot** row (`KNOB_SPAN` cells), not a cell row: what has to fit there is a control, and half
+a knob of clearance is a margin rather than a place to put one.
+
+It is counted after the blend is placed, so the air is under the bottom row rather than instead
+of it — `rowsNeeded` stays the height of the content and only the panel's `rows` reads the extra.
+The empty parameter list is the one case with no air, and needs none: it returns a bare grid
+before any of this runs.
+
 ## What it draws, and where
 
 The proposal is **one tabs widget** on row 0, spanning the panel, with the pages under it from
@@ -127,8 +147,9 @@ still one cell: those are single deliberate gestures onto a grid whose shape the
 has in mind, and making one bigger is a drag. This function places a hundred and fifty at once
 onto a grid it sizes itself, which is the case that needs an opinion about how big a knob is.
 
-Every page shares that grid, so `rows` is sized to the **biggest** page: a panel tall enough for
-the reverb page is what makes the oscillator page fit too.
+Every page shares that grid, so `rows` is sized to the **biggest** page, plus the empty row
+above: a panel tall enough for the reverb page is what makes the oscillator page fit too, and a
+shorter page simply has more air under it than the one that set the height.
 
 Widget kinds are the same three a **dropped** parameter gets in `WidgetGridEditor.createBound` —
 a parameter with named settings becomes a dropdown, everything else a knob — so a panel you

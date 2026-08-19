@@ -320,6 +320,18 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
         sr: rowsNeeded - 1,
       })),
     );
+  // One slot row of air under the tallest page, always. Two reasons, and the second is the one
+  // that made it a rule: a panel whose bottom control sits flush against its edge reads as
+  // cropped — as though the next row were there and not being drawn — and the grid editor needs
+  // somewhere to DROP a parameter that is not already on top of a widget. Without it, adding the
+  // first control past the proposal means resizing the panel before you can aim at anything.
+  //
+  // A SLOT row (`KNOB_SPAN` cells), not a cell row: what has to fit there is a control, and half
+  // a knob of clearance is a margin rather than a place to put one.
+  //
+  // Counted after the blend is placed, so the air is under the bottom row rather than instead of
+  // it — `rowsNeeded` stays the height of the CONTENT and nothing above reads this.
+  const rowsDrawn = rowsNeeded + 1;
   const pages: Record<string, Record<string, Widget>> = {};
   // Numbered across the WHOLE panel rather than restarting on each page. Nothing requires it —
   // pages are separate maps and the hand editor's `nextId` does restart — but a panel where `w40`
@@ -353,7 +365,7 @@ export function autoOrganize(params: readonly AutoParam[]): ModuleUI {
   }
   return {
     cols: AUTO_COLS,
-    rows: 1 + rowsNeeded * KNOB_SPAN,
+    rows: 1 + rowsDrawn * KNOB_SPAN,
     widgets: {
       // The bar spans the panel, so a module with a dozen families can still show them all.
       tabs: { type: "tabs", col: 0, row: 0, colSpan: AUTO_COLS, pages },

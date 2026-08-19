@@ -275,9 +275,10 @@ describe("the panel it proposes", () => {
     ]);
     const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
     const at = (bind: string) => page.find((w) => w.bind === bind);
-    // The Filter page is one row tall, so the panel is — and the blend goes on that bottom row,
-    // right-aligned: slots 4 and 5 of six, which are columns 8 and 10 of twelve.
-    expect(ui.rows).toBe(1 + 1 * 2);
+    // The Filter page is one row of CONTENT, and the panel is that plus the empty row every
+    // proposal ends on — and the blend goes on the content row, right-aligned: slots 4 and 5 of
+    // six, which are columns 8 and 10 of twelve. The air is BELOW it, not instead of it.
+    expect(ui.rows).toBe(1 + 2 * 2);
     expect(at("Dry")).toMatchObject({ col: 8, row: 1 });
     expect(at("Wet")).toMatchObject({ col: 10, row: 1 });
   });
@@ -289,7 +290,8 @@ describe("the panel it proposes", () => {
       p("Mix"),
     ]);
     const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
-    expect(ui.rows).toBe(1 + 2 * 2);
+    // Two rows of content — the six, then the row grown for the blend — plus the trailing one.
+    expect(ui.rows).toBe(1 + 3 * 2);
     expect(page.find((w) => w.bind === "Mix")).toMatchObject({
       col: 10,
       row: 3,
@@ -309,14 +311,45 @@ describe("the panel it proposes", () => {
     const many = autoOrganize(
       Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
     );
-    // 13 knobs six to a row is three rows of them, two cells tall each, plus the bar's one.
-    expect(many.rows).toBe(1 + 3 * 2);
+    // 13 knobs six to a row is three rows of them, two cells tall each, plus the bar's one and
+    // the empty one every proposal ends on.
+    expect(many.rows).toBe(1 + 4 * 2);
     // …and the row `@base` takes for itself counts too, or the page it is on would be cut off.
     const withBase = autoOrganize([
       p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
       p("@volume"),
     ]);
-    expect(withBase.rows).toBe(1 + 2 * 2);
+    expect(withBase.rows).toBe(1 + 3 * 2);
+  });
+
+  it("always ends on an empty row, whatever the tallest page holds", () => {
+    // Somewhere to DROP the next parameter, and a bottom edge that does not read as cropped.
+    // A SLOT row rather than a cell one: what has to fit there is a control.
+    const bottomOf = (u: ReturnType<typeof autoOrganize>) =>
+      Math.max(
+        ...Object.values(u.widgets.tabs.pages ?? {}).flatMap((pg) =>
+          Object.values(pg).map((w) => w.row + (w.rowSpan ?? 1)),
+        ),
+      );
+    for (const params of [
+      [p("Filter Cutoff")],
+      [p("Dry"), p("Wet"), p("Filter Cutoff")],
+      Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
+      [
+        p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
+        p("@volume"),
+        p("Reverb Decay"),
+      ],
+    ]) {
+      const u = autoOrganize(params);
+      expect(u.rows - bottomOf(u)).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("still proposes a grid for an empty list, with nothing to leave room under", () => {
+    // The one case with no controls to sit above: it stays the single empty row it always was,
+    // because `autoOrganize` returns before any of the placement above runs.
+    expect(autoOrganize([]).rows).toBe(1);
   });
 
   it("proposes something the schema accepts, empty list included", () => {

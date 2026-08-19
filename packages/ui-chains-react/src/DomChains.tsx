@@ -522,10 +522,17 @@ const CSS = `
    pinned out of the flow so the select itself is what .dgx-w's justify-content centres, rather
    than the pair of them. left/right rather than a width so a long name ellipsises in place. */
 /* A caption BESIDE its select, when the box is wide enough for both. In the flow, so the pair
-   is what .dgx-w centres — there is nothing to pin here. */
-.dgx-selrow { display:flex; align-items:center; gap:4px; max-width:100%; min-width:0; }
-.dgx-selrow .dgx-wlab { margin-top:0; flex:none; }
-.dgx-selrow .dgx-sel { min-width:0; }
+   is what .dgx-w centres — there is nothing to pin here.
+   Full width, so the select underneath can spend what the caption does not: the caption is
+   flex:none (it is a word, and shrinking it only ellipsises a name), the select takes the rest.
+   min-width:0 on BOTH is what lets that happen at all — a flex item's default min-width:auto
+   floors it at its content, and a long option list would then push the pair past the box
+   instead of the select fitting inside it.
+   (No backticks in here: this whole sheet is a template literal, and one ends the string.) */
+.dgx-selrow { display:flex; align-items:center; gap:4px; width:100%; min-width:0; }
+.dgx-selrow .dgx-wlab { margin-top:0; flex:none; min-width:0; overflow:hidden;
+  text-overflow:ellipsis; }
+.dgx-selrow .dgx-sel { flex:1; min-width:0; }
 /* A widget offering to take a curve's cable. Mauve like the automation it is about to become,
    and the whole box lights rather than an outline: the target is the CONTROL, and a hairline
    on a 21px knob is not a thing a cable can be aimed at. */
@@ -599,7 +606,12 @@ const CSS = `
 .dgx-num { min-width:26px; padding:2px 4px; border-radius:3px; border:1px solid var(--line);
   font:10px ui-monospace,monospace; color:#e7e6ea; }
 .dgx-num.unknown { color:var(--dim); }
-.dgx-sel { max-width:100%; font:9px ui-monospace,monospace; color:#e7e6ea;
+/* Fills the box its colSpan gave it, the same argument .dgx-file makes below: a widget two
+   cells wide that draws a 30px select is a cell and a half of nothing, and what a dropdown
+   holds is a WORD — the width is the readable part, and the one that stops "Saw down" being
+   clipped to "Saw d…". It was content-sized, so a panel of dropdowns drew a ragged left column
+   of boxes no two of which were the same width. */
+.dgx-sel { width:100%; max-width:100%; font:9px ui-monospace,monospace; color:#e7e6ea;
   background:#08080b; border:1px solid #2c2c33; border-radius:4px; padding:1px 2px;
   cursor:pointer; }
 .dgx-sel:disabled { cursor:default; opacity:.5; }
