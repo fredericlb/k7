@@ -17,9 +17,28 @@ The hostname is still `st0.…` and does not follow the rename: it is a DNS name
 not a fact this repo owns, and the médiathèque that was `st0` is `pl8` under `/pl8` now.
 
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
-> topology not versioned here, and the swap needs it: `/` must reach l8's dev server (5223)
-> and `/pl8` pl8's (5224), where it was the other way round. Until it is changed, the studio
-> opens on the médiathèque and `/pl8` answers nothing.
+> topology not versioned here, and it must mirror `apps/studio/docker/nginx.conf`, which is
+> versioned. What that file says, as ports:
+>
+> | path | goes to | |
+> |---|---|---|
+> | `/` | **5223** | l8's dev server — was 5224 |
+> | `/pl8` | **5224** | pl8's dev server — was `/` |
+> | `/api/*` | **8789** | l8's backend, the engine registry |
+> | `/pl8/api/*` | 8795 | pl8's backend |
+> | `/auth/*` | **8795** | pl8's backend — see below |
+>
+> **`/auth/*` does not follow the root.** It is the one path that stayed with pl8's backend
+> when the two apps swapped, because the IdP knows a single prefixless `redirect_uri`. Moving
+> it to 8789 along with `/api` is the obvious mistake and it was made: l8's backend mounts no
+> auth routes, so `/auth/login` answers Express's own **404 — `Cannot GET /auth/login`**, which
+> reads like a broken login rather than a misrouted one. Nothing else fails, and the SPA still
+> loads; only signing in is impossible.
+>
+> Routing `/auth` to **5223** instead of 8795 also works — l8's vite config proxies it on to
+> 8795 (`apps/l8/frontend/vite.config.ts`), which is what makes the dev server usable when
+> visited directly on its port. 8795 is preferred here, because it is what the production edge
+> does and the two are meant to differ by their origin and nothing else.
 
 Nothing on this workstation terminates TLS any more. The name resolves to the **LAN server**,
 which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run
