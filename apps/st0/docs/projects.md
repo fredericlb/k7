@@ -87,9 +87,15 @@ un code de statut est le mauvais endroit pour garder la différence entre ça et
 panne. Seul le second mérite un diagnostic. l8 refuse d'ouvrir un projet sans, et le dit sur sa
 page d'accueil avant de cloner quoi que ce soit.
 
-**Un dépôt vide se remplit tout seul, une fois** : à la première ouverture d'un projet, le
-service de fichiers y recopie le catalogue que ce service tient déjà — `modules/` et `chains/` —
-puis committe et pousse. C'est lui et pas st0, pour la raison juste en dessous.
+**Un dépôt vide reçoit un commit vide, une fois** : à la première ouverture d'un projet, le
+service de fichiers fait la racine qui manque et la pousse (`initIfEmpty`), parce qu'un gitlink
+doit pointer sur un commit et qu'un dépôt créé dans une interface web n'en a aucun. C'est lui et
+pas st0, pour la raison juste en dessous.
+
+Il y recopiait le catalogue de ce service — `modules/` et `chains/` — tant que ce volume en
+tenait. Il n'en tient plus : un module s'écrit dans l8, contre un projet où le greffon qu'il
+nomme est réellement chargé. Il n'y a donc plus rien à semer, et le commit vide est tout ce qui
+reste de cette étape.
 
 ## Pourquoi st0 ne peut pas écrire dans un dépôt
 

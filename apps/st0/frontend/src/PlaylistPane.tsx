@@ -9,18 +9,17 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import {
   AudioLines,
   Disc3,
+  FileQuestion,
   ListMusic,
-  Loader2,
   Pause,
   Play,
   Plus,
   Search,
-  Workflow,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser, library } from "./api";
-import { cacheRoot, playablePath } from "./engine/chainPreview";
+import { currentUser } from "./api";
+import { cacheRoot, playablePath } from "./engine/songPreview";
 import { useEngine, usePlayback } from "./playback/PlaybackProvider";
 import {
   effectiveTarget,
@@ -35,17 +34,11 @@ import {
   songMatches,
   songRef,
 } from "./playlistItems";
-import { renderNames } from "./songTakes";
 
 /** Said once at the top rather than on every row: it is a fact about the MACHINE, and a
  *  refusal repeated per line reads as ten problems instead of one. */
 const NO_CACHE =
   "cette machine ne tient pas de cache de la médiathèque — jouez ici, ou choisissez-en une autre";
-
-/** The key a probed render is remembered under. The song and the version, because a variant
- *  name is unique only inside one sidecar. */
-const renderKey = (song: MediatekEntry, take: string): string =>
-  `${song.path}::${take}`;
 
 /**
  * How many search hits are drawn at once.
@@ -94,64 +87,16 @@ export function PlaylistPane({
 
   const rows = useMemo(() => resolveItems(items, songs), [items, songs]);
 
-  /**
-   * The render a chain variant would be, once probed — or null for one nobody has rendered.
+  /** The audio inside the song's folder.
    *
-   * A ref and not state, because it is read inside the async `startAt` below: state read there
-   * would be whatever it was when that callback was made, and a probe that landed since would
-   * be invisible to the very click that needs it. `probed` is what redraws.
-   */
-  const renders = useRef(new Map<string, string | null>());
-  const [probed, setProbed] = useState(0);
-  /** The same map, as something the RENDER may read: a ref mutated in place would not redraw
-   *  the row whose probe just landed. `probed` is the bump that rebuilds this. */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `probed` is the trigger — see above
-  const renderOf = useMemo(() => new Map(renders.current), [probed]);
-
-  /** The audio inside the song's folder, probing for a chain's render if that is what it is. */
+   *  It used to PROBE as well: a chain variant named a treatment rather than a file, so this
+   *  asked the library whether the bounce was sitting beside the master, cached the answer, and
+   *  drew "pas encore rendue" on the rows with none. Chains left the catalogue — a version is
+   *  its own file or it is missing — so the whole probe went with them. */
   const audioFor = useCallback(
-    async (r: ResolvedItem): Promise<string | null> => {
-      if (!r.song || !r.take) return null;
-      if (r.take.file) return r.take.file;
-      if (r.take.kind !== "chain") return null;
-      const key = renderKey(r.song, r.take.name);
-      const known = renders.current.get(key);
-      if (known !== undefined) return known;
-      // Two names and not one: the bounce lands as mp3 or wav depending on whether that
-      // machine had ffmpeg (see songTakes.ts's renderNames).
-      let found: string | null = null;
-      for (const name of renderNames(r.take.name))
-        if (await library.exists(`${r.song.path}/${name}`)) {
-          found = name;
-          break;
-        }
-      renders.current.set(key, found);
-      setProbed((n) => n + 1);
-      return found;
-    },
+    async (r: ResolvedItem): Promise<string | null> => r.take?.file ?? null,
     [],
   );
-
-  // Probe every chain row up front, so a row says "pas encore rendue" before it is clicked
-  // rather than after. One request per version, and only for the versions that are chains.
-  //
-  // Keyed on the chain rows THEMSELVES as a string: `rows` is rebuilt whenever the text on the
-  // left changes — every keystroke — and naming it here would re-probe the library on each one.
-  const chainKey = rows
-    .filter((r) => r.song && r.take?.kind === "chain")
-    .map((r) => renderKey(r.song as MediatekEntry, r.take?.name ?? ""))
-    .join("|");
-  // biome-ignore lint/correctness/useExhaustiveDependencies: chainKey IS the dependency — see above
-  useEffect(() => {
-    let alive = true;
-    void (async () => {
-      for (const r of rows)
-        if (alive && r.take?.kind === "chain") await audioFor(r);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [chainKey, audioFor]);
 
   /**
    * The cache's absolute root on the engine's machine, when that is where this will play.
@@ -462,16 +407,7 @@ export function PlaylistPane({
               const problem = itemProblem(r, songs !== null);
               // A chain that has been probed and has no render: audio that does not exist yet,
               // which is a different sentence from a variant that does not exist at all.
-              const key =
-                r.song && r.take ? renderKey(r.song, r.take.name) : "";
-              const unrendered =
-                !problem &&
-                r.take?.kind === "chain" &&
-                renderOf.get(key) === null;
-              const waiting =
-                !problem &&
-                r.take?.kind === "chain" &&
-                renderOf.get(key) === undefined;
+              const missing = !problem && r.take?.kind === "missing";
               const playingHere = mine && current === i && playback.playing;
               const loadedHere = mine && current === i;
               return (
@@ -491,22 +427,20 @@ export function PlaylistPane({
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 shrink-0"
-                    disabled={!!problem || unrendered || waiting || noCache}
-                    title={problem || (unrendered ? "pas encore rendue" : "")}
+                    disabled={!!problem || missing || noCache}
+                    title={problem || (missing ? "fichier introuvable" : "")}
                     onClick={() => toggleRow(i)}
                   >
                     {playingHere ? (
                       <Pause className="h-3.5 w-3.5" />
-                    ) : waiting ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Play className="h-3.5 w-3.5" />
                     )}
                   </Button>
-                  {/* A file variant and a chain variant are different things to go looking
-                      for, so they wear the two glyphs SongVariants already draws. */}
-                  {r.take?.kind === "chain" ? (
-                    <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  {/* The same glyphs SongVariants draws, so a row here and a row there read
+                      as the same thing. */}
+                  {r.take?.kind === "missing" ? (
+                    <FileQuestion className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   ) : r.take?.kind === "file" ? (
                     <AudioLines className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   ) : (
@@ -526,12 +460,12 @@ export function PlaylistPane({
                     <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-destructive">
                       {problem}
                     </span>
-                  ) : unrendered ? (
+                  ) : missing ? (
                     <span
-                      className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
-                      title="le bouton « Process » sous les variantes du morceau la rend"
+                      className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-destructive"
+                      title="le sidecar déclare ce fichier et le dossier ne l'a pas"
                     >
-                      pas encore rendue
+                      introuvable
                     </span>
                   ) : null}
                 </li>

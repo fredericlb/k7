@@ -987,7 +987,15 @@ export function AudioClipPanel({
                 envelope={{ intervalMs: wf.intervalMs, samples: wf.rms }}
                 duration={wf.seconds}
                 height={waveH}
-                currentTime={0}
+                // The head of what THIS EVENT plays, in file seconds — not the file's own zero.
+                //
+                // The canvas maps `currentTime` through `timeToX`, which is file seconds, and this
+                // was `0`. That read correctly for every clip whose window starts at the file's
+                // head, which is every clip until one is trimmed or SPLIT: a split's tail opens at
+                // the cut, so the line landed a whole window to the left — out in the bar of
+                // context `frameOnEvent` leaves either side, rather than at the start of the lit
+                // band. `act` is that window, already intersected by the compiler.
+                currentTime={act.from}
                 // The project's bars and beats, straight from the same endpoint — WebWaveformGrid and
                 // the canvas's WaveformGrid are the same three fields, so no translation is needed.
                 gridLines={wf.grid}

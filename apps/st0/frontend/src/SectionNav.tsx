@@ -4,19 +4,18 @@
 
 import type { AppHeaderItem } from "@frediverse/ui/app-header";
 import { RECORDINGS_DIR } from "@studio/mediatek/types";
-import {
-  Boxes,
-  Disc3,
-  ListMusic,
-  type LucideIcon,
-  Mic,
-  Waves,
-  Workflow,
-} from "lucide-react";
+import { Disc3, ListMusic, type LucideIcon, Mic, Waves } from "lucide-react";
 import type { SectionId } from "./routes";
 
 /**
- * Les sections : les cinq familles, et la zone de captures brutes.
+ * Les sections : les trois familles, et la zone de captures brutes.
+ *
+ * TROIS sont parties ensemble, et pour une seule raison : elles parlaient d'ÉCRITURE, et on
+ * écrit dans l8.
+ *
+ * MODULES et CHAÎNES sont parties avec l'édition : un module s'écrit contre un projet où le
+ * greffon qu'il nomme est réellement CHARGÉ, et se committe dans le dépôt de bibliothèques du
+ * compte. Ce volume n'en tient plus aucun.
  *
  * PROJETS ouvrait la marche, et l'app y démarrait. Les dépôts sont la page d'accueil de l8
  * maintenant — c'était la section la plus éloignée de ce volume, la seule qui n'était pas
@@ -25,14 +24,12 @@ import type { SectionId } from "./routes";
  *
  * ENREGISTREMENTS n'est pas une famille non plus — c'est un dossier à la racine, sans entrée
  * de catalogue et sans listing à demander à `/list`. Il est ici parce que l'écran s'organise
- * par ce qu'on regarde, et ce qu'on regarde est une cinquième chose.
+ * par ce qu'on regarde, et ce qu'on regarde est une chose de plus.
  * Voir packages/mediatek/docs/recordings.md.
  */
 export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
-  { id: "modules", label: "Modules", icon: Boxes },
-  { id: "chains", label: "Chaînes", icon: Workflow },
   { id: "playlists", label: "Playlists", icon: ListMusic },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];

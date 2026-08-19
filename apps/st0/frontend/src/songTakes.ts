@@ -8,10 +8,6 @@ import type { MediatekEntry } from "@studio/mediatek/types";
  *  the one the others are versions OF. */
 export const ORIGINAL = "Original";
 
-/** The two extensions a bounce can come back as — mp3 when that machine has ffmpeg, wav when it
- *  has not (see engine/chainPreview.ts's `bounce`). In order of preference. */
-const RENDER_EXT = ["mp3", "wav"];
-
 /**
  * One tab of the player: a version of the song, and the audio it is.
  *
@@ -23,18 +19,18 @@ const RENDER_EXT = ["mp3", "wav"];
 export interface Take {
   /** Its label, and its identity in the strip: the sidecar's key, or `ORIGINAL`. */
   name: string;
-  kind: "master" | "file" | "chain";
-  /** The audio's name INSIDE the song's folder. Null for a chain nobody has rendered — a state
-   *  the pane words, not a fault. */
+  kind: "master" | "file" | "missing";
+  /** The audio's name INSIDE the song's folder. Null when the sidecar names a file the folder
+   *  has not got — a state the pane words, not a fault. */
   file: string | null;
 }
 
 /**
  * A song's versions, in the sidecar's own order and the master always first.
  *
- * A FILE variant already names its bytes: `ref` is a file name in this folder, which is what
- * makes it a file variant at all (packages/mediatek/docs/variants.md). A CHAIN names a treatment
- * instead, so it arrives with no file — see `renderNames` for what one would be called.
+ * A variant names its bytes: `ref` is a file name in this folder, which is what makes it a
+ * variant at all (packages/mediatek/docs/variants.md). One naming a file the folder has not got
+ * arrives as `missing` and with no file — which is what a chain-backed variant now reads as.
  *
  * The master's own file may be absent: a folder can carry a sidecar and no audio, which the scan
  * allows on purpose. Its tab is drawn anyway, because a song whose master is missing is
@@ -52,14 +48,6 @@ export function takesOf(entry: MediatekEntry): Take[] {
   ];
 }
 
-/**
- * What a chain variant's render would be called, beside the master.
- *
- * Two names and not one: the bounce is filed under the extension it actually came back as, so a
- * machine with no ffmpeg leaves a `.wav` where a `.mp3` was asked for (SongVariants.tsx). The
- * catalogue cannot help here — a song's entry carries no file list, and the sidecar still names
- * the chain — so the player asks the library for each in turn.
- */
-export function renderNames(variant: string): string[] {
-  return RENDER_EXT.map((ext) => `${variant}.${ext}`);
-}
+// `renderNames` stood here: the two names a chain variant's bounce could have taken beside
+// the master (`.mp3`, or `.wav` on a machine with no ffmpeg). Nothing bounces any more — the
+// chains that were bounced left the catalogue — so a variant is its own file or it is missing.

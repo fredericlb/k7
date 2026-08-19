@@ -3,23 +3,26 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The six things the header offers, plus two sections with NO TAB, each reached by a button
+/** The four things the header offers, plus two sections with NO TAB, each reached by a button
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
  *  des morceaux », opened from Morceaux). `recordings` is a section and not a family — see
  *  Library.tsx. A section id may not collide with a path the proxy claims above st0's catch-all
- *  (`/l8`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see docs/routing.md.
+ *  (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see docs/routing.md.
  *
- *  `projects` was a seventh, and the app's default: the account's git repositories, their
- *  projects, the libraries, the deploy key and the shares. All of it is l8's home page now —
- *  the médiathèque is what a project draws ON, and the level above a project belongs to the
- *  editor that opens one. What did NOT move is the backend: `/api/projects` and `/api/shares`
- *  are still this service's, and l8 calls them across the origin. See
- *  apps/l8/frontend/docs/projects.md. */
+ *  THREE sections left, and all three for one reason: they were about AUTHORING, and authoring
+ *  happens in l8. `modules` and `chains` went with the editing — a module is written against a
+ *  project where the plugin it names is actually LOADED, and committed to the account's library
+ *  repository. `projects` went with the level above a project, which belongs to the editor that
+ *  opens one: the repositories, the libraries, the deploy key and the shares, and this app's
+ *  DEFAULT section at the time. What is left here is the catalogue, which is what a project
+ *  draws ON.
+ *
+ *  What did NOT move is the backend: `/api/projects` and `/api/shares` are still this service's,
+ *  and l8 calls them across the origin. An address under any of the three now falls through to
+ *  the default like any other unknown path. See apps/l8/frontend/docs/projects.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
-  "modules",
-  "chains",
   "playlists",
   "recordings",
   "engine",
@@ -31,12 +34,14 @@ export type SectionId = (typeof SECTION_IDS)[number];
  * The sections whose address carries a second half — everything else is a listing, and a path
  * under one of those names nothing.
  *
- * A LIST rather than four `head === …` tests, because it stopped being two: `chains` opened an
- * editor and pushed `/chains/x/chains.yaml`, which read back as the bare section and shut the
- * editor a tick later — the loop useLibraryRoute exists to avoid, entered through the one door
- * it does not guard, a URL the app writes and cannot read. `songs` now opens one too.
+ * A LIST rather than two `head === …` tests, because it has changed size three times now:
+ * `chains` once opened an editor and pushed `/chains/x/graph.yaml`, which read back as the bare
+ * section and shut the editor a tick later — the loop useLibraryRoute exists to avoid, entered
+ * through the one door it does not guard, a URL the app writes and cannot read. That section is
+ * gone, and so are `modules` and `projects`; the shape of the mistake is why this is a list and
+ * not a pair of tests that would have to be found and edited each time.
  */
-const CARRIES: readonly string[] = ["songs", "modules", "chains", "playlists"];
+const CARRIES: readonly string[] = ["songs", "playlists"];
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);

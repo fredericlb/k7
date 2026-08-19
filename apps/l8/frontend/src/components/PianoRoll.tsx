@@ -18,7 +18,7 @@ import {
   useState,
 } from "react";
 import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
-import { clipLoop } from "../clipLoop";
+import { clipLoop, playedZone } from "../clipLoop";
 import {
   type ClipGridHandle,
   colSpan,
@@ -157,11 +157,12 @@ export function PianoRoll({
    * The window THIS EVENT plays, and the one question every edit here asks.
    *
    * The same split the audio clip panel draws: the canvas is everywhere the wheel may roam, `act`
-   * is the slice being worked on. A note outside it does not sound — the engine plays the window —
-   * so it is drawn dimmed, as context, and refused as a target. Null for a clip that states no
-   * window, where the whole sequence IS the event.
+   * is the slice being worked on. A note outside it does not sound — the engine plays the window,
+   * and past the placement's end it plays nothing at all — so it is drawn dimmed, as context, and
+   * refused as a target. Null only for an UNPLACED clip, a sequence file being written, where
+   * there is no placement and the whole file is the material. See `playedZone`.
    */
-  const act = loop ? { from: loop.from, to: loop.to } : null;
+  const act = playedZone(clip);
   const inAct = (beat: number) =>
     !act || (beat >= act.from - 1e-6 && beat <= act.to + 1e-6);
   // A note belongs to the event when it SOUNDS in it — the same overlap test the compiler uses,

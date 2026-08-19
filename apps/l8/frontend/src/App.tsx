@@ -364,7 +364,28 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
-  const [status, setStatus] = useState("");
+  const [statusLine, setStatusLine] = useState<{
+    text: string;
+    refused: boolean;
+  }>({ text: "", refused: false });
+  const status = statusLine.text;
+  /**
+   * Say something on the status line — and, by saying it this way, say it is NOT a refusal.
+   *
+   * Wrapping the setter rather than threading a second argument through the forty call sites:
+   * every one of them means "here is what happened", and the one place that can mean "here is why
+   * I would not" is `runCommand`, below. So the flag clears itself everywhere else, and cannot be
+   * left stale by a message that came after a refusal.
+   */
+  const setStatus = useCallback(
+    (text: string) => setStatusLine({ text, refused: false }),
+    [],
+  );
+  /** …and the other half: a command was understood and declined. `runCommand` is its one caller. */
+  const setRefusal = useCallback(
+    (text: string) => setStatusLine({ text, refused: true }),
+    [],
+  );
   const [reloadKey, setReloadKey] = useState(0);
   // Bumped when `graph organize` runs: the graph hosts hold every drawn node in place across
   // ordinary edits, and this is the one signal that lets dagre re-lay out everything.
@@ -1936,9 +1957,15 @@ export default function App({
           pushLog("cmd", `› ${ensure}`);
           await api.command(ensure);
         }
-        const { output, graph } = await api.command(s);
-        setStatus(output.length ? output.join("  ·  ") : `ran: ${s}`);
-        for (const o of output) pushLog("info", o);
+        const { output, refused, graph } = await api.command(s);
+        // A refusal is neither a success nor a failure, and until it had its own channel it was
+        // recorded as the first: `event join` declining a pair of different materials reached this
+        // line in the same colour as "3 events consolidated", and the journal filed both as
+        // `info`. Which is how a verb that said no, out loud, got reported as doing nothing.
+        const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
+        if (refused) setRefusal(said);
+        else setStatus(said);
+        for (const o of output) pushLog(refused ? "refused" : "info", o);
         // The graph the service built while we waited, present only when the command changed
         // something. Handed to the canvas so it draws this instead of fetching and re-parsing what
         // the service has just parsed — see ChainsTab's `seedGraph`.
@@ -2033,6 +2060,11 @@ export default function App({
     x: number;
     y: number;
   } | null>(null);
+  // What the entry under the pointer DOES, borrowing the status line for as long as the menu is
+  // open. Its own state and not `setStatus`: the status line carries what the app last DID, and a
+  // sentence read on the way past must not survive the menu it was read in, nor bury what was
+  // there before it. See ContextMenu.tsx's `onHint`.
+  const [menuHint, setMenuHint] = useState("");
   const prewriteCommand = useCallback(
     (text: string) => {
       // Docked, the bar is already mounted: write into it. The deferral below exists only for
@@ -2077,6 +2109,10 @@ export default function App({
   // the state directly would pin whatever it was on the first render.
   const cmdPrefs = useRef<CommandPrefs>({});
   cmdPrefs.current = commandPrefs;
+  // …and the language, for the third time: the entries' descriptions are resolved when the menu
+  // opens, so the one it reads has to be the one on screen at that moment.
+  const cmdLocale = useRef(locale);
+  cmdLocale.current = locale;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
     // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
     // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
@@ -2086,7 +2122,12 @@ export default function App({
       ctx.kind === "module" && ctx.id.startsWith("@engine/")
         ? { ...ctx, ambient: true }
         : ctx;
-    const items = contextMenu(full, cmdCatalogue.current, cmdPrefs.current);
+    const items = contextMenu(
+      full,
+      cmdCatalogue.current,
+      cmdPrefs.current,
+      cmdLocale.current,
+    );
     if (items.length) setMenu({ items, x, y });
   }, []);
   /**
@@ -2119,18 +2160,25 @@ export default function App({
         // any other — they ARE an alternative, and hiding them would leave no way back to them.
         ...names.map((name) => ({
           label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
+          description:
+            name === current
+              ? "The settings this node is playing now"
+              : `Play this node with the "${name}" settings instead`,
           command: `node alternative select ${module} ${name}`,
           complete: true,
           verb: "node alternative select",
         })),
         {
           label: "New alternative…",
+          description:
+            "Add another set of settings, starting from the module's own",
           command: `node alternative create ${module} `,
           complete: false,
           verb: "node alternative create",
         },
         {
           label: "Copy this one…",
+          description: "Add another set of settings, copied from the one on",
           command: `node alternative copy ${module} `,
           complete: false,
           verb: "node alternative copy",
@@ -2148,6 +2196,10 @@ export default function App({
                   n.frozen === "at"
                     ? "Unfreeze"
                     : "Freeze (bake everything upstream)",
+                description:
+                  n.frozen === "at"
+                    ? "Go back to playing this node live"
+                    : "Render everything upstream to a file, and play that",
                 command: `node freeze ${module}`,
                 complete: true,
                 verb: "node freeze",
@@ -3514,7 +3566,20 @@ export default function App({
                 connected ? "engine connected" : "engine disconnected"
               }
             />
-            <span className="truncate">{status || project?.root}</span>
+            {/* The open menu speaks FIRST, and only while it is open: a right-click menu names its
+                commands and says no more, so this is where the sentence about the one you are
+                pointing at goes. It borrows the line rather than writing it — closing the menu
+                gives back whatever the app last said. */}
+            <span
+              className={cn(
+                "truncate",
+                // Only when the app's OWN last word was a refusal: a menu hint borrows this line
+                // and is nobody's verdict, so it must not inherit the colour of one.
+                !menuHint && statusLine.refused && "text-amber-400",
+              )}
+            >
+              {menuHint || status || project?.root}
+            </span>
             {/* The play button spins for this too — it is the control being blocked, and the one you are reaching
                 for when it matters. This line stays because it NAMES what is being waited for, which a spinner on
                 a button cannot. engineBusy gets no line of its own: same meaning, and it is usually too brief to
@@ -3787,6 +3852,9 @@ export default function App({
             x={menu.x}
             y={menu.y}
             onPick={pickMenuItem}
+            // What the row under the pointer does, into the status line. Stable, because the menu
+            // also calls it from an unmount cleanup — see ContextMenu.tsx.
+            onHint={setMenuHint}
             onClose={() => setMenu(null)}
           />
         )}

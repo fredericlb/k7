@@ -27,7 +27,7 @@ const HELLS = song("AC-DC/Back in Black/Hells Bells");
 const LITHIUM = song("Nirvana/Nevermind/Lithium", {
   variants: [
     { name: "instrumental", ref: "instrumental.wav", kind: "file" },
-    { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "chain" },
+    { name: "sans-voix", ref: "blindtest/vocal-strip", kind: "missing" },
   ],
 });
 const LIBRARY = [HELLS, LITHIUM];
@@ -65,7 +65,7 @@ describe("resolveItems", () => {
     expect(file.take).toMatchObject({ kind: "file", file: "instrumental.wav" });
     // A chain variant is audio only once rendered — no file here, and no problem either: the
     // pane probes the library for the render rather than refusing on these two lists alone.
-    expect(chain.take).toMatchObject({ kind: "chain", file: null });
+    expect(chain.take).toMatchObject({ kind: "missing", file: null });
     expect(itemProblem(chain, true)).toBe("");
   });
 

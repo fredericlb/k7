@@ -129,7 +129,7 @@ describe("a lane, read off what it extends", () => {
     const doc = compileNodeProject(p);
     const gtr = doc.tracks.find((t) => t.id === "gtr");
     expect(gtr?.contentType).toBe("audio");
-    expect(gtr?.clips.map((c) => c.id)).toEqual(["riff"]);
+    expect(gtr?.clips.map((c) => c.name)).toEqual(["riff"]);
   });
 });
 

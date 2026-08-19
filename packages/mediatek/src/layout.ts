@@ -21,8 +21,6 @@ export const SCHEMA_VERSION = 1;
 export const FAMILY_DIRS: Record<Family, string> = {
   songs: "songs",
   samples: "samples",
-  modules: "modules",
-  chains: "chains",
   playlists: "playlists",
 };
 
@@ -47,40 +45,10 @@ export { RECORDINGS_DIR };
 /** Samples split by what plays them, which is also what can read them. */
 export const SAMPLE_KINDS = ["audio", "video"] as const;
 
-/**
- * The library's OWN namespace, written into `modules/config.yaml` when the folder is laid out.
- *
- * DESCRIPTIVE, not load-bearing: nothing reads this file back to resolve a ref. `@studio/song`
- * decides a level from WHERE a root sits (`moduleNamespaceOf`), precisely so a declaration
- * could not disagree with the disk — see that package's docs/moduleNamespaces.md for the two
- * ways it used to. So the line is a note to whoever opens the folder, and it must say the same
- * word the loader does.
- *
- * `st0` after the app that serves the library. It said `mediatek` while that app was
- * `apps/mediatek`, and a library laid out before the rename still says so on disk: harmless
- * where nothing reads it, and corrected by rewriting the one line.
- */
-export const MODULES_CONFIG = "config.yaml";
-export const DEFAULT_NAMESPACE = "st0";
-
-/**
- * The module type FOLDERS this library has on disk.
- *
- * Deliberately not `MODULE_CATEGORIES` from `@studio/graph-model`, and one short of it: that
- * list is the drawing vocabulary and includes `midi`, the legacy name a chain may READ for
- * `transformers`. It is never a directory to create or walk, so it has no place here. The two
- * answer different questions and only look like the same list.
- *
- * This package stays free of the graph model on purpose — it is the disk, below it.
- */
-export const MODULE_TYPES = [
-  "io",
-  "instruments",
-  "audio",
-  "transformers",
-  "video_effects",
-  "video_transitions",
-] as const;
+// Two things stood here and left with the `modules` family: the library's own NAMESPACE
+// (`modules/config.yaml`, descriptive only — `@studio/song` decides a level from where a root
+// SITS), and `MODULE_TYPES`, the type folders this volume laid out. Modules are authored in l8
+// and committed to the account's library repository; this volume holds no `modules/` at all.
 
 export function familyDir(family: Family): string {
   return join(mediatekDir(), FAMILY_DIRS[family]);
@@ -138,40 +106,12 @@ export function ensureLayout(): string {
       "utf8",
     );
 
-  // The namespace, once, at creation. Written only when absent — the same discipline as the
-  // marker above, and for a sharper reason: this string is the prefix every ref in every
-  // project is keyed by, so rewriting it would rename modules out from under the songs that
-  // name them. See `libraryNamespace`.
-  const modulesConfig = join(root, FAMILY_DIRS.modules, MODULES_CONFIG);
-  if (!existsSync(modulesConfig))
-    writeFileSync(
-      modulesConfig,
-      `# What chains name this library's modules by: @${DEFAULT_NAMESPACE}/<type>/<name>.\n` +
-        `# Changing it renames every module for every project that inherits them.\n` +
-        `namespace: ${DEFAULT_NAMESPACE}\n`,
-      "utf8",
-    );
-  return root;
-}
+  // A `modules/config.yaml` was written here, declaring the namespace chains name this
+  // library's modules by (`@st0/<type>/<name>`). It went with the family: modules live in the
+  // account's library repository now, and the prefix is `@st0` wherever a ref is parsed
+  // (`@studio/song`'s moduleTypes.ts) rather than a line on this volume.
 
-/**
- * What chains name this library's modules by, or "" when it has never been laid out.
- *
- * Read as a plain line rather than parsed, like `schemaVersion` and for the same reason:
- * this is consulted to describe the folder, sometimes before anything trusts its shape.
- */
-export function libraryNamespace(): string {
-  try {
-    const m = /^namespace:\s*["']?([\w-]+)["']?\s*$/m.exec(
-      readFileSync(
-        join(mediatekDir(), FAMILY_DIRS.modules, MODULES_CONFIG),
-        "utf8",
-      ),
-    );
-    return m ? m[1] : "";
-  } catch {
-    return "";
-  }
+  return root;
 }
 
 /** The declared schema version, or 0 when there is no readable marker. Read as a plain

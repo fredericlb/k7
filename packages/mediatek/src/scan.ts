@@ -6,7 +6,7 @@
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { familyDir, MODULE_TYPES, SAMPLE_KINDS, toRel } from "./layout.ts";
+import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
 import { PLAYLIST_EXT, parsePlaylist } from "./playlist.ts";
 import {
@@ -43,50 +43,6 @@ function dirents(abs: string): Dirent[] {
   } catch {
     return [];
   }
-}
-
-/** How deep an `assets/` walk goes. The same cap `listModuleAssets` uses, and for the same
- *  reason: a pathological tree must not be able to hang a listing request. */
-const ASSETS_MAX_DEPTH = 6;
-
-/**
- * What a module carries, as `assets/`-relative POSIX paths, sorted.
- *
- * RECURSIVE, and nested rather than flattened, because that is how this material arrives: a NAM
- * pack is a folder per amp, an IR pack a folder per cabinet. The measured case is
- * `audio/amps/guitar`, whose four folders and twenty-two files this used to report as an empty
- * list — every one of them on disk, and none of them anywhere on screen.
- *
- * The same shape `@studio/song`'s `listModuleAssets` returns, on purpose, so a path a tree
- * shows is a path a `params:` may name. What differs is the filter: that one keeps the
- * extensions a file-valued param accepts, this one keeps EVERYTHING, because a tree that hid
- * the `.wav` beside the `.nam` would be lying about the folder.
- *
- * A folder holding no file at any depth is reported with a TRAILING SLASH. Nothing else would
- * mention it — a folder is otherwise implied by the paths under it — and `scanUnlisted` states
- * the same rule one level up: a "Nouveau dossier…" that answers 200 and appears nowhere reads
- * as the call having done nothing at all.
- */
-function assetsOf(moduleAbs: string): string[] {
-  const out: string[] = [];
-  const walk = (abs: string, rel: string, depth: number): void => {
-    const before = out.length;
-    for (const e of dirents(abs)) {
-      const child = rel ? `${rel}/${e.name}` : e.name;
-      // Past the cap a folder is named rather than descended into: the row is still true, and
-      // it says there is something there to go and look at.
-      if (e.isDirectory())
-        depth < ASSETS_MAX_DEPTH
-          ? walk(join(abs, e.name), child, depth + 1)
-          : out.push(`${child}/`);
-      else if (e.isFile()) out.push(child);
-    }
-    // Nothing came out of this folder, so nothing else would ever mention it. A folder with
-    // children needs no such row — its own path is a prefix of theirs.
-    if (rel && out.length === before) out.push(`${rel}/`);
-  };
-  walk(join(moduleAbs, ASSETS_DIR), "", 0);
-  return out.sort();
 }
 
 function mtimeOf(abs: string): number {
@@ -168,7 +124,7 @@ function readVariants(
     out.push({
       name,
       ref,
-      kind: files.has(ref.toLowerCase()) ? "file" : "chain",
+      kind: files.has(ref.toLowerCase()) ? "file" : "missing",
     });
   }
   return out;
@@ -260,134 +216,9 @@ function scanSamples(): MediatekEntry[] {
   return out;
 }
 
-/**
- * Modules: any folder under `modules/<type>/` that HOLDS a `module.yaml`, at whatever depth.
- *
- * The rule is the file and nothing else. This used to read exactly two depths, mirroring the
- * one-category shape `readModuleTree` accepts — which made the folders between a type and a
- * module a fixed, invisible grammar: you could not nest a third level, and dragging a module
- * into one made it vanish from the catalogue. Depth is now the library's business and not the
- * scan's; a folder is a folder, and a module is a folder with a module file in it.
- *
- * Only modules are listed. A folder holding no module file is a FOLDER, and the catalogue is a
- * list of modules — it used to carry those too, flagged `catalogued: false`, which put a row in
- * the middle pane for something nobody authored and counted it in the Modules tab. They still
- * reach a tree, by the route made for exactly this: `scanUnlisted` reports what no entry accounts
- * for, so an empty folder is drawn without being catalogued. See its own note on the difference
- * between a folder that IS an entry and one merely on the way to one.
- */
-function scanModules(): MediatekEntry[] {
-  const out: MediatekEntry[] = [];
-  const root = familyDir("modules");
-  const isModuleDir = (abs: string): boolean =>
-    dirents(abs).some((f) => f.isFile() && f.name === MODULE_FILE);
-
-  const push = (abs: string, type: string, sub: string): void => {
-    const files = dirents(abs);
-    const assets = assetsOf(abs);
-    out.push({
-      family: "modules",
-      id: toRel(abs),
-      name: sub.split("/").pop() ?? sub,
-      path: toRel(abs),
-      kind: type,
-      mtime: newestUnder(abs),
-      // What is ACTUALLY in the folder, so a tree shows the nodes and sidecars rather
-      // than three fixed rows that may have nothing to do with what was dropped in.
-      files: files
-        .filter((f) => f.isFile())
-        .map((f) => f.name)
-        .sort(),
-      // …and what it LOADS. The only place the scan looks inside an entry, and what it finds is
-      // the entry's own material rather than more catalogue: nothing under `assets/` is ever an
-      // entry of its own, whatever depth it sits at. See `assetsOf`.
-      ...(assets.length ? { assets } : {}),
-      meta: {
-        catalogued: files.some((f) => f.isFile() && f.name === MODULE_FILE),
-        // Nodes live beside module.yaml as <node>.yaml — referenced as "<module>:<node>".
-        // The other two are the module ITSELF, and counting them read as more uses than there are.
-        nodes: files.filter(
-          (f) =>
-            f.isFile() &&
-            f.name.endsWith(".yaml") &&
-            f.name !== MODULE_FILE &&
-            f.name !== UI_FILE &&
-            f.name !== PRESETS_FILE,
-        ).length,
-      },
-    });
-  };
-
-  // Walk one folder under a type. A module ends the descent — what is inside one is its own
-  // files and its nodes, never more modules.
-  const visit = (abs: string, type: string, sub: string): void => {
-    if (isModuleDir(abs)) {
-      push(abs, type, sub);
-      return;
-    }
-    for (const d of dirents(abs))
-      if (d.isDirectory()) visit(join(abs, d.name), type, `${sub}/${d.name}`);
-  };
-
-  for (const type of MODULE_TYPES)
-    for (const e of dirents(join(root, type)))
-      if (e.isDirectory()) visit(join(root, type, e.name), type, e.name);
-  return out;
-}
-
-/**
- * Chains: any folder under `chains/` that HOLDS a `graph.yaml`, at whatever depth.
- *
- * The same rule modules follow, and the same reason — the file is what makes the folder, so
- * how deep you file it is your business and not the scan's. A chain is a TEMPLATE: the segments
- * in that file wire named nodes to each other, and the nodes themselves are files in
- * `nodes/` beside it. See docs/chains.md.
- */
-function scanChains(): MediatekEntry[] {
-  const out: MediatekEntry[] = [];
-  const root = familyDir("chains");
-  const isChainDir = (abs: string): boolean =>
-    dirents(abs).some((f) => f.isFile() && f.name === CHAINS_FILE);
-
-  const push = (abs: string, sub: string): void => {
-    const files = dirents(abs);
-    out.push({
-      family: "chains",
-      id: toRel(abs),
-      name: sub.split("/").pop() ?? sub,
-      path: toRel(abs),
-      // No subdivision of its own: a chain is a chain. `kind` is the family's own split, and
-      // chains have none — what they are FOR is decided by whoever reaches for one.
-      kind: "chain",
-      mtime: newestUnder(abs),
-      files: files
-        .filter((f) => f.isFile())
-        .map((f) => f.name)
-        .sort(),
-      meta: {
-        catalogued: true,
-        // The nodes the segments can name — the folder beside the file, counted so a
-        // listing says how big a template is without opening it.
-        nodes: dirents(join(abs, NODES_DIR)).filter(
-          (f) => f.isFile() && f.name.endsWith(".yaml"),
-        ).length,
-      },
-    });
-  };
-
-  // A chain ends the descent: `nodes/` is inside one, and nothing in there is a chain.
-  const visit = (abs: string, sub: string): void => {
-    if (isChainDir(abs)) {
-      push(abs, sub);
-      return;
-    }
-    for (const d of dirents(abs))
-      if (d.isDirectory()) visit(join(abs, d.name), `${sub}/${d.name}`);
-  };
-  for (const e of dirents(root))
-    if (e.isDirectory()) visit(join(root, e.name), e.name);
-  return out;
-}
+// `scanModules` was here, and `scanChains` below it. Both left with their families: a module
+// and a chain are authored in l8 and committed to the account's LIBRARY REPOSITORY, which is
+// a git repository somebody owns rather than a folder on this volume. See ../docs/index.md.
 
 /**
  * Playlists: every `*.yaml` FILE under `playlists/`, at whatever depth.
@@ -452,11 +283,7 @@ export function scanFamily(family: Family): MediatekEntry[] {
       ? scanSongs()
       : family === "samples"
         ? scanSamples()
-        : family === "chains"
-          ? scanChains()
-          : family === "playlists"
-            ? scanPlaylists()
-            : scanModules();
+        : scanPlaylists();
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 

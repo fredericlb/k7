@@ -5,20 +5,15 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-import type { FaceablePlugin } from "@studio/song/engineFace";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
-import { libraryModuleStore } from "@studio/ui-module-builder/library-store";
-import type { ModuleStore } from "@studio/ui-module-builder/store";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,
-  type Hints,
   type PublicEngine,
   USER_HEADER,
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
-import { mediatekModuleRefs } from "./moduleRefs";
 // Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
 // bundle: the preference SHAPE belongs beside the code that merges it.
 import type { St0Prefs } from "./prefs";
@@ -259,30 +254,9 @@ export const engineMachine = {
   // reads `~/.studio/preferences.yaml` for it. Nothing here asked for that file for any other
   // reason, so the route is simply not called from the médiathèque any more.
 
-  /**
-   * What this machine's engine has scanned.
-   *
-   * The whole record and not just the names: the ROLE decides a module's ports and the
-   * plugin's own category decides where it is filed, so giving every plugin a face needs
-   * both (see ../docs/completion.md's neighbour, `@studio/song`'s engineFace.ts). The names
-   * are derived here rather than fetched twice.
-   */
-  plugins: async (
-    fileBase: string,
-    token: string,
-  ): Promise<FaceablePlugin[]> => {
-    const res = await fetch(`${fileBase}/plugins`, {
-      headers: {
-        [USER_HEADER]: currentUser(),
-        [ENGINE_TOKEN_HEADER]: token,
-      },
-    });
-    const { plugins } = await json<{ plugins?: FaceablePlugin[] }>(
-      res,
-      "plugins",
-    );
-    return plugins ?? [];
-  },
+  // `plugins` stood here: the machine's whole plugin scan, fetched so every one of them could
+  // be given a module in the library. That pass is gone with the `modules` family; nothing on
+  // this screen asks a machine what it can load any more.
 
   /**
    * Quel espace de travail de cette machine tient déjà ce dépôt, ou `null`.
@@ -586,30 +560,10 @@ export const library = {
   list: (family: string) =>
     get<FamilyListing>(`/list?family=${encodeURIComponent(family)}`, "list"),
 
-  /** The library's own modules, as the refs a sibling's `extends:` may name — see
-   *  moduleRefs.ts. A listing read for its NAMES only; the tree is drawn elsewhere. */
-  baseModules: async (): Promise<string[]> =>
-    mediatekModuleRefs((await library.list("modules")).entries),
-
-  /**
-   * Give every plugin a machine has scanned a module here — the face that lets a chain name it
-   * and a panel be drawn for it.
-   *
-   * The scan travels in the REQUEST because it belongs to that machine and this backend is
-   * hosted somewhere else. One call for the whole pass, not one write per plugin: two hundred
-   * and fifty round-trips from a browser is a minute that can fail halfway. Idempotent — what
-   * is already faced is skipped there, by ref.
-   */
-  addEngineFaces: async (
-    plugins: FaceablePlugin[],
-  ): Promise<{ created: string[]; scanned: number }> => {
-    const res = await fetch(`${BASE}/api/mediatek/engine-faces`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plugins }),
-    });
-    return json<{ created: string[]; scanned: number }>(res, "engine-faces");
-  },
+  // `baseModules` and `addEngineFaces` stood here. Both went with the `modules` family: the
+  // first listed what a sibling's `extends:` could name, the second turned a machine's whole
+  // plugin scan into modules. A module is authored in l8 now, against a project where the
+  // plugin is actually loaded, and committed to the account's library repository.
 
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
@@ -654,44 +608,9 @@ export const library = {
    * to stop. See `moduleStore` at the bottom of this file.
    */
 
-  /**
-   * What the editor can complete against.
-   *
-   * A shadow of l8', and nearly empty: most of `Hints` describes a SONG — its tracks,
-   * clips, chains — and a library has none of those. Parameter names used to come from here;
-   * the engine reports them now (see engine/useModuleEngine), which is a better source anyway
-   * — it is the loaded plugin talking rather than a table about it. The asset list went the
-   * same way: a module's files live in its own `assets/`, so the builder reads them from the
-   * module rather than from a project-wide list nobody here could fill.
-   *
-   * `baseModules` is the exception, and it is only HALF of that field: the médiathèque's own
-   * modules, which a sibling may extend. The other half — what the engine provides, which is
-   * what these files actually say — is asked of the machine over its socket, because this
-   * backend serves a volume of files and has never seen a plugin scan. The builder merges the
-   * two. See ../docs/completion.md.
-   */
-  hints: async (): Promise<Hints> => {
-    return {
-      baseModules: await library.baseModules().catch(() => []),
-      ioSinks: [],
-      modules: [],
-      tracks: [],
-      channels: [],
-      clips: [],
-      videoTracks: [],
-      sequences: [],
-      chains: [],
-      moduleAssets: {},
-      paramsByBase: {},
-      paramMetaByBase: {},
-      racks: {},
-      keywords: [],
-      pluginNames: {},
-      paths: {},
-      projectRoot: "",
-      media: {},
-    };
-  },
+  // `hints` stood here: the completion vocabulary the module builder asked this backend for,
+  // of which one field was real — the library's own modules, as refs a sibling could extend.
+  // The builder left for l8, which fills the same shape from the open PROJECT.
 
   /** Drop OS files into `dir`. The File goes as the body: writeFile takes a string, which
    *  would corrupt every sample the moment one is dropped. */
@@ -867,26 +786,7 @@ export const library = {
   },
 };
 
-/**
- * The shared builder's view of this backend (`@studio/ui-module-builder/store`).
- *
- * Three calls handed to the SHARED library store, which derives the sidecars and answers the
- * rest: this screen and l8's Libraries tab read the same volume through the same routes, and
- * what differs between them is the origin and the credentials — not the shape of a module.
- * `write` never reports a redirection because there is none to report: the library is one
- * place, and the workspace a copy used to land in is now somebody else's machine.
- */
-export const moduleStore: ModuleStore = libraryModuleStore({
-  // A file the library hasn't got is `null`, not a throw: a module folder with no module.yaml
-  // yet is a real state here, and the builder opens on an empty buffer (see ModuleStore.read).
-  read: async (path) => {
-    try {
-      return (await library.readFile(path)).content;
-    } catch (e) {
-      if ((e as { status?: number }).status === 404) return null;
-      throw e;
-    }
-  },
-  write: (path, content) => library.writeFile(path, content),
-  hints: () => library.hints(),
-});
+// `moduleStore` stood here: this backend's three calls handed to `@studio/ui-module-builder`'s
+// shared store, so the médiathèque's Modules section and l8's Libraries tab drew the same
+// builder over the same volume. The section is gone and so is the volume's `modules/`; l8's
+// tab reads the account's library repository through its own file service instead.

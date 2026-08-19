@@ -41,7 +41,9 @@ export interface RollFit {
  *
  * **Without one**: frame what is USED, with a margin, on both axes — the time axis is the one that
  * had stopped doing so (it framed `[0, clip.length]`; measured on LEMO - DANSE, `da.dub`'s drums
- * opened with their notes filling 7% of the pane) — and let the canvas run to the placed extent.
+ * opened with their notes filling 7% of the pane) — and let the canvas run to the placed extent,
+ * and no further. Both branches stop at the material now: writing past the end of what a
+ * placement plays produces a note nothing sounds.
  */
 export function rollFit(
   notes: WebNote[],
@@ -113,7 +115,12 @@ export function rollFit(
     hiBeat,
     beats: Math.max(bar, hiBeat - loBeat),
     placedEnd,
-    canvasBeats: Math.ceil((hiBeat + Math.max(8 * bar, placedEnd)) / bar) * bar,
+    // Bounded by what the clip IS, exactly as the windowed branch above is bounded by its
+    // sequence — never past it. It used to add eight bars of room to write in beyond the end,
+    // which put a four-beat clip on a forty-beat canvas: nine empty bars you could roam into and
+    // drop a note that the placement would never play. A note outside the extent is not material
+    // half-in, it is material that does not sound.
+    canvasBeats: Math.ceil(Math.max(seqEnd, placedEnd, bar) / bar) * bar,
     origin: 0,
   };
 }

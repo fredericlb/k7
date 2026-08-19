@@ -9,10 +9,8 @@
 import { Button } from "@frediverse/ui/button";
 import {
   AudioLines,
-  Boxes,
   Command,
   DoorOpen,
-  ExternalLink,
   LogOut,
   Server,
   Settings,
@@ -20,7 +18,7 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { type AuthUser, api, MEDIATEK_URL } from "../api";
+import { type AuthUser, api } from "../api";
 import { m } from "../paraglide/messages.js";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
@@ -115,20 +113,6 @@ export function SettingsMenu({
             <Command className="h-4 w-4 text-muted-foreground" />
             Commandes
           </button>
-          {/* A LINK, not a screen: modules are catalogued and edited in the médiathèque
-              now, because it is the only editable library. A workspace's `_modules` is a
-              read-only copy, so there is nothing here to open a builder on. */}
-          <a
-            className={item}
-            href={MEDIATEK_URL}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setOpen(false)}
-          >
-            <Boxes className="h-4 w-4 text-muted-foreground" />
-            {m["settings.modules"]()}
-            <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
-          </a>
           <div className="my-1 border-t border-border" />
           {/* The engine is remembered on the ACCOUNT now, so this is the one way back to
               the picker — without it a choice made once could never be undone. */}

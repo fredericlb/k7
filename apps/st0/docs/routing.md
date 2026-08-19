@@ -9,15 +9,19 @@ The address now carries both, and reads exactly like the path on disk. st0 serve
 studio ORIGIN — it has no prefix of its own — so these are the whole address:
 
 ```
-/modules                                  the section
-/modules/audio/reverb/ui.yaml             …and the file the builder has open
-/modules/audio/filter/auto-wah/module.yaml a module under a category
+/songs                                    the section
+/songs/Miles/Kind of Blue/So What/song.yaml  …and the sidecar the editor has open
+/playlists/live/set.yaml                  a playlist, whose file IS the entry
 ```
 
 The first segment is the section, which is also the family folder's name — so the rest is
 the path **inside** that folder, once, rather than the section repeated. `routes.ts` is the
-whole mapping and knows nothing about how deep a module sits: it splits the head off and
-hands the rest along, which is why a category folder needed no change here.
+whole mapping and knows nothing about how deep a song sits: it splits the head off and
+hands the rest along, which is why an album folder needs no change here.
+
+> The examples were `/modules/…` for a year, and the section carrying the deepest paths was
+> `modules`. Both it and `chains` left the catalogue — a module is authored in l8 — so the
+> address space is three families now.
 
 ## Why `editing` is derived and not held
 

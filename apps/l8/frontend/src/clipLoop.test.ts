@@ -2,7 +2,12 @@
 // have different origins, which is the whole reason this is a module and not two inline sums.
 
 import { describe, expect, it } from "vitest";
-import { clipLoop, placedRepeats, visibleRepeats } from "./clipLoop";
+import {
+  clipLoop,
+  placedRepeats,
+  playedZone,
+  visibleRepeats,
+} from "./clipLoop";
 import type { WebClip } from "./types";
 
 const clip = (over: Partial<WebClip>): WebClip => ({
@@ -113,5 +118,27 @@ describe("placedRepeats", () => {
     const l = clipLoop(clip({ length: 80, loopStart: 0, loopEnd: 8 }));
     if (!l) throw new Error("fixture has a loop");
     expect(placedRepeats(l, 0.5)).toEqual([]);
+  });
+});
+
+describe("playedZone", () => {
+  it("is the WINDOW when the clip states one", () => {
+    expect(playedZone(clip({ length: 16, loopStart: 4, loopEnd: 8 }))).toEqual({
+      from: 4,
+      to: 8,
+    });
+  });
+
+  it("is the PLACEMENT's extent when it states none", () => {
+    // The case `event consolidate` produces: its window equals its content, so the compiler
+    // drops the range as saying nothing (`statedTo`) — and the roll was left with no band on an
+    // event that plainly has an extent. A note past `length` sounds nowhere.
+    expect(playedZone(clip({ length: 4 }))).toEqual({ from: 0, to: 4 });
+  });
+
+  it("is NOTHING for an unplaced clip — a sequence file being written", () => {
+    // No placement, so there is no "what this plays": the whole file is the material, and an
+    // edit anywhere in it is legitimate.
+    expect(playedZone(clip({ length: 0 }))).toBeNull();
   });
 });

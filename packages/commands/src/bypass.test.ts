@@ -61,6 +61,7 @@ const host = () =>
     project: () => ({ tracks: [] }),
     baseModules: [],
     log: (l: string[]) => logs.push(...l),
+    refuse: (l: string[]) => logs.push(...l),
     reload: () => {},
     showNativePluginUI: () => {},
   }) as never;

@@ -54,6 +54,7 @@ const host = () =>
     applyProject: () => {},
     baseModules: [],
     log: (l: string[]) => logs.push(...l),
+    refuse: (l: string[]) => logs.push(...l),
     reload: () => {
       reloaded++;
     },

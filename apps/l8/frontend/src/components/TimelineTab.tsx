@@ -664,7 +664,7 @@ export function TimelineTab({
        *
        * The same three values `feedEventsMove` sends, computed once here — but reported
        * unconditionally rather than only while the bar is filling `events move`, because a
-       * command can now be answered by the selection BEFORE its form exists (`event join`).
+       * command can now be answered by the selection BEFORE its form exists (`event consolidate`).
        * `tracks` keeps every lane the rectangle touched, including several: a verb that only
        * works on one has to be the one to say so.
        */
@@ -3032,6 +3032,12 @@ export function TimelineTab({
                                     proj.timeSigNumerator,
                                     proj.timeSigDenominator,
                                   ),
+                                  // …and the RECTANGLE, when one is drawn. A range verb takes a
+                                  // span, and the placement only says where it starts — so
+                                  // without this `event consolidate` reached the menu one
+                                  // argument short and the bar asked for the end that was
+                                  // already selected. The same value the palette reads.
+                                  sel: selRange,
                                 },
                                 e.clientX,
                                 e.clientY,

@@ -19,10 +19,11 @@ dit pourquoi ce service en est le bon dépositaire.
 Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où ils pèsent :
 
 1. **Le niveau au-dessus d'un projet appartient à ce qui ouvre un projet.** La médiathèque est
-   ce dont un morceau *se sert* — des samples, des modules, des chaînes. « Quels dépôts
+   ce dont un morceau *se sert* — des samples, des morceaux, des playlists. « Quels dépôts
    possède cette personne, et qu'y a-t-il dedans » n'est pas une question de catalogue ; c'est
    la première question de l'éditeur, celle à laquelle il faut répondre avant qu'il y ait quoi
-   que ce soit à éditer.
+   que ce soit à éditer. Les modules et les chaînes ont fait le même trajet, dans la même
+   semaine et pour la même raison : on les ÉCRIT, et on écrit ici.
 2. **La machine était déjà de ce côté-ci.** Créer et supprimer un projet passent par le service
    de fichiers du moteur — le miroir de st0 est bare et sans blobs, il ne peut rien écrire (et
    ne doit pas, voir sa page). La médiathèque devait donc tendre le bras vers une machine dont
@@ -31,10 +32,12 @@ Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où
 3. **Il n'y avait plus qu'un pas entre les deux écrans.** On choisissait un projet là-bas, on
    atterrissait ici. Une des deux pages était toujours de trop dans le trajet.
 
-Le corollaire est que la médiathèque a repris **Morceaux** comme section d'accueil, et que sa
-bande d'onglets est passée de sept à six. L'argument qui avait mis Projets en tête — « la
-première chose qu'on veut à une porte d'entrée, c'est son propre travail » — n'a pas perdu : il a
-déménagé avec l'écran.
+Le corollaire est que la médiathèque a repris **Morceaux** comme section d'accueil. Sa bande
+d'onglets est passée de sept à quatre dans la même semaine — Projets par ici, Modules et Chaînes
+par la même porte — et ce qui reste est exactement ce qu'on n'écrit pas dans un éditeur de
+texte : morceaux, samples, playlists, et la zone de captures. L'argument qui avait mis Projets en
+tête — « la première chose qu'on veut à une porte d'entrée, c'est son propre travail » — n'a pas
+perdu : il a déménagé avec l'écran.
 
 ## Ce que l'adresse dit, et ce qu'elle ne dit pas
 
@@ -115,11 +118,16 @@ Un seul, pas une liste : il est monté à un chemin fixe dans chaque espace de t
 dépôts qui réclament ce chemin est une question sans réponse. Une deuxième bibliothèque est un
 dossier DANS ce dépôt, pas un deuxième dépôt.
 
-**Un dépôt vide se remplit tout seul, une fois.** À la première ouverture d'un projet, la
-machine y recopie le catalogue que la médiathèque tient déjà — `modules/` et `chains/` — puis
-committe et pousse. Sans ça, un dépôt neuf casserait d'un coup toutes les références `@st0/…`
-de toutes les chansons déjà écrites. C'est le service de fichiers qui le fait et pas st0, pour
-la raison donnée dans sa page.
+**Un dépôt vide reçoit un commit vide, une fois.** À la première ouverture d'un projet, le
+service de fichiers fait la racine qui manque et la pousse (`initIfEmpty`). Ce n'est pas un
+détail de plomberie : un gitlink doit pointer SUR un commit, et un dépôt qu'on vient de créer
+dans une interface web n'en a aucun — `git submodule add` sur un HEAD non né échoue. Le dépôt
+est ensuite rempli par ici, à mesure qu'on y écrit des modules et des chaînes.
+
+> Il y a eu une SEMENCE à cet endroit : la machine y recopiait `modules/` et `chains/` depuis la
+> médiathèque, pour qu'un dépôt neuf ne casse pas d'un coup toutes les références `@st0/…` déjà
+> écrites. Ce volume n'en tient plus aucun — un module s'écrit dans l8 — donc il n'y a plus rien
+> à copier ni à migrer. Seul le commit reste, et c'est `initIfEmpty` et non `seedIfEmpty`.
 
 **En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
 leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que

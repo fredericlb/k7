@@ -32,7 +32,7 @@ function fakeOwner(
       ({
         songs: "",
         samples: "",
-        modules: opts.revision ?? "r1",
+        playlists: opts.revision ?? "r1",
       }) as Record<Family, string>,
     manifest: async (): Promise<Manifest> =>
       Object.entries(files)
@@ -66,22 +66,27 @@ const read = (rel: string) => readFileSync(join(root, rel), "utf8");
 describe("syncing a family", () => {
   it("fetches everything on a cold cache", async () => {
     const owner = fakeOwner({
-      "modules/instruments/synth/module.yaml": {
+      "playlists/instruments/synth/module.yaml": {
         body: "plugin: {}\n",
         mtime: 1,
       },
-      "modules/instruments/synth/lead.yaml": { body: "params: {}\n", mtime: 2 },
+      "playlists/instruments/synth/lead.yaml": {
+        body: "params: {}\n",
+        mtime: 2,
+      },
     });
-    const r = await syncFamily(owner, "modules");
+    const r = await syncFamily(owner, "playlists");
     expect(r.fetched.length).toBe(2);
     expect(r.failed).toEqual([]);
-    expect(read("modules/instruments/synth/module.yaml")).toBe("plugin: {}\n");
+    expect(read("playlists/instruments/synth/module.yaml")).toBe(
+      "plugin: {}\n",
+    );
   });
 
   it("fetches nothing the second time", async () => {
-    const owner = fakeOwner({ "modules/a.yaml": { body: "a\n", mtime: 1 } });
-    await syncFamily(owner, "modules");
-    const again = await syncFamily(owner, "modules");
+    const owner = fakeOwner({ "playlists/a.yaml": { body: "a\n", mtime: 1 } });
+    await syncFamily(owner, "playlists");
+    const again = await syncFamily(owner, "playlists");
     expect(again.fetched).toEqual([]);
     expect(again.dropped).toEqual([]);
   });
@@ -89,37 +94,37 @@ describe("syncing a family", () => {
   it("re-fetches a file the owner changed, on mtime alone", async () => {
     // The local copy has its own mtime and its own size may be identical; only the OWNER's
     // description moves, which is exactly what the remembered manifest exists to see.
-    const owner = fakeOwner({ "modules/a.yaml": { body: "a\n", mtime: 1 } });
-    await syncFamily(owner, "modules");
-    const moved = fakeOwner({ "modules/a.yaml": { body: "b\n", mtime: 9 } });
-    const r = await syncFamily(moved, "modules");
-    expect(r.fetched).toEqual(["modules/a.yaml"]);
-    expect(read("modules/a.yaml")).toBe("b\n");
+    const owner = fakeOwner({ "playlists/a.yaml": { body: "a\n", mtime: 1 } });
+    await syncFamily(owner, "playlists");
+    const moved = fakeOwner({ "playlists/a.yaml": { body: "b\n", mtime: 9 } });
+    const r = await syncFamily(moved, "playlists");
+    expect(r.fetched).toEqual(["playlists/a.yaml"]);
+    expect(read("playlists/a.yaml")).toBe("b\n");
   });
 
   it("drops what the owner no longer has", async () => {
     const owner = fakeOwner({
-      "modules/a.yaml": { body: "a\n", mtime: 1 },
-      "modules/b.yaml": { body: "b\n", mtime: 1 },
+      "playlists/a.yaml": { body: "a\n", mtime: 1 },
+      "playlists/b.yaml": { body: "b\n", mtime: 1 },
     });
-    await syncFamily(owner, "modules");
-    const fewer = fakeOwner({ "modules/a.yaml": { body: "a\n", mtime: 1 } });
-    const r = await syncFamily(fewer, "modules");
-    expect(r.dropped).toEqual(["modules/b.yaml"]);
-    expect(existsSync(join(root, "modules/b.yaml"))).toBe(false);
+    await syncFamily(owner, "playlists");
+    const fewer = fakeOwner({ "playlists/a.yaml": { body: "a\n", mtime: 1 } });
+    const r = await syncFamily(fewer, "playlists");
+    expect(r.dropped).toEqual(["playlists/b.yaml"]);
+    expect(existsSync(join(root, "playlists/b.yaml"))).toBe(false);
   });
 
   it("fetches only what a scope accepts", async () => {
-    // A machine caches the modules its songs reach for, not the whole catalogue.
+    // A machine caches the entries its songs reach for, not the whole catalogue.
     const owner = fakeOwner({
-      "modules/audio/wanted/module.yaml": { body: "w\n", mtime: 1 },
-      "modules/audio/other/module.yaml": { body: "o\n", mtime: 1 },
+      "playlists/audio/wanted/module.yaml": { body: "w\n", mtime: 1 },
+      "playlists/audio/other/module.yaml": { body: "o\n", mtime: 1 },
     });
-    const r = await syncFamily(owner, "modules", (p) =>
-      p.startsWith("modules/audio/wanted/"),
+    const r = await syncFamily(owner, "playlists", (p) =>
+      p.startsWith("playlists/audio/wanted/"),
     );
-    expect(r.fetched).toEqual(["modules/audio/wanted/module.yaml"]);
-    expect(existsSync(join(root, "modules/audio/other/module.yaml"))).toBe(
+    expect(r.fetched).toEqual(["playlists/audio/wanted/module.yaml"]);
+    expect(existsSync(join(root, "playlists/audio/other/module.yaml"))).toBe(
       false,
     );
   });
@@ -128,19 +133,19 @@ describe("syncing a family", () => {
     // The trap the scope has to avoid: narrowing `want` alone makes everything else look
     // like a file the owner deleted, and the first narrow sync empties the cache.
     const owner = fakeOwner({
-      "modules/audio/a/module.yaml": { body: "a\n", mtime: 1 },
-      "modules/audio/b/module.yaml": { body: "b\n", mtime: 1 },
+      "playlists/audio/a/module.yaml": { body: "a\n", mtime: 1 },
+      "playlists/audio/b/module.yaml": { body: "b\n", mtime: 1 },
     });
-    await syncFamily(owner, "modules");
-    const r = await syncFamily(owner, "modules", (p) =>
-      p.startsWith("modules/audio/a/"),
+    await syncFamily(owner, "playlists");
+    const r = await syncFamily(owner, "playlists", (p) =>
+      p.startsWith("playlists/audio/a/"),
     );
     expect(r.dropped).toEqual([]);
-    expect(existsSync(join(root, "modules/audio/b/module.yaml"))).toBe(true);
+    expect(existsSync(join(root, "playlists/audio/b/module.yaml"))).toBe(true);
     // …and it is still REMEMBERED, or the next full sync would fetch it all over again.
-    expect(heldManifest("modules").map((e) => e.path)).toEqual([
-      "modules/audio/a/module.yaml",
-      "modules/audio/b/module.yaml",
+    expect(heldManifest("playlists").map((e) => e.path)).toEqual([
+      "playlists/audio/a/module.yaml",
+      "playlists/audio/b/module.yaml",
     ]);
   });
 
@@ -148,45 +153,45 @@ describe("syncing a family", () => {
     // Downloaded to `.part` and renamed, because the moteur may be reading this tree.
     const owner = fakeOwner(
       {
-        "modules/ok.yaml": { body: "ok\n", mtime: 1 },
-        "modules/bad.yaml": { body: "bad\n", mtime: 1 },
+        "playlists/ok.yaml": { body: "ok\n", mtime: 1 },
+        "playlists/bad.yaml": { body: "bad\n", mtime: 1 },
       },
-      { failOn: "modules/bad.yaml" },
+      { failOn: "playlists/bad.yaml" },
     );
-    const r = await syncFamily(owner, "modules");
-    expect(r.fetched).toEqual(["modules/ok.yaml"]);
-    expect(r.failed.map((f) => f.path)).toEqual(["modules/bad.yaml"]);
-    expect(existsSync(join(root, "modules/bad.yaml"))).toBe(false);
-    expect(existsSync(join(root, "modules/bad.yaml.part"))).toBe(false);
+    const r = await syncFamily(owner, "playlists");
+    expect(r.fetched).toEqual(["playlists/ok.yaml"]);
+    expect(r.failed.map((f) => f.path)).toEqual(["playlists/bad.yaml"]);
+    expect(existsSync(join(root, "playlists/bad.yaml"))).toBe(false);
+    expect(existsSync(join(root, "playlists/bad.yaml.part"))).toBe(false);
   });
 
   it("remembers only what actually landed, so a failure is retried", async () => {
     const failing = fakeOwner(
       {
-        "modules/ok.yaml": { body: "ok\n", mtime: 1 },
-        "modules/bad.yaml": { body: "bad\n", mtime: 1 },
+        "playlists/ok.yaml": { body: "ok\n", mtime: 1 },
+        "playlists/bad.yaml": { body: "bad\n", mtime: 1 },
       },
-      { failOn: "modules/bad.yaml" },
+      { failOn: "playlists/bad.yaml" },
     );
-    await syncFamily(failing, "modules");
-    expect(heldManifest("modules").map((e) => e.path)).toEqual([
-      "modules/ok.yaml",
+    await syncFamily(failing, "playlists");
+    expect(heldManifest("playlists").map((e) => e.path)).toEqual([
+      "playlists/ok.yaml",
     ]);
     const healed = fakeOwner({
-      "modules/ok.yaml": { body: "ok\n", mtime: 1 },
-      "modules/bad.yaml": { body: "bad\n", mtime: 1 },
+      "playlists/ok.yaml": { body: "ok\n", mtime: 1 },
+      "playlists/bad.yaml": { body: "bad\n", mtime: 1 },
     });
-    expect((await syncFamily(healed, "modules")).fetched).toEqual([
-      "modules/bad.yaml",
+    expect((await syncFamily(healed, "playlists")).fetched).toEqual([
+      "playlists/bad.yaml",
     ]);
   });
 
   it("keeps its bookkeeping out of the library's own content", async () => {
     // Under .cache/, which both the family walk and the revision token skip — otherwise
     // writing the manifest would invalidate the very token it was written for.
-    const owner = fakeOwner({ "modules/a.yaml": { body: "a\n", mtime: 1 } });
-    await syncFamily(owner, "modules");
-    expect(existsSync(join(root, ".cache", "manifest", "modules.json"))).toBe(
+    const owner = fakeOwner({ "playlists/a.yaml": { body: "a\n", mtime: 1 } });
+    await syncFamily(owner, "playlists");
+    expect(existsSync(join(root, ".cache", "manifest", "playlists.json"))).toBe(
       true,
     );
   });
@@ -195,15 +200,15 @@ describe("syncing a family", () => {
 describe("staleness", () => {
   it("is stale until told otherwise, and in step once marked", async () => {
     const owner = fakeOwner({}, { revision: "r7" });
-    expect(seenRevision("modules")).toBe("");
-    expect(await isStale(owner, "modules")).toBe(true);
-    markSynced("modules", "r7");
-    expect(await isStale(owner, "modules")).toBe(false);
+    expect(seenRevision("playlists")).toBe("");
+    expect(await isStale(owner, "playlists")).toBe(true);
+    markSynced("playlists", "r7");
+    expect(await isStale(owner, "playlists")).toBe(false);
   });
 
   it("goes stale again when the owner moves", async () => {
-    markSynced("modules", "r7");
-    expect(await isStale(fakeOwner({}, { revision: "r8" }), "modules")).toBe(
+    markSynced("playlists", "r7");
+    expect(await isStale(fakeOwner({}, { revision: "r8" }), "playlists")).toBe(
       true,
     );
   });

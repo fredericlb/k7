@@ -1,7 +1,8 @@
 # Ce que la médiathèque sait compléter
 
-Les trois écrans de st0 qui montrent du YAML — le constructeur de modules, l'éditeur de chaînes,
-l'éditeur de playlists — partagent le même `YamlPane`. Le mécanisme est décrit dans
+Les écrans de st0 qui montrent du YAML — l'éditeur de playlists et le sidecar d'un morceau —
+partagent le même `YamlPane`. Ils étaient quatre : le constructeur de modules et l'éditeur de
+chaînes sont partis avec leurs familles, vers l8. Le mécanisme est décrit dans
 [packages/ui-editor/docs/completion.md](../../../packages/ui-editor/docs/completion.md) ; ce qui
 suit est l'autre moitié, **d'où viennent les noms ici**, parce que la réponse n'est pas celle de
 l8 et qu'elle ne pouvait pas l'être.
@@ -47,7 +48,7 @@ fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est
 
 Le mot `@st0` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
 `@studio/song/mediatekRoot`, qui appelle `node:os` pour trouver le dossier — un navigateur ne
-peut pas tirer ça pour apprendre un mot. `ChainEditor` déclare `graph.yaml` pour la même
+peut pas tirer ça pour apprendre un mot. `PlaylistEditor` déclare son fichier pour la même
 raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.
 
 Les deux listes sont **fusionnées** par le constructeur, pas substituées : elles répondent de

@@ -43,7 +43,7 @@ const place = (fields: string) =>
 const kick = () =>
   compileNodeProject(dir)
     .tracks.flatMap((t) => t.clips)
-    .find((c) => c.id === "kick");
+    .find((c) => c.name === "kick");
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "td-cwin-"));
@@ -152,7 +152,7 @@ describe("the EVENT's own window, on the placement", () => {
     place(", from: 0.25");
     const snare = compileNodeProject(dir)
       .tracks.flatMap((t) => t.clips)
-      .find((c) => c.id === "snare")!;
+      .find((c) => c.name === "snare")!;
     expect(snare.sourceFrom).toBeUndefined();
   });
 });

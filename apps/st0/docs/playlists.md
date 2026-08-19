@@ -11,13 +11,13 @@ non un dossier). L'écran est celui des chaînes et des morceaux, à l'identique
 └────────┴─────────────────────┴─────────────────────┘
 ```
 
-C'est volontaire : `ChainEditor`, `SongEditor` et celui-ci posent la même question — on
+C'est volontaire : `SongEditor` et celui-ci posent la même question — on
 édite un texte en entendant ce qu'il décrit — et un troisième agencement n'aurait rien
 ajouté qu'une chose de plus à apprendre.
 
 ## Le panneau de droite suit les touches, pas les enregistrements
 
-`items` est recalculé à chaque frappe, comme le graphe de `ChainEditor`. Mais il n'est
+`items` est recalculé à chaque frappe. Mais il n'est
 **remplacé que par quelque chose de lisible** : un YAML à moitié tapé ne parse pas à peu
 près une frappe sur deux — un crochet qu'on n'a pas encore fermé — et un panneau qui se
 viderait à chaque fois clignoterait sur toute la longueur de la ligne qu'on écrit. Le pied

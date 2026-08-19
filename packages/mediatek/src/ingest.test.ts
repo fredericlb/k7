@@ -42,98 +42,59 @@ const w = (rel: string, body = "x"): void => {
   writeFileSync(abs, body, "utf8");
 };
 
-// The namespace in `_modules/config.yaml` is what every module ref is keyed by. Uploading
-// it made the LAST workspace pushed rename the whole library — silently, for every project
-// inheriting from it. It is the library's own now (see layout.ts).
-describe("what the library keeps for itself", () => {
-  it("refuses to send a workspace's modules/config.yaml", async () => {
-    w("_modules/config.yaml", "namespace: someone-elses\n");
-    w("_modules/audio/reverb/module.yaml", "plugin: {}\n");
-    const { sink, put } = fakeSink();
-    const r = await uploadWorkspace(sink, ws);
-    expect(put.has("modules/config.yaml")).toBe(false);
-    expect(r.uploaded).toEqual(["modules/audio/reverb/module.yaml"]);
-  });
+// `describe("what the library keeps for itself")` stood here: three cases around
+// `_modules/config.yaml`, the namespace declaration a contributor must not overwrite. The
+// file, the folder and the rule are all gone with the `modules` family.
 
-  it("says so, rather than dropping it quietly", () => {
-    // "it uploaded" and "it uploaded everything" are different claims, and a caller
-    // wondering where its config went deserves the answer in the report.
-    w("_modules/config.yaml", "namespace: someone-elses\n");
-    return uploadWorkspace(fakeSink().sink, ws).then((r) => {
-      expect(r.skipped).toHaveLength(1);
-      expect(r.skipped[0].path).toBe("modules/config.yaml");
-      expect(r.skipped[0].reason).toMatch(/namespace/);
-    });
-  });
-
-  it("still sends a config.yaml that is not the modules root's", async () => {
-    // Only the ONE path is the library's. A module of its own named config.yaml, or one in
-    // `_library`, is ordinary content — a blanket filename rule would have eaten those.
-    w("_modules/audio/reverb/config.yaml", "gain: 3\n");
-    w("_library/config.yaml", "x");
-    const r = await uploadWorkspace(fakeSink().sink, ws);
-    expect(r.skipped).toEqual([]);
-    expect(r.uploaded.sort()).toEqual([
-      "library/config.yaml",
-      "modules/audio/reverb/config.yaml",
-    ]);
-  });
-});
-
-describe("pushing a workspace's shared folders up", () => {
-  it("maps each workspace folder onto its library name", () => {
-    w("_modules/audio/reverb/module.yaml", "plugin: {}\n");
+describe("pushing a workspace's shared folder up", () => {
+  it("maps the workspace folder onto its library name", () => {
     w("_library/ir/hall.wav", "RIFF");
-    // A module's panel has no folder of its own — it rides up inside the module.
-    w("_modules/audio/reverb/ui.yaml", "cols: 2\nrows: 1\nwidgets: {}\n");
+    w("_library/nam/jcm800.nam", "profile");
     return uploadWorkspace(fakeSink().sink, ws).then((r) => {
       expect(r.uploaded.sort()).toEqual([
         "library/ir/hall.wav",
-        "modules/audio/reverb/module.yaml",
-        "modules/audio/reverb/ui.yaml",
+        "library/nam/jcm800.nam",
       ]);
       expect(r.failed).toEqual([]);
     });
   });
 
   it("sends the file's actual contents", async () => {
-    w("_modules/a/module.yaml", "plugin: {name: Big}\n");
+    w("_library/ir/hall.wav", "RIFF-and-then-some");
     const { sink, put } = fakeSink();
     await uploadWorkspace(sink, ws);
-    expect(put.get("modules/a/module.yaml")).toBe("plugin: {name: Big}\n");
+    expect(put.get("library/ir/hall.wav")).toBe("RIFF-and-then-some");
   });
 
   it("keeps the tree's shape below the folder", async () => {
-    w("_modules/instruments/synth/presets/lead.vstpreset", "p");
+    w("_library/nam/amps/marshall/jcm800.nam", "p");
     const { sink, put } = fakeSink();
     await uploadWorkspace(sink, ws);
-    expect([...put.keys()]).toEqual([
-      "modules/instruments/synth/presets/lead.vstpreset",
-    ]);
+    expect([...put.keys()]).toEqual(["library/nam/amps/marshall/jcm800.nam"]);
   });
 
   it("reports a folder the workspace hasn't got, rather than failing", async () => {
-    w("_modules/a/module.yaml", "plugin: {}\n");
+    // Nothing written at all, so the one folder it looks for is absent.
     const r = await uploadWorkspace(fakeSink().sink, ws);
-    expect(r.absent.sort()).toEqual(["_library"]);
+    expect(r.absent).toEqual(["_library"]);
   });
 
   it("carries on past a file that fails, and says which", async () => {
     // A partial push is a real outcome: one refused file must not lose the rest.
-    w("_modules/ok/module.yaml", "a\n");
-    w("_modules/bad/module.yaml", "b\n");
+    w("_library/ir/ok.wav", "a");
+    w("_library/ir/bad.wav", "b");
     const r = await uploadWorkspace(
-      fakeSink({ failOn: "modules/bad/module.yaml" }).sink,
+      fakeSink({ failOn: "library/ir/bad.wav" }).sink,
       ws,
     );
-    expect(r.uploaded).toEqual(["modules/ok/module.yaml"]);
-    expect(r.failed.map((f) => f.path)).toEqual(["modules/bad/module.yaml"]);
+    expect(r.uploaded).toEqual(["library/ir/ok.wav"]);
+    expect(r.failed.map((f) => f.path)).toEqual(["library/ir/bad.wav"]);
   });
 
   it("skips the per-machine junk a workspace accumulates", async () => {
-    w("_modules/.DS_Store");
-    w("_modules/a/module.yaml", "plugin: {}\n");
+    w("_library/.DS_Store");
+    w("_library/ir/hall.wav", "RIFF");
     const r = await uploadWorkspace(fakeSink().sink, ws);
-    expect(r.uploaded).toEqual(["modules/a/module.yaml"]);
+    expect(r.uploaded).toEqual(["library/ir/hall.wav"]);
   });
 });

@@ -28,6 +28,7 @@ const host = () =>
     project: () => ({ tracks: [], groups: [] }),
     baseModules: [],
     log: (l: string[]) => logs.push(...l),
+    refuse: (l: string[]) => logs.push(...l),
     reload: () => {},
   }) as never;
 

@@ -1,8 +1,8 @@
 // contextMenu.ts — the right-click entries for a timeline/graph entity. Every entry IS a command
 // line: one the click already filled runs, one still owing an argument goes to the bar. The list
-// is DERIVED from the command catalogue — whatever was clicked says which type it can answer
-// for, and every command whose leading arguments are exactly that is offered. See
-// docs/contextMenu.md.
+// is DERIVED from the command catalogue — whatever was clicked says which type it can answer for.
+// A row is drawn as the command's NAME minus the word naming what was clicked; what it does is a
+// sentence for the status bar. See docs/contextMenu.md.
 
 import { localizeCommand, localizeCommandLine } from "./commandI18n";
 import { type CommandPrefs, inMenu } from "./commandPrefs";
@@ -16,7 +16,18 @@ export type MenuCtx =
   // applies. `ambient` means the ENGINE provides it and nothing is on disk: it can be given a folder.
   | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
   // A placed clip. `track` + `tc` say WHICH placement, so the `event …` family can be offered; both optional.
-  | { kind: "clip"; id: string; track?: string; tc?: string }
+  //
+  // `sel` is the RECTANGLE the click landed in, when there is one. The range verbs —
+  // `event consolidate` and `events move` — take a span, and the clicked placement only answers where
+  // it STARTS: derived from that alone they arrived one argument short and the bar asked for the
+  // end the rectangle was already holding. The same three values the palette reads (commandFill).
+  | {
+      kind: "clip";
+      id: string;
+      track?: string;
+      tc?: string;
+      sel?: { tracks: string; from: string; to: string } | null;
+    }
   // One control on a module, right-clicked: `param` is the widget's `bind`, `cc` what is already
   // mapped to it. A binding is per param, so this is its own kind rather than part of "module".
   | {
@@ -40,15 +51,17 @@ export type MenuCtx =
 
 // A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is still owed.
 // `help` overrides the catalogue's line — only the shell's OWN commands need it, having none there.
+// `name` overrides what is DRAWN — only an entry sharing its verb with another needs one.
 interface Entry {
   verb: string;
   arg?: string;
   needsMore?: boolean;
   help?: string;
+  name?: string;
 }
 
 /**
- * A displayable menu item: what the command DOES, and the localized line it stands for.
+ * A displayable menu item: what the command is CALLED, what it does, and the line it stands for.
  *
  * `complete` says every argument is already filled from what was clicked — so there is nothing
  * for the bar to collect, and the host RUNS the line instead of pre-writing it. Read it here
@@ -56,7 +69,16 @@ interface Entry {
  * two different questions must not share one accident of formatting.
  */
 export interface MenuItem {
+  /** The command's NAME, minus the word that names the thing you clicked — see `shortName`. */
   label: string;
+  /**
+   * What it DOES, as one sentence in the language being read: the catalogue's `readable`, else
+   * its `help` with the `(e.g. …)` tail off, else "" for a verb nothing describes.
+   *
+   * Not drawn in the row — the host puts it in the STATUS BAR while the pointer is on the entry.
+   * A menu is scanned by name and read one row at a time, and those are two different places.
+   */
+  description: string;
   command: string;
   complete: boolean;
   /**
@@ -120,7 +142,7 @@ function fromCatalogue(commands: CommandInfo[], slots: Slot[]): Entry[] {
 }
 
 /**
- * The catalogue's help line, as a menu row.
+ * The catalogue's help line, as the sentence a row reports to the status bar.
  *
  * The `(e.g. …)` tail is dropped. It answers "how do I type this", which the pre-written line
  * answers better by being the line; every other parenthetical — a value list, an aside — says
@@ -128,6 +150,38 @@ function fromCatalogue(commands: CommandInfo[], slots: Slot[]): Entry[] {
  */
 const readable = (help: string): string =>
   help.replace(/\s*\(e\.g\.[^)]*\)/g, "").trim();
+
+/**
+ * The word that names the thing you right-clicked, dropped off the front of every row that
+ * starts with it: on an event, `event consolidate` is drawn "consolidate".
+ *
+ * You knew what you clicked — you aimed at it — so repeating it on all ten rows is a column of
+ * noise between the eye and the only word that differs. What is NOT dropped is a head that names
+ * something else: `ui file` and `events move` keep theirs on an event's menu, because there the
+ * head is the very thing that says this row is about something other than this one placement.
+ *
+ * One word per context, and not "the head most rows share": a track's menu is nine `event …`
+ * rows against six `track …` ones, and the commonest head there is the wrong one.
+ */
+const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
+  track: "track",
+  group: "track",
+  // What you clicked is the NODE — the use of a module. `module clone` and `module cc` are on
+  // the same menu and keep their head, which is what says they follow the module everywhere.
+  module: "node",
+  clip: "event",
+  // Nothing: a param's verbs are `node param`, `module cc` and `ui midi learn`, three heads
+  // naming three different subjects, and none of them is the control you clicked.
+  param: "",
+  take: "track",
+  chain: "",
+  sink: "",
+  "marker-add": "project",
+  marker: "project",
+};
+
+const shortName = (name: string, head: string): string =>
+  head && name.startsWith(`${head} `) ? name.slice(head.length + 1) : name;
 
 // The ONE place every entry passes through, whichever context built it — so the person's
 // "not on the right-click" is applied once and cannot be forgotten by a new `case` below. It
@@ -137,23 +191,38 @@ const build = (
   commands: CommandInfo[],
   entries: Entry[],
   prefs: CommandPrefs = {},
-): MenuItem[] =>
-  entries
-    .filter((e) => inMenu(e.verb, prefs))
-    .map((e) => {
-      const line = e.arg ? `${e.verb} ${e.arg}` : e.verb;
-      const help =
-        e.help ?? commands.find((c) => c.command === e.verb)?.help ?? "";
-      return {
-        // What it does, not what it is called. The command itself is still shown beside it (see
-        // ContextMenu.tsx) — the menu's contract is that it pre-writes a line, and hiding the line
-        // would make that opaque.
-        label: readable(help) || localizeCommand(e.verb),
-        command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
-        complete: !e.needsMore,
-        verb: e.verb,
-      };
-    });
+  /** The head to drop off the names — `CLICKED_HEAD` for this context. "" drops nothing. */
+  head = "",
+  /** Which language the DESCRIPTION is read in. The names stay the CLI's — see commandI18n.ts. */
+  locale = "en",
+): MenuItem[] => {
+  const kept = entries.filter((e) => inMenu(e.verb, prefs));
+  const full = kept.map((e) => e.name ?? localizeCommand(e.verb));
+  const short = full.map((n, i) => (kept[i].name ? n : shortName(n, head)));
+  // All or nothing, and the check is the point: the list is DERIVED, so the command written
+  // tomorrow lands here without anyone looking, and two rows reading alike is worse than a head
+  // repeated ten times. When shortening would make a pair indistinguishable, nothing is dropped.
+  const distinct = new Set(short).size === short.length;
+  return kept.map((e, i) => {
+    const line = e.arg ? `${e.verb} ${e.arg}` : e.verb;
+    const c = commands.find((cmd) => cmd.command === e.verb);
+    return {
+      // What it is CALLED. What it does is `description`, which the status bar draws on hover —
+      // the label used to be that sentence, and a menu of ten sentences is read rather than
+      // scanned, so finding the one verb you came for meant reading all ten.
+      label: distinct ? short[i] : full[i],
+      // The entry's OWN line wins outright: `module cc … none` is the unbind, and the
+      // catalogue's sentence for `module cc` says the opposite of what that row does.
+      description: e.help
+        ? readable(e.help)
+        : (c?.readable as Record<string, string> | undefined)?.[locale] ||
+          readable(c?.help ?? ""),
+      command: localizeCommandLine(line) + (e.needsMore ? " " : ""),
+      complete: !e.needsMore,
+      verb: e.verb,
+    };
+  });
+};
 
 // The verbs that still mean something on a node NOTHING answers to. Each acts on graph.yaml
 // alone, which is why they survive; the catalogue cannot say this, since it describes arguments
@@ -171,12 +240,14 @@ export function contextMenu(
   commands: CommandInfo[],
   /** The person's own arrangement — only `menu: false` is read here. Absent ⇒ nothing hidden. */
   prefs: CommandPrefs = {},
+  /** The language the descriptions are read in. Names are the CLI's and never translated. */
+  locale = "en",
 ): MenuItem[] {
   const from = (slots: Slot[]): Entry[] => fromCatalogue(commands, slots);
-  // Bound once, so no `case` below can forget the prefs — which is the failure this would
-  // have: a menu that quietly ignores what someone turned off, in one context out of nine.
+  // Bound once, so no `case` below can forget the prefs or the head — which is the failure this
+  // would have: a menu that quietly ignores what someone turned off, in one context out of nine.
   const offer = (entries: Entry[]): MenuItem[] =>
-    build(commands, entries, prefs);
+    build(commands, entries, prefs, CLICKED_HEAD[ctx.kind], locale);
   switch (ctx.kind) {
     case "track":
       return offer([
@@ -229,7 +300,17 @@ export function contextMenu(
             ]),
       ]);
     }
-    case "clip":
+    case "clip": {
+      // Every verb the rectangle can answer whole, and the set of their names — so the
+      // placement-shaped derivation below does not offer the same verb again, one argument short.
+      const range = ctx.sel
+        ? from([
+            { provider: "tracks", value: ctx.sel.tracks },
+            { kind: "timecode", value: ctx.sel.from },
+            { kind: "timecode", value: ctx.sel.to },
+          ])
+        : [];
+      const ranged = new Set(range.map((e) => e.verb));
       // Deliberately NOT the `clip …` family (`clipTargets`): what was right-clicked is an
       // EVENT — a placement on a lane — and the material it references may sit on other lanes
       // too. Offering `clip process` here read as "process this event" while acting on every
@@ -241,15 +322,22 @@ export function contextMenu(
           arg: ctx.id,
           help: "open the clip's own definition in the editor",
         },
+        // The RANGE verbs first, from the rectangle: three slots rather than two, so a command
+        // that takes a span arrives with its span. Without this they still appeared — the pair
+        // below matches their leading arguments too — but one short, and the bar asked for an end
+        // the rectangle already knew. See docs/contextMenu.md.
+        ...range,
         // The `event …` family addresses a PLACEMENT — a track plus a timecode — which is only
-        // offered when the caller said where this one sits.
+        // offered when the caller said where this one sits. Anything the rectangle already
+        // answered in full is dropped here rather than offered twice, half-filled.
         ...(ctx.track && ctx.tc
           ? from([
               { provider: "tracks", value: ctx.track },
               { kind: "timecode", value: ctx.tc },
-            ])
+            ]).filter((e) => !ranged.has(e.verb))
           : []),
       ]);
+    }
     case "param": {
       // A param name may contain spaces ("Filter Freq"), and every command here takes it as one
       // argument — the quoting is `fromCatalogue`'s, so no call site has to remember.
@@ -283,6 +371,10 @@ export function contextMenu(
               {
                 verb: "module cc",
                 arg: `${quoted} none`,
+                // Named, because the bind is on this same menu under the same verb: `none` is a
+                // literal the entry writes, not an argument you are being asked for, so it
+                // belongs in the name the way `none` does, rather than being asked for.
+                name: "module cc none",
                 help: "remove the MIDI binding on this param",
               },
             ]
@@ -313,9 +405,8 @@ export function contextMenu(
       // A bare timecode: `project marker new <tc> `, leaving the TEXT cursor where the name is typed.
       return offer(from([{ kind: "timecode", value: ctx.tc }]));
     case "marker":
-      return build(
-        commands,
-        from([{ provider: "markerNames", value: ctx.name }]),
-      );
+      // Through `offer` like every other case: going straight to `build` skipped the prefs, so a
+      // verb somebody had taken off the right-click came back on this one menu out of nine.
+      return offer(from([{ provider: "markerNames", value: ctx.name }]));
   }
 }

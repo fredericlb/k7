@@ -10,7 +10,6 @@ import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, Disc3, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { library } from "./api";
-import { useEngine } from "./playback/PlaybackProvider";
 import type { PlaybackTarget } from "./playback/targets";
 import { SaveState } from "./SaveState";
 import { SongPlayer } from "./SongPlayer";
@@ -48,15 +47,9 @@ export function SongEditor({
   onBack: () => void;
   onSaved: () => void;
 }) {
-  /**
-   * The app's engine, not this screen's.
-   *
-   * It was opened here while a song could only be heard from this pane. It cannot be any more:
-   * a song keeps playing after you leave, so its transport has to outlive the screen that
-   * started it — and stopping on the way out, which used to live here, would silence exactly
-   * the thing the bar at the bottom exists to keep. `PlaybackProvider` holds both now.
-   */
-  const engine = useEngine();
+  // The app's engine used to be read here and handed to the variants pane, which auditioned
+  // a chain against this song. That pane draws a list of files now, so nothing on this
+  // screen needs a socket: `PlaybackProvider` holds the one the player uses.
   // Two STRINGS, and that is the point: the listing is re-polled every three seconds, so
   // `entry` is a fresh object on every tick. An effect that depended on it would reload the
   // file — and throw away whatever had been typed into it — three times a minute.
@@ -160,11 +153,7 @@ export function SongEditor({
           </div>
           {entry.variants?.length ? (
             <div className="max-h-[45%] shrink-0 overflow-auto border-t p-3">
-              <SongVariants
-                entry={entry}
-                engine={engine}
-                engineToken={engineToken}
-              />
+              <SongVariants entry={entry} />
             </div>
           ) : null}
         </div>

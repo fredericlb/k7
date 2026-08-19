@@ -45,14 +45,10 @@ describe("the manifest", () => {
 
   it("stays within its family", () => {
     write("samples/audio/a.wav");
-    write("modules/instruments/synth/module.yaml", "plugin: {}\n");
+    write("playlists/live.yaml", "items: []\n");
     expect(manifest("samples")).toHaveLength(1);
-    // …and modules also carries the library's own config.yaml, which ensureLayout writes
-    // and which declares the namespace every ref is keyed by. It is a real file the cache
-    // must receive — a modules root without one is a hard error in the loader.
-    expect(manifest("modules").map((e) => e.path)).toEqual([
-      "modules/config.yaml",
-      "modules/instruments/synth/module.yaml",
+    expect(manifest("playlists").map((e) => e.path)).toEqual([
+      "playlists/live.yaml",
     ]);
   });
 });
@@ -62,32 +58,35 @@ describe("diffing a cache against the owner", () => {
   // comparing a fresh local stat would report every file as changed, every time — which
   // is precisely why the cache remembers what the server said instead.
   const owner = [
-    { path: "modules/a.yaml", bytes: 10, mtime: 1000 },
-    { path: "modules/b.yaml", bytes: 20, mtime: 2000 },
+    { path: "playlists/a.yaml", bytes: 10, mtime: 1000 },
+    { path: "playlists/b.yaml", bytes: 20, mtime: 2000 },
   ];
 
   it("fetches what is missing", () => {
     expect(diff([owner[0]], owner).fetch.map((e) => e.path)).toEqual([
-      "modules/b.yaml",
+      "playlists/b.yaml",
     ]);
   });
 
   it("fetches what changed size or time", () => {
     const stale = [owner[0], { ...owner[1], mtime: 1 }];
     expect(diff(stale, owner).fetch.map((e) => e.path)).toEqual([
-      "modules/b.yaml",
+      "playlists/b.yaml",
     ]);
     const resized = [{ ...owner[0], bytes: 9 }, owner[1]];
     expect(diff(resized, owner).fetch.map((e) => e.path)).toEqual([
-      "modules/a.yaml",
+      "playlists/a.yaml",
     ]);
   });
 
   it("drops what the owner no longer has", () => {
-    const extra = [...owner, { path: "modules/gone.yaml", bytes: 1, mtime: 1 }];
+    const extra = [
+      ...owner,
+      { path: "playlists/gone.yaml", bytes: 1, mtime: 1 },
+    ];
     const d = diff(extra, owner);
     expect(d.fetch).toEqual([]);
-    expect(d.drop).toEqual(["modules/gone.yaml"]);
+    expect(d.drop).toEqual(["playlists/gone.yaml"]);
   });
 
   it("asks for nothing when the two agree", () => {
@@ -99,12 +98,14 @@ describe("the path guard", () => {
   // The local library never needed one: the file service's own safePath confined to the
   // workspace, putting the mediatek out of reach. A hosted one has no such wall.
   it("resolves a path inside the library", () => {
-    expect(safePath("modules/a.yaml")).toBe(join(root, "modules", "a.yaml"));
+    expect(safePath("playlists/a.yaml")).toBe(
+      join(root, "playlists", "a.yaml"),
+    );
   });
 
   it("refuses to climb out", () => {
     expect(() => safePath("../secrets")).toThrow(PathEscapesError);
-    expect(() => safePath("modules/../../secrets")).toThrow(PathEscapesError);
+    expect(() => safePath("playlists/../../secrets")).toThrow(PathEscapesError);
     expect(() => safePath("/etc/passwd")).toThrow(PathEscapesError);
   });
 
@@ -119,10 +120,10 @@ describe("the path guard", () => {
   it("does not care how the ROOT was spelled", () => {
     // THE bug this test exists for. `env.yaml` is hand-written, and a Windows path is as
     // readily typed with forward slashes; the guard compared the root against a resolved
-    // path as TEXT, so `modules/audio` was reported as escaping a library it was inside.
-    // Creating a folder in `modules` was impossible and the message blamed the caller.
+    // path as TEXT, so `playlists/audio` was reported as escaping a library it was inside.
+    // Creating a folder in `playlists` was impossible and the message blamed the caller.
     process.env.STUDIO_MEDIATEK = root.split(sep).join("/");
-    expect(safePath("modules/audio")).toBe(join(root, "modules", "audio"));
+    expect(safePath("playlists/audio")).toBe(join(root, "playlists", "audio"));
     // …and a real escape is still refused, whatever the spelling.
     expect(() => safePath("../secrets")).toThrow(PathEscapesError);
   });

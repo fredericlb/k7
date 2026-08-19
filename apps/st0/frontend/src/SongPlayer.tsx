@@ -10,26 +10,22 @@ import { Waveform } from "@studio/ui-waveform";
 import {
   AudioLines,
   Disc3,
+  FileQuestion,
   Loader2,
   Pause,
   Play,
   RefreshCw,
-  Workflow,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser, engineMachine, library } from "./api";
-import {
-  cachedOnMachine,
-  cacheRoot,
-  playablePath,
-} from "./engine/chainPreview";
+import { currentUser, engineMachine } from "./api";
+import { cachedOnMachine, cacheRoot, playablePath } from "./engine/songPreview";
 import { useEngine, usePlayback } from "./playback/PlaybackProvider";
 import {
   effectiveTarget,
   type PlaybackTarget,
   playbackTargetInfo,
 } from "./playback/targets";
-import { ORIGINAL, renderNames, type Take, takesOf } from "./songTakes";
+import { ORIGINAL, type Take, takesOf } from "./songTakes";
 import { readSongShape, type SongShape } from "./songWaveform";
 
 // The two ways the engine branch has nothing to open. Kept apart because the answers differ:
@@ -41,9 +37,9 @@ const ENGINE_NOT_HERE =
   "cette machine n'a pas ce morceau en cache — l'analyse l'y rapatrie, sinon jouez ici";
 
 /** The glyph a version wears — the same three the médiathèque's tree draws for a song, a file
- *  variant and a chain, so a row there and a tab here read as the same thing. */
+ *  variant and one it cannot find, so a row there and a tab here read as the same thing. */
 const takeIcon = (kind: Take["kind"]) =>
-  kind === "master" ? Disc3 : kind === "file" ? AudioLines : Workflow;
+  kind === "master" ? Disc3 : kind === "file" ? AudioLines : FileQuestion;
 
 /** mm:ss — the only format a transport needs, and the one the tree's captures already use. */
 function clock(sec: number): string {
@@ -99,31 +95,13 @@ export function SongPlayer({
    * `undefined` is "still looking" and `null` is "nothing has been rendered", which the body
    * words differently: one is a wait, the other is a button to press in the pane below.
    */
-  const [rendered, setRendered] = useState<string | null | undefined>(
-    undefined,
-  );
-  useEffect(() => {
-    if (take?.kind !== "chain") return setRendered(undefined);
-    let alive = true;
-    setRendered(undefined);
-    void (async () => {
-      for (const name of renderNames(take.name)) {
-        if (await library.exists(`${entry.path}/${name}`)) {
-          if (alive) setRendered(name);
-          return;
-        }
-      }
-      if (alive) setRendered(null);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [take?.kind, take?.name, entry.path]);
-
   // The audio on screen, and its path in the médiathèque. Everything below reads these two and
   // never asks which tab produced them.
-  const file =
-    take?.kind === "chain" ? (rendered ?? null) : (take?.file ?? null);
+  //
+  // A `rendered` lookup stood above this: a chain variant named a treatment rather than a file,
+  // so the player asked the library whether its bounce was sitting beside the master. Chains
+  // left the catalogue, and a variant now IS its file or is missing.
+  const file = take?.file ?? null;
   const path = file ? `${entry.path}/${file}` : null;
 
   const [shape, setShape] = useState<SongShape | null>(null);
@@ -354,15 +332,9 @@ export function SongPlayer({
    */
   const nothingToPlay = path
     ? ""
-    : take?.kind === "chain"
-      ? rendered === undefined
-        ? "on cherche le rendu de cette variante…"
-        : "cette variante est une chaîne : « Process », sous la liste des variantes, en écrit le rendu à côté du master — et c'est ce rendu qui se dessine ici"
-      : take?.kind === "master"
-        ? "Ce morceau n'a pas de master : le dossier porte un sidecar et pas d'audio."
-        : "le sidecar déclare ce fichier et la médiathèque ne l'a pas";
-  // Still asking whether that chain has a render — a wait, and drawn as one.
-  const looking = !path && take?.kind === "chain" && rendered === undefined;
+    : take?.kind === "master"
+      ? "Ce morceau n'a pas de master : le dossier porte un sidecar et pas d'audio."
+      : "le sidecar déclare ce fichier et la médiathèque ne l'a pas";
   const EmptyIcon = takeIcon(take?.kind ?? "master");
 
   // The sidecar's duration when there is one — it comes from the decode and is the truth; the
@@ -449,13 +421,12 @@ export function SongPlayer({
                 key={`${t.kind}:${t.name}`}
                 type="button"
                 onClick={() => setTab(t.name)}
-                // What the row is, since the icon alone cannot say it: a chain variant is a
-                // treatment, and what plays on its tab is the render, not the chain.
+                // What the row is, since the icon alone cannot say it.
                 title={
-                  t.kind === "chain"
-                    ? `${t.name} — chaîne : son rendu à côté du master`
-                    : t.kind === "file"
-                      ? `${t.name} — ${t.file}`
+                  t.kind === "file"
+                    ? `${t.name} — ${t.file}`
+                    : t.kind === "missing"
+                      ? `${t.name} — ${t.file ?? "fichier introuvable"}`
                       : `${t.name} — ${master ?? "aucun master"}`
                 }
                 className={`flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs ${
@@ -477,11 +448,7 @@ export function SongPlayer({
             have taken the strip with it and left no way back to a version that plays. */}
         {nothingToPlay ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-muted-foreground">
-            {looking ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <EmptyIcon className="h-4 w-4" />
-            )}
+            <EmptyIcon className="h-4 w-4" />
             {nothingToPlay}
           </div>
         ) : shape ? (

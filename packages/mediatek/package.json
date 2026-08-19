@@ -20,7 +20,6 @@
     "./remote": "./src/remote.ts",
     "./cache": "./src/cache.ts",
     "./evict": "./src/evict.ts",
-    "./faces": "./src/faces.ts",
     "./write": "./src/write.ts"
   },
   "scripts": {

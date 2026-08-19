@@ -54,6 +54,31 @@ export function clipLoop(clip: WebClip): ClipLoop | null {
 }
 
 /**
+ * What a MIDI event actually PLAYS, on the roll's own beat axis — or null when nothing is placed.
+ *
+ * The roll draws it as a band and refuses an edit outside it, so this is the one question every
+ * gesture in that pane asks. Two sources, in order:
+ *
+ * - **the window**, when the clip states one. The notes outside it do not sound.
+ * - **the placement's own extent** otherwise. A clip that states no window still plays a length,
+ *   and a note past it is not material half-in — it is material nothing sounds.
+ *
+ * That second case used to be `null`, which drew no band and refused nothing. It was invisible
+ * while every windowed clip had a band and every unwindowed one was a sequence you were writing
+ * — and it became visible the day `event consolidate` started producing clips whose window
+ * equals their content: the compiler drops the range as saying nothing (`nodeProject.ts`'s
+ * `statedTo`), so the band vanished from an event that plainly has an extent.
+ *
+ * Null only for an UNPLACED clip — a sequence file open in the editor, `length` 0. There is no
+ * placement there, so nothing is "what this plays", and the whole file is the material.
+ */
+export function playedZone(clip: WebClip): { from: number; to: number } | null {
+  const loop = clipLoop(clip);
+  if (loop) return { from: loop.from, to: loop.to };
+  return clip.length > 0 ? { from: 0, to: clip.length } : null;
+}
+
+/**
  * The repeat lines worth drawing at this scale, in the same beats.
  *
  * A 1/4-beat window in a 64-beat clip is 256 passes: at any zoom that fits the clip they land on

@@ -1,28 +1,17 @@
-// chainPreview.ts — a song played THROUGH a chain: its cached master as the one clip, the
-// chain's steps as the plugins on that track. The smallest document that makes the variant
-// audible. See ../../docs/chainPreview.md.
+// songPreview.ts — the smallest document that makes a CACHED SONG audible on a machine's
+// engine: its file as the one clip on the one track, and nothing else. It played a song
+// THROUGH a chain once, with the chain's steps as the track's plugins; chains left the
+// catalogue with the modules, and every caller was already passing no steps but one.
+// See ../../docs/playback.md.
 
-import {
-  clipDoc,
-  emptyDoc,
-  enginePlugin,
-  pluginDoc,
-  trackDoc,
-} from "@studio/engine-protocol/build";
+import { clipDoc, emptyDoc, trackDoc } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { ENGINE_TOKEN_HEADER, USER_HEADER } from "@studio/web-protocol";
 
-/** The chain a preview lives on. One name, so the engine's diff sees a track it already has
+/** The track a preview lives on. One name, so the engine's diff sees a track it already has
  *  rather than a new one on every play. */
-export const PREVIEW_CHAIN = "chain-preview";
-
-/** One step of the chain, resolved far enough to load: its name and what plugin it runs. */
-export interface PreviewStep {
-  name: string;
-  plugin: { type?: unknown; name?: unknown } | undefined;
-  enabled?: boolean;
-}
+export const PREVIEW_TRACK = "song-preview";
 
 /**
  * The headers the engine's file service gates on.
@@ -55,7 +44,7 @@ function engineHeaders(
  * Two different disks are in play and conflating them is the whole trap: the médiathèque this
  * browser is talking to is HOSTED, while the moteur opens paths on its own machine. What plays
  * is the copy in that machine's cache, reached through its file service — the same route m9
- * takes, for the same reason (see docs/chainPreview.md, "Two disks").
+ * takes, for the same reason (see docs/playback.md).
  */
 export async function cacheRoot(
   fileBase: string,
@@ -187,40 +176,26 @@ export async function bounce(
 /**
  * The document.
  *
- * The plugins are the chain's steps IN ORDER, addressed `chain:module` — the same identity the
- * drawn graph uses. That is the point of it: a graph showing a filter the engine never loaded
- * would be a picture of a signal path that does not exist.
+ * No plugins at all: what is played is the file as it is. A `steps` argument put the chain's
+ * modules on the track, and it went with the chains.
  *
  * `recordDir` stays empty (see emptyDoc): a preview plays and never records, and a made-up
  * directory is one the engine would eventually try to write into.
  */
-export function chainPreviewDoc(
-  absolutePath: string,
-  name: string,
-  steps: PreviewStep[],
-): ProjectDoc {
+export function songPreviewDoc(absolutePath: string, name: string): ProjectDoc {
   return emptyDoc({
     name: `preview: ${name}`,
     tracks: [
-      trackDoc(PREVIEW_CHAIN, {
+      trackDoc(PREVIEW_TRACK, {
         name,
         clips: [
           clipDoc({
-            id: `${PREVIEW_CHAIN}-clip`,
+            id: `${PREVIEW_TRACK}-clip`,
             type: "audio",
             name,
             source: absolutePath,
           }),
         ],
-        plugins: steps.map((s) => {
-          const { type, name: pname } = enginePlugin(s.plugin, s.name);
-          return pluginDoc({
-            id: `${PREVIEW_CHAIN}:${s.name}`,
-            type,
-            name: pname,
-            enabled: s.enabled !== false,
-          });
-        }),
       }),
     ],
   });

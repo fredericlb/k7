@@ -10,8 +10,8 @@ import type { RepoSummary, ShareSummary } from "@studio/web-protocol";
 import { Library, RefreshCw, Server, ServerOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api, engines, MEDIATEK_URL } from "../api";
-import { projects, shares as sharesApi } from "./api";
+import { api, engines } from "../api";
+import { mediatekUrl, projects, shares as sharesApi } from "./api";
 import type { Machine } from "./machine";
 import { ProjectsPane } from "./ProjectsPane";
 
@@ -215,7 +215,7 @@ export function Home() {
                 ici rien ne tourne — cette page est une liste, et on y revient par « précédent »
                 avec l'arbre replié pour tout dommage. */}
             <Button variant="secondary" size="sm" asChild>
-              <a href={MEDIATEK_URL}>
+              <a href={mediatekUrl()}>
                 <Library className="h-4 w-4" /> Médiathèque
               </a>
             </Button>

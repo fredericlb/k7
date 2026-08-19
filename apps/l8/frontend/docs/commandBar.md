@@ -222,7 +222,7 @@ The caret speaks the same currency a gesture does, **param names** (`caretAnswer
 Two of those are different timecodes and it matters: feeding the caret's own position as the
 event's address would split whatever begins under the cut, or nothing at all.
 
-`event join` — split's inverse — is answered by the **rectangle** instead, because what to rejoin
+`event consolidate` is answered by the **rectangle** instead, because what to consolidate
 is a range and a range is what you drew: `tracks`, `from`, `to`, the same three values
 `feedEventsMove` sends. The rectangle's lane list is passed on **whole**, several lanes included,
 even though a join only works on one. The refusal is the handler's, and it can only make it if what

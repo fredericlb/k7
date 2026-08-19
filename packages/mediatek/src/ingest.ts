@@ -6,10 +6,12 @@ import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { LibrarySink } from "./remote.ts";
 
-/** What a workspace calls each folder, and where it lands in the library. A module's panel is not listed
- *  because it is not a folder: `ui.yaml` sits inside the module, so `_modules` carries it up. */
+/** What a workspace calls each folder, and where it lands in the library.
+ *
+ *  `_modules` → `modules/` was the first entry and is gone with the family: a workspace's own
+ *  modules go up to the account's LIBRARY REPOSITORY now, through l8 and a commit, not to this
+ *  volume. Pushing them here would have made a second copy nobody reads. */
 const FOLDERS: { from: string; to: string }[] = [
-  { from: "_modules", to: "modules" },
   { from: "_library", to: "library" },
 ];
 
@@ -25,19 +27,10 @@ export interface ImportReport {
   skipped: { path: string; reason: string }[];
 }
 
-/**
- * Files a workspace holds that are the LIBRARY's to decide, not a contributor's.
- *
- * Only `_modules/config.yaml`, so far — it declares the namespace every module ref is keyed
- * by (`@st0/audio/reverb`). Uploading it made the last workspace pushed rename the
- * whole library, silently, for every project that inherits from it. `ensureLayout` writes
- * the library's own once and nothing else touches it. See layout.ts.
- */
-function libraryOwned(rel: string): string | null {
-  return rel === "modules/config.yaml"
-    ? "the library declares its own namespace (see layout.ts)"
-    : null;
-}
+// `libraryOwned()` stood here: one rule, refusing to send a workspace's
+// `_modules/config.yaml` up, because that file declared the namespace every ref is keyed by
+// and belonged to the library rather than to a contributor. Both the file and the folder it
+// sat in are gone with the `modules` family, so there is nothing left for it to guard.
 
 function entries(abs: string): Dirent[] {
   try {
@@ -105,11 +98,6 @@ export async function uploadWorkspace(
       continue;
     }
     for (const [abs, rel] of filesUnder(src, f.to)) {
-      const owned = libraryOwned(rel);
-      if (owned) {
-        report.skipped.push({ path: rel, reason: owned });
-        continue;
-      }
       try {
         await sink.put(rel, readFileSync(abs));
         report.uploaded.push(rel);

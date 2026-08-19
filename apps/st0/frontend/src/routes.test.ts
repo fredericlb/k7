@@ -28,23 +28,23 @@ const songs = (p: Partial<RouteState> = {}): RouteState =>
 describe("toPath", () => {
   it("names the section, and the open file when there is one", () => {
     expect(toPath(songs())).toBe("/songs");
-    expect(toPath(st({ section: "modules" }))).toBe("/modules");
+    expect(toPath(st({ section: "samples" }))).toBe("/samples");
     expect(
-      toPath(st({ section: "modules", file: "audio/reverb/ui.yaml" })),
-    ).toBe("/modules/audio/reverb/ui.yaml");
+      toPath(st({ section: "songs", file: "Miles/So-What/song.yaml" })),
+    ).toBe("/songs/Miles/So-What/song.yaml");
   });
 });
 
 describe("fromLocation", () => {
   it("reads a section, with or without a file", () => {
-    expect(fromLocation("/modules")).toEqual(st({ section: "modules" }));
-    expect(fromLocation("/modules/audio/reverb/ui.yaml")).toEqual(
-      st({ section: "modules", file: "audio/reverb/ui.yaml" }),
+    expect(fromLocation("/samples")).toEqual(st({ section: "samples" }));
+    expect(fromLocation("/songs/Miles/So-What/song.yaml")).toEqual(
+      st({ section: "songs", file: "Miles/So-What/song.yaml" }),
     );
-    // A category folder is just more path — nothing here knows how deep a module sits.
+    // A deep folder is just more path — nothing here knows how deep a song sits.
     expect(
-      fromLocation("/modules/audio/filter/auto-wah/module.yaml").file,
-    ).toBe("audio/filter/auto-wah/module.yaml");
+      fromLocation("/songs/AC-DC/Back-in-Black/Hells-Bells/song.yaml").file,
+    ).toBe("AC-DC/Back-in-Black/Hells-Bells/song.yaml");
   });
 
   it("lands on the default section rather than 404ing inside the app", () => {
@@ -94,15 +94,16 @@ describe("fromLocation", () => {
     expect(fromLocation("/songs/%zz/song.yaml").file).toBe("%zz/song.yaml");
   });
 
-  it("opens a song and a chain from the address, like a module", () => {
+  it("opens a song and a playlist from the address", () => {
     // The regression this guards is not the deep link but the LOOP: a section that opens an
     // editor and cannot read its own address writes a URL, reads back the bare section, and
-    // shuts the editor a tick later. `chains` did exactly that until `songs` joined it.
+    // shuts the editor a tick later. `chains` did exactly that, and is gone; the shape of the
+    // mistake is why both survivors are tested here.
     expect(
       fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
     ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
-    expect(fromLocation("/chains/blindtest/sans-voix/chains.yaml")).toEqual(
-      st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
+    expect(fromLocation("/playlists/live/set.yaml")).toEqual(
+      st({ section: "playlists", file: "live/set.yaml" }),
     );
   });
 
@@ -122,11 +123,11 @@ describe("fromLocation", () => {
     for (const s of [
       st(),
       songs(),
-      st({ section: "modules" }),
+      st({ section: "samples" }),
       st({ section: "recordings" }),
-      st({ section: "modules", file: "audio/reverb/presets.yaml" }),
+      songs({ file: "Miles/Kind-of-Blue/So-What/song.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
-      st({ section: "chains", file: "blindtest/sans-voix/chains.yaml" }),
+      st({ section: "playlists", file: "live/set.yaml" }),
       // A playlist's file IS its entry, so the second half is one segment shorter than the
       // three above — no folder to pair it with. See packages/mediatek/docs/playlists.md.
       st({ section: "playlists", file: "ete-2026.yaml" }),
@@ -186,8 +187,8 @@ describe("splitting an open file", () => {
 // wrong is either a screen that snaps back or a history entry per click.
 describe("keeping the two in step", () => {
   it("writes the URL when the APP moved the screen", () => {
-    const next = st({ section: "modules" });
-    expect(urlForState(next, songs(), "/songs")).toBe("/modules");
+    const next = st({ section: "samples" });
+    expect(urlForState(next, songs(), "/songs")).toBe("/samples");
   });
 
   it("writes nothing when the screen did not change", () => {
@@ -197,24 +198,24 @@ describe("keeping the two in step", () => {
   it("writes nothing when the URL already says so — the deep-link case", () => {
     // The commit where URL→state fires hands this side the OLD state and the NEW location,
     // which looks exactly like the app having moved away from the address. It hasn't.
-    const arriving = st({ section: "modules", file: "audio/reverb/ui.yaml" });
+    const arriving = st({ section: "songs", file: "Miles/So-What/song.yaml" });
     expect(
-      urlForState(arriving, songs(), "/modules/audio/reverb/ui.yaml"),
+      urlForState(arriving, songs(), "/songs/Miles/So-What/song.yaml"),
     ).toBeNull();
   });
 
   it("applies a location the state does not already show, and only then", () => {
-    expect(stateForLocation("/modules", songs())).toEqual(
-      st({ section: "modules" }),
+    expect(stateForLocation("/samples", songs())).toEqual(
+      st({ section: "samples" }),
     );
     expect(stateForLocation("/songs", songs())).toBeNull();
   });
 
   it("settles: a move writes the URL, and reading it back changes nothing", () => {
     const before = songs();
-    const after = st({ section: "modules", file: "audio/reverb/ui.yaml" });
+    const after = st({ section: "songs", file: "Miles/So-What/song.yaml" });
     const url = urlForState(after, before, toPath(before));
-    expect(url).toBe("/modules/audio/reverb/ui.yaml");
+    expect(url).toBe("/songs/Miles/So-What/song.yaml");
     // …and the other direction, run on what was just written, has nothing to do.
     expect(stateForLocation(url as string, after)).toBeNull();
   });
@@ -223,7 +224,7 @@ describe("keeping the two in step", () => {
 describe("sameRoute", () => {
   it("compares both halves", () => {
     expect(sameRoute(st(), st())).toBe(true);
-    expect(sameRoute(st(), st({ section: "modules" }))).toBe(false);
+    expect(sameRoute(st(), st({ section: "samples" }))).toBe(false);
     expect(sameRoute(st({ file: "a/b.yaml" }), st({ file: "a/c.yaml" }))).toBe(
       false,
     );

@@ -12,7 +12,6 @@ import {
   search,
   summary,
 } from "@studio/mediatek/catalogue";
-import { extendedRefs } from "@studio/mediatek/faces";
 import {
   exists,
   NotWritableError,
@@ -39,7 +38,6 @@ import {
   removeTree,
   setSongBpm,
 } from "@studio/mediatek/write";
-import { engineFaces, type FaceablePlugin } from "@studio/song/engineFace";
 import express, { Router } from "express";
 
 export const libraryRouter: Router = Router();
@@ -383,61 +381,10 @@ libraryRouter.post(
   }),
 );
 
-/**
- * A face for every plugin a machine has scanned — the modules that give `@engine/…` refs a name
- * a chain can use and a folder a panel can sit in.
- *
- * The scan is the CALLER's, and it has to be: the cache is `~/.studio/exts.json` on the machine
- * running the engine, and this service is hosted somewhere else entirely. The browser reads it
- * through that machine's file service (`GET /plugins`) and posts it here, where the library is.
- *
- * One request rather than one PUT per plugin. Two hundred and fifty sequential writes from a
- * browser is a minute of round-trips that fails halfway and leaves the library in a state
- * nobody asked for; here the whole pass is one call, and it is idempotent — `extendedRefs`
- * is what makes running it twice write nothing the second time.
- *
- * Writes only `module.yaml`. A face's panel is drawn by hand afterwards, in the builder, and a
- * blank `ui.yaml` per plugin would be two hundred and fifty files saying nothing.
- */
-libraryRouter.post(
-  "/engine-faces",
-  express.json({ limit: "4mb" }),
-  wrap((req, res) => {
-    const raw = (req.body as { plugins?: unknown })?.plugins;
-    if (!Array.isArray(raw))
-      return res.status(400).json({ error: "plugins[] required" });
-    // Narrowed here rather than trusted: this writes files named after these strings, and the
-    // shape crossed two services to get here.
-    const plugins: FaceablePlugin[] = [];
-    for (const p of raw) {
-      const o = p as Record<string, unknown>;
-      if (typeof o?.name !== "string" || !o.name.trim()) continue;
-      plugins.push({
-        name: o.name,
-        role: typeof o.role === "string" ? o.role : undefined,
-        instrument: o.instrument === true,
-        category: typeof o.category === "string" ? o.category : undefined,
-      });
-    }
-    const faces = engineFaces(plugins, extendedRefs());
-    const created: string[] = [];
-    try {
-      for (const f of faces) {
-        const path = `modules/${f.path}`;
-        // A file already there is left alone. It cannot be a face — `extendedRefs` would have
-        // caught that — so it is somebody's own module at the same path, and overwriting it
-        // would be this pass destroying work to make room for a two-line stub.
-        if (existsSync(safePath(path))) continue;
-        putFile(path, f.text);
-        created.push(path);
-      }
-    } catch (e) {
-      if (writeError(e, res)) return;
-      throw e;
-    }
-    res.json({ created, scanned: plugins.length });
-  }),
-);
+// `POST /engine-faces` stood here: one pass turning a machine's whole plugin scan into
+// library modules that give `@engine/…` refs a name and a folder. It went with the `modules`
+// family — this volume holds none. The capability itself is worth having and belongs in l8,
+// where a plugin is actually loaded; it is not ported yet.
 
 /** An empty folder — somewhere to drop into before the first file exists. */
 libraryRouter.post(

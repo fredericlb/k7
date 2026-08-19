@@ -39,6 +39,7 @@
     "./controllerBind": "./src/controllerBind.ts",
     "./moduleAssetChoices": "./src/moduleAssetChoices.ts",
     "./trackMix": "./src/trackMix.ts",
+    "./materialCut": "./src/materialCut.ts",
     "./hints": "./src/hints.ts",
     "./ioPorts": "./src/ioPorts.ts",
     "./moduleCatalogue": "./src/moduleCatalogue.ts",

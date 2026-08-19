@@ -22,7 +22,30 @@ import {
   type ProjectApp,
   shareUrl,
 } from "@studio/web-protocol/projects";
-import { MEDIATEK_URL } from "../api";
+import { serviceUrl } from "@studio/web-protocol/services";
+
+/**
+ * st0's origin — another service on the SAME origin, and the one serving its ROOT, so
+ * `serviceUrl` returns the bare origin here rather than a path under it.
+ *
+ * DERIVED rather than declared: every studio service sits at a fixed path under one origin, so
+ * dev and production differ by the origin the page was served from and nothing else. It was a
+ * build-time branch naming a host of its own once, which is the same fact written twice and
+ * only true until a deployment moves.
+ *
+ * It lived in `../api` as an app-wide constant while the settings menu linked out to st0's
+ * Modules section. That section is gone — a module is authored here now — and the constant went
+ * with its last caller. This screen is the new one, so it is spelled where it is used instead of
+ * being put back at the top of the app for one importer.
+ *
+ * `globalThis.location`, not `window`: this module is imported by tests that run in node, where
+ * reading `window` at module scope is a ReferenceError before any test has started.
+ */
+const MEDIATEK_URL = serviceUrl(globalThis.location?.origin ?? "", "st0");
+
+/** Where the catalogue answers — the header's link out. Exported for `Home.tsx`, which needs the
+ *  address and none of the verbs below. */
+export const mediatekUrl = (): string => MEDIATEK_URL;
 
 /** The error the far side carried, or a status code when it carried none. Its `status` rides
  *  along: a 202 and a 404 are answers here, not failures, and callers tell them apart. */

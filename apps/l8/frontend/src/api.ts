@@ -11,7 +11,6 @@ import { JSDSP_FILE } from "@studio/engine-protocol/build";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
-import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
 import type {
@@ -28,26 +27,6 @@ import type {
 // so the literals keep reading as paths.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-/**
- * The médiathèque — st0, which is another service on the SAME origin, and now the one
- * serving its ROOT: `serviceUrl` returns the bare origin here, not a path under it.
- *
- * Modules are no longer edited here — only the library is editable, so the settings entry
- * that used to open a builder is a link out. Derived rather than declared: every studio
- * service sits at a fixed path under one origin (see `@studio/web-protocol/services`), so
- * dev and production differ by the origin the page was served from and nothing else. It used
- * to be a build-time branch naming a host of its own, which is the same fact written twice
- * and only true until a deployment moves.
- */
-export const MEDIATEK_URL = serviceUrl(
-  // `globalThis.location`, not `window`: this module is imported by tests that run in node,
-  // where reading `window` at module scope is a ReferenceError before any test has started.
-  // Under node that leaves this `""`, which no test renders — in a browser there is always
-  // an origin, and st0's empty path means the origin is the whole answer.
-  globalThis.location?.origin ?? "",
-  "st0",
-);
 
 // ── The hosted backend (same-origin): auth + registry ───────────────────────────
 // The registry's own five routes are `engines` below and are not spelled here; auth is three
