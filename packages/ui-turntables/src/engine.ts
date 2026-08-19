@@ -3,8 +3,8 @@
 // satisfies it from the link its shell already holds. Types only. See docs/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";
+import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import type { PluginParamsStore } from "@studio/engine-browser/params";
-import type { ClaimLostReason } from "@studio/engine-browser/registry";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 
 /**
@@ -17,8 +17,14 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 export type Phase =
   | { k: "looking" }
   | { k: "absent" }
-  // The claim is gone. Terminal: the deck stops driving and says WHICH of the three happened.
-  | { k: "taken"; heldBy: string; why: ClaimLostReason; tookFor: string | null }
+  // Somebody took the claim. Terminal: the deck stops driving and says WHICH of the two — a
+  // claim that merely lapsed is re-opened by the hold loop and never gets here.
+  | {
+      k: "taken";
+      heldBy: string;
+      why: ClaimTakenReason;
+      tookFor: string | null;
+    }
   | { k: "ready"; id: string };
 
 /** The transport's position, and the moment it was heard — see the note where it is set. */

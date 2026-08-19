@@ -3,7 +3,7 @@
 // and mounts <App/> with the chosen ws address. The pick belongs to the ACCOUNT — it comes
 // back on any browser — and is reused whenever it is still reachable.
 
-import type { ClaimLostReason } from "@studio/engine-browser/registry";
+import type { ClaimTakenReason } from "@studio/engine-browser/lease";
 import { useRelook } from "@studio/engine-browser/relook";
 import { ProjectTakenOver } from "@studio/project-shell/gate";
 import {
@@ -24,10 +24,12 @@ type Phase =
   | { k: "picking" }
   | { k: "chosen"; engine: RankedEngine }
   // Somebody else opened this project. A terminal state on purpose: see ProjectTakenOver.
+  // Only reached when a PERSON took it — a claim that merely lapsed is re-opened by the hold
+  // loop and never lands here, so there is no screen for it.
   | {
       k: "taken";
       heldBy: string;
-      why: ClaimLostReason;
+      why: ClaimTakenReason;
       tookFor: string | null;
     };
 
@@ -169,23 +171,19 @@ export function EngineGate() {
         title={
           phase.why === "engine"
             ? m["project.engineTakenTitle"]()
-            : phase.why === "lapsed"
-              ? m["project.lapsedTitle"]()
-              : m["project.takenTitle"]()
+            : m["project.takenTitle"]()
         }
         // One wording per REASON, and within the first, one per whether there is a name. Saying
-        // "this project was opened elsewhere" for all three was false twice: opening a DIFFERENT
-        // project on the same engine displaces this one, and so does simply going to sleep.
+        // "this project was opened elsewhere" for both was false once: opening a DIFFERENT
+        // project on the same engine displaces this one, and the honest advice is the opposite.
         body={(heldBy) =>
           phase.why === "engine"
             ? m["project.engineTakenBody"]({
                 project: phase.tookFor ?? "un autre projet",
               })
-            : phase.why === "lapsed"
-              ? m["project.lapsedBody"]()
-              : heldBy
-                ? m["project.takenBody"]({ heldBy })
-                : m["project.takenBodyAnon"]()
+            : heldBy
+              ? m["project.takenBody"]({ heldBy })
+              : m["project.takenBodyAnon"]()
         }
         back={m["project.backToProjects"]()}
         onBack={() => {

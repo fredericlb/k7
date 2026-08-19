@@ -63,9 +63,17 @@ twice out of three — and actively misleading on `engine`, where the honest adv
 opposite: pick a second engine and both projects can run. Older backends that answer a bare 409
 still read as `project`, which is what they always meant.
 
-A surface must not retry any of them, `lapsed` included. It looks recoverable and is not: the
-engine may since have been handed to someone else, and a tab that quietly re-claims takes a
-project out from under a person who is driving it.
+A surface must not retry `project` or `engine`: somebody is holding what we asked for, and a
+quiet re-claim would take a project out from under a person who is driving it — then be taken
+back five seconds later, for ever.
+
+`lapsed` is the one that IS retried, by the hold loop itself rather than by any surface. It is
+answered only when nothing holds this project *and* nothing else holds this engine, so re-opening
+displaces nobody by construction — and the tab coming out of sleep is not asking for anything it
+did not already have. `@studio/engine-browser`'s `holdEngine` drops the dead secret and re-opens
+on its next tick; see [lease.md](../../engine-browser/docs/lease.md) for why the next tick and
+not at once. This was a dead end on screen until then, telling someone to go and re-open by hand
+a project nobody had taken from them.
 
 `release` carries the same secret, not the engine token. A goodbye may only drop the hold it
 actually has: with the engine token, a tab closing a second after being displaced would drop the
@@ -88,7 +96,7 @@ prevents.
 
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
-| l8 | `<repo>/<projet>` from the address | `EngineGate` shows "opened elsewhere" and stops driving |
+| l8 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
 | st0 | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in
