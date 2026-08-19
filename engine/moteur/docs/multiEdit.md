@@ -2,7 +2,7 @@
 
 ## The question
 
-Several services (l8, st0, m9) want an engine each, on one machine. The
+Several services (l8, pl8, m9) want an engine each, on one machine. The
 obvious shape is N engine *processes*, and it runs straight into the constraint this repo
 already documents:
 

@@ -24,7 +24,7 @@ The last row is the real argument. git already knows how far along it is and wil
 request that holds the socket open throws that away and shows a spinner instead. That was the
 old behaviour — `WorkspaceGate` had a boolean `cloning` flag and nothing else — and it was
 acceptable only while cloning was a rare, deliberate act on the workspace picker. Now it is
-what happens when you open a project from st0, so it is on the path everyone walks.
+what happens when you open a project from pl8, so it is on the path everyone walks.
 
 ## The shape
 

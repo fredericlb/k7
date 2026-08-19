@@ -56,7 +56,7 @@ const settings = (body: unknown) =>
 describe("mediatekBase", () => {
   it("takes the environment the supervisor spawned us with", () => {
     process.env.MEDIATEK_URL = "https://studio.frediver.se";
-    advertise("st0", "http://localhost:8795");
+    advertise("pl8", "http://localhost:8795");
     expect(mediatekBase()).toBe("https://studio.frediver.se");
   });
 
@@ -65,7 +65,7 @@ describe("mediatekBase", () => {
     // deriving an origin from whichever registry answered first lands on l8's 8789, where
     // none of the library's routes are.
     advertise("l8", "http://localhost:8789");
-    advertise("st0", "http://localhost:8795");
+    advertise("pl8", "http://localhost:8795");
     expect(mediatekBase()).toBe("http://localhost:8795");
   });
 
@@ -81,8 +81,8 @@ describe("mediatekBase", () => {
 
   it("ignores a half-written endpoint file rather than throwing", () => {
     writeFileSync(
-      join(home, ".studio", "web-endpoints", "st0.json"),
-      '{"service":"st0","url":',
+      join(home, ".studio", "web-endpoints", "pl8.json"),
+      '{"service":"pl8","url":',
       "utf8",
     );
     expect(mediatekBase()).toBeNull();

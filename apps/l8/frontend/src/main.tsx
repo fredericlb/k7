@@ -14,7 +14,7 @@ import { Home } from "./projects/Home";
 import "./index.css";
 /**
  * The waveform's own wrapper and marker rules. A plain stylesheet, not Tailwind, so the `@source`
- * scan cannot produce it — it has to be imported like any other CSS file, exactly as st0 and k7
+ * scan cannot produce it — it has to be imported like any other CSS file, exactly as pl8 and k7
  * import it.
  *
  * l8 never did, and drew waveforms for a long time without anyone noticing: the canvas needs no
@@ -56,11 +56,12 @@ const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
 // The gates before the editor, the router outside them (so a deep link survives sign-in), and NO React.StrictMode
 // — its double-mount thrashes the WebGL compositor's context and froze Firefox. See docs/shell.md.
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  // The basename is the app's mount AND the project it was opened on — `/l8/<repo>/<song.l8>`.
-  // BASE_URL is the one place the `/l8` half is declared (vite `base`); the rest comes out of
-  // the address st0 sent us to. React Router only ever writes BELOW its basename, so routes.ts
-  // stays written as if the app owned the origin, and the project can no longer be rewritten
-  // out of the URL — which is what made a tab need storage to remember it.
+  // The basename is the app's mount AND the project it was opened on — `/<repo>/<song.l8>`.
+  // BASE_URL is the one place the mount is declared (vite `base`), and it is `/` since l8 took
+  // the origin root; the rest comes out of the address pl8 sent us to. React Router only ever
+  // writes BELOW its basename, so routes.ts stays written as if the app owned the origin — which
+  // it now does — and the project can no longer be rewritten out of the URL, which is what made
+  // a tab need storage to remember it.
   <BrowserRouter
     basename={projectBasename(
       window.location.pathname,

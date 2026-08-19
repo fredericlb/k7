@@ -116,8 +116,11 @@ import type { ModuleNamespace } from "./moduleTypes";
  * Anything that is not the machine's media library is the workspace's own `_modules`:
  * those are the only two shared roots there are.
  *
- * The library repository answers to `@st0`, after the app that registers it. It was
- * `@mediatek` while that app was `apps/mediatek` — see scripts/migrateNamespace.ts.
+ * The library repository answers to `@st0`, after the app that registered it when the level was
+ * named. It was `@mediatek` before that, while the app was `apps/mediatek` — see
+ * scripts/migrateNamespace.ts. That app is **pl8** today and this level stayed `st0` on
+ * purpose: a level is written into user files, and moving it a second time would cost every
+ * repository a rewrite for a name nobody types. See moduleTypes.ts' MODULE_NAMESPACES.
  *
  * Recognised by the folder it SITS IN (`_libraries/modules`) rather than by an absolute path,
  * which is what it used to be: the médiathèque's modules lived at one place per machine, and

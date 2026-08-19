@@ -40,7 +40,7 @@ export function ProjectsPane({
   /**
    * La machine choisie, ou null si aucune n'est joignable.
    *
-   * Créer et supprimer un projet passent OBLIGATOIREMENT par elle : st0 ne tient qu'un miroir
+   * Créer et supprimer un projet passent OBLIGATOIREMENT par elle : pl8 ne tient qu'un miroir
    * bare, sans blobs et balayé au bout de quinze jours — la copie qu'on committe vit là-bas, et
    * le file-service sait déjà l'échafauder, la supprimer et la pousser. Que cet écran soit
    * maintenant DANS l8 n'y change rien : c'est toujours une autre machine que celle qui sert
@@ -98,7 +98,7 @@ export function ProjectsPane({
     ? ""
     : "aucune machine moteur joignable — créer ou supprimer un projet se fait sur la machine, pas ici";
 
-  /** Le miroir de st0 ne verra le changement qu'après un `git fetch`, et le poll n'en fait un
+  /** Le miroir de pl8 ne verra le changement qu'après un `git fetch`, et le poll n'en fait un
    *  qu'au plus toutes les dix minutes. On le demande donc explicitement, sinon la liste
    *  resterait telle quelle et le clic aurait l'air de n'avoir rien fait. */
   const reread = useCallback(

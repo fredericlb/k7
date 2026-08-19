@@ -105,7 +105,7 @@ export function useShare(onStatus: (s: string) => void): Share {
           "Toute personne ayant le lien pourra l'écouter et voir les pistes, les chaînes et " +
           "les paramètres des modules — sans compte. Le nom des pistes, des repères, des " +
           "modules et le texte des notes en font partie.\n\n" +
-          "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur st0.",
+          "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur pl8.",
       )
     )
       return;

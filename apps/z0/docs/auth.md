@@ -3,13 +3,13 @@
 z0 a longtemps eu **sa** connexion : son cookie, son flux OIDC, son callback. Ce n'était
 pas un caprice — un joueur de blindtest est un **invité sans compte**, une espèce que la
 session studio ne modélise pas. Cette moitié-là est toujours vraie. L'autre moitié ne
-l'est plus : **le login d'un compte appartient à st0**, et pas par goût de l'uniformité.
+l'est plus : **le login d'un compte appartient à pl8**, et pas par goût de l'uniformité.
 
 ## Ce qui a cassé
 
 `redirectUriFor` construit `<origine><X-Forwarded-Prefix>/auth/callback`. Le proxy config
 posait `X-Forwarded-Prefix: /z0` sur le backend du jeu — là et nulle part ailleurs — pour
-que z0 nomme `https://st0.priv.frediver.se/z0/auth/callback` au lieu de la racine, qui est à st0.
+que z0 nomme `https://st0.priv.frediver.se/z0/auth/callback` au lieu de la racine, qui est à pl8.
 
 Sauf que le client OAuth n'a qu'**une** redirect_uri enregistrée, celle sans préfixe.
 Demandez l'autre et l'IdP refuse avant d'afficher quoi que ce soit :
@@ -26,7 +26,7 @@ la validation et échoue plus loin, sur la longueur du `state`.
 
 La leçon est structurelle, pas accidentelle : **un service monté sous un chemin ne peut
 pas tenir son propre flux sur ce client**. Seul celui qui n'a pas de préfixe le peut, et
-c'est st0. C'est exactement la raison pour laquelle l8, m9 et k7 ne montent aucune route
+c'est pl8. C'est exactement la raison pour laquelle l8, m9 et k7 ne montent aucune route
 d'auth non plus.
 
 ## Ce qui entre maintenant
@@ -36,7 +36,7 @@ Deux cookies arrivent sur le backend, et **un seul est de nous** :
 | cookie | signé par | ce qu'il porte |
 |---|---|---|
 | `bt_session` | z0, `SESSION_SECRET` | les invités : `guest` (mot de passe de session, sur le buzzer) et `guest_online` |
-| `studio.sid` | st0, avec la même clé | le compte studio, celui de la médiathèque, de l8 et de m9 |
+| `studio.sid` | pl8, avec la même clé | le compte studio, celui de la médiathèque, de l8 et de m9 |
 
 `currentUser()` est le seul point de passage — le middleware, le gate admin et chaque
 route en dépendent — et il lit le compte d'abord, l'invité ensuite. **L'ordre est
@@ -66,7 +66,7 @@ verrouille : « rejette un cookie invité renommé studio.sid, même clé compri
 ### La boucle, et pourquoi c'est la SPA qui la détecte
 
 Une clé qui ne correspond pas produit une panne **muette et circulaire** : `/auth/me`
-répond 401, la gate s'affiche, le bouton envoie chez st0 — qui vous connaît déjà et vous
+répond 401, la gate s'affiche, le bouton envoie chez pl8 — qui vous connaît déjà et vous
 renvoie aussitôt — et la gate revient, identique. Le compte *est* connecté ; z0 ne sait
 simplement pas le lire.
 
@@ -79,12 +79,12 @@ d'invité, et un invité n'a pas de compte.
 
 ## Le scope `groups`, qui a failli passer inaperçu
 
-L'autorisation de z0 lit `groups` (`AUTH_ADMIN_GROUPS`). z0 demandait ce scope ; st0 ne le
+L'autorisation de z0 lit `groups` (`AUTH_ADMIN_GROUPS`). z0 demandait ce scope ; pl8 ne le
 demandait pas — le paquet partagé se rabat sur `openid profile email`. Adopter la session
-de st0 sans rien d'autre aurait donc mis un `groups: []` dans chaque session et fermé
+de pl8 sans rien d'autre aurait donc mis un `groups: []` dans chaque session et fermé
 l'éditeur, le presenter, le monitor et la remote par un 403 impossible à expliquer.
 
-`apps/st0/backend/src/server.ts` passe maintenant `scopes` depuis `OIDC_SCOPES`, qui vaut
+`apps/pl8/backend/src/server.ts` passe maintenant `scopes` depuis `OIDC_SCOPES`, qui vaut
 déjà `openid profile email groups` dans `common`. Conséquence à connaître : **une session
 studio ouverte avant ce changement ne porte pas `groups`** — il faut se reconnecter une
 fois.

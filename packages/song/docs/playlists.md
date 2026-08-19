@@ -23,7 +23,7 @@ items:
 ## Pourquoi ici, et pas dans la médiathèque
 
 C'était une **famille** du volume hébergé, la troisième à côté de `songs` et `samples`, et
-l'écran qui l'ouvrait était celui de st0. Rien n'allait mal : c'est simplement que
+l'écran qui l'ouvrait était celui de pl8. Rien n'allait mal : c'est simplement que
 **une playlist ne porte aucun octet.**
 
 C'est de la référence pure — des noms de choses qui, elles, restent exactement où elles sont.
@@ -40,7 +40,7 @@ Trois conséquences, et la troisième est celle qui a décidé :
   avec eux ; sur le volume, elle vivait à côté d'eux sans histoire commune.
 
 **Les morceaux, eux, n'ont pas bougé.** C'est le point de la séparation et non un demi-chemin :
-le fichier qui nomme est à nous, les octets nommés restent à st0. l8 cherche dans ce
+le fichier qui nomme est à nous, les octets nommés restent à pl8. l8 cherche dans ce
 catalogue-là et y dépose ce qu'on lui donne — voir `apps/l8/frontend/docs/playlists.md`.
 
 ## `_playlists`, à côté de `_modules` et `_libraries`

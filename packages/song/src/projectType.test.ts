@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { declaredType, projectTypeIssues, projectTypeOf } from "./projectType";
 
 // Two signals say what a project is — the folder's suffix and its own `type:` — and the whole
-// design is which one wins. The suffix does, because st0 answers "which app opens this" from a
+// design is which one wins. The suffix does, because pl8 answers "which app opens this" from a
 // blobless git mirror with no file bodies in it, so the name is the only signal available
 // everywhere. These pin that order, and that a disagreement is REPORTED rather than resolved.
 

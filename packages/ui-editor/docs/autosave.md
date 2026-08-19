@@ -111,7 +111,7 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 |---|---|
 | l8 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
 | m9 `EditView` | the open project file |
-| st0 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `graph.yaml` |
+| pl8 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `graph.yaml` |
 | l8 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 
@@ -122,7 +122,7 @@ widget in the panel must not stop the module file reaching disk. Its header show
 
 ## What changed for the files that had no file yet
 
-st0's song sidecar and l8's playlists open on a **stub** when nothing is on disk. With a button,
+pl8's song sidecar and l8's playlists open on a **stub** when nothing is on disk. With a button,
 the stub was written by clicking it. With autosave, the stub is loaded as `saved` as well as as
 the buffer — so opening a song files nothing, and the first thing you actually type creates it.
 Looking at something must not write it.

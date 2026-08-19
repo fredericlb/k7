@@ -20,7 +20,7 @@ browser tabs share it — last write wins"* — so a second project on one machi
 with the first, it clobbers it, and the symptom lands somewhere else entirely (a take recorded
 into the wrong workspace, a transport that moves the wrong song).
 
-**3. A claim with no project conflicts with nothing.** st0 drives an engine and opens no
+**3. A claim with no project conflicts with nothing.** pl8 drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,
 which claims the engine as *in use* and competes for nothing. Without this exemption, looking at
 the catalogue would take the song away from the l8 tab on the same machine — which is worse than
@@ -97,7 +97,7 @@ prevents.
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
 | l8 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
-| st0 | **none** (`null`) | nothing to lose — see rule 3 |
+| pl8 | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in
 `@studio/web-protocol/projects`, beside the address vocabulary it comes from. One spelling, in

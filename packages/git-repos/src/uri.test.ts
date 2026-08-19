@@ -36,7 +36,7 @@ describe("assertSshGitUri", () => {
 });
 
 describe("normalizeGitUri", () => {
-  // The whole point: st0 sees what was pasted, the file service sees remote.origin.url.
+  // The whole point: pl8 sees what was pasted, the file service sees remote.origin.url.
   it("folds the two spellings of one repository together", () => {
     const want = "github.com/me/repo";
     for (const uri of [

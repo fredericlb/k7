@@ -60,10 +60,10 @@ describe("libraryTree", () => {
   });
 
   it("points each row at the real folder", () => {
-    const [project, ws, st0] = libraryTree(all());
+    const [project, ws, pl8] = libraryTree(all());
     expect(project.path).toBe("01.danse.l8/modules");
     expect(ws.path).toBe("_modules");
-    expect(st0.path).toBe("_libraries/modules");
+    expect(pl8.path).toBe("_libraries/modules");
   });
 
   it("passes each subtree through untouched — foldModules does the folding", () => {

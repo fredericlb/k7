@@ -98,7 +98,7 @@ export function SettingsMenu({
             </Button>
           </div>
           <div className="my-1 border-t border-border" />
-          {/* The SSH key is NOT here any more. It belongs to st0, which owns the repositories
+          {/* The SSH key is NOT here any more. It belongs to pl8, which owns the repositories
               and generates the one deploy key — see packages/git-repos/docs/keys.md. */}
           <button className={item} onClick={() => run("ui settings editor")}>
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />

@@ -275,7 +275,7 @@ export function probeLocalEngine(
 // than hide.
 export async function probeEngines<E extends ProbeTarget>(
   engines: E[],
-  /** The calling app's own origin prefix — "" for st0, "/l8", "/m9" — under which its relay
+  /** The calling app's own origin prefix — "" for l8, "/pl8", "/m9" — under which its relay
    *  answers. Passed rather than derived, exactly as `registryClient` takes its `base`. */
   relayBase: string,
 ): Promise<RankedEngine<E>[]> {

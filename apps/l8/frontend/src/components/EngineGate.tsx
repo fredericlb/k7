@@ -134,7 +134,7 @@ export function EngineGate() {
     let cancelled = false;
     void (async () => {
       // List, preference, probe and policy in one call — the same four steps in the same
-      // order as st0 and m9, from @studio/engine-browser/access rather than three copies.
+      // order as pl8 and m9, from @studio/engine-browser/access rather than three copies.
       const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
       setRanked(r);

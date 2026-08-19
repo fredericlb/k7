@@ -41,7 +41,7 @@ const tray = () =>
   JSON.parse(readFileSync(join(home, ".studio", "engine-tray.json"), "utf8"));
 
 const secretIn = (file: string): string =>
-  (parse(readFileSync(file, "utf8"))?.["st0-backend"] ?? {}).API_TOKEN_SECRET;
+  (parse(readFileSync(file, "utf8"))?.["pl8-backend"] ?? {}).API_TOKEN_SECRET;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "studio-tokens-"));
@@ -61,7 +61,7 @@ describe("the tokens script", () => {
 
   it("generates the signing secret when the service has none", () => {
     // env.example.yaml ships it empty. Left that way, the backend falls back to
-    // `${SESSION_SECRET}:st0`, and rotating the session secret would log everyone out
+    // `${SESSION_SECRET}:pl8`, and rotating the session secret would log everyone out
     // AND revoke every machine's sync in one move.
     expect(secretIn(join(repo, "env.example.yaml"))).toBe("");
     run();
@@ -86,7 +86,7 @@ describe("the tokens script", () => {
     // cannot import a .ts), so this is what stops the two from drifting apart.
     expect(
       parse(readFileSync(envFile, "utf8"))["k7-backend"].MEDIATEK_URL,
-    ).toBe(localServiceUrl("st0"));
+    ).toBe(localServiceUrl("pl8"));
   });
 
   it("never overwrites a URL somebody set on purpose", () => {

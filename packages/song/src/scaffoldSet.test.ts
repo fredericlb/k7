@@ -58,7 +58,7 @@ beforeEach(() => {
     "tempo",
   );
   // `ui.yaml` too: the panel is part of the module, and a malformed one would otherwise
-  // only surface in st0's builder — on somebody else's screen, later.
+  // only surface in pl8's builder — on somebody else's screen, later.
   for (const f of ["module.yaml", "ui.yaml"])
     copyFileSync(join(shipped, f), join(utility, "tempo", f));
   // The EQ, stated INLINE rather than copied from `packages/dsp/modules/eq3`.
@@ -96,7 +96,7 @@ beforeEach(() => {
   for (const f of ["module.yaml", "ui.yaml", "jsdsp.ts"])
     copyFileSync(join(sweep, f), join(filter, "sweep", f));
 
-  // The crossfade has no copy in this repo — st0's catalogue is its home — so the fixture
+  // The crossfade has no copy in this repo — pl8's catalogue is its home — so the fixture
   // states the shape the set depends on: two audio inputs, the second optional.
   mkdirSync(join(utility, "crossfade"), { recursive: true });
   writeFileSync(
@@ -199,7 +199,7 @@ describe("a scaffolded set", () => {
 
   it("copies NO module into the project", () => {
     scaffoldSet(dir, "winter");
-    // st0 owns the only editable catalogue. A crossfade copied in here would be a second one
+    // pl8 owns the only editable catalogue. A crossfade copied in here would be a second one
     // nobody maintains and nobody would notice drifting — so the set carries uses, not
     // modules, and `nodes/` is where a use lives (docs/nodes.md).
     expect(existsSync(join(dir, "modules"))).toBe(false);

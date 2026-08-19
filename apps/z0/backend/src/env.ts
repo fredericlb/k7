@@ -41,12 +41,12 @@ export function loadEnv() {
 
       // Read by @frediverse/oidc's own defineEnv, not here — listed so this
       // stays the one place that says what this service's section must hold.
-      // OIDC_SCOPES is NOT among them any more: st0 runs the flow, so it is
-      // st0 that asks the IdP for `groups`. See docs/auth.md.
+      // OIDC_SCOPES is NOT among them any more: pl8 runs the flow, so it is
+      // pl8 that asks the IdP for `groups`. See docs/auth.md.
       OIDC_ISSUER: z.string().default(""),
       OIDC_CLIENT_ID: z.string().default(""),
       OIDC_CLIENT_SECRET: z.string().default(""),
-      // Signs the guest cookie AND verifies st0's `studio.sid`. Must be
+      // Signs the guest cookie AND verifies pl8's `studio.sid`. Must be
       // env.yaml `common`'s: do not give this service its own, or the account
       // login stops working with no error anywhere. See docs/auth.md.
       SESSION_SECRET: z.string().default(""),

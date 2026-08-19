@@ -8,10 +8,10 @@ EngineGate: resolve the repository this editor was opened on into a folder on th
 machine — cloning it if it has never been there — then mount the editor). Several tabs may
 open one project at once — there is no single-tab lease.
 
-**ProjectGate picks nothing.** l8 no longer knows what a workspace list is: st0 owns the
-repositories and links here with an address — `/l8/<repo>/<project>` — and arriving without a
-project in it sends you back there. That prefix is the router's `basename`, so the app's own
-routes are written below it and cannot rewrite it away. The gate is
+**ProjectGate picks nothing.** l8 no longer knows what a workspace list is: pl8 owns the
+repositories and links here with an address — `/<repo>/<project>`, l8 answering the origin root —
+and arriving without a project in it draws the home page instead. That address is the router's
+`basename`, so the app's own routes are written below it and cannot rewrite it away. The gate is
 `@studio/project-shell`'s — z0's editor mounts the same one — and `components/ProjectGate.tsx` only
 supplies this app's wording. Read
 [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md)
@@ -63,7 +63,7 @@ wiring and the layout; almost nothing else.
 
 ### The header is the shared bar, with l8's contents in it
 
-`@frediverse/ui/app-header` draws it — the same bar st0 and k7 use — and l8 fills its four slots:
+`@frediverse/ui/app-header` draws it — the same bar pl8 and k7 use — and l8 fills its four slots:
 
 | slot | what l8 puts there |
 |---|---|
@@ -729,7 +729,7 @@ A rolling take **evicts** whatever the slot held. That is not arbitration, it is
 where something other than a click opens the slot, and while a take rolls the take is the thing.
 
 The two rows can both show a piano roll, and they are **not the same one**. The grid draws a
-sequence FILE's `notes:` array (`@studio/ui-editor`, shared with st0, editing the text). The
+sequence FILE's `notes:` array (`@studio/ui-editor`, shared with pl8, editing the text). The
 clip view draws a PLACED clip's compiled notes (l8's own `PianoRoll`, with the transport's
 playhead on it). Same picture, different subject — one is a file, the other is a placement.
 
@@ -1229,11 +1229,13 @@ not rewrite the contents of a public file the way it rebases `index.html` — so
 `/…` there is origin-absolute and escapes the app.
 
 That was live for a while: the manifest still said `"start_url": "/"` after l8 moved under
-`/l8/`, and the origin root is **st0**. Installing l8 as an app opened the médiathèque.
+`/l8/`, and the origin root was **the médiathèque**. Installing l8 as an app opened it instead.
 
-Relative is also the only form that survives both mounts, which is what settles it — `base` is
-conditional (`/l8/` when hosted, the root under `STUDIO_WEB_PORT` in the native run), so a
-hardcoded `/l8/` would simply break the other one.
+l8 answers the origin root again — the two swapped, and the médiathèque is at `/pl8` — so that
+exact bug would not reproduce today. The rule is kept anyway, and this is the paragraph that
+says why: `.` is right under BOTH mounts, an origin-absolute `/` was right under one of them,
+and which app owns the root has now changed twice. A manifest that has to be revisited when the
+edge's path table moves is a manifest written wrong.
 
 ## Where the rest of it went
 

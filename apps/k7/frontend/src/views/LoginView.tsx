@@ -1,5 +1,5 @@
 /* The RECOVERY screen, not the way in: k7 has no sign-in page of its own, and an
-   anonymous tab leaves for st0's /auth/login on its own (see auth.ts). This is
+   anonymous tab leaves for pl8's /auth/login on its own (see auth.ts). This is
    what is left when that trip came back with no session — a dead end otherwise,
    since bouncing again would only loop. */
 

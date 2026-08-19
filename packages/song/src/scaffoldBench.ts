@@ -1,6 +1,6 @@
 // scaffoldBench.ts — the file map for the MODULE BENCH: a `.l8` project that exists to try the
 // médiathèque's modules in, and nothing else. One track through a mixer to OUT, and everything
-// else is the catalogue, which is not in the folder. Rationale: apps/st0/docs/banc.md.
+// else is the catalogue, which is not in the folder. Rationale: apps/pl8/docs/banc.md.
 
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 import { DEFAULT_COUNT_IN } from "./project";
@@ -50,7 +50,7 @@ export function benchFiles(name: string): Record<string, string> {
     "project.yaml":
       `# Le banc d'essai des modules. Généré, et régénéré à chaque ouverture depuis la\n` +
       `# médiathèque — ce que vous écrivez ICI dans un module est écrit dans le catalogue,\n` +
-      `# pas dans une copie. C'est le seul projet dans ce cas. Voir apps/st0/docs/banc.md.\n` +
+      `# pas dans une copie. C'est le seul projet dans ce cas. Voir apps/pl8/docs/banc.md.\n` +
       `#\n` +
       `# banc.md le dit déjà : « pas un morceau ». Rien n'y est arrangé, rien n'y est\n` +
       `# enregistré — d'où "live", qui est exactement ça : un graphe, et pas de timeline.\n` +

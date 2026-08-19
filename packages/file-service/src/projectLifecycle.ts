@@ -154,7 +154,7 @@ const SCAFFOLD_FOR_SHAPE: Record<
 
 /**
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
- * relative path. This is `POST /project/create`, which st0's "Nouveau projet" calls.
+ * relative path. This is `POST /project/create`, which pl8's "Nouveau projet" calls.
  *
  * Every one of them is an `.l8` folder, and `shape` — the ARCHETYPE — picks the file map. Each
  * is named after the surface it opens on, because that is the whole of what is being chosen:

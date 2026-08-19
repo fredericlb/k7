@@ -36,9 +36,9 @@ Dans la médiathèque, cliquer sur n'importe lequel ouvre le même builder que l
 dérivées du schéma, liens d'entités, widget tracker — était consommée par les deux apps. Ce
 n'était pas le manque.
 
-Le manque, c'était le **builder** : st0 avait `ModuleEditorPage.tsx` (562 l.),
+Le manque, c'était le **builder** : pl8 avait `ModuleEditorPage.tsx` (562 l.),
 `WidgetGridEditor.tsx` (787 l.) et `YamlPane.tsx` (65 l.) ; l8 n'en avait plus du tout.
-D'où : extraction depuis st0, puis branchement neuf côté l8.
+D'où : extraction depuis pl8, puis branchement neuf côté l8.
 
 Pourquoi un paquet séparé plutôt que faire grossir `ui-editor` : celui-ci est la pile
 *langage*, framework-agnostique. Le builder est une *vue* React. Les fondre ferait entrer
@@ -58,7 +58,7 @@ une de trop. Ce qui a bougé :
 | `packages/song/src/yaml/moduleSchema.ts` | `UiFileSchema` n'a plus de `ref` |
 | `packages/file-service/src/workspace.ts` | `moduleUi()` = `dirname` ; `write()` laisse passer `ui.yaml` sous `_modules/` |
 | `packages/mediatek/src/{ingest,layout}.ts` | plus de mapping `_ui → ui`, plus de `uiDir()` |
-| `apps/st0/frontend/src/api.ts` | `moduleUi()` = `dirname` ; `refOfUiFile` supprimé |
+| `apps/pl8/frontend/src/api.ts` | `moduleUi()` = `dirname` ; `refOfUiFile` supprimé |
 
 Docs refaites : `packages/song/docs/uiLibrary.md`, `docs/sharedFolders.md`,
 `docs/moduleCatalogue.md`, `packages/mediatek/docs/ingest.md`,
@@ -164,7 +164,7 @@ porte maintenant `files` — ce que le dossier contient vraiment.
 La médiathèque vient de recevoir le chrome de l8 : familles en onglets, `FileTree`
 partagé en sidebar avec menus contextuels et glisser-déposer, cog pour le moteur et la
 déconnexion. Le backend a gagné `POST /move`, `POST /folder` et `DELETE /folder`
-(`apps/st0/backend/src/routes/library.ts`, adossées à `@studio/mediatek/write`).
+(`apps/pl8/backend/src/routes/library.ts`, adossées à `@studio/mediatek/write`).
 
 Piège du `FileTree` partagé, appris à la dure : le menu contextuel **ne s'ouvre pas du
 tout** si aucune action ne passe son `when` (`file-tree.tsx:385`), et `rootLabel` ne dessine

@@ -223,7 +223,7 @@ export async function play(
   const abs = resolveInMediatek(rel);
   const p = playerFor(userEmail);
   // `replace` et non `append` : une seule chose sort des haut-parleurs, comme partout ailleurs
-  // dans st0 — la file d'attente vit dans l'onglet, pas ici.
+  // dans pl8 — la file d'attente vit dans l'onglet, pas ici.
   await command(p, [
     "loadfile",
     abs,

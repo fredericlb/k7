@@ -2,7 +2,7 @@
 
 A workspace is **one git clone**. The project is one folder inside it. Those used to be
 almost the same thing, because l8 owned the level above a project and let you pick one; now
-st0 owns the repositories and opens an app **on** a project
+pl8 owns the repositories and opens an app **on** a project
 (`packages/project-shell/docs/launch.md`). That change moved two questions here.
 
 ## The tree is the project's, not the clone's
@@ -29,19 +29,19 @@ Two consequences worth knowing:
   arrives through `/module-catalogue`, `/module-ui` and `/hints`, which are unaffected.
 - A `.dawproject` sitting **outside** the project folder is likewise off the tree, so it can
   no longer be clicked to import. Importing lands a *new* project at the workspace root,
-  which l8 cannot open by itself anyway — you go back to st0 for that either way.
+  which l8 cannot open by itself anyway — you go back to pl8 for that either way.
 
 ## Opening a project that is not there
 
-`isProjectDir` is a rule about a **name** — `mysong.l8`, `myset.m9` — because st0 must
+`isProjectDir` is a rule about a **name** — `mysong.l8`, `myset.m9` — because pl8 must
 answer the same question from a bare blobless mirror where no file can be opened
 (`packages/web-protocol/projects.ts`). The trap is that a name rule says "yes" about a folder
 that does not exist.
 
-That is not hypothetical. st0 reads a **mirror**, the file service reads a **clone**, and the
-two are fetched at different moments. Rename a project folder, push, and st0 will keep
-offering the old name until its mirror is refreshed — st0's own fix for that is in
-`apps/st0/backend/src/routes/projects.ts`, whose repository listing now refreshes the mirrors
+That is not hypothetical. pl8 reads a **mirror**, the file service reads a **clone**, and the
+two are fetched at different moments. Rename a project folder, push, and pl8 will keep
+offering the old name until its mirror is refreshed — pl8's own fix for that is in
+`apps/pl8/backend/src/routes/projects.ts`, whose repository listing now refreshes the mirrors
 it lists, not just the tree view. But a race is still a race, and the mirror can be a fetch
 behind at exactly the wrong second.
 

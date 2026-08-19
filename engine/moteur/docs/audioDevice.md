@@ -60,7 +60,7 @@ The hole was in the first row's second column. `preferences.yaml` has held an
 `audioDevice` field all along and `engineLink` has always replayed it, but the only thing
 that ever WROTE it was a CLI (`l8 config --set interface`) that no longer exists in this
 repo — `packages/song/src/preferences.ts`'s `setAudioDevice()` had no callers left, and
-the picker in st0's « État du moteur » sent `set-audio-device` to the engine and nothing
+the picker in pl8's « État du moteur » sent `set-audio-device` to the engine and nothing
 else. That switches the running engine and is forgotten the moment it exits. In dev the
 engine exits on every native rebuild, so the pick lasted minutes.
 

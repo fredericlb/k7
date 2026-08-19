@@ -78,5 +78,5 @@ export function useProjectImport(opts: {
 }
 
 // `useProjectDelete` was here, behind the `project delete` verb and its confirm dialog. Both
-// are gone: l8 shows no workspace to pick a project out of, and st0 owns the repositories.
-// The file service still has the route — that is what st0 calls.
+// are gone: l8 shows no workspace to pick a project out of, and pl8 owns the repositories.
+// The file service still has the route — that is what pl8 calls.

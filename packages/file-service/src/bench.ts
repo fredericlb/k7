@@ -1,7 +1,7 @@
 // bench.ts — a generated `.l8` project that IS one chain of the library submodule, and whose
 // saves are written back into it instead of forking a copy. Opened on ONE chain: the
 // catalogue-at-large bench is gone, and modules are edited from l8's Libraries tab.
-// Rationale: apps/st0/docs/banc.md.
+// Rationale: apps/pl8/docs/banc.md.
 
 import {
   cpSync,

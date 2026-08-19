@@ -28,20 +28,26 @@ diverger (`docs/shell.md`).
 
 ## Trois serveurs, dont un nouveau
 
-C'est le premier écran de l8 qui parle à **st0** autrement que pour la session. Le tableau que
+C'est le premier écran de l8 qui parle à **pl8** autrement que pour la session. Le tableau que
 `AGENTS.md` tient devient :
 
 | | pour quoi | où |
 |---|---|---|
-| backend l8 | la session, le registre des moteurs | même origine, sous `/l8` |
+| backend l8 | la session, le registre des moteurs | même origine, **à la racine** |
 | service de fichiers | la playlist elle-même — `/playlists`, `/file`, `/file` (PUT) | machine du moteur, cross-origin |
-| **médiathèque st0** | les morceaux que la playlist nomme | même origine, **à la racine** |
+| **médiathèque pl8** | les morceaux que la playlist nomme | même origine, sous `/pl8` |
 
-Ce dernier point est le piège, et il vaut la peine d'être écrit : st0 n'a **pas** de préfixe de
-chemin — c'est lui qui répond à la racine de l'origine — donc ses routes sont `/api/mediatek/*`
-pour tout le monde, `${BASE}/api/mediatek/*` pour personne. Écrit avec le préfixe, l'appel part
-sous `/l8`, revient en 404, et le catalogue vide se lit comme « vous n'avez aucun morceau ».
-Même raison, et même forme, que `/auth/*` en haut de `api.ts`.
+Ce dernier point est le piège, et il vaut la peine d'être écrit : c'est **l8** qui répond à la
+racine de l'origine, donc son `BASE` est la chaîne vide et un `/api/mediatek/*` écrit nu part
+chez son propre backend — qui n'a pas cette route. Les appels à la médiathèque passent par
+`serviceUrl(…, "pl8")`, jamais par `BASE` et jamais en dur : écrits nus, ils reviennent en 404
+et le catalogue vide se lit comme « vous n'avez aucun morceau ».
+
+C'était l'inverse avant que l8 ne prenne la racine — la médiathèque y répondait, et `/api/mediatek/*`
+nu était juste. La faute a donc changé de camp sans changer de forme, ce qui est exactement
+l'argument pour demander la table plutôt que d'écrire un préfixe. `/auth/*` en haut de `api.ts`
+est le cas qui ne bouge pas : il reste nu, parce que l'IdP ne connaît qu'un `redirect_uri` sans
+préfixe.
 
 L'authentification est le cookie de session, ce qui est aussi ce qui fait marcher `songUrl` en
 `<audio src>` : un élément média ne sait pas poser d'en-tête, et n'a pas à le faire quand les
@@ -103,7 +109,7 @@ Une rangée ajoute le **master** ; les pastilles à côté ajoutent une **varian
 mettre `instrumental` dans une setlist voudrait dire aller taper le mapping à la main, alors que
 le format existe précisément pour le porter.
 
-**« Ajouter un morceau »** prend un fichier du disque. st0 n'avait que la recherche, parce que
+**« Ajouter un morceau »** prend un fichier du disque. pl8 n'avait que la recherche, parce que
 son propre onglet Morceaux était à un clic ; d'ici la médiathèque est une autre application, et
 une setlist qu'on ne peut pas finir sans en sortir est une setlist qu'on quitte.
 
@@ -114,10 +120,10 @@ qu'elle répond**. Jamais depuis les tags envoyés : le dossier est déduit là-
 une seconde déduction ici serait une seconde orthographe d'un même morceau — fausse dès le
 premier tag accentué.
 
-Les tags sont **devinés du nom de fichier** et non demandés. L'upload de st0 a un dialogue à
+Les tags sont **devinés du nom de fichier** et non demandés. L'upload de pl8 a un dialogue à
 trois champs, et il a raison : c'est l'écran où l'on *range* une bibliothèque. Ici la question
 posée est « mets ça dans mon set », et s'arrêter pour remplir un formulaire au milieu est
-l'interruption. Une devinette fausse se corrige dans st0, sur le morceau.
+l'interruption. Une devinette fausse se corrige dans pl8, sur le morceau.
 
 Le catalogue ayant bougé sous nos pieds, le panneau le redemande tout de suite (`onFiled`) — sans
 quoi la ligne qu'il vient d'écrire resterait « morceau introuvable » jusqu'au prochain poll.
@@ -130,9 +136,9 @@ orthographe que le paragraphe au-dessus refuse.
 
 Un `<audio>`, une ligne à la fois, sur une URL de même origine.
 
-st0 pilotait un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une
+pl8 pilotait un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une
 destination navigateur/moteur derrière. Rien de tout ça n'a suivi, délibérément : cette
-machinerie existe parce que st0 est une application d'**écoute** dont la barre du bas vous suit
+machinerie existe parce que pl8 est une application d'**écoute** dont la barre du bas vous suit
 de section en section, alors que ce shell-ci est un éditeur qui a déjà un transport à lui,
 pilotant le moteur sur un projet. Deux choses qui revendiquent le mot « en lecture » sur un même
 écran, ce sont deux transports. Ce dont une setlist a besoin pendant qu'on la monte, c'est
@@ -169,11 +175,11 @@ la ligne demande, pas le master. C'est la même résolution des deux côtés —
 fonction, `@studio/mediatek/playlistItems` — parce que « le chemin d'abord, le nom ensuite » est
 une règle, et que deux copies auraient divergé au premier cas appris d'un seul côté.
 
-## Ce qui est parti de st0 avec l'écran
+## Ce qui est parti de pl8 avec l'écran
 
 La chasse (« Trouver des morceaux ») pouvait **viser une playlist** : le morceau trouvé y était
 ajouté dès qu'il était rangé. Ce n'est plus possible et ne le redeviendra pas de ce côté-là — les
-playlists sont sur le disque du service de fichiers, et donner à st0 les moyens d'y écrire ferait
+playlists sont sur le disque du service de fichiers, et donner à pl8 les moyens d'y écrire ferait
 du service qui tient la session et l'unique clé de déploiement un écrivain dans le dépôt de
-chacun, ce que `apps/st0/docs/projects.md` refuse explicitement. La chasse range donc le morceau
+chacun, ce que `apps/pl8/docs/projects.md` refuse explicitement. La chasse range donc le morceau
 dans la médiathèque, et l'ajouter à une setlist est un clic ici, sur ce même catalogue.

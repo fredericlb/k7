@@ -102,8 +102,8 @@ whose audio is a file rather than an interface channel. See `@studio/song`'s `do
 
 ## Analysis, and when it runs
 
-A song's master is analysed **at upload**: st0 receives the bytes, then asks the chosen
-machine to compute the waveform envelope, the transient onsets and the tempo, because st0 has
+A song's master is analysed **at upload**: pl8 receives the bytes, then asks the chosen
+machine to compute the waveform envelope, the transient onsets and the tempo, because pl8 has
 no engine and cannot decode audio. The `.cache` sidecar is pushed back beside the audio and the
 tempo seeds `song.yaml` — see `packages/file-service/src/routes/mediatek.ts` and
 `packages/file-service/docs/waveformCache.md`.

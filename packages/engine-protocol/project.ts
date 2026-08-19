@@ -3,7 +3,7 @@
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
 // This is NOT "a l8 song". It is the OUTPUT of a compiler, and any app that can build
-// one can drive the engine — st0's module preview is a one-track doc, an m9 deck
+// one can drive the engine — pl8's module preview is a one-track doc, an m9 deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.

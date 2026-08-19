@@ -26,24 +26,44 @@ export default defineAppConfig({
   // straight to the backend, and fatal under `l8 --web` where this server is visited direct.
   // See packages/engine-registry/docs/proxy.md.
   wsPaths: ["/api/engine"],
-  // No /auth here, matching m9: the shared OIDC flow lives on st0's backend now, and
-  // the proxy's origin-wide /auth/* route claims those paths before this dev server ever
-  // sees them. Proxying them to :8789 would only forward to a backend that mounts no
-  // auth routes — a 404 that reads like a broken login rather than a misrouted one.
-  // /api is proxied by default and carries the workspace/engine-registry calls.
+  // /auth is NOT in `proxyPaths`, because `proxyPaths` would point it at THIS app's backend
+  // and :8789 mounts no auth routes. The shared OIDC flow is pl8's, and `extend` below sends
+  // it to :8795 by hand — see the comment there. /api is proxied by default and carries the
+  // engine-registry calls.
   // The public dev host, which also pins HMR to :443 (the LAN proxy terminates
   // TLS there). Declared ONLY for the fixed-port case: under `l8 --web`
   // the server is on a free port and visited directly over plain http, where
   // both the allowlist entry and a 443 HMR socket would be wrong.
   host: process.env.STUDIO_WEB_PORT ? undefined : DEV_HOST,
-  base: process.env.STUDIO_WEB_PORT ? undefined : "/l8/",
+  // No `base`: l8 is the studio's front door now, so its assets and its routes sit at `/` and
+  // `import.meta.env.BASE_URL` is `/` — which is what puts this app's own API at `/api`. It was
+  // `/l8/` until the médiathèque moved to `/pl8`; anything still linking there gets l8's SPA
+  // and an address whose first segment reads as a repository name (see src/main.tsx).
   // Dev runs under WSL against /mnt/c, where inotify never fires.
   poll: true,
   extend: {
     // Compiles messages/<locale>.json into src/paraglide/.
     plugins: [frediverseParaglide()],
-    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
-    server: { allowedHosts: LEGACY_DEV_HOSTS },
+    server: {
+      // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+      allowedHosts: LEGACY_DEV_HOSTS,
+      // The one route this dev server forwards to a backend that is not its own. In dev the
+      // LAN proxy sends the whole ORIGIN ROOT here, and `/auth/*` is prefixless for every
+      // service on it — the IdP has a single registered redirect_uri and it carries no prefix.
+      // So the flow stays pl8's backend's wherever pl8's SPA sits; see
+      // packages/web-protocol/services.ts. Spelled out rather than taken from SERVICE_PORTS
+      // because every vite config in this repo names its ports as literals.
+      proxy: {
+        "/auth": {
+          target: "http://localhost:8795",
+          changeOrigin: true,
+          // Same reason `defineAppConfig` sets it: changeOrigin overwrites Host, and the
+          // backend derives its own public origin — and so its redirect_uri — from the
+          // request. Without these it hands the browser a callback pointing at :8795.
+          xfwd: true,
+        },
+      },
+    },
     // @studio/ui-chains, /ui-editor and /ui-timeline are consumed as raw .ts
     // (no build step, like the rest of the brain). Vite usually skips
     // pre-bundling a linked workspace dep, but esbuild's dep scanner can grab

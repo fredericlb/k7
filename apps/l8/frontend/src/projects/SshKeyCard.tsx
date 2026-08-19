@@ -1,4 +1,4 @@
-// SshKeyCard.tsx — la clé de déploiement du studio. Elle est générée ICI, par st0, parce que
+// SshKeyCard.tsx — la clé de déploiement du studio. Elle est générée ICI, par pl8, parce que
 // c'est ce service qui détient les dépôts ; la machine du moteur en récupère une copie quand
 // elle doit cloner. Une seule clé à coller chez l'hébergeur git. Voir packages/git-repos/docs/keys.md.
 

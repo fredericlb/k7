@@ -145,7 +145,7 @@ ASIO, ce que `engine/moteur/AGENTS.md` raconte en détail :
 - les **16 chaînes** passent par `chainSteps()` — la fonction même que le dessin et la lecture
   d'une variante emploient — et rendent la suite d'étapes attendue ; chaque `nodes/*.yaml`
   nomme un module qui existe, sans orphelin ni étape sans nœud ;
-- le scan de la médiathèque les liste toutes les 16 dans la famille `chains`, donc st0 les
+- le scan de la médiathèque les liste toutes les 16 dans la famille `chains`, donc pl8 les
   montre ;
 - côté sessions, chaque `variant:` de catégorie trouve, pour chaque morceau concerné, soit un
   fichier à côté du master (28), soit une chaîne qui existe (20) ; 18 retombent sur le master,

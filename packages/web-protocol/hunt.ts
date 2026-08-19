@@ -1,6 +1,6 @@
-// hunt.ts — the contract for st0's "trouver des morceaux": one row of the search history, as
+// hunt.ts — the contract for pl8's "trouver des morceaux": one row of the search history, as
 // the backend writes it and the screen draws it. Here rather than in either half because both
-// read the same rows. See apps/st0/docs/hunt.md.
+// read the same rows. See apps/pl8/docs/hunt.md.
 
 /** The four states, and the three colours the history draws them in: `done` green,
  *  `searching` and `downloading` blue, `failed` red. */

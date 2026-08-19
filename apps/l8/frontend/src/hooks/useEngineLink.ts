@@ -64,7 +64,7 @@ export function useEngineLink(
   useEffect(() => {
     // The client is app-agnostic; the stall breadcrumbs are l8' own instrumentation, so
     // the shell hands its watchdog in rather than the package importing one.
-    // Per SERVICE and per PERSON. The service half stops st0's module previews and a
+    // Per SERVICE and per PERSON. The service half stops pl8's module previews and a
     // m9 deck from overwriting this song; the person half matters now that an engine
     // is chosen per account, so two people can pick the same machine — and on a bare
     // "l8" they would drive one project between them.

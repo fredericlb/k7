@@ -25,7 +25,7 @@ export function declaredType(dir: string): ProjectType | null {
  * Three steps, and their ORDER is the whole design:
  *
  * 1. The folder's **suffix**, when it has one. `@studio/web-protocol/projects` already
- *    decides from the name which app opens a link, and st0 answers that question from a
+ *    decides from the name which app opens a link, and pl8 answers that question from a
  *    blobless git mirror that has every path and no file bodies — so the name is the one
  *    signal available everywhere. A second authority that could disagree with it would put
  *    the app that OPENED the folder at odds with the loader reading it.

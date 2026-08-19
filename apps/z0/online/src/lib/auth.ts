@@ -60,7 +60,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      // Not always an invitation to log in. If we JUST came back from st0 and
+      // Not always an invitation to log in. If we JUST came back from pl8 and
       // are still anonymous, the button would only bounce off it again — say
       // so instead of looping. See apps/z0/docs/auth.md.
       const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
@@ -86,7 +86,7 @@ async function bootstrap(): Promise<void> {
 }
 
 // Signing in and out is the same rule for all six SPAs, and a subtle one — the
-// account belongs to st0, the guest cookie to z0. It lives in z0-shared/account
+// account belongs to pl8, the guest cookie to z0. It lives in z0-shared/account
 // rather than in six copies here.
 export { login } from "z0-shared/account";
 

@@ -44,7 +44,7 @@ const selectBody = z.object({
   id: z.string().min(1),
   token: z.string().min(1),
   // The launch address, `<repo>/<projet>`. Absent or null for a surface that opens on no project
-  // — st0 drives an engine without ever holding a project, and must not compete for one.
+  // — pl8 drives an engine without ever holding a project, and must not compete for one.
   project: z.string().nullish(),
   // Absent on the first call, which is an OPEN and always wins; present on every renewal.
   secret: z.string().optional(),

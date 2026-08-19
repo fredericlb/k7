@@ -68,7 +68,7 @@ function ready(el: HTMLAudioElement, at: number): Promise<void> {
  *
  * **A media element per file, not a decoded buffer**, and the number is why: twelve stems of four
  * minutes decode to something over a gigabyte of float32, which no phone has. An element streams,
- * makes Range requests — exactly what st0's `streamFile` serves — and carries the `currentTime`
+ * makes Range requests — exactly what pl8's `streamFile` serves — and carries the `currentTime`
  * this hook publishes as the playhead.
  *
  * The price is that media elements have **no scheduling**. `AudioBufferSourceNode.start(when)` is

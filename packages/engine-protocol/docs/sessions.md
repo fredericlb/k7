@@ -71,7 +71,7 @@ field would make a new client silently deaf rather than merely unsorted.
 
 So the correctness of one line here lives in `engine/moteur/server/main.cpp`, in its choice
 between the `broadcast` and `broadcastTo` verbs. It was not always true: for a while only
-`state` and `session-dropped` were stamped, and an st0 module audition made l8 flash `busy`
+`state` and `session-dropped` were stamped, and an pl8 module audition made l8 flash `busy`
 and receive `applied`/`flushed`/`recorded` for a project it did not own.
 
 A capability handshake was considered instead and rejected: it would only help if the engine

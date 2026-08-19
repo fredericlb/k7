@@ -168,7 +168,7 @@ app.post(
 );
 
 /**
- * Which workspace already holds a repository, if any. st0 names a repo by its URI and knows
+ * Which workspace already holds a repository, if any. pl8 names a repo by its URI and knows
  * nothing about this machine's folders, so this is the question l8 asks before deciding
  * whether anything needs cloning at all.
  */
@@ -211,7 +211,7 @@ app.post(
         error:
           "@banc opens a library chain — `chains/<path>.l8`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
       });
-    // The account's library repository, from the browser — the side that holds the session st0
+    // The account's library repository, from the browser — the side that holds the session pl8
     // answers to. The bench's workspace mounts it like any other, and the chain being opened is
     // inside it. Without one there is nothing to open, which the gate already refuses on.
     const libraries = String(req.body?.libraries ?? "");
@@ -394,7 +394,7 @@ app.get(
   }),
 );
 
-// There is no /ssh-key here any more. st0 owns the studio's git identity — it generates the
+// There is no /ssh-key here any more. pl8 owns the studio's git identity — it generates the
 // one deploy key and shows it to you — and this machine fetches a copy when it first needs to
 // clone (sshKeys.ts). See packages/git-repos/docs/keys.md.
 

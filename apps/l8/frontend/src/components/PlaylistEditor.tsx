@@ -50,7 +50,7 @@ const SAVE_LABEL: Record<string, string> = {
 
 /** How often the médiathèque's songs are re-read while a playlist is open. A morceau filed in
  *  another tab should appear here too, and a playlist is exactly the screen where you notice
- *  one is missing. Slower than st0's own poll: this is a cross-app call from an editor. */
+ *  one is missing. Slower than pl8's own poll: this is a cross-app call from an editor. */
 const SONGS_POLL_MS = 10_000;
 
 export function PlaylistEditor({

@@ -23,7 +23,7 @@ export const DEFAULT_SESSION = "";
  */
 export const SESSIONS = {
   l8: "l8",
-  st0: "st0",
+  pl8: "pl8",
 } as const;
 
 export type SessionId = string;
@@ -65,7 +65,7 @@ export const ENGINE_GLOBAL_REPLIES = [
 
 /**
  * The reply types that describe ONE project and must be stamped. Unstamped, every client on
- * the engine reads them: an st0 module audition made l8 flash `busy` and clear its warnings.
+ * the engine reads them: an pl8 module audition made l8 flash `busy` and clear its warnings.
  */
 export const PER_SESSION_REPLIES = [
   "state",

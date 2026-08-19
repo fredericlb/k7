@@ -51,7 +51,7 @@ export function RepoList({
   onAdd: (uri: string) => void;
   onOpen: (repo: RepoSummary) => void;
   /** Pourquoi créer et supprimer sont impossibles, ou "". Les deux passent par une machine
-   *  moteur — st0 n'a qu'un miroir bare et sans blobs, voir ../../docs/projects.md. */
+   *  moteur — pl8 n'a qu'un miroir bare et sans blobs, voir ../../docs/projects.md. */
   blocked: string;
   onCreate: (
     repo: RepoSummary,

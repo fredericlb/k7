@@ -136,7 +136,7 @@ export function ProjectGate({
   engine: GateEngine;
   /** Which app this is — it decides the suffix that ends the project in the address. */
   app: ProjectApp;
-  /** Where this app is mounted, as vite's `import.meta.env.BASE_URL` gives it (`/l8/`). The
+  /** Where this app is mounted, as vite's `import.meta.env.BASE_URL` gives it (`/`). The
    *  package cannot read another package's build constant, so the app hands it over. */
   base: string;
   /** Each app owns its own wording (l8 has paraglide, m9 is French in place). */
@@ -234,14 +234,14 @@ export function ProjectGate({
          *
          * It has no repository — it is generated from the médiathèque's catalogue and
          * regenerated on every open — so every step below it is about something that does not
-         * exist: a name st0 could not resolve, a URI git could not clone, a workspace nothing
+         * exist: a name pl8 could not resolve, a URI git could not clone, a workspace nothing
          * would have made. One call replaces all three.
          *
          * Reported as `cloning`, because from here it is the same thing: a visible wait while a
          * machine fetches a catalogue. The first one is the slow one.
          */
         // `app` as well as the name: the bench is a `.l8` project, so `/m9/@banc/…` names
-        // nothing and must fall through to the ordinary road, where st0 answers "no such
+        // nothing and must fall through to the ordinary road, where pl8 answers "no such
         // repository" — which is exactly what it is.
         if (app === "l8" && isBench(repoName)) {
           setPhase({
@@ -277,14 +277,14 @@ export function ProjectGate({
           });
         }
 
-        // The address carries a NAME; git needs a URI, and st0 is what holds the pairing.
+        // The address carries a NAME; git needs a URI, and pl8 is what holds the pairing.
         // First, because everything below is about a repository we cannot yet name to git.
         let repo: string;
         try {
           repo = (await repoByName(repoName)).uri;
         } catch (e) {
           if (cancelled) return;
-          // st0 answered "no such name" / "two of them" — a target problem, not a fault, and
+          // pl8 answered "no such name" / "two of them" — a target problem, not a fault, and
           // the same screen as a project that is not in the repository.
           const status = (e as { status?: number }).status;
           if (status === 404 || status === 409) {

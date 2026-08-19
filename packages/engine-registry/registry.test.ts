@@ -113,11 +113,11 @@ describe("the engine claim", () => {
     expect(refused.ok).toBe(false);
   });
 
-  it("lets a project-less holder sit beside a project — st0 must not evict l8", () => {
+  it("lets a project-less holder sit beside a project — pl8 must not evict l8", () => {
     const song = grant(
       reg.claim("e1", { project: "band/winter.l8", holder: "a" }),
     );
-    // st0 drives an engine and opens no project. Looking at the catalogue used to be enough to
+    // pl8 drives an engine and opens no project. Looking at the catalogue used to be enough to
     // take the song away from the l8 tab on the same machine.
     const catalogue = grant(reg.claim("e1", { project: null, holder: "a" }));
 
@@ -245,8 +245,8 @@ describe("the engine claim", () => {
       });
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      // NOT `engine`: st0 sitting beside a song is legal, so that song never took anything
-      // from it. Only the TTL did. Telling st0 a project evicted it would be an invented cause.
+      // NOT `engine`: pl8 sitting beside a song is legal, so that song never took anything
+      // from it. Only the TTL did. Telling pl8 a project evicted it would be an invented cause.
       expect(r.lost).toBe("lapsed");
     });
 

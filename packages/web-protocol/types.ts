@@ -561,7 +561,7 @@ export interface ProjectErrors {
 }
 
 // --- Chains: the routing graph --------------------------------------------------
-// Moved to @studio/graph-model. Three apps draw chains — l8, st0's module
+// Moved to @studio/graph-model. Three apps draw chains — l8, pl8's module
 // builder and m9 — and only l8 wants the rest of this file, so the graph
 // model is its own package. Import it from there, not through here.
 
@@ -648,8 +648,8 @@ export interface WorkspaceList {
   workspaces: WorkspaceSummary[];
 }
 
-/** Reply to GET/POST /api/projects/ssh-key on st0 — the user's PUBLIC deploy key, the one
- * they paste into their git host. st0 generates the pair and owns the private half; see
+/** Reply to GET/POST /api/projects/ssh-key on pl8 — the user's PUBLIC deploy key, the one
+ * they paste into their git host. pl8 generates the pair and owns the private half; see
  * packages/git-repos/docs/keys.md. */
 export interface SshKeyInfo {
   publicKey: string | null;
@@ -694,7 +694,7 @@ export interface SeparateJob {
   files: string[]; // the stems written, absolute. Empty until `done`.
 }
 
-/** How st0's mirror of one repository is doing. `ready` means there is something to read,
+/** How pl8's mirror of one repository is doing. `ready` means there is something to read,
  *  whether or not a refresh is running on top of it. */
 export interface RepoStatus {
   fetching: boolean;
@@ -710,7 +710,7 @@ export interface RepoProject {
 }
 
 /**
- * A repository named by its short name — st0's answer to "what is behind `/l8/<name>/…`".
+ * A repository named by its short name — pl8's answer to "what is behind `/<name>/…`".
  *
  * The one thing an editor needs before it can resolve a workspace, and the reason the URI is
  * not in the address bar in the first place.
@@ -751,7 +751,7 @@ export interface RepoRef {
   uri: string;
 }
 
-/** One git repository a person has added to st0, as the Projets section lists them. */
+/** One git repository a person has added to pl8, as the Projets section lists them. */
 export interface RepoSummary extends RepoStatus {
   id: string;
   uri: string;
@@ -759,8 +759,8 @@ export interface RepoSummary extends RepoStatus {
    * The repository's SHORT name — its last path segment without `.git`, which is also what
    * the clone is called on the engine's machine.
    *
-   * This is the half of a project's address that a person can read, and it is what st0 puts
-   * in the link: `/l8/<name>/<project>`. Derived from `uri` rather than stored, so the two
+   * This is the half of a project's address that a person can read, and it is what pl8 puts
+   * in the link: `/<name>/<project>`. Derived from `uri` rather than stored, so the two
    * cannot drift; the URI itself never reaches the address bar, because it carries a host, a
    * port and a user, none of which belong in a bookmark.
    */

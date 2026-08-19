@@ -171,7 +171,7 @@ const BINARY_EXT =
 
 /**
  * The file list as the nested shape every tree in this repo draws — the file service's
- * `FileNode`, so st0's Projets section and l8's own tree agree on what a row is.
+ * `FileNode`, so pl8's Projets section and l8's own tree agree on what a row is.
  */
 export function buildTree(
   files: string[],

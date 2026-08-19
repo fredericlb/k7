@@ -685,7 +685,7 @@ function widgetTarget(
   }
   if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
   // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host
-  // that does NOT — l8, st0 — keeps drawing nothing here rather than a knob that turns
+  // that does NOT — l8, pl8 — keeps drawing nothing here rather than a knob that turns
   // against an address the engine never had.
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }
@@ -1903,7 +1903,7 @@ function NodeInner({
   onOpenPlugin: (module: string) => void;
   onBypass: (module: string) => void;
   /** The ⋮ bubble was clicked: open THIS host's menu for the node at those viewport coords.
-   *  Optional, and the button exists only when it is given — st0's bench and m9's desk pass
+   *  Optional, and the button exists only when it is given — pl8's bench and m9's desk pass
    *  nothing and get no menu, the way they pass no command bar. */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
@@ -2862,7 +2862,7 @@ export function DomChains({
    * Animate a change of layout: cards slide to their new places, a new one fades up, a removed
    * one fades out. On by default — a graph redrawn after a command is the case it exists for.
    *
-   * Turn it OFF where the layout is recomputed as fast as somebody types: st0's chain view
+   * Turn it OFF where the layout is recomputed as fast as somebody types: pl8's chain view
    * re-lays out on every keystroke, so each character would be one node leaving and another
    * arriving, and the picture would never be still long enough to read. See docs/nodeMotion.md.
    *
@@ -2900,7 +2900,7 @@ export function DomChains({
    * The patch cable landed: a free OUT jack was clicked, the cable followed the cursor, and a
    * free IN jack of the same signal took it. `from`/`to` are chains.yaml addresses —
    * `name` or `name#port` (see jackRef) — so the host can run `graph chain connect from to`
-   * verbatim. Optional, and the jacks are clickable only when it is given: st0's read-only
+   * verbatim. Optional, and the jacks are clickable only when it is given: pl8's read-only
    * views and the desk pass nothing and keep their inert sockets, the way they pass no
    * command bar. Esc or any right-click drops the cable in hand.
    */

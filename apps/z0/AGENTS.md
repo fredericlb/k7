@@ -38,7 +38,7 @@ blind-test player is a **guest with no account**. But z0 no longer runs an OIDC 
 used to, on its own backend, with the LAN proxy setting `X-Forwarded-Prefix` for it and
 nowhere else so `redirectUriFor` would name `/z0/auth/callback` — and the IdP has only the
 **prefixless** callback registered, so every account login was refused at the authorization
-endpoint. A service under a path cannot own a flow here; st0 can, having no prefix. So
+endpoint. A service under a path cannot own a flow here; pl8 can, having no prefix. So
 `studio.sid` is read (never written) beside `bt_session`. Both use ONE key, `common`'s
 `SESSION_SECRET` — the same constraint l8, m9 and k7 are under, and z0's own override had to
 go. A second key would buy nothing: cookie-session signs `<name>=<value>`, so a renamed
@@ -48,10 +48,10 @@ cookie fails to verify anyway. [docs/auth.md](docs/auth.md).
 here is a song folder; do not reach for `@studio/song`.
 
 **…except `editor-v2`, which is not a game surface at all.** It opens a `.z0` project out of a
-git repository, so it asks st0 which repositories exist and reads files through the machine's
+git repository, so it asks pl8 which repositories exist and reads files through the machine's
 file service — the same three steps l8 and m9 take, through the same `@studio/project-shell`.
 It never talks to z0's backend at all, which is what still sets it apart now that the six
-others take their account login from st0 too. [docs/editor-v2.md](docs/editor-v2.md).
+others take their account login from pl8 too. [docs/editor-v2.md](docs/editor-v2.md).
 
 **One engine, owned by the BACKEND.** `backend/src/render.ts` is the single exception to the
 per-account engine story the rest of the repo tells: z0 renders offline and never plays,

@@ -279,7 +279,7 @@ nowhere else to appear.
 
 It stays ON by default, because the other pictures built from this pipeline are not songs. The
 module preview is one module between a source and a sink, with no mixer in it to imply anything,
-and there the sink is what says which way the signal runs. st0's chain view and m9's graph also
+and there the sink is what says which way the signal runs. pl8's chain view and m9's graph also
 still draw it — one argument each if they should follow l8.
 
 A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which was the

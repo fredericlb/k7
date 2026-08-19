@@ -43,7 +43,7 @@ describe("where an engine announces itself", () => {
   it("announces to EVERY service that advertised, not just one", () => {
     // The whole bug in one assertion: three registries, three heartbeats.
     advertise("l8", "http://localhost:8789");
-    advertise("st0", "http://localhost:8795");
+    advertise("pl8", "http://localhost:8795");
     advertise("m9", "http://localhost:8796");
     expect(resolveRegistryUrls().sort()).toEqual([
       "http://localhost:8789",
@@ -70,7 +70,7 @@ describe("where an engine announces itself", () => {
     // service's URL for a tick, not the whole resolution.
     advertise("l8", "http://localhost:8789");
     mkdirSync(endpoints(), { recursive: true });
-    writeFileSync(join(endpoints(), "st0.json"), '{"url":');
+    writeFileSync(join(endpoints(), "pl8.json"), '{"url":');
     expect(resolveRegistryUrls()).toEqual(["http://localhost:8789"]);
   });
 
@@ -96,18 +96,20 @@ describe("where an engine announces itself", () => {
 });
 
 describe("which médiathèque this machine caches", () => {
-  it("is the registry's own origin, and st0 sits AT it", () => {
+  it("is the registry's origin, plus pl8's own prefix", () => {
     // Never configured: one origin serves every service, so the registry a machine already
     // announces to carries the only thing that varies. Asking for it twice is how a machine
     // ends up heartbeating to one studio and syncing from another.
     //
-    // st0's SERVICE_PATHS entry is "", so the answer is the bare origin — no trailing
-    // slash, which is what `remoteLibrary` assumes when it appends `/api/mediatek`.
-    expect(mediatekUrlFor(["https://studio.frediver.se/l8"])).toBe(
-      "https://studio.frediver.se",
+    // The registry URL's own path is DROPPED and pl8's is put back on — no trailing slash,
+    // which is what `remoteLibrary` assumes when it appends `/api/mediatek`. The two inputs are
+    // the two shapes a registry URL comes in: l8's, which is the bare origin now that it answers
+    // the root, and a prefixed one. The answer is the médiathèque either way.
+    expect(mediatekUrlFor(["https://studio.frediver.se"])).toBe(
+      "https://studio.frediver.se/pl8",
     );
-    expect(mediatekUrlFor(["https://st0.priv.frediver.se/l8"])).toBe(
-      "https://st0.priv.frediver.se",
+    expect(mediatekUrlFor(["https://st0.priv.frediver.se/pl8"])).toBe(
+      "https://st0.priv.frediver.se/pl8",
     );
   });
 
@@ -120,7 +122,7 @@ describe("which médiathèque this machine caches", () => {
         "https://b.example/m9",
         "https://c.example",
       ]),
-    ).toBe("https://b.example");
+    ).toBe("https://b.example/pl8");
   });
 
   it("answers nothing when nothing resolves, rather than guessing", () => {

@@ -1,7 +1,7 @@
 // registry.ts — a browser's client for its OWN service's engine registry: which engines exist,
 // taking and releasing the lease on one, and the account's remembered choice. Every hosted
 // service mounts the same five routes (@studio/engine-registry), so they are spelled once here
-// rather than per app — st0's and m9's copies had already drifted in their return types.
+// rather than per app — pl8's and m9's copies had already drifted in their return types.
 
 /**
  * What one account has this service remember. `engineId` is the only field EVERY service keeps
@@ -16,7 +16,7 @@ export interface EnginePrefs {
  *
  * `P` is that service's preference shape. It is a parameter rather than a fixed
  * `{engineId?}` because the schema belongs to the HOST (`packages/user-prefs/docs/store.md`)
- * and a union of every service's fields would be a shape no service actually has: st0
+ * and a union of every service's fields would be a shape no service actually has: pl8
  * remembers where playback happens, l8 does not. Defaulted, so an app that keeps nothing
  * else says nothing.
  */
@@ -90,7 +90,7 @@ export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
    * One field, the others left alone — read, merge, write.
    *
    * Not a PATCH route: the store replaces documents and there is nothing on the server that
-   * merges. Doing it here means every service gets the safe verb, rather than st0 being the
+   * merges. Doing it here means every service gets the safe verb, rather than pl8 being the
    * only one that remembered to write the merge by hand.
    */
   patchPrefs(p: Partial<P>): Promise<{ ok: true }>;
@@ -103,7 +103,7 @@ export type ReadJson = <T>(res: Response, what: string) => Promise<T>;
 /**
  * The five routes, against one service's `base`.
  *
- * `base` is the app's own origin prefix ("" for st0, "/m9" for the decks) — this talks to the
+ * `base` is the app's own origin prefix ("" for pl8, "/m9" for the decks) — this talks to the
  * SERVICE the browser loaded, never to another one, because each holds its own registry (see
  * @studio/engine-registry's docs/shared.md).
  */

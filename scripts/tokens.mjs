@@ -37,12 +37,12 @@ const TRAY_SETTINGS = join(homedir(), ".studio", "engine-tray.json");
  * that origin goes out to the LAN proxy and straight back for nothing. So a
  * server-to-server hop takes the loopback port, and this writes it so nobody types a URL.
  */
-const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.st0
+const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
 
 const LINKS = [
   {
-    name: "l8 → st0",
-    issuer: "st0-backend",
+    name: "l8 → pl8",
+    issuer: "pl8-backend",
     sub: "service:l8",
     // The file service reads it from the supervisor's settings; its URL is derived from the
     // registries that supervisor already announces to, so there is no dev URL to write here.
@@ -51,8 +51,8 @@ const LINKS = [
     where: `${TRAY_SETTINGS} (mediatekToken)`,
   },
   {
-    name: "k7 → st0",
-    issuer: "st0-backend",
+    name: "k7 → pl8",
+    issuer: "pl8-backend",
     sub: "service:k7",
     read: (doc) => strAt(doc, ["k7-backend", "MEDIATEK_TOKEN"]),
     assign: (token, doc) => setIn(doc, ["k7-backend", "MEDIATEK_TOKEN"], token),
@@ -117,7 +117,7 @@ function envDoc() {
 /**
  * The secret a service signs its API tokens with, generated on first run.
  *
- * The backend falls back to `${SESSION_SECRET}:st0` when this is unset, which works and
+ * The backend falls back to `${SESSION_SECRET}:pl8` when this is unset, which works and
  * is exactly what nobody should rely on: rotating the session secret would then log everyone
  * out AND revoke every machine's sync in one move. Writing a real one separates the two.
  */

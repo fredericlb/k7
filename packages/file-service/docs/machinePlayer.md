@@ -6,7 +6,7 @@ cache déjà, par `mpv`, sur ses propres sorties. Le moteur n'est pas sollicité
 ## Pourquoi pas le moteur
 
 Le moteur sait très bien jouer un fichier — mais il joue **un projet dans une session**, et
-cette session est partagée avec tout ce que st0 auditionne. L'utiliser pour écouter de la
+cette session est partagée avec tout ce que pl8 auditionne. L'utiliser pour écouter de la
 musique, c'est prendre le transport à ce que l8 était en train d'y faire.
 
 Ici on ne lui demande rien. Conséquence directe : on peut écouter pendant que le moteur sert
@@ -93,5 +93,5 @@ processus là-bas, pas un élément de cette page.
 
 ## Ce qu'il faut sur la machine
 
-`mpv` sur le PATH — c'est tout, et il est sondé à la demande, comme yt-dlp l'est côté st0. Sans
+`mpv` sur le PATH — c'est tout, et il est sondé à la demande, comme yt-dlp l'est côté pl8. Sans
 lui, la route rend 503 avec la phrase, plutôt que d'échouer en silence.

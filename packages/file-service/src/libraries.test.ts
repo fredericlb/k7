@@ -38,7 +38,7 @@ let tmp: string;
 let origin: string;
 let lib: string;
 /** A scratch HOME, because "no médiathèque configured" also means "none ADVERTISED on this
- *  machine" — `mediatekBase()` falls back to `~/.studio/web-endpoints/st0.json`, and the
+ *  machine" — `mediatekBase()` falls back to `~/.studio/web-endpoints/pl8.json`, and the
  *  developer running this has one. Both variables: `homedir()` reads one or the other. */
 let realHome: { HOME?: string; USERPROFILE?: string };
 

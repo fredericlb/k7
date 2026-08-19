@@ -31,7 +31,7 @@ export interface Settings {
   mediatekDir: string | null;
   /** The token this machine syncs its cache with. A headless service has no cookie jar,
    *  which is the whole reason the token exists; `scripts/tokens.mjs` writes it (see
-   *  docs/tokens.md). The library's URL is NOT here — st0 serves the studio origin ROOT,
+   *  docs/tokens.md). The library's URL is NOT here — pl8 serves the studio origin ROOT,
    *  so it IS `<studio origin>`, which is fixed and never was anything to choose. */
   mediatekToken: string | null;
 }

@@ -45,7 +45,7 @@ whom*:
 ```
 Sessions ▸  l8 · ma-chanson · 4 tracks  ▶  ♫1   ✕
             m9 · le-set · 1 track                ✕
-            st0 · nothing loaded                 ✕
+            pl8 · nothing loaded                 ✕
 ```
 
 `▶` means that session's transport is rolling; `♫n` means n sockets are subscribed to its

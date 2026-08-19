@@ -15,7 +15,7 @@ Order is PRECEDENCE — nearest first.
 
 ## `_libraries` is a git submodule
 
-The account registers ONE library repository with st0, from l8's home page
+The account registers ONE library repository with pl8, from l8's home page
 (`apps/l8/frontend/docs/projects.md`), and the
 file service mounts it into every workspace it makes — `git submodule add` where the workspace
 is a repository, a plain clone where it is not. `packages/file-service/src/libraries.ts` is the
@@ -45,8 +45,8 @@ Three details are load-bearing:
   fetchable; pointing one at a commit that never left the machine breaks the workspace for
   everybody who clones it. Two machines racing to seed the same new repository is the ordinary
   way this happens — the loser is told, keeps its checkout, and records nothing.
-- **The FILE SERVICE does it, not st0.** st0 holds the catalogue but is deliberately not a git
-  writer (`apps/st0/docs/projects.md`: the service that mints everyone's session and holds the
+- **The FILE SERVICE does it, not pl8.** pl8 holds the catalogue but is deliberately not a git
+  writer (`apps/pl8/docs/projects.md`: the service that mints everyone's session and holds the
   one deploy key must not also be able to push to every repository). This machine already writes
   to git, already has a working copy, and already has a copy of the key.
 

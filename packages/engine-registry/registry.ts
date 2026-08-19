@@ -28,7 +28,7 @@ export interface EngineHolder {
   /**
    * The launch address — `<repo>/<projet>` — or **null** for a surface that opens on no project.
    *
-   * The null case is not a detail. st0 drives an engine without ever opening a project: it
+   * The null case is not a detail. pl8 drives an engine without ever opening a project: it
    * auditions modules and plays songs out of the médiathèque. A null holder conflicts with
    * nothing and nothing conflicts with it, so looking at the catalogue cannot take a song away
    * from the l8 tab beside it.
@@ -222,7 +222,7 @@ export function createRegistry(): EngineRegistry {
      * 2. **One project per engine.** Not tidiness: the file service on that machine holds a
      *    SINGLE active project (`engineLink.ts` — "several browser tabs share it, last write
      *    wins"), so a second project there does not coexist, it clobbers.
-     * 3. **A null project conflicts with nothing.** st0 drives an engine and opens no project;
+     * 3. **A null project conflicts with nothing.** pl8 drives an engine and opens no project;
      *    it must be able to sit beside the l8 tab on the same machine.
      */
     claim(id, req) {
@@ -311,7 +311,7 @@ export function createRegistry(): EngineRegistry {
       const now = Date.now();
       return live().map((e) => {
         const holders = holdersOf(e, now);
-        // Whoever has a PROJECT on it is the interesting one to name — a null holder is st0
+        // Whoever has a PROJECT on it is the interesting one to name — a null holder is pl8
         // looking at its catalogue, which nobody needs to be warned about.
         const owner = holders.find((h) => h.project !== null) ?? holders[0];
         return {

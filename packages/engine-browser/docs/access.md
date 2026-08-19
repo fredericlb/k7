@@ -7,7 +7,7 @@ une fois.
 
 ## Ce que la séparation coûtait
 
-`base` — `""` pour st0, `/l8`, `/m9` — était passé **deux fois**, à deux fonctions
+`base` — `""` pour l8, `/pl8`, `/m9` — était passé **deux fois**, à deux fonctions
 différentes :
 
 ```ts
@@ -77,10 +77,10 @@ Où le brancher n'est pas la même réponse partout, et la différence est un ch
 
 | surface | quand |
 |---|---|
-| st0, `useEngineChoice` | **toujours** — c'est un sélecteur permanent dans l'en-tête |
+| pl8, `useEngineChoice` | **toujours** — c'est un sélecteur permanent dans l'en-tête |
 | l8 `EngineGate`, m9 `Gate` | **seulement en `picking`** — ce sont des gates, et re-mesurer après le choix ramènerait l'écran en arrière sous les doigts de quelqu'un qui travaille |
 
-Dans st0, la re-mesure passe le choix courant à `find(preferId)`. Ce n'est pas un détail :
+Dans pl8, la re-mesure passe le choix courant à `find(preferId)`. Ce n'est pas un détail :
 `find` rend `preferId ?? prefs.engineId`, donc sans ça un `choose()` optimiste dont
 l'enregistrement n'a pas encore atterri serait écrasé par la valeur du serveur, et le sélecteur
 reviendrait tout seul sur l'ancien moteur.
@@ -101,5 +101,5 @@ n'était que plus long.
   `@studio/project-shell/fileApi`. Il **voyage avec l'adresse qui a répondu** : un socket
   relayé à côté d'un `http://` direct rebâtirait le mur du contenu mixte sur l'autre moitié
   (`@studio/engine-registry/docs/proxy.md`).
-- **La politique du sélecteur** : st0 laisse un éditeur ouvert sans moteur, m9 non. C'est une
+- **La politique du sélecteur** : pl8 laisse un éditeur ouvert sans moteur, m9 non. C'est une
   différence de produit, pas de plomberie.

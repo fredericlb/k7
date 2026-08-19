@@ -227,9 +227,9 @@ filesRouter.post(
 /**
  * Open a project — and mount the account's LIBRARIES beside it first.
  *
- * `libraries` is the URI st0 holds for this account; the browser has just read it (it refuses
+ * `libraries` is the URI pl8 holds for this account; the browser has just read it (it refuses
  * to get this far without one, see `@studio/project-shell`'s docs/launch.md) and hands it over
- * rather than making this service ask st0 for it. The one that knows WHO is asking is the
+ * rather than making this service ask pl8 for it. The one that knows WHO is asking is the
  * browser: this service holds a machine token, not a person's session.
  *
  * Mounted HERE and not only on clone, because the setting can be added after a workspace
@@ -678,7 +678,7 @@ filesRouter.post(
 );
 
 /**
- * Freeze this project and send it to st0, answering the secret its link is built from.
+ * Freeze this project and send it to pl8, answering the secret its link is built from.
  *
  * No body: there is nothing to ask. A share is a snapshot of what is open, and every choice it
  * could offer — which format, which tracks, a title — is either already the project's or is a

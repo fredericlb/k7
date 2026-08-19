@@ -1,10 +1,10 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
 // (`mysong.l8` in l8, `party.z0` in z0's editor), and the ADDRESS that names one:
-// `/l8/<repo>/<project>`. Both are contracts between st0, which writes them,
+// `/<repo>/<project>`. Both are contracts between pl8, which writes them,
 // and the apps, which read them back — so they are stated here, browser-safe, and nowhere else.
-// See apps/st0/docs/projects.md and packages/project-shell/docs/launch.md.
+// See apps/pl8/docs/projects.md and packages/project-shell/docs/launch.md.
 
-import { type StudioService, serviceUrl, studioOrigin } from "./services.ts";
+import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
 export type ProjectApp = Extract<StudioService, "l8" | "z0">;
@@ -27,7 +27,7 @@ export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
  *
  * Owning a folder kind is a naming rule; creating one needs a **scaffold** — a file map the
  * file service can write (`createProjectIn`, and `@studio/song`'s three `scaffold*` modules).
- * z0 owns `.z0` and has none, so offering it in st0's "Nouveau projet" menu produced a folder
+ * z0 owns `.z0` and has none, so offering it in pl8's "Nouveau projet" menu produced a folder
  * with an l8 song inside it: the suffix said z0, the contents said otherwise, and nothing
  * complained until the app that opened it found nothing it could read.
  *
@@ -41,7 +41,7 @@ export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
   z0: false,
 };
 
-/** The apps st0 may offer to create, in the order its menu shows them. */
+/** The apps pl8 may offer to create, in the order its menu shows them. */
 export const SCAFFOLDED_APPS: ProjectApp[] = (
   Object.keys(PROJECT_SUFFIXES) as ProjectApp[]
 ).filter((a) => HAS_SCAFFOLD[a]);
@@ -49,11 +49,11 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
 /**
  * Where inside its service the app that opens a project is mounted.
  *
- * Empty for l8, which IS its service: `st0.priv.frediver.se/l8/<repo>/<project>`. z0 is six
+ * Empty for l8, which IS its service: `st0.priv.frediver.se/<repo>/<project>`. z0 is six
  * SPAs behind one prefix and only one of them opens a project, so its address has to name the
  * SPA too — `st0.priv.frediver.se/z0/editor-v2/<repo>/<project.z0>`.
  *
- * It belongs here rather than in st0's link builder for the reason the suffixes do: the
+ * It belongs here rather than in pl8's link builder for the reason the suffixes do: the
  * address is a contract between the side that WRITES it and the side that parses it back, and
  * a mount known to only one of them is a 404 nobody can attribute.
  */
@@ -65,7 +65,7 @@ export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
 /**
  * The app that opens a folder with this name, or null when the name claims none.
  *
- * The NAME, not the contents. That is what lets st0 answer the question from a git tree it
+ * The NAME, not the contents. That is what lets pl8 answer the question from a git tree it
  * has never checked out — a bare blobless mirror has every path and no file bodies, so any
  * rule that opened a file could not run there at all. See packages/git-repos/docs/mirror.md.
  *
@@ -90,7 +90,7 @@ export function projectLabel(name: string): string {
 
 /** Which project an editor was opened on, as its own address names it. */
 export interface Launch {
-  /** The repository's SHORT name, which st0 resolves back to a git URI. Never the URI. */
+  /** The repository's SHORT name, which pl8 resolves back to a git URI. Never the URI. */
   repo: string;
   /** The project folder inside the repository; "." when the repository IS the project. */
   project: string;
@@ -100,7 +100,14 @@ export interface Launch {
 const segments = (p: string): string[] => p.split("/").filter(Boolean);
 
 /**
- * Read `/l8/<repo>/<project…>[/<view…>]` into a target, or null.
+ * Read `/<repo>/<project…>[/<view…>]` into a target, or null.
+ *
+ * l8 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
+ * segment. Which makes every prefix the origin claims above l8 — `/pl8`, `/k7`, `/z0`, `/api`,
+ * `/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never
+ * be opened: the request never reaches this app. Nothing here can detect that, and nothing
+ * should try; it is the edge's routing table, and `apps/studio/docker/nginx.conf` is where it is
+ * written down. z0's editor keeps a prefix (`/z0/editor-v2`) and is unaffected.
  *
  * **Where the project ends** is decided by the folder's own name — the same rule as
  * `projectApp` above: the project is everything up to and including the LAST segment claiming
@@ -112,8 +119,8 @@ const segments = (p: string): string[] => p.split("/").filter(Boolean);
  * repo is the app's route — a view segment never ends in `.l8` or `.m9`, so the two cannot be
  * confused.
  *
- * `base` is where the app is mounted, as vite's `BASE_URL` spells it (`/l8/`, or `/` when it
- * is served from a bare origin in dev). An address outside it names something else: null.
+ * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for l8, `/z0/editor-v2/`
+ * for z0's. An address outside it names something else: null.
  */
 export function parseLaunch(
   pathname: string,
@@ -182,7 +189,7 @@ function launchPath(l: Launch, base: string): string {
  * by clearing storage nobody can see.
  *
  * Falls back to `base` when the address names no project, which leaves the app mounted where
- * it has always been and lets its gate send you to st0.
+ * it has always been and lets its gate send you to pl8.
  *
  * **A SLICE of the given path, never a rebuild of it.** React Router compares this string against
  * `window.location.pathname` verbatim and renders NOTHING when it does not prefix it — so any
@@ -207,10 +214,10 @@ export function projectBasename(
 }
 
 /**
- * The bench's reserved repository name — the first half of `/l8/@banc/chains/<path>.l8`.
+ * The bench's reserved repository name — the first half of `/@banc/chains/<path>.l8`.
  *
  * A reserved REPOSITORY name, and that is the whole trick. Every other project resolves through
- * st0 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
+ * pl8 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
  * repository and wants none — it is generated from the médiathèque's catalogue and regenerated
  * whenever it is opened, so putting it under version control would version a cache.
  *
@@ -218,7 +225,7 @@ export function projectBasename(
  * `.git`, so this can never collide with a real repository. `ProjectGate` sees the sentinel and
  * takes the other road: no lookup, no clone, one call to the machine that makes the folder.
  *
- * Here rather than in st0 because BOTH ends need it spelled the same — st0 writes the link and
+ * Here rather than in pl8 because BOTH ends need it spelled the same — pl8 writes the link and
  * the gate reads it — which is the same argument that put the rest of this vocabulary here.
  *
  * There was a second bench under this name, `@banc/modules.l8`: the whole catalogue mirrored
@@ -234,11 +241,11 @@ export function isBench(repo: string): boolean {
 }
 
 /**
- * A CHAIN on the bench: `/l8/@banc/chains/blindtest/assourdissant/…​.l8`.
+ * A CHAIN on the bench: `/@banc/chains/blindtest/assourdissant/…​.l8`.
  *
  * The only thing the bench opens on now, and the address's project part is what says which. The
  * catalogue path IS the project path with `.l8` on the end,
- * which is why there is no lookup table and no marker file: st0 writes the link from the chain
+ * which is why there is no lookup table and no marker file: pl8 writes the link from the chain
  * it is showing, the file service reads the chain back out of it, and neither can drift from
  * the other. Same argument that put `@banc` itself here.
  *
@@ -267,17 +274,17 @@ export function benchChainPath(project: string): string | null {
   return path;
 }
 
-/** …and the address to open it on, from the catalogue path st0 holds. */
+/** …and the address to open it on, from the catalogue path pl8 holds. */
 export function benchProjectForChain(chainPath: string): string {
   return `${chainPath}${L8}`;
 }
 
 /**
- * A SHARED project: `/l8/@shares/<token>.l8`.
+ * A SHARED project: `/@shares/<token>.l8`.
  *
  * The bench's sentinel again, for the bench's reason — `@` cannot begin a git short name, so this
- * can never collide with a real repository, and the gate sees it and takes another road: no st0
- * lookup, no clone, no engine, no account. What it opens is a frozen snapshot st0 holds.
+ * can never collide with a real repository, and the gate sees it and takes another road: no pl8
+ * lookup, no clone, no engine, no account. What it opens is a frozen snapshot pl8 holds.
  *
  * The `.l8` on the end is not decoration. `parseLaunch` ends a project at the last segment
  * claiming the app's suffix, so spelling the token this way makes it the PROJECT part of an
@@ -285,7 +292,7 @@ export function benchProjectForChain(chainPath: string): string {
  * need no change at all, the token lands inside the router's basename, and a reload or a pasted
  * link simply re-reads it. The three other shapes considered all cost a special case somewhere.
  *
- * Here rather than in st0 for the same reason as everything else in this file: st0 writes the
+ * Here rather than in pl8 for the same reason as everything else in this file: pl8 writes the
  * link and l8 reads it back, and an address only one of them understands is a 404 nobody can
  * attribute.
  */
@@ -310,7 +317,7 @@ export function shareToken(project: string): string | null {
 }
 
 /**
- * The link itself, from the origin the browser is on and the secret st0 answered with.
+ * The link itself, from the origin the browser is on and the secret pl8 answered with.
  *
  * Built HERE and not on the machine that rendered: that machine has no idea which origin you are
  * reading this on, and a checkout, the LAN proxy and the public host are three different answers.
@@ -325,7 +332,7 @@ export function shareUrl(origin: string, token: string): string {
 /**
  * The KEY a token addresses — `sha256(token)`, in hex, computed by whoever holds the link.
  *
- * st0 stores the hash and names the directory with it, so the SECRET is never a path segment:
+ * pl8 stores the hash and names the directory with it, so the SECRET is never a path segment:
  * a path segment reaches every access log, every `Referer` and every proxy's error page, and the
  * link is the whole of the protection. The price is that the page has to do the hashing, and
  * `crypto.subtle` exists only in a SECURE CONTEXT — over plain http on something that is not
@@ -333,7 +340,7 @@ export function shareUrl(origin: string, token: string): string {
  * surface as `undefined is not a function`, because it is a real deployment and not a bug: the
  * fix is to serve the page over https, and nothing about the share is wrong.
  *
- * Here beside `shareUrl` because the two are one round trip — st0 mints the token from the key
+ * Here beside `shareUrl` because the two are one round trip — pl8 mints the token from the key
  * and the viewer gets back to the key from the token — and a hash spelled two ways is a 404
  * nobody can attribute.
  */
@@ -353,14 +360,18 @@ export async function shareKey(token: string): Promise<string> {
 }
 
 /**
- * Where a snapshot answers: st0's ONE unauthenticated prefix, on the origin the page is on.
+ * Where a snapshot answers: pl8's ONE unauthenticated prefix, on the origin the page is on.
  *
- * st0 has no path prefix — it answers the origin root — so this is the bare origin plus the
- * route. `public` is IN the path on purpose: it is a comment that survives a refactor, and one
- * nobody confuses with `/api/shares`, which is the author's half and is behind the guard.
+ * `serviceUrl` and not the bare origin: pl8 sits under `/pl8` since l8 took the root, and this
+ * route is its backend's like every other `/api/*` of its. It WAS the bare origin, and the
+ * difference is invisible until a share is opened — which is exactly the kind of route that
+ * gets tried last.
+ *
+ * `public` is IN the path on purpose: it is a comment that survives a refactor, and one nobody
+ * confuses with `/api/shares`, which is the author's half and is behind the guard.
  */
 export function shareApiBase(origin: string, key: string): string {
-  return `${studioOrigin(origin)}/api/public/share/${key}`;
+  return `${serviceUrl(origin, "pl8")}/api/public/share/${key}`;
 }
 
 /**
@@ -380,7 +391,7 @@ export function projectClaimKey(l: Launch): string {
 }
 
 /**
- * Where a project opens — whichever app its folder name claims. This is the link st0 writes.
+ * Where a project opens — whichever app its folder name claims. This is the link pl8 writes.
  *
  * `origin` may be any URL on the studio origin; only its origin is kept, so a caller can pass
  * `window.location.href` without stripping anything first.

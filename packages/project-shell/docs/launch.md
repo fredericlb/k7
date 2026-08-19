@@ -5,9 +5,9 @@ the address that names no project. It lists the account's repositories and the p
 them, and it links to one with an **address**:
 
 ```
-/l8/songs/first.l8
+/songs/first.l8
 /m9/songs/live.m9
-/l8/band/albums/winter.l8        a project at a depth
+/band/albums/winter.l8        a project at a depth
 /m9/band/winter.l8/live.m9       a .m9 set living inside a .l8 song
 ```
 
@@ -39,8 +39,8 @@ else, and a wrong project is fixed by editing the URL. There is nothing to clear
 
 **A name, not the git URI.** `ssh://git@192.168.87.10:6611/music/lemo_mante.git` carries a
 host, a port and a user, and an address bar is copied, bookmarked and pasted into chat. The
-address carries `lemo_mante`, and the editor asks st0 what is behind it
-(`GET /api/projects/by-name/:name` → `RepoRef`). st0 STORES the repositories, so st0 is the one
+address carries `lemo_mante`, and the editor asks pl8 what is behind it
+(`GET /api/projects/by-name/:name` → `RepoRef`). pl8 STORES the repositories, so pl8 is the one
 side that can answer — which stayed true when the screen that lists them moved into l8 — and it
 refuses an ambiguous name rather than guessing: two hosts can both carry a `songs.git`, and
 opening the wrong one silently is worse than saying so.
@@ -58,17 +58,17 @@ the repo name is the app's route.
 
 ## What the gate does with it
 
-0. `GET /api/projects/libraries` on **st0** — the account's library repository, or null.
+0. `GET /api/projects/libraries` on **pl8** — the account's library repository, or null.
    Before everything below, including the bench: a workspace mounts it as a submodule and every
    `@st0/…` ref resolves inside it, so without one a song opens with every shared module
    missing. That reads as a broken song rather than as an account nobody finished setting up,
    which is why it gets a screen of its own and gets it *before* a thirty-second clone rather
    than after. No Retry — the answer was clear, and it stays that answer until somebody goes
    and sets it, on l8's home page (`apps/l8/frontend/docs/projects.md`).
-1. `GET /api/projects/by-name/<repo>` on **st0** — the git URI behind the name.
+1. `GET /api/projects/by-name/<repo>` on **pl8** — the git URI behind the name.
 2. `GET /workspaces/by-repo?uri=` — does this machine already have this repository? The
    comparison is on a **normalised** URI, because the two ends learned the address by
-   different routes: st0 has what was pasted, the file service has whatever git wrote into
+   different routes: pl8 has what was pasted, the file service has whatever git wrote into
    `remote.origin.url`. See `packages/git-repos/src/uri.ts`.
 3. If not, `POST /workspaces/clone` and poll the job, showing git's own progress. This is the
    visible wait the whole arrangement is designed around —
@@ -97,12 +97,16 @@ There is still deliberately no *second* picker: one list, in one app, is the who
 editor comes back to l8's home rather than growing one of its own, because that list already
 holds `.z0` folders and a second one would be the second thing to keep in step with the first.
 
-> This used to be st0's `/projects`, and the argument for it was that the médiathèque is the
+> This used to be pl8's `/projects`, and the argument for it was that the médiathèque is the
 > studio's front door. The argument moved with the screen: the catalogue is what a project draws
 > ON, while "which repositories do I have" is the first question of the app that opens one — and
 > the machine that scaffolds a project was already l8's side of the wire. **What did not move is
-> the storage**: every route this screen calls is still st0's, and `repoByName` /
+> the storage**: every route this screen calls is still pl8's, and `repoByName` /
 > `librariesRepo` below are unchanged.
+>
+> The addresses caught up afterwards: l8 answers the ORIGIN now and the médiathèque is at
+> `/pl8`, so this page is `<origin>/` rather than `<origin>/l8/`. `projectsUrl` asks
+> `SERVICE_PATHS` and did not have to change.
 
 ## Why this is a package and not two copies
 
@@ -114,7 +118,7 @@ duplicate clone or a 404, neither of which looks like a drift when you meet it.
 The address vocabulary itself lives one level lower still, in
 `@studio/web-protocol/projects`, beside the suffix rule it depends on: l8's home page
 **writes** these addresses and both editors **read** them back, which makes it a wire contract
-rather than an app's habit. It stayed there when the writing side moved out of st0, and that is
+rather than an app's habit. It stayed there when the writing side moved out of pl8, and that is
 the point of having put it there: neither end of the contract is where the vocabulary lives.
 `launch.ts` here is what the apps import.
 
@@ -128,9 +132,9 @@ The suites here run in node and mount nothing, so `launch.test.ts` covers the ad
 which is now most of it, the launch having stopped being state. These are the ones a green test
 run says nothing about:
 
-- open a project from st0 → the address reads `/l8/<repo>/<project>` and stays that way as you
+- open a project from pl8 → the address reads `/<repo>/<project>` and stays that way as you
   move around the app;
-- **reload**, and use back/forward → still the same project, not st0;
+- **reload**, and use back/forward → still the same project, not pl8;
 - copy the URL into another tab → the same project opens there too (this is what storage could
   never do);
 - open a repository this machine has never seen → a progress bar with git's phases, then the
@@ -138,5 +142,5 @@ run says nothing about:
 - open a `.m9` folder and a `.l8` folder from the same repository → two apps, one clone;
 - rename the project folder on the machine and reload → the "not in the repository" screen,
   not the CORS one, and its button lands you back on l8's home;
-- edit the repo name in the address to something nonexistent → the same screen, saying st0 has
+- edit the repo name in the address to something nonexistent → the same screen, saying pl8 has
   no repository by that name.

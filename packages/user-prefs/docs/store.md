@@ -11,7 +11,7 @@ engine's side of the wire, shared by every hosted user who selects that machine.
 What is stored is one engine id per person. Losing it costs one click. That is the whole
 risk budget, and it does not buy a database:
 
-- l8-backend and st0-backend have **no database dependency today**. Adding Grist to
+- l8-backend and pl8-backend have **no database dependency today**. Adding Grist to
   both, for a string, would be the largest dependency either has ever taken for the smallest
   fact either has ever stored.
 - The médiathèque's own argument applies unchanged — *the filesystem is the index* — and it

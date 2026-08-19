@@ -4,7 +4,7 @@
 project share link
 ```
 
-Renders the project, packs it with the documents a browser draws it from, sends the lot to st0,
+Renders the project, packs it with the documents a browser draws it from, sends the lot to pl8,
 and answers a secret. The link opens **l8 itself, read-only**: no account, no engine, no working
 copy. Anyone who has it can listen and look; nobody can change anything, because there is nothing
 on the other end that could be changed.
@@ -61,9 +61,9 @@ as a label, and points each back at its track by name — reporting no track at 
 one, rather than guessing and lighting the wrong lane's mute button. It is the only place the
 engine's output reaches a path, and it is where the traversal bug would be. It is pure and tested.
 
-## The upload is three steps because st0 does not do multipart
+## The upload is three steps because pl8 does not do multipart
 
-Draft, then one raw `PUT` per file, then finish. Every st0 upload route is
+Draft, then one raw `PUT` per file, then finish. Every pl8 upload route is
 `express.raw({ type: "*/*", limit: "512mb" })` — *a 400 MB master should never be a field in a form
 parse* — and the global `express.json` is 8 MB, so the manifest travels as JSON and the audio does
 not. `shareToK7`'s `FormData` is k7's convention, not this one.
@@ -72,14 +72,14 @@ not. `shareToK7`'s `FormData` is k7's convention, not this one.
 public route, so a crashed upload is never reachable and short. The bytes are streamed
 (`createReadStream`, `duplex: "half"`), where k7's publish reads its one mp3 into a Blob.
 
-The credential is the machine's own st0 bearer — `mediatekBase()` / `mediatekToken()`, the
+The credential is the machine's own pl8 bearer — `mediatekBase()` / `mediatekToken()`, the
 `service:l8` token `npm run tokens` already writes for the library pull. Sharing needed no new
 plumbing. A service token has no person of its own, so **every** call names the user (`?user=`):
 three requests, none of which remembers the others.
 
 ## The address
 
-`<origin>/l8/@shares/<token>.l8`
+`<origin>/@shares/<token>.l8`
 
 `@` cannot begin a git short name, so `@shares` can never collide with a repository — the same
 sentinel, for the same reason, as `@banc`. The `.l8` on the end is what makes the whole thing
@@ -106,4 +106,4 @@ every note in the graph, to anyone the link reaches. That is the feature, and it
 of thing that ships without anyone thinking about it.
 
 A share has no expiry. It lives until it is revoked, from l8's own home page — see
-`apps/st0/docs/shares.md` for where the bytes live and what revoking one actually does.
+`apps/pl8/docs/shares.md` for where the bytes live and what revoking one actually does.

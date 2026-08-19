@@ -37,8 +37,8 @@ import type {
 import { fget, fsend } from "./fileApi.ts";
 
 export const projectApi = {
-  // --- Resolving what st0 named -------------------------------------------------
-  // st0 knows a REPOSITORY; this machine knows folders. These three bridge that, cloning
+  // --- Resolving what pl8 named -------------------------------------------------
+  // pl8 knows a REPOSITORY; this machine knows folders. These three bridge that, cloning
   // when it has never seen one. See packages/file-service/docs/cloneJobs.md.
   workspaceByRepo: (uri: string) =>
     fget<WorkspaceForRepo>(
@@ -53,7 +53,7 @@ export const projectApi = {
    * Instead of the three calls above, not beside them — the bench has no repository, so there is
    * no name to resolve and nothing to clone. `@banc` in the address is what routes here. It is
    * slow the first time (a full modules sync), which is why it replaces the clone's progress
-   * screen rather than being asked for silently. See apps/st0/docs/banc.md.
+   * screen rather than being asked for silently. See apps/pl8/docs/banc.md.
    */
   openBench: (project: string | undefined, libraries: string) =>
     fsend<{ workspace: string; project: string }>("POST", "/workspaces/bench", {
@@ -88,7 +88,7 @@ export const projectApi = {
    * Open the project — and say which library repository this account's workspaces mount.
    *
    * The URI rides along because the BROWSER is the side that knows who is asking: it read it
-   * from st0 a moment ago, on this person's session, where the file service holds a machine
+   * from pl8 a moment ago, on this person's session, where the file service holds a machine
    * token and no session at all. The machine mounts it at `_libraries` if it is not there
    * already (see packages/file-service/src/libraries.ts).
    */

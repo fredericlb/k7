@@ -81,7 +81,7 @@ export function createAuthStore(f: AuthFetch): {
         return;
       }
       if (res.status === 401) {
-        // Not always an invitation to log in. If we JUST came back from st0 and are still
+        // Not always an invitation to log in. If we JUST came back from pl8 and are still
         // anonymous, the button would only bounce off it again — say so instead of looping.
         const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
         setState({

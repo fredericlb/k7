@@ -5,24 +5,38 @@
 /**
  * The path each service is mounted at, under the studio origin.
  *
- * FIXED, and that is the point: `st0.priv.frediver.se/l8` in dev and
- * `studio.frediver.se/l8` in production differ by their ORIGIN and nothing else. The
+ * FIXED, and that is the point: `st0.priv.frediver.se/pl8` in dev and
+ * `studio.frediver.se/pl8` in production differ by their ORIGIN and nothing else. The
  * proxy config mirrors what the production edge does — strip the prefix off the API routes, keep
  * it on the SPA's — so a service that moved to a host of its own would break the one session
  * cookie the origin carries. There is nothing here to configure.
  *
- * `st0` is deliberately `""`: the médiathèque is the studio's front door, so it answers at
- * the ORIGIN itself and `serviceUrl(origin, "st0")` is the origin. An empty path is a real
- * entry here rather than a special case at each call site — every caller already concatenates.
+ * `l8` is deliberately `""`: the EDITOR is the studio's front door, so it answers at the ORIGIN
+ * itself and `serviceUrl(origin, "l8")` is the origin. An empty path is a real entry here rather
+ * than a special case at each call site — every caller already concatenates.
+ *
+ * It was `pl8` (the médiathèque, then called `st0`) that held the empty string, for as long as
+ * the catalogue was what you landed on. What you land on is your own WORK now — l8's home page
+ * already listed the repositories, the projects, the libraries and the shares, and it was
+ * reachable only by knowing to type `/l8`. The catalogue is what a project draws ON, so it moved
+ * to `/pl8` and is a link in that home page's header. Nothing about the storage moved with it:
+ * the repositories, the shares and the whole of `/api/mediatek` are still pl8's backend's, now
+ * under `/pl8/api` like every other prefixed service.
+ *
+ * **`/auth/*` is the one path that does not follow this table**, and the exception is the IdP's,
+ * not ours: `redirectUriFor` builds `<origin>/auth/callback`, and that is the one redirect_uri
+ * registered. So pl8's backend keeps serving `/auth/*` at the ORIGIN ROOT even though its SPA
+ * and its API are under `/pl8`. Spell auth routes bare — `/auth/me`, never
+ * `${serviceUrl(…, "pl8")}/auth/me`, which would 404 into what reads like a broken login.
  *
  * This table says WHERE a service answers, and nothing about whose session it carries. `z0` is
  * the case that makes the distinction worth stating: the game runs its own login on its own
- * `/z0/auth/callback` and does not share st0's cookie — but its path is as fixed as the
- * others', and it holds a surface that opens a project, which needs an address st0 can write.
+ * `/z0/auth/callback` and does not share pl8's cookie — but its path is as fixed as the
+ * others', and it holds a surface that opens a project, which needs an address pl8 can write.
  */
 export const SERVICE_PATHS = {
-  l8: "/l8",
-  st0: "",
+  l8: "",
+  pl8: "/pl8",
   k7: "/k7",
   z0: "/z0",
 } as const;
@@ -38,12 +52,12 @@ export const STUDIO_ORIGIN = "https://studio.frediver.se";
  *
  * A SERVER calling another studio service uses this rather than the public URL, and the reason
  * is not performance: in a checkout everything is behind a private CA, whose local CA
- * node does not trust, so `https://st0.priv.frediver.se/l8` fails with UNABLE_TO_GET_ISSUER_CERT
+ * node does not trust, so `https://st0.priv.frediver.se/pl8` fails with UNABLE_TO_GET_ISSUER_CERT
  * from a backend while working perfectly in the browser beside it.
  */
 export const SERVICE_PORTS: Record<StudioService, number> = {
   l8: 8789,
-  st0: 8795,
+  pl8: 8795,
   k7: 8787,
   z0: 8080,
 };
@@ -57,7 +71,7 @@ export function localServiceUrl(service: StudioService): string {
  * Where a service is, given the origin it is served from.
  *
  * `origin` may be any URL on that origin — a registry URL a backend advertised
- * (`https://st0.priv.frediver.se/l8`), the page's own `location.origin`, whatever the caller has
+ * (`https://st0.priv.frediver.se/pl8`), the page's own `location.origin`, whatever the caller has
  * to hand. Everything but the origin is dropped, so no caller has to strip a path first.
  */
 export function serviceUrl(origin: string, service: StudioService): string {

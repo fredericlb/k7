@@ -1596,7 +1596,7 @@ int main(int argc, char** argv) {
 
             // WHO IS LISTENING TO WHAT. The whole point of this pass: a session's audio goes
             // only to the sockets driving that session. Before, every listener got the one
-            // global master — an st0 module preview would have been mixed into a set.
+            // global master — an pl8 module preview would have been mixed into a set.
             std::map<std::string, std::vector<std::shared_ptr<ix::WebSocket>>> bySession;
             {
                 const auto clients = server.getClients();

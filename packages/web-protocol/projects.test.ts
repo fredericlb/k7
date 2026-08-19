@@ -77,14 +77,17 @@ describe("projectLabel", () => {
 describe("launchUrl", () => {
   it("sends each app to its own service, under one origin", () => {
     const o = "https://st0.priv.frediver.se";
+    // l8's service path is the empty string — it answers the origin — so its projects have no
+    // prefix at all, while z0's editor keeps one. That asymmetry is the table's, not this
+    // function's: it concatenates either way.
     expect(launchUrl(o, "band", "winter.l8", "l8")).toBe(
-      "https://st0.priv.frediver.se/l8/band/winter.l8",
+      "https://st0.priv.frediver.se/band/winter.l8",
     );
     expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
       "https://st0.priv.frediver.se/z0/editor-v2/band/partie.z0",
     );
     expect(launchUrl(o, "band", "le clip.l8", "l8")).toBe(
-      "https://st0.priv.frediver.se/l8/band/le%20clip.l8",
+      "https://st0.priv.frediver.se/band/le%20clip.l8",
     );
   });
 
@@ -92,7 +95,7 @@ describe("launchUrl", () => {
     // Callers pass `window.location.href`, which carries a path of its own.
     expect(
       launchUrl("https://st0.priv.frediver.se/projects?x=1", "b", "c.l8", "l8"),
-    ).toBe("https://st0.priv.frediver.se/l8/b/c.l8");
+    ).toBe("https://st0.priv.frediver.se/b/c.l8");
   });
 });
 
@@ -149,7 +152,7 @@ describe("a shared snapshot's address", () => {
 
   it("parses back through the ORDINARY reader, with nothing taught to it", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    const at = parseLaunch(new URL(url).pathname, "l8", "/l8/");
+    const at = parseLaunch(new URL(url).pathname, "l8", "/");
     expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.l8` });
     if (!at)
       throw new Error("unreachable — the expect above would have failed");
@@ -161,33 +164,33 @@ describe("a shared snapshot's address", () => {
    * The bug this pins rendered a blank page and nothing else.
    *
    * `encodeURIComponent` escapes `@`, and RFC 3986 does not — it is a `pchar`, legal literally in
-   * a path segment, and a browser keeps it that way. So the link said `/l8/@shares/…`, the router
-   * was handed a basename of `/l8/%40shares/…`, React Router found that it did not prefix the
+   * a path segment, and a browser keeps it that way. So the link said `/@shares/…`, the router
+   * was handed a basename of `/%40shares/…`, React Router found that it did not prefix the
    * location and refused to render ANYTHING. The two sentinels this file mints, `@shares` and
    * `@banc`, were the only names it could get wrong.
    */
   it("writes a link with a literal @, and takes a basename off the path unchanged", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    expect(url).toBe(`https://studio.frediver.se/l8/@shares/${TOKEN}.l8`);
+    expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.l8`);
     const path = new URL(url).pathname;
-    expect(projectBasename(path, "l8", "/l8/")).toBe(path);
+    expect(projectBasename(path, "l8", "/")).toBe(path);
   });
 
   it("takes the OTHER spelling of the same address just as happily", () => {
     // `%40shares` and `@shares` are one address, and an old bookmark may hold either. The
     // basename is a SLICE of whatever it was handed, so both prefix their own location.
-    const escaped = `/l8/%40shares/${TOKEN}.l8`;
-    expect(parseLaunch(escaped, "l8", "/l8/")).toEqual({
+    const escaped = `/%40shares/${TOKEN}.l8`;
+    expect(parseLaunch(escaped, "l8", "/")).toEqual({
       repo: SHARE_REPO,
       project: `${TOKEN}.l8`,
     });
-    expect(projectBasename(escaped, "l8", "/l8/")).toBe(escaped);
+    expect(projectBasename(escaped, "l8", "/")).toBe(escaped);
   });
 
   it("keeps the app's own route BELOW the basename", () => {
     // What the basename is for: everything after the project belongs to routes.ts.
-    const path = `/l8/@shares/${TOKEN}.l8/timeline`;
-    expect(projectBasename(path, "l8", "/l8/")).toBe(`/l8/@shares/${TOKEN}.l8`);
+    const path = `/@shares/${TOKEN}.l8/timeline`;
+    expect(projectBasename(path, "l8", "/")).toBe(`/@shares/${TOKEN}.l8`);
   });
 
   it("refuses a project part that is not a token", () => {
@@ -208,29 +211,31 @@ describe("a shared snapshot's address", () => {
   });
 
   /**
-   * The hash the viewer derives, checked against the one st0 stored — `createHash("sha256")` in
-   * `apps/st0/backend/src/shares/store.ts`. The two are computed by different APIs on different
+   * The hash the viewer derives, checked against the one pl8 stored — `createHash("sha256")` in
+   * `apps/pl8/backend/src/shares/store.ts`. The two are computed by different APIs on different
    * machines and only ever meet as a directory name, so a disagreement would be a 404 on every
    * link ever minted, with nothing anywhere saying why.
    */
-  it("hashes a token to the key st0 named the directory with", async () => {
+  it("hashes a token to the key pl8 named the directory with", async () => {
     const key = await shareKey(TOKEN);
     expect(key).toBe(createHash("sha256").update(TOKEN).digest("hex"));
-    // The shape st0's `isKey` gate demands before any path join.
+    // The shape pl8's `isKey` gate demands before any path join.
     expect(key).toMatch(/^[0-9a-f]{64}$/);
     // A different token is a different directory: this is the whole of the protection.
     expect(await shareKey(`${TOKEN}x`)).not.toBe(key);
   });
 
-  it("addresses st0 at the origin root, under the one unauthenticated prefix", async () => {
-    // st0 has no path prefix — it answers the origin itself — so a share's API is the bare
-    // origin plus the route, whatever page URL it was derived from.
+  it("addresses pl8 under its own prefix, on the one unauthenticated route", async () => {
+    // The PAGE the viewer is on is l8's, at the origin root; the route that serves the snapshot
+    // is pl8's, under `/pl8`. Only the origin of the page URL survives, and the prefix comes
+    // back from SERVICE_PATHS — which is what stopped this returning the bare origin, as it
+    // correctly did while the médiathèque answered the root.
     const key = await shareKey(TOKEN);
-    expect(
-      shareApiBase("https://studio.frediver.se/l8/@shares/x.l8", key),
-    ).toBe(`https://studio.frediver.se/api/public/share/${key}`);
+    expect(shareApiBase(`https://studio.frediver.se/@shares/x.l8`, key)).toBe(
+      `https://studio.frediver.se/pl8/api/public/share/${key}`,
+    );
     expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(
-      `https://st0.priv.frediver.se/api/public/share/${key}`,
+      `https://st0.priv.frediver.se/pl8/api/public/share/${key}`,
     );
   });
 });

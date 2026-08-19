@@ -72,7 +72,7 @@ export function createWorkspace(userEmail: string, workspace: string): boolean {
   return true;
 }
 
-// Re-exported: the rule moved to @studio/git-repos when st0 started needing it too, and
+// Re-exported: the rule moved to @studio/git-repos when pl8 started needing it too, and
 // callers here should not have to know that.
 export { assertSshGitUri };
 
@@ -113,7 +113,7 @@ export async function cloneWorkspace(
   const root = workspaceRoot(slug, workspace); // validates the name
   if (existsSync(root))
     throw new Error(`workspace already exists: ${workspace}`);
-  // Throws NoKeyError with a sentence naming the fix; st0 owns the key, this machine holds a copy.
+  // Throws NoKeyError with a sentence naming the fix; pl8 owns the key, this machine holds a copy.
   await ensureKey(userEmail);
   mkdirSync(userRoot(slug), { recursive: true });
   try {
@@ -217,7 +217,7 @@ async function remoteOf(slug: string, name: string): Promise<string | null> {
  * The workspace already holding this repository, or null.
  *
  * This is what stops l8 re-cloning something that is already on disk, and it compares
- * NORMALIZED uris because the two sides learn the address by different routes: st0 has what
+ * NORMALIZED uris because the two sides learn the address by different routes: pl8 has what
  * was pasted, this has whatever `git` wrote into `remote.origin.url`.
  */
 export async function workspaceForRepo(

@@ -1,6 +1,6 @@
 // libraryStore.ts — the ModuleStore for a host whose files are the médiathèque's: read and
 // write one path, and the three sidecars are the siblings of the file you were given. One
-// implementation for the two hosts that edit shared modules — st0's own screen and l8's
+// implementation for the two hosts that edit shared modules — pl8's own screen and l8's
 // Libraries tab. Rationale: docs/store.md.
 
 import { JSDSP_FILE } from "@studio/engine-protocol/build";

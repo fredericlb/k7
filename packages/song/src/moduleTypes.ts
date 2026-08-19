@@ -353,6 +353,14 @@ export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
  * the vocabulary, and a browser has to spell it too — l8's Libraries tab writes `@st0` on a
  * row. `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
  * `node:fs` into a bundle. Re-exported from it, exactly as `moduleKeyFromPath` is.
+ *
+ * `st0` is the médiathèque, which is called **pl8** now — and the level DELIBERATELY did not
+ * follow it. A level is written into user files: every `@st0/…` in every chain of every
+ * repository would have to be rewritten at once, on machines this repo does not have, and the
+ * failure is silent enough to be nasty (a `?` on a graph node, nothing else). The app was
+ * renamed for where it sits on the origin; the level names a folder of modules, which did not
+ * move. `LEGACY_MEDIATEK_NS` below is what the last such rename cost, and is the argument for
+ * not spending it again. See docs/moduleNamespaces.md.
  */
 export const MODULE_NAMESPACES = [
   "engine",
@@ -364,8 +372,9 @@ export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
 
 /**
  * What this level was called before, and nothing more: the app was `apps/mediatek` when the
- * levels were named, and is `apps/st0` now, so the ref said one thing and the médiathèque
- * another.
+ * levels were named, and became `apps/st0`, so the ref said one thing and the médiathèque
+ * another. The level was rewritten to match, once. It has not moved since — the app is
+ * `apps/pl8` today and the level is still `st0`, for the reason MODULE_NAMESPACES gives.
  *
  * Kept as a NAME rather than as an accepted spelling — nothing resolves it. A file still saying
  * `@mediatek/…` names a module that no longer exists, which the loader reports as such; this

@@ -1,17 +1,24 @@
 # Recette du renommage `.lanes` → `.studio` / `lanes` → `pistes`
 
-> **HISTORIQUE — les noms de cette page sont périmés de deux renommages.** Elle décrit
-> `lanes → pistes` ; depuis, `pistes → l8`, `mediatek → st0`, `platines → m9`, et le moteur
-> et le capot sont passés sous `engine/`. Donc **aucune commande ni aucun chemin d'ici ne
+> **HISTORIQUE — les noms de cette page sont périmés de plusieurs renommages.** Elle décrit
+> `lanes → pistes` ; depuis, `pistes → l8`, `mediatek → st0` puis `st0 → pl8`, `platines → m9`,
+> et le moteur et le capot sont passés sous `engine/`. Donc **aucune commande ni aucun chemin d'ici ne
 > s'exécute tel quel** : `apps/pistes`, `apps/moteur`, `apps/capot`, `SESSIONS.pistes`,
 > `pistes.sid`, `~/.studio/prefs/pistes/`, `npm run dev --workspace pistes` — tous morts.
 >
-> Dernier en date, et le seul qui touche un identifiant écrit dans les fichiers de
-> l'utilisateur : le NIVEAU de module `@mediatek` → `@st0`, qui rattrape `mediatek → st0`
-> côté refs. Il a sa migration, `packages/song/scripts/migrateNamespace.ts`, et sa
-> signature d'échec est lisible pour une fois — un `?` sur le nœud du graphe. Voir
+> Le seul qui ait touché un identifiant écrit dans les fichiers de l'utilisateur : le NIVEAU de
+> module `@mediatek` → `@st0`, qui rattrapait `mediatek → st0` côté refs. Il a sa migration,
+> `packages/song/scripts/migrateNamespace.ts`, et sa signature d'échec est lisible pour une fois
+> — un `?` sur le nœud du graphe. Voir
 > [packages/song/docs/moduleNamespaces.md](../packages/song/docs/moduleNamespaces.md).
 > Le dossier `~/.studio/mediatek` n'a **pas** bougé : c'est un cache, pas un nom qu'on écrit.
+>
+> **Dernier en date : `st0 → pl8`, et l8 prend la racine de l'origine.** Deux choses en une —
+> un renommage d'application et un échange d'adresses (`SERVICE_PATHS`) — et cette fois le niveau
+> `@st0` est resté tel quel, délibérément : le prix d'une migration sur toutes les machines pour
+> un mot que personne ne tape. Le nom d'hôte `st0.priv.frediver.se` n'a pas bougé non plus.
+> Ce qui NE suit pas la table des services : `/auth/*`, qui reste sans préfixe chez le backend de
+> pl8 parce que l'IdP ne connaît qu'un `redirect_uri`.
 >
 > Ce qui reste vivant, et pourquoi la page n'est pas supprimée : **la méthode**. L'ordre imposé
 > des phases, et surtout l'idée que chaque contrôle porte sa *signature d'échec*, sont ce qui a

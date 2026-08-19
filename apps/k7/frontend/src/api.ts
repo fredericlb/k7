@@ -16,7 +16,7 @@ import type {
 // host (nginx proxies it in the image, Vite proxies it in dev), so paths stay
 // relative — there is no API origin to configure.
 // The API moved under the service prefix; AUTH did not. st0.priv.frediver.se is one origin
-// and st0 owns /auth/* at its root for every service, so those calls below use a
+// and pl8 owns /auth/* at its root for every service, so those calls below use a
 // bare fetch rather than this client.
 // BASE_URL is vite's `base`; it ends in a slash, trimmed here so every path below
 // can start with one. Derived rather than spelled out again: the prefix is declared
@@ -39,7 +39,7 @@ export const api = {
   // A GETTER, not a constant: it must capture where you are when you click.
   // `return_to` is the name the OIDC package reads (a `redirect` param is ignored).
   // Without it login falls back to APP_ROOT — the bare st0.priv.frediver.se, which belongs
-  // to st0 — so signing into k7 dropped you in the médiathèque.
+  // to pl8 — so signing into k7 dropped you in the médiathèque.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;
@@ -124,7 +124,7 @@ export const api = {
   // The *Url helpers below are the exception to `f()`: they are handed to an
   // <audio src>, an <img src> or a download link, so the browser fetches them
   // directly and nothing is there to prepend the service prefix. Spell BASE out
-  // in every one of them — a bare /api/… is st0's, and the media 404s.
+  // in every one of them — a bare /api/… is pl8's, and the media 404s.
   recordingUrl: (id: string) => `${BASE}/api/sessions/${id}/recording`,
 
   addAnnotation: (

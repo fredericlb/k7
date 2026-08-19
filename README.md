@@ -5,8 +5,8 @@ The music and stage apps of the frediverse.
 | app | what it is | dev site |
 |---|---|---|
 | `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `st0.priv.frediver.se/k7` |
-| `apps/l8` | text-first DAW — the web editor | `st0.priv.frediver.se/l8` |
-| `apps/st0` | the media library — songs, samples, recordings; the origin's front door | `st0.priv.frediver.se` |
+| `apps/l8` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
+| `apps/pl8` | the media library — songs, samples, recordings | `st0.priv.frediver.se/pl8` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/capot` | the Tauri tray that supervises the engine | — |
 | `apps/z0` | blind-test game — six SPAs behind one origin | `st0.priv.frediver.se/z0` |

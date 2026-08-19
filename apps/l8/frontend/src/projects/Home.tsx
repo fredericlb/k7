@@ -11,7 +11,7 @@ import { Library, RefreshCw, Server, ServerOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";
-import { mediatekUrl, projects, shares as sharesApi } from "./api";
+import { pl8Url, projects, shares as sharesApi } from "./api";
 import type { Machine } from "./machine";
 import { ProjectsPane } from "./ProjectsPane";
 
@@ -22,7 +22,7 @@ const POLL_MS = 3000;
 /**
  * Le dépôt ouvert voyage dans la QUERY, pas dans le chemin.
  *
- * Le chemin appartient au lancement : `/l8/<dépôt>/<projet>` est lu par `parseLaunch` avant que
+ * Le chemin appartient au lancement : `/<dépôt>/<projet>` est lu par `parseLaunch` avant que
  * quoi que ce soit ne soit monté, et il n'y a pas de segment qu'on pourrait ajouter ici sans
  * qu'il se lise comme le nom d'un dépôt à ouvrir. La query, elle, est exactement ce qu'un
  * routeur de SPA possède — c'est l'argument de packages/project-shell/docs/launch.md, pris dans
@@ -54,7 +54,7 @@ export function Home() {
    * `find()` et RIEN d'autre : surtout pas `hold()`. Une revendication est un bail SUR UN
    * PROJET, et cette page n'en a aucun — la prendre déloge l'onglet de quelqu'un qui joue son
    * morceau sur ce moteur, depuis un écran qui ne fait que lister des dépôts. C'est exactement
-   * ce que le commentaire de `EngineGate` sur `claimProject` interdisait quand `/l8/` n'était
+   * ce que le commentaire de `EngineGate` sur `claimProject` interdisait quand `/` n'était
    * qu'une redirection ; maintenant que c'est un écran, c'est ici que ça se tient.
    */
   const probe = useCallback(async () => {
@@ -209,14 +209,20 @@ export function Home() {
                 className={probing ? "h-4 w-4 animate-spin" : "h-4 w-4"}
               />
             </Button>
-            {/* Le catalogue est ce dont un projet SE SERT : il est à un lien, pas devant.
+            {/* pl8 — la médiathèque. Le catalogue est ce dont un projet SE SERT : il est à un
+                lien, pas devant. C'est la porte d'entrée de l'autre application depuis celle-ci,
+                et elle n'est ici que sur l'ACCUEIL : ouvert sur un projet, l8 dessine l'en-tête
+                de l'éditeur, où un lien qui vous ferait quitter la session n'a rien à faire.
                 DANS le même onglet, à l'inverse du lien qui vient d'en face : là-bas la
-                médiathèque joue quelque chose et partir l'arrêterait (apps/st0/docs/miniPlayer.md),
+                médiathèque joue quelque chose et partir l'arrêterait (apps/pl8/docs/miniPlayer.md),
                 ici rien ne tourne — cette page est une liste, et on y revient par « précédent »
                 avec l'arbre replié pour tout dommage. */}
             <Button variant="secondary" size="sm" asChild>
-              <a href={mediatekUrl()}>
-                <Library className="h-4 w-4" /> Médiathèque
+              <a
+                href={pl8Url()}
+                title="pl8 — la médiathèque : morceaux, samples, prises"
+              >
+                <Library className="h-4 w-4" /> pl8
               </a>
             </Button>
           </>

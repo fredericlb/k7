@@ -1,7 +1,7 @@
 // keys.ts — the per-user deploy key a git remote knows this person by: generate it, read
 // either half, install a half received from elsewhere, and build the `GIT_SSH_COMMAND` that
 // pins git to it. The directory is a parameter because the two services that use this do not
-// keep the key in the same place — st0 owns it, the file service holds a copy. See docs/keys.md.
+// keep the key in the same place — pl8 owns it, the file service holds a copy. See docs/keys.md.
 
 import { execFile } from "node:child_process";
 import {

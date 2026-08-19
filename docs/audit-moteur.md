@@ -11,7 +11,7 @@ exécuté par lots — le plan est en fin de page.
 
 ## Périmètre
 
-Trois services parlent vraiment au moteur : **l8**, **m9** et **st0**, chacun par ses deux
+Trois services parlent vraiment au moteur : **l8**, **m9** et **pl8**, chacun par ses deux
 moitiés (navigateur + backend), plus le **superviseur** (`engine-host`) qui l'annonce aux
 registres. En marge : **z0** ne s'y relie qu'en un point, un rendu hors-ligne de 74 lignes
 (`apps/z0/backend/src/render.ts`) qui passe par le service de fichiers en HTTP et jamais par
@@ -47,10 +47,10 @@ sont écrits noir sur blanc. Le problème n'est pas qu'on ignore les modes de pa
 
 ### A1 — z0 efface les préférences de la médiathèque
 
-`apps/z0/editor-v2` se lie au préfixe de **st0** (`api.ts:42`) et y écrit par `savePrefs`. La
+`apps/z0/editor-v2` se lie au préfixe de **pl8** (`api.ts:42`) et y écrit par `savePrefs`. La
 route est un `PUT` en remplacement intégral (`packages/user-prefs/router.ts:35-45`) et le
-document de st0 porte deux champs (`engineId`, `playbackTarget`). Choisir une machine dans
-l'éditeur z0 **efface donc la destination de lecture de la médiathèque**. st0 est le seul des
+document de pl8 porte deux champs (`engineId`, `playbackTarget`). Choisir une machine dans
+l'éditeur z0 **efface donc la destination de lecture de la médiathèque**. pl8 est le seul des
 quatre à faire un read-merge-write, et son `api.ts:351` interdit explicitement le `PUT`.
 
 ### A2 — le ticket du relais expire, la reconnexion ne le renouvelle pas
@@ -82,7 +82,7 @@ protocole.
 posé juste après `connect()` et n'est jamais remis en cause : socket morte, le deck continue
 d'afficher « en lecture ». l8 est propre sur ce point (`useEngineLink.ts:103-116`, qui force
 même `engineBusy` à false — « a socket that drops mid-apply never delivers `busy:false` ») ;
-st0 branche `onConnected` mais n'en fait qu'un booléen d'affichage.
+pl8 branche `onConnected` mais n'en fait qu'un booléen d'affichage.
 
 ### A5 — l'état n'est jamais resynchronisé après une reconnexion
 
@@ -125,13 +125,13 @@ coupure de dix minutes accumule tout ce que la surface a envoyé, et le tout par
 
 ### A9 — dérives entre les trois backends
 
-| point | st0 | m9 | l8 |
+| point | pl8 | m9 | l8 |
 |---|---|---|---|
 | limite `express.json` | 1 Mo | 1 Mo | **8 Mo** |
 | gestionnaire d'erreur Express | 22 lignes | **absent** | **absent** |
 
 Le service de fichiers accepte 8 Mo : un `POST` relayé de 1 à 8 Mo passe par l8 et fait 413
-par st0 et m9. Et le commentaire du gestionnaire d'erreur de st0 décrit précisément le
+par pl8 et m9. Et le commentaire du gestionnaire d'erreur de pl8 décrit précisément le
 `request aborted` que produit le relais de fichiers — que l8 et m9 relaient sans le filet.
 
 ### A10 — `release` n'est pas authentifié
@@ -180,7 +180,7 @@ les trois backends. Avec l'import, `requireAuth`, `createRegistry()`, le montage
 lignes recopiées à l'identique**.
 
 Un `mountEngineRegistry(app, server, { service })` absorberait tout. Divergences réellement
-voulues à paramétrer : le nom de service, l'extra legacy de l8, le `loadServiceEnv` de st0, et
+voulues à paramétrer : le nom de service, l'extra legacy de l8, le `loadServiceEnv` de pl8, et
 la liste des chemins gardés. Les autres (A9) sont de la dérive.
 
 À noter : `ENGINE_PROXY_PATH` est exporté par le paquet et **personne ne l'importe** — le
@@ -204,7 +204,7 @@ structurellement impossibles les six divergences ci-dessous.
 ### C3 — les divergences accidentelles que ce paquet supprimerait
 
 1. **Cinq prédicats différents pour « joignable »**, dont trois qui ignorent le jeton
-   (`m9/Gate.tsx:140`, `z0/Gate.tsx:107`, `st0/EnginePicker.tsx:49`). C'est exactement le bug
+   (`m9/Gate.tsx:140`, `z0/Gate.tsx:107`, `pl8/EnginePicker.tsx:49`). C'est exactement le bug
    que `access.md:37` raconte au passé — corrigé dans `choose.ts` mais pas dans les sélecteurs,
    qui filtrent eux-mêmes. Un `isReachable()` existe dans le paquet et **n'est appelé nulle
    part**.
@@ -218,7 +218,7 @@ structurellement impossibles les six divergences ci-dessous.
 5. **`select` avant d'entrer : l8 seul.** Les trois autres entrent sur un jeton non vérifié
    côté serveur.
 6. **« Rechercher à nouveau » détruit la liste** dans m9 et z0 (`setPhase({k:"looking"})`),
-   pas dans l8 ni st0.
+   pas dans l8 ni pl8.
 
 Et un doublon d'appel : `holdEngine` fait déjà un `renew()` immédiat, donc `access.hold()`
 contient un `select` — `l8/EngineGate.tsx:64` en émet un second dans le même tick.
@@ -379,7 +379,7 @@ d'arriver sur une machine dont le service de fichiers ne tient qu'un seul projet
 (`engineLink.ts` : *« several browser tabs share it — last write wins »*).
 
 Un bail porte maintenant un projet et un titulaire, et le registre applique trois règles : un
-moteur par projet, un projet par moteur, et un bail sans projet (st0) qui n'entre en conflit
+moteur par projet, un projet par moteur, et un bail sans projet (pl8) qui n'entre en conflit
 avec rien. Le nouveau venu gagne ; le perdant l'apprend sur son renouvellement suivant, qui
 reçoit un 409 parce qu'un bail porte un SECRET — sans quoi « le nouveau venu gagne » ferait
 regagner le projet au perdant cinq secondes plus tard, indéfiniment.
