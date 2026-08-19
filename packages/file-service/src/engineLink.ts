@@ -353,7 +353,7 @@ function loadPatternsFor(ws: Workspace, dir: string): void {
 function enginePlugins(
   ws: Workspace,
   fire: (c: EngineClient) => void,
-  out: string[],
+  out: CommandOutput,
   timeoutMs: number,
   rescan: boolean,
 ): Promise<void> {
@@ -894,7 +894,7 @@ export interface ArmingClient {
 export function awaitArm(
   c: ArmingClient,
   track: string,
-  out: string[],
+  out: CommandOutput,
   linkUp: () => boolean,
   timeoutMs: number = ARM_TIMEOUT_MS,
 ): Promise<boolean | undefined> {
@@ -932,7 +932,7 @@ export function awaitArm(
 
 function makeHost(
   ws: Workspace,
-  out: string[],
+  out: CommandOutput,
   userEmail?: string,
   snapshot?: (absPath: string) => void,
   // Where the verbs act, when it is NOT the open project: the chains builder edits a template in
@@ -955,6 +955,13 @@ function makeHost(
       return (baseModuleCache ??= dir ? safeBaseModules(dir) : []);
     },
     log: (lines) => out.push(...lines),
+    // The same lines, and a flag on the reply. `refused` belongs to the whole command rather than
+    // to a line, because a handler that refuses returns — so there is one verdict per reply and
+    // nothing downstream has to decide which line was the no.
+    refuse: (lines) => {
+      out.refused = true;
+      out.push(...lines);
+    },
     reload: () => {
       try {
         ws.invalidateProjectDoc();
@@ -1051,6 +1058,15 @@ function makeHost(
  */
 const GLOBAL_COMMAND = /^(channel|audio|project (commit|pull))\b/;
 
+/**
+ * The lines a command produced, plus whether it REFUSED.
+ *
+ * An array with a flag on it, rather than a `{ lines, refused }` pair: every writer in this file
+ * already pushes into it, and a reply is one verdict — a handler that refuses returns. Optional,
+ * so "did not refuse" and "no verdict yet" are the same absence, which is what they are.
+ */
+export type CommandOutput = string[] & { refused?: boolean };
+
 export async function runWebCommand(
   ws: Workspace,
   line: string,
@@ -1058,10 +1074,15 @@ export async function runWebCommand(
   // The folder the verbs act on, when the caller means something other than the open project —
   // the chains builder's template. Absolute; the route resolves and checks it.
   at?: string,
-): Promise<string[]> {
-  const out: string[] = [];
-  if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim()))
-    return [NO_PROJECT];
+): Promise<CommandOutput> {
+  const out: CommandOutput = [];
+  // A refusal too, and the first one a caller meets: there is no project open, so the verb has
+  // nothing to act on. It read as ordinary output for as long as everything did.
+  if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim())) {
+    const no: CommandOutput = [NO_PROJECT];
+    no.refused = true;
+    return no;
+  }
   // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
   await ws.recordChange(line, async (snapshot) => {
     try {

@@ -27,6 +27,7 @@ function host(trackIds: string[]): CommandHost {
     project,
     baseModules: [],
     log: () => {},
+    refuse: () => {},
     reload: () => {},
     transport: () => {},
     arm: async () => undefined,

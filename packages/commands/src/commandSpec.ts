@@ -468,7 +468,7 @@ export function completions(
     .map((c) => c.command);
 }
 
-// Dispatch a line: longest-prefix match, prepend fixed args, run the handler. Unknown goes to host.log.
+// Dispatch a line: longest-prefix match, prepend fixed args, run the handler. Nothing dispatched is a refusal.
 export async function runCommand(
   line: string,
   host: CommandHost,
@@ -479,19 +479,19 @@ export async function runCommand(
     .filter((c) => s === c.command || s.startsWith(`${c.command} `))
     .sort((a, b) => b.command.length - a.command.length)[0];
   if (!spec) {
-    host.log([`unknown command: ${s}`]);
+    host.refuse([`unknown command: ${s}`]);
     return;
   }
   const handler = SID_HANDLERS[spec.sid];
   if (!handler) {
-    host.log([`command '${spec.command}' has no handler (${spec.sid})`]);
+    host.refuse([`command '${spec.command}' has no handler (${spec.sid})`]);
     return;
   }
   const userArgs = s.slice(spec.command.length).trim();
   // Shape-check before the handler, so a mistyped timecode says what it should look like, not "no event at xyz".
   const bad = validateArgs(spec, userArgs);
   if (bad) {
-    host.log([`${spec.command}: ${bad}`]);
+    host.refuse([`${spec.command}: ${bad}`]);
     return;
   }
   await handler(userArgs, host);

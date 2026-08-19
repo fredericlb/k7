@@ -152,6 +152,22 @@ export interface CommandHost {
   project(): ProjectDoc;
   baseModules: string[]; // plugin module refs a module can extend (for completion)
   log(lines: string[]): void;
+  /**
+   * Say NO, and why. The same lines `log` would carry, marked as a refusal.
+   *
+   * Two channels because a surface cannot tell them apart otherwise, and for a long time it
+   * could not: sixty-five refusals in this file went out through `log`, so "no such track" and
+   * "3 events consolidated" reached l8's status bar as the same sentence in the same colour, and
+   * its journal recorded both as `info`. A refused command read exactly like a command that had
+   * worked — which is how a person ends up reporting that a verb "did nothing".
+   *
+   * It is a REFUSAL, not an error: the command was understood and declined, with a reason worth
+   * acting on. An exception is what happens when something breaks, and it takes the other path.
+   *
+   * A handler that refuses should `return` right after: this marks the whole reply, so a line
+   * logged afterwards would arrive wearing the refusal too. Full rationale: docs/refusal.md.
+   */
+  refuse(lines: string[]): void;
   reload(): void | Promise<void>;
   // engine ops (may connect + await):
   transport(a: TransportAction): void | Promise<void>;
@@ -452,7 +468,7 @@ function resolveEvent(
   const p = h.project();
   const track = p.tracks.find((t) => t.id === trackArg || t.name === trackArg);
   if (!track) {
-    h.log([
+    h.refuse([
       `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
     ]);
     return null;
@@ -463,12 +479,12 @@ function resolveEvent(
   try {
     atBeats = parsePosition(atTc, num, den);
   } catch (e) {
-    h.log([`bad timecode: ${(e as Error).message}`]);
+    h.refuse([`bad timecode: ${(e as Error).message}`]);
     return null;
   }
   const hit = track.clips.find((c) => Math.abs(c.start - atBeats) < 1e-6);
   if (!hit) {
-    h.log([`no event on '${track.id}' at ${atTc}`]);
+    h.refuse([`no event on '${track.id}' at ${atTc}`]);
     return null;
   }
   return { track, atBeats, hit, num, den, tempo: p.tempo };
@@ -487,7 +503,7 @@ async function newTrack(
     h.reload(); // the doc now comes from disk, so the mixer and the engine agree with it
     h.log([`+ ${kind} track ${id} (${written.join(", ")})`]);
   } catch (e) {
-    h.log([`track new ${kind}: ${(e as Error).message}`]);
+    h.refuse([`track new ${kind}: ${(e as Error).message}`]);
   }
 }
 
@@ -538,7 +554,7 @@ async function moduleAltAdd(
   const verb = copy ? "copy" : "create";
   const [module, name] = a.trim().split(/\s+/).filter(Boolean);
   if (!module) {
-    h.log([`usage: node alternative ${verb} <node> [name]`]);
+    h.refuse([`usage: node alternative ${verb} <node> [name]`]);
     return;
   }
   try {
@@ -548,7 +564,7 @@ async function moduleAltAdd(
     ]);
     await h.reload();
   } catch (e) {
-    h.log([`node alternative ${verb}: ${(e as Error).message}`]);
+    h.refuse([`node alternative ${verb}: ${(e as Error).message}`]);
   }
 }
 
@@ -565,23 +581,23 @@ function takeTarget(
 ): { track: { id: string }; n: number } | null {
   const [idArg, nArg] = a.trim().split(/\s+/).filter(Boolean);
   if (!idArg || nArg === undefined) {
-    h.log([`usage: track take ${verb} <track> <n>`]);
+    h.refuse([`usage: track take ${verb} <track> <n>`]);
     return null;
   }
   const p = h.project();
   const track = p.tracks.find((t) => t.id === idArg || t.name === idArg);
   if (!track) {
-    h.log([`no track "${idArg}"`]);
+    h.refuse([`no track "${idArg}"`]);
     return null;
   }
   const n = Number(nArg);
   if (!Number.isInteger(n) || n < 1) {
-    h.log([`take numbers count from 1 — "${nArg}" is not one`]);
+    h.refuse([`take numbers count from 1 — "${nArg}" is not one`]);
     return null;
   }
   const have = trackTakes(h.songPath, track.id).length;
   if (n > have) {
-    h.log([
+    h.refuse([
       have
         ? `${track.id} has ${have} take${have > 1 ? "s" : ""} — no take ${n}`
         : `${track.id} has no takes`,
@@ -595,7 +611,7 @@ function takeTarget(
 function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
   const id = a.trim().split(/\s+/).filter(Boolean)[0];
   if (!id) {
-    h.log([`usage: ${verb} <track|group>`]);
+    h.refuse([`usage: ${verb} <track|group>`]);
     return null;
   }
   const p = h.project();
@@ -603,7 +619,7 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
     x.id === id || x.name === id;
   const target = p.tracks.find(matches) ?? p.groups.find(matches);
   if (!target) {
-    h.log([`no track "${id}"`]);
+    h.refuse([`no track "${id}"`]);
     return null;
   }
   return target;
@@ -642,7 +658,7 @@ async function disableCommand(
   const verb = `event disable ${aspect}`;
   const m = /^(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
   if (!m) {
-    h.log([`usage: ${verb} <track> <timecode> [on|off|toggle]`]);
+    h.refuse([`usage: ${verb} <track> <timecode> [on|off|toggle]`]);
     return;
   }
   const [, trackArg, atTc, stateArg] = m;
@@ -651,7 +667,7 @@ async function disableCommand(
   const { track, atBeats, hit, num, den } = found;
   const state = (stateArg ?? "toggle").toLowerCase();
   if (!["on", "off", "toggle"].includes(state)) {
-    h.log([`'${stateArg}' is not on, off or toggle`]);
+    h.refuse([`'${stateArg}' is not on, off or toggle`]);
     return;
   }
   // What is currently OFF, read off the compiled event: silenced, or declining the warp.
@@ -670,7 +686,7 @@ async function disableCommand(
           )
         : // The writer takes "does it warp", so the disabling is inverted on the way in.
           setTrackPlacementWarp(h.songPath, track.id, atBeats, num, den, !next);
-    if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+    if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
     const said =
       aspect === "play"
         ? next
@@ -682,7 +698,7 @@ async function disableCommand(
     h.log([`${track.id}: ${hit.name || hit.id} at ${atTc} ${said}`]);
     await h.reload();
   } catch (e) {
-    h.log([`${verb} failed: ${(e as Error).message}`]);
+    h.refuse([`${verb} failed: ${(e as Error).message}`]);
   }
 }
 
@@ -765,7 +781,7 @@ async function onsetCommand(
   const want = op === "move" ? 2 : 1;
   const secs = times.slice(0, want).map(Number);
   if (!clip || secs.length < want || secs.some((s) => !Number.isFinite(s))) {
-    h.log([
+    h.refuse([
       op === "move"
         ? "usage: clip onset move <clip> <from-sec> <to-sec>"
         : `usage: clip onset ${op} <clip> <sec>`,
@@ -784,7 +800,7 @@ async function onsetCommand(
   try {
     setClipOnsets(h.songPath, clip, after);
   } catch (e) {
-    h.log([`clip onset ${op}: ${(e as Error).message}`]);
+    h.refuse([`clip onset ${op}: ${(e as Error).message}`]);
     return;
   }
   const n = (after.added?.length ?? 0) + (after.removed?.length ?? 0);
@@ -806,7 +822,7 @@ async function processCommand(
   const [target, ...rest] = arg.trim().split(/\s+/).filter(Boolean);
   const chain = rest.join(" ");
   if (!target || !chain) {
-    h.log([
+    h.refuse([
       `usage: ${scope} process <${scope}${scope === "clip" ? "|path" : ""}> <chain>  ` +
         "(a chain of this project, or @st0/<path>)",
     ]);
@@ -905,7 +921,7 @@ async function setFileParam(
       loadModuleRefs(h.songPath),
     );
     if (!have.includes(file)) {
-      h.log([
+      h.refuse([
         have.length
           ? `no '${file}' in ${module}'s assets — it has: ${have.join(", ")}`
           : `${module} carries no assets — drop the file in modules/<category>/${found?.file ?? module}/assets/`,
@@ -918,7 +934,7 @@ async function setFileParam(
     h.log([`${module}: ${clearing ? `${param} cleared` : file}`]);
     await h.reload();
   } catch (e) {
-    h.log([`node param ${param} failed: ${(e as Error).message}`]);
+    h.refuse([`node param ${param} failed: ${(e as Error).message}`]);
   }
 }
 
@@ -940,7 +956,7 @@ async function setIntrinsic(
 ): Promise<void> {
   const write = INTRINSICS[field];
   if (!write) {
-    h.log([
+    h.refuse([
       `no intrinsic '@${field}' — a module's own fields are ${Object.keys(
         INTRINSICS,
       )
@@ -959,7 +975,7 @@ async function setIntrinsic(
     ]);
     await h.reload();
   } catch (e) {
-    h.log([`node param @${field} failed: ${(e as Error).message}`]);
+    h.refuse([`node param @${field} failed: ${(e as Error).message}`]);
   }
 }
 
@@ -1015,40 +1031,42 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       .split(/\s+/)
       .filter(Boolean);
     if (!clip) {
-      h.log([
+      h.refuse([
         "usage: clip trim <clip> [gate-dB] [from] [to]  (e.g. clip trim prise-01 -40)",
       ]);
       return;
     }
     const gate = gateArg === undefined ? DEFAULT_TRIM_DB : Number(gateArg);
     if (!Number.isFinite(gate) || gate > 0) {
-      h.log([
+      h.refuse([
         `'${gateArg}' is not a gate in dBFS — a negative number, e.g. -40`,
       ]);
       return;
     }
     const bound = boundArg(fromArg, toArg);
     if (bound === "bad") {
-      h.log([
+      h.refuse([
         `'${fromArg} ${toArg}' is not a window in seconds — two numbers, the first smaller`,
       ]);
       return;
     }
     if (!h.clipEnvelope) {
-      h.log([
+      h.refuse([
         "this host cannot read a clip's envelope — `clip trim` needs the engine, which builds it",
       ]);
       return;
     }
     const env = await h.clipEnvelope(clip);
     if (!env) {
-      h.log([`${clip}: no envelope yet — the engine builds it on first read`]);
+      h.refuse([
+        `${clip}: no envelope yet — the engine builds it on first read`,
+      ]);
       return;
     }
     const within = narrowest(clipWindow(h, clip), bound);
     const win = trimWindow(env.peak, env.seconds, gate, within);
     if (!win) {
-      h.log([
+      h.refuse([
         `${clip}: nothing above ${gate} dB in its window — the gate is too high, or the take is silent`,
         "nothing was changed: a window of zero length would play nothing at all",
       ]);
@@ -1060,7 +1078,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.snapshot?.(clipFilePath(h.songPath, clip));
       setClipWindow(h.songPath, clip, win.from, win.to);
     } catch (e) {
-      h.log([`clip trim failed: ${(e as Error).message}`]);
+      h.refuse([`clip trim failed: ${(e as Error).message}`]);
       return;
     }
     h.log([
@@ -1082,14 +1100,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "clip.warp": async (a, h) => {
     const [clip, secStr, beatStr] = a.trim().split(/\s+/).filter(Boolean);
     if (!clip || secStr === undefined || beatStr === undefined) {
-      h.log([
+      h.refuse([
         "usage: clip warp <clip> <sec> <beat>  (e.g. clip warp break 1.94 4)",
       ]);
       return;
     }
     const [sec, beat] = [secStr, beatStr].map(Number);
     if (![sec, beat].every(Number.isFinite) || sec < 0 || beat < 0) {
-      h.log(["sec and beat must be numbers, counted from zero"]);
+      h.refuse(["sec and beat must be numbers, counted from zero"]);
       return;
     }
     let markers = clipWarpMarkers(h.songPath, clip);
@@ -1103,7 +1121,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       const env = await h.clipEnvelope?.(clip);
       const beats = found?.length ?? 0;
       if (!beats || !env?.seconds) {
-        h.log([
+        h.refuse([
           `${clip}: no stretch map, and no length to seed one from`,
           "a clip has to be placed on a lane, and its envelope read, before it can be warped",
         ]);
@@ -1117,7 +1135,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       setClipWarp(h.songPath, clip, next);
       h.log([`${clip}: ${sec}s → beat ${beat} (${next.length} points)`]);
     } catch (e) {
-      h.log([`clip warp: ${(e as Error).message}`]);
+      h.refuse([`clip warp: ${(e as Error).message}`]);
       return;
     }
     await h.reload();
@@ -1127,17 +1145,17 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "clip.warpRemove": async (a, h) => {
     const [clip, secStr] = a.trim().split(/\s+/).filter(Boolean);
     if (!clip || secStr === undefined) {
-      h.log(["usage: clip warp remove <clip> <sec>"]);
+      h.refuse(["usage: clip warp remove <clip> <sec>"]);
       return;
     }
     const sec = Number(secStr);
     if (!Number.isFinite(sec)) {
-      h.log(["sec must be a number — seconds into the source file"]);
+      h.refuse(["sec must be a number — seconds into the source file"]);
       return;
     }
     const markers = clipWarpMarkers(h.songPath, clip);
     if (!markers) {
-      h.log([`${clip}: no stretch map to remove a point from`]);
+      h.refuse([`${clip}: no stretch map to remove a point from`]);
       return;
     }
     try {
@@ -1146,7 +1164,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       setClipWarp(h.songPath, clip, next);
       h.log([`${clip}: dropped the point at ${sec}s (${next.length} left)`]);
     } catch (e) {
-      h.log([`clip warp remove: ${(e as Error).message}`]);
+      h.refuse([`clip warp remove: ${(e as Error).message}`]);
       return;
     }
     await h.reload();
@@ -1228,7 +1246,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`track take select failed: ${(e as Error).message}`]);
+      h.refuse([`track take select failed: ${(e as Error).message}`]);
     }
   },
   /**
@@ -1242,24 +1260,23 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.take.keep": async (a, h) => {
     const id = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!id) {
-      h.log(["usage: track take keep <track>"]);
+      h.refuse(["usage: track take keep <track>"]);
       return;
     }
     const track = h.project().tracks.find((t) => t.id === id || t.name === id);
     if (!track) {
-      h.log([`no track "${id}"`]);
+      h.refuse([`no track "${id}"`]);
       return;
     }
     try {
       const gone = keepTrackTake(h.songPath, track.id);
+      if (!gone) return h.refuse([`${track.id} has no takes`]);
       h.log([
-        gone
-          ? `${track.id}: kept what it plays, deleted ${gone} take${gone > 1 ? "s" : ""}`
-          : `${track.id} has no takes`,
+        `${track.id}: kept what it plays, deleted ${gone} take${gone > 1 ? "s" : ""}`,
       ]);
-      if (gone) await h.reload();
+      await h.reload();
     } catch (e) {
-      h.log([`track take keep failed: ${(e as Error).message}`]);
+      h.refuse([`track take keep failed: ${(e as Error).message}`]);
     }
   },
   /** Delete take `n`, and the events it held — a take is where they live. */
@@ -1271,7 +1288,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${t.track.id}: take ${t.n} deleted`]);
       await h.reload();
     } catch (e) {
-      h.log([`track take delete failed: ${(e as Error).message}`]);
+      h.refuse([`track take delete failed: ${(e as Error).message}`]);
     }
   },
   // `track gain` and `track pan` were here, and are `node param <mixer node> Volume|Pan`
@@ -1287,7 +1304,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.move": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         "usage: event move <track> <timecode> <newTimecode> [<toTrack>]  (e.g. event move drums 2:1:1 3:1:1)",
       ]);
       return;
@@ -1298,7 +1315,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       (t) => t.id === trackArg || t.name === trackArg,
     );
     if (!track) {
-      h.log([
+      h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
       ]);
       return;
@@ -1310,13 +1327,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       fromBeats = parsePosition(fromTc, num, den);
       parsePosition(toTc, num, den); // validate the destination too, before touching disk
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     // Identify the event in the compiled project first, for a clear message and no no-op write.
     const hit = track.clips.find((c) => Math.abs(c.start - fromBeats) < 1e-6);
     if (!hit) {
-      h.log([`no event on '${track.id}' at ${fromTc}`]);
+      h.refuse([`no event on '${track.id}' at ${fromTc}`]);
       return;
     }
     // A destination track makes this a move BETWEEN lanes, refused unless both carry the same kind of material.
@@ -1326,18 +1343,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         (t) => t.id === toTrackArg || t.name === toTrackArg,
       );
       if (!d) {
-        h.log([`no track "${toTrackArg}"`]);
+        h.refuse([`no track "${toTrackArg}"`]);
         return;
       }
       if (d.contentType !== track.contentType) {
-        h.log([
+        h.refuse([
           `can't move onto '${d.id}': it holds ${d.contentType}, '${track.id}' holds ${track.contentType}`,
         ]);
         return;
       }
       // A generated lane declares no `clips` and the schema refuses one — caught here, since the write precedes the reload.
       if (d.generated) {
-        h.log([
+        h.refuse([
           `can't move onto '${d.id}': it is generated by an algo pattern and holds no placements`,
         ]);
         return;
@@ -1358,7 +1375,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
               den,
             );
       if (!ok) {
-        h.log([`no event on '${track.id}' at ${fromTc}`]);
+        h.refuse([`no event on '${track.id}' at ${fromTc}`]);
         return;
       }
       h.log([
@@ -1368,7 +1385,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`event move failed: ${(e as Error).message}`]);
+      h.refuse([`event move failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1384,7 +1401,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "events.move": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)\s+([+-]\S+)$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         "usage: events move <tracks> <from> <to> <+/-delta>  (e.g. events move drums,bass 2:1 4:4 +1:0)",
       ]);
       return;
@@ -1400,13 +1417,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       for (const name of new Set(tracksArg.split(",").filter(Boolean))) {
         const t = p.tracks.find((x) => x.id === name || x.name === name);
         if (!t) {
-          h.log([
+          h.refuse([
             `no track "${name}"${p.tracks.length ? ` — try: ${p.tracks.map((x) => x.id).join(", ")}` : ""}`,
           ]);
           return;
         }
         if (t.generated) {
-          h.log([
+          h.refuse([
             `can't move events on '${t.id}': it is generated by an algo pattern and holds no placements`,
           ]);
           return;
@@ -1425,12 +1442,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       deltaBeats =
         (byArg[0] === "-" ? -1 : 1) * parseDuration(byArg.slice(1), num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     if (toBeats < fromBeats) [fromBeats, toBeats] = [toBeats, fromBeats];
     if (deltaBeats === 0) {
-      h.log(["nothing to do: the delta is zero"]);
+      h.refuse(["nothing to do: the delta is zero"]);
       return;
     }
     // Count the hits off the compiled project first: a clear refusal beats a partial write,
@@ -1443,13 +1460,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }));
     const all = hits.flatMap((x) => x.starts);
     if (!all.length) {
-      h.log([
+      h.refuse([
         `no events between ${fromTc} and ${toTc} on ${tracks.map((t) => t.id).join(", ")}`,
       ]);
       return;
     }
     if (Math.min(...all) + deltaBeats < -1e-6) {
-      h.log([`can't move by ${byArg}: it would push an event before 1:1:1`]);
+      h.refuse([`can't move by ${byArg}: it would push an event before 1:1:1`]);
       return;
     }
     try {
@@ -1474,7 +1491,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`events move failed: ${(e as Error).message}`]);
+      h.refuse([`events move failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1488,7 +1505,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.resize": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         "usage: event resize <track> <timecode> <newStart> <newEnd>  (the new END position, not a length)",
       ]);
       return;
@@ -1503,13 +1520,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       startBeats = parsePosition(startTc, num, den);
       endBeats = parsePosition(endTc, num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     // A zero or negative length would be an event that exists and plays nothing — refuse
     // rather than write it, since the file would still validate.
     if (endBeats <= startBeats) {
-      h.log([`the end (${endTc}) must be after the start (${startTc})`]);
+      h.refuse([`the end (${endTc}) must be after the start (${startTc})`]);
       return;
     }
     try {
@@ -1523,7 +1540,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         endBeats,
         tempo,
       );
-      if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+      if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
       const span = beatsToDuration(endBeats - startBeats, num, den);
       h.log([
         `${track.id}: ${hit.name || hit.id} -> ${startTc}..${endTc} (${span})` +
@@ -1536,7 +1553,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`event resize failed: ${(e as Error).message}`]);
+      h.refuse([`event resize failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1559,7 +1576,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.split": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log(["usage: event split <track> <timecode> <at>  (where to cut)"]);
+      h.refuse(["usage: event split <track> <timecode> <at>  (where to cut)"]);
       return;
     }
     const [, trackArg, atTc, cutTc] = m;
@@ -1570,14 +1587,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       cutBeats = parsePosition(cutTc, num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     try {
       if (hit.type === "audio") {
         const bin = findEngineBinary();
         if (!bin)
-          return h.log([
+          return h.refuse([
             "event split: no engine on this machine — cutting audio means rendering two files",
           ]);
         const done = splitAudioMaterial(
@@ -1590,7 +1607,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           num,
           den,
         );
-        if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+        if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
         h.log([
           `${track.id}: ${done.from} split at ${cutTc}, into two rendered clips`,
           `  ${done.head.file} (${+done.head.seconds.toFixed(3)}s) and ${done.tail.file} (${+done.tail.seconds.toFixed(3)}s)`,
@@ -1605,7 +1622,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           num,
           den,
         );
-        if (!done) return h.log([`no event on '${track.id}' at ${atTc}`]);
+        if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
         h.log([
           `${track.id}: ${done.from} split at ${cutTc}, into two sequences`,
           `  ${done.head.file} (${done.head.notes} notes) and ${done.tail.file} (${done.tail.notes})`,
@@ -1614,7 +1631,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.log([`event split failed: ${(e as Error).message}`]);
+      h.refuse([`event split failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1637,13 +1654,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.consolidate": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log(["usage: event consolidate <track> <from> <to>"]);
+      h.refuse(["usage: event consolidate <track> <from> <to>"]);
       return;
     }
     const [, tracksArg, fromTc, toTc] = m;
     const ids = [...new Set(tracksArg.split(",").filter(Boolean))];
     if (ids.length !== 1)
-      return h.log([
+      return h.refuse([
         `event consolidate takes ONE track — ${ids.length ? ids.join(", ") : "none"} given; a rectangle over several has no single file to write`,
       ]);
     const found = resolveEvent(h, ids[0], fromTc);
@@ -1653,14 +1670,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       toBeats = parsePosition(toTc, num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     try {
       if (hit.type === "audio") {
         const bin = findEngineBinary();
         if (!bin)
-          return h.log([
+          return h.refuse([
             "event consolidate: no engine on this machine — consolidating audio means rendering a file",
           ]);
         const done = consolidateAudioMaterial(
@@ -1673,7 +1690,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           num,
           den,
         );
-        if (!done) return h.log([`nothing on '${track.id}' in that range`]);
+        if (!done) return h.refuse([`nothing on '${track.id}' in that range`]);
         h.log([
           `${track.id}: ${done.replaced} event(s) consolidated into ${done.written.file}`,
           `  ${+done.written.seconds.toFixed(3)}s rendered from ${done.from.join(", ")}`,
@@ -1687,7 +1704,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           num,
           den,
         );
-        if (!done) return h.log([`nothing on '${track.id}' in that range`]);
+        if (!done) return h.refuse([`nothing on '${track.id}' in that range`]);
         h.log([
           `${track.id}: ${done.replaced} event(s) consolidated into ${done.written.file}`,
           `  ${done.written.notes} notes, from ${done.from.join(", ")}`,
@@ -1695,7 +1712,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.log([`event consolidate failed: ${(e as Error).message}`]);
+      h.refuse([`event consolidate failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1714,7 +1731,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "event.add": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         "usage: event add <track> <clip> <timecode>  (e.g. event add gtr gtr_3.1_260814T143012 3:1)",
       ]);
       return;
@@ -1725,7 +1742,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       (t) => t.id === trackArg || t.name === trackArg,
     );
     if (!track) {
-      h.log([
+      h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
       ]);
       return;
@@ -1734,11 +1751,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       parsePosition(atTc, p.timeSigNumerator, p.timeSigDenominator);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     if (!existsSync(join(h.songPath, "clips", `${clipArg}.yaml`))) {
-      h.log([
+      h.refuse([
         `no clip "${clipArg}" — clips/${clipArg}.yaml does not exist`,
         "a placement naming no clip stops the project loading, so this refuses rather than writes it",
       ]);
@@ -1749,7 +1766,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${track.id}: added ${clipArg} at ${atTc}`]);
       await h.reload();
     } catch (e) {
-      h.log([`event add failed: ${(e as Error).message}`]);
+      h.refuse([`event add failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1768,7 +1785,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "events.add": async (a, h) => {
     const payload = a.trim();
     if (!payload) {
-      h.log([
+      h.refuse([
         'usage: events add <JSON [{track,ref,start,loop?}]>  (e.g. events add [{"track":"gtr","ref":"riff","start":"3:1"}])',
       ]);
       return;
@@ -1777,11 +1794,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       raw = JSON.parse(payload);
     } catch (e) {
-      h.log([`bad events JSON: ${(e as Error).message}`]);
+      h.refuse([`bad events JSON: ${(e as Error).message}`]);
       return;
     }
     if (!Array.isArray(raw) || !raw.length) {
-      h.log([
+      h.refuse([
         "events payload must be a non-empty JSON array of {track,ref,start}",
       ]);
       return;
@@ -1807,18 +1824,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         typeof it.ref !== "string" ||
         typeof it.start !== "string"
       ) {
-        h.log([`${where}: needs a string track, ref and start`]);
+        h.refuse([`${where}: needs a string track, ref and start`]);
         return;
       }
       const track = p.tracks.find(
         (t) => t.id === it.track || t.name === it.track,
       );
       if (!track) {
-        h.log([`${where}: no track "${it.track}"`]);
+        h.refuse([`${where}: no track "${it.track}"`]);
         return;
       }
       if (track.generated) {
-        h.log([
+        h.refuse([
           `${where}: '${track.id}' is generated by an algo pattern and holds no placements`,
         ]);
         return;
@@ -1827,7 +1844,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       try {
         parsePosition(it.start, num, den);
       } catch (e) {
-        h.log([`${where}: bad timecode — ${(e as Error).message}`]);
+        h.refuse([`${where}: bad timecode — ${(e as Error).message}`]);
         return;
       }
       // The same refusal `event add` makes, and for the same reason: a placement naming a clip
@@ -1836,7 +1853,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         !existsSync(join(h.songPath, "clips", `${it.ref}.yaml`)) &&
         !existsSync(join(h.songPath, "sequences", `${it.ref}.yaml`))
       ) {
-        h.log([
+        h.refuse([
           `${where}: no clip or sequence "${it.ref}" — a placement naming neither stops the project loading`,
         ]);
         return;
@@ -1860,14 +1877,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`events add failed: ${(e as Error).message}`]);
+      h.refuse([`events add failed: ${(e as Error).message}`]);
     }
   },
 
   "event.remove": async (a, h) => {
     const m = /^(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         "usage: event remove <track> <timecode>  (e.g. event remove drums 2:1:1)",
       ]);
       return;
@@ -1878,7 +1895,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       (t) => t.id === trackArg || t.name === trackArg,
     );
     if (!track) {
-      h.log([
+      h.refuse([
         `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
       ]);
       return;
@@ -1889,24 +1906,24 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       atBeats = parsePosition(atTc, num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     // Named from the compiled project before the edit — afterwards the placement is gone and there is nothing to name.
     const hit = track.clips.find((c) => Math.abs(c.start - atBeats) < 1e-6);
     if (!hit) {
-      h.log([`no event on '${track.id}' at ${atTc}`]);
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
       return;
     }
     try {
       if (!removeTrackPlacement(h.songPath, track.id, atBeats, num, den)) {
-        h.log([`no event on '${track.id}' at ${atTc}`]);
+        h.refuse([`no event on '${track.id}' at ${atTc}`]);
         return;
       }
       h.log([`${track.id}: removed ${hit.name || hit.id} at ${atTc}`]);
       await h.reload();
     } catch (e) {
-      h.log([`event remove failed: ${(e as Error).message}`]);
+      h.refuse([`event remove failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1926,12 +1943,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "sequence.addNote": async (arg, h) => {
     const [seqId, noteStr, startStr, endStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined) {
-      h.log(["usage: sequence note new <sequence> <note> <start> [end]"]);
+      h.refuse(["usage: sequence note new <sequence> <note> <start> [end]"]);
       return;
     }
     const k = parseMidiNote(noteStr);
     if (k === null) {
-      h.log([
+      h.refuse([
         `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
@@ -1939,7 +1956,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const t = Math.max(0, Number(startStr));
     const end = endStr !== undefined ? Number(endStr) : t + 1;
     if (!Number.isFinite(t) || !Number.isFinite(end)) {
-      h.log(["start/end must be numbers (beats)"]);
+      h.refuse(["start/end must be numbers (beats)"]);
       return;
     }
     const d = end > t ? end - t : 1;
@@ -1948,7 +1965,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     writeFileSync(file, appendNotes(text, [{ t, d, k }]), "utf8");
@@ -1985,25 +2002,27 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       .trim()
       .split(/\s+/);
     if (!seqId || !noteStr || !startStr || !newStartStr || !newEndStr) {
-      h.log([
+      h.refuse([
         "usage: sequence note timerange <sequence> <note> <start> <newStart> <newEnd>",
       ]);
       return;
     }
     const k = parseMidiNote(noteStr);
     if (k === null) {
-      h.log([
+      h.refuse([
         `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
     }
     const [t, nt, ne] = [startStr, newStartStr, newEndStr].map(Number);
     if (![t, nt, ne].every(Number.isFinite)) {
-      h.log(["start, newStart and newEnd must be numbers (beats)"]);
+      h.refuse(["start, newStart and newEnd must be numbers (beats)"]);
       return;
     }
     if (ne <= nt) {
-      h.log([`a note has to end after it starts — ${nt} → ${ne} is nothing`]);
+      h.refuse([
+        `a note has to end after it starts — ${nt} → ${ne} is nothing`,
+      ]);
       return;
     }
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
@@ -2011,14 +2030,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       h.snapshot?.(file);
       writeFileSync(file, setNoteTimeRange(text, k, t, nt, ne - nt), "utf8");
     } catch (e) {
-      h.log([`sequence note timerange: ${(e as Error).message}`]);
+      h.refuse([`sequence note timerange: ${(e as Error).message}`]);
       return;
     }
     h.log([
@@ -2043,7 +2062,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       !toStr ||
       toStartStr === undefined
     ) {
-      h.log([
+      h.refuse([
         "usage: sequence note move <sequence> <note> <start> <newNote> <newStart>",
       ]);
       return;
@@ -2051,7 +2070,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const k = parseMidiNote(noteStr);
     const nk = parseMidiNote(toStr);
     if (k === null || nk === null) {
-      h.log([
+      h.refuse([
         `bad note "${k === null ? noteStr : toStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
@@ -2059,7 +2078,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const t = Number(startStr);
     const nt = Number(toStartStr);
     if (!Number.isFinite(t) || !Number.isFinite(nt)) {
-      h.log(["start and newStart (beats) must be numbers"]);
+      h.refuse(["start and newStart (beats) must be numbers"]);
       return;
     }
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
@@ -2067,13 +2086,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       writeFileSync(file, moveNote(text, k, t, nk, nt), "utf8");
     } catch (e) {
-      h.log([`sequence note move: ${(e as Error).message}`]);
+      h.refuse([`sequence note move: ${(e as Error).message}`]);
       return;
     }
     h.log([
@@ -2098,19 +2117,19 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "sequence.splitNote": async (arg, h) => {
     const [seqId, noteStr, startStr, atStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined || atStr === undefined) {
-      h.log(["usage: sequence note split <sequence> <note> <start> <at>"]);
+      h.refuse(["usage: sequence note split <sequence> <note> <start> <at>"]);
       return;
     }
     const k = parseMidiNote(noteStr);
     if (k === null) {
-      h.log([
+      h.refuse([
         `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
     }
     const [t, at] = [startStr, atStr].map(Number);
     if (![t, at].every(Number.isFinite)) {
-      h.log(["start and at must be numbers (beats)"]);
+      h.refuse(["start and at must be numbers (beats)"]);
       return;
     }
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
@@ -2118,14 +2137,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       h.snapshot?.(file);
       writeFileSync(file, splitNote(text, k, t, at), "utf8");
     } catch (e) {
-      h.log([`sequence note split: ${(e as Error).message}`]);
+      h.refuse([`sequence note split: ${(e as Error).message}`]);
       return;
     }
     h.log([
@@ -2137,19 +2156,19 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "sequence.removeNote": async (arg, h) => {
     const [seqId, noteStr, startStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined) {
-      h.log(["usage: sequence note remove <sequence> <note> <start>"]);
+      h.refuse(["usage: sequence note remove <sequence> <note> <start>"]);
       return;
     }
     const k = parseMidiNote(noteStr);
     if (k === null) {
-      h.log([
+      h.refuse([
         `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
     }
     const t = Number(startStr);
     if (!Number.isFinite(t)) {
-      h.log(["start (beats) must be a number"]);
+      h.refuse(["start (beats) must be a number"]);
       return;
     }
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
@@ -2157,13 +2176,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
       writeFileSync(file, removeNote(text, k, t), "utf8");
     } catch (e) {
-      h.log([`sequence note remove: ${(e as Error).message}`]);
+      h.refuse([`sequence note remove: ${(e as Error).message}`]);
       return;
     }
     h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} removed`]);
@@ -2173,14 +2192,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "sequence.noteVelocity": async (arg, h) => {
     const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined || velStr === undefined) {
-      h.log([
+      h.refuse([
         "usage: sequence note velocity <sequence> <note> <start> <velocity 0..1>",
       ]);
       return;
     }
     const k = parseMidiNote(noteStr);
     if (k === null) {
-      h.log([
+      h.refuse([
         `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
       ]);
       return;
@@ -2188,7 +2207,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const t = Number(startStr);
     const raw = Number(velStr);
     if (!Number.isFinite(t) || !Number.isFinite(raw)) {
-      h.log(["start (beats) and velocity (0..1) must be numbers"]);
+      h.refuse(["start (beats) and velocity (0..1) must be numbers"]);
       return;
     }
     // Two decimals: the drag reads a pixel, and a file full of 0.7333333333 is noise in a diff.
@@ -2198,7 +2217,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     try {
@@ -2208,7 +2227,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         "utf8",
       );
     } catch (e) {
-      h.log([`sequence note velocity: ${(e as Error).message}`]);
+      h.refuse([`sequence note velocity: ${(e as Error).message}`]);
       return;
     }
     h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} → velocity ${v}`]);
@@ -2221,7 +2240,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const trimmed = arg.trim();
     const sp = trimmed.search(/\s/);
     if (sp < 0) {
-      h.log(["usage: sequence note add <sequence> <notesJSON>"]);
+      h.refuse(["usage: sequence note add <sequence> <notesJSON>"]);
       return;
     }
     const seqId = trimmed.slice(0, sp);
@@ -2229,11 +2248,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       raw = JSON.parse(trimmed.slice(sp + 1));
     } catch (e) {
-      h.log([`bad notes JSON: ${(e as Error).message}`]);
+      h.refuse([`bad notes JSON: ${(e as Error).message}`]);
       return;
     }
     if (!Array.isArray(raw)) {
-      h.log(["notes payload must be a JSON array of {t,d,k,v?}"]);
+      h.refuse(["notes payload must be a JSON array of {t,d,k,v?}"]);
       return;
     }
     const notes = raw as { t?: number; d?: number; k?: number; v?: number }[];
@@ -2242,7 +2261,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       text = readFileSync(file, "utf8");
     } catch {
-      h.log([`no sequence file: sequences/${seqId}.yaml`]);
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
     const playable = notes.filter(isPlayableNote).map((n) => ({
@@ -2252,7 +2271,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       v: typeof n.v === "number" && n.v >= 0 && n.v < 1 ? n.v : undefined,
     }));
     if (!playable.length) {
-      h.log(["no valid notes to record"]);
+      h.refuse(["no valid notes to record"]);
       return;
     }
     writeFileSync(file, appendNotes(text, playable), "utf8");
@@ -2267,7 +2286,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const tcRaw = sp === -1 ? "" : trimmed.slice(0, sp);
     const name = sp === -1 ? "" : trimmed.slice(sp + 1).trim();
     if (!tcRaw || !name) {
-      h.log([
+      h.refuse([
         "usage: create marker <timecode> <name>  (e.g. create marker 5:1:1 Chorus)",
       ]);
       return;
@@ -2279,7 +2298,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       beat = parsePosition(tcRaw, num, den);
     } catch (e) {
-      h.log([`bad timecode: ${(e as Error).message}`]);
+      h.refuse([`bad timecode: ${(e as Error).message}`]);
       return;
     }
     const tc = beatsToPosition(beat, num, den); // canonical key
@@ -2300,13 +2319,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "project.marker.delete": async (arg, h) => {
     const name = arg.trim();
     if (!name) {
-      h.log(["usage: project marker delete <name>"]);
+      h.refuse(["usage: project marker delete <name>"]);
       return;
     }
     const p = h.project();
     const kept = p.markers.filter((m) => m.name !== name);
     if (kept.length === p.markers.length) {
-      h.log([`no marker named "${name}"`]);
+      h.refuse([`no marker named "${name}"`]);
       return;
     }
     writeMarkers(
@@ -2343,23 +2362,23 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // channel <in|out> <chans> <label…>   e.g. channel in 3+4 synth
     const m = a.trim().match(/^(in|out)\s+(\S+)\s+(.+)$/i);
     if (!m)
-      return h.log([
+      return h.refuse([
         "usage: system channel set <in|out> <chans> <label>   e.g. system channel set in 3+4 synth",
       ]);
     const dir = m[1].toLowerCase() as "in" | "out";
     const ch = parseChannels(m[2]);
     if (!ch.length)
-      return h.log([`bad channels '${m[2]}' — use e.g. 1 or 3+4`]);
+      return h.refuse([`bad channels '${m[2]}' — use e.g. 1 or 3+4`]);
     setChannelLabel(dir, ch, m[3].trim());
     h.log([`${dir} ${ch.join("+")} = ${m[3].trim()}`]);
   },
   "system.channel.clear": (a, h) => {
     // system channel clear <in|out> <chans>
     const m = a.trim().match(/^(in|out)\s+(\S+)/i);
-    if (!m) return h.log(["usage: system channel clear <in|out> <chans>"]);
+    if (!m) return h.refuse(["usage: system channel clear <in|out> <chans>"]);
     const dir = m[1].toLowerCase() as "in" | "out";
     const ch = parseChannels(m[2]);
-    if (!ch.length) return h.log([`bad channels '${m[2]}'`]);
+    if (!ch.length) return h.refuse([`bad channels '${m[2]}'`]);
     clearChannelLabel(dir, ch);
     h.log([`cleared ${dir} ${ch.join("+")}`]);
   },
@@ -2370,7 +2389,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const name = a.trim();
     const modules = collectPluginModules(h.project());
     if (!name) {
-      h.log([
+      h.refuse([
         modules.length
           ? `open which? ${modules.map((b) => b.module).join(", ")}`
           : "no plugins in this project",
@@ -2381,7 +2400,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       modules.find((b) => b.module === name) ??
       modules.find((b) => b.module.toLowerCase() === name.toLowerCase());
     if (!match) {
-      h.log([
+      h.refuse([
         `no plugin module '${name}'${modules.length ? ` — try: ${modules.map((b) => b.module).join(", ")}` : ""}`,
       ]);
       return;
@@ -2396,7 +2415,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "node.bypass": async (a, h) => {
     const m = /^(\S+)(?:\s+(on|off|true|false))?$/.exec(a.trim());
     if (!m) {
-      h.log(["usage: node bypass <node> [on|off]"]);
+      h.refuse(["usage: node bypass <node> [on|off]"]);
       return;
     }
     const [, module, state] = m;
@@ -2414,7 +2433,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       c.use.some((s) => s.module === module),
     );
     if (!hit) {
-      h.log([`no module "${module}" in any chain`]);
+      h.refuse([`no module "${module}" in any chain`]);
       return;
     }
     const [chain, c] = hit;
@@ -2450,7 +2469,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       if (found) await h.applyProject(np);
       else await h.reload();
     } catch (e) {
-      h.log([`bypass failed: ${(e as Error).message}`]);
+      h.refuse([`bypass failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2474,7 +2493,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "node.alt.select": async (a, h) => {
     const [module, name] = a.trim().split(/\s+/).filter(Boolean);
     if (!module) {
-      h.log(["usage: node alternative select <node> [name]"]);
+      h.refuse(["usage: node alternative select <node> [name]"]);
       return;
     }
     try {
@@ -2492,7 +2511,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`${module}: running alternative '${name}'`]);
       await h.reload();
     } catch (e) {
-      h.log([`node alternative: ${(e as Error).message}`]);
+      h.refuse([`node alternative: ${(e as Error).message}`]);
     }
   },
 
@@ -2510,7 +2529,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "node.freeze": async (a, h) => {
     const module = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!module) {
-      h.log(["usage: node freeze <node>"]);
+      h.refuse(["usage: node freeze <node>"]);
       return;
     }
     const g = loadGraph(h.songPath);
@@ -2528,7 +2547,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     const why = freezeBlockedBy(g.chains, module);
     if (why) {
-      h.log([`freeze: ${why}`]);
+      h.refuse([`freeze: ${why}`]);
       return;
     }
     const render = `${FROZEN_DIR}/${module.replace(/[:/]/g, "-")}.wav`;
@@ -2540,7 +2559,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       (n) => g.tracks[n]?.type === "strudel",
     );
     if (generated.length) {
-      h.log([
+      h.refuse([
         `freeze: '${generated[0]}' is a strudel lane — its material only exists while it plays, so it can't be baked`,
       ]);
       return;
@@ -2557,14 +2576,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           ),
         )?.id;
     if (!owner) {
-      h.log([
+      h.refuse([
         `freeze: '${module}' compiles to no plugin, so there is no signal at it to render`,
       ]);
       return;
     }
     const engine = findEngineBinary();
     if (!engine) {
-      h.log([
+      h.refuse([
         "freeze failed: studio-moteur binary not found (build the engine)",
       ]);
       return;
@@ -2578,7 +2597,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       freezeUpstreamRender(engine, p, plan, out);
     } catch (e) {
-      h.log([`freeze failed: ${(e as Error).message}`]);
+      h.refuse([`freeze failed: ${(e as Error).message}`]);
       return;
     }
     setModuleFrozen(h.songPath, module, render);
@@ -2596,7 +2615,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // node it found rather than a name someone typed.
     const m = /^("[^"]*"|\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.log([
+      h.refuse([
         'usage: node param <node> <param> <value>  (e.g. node param synth "Filter Freq" 69)',
       ]);
       return;
@@ -2623,14 +2642,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     const value = Number(rawValue);
     if (!Number.isFinite(value)) {
-      h.log([`"${rawValue}" is not a number — a param value is numeric`]);
+      h.refuse([`"${rawValue}" is not a number — a param value is numeric`]);
       return;
     }
     const p = h.project();
     const modules = collectPluginModules(p);
     const matches = modules.filter((b) => b.module === module);
     if (!matches.length) {
-      h.log([
+      h.refuse([
         `no plugin module '${module}'${modules.length ? ` — try: ${[...new Set(modules.map((b) => b.module))].join(", ")}` : ""}`,
       ]);
       return;
@@ -2653,7 +2672,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.applyProject(np);
       h.log([`${module}: ${param} = ${value}`]);
     } catch (e) {
-      h.log([`node param failed: ${(e as Error).message}`]);
+      h.refuse([`node param failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2673,18 +2692,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const bind = /^(\S+)\s+(.+?)\s+(\d+)\s+(\d+)$/.exec(trimmed);
     const m = unbind ?? bind;
     if (!m) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const module = m[1];
     const param = m[2].replace(/^"(.*)"$/s, "$1").trim();
     const binding = unbind ? null : { ch: Number(m[3]), cc: Number(m[4]) };
     if (binding && (binding.ch < 1 || binding.ch > 16)) {
-      h.log([`channel ${binding.ch} is not 1-16`, usage]);
+      h.refuse([`channel ${binding.ch} is not 1-16`, usage]);
       return;
     }
     if (binding && (binding.cc < 0 || binding.cc > 127)) {
-      h.log([`cc ${binding.cc} is not 0-127`, usage]);
+      h.refuse([`cc ${binding.cc} is not 0-127`, usage]);
       return;
     }
     try {
@@ -2697,7 +2716,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         `${ref}'s map — shared by every node of it`,
       ]);
     } catch (e) {
-      h.log([`module cc failed: ${(e as Error).message}`]);
+      h.refuse([`module cc failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2717,7 +2736,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "node.automate": async (a, h) => {
     const parts = a.trim().split(/s+/).filter(Boolean);
     if (parts.length < 3) {
-      h.log([
+      h.refuse([
         "usage: node automate <module> <param> <curve> [trigger]",
         "       (e.g. node automate osc Filter Freq sweep)",
       ]);
@@ -2734,7 +2753,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const curve = parts[parts.length - (hasTrigger ? 2 : 1)];
     const param = parts.slice(1, parts.length - (hasTrigger ? 2 : 1)).join(" ");
     if (!param) {
-      h.log([
+      h.refuse([
         "node automate: no parameter named between the module and the curve",
       ]);
       return;
@@ -2754,14 +2773,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           : `${module}: ${param} <- ${curve}${trigger ? `, fired by ${trigger}` : ""}`,
       ]);
     } catch (e) {
-      h.log([`node automate: ${(e as Error).message}`]);
+      h.refuse([`node automate: ${(e as Error).message}`]);
     }
   },
 
   "curve.create": async (a, h) => {
     const name = a.trim();
     if (!name) {
-      h.log(["usage: curve new <name>  (e.g. curve new sweep)"]);
+      h.refuse(["usage: curve new <name>  (e.g. curve new sweep)"]);
       return;
     }
     try {
@@ -2769,7 +2788,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.reload(); // the editor's file tree and the `curve` completions both read the folder
       h.log([`created ${rel}`]);
     } catch (e) {
-      h.log([`curve new: ${(e as Error).message}`]);
+      h.refuse([`curve new: ${(e as Error).message}`]);
     }
   },
 
@@ -2795,7 +2814,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // the schema's own answer to "is this one of them" — so the list in the message cannot drift
     // from the list the parser accepts.
     if (!type || !isSurfaceType(type)) {
-      h.log([type ? `unknown surface type '${type}'` : usage, usage]);
+      h.refuse([type ? `unknown surface type '${type}'` : usage, usage]);
       return;
     }
     try {
@@ -2805,7 +2824,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.reload();
       h.log([`created ${rel}`]);
     } catch (e) {
-      h.log([`project surface new: ${(e as Error).message}`, usage]);
+      h.refuse([`project surface new: ${(e as Error).message}`, usage]);
     }
   },
 
@@ -2830,21 +2849,21 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       .split(/\s+/)
       .filter(Boolean);
     if (!target || extra.length) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const made = makeModule(h.songPath, target, extendsRef);
     if ("error" in made) {
-      h.log([`module new failed: ${made.error}`, usage]);
+      h.refuse([`module new failed: ${made.error}`, usage]);
       return;
     }
     const { ref, rel } = made;
+    // A chain names a NODE, never this — say so, since the next act is always the same one.
+    const next = `use it with \`node new ${target} <node-name>\``;
+    if (!rel) return h.refuse([`${target} is already here`, next]);
     h.log([
-      rel
-        ? `created ${rel} — add an inline plugin/rack (or an \`extends\`) to give it a sound`
-        : `${target} is already here`,
-      // A chain names a NODE, never this — say so, since the next act is always the same one.
-      `use it with \`node new ${target} <node-name>\``,
+      `created ${rel} — add an inline plugin/rack (or an \`extends\`) to give it a sound`,
+      next,
     ]);
     await h.reload();
   },
@@ -2868,13 +2887,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // Born where the cursor was — the web sends the click, so a new node never asks the layout.
     const at = takeSpawnAt(parts);
     if (parts.length !== 2) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [target, node] = parts;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
-      h.log([`'${target}' is not <category>/<name>`, usage]);
+      h.refuse([`'${target}' is not <category>/<name>`, usage]);
       return;
     }
     const [category, module] = segs;
@@ -2885,7 +2904,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`created ${rel} — in the graph, wired to nothing yet`]);
       await h.reload();
     } catch (e) {
-      h.log([`node new failed: ${(e as Error).message}`]);
+      h.refuse([`node new failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2905,7 +2924,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "node.delete": async (a, h) => {
     const node = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!node) {
-      h.log(["usage: node delete <node>"]);
+      h.refuse(["usage: node delete <node>"]);
       return;
     }
     try {
@@ -2918,14 +2937,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`node delete failed: ${(e as Error).message}`]);
+      h.refuse([`node delete failed: ${(e as Error).message}`]);
     }
   },
 
   "graph.unlink": async (a, h) => {
     const node = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!node) {
-      h.log(["usage: graph unlink <node>"]);
+      h.refuse(["usage: graph unlink <node>"]);
       return;
     }
     try {
@@ -2939,7 +2958,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`graph unlink failed: ${(e as Error).message}`]);
+      h.refuse([`graph unlink failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2947,7 +2966,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "module.own": async (a, h) => {
     const ref = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!ref) {
-      h.log(["usage: module own <@engine/…>"]);
+      h.refuse(["usage: module own <@engine/…>"]);
       return;
     }
     try {
@@ -2958,7 +2977,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`module own failed: ${(e as Error).message}`]);
+      h.refuse([`module own failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2980,7 +2999,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const usage = "usage: node replace <node> <extends-ref>";
     const [key, ref] = a.trim().split(/\s+/).filter(Boolean);
     if (!key || !ref) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     try {
@@ -2991,7 +3010,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`node replace failed: ${(e as Error).message}`]);
+      h.refuse([`node replace failed: ${(e as Error).message}`]);
     }
   },
 
@@ -2999,13 +3018,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const usage = "usage: clone module <category>/<name> <newName>";
     const args = a.trim().split(/\s+/);
     if (args.length !== 2 || !args[0] || !args[1]) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [target, newName] = args;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
-      h.log([`'${target}' is not <category>/<name>`, usage]);
+      h.refuse([`'${target}' is not <category>/<name>`, usage]);
       return;
     }
     const [category, name] = segs;
@@ -3014,7 +3033,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`cloned ${target} → ${rel}`]);
       await h.reload();
     } catch (e) {
-      h.log([`clone module failed: ${(e as Error).message}`]);
+      h.refuse([`clone module failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3040,7 +3059,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const parts = a.trim().split(/\s+/).filter(Boolean);
     const at = takeSpawnAt(parts);
     if (parts.length < 3) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [before, after, node] = parts;
@@ -3048,18 +3067,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`node insert: ${(e as Error).message}`]);
+      h.refuse([`node insert: ${(e as Error).message}`]);
       return;
     }
     const arrow = arrowError(h.songPath, before, after);
     if (arrow) {
-      h.log([arrow]);
+      h.refuse([arrow]);
       return;
     }
     // A real node: the engine would refuse a dangling ref, so catch it with an actionable
     // message. A shared module is named by its ref and lives in moduleRefs until a chain uses it.
     if (!(node in g.modules) && !(node in g.moduleRefs)) {
-      h.log([
+      h.refuse([
         `no node "${node}" in this project (nodes: ${Object.keys(g.modules).join(", ") || "none"}) — create one with \`node new\``,
       ]);
       return;
@@ -3071,7 +3090,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       before,
     );
     if (cold) {
-      h.log([cold]);
+      h.refuse([cold]);
       return;
     }
     try {
@@ -3081,7 +3100,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`inserted ${node} between ${before} and ${after}`]);
       await h.reload();
     } catch (e) {
-      h.log([`node insert failed: ${(e as Error).message}`]);
+      h.refuse([`node insert failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3105,7 +3124,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log(["graph reorganized — every node handed back to the layout"]);
       await h.reload();
     } catch (e) {
-      h.log([`graph organize failed: ${(e as Error).message}`]);
+      h.refuse([`graph organize failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3121,7 +3140,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       "usage: graph move <node> <x> <y> (world px), or `graph move <node> auto`";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length < 2) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [name, xArg, yArg] = parts;
@@ -3129,7 +3148,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`graph move: ${(e as Error).message}`]);
+      h.refuse([`graph move: ${(e as Error).message}`]);
       return;
     }
     // Everything on the graph is a NODE, and every node can be put somewhere: a module or a
@@ -3144,7 +3163,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
     })();
     if (!(name in g.modules) && !(name in g.tracks) && !(name in curves)) {
-      h.log([
+      h.refuse([
         `no node "${name}" in this project (modules: ${
           Object.keys(g.modules).join(", ") || "none"
         })`,
@@ -3159,7 +3178,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         const x = Number(xArg);
         const y = Number(yArg);
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
-          h.log([usage]);
+          h.refuse([usage]);
           return;
         }
         // Clamped to the world's origin — the fit frames 0.., and a negative pin would sit
@@ -3174,7 +3193,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.log([`graph move failed: ${(e as Error).message}`]);
+      h.refuse([`graph move failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3192,24 +3211,24 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       "usage: graph chain connect <from> <to> — each a node, optionally name#port (e.g. graph chain connect gtr reverb)";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 2) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [from, to] = parts;
     const base = (s: string) => s.split("#")[0];
     if (base(from) === base(to)) {
-      h.log([`can't connect '${base(from)}' to itself`]);
+      h.refuse([`can't connect '${base(from)}' to itself`]);
       return;
     }
     let g: ReturnType<typeof loadGraph>;
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`graph chain connect: ${(e as Error).message}`]);
+      h.refuse([`graph chain connect: ${(e as Error).message}`]);
       return;
     }
     if (base(from) === "OUT") {
-      h.log(["OUT is the sink — it has no output to connect from"]);
+      h.refuse(["OUT is the sink — it has no output to connect from"]);
       return;
     }
     // A lane MAY be fed, by exactly one thing: a run carrying a live interface input. That is the
@@ -3218,7 +3237,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // every track outright, which was stricter than the thing it guards and left an `IN` node with
     // nowhere to go. See packages/ui-chains/docs/graphBuild.md.
     if (base(to) in g.tracks && !runCarriesInput(g, base(from))) {
-      h.log([
+      h.refuse([
         `'${base(to)}' is a track — only a live input's signal lands on a lane`,
       ]);
       return;
@@ -3230,7 +3249,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       name in g.tracks;
     for (const end of [from, to])
       if (!known(base(end))) {
-        h.log([
+        h.refuse([
           `no node "${base(end)}" in this project (modules: ${
             Object.keys(g.modules).join(", ") || "none"
           })`,
@@ -3242,7 +3261,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`connected ${from} → ${to}`]);
       await h.reload();
     } catch (e) {
-      h.log([`graph chain connect failed: ${(e as Error).message}`]);
+      h.refuse([`graph chain connect failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3254,7 +3273,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "graph.chain.disconnect": async (a, h) => {
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 2) {
-      h.log([
+      h.refuse([
         "usage: graph chain disconnect <from> <to> — each a node, optionally name#port",
       ]);
       return;
@@ -3265,7 +3284,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`disconnected ${from} → ${to}`]);
       await h.reload();
     } catch (e) {
-      h.log([`graph chain disconnect failed: ${(e as Error).message}`]);
+      h.refuse([`graph chain disconnect failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3280,32 +3299,32 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       "usage: graph chain replug <from> <to> <newFrom> <newTo> — the arrow from→to becomes newFrom→newTo";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     if (parts.length !== 4) {
-      h.log([usage]);
+      h.refuse([usage]);
       return;
     }
     const [from, to, newFrom, newTo] = parts;
     if (from === newFrom && to === newTo) {
-      h.log(["nothing moved — the cable is where it was"]);
+      h.refuse(["nothing moved — the cable is where it was"]);
       return;
     }
     const base = (s: string) => s.split("#")[0];
     if (base(newFrom) === base(newTo)) {
-      h.log([`can't connect '${base(newFrom)}' to itself`]);
+      h.refuse([`can't connect '${base(newFrom)}' to itself`]);
       return;
     }
     let g: ReturnType<typeof loadGraph>;
     try {
       g = loadGraph(h.songPath);
     } catch (e) {
-      h.log([`graph chain replug: ${(e as Error).message}`]);
+      h.refuse([`graph chain replug: ${(e as Error).message}`]);
       return;
     }
     if (base(newFrom) === "OUT") {
-      h.log(["OUT is the sink — it has no output to connect from"]);
+      h.refuse(["OUT is the sink — it has no output to connect from"]);
       return;
     }
     if (base(newTo) in g.tracks) {
-      h.log([`'${base(newTo)}' is a track — a source; nothing can feed it`]);
+      h.refuse([`'${base(newTo)}' is a track — a source; nothing can feed it`]);
       return;
     }
     const known = (name: string) =>
@@ -3315,7 +3334,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       name in g.tracks;
     for (const end of [newFrom, newTo])
       if (!known(base(end))) {
-        h.log([`no node "${base(end)}" in this project`]);
+        h.refuse([`no node "${base(end)}" in this project`]);
         return;
       }
     try {
@@ -3323,7 +3342,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`replugged: ${from} → ${to} is now ${newFrom} → ${newTo}`]);
       await h.reload();
     } catch (e) {
-      h.log([`graph chain replug failed: ${(e as Error).message}`]);
+      h.refuse([`graph chain replug failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3335,7 +3354,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "transport.arm": async (a, h) => {
     const id = a.trim().split(/\s+/).filter(Boolean)[0];
     if (!id) {
-      h.log(["usage: transport arm <track>"]);
+      h.refuse(["usage: transport arm <track>"]);
       return;
     }
     const p = h.project();
@@ -3343,7 +3362,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       x.id === id || x.name === id;
     const t = p.tracks.find(matches);
     if (!t) {
-      h.log([
+      h.refuse([
         p.groups.some(matches)
           ? `"${id}" is a group — arm takes a track (a group carries no input)`
           : `no track "${id}"`,
@@ -3352,11 +3371,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     }
     // The rule: no input, no arm. A track with nothing feeding it would record silence, so say why instead of arming it.
     if (!t.inputChannels.length) {
-      h.log([`"${t.id}" has no input — nothing to record`]);
+      h.refuse([`"${t.id}" has no input — nothing to record`]);
       return;
     }
     if (!p.recordDir) {
-      h.log([
+      h.refuse([
         `"${p.name}" is a single-file song — it has no clips/ to record into`,
       ]);
       return;
@@ -3381,7 +3400,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       await h.applyProject(np);
       h.log([`metronome ${on ? "on" : "off"}`]);
     } catch (e) {
-      h.log([`metronome failed: ${(e as Error).message}`]);
+      h.refuse([`metronome failed: ${(e as Error).message}`]);
     }
   },
   "project.reload": async (_a, h) => {
@@ -3392,18 +3411,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "project.commit": async (a, h) => {
     const message = a.trim();
     if (!message) {
-      h.log(["usage: commit <message>"]);
+      h.refuse(["usage: commit <message>"]);
       return;
     }
     const dir = h.repoDir ?? h.songPath;
     if (!dir) {
-      h.log(["no repository"]);
+      h.refuse(["no repository"]);
       return;
     }
     try {
       const r = commitAndPush(dir, message, h.gitEnv);
       if (r.nothingToCommit) {
-        h.log(["nothing to commit — the project is clean"]);
+        h.refuse(["nothing to commit — the project is clean"]);
         return;
       }
       const files = `${r.changed} file${r.changed === 1 ? "" : "s"}`;
@@ -3415,7 +3434,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           : [head, `push failed (commit is local): ${r.pushError}`],
       );
     } catch (e) {
-      h.log([`commit failed: ${(e as Error).message}`]);
+      h.refuse([`commit failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3423,7 +3442,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "project.pull": async (_a, h) => {
     const dir = h.repoDir ?? h.songPath;
     if (!dir) {
-      h.log(["no repository"]);
+      h.refuse(["no repository"]);
       return;
     }
     try {
@@ -3431,7 +3450,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([r.upToDate ? "already up to date" : `pulled — ${r.summary}`]);
       if (!r.upToDate && h.songPath) await h.reload();
     } catch (e) {
-      h.log([`pull failed: ${(e as Error).message}`]);
+      h.refuse([`pull failed: ${(e as Error).message}`]);
     }
   },
 
@@ -3440,20 +3459,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // alternative is a branch of the whole thing, not of one song folder.
   "project.alt.new": async (a, h) => {
     const name = a.trim().split(/\s+/)[0] ?? "";
-    if (!name) return h.log(["usage: project alternative new <name>"]);
+    if (!name) return h.refuse(["usage: project alternative new <name>"]);
     const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.log(["no repository"]);
+    if (!dir) return h.refuse(["no repository"]);
     try {
       const from = newAlternative(dir, name, h.gitEnv);
       h.log([`alternative '${name}' started from '${from}' — you are on it`]);
       await h.reload();
     } catch (e) {
-      h.log([`alternative new failed: ${(e as Error).message}`]);
+      h.refuse([`alternative new failed: ${(e as Error).message}`]);
     }
   },
   "project.alt.apply": async (_a, h) => {
     const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.log(["no repository"]);
+    if (!dir) return h.refuse(["no repository"]);
     try {
       const { alt, parent, wip } = applyAlternative(dir, h.gitEnv);
       h.log(
@@ -3466,25 +3485,25 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       );
       await h.reload();
     } catch (e) {
-      h.log([`alternative apply failed: ${(e as Error).message}`]);
+      h.refuse([`alternative apply failed: ${(e as Error).message}`]);
     }
   },
   "project.alt.cancel": async (_a, h) => {
     const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.log(["no repository"]);
+    if (!dir) return h.refuse(["no repository"]);
     try {
       const { alt, parent } = cancelAlternative(dir, h.gitEnv);
       h.log([`dropped '${alt}'s changes — you are on '${parent}'`]);
       await h.reload();
     } catch (e) {
-      h.log([`alternative cancel failed: ${(e as Error).message}`]);
+      h.refuse([`alternative cancel failed: ${(e as Error).message}`]);
     }
   },
   "project.alt.switch": async (a, h) => {
     const name = a.trim().split(/\s+/)[0] ?? "";
-    if (!name) return h.log(["usage: project alternative switch <name>"]);
+    if (!name) return h.refuse(["usage: project alternative switch <name>"]);
     const dir = h.repoDir ?? h.songPath;
-    if (!dir) return h.log(["no repository"]);
+    if (!dir) return h.refuse(["no repository"]);
     try {
       const { from, wip } = switchAlternative(dir, name, h.gitEnv);
       h.log([
@@ -3494,7 +3513,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       await h.reload();
     } catch (e) {
-      h.log([`alternative switch failed: ${(e as Error).message}`]);
+      h.refuse([`alternative switch failed: ${(e as Error).message}`]);
     }
   },
 };

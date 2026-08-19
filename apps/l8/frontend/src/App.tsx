@@ -364,7 +364,28 @@ export default function App({
   const armed = useStoreState(store, (s) => s.armed, arrayEq);
   // Global record enable — ENGINE session state, so it comes straight off the frame; play then records the armed.
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
-  const [status, setStatus] = useState("");
+  const [statusLine, setStatusLine] = useState<{
+    text: string;
+    refused: boolean;
+  }>({ text: "", refused: false });
+  const status = statusLine.text;
+  /**
+   * Say something on the status line — and, by saying it this way, say it is NOT a refusal.
+   *
+   * Wrapping the setter rather than threading a second argument through the forty call sites:
+   * every one of them means "here is what happened", and the one place that can mean "here is why
+   * I would not" is `runCommand`, below. So the flag clears itself everywhere else, and cannot be
+   * left stale by a message that came after a refusal.
+   */
+  const setStatus = useCallback(
+    (text: string) => setStatusLine({ text, refused: false }),
+    [],
+  );
+  /** …and the other half: a command was understood and declined. `runCommand` is its one caller. */
+  const setRefusal = useCallback(
+    (text: string) => setStatusLine({ text, refused: true }),
+    [],
+  );
   const [reloadKey, setReloadKey] = useState(0);
   // Bumped when `graph organize` runs: the graph hosts hold every drawn node in place across
   // ordinary edits, and this is the one signal that lets dagre re-lay out everything.
@@ -1936,9 +1957,15 @@ export default function App({
           pushLog("cmd", `› ${ensure}`);
           await api.command(ensure);
         }
-        const { output, graph } = await api.command(s);
-        setStatus(output.length ? output.join("  ·  ") : `ran: ${s}`);
-        for (const o of output) pushLog("info", o);
+        const { output, refused, graph } = await api.command(s);
+        // A refusal is neither a success nor a failure, and until it had its own channel it was
+        // recorded as the first: `event join` declining a pair of different materials reached this
+        // line in the same colour as "3 events consolidated", and the journal filed both as
+        // `info`. Which is how a verb that said no, out loud, got reported as doing nothing.
+        const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
+        if (refused) setRefusal(said);
+        else setStatus(said);
+        for (const o of output) pushLog(refused ? "refused" : "info", o);
         // The graph the service built while we waited, present only when the command changed
         // something. Handed to the canvas so it draws this instead of fetching and re-parsing what
         // the service has just parsed — see ChainsTab's `seedGraph`.
@@ -3543,7 +3570,14 @@ export default function App({
                 commands and says no more, so this is where the sentence about the one you are
                 pointing at goes. It borrows the line rather than writing it — closing the menu
                 gives back whatever the app last said. */}
-            <span className="truncate">
+            <span
+              className={cn(
+                "truncate",
+                // Only when the app's OWN last word was a refusal: a menu hint borrows this line
+                // and is nobody's verdict, so it must not inherit the colour of one.
+                !menuHint && statusLine.refused && "text-amber-400",
+              )}
+            >
               {menuHint || status || project?.root}
             </span>
             {/* The play button spins for this too — it is the control being blocked, and the one you are reaching

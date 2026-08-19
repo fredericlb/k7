@@ -181,9 +181,18 @@ export const projectApi = {
    * builds it once inside this request rather than making the caller fetch it (see the route).
    * Optional on purpose: a host that ignores it behaves exactly as before, and still benefits,
    * because building it warmed the cache its next `/graph` will hit.
+   *
+   * `refused` is the same shape of fact about the OTHER half: the command was understood and
+   * declined, and the lines in `output` say why. Present only when true — a surface that ignores
+   * it reads a refusal exactly as it always did, which is as ordinary output.
    */
   command: (line: string, at?: string) =>
-    fsend<{ output: string[]; graph?: WebGraph; rev?: string }>(
+    fsend<{
+      output: string[];
+      refused?: boolean;
+      graph?: WebGraph;
+      rev?: string;
+    }>(
       "POST",
       "/command",
       // `at` points the verbs at a folder OTHER than the open project — the chains builder's

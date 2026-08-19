@@ -23,6 +23,7 @@ import { runCommand } from "./commandSpec";
 let dir: string;
 const logs: string[] = [];
 let reloads = 0;
+let refused = false;
 
 /** Two real lanes on disk; the compiled doc below mirrors their starts in beats (4/4). */
 function song(): string {
@@ -74,6 +75,10 @@ const host = () =>
     project: proj,
     baseModules: [],
     log: (l: string[]) => logs.push(...l),
+    refuse: (l: string[]) => {
+      refused = true;
+      logs.push(...l);
+    },
     reload: () => {
       reloads++;
     },
@@ -82,6 +87,7 @@ const host = () =>
 beforeEach(() => {
   dir = song();
   logs.length = 0;
+  refused = false;
   reloads = 0;
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -95,6 +101,7 @@ describe("events move", () => {
     expect(read("bass")).toContain('start: "4:1"');
     expect(read("bass")).toContain('start: "1:1"'); // b1 stayed
     expect(logs.join(" ")).toContain("moved 3 events on drums, bass by +1:0");
+    expect(refused).toBe(false); // a report, not a refusal — the flag separates them
     expect(reloads).toBe(1);
   });
 
@@ -114,6 +121,7 @@ describe("events move", () => {
     const before = read("drums");
     await runCommand("events move orbit,drums 1:1 9:1 +0:1", host(), "cli");
     expect(logs.join(" ")).toContain("generated");
+    expect(refused).toBe(true);
     expect(read("drums")).toBe(before);
     expect(reloads).toBe(0);
   });
@@ -124,6 +132,7 @@ describe("events move", () => {
     // b1 sits at 1:1; a bar left is refused for the WHOLE command, drums included.
     await runCommand("events move drums,bass 1:1 4:1 -1:0", host(), "cli");
     expect(logs.join(" ")).toContain("before 1:1:1");
+    expect(refused).toBe(true);
     expect(read("drums")).toBe(drums);
     expect(read("bass")).toBe(bass);
     expect(reloads).toBe(0);
@@ -132,17 +141,20 @@ describe("events move", () => {
   it("says so when the range holds nothing", async () => {
     await runCommand("events move drums 9:1 12:1 +1:0", host(), "cli");
     expect(logs.join(" ")).toContain("no events between 9:1 and 12:1");
+    expect(refused).toBe(true);
     expect(reloads).toBe(0);
   });
 
   it("names the unknown track and offers the real ones", async () => {
     await runCommand("events move nope 1:1 2:1 +1:0", host(), "cli");
     expect(logs.join(" ")).toContain('no track "nope"');
+    expect(refused).toBe(true);
   });
 
   it("a zero delta is a no-op, said plainly", async () => {
     await runCommand("events move drums 1:1 9:1 +0:0", host(), "cli");
     expect(logs.join(" ")).toContain("nothing to do");
+    expect(refused).toBe(true);
     expect(reloads).toBe(0);
   });
 });

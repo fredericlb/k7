@@ -495,7 +495,14 @@ filesRouter.post(
           performance.now() - ran
         ).toFixed(0)}ms`,
       );
-    res.json({ output, ...(graph ? { graph, rev } : {}) });
+    // `refused` rides beside the lines: the command was understood and declined, which is a
+    // different fact from "it ran" and from "it threw". Sent only when true, so a surface reading
+    // the old shape sees exactly what it saw before.
+    res.json({
+      output,
+      ...(output.refused ? { refused: true } : {}),
+      ...(graph ? { graph, rev } : {}),
+    });
   }),
 );
 
