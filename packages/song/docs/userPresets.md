@@ -74,17 +74,68 @@ The two do not compete, and the difference is worth holding on to:
 |---|---|---|
 | what it holds | named numbers | an opaque Steinberg container |
 | readable, diffable, hand-editable | yes | no |
-| applying one | stamps values into the module text, undone by not saving | **nothing selects one yet** |
+| applying one | stamps values into the module text, undone by not saving | `base: <name>` on the module or node |
 | what it is for | a plugin whose state IS its parameters | one whose state is not |
 
 `base/` is its own folder rather than more files loose beside the module, because the loader
 already reads `<name>.vstpreset` there as the single default; a second spelling in the same
 directory would be two rules over one namespace.
 
-**Store only, for now.** A base is written and listed, and nothing loads one — the loader still
-reads `<name>.vstpreset` as the module's default and knows nothing about `base/`. That is the
-honest first step: the shape is worth proving before `module.yaml` grows a field naming a chosen
-base, and a half-wired selection would be worse than none.
+## Choosing one — `base:`, and what it may not disturb
+
+A module or a node names the base it starts from:
+
+```yaml
+extends: "@st0/instruments/wurli"
+base: warm            # base/warm.vstpreset, here or in an ancestor's folder
+params: { Volume: 0.7 }
+```
+
+**Per INSTANCE**, because a node has its own file: two nodes of one module can sit on two bases,
+which is the only reason choosing is interesting. `@base` is an intrinsic like `@monitor` — a
+FIELD, not a param — so the engine learns it by rebuilding the module, which is what loading a
+different `.vstpreset` requires.
+
+**The params still win, and that is the whole ordering.** `EditBuilder` loads the preset and then
+calls `applyPluginParams` over it — "text params override the preset", which it has always said.
+So a base decides only what the module could not have said in text, and every value the module
+DID author survives a change of base. Picking a different sound never silently moves a parameter
+somebody set; it moves everything nobody could.
+
+That is also why the two live side by side rather than one replacing the other. On an Arturia
+synth the base carries the patch and `params:` carries the handful of values the song overrides —
+a filter opened, a level trimmed — and those overrides follow you from base to base.
+
+### Where the file is looked for
+
+`presetFor` in `basePreset.ts`, in this order:
+
+1. the `base:` that was CHOSEN, if that base exists — nearest folder first, so a local base
+   shadows an inherited one of the same name;
+2. the node's own `<node>.vstpreset` — a per-placement state;
+3. the module's `<leaf>.vstpreset` — the folder's default.
+
+A `base:` naming a file this machine does not have **falls back** to 2 and 3 rather than loading
+nothing: a base that has not synced yet leaves the module on its default state, which is a module
+still worth playing.
+
+Inherited bases resolve through the whole `extends` chain (`withInheritedFiles` in
+`moduleResolve.ts`). That is the normal shape, not an edge case: the bases are snapshotted onto
+the SHARED module that names the plugin, and a song points at it through a thin local module whose
+own folder holds none. Resolved against that folder alone, the pick would find nothing and the
+merge would keep the parent's default — the panel saying `warm` while the engine played something
+else, which is the exact failure the same function already existed to stop for asset files.
+
+### The dropdown
+
+A module with bases offers `@base` in the builder's parameter list, so a widget can be bound to
+it like any other. The ENTRIES are not written into `ui.yaml`: the graph fills them at draw time
+from what the loader found (`withBaseOptions`), because a base can be snapshotted after the panel
+was authored and a list copied into the panel would go stale between saves. Same reason a live
+input's socket list is the machine's rather than the panel's.
+
+`none` is always the first entry. A chosen base has to be undoable, and without it the only way
+out of one is editing the file by hand.
 
 ## Writing one: from the plugin's own window
 

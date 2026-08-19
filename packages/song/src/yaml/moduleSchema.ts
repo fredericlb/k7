@@ -298,6 +298,20 @@ const MODULE_FIELDS = {
   // into a line input usually wants some, a hot synth wants less. Not a plugin's `params:` — there is no
   // plugin here, the input IS the module.
   gain: z.number().optional(),
+  /**
+   * Which named BASE this module starts from — a file in its own `base/` folder, without the
+   * extension (`base: warm` is `base/warm.vstpreset`). See docs/userPresets.md.
+   *
+   * For the plugins whose sound is NOT in their automatable parameters, which is most of the big
+   * commercial ones: `params:` holds named numbers, and an Arturia patch is not named numbers.
+   * The base is the opaque state under them.
+   *
+   * UNDER them, and that ordering is the whole design: the engine loads the base and then applies
+   * `params:` on top (`applyPluginParams` in EditBuilder, "text params override the preset"). So a
+   * base decides only what the module could not have said in text, and every value the module DID
+   * author still wins. Picking a different base never silently moves a param somebody set.
+   */
+  base: z.string().optional(),
   ui: UISchema.optional(),
   automations: z.array(AutomationSchema).optional(), // curves driving this module's params
   /**

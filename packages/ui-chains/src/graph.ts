@@ -57,6 +57,10 @@ const CARRIED = [
   // What the module ANNOUNCES — its note-on. Carried straight through: the node draws a socket
   // per name, and nothing here derives anything from it.
   "events",
+  // Which named base this module is on. Carried rather than consumed, exactly like `channel`:
+  // `withBaseOptions` turns the LIST into the dropdown's entries, and the renderer needs the
+  // chosen name again to know which of those entries is the current one.
+  "base",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */
@@ -71,7 +75,14 @@ const FLAGS = [
 /** Read by buildGraph itself and deliberately absent from the node: `module` becomes the
  *  label and the id, `enabled` becomes `bypassed`/`dim`, `emits` decides an edge's signal,
  *  and `automations` become nodes of their own. */
-type Consumed = "module" | "enabled" | "emits" | "automations";
+type Consumed =
+  | "module"
+  | "enabled"
+  | "emits"
+  | "automations"
+  // The base CHOICES become the dropdown's options in `stepUI` and are not wanted again: what
+  // the renderer needs afterwards is `base`, which entry is on, and the options carry the rest.
+  | "bases";
 
 type Carried = Pick<WebChainStep, (typeof CARRIED)[number]>;
 type Flags = { [K in (typeof FLAGS)[number]]: boolean };
@@ -883,13 +894,52 @@ export function inputUI(
   return { cols: 2, rows: 2, widgets };
 }
 
+/**
+ * Fill in the options of any widget bound to `@base` — the module's own bases, from the folder.
+ *
+ * The panel cannot carry them and must not try: which bases exist changes every time somebody
+ * snapshots one, and a `ui.yaml` listing them would be a copy of a directory going stale between
+ * saves. So the author binds a dropdown to `@base` and says nothing about its entries; the graph
+ * fills them from what the loader found (`bases` on the step).
+ *
+ * Exactly what `inputUI` does for `@channel`, and for the same reason — those sets are the
+ * machine's, these are the folder's, and neither is the panel's to know. The value is a position
+ * in the list and nothing more: `setModuleField` writes the option's LABEL, which is the base's
+ * name, so adding a base can renumber the list without changing what any entry writes.
+ *
+ * `none` first and always, because a chosen base has to be undoable: without an entry meaning
+ * "back to the module's default" the only way out of a base is editing the file by hand.
+ */
+function withBaseOptions(
+  ui: WebModuleUI,
+  bases: readonly string[] | undefined,
+): WebModuleUI {
+  const binds = Object.values(ui.widgets ?? {}).some(
+    (w) => w.bind === BASE_BIND,
+  );
+  if (!binds) return ui;
+  const options = [
+    { label: "none", value: 0 },
+    ...(bases ?? []).map((b, i) => ({ label: b, value: i + 1 })),
+  ];
+  const widgets: Record<string, WebWidget> = {};
+  for (const [id, w] of Object.entries(ui.widgets ?? {}))
+    widgets[id] = w.bind === BASE_BIND ? { ...w, options } : w;
+  return { ...ui, widgets };
+}
+
+/** The bind a base dropdown carries — the intrinsic's name, verbatim, as every bind is. */
+const BASE_BIND = "@base";
+
 /** The panel a step actually draws — authored first, then the two synthesised ones. One function so the
  *  node's SIZE and the node's `ui` cannot disagree about which panel it is. */
 function stepUI(
   s: WebChainStep,
   devices: readonly { name: string; channels: number[] }[] | undefined,
 ): WebModuleUI | undefined {
-  if (s.ui) return s.ui;
+  // The base list is folded into whichever panel is drawn, authored or synthesised, because a
+  // widget bound to `@base` is a widget wherever it came from.
+  if (s.ui) return withBaseOptions(s.ui, s.bases);
   if (s.rack?.length) return rackUI(s.rack);
   return s.monitor !== undefined
     ? inputUI(devices ?? [], s.channel)

@@ -255,6 +255,32 @@ export function setModuleMonitor(
 }
 
 /**
+ * Choose which named BASE this module starts from — `base/<name>.vstpreset` in its folder or an
+ * ancestor's. Empty clears it, back to the module's plain default state.
+ *
+ * PER INSTANCE, because `editModuleValue` writes the module's own file and a node has one: two
+ * nodes of the same module can sit on two different bases, which is the point of choosing at all.
+ *
+ * A field, not a param, and the difference decides how it takes effect: the engine learns a base
+ * by REBUILDING the module — a `.vstpreset` is loaded when the plugin is created — so this writes
+ * and the project reloads. There is nothing live to set, exactly as for `@monitor`.
+ *
+ * What it cannot disturb is what the module already said. The engine loads the base and then
+ * applies `params:` over it, so every value authored in the module still wins; a base only
+ * decides what text could not have said. See docs/userPresets.md.
+ */
+export function setModuleBase(
+  dir: string,
+  module: string,
+  name: string,
+): string {
+  // Empty REMOVES the key rather than writing `base: ""` — `setModuleValue` deletes on null, and
+  // a module with no base is one with no line about it, not one holding an empty name.
+  const clean = name.trim();
+  return editModuleValue(dir, module, ["base"], clean || null);
+}
+
+/**
  * Set a live input's `gain` — the interface trim, in dB, 0 being unity.
  *
  * A module FIELD like `monitor` and `channel`, and the third of the three an input answers.

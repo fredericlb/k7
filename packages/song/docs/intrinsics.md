@@ -32,7 +32,7 @@ That last row is why intrinsics exist at all. An `io: in` module runs no plugin:
 the module, so every control it has is a field of its file, and before there was a way to write
 one from a widget its panel was inert.
 
-## The three there are
+## The four there are
 
 - **`@channel`** — which interface input a live input listens on: one channel, or two for a
   stereo pair. A pair is even/odd and nothing else, because `findWaveInput` matches a device on
@@ -46,6 +46,15 @@ one from a widget its panel was inert.
 - **`@gain`** — the input trim in dB, unclamped. Tracktion does not clamp it either; what is
   *useful* (±24 dB) is a judgement for the surface offering the control, not for the writer
   taking a number someone typed.
+
+- **`@base`** — which named `.vstpreset` this module starts from, out of its own `base/` folder or
+  an ancestor's, with `none` to clear it. The one intrinsic that is not an input's: it belongs to
+  any module whose plugin has bases, and it exists because a big commercial synth's sound is not
+  in its automatable parameters at all (`docs/userPresets.md`). It is a field for the usual
+  reason — a preset is loaded when the plugin is BUILT — and what it may not disturb is the point:
+  the engine applies `params:` over the base, so every value the module authored still wins.
+  The surfaces that offer the choice offer only the bases the loader listed, exactly as `@channel`
+  offers only sets the machine declares.
 
 ## The write may reach past the project
 

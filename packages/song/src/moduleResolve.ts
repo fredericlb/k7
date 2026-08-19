@@ -7,6 +7,7 @@
 
 import { applyAlternative } from "./alternatives";
 import { resolveModuleAssetIn } from "./assetPath";
+import { basePresetIn } from "./basePreset";
 import type {
   InstrumentType,
   ModuleUI,
@@ -160,11 +161,12 @@ function foldExtends(
     foldExtends(parent, byRef, seen) as unknown as Record<string, unknown>,
     m as unknown as Record<string, unknown>,
   ) as unknown as ResolvedModule;
-  return withInheritedAssets(merged, m, byRef);
+  return withInheritedFiles(merged, m, byRef);
 }
 
 /**
- * Re-resolve the file-valued params against the folders of the WHOLE chain.
+ * Re-resolve what this module NAMED — its file-valued params, and the base it chose — against the
+ * folders of the WHOLE chain.
  *
  * A module may name a file its parent carries — that is the normal way to use a shared amp: a
  * thin local module `extends` it and says which profile to load, while the profiles live in the
@@ -173,10 +175,16 @@ function foldExtends(
  * `mergeAuthored` then kept the PARENT's path — the panel showed the chosen name and the engine
  * loaded the inherited file. Silently the wrong sound, which is worse than none.
  *
- * Nearest folder first, matching the order `moduleAssetChoices` offers the files in: the list you
- * pick from and the path you get must agree.
+ * A chosen `base:` fails in exactly that way and is fixed here for exactly that reason. The bases
+ * are snapshotted onto the shared module — the one that names the plugin and travels with its
+ * sounds — and the local module picks one by name. Resolved against its own folder alone, the
+ * pick finds nothing and the merge keeps the parent's default preset: the panel says `warm` and
+ * the engine loads something else.
+ *
+ * Nearest folder first, matching the order `moduleAssetChoices` and `moduleBaseChoices` offer
+ * them in: the list you pick from and the path you get must agree.
  */
-function withInheritedAssets(
+function withInheritedFiles(
   merged: ResolvedModule,
   child: LoadedModule,
   byRef: Record<string, LoadedModule>,
@@ -184,7 +192,10 @@ function withInheritedAssets(
   // Only what THIS module named. A ref it inherited was already resolved by the module that
   // declared it, against the folder that holds the file — re-doing that here would blank it.
   const authored = child.assets;
-  if (!authored || !FILE_PARAMS.some((p) => authored[p])) return merged;
+  const base = (child as { base?: unknown }).base;
+  const wantsAssets = !!authored && FILE_PARAMS.some((p) => authored[p]);
+  const wantsBase = typeof base === "string" && !!base.trim();
+  if (!wantsAssets && !wantsBase) return merged;
 
   // The chain's folders, nearest first. Cycle-guarded like resolveModule itself.
   const folders: (string | undefined)[] = [child.folderAbs];
@@ -200,11 +211,22 @@ function withInheritedAssets(
   if (folders.length < 2) return merged; // nothing inherited — the loader's answer already stands
 
   const out = { ...(merged as LoadedModule) } as LoadedModule;
-  for (const param of FILE_PARAMS) {
-    const ref = authored[param];
-    if (typeof ref === "string" && ref)
-      out[param] = resolveModuleAssetIn(ref, folders);
-  }
+  if (wantsAssets && authored)
+    for (const param of FILE_PARAMS) {
+      const ref = authored[param];
+      if (typeof ref === "string" && ref)
+        out[param] = resolveModuleAssetIn(ref, folders);
+    }
+  // The nearest folder that HAS this base wins. A miss leaves the merged answer alone rather than
+  // blanking it: `base:` naming nothing is a module still worth playing on its default state.
+  if (wantsBase)
+    for (const folder of folders) {
+      const hit = folder ? basePresetIn(folder, base) : undefined;
+      if (hit) {
+        out.preset = hit;
+        break;
+      }
+    }
   return out as ResolvedModule;
 }
 

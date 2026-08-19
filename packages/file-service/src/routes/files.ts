@@ -837,6 +837,30 @@ filesRouter.post(
 );
 
 /**
+ * The named bases a module may be set to — its own `base/` and every ancestor's, nearest first.
+ *
+ * Beside the snapshot below because it is the same folder read the other way, and answered from
+ * the LOADED module rather than by listing a directory here: the ancestry is what makes the list
+ * useful (the bases live on the shared module, the song points at it through a thin local one),
+ * and the loader is the only thing that knows where each ancestor's folder is.
+ */
+filesRouter.get(
+  "/module-base",
+  wrap((req, res) => {
+    const path = String(req.query.path ?? "");
+    if (!path) {
+      res.status(400).json({ error: "path is required" });
+      return;
+    }
+    try {
+      res.json({ bases: req.ws!.moduleBases(path) });
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/**
  * Snapshot the plugin's CURRENT state into the module's `base/` folder, under a name.
  *
  * The counterpart to `/presets/save` above, for the plugins that one cannot serve. A preset is a

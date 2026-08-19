@@ -74,6 +74,7 @@ import {
   setClipWindow,
   setModuleAsset,
   setModuleAutomationBinding,
+  setModuleBase,
   setModuleBypass,
   setModuleChannel,
   setModuleExtends,
@@ -884,6 +885,26 @@ const INTRINSICS: Record<
     const db = Number(raw);
     if (!Number.isFinite(db)) throw new Error(`'${raw}' is not a number of dB`);
     return { path: setModuleInputGain(dir, module, db), said: `gain ${db} dB` };
+  },
+  /**
+   * Which named BASE this module starts from — the opaque `.vstpreset` under its params.
+   *
+   * `none` clears it, spelt like the file-valued params' own clear for the same reason: a
+   * dropdown needs an entry meaning "back to the default", and a surface should not have to send
+   * an empty argument to say so.
+   *
+   * NOT checked against the folder here, deliberately. Which bases exist is a fact about a disk
+   * this may not be on, the surfaces that offer the choice offer only the ones the loader listed
+   * (`moduleBaseChoices`), and a base that has gone missing is already handled where it matters:
+   * `presetFor` falls back to the module's default rather than loading nothing. Refusing here
+   * would mean a name could not be typed before the file it names is synced.
+   */
+  base: (dir, module, raw) => {
+    const name = raw.trim() === "none" ? "" : raw.trim();
+    return {
+      path: setModuleBase(dir, module, name),
+      said: name ? `base ${name}` : "no base",
+    };
   },
 };
 

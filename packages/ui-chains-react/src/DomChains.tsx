@@ -752,7 +752,15 @@ function moduleFieldValue(
     const arg = n.channel.join(",");
     return w.options?.find((o) => o.arg === arg)?.value;
   }
-  const current = field === "monitor" ? n.monitor : undefined;
+  // A base is matched on the label like `monitor`, because the label IS the name written in the
+  // file. An unset base shows `none` rather than nothing: the entry exists so the choice can be
+  // undone, and a blank dropdown would leave the one module state you cannot get back to unnamed.
+  const current =
+    field === "monitor"
+      ? n.monitor
+      : field === "base"
+        ? (n.base ?? "none")
+        : undefined;
   if (current === undefined) return undefined;
   return w.options?.find((o) => o.label === current)?.value;
 }

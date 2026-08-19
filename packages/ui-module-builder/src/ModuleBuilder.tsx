@@ -742,6 +742,27 @@ export function ModuleBuilder({
    * The path is the host's to work out. This passes back the one it was given, and the ref it read
    * out of the module's own text — see `ModuleStore.snapshotBase`.
    */
+  /**
+   * The bases this module may be set to — asked of the host, because the useful list is its
+   * ANCESTORS' as much as its own.
+   *
+   * Re-asked after a snapshot, since that is the one thing in this screen that adds to it: a base
+   * you have just made and cannot then bind would read as a save that did not happen.
+   */
+  const [bases, setBases] = useState<string[]>([]);
+  const [basesKey, setBasesKey] = useState(0);
+  useEffect(() => {
+    if (!store.bases) return;
+    let live = true;
+    void store
+      .bases(path)
+      .then((b) => live && setBases(b))
+      .catch(() => live && setBases([]));
+    return () => {
+      live = false;
+    };
+  }, [store, path, basesKey]);
+
   const [snapping, setSnapping] = useState(false);
   const snapBase = useCallback(() => {
     if (!store.snapshotBase || snapping || !nativeUiBase) return;
@@ -753,7 +774,10 @@ export function ModuleBuilder({
     setScanNote(null);
     void store
       .snapshotBase(path, name.trim(), nativeUiBase)
-      .then((w) => setScanNote(`base gardée : ${w.path}`))
+      .then((w) => {
+        setScanNote(`base gardée : ${w.path}`);
+        setBasesKey((k) => k + 1); // it is bindable now, so the row has to know about it
+      })
       // The message is the HOST's, not one invented here: the interesting failure is "no window
       // open yet", and only the side that asked the engine knows that is what happened.
       .catch((e: Error) => setScanNote(`base impossible : ${e.message}`))
@@ -770,6 +794,30 @@ export function ModuleBuilder({
     );
     // An io module's own settings, offered only on an io module: on a plugin they would name nothing.
     const ioBinds = io === "in" ? IO_IN_BINDS : [];
+    /**
+     * `@base` — offered only on a module that HAS bases, which is what makes it a row rather
+     * than a permanent one nearly every module would show empty.
+     *
+     * Its `states` are the names, so a widget bound to it draws as a dropdown rather than a knob;
+     * the VALUES are positions and nothing more, and the graph fills the real entries at draw
+     * time (`withBaseOptions`). It has to: a base can be snapshotted after this panel is written,
+     * and a `ui.yaml` carrying the list would be a copy of a directory going stale.
+     */
+    const baseBinds: { name: string; meta: ParamMeta }[] = bases.length
+      ? [
+          {
+            name: "@base",
+            meta: {
+              min: 0,
+              max: bases.length,
+              states: [
+                { label: "none", value: 0 },
+                ...bases.map((b, i) => ({ label: b, value: i + 1 })),
+              ],
+            },
+          },
+        ]
+      : [];
     const names = new Set([
       ...Object.keys(set),
       ...(pluginParamNames ?? []),
@@ -781,9 +829,13 @@ export function ModuleBuilder({
       // Track intrinsics belong here too: this list is the only place a binding can be picked up from.
       ...TRACK_BINDS,
       ...ioBinds.map((b) => b.name),
+      ...baseBinds.map((b) => b.name),
     ]);
-    // The io binds bring their OWN ranges — there is no plugin to have reported any.
-    const ioMeta = Object.fromEntries(ioBinds.map((b) => [b.name, b.meta]));
+    // The io binds bring their OWN ranges — there is no plugin to have reported any. So does
+    // `@base`, whose "range" is a list of names.
+    const ioMeta = Object.fromEntries(
+      [...ioBinds, ...baseBinds].map((b) => [b.name, b.meta]),
+    );
     // …and the declared built-in's, which is the only range a module in a LIBRARY has: nothing there is
     // instantiated, so no live report will ever arrive to fill it in.
     const declaredMeta = Object.fromEntries(
@@ -820,6 +872,7 @@ export function ModuleBuilder({
     pluginParamNames,
     pluginParamMeta,
     scanned,
+    bases,
   ]);
 
   // The same values as NUMBERS, for the preview's widgets. The pane above keeps them as text

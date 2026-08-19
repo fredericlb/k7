@@ -316,6 +316,10 @@ export const api = {
    * through verbatim: the common failure is "no window opened yet", which is the user's to fix
    * and reads as nonsense if flattened to "could not save".
    */
+  /** The bases this module may be set to — its own and its ancestors'. See moduleBases below. */
+  moduleBases: (path: string) =>
+    fget<{ bases: string[] }>(`/module-base?path=${encodeURIComponent(path)}`),
+
   snapshotModuleBase: (path: string, name: string, ref: string) =>
     fsend<{ path: string }>("POST", "/module-base/snapshot", {
       path,
@@ -413,6 +417,9 @@ export const moduleStore: ModuleStore = {
    * only side that knows where `base/` is for this module — see `ModuleStore.snapshotBase`.
    */
   snapshotBase: (path, name, ref) => api.snapshotModuleBase(path, name, ref),
+  /** …and what it may be set TO. The ancestry is the server's to walk — a thin local module has
+   *  none of its own, and the shared one it extends is where the bases actually live. */
+  bases: async (path) => (await api.moduleBases(path)).bases,
   write: async (path, content) => {
     const { forked } = await api.write(path, content);
     if (!forked) return {};

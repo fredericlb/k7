@@ -106,4 +106,19 @@ export interface ModuleStore {
     name: string,
     ref: string,
   ): Promise<{ path: string }>;
+
+  /**
+   * The named bases this module may be set to — its own `base/` folder plus every module it
+   * extends, nearest first.
+   *
+   * Asked for rather than derived from `snapshotBase`'s writes, because the interesting list is
+   * not what THIS session saved: a shared module carries the bases, and the thin local module
+   * that extends it is usually the one being edited. Only the host can walk that ancestry.
+   *
+   * What it feeds is one row in the params list — `@base` — so a dropdown can be bound to it. The
+   * ENTRIES are not the builder's business and are filled in by the graph at draw time, since
+   * they change every time a base is snapshotted; the panel only records that this widget shows
+   * bases. Empty ⇒ no row, which is what "modules that have bases" means here.
+   */
+  bases?(path: string): Promise<string[]>;
 }

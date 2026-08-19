@@ -45,6 +45,10 @@ describe("derived module fields", () => {
       "source", // …and the OTHER kind of source: an io "file" reads audio off disk
       "monitor",
       "gain", // the other thing an input does to its signal, beside whether you hear it
+      // The named .vstpreset a module starts from, out of its own `base/`. A FIELD and not a
+      // param because it is loaded when the plugin is built, and because `params:` are
+      // applied over it and still win. See docs/userPresets.md.
+      "base",
       "ui",
       "automations",
       // `docs` and `todos` sat here. They are gone with the Docs panel that was their only
