@@ -11,6 +11,7 @@ import {
   AudioLines,
   Command,
   DoorOpen,
+  ListMusic,
   LogOut,
   Server,
   Settings,
@@ -24,7 +25,7 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
 
 // "io" is the odd one: App renders it as a DIALOG, not a full screen (see IoPanel). It is
 // listed here anyway — it is a settings surface, and a second menu for one entry is worse.
-export type SettingsScreen = "editor" | "io" | "commands";
+export type SettingsScreen = "editor" | "io" | "commands" | "playlists";
 
 export function SettingsMenu({
   onRun,
@@ -112,6 +113,18 @@ export function SettingsMenu({
           <button className={item} onClick={() => run("ui settings commands")}>
             <Command className="h-4 w-4 text-muted-foreground" />
             Commandes
+          </button>
+          {/* Under the cog and not among the panes, because what it opens is not part of the
+              open song: a playlist lives in `_playlists/` at the root of the REPOSITORY and is
+              the same one whichever project you have open. See ../docs/playlists.md.
+              Not translated through paraglide, for the reason its neighbour above says. */}
+          <button
+            type="button"
+            className={item}
+            onClick={() => run("ui settings playlists")}
+          >
+            <ListMusic className="h-4 w-4 text-muted-foreground" />
+            Playlists
           </button>
           <div className="my-1 border-t border-border" />
           {/* The engine is remembered on the ACCOUNT now, so this is the one way back to

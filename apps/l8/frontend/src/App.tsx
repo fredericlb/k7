@@ -85,6 +85,7 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
+import { PlaylistsPage } from "./components/PlaylistsPage";
 import { RackBuilder } from "./components/RackBuilder";
 import { SeqGridPane } from "./components/SeqGridPane";
 import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
@@ -1683,19 +1684,17 @@ export default function App({
       }
 
       // --- the cog menu --------------------------------------------------------
-      if (
-        line === "settings editor" ||
-        line === "settings io" ||
-        line === "settings commands"
-      ) {
-        setSettingsScreen(
-          line === "settings io"
-            ? "io"
-            : line === "settings commands"
-              ? "commands"
-              : "editor",
-        );
-        return true;
+      if (line.startsWith("settings ")) {
+        const which = line.slice("settings ".length) as SettingsScreen;
+        if (
+          which === "editor" ||
+          which === "io" ||
+          which === "commands" ||
+          which === "playlists"
+        ) {
+          setSettingsScreen(which);
+          return true;
+        }
       }
       // The one control ON the editor settings screen. A global user preference, so it outlives
       // the project — which is why it is `ui` and not a project verb.
@@ -3983,6 +3982,17 @@ export default function App({
             <EditorSettingsPage
               vimMode={vimMode}
               onToggleVim={() => void runCommand("ui vim")}
+              onBack={() => setSettingsScreen(null)}
+            />
+          </div>
+        )}
+        {/* The workspace's set lists, and the screen for one. An overlay like its neighbours,
+            and for the extra reason that it is not ABOUT the open project at all: it edits a
+            file beside it in the repository. See frontend/docs/playlists.md. */}
+        {settingsScreen === "playlists" && (
+          <div className="absolute inset-0 z-40 bg-background">
+            <PlaylistsPage
+              vimMode={vimMode}
               onBack={() => setSettingsScreen(null)}
             />
           </div>

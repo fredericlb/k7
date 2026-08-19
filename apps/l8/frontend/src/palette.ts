@@ -71,9 +71,10 @@ export const LOCAL_COMMANDS = [
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui logs clear",
-  // The cog menu. All five leave the project alone, which is why they are `ui`.
+  // The cog menu. All of them leave the project alone, which is why they are `ui`.
   "ui settings editor",
   "ui settings io",
+  "ui settings playlists", // the workspace's set lists — docs/playlists.md
   "ui vim", // the editor's modality — the toggle on the settings screen
   "ui engine", // back to the engine picker
   "ui workspace quit",
@@ -267,6 +268,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui settings io": {
     en: "Open the audio inputs and outputs",
     fr: "Ouvrir les entrées et sorties audio",
+  },
+  "ui settings playlists": {
+    en: "Open this repository's playlists",
+    fr: "Ouvrir les playlists de ce dépôt",
   },
   "ui vim": {
     en: "Turn the editor's vim mode on or off",

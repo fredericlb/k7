@@ -1,9 +1,9 @@
-// songTakes.test.ts — what the tab strip promises: the master leads, the sidecar's order is
+// takes.test.ts — what the tab strip promises: the master leads, the sidecar's order is
 // kept, and only a version that HAS a file claims one.
 
-import type { MediatekEntry, SongVariant } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
-import { ORIGINAL, takesOf } from "./songTakes";
+import { ORIGINAL, takesOf } from "./takes.ts";
+import type { MediatekEntry, SongVariant } from "./types.ts";
 
 const song = (
   master: string | null,

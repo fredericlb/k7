@@ -8,7 +8,6 @@ import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
-import { PLAYLIST_EXT, parsePlaylist } from "./playlist.ts";
 import {
   CHAINS_FILE,
   type Family,
@@ -220,70 +219,17 @@ function scanSamples(): MediatekEntry[] {
 // and a chain are authored in l8 and committed to the account's LIBRARY REPOSITORY, which is
 // a git repository somebody owns rather than a folder on this volume. See ../docs/index.md.
 
-/**
- * Playlists: every `*.yaml` FILE under `playlists/`, at whatever depth.
- *
- * The one family whose entry is a file rather than a folder — a sample is the other, and for the
- * same reason: there is nothing beside a playlist to keep. A song, a chain and a module are all
- * folders because each carries something its file names (a master, its nodes, its assets); a
- * playlist carries only refs to things filed elsewhere, so a folder around it would be an empty
- * box. That is why there is no `playlist.yaml` marker to look for: the extension is the rule.
- *
- * The file is parsed for two things only, and neither is load-bearing — `title:` for what the
- * listing shows, and how many items it names. A file that does NOT parse is still listed, with
- * `catalogued: false`, the same word an unfiled song folder gets: it is on the disk, and a
- * catalogue that hid it would leave you unable to click the thing you have to go and fix.
- */
-function scanPlaylists(): MediatekEntry[] {
-  const out: MediatekEntry[] = [];
-  const root = familyDir("playlists");
-  const visit = (abs: string): void => {
-    for (const e of dirents(abs)) {
-      const p = join(abs, e.name);
-      if (e.isDirectory()) {
-        visit(p);
-        continue;
-      }
-      if (!e.name.toLowerCase().endsWith(PLAYLIST_EXT)) continue;
-      let parsed: ReturnType<typeof parsePlaylist> = null;
-      try {
-        parsed = parsePlaylist(readFileSync(p, "utf8"));
-      } catch {
-        /* unreadable is the same fact as unparseable here: nothing to show it by */
-      }
-      // The extension off the name the disk actually carries, so a `.YAML` loses its own five
-      // characters rather than keeping a case the constant does not spell.
-      const stem = e.name.slice(0, -PLAYLIST_EXT.length);
-      out.push({
-        family: "playlists",
-        id: toRel(p),
-        name: parsed?.title ?? stem,
-        path: toRel(p),
-        // No subdivision: a playlist is a playlist. `kind` is the family's own split and this
-        // family has none, so "" is honest where a borrowed word would not be.
-        kind: "",
-        bytes: sizeOf(p),
-        mtime: mtimeOf(p),
-        meta: {
-          catalogued: parsed !== null,
-          items: parsed?.items.length ?? 0,
-        },
-      });
-    }
-  };
-  visit(root);
-  return out;
-}
+// `scanPlaylists` stood here. Playlists left the volume too, and for a reason of their own
+// rather than the one above: a playlist holds no BYTES. It is pure reference — names of songs
+// filed elsewhere — so hosting it bought nothing, while costing the account a document it could
+// not version alongside the work it was written for. A set list lives in the workspace's
+// `_playlists/` now, in the repository, and l8 is the app that opens one
+// (`@studio/song/docs/playlists.md`).
 
 /** Read one family off disk. Sorted by name so a listing is stable between scans — readdir
  *  order is not, and a list that reshuffles on every poll is unusable. */
 export function scanFamily(family: Family): MediatekEntry[] {
-  const entries =
-    family === "songs"
-      ? scanSongs()
-      : family === "samples"
-        ? scanSamples()
-        : scanPlaylists();
+  const entries = family === "songs" ? scanSongs() : scanSamples();
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 

@@ -207,7 +207,7 @@ waveform. Sur cette machine, **4 morceaux sur 279** en ont un. Pour tous les aut
 le morceau déclenche l'analyse par le moteur — plusieurs secondes — et d'ici là le fader
 affiche `—` et le sync est désactivé. Ce n'est pas une panne, c'est l'état normal d'un cache
 qui n'a jamais été analysé ; l'endroit naturel pour préchauffer, plus tard, c'est la liste du
-set (`songs.yaml` nomme déjà exactement les morceaux concernés).
+set (la playlist que la surface nomme désigne déjà exactement les morceaux concernés).
 
 ## Le sync aligne aussi les temps
 

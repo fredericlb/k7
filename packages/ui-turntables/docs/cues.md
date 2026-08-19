@@ -46,6 +46,12 @@ songs:
     markers: [ 12.5, null, 48.25 ]
 ```
 
+**Et c'est tout ce que ce fichier fait désormais.** Il disait aussi quels morceaux le set
+jouait ; c'est la playlist que la surface nomme qui le dit ([setList.md](setList.md)). Un cue
+reste ici parce qu'il appartient au PUPITRE qui joue le morceau et non à une liste que d'autres
+sets lisent : deux groupes qui reprennent le même titre ne posent pas l'aiguille au même
+endroit. Une entrée apparaît donc quand on pose un repère, pas quand on ajoute un morceau.
+
 Une entrée est **soit** une référence nue **soit** une référence qui porte des réglages. Les
 deux, exprès : un morceau qui n'a rien à dire tient sur **une ligne** — c'est-à-dire tous les
 morceaux tant que personne n'y a posé de repère — et toute liste écrite avant l'existence des

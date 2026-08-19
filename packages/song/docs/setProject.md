@@ -12,16 +12,29 @@ dialect: the node project you already know, with one entity fewer and two files 
 | file | what it holds |
 |---|---|
 | `project.yaml` | the set's settings, and nothing about shape — there is no arrangement because none is declared |
-| `songs.yaml` | which of the médiathèque's songs this set draws on — see [songsFile.md](songsFile.md) |
+| `songs.yaml` | this set's CUE points, song by song — see [songsFile.md](songsFile.md) |
 | `graph.yaml` | the routing segments, exactly as in a song |
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
 | `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
 
 ## Two files are what make it a set
 
-`songs.yaml`, and a `turntables` surface. Neither needs a folder suffix to be found and neither
-needs an app of its own: l8 draws the desk from its declaration exactly as it draws a timeline
-or a viewport from theirs.
+A `turntables` surface, and the **playlist** it names. Neither needs a folder suffix to be found
+and neither needs an app of its own: l8 draws the desk from its declaration exactly as it draws
+a timeline or a viewport from theirs.
+
+```yaml
+# surfaces/desk.yaml
+type: turntables
+layout: view
+playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
+```
+
+**The songs are not in the project.** A playlist lives at the root of the REPOSITORY, beside
+`_modules`, so one set list serves every project in the workspace and is committed with the
+work it was written for ([playlists.md](playlists.md)). `songs.yaml` said which songs the set
+drew on and no longer does: two files answered one question, and the playlist is the better of
+the two — it has a screen, it is shareable, and it is the thing somebody had already written.
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
 wiring are one file. The desk itself is `@studio/ui-turntables`, and l8 has an engine before it
@@ -70,7 +83,7 @@ because the two signals feed different readers, and that is exactly why it is **
 is worse than one that is refused.
 
 The values are `l8` and `z0`. A set declares nothing at the root: it is an `.l8`, and what says
-what it is is the pair of files above — a `songs.yaml` and a `turntables` surface. It once said
+what it is is the pair above — a `turntables` surface and the playlist it names. It once said
 `project_type: live` too; that field is gone, because a folder saying it had no arrangement while
 its `surfaces/` said otherwise was a contradiction nothing could resolve.
 
@@ -84,7 +97,7 @@ This is the one genuinely new thing, and it is small.
 
 In a song, `nodes/bass.yaml` **is** the arrangement: the clips, where they sit, how often
 they repeat. On a deck there is nothing to arrange — the material is whichever song from
-`songs.yaml` was loaded onto it ten seconds ago, and it will be a different one in four
+the playlist was loaded onto it ten seconds ago, and it will be a different one in four
 minutes. So it authors no `events:` at all.
 
 The file still exists, and that is deliberate. The alternative — inferring the decks from

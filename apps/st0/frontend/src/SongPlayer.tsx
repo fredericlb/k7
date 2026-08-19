@@ -5,6 +5,7 @@
 // ../docs/playbackTarget.md and ../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
+import { ORIGINAL, type Take, takesOf } from "@studio/mediatek/takes";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { Waveform } from "@studio/ui-waveform";
 import {
@@ -25,7 +26,6 @@ import {
   type PlaybackTarget,
   playbackTargetInfo,
 } from "./playback/targets";
-import { ORIGINAL, type Take, takesOf } from "./songTakes";
 import { readSongShape, type SongShape } from "./songWaveform";
 
 // The two ways the engine branch has nothing to open. Kept apart because the answers differ:
@@ -70,7 +70,7 @@ export function SongPlayer({
   // Absent means the folder holds a sidecar and no audio, which the scan allows on purpose.
   const master = entry.meta?.master ? String(entry.meta.master) : null;
 
-  // The tabs: the master, then every version the sidecar declares. See songTakes.ts — the shape
+  // The tabs: the master, then every version the sidecar declares. See @studio/mediatek/takes — the shape
   // is worth a module of its own because it is answerable without a screen, and tested there.
   const takes = useMemo<Take[]>(() => takesOf(entry), [entry]);
 

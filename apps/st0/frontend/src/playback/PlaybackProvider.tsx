@@ -77,8 +77,8 @@ export interface Playback {
    * Ici, à côté du transport, et pour la même raison que lui : une file d'attente doit
    * survivre à l'écran qui l'a remplie — on ajoute un morceau depuis l'arbre des Morceaux et
    * on continue à naviguer. Elle vit dans l'onglet, pas sur le serveur : c'est ce qu'on écoute
-   * maintenant, pas un document. Une playlist, elle, est un fichier
-   * (packages/mediatek/docs/playlists.md).
+   * maintenant, pas un document. Une playlist, elle, est un fichier du dépôt, écrit en l8
+   * (packages/song/docs/playlists.md).
    */
   queue: QueueItem[];
   /** Mettre à la suite, sans doublon. */
@@ -88,17 +88,11 @@ export interface Playback {
   /** Prendre la tête de la file et la retirer, ou `null`. Ce que fait l'avance automatique. */
   takeNext: () => QueueItem | null;
 
-  /**
-   * Dire « c'est moi qui décide de la suite », et rendre de quoi le relâcher.
-   *
-   * Deux choses savent enchaîner : le panneau d'une playlist et cette file. Toutes deux
-   * regardent `ended`, aucune ne voit l'autre, et sans arbitrage les deux démarreraient un
-   * morceau sur le même événement — le dernier écrit gagnerait, au hasard. Le panneau prend
-   * donc la main tant qu'il pilote, et la file s'efface pendant ce temps.
-   */
-  claimAdvance: () => () => void;
-  /** Quelqu'un d'autre enchaîne-t-il ? Lu par l'avance de la file, qui s'abstient alors. */
-  advanceClaimed: boolean;
+  // `claimAdvance`/`advanceClaimed` étaient ici : deux choses savaient enchaîner — le panneau
+  // d'une playlist et cette file — toutes deux regardaient `ended`, aucune ne voyait l'autre, et
+  // sans arbitrage les deux démarraient un morceau sur le même événement. Il n'en reste qu'une :
+  // les playlists sont en l8 (`packages/song/docs/playlists.md`), avec un transport à elles. Un
+  // arbitrage à un seul prétendant n'arbitre rien, et laisserait croire qu'il y en a deux.
 }
 
 /** What the engine calls what we sent it. The version is IN the name because that session is
@@ -425,15 +419,6 @@ export function PlaybackProvider({
     setDuration(0);
   }, [ours, engine, viaMachine, machine.fileBase, machine.token]);
 
-  // Un COMPTEUR de revendications et non un booléen : deux panneaux de playlist peuvent être
-  // montés le temps d'une transition d'écran, et le démontage du premier remettrait un
-  // booléen à faux alors que le second pilote encore.
-  const [claims, setClaims] = useState(0);
-  const claimAdvance = useCallback(() => {
-    setClaims((n) => n + 1);
-    return () => setClaims((n) => Math.max(0, n - 1));
-  }, []);
-
   const value = useMemo<Playback>(
     () => ({
       now,
@@ -451,8 +436,6 @@ export function PlaybackProvider({
       seek,
       close,
       ...playQueue,
-      claimAdvance,
-      advanceClaimed: claims > 0,
     }),
     [
       now,
@@ -468,8 +451,6 @@ export function PlaybackProvider({
       seek,
       close,
       playQueue,
-      claimAdvance,
-      claims,
     ],
   );
 

@@ -3,12 +3,11 @@
 // them. Runs in the background and writes its progress to the store. See ../../docs/hunt.md.
 
 import { randomUUID } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { writablePath } from "@studio/mediatek/layout";
 import { extOf } from "@studio/mediatek/media";
-import { appendPlaylistItem, parsePlaylist } from "@studio/mediatek/playlist";
 import { MASTER_STEM, type SongTags, songFolder } from "@studio/mediatek/song";
-import { addSong, putFile } from "@studio/mediatek/write";
+import { addSong } from "@studio/mediatek/write";
 import { lookup } from "./musicbrainz.ts";
 import {
   baseNameOf,
@@ -95,45 +94,12 @@ function alreadyFiled(tags: SongTags): string | null {
   }
 }
 
-/**
- * Ajouter le morceau rangé à la playlist choisie au lancement, s'il y en avait une.
- *
- * Rend `null` quand tout va bien, sinon la raison — car c'est un demi-succès et il doit se lire
- * comme tel : le morceau EST dans la médiathèque, seule la ligne de playlist manque. Rougir la
- * ligne dirait que le téléchargement a échoué, ce qui est faux et enverrait le recommencer.
- *
- * Écriture au niveau du TEXTE, par `appendPlaylistItem` : ces fichiers portent des commentaires
- * et un ordre choisis à la main, et repasser par un sérialiseur les jetterait sans bruit. Voir
- * packages/mediatek/docs/playlists.md.
- */
-export function addToPlaylist(
-  playlist: string,
-  songFolderRel: string,
-): string | null {
-  // La référence que le fichier porte est relative à `songs/`, comme celles qu'on écrit depuis
-  // le panneau des playlists — sinon la même playlist tiendrait deux orthographes.
-  const ref = songFolderRel.replace(/^songs\//, "");
-  let abs: string;
-  try {
-    abs = writablePath(playlist);
-  } catch {
-    return `playlist « ${playlist} » : chemin refusé`;
-  }
-  let text: string;
-  try {
-    text = readFileSync(abs, "utf8");
-  } catch {
-    return `playlist « ${playlist} » introuvable`;
-  }
-  // Déjà dedans : une recherche relancée ne doit pas doubler la ligne.
-  const already = parsePlaylist(text)?.items.some((i) => i.song === ref);
-  if (already) return null;
-  const next = appendPlaylistItem(text, { song: ref });
-  if (next === null)
-    return `playlist « ${playlist} » : l'écriture de \`items:\` n'est pas une forme que l'ajout sait étendre`;
-  putFile(playlist, next);
-  return null;
-}
+// `addToPlaylist` était ici : une recherche pouvait viser une playlist, et la ligne y était
+// écrite dès le morceau rangé. Les playlists sont dans le dépôt du workspace maintenant, sur le
+// disque du service de fichiers — ce service-ci n'y a pas accès, et lui en donner ferait de
+// celui qui tient la session et la clé de déploiement un écrivain dans le dépôt de chacun, ce
+// que apps/st0/docs/projects.md refuse explicitement. La chasse range donc le morceau dans la
+// médiathèque, et l'ajouter à une setlist est un clic dans l8, sur le même catalogue.
 
 /** Everything the network answered, up to the window or until it says it is done. */
 async function gather(searchId: string, signal: AbortSignal) {
@@ -342,30 +308,19 @@ async function run(
     bytes,
     tags: songTags,
   });
-  const row = listHunts(sub).find((h) => h.id === id);
-  const gripe = row?.playlist ? addToPlaylist(row.playlist, filed.path) : null;
   patchHunt(sub, id, {
     status: "done",
     path: filed.path,
-    // Vert quand même : le morceau est rangé. La plainte éventuelle est dite à côté.
-    error: gripe ?? undefined,
     endedAt: Date.now(),
   });
 }
 
 /** Begin, and answer at once with the row the screen will draw. The work carries on behind. */
-export function startHunt(
-  sub: string,
-  query: string,
-  playlist?: string,
-): HuntRecord {
+export function startHunt(sub: string, query: string): HuntRecord {
   const rec: HuntRecord = {
     id: randomUUID(),
     query: query.trim(),
     status: "searching",
-    // Figée ICI, au lancement : c'est la playlist que la personne regardait en tapant, et
-    // celle du menu dans dix minutes appartiendra à la recherche suivante.
-    playlist: playlist || undefined,
     switches: 0,
     startedAt: Date.now(),
   };
@@ -447,14 +402,10 @@ async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
     // Le secours d'un échec : rien n'est là à écraser, et si quelque chose l'est entre-temps,
     // `addSong` refuse — ce qui est la bonne réponse, pas un problème à contourner.
   });
-  // Le secours range aussi bien : la playlist choisie au lancement vaut quelle que soit la
-  // source, sinon un morceau récupéré sur YouTube manquerait à la setlist sans le dire.
-  const gripe = rec.playlist ? addToPlaylist(rec.playlist, filed.path) : null;
   patchHunt(sub, rec.id, {
     status: "done",
     path: filed.path,
     format: extOf(filename),
-    error: gripe ?? undefined,
     endedAt: Date.now(),
   });
 }

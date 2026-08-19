@@ -11,7 +11,6 @@ studio ORIGIN — it has no prefix of its own — so these are the whole address
 ```
 /songs                                    the section
 /songs/Miles/Kind of Blue/So What/song.yaml  …and the sidecar the editor has open
-/playlists/live/set.yaml                  a playlist, whose file IS the entry
 ```
 
 The first segment is the section, which is also the family folder's name — so the rest is
@@ -108,12 +107,16 @@ playlists  live/ete.yaml    the file ITSELF — there is no folder in front of i
 projects   3f9a1c2b7e40     a repository id, not a path
 ```
 
-`playlists` is worth a second look: every other row above it names a file INSIDE an entry's
-folder, so `folderOf` takes the last segment off to find the entry. A playlist has no folder
-— the file is the entry (`packages/mediatek/docs/playlists.md`) — so the whole second half is
-already the path to look up, and `folderOf` would answer null for one at the top level.
-`Library.tsx` therefore derives `editingPlaylist` from `file` directly rather than from
-`folderOf(file)`. Same slot, same question, one level less of it.
+**`songs` is the only one left**, and the list stays a list because of how it got there: four
+of those five rows are gone, one per feature that moved to l8. `playlists` was the last, and it
+was also the odd one — every other row names a file INSIDE an entry's folder, so `folderOf`
+takes the last segment off to find the entry, while a playlist HAD no folder. That asymmetry
+went with it (`packages/song/docs/playlists.md`), which is why `folderOf` now always has
+something to take off the end.
+
+An address under a departed section is not a 404 inside the app: `fromLocation` drops what it
+cannot read and lands on the default section, so an old bookmark to `/playlists/ete-2026.yaml`
+opens Morceaux rather than nothing.
 
 `chains` had to be added, not merely `songs`, and it is worth saying why: the chain editor
 already pushed `/chains/x/graph.yaml`, and `fromLocation` read that back as the bare section.

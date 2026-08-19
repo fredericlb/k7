@@ -59,6 +59,7 @@ matches before changing it:
 | page | covers |
 |---|---|
 | `projects.md` | the HOME page — `/l8/` with no project in it: the repositories, the libraries, the shares, the key |
+| `playlists.md` | the cog's Playlists screen — `_playlists/` in the repository, over st0's song catalogue |
 | `shell.md` | `App.tsx`/`main.tsx`, the gate stack, the palette |
 | `shellRouting.md` | `routes.ts` + `useViewRoute.ts` — view / full / panel against the URL |
 | `chainsGraph.md` | the chains renderer and its camera rules |

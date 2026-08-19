@@ -1,33 +1,32 @@
 // PlaylistEditor.tsx — a playlist opened: its YAML as text on the left, the morceaux it names
-// as a playable list on the right. The same shape ChainEditor and SongEditor have, for the same
-// reason: you edit the file while hearing what it describes. See ../docs/playlists.md.
+// as a playable list on the right. The same shape the médiathèque's own screen had, kept on
+// purpose — you edit the file while hearing what it describes. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
+import type { MediatekEntry } from "@studio/mediatek/types";
 import {
   appendPlaylistItem,
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
-} from "@studio/mediatek/playlist";
-import type { MediatekEntry } from "@studio/mediatek/types";
+} from "@studio/song/playlist";
 import type { Validity } from "@studio/song/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, ListMusic, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { library } from "./api";
+import { api, mediatek } from "../api";
+import { playlistVocabulary } from "../playlistVocabulary";
 import { PlaylistPane } from "./PlaylistPane";
-import type { PlaybackTarget } from "./playback/targets";
-import { playlistVocabulary } from "./playlistVocabulary";
-import { SaveState } from "./SaveState";
 
 /**
  * Is this text a playlist?
  *
- * The médiathèque's own file, so the project-file router that autosave defaults to knows
- * nothing about it — `parsePlaylist` is what does, and it already answers null for anything it
- * cannot read. Reported as a schema failure rather than malformed text so the escape hatch
- * applies: a playlist already unreadable on disk stays editable.
+ * A workspace file the project-file router that autosave defaults to knows nothing about —
+ * `_playlists/x.yaml` is not a document of the open song. `parsePlaylist` is what does know,
+ * and it already answers null for anything it cannot read. Reported as a schema failure rather
+ * than malformed text so the escape hatch applies: a playlist already unreadable on disk stays
+ * editable.
  */
 const playlistValidity = (text: string): Validity =>
   parsePlaylist(text) === null
@@ -39,30 +38,37 @@ const playlistValidity = (text: string): Validity =>
       }
     : { ok: true, issues: [], depth: "schema", malformed: false };
 
-/** How often the songs listing is re-read while a playlist is open. The same interval the
- *  catalogue polls at — a morceau filed in another tab should appear here too, and a playlist
- *  is exactly the screen where you notice one is missing. */
-const SONGS_POLL_MS = 3000;
+/** What the header says where the Save button was — the same five words EditorTab uses, and
+ *  "clean" says nothing for the same reason: a saved file is the ordinary state. */
+const SAVE_LABEL: Record<string, string> = {
+  clean: "",
+  pending: "edited",
+  saving: "saving…",
+  held: "not saved",
+  error: "save failed",
+};
+
+/** How often the médiathèque's songs are re-read while a playlist is open. A morceau filed in
+ *  another tab should appear here too, and a playlist is exactly the screen where you notice
+ *  one is missing. Slower than st0's own poll: this is a cross-app call from an editor. */
+const SONGS_POLL_MS = 10_000;
 
 export function PlaylistEditor({
-  entry,
+  path,
+  name,
   vimMode,
-  playbackTarget,
-  engineToken,
   onBack,
   onSaved,
 }: {
-  entry: MediatekEntry;
+  /** The playlist's workspace-relative path (`_playlists/ete-2026.yaml`). */
+  path: string;
+  /** What the header calls it — the title the listing parsed, else the file's stem. */
+  name: string;
   vimMode: boolean;
-  playbackTarget: PlaybackTarget;
-  engineToken?: string | null;
   onBack: () => void;
+  /** The file has reached disk: the listing behind this screen is one row out of date. */
   onSaved: () => void;
 }) {
-  // A STRING, and that is the point: the listing is re-polled every three seconds, so `entry`
-  // is a fresh object on every tick and an effect depending on it would reload the file —
-  // throwing away whatever had been typed into it — three times a minute.
-  const path = entry.path;
   const [content, setContent] = useState<string | null>(null);
   // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
   // could leave lying.
@@ -70,55 +76,63 @@ export function PlaylistEditor({
   const [status, setStatus] = useState("");
 
   /**
-   * The songs family, polled beside the file.
+   * The médiathèque's songs, polled beside the file.
    *
-   * Its OWN fetch and not something handed down from Library, which holds the listing of the
-   * section you are LOOKING at — `playlists` here. Resolving a line needs the other family, and
-   * this is the only screen that needs both: the catalogue deliberately invalidates one at a
-   * time (see packages/mediatek/docs/playlists.md, "the refs are not checked here"), so this is
-   * also the only place where "no such morceau" is answerable at all.
+   * This screen holds BOTH listings, which is what makes it the only place where "no such
+   * morceau" is answerable at all: the playlist is a workspace file and the songs are another
+   * service's catalogue, and nothing else in this app has both.
    */
   const [songs, setSongs] = useState<MediatekEntry[] | null>(null);
+  const [songsError, setSongsError] = useState("");
+  /**
+   * Ask the catalogue again.
+   *
+   * A callback and not a counter in the effect's dependencies: the pane calls this the moment
+   * it has filed a song (`onFiled`), so the line it just wrote resolves to something instead of
+   * sitting on "morceau introuvable" until the next tick. Threading that through a state bump
+   * would restart the interval as well, which is a different thing to want.
+   */
+  const refreshSongs = useCallback(
+    () =>
+      mediatek
+        .listSongs()
+        .then((entries) => {
+          setSongs(entries);
+          setSongsError("");
+        })
+        // Left as it was rather than emptied: an unreachable catalogue for one tick must not
+        // turn every line of the playlist into "introuvable". Said in the footer, once.
+        .catch((e: Error) => setSongsError(e.message)),
+    [],
+  );
   useEffect(() => {
-    let stop = false;
-    const tick = () =>
-      void library
-        .list("songs")
-        .then((l) => !stop && setSongs(l.entries))
-        // Left as it was rather than emptied: an unreachable listing for one tick must not
-        // turn every line of the playlist into "introuvable".
-        .catch(() => {});
-    tick();
-    const t = setInterval(tick, SONGS_POLL_MS);
-    return () => {
-      stop = true;
-      clearInterval(t);
-    };
-  }, []);
+    void refreshSongs();
+    const t = setInterval(() => void refreshSongs(), SONGS_POLL_MS);
+    return () => clearInterval(t);
+  }, [refreshSongs]);
 
-  // Memoised on the listing itself: the poll above hands back a fresh array every three
-  // seconds, and the pane holds this in a ref precisely so a new one does not reconfigure the
-  // editor — but rebuilding the ref lists on every tick would still be work for nothing.
+  // Memoised on the listing itself: the poll hands back a fresh array every time, and the pane
+  // holds this in a ref precisely so a new one does not reconfigure the editor — but rebuilding
+  // the ref lists on every tick would still be work for nothing.
   const vocabulary = useMemo(() => playlistVocabulary(songs), [songs]);
 
-  // Absent is NOT an error, the way a song's missing sidecar is not: the editor opens on what
-  // the file WOULD say, and the first EDIT creates it through the ordinary write route. An
-  // EMPTY file is the same case — `POST /folder`'s sibling, "Nouveau fichier…", writes one.
-  // The gabarit is `saved` too, deliberately: opening a playlist must not write it by itself.
+  // Absent is NOT an error: the editor opens on what the file WOULD say, and the first EDIT
+  // creates it through the ordinary write route. An EMPTY file is the same case. The gabarit is
+  // `saved` too, deliberately: opening a playlist must not write it by itself.
   useEffect(() => {
     let alive = true;
     setContent(null);
     setStatus("");
-    const name =
+    const stem =
       path
         .split("/")
         .pop()
         ?.replace(/\.ya?ml$/i, "") ?? "playlist";
-    void library
-      .readFile(path)
+    void api
+      .read(path)
       .then((f) => {
         if (!alive) return;
-        const disk = f.content.trim() ? f.content : playlistStub(name);
+        const disk = f.content.trim() ? f.content : playlistStub(stem);
         // An edit that could not be written outlived this screen — give it back, not disk.
         setContent(recallBuffer(path) ?? disk);
         setSaved(disk);
@@ -129,8 +143,8 @@ export function PlaylistEditor({
       })
       .catch(() => {
         if (!alive) return;
-        setContent(recallBuffer(path) ?? playlistStub(name));
-        setSaved(playlistStub(name));
+        setContent(recallBuffer(path) ?? playlistStub(stem));
+        setSaved(playlistStub(stem));
         setStatus("pas encore de fichier — la première modification le créera");
       });
     return () => {
@@ -141,8 +155,7 @@ export function PlaylistEditor({
   /**
    * The lines, as the text CURRENTLY says — not as the last save did.
    *
-   * That is the whole point of the split: the right-hand pane follows the keystrokes, the way
-   * ChainEditor's graph does.
+   * That is the whole point of the split: the right-hand pane follows the keystrokes.
    */
   const [items, setItems] = useState<PlaylistItem[]>([]);
   useEffect(() => {
@@ -160,7 +173,7 @@ export function PlaylistEditor({
   );
 
   /**
-   * A morceau picked in the search, as a line at the end of the file.
+   * A morceau picked in the search — or one just uploaded — as a line at the end of the file.
    *
    * The EDIT is the text, not a list this component holds beside it: the pane on the right is
    * drawn from the buffer, so writing the line into the buffer is what makes the row appear.
@@ -171,18 +184,15 @@ export function PlaylistEditor({
    * the buffer reads as a playlist. A half-typed line elsewhere in the file holds BOTH back,
    * which is the point — the file is written whole or not at all.
    */
-  const addItem = useCallback(
-    (item: PlaylistItem) => {
-      if (content == null) return;
-      const next = appendPlaylistItem(content, item);
+  const addItem = useCallback((item: PlaylistItem) => {
+    setContent((cur) => {
+      if (cur == null) return cur;
       // `addRefusal` keeps the button disabled for the shapes this cannot extend, so getting
       // here means the file changed shape under us. Leaving the text alone is the honest
       // answer; the pane goes on saying why.
-      if (next == null) return;
-      setContent(next);
-    },
-    [content],
-  );
+      return appendPlaylistItem(cur, item) ?? cur;
+    });
+  }, []);
 
   /** Why the search cannot write a line right now — computed HERE, because it is a fact about
    *  the text and the pane has never seen it. */
@@ -196,7 +206,7 @@ export function PlaylistEditor({
   // No Save button: written as soon as the buffer reads as a playlist.
   const write = useCallback(
     async (next: string) => {
-      await library.writeFile(path, next);
+      await api.write(path, next);
       setSaved(next);
       setStatus(`enregistré ${path}`);
       onSaved();
@@ -219,13 +229,28 @@ export function PlaylistEditor({
         </Button>
         <div className="min-w-0">
           <div className="flex items-center gap-2 truncate text-sm font-semibold">
-            <ListMusic className="h-4 w-4" /> Playlist · {entry.name}
+            <ListMusic className="h-4 w-4" /> Playlist · {name}
           </div>
           <div className="truncate font-mono text-xs text-muted-foreground">
             {path}
           </div>
         </div>
-        <SaveState autosave={autosave} className="ml-auto shrink-0" />
+        {/* Where the Save button was. It says nothing while the file is saved — that is the
+            normal state — and stays amber, with the reason, for as long as it is not. The same
+            two words EditorTab's toolbar uses, so "not saved" reads the same on both screens. */}
+        <span
+          className={`ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs ${
+            autosave.status === "held" || autosave.status === "error"
+              ? "text-amber-500"
+              : "text-muted-foreground"
+          }`}
+          title={autosave.reason ?? undefined}
+        >
+          {autosave.status === "saving" && (
+            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+          )}
+          <span className="truncate">{SAVE_LABEL[autosave.status]}</span>
+        </span>
       </header>
 
       {content == null ? (
@@ -236,13 +261,13 @@ export function PlaylistEditor({
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un
               écran de téléphone font deux colonnes où rien ne tient. */}
-          <div className="min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0 h-1/2">
+          <div className="h-1/2 min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
             <YamlPane
               path={path}
               content={content}
-              // The path cannot say what this file is — a playlist is the médiathèque's, not
-              // a l8 project's — so the vocabulary comes from the listing already polled
-              // above. See ./playlistVocabulary.ts.
+              // The path cannot say what this file is — a playlist is not one of the project's
+              // documents — so the vocabulary comes from the catalogue polled above. See
+              // ../playlistVocabulary.ts.
               vocabulary={vocabulary}
               vimMode={vimMode}
               onChange={setContent}
@@ -253,9 +278,8 @@ export function PlaylistEditor({
             <PlaylistPane
               items={items}
               songs={songs}
-              target={playbackTarget}
-              engineToken={engineToken}
               onAdd={addItem}
+              onFiled={() => void refreshSongs()}
               addRefusal={addRefusal}
             />
           </div>
@@ -269,6 +293,9 @@ export function PlaylistEditor({
           <span className="text-destructive">
             le YAML ne parse pas — la liste montre la dernière version lisible
           </span>
+        ) : null}
+        {songsError ? (
+          <span className="text-destructive">médiathèque : {songsError}</span>
         ) : null}
         <span className="min-w-0 flex-1 truncate text-right">{status}</span>
       </footer>

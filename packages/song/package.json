@@ -64,6 +64,7 @@
     "./mediatekRoot": "./src/mediatekRoot.ts",
     "./mediatekRefs": "./src/mediatekRefs.ts",
     "./songRef": "./src/songRef.ts",
+    "./playlist": "./src/playlist.ts",
     "./yaml/songsFile": "./src/yaml/songsFile.ts",
     "./yaml/songsSchema": "./src/yaml/songsSchema.ts",
     "./yaml/mixViewFile": "./src/yaml/mixViewFile.ts",

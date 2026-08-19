@@ -25,8 +25,9 @@ morceaux : [songBrowser.md](songBrowser.md). À côté du transport, le métrono
 proposé que lorsqu'il n'y a qu'un temps — une seule platine, ou deux synchronisées :
 [metronome.md](metronome.md).
 
-Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue le `songs.yaml`
-de ce projet — c'est que le pupitre veut la largeur. Les fichiers, c'est l'Édition.
+Pas d'arbre de fichiers ici. Ce n'est pas que Mix ignore le projet — il joue la playlist que la
+surface de ce projet nomme — c'est que le pupitre veut la largeur. Les fichiers, c'est
+l'Édition.
 
 ## La disposition
 

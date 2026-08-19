@@ -1145,7 +1145,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
 | a `view` surface's header button | `ui surface <id>` | `setOpenSurface` |
 | the timeline header's clock / height | `ui ruler`, `ui lanes` | `TimelineHandle` |
-| the cog menu | `ui settings editor\|io`, `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
+| the cog menu | `ui settings editor\|io\|commands\|playlists`, `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
 | the editor settings screen's one toggle | `ui vim` | `toggleVim` in `App` |
 | the share menu | `project commit`, `project pull` (the CLI's), `project export`, `project share k7`, `project share link` | `hooks/useShare.ts` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |

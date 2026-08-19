@@ -30,14 +30,6 @@ export interface HuntRecord {
    *  the fallback somebody asked for after that came back empty-handed. */
   via?: "youtube";
   /**
-   * The playlist to append the song to once it is filed, mediatek-relative.
-   *
-   * Carried on the ROW rather than read when the download finishes. A hunt runs for minutes,
-   * and the menu on screen belongs to the next one: four searches started and then the choice
-   * changed would otherwise all land in the last playlist picked, which is nobody's intent.
-   */
-  playlist?: string;
-  /**
    * Soulseek a-t-il été interrogé et ÉPUISÉ ?
    *
    * Vrai dans trois cas seulement : personne ne partageait le morceau dans un format

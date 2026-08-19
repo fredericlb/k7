@@ -1,8 +1,8 @@
-// songTakes.ts — the versions of a song the player puts on tabs: its master first, then what
-// the sidecar declares. Pure: what a version IS, and what a chain variant's render would be
-// called. Whether that render exists is a question for the library. See ../docs/songPlayer.md.
+// takes.ts — the versions of a song a surface puts on tabs: its master first, then what the
+// sidecar declares. Pure, and here rather than in either app because BOTH read it now — st0's
+// player draws the tabs, l8's playlist resolves a line to one. See docs/variants.md.
 
-import type { MediatekEntry } from "@studio/mediatek/types";
+import type { MediatekEntry } from "./types.ts";
 
 /** What the master's tab is called. Named and not numbered: it is the tab every song has, and
  *  the one the others are versions OF. */

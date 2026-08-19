@@ -61,6 +61,36 @@ describe("parseSurface", () => {
     expect(value?.mapping).toBeUndefined();
   });
 
+  it("reads the PLAYLIST a desk draws its browser from", () => {
+    const { value, issues } = parseSurface(
+      ["type: turntables", "layout: view", "playlist: ete-2026", ""].join("\n"),
+    );
+    expect(issues).toEqual([]);
+    // A NAME, not a path: the folder is fixed, so spelling it into the declaration would let a
+    // file be wrong about a location nothing can choose. See @studio/song/playlist.
+    expect(value?.playlist).toBe("ete-2026");
+  });
+
+  it("accepts a desk that names none", () => {
+    // Same rule as `mapping` above: the browser says "this desk names no playlist", which is a
+    // sentence you can act on. Refusing the file would refuse to open the project.
+    const { value, issues } = parseSurface(
+      ["type: turntables", "layout: view", ""].join("\n"),
+    );
+    expect(issues).toEqual([]);
+    expect(value?.playlist).toBeUndefined();
+  });
+
+  it("refuses a playlist on a surface with no song browser", () => {
+    // A field that is accepted and does nothing is worse than one turned down: whoever wrote it
+    // goes looking for the effect somewhere else. Same argument as `.strict()`'s.
+    const { value, issues } = parseSurface(
+      ["type: timeline", "layout: split", "playlist: ete-2026", ""].join("\n"),
+    );
+    expect(value).toBeNull();
+    expect(issues.map((i) => i.message).join(" ")).toMatch(/turntables/);
+  });
+
   it("refuses a type nothing can draw", () => {
     // Unlike a control id — app vocabulary, deliberately unvalidated — a type names a COMPONENT
     // that must exist. A folder asking for one nothing draws opens onto a blank screen.

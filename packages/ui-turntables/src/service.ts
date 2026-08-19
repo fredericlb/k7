@@ -114,17 +114,24 @@ export const service = {
  * is exactly what a route taking a cache-relative `path` wants, and what `playablePath`
  * prefixes a root onto. Written once so the two cannot disagree about where a master is.
  */
-export function cacheRelPath(entry: MediatekEntry): string | null {
-  const master = entry.meta?.master;
-  if (typeof master !== "string" || !master) return null;
-  return `${entry.path}/${master}`;
+export function cacheRelPath(
+  entry: MediatekEntry,
+  /** The audio inside the folder. Omitted is the MASTER, which is every caller that has not
+   *  got a set list line in its hand; a playlist naming a variant passes that variant's file,
+   *  and without this the desk would silently put the original on the deck. */
+  file?: string | null,
+): string | null {
+  const name = file ?? entry.meta?.master;
+  if (typeof name !== "string" || !name) return null;
+  return `${entry.path}/${name}`;
 }
 
 export function playablePath(
   root: string,
   entry: MediatekEntry,
+  file?: string | null,
 ): string | null {
-  const master = entry.meta?.master;
+  const master = file ?? entry.meta?.master;
   if (typeof master !== "string" || !master) return null;
   // The service reports a native root ("C:\…" or "/home/…") while entry paths are POSIX,
   // and the engine takes either — so they are joined with a separator picked from the root

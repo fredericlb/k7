@@ -53,13 +53,17 @@ files of its own showed neither, and read as having been flattened on the way in
 
 ## Why the token is per family
 
-`familyRevision()` is computed for each family separately — `songs`, `samples` and
-`playlists`.
+`familyRevision()` is computed for each family separately — `songs` and `samples`.
 
-One token for the whole library would mean importing a track invalidates the module list,
-and the families move at completely different rates — a sample pack is dropped in once and
-never touched, modules get edited all afternoon. A shared token would make the quiet
-families pay for the busy one on every poll.
+One token for the whole library would mean importing a track invalidates the sample list, and
+the families move at completely different rates — a sample pack is dropped in once and never
+touched, songs arrive all afternoon. A shared token would make the quiet family pay for the busy
+one on every poll.
+
+Two, where there were five. The argument holds at two exactly as it did at five, and it is the
+reason to keep the shape rather than collapse it back into one token: the next family to arrive
+would have to reintroduce what was removed, and the poll it fixes is not a poll anybody watches
+until it is slow.
 
 ## Two ingredients, because neither is enough
 

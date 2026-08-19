@@ -5,9 +5,18 @@ c'est là qu'on appuie pour en changer. Le disque lui-même reste `pointer-event
 l'étiquette prend le clic, ce qui laisse le sillon extérieur libre pour le jour où l'attraper
 voudra dire scratcher.
 
-Une boîte s'ouvre, avec les morceaux **du set** — pas de la médiathèque entière. C'est
-`songs.yaml` qui dit ce qui est à portée de main ce soir ; chercher dans 279 morceaux quand
-le set en compte douze serait chercher dans la mauvaise liste.
+Une boîte s'ouvre, avec les morceaux **du set** — pas de la médiathèque entière. C'est la
+**playlist que la surface nomme** qui dit ce qui est à portée de main ce soir ; chercher dans
+279 morceaux quand le set en compte douze serait chercher dans la mauvaise liste.
+
+C'est un paramètre de `surfaces/<desk>.yaml` — `playlist: ete-2026`, un nom sous `_playlists/`
+à la racine du dépôt — et les playlists elles-mêmes s'écrivent dans l8, sous la roue dentée.
+Voir [setList.md](setList.md) pour le pourquoi, et `@studio/song/docs/playlists.md` pour le
+format.
+
+Le pupitre ne les écrit pas : d'ici on **charge** un morceau, on ne monte pas la setlist. Les
+deux gestes se font à des moments différents — l'un chez soi, l'autre en cabine — et un bouton
+« ajouter » à côté d'un crossfade est un bouton qu'on presse par erreur.
 
 ## Le tri : artiste, puis titre
 

@@ -136,6 +136,41 @@ filesRouter.get(
 );
 
 /**
+ * The playlists the workspace holds, under `_playlists/`.
+ *
+ * The third of the same family as the two above, and here for the same reason: the folder sits
+ * at the workspace root, outside the active project, so `/tree` cannot reach it.
+ *
+ * Only the LISTING is a route. Reading one and writing one are `/file` and `/write`, which
+ * already serve any workspace path — a second pair spelling `_playlists` into their URLs would
+ * be two ways to write one file, and the autosave the screen runs on is built on those two.
+ */
+filesRouter.get(
+  "/playlists",
+  wrap((req, res) => {
+    res.json({ playlists: req.ws!.playlists() });
+  }),
+);
+
+const newPlaylistBody = z.object({ name: z.string().min(1).max(200) });
+
+/**
+ * Make one, from the stub. A 400 for a name already taken or one that escapes the folder:
+ * both are the caller's to fix by typing another, neither is a retry of this request.
+ */
+filesRouter.post(
+  "/playlists",
+  validate(newPlaylistBody),
+  wrap((req, res) => {
+    try {
+      res.json(req.ws!.createPlaylist(req.body.name));
+    } catch (e) {
+      res.status(400).json({ error: (e as Error).message });
+    }
+  }),
+);
+
+/**
  * Make an empty module: `<root>/<type>/<name>/module.yaml`.
  *
  * A module is a FOLDER holding a definition, so there is nothing useful "New folder…" could do

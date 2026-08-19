@@ -8,7 +8,7 @@ that socket is for now, because it used to be for two things and one of them lef
 
 ## What it carries
 
-Playback. A song, a playlist, a chain variant — anything the médiathèque hands to a machine to
+Playback. A song, one of its variants — anything the médiathèque hands to a machine to
 be heard. The moteur opens file PATHS and cannot fetch a URL, so what plays is the cache on
 that machine's disk, reached through its file service. See
 [playbackTarget.md](playbackTarget.md) and [miniPlayer.md](miniPlayer.md).

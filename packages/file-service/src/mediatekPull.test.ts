@@ -24,6 +24,9 @@ let open: { dir: string | null; invalidated: number }[] = [];
 vi.mock("./workspaces.ts", () => ({
   liveWorkspaces: () =>
     open.map((w) => ({
+      // The workspace ROOT, which the scope needs as well as the project directory: a set's
+      // playlist lives at the top of the repository rather than inside the project.
+      root: ws,
       activeProjectPath: () => w.dir,
       invalidateProjectDoc: () => {
         w.invalidated++;
@@ -64,18 +67,34 @@ let home: string;
 let realHome: { HOME?: string; USERPROFILE?: string };
 let set: string;
 
-/** An m9 SET whose list names songs the library holds — what this loop exists for. */
+/**
+ * A SET whose desk points at a playlist naming songs the library holds — what this loop
+ * exists for.
+ *
+ * TWO files in two places, which is the shape worth pinning here: the surface is the project's
+ * (`<project>/surfaces/desk.yaml`) and the playlist is the WORKSPACE's (`_playlists/…`), beside
+ * the project rather than inside it. A set list belongs to the repository — see
+ * @studio/song/docs/playlists.md — and this loop is the one thing that has to walk both.
+ */
 function project(...refs: string[]): string {
   const dir = join(ws, "set");
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(join(dir, "surfaces"), { recursive: true });
   writeFileSync(
     join(dir, "project.yaml"),
     "project:\n  name: set\n  tempo: 120\n",
     "utf8",
   );
   writeFileSync(
-    join(dir, "songs.yaml"),
-    `songs:\n${refs.map((r) => `  - "${r}"\n`).join("")}`,
+    join(dir, "surfaces", "desk.yaml"),
+    "type: turntables\nlayout: view\nplaylist: ce-soir\n",
+    "utf8",
+  );
+  mkdirSync(join(ws, "_playlists"), { recursive: true });
+  // The playlist's lines carry no family — `artist/album/title`, the médiathèque id with its
+  // `songs/` taken off. The refs the callers pass are the full ones, so they are trimmed here.
+  writeFileSync(
+    join(ws, "_playlists", "ce-soir.yaml"),
+    `items:\n${refs.map((r) => `  - ${r.replace(/^@st0\/songs\//, "")}\n`).join("")}`,
     "utf8",
   );
   return dir;

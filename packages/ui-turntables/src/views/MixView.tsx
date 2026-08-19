@@ -8,6 +8,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
+import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song/playlist";
 import {
   AudioLines,
   Headphones,
@@ -26,7 +27,7 @@ import {
   sourceAt,
 } from "../deck";
 import type { Deck, Playhead } from "../engine";
-import { MIX_VIEW_FILE, SONGS_FILE } from "../mixView";
+import { MIX_VIEW_FILE } from "../mixView";
 import {
   cacheRelPath,
   type FileLink,
@@ -34,7 +35,12 @@ import {
   playablePath,
   service,
 } from "../service";
-import { resolveSet, type SetEntry, type SetList } from "../setList";
+import {
+  NO_PLAYLIST,
+  resolveSet,
+  type SetEntry,
+  type SetList,
+} from "../setList";
 import type { DeckSet } from "../useDeckSet";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
@@ -60,6 +66,8 @@ export function MixView({
   engine,
   deck,
   set: decks,
+  playlist,
+  file,
 }: {
   /**
    * WHERE the chosen machine's file service is — the one thing this view wants from an engine
@@ -73,6 +81,11 @@ export function MixView({
   engine: { fileBase: string | null };
   /** The engine link, held by the host so every view shares one. */
   deck: Deck;
+  /** The playlist this surface declares, by name — for the two messages that have to say
+   *  WHICH file is wrong. The list itself comes off `set`, already read. */
+  playlist?: string;
+  /** The surface's own file, so "add a `playlist:` line" can name where. */
+  file: string;
   /** The decks as a document — everything this view shows and every gesture it forwards. */
   set: DeckSet;
 }) {
@@ -94,20 +107,25 @@ export function MixView({
         const sum = await service.summary(s);
         setRoot(sum.root);
         const cached = (await service.songs(s)).entries;
-        // TWO sources, and the project's is the one that decides what is drawn: songs.yaml
-        // says which songs this set is, the cache listing says which of them this machine can
+        // TWO sources, and the PLAYLIST is the one that decides what is drawn: it says which
+        // songs are to hand tonight, the cache listing says which of them this machine can
         // play. A song in the set and not in the cache is a line, not an omission.
         //
-        // The file's TEXT comes from the deck document, which is also what writes a cue back
-        // into it — one read, so the list and the cues can never be looking at two versions.
-        setSet(resolveSet(decks.songsText, cached));
+        // The playlist's text comes from the deck document, which read it once from the name
+        // the surface declares — so the browser and the desk can never be looking at two
+        // versions of the same set list.
+        setSet(
+          decks.playlistText === undefined
+            ? NO_PLAYLIST
+            : resolveSet(decks.playlistText, cached),
+        );
         setError(null);
       } catch (e) {
         setSet(null);
         setError((e as Error).message);
       }
     },
-    [decks.songsText],
+    [decks.playlistText],
   );
 
   useEffect(() => {
@@ -132,7 +150,10 @@ export function MixView({
     // `link` is implied by `root` — the root came from a summary through it — but it is
     // carried explicitly so the waveform fetch below has it without a second assumption.
     if (!deck.engine || !root || !link || !s.entry) return;
-    const path = playablePath(root, s.entry);
+    // The line's OWN file, which is the master unless the playlist named a variant. Reading
+    // `meta.master` here would put the original on for a set list that asked for the
+    // instrumental — see `SetEntry.file`.
+    const path = playablePath(root, s.entry, s.file);
     // Said out loud rather than swallowed: a catalogued folder with no audio is a real state
     // — a mirror that failed halfway — and a dead button explains nothing.
     if (!path)
@@ -140,7 +161,14 @@ export function MixView({
         `${s.name} : le dossier est catalogué mais ne porte aucun audio`,
       );
     setError(null);
-    decks.putOn(deckId, { path, title: s.name, artist: s.artist, id: s.id });
+    decks.putOn(deckId, {
+      path,
+      // The version is part of what is on the deck: a label reading "Danse" while the
+      // instrumental plays is the desk lying in front of an audience.
+      title: s.variant ? `${s.name} · ${s.variant}` : s.name,
+      artist: s.artist,
+      id: s.id,
+    });
 
     setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
     // A new record starts at ITS own tempo, whatever the outgoing one was doing. The fader
@@ -205,16 +233,29 @@ export function MixView({
               {decks.deskError}
             </Card>
           ) : null}
-          {/* A set list that will not parse is the project's problem, not the machine's, so it
-              is reported apart from the error above and names its own lines. */}
+          {/* A set list that will not read is the project's problem, not the machine's, so it
+              is reported apart from the error above and names the file it is about. */}
           {set?.issues.length ? (
             <Card className="p-3 text-sm text-destructive">
-              <div className="font-semibold">{SONGS_FILE}</div>
+              <div className="font-semibold">
+                {playlist ? playlistPathOf(playlist) : PLAYLISTS_DIR}
+              </div>
               {set.issues.map((i) => (
                 <div key={i} className="font-mono text-xs">
                   {i}
                 </div>
               ))}
+            </Card>
+          ) : null}
+          {/* Not an error: a desk nobody has pointed at a set list yet. Said where the songs
+              would be, with the one line that fixes it — an empty browser on its own reads as
+              an empty médiathèque, which sends you looking in the wrong place. */}
+          {set?.absent ? (
+            <Card className="p-3 text-sm text-muted-foreground">
+              Cette surface ne nomme aucune playlist. Ajoutez une ligne{" "}
+              <span className="font-mono">playlist: &lt;nom&gt;</span> dans{" "}
+              <span className="font-mono">{file}</span> — les playlists du dépôt
+              s'écrivent dans l8, sous la roue dentée.
             </Card>
           ) : null}
           {/* A binding that names something this project has not got. Reported by CONTROL,

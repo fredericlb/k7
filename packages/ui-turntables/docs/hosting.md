@@ -61,9 +61,9 @@ the file service owns.
 Those are messages about what is already loaded, and no host has a second writer for them.
 
 Everything else the desk needs is already shared and is imported directly rather than injected:
-the file routes are `@studio/project-shell`'s `projectApi`, the catalogue types are
-`@studio/mediatek`'s, and `songs.yaml` is `@studio/song`'s. A seam over those would be a seam
-over something that is already one thing.
+the file routes are `@studio/project-shell`'s `projectApi`, the catalogue types and the
+playlist RESOLUTION are `@studio/mediatek`'s, and the playlist format is `@studio/song`'s. A
+seam over those would be a seam over something that is already one thing.
 
 ## What is NOT in here
 
@@ -76,10 +76,15 @@ desk's, and the chains graph is `@studio/ui-chains-react`'s. What the graph need
 
 ## The set list is a FILE, and that is what makes l8 able to host it
 
-`songs.yaml` at the project root, read through `@studio/song/yaml/songsFile`. Nothing about it
-is desk-shaped: it names médiathèque songs, and any project that carries one has a set. That is
-why bringing the desk to l8 did not require inventing a set-list concept for l8 — an `.l8`
-folder with a `songs.yaml` beside its `surfaces/` is a set, in the same words.
+A playlist in the workspace's `_playlists/`, named by the surface's `playlist:` and read
+through `@studio/song/playlist`. Nothing about it is desk-shaped: it names médiathèque songs,
+and l8 has a screen for writing one under its cog. That is why bringing the desk to l8 did not
+require inventing a set-list concept for l8 — the concept was already there, in the repository,
+shared by every project in it.
+
+The host passes the NAME and this package reads the file. That split is the same one `mapping`
+takes, and for the same reason: the declaration is the host's business (m9 has no `surfaces/`
+to look in), and what the file MEANS is this package's.
 
 ## What one deck costs
 

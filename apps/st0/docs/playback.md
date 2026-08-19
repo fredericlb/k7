@@ -6,7 +6,7 @@ c'est la copie dans le cache de la machine choisie, atteinte par le service de f
 cette machine-là.
 
 C'est le fait le plus facile à oublier de tout ce service, et il vaut pour tout ce qu'un moteur
-joue pour la médiathèque — un morceau, une playlist, une variante.
+joue pour la médiathèque — un morceau, une variante.
 
 | quoi | d'où | pourquoi |
 |---|---|---|

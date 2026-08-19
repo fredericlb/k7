@@ -53,7 +53,6 @@ describe("the layout", () => {
       counts: {
         songs: 0,
         samples: 0,
-        playlists: 0,
         recordings: 0,
       },
     });
@@ -203,7 +202,7 @@ describe("listing and search", () => {
     ensureLayout();
     write("samples/audio/kicks/bd01.wav");
     write("samples/audio/kicks/sn01.wav");
-    write("playlists/live.yaml", "items: []\n");
+    write("songs/AC-DC/Back in Black/Hells Bells/original.wav");
   });
 
   it("serves the cached listing while the family is unchanged", () => {
@@ -225,31 +224,8 @@ describe("listing and search", () => {
   it("filters by family, kind and substring", () => {
     expect(search({ family: "samples" })).toHaveLength(2);
     expect(search({ q: "bd" }).map((e) => e.name)).toEqual(["bd01.wav"]);
-    expect(search({ family: "playlists" })).toHaveLength(1);
+    expect(search({ family: "songs" })).toHaveLength(1);
     expect(search({ q: "nothing-matches" })).toEqual([]);
-  });
-
-  it("lists a playlist as the FILE, not as a folder around one", () => {
-    ensureLayout();
-    write(
-      "playlists/live/ete.yaml",
-      "title: Été 2026\nitems:\n  - AC-DC/Back in Black/Hells Bells\n",
-    );
-    const [p] = scanFamily("playlists");
-    // The entry's path is the file itself — the one family besides samples where that is so,
-    // because there is nothing beside a playlist to keep. See scanPlaylists.
-    expect(p.path).toBe("playlists/live/ete.yaml");
-    expect(p.name).toBe("Été 2026"); // the title, not the file name
-    expect(p.meta).toMatchObject({ catalogued: true, items: 1 });
-  });
-
-  it("still lists a playlist whose YAML is broken, so you can click it and fix it", () => {
-    ensureLayout();
-    write("playlists/cassee.yaml", "items: [\n");
-    const [p] = scanFamily("playlists");
-    // `catalogued: false` is the same word an unfiled song folder gets: it is on the disk.
-    expect(p.name).toBe("cassee");
-    expect(p.meta).toMatchObject({ catalogued: false, items: 0 });
   });
 
   it("counts every family for the summary screen", () => {
@@ -257,9 +233,8 @@ describe("listing and search", () => {
     expect(summary()).toEqual({
       present: true,
       counts: {
-        songs: 0,
+        songs: 1,
         samples: 2,
-        playlists: 1,
         recordings: 0,
       },
     });

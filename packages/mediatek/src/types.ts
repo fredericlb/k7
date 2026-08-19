@@ -2,7 +2,7 @@
 // HTTP routes and every surface that lists the library.
 
 /**
- * The three things the mediatek holds. Each is scanned, indexed and invalidated ALONE.
+ * The two things the mediatek holds. Each is scanned, indexed and invalidated ALONE.
  *
  * There were five. `modules` and `chains` left with the editing: a module is authored in l8,
  * against a project where the plugin it names is actually LOADED, and it is committed to the
@@ -10,12 +10,19 @@
  * volume. Two places holding the same modules meant one of them was always the stale copy, and
  * the hosted one could not be the true one: nothing here can instantiate a plugin.
  *
- * What is left is what the médiathèque is FOR: bytes nobody edits in a text editor.
+ * `playlists` left fourth, and for a different reason worth keeping apart from that one. Nothing
+ * was wrong with hosting it — it is just that a playlist holds no BYTES. It is pure reference:
+ * names of songs that stay right here, in a file that names them. Hosting reference bought
+ * nothing this volume is good at, and cost the account a document it could not commit beside the
+ * work it was written for. `_playlists/` in the workspace repository is where a set list is now,
+ * and l8 is what opens one (`@studio/song/docs/playlists.md`).
+ *
+ * What is left is exactly what the médiathèque is FOR: bytes nobody edits in a text editor.
  * See apps/st0/docs/projects.md and packages/song/docs/sharedFolders.md.
  */
-export type Family = "songs" | "samples" | "playlists";
+export type Family = "songs" | "samples";
 
-export const FAMILIES: readonly Family[] = ["songs", "samples", "playlists"];
+export const FAMILIES: readonly Family[] = ["songs", "samples"];
 
 /** Narrow an untrusted query value to a Family, or undefined. Here rather than in each HTTP
  *  shell: both had their own copy, and a fourth family would have had to find them both. */
@@ -62,8 +69,9 @@ export const NODES_DIR = "nodes";
  *  browser reaching for the name must not pull `node:fs` in with it. scan.ts re-exports it. */
 export const SONG_FILE = "song.yaml";
 
-// A PLAYLIST has no such marker: it IS its file, not a folder around one, so the rule is the
-// extension and it lives in playlist.ts beside the parser. See docs/playlists.md.
+// A PLAYLIST had no such marker: it IS its file, not a folder around one, so the rule was the
+// extension. Both the rule and the parser are `@studio/song/playlist` now, beside the workspace
+// folder they read — see that package's docs/playlists.md.
 
 /**
  * One alternative version of a song, declared in its sidecar. See docs/variants.md.

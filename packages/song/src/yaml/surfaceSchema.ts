@@ -129,6 +129,25 @@ export const SurfaceSchema = z
   .object({
     type: z.enum(SURFACE_TYPES),
     layout: z.enum(SURFACE_LAYOUTS),
+    /**
+     * The playlist this surface draws its songs from — a name under the workspace's
+     * `_playlists/`, not a path (see `playlistPathOf`).
+     *
+     * A `turntables` surface only. It is what the song browser lists: the twelve songs that are
+     * to hand tonight, rather than the two hundred and seventy-nine on the volume.
+     *
+     * **This is where "which songs" lives now**, and `songs.yaml` no longer answers it. The two
+     * said the same thing in two files, which is one too many — and the playlist is the better
+     * of the two, because it is a document with a screen (l8's cog opens it), it can be shared
+     * between sets, and it was already the thing a person had written. What `songs.yaml` keeps
+     * is the half a playlist has no place for: this set's CUE points on a song, which belong to
+     * the desk that plays it rather than to a list other sets read. See docs/setProject.md.
+     *
+     * Optional, and an absent one is not an error here — for the reason `mapping` is optional
+     * just below. A desk with no playlist draws, and says on the browser that it names none,
+     * which is a sentence you can act on; refusing the file would refuse to open the project.
+     */
+    playlist: z.string().min(1).optional(),
     // `MixViewSchema` itself, not a record built the same way. It was the latter, and the two
     // drifted the first time one of them grew: `null` — a component named and not wired, which
     // is what a scaffolded desk is made of — became legal in one and stayed refused in the other,
@@ -146,6 +165,16 @@ export const SurfaceSchema = z
         code: "custom",
         path: ["layout"],
         message: `a '${s.type}' surface draws in ${allowed.map((l) => `'${l}'`).join(" or ")}, not in '${s.layout}'`,
+      });
+    // A playlist on a surface with no song browser names something nothing will read. Refused
+    // rather than ignored, for the reason `.strict()` refuses an unknown key: a field that is
+    // accepted and does nothing is worse than one that is turned down, because the person who
+    // wrote it goes looking for the effect somewhere else.
+    if (s.playlist !== undefined && s.type !== "turntables")
+      ctx.addIssue({
+        code: "custom",
+        path: ["playlist"],
+        message: `only a 'turntables' surface reads a playlist — a '${s.type}' draws no song browser`,
       });
   });
 

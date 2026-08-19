@@ -1,10 +1,18 @@
-// playlistItems.ts — a playlist's lines against the songs the library actually holds: which
+// playlistItems.ts — a playlist's lines against the songs this library actually holds: which
 // morceau each one names, which of its versions, and why a line cannot play. Pure, so the
-// resolution is testable without a screen. See ../docs/playlists.md.
+// resolution is testable without a screen.
+//
+// HERE and not in either surface, because there are two now and they must agree: l8's playlist
+// screen draws the lines to edit them, and the DJ desk draws the same lines to load one onto a
+// deck (`@studio/ui-turntables/docs/songBrowser.md`). Two copies of "path first, then name"
+// would disagree the first time one learned a case. The direction of the import is the reason
+// it landed on this side: the listing, the entry and `takesOf` are all this package's, and only
+// the `PlaylistItem` type comes the other way — from a file in @studio/song that opens nothing.
+// See @studio/song/docs/playlists.md.
 
-import type { PlaylistItem } from "@studio/mediatek/playlist";
-import type { MediatekEntry } from "@studio/mediatek/types";
-import { type Take, takesOf } from "./songTakes";
+import type { PlaylistItem } from "@studio/song/playlist";
+import { type Take, takesOf } from "./takes.ts";
+import type { MediatekEntry } from "./types.ts";
 
 /**
  * The song a line names, among the songs family.

@@ -46,6 +46,7 @@ import {
 import {
   MIX_VIEW_FILE,
   readMixView,
+  readPlaylistText,
   readSongsText,
   SONGS_FILE,
   writeSongsText,
@@ -132,8 +133,16 @@ export interface DeckSet {
   clicking: boolean;
   toggleMetronome: () => void;
 
-  /** songs.yaml as it stands on disk — the set list is resolved from this same read. */
+  /** songs.yaml as it stands on disk — the CUE sheet, and what a cue is written back into. */
   songsText: string;
+  /**
+   * The playlist the surface names, as text — the set list the browser draws.
+   *
+   * Three states in two fields, because the fixes differ: `undefined` is "this desk names no
+   * playlist" (write a `playlist:` line), `null` is "the one it names is not on disk" (make it,
+   * or fix the name), and a string is the file. See docs/setList.md.
+   */
+  playlistText: string | null | undefined;
   /** This deck's eight cue slots, positional. `null` is an empty button. */
   cuesOf: (deck: DeckId) => (number | null)[];
   /**
@@ -187,6 +196,14 @@ export function useDeckSet(
    * that free; a caller building one inline must `useMemo` it.
    */
   mapping?: MixViewFile,
+  /**
+   * The playlist this surface names, by NAME — `surfaces/<desk>.yaml`'s `playlist:`.
+   *
+   * Passed and not read, for the same reason `mapping` is: the declaration is the host's file,
+   * and m9 has no surface folder to look in. A host that names none passes nothing, and the
+   * browser says so rather than showing an empty list that looks like an empty médiathèque.
+   */
+  playlist?: string,
 ): DeckSet {
   const [loads, setLoads] = useState<DeckLoads>(NO_LOADS);
   const [faders, setFaders] = useState<DeckTempos>({});
@@ -205,6 +222,11 @@ export function useDeckSet(
    * reading of it.
    */
   const [songsText, setSongsText] = useState("");
+  /** `undefined` until the read lands, and again for a surface naming no playlist — which is
+   *  why the effect below sets it explicitly rather than leaving it at its initial value. */
+  const [playlistText, setPlaylistText] = useState<string | null | undefined>(
+    undefined,
+  );
   const live = usePluginParams(deck.params);
 
   // The bindings and the compile, refetched when the project moves. Allowed to fail on their
@@ -217,16 +239,20 @@ export function useDeckSet(
       // an l8 song, and asking for one would be a 404 on every reload of a surface.
       const v = mapping ?? (await readMixView(project));
       const songs = await readSongsText(project);
+      // Not read at all when the surface names none: there is no path to ask for, and a 404
+      // per reload would say "missing" about a file nobody claimed existed.
+      const list = playlist ? await readPlaylistText(playlist) : undefined;
       const doc = await api.engineDoc().catch(() => null);
       if (stop) return;
       setView(v);
       setSongsText(songs);
+      setPlaylistText(list);
       setCompiled(doc);
     })();
     return () => {
       stop = true;
     };
-  }, [project, rev, mapping]);
+  }, [project, rev, mapping, playlist]);
 
   const wiring = useMemo(() => resolveBindings(view, graph), [view, graph]);
   const tempos = useMemo(() => syncedTempos(faders, master), [faders, master]);
@@ -472,6 +498,7 @@ export function useDeckSet(
     },
 
     songsText,
+    playlistText,
 
     cuesOf: (deckId) => {
       const id = loads[deckId]?.id;

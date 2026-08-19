@@ -19,7 +19,7 @@ dit pourquoi ce service en est le bon dépositaire.
 Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où ils pèsent :
 
 1. **Le niveau au-dessus d'un projet appartient à ce qui ouvre un projet.** La médiathèque est
-   ce dont un morceau *se sert* — des samples, des morceaux, des playlists. « Quels dépôts
+   ce dont un morceau *se sert* — des samples, des morceaux. « Quels dépôts
    possède cette personne, et qu'y a-t-il dedans » n'est pas une question de catalogue ; c'est
    la première question de l'éditeur, celle à laquelle il faut répondre avant qu'il y ait quoi
    que ce soit à éditer. Les modules et les chaînes ont fait le même trajet, dans la même
@@ -33,11 +33,17 @@ Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où
    atterrissait ici. Une des deux pages était toujours de trop dans le trajet.
 
 Le corollaire est que la médiathèque a repris **Morceaux** comme section d'accueil. Sa bande
-d'onglets est passée de sept à quatre dans la même semaine — Projets par ici, Modules et Chaînes
-par la même porte — et ce qui reste est exactement ce qu'on n'écrit pas dans un éditeur de
-texte : morceaux, samples, playlists, et la zone de captures. L'argument qui avait mis Projets en
+d'onglets est passée de sept à trois — Projets par ici, Modules et Chaînes par la même porte,
+Playlists ensuite (`playlists.md`) — et ce qui reste est exactement ce qu'on n'écrit pas dans un
+éditeur de texte : morceaux, samples, et la zone de captures. L'argument qui avait mis Projets en
 tête — « la première chose qu'on veut à une porte d'entrée, c'est son propre travail » — n'a pas
 perdu : il a déménagé avec l'écran.
+
+Les playlists sont le cas qui ne suit pas tout à fait ce motif, et il vaut d'être distingué :
+elles ne sont pas parties parce qu'on les ÉCRIT — bien qu'on les écrive — mais parce qu'elles ne
+portent aucun octet. Ce sont des noms de morceaux qui, eux, restent là-bas. Le fichier appartient
+donc au dépôt, avec le travail pour lequel il a été écrit ; les morceaux restent au volume qu'on
+sauvegarde. Voir `playlists.md`.
 
 ## Ce que l'adresse dit, et ce qu'elle ne dit pas
 
@@ -96,7 +102,7 @@ deviner ne l'a pas.
 
 Tout ce qu'un projet l8 peut ÊTRE tient dans les **surfaces** qu'il déclare à l'intérieur de
 `.l8`, plutôt que dans une sorte de dossier : un `viewport` et des pistes vidéo pour l'image
-(`packages/song/docs/picture.md`), un `songs.yaml` et une surface `turntables` pour un set
+(`packages/song/docs/picture.md`), une surface `turntables` et la playlist qu'elle nomme pour un set
 (`packages/song/docs/setProject.md`). C'est pour ça que les trois archétypes du menu de création
 portent le nom de leur surface — plus bas.
 
@@ -266,7 +272,7 @@ qui décide de tout.
 | archétype | surfaces | ce qu'il écrit |
 |---|---|---|
 | `arrangement` | `timeline` | une piste, un synthé, un motif |
-| `mix` | `turntables` | deux platines, un crossfade, un `songs.yaml` vide |
+| `mix` | `turntables` | deux platines, un crossfade, et un `playlist:` à remplir |
 | `video` | `timeline` + `viewport` | l'arrangement, plus une piste d'image |
 
 Tout est un dossier `.l8` ouvert par le même l8, donc « quelle sorte de projet » n'a plus de

@@ -422,23 +422,58 @@ describe("a scaffolded set", () => {
     for (const t of Object.values(tracks)) expect(t.events).toEqual([]);
   });
 
-  it("starts with an empty set list", () => {
-    scaffoldSet(dir, "winter");
-    expect(loadSongs(dir)).toEqual([]);
-    expect(mediatekSongRefs(dir)).toEqual([]);
-  });
-
-  it("names its songs to the cache once the set list has any", () => {
-    scaffoldSet(dir, "winter");
+  /** Point the scaffolded desk at a playlist, the way somebody editing the surface would. */
+  const namePlaylist = (name: string) => {
+    const file = join(dir, "surfaces", "desk.yaml");
     writeFileSync(
-      join(dir, "songs.yaml"),
-      'songs:\n  - "@st0/songs/lemo/mante/danse"\n  - "@st0/songs/lemo/mante/aube"\n',
+      file,
+      `${readFileSync(file, "utf8").trimEnd()}\nplaylist: ${name}\n`,
       "utf8",
     );
-    // Sorted, because the list is unordered and two surfaces must not draw it two ways.
-    expect(mediatekSongRefs(dir)).toEqual([
+  };
+
+  /** …and write that playlist, at the WORKSPACE root, which is where one lives. */
+  const writePlaylist = (name: string, body: string) => {
+    mkdirSync(join(ws, "_playlists"), { recursive: true });
+    writeFileSync(join(ws, "_playlists", `${name}.yaml`), body, "utf8");
+  };
+
+  it("names nothing to the cache until its desk names a playlist", () => {
+    // A scaffolded set has a `turntables` surface and no `playlist:` on it — there is no set
+    // list to point at yet. Nothing to fetch is the honest answer, not an error.
+    scaffoldSet(dir, "winter");
+    expect(mediatekSongRefs(dir, ws)).toEqual([]);
+  });
+
+  it("names the PLAYLIST's songs to the cache once the desk points at one", () => {
+    scaffoldSet(dir, "winter");
+    namePlaylist("ete-2026");
+    writePlaylist(
+      "ete-2026",
+      "items:\n  - lemo/mante/danse\n  - lemo/mante/aube\n",
+    );
+    // Sorted, because two surfaces reading the same set must not draw it two ways. The refs
+    // carry their family where the playlist's lines do not — see songRef.ts.
+    expect(mediatekSongRefs(dir, ws)).toEqual([
       "@st0/songs/lemo/mante/aube",
       "@st0/songs/lemo/mante/danse",
     ]);
+  });
+
+  it("skips a line that names a song by its bare title", () => {
+    // Resolving that needs the catalogue, and this runs to POPULATE the catalogue. It lands on
+    // the desk as a song the cache has not got — which is exactly what it is.
+    scaffoldSet(dir, "winter");
+    namePlaylist("ete-2026");
+    writePlaylist("ete-2026", "items:\n  - Danse\n  - lemo/mante/aube\n");
+    expect(mediatekSongRefs(dir, ws)).toEqual(["@st0/songs/lemo/mante/aube"]);
+  });
+
+  it("names nothing when the playlist it points at is not there", () => {
+    // The desk says so, on its browser. This loop has nothing to fetch and no business
+    // reporting the same thing twice.
+    scaffoldSet(dir, "winter");
+    namePlaylist("absente");
+    expect(mediatekSongRefs(dir, ws)).toEqual([]);
   });
 });

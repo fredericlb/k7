@@ -1,13 +1,34 @@
-# songs.yaml — the set list, and what it is really for
+# songs.yaml — a set's CUE SHEET
 
 ```yaml
 songs:
-  - "@st0/songs/lemo/mante/danse"
-  - "@st0/songs/lemo/mante/aube"
+  - ref: "@st0/songs/lemo/mante/danse"
+    markers: [ 12.5, null, 48.25 ]
 ```
 
-The only file an m9 set has that a song has no counterpart for, and the only place a
-project names the médiathèque's **songs** rather than its modules.
+The only file a set has that a song has no counterpart for, and the only place a project names
+the médiathèque's **songs** rather than its modules.
+
+## It was the set list, and is not any more
+
+It said which songs the set drew on. That question is answered by the **playlist the desk's
+surface names** now — `playlist:` in `surfaces/<desk>.yaml`, a file in the workspace's
+`_playlists/` ([playlists.md](playlists.md)).
+
+Nothing was wrong with this file; there were simply two of them. And of the two, the playlist
+is the better answer: it is a document with a SCREEN (l8's cog opens it), it can be shared
+between sets and reused next season, and it is the thing somebody had already written by hand.
+A list of refs in a project folder could be none of those.
+
+What stayed is the half a playlist has nowhere to put: **the cues**. A cue belongs to the desk
+that plays a song rather than to a list other sets read — two bands covering the same track
+drop the needle in two different places, and a playlist carrying one set's marks would hand
+them to the other. So an entry appears here when somebody drops a cue, and not when somebody
+adds a song.
+
+Everything below still describes the file, and the two sections about the CACHE describe what
+the playlist does now — kept because the reasoning is the same one, and it is the reasoning
+that is worth having.
 
 ## A ref is `@st0/` plus the médiathèque id, verbatim
 
@@ -36,23 +57,27 @@ has to tell them apart at a distance, which is what would make the inconsistency
 
 ## Unordered
 
-The list is a **set**, not a running order. It is sorted on read — in `songRefs`, once, not
-in each surface — so two screens cannot draw one set in two orders, and the file's line
-order means nothing.
+The list has no running order, and never did. That argument was about a SET LIST — which songs
+you brought, not the order you will play them in, the order being a live decision — and it
+survives its move to the playlist, whose lines are sorted for display too
+([setList.md](../../ui-turntables/docs/setList.md)).
 
-That is a decision about what a set list is: which songs you brought, not which order you
-will play them in. The order is decided at the desk, and putting it in git would mean
-either lying about it or committing during a gig.
+Here it means something smaller: the order cues are written in is the order they were dropped
+in, and nothing reads it.
 
-Duplicates are dropped rather than refused. Two people merging their halves of a set list
-should not have to resolve that by hand.
+Duplicates are dropped rather than refused. Two people merging their halves of a file should
+not have to resolve that by hand.
 
 It is a **sequence** and not a map, although `graph.yaml` uses a map for exactly this
-"named once" property. Nothing hangs off a ref yet, and a map of refs to nulls reads as
-though something were missing. The day a song carries a set-local setting — a cue point, a
-trim — this becomes a map, and that migration is mechanical.
+"named once" property. That decision is now the load-bearing one — see the last section: a
+bare ref and a ref carrying markers are the same shape, which is what let cues arrive without
+a migration.
 
-## What the file is FOR: the machine must already have the songs
+## What the SET LIST is for: the machine must already have the songs
+
+*(This section describes the playlist now. It stays here because the reasoning was worked out
+for this file, and `mediatekSongRefs` still answers the question — just by reading the
+surface and then the playlist, rather than reading this.)*
 
 This is the part that is not obvious from the shape.
 
@@ -61,11 +86,14 @@ every song in the set has to be on that machine's disk before you need it, and t
 has no wifi. `mediatekPull` already answers "what does the open project reach for" for
 modules, reading the refs **off the YAML before anything resolves them**, precisely because
 a ref that resolves to nothing is the one worth fetching. `mediatekSongRefs` is the same
-question for songs, and the pull now syncs both families.
+question for songs, and the pull syncs both families.
 
-So the file is a **cache manifest** that happens to also be the thing you look at. Any
+So the set list is a **cache manifest** that happens to also be the thing you look at. Any
 shape that made that awkward — titles, a database, an order that mattered — would have
-failed at the job the file actually does.
+failed at the job it actually does. The playlist inherits that job whole; the one thing it
+adds is that a line naming a song by its bare TITLE cannot be fetched, since resolving one
+needs the catalogue this loop exists to populate. Such a line is skipped, and arrives at the
+desk as a song the cache has not got — which is what it is.
 
 Two consequences worth stating:
 
@@ -89,7 +117,7 @@ the audio.
 
 ## A song the cache has not got is a state, not an error
 
-`resolveSet` (in m9) keeps the ref whatever happens and reports `entry: null`. The sync
+`resolveSet` (in `@studio/ui-turntables`) keeps the ref whatever happens and reports `entry: null`. The sync
 fetches what the open project names, so a set edited a minute ago is briefly ahead of the
 disk — that is ordinary. It draws as a song that is **coming**, with its name taken from
 the id's last segment.
@@ -97,7 +125,7 @@ the id's last segment.
 Dropping it from the list would make a set that is missing three songs look exactly like a
 set that never had them, on the one screen where that difference matters most.
 
-## Une entrée peut porter des réglages
+## Une entrée peut porter des réglages — et c'est tout ce qui reste
 
 Le jour annoncé plus haut est arrivé, et il n'a pas fallu transformer `songs:` en table. Une
 entrée est **soit** une référence nue **soit** une référence qui porte quelque chose :

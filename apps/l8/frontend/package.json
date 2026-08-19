@@ -23,6 +23,7 @@
     "@studio/engine-protocol": "*",
     "@studio/project-shell": "*",
     "@studio/graph-model": "*",
+    "@studio/mediatek": "*",
     "@studio/song": "*",
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",

@@ -1,31 +1,11 @@
 // PlaylistPane.tsx — the right half of a playlist's screen: its lines resolved against the
-// songs the library holds, each one playable, and the next one starting when one ends. The
-// transport is the tab's own — this pane starts things and never holds them. Named for the
-// pane and not for the lines, which are `playlistItems.ts`. See ../docs/playlists.md.
+// songs the médiathèque holds, each one playable, and the two ways of putting another one
+// there — upload a file, or search the catalogue. Named for the pane and not for the lines,
+// which are `@studio/mediatek/playlistItems` — shared with the DJ desk, which resolves the
+// same lines. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
-import type { PlaylistItem } from "@studio/mediatek/playlist";
-import type { MediatekEntry } from "@studio/mediatek/types";
-import {
-  AudioLines,
-  Disc3,
-  FileQuestion,
-  ListMusic,
-  Pause,
-  Play,
-  Plus,
-  Search,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { currentUser } from "./api";
-import { cacheRoot, playablePath } from "./engine/songPreview";
-import { useEngine, usePlayback } from "./playback/PlaybackProvider";
-import {
-  effectiveTarget,
-  type PlaybackTarget,
-  playbackTargetInfo,
-} from "./playback/targets";
+import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import {
   itemLabel,
   itemProblem,
@@ -33,12 +13,25 @@ import {
   resolveItems,
   songMatches,
   songRef,
-} from "./playlistItems";
-
-/** Said once at the top rather than on every row: it is a fact about the MACHINE, and a
- *  refusal repeated per line reads as ten problems instead of one. */
-const NO_CACHE =
-  "cette machine ne tient pas de cache de la médiathèque — jouez ici, ou choisissez-en une autre";
+} from "@studio/mediatek/playlistItems";
+import { tagsFromFilename } from "@studio/mediatek/song";
+import type { MediatekEntry } from "@studio/mediatek/types";
+import type { PlaylistItem } from "@studio/song/playlist";
+import {
+  AudioLines,
+  Disc3,
+  FileQuestion,
+  ListMusic,
+  Loader2,
+  Pause,
+  Play,
+  Plus,
+  Search,
+  Upload,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { mediatek } from "../api";
 
 /**
  * How many search hits are drawn at once.
@@ -52,19 +45,14 @@ const MAX_HITS = 40;
 export function PlaylistPane({
   items,
   songs,
-  target,
-  engineToken,
   onAdd,
+  onFiled,
   addRefusal,
 }: {
   /** The lines, as the text on the left currently parses. */
   items: PlaylistItem[];
   /** The songs family, or null before its listing has arrived. */
   songs: MediatekEntry[] | null;
-  /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
-  target: PlaybackTarget;
-  /** The chosen machine's engine token, for the file routes it gates. */
-  engineToken?: string | null;
   /**
    * Put a line at the end of the playlist.
    *
@@ -74,152 +62,94 @@ export function PlaylistPane({
    * changed, not because something told it to.
    */
   onAdd: (item: PlaylistItem) => void;
+  /** A song has just landed in the médiathèque: re-read the catalogue, so the line this pane
+   *  wrote resolves to something rather than sitting on "morceau introuvable" until a poll. */
+  onFiled: () => void;
   /** Why `onAdd` would not work right now — the file's `items:` is in a shape the text-level
    *  append cannot extend. Empty when it can. */
   addRefusal?: string;
 }) {
-  const playback = usePlayback();
-  const engine = useEngine();
-  const actual = effectiveTarget(target, engine.phase.k === "ready");
-  const viaEngine = actual === "engine";
-  const where = playbackTargetInfo(actual);
-  const WhereIcon = where.icon;
-
   const rows = useMemo(() => resolveItems(items, songs), [items, songs]);
 
-  /** The audio inside the song's folder.
+  /**
+   * The transport, and the whole of it: one element, playing one file at a time.
    *
-   *  It used to PROBE as well: a chain variant named a treatment rather than a file, so this
-   *  asked the library whether the bounce was sitting beside the master, cached the answer, and
-   *  drew "pas encore rendue" on the rows with none. Chains left the catalogue — a version is
-   *  its own file or it is missing — so the whole probe went with them. */
-  const audioFor = useCallback(
-    async (r: ResolvedItem): Promise<string | null> => r.take?.file ?? null,
+   * st0's playlist pane drove a shared `PlaybackProvider` — a mini player that outlived the
+   * screen, with a browser/engine destination behind it. None of that came over, deliberately.
+   * That machinery exists because st0 is a LISTENING app whose bottom bar follows you across
+   * every section; this shell is an editor with a transport of its own already, driving the
+   * engine over a project, and a second thing claiming the word "playing" would be two
+   * transports on one screen. What a set list needs while you build it is to hear the line you
+   * just added, which is an `<audio>` and a same-origin URL.
+   */
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** Which line this pane started, or null. */
+  const [current, setCurrent] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  /** What the footer says about a click that did not start anything. Cleared by the next one. */
+  const [notice, setNotice] = useState("");
+
+  /** The audio inside the song's folder, when the row resolved to a version that HAS one. */
+  const fileOf = useCallback(
+    (r: ResolvedItem): string | null =>
+      r.song && r.take?.file ? `${r.song.path}/${r.take.file}` : null,
     [],
   );
 
   /**
-   * The cache's absolute root on the engine's machine, when that is where this will play.
-   *
-   * Two disks: the médiathèque this browser talks to is hosted, the moteur opens paths on its
-   * own. `undefined` is "not looked yet" and `null` is "that machine keeps no cache" — merged
-   * into one nullable, every row would grey out for the moment the answer takes, which reads
-   * as a fault rather than as a wait.
-   */
-  const [root, setRoot] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (!viaEngine || !engine.fileBase) return setRoot(undefined);
-    let alive = true;
-    void cacheRoot(engine.fileBase, currentUser(), engineToken).then((r) => {
-      if (alive) setRoot(r);
-    });
-    return () => {
-      alive = false;
-    };
-    // The token arrives with the engine probe, so the first run can have none and would
-    // otherwise settle on the 401's `null` and never look again.
-  }, [viaEngine, engine.fileBase, engineToken]);
-
-  /** Which line THIS pane started. Null when it started nothing, or when something else took
-   *  the transport over — `mine` below is what checks the second. */
-  const [current, setCurrent] = useState<number | null>(null);
-  /** What the footer says about a click that did not start anything. Cleared by the next one. */
-  const [notice, setNotice] = useState("");
-  const at = current === null ? null : rows[current];
-  const mine =
-    !!at?.song &&
-    !!playback.now &&
-    playback.now.path.startsWith(`${at.song.path}/`);
-
-  /**
    * Start the first line from `from` that has audio, or stop if none has.
    *
-   * Skipping is deliberate and only ever over a RESOLUTION problem — a song the library has
-   * not got, a variant nobody rendered. A playlist that halted on its third line because of a
+   * Skipping is deliberate and only ever over a RESOLUTION problem — a song the médiathèque
+   * has not got, a variant nobody filed. A playlist that halted on its third line because of a
    * typo would be a playlist you cannot listen to while you fix it. The row still says what is
    * wrong with it; it just does not stop the evening.
    */
   const startAt = useCallback(
-    async (from: number) => {
+    (from: number) => {
       setNotice("");
-      // Still asking that machine whether it keeps a cache at all. Said as a WAIT rather than
-      // as one of the two refusals below, either of which would be a guess at this point —
-      // and said at all, because a click that does nothing reads as a broken button.
-      if (viaEngine && root === undefined)
-        return setNotice("on demande à cette machine où est son cache…");
       for (let i = from; i < rows.length; i++) {
-        const r = rows[i];
-        if (!r.song) continue;
-        const file = await audioFor(r);
+        const file = fileOf(rows[i] as ResolvedItem);
         if (!file) continue;
-        const enginePath =
-          viaEngine && root ? playablePath(root, r.song, file) : null;
-        // Nothing to open on that machine. Not skipped — that is a fault of the DESTINATION
-        // and not of the line, and walking the whole playlist because one machine has no cache
-        // would look like the playlist being broken.
-        if (viaEngine && !enginePath) return setNotice(NO_CACHE);
+        const el = audioRef.current;
+        if (!el) return;
+        el.src = mediatek.songUrl(file);
         setCurrent(i);
-        playback.start({
-          entry: r.song,
-          path: `${r.song.path}/${file}`,
-          target: actual,
-          enginePath,
-        });
+        void el.play().catch((e: Error) => setNotice(e.message));
         return;
       }
       setCurrent(null);
+      if (from === 0) setNotice("aucune ligne de cette playlist n'a d'audio");
     },
-    [rows, audioFor, viaEngine, root, actual, playback.start],
+    [rows, fileOf],
   );
-
-  /**
-   * One line ends, the next begins.
-   *
-   * `playback.ended` is a counter, so this compares it with what was last seen rather than
-   * reacting to a flag somebody has to clear. Only when the thing that ended is OURS: the bar
-   * at the bottom outlives this screen, and a song started from a morceau's own page must not
-   * make a playlist nobody is looking at walk forward.
-   */
-  /**
-   * Tant que ce panneau pilote, c'est LUI qui dit ce qui suit.
-   *
-   * Sans cette revendication, la file d'attente de la barre du bas enchaînerait sur le même
-   * `ended` — deux démarrages sur un événement, et le dernier écrit gagne au hasard. Prise
-   * seulement quand une ligne est en cours : un panneau simplement ouvert ne confisque rien.
-   */
-  useEffect(() => {
-    if (!mine || current === null) return;
-    return playback.claimAdvance();
-  }, [mine, current, playback.claimAdvance]);
-
-  const seenEnded = useRef(playback.ended);
-  useEffect(() => {
-    if (playback.ended === seenEnded.current) return;
-    seenEnded.current = playback.ended;
-    if (!mine || current === null) return;
-    void startAt(current + 1);
-  }, [playback.ended, mine, current, startAt]);
 
   const toggleRow = useCallback(
     (i: number) => {
-      // The row that is already going: hand the transport its own verb rather than restarting
-      // it, so pause/resume keeps the position.
-      if (mine && current === i) return playback.toggle();
-      void startAt(i);
+      const el = audioRef.current;
+      // The row that is already going: pause/resume rather than restart, so the position keeps.
+      if (el && current === i) {
+        if (el.paused) void el.play().catch(() => {});
+        else el.pause();
+        return;
+      }
+      startAt(i);
     },
-    [mine, current, playback.toggle, startAt],
+    [current, startAt],
   );
 
-  const playable = rows.filter((r) => r.song && r.take).length;
-  // Settled, and empty. `undefined` is still being asked and says nothing yet.
-  const noCache = viaEngine && root === null;
+  const playable = rows.filter((r) => fileOf(r)).length;
 
   // --- adding ----------------------------------------------------------------------
   //
-  // The search stays OPEN after a click. Building a set list is adding eight morceaux in a
-  // row, and a panel that shut each time would make that eight round trips through the same
-  // button. What confirms the add is the list below growing — the text on the left really did
-  // change, so there is nothing else to say.
+  // Two buttons, because they are two acts: SEARCH is "one of the morceaux I already have",
+  // UPLOAD is "this file on my disk, filed and then named here". st0 had only the first, since
+  // its own Morceaux tab was one click away; from here the médiathèque is another app, and a
+  // set list you cannot finish without leaving is a set list you leave.
+  //
+  // The search stays OPEN after a click. Building a set list is adding eight morceaux in a row,
+  // and a panel that shut each time would make that eight round trips through one button. What
+  // confirms the add is the list below growing — the text on the left really did change, so
+  // there is nothing else to say.
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const queryRef = useRef<HTMLInputElement>(null);
@@ -239,23 +169,108 @@ export function PlaylistPane({
     [onAdd],
   );
 
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState("");
+  const [uploadError, setUploadError] = useState("");
+
+  /**
+   * A file from the disk: into the médiathèque first, then onto the end of this playlist.
+   *
+   * That ORDER is the whole feature, and it is why this is one button rather than two steps.
+   * The line is written from the path the médiathèque ANSWERS with — never from the tags sent
+   * up — because the folder is derived over there (`songFolder`) and a second derivation here
+   * would be a second spelling of one song, wrong the first time a tag carries an accent.
+   *
+   * The tags are guessed from the file name and not asked for. st0's own upload has a dialogue
+   * with three fields, and it is right to: that screen is where a library is CURATED. Here the
+   * question being answered is "put this in my set", and stopping to fill a form in the middle
+   * of it is the interruption. A wrong guess is fixed in st0, on the song itself.
+   */
+  const upload = useCallback(
+    async (file: File) => {
+      setUploadError("");
+      setUploading(file.name);
+      try {
+        const guess = tagsFromFilename(file.name);
+        const filed = await mediatek.addSong(file, {
+          artist: guess.artist ?? "",
+          album: guess.album ?? "",
+          title: guess.title ?? "",
+        });
+        onAdd({ song: filed.path.replace(/^songs\//, "") });
+        // The catalogue moved under us and this pane is what noticed: ask for it again, or the
+        // line just written stays "morceau introuvable" until the next poll comes round.
+        onFiled();
+      } catch (e) {
+        // Including the 409: the song is already filed, so the useful half still works —
+        // except that we do not know WHERE without the answer, and guessing the folder here is
+        // exactly the second spelling the comment above refuses.
+        setUploadError((e as Error).message);
+      } finally {
+        setUploading("");
+      }
+    },
+    [onAdd, onFiled],
+  );
+
   const cannotAdd =
     addRefusal || (songs === null ? "morceaux pas encore chargés" : "");
 
   return (
     <section className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2">
+      {/* Off screen and never controlled by React: `src` and `play()` are imperative, and a
+          `<audio>` re-rendered with a new src prop restarts what is playing. */}
+      <audio
+        ref={audioRef}
+        className="hidden"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        // The next line begins where this one ended. Only ours can end — this element is this
+        // pane's and nothing else writes to it.
+        onEnded={() => current !== null && startAt(current + 1)}
+        onError={() => setNotice("ce fichier ne se lit pas dans ce navigateur")}
+      >
+        <track kind="captions" />
+      </audio>
+
+      <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <Button
           size="sm"
           variant="secondary"
-          disabled={!playable || noCache}
-          onClick={() => void startAt(0)}
+          disabled={!playable}
+          onClick={() => startAt(0)}
         >
           <Play className="mr-1 h-4 w-4" /> Tout jouer
         </Button>
-        {/* Beside the play button rather than in the tree's menu: a playlist is filled while
-            you are looking at it, and the tree is showing the OTHER family — the playlists,
-            not the morceaux you want to put in one. */}
+        {/* « Ajouter » is the file on your disk; « Chercher » is the catalogue. Two verbs, so
+            neither hides behind the other's menu. */}
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!!addRefusal || !!uploading}
+          title={addRefusal}
+          onClick={() => fileInput.current?.click()}
+        >
+          {uploading ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="mr-1 h-4 w-4" />
+          )}
+          Ajouter un morceau
+        </Button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept={AUDIO_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            // Cleared so the SAME file picked twice fires again — a replaced upload is a real
+            // thing to want, and an unchanged value raises no event.
+            e.target.value = "";
+            if (f) void upload(f);
+          }}
+        />
         <Button
           size="sm"
           variant={searching ? "default" : "secondary"}
@@ -263,32 +278,22 @@ export function PlaylistPane({
           title={cannotAdd}
           onClick={() => setSearching((s) => !s)}
         >
-          <Plus className="mr-1 h-4 w-4" /> Ajouter un morceau
+          <Search className="mr-1 h-4 w-4" /> Chercher un morceau
         </Button>
         <span className="text-xs text-muted-foreground">
           {rows.length} ligne{rows.length > 1 ? "s" : ""}
           {playable === rows.length ? "" : ` · ${playable} jouable(s)`}
         </span>
-        {/* Where the sound is, beside the button that starts it. The picker in the header
-            changes it; this only ever reports — including the fallback, since sound coming
-            out of the wrong machine unannounced is the confusing half of that feature. */}
-        <span
-          className="ml-auto flex items-center gap-1 text-xs text-muted-foreground"
-          title={
-            actual === target
-              ? where.hint
-              : `${playbackTargetInfo(target).label} ne répond pas — lecture ici`
-          }
-        >
-          <WhereIcon className="h-3.5 w-3.5" />
-          {where.label}
-          {actual === target ? "" : " (repli)"}
-        </span>
       </header>
 
-      {noCache ? (
+      {uploading ? (
+        <p className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">
+          envoi de « {uploading} » à la médiathèque…
+        </p>
+      ) : null}
+      {uploadError ? (
         <p className="shrink-0 border-b px-3 py-2 text-xs text-destructive">
-          {NO_CACHE}
+          {uploadError}
         </p>
       ) : null}
 
@@ -303,6 +308,8 @@ export function PlaylistPane({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
+                // The shell binds bare keys; a search field must keep its own.
+                e.stopPropagation();
                 // Escape closes without adding; Enter takes the first hit, which is what
                 // "type three letters and press return" expects to do.
                 if (e.key === "Escape") return setSearching(false);
@@ -383,33 +390,45 @@ export function PlaylistPane({
         {rows.length === 0 ? (
           <div className="flex flex-col items-start gap-3 p-4">
             <p className="text-sm text-muted-foreground">
-              Cette playlist ne nomme aucun morceau. Cherchez-en un, ou écrivez
-              les lignes sous <span className="font-mono">items:</span> à gauche
-              — c'est le même fichier.
+              Cette playlist ne nomme aucun morceau. Cherchez-en un dans la
+              médiathèque, déposez-en un depuis le disque, ou écrivez les lignes
+              sous <span className="font-mono">items:</span> à gauche — c'est le
+              même fichier.
             </p>
-            {/* The empty state is where the button is most needed and least findable up in
-                the header, so it is offered again here rather than only pointed at. */}
+            {/* The empty state is where the buttons are most needed and least findable up in
+                the header, so they are offered again here rather than only pointed at. */}
             {searching ? null : (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={!!cannotAdd}
-                title={cannotAdd}
-                onClick={() => setSearching(true)}
-              >
-                <Plus className="mr-1 h-4 w-4" /> Ajouter un morceau
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!!addRefusal || !!uploading}
+                  title={addRefusal}
+                  onClick={() => fileInput.current?.click()}
+                >
+                  <Upload className="mr-1 h-4 w-4" /> Ajouter un morceau
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!!cannotAdd}
+                  title={cannotAdd}
+                  onClick={() => setSearching(true)}
+                >
+                  <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+                </Button>
+              </div>
             )}
           </div>
         ) : (
           <ol className="flex flex-col">
             {rows.map((r, i) => {
               const problem = itemProblem(r, songs !== null);
-              // A chain that has been probed and has no render: audio that does not exist yet,
-              // which is a different sentence from a variant that does not exist at all.
+              // Resolved to a version whose file the folder has not got — a different sentence
+              // from a variant that does not exist at all.
               const missing = !problem && r.take?.kind === "missing";
-              const playingHere = mine && current === i && playback.playing;
-              const loadedHere = mine && current === i;
+              const playingHere = current === i && playing;
+              const loadedHere = current === i;
               return (
                 <li
                   // The index IS the identity: a playlist may legitimately name the same song
@@ -427,7 +446,7 @@ export function PlaylistPane({
                     size="icon"
                     variant="ghost"
                     className="h-7 w-7 shrink-0"
-                    disabled={!!problem || missing || noCache}
+                    disabled={!!problem || missing}
                     title={problem || (missing ? "fichier introuvable" : "")}
                     onClick={() => toggleRow(i)}
                   >
@@ -437,8 +456,6 @@ export function PlaylistPane({
                       <Play className="h-3.5 w-3.5" />
                     )}
                   </Button>
-                  {/* The same glyphs SongVariants draws, so a row here and a row there read
-                      as the same thing. */}
                   {r.take?.kind === "missing" ? (
                     <FileQuestion className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   ) : r.take?.kind === "file" ? (
@@ -478,11 +495,10 @@ export function PlaylistPane({
       <footer className="flex shrink-0 items-center gap-2 border-t px-3 py-1 text-xs text-muted-foreground">
         <ListMusic className="h-3.5 w-3.5" />
         <span className="min-w-0 flex-1 truncate">
-          {playback.error ||
-            notice ||
-            (mine && at?.song
-              ? `en cours : ${itemLabel(at)}`
-              : "les lignes se jouent d'affilée ; la barre du bas suit ce qui sort")}
+          {notice ||
+            (current !== null && rows[current]
+              ? `en cours : ${itemLabel(rows[current] as ResolvedItem)}`
+              : "les lignes se jouent d'affilée ; les morceaux sont ceux de la médiathèque")}
         </span>
       </footer>
     </section>

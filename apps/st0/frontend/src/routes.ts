@@ -3,27 +3,31 @@
 // folder's name), and the rest is the file the builder has open, if any.
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
-/** The four things the header offers, plus two sections with NO TAB, each reached by a button
+/** The three things the header offers, plus two sections with NO TAB, each reached by a button
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
  *  des morceaux », opened from Morceaux). `recordings` is a section and not a family — see
  *  Library.tsx. A section id may not collide with a path the proxy claims above st0's catch-all
  *  (`/l8`, `/m9`, `/k7`, `/z0`, `/dev`, `/console`, `/dev-status`); see docs/routing.md.
  *
- *  THREE sections left, and all three for one reason: they were about AUTHORING, and authoring
- *  happens in l8. `modules` and `chains` went with the editing — a module is written against a
- *  project where the plugin it names is actually LOADED, and committed to the account's library
- *  repository. `projects` went with the level above a project, which belongs to the editor that
- *  opens one: the repositories, the libraries, the deploy key and the shares, and this app's
- *  DEFAULT section at the time. What is left here is the catalogue, which is what a project
- *  draws ON.
+ *  FOUR sections left, and each for its own reason. `modules` and `chains` went with the editing
+ *  — a module is written against a project where the plugin it names is actually LOADED, and
+ *  committed to the account's library repository. `projects` went with the level above a project,
+ *  which belongs to the editor that opens one: the repositories, the libraries, the deploy key
+ *  and the shares, and this app's DEFAULT section at the time.
  *
- *  What did NOT move is the backend: `/api/projects` and `/api/shares` are still this service's,
- *  and l8 calls them across the origin. An address under any of the three now falls through to
- *  the default like any other unknown path. See apps/l8/frontend/docs/projects.md. */
+ *  `playlists` left last and differently: not because it was AUTHORING, but because a playlist
+ *  holds no bytes. It is a list of names of things that are still right here, so hosting it
+ *  bought nothing and kept a set list out of the repository it was written for. It is a file in
+ *  the workspace now — `_playlists/` — and l8's cog opens it. The morceaux it names never moved,
+ *  which is the point: l8 searches THIS catalogue and uploads into it.
+ *
+ *  What did NOT move is the backend: `/api/projects`, `/api/shares` and the whole of
+ *  `/api/mediatek` are still this service's, and l8 calls them across the origin. An address
+ *  under any of the departed sections now falls through to the default like any other unknown
+ *  path. See apps/l8/frontend/docs/projects.md and apps/l8/frontend/docs/playlists.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
-  "playlists",
   "recordings",
   "engine",
   "find",
@@ -34,14 +38,14 @@ export type SectionId = (typeof SECTION_IDS)[number];
  * The sections whose address carries a second half — everything else is a listing, and a path
  * under one of those names nothing.
  *
- * A LIST rather than two `head === …` tests, because it has changed size three times now:
- * `chains` once opened an editor and pushed `/chains/x/graph.yaml`, which read back as the bare
- * section and shut the editor a tick later — the loop useLibraryRoute exists to avoid, entered
- * through the one door it does not guard, a URL the app writes and cannot read. That section is
- * gone, and so are `modules` and `projects`; the shape of the mistake is why this is a list and
- * not a pair of tests that would have to be found and edited each time.
+ * A LIST rather than a `head === …` test, though it is down to one entry: it has changed size
+ * four times now. `chains` once opened an editor and pushed `/chains/x/graph.yaml`, which read
+ * back as the bare section and shut the editor a tick later — the loop useLibraryRoute exists to
+ * avoid, entered through the one door it does not guard, a URL the app writes and cannot read.
+ * That section is gone, and so are `modules`, `projects` and now `playlists`; the shape of the
+ * mistake is why this stays a list rather than becoming the equality test it currently could be.
  */
-const CARRIES: readonly string[] = ["songs", "playlists"];
+const CARRIES: readonly string[] = ["songs"];
 
 const isSection = (s: string): s is SectionId =>
   (SECTION_IDS as readonly string[]).includes(s);
@@ -59,9 +63,9 @@ export interface RouteState {
    * A song names its sidecar the way a chain names its `chains.yaml`: the folder IS the entry,
    * so the address ends at the file the left half of the screen is editing.
    *
-   * A PLAYLIST is the one that needs no such pairing: its file IS the entry (see
-   * packages/mediatek/docs/playlists.md), so the whole of this string is the entry's path and
-   * `folderOf` has nothing to take off it. Same slot, same question, one level less of it.
+   * One section carries one now, which is why `folderOf` below always has something to take off
+   * the end. A playlist was the case where it did not — its file WAS the entry — and playlists
+   * are in the workspace repository now, opened by l8 (see SECTION_IDS).
    */
   file: string | null;
 }

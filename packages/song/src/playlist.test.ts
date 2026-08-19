@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendPlaylistItem,
   parsePlaylist,
+  playlistPathOf,
   playlistStub,
   yamlScalar,
 } from "./playlist.ts";
@@ -198,5 +199,35 @@ describe("appendPlaylistItem", () => {
       "Lithium",
       "Hells Bells",
     ]);
+  });
+});
+
+describe("playlistPathOf", () => {
+  it("turns a name into the workspace path holding it", () => {
+    expect(playlistPathOf("ete-2026")).toBe("_playlists/ete-2026.yaml");
+  });
+
+  it("keeps subfolders — `_playlists/` nests", () => {
+    expect(playlistPathOf("live/repet")).toBe("_playlists/live/repet.yaml");
+  });
+
+  it("keeps an extension somebody wrote out, in either spelling", () => {
+    expect(playlistPathOf("set.yaml")).toBe("_playlists/set.yaml");
+    expect(playlistPathOf("set.yml")).toBe("_playlists/set.yml");
+  });
+
+  it("trims what a hand-edited YAML value carries", () => {
+    expect(playlistPathOf("  ete-2026  ")).toBe("_playlists/ete-2026.yaml");
+    expect(playlistPathOf("/live/repet/")).toBe("_playlists/live/repet.yaml");
+  });
+
+  // Null and not a throw: the value comes out of a file somebody typed, and the surface that
+  // asked reports it beside the control it breaks rather than refusing the project.
+  it("answers null for a name that would leave the folder", () => {
+    expect(playlistPathOf("../secrets")).toBeNull();
+    expect(playlistPathOf("live/../../out")).toBeNull();
+    expect(playlistPathOf("")).toBeNull();
+    expect(playlistPathOf("   ")).toBeNull();
+    expect(playlistPathOf("a//b")).toBeNull();
   });
 });

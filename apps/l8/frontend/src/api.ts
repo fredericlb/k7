@@ -1,6 +1,7 @@
-// api.ts — the typed client. Two destinations now:
-//   • the hosted backend (same-origin, cookie): auth (/auth/*) + the engine registry.
+// api.ts — the typed client. Three destinations now:
+//   • the hosted backend (same-origin under /l8, cookie): auth (/auth/*) + the engine registry.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
+//   • st0's médiathèque (same-origin at the ROOT, cookie): the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by
 // configureFileApi once an engine is chosen and the repository is resolved (see ProjectGate).
 
@@ -8,12 +9,14 @@ import { engineAccess } from "@studio/engine-browser/access";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
+import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
 import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
 import type {
+  PlaylistInfo,
   PresetInfo,
   PreviewReq,
   PublicEngine,
@@ -126,6 +129,14 @@ export const api = {
     fsend<{ project: string; log: string[] }>("POST", "/import-project", {
       path,
     }),
+
+  // --- The workspace's playlists (`_playlists/`, see @studio/song/docs/playlists.md) ---
+  // Only the LISTING is its own route: `read`/`write` above already serve any workspace path,
+  // and a second pair spelling `_playlists` into their URLs would be two ways to write one file
+  // — with the autosave this screen runs on built on the pair that is already there.
+  playlists: () => fget<{ playlists: PlaylistInfo[] }>("/playlists"),
+  createPlaylist: (name: string) =>
+    fsend<{ path: string }>("POST", "/playlists", { name }),
   // `createProject` and `deleteProject` were here, for the two verbs this app has stopped
   // carrying. The routes are the file service's and st0 calls them — see apps/st0/docs/projects.md.
   // Scaffold a project at the workspace root (the same scaffold `l8 create` runs) and return its
@@ -307,6 +318,73 @@ export const api = {
       "/libraries/publish",
       { message },
     ),
+};
+
+/**
+ * The MÉDIATHÈQUE — st0's hosted catalogue of songs, reached across the origin.
+ *
+ * A fourth data path, and the only one this app has that is neither the registry nor the
+ * engine's machine. It exists because a playlist moved here and its songs did not: a set list
+ * is the account's document and belongs in the repository, while a master is 40 MB of audio
+ * that belongs on a volume somebody backs up. So the file naming songs is ours and the songs
+ * themselves stay st0's, and this is the seam between the two.
+ *
+ * **No `BASE`.** Every other same-origin call in this file is under `/l8`; these are not. st0
+ * has no path prefix — it answers the origin root — so `/api/mediatek/*` is where its routes
+ * are for every service under this host. Same reason `/auth/*` is spelled bare at the top of
+ * this file, and the same mistake to make: `${BASE}/api/mediatek/list` 404s, silently, into an
+ * empty catalogue that reads as "you have no songs".
+ *
+ * The session cookie carries the auth (`bearerOrSession` on st0's side), which is also what
+ * makes `songUrl` work as an `<audio src>`: a media element cannot set a header, and it does
+ * not have to when the bytes are same-origin.
+ */
+export const mediatek = {
+  /** The whole songs family. One call, no paging: the catalogue is a few hundred entries and
+   *  the search over it is done in the browser, where a keystroke costs nothing. */
+  listSongs: async (): Promise<MediatekEntry[]> => {
+    const res = await fetch("/api/mediatek/list?family=songs");
+    if (!res.ok) throw new Error(`médiathèque ${res.status}`);
+    return ((await res.json()) as FamilyListing).entries;
+  },
+
+  /** One file's bytes, as an address rather than a fetch — this is what a row plays. */
+  songUrl: (path: string) =>
+    `/api/mediatek/file?path=${encodeURIComponent(path)}`,
+
+  /**
+   * File one audio file as a song. The THREE TAGS go up and never a path: the médiathèque
+   * derives `songs/<artiste>/<album>/<titre>/original.<ext>` itself, which is what stops two
+   * apps inventing two spellings of one folder. See packages/mediatek/docs/songs.md.
+   *
+   * A 409 rides through with `.exists` so the caller can offer the one thing that resolves it
+   * — replacing what is there — rather than only reporting it.
+   */
+  addSong: async (
+    file: File,
+    tags: { artist: string; album: string; title: string },
+    opts: { replace?: boolean } = {},
+  ): Promise<{ path: string; master: string; replaced: boolean }> => {
+    const q = new URLSearchParams({ filename: file.name, ...tags });
+    if (opts.replace) q.set("replace", "1");
+    const res = await fetch(`/api/mediatek/song?${q}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: file,
+    });
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        exists?: boolean;
+      };
+      const err = new Error(detail.error ?? `song ${res.status}`) as Error & {
+        exists?: boolean;
+      };
+      err.exists = detail.exists;
+      throw err;
+    }
+    return res.json();
+  },
 };
 
 /**

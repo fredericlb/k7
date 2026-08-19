@@ -1,9 +1,25 @@
-// playlist.ts — what a playlist file says: an ordered list of songs the library already holds,
-// each optionally naming one of that song's variants. Reading one, and adding a line to one
-// AS TEXT. No `node:fs`, so the scan and the browser go by exactly the same rules.
-// See docs/playlists.md.
+// playlist.ts — where a workspace keeps its playlists, and what one says: an ordered list of
+// songs the médiathèque holds, each optionally naming one of that song's variants. Reading one,
+// and adding a line to one AS TEXT. No `node:fs`, so the file service and the browser go by
+// exactly the same rules. See docs/playlists.md.
 
 import { parse as parseYaml } from "yaml";
+
+/**
+ * The folder a workspace keeps its playlists in, at its root.
+ *
+ * Beside `_modules` and `_libraries` and named like them, because it is the same KIND of thing:
+ * something every project in the workspace draws on, found by where it sits rather than by a
+ * line declaring it. A playlist is not a project and does not belong inside one — you build a
+ * set list once and open it against whichever project you happen to be working in.
+ *
+ * That is also why it is not in the médiathèque any more. A playlist is the one family there
+ * whose content was pure REFERENCE: it holds no bytes, only names of things filed elsewhere, so
+ * hosting it bought nothing and cost the account a document it could not version with its work.
+ * `_playlists` is in the repository, so a set list is committed, branched and cloned with the
+ * songs it was built for. See docs/playlists.md.
+ */
+export const PLAYLISTS_DIR = "_playlists";
 
 /**
  * What a playlist file is called at its end.
@@ -15,11 +31,34 @@ import { parse as parseYaml } from "yaml";
 export const PLAYLIST_EXT = ".yaml";
 
 /**
+ * A playlist NAME as the workspace path holding it — `ete-2026` → `_playlists/ete-2026.yaml`.
+ *
+ * The name is what a surface writes (`surfaces/desk.yaml`'s `playlist:`), and it is a name
+ * rather than a path for the reason a module ref is: the folder is fixed, so spelling it into
+ * every declaration would let a file be wrong about a location nothing can choose. Subfolders
+ * are kept — `live/repet` is a playlist filed under `live/` — because `_playlists/` nests.
+ *
+ * The extension is added when it is missing and kept when it is there: it is what makes the
+ * file a playlist, and somebody who writes it out has not made a mistake.
+ *
+ * Null for a name that would leave the folder. Not a throw: this runs on a value out of a YAML
+ * file somebody typed, and the surface that asked reports it beside the control it breaks —
+ * which is a screen you can read, unlike a project that refuses to open.
+ */
+export function playlistPathOf(name: string): string | null {
+  const clean = name.trim().replace(/^\/+|\/+$/g, "");
+  if (!clean) return null;
+  const segs = clean.split("/");
+  if (segs.some((s) => !s || s === "." || s === "..")) return null;
+  const rel = segs.join("/");
+  return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
+}
+
+/**
  * One line of a playlist.
  *
- * `song` is kept VERBATIM, the way `SongVariant.ref` is: resolving it means holding the songs
- * listing, and this file deliberately holds nothing. See `docs/playlists.md`, "the refs are not
- * checked here".
+ * `song` is kept VERBATIM: resolving it means holding the médiathèque listing, and this file
+ * deliberately holds nothing. See `docs/playlists.md`, "the refs are not checked here".
  */
 export interface PlaylistItem {
   /** The song, as its path under `songs/` (`AC-DC/Back in Black/Hells Bells`) or just its name. */
@@ -127,11 +166,10 @@ export function yamlScalar(value: string): string {
  * One more line on the end of a playlist's `items:`, or null when the file's shape cannot
  * take one.
  *
- * TEXT, never a re-serialisation. `write.ts`'s `withVariant` takes the same care over a song's
- * sidecar and for the same reason: these files carry comments and an order somebody chose, and
- * parsing to an object and dumping it back would quietly throw both away. Round-tripping a set
- * list through a serialiser is exactly the change nobody would notice until their notes were
- * gone.
+ * TEXT, never a re-serialisation. `yaml/edit.ts` takes the same care over a project's files and
+ * for the same reason: these files carry comments and an order somebody chose, and parsing to an
+ * object and dumping it back would quietly throw both away. Round-tripping a set list through a
+ * serialiser is exactly the change nobody would notice until their notes were gone.
  *
  * Null rather than a guess when `items:` is a flow sequence spread over several lines, or is
  * missing its key in a file that does not parse at all. The surface disables the button and

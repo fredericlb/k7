@@ -1,8 +1,8 @@
 # Ce que la médiathèque sait compléter
 
-Les écrans de st0 qui montrent du YAML — l'éditeur de playlists et le sidecar d'un morceau —
-partagent le même `YamlPane`. Ils étaient quatre : le constructeur de modules et l'éditeur de
-chaînes sont partis avec leurs familles, vers l8. Le mécanisme est décrit dans
+L'écran de st0 qui montre du YAML — le sidecar d'un morceau — utilise le `YamlPane`. Ils étaient
+quatre : le constructeur de modules et l'éditeur de chaînes sont partis avec leurs familles, et
+l'éditeur de playlists avec le dossier `_playlists/`, tous vers l8. Le mécanisme est décrit dans
 [packages/ui-editor/docs/completion.md](../../../packages/ui-editor/docs/completion.md) ; ce qui
 suit est l'autre moitié, **d'où viennent les noms ici**, parce que la réponse n'est pas celle de
 l8 et qu'elle ne pouvait pas l'être.
@@ -23,7 +23,6 @@ Les noms viennent de trois sources différentes, chacune la seule qui puisse ré
 | `extends:` d'un module | `@engine/…` | le **moteur**, par son socket (`engine/baseModules.ts`) |
 | `extends:` d'un module | `@st0/…` | le **catalogue**, par `library.baseModules()` |
 | une destination d'un `graph.yaml` | les nœuds déclarés | **le fichier lui-même** (`chainsVocabulary.ts`) |
-| une ligne de playlist | les morceaux | la **famille songs**, déjà interrogée par l'écran |
 
 ### `@engine/…` — demandé à la machine
 
@@ -48,8 +47,8 @@ fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est
 
 Le mot `@st0` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
 `@studio/song/mediatekRoot`, qui appelle `node:os` pour trouver le dossier — un navigateur ne
-peut pas tirer ça pour apprendre un mot. `PlaylistEditor` déclare son fichier pour la même
-raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.
+peut pas tirer ça pour apprendre un mot. Le vocabulaire des playlists, en l8, déclare son fichier
+pour la même raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.
 
 Les deux listes sont **fusionnées** par le constructeur, pas substituées : elles répondent de
 deux moitiés différentes de ce qu'`extends:` peut nommer.
@@ -70,28 +69,25 @@ rien précisément pendant qu'on écrit la ligne qui en a besoin.
 
 `@in` n'est pas proposé : c'est là qu'un parcours **commence**, rien ne l'alimente.
 
-## Les playlists : le fichier que le schéma ne connaît pas
+## Les playlists : parties, et le motif avec elles
 
-`fileKindFor` rend `null` pour `playlists/x.yaml`, et c'est correct — une playlist appartient à
-la médiathèque, pas à un projet l8, et `@studio/song` n'a pas à savoir à quoi ressemble un
-listing de morceaux. L'écran fournit donc son propre `YamlVocabulary`, construit sur le listing
-qu'il interroge **déjà** pour résoudre ses lignes.
+`fileKindFor` rendait `null` pour `playlists/x.yaml`, et c'était correct — une playlist n'est pas
+un fichier de projet l8, et `@studio/song` n'a pas à savoir à quoi ressemble un listing de
+morceaux. L'écran fournissait donc son propre `YamlVocabulary`, construit sur le listing qu'il
+interrogeait **déjà** pour résoudre ses lignes.
 
-Un morceau est proposé sous sa forme **non ambiguë**, son chemin sous `songs/` — la même que
-`songRef` écrit quand on ajoute une ligne depuis la recherche. `findSong` lit aussi le nom nu,
-donc le fichier reste éditable à la main dans les deux orthographes.
-
-`variant:` propose **tous** les noms de variantes de la bibliothèque, sans les restreindre au
-`song:` de la ligne du dessus. Un vocabulaire répond d'une **position**, pas d'un document : il
-n'a jamais vu cette ligne. L'union reste la bonne liste — ces noms se répètent par convention
-(« live », « acoustic ») — et le panneau de droite signale un mauvais nom dès qu'il est tapé.
-La restreindre voudrait dire reparser le tampon à chaque frappe pour économiser un défilement.
+Cet écran est en l8 maintenant, et le motif est parti avec lui intact
+(`apps/l8/frontend/docs/playlists.md`) : c'est **toujours** ce catalogue-ci qui répond, par
+`/api/mediatek/list?family=songs`, seulement à travers l'origine plutôt que depuis la même app.
+Ce qui vaut la peine d'être retenu ici est la forme — un écran qui tient déjà une liste pour
+autre chose est le mieux placé pour en faire un vocabulaire, et n'a besoin de rien demander à
+personne.
 
 ## Ce qui n'est pas couvert
 
 **Le sidecar d'un morceau** (`SongEditor`) : ses champs ne sont pas un `FileKind` de projet non
-plus, et personne n'a demandé. Ce serait un quatrième vocabulaire, sur le même modèle que celui
-des playlists.
+plus, et personne n'a demandé. Ce serait un vocabulaire de plus, sur le modèle décrit au-dessus —
+et c'est le seul écran YAML qui reste ici, donc le seul candidat.
 
 **Les fichiers de nœud d'une chaîne** : st0 ne les ouvre pas dans un éditeur, seulement le
 `graph.yaml`. Leur `extends:` est pourtant exactement le champ dont il est question ici. Et le

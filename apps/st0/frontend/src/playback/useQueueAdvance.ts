@@ -2,10 +2,10 @@
 // choisie et la destination, parce que c'est ce qu'il faut pour savoir OÙ un fichier se joue.
 // Voir ../../docs/miniPlayer.md.
 
+import { takesOf } from "@studio/mediatek/takes";
 import { useCallback, useEffect, useRef } from "react";
 import { currentUser } from "../api";
 import { cacheRoot, playablePath } from "../engine/songPreview";
-import { takesOf } from "../songTakes";
 import { usePlayback } from "./PlaybackProvider";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
 
@@ -80,11 +80,8 @@ export function useQueueAdvance(
   useEffect(() => {
     if (playback.ended === seen.current) return;
     seen.current = playback.ended;
-    // Un panneau de playlist pilote : c'est à lui de dire ce qui suit, et deux démarrages sur
-    // le même événement se termineraient par un tirage au sort.
-    if (playback.advanceClaimed) return;
     startNext();
-  }, [playback.ended, playback.advanceClaimed, startNext]);
+  }, [playback.ended, startNext]);
 
   /**
    * Le démarrage à froid : ajouter à la file alors que rien ne joue lance tout de suite.
@@ -97,7 +94,6 @@ export function useQueueAdvance(
    */
   useEffect(() => {
     if (playback.now || !playback.queue.length) return;
-    if (playback.advanceClaimed) return;
     startNext();
-  }, [playback.now, playback.queue.length, playback.advanceClaimed, startNext]);
+  }, [playback.now, playback.queue.length, startNext]);
 }

@@ -21,8 +21,12 @@ export const SCHEMA_VERSION = 1;
 export const FAMILY_DIRS: Record<Family, string> = {
   songs: "songs",
   samples: "samples",
-  playlists: "playlists",
 };
+
+// `playlists` was the third. It is a folder in the workspace repository now (`_playlists/`) and
+// not on this volume at all — see types.ts's Family for why that one moved while songs stayed.
+// An existing volume keeps whatever is in its old `playlists/` folder; nothing scans it, so it
+// is inert rather than deleted, and copying it into a workspace is a `mv`.
 
 // There is deliberately no SONG_KINDS beside SAMPLE_KINDS below: `songs/` has no
 // subdivision. Full rationale in docs/songs.md — in short, the provenance split it used to

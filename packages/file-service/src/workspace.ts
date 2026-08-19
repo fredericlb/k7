@@ -72,6 +72,12 @@ import {
 import { ENGINE_NS, type ModuleNamespace } from "@studio/song/moduleTypes";
 import { isFrozenClipId } from "@studio/song/nodeProject";
 import {
+  PLAYLIST_EXT,
+  PLAYLISTS_DIR,
+  parsePlaylist,
+  playlistStub,
+} from "@studio/song/playlist";
+import {
   formatAudioDevice,
   formatChannels,
   loadPreferences,
@@ -1125,6 +1131,98 @@ export class Workspace {
     };
     walk(root, "");
     return out.sort((a, b) => a.ref.localeCompare(b.ref));
+  }
+
+  /**
+   * The playlists this workspace holds — `_playlists/**\/*.yaml`, at any depth.
+   *
+   * Its own answer for the reason `moduleLibraries` is: `tree()` shows the active PROJECT, and
+   * `_playlists` sits at the workspace root beside `_modules`, so no amount of walking the song's
+   * own tree could ever find it (`docs/activeProject.md`).
+   *
+   * The workspace ROOT and not `../_playlists` beside the project, which is where the two module
+   * libraries live. A set list belongs to the repository rather than to one song in it — you
+   * build one once and open it against whichever project you are working in — and rooting it at
+   * the project would give a workspace of four songs four separate playlist folders.
+   *
+   * `title` and `count` come from PARSING each file, which is the whole of what a listing needs
+   * to draw a row. A file that does not parse is listed anyway, with `ok: false`: it is on the
+   * disk, and a listing that hid it would leave you unable to click the thing you have to go and
+   * repair — the same rule the médiathèque's scan followed for the family this replaced.
+   */
+  playlists(): {
+    path: string;
+    name: string;
+    title?: string;
+    count: number;
+    ok: boolean;
+  }[] {
+    const root = join(this.root, PLAYLISTS_DIR);
+    const out: {
+      path: string;
+      name: string;
+      title?: string;
+      count: number;
+      ok: boolean;
+    }[] = [];
+    const walk = (at: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(at, { withFileTypes: true });
+      } catch {
+        return; // no folder yet: an account with no set list has none, which is not an error
+      }
+      for (const e of entries) {
+        const abs = join(at, e.name);
+        if (e.isDirectory()) {
+          walk(abs);
+          continue;
+        }
+        if (!e.isFile() || !/\.ya?ml$/i.test(e.name)) continue;
+        let parsed: ReturnType<typeof parsePlaylist> = null;
+        try {
+          parsed = parsePlaylist(readFileSync(abs, "utf8"));
+        } catch {
+          parsed = null; // unreadable bytes read exactly like unparseable ones from here
+        }
+        out.push({
+          path: this.toRel(abs),
+          name: e.name.replace(/\.ya?ml$/i, ""),
+          ...(parsed?.title ? { title: parsed.title } : {}),
+          count: parsed?.items.length ?? 0,
+          ok: parsed !== null,
+        });
+      }
+    };
+    walk(root);
+    return out.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  /**
+   * Make a new playlist and answer where it landed.
+   *
+   * Writes the STUB rather than an empty file, for the reason the médiathèque's "Nouvelle
+   * playlist…" did: the screen draws its right-hand pane from the text, so an empty file would
+   * open on a parse failure for a playlist nobody has yet had a chance to get wrong.
+   *
+   * The extension is added when it is missing — it is what makes the file a playlist, there
+   * being no marker inside one — and an existing file is refused rather than opened, so a
+   * "create" never quietly hands back somebody else's set list.
+   */
+  createPlaylist(name: string): { path: string } {
+    const clean = name.trim().replace(/^\/+|\/+$/g, "");
+    if (!clean) throw new Error("a playlist needs a name");
+    const rel = `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(clean) ? clean : `${clean}${PLAYLIST_EXT}`}`;
+    // Through safePath, so a `..` in the name cannot leave the workspace.
+    const abs = this.safePath(rel);
+    if (existsSync(abs)) throw new Error(`${rel} is already there`);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(
+      abs,
+      playlistStub(basename(abs).replace(/\.ya?ml$/i, "")),
+      "utf8",
+    );
+    return { path: this.toRel(abs) };
   }
 
   /**

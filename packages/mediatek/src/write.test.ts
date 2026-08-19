@@ -19,24 +19,24 @@ afterEach(() => {
 
 describe("putting a file in", () => {
   it("writes it, making its folder", () => {
-    putFile("playlists/audio/reverb/module.yaml", "plugin: {}\n");
+    putFile("samples/audio/reverb/module.yaml", "plugin: {}\n");
     expect(
-      readFileSync(join(root, "playlists/audio/reverb/module.yaml"), "utf8"),
+      readFileSync(join(root, "samples/audio/reverb/module.yaml"), "utf8"),
     ).toBe("plugin: {}\n");
   });
 
   it("leaves no .part behind", () => {
     // Written beside and renamed: the moteur may be reading this tree, and a half-written
     // module.yaml is a project that won't compile.
-    putFile("playlists/a/module.yaml", "a\n");
-    expect(existsSync(join(root, "playlists/a/module.yaml.part"))).toBe(false);
+    putFile("samples/a/module.yaml", "a\n");
+    expect(existsSync(join(root, "samples/a/module.yaml.part"))).toBe(false);
   });
 
   it("moves the family's token, which the walk alone could not see", () => {
-    putFile("playlists/a/module.yaml", "a\n");
-    const before = familyRevision("playlists");
-    putFile("playlists/a/module.yaml", "b\n"); // same count, same tick, different bytes
-    expect(familyRevision("playlists")).not.toBe(before);
+    putFile("samples/a/module.yaml", "a\n");
+    const before = familyRevision("samples");
+    putFile("samples/a/module.yaml", "b\n"); // same count, same tick, different bytes
+    expect(familyRevision("samples")).not.toBe(before);
   });
 });
 
@@ -54,7 +54,7 @@ describe("what may not be written", () => {
   it("refuses derived state", () => {
     // Otherwise a caller could forge an index, or a cache's record of what it holds.
     expect(() => putFile(".cache/index.json", "{}")).toThrow(NotWritableError);
-    expect(() => putFile(".cache/manifest/playlists.json", "[]")).toThrow(
+    expect(() => putFile(".cache/manifest/samples.json", "[]")).toThrow(
       NotWritableError,
     );
   });
@@ -62,15 +62,15 @@ describe("what may not be written", () => {
 
 describe("taking a file out", () => {
   it("removes it and moves the token", () => {
-    putFile("playlists/a/module.yaml", "a\n");
-    const before = familyRevision("playlists");
-    removeFile("playlists/a/module.yaml");
-    expect(existsSync(join(root, "playlists/a/module.yaml"))).toBe(false);
-    expect(familyRevision("playlists")).not.toBe(before);
+    putFile("samples/a/module.yaml", "a\n");
+    const before = familyRevision("samples");
+    removeFile("samples/a/module.yaml");
+    expect(existsSync(join(root, "samples/a/module.yaml"))).toBe(false);
+    expect(familyRevision("samples")).not.toBe(before);
   });
 
   it("treats absent as done — the caller wanted it gone", () => {
-    expect(() => removeFile("playlists/never/there.yaml")).not.toThrow();
+    expect(() => removeFile("samples/never/there.yaml")).not.toThrow();
   });
 
   it("refuses the same paths a write does", () => {

@@ -82,13 +82,13 @@ Les deux mots se ressemblent, les deux choses n'ont rien à voir :
 | | la file d'attente | une playlist |
 |---|---|---|
 | ce que c'est | **ce qu'on écoute maintenant** | **un document** |
-| où elle vit | dans l'onglet, en mémoire | un fichier YAML sous `playlists/` |
+| où elle vit | dans l'onglet, en mémoire | un fichier YAML sous `_playlists/`, dans le dépôt |
 | qui la voit | cet onglet | tout le monde, et l'éditeur à gauche |
 | survit à | la navigation entre écrans | tout |
 
 Elle ne va donc pas sur le serveur, et elle disparaît au rechargement — comme la file de
-n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist
-(`packages/mediatek/docs/playlists.md`).
+n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist — qui s'écrit en l8
+désormais, sur ce même catalogue (`packages/song/docs/playlists.md`).
 
 ### Elle est tenue par la Library, pas par le provider
 
@@ -98,17 +98,21 @@ dont le clic droit remplit la file. Le hook `usePlayQueue` vit donc en haut et l
 reçoit en prop, puis le rediffuse — une seule file par onglet, au-dessus des écrans, comme le
 transport lui-même.
 
-### Deux choses savent enchaîner, une seule le fait à la fois
+### Une seule chose enchaîne, et c'est redevenu vrai
 
-Le panneau d'une playlist enchaîne, la file aussi. Toutes deux regardent `ended`, aucune ne
-voit l'autre : sans arbitrage, les deux démarreraient un morceau sur le même événement et le
-dernier écrit gagnerait, au hasard.
+Il y en avait deux : le panneau d'une playlist, et cette file. Toutes deux regardaient `ended`,
+aucune ne voyait l'autre, donc sans arbitrage les deux démarraient un morceau sur le même
+événement et le dernier écrit gagnait, au hasard. `claimAdvance()` était la revendication — un
+compteur et non un booléen, parce que deux panneaux peuvent être montés le temps d'une
+transition d'écran.
 
-`claimAdvance()` est la revendication. Le panneau la prend **tant qu'il pilote une ligne** — pas
-tant qu'il est ouvert, un panneau simplement affiché ne confisque rien — et la file s'abstient
-pendant ce temps. C'est un compteur et non un booléen : deux panneaux peuvent être montés le
-temps d'une transition d'écran, et le démontage du premier remettrait un booléen à faux alors
-que le second pilote encore.
+Le mécanisme est **retiré**, parce que le second prétendant est parti : les playlists s'ouvrent
+en l8, avec un transport à elles (`packages/song/docs/playlists.md`). Un arbitrage à un seul
+prétendant n'arbitre rien, et le garder ferait croire à un lecteur qu'il y en a deux.
+
+C'est écrit ici plutôt que simplement supprimé parce que la forme du bug est ce qui vaut d'être
+retenu : deux abonnés indépendants au même événement, chacun démarrant quelque chose, aucun ne
+sachant que l'autre existe. La prochaine chose qui saura enchaîner ici devra le reprendre.
 
 ### Le démarrage à froid
 
@@ -128,7 +132,7 @@ et on ajouterait un morceau sans nulle part où le voir.
 
 Un morceau sans master est **sauté** : la file continue. Une machine sans cache **arrête** — le
 défaut est celui de la destination et non de la ligne, et vider la file pour ça effacerait ce
-que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists, et pour la même
+que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists — parti en l8 —
 raison.
 
 Enfin, `enqueue` refuse les doublons et `moveTo` prend l'indice VOULU dans la liste finale —

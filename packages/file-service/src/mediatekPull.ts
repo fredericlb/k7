@@ -1,6 +1,6 @@
 // mediatekPull.ts — keeps this machine's médiathèque cache in step with the hosted library,
-// for what the open projects actually name: the modules their chains reach for, and the songs
-// an m9 set lists. Unattended, so a module edited in the médiathèque lands here on its own.
+// for what the open projects actually name: the songs the playlist a desk points at lists.
+// Unattended, so a song added to the set list in l8 lands here on its own before the gig.
 // See docs/mediatekPull.md.
 
 import { syncFamily } from "@studio/mediatek/cache";
@@ -43,7 +43,7 @@ let lastError = "";
  * mistake (see routes/mediatek.ts).
  *
  * What is left is what the hosted médiathèque still owns and a machine still plays from disk:
- * the songs an m9 set lists. Samples are fetched per clip, not by this loop.
+ * the songs a set's PLAYLIST lists. Samples are fetched per clip, not by this loop.
  */
 const PULLED = ["songs"] as const;
 
@@ -53,9 +53,14 @@ const PULLED = ["songs"] as const;
  * Two vocabularies, kept apart to the last step: a MODULE ref omits its family
  * (`@st0/audio/x` → `modules/audio/x/`) and a SONG ref carries one
  * (`@st0/songs/a/b/c` → `songs/a/b/c/`), so each is mapped by its own function and only
- * the results are merged. The songs are an m9 set's list, and they are the reason this loop
+ * the results are merged. The songs are a set's PLAYLIST, and they are the reason this loop
  * matters at all off the desk: the machine that plays them opens file paths, so every song in
  * the set has to be on its disk before the gig.
+ *
+ * The workspace ROOT goes down with the project directory, which it did not have to before: a
+ * playlist lives beside `_modules` at the top of the repository rather than inside the project
+ * (`@studio/song/docs/playlists.md`), so answering "what does this set name" now needs both
+ * halves. `mediatekSongRefs` is where the two meet, and the only place they do.
  */
 function scope(): Record<(typeof PULLED)[number], string[]> {
   const songs = new Set<string>();
@@ -64,7 +69,8 @@ function scope(): Record<(typeof PULLED)[number], string[]> {
     if (!dir) continue;
     // The modules a project names used to be gathered here too. They come with the workspace
     // now — a checkout, not a fetch — so there is nothing to scope and nothing to diff.
-    for (const ref of mediatekSongRefs(dir)) songs.add(songPathPrefix(ref));
+    for (const ref of mediatekSongRefs(dir, ws.root))
+      songs.add(songPathPrefix(ref));
   }
   return { songs: [...songs].sort() };
 }

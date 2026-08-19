@@ -20,9 +20,9 @@ type: l8
 # is what puts an arrangement on screen; a folder without one opens on its
 # chains graph, and the transport and the minimap go with the timeline.
 #
-# A SET adds two files rather than a keyword: a `songs.yaml` and a
-# `surfaces/desk.yaml`. Two decks meeting at a crossfade, a list to play
-# through them, and no timeline. Nothing else distinguishes one.
+# A SET adds a `surfaces/desk.yaml` rather than a keyword, and that file
+# names the PLAYLIST it plays through. Two decks meeting at a crossfade, a
+# set list to play through them, and no timeline. Nothing else marks one.
 #
 # There used to be a `project_type:` line here saying `arrangement` or
 # `live`. It is gone: it was a second declaration free to disagree with the
@@ -84,6 +84,18 @@ type: turntables
 # desk could one day be a panel instead.
 layout: view
 
+# Which songs its browser lists — the PLAYLIST this set draws on. A name under
+# `_playlists/` at the root of the repository, not a path: the folder is fixed.
+# Subfolders are kept, so `live/repet` is a playlist filed under `live/`.
+#
+# This is what puts the twelve songs to hand tonight in front of you rather than
+# the two hundred and seventy-nine on the volume. The songs themselves stay in
+# the médiathèque; a playlist only names them. Write one in l8, under the cog.
+#
+# A desk that names none still draws, and says so on its browser — a set list is
+# something you choose, not something a project cannot open without.
+playlist: ete-2026
+
 # What each of its components moves. Same shape as `views/mix.yaml`: the
 # control's id, then the module the CHAINS file names and the param as the
 # module's `ui.yaml` binds it.
@@ -100,9 +112,13 @@ mapping:
   deckA.eqLow: { module: eqA, param: Low }
 ```
 
-A `turntables` surface plays a **set**: a `songs.yaml` at the project root naming médiathèque
-songs. That file and this surface are the whole of what makes a project a set — there is no
-other kind of folder for one, and no other app that opens it.
+A `turntables` surface plays a **set**, and its `playlist:` says which one — a playlist in
+`_playlists/` at the root of your repository, written on the Playlists screen under the cog.
+That surface is the whole of what makes a project a set: there is no other kind of folder for
+one, and no other app that opens it.
+
+The songs themselves stay in the médiathèque. A playlist only names them, which is why the same
+one can serve two projects and why fixing a song fixes every set that plays it.
 
 ## settings.yaml
 

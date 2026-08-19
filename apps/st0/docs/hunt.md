@@ -250,37 +250,24 @@ peuvent contenir n'importe quoi. Ils traversent ici deux endroits, et chacun a s
 
 Rien de ce qu'un inconnu a tapé ne devient donc un chemin.
 
-## Ajouter automatiquement à une playlist
+## Ce que la chasse ne fait plus : viser une playlist
 
-Sous le champ, un menu « Ajouter automatiquement à la playlist : », à **Non** par défaut. Tout
-morceau trouvé pendant qu'une playlist est choisie y est ajouté une fois rangé.
+Il y avait, sous le champ, un menu « Ajouter automatiquement à la playlist : ». Le morceau trouvé
+y était ajouté dès qu'il était rangé, le choix figé sur la ligne au lancement parce qu'une
+recherche dure des minutes et que le menu à l'écran appartient déjà à la suivante.
 
-**Le choix est figé sur la LIGNE, au lancement** — pas relu quand le téléchargement se termine.
-C'est la décision qui compte ici : une recherche dure des minutes, donc le menu à l'écran
-appartient déjà à la suivante. Quatre recherches lancées puis le menu changé atterriraient
-autrement toutes dans la dernière playlist choisie, ce qui n'est l'intention de personne. La
-ligne affiche donc sa playlist, sans quoi deux recherches aux choix différents se
-ressembleraient.
+Il est parti avec les playlists. Elles vivent dans le dépôt de l'espace de travail maintenant
+(`packages/song/docs/playlists.md`), c'est-à-dire sur le disque du service de fichiers — que ce
+service-ci ne touche pas. Et il ne faut pas qu'il le touche : `docs/projects.md` pose que celui
+qui mint la session de tout le monde et détient l'unique clé de déploiement ne doit pas en plus
+pouvoir écrire dans le dépôt de chacun. Un « juste une ligne de YAML » qui coûte cette
+propriété-là est cher.
 
-Ça vaut aussi pour le **secours YouTube** : la ligne porte le choix, et le secours reprend la
-ligne. Un morceau récupéré autrement manquerait sinon à la setlist sans le dire.
-
-L'écriture passe par `appendPlaylistItem`, donc **au niveau du texte** : ces fichiers portent des
-commentaires et un ordre choisis à la main, et repasser par un sérialiseur les jetterait sans
-bruit (voir packages/mediatek/docs/playlists.md). La référence écrite est relative à `songs/`,
-comme celles qu'écrit le panneau des playlists — sinon un même fichier tiendrait deux
-orthographes de la même chose. Un morceau déjà présent n'est pas redoublé.
-
-### Un demi-succès reste vert
-
-Playlist disparue, `items:` d'une forme que l'ajout ne sait pas étendre : le morceau **est**
-rangé dans la médiathèque, seule la ligne de playlist manque. La ligne reste donc verte et dit
-la plainte à côté. La rougir prétendrait que le téléchargement a échoué — c'est faux, et ça
-enverrait le refaire alors qu'il n'y a qu'une ligne à taper à la main.
-
-La route valide que le chemin ressemble à `playlists/….yaml` avant de lancer quoi que ce soit.
-`writablePath` refuserait un `..` de toute façon, mais dix minutes plus tard : nommer la faute
-tout de suite vaut mieux que la faire découvrir à l'arrivée.
+Ce qui reste est le partage honnête : **la chasse range le morceau dans la médiathèque**, et
+l'ajouter à une setlist est un clic dans l8, sur exactement ce catalogue-là — sa recherche
+interroge `/api/mediatek/list?family=songs` (`apps/l8/frontend/docs/playlists.md`). Le geste
+perdu est le regroupement automatique de huit recherches d'affilée ; il se refait en huit clics
+dans un écran qui, lui, montre la setlist pendant qu'on la remplit.
 
 ## Le secours : « DL sur YouTube »
 

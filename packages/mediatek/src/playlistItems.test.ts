@@ -1,4 +1,3 @@
-import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import {
   findSong,
@@ -7,7 +6,8 @@ import {
   resolveItems,
   songMatches,
   songRef,
-} from "./playlistItems";
+} from "./playlistItems.ts";
+import type { MediatekEntry } from "./types.ts";
 
 const song = (
   path: string,

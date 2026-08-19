@@ -2,9 +2,9 @@
 // actually holds. Its own adapter and not `schemaVocabulary`, which answers for a l8 PROJECT
 // and rightly says nothing about a médiathèque file. Pure. See ../docs/completion.md.
 
+import { songRef } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import type { YamlVocabulary } from "@studio/ui-editor/yaml/completions";
-import { songRef } from "./playlistItems";
 
 /** The two fields `parsePlaylist` reads at the top level, and the two an item may carry. */
 const FILE_FIELDS = ["title", "items"];

@@ -3,15 +3,19 @@
 // "which ones are those" — and it has to answer from the FILES, before the loader can resolve
 // them, since a ref that resolves to nothing is exactly the one worth fetching.
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   loadChains,
   loadModules,
   loadProjectRoot,
-  loadSongs,
   projectModules,
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
 import { splitModuleKey } from "./moduleTypes";
+import { parsePlaylist, playlistPathOf } from "./playlist";
+import { songRefOf } from "./songRef";
+import { projectSurfaces } from "./surfaces";
 import type { GraphFile } from "./yaml/graphSchema";
 
 const PREFIX = `${MEDIATEK_REF}/`;
@@ -80,26 +84,58 @@ export function mediatekRefs(dir: string): string[] {
 }
 
 /**
- * Every médiathèque SONG this project names — an m9 set's list, and empty for an l8 song.
+ * Every médiathèque SONG this project names — a set's list, and empty for a project with no
+ * desk.
  *
- * A thin wrapper over `loadSongs`, and here rather than left to callers because this file is
- * where "what does this project reach for" is answered, and a cache sync has exactly one
- * question to ask. The two halves stay SEPARATE functions returning separate vocabularies
- * (`modules/…` against `songs/…`): a module ref omits its family and a song ref carries one,
- * so a single merged list would need to be taken apart again by whoever fetches it.
+ * Here rather than left to callers because this file is where "what does this project reach
+ * for" is answered, and a cache sync has exactly one question to ask. The two halves stay
+ * SEPARATE functions returning separate vocabularies (`modules/…` against `songs/…`): a module
+ * ref omits its family and a song ref carries one, so a single merged list would need to be
+ * taken apart again by whoever fetches it.
  *
  * This is what the file is FOR. A set names forty songs; the machine that plays them opens
  * file paths, so all forty must be on its disk before the gig, and the venue has no wifi.
+ *
+ * **Two arguments, because the answer is in two places now.** It used to read the project's own
+ * `songs.yaml` and needed nothing else. The list is the PLAYLIST the desk's surface names, and a
+ * playlist lives at the WORKSPACE root — the repository, beside `_modules` — so this needs the
+ * folder above as well as the project. That is the cost of a set list being a document other
+ * projects can open, and it is paid once, here.
+ *
  * Read off the YAML before anything resolves it, for the reason the modules above are: a ref
- * that resolves to nothing is precisely the one worth fetching.
+ * that resolves to nothing is precisely the one worth fetching. A line naming a song by its
+ * bare TITLE is therefore skipped — resolving that needs the catalogue, which is the thing
+ * being synced — so it arrives on the desk as a song the cache has not got, which it is. The
+ * unambiguous form is what a click writes, and what the desk's own listing offers.
  */
-export function mediatekSongRefs(dir: string): string[] {
+export function mediatekSongRefs(dir: string, workspace: string): string[] {
+  let name: string | undefined;
   try {
-    return loadSongs(dir);
+    name = projectSurfaces(dir).surfaces.find(
+      (s) => s.surface.type === "turntables",
+    )?.surface.playlist;
   } catch {
-    /* an unreadable set list costs the songs, never the modules */
-    return [];
+    return []; // an unreadable surfaces/ costs the songs, never the modules
   }
+  if (!name) return [];
+  const rel = playlistPathOf(name);
+  if (!rel) return [];
+
+  let text: string;
+  try {
+    text = readFileSync(join(workspace, rel), "utf8");
+  } catch {
+    return []; // a playlist that is not there is the desk's message to give, not this loop's
+  }
+  const items = parsePlaylist(text)?.items ?? [];
+  const out = new Set<string>();
+  for (const item of items) {
+    const ref = item.song.replace(/^\/+|\/+$/g, "");
+    // The path form only — `artist/album/title`, which is what a click writes. A bare title is
+    // a name the catalogue resolves, and this runs to POPULATE that catalogue.
+    if (ref.includes("/")) out.add(songRefOf(`songs/${ref}`));
+  }
+  return [...out].sort();
 }
 
 /**

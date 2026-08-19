@@ -13,14 +13,15 @@
     "./catalogue": "./src/catalogue.ts",
     "./media": "./src/media.ts",
     "./song": "./src/song.ts",
-    "./playlist": "./src/playlist.ts",
     "./recordings": "./src/recordings.ts",
     "./ingest": "./src/ingest.ts",
     "./manifest": "./src/manifest.ts",
     "./remote": "./src/remote.ts",
     "./cache": "./src/cache.ts",
     "./evict": "./src/evict.ts",
-    "./write": "./src/write.ts"
+    "./takes": "./src/takes.ts",
+    "./write": "./src/write.ts",
+    "./playlistItems": "./src/playlistItems.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -30,7 +31,8 @@
   },
   "dependencies": {
     "@studio/engine-client": "*",
-    "yaml": "^2.5.0"
+    "yaml": "^2.5.0",
+    "@studio/song": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

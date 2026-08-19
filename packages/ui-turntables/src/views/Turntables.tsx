@@ -26,6 +26,9 @@ export function Turntables({
   deck,
   set,
   mapping,
+  /** Which playlist the surface names — the songs its browser lists. Carried through rather
+   *  than read here: `useDeckSet` has already read the file, and this only names it. */
+  playlist,
   /** The surface's own file, so the message can name what to edit. */
   file,
 }: {
@@ -33,6 +36,7 @@ export function Turntables({
   deck: Deck;
   set: DeckSet;
   mapping: Mapping | undefined;
+  playlist?: string;
   file: string;
 }) {
   const missing = unmappedControls(mapping);
@@ -59,5 +63,13 @@ export function Turntables({
       </div>
     );
 
-  return <MixView engine={engine} deck={deck} set={set} />;
+  return (
+    <MixView
+      engine={engine}
+      deck={deck}
+      set={set}
+      playlist={playlist}
+      file={file}
+    />
+  );
 }

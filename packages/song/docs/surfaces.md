@@ -301,10 +301,23 @@ The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./en
 satisfies from the link its shell already holds; see that package's
 [docs/hosting.md](../../ui-turntables/docs/hosting.md).
 
-A turntables surface plays a **set**: `songs.yaml` at the project root, read through
-`@studio/song/yaml/songsFile`. That file names médiathèque songs and nothing about it is
-desk-specific, so an `.l8` folder with a `songs.yaml` beside its `surfaces/` is a set
-([setProject.md](setProject.md)).
+A turntables surface plays a **set**, and it says which one: `playlist:`, a name under the
+workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser
+lists — the twelve songs to hand tonight rather than the two hundred on the volume.
+
+**The only surface type with a parameter of its own**, and the schema refuses it on the other
+two: a `timeline` or a `viewport` draws no song browser, so a playlist on one names something
+nothing reads. Refused rather than ignored, for the reason the object is `.strict()` — a field
+that is accepted and does nothing sends whoever wrote it looking elsewhere.
+
+It is OPTIONAL, like `mapping` and for the same reason: a desk that names none still draws and
+says so on its browser, which is a sentence you can act on. Refusing the file would refuse to
+open the project over a set list nobody has chosen yet.
+
+A playlist is not desk-specific and is not the project's either — it is a document in the
+repository, shared by every project in the workspace and written in l8 under the cog. That is
+why bringing the desk to l8 needed no set-list concept invented for l8: an `.l8` folder whose
+`surfaces/` names a playlist is a set ([setProject.md](setProject.md)).
 
 ### One writer for one engine
 

@@ -514,14 +514,15 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  /** `playlist` est figée sur la ligne au lancement : une recherche dure des minutes, et le
-   *  menu de l'écran appartiendra alors à la suivante. */
-  start: async (query: string, playlist?: string): Promise<HuntRecord> =>
+  /** La recherche range le morceau dans la médiathèque, et s'arrête là. Elle visait aussi une
+   *  playlist ; celles-ci vivent dans le dépôt du workspace maintenant, hors de portée de ce
+   *  service — l'ajout se fait dans l8, sur ce même catalogue. Voir hunt/hunt.ts. */
+  start: async (query: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query, playlist }),
+        body: JSON.stringify({ query }),
       }),
       "hunt",
     ),

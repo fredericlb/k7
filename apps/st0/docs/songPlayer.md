@@ -145,7 +145,7 @@ que c'est une seule question posée d'une seule façon : « à quoi ressemble ce
 panneau ne dessinait que le master, et une variante était un nom dans une liste dont on
 n'entendait rien sans passer par le graphe de la chaîne, en dessous.
 
-`songTakes.ts` tient la forme, hors composant et donc testable : une version, c'est un nom, un
+`@studio/mediatek/takes` tient la forme, hors composant et donc testable : une version, c'est un nom, un
 genre et le fichier qu'elle est.
 
 | genre | son audio |

@@ -90,7 +90,11 @@ export function SurfaceTab({
    */
   const engine = useMemo(() => ({ fileBase: cfg().base }), []);
 
-  const set = useDeckSet(deck, project, graph, rev ?? "", mapping);
+  /** The playlist the declaration names — a plain string off the surface, so it needs no
+   *  memo of its own; `useDeckSet` takes it as an effect dependency. */
+  const playlist = surface.surface.playlist;
+
+  const set = useDeckSet(deck, project, graph, rev ?? "", mapping, playlist);
 
   // Everything above this line runs whether or not the screen is showing; everything below it
   // is the screen. Nothing may be added above that belongs to the drawing, and nothing below
@@ -114,7 +118,7 @@ export function SurfaceTab({
           Fermer
         </Button>
       </div>
-      {drawn(surface, engine, deck, set, mapping)}
+      {drawn(surface, engine, deck, set, mapping, playlist)}
     </div>
   );
 }
@@ -126,6 +130,7 @@ function drawn(
   deck: Deck,
   set: ReturnType<typeof useDeckSet>,
   mapping: ProjectSurface["surface"]["mapping"],
+  playlist: ProjectSurface["surface"]["playlist"],
 ) {
   switch (surface.surface.type) {
     case "turntables":
@@ -135,6 +140,7 @@ function drawn(
           deck={deck}
           set={set}
           mapping={mapping}
+          playlist={playlist}
           file={surface.file}
         />
       );

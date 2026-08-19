@@ -61,7 +61,7 @@ Ce qui part en premier est ce dont on n'a jamais besoin dans l'instant :
 | les onglets de section | `sm` | ils passent dans le hamburger de la barre partagée |
 | le nom de la section (sous-titre) | 420 px | seuil de `AppHeader`, pas le nôtre |
 
-Les éditeurs en deux volets (chaîne, playlist, morceau) **s'empilent** au lieu de se partager la
+L'éditeur en deux volets (le morceau) **s'empile** au lieu de se partager la
 largeur : deux moitiés d'un écran de téléphone font deux colonnes où rien ne tient. Le YAML
 prend la moitié haute, ce qu'il décrit la moitié basse — le même ordre que de gauche à droite.
 

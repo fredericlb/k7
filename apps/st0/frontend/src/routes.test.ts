@@ -94,28 +94,18 @@ describe("fromLocation", () => {
     expect(fromLocation("/songs/%zz/song.yaml").file).toBe("%zz/song.yaml");
   });
 
-  it("opens a song and a playlist from the address", () => {
+  it("opens a song from the address", () => {
     // The regression this guards is not the deep link but the LOOP: a section that opens an
     // editor and cannot read its own address writes a URL, reads back the bare section, and
     // shuts the editor a tick later. `chains` did exactly that, and is gone; the shape of the
-    // mistake is why both survivors are tested here.
+    // mistake is why the one survivor is still tested here.
     expect(
       fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
     ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
-    expect(fromLocation("/playlists/live/set.yaml")).toEqual(
-      st({ section: "playlists", file: "live/set.yaml" }),
-    );
-  });
-
-  it("opens a playlist, whose file is the whole of the second half", () => {
-    // One segment where a song has four: the file IS the entry, so there is no folder in
-    // front of it. `folderOf` therefore answers null here, and nothing asks it to.
-    expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(
-      st({ section: "playlists", file: "ete-2026.yaml" }),
-    );
-    expect(fromLocation("/playlists/live/repet.yaml")).toEqual(
-      st({ section: "playlists", file: "live/repet.yaml" }),
-    );
+    // A section that carries nothing drops what follows it rather than 404ing inside the app:
+    // `playlists` is l8's now, and an old bookmark lands on the default section.
+    expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(st());
+    // A lone file name has no folder in front of it, which is the null `folderOf` answers.
     expect(folderOf("ete-2026.yaml")).toBeNull();
   });
 
@@ -127,11 +117,6 @@ describe("fromLocation", () => {
       st({ section: "recordings" }),
       songs({ file: "Miles/Kind-of-Blue/So-What/song.yaml" }),
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
-      st({ section: "playlists", file: "live/set.yaml" }),
-      // A playlist's file IS its entry, so the second half is one segment shorter than the
-      // three above — no folder to pair it with. See packages/mediatek/docs/playlists.md.
-      st({ section: "playlists", file: "ete-2026.yaml" }),
-      st({ section: "playlists", file: "live/repet du jeudi.yaml" }),
       // The cog's engine-status page: a section with no tab, and no file to carry.
       st({ section: "engine" }),
       // « Trouver des morceaux », the other tabless one — a PAGE rather than a dialogue,

@@ -22,33 +22,36 @@ export function setProjectFiles(name: string): Record<string, string> {
       `#\n` +
       `# There is no arrangement, and nothing here says so: a project draws what it DECLARES,\n` +
       `# and this one declares no \`surfaces/timeline.yaml\`. What makes it a set rather than a\n` +
-      `# bare rig is the two files it DOES have: \`songs.yaml\`, and the \`turntables\` surface in\n` +
-      `# \`surfaces/\`. See packages/song/docs/setProject.md.\n` +
+      `# bare rig is the \`turntables\` surface in \`surfaces/\` — and the PLAYLIST that surface\n` +
+      `# names, which is where the songs come from. See packages/song/docs/setProject.md.\n` +
       `project:\n` +
       `  name: ${q(name)}\n` +
       `  # The rate the decks are played at. No tempo and no time signature: a set has no bars.\n` +
       `  sampleRate: 48000\n`,
 
     "songs.yaml":
-      `# The set list — which of the médiathèque's songs this set draws on.\n` +
+      `# The CUE SHEET — where THIS set's cue points are, song by song.\n` +
+      `#\n` +
+      `# It does NOT say which songs the set plays: that is the playlist \`surfaces/desk.yaml\`\n` +
+      `# names, a file in \`_playlists/\` at the root of the repository, written in l8 under the\n` +
+      `# cog. See packages/song/docs/playlists.md.\n` +
+      `#\n` +
+      `# What is left here is the half a playlist has no place for. A cue belongs to the DESK\n` +
+      `# that plays a song, not to a list other sets read: two bands covering the same track\n` +
+      `# drop the needle in two different places, and a playlist carrying one set's marks would\n` +
+      `# hand them to the other.\n` +
+      `#\n` +
+      `# The desk writes this file itself — you drop a cue and the line appears. It is here to\n` +
+      `# be read, corrected and committed, not filled in by hand.\n` +
       `#\n` +
       `# A ref is \`@st0/\` followed by the médiathèque id, verbatim, and the ids are what\n` +
       `# st0 shows: \`songs/<artiste>/<album>/<titre>\`. Quote them — a plain scalar may not\n` +
       `# open with \`@\` in YAML.\n` +
       `#\n` +
-      `# UNORDERED. The running order is decided at the desk, so the list is sorted for\n` +
-      `# display and its line order means nothing. What it IS for: the machine that plays the\n` +
-      `# set opens file paths, so everything named here is pulled into that machine's cache\n` +
-      `# before you need it — which is the difference between a set list and a folder of files.\n` +
+      `# \`markers\` is the desk's eight cue buttons, positional, in seconds into the FILE —\n` +
+      `# never the transport's clock, which moves the moment somebody touches a tempo fader:\n` +
       `#\n` +
-      `# The refs stay live: fix a song in the médiathèque and every set naming it is fixed.\n` +
-      `#\n` +
-      `# An entry is a bare ref, or a ref that CARRIES something. Today that is \`markers\` —\n` +
-      `# the desk's eight cue buttons, positional, in seconds into the FILE. A song with\n` +
-      `# nothing to say stays one line, which is every song until somebody drops a cue:\n` +
-      `#\n` +
-      `#  - "@st0/songs/artiste/album/titre"\n` +
-      `#  - ref: "@st0/songs/artiste/album/autre"\n` +
+      `#  - ref: "@st0/songs/artiste/album/titre"\n` +
       `#    markers: [ 12.5, null, 48.25 ]   # boutons 1 et 3; le 2 est vide\n` +
       `songs: []\n`,
 
@@ -142,8 +145,17 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# map line up key for key.\n` +
       `#\n` +
       `# The control ids: see packages/ui-turntables/docs/controls.md for the list.\n` +
+      `#\n` +
+      `# \`playlist\` is what the song browser lists — the twelve songs to hand tonight rather\n` +
+      `# than the two hundred and seventy-nine on the volume. A NAME under \`_playlists/\` at the\n` +
+      `# root of the repository, not a path: the folder is fixed. Write the playlists themselves\n` +
+      `# in l8, under the cog. See packages/song/docs/playlists.md.\n` +
+      `#\n` +
+      `# Left commented because a new set has no set list yet — the desk says so on its browser\n` +
+      `# until this line names one, which is a sentence you can act on.\n` +
       `type: turntables\n` +
       `layout: view\n` +
+      `# playlist: ete-2026\n` +
       `mapping:\n` +
       `  crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
       `  deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +

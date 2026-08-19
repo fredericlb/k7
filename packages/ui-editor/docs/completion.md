@@ -27,14 +27,16 @@ backend has been filling from the same scan cache the engine writes.
 ## The third layer, and why the path cannot always say
 
 `schemaVocabulary(path, hints)` is the adapter to a **studio project**: it maps a path to a
-`FileKind` and asks `@studio/song`. A médiathèque playlist is not a project file, so
-`fileKindFor` answers null and the vocabulary is empty — correctly, since a playlist's values
-are songs and `@studio/song` has no business knowing what a song listing looks like.
+`FileKind` and asks `@studio/song`. A playlist is not a project file, so `fileKindFor` answers
+null and the vocabulary is empty — correctly, since a playlist's values are SONGS, and knowing
+what a song listing looks like is the médiathèque's business rather than the compiler's. (The
+parser moved into `@studio/song` when playlists became a workspace folder; the listing did not,
+and that is exactly the line this paragraph is about.)
 
 So `YamlPane` takes an optional `vocabulary`, and the surface that holds the listing supplies
 one. That is a seam rather than a special case: the alternative was teaching the project
-schemas about the médiathèque's file formats, which would put the library's vocabulary inside
-the package that must not depend on it.
+schemas about a catalogue's shape, which would put the library's vocabulary inside the package
+that must not depend on it.
 
 The pane reads that vocabulary through a **ref**. It used to be a dependency of the memo that
 builds the extension set, which meant a songs listing polled every three seconds reconfigured
