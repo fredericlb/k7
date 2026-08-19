@@ -39,6 +39,10 @@ backdrop: it is the bar, not content beside it.
 
 ## One level, deliberately
 
+The one thing that fills pages in bulk is **Auto organize**, which proposes a whole panel — one
+tabs widget, one page per family of parameters — from the parameter list alone. It writes the
+same shape this grid edits, and it obeys the coordinate rule above: see `autoLayout.md`.
+
 `pages` nests — a tabs widget inside a page is legal YAML — but the **Add** button refuses
 `tabs` while you are on a page, disabled with a reason rather than silently doing nothing. A
 grid that could descend forever needs a breadcrumb nobody can read at a glance, and nothing

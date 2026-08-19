@@ -299,6 +299,45 @@ export const api = {
     };
   },
 
+  /**
+   * …and that same plugin's own WINDOW, on an instance belonging to no project.
+   *
+   * The other half of `scanPluginParams`. That one answers what the parameters are CALLED, which
+   * is what a bind list needs; this opens what the plugin itself draws, which is how you find out
+   * what one of those names does before binding a widget to it.
+   *
+   * ORPHAN, and the limit matters more than the feature: the engine loads the plugin on its
+   * offline edit, on no track and no session, so NOTHING TOUCHED IN THAT WINDOW IS SAVED. It is
+   * for looking, and the module's text is still where a value is set.
+   *
+   * The window opens on the ENGINE's machine. Same seconds as the scan, since it is the same
+   * binary being loaded, so a caller has to say it is working.
+   */
+  showPluginNativeUI: (ref: string) =>
+    fget<{ opening: string }>(
+      `/plugin-native-ui?ref=${encodeURIComponent(ref)}`,
+    ),
+
+  /**
+   * …and keeping what is in that window: the plugin's state as a named base in the module's own
+   * `base/` folder.
+   *
+   * `path` is the module file being edited — the SERVER derives the folder from it, because a
+   * base is a file the browser has no business locating. The error bodies are worth passing
+   * through verbatim: the common failure is "no window opened yet", which is the user's to fix
+   * and reads as nonsense if flattened to "could not save".
+   */
+  /** The bases this module may be set to — its own and its ancestors'. See moduleBases below. */
+  moduleBases: (path: string) =>
+    fget<{ bases: string[] }>(`/module-base?path=${encodeURIComponent(path)}`),
+
+  snapshotModuleBase: (path: string, name: string, ref: string) =>
+    fsend<{ path: string }>("POST", "/module-base/snapshot", {
+      path,
+      name,
+      ref,
+    }),
+
   // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
   // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.
   listUserPresets: (ref: string) =>
@@ -451,6 +490,14 @@ export const moduleStore: ModuleStore = {
     if (!ref) return {}; // the project's own — saved, and there is nowhere else for it to go
     return api.publishLibraries(`${ref}`);
   },
+  /**
+   * Keep the plugin's current state as a named base. Straight through to the route, which is the
+   * only side that knows where `base/` is for this module — see `ModuleStore.snapshotBase`.
+   */
+  snapshotBase: (path, name, ref) => api.snapshotModuleBase(path, name, ref),
+  /** …and what it may be set TO. The ancestry is the server's to walk — a thin local module has
+   *  none of its own, and the shared one it extends is where the bases actually live. */
+  bases: async (path) => (await api.moduleBases(path)).bases,
   write: async (path, content) => {
     const { forked } = await api.write(path, content);
     if (!forked) return {};

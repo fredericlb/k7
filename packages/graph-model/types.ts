@@ -114,6 +114,17 @@ export interface WebChainStep {
   // …and what it may choose FROM: the module's own assets/, walked. Per module and not per
   // graph, because there is no shared library any more — the choices are the folder's contents.
   assetChoices?: string[];
+  /** Which named BASE this module is on — the opaque `.vstpreset` under its params — and what it
+   *  may choose FROM: its own `base/` folder plus every module it extends, nearest first.
+   *
+   *  Beside `assets`/`assetChoices` because it is the same shape of answer, and sent for the same
+   *  reason: the folder's contents are a fact only this side can read, and a dropdown offering a
+   *  base the module does not have would write a name that resolves to nothing.
+   *
+   *  `bases` is absent on a module with none, which is most of them — that absence is what the
+   *  builder and the graph both read as "no base control here". */
+  base?: string;
+  bases?: string[];
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
   notSupported?: boolean; // plugin.type is "not_supported" — l8 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed

@@ -181,6 +181,22 @@ answer overriding the ranker's for one card. The mixer row ignores pins entirely
 dragged out of the line would put a console's channel wherever it last was), and the graph
 panel honours them, so a module sits in one place whichever pane is looking.
 
+**Zoomed out, the whole card is the handle.** Past the widget threshold a node draws as its
+name alone and has no header to grab (`Node`'s far branch) — so the card itself takes the
+press, and the pin gesture is the same one. It has to be: the zoom you move a card at is the
+zoom you can see where it is going, and a graph you must zoom INTO to rearrange is one that
+stops answering exactly when the arrangement is the question. A drag that travelled swallows
+its trailing click at either zoom, so nudging a card no longer toggles the selection under
+the hand.
+
+**Above the first track is a place like any other.** A pin may be negative on either axis:
+you drag a card up past the top row and it stays there. The drop used to clamp to `0,0`, so
+a card dragged upward stuck to the edge and slid sideways under the hand — because the camera
+fit framed `width × height` from the origin and anything above it was outside every frame the
+camera could be asked for. The layout now reports where the drawing BEGINS as well as how far
+it reaches (`LaidOutGraph`'s `left`/`top`, both ≤ 0 and both 0 for a graph nobody dragged),
+and the fit frames that box. `graph move` and a node's birthplace dropped their clamps with it.
+
 **A new node is born under the cursor.** The graph's create flows carry the click's world
 point into the verb itself — an optional trailing `x,y` on `node new` and `node insert` — and the
 handler pins the node there in the same undo step. On the bare canvas that is the whole of it:

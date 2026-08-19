@@ -307,6 +307,10 @@ const CSS = `
   text-overflow:ellipsis; color:#e7e6ea; }
 .dgx-far.stub { color:#f87171; }
 .dgx-far.unsupported { color:#fbbf24; }
+/* GRAB — with no header at this zoom the whole card is the handle, so it wears the header's
+   cursor. Three classes, so it outranks .dgx-node.tappable's pointer. */
+.dgx-node.far.grab { cursor:grab; }
+.dgx-node.far.grab:active { cursor:grabbing; }
 .dgx-hd { position:absolute; top:0; left:0; right:0; display:flex; align-items:center; gap:7px;
   padding:7px 10px; box-sizing:border-box; border-bottom:1px solid #2f2f36; border-radius:11px 11px 0 0;
   background:linear-gradient(180deg,rgba(255,255,255,.015),transparent); }
@@ -748,7 +752,15 @@ function moduleFieldValue(
     const arg = n.channel.join(",");
     return w.options?.find((o) => o.arg === arg)?.value;
   }
-  const current = field === "monitor" ? n.monitor : undefined;
+  // A base is matched on the label like `monitor`, because the label IS the name written in the
+  // file. An unset base shows `none` rather than nothing: the entry exists so the choice can be
+  // undone, and a blank dropdown would leave the one module state you cannot get back to unnamed.
+  const current =
+    field === "monitor"
+      ? n.monitor
+      : field === "base"
+        ? (n.base ?? "none")
+        : undefined;
   if (current === undefined) return undefined;
   return w.options?.find((o) => o.label === current)?.value;
 }
@@ -2066,8 +2078,12 @@ function NodeInner({
     const label = n.label || (n.kind === "sink" ? "OUT" : n.kind);
     return (
       <div
-        className={cls}
+        className={`${cls}${onHeaderDrag ? " grab" : ""}`}
         data-node-id={n.id}
+        // There is no header at this zoom, so the whole card is the handle — the pin gesture is
+        // the same one, and a card you cannot move until you zoom in is a card that stopped
+        // answering. Nothing else on it takes the press: the far card draws a glyph and a name.
+        onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
         style={{
           left: n.x,
           top: n.y,
@@ -3632,7 +3648,12 @@ export function DomChains({
       !Number.isFinite(graph.height)
     )
       return false;
-    if (!graph.width || !graph.height) return false;
+    // The BOX, not the extent: a pin may sit above the first track or left of it, and `left`/`top`
+    // are how far. Both 0 on a graph nobody dragged, so this is the same frame it always was —
+    // and it is this, not the extent, that is empty when there is nothing to frame.
+    const gw = graph.width - graph.left;
+    const gh = graph.height - graph.top;
+    if (!gw || !gh) return false;
     const sw = host.clientWidth;
     const sh = host.clientHeight;
     if (!sw || !sh) return false;
@@ -3642,20 +3663,20 @@ export function DomChains({
     // the song gains, and a mixer you cannot read is worse than one you have to scroll.
     const k = clampZoom(
       fitAxis === "height"
-        ? (sh / graph.height) * pad
-        : Math.min((sw / graph.width) * pad, (sh / graph.height) * pad),
+        ? (sh / gh) * pad
+        : Math.min((sw / gw) * pad, (sh / gh) * pad),
     );
     // Framed, so from here the camera is worth remembering — `place` persists it.
     fitted.current = true;
     place({
       k,
       // Height-fitted content usually overflows; pin it to the left edge rather than centring it
-      // off screen, so the first strip is the one you see.
+      // off screen, so the first strip is the one you see. Each offset then carries the box's own
+      // corner to that place, which is what puts a card pinned at y = -300 on screen.
       x:
-        fitAxis === "height" && graph.width * k > sw
-          ? 0
-          : (sw - graph.width * k) / 2,
-      y: (sh - graph.height * k) / 2,
+        (fitAxis === "height" && gw * k > sw ? 0 : (sw - gw * k) / 2) -
+        graph.left * k,
+      y: (sh - gh * k) / 2 - graph.top * k,
     });
     return true;
   };
@@ -4603,6 +4624,10 @@ export function DomChains({
       "[data-node-id]",
     ) as HTMLElement | null;
     if (!el) return;
+    // A press STARTS a gesture, so it can never be the click that ended a pan — and it no
+    // longer arms one, having just stopped the propagation that would. Same reason the jacks
+    // clear it themselves: one pan would otherwise leave every card dead.
+    suppressClick.current = false;
     nodeDrag.current = {
       n,
       el,
@@ -4636,10 +4661,17 @@ export function DomChains({
         d.el.style.transform = "";
         return;
       }
-      // Clamped to the world's origin: the fit frames 0.. and a pin at -300 would sit
-      // outside every frame the camera can be asked for.
-      const x = Math.max(0, Math.round(d.n.x + d.dx));
-      const y = Math.max(0, Math.round(d.n.y + d.dy));
+      // It travelled, so the click that follows is the tail of the drag rather than a tap:
+      // swallow it. It matters most on the far card, where the WHOLE card is the handle —
+      // every nudge would otherwise toggle the selection under the hand.
+      suppressClick.current = true;
+      // Wherever it was let go, including ABOVE the first track or left of it. It used to be
+      // clamped to the origin, back when the fit framed 0..: a card dragged up there stuck to
+      // the top edge and slid sideways under the hand. The layout now reports where the drawing
+      // BEGINS as well as how far it reaches, so a negative pin is inside the frame like any
+      // other — see LaidOutGraph's `left`/`top`.
+      const x = Math.round(d.n.x + d.dx);
+      const y = Math.round(d.n.y + d.dy);
       droppedNodes.current.set(d.n.id, {
         dx: x - d.n.x,
         dy: y - d.n.y,

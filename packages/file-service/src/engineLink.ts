@@ -480,6 +480,71 @@ export async function pluginParams(
   return awaitPluginParams(c, format, id);
 }
 
+/**
+ * …and the same plugin's own WINDOW, opened on an orphan instance.
+ *
+ * On the bare session for the same reason as `pluginParams` above: which plugins exist, what they
+ * have, and what they look like are all facts about the MACHINE, and the caller is a module being
+ * authored rather than a project being played.
+ *
+ * FIRE-AND-FORGET, unlike the param query, and not for want of trying: the window opens on the
+ * engine's screen, so the only thing that could be awaited is the engine saying it drew one, which
+ * tells the caller nothing it can act on. What CAN be reported is the one failure worth a sentence
+ * — no engine to ask — which is what the boolean is. Everything past that (a plugin that will not
+ * load, a plugin with no editor) reaches the human on the warning channel, where the engine's own
+ * account of it is better than anything this could invent.
+ */
+export function showNativePluginUIOf(format: string, id: string): boolean {
+  const c = ensureEngine(null);
+  if (!c) return false;
+  c.showNativePluginUIOf(format, id);
+  return true;
+}
+
+/** How long the engine gets to write a base. Short: nothing is LOADED here — the instance is
+ *  already open — so this is a state read and a small file, not another plugin construction. */
+export const PLUGIN_BASE_TIMEOUT_MS = 5_000;
+
+interface PluginBaseFrame {
+  path: string;
+  ok: boolean;
+}
+
+/**
+ * Snapshot the orphan's state into `absPath`, and wait to hear whether it landed.
+ *
+ * AWAITED, unlike opening the window, and the difference is what there is to say. A window either
+ * appears on somebody's screen or does not, and no reply helps; a snapshot either produced a file
+ * or produced nothing, and which one decides whether the caller may tell the user a base exists.
+ *
+ * `undefined` is "the engine never answered" — no engine, or one that went away mid-write.
+ * `{ok:false}` is the engine answering that there was nothing to write: no window was ever opened
+ * for this plugin, or the plugin has no state to give. Both leave no file, and only the second is
+ * something the user can act on, so they must not arrive spelt the same way.
+ */
+export async function snapshotPluginBase(
+  format: string,
+  id: string,
+  absPath: string,
+): Promise<{ ok: boolean } | undefined> {
+  const c = ensureEngine(null);
+  if (!c) return undefined;
+  return new Promise((res) => {
+    const done = (v?: { ok: boolean }): void => {
+      clearTimeout(timer);
+      c.off("pluginBaseSaved", onSaved);
+      res(v);
+    };
+    const onSaved = (p: PluginBaseFrame): void => {
+      if (p.path !== absPath) return; // another surface's snapshot, not this one
+      done({ ok: p.ok });
+    };
+    const timer = setTimeout(() => done(undefined), PLUGIN_BASE_TIMEOUT_MS);
+    c.on("pluginBaseSaved", onSaved);
+    c.snapshotPluginBase(format, id, absPath);
+  });
+}
+
 function safeBaseModules(dir: string): string[] {
   try {
     return listBaseModules(dir);

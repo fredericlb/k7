@@ -1043,9 +1043,10 @@ int main(int argc, char** argv) {
                         //
                         // `found` carries the difference an empty array cannot: a plugin this
                         // machine could not find, create or LOAD, versus one that loaded and
-                        // publishes nothing. On this machine twenty-seven refuse to load — a
-                        // licence, an installation — and calling that "no parameters" sends
-                        // nobody to the one place the fix is.
+                        // publishes nothing. Calling the first "no parameters" draws an empty
+                        // panel and blames the plugin — which is exactly what it did while every
+                        // external plugin was failing for one missing line (see describeExternal
+                        // in ParamDump.cpp): the flag was right and its explanation was not.
                         broadcast(json{{"type", "plugin-param-list"},
                                        {"format", fmt},
                                        {"id", id},
@@ -1120,6 +1121,71 @@ int main(int argc, char** argv) {
                     std::cerr << "[native-plugin-ui] open '" << id << "'\n";
                     host.showNativePluginUI(session, id);
                 });
+            } else if (type == "show-native-plugin-ui-of") {
+                // …and the same window for a plugin that is in NO project: `format` and `id` name an
+                // installed binary, exactly as `list-plugin-params` does, and the engine opens the
+                // plugin's own UI on an orphan instance. What that instance is told is not saved
+                // anywhere — see showNativePluginUIOf in EngineHost.h.
+                //
+                // Both threads, in order. Loading the binary is seconds, so it happens DETACHED like
+                // the param query beside it; holding the message thread that long stalls the
+                // transport of every session on this engine. Only the window needs the message
+                // thread, and by then the instance is already loaded, so that part is quick.
+                const std::string fmt = j.value("format", std::string{});
+                const std::string id = j.value("id", std::string{});
+                if (fmt.empty() || id.empty()) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", "show-native-plugin-ui-of needs a format and an id"}}
+                                .dump());
+                } else {
+                    std::thread([&host, fmt, id] {
+                        std::cerr << "[native-plugin-ui] loading '" << id << "'" << "\n";
+                        if (!studio::prepareNativePluginUI(fmt, id)) {
+                            std::cerr << "[native-plugin-ui] '" << id << "' did not load" << "\n";
+                            return;   // prepareNativePluginUI has already warned, which reaches a human
+                        }
+                        host.post([fmt, id] {
+                            std::cerr << "[native-plugin-ui] open '" << id << "'" << "\n";
+                            studio::showNativePluginUIOf(fmt, id);
+                        });
+                    }).detach();
+                }
+            } else if (type == "snapshot-plugin-base") {
+                // Keep what the orphan window is holding: write its state to `path` as a
+                // .vstpreset. The one act that takes something OUT of a window whose whole
+                // premise is that nothing in it is saved — hence its own message rather than a
+                // flag on the open above.
+                //
+                // `path` is absolute and comes from the file service, on this machine: it is the
+                // side that knows where a module's folder is and the side that checked the name.
+                // The engine writes where it is told, as it does for a render or a freeze.
+                //
+                // MESSAGE THREAD, unlike the open beside it, and for the opposite reason: nothing
+                // is loaded here — the instance is already there — and its state must be read
+                // where its editor lives.
+                const std::string fmt = j.value("format", std::string{});
+                const std::string id = j.value("id", std::string{});
+                const std::string path = j.value("path", std::string{});
+                if (fmt.empty() || id.empty() || path.empty()) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", "snapshot-plugin-base needs a format, an id and a path"}}
+                                .dump());
+                } else {
+                    host.post([&broadcast, fmt, id, path] {
+                        const bool ok = studio::snapshotOrphanPluginTo(fmt, id, path);
+                        std::cerr << "[plugin-base] " << (ok ? "wrote " : "could not write ")
+                                  << path << "\n";
+                        // Answered rather than left to the caller to go and look: a file appearing
+                        // on disk is not proof the plugin had anything to put in it, and the two
+                        // failures worth telling apart — no instance open, and a plugin with no
+                        // state — both leave no file at all.
+                        broadcast(json{{"type", "plugin-base-saved"},
+                                       {"format", fmt},
+                                       {"id", id},
+                                       {"path", path},
+                                       {"ok", ok}});
+                    });
+                }
             } else if (type == "set-plugin-param") {
                 // Set one plugin parameter on the LIVE edit, for a control being dragged: `name` is its display name, `value`
                 // in its native range. This does NOT persist — the client writes the value to the project on release — so an

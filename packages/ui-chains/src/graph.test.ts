@@ -923,6 +923,22 @@ describe("layout honours the pins", () => {
     expect(laid.height).toBeGreaterThan(1500);
   });
 
+  it("a graph nobody dragged begins at the origin", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges);
+    expect({ left: laid.left, top: laid.top }).toEqual({ left: 0, top: 0 });
+  });
+
+  it("a pin ABOVE the first track is reported, so the camera can still frame it", () => {
+    const { nodes, edges } = buildGraph(uneven);
+    const laid = layout(nodes, edges, { comp: { x: -200, y: -300 } });
+    // Both past the pin by the margin every extent carries, and never positive — a fit reads
+    // `width - left` as the box, and a graph laid out normally must frame exactly as before.
+    expect(laid.top).toBeLessThanOrEqual(-300);
+    expect(laid.left).toBeLessThanOrEqual(-200);
+    expect(laid.height - laid.top).toBeGreaterThan(300);
+  });
+
   it("a pin for a name the graph does not draw changes nothing", () => {
     const { nodes, edges } = buildGraph(uneven);
     const free = layout(nodes, edges);

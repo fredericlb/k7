@@ -206,6 +206,11 @@ export interface Module {
   params?: Record<string, number | string>;
   // Only usable on an input that is already a FILE — see docs/coldModules.md and isColdModule.
   cold?: boolean;
+  // Which named BASE this module starts from — `base/<name>.vstpreset` in its own folder or an
+  // ancestor's, the opaque state UNDER `params:`. A field rather than a param because a preset is
+  // loaded when the plugin is BUILT; the params above are applied over it and still win.
+  // See docs/userPresets.md.
+  base?: string;
   ui?: ModuleUI;
   // What this module LOADS, when it is a rack: its symbols, their notes and their material, with
   // the `extends` base already merged in. Absent for a plugin. Beside `ui` and `cc` because it is

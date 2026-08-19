@@ -638,6 +638,22 @@ export class EngineClient {
   listPluginParams(format: string, id: string): void {
     this.send({ type: "list-plugin-params", format, id });
   }
+  /**
+   * …and that same installed plugin's OWN WINDOW, on an instance in no project at all.
+   *
+   * The companion to `listPluginParams` above and slow for the same reason — it loads the same
+   * binary — but where that one answers with a list of names, this opens what the plugin itself
+   * draws. It is for the module being authored against a plugin the open project does not load,
+   * where a list of names is not enough to know what a knob does.
+   *
+   * ORPHAN, and nothing it is told is saved: the engine holds the instance on its offline edit,
+   * on no track and no session, so turning a knob in that window changes no module, no project
+   * and no file. There is no reply — the window opens on the ENGINE's screen, which is the
+   * musician's machine, and this browser may not be on it.
+   */
+  showNativePluginUIOf(format: string, id: string): void {
+    this.send({ type: "show-native-plugin-ui-of", format, id });
+  }
   // An INCREMENTAL rescan — the engine's exts.json cache is on its machine, so the full
   // rescan (cache deleted first) stays with the supervisor. See engine-host/engineQueries.
   rescanPlugins(): void {

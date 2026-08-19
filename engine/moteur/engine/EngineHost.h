@@ -569,6 +569,56 @@ struct PluginParamInfo {
 std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& format,
                                                            const std::string& identifier);
 
+/**
+ * …and the same plugin's OWN WINDOW, on an instance that belongs to no project.
+ *
+ * The pair exists because a module is authored against a plugin the open project need not load —
+ * that is the hole `pluginParamsOf` was added to fill, and a list of parameter names is only half
+ * of what somebody staring at an unfamiliar synth wants. This opens the thing the plugin draws.
+ *
+ * ORPHAN, and every consequence of that word is deliberate: the instance sits on the offline
+ * engine's edit, on no track, wired to nothing, and NOTHING IT IS TOLD IS SAVED. Turning a knob in
+ * that window changes this instance and no module, no project and no file. It is a place to look
+ * at a plugin, not a place to set one — which is why it needs no session and cannot disturb what
+ * is playing. External plugins only; a built-in wraps no AudioProcessor and draws no window.
+ *
+ * SPLIT IN TWO because the halves want different threads. `prepareNativePluginUI` loads the binary
+ * and is SECONDS — call it off the message thread, exactly as the param query does. Only then call
+ * `showNativePluginUIOf`, which is the JUCE part: message thread, and fast, because the instance is
+ * already there. Doing both on the message thread would stall the transport of every session on
+ * this engine for as long as the plugin took to load.
+ *
+ * `prepareNativePluginUI` returns false when this machine cannot find, create or LOAD the plugin —
+ * the same three the param query answers `nullopt` for. `showNativePluginUIOf` then warns and does
+ * nothing, so a caller that skips the check gets a message rather than a silent no-op.
+ */
+bool prepareNativePluginUI(const std::string& format, const std::string& identifier);
+void showNativePluginUIOf(const std::string& format, const std::string& identifier);
+
+/**
+ * Write what that orphan is CURRENTLY holding to a `.vstpreset`, and say whether it worked.
+ *
+ * The other end of the window above. That one is deliberately a place where nothing is saved; this
+ * is the one act that takes something out of it — a sound dialled in by hand, captured under a name
+ * — and it is a separate, explicit call for exactly that reason. Opening a plugin must stay free of
+ * consequence; keeping what you found there must be something you asked for.
+ *
+ * ONLY an instance that is already loaded. No orphan means false, and never a freshly-created one:
+ * a snapshot of a plugin nobody has opened is the factory default wearing the name of a sound
+ * somebody thought they had made.
+ *
+ * `outFile` is ABSOLUTE and its parent is created. The caller is the file service, on this same
+ * machine, which is the only side that knows where a module's folder is and the only side that can
+ * be trusted to have checked the name — the engine writes where it is told, as it does for a
+ * render or a freeze.
+ *
+ * A Steinberg container via `saveVstPreset`, which is what `loadVstPreset` reads back, so a base
+ * written here is loadable by every path that already takes one. Message thread: the plugin may be
+ * on screen with its editor open, and this reads its state.
+ */
+bool snapshotOrphanPluginTo(const std::string& format, const std::string& identifier,
+                            const std::string& outFile);
+
 // Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
 // ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.
 // Wired from `--render <doc.json|-> --out <dir> [--stems]`.

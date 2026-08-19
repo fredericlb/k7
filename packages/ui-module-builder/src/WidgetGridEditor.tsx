@@ -24,8 +24,10 @@ import {
   ToggleLeft,
   Trash2,
   Type,
+  Wand2,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { type AutoParam, autoOrganize } from "./autoLayout";
 import type { ModuleUI, Widget, WidgetType } from "./moduleUi";
 import { isParamDrag, type ParamDrag, readParamDrag } from "./paramDrag";
 
@@ -158,6 +160,7 @@ function nextId(widgets: Record<string, Widget>): string {
 export function WidgetGridEditor({
   ui,
   assetParams,
+  params,
   disabled,
   onChange,
 }: {
@@ -165,6 +168,15 @@ export function WidgetGridEditor({
   // The params that take a FILE rather than a number (moduleTypes.FILE_PARAMS) — a dropdown
   // bound to one offers the module's own assets/ instead of the param's settings.
   assetParams?: string[];
+  /**
+   * Every parameter this module can bind, as the Parameters pane lists them — what **Auto
+   * organize** proposes a whole panel from (autoLayout.ts).
+   *
+   * The same list the pane offers for dragging, and it has to be: a panel proposed from a
+   * shorter one would quietly leave parameters out, and the point of the button is that a
+   * plugin with a hundred and fifty of them gets somewhere to start.
+   */
+  params?: readonly AutoParam[];
   /**
    * Why the grid takes no gesture — false when it does.
    *
@@ -305,6 +317,30 @@ export function WidgetGridEditor({
     setSelected(id);
   };
 
+  /**
+   * Replace the whole panel with one proposed from the parameter list — see autoLayout.ts.
+   *
+   * It REPLACES, and asks first when there is something to lose. A module whose panel is still
+   * empty is the case this exists for — a plugin just scanned, a hundred and fifty parameters
+   * and nowhere to put them — and a dialog there would be a question with one answer. Over drawn
+   * work it is a different act, and the grid has no undo of its own to fall back on.
+   *
+   * Back to the panel afterwards: the page the grid was on belonged to the old tabs widget, and
+   * the proposal's pages are not the same pages even where they share a name.
+   */
+  const organize = () => {
+    if (disabled || !params?.length) return;
+    if (
+      Object.keys(ui.widgets).length &&
+      !window.confirm(
+        "Replace this panel with one organized from the parameter list? What is drawn here now is discarded.",
+      )
+    )
+      return;
+    onChange(autoOrganize(params));
+    enter(null);
+  };
+
   const removeWidget = (id: string) => {
     const next = { ...widgets };
     delete next[id];
@@ -396,6 +432,22 @@ export function WidgetGridEditor({
           </Button>
         ))}
         <div className="ml-auto flex items-center gap-3">
+          {/* Not one of the Add buttons, and set apart from them: those place ONE widget where
+              there is room, this one throws the panel away and draws another. */}
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!!disabled || !params?.length}
+            onClick={organize}
+            title={
+              params?.length
+                ? `Replace the panel with ${params.length} parameters sorted into tabs, guessed from their names`
+                : "No parameters to organize — scan the plugin or open a module that declares some"
+            }
+          >
+            <Wand2 className="mr-1 h-3.5 w-3.5" />
+            Auto organize
+          </Button>
           <Stepper
             label="cols"
             value={ui.cols}

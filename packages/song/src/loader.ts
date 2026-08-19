@@ -16,6 +16,7 @@ import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
+import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { studioModules } from "./docModule";
 import { engineModules, engineRef } from "./engineCatalogue";
@@ -323,11 +324,9 @@ function readModuleTree(
         category: type,
         file: leaf,
         node,
-        // A .vstpreset in the module's folder is its default state; a node's own wins.
-        preset: [
-          join(folder, `${node ?? leaf}.vstpreset`),
-          join(folder, `${leaf}.vstpreset`),
-        ].find(existsSync),
+        // What state this module loads: the `base:` it chose, else a node's own .vstpreset, else
+        // the folder's default. See presetFor.
+        preset: presetFor(folder, leaf, node, value.base),
         // …and its DSP source, resolved against ITS OWN folder — unlike an asset, which follows the opened song.
         // A shared module carries its source the way it carries its preset: the folder is the module.
         jsdsp: jsDspFileFor(value, folder),
@@ -453,14 +452,9 @@ function readModules(dir: string): ModulesRead {
         // is keyed `amps/neural-amp-modeler` and its preset sits beside its module.yaml as
         // `neural-amp-modeler.vstpreset`, not under a further `amps/` that is not there.
         const leaf = name.slice(name.lastIndexOf("/") + 1);
-        // Own preset wins, else the generic's — so a UI edit on one node never touches a sibling's.
-        const own = join(folder, `${node ?? leaf}.vstpreset`);
-        const generic = join(folder, `${leaf}.vstpreset`);
-        const preset = existsSync(own)
-          ? own
-          : existsSync(generic)
-            ? generic
-            : undefined;
+        // The chosen `base:` first, then this node's own, then the generic — so a UI edit on one
+        // node never touches a sibling's, and a named base beats both. See presetFor.
+        const preset = presetFor(folder, leaf, node, value.base);
         // Seam cast: `value` passed the module schema (or a merge of two structs that did).
         return {
           ...value,
@@ -591,7 +585,9 @@ function loadNodes(
       continue;
     }
     raw.push({ rel: file.rel, module: value });
-    const preset = join(folder, `${node}.vstpreset`);
+    // A node picks its base like anything else it overrides — `base: warm` in its own file — and
+    // that is what makes the choice PER INSTANCE: two nodes of one module can sit on two bases.
+    const preset = presetFor(folder, node, node, value.base);
     out[node] = {
       ...value,
       // The FILE names it, exactly as it does for a track or a clip — never a `name:` field.
@@ -602,7 +598,7 @@ function loadNodes(
       rack: value.rack
         ? resolveRackAudio(value.rack as RawRack, folder)
         : undefined,
-      ...(existsSync(preset) ? { preset } : {}),
+      ...(preset ? { preset } : {}),
       jsdsp: jsDspFileFor(value, folder),
       ...resolveAssets(value, folder),
       // Its own folder, so the ancestry fold can resolve a file this module inherits.

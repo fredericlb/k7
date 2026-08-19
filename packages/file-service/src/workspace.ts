@@ -44,6 +44,7 @@ import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
 import type { WebGraph } from "@studio/graph-model";
+import { moduleBaseChoices } from "@studio/song/basePreset";
 import { CHAIN_FILE, chainFromBench } from "@studio/song/benchChain";
 import { EXTS_PATH, engineModules } from "@studio/song/engineCatalogue";
 import { projectHints } from "@studio/song/hints";
@@ -55,6 +56,7 @@ import {
   deadProjectFields,
   libraryModuleIssues,
   listBaseModules,
+  loadModuleRefs,
   moduleRefOf,
   notSupportedModules,
   withModuleStamp,
@@ -1260,6 +1262,69 @@ export class Workspace {
     );
     this.invalidateProjectDoc();
     return { path: this.toRel(file), dir: this.toRel(dir) };
+  }
+
+  /**
+   * The named bases the module at `rel` may be set to — its own `base/`, then every module it
+   * extends, nearest first.
+   *
+   * Off the LOADED refs rather than by listing `base/` here, because the ancestry is the whole
+   * value of the answer: the bases are snapshotted onto the shared module that names the plugin,
+   * and a song points at it through a thin local module whose own folder holds none. Listing that
+   * folder would offer nothing on exactly the module built to be chosen from — the mistake
+   * `moduleAssetChoices` exists to have stopped making for assets.
+   *
+   * An unreadable project is an empty list, never a throw: a builder asking what a module offers
+   * must not be the thing that reports a broken song somewhere else in it.
+   */
+  moduleBases(rel: string): string[] {
+    const abs = this.safePath(rel);
+    const dir = this.activeProject ?? this.root;
+    try {
+      const refs = withModuleStamp(dir, () => loadModuleRefs(dir)) as Record<
+        string,
+        { extends?: unknown; folderAbs?: unknown }
+      >;
+      // The module being edited is addressed by its FILE, so its folder is that file's — and its
+      // `extends` is read from the same map, by whichever ref names this folder.
+      const folderAbs = dirname(abs);
+      const self = Object.values(refs).find((m) => m.folderAbs === folderAbs);
+      return moduleBaseChoices({ folderAbs, extends: self?.extends }, refs);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Where a named BASE goes: `base/<name>.vstpreset` beside the module file.
+   *
+   * A base is an opaque `.vstpreset` blob kept with the module, for the plugins whose sound is not
+   * in their automatable parameters — an Arturia patch is not, so `presets.yaml` (numbers only)
+   * cannot hold one. `base/` is its own folder rather than more files loose in the module folder,
+   * because the loader already reads `<name>.vstpreset` THERE as the module's single default and a
+   * second spelling in the same directory would be two rules over one namespace.
+   *
+   * Resolved HERE and not by the caller, twice over: the builder is forbidden from constructing a
+   * path at all (see `ModuleStore`), and a name that arrives from a browser is not a path component
+   * until something has said so. `basename` plus the separator strip is `renameEntry`'s rule, for
+   * the same reason — this name only ever names a file in one directory.
+   *
+   * Returns both spellings because both are needed and neither is derivable by its consumer: the
+   * ENGINE writes the absolute one (it is a different process), the browser is told the relative
+   * one (it has no idea where the workspace lives).
+   */
+  baseSnapshotPath(rel: string, name: string): { abs: string; path: string } {
+    const moduleAbs = this.safePath(rel);
+    const clean = basename(name).replace(/[\\/]/g, "").trim();
+    if (!clean || clean === "." || clean === "..")
+      throw new Error(`invalid name: ${name}`);
+    // Spelt once, whether or not the user typed it — a base called `warm.vstpreset` and one
+    // called `warm` are the same base, and two files would be the surprise.
+    const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
+    const dir = this.safePath(this.toRel(join(dirname(moduleAbs), "base")));
+    const abs = this.safePath(this.toRel(join(dir, leaf)));
+    mkdirSync(dir, { recursive: true });
+    return { abs, path: this.toRel(abs) };
   }
 
   /**

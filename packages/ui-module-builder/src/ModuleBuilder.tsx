@@ -29,7 +29,9 @@ import type {
   PresetInfo,
 } from "@studio/web-protocol";
 import {
+  AppWindow,
   ArrowLeft,
+  Camera,
   ChevronDown,
   Folder,
   LayoutGrid,
@@ -145,6 +147,7 @@ export function ModuleBuilder({
   pluginParamNames,
   pluginParamMeta,
   onScanParams,
+  onShowNativeUI,
   inputDevices,
   onRegroupInputs,
   baseModules,
@@ -206,6 +209,16 @@ export function ModuleBuilder({
    * Optional, like `onRegroupInputs` and for the same reason: a host with no engine passes
    * nothing and the button is simply not drawn, rather than drawn and dead.
    */
+  /**
+   * Open the plugin's OWN window, on an instance belonging to no project — the other half of
+   * `onScanParams`, which names the parameters this one lets you look at.
+   *
+   * Absent ⇒ no button, like the scan: a host with no engine cannot open anything.
+   *
+   * Resolves when an engine has TAKEN the request, not when a window is on screen — the window
+   * draws on the engine's machine, which may not be this one. Rejects only when nobody took it.
+   */
+  onShowNativeUI?: (base: string) => Promise<unknown>;
   onScanParams?: (base: string) => Promise<{
     names: string[];
     meta: Record<string, ParamMeta>;
@@ -690,6 +703,87 @@ export function ModuleBuilder({
       .finally(() => setScanning(false));
   }, [onScanParams, scanning, scanBase]);
 
+  /**
+   * The same plugin, opened rather than read — and the narrower base, because only an INSTALLED
+   * plugin has a window.
+   *
+   * `scanBase` is any `@engine/…` ref, and Tracktion's own built-ins are addressed that way too.
+   * They wrap no AudioProcessor and draw nothing, so offering the button on one would be a control
+   * that can only fail. `builtinPluginForRef` is the same table that answers their parameters
+   * without an engine, so what is left after it is exactly what this machine SCANNED: a VST.
+   */
+  const nativeUiBase =
+    scanBase && !builtinPluginForRef(scanBase) ? scanBase : "";
+  const [openingUi, setOpeningUi] = useState(false);
+  const runNativeUi = useCallback(() => {
+    if (!onShowNativeUI || openingUi || !nativeUiBase) return;
+    setOpeningUi(true);
+    setScanNote(null);
+    void onShowNativeUI(nativeUiBase)
+      .then(() =>
+        // Said every time, not once: the window is the plugin's own and looks exactly like the one
+        // that DOES save in a project, so "this one does not" is the thing a user has to be told.
+        setScanNote(
+          "fenêtre du greffon ouverte sur la machine du moteur — c'est une instance à part, rien de ce qu'on y touche n'est enregistré",
+        ),
+      )
+      .catch((e: Error) => setScanNote(`ouverture impossible : ${e.message}`))
+      .finally(() => setOpeningUi(false));
+  }, [onShowNativeUI, openingUi, nativeUiBase]);
+
+  /**
+   * …and keeping what is in that window: the plugin's state written as a named base.
+   *
+   * The same `nativeUiBase`, because it is the same instance — the one the window opened, and the
+   * only one whose state anybody dialled. A base is the blob for plugins whose sound is NOT in
+   * their parameters, which is why the shelf (`presets.yaml`, named numbers) cannot stand in for
+   * it: on those plugins a saved shelf entry is the factory default with a name on it.
+   *
+   * The path is the host's to work out. This passes back the one it was given, and the ref it read
+   * out of the module's own text — see `ModuleStore.snapshotBase`.
+   */
+  /**
+   * The bases this module may be set to — asked of the host, because the useful list is its
+   * ANCESTORS' as much as its own.
+   *
+   * Re-asked after a snapshot, since that is the one thing in this screen that adds to it: a base
+   * you have just made and cannot then bind would read as a save that did not happen.
+   */
+  const [bases, setBases] = useState<string[]>([]);
+  const [basesKey, setBasesKey] = useState(0);
+  useEffect(() => {
+    if (!store.bases) return;
+    let live = true;
+    void store
+      .bases(path)
+      .then((b) => live && setBases(b))
+      .catch(() => live && setBases([]));
+    return () => {
+      live = false;
+    };
+  }, [store, path, basesKey]);
+
+  const [snapping, setSnapping] = useState(false);
+  const snapBase = useCallback(() => {
+    if (!store.snapshotBase || snapping || !nativeUiBase) return;
+    const name = window.prompt(
+      "Nom de la base — l'état actuel du greffon, gardé dans base/",
+    );
+    if (!name?.trim()) return;
+    setSnapping(true);
+    setScanNote(null);
+    void store
+      .snapshotBase(path, name.trim(), nativeUiBase)
+      .then((w) => {
+        setScanNote(`base gardée : ${w.path}`);
+        setBasesKey((k) => k + 1); // it is bindable now, so the row has to know about it
+      })
+      // The message is the HOST's, not one invented here: the interesting failure is "no window
+      // open yet", and only the side that asked the engine knows that is what happened.
+      .catch((e: Error) => setScanNote(`base impossible : ${e.message}`))
+      .finally(() => setSnapping(false));
+  }, [store, snapping, nativeUiBase, path]);
+
   // Every addressable param, unioned from all FIVE sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
@@ -700,6 +794,30 @@ export function ModuleBuilder({
     );
     // An io module's own settings, offered only on an io module: on a plugin they would name nothing.
     const ioBinds = io === "in" ? IO_IN_BINDS : [];
+    /**
+     * `@base` — offered only on a module that HAS bases, which is what makes it a row rather
+     * than a permanent one nearly every module would show empty.
+     *
+     * Its `states` are the names, so a widget bound to it draws as a dropdown rather than a knob;
+     * the VALUES are positions and nothing more, and the graph fills the real entries at draw
+     * time (`withBaseOptions`). It has to: a base can be snapshotted after this panel is written,
+     * and a `ui.yaml` carrying the list would be a copy of a directory going stale.
+     */
+    const baseBinds: { name: string; meta: ParamMeta }[] = bases.length
+      ? [
+          {
+            name: "@base",
+            meta: {
+              min: 0,
+              max: bases.length,
+              states: [
+                { label: "none", value: 0 },
+                ...bases.map((b, i) => ({ label: b, value: i + 1 })),
+              ],
+            },
+          },
+        ]
+      : [];
     const names = new Set([
       ...Object.keys(set),
       ...(pluginParamNames ?? []),
@@ -711,9 +829,13 @@ export function ModuleBuilder({
       // Track intrinsics belong here too: this list is the only place a binding can be picked up from.
       ...TRACK_BINDS,
       ...ioBinds.map((b) => b.name),
+      ...baseBinds.map((b) => b.name),
     ]);
-    // The io binds bring their OWN ranges — there is no plugin to have reported any.
-    const ioMeta = Object.fromEntries(ioBinds.map((b) => [b.name, b.meta]));
+    // The io binds bring their OWN ranges — there is no plugin to have reported any. So does
+    // `@base`, whose "range" is a list of names.
+    const ioMeta = Object.fromEntries(
+      [...ioBinds, ...baseBinds].map((b) => [b.name, b.meta]),
+    );
     // …and the declared built-in's, which is the only range a module in a LIBRARY has: nothing there is
     // instantiated, so no live report will ever arrive to fill it in.
     const declaredMeta = Object.fromEntries(
@@ -750,6 +872,7 @@ export function ModuleBuilder({
     pluginParamNames,
     pluginParamMeta,
     scanned,
+    bases,
   ]);
 
   // The same values as NUMBERS, for the preview's widgets. The pane above keeps them as text
@@ -1003,6 +1126,16 @@ export function ModuleBuilder({
                   onScan={onScanParams && scanBase ? runScan : undefined}
                   scanning={scanning}
                   scanNote={scanNote}
+                  onNativeUi={
+                    onShowNativeUI && nativeUiBase ? runNativeUi : undefined
+                  }
+                  openingUi={openingUi}
+                  onSnapshotBase={
+                    store.snapshotBase && nativeUiBase && !readOnly
+                      ? snapBase
+                      : undefined
+                  }
+                  snapping={snapping}
                 />
               ) : (
                 <YamlPane
@@ -1050,6 +1183,12 @@ export function ModuleBuilder({
                 // offers the module's own assets/. A fixed list now, not a scan of the project:
                 // the choices belong to the module, so there is nothing project-wide to read.
                 assetParams={[...FILE_PARAMS]}
+                // …and every param there IS, which is what "Auto organize" proposes a panel
+                // from. The same rows the Parameters pane offers for dragging, deliberately:
+                // a proposal built from a shorter list would leave parameters out with nothing
+                // saying which. Extra fields on a row (its value, whether it is bound) are the
+                // pane's business and the layout ignores them.
+                params={paramRows}
                 // Three reasons a grid takes no drag, and they mean the same thing to IT and to
                 // nobody else — so it is told which, and only the FAULT gets a warning. A shared
                 // module opens locked, and saying its panel would not parse was false for every
@@ -1134,6 +1273,10 @@ function ParamsPane({
   onScan,
   scanning,
   scanNote,
+  onNativeUi,
+  openingUi,
+  onSnapshotBase,
+  snapping,
 }: {
   rows: {
     name: string;
@@ -1144,9 +1287,17 @@ function ParamsPane({
   /** Absent ⇒ no button: a host with no engine cannot ask, and a dead control is worse than none. */
   onScan?: () => void;
   scanning?: boolean;
-  /** What the last scan answered — the empty and the refused cases, which have no rows to show for
-   *  themselves and would otherwise read as a button that did nothing. */
+  /** What the last scan OR window-open answered — the empty and the refused cases, which have no
+   *  rows to show for themselves and would otherwise read as a button that did nothing. */
   scanNote?: string | null;
+  /** Absent ⇒ no button, for either reason: no engine to ask, or a built-in, which draws no
+   *  window. Only an installed plugin has one. */
+  onNativeUi?: () => void;
+  openingUi?: boolean;
+  /** Absent ⇒ no button: no host that can write one, no plugin to read, or a read-only module.
+   *  A base is a WRITE into the module's folder, so it follows the same lock the text does. */
+  onSnapshotBase?: () => void;
+  snapping?: boolean;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -1191,6 +1342,50 @@ function ParamsPane({
             )}
             <span className="ml-1 hidden sm:inline">
               {scanning ? "lecture…" : "greffon"}
+            </span>
+          </Button>
+        )}
+        {/* Beside the scan and not instead of it: the two ask the same binary for different
+            things, and a bind list still comes from the names. Loading it is the same few
+            seconds, so this says it is working in the same way. */}
+        {onNativeUi && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-2 text-xs"
+            disabled={openingUi}
+            onClick={onNativeUi}
+            title="Open the plugin's own window — a separate instance, on the engine's machine. Nothing touched in it is saved."
+          >
+            {openingUi ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <AppWindow className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">
+              {openingUi ? "ouverture…" : "Native UI"}
+            </span>
+          </Button>
+        )}
+        {/* Next to the window it reads from, because that is the order they are used in: open
+            the plugin, set it up, keep it. It writes a file, so unlike the two beside it this
+            one is an EDIT and disappears on a read-only module. */}
+        {onSnapshotBase && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-2 text-xs"
+            disabled={snapping}
+            onClick={onSnapshotBase}
+            title="Keep the plugin's current state as a named base in the module's base/ folder — for plugins whose sound is not in their parameters"
+          >
+            {snapping ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">
+              {snapping ? "capture…" : "Snapshot a base"}
             </span>
           </Button>
         )}

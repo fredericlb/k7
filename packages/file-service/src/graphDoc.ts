@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { isPluginScanned } from "@studio/engine-client/pluginCache";
 import type { WebChainStep, WebGraph, WebRackSound } from "@studio/graph-model";
+import { moduleBaseChoices } from "@studio/song/basePreset";
 import { loadCurves } from "@studio/song/curves";
 import { activeFreezePlans } from "@studio/song/freeze";
 import type { Rack } from "@studio/song/graph";
@@ -40,6 +41,21 @@ function assetChoicesFor(
   try {
     const files = moduleAssetChoices(dir, module, refs, lookup);
     return files.length ? files : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The named bases a module may be set to — its own `base/` and its ancestors', so a thin local
+ *  module that extends a médiathèque synth offers that synth's sounds. Undefined rather than an
+ *  empty array on a module with none: absent is what every surface reads as "no base control". */
+function baseChoicesFor(
+  module: { extends?: unknown; folderAbs?: unknown } | undefined,
+  refs: Readonly<Record<string, { extends?: unknown; folderAbs?: unknown }>>,
+): string[] | undefined {
+  try {
+    const names = moduleBaseChoices(module, refs);
+    return names.length ? names : undefined;
   } catch {
     return undefined;
   }
@@ -215,6 +231,13 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           // than once for the graph, because there is no shared library any more — the choices
           // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
           assetChoices: assetChoicesFor(dir, module, moduleRefs, assets),
+          // Which base this module is on, and the ones it could be on. The choice is the MODULE's
+          // own field (a node has its own file, so it is per instance); the list is the folder's.
+          base:
+            typeof module?.base === "string" && module.base
+              ? module.base
+              : undefined,
+          bases: baseChoicesFor(module, moduleRefs),
           /**
            * The EVENTS this module announces. One for now — an instrument's note-on, which is
            * what an envelope is fired by.
