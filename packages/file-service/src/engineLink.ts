@@ -494,11 +494,53 @@ export async function pluginParams(
  * load, a plugin with no editor) reaches the human on the warning channel, where the engine's own
  * account of it is better than anything this could invent.
  */
-export function showNativePluginUIOf(format: string, id: string): boolean {
+/**
+ * How long the engine gets to open the window. Generous, because the honest answer takes that
+ * long: the binary has to be loaded, and a big Arturia synth measured fourteen seconds cold on
+ * this machine. Past it the caller is told nothing happened, which is the truth — the load may
+ * still be running, but a window that appears a minute after a click is not the one you asked for.
+ */
+export const NATIVE_UI_TIMEOUT_MS = 30_000;
+
+interface NativeUiFrame {
+  format: string;
+  id: string;
+  ok: boolean;
+}
+
+/**
+ * Open the plugin's own WINDOW on an orphan instance, and wait to hear whether it did.
+ *
+ * AWAITED, and it did not used to be. This returned true the moment `ensureEngine` handed back a
+ * client — which it does whether or not that client's socket has ever connected, since `send`
+ * buffers. So a click reported an open window while the message sat in an outbox, or while a
+ * plugin load hung inside the engine, and the one thing the user saw was nothing at all. There is
+ * no reply that says "buffered", so the only sound test is the engine saying it drew the window.
+ *
+ * `undefined` is "nobody answered" — no engine, or a load still running or wedged past the
+ * timeout. `{ok:false}` is the engine answering that it could not draw one. Both leave no window,
+ * and only the second has anything to say about why, so they must not arrive spelt the same way.
+ */
+export async function showNativePluginUIOf(
+  format: string,
+  id: string,
+): Promise<{ ok: boolean } | undefined> {
   const c = ensureEngine(null);
-  if (!c) return false;
-  c.showNativePluginUIOf(format, id);
-  return true;
+  if (!c) return undefined;
+  return new Promise((res) => {
+    const done = (v?: { ok: boolean }): void => {
+      clearTimeout(timer);
+      c.off("nativePluginUiOpened", onOpened);
+      res(v);
+    };
+    const onOpened = (p: NativeUiFrame): void => {
+      if (p.id !== id) return; // another surface's window, not this one
+      done({ ok: p.ok });
+    };
+    const timer = setTimeout(() => done(undefined), NATIVE_UI_TIMEOUT_MS);
+    c.on("nativePluginUiOpened", onOpened);
+    c.showNativePluginUIOf(format, id);
+  });
 }
 
 /** How long the engine gets to write a base. Short: nothing is LOADED here — the instance is

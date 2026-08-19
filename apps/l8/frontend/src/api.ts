@@ -303,7 +303,7 @@ export const api = {
    * binary being loaded, so a caller has to say it is working.
    */
   showPluginNativeUI: (ref: string) =>
-    fget<{ opening: string }>(
+    fget<{ opened: string }>(
       `/plugin-native-ui?ref=${encodeURIComponent(ref)}`,
     ),
 

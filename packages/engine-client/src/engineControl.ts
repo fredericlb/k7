@@ -213,6 +213,16 @@ export class EngineControl extends EventEmitter {
             params: (msg.params ?? []) as PluginParamInfo[],
           });
           break;
+        // Whether the orphan window opened. Its ABSENCE is the interesting state: a plugin that
+        // is still loading and one whose load has hung look the same from here, and neither is
+        // success — so a caller waits for this and treats a timeout as a failure to report.
+        case "native-plugin-ui-opened":
+          this.emit("nativePluginUiOpened", {
+            format: String(msg.format ?? ""),
+            id: String(msg.id ?? ""),
+            ok: msg.ok === true,
+          });
+          break;
         // Whether a base was written. Carries the path back for the same reason the list above
         // carries the format and id: the ask is slow enough that another may have been made.
         case "plugin-base-saved":

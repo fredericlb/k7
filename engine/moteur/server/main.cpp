@@ -1138,15 +1138,28 @@ int main(int argc, char** argv) {
                                  {"message", "show-native-plugin-ui-of needs a format and an id"}}
                                 .dump());
                 } else {
-                    std::thread([&host, fmt, id] {
+                    std::thread([&host, &broadcast, fmt, id] {
                         std::cerr << "[native-plugin-ui] loading '" << id << "'" << "\n";
+                        // ANSWERED either way, and that is not politeness. Loading a plugin binary
+                        // can take seconds and has been seen to hang outright; a caller told
+                        // nothing cannot tell a slow load from a dead one, so it reports a window
+                        // that never opened. The one honest signal is this message or its absence.
                         if (!studio::prepareNativePluginUI(fmt, id)) {
                             std::cerr << "[native-plugin-ui] '" << id << "' did not load" << "\n";
+                            broadcast(json{{"type", "native-plugin-ui-opened"},
+                                           {"format", fmt},
+                                           {"id", id},
+                                           {"ok", false}});
                             return;   // prepareNativePluginUI has already warned, which reaches a human
                         }
-                        host.post([fmt, id] {
-                            std::cerr << "[native-plugin-ui] open '" << id << "'" << "\n";
-                            studio::showNativePluginUIOf(fmt, id);
+                        host.post([&broadcast, fmt, id] {
+                            const bool ok = studio::showNativePluginUIOf(fmt, id);
+                            std::cerr << "[native-plugin-ui] " << (ok ? "open '" : "could not open '")
+                                      << id << "'" << "\n";
+                            broadcast(json{{"type", "native-plugin-ui-opened"},
+                                           {"format", fmt},
+                                           {"id", id},
+                                           {"ok", ok}});
                         });
                     }).detach();
                 }

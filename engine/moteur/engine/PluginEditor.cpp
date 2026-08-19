@@ -518,32 +518,46 @@ std::map<std::string, std::unique_ptr<PluginWindow>> orphanWindows;
 
 // Open an orphan plugin's own window. See the declaration in EngineHost.h for why nothing here is
 // saved, and why the loading half is a separate call on a different thread.
-void showNativePluginUIOf(const std::string& formatName, const std::string& identifier) {
+bool showNativePluginUIOf(const std::string& formatName, const std::string& identifier) {
     // No WarningScope: an orphan belongs to no project, so its warnings go out unstamped rather
     // than being attributed to whichever session happens to be open.
     const auto key = formatName + "|" + identifier;
     if (auto w = orphanWindows.find(key); w != orphanWindows.end() && w->second) {
         raiseToFront(*w->second);
-        return;
+        return true;
     }
-    // A cache hit when `prepareNativePluginUI` has already run, which is the intended path; the
-    // load happens here only if a caller skipped it, and then this blocks the message thread.
-    auto plugin = orphanPluginFor(formatName, identifier);
+    /**
+     * LOOKUP ONLY — this must never load, and the reason is the whole shape of the pair.
+     *
+     * This runs on the MESSAGE THREAD, and loading takes `paramQueryMutex` behind a plugin
+     * construction that has been seen to hang indefinitely on this machine. Doing it here would
+     * not merely make one window slow: it would stall the message thread, and with it the
+     * transport, the meters and every session on the engine — a stuck plugin window taking the
+     * whole desk down with it.
+     *
+     * It used to fall back to `orphanPluginFor` "only if a caller skipped `prepareNativePluginUI`",
+     * which is exactly the case that cannot be allowed to be slow. Refusing is the correct answer:
+     * the caller is asked to prepare first, and one that did not gets a warning rather than
+     * silently borrowing the audio thread's loop to load a synth.
+     */
+    auto plugin = orphanPluginIfLoaded(formatName, identifier);
     if (plugin == nullptr) {
-        warn("cannot open a window for '" + identifier + "' — it did not load", identifier);
-        return;
+        warn("no loaded instance for '" + identifier +
+                 "' — prepareNativePluginUI has to finish before a window can be drawn",
+             identifier);
+        return false;
     }
     // Only external plugins wrap a juce::AudioProcessor with a native editor. A built-in never
     // reaches here — nothing scans one — but the check is the same one the session path makes.
     auto* proc = plugin->getWrappedAudioProcessor();
     if (proc == nullptr || !proc->hasEditor()) {
         warn("'" + plugin->getName().toStdString() + "' has no native UI", identifier);
-        return;
+        return false;
     }
     auto* editor = proc->createEditorIfNeeded();
     if (editor == nullptr) {
         warn("could not create an editor for '" + plugin->getName().toStdString() + "'", identifier);
-        return;
+        return false;
     }
     juce::Image icon;
     if (auto* inst = dynamic_cast<juce::AudioPluginInstance*>(proc))
@@ -554,6 +568,7 @@ void showNativePluginUIOf(const std::string& formatName, const std::string& iden
     // window could persist to. It hides on close like the others, so the next open is instant.
     orphanWindows[key] =
         std::make_unique<PluginWindow>(plugin->getName(), editor, icon, nullptr);
+    return true;
 }
 
 // Capture that orphan's state. See the declaration in EngineHost.h for why it refuses to load one.
