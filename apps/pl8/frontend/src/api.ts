@@ -24,9 +24,10 @@ import type { Pl8Prefs } from "./prefs";
 // every one of those literals was already written to concatenate — which is why moving under a
 // prefix cost this file nothing.
 //
-// The exception is `/auth/*` below, spelled BARE on purpose: the flow is this backend's but
-// answers at the origin root, because the IdP has one prefixless redirect_uri. `${BASE}/auth/me`
-// would 404 into what reads like a broken login. See packages/web-protocol/services.ts.
+// The exception is `/auth/*` below, spelled BARE on purpose: it is not this backend's at all —
+// the flow belongs to l8, the service with no prefix, because the IdP has one prefixless
+// redirect_uri. This backend only verifies the cookie. `${BASE}/auth/me` would 404 into what
+// reads like a broken login. See packages/web-protocol/services.ts.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 

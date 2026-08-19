@@ -23,11 +23,19 @@
  * the repositories, the shares and the whole of `/api/mediatek` are still pl8's backend's, now
  * under `/pl8/api` like every other prefixed service.
  *
- * **`/auth/*` is the one path that does not follow this table**, and the exception is the IdP's,
- * not ours: `redirectUriFor` builds `<origin>/auth/callback`, and that is the one redirect_uri
- * registered. So pl8's backend keeps serving `/auth/*` at the ORIGIN ROOT even though its SPA
- * and its API are under `/pl8`. Spell auth routes bare — `/auth/me`, never
- * `${serviceUrl(…, "pl8")}/auth/me`, which would 404 into what reads like a broken login.
+ * **`/auth/*` belongs to whichever service holds `""` here**, which is l8. `redirectUriFor`
+ * builds `<origin>/auth/callback` and that is the single redirect_uri the IdP has registered, so
+ * the flow can only be served by the service with no prefix. Every other service passes
+ * `mountRoutes: []` and verifies the cookie.
+ *
+ * That makes auth follow this table rather than escape it — but the paths still do not look
+ * alike, so spell auth routes BARE (`/auth/me`) and never under a service's own `BASE`. For l8
+ * the two happen to coincide today; for pl8, k7 and z0 they do not, and
+ * `${serviceUrl(…, "pl8")}/auth/me` would 404 into what reads like a broken login.
+ *
+ * It was pl8's for one release after the swap — routed to it by name in nginx while l8 already
+ * held the root — which worked and read as an exception to everything around it. Nothing was
+ * re-registered at the IdP either time: the redirect_uri never changed, only the process.
  *
  * This table says WHERE a service answers, and nothing about whose session it carries. `z0` is
  * the case that makes the distinction worth stating: the game runs its own login on its own

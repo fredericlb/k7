@@ -19,7 +19,7 @@ const app = express();
 app.use(express.json());
 
 const { requireAuth } = await setupAuth(app, {
-  // The shared studio session: one origin, one cookie. The pl8 backend owns
+  // The shared studio session: one origin, one cookie. The l8 backend owns
   // /auth/* and mints it — it is the service with no path prefix, and the registered
   // redirect_uri has none either. This one only verifies, so it mounts no auth routes.
   cookieName: "studio.sid",

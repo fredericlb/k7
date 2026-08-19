@@ -1,6 +1,7 @@
-// dev-hosts.mjs — the hostnames the dev servers answer to, named once for all twelve vite
-// configs. A vite dev server refuses a Host it was not told about, so this list is what makes
-// the studio reachable at all in dev. See docs/dev.md for the topology behind it.
+// dev-hosts.mjs — the bits of dev topology that belong to no single app, named once for all
+// twelve vite configs: the hostnames the dev servers answer to, and the one backend port that
+// is not the caller's own. A vite dev server refuses a Host it was not told about, so this list
+// is what makes the studio reachable at all in dev. See docs/dev.md for the topology behind it.
 
 /**
  * The dev URL. One origin, one path per service — `st0.priv.frediver.se/pl8`, `/m9`, `/k7` —
@@ -25,3 +26,21 @@ export const DEV_HOST = "st0.priv.frediver.se";
  * once neither holds.
  */
 export const LEGACY_DEV_HOSTS = ["studio.test"];
+
+/**
+ * l8's backend, which serves `/auth/*` for the WHOLE origin.
+ *
+ * Here rather than in each vite config because it is the one port a config names that is NOT
+ * its own backend: every SPA on this origin carries one session, minted by one service, and in
+ * dev each dev server has to forward `/auth` there itself when it is visited directly on its
+ * port. `defineAppConfig`'s `proxyPaths` cannot express it — that helper points every path at
+ * the caller's `backendPort`, which is right for `/api` and wrong for exactly this one.
+ *
+ * It moved once already, from the médiathèque's 8795, and the whole cost of that move was
+ * finding the three configs that had a copy of it. Hence one export.
+ *
+ * l8 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
+ * `<origin>/auth/callback`, and that is the single redirect_uri the IdP has registered. See
+ * packages/web-protocol/services.ts.
+ */
+export const AUTH_BACKEND_PORT = 8789;

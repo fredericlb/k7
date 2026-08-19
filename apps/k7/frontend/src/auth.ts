@@ -1,4 +1,4 @@
-// Signing in, which k7 does not do itself: pl8 owns /auth/* for the whole origin,
+// Signing in, which k7 does not do itself: l8 owns /auth/* for the whole origin,
 // so an anonymous tab is sent straight there and comes back by `return_to`.
 // The one-shot marker is the safety rail — without it a session that never takes
 // (a bad cookie, a stale secret) ping-pongs between here and the IdP forever.

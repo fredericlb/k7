@@ -24,21 +24,25 @@ not a fact this repo owns, and the médiathèque that was `st0` is `pl8` under `
 > |---|---|---|
 > | `/` | **5223** | l8's dev server — was 5224 |
 > | `/pl8` | **5224** | pl8's dev server — was `/` |
-> | `/api/*` | **8789** | l8's backend, the engine registry |
+> | `/api/*` | **8789** | l8's backend — the engine registry |
+> | `/auth/*` | **8789** | l8's backend — the origin's OIDC flow |
 > | `/pl8/api/*` | 8795 | pl8's backend |
-> | `/auth/*` | **8795** | pl8's backend — see below |
 >
-> **`/auth/*` does not follow the root.** It is the one path that stayed with pl8's backend
-> when the two apps swapped, because the IdP knows a single prefixless `redirect_uri`. Moving
-> it to 8789 along with `/api` is the obvious mistake and it was made: l8's backend mounts no
-> auth routes, so `/auth/login` answers Express's own **404 — `Cannot GET /auth/login`**, which
-> reads like a broken login rather than a misrouted one. Nothing else fails, and the SPA still
-> loads; only signing in is impossible.
+> **`/auth/*` follows the root**, so it moved to 8789 with everything else. The registered
+> `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever
+> service answers the root — the médiathèque before, l8 now. The IdP was never touched; only
+> the process serving the callback changed.
 >
-> Routing `/auth` to **5223** instead of 8795 also works — l8's vite config proxies it on to
-> 8795 (`apps/l8/frontend/vite.config.ts`), which is what makes the dev server usable when
-> visited directly on its port. 8795 is preferred here, because it is what the production edge
-> does and the two are meant to differ by their origin and nothing else.
+> It briefly did NOT follow: for one release `/auth` stayed on 8795 while l8 already held the
+> root. That worked, and it is worth knowing what the wrong half of it looks like, because both
+> mistakes are silent in the same way — a backend that mounts no auth routes answers Express's
+> own **404, `Cannot GET /auth/login`**, which reads like a broken login rather than a misrouted
+> one. Nothing else fails and the SPA still loads; only signing in is impossible.
+>
+> Routing `/auth` to **5223** instead of 8789 also works: l8's vite config proxies `/auth` to
+> its own backend, which is what makes the dev server usable when visited directly on its port.
+> 8789 is preferred here, because it is what the production edge does and the two are meant to
+> differ by their origin and nothing else.
 
 Nothing on this workstation terminates TLS any more. The name resolves to the **LAN server**,
 which reverse-proxies to the dev servers here. So there is no edge to start, no `npm run
@@ -125,7 +129,7 @@ port over the network; the LAN is the trust boundary.
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
 `serve-web` then answers `403` to a bare `code.priv.frediver.se` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
-this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at pl8's
+this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at l8's
 backend (which owns `/auth`) so the studio session gates it.
 
 The first run downloads a server build (~100 MB) and answers `202` with a self-reloading

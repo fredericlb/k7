@@ -16,9 +16,9 @@ backends beside one nginx that owns the path routing. It replaced four images (k
 pl8, z0), each with its own Dockerfile, nginx.conf and build job.
 
 The reason is the origin. These apps were never independent: they share one hostname,
-one session cookie, and one prefixless `/auth/*` that pl8's backend owns wherever its own
-SPA sits (the IdP has a single redirect_uri registered — `apps/z0/docs/origin.md` is the
-post-mortem of trying otherwise). Four images meant the EDGE held the path table, so which app answered which
+one session cookie, and one prefixless `/auth/*` that belongs to whichever service answers the
+root — l8 today, the médiathèque before it (the IdP has a single redirect_uri registered —
+`apps/z0/docs/origin.md` is the post-mortem of trying otherwise). Four images meant the EDGE held the path table, so which app answered which
 prefix was configuration living outside this repo, and each image had to be told which
 prefix to strip. Now the edge sends the whole origin **unstripped** and one nginx.conf,
 versioned next to the apps, decides. Deploying is one pull.

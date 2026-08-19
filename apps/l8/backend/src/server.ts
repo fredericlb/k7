@@ -1,7 +1,8 @@
 // server.ts — l8/web backend: the engine registry, and later serving the frontend. File
 // operations moved to the engine-side file service, which the browser reaches directly — so
 // this hosted piece knows WHO you are and WHICH engines exist, never what is on any engine's
-// disk. It only VERIFIES the session; pl8 mints it. Runs under tsx to import the brain's TS.
+// disk. It MINTS the session every studio service verifies, being the one with no path prefix.
+// Runs under tsx to import the brain's TS.
 
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -39,21 +40,36 @@ function advertiseLegacyEndpoint(url: string): void {
 // and not this one's opinion. See ENGINE_BODY_LIMIT.
 app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
+// Empty stays undefined, not []: setupAuth only falls back on nullish, so an empty array
+// would ask the IdP for no scopes at all rather than for its defaults.
+const scopes = (process.env.OIDC_SCOPES ?? "")
+  .split(/[\s,]+/)
+  .filter((s) => s !== "");
+
 // Auth: the browser must be logged in before it can list or select engines (shared
-// @frediverse/oidc). No routes are mounted — see below — so a login sends the browser to
-// pl8's /auth and comes back here with a cookie this only checks.
+// @frediverse/oidc), and this backend is where the flow itself lives.
 const { requireAuth } = await setupAuth(app, {
-  // Shared across every studio service: one origin, one session. PL8 owns the flow
-  // now — it serves the origin root, and `redirectUriFor` names `<origin>/auth/callback`
-  // with no prefix, which is only true for the service that has no prefix. This backend
-  // used to own it, from when l8 was what the bare origin redirected to. It VERIFIES the
-  // cookie and mounts no auth routes: same SESSION_SECRET, from env.yaml common.
+  // This backend OWNS /auth/* for the WHOLE origin. One origin, one session: `redirectUriFor`
+  // builds `<origin>/auth/callback` with no prefix, and that is the single redirect_uri the IdP
+  // has registered — so the flow belongs to whichever service has NO prefix, which is this one
+  // since l8 became the studio's front door. pl8, k7 and z0 pass `mountRoutes: []` and merely
+  // VERIFY the cookie: same name, same SESSION_SECRET from env.yaml `common`, or their check
+  // fails. All routes mounted, so no `mountRoutes` here.
+  //
+  // It was pl8's — the médiathèque answered the root then — and came back with the root rather
+  // than being moved for its own sake. Nothing was re-registered at the IdP either time: the
+  // redirect_uri never changed, only which process serves it.
   cookieName: "studio.sid",
-  mountRoutes: [],
   // The env.yaml section this backend reads. It is the PACKAGE name, like every other
   // service's — it was `l8-web-backend`, the one exception, from back when this app had a
   // CLI half to be distinguished from.
   service: "l8-backend",
+  // `groups` is not decoration: z0 reads this same cookie and gates its editor, presenter,
+  // monitor and remote on group membership (AUTH_ADMIN_GROUPS). The package defaults to
+  // openid/profile/email, which would put an EMPTY groups array in every session and lock every
+  // admin surface out with a 403 nobody could explain. The value comes from env.yaml `common`,
+  // where it already reads "openid profile email groups".
+  ...(scopes.length > 0 ? { scopes } : {}),
 });
 
 // OUR registry, not the registry: pl8 holds its own, and an engine heartbeats to both.
@@ -116,8 +132,9 @@ app.use(engineErrorHandler);
 
 const server = app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
-  // "verifies auth", not "auth": pl8 mints the session, this only checks it.
-  console.log(`🎛  l8-web backend on ${url}  (registry; verifies auth)`);
+  // "auth", not "verifies auth": this backend MINTS the session now — it owns /auth/* for the
+  // whole origin, being the service with no path prefix. It read "verifies" while pl8 did.
+  console.log(`🎛  l8-web backend on ${url}  (registry; auth)`);
   // The legacy file goes with the shared goodbye rather than beside it: the socle installs the
   // signal handlers and exits in them, so a second handler here would never run.
   // (Windows force-kills us, so --web does this cleanup too.)

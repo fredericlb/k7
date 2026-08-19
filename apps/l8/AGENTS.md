@@ -11,7 +11,7 @@ the whole audio side. Two workspaces live here:
 | Package | Role |
 |---|---|
 | `frontend` (`l8-frontend`) | React + Vite + Tailwind v4 + `@frediverse/ui`. The visual editor: YAML code editor (CodeMirror), timeline, chains graph. |
-| `backend` (`l8-backend`) | Express — **the engine registry only**, plus verifying the session pl8 mints. It has no file routes and no auth routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
+| `backend` (`l8-backend`) | Express — **the engine registry, and the origin's OIDC flow**: it MINTS the `studio.sid` every studio service verifies, being the service with no path prefix. It has no file routes. It knows *who you are* and *which engines exist*, never what is on any disk. |
 
 Dev ports: **frontend 5223, backend 8789**, served over TLS at `https://st0.priv.frediver.se`
 by the LAN reverse proxy.
@@ -21,7 +21,7 @@ by the LAN reverse proxy.
 | | `backend` | `@studio/file-service` | `engine/moteur` |
 |---|---|---|---|
 | runs on | the hosted machine | the **engine's** machine | the engine's machine |
-| owns | the engine registry (auth is pl8's) | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
+| owns | the engine registry, and `/auth/*` for the whole origin | `~/.studio/root/<user>/<workspace>` — every file op | audio playback |
 | reached | same-origin (`/api`, `/auth` via the Vite proxy) | **cross-origin and direct (CORS-gated) when the browser may, else relayed through this origin** | **WebSocket — direct when the browser may, else relayed through this origin** |
 | auth | session cookie (`studio.sid`) | `x-studio-{user,workspace,engine-token}` headers | engine token echoed on `whoami` |
 
@@ -39,20 +39,23 @@ needs the account and neither an engine nor a project (`frontend/docs/projects.m
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
-**`/auth/*` belongs to pl8's backend, not to this one — and that is true even though THIS app
-is now the service with no prefix.** Everything is served under one host
+**`/auth/*` is THIS backend's.** Everything is served under one host
 (`st0.priv.frediver.se/<service>`), so there is one session cookie — `studio.sid`, signed with the
 `SESSION_SECRET` in `env.yaml`'s `common` — and one `redirect_uri` to register with the IdP.
-That `redirect_uri` is `<origin>/auth/callback`, and pl8's backend has served it since it was
-the app at the root. Moving the flow here when the two swapped would have meant re-registering
-at the IdP for nothing, so `nginx.conf` routes `/auth/` to pl8 by name and this backend keeps
-passing `mountRoutes: []`, exactly as z0 and k7 always have — it verifies the cookie and mounts
-no auth routes. Spell auth calls BARE (`/auth/me`), never under `BASE`.
+That `redirect_uri` is `<origin>/auth/callback`, with **no prefix**, so it can only be served by
+the service that has no prefix: l8, which answers the origin root. pl8, k7 and z0 pass
+`mountRoutes: []` and merely verify the cookie.
+
+It was pl8's while the médiathèque answered the root, and stayed there for one release after the
+swap — routed to it by name in nginx — which worked and read as an exception to every rule around
+it. It follows the root now. Nothing was re-registered at the IdP either time: the redirect_uri
+never changed, only the process serving it. Spell auth calls BARE (`/auth/me`), never under
+`BASE` — for this app the two coincide, for every other one they do not.
 
 Two consequences to know: logging out anywhere logs you out of every studio service, and
-**pl8 being down means nobody can log into l8 either** — you will see l8's own 401, which
-does not say so. API calls stay under each service's prefix; auth sits at the root, and so,
-separately, does this app.
+**this backend being down means nobody can log into any studio service** — each will show its
+own 401, which does not say so. API calls stay under each service's prefix; auth sits at the
+root, and so, separately, does this app.
 
 ## Frontend architecture
 
@@ -80,8 +83,8 @@ matches before changing it:
 
 ### Three data paths (`src/api.ts`)
 
-1. **Backend** (same-origin `/api/*`, at the origin root since l8 answers it) — the engine
-   registry only; `/auth/*` is prefixless too but is pl8's backend's — through
+1. **Backend** (same-origin `/api/*` and `/auth/*`, both at the origin root since l8 answers
+   it) — the engine registry and the OIDC flow — through
    `api.ts`'s `engines` (`@studio/engine-browser/access`, which also owns the probe, the
    policy and the lease). Don't spell those routes here again.
 2. **File service** (absolute URL) — everything file-shaped (`/tree`, `/file`, `/hints`,
@@ -246,8 +249,10 @@ a `registry.ts` here.
 - Browser-facing registry routes (`/api/engines`, `/api/engine/*`) require a session.
 - Engine-facing routes (`/api/registry/{heartbeat,deregister}`) stay open — that is the
   supervisor, authenticated by its own token.
-- The Vite dev server proxies `/api` to the backend, and **not** `/auth` — the proxy sends
-  that to pl8 origin-wide, so a proxy here would forward to routes that no longer exist.
+- The Vite dev server proxies BOTH `/api` and `/auth` to this backend (`proxyPaths`), which is
+  what makes the dev server usable when visited directly on its port. Every other SPA on the
+  origin has to point its own `/auth` proxy back here — `AUTH_BACKEND_PORT` in
+  `scripts/dev-hosts.mjs` is where that port is named once.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 

@@ -52,12 +52,13 @@ is l8' `EngineSelect`, which is already framework-agnostic enough to lift.
 opens real WebSockets to every advertised address, and a double mount doubles them for
 nothing.
 
-## The gate everyone else's login now goes through
+## The gate, and whose login it goes through
 
-pl8's backend owns `/auth/*` for the whole origin, because pl8 is what the origin root
-serves and `redirectUriFor` builds `<origin>/auth/callback` with no prefix — a prefixless
-redirect_uri belongs to the service that has no prefix. l8's backend held it while the bare
-origin merely redirected there; it now passes `mountRoutes: []` like m9 and k7 always have.
+**l8's backend** owns `/auth/*` for the whole origin, because l8 is what the origin root serves
+and `redirectUriFor` builds `<origin>/auth/callback` with no prefix — a prefixless redirect_uri
+belongs to the service that has no prefix. This backend held it while the médiathèque WAS the
+root; it now passes `mountRoutes: []` like m9 and k7 always have, and the ownership has followed
+the root both times it moved.
 
 Nothing changes in *this* component: it still calls `/auth/me` and `/auth/login` same-origin,
 exactly as before. What changed is who answers, and the consequence to know is the one l8's

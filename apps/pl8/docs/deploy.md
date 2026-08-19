@@ -2,8 +2,8 @@
 
 Étape 6 made the library **hosted** — `studio.frediver.se` owns the files, and
 `~/.studio/mediatek` became a cache the moteur reads from. The service is `pl8`, served under
-`/pl8` — it answered the origin root until l8 took it — and it owns `/auth/*` for everyone all
-the same. That reversal left a hole nobody noticed for three steps: there was no Dockerfile, no
+`/pl8` — it answered the origin root until l8 took it, and `/auth/*` went with the root. That
+reversal left a hole nobody noticed for three steps: there was no Dockerfile, no
 nginx entry and no CI job, so nothing deployed the thing the whole design now depends on.
 
 This is that. It follows l8's image closely, because the shape is the same — an SPA and
@@ -34,15 +34,17 @@ Verified: on an empty volume the backend creates its layout (`songs/`, `samples/
 `modules/`, `ui/`, `library/`, `.cache/`, `mediatek.yaml`) and answers `401` on
 `/api/mediatek` without a session.
 
-## 1b. It mints everyone's session, from a prefixless `/auth/*`
+## 1b. It VERIFIES the session, and no longer mints it
 
-The edge sends `/auth/*` to this backend, not to l8's — **even though l8 is the service with no
-prefix now**. That is not a preference and not an oversight: the `redirect_uri` registered with
-the IdP is `<origin>/auth/callback`, so the flow cannot move under `/pl8` with the SPA, and
-moving the flow to l8's backend would mean re-registering at the IdP for no gain. So `/auth/`
-is a `location` of its own in `nginx.conf`, pointed here by name. `setupAuth` here mounts all
-routes; l8, m9 and k7 pass `mountRoutes: []` and only verify the cookie, which needs the same
-`SESSION_SECRET` from `env.yaml`'s `common`.
+The edge sends `/auth/*` to **l8's** backend, the service with no path prefix: the `redirect_uri`
+registered with the IdP is `<origin>/auth/callback`, so the flow belongs to whoever answers the
+root. This backend owned it while the médiathèque WAS the root, and kept it for one release after
+the swap — routed here by name in `nginx.conf` — which worked and read as an exception to every
+rule around it.
+
+So `setupAuth` here passes `mountRoutes: []` like k7 and z0, and only verifies. It still needs
+the same `SESSION_SECRET` from `env.yaml`'s `common`: give this section one of its own and every
+`/pl8/api` call 401s while the SPA still looks logged in.
 
 The failure mode to recognise: if this service is down, **no studio service can be logged
 into**, and each of the others reports its own 401 rather than pointing here.

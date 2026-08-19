@@ -74,10 +74,11 @@ is the trade the scheme makes, and it is why the secret is per service rather th
 l8's empty path is a real entry rather than a special case at each call site — every caller
 already concatenates. It was pl8's until the editor took the front door.
 
-**`/auth/*` did not move with it.** The registered `redirect_uri` has no prefix, so the flow
-stays at the origin root and stays pl8's backend's — the one route on this origin that does not
-follow the table above. The dev proxy mirrors what the production edge does, so dev and
-production differ by the origin and nothing else.
+**`/auth/*` moved with it**, and had to: the registered `redirect_uri` has no prefix, so the
+flow can only be served by the service with no prefix — l8's backend now, pl8's before. The IdP
+was not touched either time; only the process serving the callback changed. The dev proxy
+mirrors what the production edge does, so dev and production differ by the origin and nothing
+else.
 
 So nothing asks for a service's URL any more:
 

@@ -26,10 +26,11 @@ export default defineAppConfig({
   // straight to the backend, and fatal under `l8 --web` where this server is visited direct.
   // See packages/engine-registry/docs/proxy.md.
   wsPaths: ["/api/engine"],
-  // /auth is NOT in `proxyPaths`, because `proxyPaths` would point it at THIS app's backend
-  // and :8789 mounts no auth routes. The shared OIDC flow is pl8's, and `extend` below sends
-  // it to :8795 by hand — see the comment there. /api is proxied by default and carries the
-  // engine-registry calls.
+  // `/auth` alongside the default `/api`, and both go to THIS app's backend: :8789 runs the
+  // origin's OIDC flow, being the service with no path prefix. It was a hand-written proxy to
+  // pl8's :8795 for as long as the médiathèque owned the flow; `proxyPaths` says it in one word
+  // now, which is the shape every other SPA here already had.
+  proxyPaths: ["/auth"],
   // The public dev host, which also pins HMR to :443 (the LAN proxy terminates
   // TLS there). Declared ONLY for the fixed-port case: under `l8 --web`
   // the server is on a free port and visited directly over plain http, where
@@ -44,26 +45,8 @@ export default defineAppConfig({
   extend: {
     // Compiles messages/<locale>.json into src/paraglide/.
     plugins: [frediverseParaglide()],
-    server: {
-      // The old name still reaches these servers — see scripts/dev-hosts.mjs.
-      allowedHosts: LEGACY_DEV_HOSTS,
-      // The one route this dev server forwards to a backend that is not its own. In dev the
-      // LAN proxy sends the whole ORIGIN ROOT here, and `/auth/*` is prefixless for every
-      // service on it — the IdP has a single registered redirect_uri and it carries no prefix.
-      // So the flow stays pl8's backend's wherever pl8's SPA sits; see
-      // packages/web-protocol/services.ts. Spelled out rather than taken from SERVICE_PORTS
-      // because every vite config in this repo names its ports as literals.
-      proxy: {
-        "/auth": {
-          target: "http://localhost:8795",
-          changeOrigin: true,
-          // Same reason `defineAppConfig` sets it: changeOrigin overwrites Host, and the
-          // backend derives its own public origin — and so its redirect_uri — from the
-          // request. Without these it hands the browser a callback pointing at :8795.
-          xfwd: true,
-        },
-      },
-    },
+    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+    server: { allowedHosts: LEGACY_DEV_HOSTS },
     // @studio/ui-chains, /ui-editor and /ui-timeline are consumed as raw .ts
     // (no build step, like the rest of the brain). Vite usually skips
     // pre-bundling a linked workspace dep, but esbuild's dep scanner can grab

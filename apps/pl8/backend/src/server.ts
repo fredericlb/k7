@@ -1,7 +1,7 @@
 // server.ts — pl8: the hosted media library. A folder on a volume scanned by @studio/mediatek
-// and served over HTTP — the same vocabulary the local service speaks — plus the origin-wide
-// OIDC flow, which is still this backend's after its SPA moved under /pl8: the IdP knows one
-// prefixless redirect_uri. No database; see the package's docs/index.md and ../docs/auth.md.
+// and served over HTTP — the same vocabulary the local service speaks. It VERIFIES the session
+// l8 mints and mounts no auth routes of its own. No database; see the package's docs/index.md
+// and ../docs/auth.md.
 
 import { join } from "node:path";
 import { loadServiceEnv } from "@frediverse/env";
@@ -46,28 +46,20 @@ const app = express();
 // and not this one's opinion. See ENGINE_BODY_LIMIT.
 app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
-// Empty stays undefined, not []: setupAuth only falls back on nullish, so an empty array
-// would ask the IdP for no scopes at all rather than for its defaults.
-const scopes = (process.env.OIDC_SCOPES ?? "")
-  .split(/[\s,]+/)
-  .filter((s) => s !== "");
-
 const { requireAuth } = await setupAuth(app, {
-  // This backend OWNS /auth/* for the WHOLE origin: `redirectUriFor` builds
-  // `<origin>/auth/callback` with no prefix, and that is the one redirect_uri registered at
-  // the IdP. It owned it as the service that HAD no prefix; it kept it when l8 took the origin
-  // root and this app moved to /pl8, because the flow cannot follow a SPA under a path — the
-  // edge routes `/auth/` here by name (apps/studio/docker/nginx.conf). l8, m9 and k7 pass
-  // `mountRoutes: []` and merely VERIFY this cookie — same name, same SESSION_SECRET from
-  // env.yaml `common`, or their check fails. All routes mounted, so no `mountRoutes` here.
+  // VERIFIES the cookie, mounts nothing — `mountRoutes: []`, exactly as k7 and z0 do. The flow
+  // is l8's backend's: `redirectUriFor` builds `<origin>/auth/callback` with no prefix, so it
+  // belongs to the service with no prefix, and that is l8 since it became the front door.
+  //
+  // This backend owned it while the médiathèque WAS the root, and the day l8 took the root the
+  // flow stayed here for one release — routed by name in nginx — which worked and read as an
+  // exception to every rule around it. It is not an exception any more.
+  //
+  // Same cookie name, same SESSION_SECRET from env.yaml `common`, or the check fails. No
+  // `scopes` here: asking the IdP for anything is the job of whoever runs the flow.
   cookieName: "studio.sid",
+  mountRoutes: [],
   service: "pl8-backend",
-  // `groups` is not decoration: z0 now reads this same cookie and gates its editor,
-  // presenter, monitor and remote on group membership (AUTH_ADMIN_GROUPS). The package
-  // defaults to openid/profile/email, which would put an EMPTY groups array in every
-  // session and lock every admin surface out with a 403 nobody could explain. The value
-  // comes from env.yaml `common`, where it already reads "openid profile email groups".
-  ...(scopes.length > 0 ? { scopes } : {}),
 });
 
 // A bearer token stands in for the session, because the main consumer has no cookie jar:

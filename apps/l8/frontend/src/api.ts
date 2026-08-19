@@ -1,6 +1,6 @@
 // api.ts — the typed client. Three destinations now:
-//   • the hosted backend (same-origin at the ROOT, cookie): the engine registry. /auth/* is
-//     prefixless too but is pl8's backend's — see packages/web-protocol/services.ts.
+//   • the hosted backend (same-origin at the ROOT, cookie): the engine registry AND the
+//     origin's OIDC flow at /auth/* — l8 is the service with no prefix, so both are its.
 //   • the engine-side file service (cross-origin, header-auth): all file/workspace ops.
 //   • pl8's médiathèque (same-origin under /pl8, cookie): the songs a playlist names.
 // The file service base + the identity/workspace/engine-token headers are set by

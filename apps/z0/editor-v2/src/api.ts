@@ -1,6 +1,6 @@
 // api.ts — two destinations, and NEITHER is z0's backend. What this editor opens is a git
 // repository the médiathèque owns, on the machine the account works from: so which engines
-// exist comes from pl8 (under `/pl8`), who you are comes from `/auth/*` at the origin root,
+// exist comes from pl8 (under `/pl8`), who you are comes from l8's `/auth/*` at the origin root,
 // and the project's files come from that machine's file service, cross-origin, through
 // @studio/project-shell.
 //
@@ -32,9 +32,9 @@ export const auth = {
   // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
   // the module, so every later click returned you there instead of where you were.
   //
-  // BARE `/auth/*`, and NOT under `PL8`: the flow is pl8's backend's, but it answers at the
-  // ORIGIN ROOT wherever pl8's SPA sits, because the IdP has one registered redirect_uri and it
-  // carries no prefix. `${PL8}/auth/login` would 404 into what reads like a broken login. See
+  // BARE `/auth/*`, and NOT under `PL8`: the flow is l8's backend's, at the ORIGIN ROOT,
+  // because the IdP has one registered redirect_uri and it carries no prefix.
+  // `${PL8}/auth/login` would 404 into what reads like a broken login. See
   // packages/web-protocol/services.ts.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
