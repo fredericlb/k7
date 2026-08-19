@@ -477,6 +477,17 @@ export interface LaidOutGraph {
   edges: GraphEdge[];
   width: number; // graph extent, for framing the camera
   height: number;
+  /**
+   * Where the drawing STARTS, when that is not the origin. Both ≤ 0, and both 0 for a layout
+   * dagre placed on its own — it lays out from `marginx`/`marginy` down and right.
+   *
+   * A PIN can sit anywhere, including above the first track or left of it, which is the point of
+   * a pin. The extents above measure how far the picture reaches; these two say where it begins,
+   * and a camera that frames `width × height` from 0 would cut off exactly the cards somebody
+   * dragged up there. See docs/graphBuild.md.
+   */
+  left: number;
+  top: number;
 }
 
 // The arrow → `add_to_chain` mapping when a module can be dropped on it; null on an arrow that maps to no `use`
@@ -1574,6 +1585,10 @@ export function spaceModulesEvenly(
     edges: laid.edges,
     width: Math.max(laid.width, right + ROW_MARGIN),
     height: laid.height,
+    // The sweep only moves cards along their own row, starting where that row already began, so
+    // neither end of the drawing moves.
+    left: laid.left,
+    top: laid.top,
   };
 }
 
@@ -1678,6 +1693,9 @@ export function moduleRow(
       : [],
     width: out.length ? x - STRIP_GAP + ROW_MARGIN : 0,
     height: out.length ? tallest + ROW_MARGIN * 2 : 0,
+    // A row lays itself out from `ROW_MARGIN` and ignores pins entirely: it begins at the origin.
+    left: 0,
+    top: 0,
   };
 }
 
@@ -1852,10 +1870,19 @@ export function layout(
   // and convinced it was already framed. See docs/graphBuild.md.
   const extent = (of: (n: GraphNode) => number): number =>
     outNodes.length ? Math.max(...outNodes.map(of)) + GRAPH_MARGIN : 0;
+  // …and the other end of the same measurement, which is 0 until a pin puts a card above the
+  // first row or left of it. Never positive: the drawing starts at the origin at the latest,
+  // so a graph laid out normally frames exactly as it always did.
+  const least = (of: (n: GraphNode) => number): number =>
+    outNodes.length
+      ? Math.min(0, Math.min(...outNodes.map(of)) - GRAPH_MARGIN)
+      : 0;
   return {
     nodes: outNodes,
     edges: outEdges,
     width: extent((n) => n.x + n.w),
     height: extent((n) => n.y + n.h),
+    left: least((n) => n.x),
+    top: least((n) => n.y),
   };
 }

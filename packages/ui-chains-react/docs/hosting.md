@@ -133,10 +133,20 @@ is in hand does the host div listen to pointermove at all.
 
 Drag ANY node's header and drop it: `onMoveNode` fires with the node's name — a module or a
 track by its chains name, a curve by its curve id, the sink by "OUT"; all `jackRef`'s answer —
-and the drop in whole, non-negative world px, ready for `graph move` verbatim, which
+and the drop in whole world px, ready for `graph move` verbatim, which
 writes graph.yaml's `positions:`. The layout (`layout()`'s `positions` argument) then places
 only the nodes with no pin, so dagre keeps laying out new arrivals while a moved card stays
 put for ever.
+
+**Either sign.** A drop above the first track or left of it reports a negative coordinate, and
+that is a place like any other: `layout()` reports where the drawing BEGINS (`left`/`top`) next
+to how far it reaches, and the camera fit frames that box rather than `width × height` from the
+origin. It used to clamp at `0,0`, which read as a card sticking to the top edge and sliding
+sideways under the hand.
+
+**Zoomed past the widgets there is no header**, so the whole card takes the press instead (see
+`Node`'s far branch). The gesture is the same one — a graph you have to zoom INTO before you can
+rearrange it stops answering exactly when the arrangement is what you are looking at.
 
 The rule behind the uniformity: **everything that can be added to the graph is a node.** A
 curve is not a per-binding stamp — it draws ONCE, with one automation edge per param it

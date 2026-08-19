@@ -1050,6 +1050,12 @@ export function ModuleBuilder({
                 // offers the module's own assets/. A fixed list now, not a scan of the project:
                 // the choices belong to the module, so there is nothing project-wide to read.
                 assetParams={[...FILE_PARAMS]}
+                // …and every param there IS, which is what "Auto organize" proposes a panel
+                // from. The same rows the Parameters pane offers for dragging, deliberately:
+                // a proposal built from a shorter list would leave parameters out with nothing
+                // saying which. Extra fields on a row (its value, whether it is bound) are the
+                // pane's business and the layout ignores them.
+                params={paramRows}
                 // Three reasons a grid takes no drag, and they mean the same thing to IT and to
                 // nobody else — so it is told which, and only the FAULT gets a warning. A shared
                 // module opens locked, and saying its panel would not parse was false for every

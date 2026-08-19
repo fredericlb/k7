@@ -74,9 +74,9 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("graph move", () => {
-  it("pins the node, rounded and clamped to the world's origin", async () => {
+  it("pins the node, rounded — and ABOVE the origin, which is a place like any other", async () => {
     await runCommand("graph move amp 420.6 -15", host(), "cli");
-    expect(chains()).toContain("amp: { x: 421, y: 0 }");
+    expect(chains()).toContain("amp: { x: 421, y: -15 }");
     expect(reloads).toBe(1);
   });
 

@@ -346,14 +346,15 @@ function runCarriesInput(
  * An optional trailing `<x>,<y>` — where the cursor was when the web asked, so a created
  * node is BORN there instead of asking the layout. Pulled off the argument list before any
  * other parsing: the comma makes it unmistakable for a ref or a node name, which is the
- * whole reason for the spelling. Clamped to the world's origin like every pin.
+ * whole reason for the spelling. Negative like any pin: the canvas above the first track is
+ * canvas, and a node asked for there is born there — see `graph move`.
  */
 function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   const last = parts[parts.length - 1];
   const m = last ? /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(last) : null;
   if (!m) return null;
   parts.pop();
-  return { x: Math.max(0, Number(m[1])), y: Math.max(0, Number(m[2])) };
+  return { x: Number(m[1]), y: Number(m[2]) };
 }
 
 // `splitOptionals` was here — it told an `[extends-ref]` from a `[node-name]` by SHAPE, because
@@ -3181,15 +3182,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           h.refuse([usage]);
           return;
         }
-        // Clamped to the world's origin — the fit frames 0.., and a negative pin would sit
-        // outside every frame the camera can be asked for.
-        setChainNodePosition(h.songPath, name, {
-          x: Math.max(0, x),
-          y: Math.max(0, y),
-        });
-        h.log([
-          `${name}: pinned at ${Math.max(0, Math.round(x))},${Math.max(0, Math.round(y))}`,
-        ]);
+        // Negative is allowed, and is the point: a node belongs above the first track as
+        // readily as below it. The clamp here read "the fit frames 0..", which the layout no
+        // longer says — it reports where the drawing begins as well as how far it reaches.
+        setChainNodePosition(h.songPath, name, { x, y });
+        h.log([`${name}: pinned at ${Math.round(x)},${Math.round(y)}`]);
       }
       await h.reload();
     } catch (e) {

@@ -385,6 +385,14 @@ Two things follow, and both were found by measuring rather than by reasoning:
   before the rows moved: 488px short there, which is the bottom of the graph missing from every
   camera fit.
 
+The extent has a second end, `left`/`top`, and it exists for the same reason. dagre lays out from
+`marginx`/`marginy` down and right, so both are 0 for a graph nobody touched — but a **pin** can
+sit anywhere, including above the first track, and `width × height` measured from the origin says
+nothing about that. A camera framing the extent alone would cut off exactly the cards somebody
+dragged up there, which is why the drop used to clamp to `0,0` instead. Both are floored at 0
+(never positive), so the box a fit reads — `width - left` by `height - top` — is the extent
+unchanged for every graph that begins at the origin.
+
 Only the y is legislated. The x stays dagre's, so the gap along a row varies with what hangs
 under each column — right for tracks and modules, which are the tops and middles of chains of
 different widths. The mixer row asks for even spacing separately (`spaceModulesEvenly`), because
