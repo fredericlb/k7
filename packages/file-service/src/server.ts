@@ -366,7 +366,7 @@ app.get(
  */
 app.get(
   "/plugin-native-ui",
-  wrap((req, res) => {
+  wrap(async (req, res) => {
     const found = resolvePlugin(
       String(req.query.ref ?? ""),
       String(req.query.format ?? ""),
@@ -376,13 +376,21 @@ app.get(
       res.status(found.status).json({ error: found.error });
       return;
     }
-    if (!showNativePluginUIOf(found.format, found.id)) {
-      res
-        .status(503)
-        .json({ error: "the engine did not answer — is it running?" });
+    const opened = await showNativePluginUIOf(found.format, found.id);
+    if (opened === undefined) {
+      res.status(504).json({
+        error:
+          "the engine never said it opened one — it may be busy loading the plugin, or its offline engine may be wedged (the parameter scan hangs the same way)",
+      });
       return;
     }
-    res.status(202).json({ opening: found.id });
+    if (!opened.ok) {
+      res.status(502).json({
+        error: `the engine could not open a window for ${found.id} — see its log`,
+      });
+      return;
+    }
+    res.json({ opened: found.id });
   }),
 );
 

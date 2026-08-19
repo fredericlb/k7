@@ -721,8 +721,10 @@ export function ModuleBuilder({
     setScanNote(null);
     void onShowNativeUI(nativeUiBase)
       .then(() =>
-        // Said every time, not once: the window is the plugin's own and looks exactly like the one
-        // that DOES save in a project, so "this one does not" is the thing a user has to be told.
+        // Said only once the ENGINE has said it drew one — this used to be printed on the request
+        // going out, which reported an open window while nothing had happened. And said every
+        // time, not once: the window is the plugin's own and looks exactly like the one that DOES
+        // save in a project, so "this one does not" is the thing a user has to be told.
         setScanNote(
           "fenêtre du greffon ouverte sur la machine du moteur — c'est une instance à part, rien de ce qu'on y touche n'est enregistré",
         ),

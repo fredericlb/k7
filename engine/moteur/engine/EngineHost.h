@@ -588,12 +588,15 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
  * already there. Doing both on the message thread would stall the transport of every session on
  * this engine for as long as the plugin took to load.
  *
- * `prepareNativePluginUI` returns false when this machine cannot find, create or LOAD the plugin —
- * the same three the param query answers `nullopt` for. `showNativePluginUIOf` then warns and does
- * nothing, so a caller that skips the check gets a message rather than a silent no-op.
+ * Both answer whether they worked, and the SECOND one's answer is the one a caller must relay.
+ * `prepareNativePluginUI` is false when this machine cannot find, create or LOAD the plugin — the
+ * same three the param query answers `nullopt` for. `showNativePluginUIOf` is false when there is
+ * no loaded instance to draw, when the plugin has no editor, or when the editor would not build.
+ * It never loads one itself: it runs on the message thread, and a plugin construction can hang —
+ * borrowing that thread to wait would stall the transport of every session on the engine.
  */
 bool prepareNativePluginUI(const std::string& format, const std::string& identifier);
-void showNativePluginUIOf(const std::string& format, const std::string& identifier);
+bool showNativePluginUIOf(const std::string& format, const std::string& identifier);
 
 /**
  * Write what that orphan is CURRENTLY holding to a `.vstpreset`, and say whether it worked.

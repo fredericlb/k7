@@ -106,6 +106,7 @@ announces its own. `engine/moteur/scripts/track-delta.ts` exercises the three an
 | `{ type: "plugin-params-live", id, params }` | the watch feed, while a value moves |
 | `{ type: "plugin-params", id, params, meta }` | the state to persist; `meta` only on the get- reply |
 | `{ type: "plugin-base-saved", format, id, path, ok }` | whether the snapshot wrote. `ok:false` leaves no file — no instance open, or a plugin with no state to give |
+| `{ type: "native-plugin-ui-opened", format, id, ok }` | whether the orphan window opened. NO reply at all means the load is still running or has hung — the two a caller must not read as success |
 | `{ type: "presets", module, presets: [{name,source,index,path}, …] }` | |
 | `{ type: "edit-plugins", plugins: [{id,name,hasNativePluginUI}, …] }` | what the loaded project holds |
 | `{ type: "busy", busy: true\|false }` | the message thread is (un)blocked by an apply |
