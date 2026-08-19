@@ -203,12 +203,24 @@ export class EngineControl extends EventEmitter {
           this.emit("pluginParamList", {
             format: String(msg.format ?? ""),
             id: String(msg.id ?? ""),
-            // Whether the plugin was LOADED at all, which an empty list cannot say — and on this
-            // machine twenty-seven refuse to, which read as twenty-seven plugins publishing
-            // nothing until the engine started asking. One is a licence to go and fix, the other
-            // is a fact about the plugin; only the flag tells a caller which it has.
+            // Whether the plugin was LOADED at all, which an empty list cannot say. One is a
+            // machine to go and fix, the other is a fact about the plugin, and only the flag
+            // tells a caller which it has. This comment used to cite twenty-seven plugins that
+            // "refuse to load" on the dev machine; every one of them loads, and the count was
+            // measuring a missing `knownPluginList` registration in the engine — see
+            // `describeExternal` in ParamDump.cpp. The flag was right; its explanation was not.
             found: msg.found !== false,
             params: (msg.params ?? []) as PluginParamInfo[],
+          });
+          break;
+        // Whether a base was written. Carries the path back for the same reason the list above
+        // carries the format and id: the ask is slow enough that another may have been made.
+        case "plugin-base-saved":
+          this.emit("pluginBaseSaved", {
+            format: String(msg.format ?? ""),
+            id: String(msg.id ?? ""),
+            path: String(msg.path ?? ""),
+            ok: msg.ok === true,
           });
           break;
         case "plugin-params":
@@ -318,6 +330,21 @@ export class EngineControl extends EventEmitter {
    */
   showNativePluginUIOf(format: string, id: string): void {
     this.send({ type: "show-native-plugin-ui-of", format, id });
+  }
+
+  /**
+   * Keep what that orphan window is holding: its state written to `path` as a `.vstpreset`.
+   *
+   * The one act that takes something out of a window whose premise is that nothing in it is
+   * saved, which is why it is asked for separately and never implied by opening one.
+   *
+   * `path` is absolute and belongs to the CALLER's machine being the engine's — this writes a
+   * file, so a caller that is not on that machine is naming a directory it cannot see. The reply
+   * is `pluginBaseSaved`, and it matters: `ok:false` leaves no file, either because no window was
+   * ever opened for this plugin or because the plugin has no state to give.
+   */
+  snapshotPluginBase(format: string, id: string, path: string): void {
+    this.send({ type: "snapshot-plugin-base", format, id, path });
   }
 
   // Which plugin INSTANCES the engine's edits hold — what is in the SONGS, unlike listPlugins'

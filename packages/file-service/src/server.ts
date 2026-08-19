@@ -11,7 +11,6 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
-import { engineModuleOf } from "@studio/song/moduleTypes";
 import type { WorkspaceList } from "@studio/web-protocol";
 import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
@@ -36,6 +35,7 @@ import {
 import { startMediatekPuller, syncMediatekFamily } from "./mediatekPull.ts";
 import { installModuleWatch } from "./moduleWatch.ts";
 import { record as recordRefusedOrigin } from "./pendingOrigins.ts";
+import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { playerRouter } from "./routes/player.ts";
@@ -320,38 +320,6 @@ app.get(
  * one that loads and publishes nothing are both an empty list, and only the first is worth
  * telling somebody about — it is a licence or an installation, not a fact about the plugin.
  */
-/**
- * Two ways to name a plugin, resolved to the one the engine takes.
- *
- * `ref` is an `@engine/<slug>` — what a module's `extends:` carries — and only this side can turn
- * it into a binary, because the scan cache is here; a browser holding the ref would otherwise have
- * to fetch the whole catalogue to send back one path. `engineModuleOf` is the shared rule, so the
- * plugin found is the one a compiled document would load.
- *
- * Only EXTERNALS are in that cache, which is the filter as well as the lookup: a built-in resolves
- * to nothing here and never should, since it needs no engine to answer for it and draws no window.
- *
- * Returns the error to send, or the pair. Shared by the two routes below because they take the
- * same argument for the same reason — one asks what the plugin has, the other opens it.
- */
-function resolvePlugin(
-  ref: string,
-  format: string,
-  id: string,
-): { format: string; id: string } | { status: number; error: string } {
-  if (ref) {
-    const hit = scannedPlugins().find(
-      (p) => p.id && engineModuleOf(p)?.ref === ref,
-    );
-    if (!hit?.id)
-      return { status: 404, error: `no scanned plugin for "${ref}"` };
-    return { format: hit.format, id: hit.id };
-  }
-  if (!format || !id)
-    return { status: 400, error: "format and id, or ref, are required" };
-  return { format, id };
-}
-
 app.get(
   "/plugin-params",
   wrap(async (req, res) => {

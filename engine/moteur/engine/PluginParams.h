@@ -87,4 +87,16 @@ std::unordered_map<std::string, double> currentParamValues(te::Plugin& plugin);
  */
 te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string& identifier);
 
+/**
+ * …and the same orphan ONLY IF one is already loaded — never creating it.
+ *
+ * The distinction is the whole reason there are two. `orphanPluginFor` answers "give me this
+ * plugin", and loading one to satisfy that is right. A SNAPSHOT asks a different question: what is
+ * this instance holding right now — and if there is no instance, the honest answer is "nothing",
+ * not "here are the factory defaults I just loaded for you". The second would write a file the
+ * user believes is the sound they dialled in, and it would be silence-shaped: correct bytes, wrong
+ * sound, discovered weeks later.
+ */
+te::Plugin::Ptr orphanPluginIfLoaded(const std::string& formatName, const std::string& identifier);
+
 }  // namespace studio

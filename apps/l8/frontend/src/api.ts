@@ -307,6 +307,22 @@ export const api = {
       `/plugin-native-ui?ref=${encodeURIComponent(ref)}`,
     ),
 
+  /**
+   * …and keeping what is in that window: the plugin's state as a named base in the module's own
+   * `base/` folder.
+   *
+   * `path` is the module file being edited — the SERVER derives the folder from it, because a
+   * base is a file the browser has no business locating. The error bodies are worth passing
+   * through verbatim: the common failure is "no window opened yet", which is the user's to fix
+   * and reads as nonsense if flattened to "could not save".
+   */
+  snapshotModuleBase: (path: string, name: string, ref: string) =>
+    fsend<{ path: string }>("POST", "/module-base/snapshot", {
+      path,
+      name,
+      ref,
+    }),
+
   // --- presets (a file in the module's folder, see @studio/song/docs/userPresets.md) ---
   // A module's own presets, from the `presets.yaml` in its folder — the factory ones ride the WebSocket.
   listUserPresets: (ref: string) =>
@@ -392,6 +408,11 @@ export const moduleStore: ModuleStore = {
     if (!ref) return {}; // the project's own — saved, and there is nowhere else for it to go
     return api.publishLibraries(`${ref}`);
   },
+  /**
+   * Keep the plugin's current state as a named base. Straight through to the route, which is the
+   * only side that knows where `base/` is for this module — see `ModuleStore.snapshotBase`.
+   */
+  snapshotBase: (path, name, ref) => api.snapshotModuleBase(path, name, ref),
   write: async (path, content) => {
     const { forked } = await api.write(path, content);
     if (!forked) return {};

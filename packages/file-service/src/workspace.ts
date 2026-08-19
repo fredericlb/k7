@@ -1165,6 +1165,38 @@ export class Workspace {
   }
 
   /**
+   * Where a named BASE goes: `base/<name>.vstpreset` beside the module file.
+   *
+   * A base is an opaque `.vstpreset` blob kept with the module, for the plugins whose sound is not
+   * in their automatable parameters — an Arturia patch is not, so `presets.yaml` (numbers only)
+   * cannot hold one. `base/` is its own folder rather than more files loose in the module folder,
+   * because the loader already reads `<name>.vstpreset` THERE as the module's single default and a
+   * second spelling in the same directory would be two rules over one namespace.
+   *
+   * Resolved HERE and not by the caller, twice over: the builder is forbidden from constructing a
+   * path at all (see `ModuleStore`), and a name that arrives from a browser is not a path component
+   * until something has said so. `basename` plus the separator strip is `renameEntry`'s rule, for
+   * the same reason — this name only ever names a file in one directory.
+   *
+   * Returns both spellings because both are needed and neither is derivable by its consumer: the
+   * ENGINE writes the absolute one (it is a different process), the browser is told the relative
+   * one (it has no idea where the workspace lives).
+   */
+  baseSnapshotPath(rel: string, name: string): { abs: string; path: string } {
+    const moduleAbs = this.safePath(rel);
+    const clean = basename(name).replace(/[\\/]/g, "").trim();
+    if (!clean || clean === "." || clean === "..")
+      throw new Error(`invalid name: ${name}`);
+    // Spelt once, whether or not the user typed it — a base called `warm.vstpreset` and one
+    // called `warm` are the same base, and two files would be the surprise.
+    const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
+    const dir = this.safePath(this.toRel(join(dirname(moduleAbs), "base")));
+    const abs = this.safePath(this.toRel(join(dir, leaf)));
+    mkdirSync(dir, { recursive: true });
+    return { abs, path: this.toRel(abs) };
+  }
+
+  /**
    * Every project folder under the workspace root, in the order `walk` would have listed them.
    *
    * Its own scan rather than `collect(this.walk(root))`, which is what this replaced: that built

@@ -15,6 +15,10 @@ modules/audio/amp/
 That is the only place they are looked for. There is no shared asset library any more (see
 "What replaced the library" below).
 
+`assets/` is one of three reserved subfolders a module may have — the other two are `nodes/`
+(one file per placement) and `base/` (named `.vstpreset` blobs, `docs/userPresets.md`). Nothing
+else in a module folder is a folder with a meaning: a name not on that list is just a name.
+
 A module INHERITS its ancestors' assets: pointing a song at a shared amp means a thin local
 module that `extends` it, and the files are in the shared folder. `moduleAssetChoices` is the one
 answer to "what may this param be set to" — the panel's picker, the graph and the CLI completion

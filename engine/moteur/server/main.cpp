@@ -1150,6 +1150,42 @@ int main(int argc, char** argv) {
                         });
                     }).detach();
                 }
+            } else if (type == "snapshot-plugin-base") {
+                // Keep what the orphan window is holding: write its state to `path` as a
+                // .vstpreset. The one act that takes something OUT of a window whose whole
+                // premise is that nothing in it is saved — hence its own message rather than a
+                // flag on the open above.
+                //
+                // `path` is absolute and comes from the file service, on this machine: it is the
+                // side that knows where a module's folder is and the side that checked the name.
+                // The engine writes where it is told, as it does for a render or a freeze.
+                //
+                // MESSAGE THREAD, unlike the open beside it, and for the opposite reason: nothing
+                // is loaded here — the instance is already there — and its state must be read
+                // where its editor lives.
+                const std::string fmt = j.value("format", std::string{});
+                const std::string id = j.value("id", std::string{});
+                const std::string path = j.value("path", std::string{});
+                if (fmt.empty() || id.empty() || path.empty()) {
+                    ws.send(json{{"type", "error"},
+                                 {"message", "snapshot-plugin-base needs a format, an id and a path"}}
+                                .dump());
+                } else {
+                    host.post([&broadcast, fmt, id, path] {
+                        const bool ok = studio::snapshotOrphanPluginTo(fmt, id, path);
+                        std::cerr << "[plugin-base] " << (ok ? "wrote " : "could not write ")
+                                  << path << "\n";
+                        // Answered rather than left to the caller to go and look: a file appearing
+                        // on disk is not proof the plugin had anything to put in it, and the two
+                        // failures worth telling apart — no instance open, and a plugin with no
+                        // state — both leave no file at all.
+                        broadcast(json{{"type", "plugin-base-saved"},
+                                       {"format", fmt},
+                                       {"id", id},
+                                       {"path", path},
+                                       {"ok", ok}});
+                    });
+                }
             } else if (type == "set-plugin-param") {
                 // Set one plugin parameter on the LIVE edit, for a control being dragged: `name` is its display name, `value`
                 // in its native range. This does NOT persist — the client writes the value to the project on release — so an

@@ -84,4 +84,26 @@ export interface ModuleStore {
    * `note` is what to tell the user, in the host's own words.
    */
   publish?(path: string): Promise<{ note?: string }>;
+
+  /**
+   * Keep the plugin's CURRENT state as a named base in the module's own `base/` folder.
+   *
+   * A base is an opaque `.vstpreset` blob, for the plugins whose sound is not in their automatable
+   * parameters — which `presets.yaml` cannot hold, being named numbers. Snapshotting reads the
+   * instance behind the "Native UI" window, so what is kept is what somebody dialled in by hand.
+   *
+   * HERE rather than as an `on…` prop, even though half of it is an engine call: the other half
+   * writes a file in the module's folder, and this interface exists precisely so the builder never
+   * works out such a path itself. It passes back the `path` it was given and the ref it read out
+   * of the module's own text, and the host resolves where that lands in its own space.
+   *
+   * OPTIONAL, like `jsdsp` and `publish`: a host with no engine, or one that serves files it
+   * cannot write blobs beside, simply shows no button. Rejects with something worth reading — no
+   * window opened yet is the common one, and it is the user's to fix.
+   */
+  snapshotBase?(
+    path: string,
+    name: string,
+    ref: string,
+  ): Promise<{ path: string }>;
 }

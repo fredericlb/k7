@@ -348,6 +348,13 @@ te::Plugin::Ptr orphanPluginFor(const std::string& formatName, const std::string
     return plugin;
 }
 
+te::Plugin::Ptr orphanPluginIfLoaded(const std::string& formatName,
+                                     const std::string& identifier) {
+    std::lock_guard<std::mutex> lock(paramQueryMutex);
+    auto it = orphanPlugins.find(orphanKey(formatName, identifier));
+    return it == orphanPlugins.end() ? te::Plugin::Ptr{} : it->second;
+}
+
 bool prepareNativePluginUI(const std::string& formatName, const std::string& identifier) {
     return orphanPluginFor(formatName, identifier) != nullptr;
 }

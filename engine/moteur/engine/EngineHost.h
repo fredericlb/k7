@@ -595,6 +595,30 @@ std::optional<std::vector<PluginParamInfo>> pluginParamsOf(const std::string& fo
 bool prepareNativePluginUI(const std::string& format, const std::string& identifier);
 void showNativePluginUIOf(const std::string& format, const std::string& identifier);
 
+/**
+ * Write what that orphan is CURRENTLY holding to a `.vstpreset`, and say whether it worked.
+ *
+ * The other end of the window above. That one is deliberately a place where nothing is saved; this
+ * is the one act that takes something out of it — a sound dialled in by hand, captured under a name
+ * — and it is a separate, explicit call for exactly that reason. Opening a plugin must stay free of
+ * consequence; keeping what you found there must be something you asked for.
+ *
+ * ONLY an instance that is already loaded. No orphan means false, and never a freshly-created one:
+ * a snapshot of a plugin nobody has opened is the factory default wearing the name of a sound
+ * somebody thought they had made.
+ *
+ * `outFile` is ABSOLUTE and its parent is created. The caller is the file service, on this same
+ * machine, which is the only side that knows where a module's folder is and the only side that can
+ * be trusted to have checked the name — the engine writes where it is told, as it does for a
+ * render or a freeze.
+ *
+ * A Steinberg container via `saveVstPreset`, which is what `loadVstPreset` reads back, so a base
+ * written here is loadable by every path that already takes one. Message thread: the plugin may be
+ * on screen with its editor open, and this reads its state.
+ */
+bool snapshotOrphanPluginTo(const std::string& format, const std::string& identifier,
+                            const std::string& outFile);
+
 // Offline render (bounce) to wav with NO audio device, so MIDI and instrument tracks are rendered unlike an
 // ffmpeg mixdown: writes mix.wav plus, with `stems`, one wav per track, and prints a JSON manifest.
 // Wired from `--render <doc.json|-> --out <dir> [--stems]`.

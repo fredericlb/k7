@@ -556,6 +556,27 @@ void showNativePluginUIOf(const std::string& formatName, const std::string& iden
         std::make_unique<PluginWindow>(plugin->getName(), editor, icon, nullptr);
 }
 
+// Capture that orphan's state. See the declaration in EngineHost.h for why it refuses to load one.
+bool snapshotOrphanPluginTo(const std::string& formatName, const std::string& identifier,
+                            const std::string& outFile) {
+    auto plugin = orphanPluginIfLoaded(formatName, identifier);
+    if (plugin == nullptr) {
+        warn("nothing to snapshot for '" + identifier +
+                 "' — open its window first, so there is a state to keep",
+             identifier);
+        return false;
+    }
+    const juce::File file{juce::String(outFile)};
+    // `saveVstPreset` creates the parent, asks the VST3 client for its container, and refuses a
+    // plugin that gives back nothing — so a false here is "this plugin has no state to write",
+    // which is a real answer for some, not a failure to be papered over with an empty file.
+    if (!saveVstPreset(*plugin, file)) {
+        warn("could not write a base for '" + identifier + "' to " + outFile, identifier);
+        return false;
+    }
+    return true;
+}
+
 // Snapshot the plugin instances in the live edit for the tray's submenu: a flat walk over pluginsById, which is
 // keyed by chain:module and rebuilt with the edit. A module reused across chains has one entry per placement,
 // each its own instance — and each gets a row, so the user can open whichever they want.

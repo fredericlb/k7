@@ -49,6 +49,60 @@ in its folder that the loader reads as its default, and that is all.
 
 Old `.presets/` folders are **not** migrated. Same clean break as the `_ui/` tree.
 
+## …and what came back, under another name: `base/`
+
+The paragraph above states a cost — "a plugin whose state is not addressable parameters can no
+longer have several remembered states" — and that cost turned out to be most of the plugins
+anybody reaches for. It is measurable: loaded from a `.vstpreset`, an Arturia Wurli V2 reports
+the same 50 parameter values as an untouched one, and a Mini V3 the same 77. Their patch is
+opaque chunk state. Written into `presets.yaml` as numbers, an Arturia sound is the factory
+default with a name on it — a shelf entry that looks saved and is not.
+
+So the blob is back, and deliberately **not** as a preset:
+
+```
+modules/<type>/<name>/module.yaml    what it does
+modules/<type>/<name>/ui.yaml        how it's drawn
+modules/<type>/<name>/presets.yaml   its named settings — numbers
+modules/<type>/<name>/<name>.vstpreset   its default state, read by the loader
+modules/<type>/<name>/base/          named blobs: whole states, kept
+```
+
+The two do not compete, and the difference is worth holding on to:
+
+| | `presets.yaml` | `base/` |
+|---|---|---|
+| what it holds | named numbers | an opaque Steinberg container |
+| readable, diffable, hand-editable | yes | no |
+| applying one | stamps values into the module text, undone by not saving | **nothing selects one yet** |
+| what it is for | a plugin whose state IS its parameters | one whose state is not |
+
+`base/` is its own folder rather than more files loose beside the module, because the loader
+already reads `<name>.vstpreset` there as the single default; a second spelling in the same
+directory would be two rules over one namespace.
+
+**Store only, for now.** A base is written and listed, and nothing loads one — the loader still
+reads `<name>.vstpreset` as the module's default and knows nothing about `base/`. That is the
+honest first step: the shape is worth proving before `module.yaml` grows a field naming a chosen
+base, and a half-wired selection would be worse than none.
+
+## Writing one: from the plugin's own window
+
+`base/<name>.vstpreset` comes from the module builder's **Snapshot a base**, which reads the
+ORPHAN instance behind its "Native UI" button — the plugin loaded on the engine's offline edit,
+in no project. Three consequences, all wanted:
+
+- It works with **no project open**, and on a plugin the open project never loads. A module is
+  authored against a plugin by name, which is exactly the case `presets.yaml` cannot help with.
+- What is kept is what somebody **dialled in by hand** in the plugin's own UI, and nothing else.
+- Opening that window still saves nothing. Snapshotting is the one act that takes something out
+  of it, which is why it is a separate button and never implied by opening one.
+
+A snapshot with no window opened is **refused**, not silently filled with defaults: the engine
+answers `ok:false`, the route says 409, and the builder tells you to open the plugin first. A
+base that is quietly the factory sound is the one failure here nobody would catch — it is a real
+file, with the name you chose, holding a sound you never made.
+
 ## Applying one
 
 Two ways in, and they do the same thing to the same file:

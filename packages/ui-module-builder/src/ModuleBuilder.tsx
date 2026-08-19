@@ -31,6 +31,7 @@ import type {
 import {
   AppWindow,
   ArrowLeft,
+  Camera,
   ChevronDown,
   Folder,
   LayoutGrid,
@@ -730,6 +731,35 @@ export function ModuleBuilder({
       .finally(() => setOpeningUi(false));
   }, [onShowNativeUI, openingUi, nativeUiBase]);
 
+  /**
+   * …and keeping what is in that window: the plugin's state written as a named base.
+   *
+   * The same `nativeUiBase`, because it is the same instance — the one the window opened, and the
+   * only one whose state anybody dialled. A base is the blob for plugins whose sound is NOT in
+   * their parameters, which is why the shelf (`presets.yaml`, named numbers) cannot stand in for
+   * it: on those plugins a saved shelf entry is the factory default with a name on it.
+   *
+   * The path is the host's to work out. This passes back the one it was given, and the ref it read
+   * out of the module's own text — see `ModuleStore.snapshotBase`.
+   */
+  const [snapping, setSnapping] = useState(false);
+  const snapBase = useCallback(() => {
+    if (!store.snapshotBase || snapping || !nativeUiBase) return;
+    const name = window.prompt(
+      "Nom de la base — l'état actuel du greffon, gardé dans base/",
+    );
+    if (!name?.trim()) return;
+    setSnapping(true);
+    setScanNote(null);
+    void store
+      .snapshotBase(path, name.trim(), nativeUiBase)
+      .then((w) => setScanNote(`base gardée : ${w.path}`))
+      // The message is the HOST's, not one invented here: the interesting failure is "no window
+      // open yet", and only the side that asked the engine knows that is what happened.
+      .catch((e: Error) => setScanNote(`base impossible : ${e.message}`))
+      .finally(() => setSnapping(false));
+  }, [store, snapping, nativeUiBase, path]);
+
   // Every addressable param, unioned from all FIVE sources — none of them is complete on its own.
   const paramRows = useMemo(() => {
     const set = content == null ? {} : readParams(content);
@@ -1047,6 +1077,12 @@ export function ModuleBuilder({
                     onShowNativeUI && nativeUiBase ? runNativeUi : undefined
                   }
                   openingUi={openingUi}
+                  onSnapshotBase={
+                    store.snapshotBase && nativeUiBase && !readOnly
+                      ? snapBase
+                      : undefined
+                  }
+                  snapping={snapping}
                 />
               ) : (
                 <YamlPane
@@ -1180,6 +1216,8 @@ function ParamsPane({
   scanNote,
   onNativeUi,
   openingUi,
+  onSnapshotBase,
+  snapping,
 }: {
   rows: {
     name: string;
@@ -1197,6 +1235,10 @@ function ParamsPane({
    *  window. Only an installed plugin has one. */
   onNativeUi?: () => void;
   openingUi?: boolean;
+  /** Absent ⇒ no button: no host that can write one, no plugin to read, or a read-only module.
+   *  A base is a WRITE into the module's folder, so it follows the same lock the text does. */
+  onSnapshotBase?: () => void;
+  snapping?: boolean;
 }) {
   const [q, setQ] = useState("");
   const needle = q.trim().toLowerCase();
@@ -1263,6 +1305,28 @@ function ParamsPane({
             )}
             <span className="ml-1 hidden sm:inline">
               {openingUi ? "ouverture…" : "Native UI"}
+            </span>
+          </Button>
+        )}
+        {/* Next to the window it reads from, because that is the order they are used in: open
+            the plugin, set it up, keep it. It writes a file, so unlike the two beside it this
+            one is an EDIT and disappears on a read-only module. */}
+        {onSnapshotBase && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 shrink-0 px-2 text-xs"
+            disabled={snapping}
+            onClick={onSnapshotBase}
+            title="Keep the plugin's current state as a named base in the module's base/ folder — for plugins whose sound is not in their parameters"
+          >
+            {snapping ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Camera className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1 hidden sm:inline">
+              {snapping ? "capture…" : "Snapshot a base"}
             </span>
           </Button>
         )}
