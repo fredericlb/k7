@@ -115,21 +115,27 @@ describe("the pages", () => {
     expect(UISchema.safeParse(ui).success).toBe(true);
   });
 
-  it("claims the lane's own names early, and opens on them", () => {
-    // `@volume` reads as a level to every word test there is, so `General` has to ask before
-    // `Mix`. It is also the page to open on: the module's own controls, `@base` among them.
-    expect(familyOf("@volume")).toBe(GENERAL_PAGE);
-    expect(familyOf("@monitor")).toBe(GENERAL_PAGE);
+  it("claims the lane's own names early — to drop them, `@base` apart", () => {
+    // `@volume` reads as a level to every word test there is, so the `@` namespace has to ask
+    // before `Mix`. What it does with them is DROP them: a mixer strip already draws every one,
+    // and a proposal repeating them puts a second fader on screen wired to the first.
+    expect(isPlumbing("@volume")).toBe(true);
+    expect(isPlumbing("@monitor")).toBe(true);
+    expect(isPlumbing("@mute")).toBe(true);
+    // …and the one exception, which nothing else draws.
     expect(familyOf("@base")).toBe(GENERAL_PAGE);
+    expect(isPlumbing("@base")).toBe(false);
+    // Anchored, so a plugin parameter that merely STARTS with the word is not the intrinsic.
+    expect(familyOf("@base_mix")).not.toBe(GENERAL_PAGE);
     const groups = groupParams([
       p("Master Volume"),
       p("@volume"),
       p("Hammer Hardness"),
     ]);
-    expect(groups.map((g) => g.page)).toEqual([GENERAL_PAGE, "Mix", "Other"]);
+    expect(groups.map((g) => g.page)).toEqual(["Mix", "Other"]);
   });
 
-  it("moves the module's OWN blend to General, and leaves an effect's alone", () => {
+  it("tells the module's OWN blend from an effect's, and moves neither", () => {
     // The test is the family, not the word: the effect families ask before `Mix` does, so a
     // blend word still sitting in `Mix` at the end is one no effect claimed.
     expect(isBlend("Mix")).toBe(true);
@@ -138,12 +144,11 @@ describe("the pages", () => {
     expect(isBlend("Delay Mix")).toBe(false);
     // …and a level is not a blend, though it lives on the same page.
     expect(isBlend("Master Volume")).toBe(false);
+    // It decides a POSITION and no longer a page: the module's blend stays in `Mix`, where its
+    // own family put it. It was pulled onto `General`, which is `@base` alone now.
     const groups = groupParams([p("Mix"), p("Reverb Dry/Wet"), p("@volume")]);
-    expect(groups.map((g) => g.page)).toEqual([GENERAL_PAGE, "Reverb"]);
-    expect(groups[0].params.map((x) => x.name).sort()).toEqual([
-      "@volume",
-      "Mix",
-    ]);
+    expect(groups.map((g) => g.page)).toEqual(["Reverb", "Mix"]);
+    expect(groups[1].params.map((x) => x.name)).toEqual(["Mix"]);
   });
 
   it("holds only the families that got something", () => {
@@ -234,15 +239,22 @@ describe("the panel it proposes", () => {
     const ui = autoOrganize([
       p("Reverb Room Size"),
       p("Filter Cutoff"),
-      p("@volume"),
+      p("@base"),
     ]);
     expect(Object.keys(ui.widgets.tabs.pages ?? {})[0]).toBe(GENERAL_PAGE);
   });
 
-  it("gives `@base` the first row to itself, and starts the rest below it", () => {
+  it("has no General page at all on a module with no base", () => {
+    // A page holds only what got something, and `@base` is the only thing that lands here now.
+    // So a plain effect opens on its own first family rather than on an empty front page.
+    const ui = autoOrganize([p("Reverb Room Size"), p("@volume"), p("@pan")]);
+    expect(Object.keys(ui.widgets.tabs.pages ?? {})).toEqual(["Reverb"]);
+  });
+
+  it("gives `@base` the front page to itself, and drops the other intrinsics", () => {
     // It is not a control like the others: it decides which preset the plugin is BUILT from, so
-    // every knob under it is describing that base. Sixth in a row of dials it reads as one more
-    // setting; alone on the top line it reads as the choice the rest hangs off.
+    // every parameter on every other page is describing that base. The lane's own controls used
+    // to sit under it here; the mixer strip draws all of those, so they are left out.
     const ui = autoOrganize([
       p("@base", {
         min: 0,
@@ -256,11 +268,13 @@ describe("the panel it proposes", () => {
       p("@pan", { min: 0, max: 1 }),
     ]);
     const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
-    const at = (bind: string) => page.find((w) => w.bind === bind);
-    expect(at("@base")).toMatchObject({ type: "dropdown", col: 0, row: 1 });
-    // Row 1 is the base's, so the rest starts on the next SLOT row — two cells further down.
-    expect(at("@volume")).toMatchObject({ col: 0, row: 3 });
-    expect(at("@pan")).toMatchObject({ col: 2, row: 3 });
+    expect(page).toHaveLength(1);
+    expect(page[0]).toMatchObject({
+      type: "dropdown",
+      bind: "@base",
+      col: 0,
+      row: 1,
+    });
   });
 
   it("puts the blend in the bottom-right corner, the pair of them together", () => {
@@ -273,11 +287,11 @@ describe("the panel it proposes", () => {
       p("Filter Resonance"),
       p("Filter Drive"),
     ]);
-    const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
+    const page = Object.values(ui.widgets.tabs.pages?.Mix ?? {});
     const at = (bind: string) => page.find((w) => w.bind === bind);
     // The Filter page is one row of CONTENT, and the panel is that plus the empty row every
-    // proposal ends on — and the blend goes on the content row, right-aligned: slots 4 and 5 of
-    // six, which are columns 8 and 10 of twelve. The air is BELOW it, not instead of it.
+    // proposal ends on — and the blend goes on the content row of its OWN page, right-aligned:
+    // slots 4 and 5 of six, which are columns 8 and 10 of twelve. The air is BELOW it.
     expect(ui.rows).toBe(1 + 2 * 2);
     expect(at("Dry")).toMatchObject({ col: 8, row: 1 });
     expect(at("Wet")).toMatchObject({ col: 10, row: 1 });
@@ -285,11 +299,12 @@ describe("the panel it proposes", () => {
 
   it("grows a row rather than dropping the blend on a knob", () => {
     // Six parameters fill the bottom row to its right-hand edge, which is where the blend goes.
+    // They have to be the blend's OWN page's now, so they are levels rather than intrinsics.
     const ui = autoOrganize([
-      ...Array.from({ length: 6 }, (_, i) => p(`@ctl${i}`)),
+      ...Array.from({ length: 6 }, (_, i) => p(`Level ${i}`)),
       p("Mix"),
     ]);
-    const page = Object.values(ui.widgets.tabs.pages?.[GENERAL_PAGE] ?? {});
+    const page = Object.values(ui.widgets.tabs.pages?.Mix ?? {});
     // Two rows of content — the six, then the row grown for the blend — plus the trailing one.
     expect(ui.rows).toBe(1 + 3 * 2);
     expect(page.find((w) => w.bind === "Mix")).toMatchObject({
@@ -314,12 +329,13 @@ describe("the panel it proposes", () => {
     // 13 knobs six to a row is three rows of them, two cells tall each, plus the bar's one and
     // the empty one every proposal ends on.
     expect(many.rows).toBe(1 + 4 * 2);
-    // …and the row `@base` takes for itself counts too, or the page it is on would be cut off.
+    // …and a panel whose only page is the base is two rows: its one, and the empty one. The
+    // lane control beside it is dropped, so it adds nothing to the height either.
     const withBase = autoOrganize([
       p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
       p("@volume"),
     ]);
-    expect(withBase.rows).toBe(1 + 3 * 2);
+    expect(withBase.rows).toBe(1 + 2 * 2);
   });
 
   it("always ends on an empty row, whatever the tallest page holds", () => {

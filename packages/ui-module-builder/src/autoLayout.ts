@@ -18,17 +18,37 @@ export interface AutoParam {
 }
 
 /**
- * The page the `@` names land on, and the panel's first tab.
+ * `@base`'s page, and the panel's first tab — and it holds NOTHING else.
  *
- * They are the module's own controls rather than the plugin's — the lane's volume and pan, an
- * input's gain and monitoring, and `@base`, which decides what the plugin even sounds like. So
- * the panel opens on them: a proposal that opened on the eighth reverb parameter would have put
- * the one page you always want behind eleven you sometimes do.
+ * `@base` decides which `.vstpreset` the plugin is built from, so every parameter on every other
+ * page is describing that choice. It opens the panel for that reason, and it is alone there for
+ * the same one: a page is a place to look for a control, and a page holding the one thing the
+ * rest hangs off says what it is at a glance.
+ *
+ * It held every `@` name once — the lane's volume and pan, an input's gain and monitoring — on
+ * the argument that those are the module's own controls rather than the plugin's. True, and not
+ * a reason to draw them: a mixer strip already shows all of them, so a proposal that repeats them
+ * spends its front page on a second copy of a fader you have. They are dropped now (see
+ * `TRACK_PAGE`), which left `@base` holding this page by itself.
  *
  * Named in English like every other page here, though the tabs are what a musician reads — one
  * language per bar, and the other eleven are `Reverb`, `Filter`, `Envelope`…
  */
 export const GENERAL_PAGE = "General";
+
+/**
+ * The lane's own controls, matched so they can be LEFT OUT — the third dropped family, beside
+ * `Preset` and `MIDI`, and dropped for a different reason than either.
+ *
+ * Those two are plumbing nobody turns. These are controls somebody turns constantly — and that
+ * is the point: `@volume`, `@pan`, `@mute`, `@solo`, `@arm` are the LANE's, `@gain` and
+ * `@monitor` an input's, and every one of them is already drawn by the strip the mixer shows for
+ * that lane. Proposing them again puts a second fader on screen wired to the first, which is a
+ * question about which one is real that the panel cannot answer.
+ *
+ * `@base` is the exception and asks first: it names no strip control, and nothing else draws it.
+ */
+const TRACK_PAGE = "Track";
 
 /** The output stage — levels, pan, width, and the blend words `isBlend` asks about. LAST in the
  *  table, so a name reaching it is one no effect wanted. */
@@ -59,11 +79,14 @@ const FAMILIES: {
   match: RegExp;
   drop?: true;
 }[] = [
-  // By NAMESPACE rather than by word, and first, because `@volume` and `@gain` would otherwise
-  // read as levels: the `@` names are not the plugin's parameters at all — they are the lane's,
-  // the input's, and the module's own base, and the params list offers them on every module.
-  // First to be READ as well, which is what makes it the panel's front page — see GENERAL_PAGE.
-  { page: GENERAL_PAGE, match: /^@/ },
+  // The `@` namespace, first, because `@volume` and `@gain` would otherwise read as levels: these
+  // are not the plugin's parameters at all, and the params list offers them on every module.
+  //
+  // TWO entries, and the order between them is the whole rule: `@base` takes the front page, and
+  // every OTHER intrinsic is recognised in order to be dropped. Anchored `^@base$` rather than a
+  // prefix — `@base_mix` would be a plugin parameter that happens to start with the word.
+  { page: GENERAL_PAGE, match: /^@base$/ },
+  { page: TRACK_PAGE, drop: true, match: /^@/ },
   {
     page: "Preset",
     drop: true,
@@ -144,18 +167,18 @@ const BLEND_WORD = /\b(dry|wet|mix)\b/;
  * The test is the FAMILY, not the word. `Reverb Dry/Wet`, `Delay Mix` and `Chorus Wet` carry the
  * word too and each belongs to its effect — and the effect families ask before `Mix` does, so a
  * blend word still sitting in `Mix` at the end is one no effect claimed: a bare `Mix`, `Dry/Wet`,
- * `Dry`, `Wet`. That one is the module's own and joins `General`, with the other controls that
- * are about the module rather than about its sound. The table's order does the work; there is no
+ * `Dry`, `Wet`. That one is the module's own. The table's order does the work; there is no
  * second list of effect names to keep in step with the first.
  *
- * Exported because it decides both a page and a position, and neither is guessable from a name.
+ * It decides a POSITION and no longer a page. It used to be pulled onto `General`, with the other
+ * controls that were about the module rather than about its sound; `General` is `@base` alone
+ * now, and a blend is a level — so it stays in `Mix`, where its family already put it, and only
+ * the corner treatment below survives.
+ *
+ * Exported because that position is not guessable from a name.
  */
 export const isBlend = (name: string): boolean =>
   familyOf(name) === MIX_PAGE && BLEND_WORD.test(readable(name));
-
-/** Which PAGE a parameter lands on: its family, except that the module's own blend joins General. */
-const pageOf = (name: string): string =>
-  isBlend(name) ? GENERAL_PAGE : familyOf(name);
 
 /** `MPE_PitchBend_3` and `Pitch Bend` are the same string to a pattern. */
 const readable = (name: string): string =>
@@ -185,16 +208,18 @@ function widgetTypeFor(p: AutoParam): WidgetType {
 const labelOf = (name: string) => name.replace(/^@/, "");
 
 /**
- * The pages, holding only the families that got something — and never `Preset` or `MIDI`.
+ * The pages, holding only the families that got something — and never a `drop` one.
  *
- * Those two are matched so they can be LEFT OUT: a hundred and fifty parameters is the case this
- * exists for, and a proposal that spends two of its pages on program changes and browser
- * navigation has answered the wrong question. They are not lost — the params list still offers
- * every one of them, and a panel that really wants a preset button is one drag away from it.
+ * Three are matched so they can be LEFT OUT: a hundred and fifty parameters is the case this
+ * exists for, and a proposal that spends its pages on program changes and browser navigation has
+ * answered the wrong question. `Track` is dropped for a different reason than the other two —
+ * not plumbing but a duplicate, since the mixer already draws every control in it. None of them
+ * is lost: the params list still offers every one, and a panel that really wants a preset button
+ * is one drag away from it.
  *
  * One order answers both questions — which family CLAIMS a name, and which order the pages are
- * read in. `General` has to ask before `Mix` (else `@volume` reads as a level) and is also the
- * page to open on, so the table's own order is the tab bar's.
+ * read in. The `@` namespace has to ask before `Mix` (else `@volume` reads as a level), and
+ * `General` is also the page to open on, so the table's own order is the tab bar's.
  *
  * `Other` after all of them: it is where the guess gave up, and a page of leftovers ahead of a
  * page of reverb controls would say the opposite of what the layout is for.
@@ -204,7 +229,7 @@ export function groupParams(
 ): { page: string; params: AutoParam[] }[] {
   const byPage = new Map<string, AutoParam[]>();
   for (const p of params) {
-    const page = pageOf(p.name);
+    const page = familyOf(p.name);
     if (DROPPED.has(page)) continue;
     const held = byPage.get(page);
     if (held) held.push(p);
@@ -242,11 +267,13 @@ const rowsOf = (at: readonly Slot[]): number =>
  *
  * Row-major, six to a row, with one exception: `@base` takes the first row alone. It is not a
  * control like the others — it is which `.vstpreset` the plugin is built from, so it decides what
- * every knob below it is even doing (`@studio/song`'s docs/userPresets.md). Sat sixth in a row of
- * dials it reads as one more setting; on its own line it reads as the choice the rest hangs off.
+ * every parameter on every other page is even doing (`@studio/song`'s docs/userPresets.md).
  *
- * A page without one is laid out exactly as before, from the first row down: the gap is spent
- * only where it says something.
+ * The exception is QUIET today, and kept rather than deleted. `@base` is the only thing that
+ * lands on `General` now — the other intrinsics are dropped — so the row it takes for itself is
+ * also the only row on that page, and `top` never shifts anything. It stops being quiet the day
+ * something else joins it, which is a smaller change than rediscovering why a base needs its own
+ * line. Every other page is laid out from the first row down.
  */
 function placeGroup(params: readonly AutoParam[]): Slot[] {
   const base = params.find((p) => p.name === BASE_BIND);

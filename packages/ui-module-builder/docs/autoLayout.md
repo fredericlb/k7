@@ -45,7 +45,7 @@ KeyLab remote — `Select Preset`, `Browse Back`, `HardwareDisplayControl1..8`, 
 action`. Left among the knobs, each is a knob nobody will ever turn sitting where a real one
 could have been.
 
-So they are **matched in order to be skipped** — the two families carry a `drop` flag, and
+So they are **matched in order to be skipped** — those families carry a `drop` flag, and
 `groupParams` never opens a page for them. Two of the proposal's dozen pages spent on program
 changes and browser navigation is the wrong answer to "a hundred and fifty parameters and
 nowhere to put them".
@@ -60,44 +60,57 @@ and a panel that really does want a preset button is one drag away from one. A p
 publishes **nothing but** plumbing gets an empty grid rather than a page of it — which is what
 that plugin honestly has to show.
 
-## `General` is the front page
+## The `@` namespace is matched first — and all but one of it is dropped
 
-The `@` namespace — `@volume` `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` `@base` — is
-matched **first**, because `@volume` reads as a level to every word test there is and `Mix`
-would take it. It is also **drawn** first, and the panel opens on it.
+The intrinsics — `@volume` `@pan` `@mute` `@solo` `@arm` `@gain` `@monitor` `@base` — are matched
+**first**, because `@volume` reads as a level to every word test there is and `Mix` would take
+it. The params list offers them on every module, whatever plugin it holds.
 
-Those are the module's own controls rather than the plugin's: the lane's, the input's, and
-`@base`, which decides what the plugin sounds like at all. A proposal that opened on the eighth
-reverb parameter would have put the one page you always want behind eleven you sometimes do.
+They are the module's own controls rather than the plugin's, and that is exactly why they are
+**left out** (`TRACK_PAGE`, a third `drop` family beside `Preset` and `MIDI`). The reason differs
+from those two, though, and the difference is the whole argument: `Preset` and `MIDI` are
+plumbing nobody turns, while these are controls somebody turns constantly — and every one of them
+is **already drawn**, by the strip the mixer shows for that lane. A proposal that repeats them
+puts a second fader on screen wired to the first, and nothing on the panel can say which of the
+two is the real one.
 
-So one order answers both questions and the table IS the tab bar, with `Other` last: it is where
-the guess gave up, and a page of leftovers ahead of a page of reverb controls would say the
-opposite of what the layout is for. (`General` used to be drawn last, under a `tail` flag, on the
-argument that a plugin's panel should open on the plugin. The flag is gone with it.)
+Nothing is lost: the params list still offers all of them, so a panel that really does want its
+own mute button is one drag away from one.
+
+## `@base` is the exception, and `General` holds it alone
+
+`@base` names no strip control, and nothing else on screen draws it. It names the `.vstpreset`
+the plugin is **built from** (`@studio/song`'s `docs/userPresets.md`), so every parameter on every
+other page is describing that choice.
+
+So it takes the front page, by itself. The panel opens on it for the reason it is drawn first —
+a proposal that opened on the eighth reverb parameter would have put the one thing you always
+want behind eleven you sometimes do — and it is alone there because a page is a place to look for
+a control, and a page holding the one thing the rest hangs off says what it is at a glance.
+
+`^@base$` is anchored rather than a prefix: a plugin parameter called `@base_mix` would be the
+plugin's, not the intrinsic.
+
+**A module with no bases has no `General` page at all.** A page holds only what got something,
+and this one now has one candidate — so a plain effect opens on its own first family. That is
+also what makes `placeGroup`'s "first row alone" rule quiet: the row is the only row.
 
 The pages are named in English like the rest of the table — one language per tab bar, and the
-other eleven are `Reverb`, `Filter`, `Envelope`…
+other eleven are `Reverb`, `Filter`, `Envelope`… (`General` used to be drawn last, under a `tail`
+flag, on the argument that a plugin's panel should open on the plugin. The flag is gone with it.)
 
-## `@base` takes the first row alone
+## The module's own blend takes the bottom-right corner of `Mix`
 
-On whichever page holds it, which is `General`. It is not a control like the others: it names
-the `.vstpreset` the plugin is **built from** (`@studio/song`'s `docs/userPresets.md`), so every
-knob underneath is describing that base. Sixth in a row of dials it reads as one more setting;
-alone on the top line it reads as the choice the rest hangs off.
+A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` lands **bottom right of its own page**.
 
-`placeGroup` is the whole of it, and a page without a base is laid out exactly as before, from
-the first row down — the gap is spent only where it says something. The panel's height comes from
-that placement rather than from a parameter count, since the page holding the base is one row
-taller than its parameters alone would make it.
+It says how much of this module you hear at all, as against how much of what went into it. That
+made it a question about the module rather than about the shape of its sound, and it used to be
+pulled onto `General` for that — the base at the top left, the blend at the bottom right, holding
+opposite corners of the front page.
 
-## …and the module's own blend takes the opposite corner
-
-A bare `Mix`, `Dry/Wet`, `Dry` or `Wet` joins `General` too, and lands **bottom right**.
-
-It says how much of this module you hear at all, as against how much of what went into it — a
-question about the module, like `@base`, not about the shape of its sound. So the two hold
-opposite corners of the front page: the base at the top left, the blend at the bottom right,
-where an output stage sits on a real panel.
+`General` is `@base` alone now, so the pull is gone and the blend stays in `Mix`, where its own
+family already put it. What survives is the **corner**: right-aligned on the bottom row, where an
+output stage sits on a real panel. `isBlend` decides a position and no longer a page.
 
 What makes one "the module's own" is the **family, not the word**. `Reverb Dry/Wet`, `Delay Mix`
 and `Chorus Wet` all carry a blend word, and the effect families ask before `Mix` does — so a
