@@ -103,3 +103,27 @@ plugin in the OPEN project's compiled graph — for a shared module too, by its
 (`pluginParamNames`, `pluginParamMeta`, `presets` and the two callbacks behind the dropdown),
 and a host with no engine passes nothing. The grid, the params list and the file pair work
 without one; they are just less well informed.
+
+## The header's `status` dropdown
+
+One control on this screen changes nothing about the module's sound: **`status:`** — whether the
+completions list it, list it first, or leave it out. The rule and its rationale are
+`@studio/song`'s [`docs/moduleStatus.md`](../../song/docs/moduleStatus.md); what belongs here is
+why it is drawn where it is and how it is written.
+
+**In the header**, beside the module's name and its path. That is the altitude of the thing it is
+about: how the palette treats this module is a fact about it as a *catalogue entry*, the same
+question its name and its location answer, and not one of the parameters below.
+
+**`favorite` is drawn "first".** What the setting does is put the module at the top of the
+completions, and a person choosing between three options wants to read the effect rather than the
+sentiment. The FILE keeps the schema's three words — this is a label, not a second spelling.
+
+**Read-only shows it as text, not as a disabled dropdown.** What a locked module's status *is*
+stays worth reading, while a greyed-out control invites a click that will be refused. `listed`
+draws nothing there: the default is not news.
+
+**It goes through the text, like every other structured edit here.** `statusOf` / `setStatusIn` in
+`moduleUi.ts` read and write the buffer, so the dropdown shows the edit you just made — saved or
+not — exactly as the code pane does, and one Save writes it with everything else. Setting
+`listed` **deletes** the key rather than writing the default.

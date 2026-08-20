@@ -59,6 +59,20 @@ so there is no path, nothing to open and nothing to write. Its rows are a **voca
 can name**, and they are greyed for exactly that reason: the same treatment a `.wav` gets, and
 for the same reason — something you can read and cannot open.
 
+**This tab is the only place it is offered.** `@engine` refs are deliberately absent from the
+module-name completions — the command bar's `<module>` arguments and the YAML editor's chain
+wiring — because the size of that namespace is a fact about the MACHINE and not about the song:
+a rig with four hundred plugins put four hundred entries in front of the dozen modules the
+project has, and the dozen were what you were looking for. So it is browsed here, where it is
+grouped by type and where scrolling is the point, rather than completed there, where it is not.
+
+Absent from the SUGGESTIONS, not forbidden: a chain step may still name `@engine/nam`, and
+typing it works exactly as before — a completion list is an offer, never a validator. And the
+one question where the engine's catalogue *is* the right answer keeps it: `extends:`, and the
+`module new` / `node replace` / `module own` arguments that ask what to inherit from. `isEngineRef`
+in `packages/song/src/moduleTypes.ts` is the predicate, and it is a function rather than a
+`startsWith` at each call site so that a library called `@engineering` is not swallowed with it.
+
 Two things about it are synthesised, and it is worth knowing which:
 
 - **The type folders.** A ref is flat (`@engine/nam`), and two hundred and fifty plugins in one

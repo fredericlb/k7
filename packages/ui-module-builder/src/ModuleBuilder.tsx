@@ -13,6 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@frediverse/ui/select";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
@@ -20,7 +27,11 @@ import {
   builtinPluginFor,
   builtinPluginForRef,
 } from "@studio/song/builtinParams";
-import { FILE_PARAMS } from "@studio/song/moduleTypes";
+import {
+  FILE_PARAMS,
+  MODULE_STATUSES,
+  type ModuleStatus,
+} from "@studio/song/moduleTypes";
 import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type {
   Hints,
@@ -64,6 +75,8 @@ import {
   readPresetsFile,
   readUiFile,
   setChannelIn,
+  setStatusIn,
+  statusOf,
   writeUiFile,
 } from "./moduleUi";
 import { setParamDrag } from "./paramDrag";
@@ -80,6 +93,20 @@ import { YamlPane } from "./YamlPane";
  * at all times, on every tab, for a list you reach for while binding and ignore the rest of the
  * time. The cost is that the text and the parameters are no longer on screen together.
  */
+/**
+ * What each `status:` is CALLED on screen — the file's word is not always the clearest one.
+ *
+ * "listed" and "hidden" say themselves; `favorite` is drawn "first", because what the setting
+ * does is put the module at the top of the completions, and a person choosing from three options
+ * wants to read the effect rather than the sentiment. The FILE keeps the three schema words —
+ * this is a label, not a second spelling. See @studio/song's docs/moduleStatus.md.
+ */
+const STATUS_LABEL: Record<ModuleStatus, string> = {
+  listed: "listed",
+  favorite: "first",
+  hidden: "hidden",
+};
+
 export type BuilderPane = "module" | "panel" | "presets" | "jsdsp" | "params";
 
 /**
@@ -252,6 +279,14 @@ export function ModuleBuilder({
   }) => ReactNode;
 }) {
   const [content, setContent] = useState<string | null>(null);
+  /**
+   * The module's `status:`, off the BUFFER rather than off the disk — the dropdown has to show
+   * the edit you just made, saved or not, exactly as the text pane does.
+   *
+   * Named for the module, because `setStatus` in this component is the host's status LINE and
+   * two things called status is one too many.
+   */
+  const moduleStatus = useMemo(() => statusOf(content ?? ""), [content]);
   const [ui, setUi] = useState<ModuleUI | null>(null);
   const [parsable, setParsable] = useState(true);
   const [hints, setHints] = useState<Hints | null>(null);
@@ -965,6 +1000,42 @@ export function ModuleBuilder({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+          )}
+          {/* How the COMPLETIONS should treat this module — the one field on this screen that
+              changes nothing about the sound. It is here in the header rather than down in the
+              text because it is a decision about the module as a catalogue entry, which is the
+              same altitude as its name and its path beside it.
+
+              Drawn read-only as plain text: a disabled dropdown invites a click that will be
+              refused, and what a locked module's status IS remains worth reading. */}
+          {readOnly ? (
+            moduleStatus !== "listed" && (
+              <span className="text-xs text-muted-foreground">
+                {STATUS_LABEL[moduleStatus]}
+              </span>
+            )
+          ) : (
+            <Select
+              value={moduleStatus}
+              onValueChange={(v) =>
+                setContent((c) => setStatusIn(c ?? "", v as ModuleStatus))
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-[7.5rem]"
+                title="how the completions treat this module — listed, first, or not at all"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODULE_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {/* Read-only says so where the save badge would be, because it is the same
               question — what is happening to what you type. The button beside it is the

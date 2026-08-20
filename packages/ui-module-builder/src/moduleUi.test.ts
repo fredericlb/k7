@@ -9,6 +9,8 @@ import {
   readPlugin,
   readUi,
   setChannelIn,
+  setStatusIn,
+  statusOf,
   writeUi,
 } from "./moduleUi";
 
@@ -296,5 +298,45 @@ describe("an input module's channels", () => {
     expect(after).toContain("# the room mic");
     expect(after).toContain("name: Salle");
     expect(after.split("\n").length).toBe(before.split("\n").length);
+  });
+});
+
+// The builder's `status` dropdown, which is these two functions and a <Select>. The field says
+// nothing about sound — only how the completions rank the module — so what is worth pinning is
+// that the default is never WRITTEN and that a hand-written file survives being set.
+describe("a module's status", () => {
+  it("reads listed for a file that says nothing", () => {
+    expect(statusOf("name: Amp\n")).toBe("listed");
+    expect(statusOf("")).toBe("listed");
+  });
+
+  it("reads the two that are written", () => {
+    expect(statusOf("status: hidden\n")).toBe("hidden");
+    expect(statusOf("name: Amp\nstatus: favorite\n")).toBe("favorite");
+  });
+
+  it("writes the two that are not the default", () => {
+    expect(setStatusIn("name: Amp\n", "hidden")).toContain("status: hidden");
+    expect(statusOf(setStatusIn("name: Amp\n", "favorite"))).toBe("favorite");
+  });
+
+  // The point of the field being optional: a library where every module carries
+  // `status: listed` is a line of noise per file that a reader has to learn to skip.
+  it("CLEARS rather than writing the default", () => {
+    const after = setStatusIn("name: Amp\nstatus: hidden\n", "listed");
+    expect(after).not.toContain("status");
+    expect(statusOf(after)).toBe("listed");
+  });
+
+  it("is a no-op on a file that already had none", () => {
+    expect(setStatusIn("name: Amp\n", "listed")).toBe("name: Amp\n");
+  });
+
+  it("leaves every other line of a hand-written file alone", () => {
+    const before = "# the lead amp\nname: Amp\nplugin: { name: nam }\n";
+    const after = setStatusIn(before, "favorite");
+    expect(after).toContain("# the lead amp");
+    expect(after).toContain("plugin: { name: nam }");
+    expect(statusOf(after)).toBe("favorite");
   });
 });

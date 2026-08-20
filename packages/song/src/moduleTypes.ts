@@ -203,6 +203,74 @@ export const ENGINE_NS = "@engine";
 export const engineRef = (slug: string): string => `${ENGINE_NS}/${slug}`;
 
 /**
+ * Is this ref the ENGINE's — one of the plugins this machine happens to have scanned?
+ *
+ * The one namespace with no folder anywhere (see `moduleNamespaceOf`), and the only one whose
+ * size is a property of the MACHINE rather than of the work: a rig with four hundred plugins
+ * has four hundred of these. So it is the one namespace that is BROWSED — the file tree's
+ * Libraries tab — and never offered as a module name to complete, where it would bury the
+ * handful of modules a song actually has under a vendor catalogue.
+ *
+ * It stays the vocabulary for `extends:` (`baseModuleRefs`), which is the opposite question:
+ * "what may I inherit from" is exactly where the engine's catalogue is the answer.
+ */
+export const isEngineRef = (ref: string): boolean =>
+  ref === ENGINE_NS || ref.startsWith(`${ENGINE_NS}/`);
+
+/**
+ * How a module asks to be TREATED BY THE COMPLETIONS — and nothing else.
+ *
+ * A library grows past the point where every module in it deserves equal billing: half a
+ * project's modules are things you name every day, and the other half are a compressor somebody
+ * wrote once and a test rig nobody should be offered. This is the field that says which.
+ *
+ * It changes no sound and no wiring. A `hidden` module still loads, still plays and can still be
+ * NAMED — a completion list is an offer, never a validator — which is what keeps this an
+ * ergonomic setting rather than a way to break a project from a dropdown.
+ *
+ * Absent means `listed`, and `listed` is never written: the loader applies the default, so a
+ * file that has nothing to say about this says nothing (the rule `type:` follows).
+ *
+ * Full rationale: docs/moduleStatus.md.
+ */
+export const MODULE_STATUSES = ["listed", "favorite", "hidden"] as const;
+export type ModuleStatus = (typeof MODULE_STATUSES)[number];
+export const DEFAULT_MODULE_STATUS: ModuleStatus = "listed";
+
+/**
+ * What a loaded module's status is — `listed` for anything that does not say otherwise.
+ *
+ * Deliberately forgiving: an unreadable or half-written module answers `listed` rather than
+ * vanishing. Losing a module from the completions is the one failure this field must not have,
+ * since nothing on screen would say why.
+ */
+export const moduleStatusOf = (m: unknown): ModuleStatus => {
+  const s = (m as { status?: unknown } | null | undefined)?.status;
+  return s === "hidden" || s === "favorite" ? s : DEFAULT_MODULE_STATUS;
+};
+
+/**
+ * A completion list with the hidden ones dropped and the favourites floated to the top.
+ *
+ * STABLE within each group, which is the whole contract: callers hand this an alphabetical list
+ * and expect it back alphabetical, in two blocks. A sort here would be a second ordering rule
+ * competing with theirs.
+ */
+export function completionOrder<T>(
+  items: readonly T[],
+  statusOf: (item: T) => ModuleStatus,
+): T[] {
+  const favorite: T[] = [];
+  const listed: T[] = [];
+  for (const it of items) {
+    const s = statusOf(it);
+    if (s === "hidden") continue;
+    (s === "favorite" ? favorite : listed).push(it);
+  }
+  return [...favorite, ...listed];
+}
+
+/**
  * The io modules the engine provides. One IN and one OUT for the whole app — a project
  * makes nodes of them, and those carry the channel, the monitoring and the trim.
  *

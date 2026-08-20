@@ -9,6 +9,12 @@ import { fileURLToPath } from "node:url";
 import { alternativesOf } from "@studio/song/alternatives";
 import { loadCurves } from "@studio/song/curves";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import {
+  completionOrder,
+  isEngineRef,
+  type ModuleStatus,
+  moduleStatusOf,
+} from "@studio/song/moduleTypes";
 import { parsePosition } from "@studio/song/timecode";
 import { SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
 import { parse as parseYaml } from "yaml";
@@ -63,6 +69,24 @@ export interface CommandSpec {
   args?: ArgSpec[]; // trailing user args (for completion)
 }
 
+/**
+ * Each module's `status:`, for the providers that rank by it — a lookup rather than a list, so
+ * one read of the ref map answers for every name a provider offers.
+ *
+ * Off the ref map and not the compiled project: `status` is an authoring fact that never reaches
+ * the engine, so it is only ever on the FILES. An unreadable module folder costs the ranking and
+ * not the command — everything then answers `listed`, which is the order the list already had.
+ */
+function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
+  let refs: Record<string, unknown> = {};
+  try {
+    if (h.songPath) refs = loadModuleRefs(h.songPath);
+  } catch {
+    /* no ranking, still a complete list */
+  }
+  return (name) => moduleStatusOf(refs[name]);
+}
+
 // Named completion providers referenced by commands.yaml `complete:`, reading live state off the host.
 // `satisfies`, not an annotation: an annotation widened the keys to `string`, which made
 // ProviderName `string` too — so `PROVIDER_CLASS` checked nothing and the wire could not name one.
@@ -70,12 +94,26 @@ const PROVIDERS = {
   baseModules: (h) => h.baseModules,
   // The module category folders, each with a trailing "/" so completing drops you ready to type the name.
   categories: () => Object.keys(MODULE_TYPES).map((c) => `${c}/`),
-  // The blocks a chain can use: the project's own, plus the INHERITED modules by ref —
-  // those are nameable before any chain has used one, so they can't come off the project.
-  modules: (h) => [
-    ...collectPluginModules(h.project()).map((b) => b.module),
-    ...h.baseModules.filter((r) => r.startsWith("@")),
-  ],
+  /**
+   * The blocks a chain can use: the project's own, plus the INHERITED modules by ref — those
+   * are nameable before any chain has used one, so they can't come off the project.
+   *
+   * `@engine` refs are the exception and are NOT offered. That namespace is the plugin scan,
+   * so its size is a fact about the machine rather than about the song: a rig with four hundred
+   * plugins put four hundred entries in front of the dozen modules the project has. It is
+   * BROWSED instead — the file tree's Libraries tab — and it is still what `extends:` inherits
+   * from, which is the `baseModules` provider above. Filtered from the vocabulary half only:
+   * a ref the project already USES arrives through `collectPluginModules` and stays completable,
+   * because a node that exists is a node its verbs have to be able to name.
+   */
+  modules: (h) =>
+    completionOrder(
+      [
+        ...collectPluginModules(h.project()).map((b) => b.module),
+        ...h.baseModules.filter((r) => r.startsWith("@") && !isEngineRef(r)),
+      ],
+      moduleStatuses(h),
+    ),
   /**
    * This project's NODES — its uses of modules, by the name the chains call them.
    *

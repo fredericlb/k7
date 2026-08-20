@@ -4,6 +4,7 @@
 // TS (graph.ts validate(), nodeProject's ref pass) instead.
 
 import { z } from "zod";
+import { MODULE_STATUSES } from "../moduleTypes";
 import { PlacementSchema } from "./placementSchema";
 
 /** An interface input: a preferences label, or one/two physical channel numbers. */
@@ -422,6 +423,17 @@ export const ModuleSchema = z
     alternative: z
       .union([z.string().min(1), z.number().int().min(1)])
       .optional(),
+    /**
+     * How the COMPLETIONS should treat this module — see moduleTypes' MODULE_STATUSES.
+     *
+     * Here and not in MODULE_FIELDS, which is what an ALTERNATIVE may restate: a module's
+     * attribute sets are ways of playing the same block, and "this way of playing it is hidden
+     * from the palette" is not a thing anybody means. It is one fact about the module, said once.
+     *
+     * NOT .default(), for the reason `type:` is not: the loader applies `listed`, so a file that
+     * has nothing to say about this stays a file that says nothing. See docs/moduleStatus.md.
+     */
+    status: z.enum(MODULE_STATUSES).optional(),
   })
   .strict(); // an unknown key is a typo — silently ignoring `paramz:` is worse than saying so
 

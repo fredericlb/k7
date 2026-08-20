@@ -22,6 +22,11 @@ import {
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
+import {
+  completionOrder,
+  isEngineRef,
+  moduleStatusOf,
+} from "./moduleTypes";
 import { loadPreferences } from "./preferences";
 
 export interface Hints {
@@ -182,8 +187,13 @@ function projectHintsIn(dir: string): Hints {
   // already offered by its bare name, and listing it twice under two spellings is noise.
   // io is IN here: an "in" module is a step (it feeds the chain it sits in) and an "out"
   // one is what the last node names.
+  //
+  // …and `@engine` is OUT: the plugin scan is browsed in the Libraries tab, not completed here,
+  // or a rig's whole vendor catalogue buries the handful of modules the song has (`isEngineRef`
+  // says why). It is still the vocabulary for `extends:`, which `baseRefs` above answers — a
+  // chain step naming one remains legal and remains typable, it is simply not suggested.
   const sharedRefs = Object.keys(moduleRefs)
-    .filter((k) => k.startsWith("@"))
+    .filter((k) => k.startsWith("@") && !isEngineRef(k))
     .sort();
 
   // Per-base param names: what the plugin DEFINES, then the base module's own defaults, then any overrides on
@@ -335,7 +345,14 @@ function projectHintsIn(dir: string): Hints {
   return {
     baseModules: baseRefs,
     ioSinks,
-    modules: [...sorted(modules), ...sharedRefs],
+    // Hidden ones dropped, favourites first — the module's own `status:`, which is the only
+    // thing that field does (moduleTypes' MODULE_STATUSES). Applied HERE rather than in the
+    // editor, so the command bar and the YAML pane cannot come to offer two different lists.
+    // Read off the AUTHORED module: a base being hidden is a statement about the base, and a
+    // module extending it has its own answer or takes the default.
+    modules: completionOrder([...sorted(modules), ...sharedRefs], (name) =>
+      moduleStatusOf(modules[name] ?? moduleRefs[name]),
+    ),
     tracks: sorted(tracks),
     channels,
     clips: sorted(clips),

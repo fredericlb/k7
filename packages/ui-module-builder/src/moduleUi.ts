@@ -4,7 +4,13 @@
 // editor's buffer) and shares the loader's Zod schema, so the grid can't offer a widget
 // the file would be refused for. Writing the block REPLACES it: comments inside don't survive.
 
-import { ENGINE_NS, IO_MODULES } from "@studio/song/moduleTypes";
+import {
+  DEFAULT_MODULE_STATUS,
+  ENGINE_NS,
+  IO_MODULES,
+  type ModuleStatus,
+  moduleStatusOf,
+} from "@studio/song/moduleTypes";
 import {
   type ModuleUI,
   PresetsFileSchema,
@@ -358,6 +364,33 @@ export function setChannelIn(fileText: string, channels: number[]): string {
   // inline, and a document-wide setting would reflow every other list in the file.
   (node as { flow?: boolean }).flow = true;
   doc.setIn(["channel"], node);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/**
+ * How this module asks to be treated by the completions — `listed` when it does not say.
+ *
+ * Read off the TEXT, like everything else in this file: the builder's dropdown has to show what
+ * the buffer says, including an edit that has not been saved yet.
+ */
+export function statusOf(fileText: string): ModuleStatus {
+  return moduleStatusOf(docOf(fileText)?.toJS?.());
+}
+
+/**
+ * Set it — or CLEAR it, which is what `listed` means.
+ *
+ * The default is never written. A module that has nothing to say about this should stay a file
+ * that says nothing (the rule `type:` follows), and a `status: listed` on every module in a
+ * library is a line of noise per file that a reader has to learn to skip.
+ *
+ * Through the Document API like every other edit here, so the comments and the key order of a
+ * file somebody hand-wrote survive it.
+ */
+export function setStatusIn(fileText: string, status: ModuleStatus): string {
+  const doc = parseDocument(fileText, OPTS);
+  if (status === DEFAULT_MODULE_STATUS) doc.delete("status");
+  else doc.setIn(["status"], status);
   return doc.toString({ lineWidth: 0 });
 }
 

@@ -73,6 +73,10 @@ describe("derived module fields", () => {
       // ABOUT the fields above rather than one of them. See docs/alternatives.md.
       "alternatives",
       "alternative",
+      // …and how the COMPLETIONS should treat this module, which is the one field here that
+      // says nothing about what it does or how it sounds. Last, and outside MODULE_FIELDS, so
+      // an alternative cannot restate it. See moduleTypes' MODULE_STATUSES.
+      "status",
     ]);
     // …and it cannot fall behind: the source is the schema.
     expect(fieldsAt("module", [])).toEqual(Object.keys(ModuleSchema.shape));
