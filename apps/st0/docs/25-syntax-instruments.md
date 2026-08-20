@@ -151,6 +151,32 @@ params:
   Peak: 0      # measured by the cold pass; 0 until it has run, so the module only attenuates
 ```
 
+## modules/<type>/<name>/module.yaml — keeping the palette readable
+
+`status:` says how the **completions** should treat this module, and nothing else. It changes no
+sound and no wiring: a `hidden` module still loads, still plays, and can still be named by hand —
+a completion list is an offer, never a validator.
+
+| value | what the palette does |
+|---|---|
+| `listed` | offers it in the order it already had — the default, and never written |
+| `favorite` | offers it **first** |
+| `hidden` | does not offer it |
+
+A library grows past the point where every module in it deserves equal billing: half are the ones
+you name every day, the other half a compressor written once and a test rig kept for reference.
+This is what separates them. Set it from the module builder's header, where `favorite` is drawn
+"first" — what the setting does is put the module at the top of the list.
+
+```yaml schema=Module
+# modules/audio/scratch-comp/module.yaml — kept, but out of the way
+status: hidden
+plugin: { type: jsdsp, name: Compressor }
+```
+
+Returning a module to `listed` removes the line rather than writing it, so a file that has
+nothing to say about this stays a file that says nothing.
+
 ## modules/<type>/<name>/module.yaml — extends another module
 
 A module can inherit from another with `extends: "type/name"` (or "@ns/type/name" for one it inherits — from the médiathèque, or the workspace's `_modules`). It gets the base's plugin/params/ui/rack, overriding per key. Several modules can extend one base.
