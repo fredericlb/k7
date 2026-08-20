@@ -79,6 +79,7 @@ import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasterMeter } from "./components/MasterMeter";
+import { TARGET_DB, trimFor, trimmedStrips } from "./gainTrim";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
@@ -1077,6 +1078,41 @@ export default function App({
       }
     },
     [pushLog],
+  );
+
+  /**
+   * The header meter's Fix button: every strip down by one number, until the pass would have
+   * peaked at -6 dB.
+   *
+   * The MEASUREMENT is the meter's — it is the only thing that watched the pass — and the faders
+   * are this component's, so the button is a callback and the arithmetic between them is
+   * `gainTrim.ts`, pure and tested. What lands here is the part that needs the project: which
+   * mixer nodes exist, what each one currently reads, and how a level is written.
+   *
+   * `node param … Volume`, the same line a fader drag commits (`useTrackControls`), so the trim
+   * goes through the undo journal like any other edit and is one Ctrl+Z per strip. Quietly, and
+   * then ONE reload at the end: a mix of thirty lanes is thirty writes, and bumping the doc on
+   * each would refetch the project thirty times to show a change that is not finished yet.
+   *
+   * Serial rather than `Promise.all`, because each is a read-modify-write of one file through a
+   * single-threaded service — the rule `settledEdits` and the sequencer's chaining already follow.
+   */
+  const fixClipping = useCallback(
+    async (peakDb: number) => {
+      const strips = trimmedStrips(docTracks, peakDb);
+      if (!strips.length) {
+        setStatus("rien à baisser — aucune piste n'a de tranche");
+        return;
+      }
+      for (const { node, db } of strips)
+        // Quoted: a node ref carries a `:` and may carry spaces, and `node param` splits on them.
+        await quietCommand(`node param "${node}" Volume ${db.toFixed(1)}`);
+      bumpReload();
+      setStatus(
+        `${strips.length} tranche(s) baissée(s) de ${trimFor(peakDb).toFixed(1)} dB — pic visé ${TARGET_DB} dB`,
+      );
+    },
+    [docTracks, quietCommand, bumpReload],
   );
 
   // A ref because runCommand reads it and is itself a dependency of half the app: making it re-bind on every
@@ -2835,7 +2871,9 @@ export default function App({
           phone, where the whole right side already collapses into one button — a meter you
           cannot fit is a meter nobody reads. Not on a snapshot either: a share has no engine,
           so its meter could only ever draw silence. */}
-      {!isMobile && !snapshot && <MasterMeter className="mr-2" />}
+      {!isMobile && !snapshot && (
+        <MasterMeter className="mr-2" onFix={fixClipping} />
+      )}
       {/* On a phone the whole right side collapses into ONE button, and everywhere there is
           to go is inside it: the panes, the project's own screen surfaces, and the command
           bar. There is no studio view to toggle and no layout to go back to, so a pane is a

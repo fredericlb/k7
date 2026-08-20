@@ -1,11 +1,19 @@
-// The master meter's two pure decisions: where the bar sits, and when the clip light clears.
+// The master meter's three pure decisions: where the bar sits, when the clip light clears, and
+// what the peak the Fix button spends is worth.
 //
-// Only the arithmetic and the latch RULE are here — nothing mounts a component in this app (see
+// Only the arithmetic and the two RULES are here — nothing mounts a component in this app (see
 // AGENTS.md). What that leaves testable is the part that would be wrong silently: a scale that
-// reads the floor as full, and a light that clears on the wrong event.
+// reads the floor as full, a light that clears on the wrong event, and a peak that clears on a
+// different one from the light.
 
 import { describe, expect, it } from "vitest";
-import { clipLatch, FLOOR_DB, meterFill } from "./MasterMeter";
+import {
+  clipLatch,
+  FLOOR_DB,
+  meterFill,
+  newPass,
+  peakHold,
+} from "./MasterMeter";
 
 describe("the bar", () => {
   it("is empty at the floor and full at 0 dB", () => {
@@ -50,5 +58,49 @@ describe("the clip light", () => {
     // The clear and the set land together; the set has to win, or a clip in the first 50 ms would
     // be wiped by the same edge that was meant to make room for it.
     expect(clipLatch(true, true, true, false)).toBe(true);
+  });
+});
+
+describe("the peak the Fix button spends", () => {
+  // `peakHold(held, now, playing, wasPlaying)` → the peak after this frame.
+  it("keeps the loudest of the pass, not the latest frame", () => {
+    // The whole reason it is held: by the time the button is pressed the transport has stopped
+    // and `master` reads silence. A peak that tracked the last frame would always offer -60.
+    expect(peakHold(-20, -30, true, true)).toBe(-20);
+    expect(peakHold(-20, -3, true, true)).toBe(-3);
+    expect(peakHold(-3, -100, false, false)).toBe(-3); // …and survives the stop
+  });
+
+  it("restarts on a NEW pass, on the same edge the light clears on", () => {
+    // The light and the number answer one question — what did the last pass do — so a peak that
+    // outlived the light would offer a trim computed from a pass nobody is looking at.
+    expect(peakHold(0, -40, true, false)).toBe(-40);
+    // Still rolling is not a new pass.
+    expect(peakHold(0, -40, true, true)).toBe(0);
+  });
+
+  it("restarts from THIS frame's level, not from the floor", () => {
+    // A pass that opens loud is metered from its first frame. Starting at -Infinity would mean
+    // only that frame could seed it, so a client that missed it would hold a peak from nowhere.
+    expect(peakHold(-60, 2, true, false)).toBe(2);
+  });
+});
+
+describe("the edge all three clear on", () => {
+  // `newPass` is the one event that makes the light, the peak and the taken offer stale. Pinned
+  // on its own because three behaviours now read it, and "they clear together" is only true for
+  // as long as they keep reading the same expression.
+  it("is the RISING edge of playing, and nothing else", () => {
+    expect(newPass(true, false)).toBe(true);
+    expect(newPass(true, true)).toBe(false); // still rolling
+    expect(newPass(false, true)).toBe(false); // stopping is not a new pass
+    expect(newPass(false, false)).toBe(false);
+  });
+
+  it("is what the light and the peak are written in terms of", () => {
+    // The same frame, the same answer from both — a clear that drifted apart would leave a peak
+    // from the previous pass sitting behind a light that had already reset.
+    expect(clipLatch(true, false, true, false)).toBe(false);
+    expect(peakHold(0, -40, true, false)).toBe(-40);
   });
 });

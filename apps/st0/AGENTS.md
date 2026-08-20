@@ -73,6 +73,7 @@ matches before changing it:
 | `playhead.md` | why the playhead is steered by the engine's frames rather than drawn from them |
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `clipEditors.md` | the piano roll and the waveform over one event — and the loop marks they share |
+| `masterMeter.md` | the header's meter, what it holds across a pass, and the Fix button's trim |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
