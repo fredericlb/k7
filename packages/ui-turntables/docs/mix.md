@@ -88,7 +88,7 @@ décibels. `VOLUME_DB` dit la plage, `gainToDb` fait la conversion, et le silenc
 **plancher** et non −∞ — un fader a un bas.
 
 Bouger le fader n'envoie **pas** un document : c'est `set-plugin-param`, un message par
-mouvement, comme les potentiomètres de l8. Renvoyer un projet entier par pixel ferait
+mouvement, comme les potentiomètres de st0. Renvoyer un projet entier par pixel ferait
 diffuser au moteur un document qui ne change que de deux nombres.
 
 ### Deck B est MUTÉE, et ce n'est pas optionnel

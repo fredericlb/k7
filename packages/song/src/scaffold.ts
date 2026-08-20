@@ -281,7 +281,7 @@ export function videoProjectFiles(name: string): Record<string, string> {
 // arrangement taken out and no surface at all. It is gone with the archetype — an entry in a menu
 // of surfaces whose whole description is "none of them" is not a choice anyone makes on purpose.
 //
-// The MODE it wrote is untouched: `project_type: live` is still a legal header, l8 still opens
+// The MODE it wrote is untouched: `project_type: live` is still a legal header, st0 still opens
 // one, and `mix` still declares it (scaffoldSet.ts). What no longer exists is a way to ASK for
 // the bare rig — you start from a mix and throw the desk away. See docs/projectMode.md.
 
@@ -300,7 +300,7 @@ export function writeProjectFiles(
 }
 
 /**
- * Write a new l8 project. `shape` picks the map: an arrangement, or the same plus its picture.
+ * Write a new st0 project. `shape` picks the map: an arrangement, or the same plus its picture.
  *
  * `video` also gets the bundled sample video COPIED into it, because its picture lane places it.
  * Copied rather than referenced where it sits: a project that pointed into the installed package

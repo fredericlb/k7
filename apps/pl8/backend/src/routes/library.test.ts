@@ -279,4 +279,4 @@ describe("GET /search and /list", () => {
 
 // `describe("POST /engine-faces")` stood here, over the pass that turned a machine's whole
 // plugin scan into library modules. The route went with the `modules` family: this volume
-// holds none, and a module is authored in l8 where the plugin is actually loaded.
+// holds none, and a module is authored in st0 where the plugin is actually loaded.

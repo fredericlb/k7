@@ -1,6 +1,6 @@
 // mediatekPull.ts — keeps this machine's médiathèque cache in step with the hosted library,
 // for what the open projects actually name: the songs the playlist a desk points at lists.
-// Unattended, so a song added to the set list in l8 lands here on its own before the gig.
+// Unattended, so a song added to the set list in st0 lands here on its own before the gig.
 // See docs/mediatekPull.md.
 
 import { syncFamily } from "@studio/mediatek/cache";

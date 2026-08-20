@@ -1,5 +1,5 @@
 // engine.ts — the SEAM: what the desk needs from an engine, and nothing about how a host got
-// one. m9 satisfies it with its own `useEngine` (its registry, its session, its lease); l8
+// one. m9 satisfies it with its own `useEngine` (its registry, its session, its lease); st0
 // satisfies it from the link its shell already holds. Types only. See docs/hosting.md.
 
 import type { EngineClient } from "@studio/engine-browser";
@@ -78,9 +78,9 @@ export interface Deck {
    * | host | who writes | how |
    * |---|---|---|
    * | m9 | the browser, alone | straight out of `engine.sendProject` |
-   * | l8 | the file service, alone | `POST /engine/project`, which the service forwards |
+   * | st0 | the file service, alone | `POST /engine/project`, which the service forwards |
    *
-   * l8's file service loads l8's project into the engine itself, so a desk sending on its own
+   * st0's file service loads st0's project into the engine itself, so a desk sending on its own
    * socket made two writers for one engine and the last one won — a save during a set dropped
    * the decks, a deck gesture undid a save. Handing the document to the service instead leaves
    * exactly one socket and one place where the ordering rule lives.
@@ -102,7 +102,7 @@ export interface Deck {
    * Hear in this browser what the engine's interface is putting out. Off by default: the sound
    * is already coming out of the machine, so the tab would double it.
    *
-   * OPTIONAL, and its absence means the host cannot monitor at all — l8 has no stream player.
+   * OPTIONAL, and its absence means the host cannot monitor at all — st0 has no stream player.
    * The desk then draws no headphone button, rather than one that does nothing: `ui-chains`
    * made the opposite call for its `command` prop and said why — "a package that made it
    * optional would let a host ship a menu that silently does nothing". The difference is that a

@@ -95,7 +95,7 @@ function dumpOne(
     if (!entry)
       return {
         ok: false,
-        reason: `not in the plugin cache — run 'l8 engine scan' (looked up by name '${p.name}')`,
+        reason: `not in the plugin cache — run 'st0 engine scan' (looked up by name '${p.name}')`,
       };
     const stateFile = join(tmpDir, `state${extname(p.path) || ".vstpreset"}`);
     writeFileSync(stateFile, stateBytes);

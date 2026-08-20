@@ -1,6 +1,6 @@
 // libraryStore.ts — the ModuleStore for a host whose files are the médiathèque's: read and
 // write one path, and the three sidecars are the siblings of the file you were given. One
-// implementation for the two hosts that edit shared modules — pl8's own screen and l8's
+// implementation for the two hosts that edit shared modules — pl8's own screen and st0's
 // Libraries tab. Rationale: docs/store.md.
 
 import { JSDSP_FILE } from "@studio/engine-protocol/build";
@@ -35,7 +35,7 @@ export interface LibraryFileIO {
 /**
  * The store, over a library.
  *
- * The sidecars are derived and not asked for, unlike l8's workspace store, and the difference
+ * The sidecars are derived and not asked for, unlike st0's workspace store, and the difference
  * is real rather than an inconsistency: over a workspace the SERVER decides where a panel would
  * go, because a shared module's panel does not land beside the copy that forked. A library has
  * one place for every file — the module's own folder — so there is nothing to ask.

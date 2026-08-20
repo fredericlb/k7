@@ -57,7 +57,7 @@ releasesRouter.post(
   }),
 );
 
-// --- CLI import (l8 export): create-or-version by song UUID -----------
+// --- CLI import (st0 export): create-or-version by song UUID -----------
 // A multitrack upload: one mixdown (the playable) + N stems. If a release with
 // this songUuid already exists (for this owner) a version is added; otherwise a
 // new release is created — which requires title + artist.

@@ -150,7 +150,7 @@ export function projectsRouter(opts: {
         listRepos(sub).map(async (r) => {
           // Refreshed here too, not only in /tree: this list carries the projects the section
           // LINKS to, so a mirror nobody fetched hands out a folder the clone no longer has,
-          // and l8 opens on a project that is not there. Detached and freshness-gated, so it
+          // and st0 opens on a project that is not there. Detached and freshness-gated, so it
           // costs this request nothing; `bump()` is what brings the new list to the poll.
           const st = ensure(sub, r.id, r.uri);
           // A mirror that is not ready yet reports null rather than 0 — "unknown" and "none" differ.
@@ -165,7 +165,7 @@ export function projectsRouter(opts: {
               /* raced with an eviction — the status is the honest answer */
             }
           // The projects themselves, not just how many: the listing draws them under their
-          // repository and links straight into l8/m9, so opening one costs no second request.
+          // repository and links straight into st0/m9, so opening one costs no second request.
           return { ...r, name: nameOf(r), ...st, branch, projects };
         }),
       );
@@ -174,7 +174,7 @@ export function projectsRouter(opts: {
   );
 
   /**
-   * The URI behind a short name — what l8 and m9 ask on the way in.
+   * The URI behind a short name — what st0 and m9 ask on the way in.
    *
    * A project's address is `/<name>/<project>`, so an editor arrives holding a name and
    * nothing else. It must not hold the URI: that carries a host, a port and a user, and an
@@ -214,7 +214,7 @@ export function projectsRouter(opts: {
    * and the reader should not have to know that ids are hashes to be sure of it.
    *
    * `null` rather than a 404 for "none set": it is the ordinary state of a new account, and it
-   * is a state the callers ACT on — pl8 draws the card that asks for one, and l8 refuses to
+   * is a state the callers ACT on — pl8 draws the card that asks for one, and st0 refuses to
    * open a project (see packages/project-shell/docs/launch.md). A 404 would make both of them
    * tell "not configured" apart from "the service is down" by reading a status code.
    */

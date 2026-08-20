@@ -72,7 +72,7 @@ import { WidgetGridEditor } from "./WidgetGridEditor";
 import { YamlPane } from "./YamlPane";
 
 /**
- * What the left column is showing. Named for the BUILDER, not just `Pane`: l8 has panes of its
+ * What the left column is showing. Named for the BUILDER, not just `Pane`: st0 has panes of its
  * own and a shared package must not squat the word.
  *
  * `params` is the odd one and deliberately so — every other entry is a FILE on disk, this one is
@@ -232,11 +232,11 @@ export function ModuleBuilder({
   // builder with no engine link, and an option that quietly did nothing would be worse than none.
   onRegroupInputs?: (channel: number, stereo: boolean) => void;
   // Refs this module may `extends`, when the STORE cannot say. Which plugins a machine has
-  // scanned is a question only that machine's engine answers, over its socket — l8's backend
+  // scanned is a question only that machine's engine answers, over its socket — st0's backend
   // reads the same cache off disk and puts it in `hints`, the médiathèque's has no such disk.
   // A prop for exactly the reason `pluginParamNames` is one.
   baseModules?: string[];
-  // A save the host redirected — l8 forks a shared module rather than writing into it, so the
+  // A save the host redirected — st0 forks a shared module rather than writing into it, so the
   // file being edited moves. The host reopens; this component does not follow paths on its own.
   onRelocated?: (path: string) => void;
   // What fills the box UNDER the grid — the module drawn as the graph node it will be in a chain.
@@ -317,7 +317,7 @@ export function ModuleBuilder({
    *
    * An edit and nothing more — no state to push, no engine to ask. It is written like any other
    * edit, so trying four presets in a row writes four times; Ctrl+Z in the code pane takes each
-   * one back, and l8's journal has them all. It used to be undone by simply not saving, which
+   * one back, and st0's journal has them all. It used to be undone by simply not saving, which
    * was an affordance of the button and went with it.
    */
   const applyShelfPreset = useCallback(
@@ -532,7 +532,7 @@ export function ModuleBuilder({
     saved: savedModule,
     write: useCallback(
       async (text: string) => {
-        // The module file CAN be redirected: l8 copies a shared module into the project rather
+        // The module file CAN be redirected: st0 copies a shared module into the project rather
         // than writing into the library. The host is told and reopens — following the new path
         // from here would leave the engine link and the title pointing at the module that was
         // not edited.
@@ -627,14 +627,14 @@ export function ModuleBuilder({
   );
 
   const params = paramRef ? (hints?.paramsByBase[paramRef] ?? []) : [];
-  // Ranges for a built-in whose params l8 defines (see builtinParams.ts). The engine's live report is
+  // Ranges for a built-in whose params st0 defines (see builtinParams.ts). The engine's live report is
   // better when there is one — it comes from the loaded plugin — so this only fills what that has not.
   const baseMeta = paramRef ? (hints?.paramMetaByBase[paramRef] ?? {}) : {};
 
   /**
    * …and the built-in the module's own file names, looked up in the generated table.
    *
-   * The source that needs no project. `paramsByBase` is keyed by a base ref of the OPEN song, and l8 hands
+   * The source that needs no project. `paramsByBase` is keyed by a base ref of the OPEN song, and st0 hands
    * this component `paramRef={null}` when it opens a module from the file tree — so a module in the
    * libraries repository had nothing at all: not a base of this project, not instantiated, no engine behind
    * the overlay. That is `_libraries/modules/instruments/4osc/module.yaml`, where a shared module is
@@ -981,7 +981,7 @@ export function ModuleBuilder({
             </Button>
           )}
           {/* The Save button. This screen does NOT write as you type, unlike every text pane in
-              l8: a module is four files describing one thing, and on a shared one a save is a
+              st0: a module is four files describing one thing, and on a shared one a save is a
               publish — a commit and a push onto a repository other people read. That is a
               decision somebody takes, so it gets a button rather than a timer. */}
           {!readOnly && (

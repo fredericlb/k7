@@ -9,7 +9,7 @@ import type { LibrarySink } from "./remote.ts";
 /** What a workspace calls each folder, and where it lands in the library.
  *
  *  `_modules` → `modules/` was the first entry and is gone with the family: a workspace's own
- *  modules go up to the account's LIBRARY REPOSITORY now, through l8 and a commit, not to this
+ *  modules go up to the account's LIBRARY REPOSITORY now, through st0 and a commit, not to this
  *  volume. Pushing them here would have made a second copy nobody reads. */
 const FOLDERS: { from: string; to: string }[] = [
   { from: "_library", to: "library" },

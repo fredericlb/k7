@@ -49,16 +49,16 @@ describe("fromLocation", () => {
 
   it("lands on the default section rather than 404ing inside the app", () => {
     // The URL bar is user-editable, and a typo should not be a dead screen. The bare origin
-    // opens on the catalogue's first family — the repositories are l8's home page now.
+    // opens on the catalogue's first family — the repositories are st0's home page now.
     expect(fromLocation("/")).toEqual(st());
     expect(fromLocation("/")).toEqual(st({ section: "songs" }));
     expect(fromLocation("/nope/deep/path")).toEqual(st());
   });
 
-  it("no longer knows the repositories, which moved to l8's home", () => {
+  it("no longer knows the repositories, which moved to st0's home", () => {
     // Not a section any more, so it is an unknown first segment like any other typo — and a
     // bookmark on the old address lands somewhere usable rather than on a blank screen.
-    // See apps/l8/frontend/docs/projects.md.
+    // See apps/st0/frontend/docs/projects.md.
     expect(fromLocation("/projects")).toEqual(st());
     expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(st());
   });
@@ -103,7 +103,7 @@ describe("fromLocation", () => {
       fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
     ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
     // A section that carries nothing drops what follows it rather than 404ing inside the app:
-    // `playlists` is l8's now, and an old bookmark lands on the default section.
+    // `playlists` is st0's now, and an old bookmark lands on the default section.
     expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(st());
     // A lone file name has no folder in front of it, which is the null `folderOf` answers.
     expect(folderOf("ete-2026.yaml")).toBeNull();
@@ -139,13 +139,13 @@ describe("fromLocation", () => {
 
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
     // This mattered when pl8 WAS the origin's catch-all: a section named after another service
-    // would never have reached this app at all, the edge matching `/l8`, `/m9`, `/k7`, `/z0`,
+    // would never have reached this app at all, the edge matching `/st0`, `/m9`, `/k7`, `/z0`,
     // `/dev`, `/console` and `/dev-status` first. Under `/pl8` these ids are out of reach of the
     // origin's routing entirely, so the property is free rather than load-bearing — kept
     // because it costs nothing and records what the names had to avoid. The live version of the
-    // same hazard is now a REPOSITORY name in l8; see docs/routing.md.
+    // same hazard is now a REPOSITORY name in st0; see docs/routing.md.
     for (const taken of [
-      "l8",
+      "st0",
       "m9",
       "k7",
       "z0",

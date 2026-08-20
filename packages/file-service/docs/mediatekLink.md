@@ -27,7 +27,7 @@ D'où le repli, sur les mêmes fichiers que le superviseur lit lui-même.
 `~/.studio/web-endpoints/pl8.json`, et pas l'origine du premier registre venu. Hébergé, tous
 les services partagent une origine à un chemin fixe, donc les deux reviendraient au même. Dans
 un checkout, non : chaque backend annonce **son propre port** de loopback, si bien que
-« l'origine de n'importe quel registre » tombe sur le 8789 de l8 aussi souvent que sur le 8795
+« l'origine de n'importe quel registre » tombe sur le 8789 de st0 aussi souvent que sur le 8795
 de pl8 — et les routes de la médiathèque n'y sont pas.
 
 C'est la même adresse que `packages/git-repos/docs/keys.md` donne pour le dev
@@ -42,7 +42,7 @@ intermédiaire absent.
 ## Et le sujet du token
 
 Savoir où demander ne dit pas encore **pour qui**. Le token qu'une machine détient est celui
-d'un service (`sub: "service:l8"`), qui n'a pas de clé à lui, alors que la clé est classée
+d'un service (`sub: "service:st0"`), qui n'a pas de clé à lui, alors que la clé est classée
 sous le sujet OIDC de la personne. `sshKeys.ts` nomme donc l'utilisateur dans la requête —
 l'email, la seule orthographe que ce service connaisse — et pl8 fait le pont vers le sujet.
 

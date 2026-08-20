@@ -85,7 +85,7 @@ peuvent plus être en désaccord sur ce que « à l'arrêt » veut dire.
 
 `drawNow` est pour ce qu'on REGARDE. Ce qui s'écrit — un point de cue, qui mémorise où le doigt
 est tombé — lit `Deck.playhead`, l'ancre brute, parce que le lissage échange de la justesse
-contre de la continuité. Voir `apps/l8/frontend/docs/playhead.md`.
+contre de la continuité. Voir `apps/st0/frontend/docs/playhead.md`.
 
 ## Une seule tête pour les deux platines, mais deux horloges
 

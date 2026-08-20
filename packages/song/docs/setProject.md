@@ -1,6 +1,6 @@
-# A SET — an l8 project with decks instead of an arrangement
+# A SET — an st0 project with decks instead of an arrangement
 
-An `.l8` folder like any other, read by the same loader out of the same `@studio/song`. Not a
+An `.st0` folder like any other, read by the same loader out of the same `@studio/song`. Not a
 dialect: the node project you already know, with one entity fewer and two files more.
 
 > **The archetype that writes one is called `mix`.** That pair of names is deliberate and is the
@@ -20,7 +20,7 @@ dialect: the node project you already know, with one entity fewer and two files 
 ## Two files are what make it a set
 
 A `turntables` surface, and the **playlist** it names. Neither needs a folder suffix to be found
-and neither needs an app of its own: l8 draws the desk from its declaration exactly as it draws
+and neither needs an app of its own: st0 draws the desk from its declaration exactly as it draws
 a timeline or a viewport from theirs.
 
 ```yaml
@@ -37,7 +37,7 @@ drew on and no longer does: two files answered one question, and the playlist is
 the two — it has a screen, it is shareable, and it is the thing somebody had already written.
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
-wiring are one file. The desk itself is `@studio/ui-turntables`, and l8 has an engine before it
+wiring are one file. The desk itself is `@studio/ui-turntables`, and st0 has an engine before it
 has a surface — which is the whole of what a host owes it.
 
 No `clips/`, no `sequences/`, no `curves/`: a set holds no material of its own. What it
@@ -74,15 +74,15 @@ project** (`"."` — see `packages/project-shell/docs/launch.md`), and then ther
 anywhere. It is also what a reader sees first, and what a loader handed an absolute path
 with no name to read has to go on.
 
-`projectTypeOf` states the order in three lines: suffix, then declaration, then `l8`, which is
+`projectTypeOf` states the order in three lines: suffix, then declaration, then `st0`, which is
 what a folder saying nothing is.
 
-A folder named `.z0` that declares `type: l8` is not resolved silently. It compiles either way,
+A folder named `.z0` that declares `type: st0` is not resolved silently. It compiles either way,
 because the two signals feed different readers, and that is exactly why it is **reported** —
 `projectTypeIssues`, surfaced beside `deadProjectFields`. A field that is accepted and ignored
 is worse than one that is refused.
 
-The values are `l8` and `z0`. A set declares nothing at the root: it is an `.l8`, and what says
+The values are `st0` and `z0`. A set declares nothing at the root: it is an `.st0`, and what says
 what it is is the pair above — a `turntables` surface and the playlist it names. It once said
 `project_type: live` too; that field is gone, because a folder saying it had no arrangement while
 its `surfaces/` said otherwise was a contradiction nothing could resolve.
@@ -103,7 +103,7 @@ minutes. So it authors no `events:` at all.
 The file still exists, and that is deliberate. The alternative — inferring the decks from
 `graph.yaml`'s keys and writing no lane files at all — costs three things:
 
-- l8 keeps a useful error for a chain naming a node that has no file, and inference
+- st0 keeps a useful error for a chain naming a node that has no file, and inference
   would have to make that error conditional on the project's type;
 - the file tree, the editor and the loader all work unchanged with a file there;
 - the deck's **settings** need somewhere to live. Trim, cue, key-lock, which deck holds
@@ -176,6 +176,6 @@ Loading a song is therefore NOT a project edit. The decks' tracks are declared w
 is committed, what is on a deck right now is not.
 
 **One thing still cannot be a module.** The tempo is `offline`, so it compiles to no plugin —
-`example.l8` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
+`example.st0` compiles to deckA carrying the crossfade and nothing else. The stretch stays a
 warp on the clip the desk fills in, which is the only thing that stretches live. Making it a module
 in fact means writing the cold pass, and that is a separate piece of work from this one.

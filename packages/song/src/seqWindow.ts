@@ -1,6 +1,6 @@
 // seqWindow.ts — the window a sequence states, read from its own TEXT rather than from a compiled
 // clip: the note grids are handed the document, not a ClipDoc. Timecodes only and POSITIONS, as
-// SeqEdge defines them. See apps/l8/docs/22-syntax-material.md.
+// SeqEdge defines them. See apps/st0/docs/22-syntax-material.md.
 
 import { isMap, isScalar, parseDocument } from "yaml";
 import { parsePosition } from "./timecode";

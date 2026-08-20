@@ -32,7 +32,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo.l8",
+  "synth-demo.st0",
 );
 
 // Point the fixture's instrument step at a module that doesn't exist, keeping everything

@@ -60,7 +60,7 @@ describe("a module filed under a category folder", () => {
   });
 
   it("is named the same way by a browser reading only the path", () => {
-    // l8's builder has no loader — it maps the open FILE to the key a chain writes, so that it
+    // st0's builder has no loader — it maps the open FILE to the key a chain writes, so that it
     // can find the plugin the project loaded. Spelled differently from `loadModules`, it would
     // look up `neural-amp-modeler`, find nothing, and report a module the project plainly has
     // as one it does not. Same answer, from the two ends, is the contract.
@@ -70,7 +70,7 @@ describe("a module filed under a category folder", () => {
     const key = Object.keys(loadModules(dir))[0];
     expect(
       moduleKeyFromPath(
-        "banc.l8/modules/audio/amps/neural-amp-modeler/module.yaml",
+        "banc.st0/modules/audio/amps/neural-amp-modeler/module.yaml",
       ),
     ).toBe(key);
     // Any of the module's three files answers the same, and a flat one still works.
@@ -81,7 +81,7 @@ describe("a module filed under a category folder", () => {
       "reverb",
     );
     // Not a module path at all.
-    expect(moduleKeyFromPath("banc.l8/graph.yaml")).toBeNull();
+    expect(moduleKeyFromPath("banc.st0/graph.yaml")).toBeNull();
     expect(moduleKeyFromPath("modules/nonsense/x/module.yaml")).toBeNull();
   });
 

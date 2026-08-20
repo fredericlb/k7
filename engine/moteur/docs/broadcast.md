@@ -203,7 +203,7 @@ from 50 ms to 150 ms as a result — the full reasoning is in
 * **Two machines** — the drift figure that actually governs the design. Both figures here
   compare a sound card against a system clock, never two cards against each other.
 * Sustained multi-listener load, and the JSON-broadcast stall described above.
-* A real l8 tab as the listener: it has a React tree and a canvas to schedule around,
+* A real st0 tab as the listener: it has a React tree and a canvas to schedule around,
   so its main thread will be worse than the empty page measured here.
 
 ## What is deliberately absent

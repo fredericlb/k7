@@ -1,4 +1,4 @@
-// OtherApps.tsx — the header's app switcher: the studio's other front doors — l8's projects,
+// OtherApps.tsx — the header's app switcher: the studio's other front doors — st0's projects,
 // k7, z0. Every service is a fixed path on ONE origin, so all three are plain same-origin paths
 // and a link is the whole navigation — one that opens a NEW TAB. See ../../docs/otherApps.md.
 
@@ -26,15 +26,15 @@ const OTHER_APPS: {
   hint: string;
   icon: LucideIcon;
 }[] = [
-  // l8 FIRST, and it is now the ORIGIN ITSELF: `SERVICE_PATHS.l8` is the empty string, so this
+  // st0 FIRST, and it is now the ORIGIN ITSELF: `SERVICE_PATHS.st0` is the empty string, so this
   // href is `/`. It was absent from this menu for a long time — an editor opened on one project
-  // is not a place you visit, and a bare `/l8` landed on an app with nothing to open. Then it
+  // is not a place you visit, and a bare `/st0` landed on an app with nothing to open. Then it
   // gained a home page (the repositories, which used to be a section HERE), and that page is
   // what the studio opens on now. This entry is the way BACK to it; the way here is the pl8
   // button in that page's header. See ../../docs/otherApps.md.
   {
-    href: `${SERVICE_PATHS.l8}/`,
-    label: "l8",
+    href: `${SERVICE_PATHS.st0}/`,
+    label: "st0",
     hint: "vos projets — les dépôts, les morceaux, les partages",
     icon: FolderGit2,
   },

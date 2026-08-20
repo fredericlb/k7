@@ -11,7 +11,7 @@ means nothing until it's pushed down onto the tracks that carry it.
 
 It applies to the live tracks of a group's `algo/` pattern exactly as it does to
 authored members: they carry the same `group` pointer, so muting the group silences the
-l8 its pattern streams. That is the only way those l8 CAN be muted — they're
+st0 its pattern streams. That is the only way those st0 CAN be muted — they're
 synthesized per tick and have no file of their own to carry a flag.
 
 **OR, not override**: a member muted on its own stays muted in an unmuted group. Solo

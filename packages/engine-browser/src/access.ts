@@ -76,7 +76,7 @@ export interface EngineAccess<
 /**
  * Everything one service's browser needs, bound to that service's origin prefix.
  *
- * `base` is the app's own prefix — "" for l8, "/pl8", "/m9". It used to be passed separately
+ * `base` is the app's own prefix — "" for st0, "/pl8", "/m9". It used to be passed separately
  * to `registryClient(base, …)` and to `probeEngines(list, base)`, which is one fact written
  * twice: an app could hold the registry client and still measure without the relay, and for
  * months every app did, because `probeEngines` had no second argument to forget yet. Once it

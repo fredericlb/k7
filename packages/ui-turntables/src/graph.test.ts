@@ -16,7 +16,7 @@ const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
  *
  * The document ends every deck with the level the crossfader moves (see deck.ts), and the
  * graph does not draw it — a strip is not a step in the signal path, it is how loud the path
- * comes out, which is why l8 draws its mixer as a fader panel and not as a node. So the
+ * comes out, which is why st0 draws its mixer as a fader panel and not as a node. So the
  * identity these tests hold is between the graph's nodes and the plugins BEFORE that level;
  * the assertion here is what stops the level quietly moving and the slice hiding a real one.
  */

@@ -230,7 +230,7 @@ describe("through the real loader", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const project = (node: string): string => {
-    const p = join(dir, "song.l8");
+    const p = join(dir, "song.st0");
     mkdirSync(join(p, "nodes"), { recursive: true });
     mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
     mkdirSync(join(p, "modules", "io", "OUT"), { recursive: true });

@@ -17,7 +17,7 @@ alternatives:
 
 The ⋮ button on the node's corner lists them, switches, and starts another. A LANE names the set it
 is playing in the timeline's gutter too, and clicking that badge opens the SAME menu — one
-behaviour reached from two places, not two (`apps/l8/frontend/docs/timeline.md`).
+behaviour reached from two places, not two (`apps/st0/frontend/docs/timeline.md`).
 
 ## The module's own fields are the first set
 
@@ -79,7 +79,7 @@ graph's track side rather than from a chain step. That fourth track-side channel
 collapsing next — a lane IS a module node now
 ([trackModules.md](trackModules.md)), and this says so the long way round.
 
-`trackAlternatives` has a second reader now: l8's timeline names the set each lane is playing in
+`trackAlternatives` has a second reader now: st0's timeline names the set each lane is playing in
 its gutter, and opens this same menu from it. It gets there from the chains pane rather than from a
 field of its own on `WebProject` — one map for the badge and the menu means neither can name a set
 the other does not. "Only when there is more than one" is what makes that badge free for every lane

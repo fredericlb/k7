@@ -11,7 +11,7 @@ sentence has to mean for it to be safe.
 
 A plain debounced autosave writes whatever is in the buffer, which for YAML means writing a
 half-typed line several times a minute. Every one of those writes is seen: the file service
-bumps `/revision`, l8 re-vets the project, the graph rebuilds, other tabs adopt the new text,
+bumps `/revision`, st0 re-vets the project, the graph rebuilds, other tabs adopt the new text,
 and the engine is handed a document that does not compile. The editor would spend most of its
 life publishing broken states.
 
@@ -98,7 +98,7 @@ would put a half-edit in front of everybody.
 
 **One caller: the module builder** (`@studio/ui-module-builder`). A module is four files
 describing one thing, and on a shared one a save is a *publish* — see
-`apps/l8/frontend/docs/sharedModules.md` for why that earns a button.
+`apps/st0/frontend/docs/sharedModules.md` for why that earns a button.
 
 ## Ctrl+S still exists
 
@@ -109,10 +109,10 @@ overrule the rule. Whoever asked does not change whether the document compiles.
 
 | pane | file(s) |
 |---|---|
-| l8 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
+| st0 `EditorTab` | the open project file — plus its findings drawn in the gutter beside the server's |
 | m9 `EditView` | the open project file |
 | pl8 `SongEditor`, `ChainEditor` | the médiathèque's `song.yaml`, a chain template's `graph.yaml` |
-| l8 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
+| st0 `PlaylistEditor` | a playlist in `_playlists/` — not a project file, so it hands the hook its own `validate` |
 | `@studio/ui-module-builder` | **four** at once: `module.yaml`, `ui.yaml`, `presets.yaml`, `jsdsp.ts` |
 
 The builder is the one worth reading twice. Four files, four autosaves, deliberately not one
@@ -122,14 +122,14 @@ widget in the panel must not stop the module file reaching disk. Its header show
 
 ## What changed for the files that had no file yet
 
-pl8's song sidecar and l8's playlists open on a **stub** when nothing is on disk. With a button,
+pl8's song sidecar and st0's playlists open on a **stub** when nothing is on disk. With a button,
 the stub was written by clicking it. With autosave, the stub is loaded as `saved` as well as as
 the buffer — so opening a song files nothing, and the first thing you actually type creates it.
 Looking at something must not write it.
 
 ## What a write drags behind it
 
-In l8 a write is not only a write: it re-reads the tree and the hints, and tells the shell the
+In st0 a write is not only a write: it re-reads the tree and the hints, and tells the shell the
 project changed, so the arrangement and the graph recompile. That is why the delay is a whole
 second rather than the 300 ms a text editor would use — the cost of a write here is the cost of
 a compile.
@@ -141,5 +141,5 @@ larger; nothing coalesces them yet.
 
 An edit that used to be undone by *not saving* now needs an undo. The module builder's preset
 shelf was the one place that leaned on it: trying four presets in a row wrote nothing until you
-committed. It writes four times now, and the way back is Ctrl+Z in the code pane — plus, in l8,
+committed. It writes four times now, and the way back is Ctrl+Z in the code pane — plus, in st0,
 the journal every write is recorded in.

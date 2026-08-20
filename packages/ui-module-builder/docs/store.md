@@ -4,7 +4,7 @@ The builder is a whole screen: a code pane over `module.yaml` or `ui.yaml`, the 
 parameters under it, and the widget grid beside them. All of that is identical wherever it is
 drawn, because it is about a module and no host's idea of one differs.
 
-What differs is **who is serving the files**. There are two answers, and l8 uses both — in the
+What differs is **who is serving the files**. There are two answers, and st0 uses both — in the
 same screen, chosen by which tab of its file tree the click came from:
 
 | | a WORKSPACE | a LIBRARY |
@@ -13,7 +13,7 @@ same screen, chosen by which tab of its file tree the click came from:
 | paths | workspace-relative (`modules/audio/reverb/module.yaml`) | library-relative (`modules/audio/reverb/module.yaml`) |
 | auth | `x-studio-{user,workspace,engine-token}` headers | the session cookie |
 | a save into a shared library | **redirected** — the module is forked into the project | written in place, for everyone |
-| hosts | l8's Project tab | l8's Libraries tab, pl8's own module screen |
+| hosts | st0's Project tab | st0's Libraries tab, pl8's own module screen |
 
 Those two path columns read alike and are not alike — the same string names two different files
 — which is exactly the trap a shared component falls into if it builds its own paths. So it
@@ -37,7 +37,7 @@ write(path, text)   // save; may answer with where the content actually landed
 
 `@studio/ui-module-builder/library-store` implements all of it over three calls — read one
 file, write one file, hints — because a library serves FILES and the sidecars are siblings of
-the file you were given. l8's Libraries tab and pl8's module screen both take it.
+the file you were given. st0's Libraries tab and pl8's module screen both take it.
 
 That derivation is deliberate here and deliberately *not* done over a workspace, which is worth
 stating because it looks like an inconsistency. Over a workspace the SERVER decides where a
@@ -60,10 +60,10 @@ read-only screen.
 ## `publish` — a save that leaves the machine
 
 This screen has a **Save button** (`useAutosave({ manual: true })`), unlike every text pane in
-l8, and `publish` is why the distinction earns one: on a SHARED module a save is not a write,
+st0, and `publish` is why the distinction earns one: on a SHARED module a save is not a write,
 it is a publish onto a repository other people read.
 
-It is optional and one host implements it. l8 commits and pushes the library repository the
+It is optional and one host implements it. st0 commits and pushes the library repository the
 module lives in; a host with no such repository, or a module that is the project's own, passes
 nothing and the save ends at the disk.
 
@@ -77,13 +77,13 @@ put a half-edit in front of everybody.
 tracks, clips, chains — and a library has none of those. What survives there is the list of
 modules a sibling may `extend`.
 
-l8's Libraries tab passes the OPEN PROJECT's hints instead, over a library module, and that is
+st0's Libraries tab passes the OPEN PROJECT's hints instead, over a library module, and that is
 the point rather than a shortcut: a shared module is completed against the vocabulary of the
 song you are in, which is more than a library could say about itself.
 
 ## Why `write` has a return type
 
-Only one host needs it. l8 redirects a save aimed at `_modules` onto a project-local copy
+Only one host needs it. st0 redirects a save aimed at `_modules` onto a project-local copy
 and repoints the chains at it (`@studio/song`'s `docs/moduleFork.md`), so **the file being
 edited moves out from under the editor**. The builder is told, and tells its host through
 `onRelocated`; it does not follow the path itself, because the host also owns the title, the
@@ -97,9 +97,9 @@ redirected either: a library is one place, and nothing there forks.
 ## What stayed in the apps
 
 The engine link. Only a live plugin can say what its parameters are called, what they span and
-what presets it ships. l8 reaches its engine through the shell's shared socket and finds the
+what presets it ships. st0 reaches its engine through the shell's shared socket and finds the
 plugin in the OPEN project's compiled graph — for a shared module too, by its
-`@st0/…` ref (`apps/l8/frontend/docs/sharedModules.md`). So those arrive as plain props
+`@st0/…` ref (`apps/st0/frontend/docs/sharedModules.md`). So those arrive as plain props
 (`pluginParamNames`, `pluginParamMeta`, `presets` and the two callbacks behind the dropdown),
 and a host with no engine passes nothing. The grid, the params list and the file pair work
 without one; they are just less well informed.

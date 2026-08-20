@@ -1,5 +1,5 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
-// (`mysong.l8` in l8, `party.z0` in z0's editor), and the ADDRESS that names one:
+// (`mysong.st0` in st0, `party.z0` in z0's editor), and the ADDRESS that names one:
 // `/<repo>/<project>`. Both are contracts between pl8, which writes them,
 // and the apps, which read them back — so they are stated here, browser-safe, and nowhere else.
 // See apps/pl8/docs/projects.md and packages/project-shell/docs/launch.md.
@@ -7,18 +7,18 @@
 import { type StudioService, serviceUrl } from "./services.ts";
 
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
-export type ProjectApp = Extract<StudioService, "l8" | "z0">;
+export type ProjectApp = Extract<StudioService, "st0" | "z0">;
 
 /**
  * The suffix each app claims.
  *
- * Two of them, because two apps open a project. Everything an l8 project can BE is a shape
- * inside `.l8` rather than a folder kind of its own: a song carries `video_tracks/` and a
+ * Two of them, because two apps open a project. Everything an st0 project can BE is a shape
+ * inside `.st0` rather than a folder kind of its own: a song carries `video_tracks/` and a
  * `viewport` surface, and a set carries `songs.yaml` and a `turntables` surface
  * (`PROJECT_SHAPES` in `@studio/song`). See packages/song/docs/picture.md and setProject.md.
  */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
-  l8: ".l8",
+  st0: ".st0",
   z0: ".z0",
 };
 
@@ -28,7 +28,7 @@ export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
  * Owning a folder kind is a naming rule; creating one needs a **scaffold** — a file map the
  * file service can write (`createProjectIn`, and `@studio/song`'s three `scaffold*` modules).
  * z0 owns `.z0` and has none, so offering it in pl8's "Nouveau projet" menu produced a folder
- * with an l8 song inside it: the suffix said z0, the contents said otherwise, and nothing
+ * with an st0 song inside it: the suffix said z0, the contents said otherwise, and nothing
  * complained until the app that opened it found nothing it could read.
  *
  * Stated HERE, beside the suffixes, because it is the same kind of fact and the same contract
@@ -37,7 +37,7 @@ export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
  * someone answers the question for it.
  */
 export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
-  l8: true,
+  st0: true,
   z0: false,
 };
 
@@ -49,7 +49,7 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
 /**
  * Where inside its service the app that opens a project is mounted.
  *
- * Empty for l8, which IS its service: `st0.priv.frediver.se/<repo>/<project>`. z0 is six
+ * Empty for st0, which IS its service: `st0.priv.frediver.se/<repo>/<project>`. z0 is six
  * SPAs behind one prefix and only one of them opens a project, so its address has to name the
  * SPA too — `st0.priv.frediver.se/z0/editor-v2/<repo>/<project.z0>`.
  *
@@ -58,7 +58,7 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
  * a mount known to only one of them is a 404 nobody can attribute.
  */
 export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
-  l8: "",
+  st0: "",
   z0: "/editor-v2",
 };
 
@@ -102,8 +102,8 @@ const segments = (p: string): string[] => p.split("/").filter(Boolean);
 /**
  * Read `/<repo>/<project…>[/<view…>]` into a target, or null.
  *
- * l8 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
- * segment. Which makes every prefix the origin claims above l8 — `/pl8`, `/k7`, `/z0`, `/api`,
+ * st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
+ * segment. Which makes every prefix the origin claims above st0 — `/pl8`, `/k7`, `/z0`, `/api`,
  * `/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never
  * be opened: the request never reaches this app. Nothing here can detect that, and nothing
  * should try; it is the edge's routing table, and `apps/studio/docker/nginx.conf` is where it is
@@ -111,15 +111,15 @@ const segments = (p: string): string[] => p.split("/").filter(Boolean);
  *
  * **Where the project ends** is decided by the folder's own name — the same rule as
  * `projectApp` above: the project is everything up to and including the LAST segment claiming
- * THIS app. That is what lets a project sit at a depth (`songs/winter.l8`), lets the app's own
- * route follow it (`…/winter.l8/timeline`), and lets a `.m9` set nested inside a `.l8` song be
- * addressed by m9 without l8's suffix winning.
+ * THIS app. That is what lets a project sit at a depth (`songs/winter.st0`), lets the app's own
+ * route follow it (`…/winter.st0/timeline`), and lets a `.m9` set nested inside a `.st0` song be
+ * addressed by m9 without st0's suffix winning.
  *
  * With no such segment the repository itself is the project (`"."`) and everything after the
- * repo is the app's route — a view segment never ends in `.l8` or `.m9`, so the two cannot be
+ * repo is the app's route — a view segment never ends in `.st0` or `.m9`, so the two cannot be
  * confused.
  *
- * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for l8, `/z0/editor-v2/`
+ * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for st0, `/z0/editor-v2/`
  * for z0's. An address outside it names something else: null.
  */
 export function parseLaunch(
@@ -214,7 +214,7 @@ export function projectBasename(
 }
 
 /**
- * The bench's reserved repository name — the first half of `/@banc/chains/<path>.l8`.
+ * The bench's reserved repository name — the first half of `/@banc/chains/<path>.st0`.
  *
  * A reserved REPOSITORY name, and that is the whole trick. Every other project resolves through
  * pl8 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
@@ -228,10 +228,10 @@ export function projectBasename(
  * Here rather than in pl8 because BOTH ends need it spelled the same — pl8 writes the link and
  * the gate reads it — which is the same argument that put the rest of this vocabulary here.
  *
- * There was a second bench under this name, `@banc/modules.l8`: the whole catalogue mirrored
+ * There was a second bench under this name, `@banc/modules.st0`: the whole catalogue mirrored
  * into one generated project, which was where a shared module was edited. A shared module is
  * edited from the Libraries tab of whatever project you already have open now
- * (apps/l8/frontend/docs/sharedModules.md), so only the CHAIN bench is left — the address below
+ * (apps/st0/frontend/docs/sharedModules.md), so only the CHAIN bench is left — the address below
  * is what says which chain.
  */
 export const BENCH_REPO = "@banc";
@@ -241,10 +241,10 @@ export function isBench(repo: string): boolean {
 }
 
 /**
- * A CHAIN on the bench: `/@banc/chains/blindtest/assourdissant/…​.l8`.
+ * A CHAIN on the bench: `/@banc/chains/blindtest/assourdissant/…​.st0`.
  *
  * The only thing the bench opens on now, and the address's project part is what says which. The
- * catalogue path IS the project path with `.l8` on the end,
+ * catalogue path IS the project path with `.st0` on the end,
  * which is why there is no lookup table and no marker file: pl8 writes the link from the chain
  * it is showing, the file service reads the chain back out of it, and neither can drift from
  * the other. Same argument that put `@banc` itself here.
@@ -253,7 +253,7 @@ export function isBench(repo: string): boolean {
  * nothing else can be mistaken for one.
  */
 const CHAIN_FAMILY = "chains/";
-const L8 = PROJECT_SUFFIXES.l8;
+const ST0 = PROJECT_SUFFIXES.st0;
 
 /**
  * Which médiathèque chain a bench project is a view of — null when it names no chain, which
@@ -265,8 +265,8 @@ const L8 = PROJECT_SUFFIXES.l8;
  * folder outside either. Null, not an exception — it is the same answer as "this is not a chain".
  */
 export function benchChainPath(project: string): string | null {
-  if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(L8)) return null;
-  const path = project.slice(0, -L8.length);
+  if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(ST0)) return null;
+  const path = project.slice(0, -ST0.length);
   if (path.length <= CHAIN_FAMILY.length) return null;
   const segs = path.split("/");
   if (segs.some((s) => !s || s === "." || s === ".." || s.includes("\\")))
@@ -276,24 +276,24 @@ export function benchChainPath(project: string): string | null {
 
 /** …and the address to open it on, from the catalogue path pl8 holds. */
 export function benchProjectForChain(chainPath: string): string {
-  return `${chainPath}${L8}`;
+  return `${chainPath}${ST0}`;
 }
 
 /**
- * A SHARED project: `/@shares/<token>.l8`.
+ * A SHARED project: `/@shares/<token>.st0`.
  *
  * The bench's sentinel again, for the bench's reason — `@` cannot begin a git short name, so this
  * can never collide with a real repository, and the gate sees it and takes another road: no pl8
  * lookup, no clone, no engine, no account. What it opens is a frozen snapshot pl8 holds.
  *
- * The `.l8` on the end is not decoration. `parseLaunch` ends a project at the last segment
+ * The `.st0` on the end is not decoration. `parseLaunch` ends a project at the last segment
  * claiming the app's suffix, so spelling the token this way makes it the PROJECT part of an
  * ordinary address — which means `parseLaunch`, `projectBasename` and every route below them
  * need no change at all, the token lands inside the router's basename, and a reload or a pasted
  * link simply re-reads it. The three other shapes considered all cost a special case somewhere.
  *
  * Here rather than in pl8 for the same reason as everything else in this file: pl8 writes the
- * link and l8 reads it back, and an address only one of them understands is a 404 nobody can
+ * link and st0 reads it back, and an address only one of them understands is a 404 nobody can
  * attribute.
  */
 export const SHARE_REPO = "@shares";
@@ -311,8 +311,8 @@ export function isShare(repo: string): boolean {
  * `randomBytes(32).toString("base64url")` produces and what a traversal is not.
  */
 export function shareToken(project: string): string | null {
-  if (!project.endsWith(L8)) return null;
-  const token = project.slice(0, -L8.length);
+  if (!project.endsWith(ST0)) return null;
+  const token = project.slice(0, -ST0.length);
   return /^[A-Za-z0-9_-]{22,}$/.test(token) ? token : null;
 }
 
@@ -326,7 +326,7 @@ export function shareToken(project: string): string | null {
 export function shareUrl(origin: string, token: string): string {
   // Through `launchUrl`, not spelled out beside it: this address is read back by `parseLaunch`
   // and by `projectBasename`, and a second builder is a second place for the encoding to differ.
-  return launchUrl(origin, SHARE_REPO, `${token}${L8}`, "l8");
+  return launchUrl(origin, SHARE_REPO, `${token}${ST0}`, "st0");
 }
 
 /**
@@ -362,7 +362,7 @@ export async function shareKey(token: string): Promise<string> {
 /**
  * Where a snapshot answers: pl8's ONE unauthenticated prefix, on the origin the page is on.
  *
- * `serviceUrl` and not the bare origin: pl8 sits under `/pl8` since l8 took the root, and this
+ * `serviceUrl` and not the bare origin: pl8 sits under `/pl8` since st0 took the root, and this
  * route is its backend's like every other `/api/*` of its. It WAS the bare origin, and the
  * difference is invisible until a share is opened — which is exactly the kind of route that
  * gets tried last.
@@ -383,8 +383,8 @@ export function shareApiBase(origin: string, key: string): string {
  * short name and the folder path inside it are exactly what identifies a project across machines
  * — a workspace path would not, since the same repository is cloned somewhere different on each.
  *
- * No app prefix: which app opens a folder is decided by its SUFFIX, so `winter.l8` and
- * `winter.l8/live.m9` are already two different strings and cannot collide.
+ * No app prefix: which app opens a folder is decided by its SUFFIX, so `winter.st0` and
+ * `winter.st0/live.m9` are already two different strings and cannot collide.
  */
 export function projectClaimKey(l: Launch): string {
   return `${l.repo}/${l.project}`;

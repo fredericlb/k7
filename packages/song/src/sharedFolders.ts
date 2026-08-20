@@ -15,7 +15,7 @@ export { SHARED_MODULES_DIR } from "./moduleTypes";
 
 import { SHARED_MODULES_DIR } from "./moduleTypes";
 
-// Where the library submodule sits is in moduleTypes.ts, which opens no `node:` module — l8's
+// Where the library submodule sits is in moduleTypes.ts, which opens no `node:` module — st0's
 // file tree names that folder to keep it off the Project tab. Re-exported so the vocabulary
 // still reads as one place, exactly as MODULE_NAMESPACES is.
 export { LIBRARIES_DIR, LIBRARIES_PATH } from "./moduleTypes";
@@ -95,7 +95,7 @@ export function moduleLibraryDirs(dir: string): string[] {
 }
 
 // The four levels themselves live in moduleTypes.ts, which opens no `node:` module: a browser
-// asks what a namespace is called (l8's Libraries tab does), and this file cannot be imported
+// asks what a namespace is called (st0's Libraries tab does), and this file cannot be imported
 // there — it reads the disk on the very first line. Re-exported so the vocabulary still reads
 // as one place. Same argument as `moduleKeyFromPath`'s.
 export { MODULE_NAMESPACES, type ModuleNamespace } from "./moduleTypes";
@@ -117,10 +117,11 @@ import type { ModuleNamespace } from "./moduleTypes";
  * those are the only two shared roots there are.
  *
  * The library repository answers to `@st0`, after the app that registered it when the level was
- * named. It was `@mediatek` before that, while the app was `apps/mediatek` — see
- * scripts/migrateNamespace.ts. That app is **pl8** today and this level stayed `st0` on
- * purpose: a level is written into user files, and moving it a second time would cost every
- * repository a rewrite for a name nobody types. See moduleTypes.ts' MODULE_NAMESPACES.
+ * named — the MÉDIATHÈQUE, which was called `st0` then. It was `@mediatek` before that, while
+ * that app was `apps/mediatek` — see scripts/migrateNamespace.ts. It is **pl8** today, and
+ * `apps/st0` is the editor, so this level names neither of the things its spelling suggests. It
+ * stayed on purpose: a level is written into user files, and moving it a second time would cost
+ * every repository a rewrite for a name nobody types. See moduleTypes.ts' MODULE_NAMESPACES.
  *
  * Recognised by the folder it SITS IN (`_libraries/modules`) rather than by an absolute path,
  * which is what it used to be: the médiathèque's modules lived at one place per machine, and

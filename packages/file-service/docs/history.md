@@ -1,6 +1,6 @@
 # The undo/redo journal
 
-`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in l8 and m9 undo
+`history.ts` is a per-project journal that makes Ctrl+Z / Ctrl+Y in st0 and m9 undo
 **persisted** changes to the project — an editor save, or any command that rewrote a
 file — across the whole project, not just the file on screen. It lives in the file
 service because that is the one place every mutation already funnels through, and because

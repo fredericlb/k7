@@ -125,7 +125,7 @@ is the one place that projection is computed: `graph.ts` turns it into what ever
 authored). Both ask the same question of the same module, and a second copy of "is this a group"
 is exactly how the two would come to disagree.
 
-The compiled `ProjectDoc` for `synth-demo.l8` came out byte-identical across this change but for
+The compiled `ProjectDoc` for `synth-demo.st0` came out byte-identical across this change but for
 the one deliberate rename, which is the measurement that says the engine's half was untouched.
 
 ## Which nodes are lanes has to be TOLD
@@ -162,7 +162,7 @@ repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 | `solo: true` | the name in project.yaml's root `soloed:` list |
 | the `tracks:` entry in `graph.yaml` | the same line, under `modules:` |
 
-`l8 migrate chains` still handles the chain-list → segments step, and now reports the lanes it
+`st0 migrate chains` still handles the chain-list → segments step, and now reports the lanes it
 saw (`ChainsMigration.tracks`) — the old `{ track: … }` heads are the last place that is written
 down, and a caller that threw it away could not derive the chains it had just written.
 
@@ -177,7 +177,7 @@ to the module — which is the same feature arriving where it belongs, a lane be
   `track alternative select|create|copy`. The timeline gutter says which set a lane is playing
   again, and clicking it opens the lane node's own ⋮ menu — so the picker came back as one menu
   reached from two places, running the `module` verbs
-  (`apps/l8/frontend/docs/timeline.md`).
+  (`apps/st0/frontend/docs/timeline.md`).
 - [freeze.md](freeze.md) — a render standing in for everything UPSTREAM of a module, that module
   included, rather than for one lane and its own modules. Gone with the old shape: `frozenRender`,
   `frozenTracks` on the graph wire, `FreezeOverlay.tsx`, `track freeze`, and `freezeTrackRender`,

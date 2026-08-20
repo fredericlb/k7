@@ -16,7 +16,7 @@ Every clause of that is about a render, and every clause of it fails for a clone
 | | render | clone |
 |---|---|---|
 | how long | seconds | tens of seconds, and `git clone` here is capped at **120 s** |
-| who waits | a server | a **person**, watching a blank screen in l8 |
+| who waits | a server | a **person**, watching a blank screen in st0 |
 | what it produces | one file, streamable | a directory, and there is nothing to stream |
 | what it says while it runs | nothing | `Receiving objects: 47% (470/1000)` |
 
@@ -30,7 +30,7 @@ what happens when you open a project from pl8, so it is on the path everyone wal
 
 The service already had a "start it, then poll" pattern and this copies it rather than
 inventing a second one: `waveformOps.ts` (`POST /waveforms/prewarm` + `GET /waveforms/status`),
-polled by `useWarmWaveforms` in l8. Two things are different here.
+polled by `useWarmWaveforms` in st0. Two things are different here.
 
 **It needs an id.** Waveform status is implicitly scoped to a `Workspace` instance, because
 there always is one. A clone is precisely the case where there is not yet a workspace to hang

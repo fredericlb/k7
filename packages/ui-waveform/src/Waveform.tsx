@@ -231,7 +231,7 @@ function WaveformInner({
    * MEASURED SYNCHRONOUSLY FIRST, in a layout effect, and only then observed. The observer alone
    * left the first paint drawn at the `useState` guess — a canvas sized in px, so a box wider than
    * the guess showed the wave stopping short of its own frame. Invisible on a component that
-   * mounts once with the pane; plainly wrong on one that REMOUNTS, which is what l8's clip panel
+   * mounts once with the pane; plainly wrong on one that REMOUNTS, which is what st0's clip panel
    * does after a take: `lecture de la prise…` replaces the waveform while the file is fetched, so
    * the picture that comes back is a fresh mount starting from the guess again.
    *

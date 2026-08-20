@@ -138,8 +138,8 @@ app.use(cors);
 // that), and the IdP has only the prefixless callback registered on this
 // client — so every account login died at the authorization endpoint with
 // "the 'redirect_uri' parameter does not match any of the pre-registered
-// 'redirect_uris'". A service under a path cannot own a flow here. l8 does,
-// because it has no prefix; this reads the cookie l8 mints. docs/auth.md.
+// 'redirect_uris'". A service under a path cannot own a flow here. st0 does,
+// because it has no prefix; this reads the cookie st0 mints. docs/auth.md.
 await setupAuth(app, {
   cookieName: SESSION_COOKIE_NAME,
   service: "z0-backend",

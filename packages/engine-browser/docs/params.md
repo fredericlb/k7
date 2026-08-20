@@ -10,12 +10,12 @@ times a second.
 `subscribe` wakes on **any** plugin. `subscribeTo(id, …)` wakes only on one.
 
 The whole-map channel is the honest one for a reader that genuinely needs the whole map —
-l8's `MidiFeedback`, which pushes every value back out to a control surface, and m9's
+st0's `MidiFeedback`, which pushes every value back out to a control surface, and m9's
 `useDeckSet`. Those draw nothing, so a re-render costs a function call.
 
 It is the wrong channel for anything that *draws*. A single whole-map subscription at the root
 of a tree of N nodes turns 20·N notifications into 20·N full-tree renders, each rendering N
-nodes — **quadratic in the number of plugins on screen**. That is what made l8's mixer heavy
+nodes — **quadratic in the number of plugins on screen**. That is what made st0's mixer heavy
 on a song with many tracks: the strips are the graph's own cards, one plugin each, and every
 strip re-rendered every other strip's frame.
 

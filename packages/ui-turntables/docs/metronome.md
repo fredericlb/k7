@@ -24,10 +24,10 @@ L'envie est **retenue** même quand la possibilité disparaît : charger une deu
 
 ## Pourquoi ce n'est PAS le métronome du moteur
 
-Le moteur en a un — `settings.metronome`, un booléen, et c'est celui de l8. Il clique sur la
+Le moteur en a un — `settings.metronome`, un booléen, et c'est celui de st0. Il clique sur la
 grille du **document** : les temps de `DOC_TEMPO`, comptés depuis le transport zéro.
 
-Dans l8 ça suffit, parce que le tempo du document EST celui de la musique. Dans m9 rien de tout
+Dans st0 ça suffit, parce que le tempo du document EST celui de la musique. Dans m9 rien de tout
 ça n'est vrai :
 
 - le tempo du document est **figé** à 120, exprès, pour que deux platines puissent jouer à deux

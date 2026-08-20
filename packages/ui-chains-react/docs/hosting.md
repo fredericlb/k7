@@ -13,7 +13,7 @@ did. See `@studio/ui-chains`' `docs/wobble.md` for why the cables are not DOM an
 
 What stays in each app is the **shell**: fetching `/graph`, the reload polling, the chain
 list beside the canvas, the parked camera (a graph unmounts with its pane, so the camera
-has to live above it), and optimistic state like a pending bypass. l8' `ChainsTab` is
+has to live above it), and optimistic state like a pending bypass. st0' `ChainsTab` is
 ~560 lines of that against ~2500 shared here.
 
 There is deliberately no `ChainsShell` yet. Promote one when two apps have written the
@@ -26,7 +26,7 @@ near-identical comments over it. A shape is not a sidebar; it was worth naming e
 ## What a host must supply
 
 **`icons` — required, and the compiler enforces it.** The glyphs are the app's vocabulary,
-not the graph's: l8 draws the same track icons in its mixer and its timeline, so they
+not the graph's: st0 draws the same track icons in its mixer and its timeline, so they
 cannot live here without those two importing a chains package. They reach the nested node
 components through a context, but the PROVIDER is not a caller's job — the component takes
 `icons` as a required prop and provides it itself. There is no arrangement in which a host
@@ -48,7 +48,7 @@ object or lambda in the host's JSX is enough to re-render every card on every fr
 
 Everything the host passes as a *callback* is already safe — the renderer reads those through
 a ref and binds its own handlers once, precisely so a host is free to pass inline lambdas
-(l8's `App` does). It is the non-callback props above that have no such shelter.
+(st0's `App` does). It is the non-callback props above that have no such shelter.
 
 Why this is now load-bearing: the plugin-param subscription moved from the root of the graph
 down to each individual widget. Before, one frame re-rendered everything anyway and stale
@@ -86,13 +86,13 @@ read-only — drawn from a value it cannot change, rather than a knob that turns
 nothing. That distinction is the whole point of the pair; a single prop would have brought
 back the lie the missing `pluginId` removed.
 
-A host that passes neither is unaffected: l8 and pl8 draw those widgets inert, exactly as
+A host that passes neither is unaffected: st0 and pl8 draw those widgets inert, exactly as
 before.
 
 ## What it emits
 
 `onContextMenu(ctx, x, y)` carries a `GraphMenuCtx` — four kinds, the ones a node can be:
-`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. l8' `MenuCtx` is
+`track`, `module`, `chain`, `sink`. That is the graph's own vocabulary. st0' `MenuCtx` is
 a superset covering timeline things (markers, clip placements) this cannot produce, and a
 host whose type is wider accepts the handler unchanged.
 

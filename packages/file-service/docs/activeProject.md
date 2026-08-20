@@ -1,7 +1,7 @@
-# The active project — what l8 and m9 are actually looking at
+# The active project — what st0 and m9 are actually looking at
 
 A workspace is **one git clone**. The project is one folder inside it. Those used to be
-almost the same thing, because l8 owned the level above a project and let you pick one; now
+almost the same thing, because st0 owned the level above a project and let you pick one; now
 pl8 owns the repositories and opens an app **on** a project
 (`packages/project-shell/docs/launch.md`). That change moved two questions here.
 
@@ -12,7 +12,7 @@ pl8 owns the repositories and opens an app **on** a project
 A real repository holds far more than the song you opened: other projects, a `_modules`
 library shared between them, mixdowns, an `orig/` full of `.dawproject` and `.als` sessions
 the songs were imported from. Rooting the tree at the clone shows all of it, which reads as
-"l8 is showing me the repository" — and it invites you to open a file belonging to a project
+"st0 is showing me the repository" — and it invites you to open a file belonging to a project
 that is not the one playing.
 
 **Paths stay workspace-relative.** Only the root of the walk moves; `/file`, `/rename`,
@@ -23,17 +23,17 @@ Two consequences worth knowing:
 
 - With **no** active project the tree is the workspace, which is also what a lone-project
   workspace answers (its root *is* the project). Nothing regressed for either.
-- The shared `_modules` library is no longer browsable as text from l8. It never was
+- The shared `_modules` library is no longer browsable as text from st0. It never was
   editable — `guardShared` refuses every write, and a UI edit forks a project-local copy —
   and the médiathèque is where the catalogue is authored. What a project needs of it still
   arrives through `/module-catalogue`, `/module-ui` and `/hints`, which are unaffected.
 - A `.dawproject` sitting **outside** the project folder is likewise off the tree, so it can
   no longer be clicked to import. Importing lands a *new* project at the workspace root,
-  which l8 cannot open by itself anyway — you go back to pl8 for that either way.
+  which st0 cannot open by itself anyway — you go back to pl8 for that either way.
 
 ## Opening a project that is not there
 
-`isProjectDir` is a rule about a **name** — `mysong.l8`, `myset.m9` — because pl8 must
+`isProjectDir` is a rule about a **name** — `mysong.st0`, `myset.m9` — because pl8 must
 answer the same question from a bare blobless mirror where no file can be opened
 (`packages/web-protocol/projects.ts`). The trap is that a name rule says "yes" about a folder
 that does not exist.
@@ -47,12 +47,12 @@ behind at exactly the wrong second.
 
 Without an existence check, that produced this sequence:
 
-1. `POST /open {path: "01_danse.l8"}` — accepted, because the *name* claims l8;
+1. `POST /open {path: "01_danse.st0"}` — accepted, because the *name* claims st0;
 2. `activeProject` set to a path with nothing at it, and the `.studio-active` marker written,
    so a reload arrived broken too;
 3. the first thing to compile it — `/project-doc` — reached `@studio/song`'s `loadProject`,
    which found no directory, fell through to "not a folder project", found no `.yaml` either,
-   and reported **`unsupported song '01_danse.l8' — use a .yaml file or a folder project`**.
+   and reported **`unsupported song '01_danse.st0' — use a .yaml file or a folder project`**.
 
 Every word of that is true and none of it is the problem. So `setActiveProject` now checks
 existence **before** the name rule and says what actually happened, and `isProjectDir` itself
@@ -71,7 +71,7 @@ That is wrong in two directions at once, and each is silent.
 `sessionOf(null)` is the BARE service id — a session the engine holds nothing in. Everything
 that defaulted through it addressed that empty session: a preview, a transport, an arm, a
 document the turntables surface built. The engine's `previewSample` returns without a word on an
-empty session, so the ▶ button clicked and said nothing; `l8 play` did nothing and reported
+empty session, so the ▶ button clicked and said nothing; `st0 play` did nothing and reported
 nothing. Nothing was broken anywhere — the message just went to an empty room.
 
 **Somebody else's.** With two people on one file service the note names whoever opened last.
@@ -116,7 +116,7 @@ a project. Nothing then re-sends it: `prewarmEngineForActive` takes its early re
 engine has never heard of, and the transport does nothing, for ever, until an explicit
 `/open`.
 
-Measured, not reasoned: with the file service reporting `activeProject: 01.danse.l8`, the
+Measured, not reasoned: with the file service reporting `activeProject: 01.danse.st0`, the
 engine reported `loaded=false, tracks=0` — and still did 45 seconds after a respawn, with the
 poll running throughout. One `POST /open` brought back all 14 tracks.
 

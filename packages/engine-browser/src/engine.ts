@@ -562,7 +562,7 @@ export class EngineClient {
   /**
    * Apply a project.
    *
-   * l8 never calls this — its documents are COMPILED from a folder of YAML, which the
+   * st0 never calls this — its documents are COMPILED from a folder of YAML, which the
    * file service does, so the browser only ever drives transport. An app that builds a
    * document itself (a module preview, a deck) has nothing to compile and no reason to go
    * through a second process to reach a socket it already holds.
@@ -583,7 +583,7 @@ export class EngineClient {
    * is built from scratch rather than diffed against it.
    *
    * A real protocol verb the engine has always had, missing from this client until a
-   * surface wanted to put a song DOWN: l8 switches projects and re-sends, which happens
+   * surface wanted to put a song DOWN: st0 switches projects and re-sends, which happens
    * to work, but z0's player ends a round and must leave nothing loaded.
    */
   flush(): void {

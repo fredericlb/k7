@@ -1,5 +1,5 @@
 // Session.tsx — what the v2 editor does today: it SHOWS the session. One list of the project's
-// YAML files and the text of the one you pick, read through the same file service l8 and m9
+// YAML files and the text of the one you pick, read through the same file service st0 and m9
 // read a project through.
 //
 // Deliberately read-only, and deliberately the raw file. The session format is young (see

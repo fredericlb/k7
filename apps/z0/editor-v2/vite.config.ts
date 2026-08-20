@@ -30,7 +30,7 @@ export default defineAppConfig({
       // The old name still reaches these servers — see scripts/dev-hosts.mjs.
       allowedHosts: LEGACY_DEV_HOSTS,
       // `/auth` is the ONE path this dev server forwards to a backend that is not its own: the
-      // origin's OIDC flow is l8's, being the service with no path prefix. `proxyPaths` cannot
+      // origin's OIDC flow is st0's, being the service with no path prefix. `proxyPaths` cannot
       // say it — that helper points every path at `backendPort` — so it is spelled here.
       // Only reached when this server is visited DIRECTLY on its port; behind the LAN proxy
       // `/auth` never gets this far, because it is at the origin root. See
@@ -47,6 +47,6 @@ export default defineAppConfig({
       },
     },
   },
-  // Dev runs under WSL against /mnt/c, where inotify never fires (same as l8 and m9).
+  // Dev runs under WSL against /mnt/c, where inotify never fires (same as st0 and m9).
   poll: true,
 });

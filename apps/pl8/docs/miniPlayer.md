@@ -87,7 +87,7 @@ Les deux mots se ressemblent, les deux choses n'ont rien à voir :
 | survit à | la navigation entre écrans | tout |
 
 Elle ne va donc pas sur le serveur, et elle disparaît au rechargement — comme la file de
-n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist — qui s'écrit en l8
+n'importe quel lecteur. Ce qu'on veut garder se met dans une playlist — qui s'écrit en st0
 désormais, sur ce même catalogue (`packages/song/docs/playlists.md`).
 
 ### Elle est tenue par la Library, pas par le provider
@@ -107,7 +107,7 @@ compteur et non un booléen, parce que deux panneaux peuvent être montés le te
 transition d'écran.
 
 Le mécanisme est **retiré**, parce que le second prétendant est parti : les playlists s'ouvrent
-en l8, avec un transport à elles (`packages/song/docs/playlists.md`). Un arbitrage à un seul
+en st0, avec un transport à elles (`packages/song/docs/playlists.md`). Un arbitrage à un seul
 prétendant n'arbitre rien, et le garder ferait croire à un lecteur qu'il y en a deux.
 
 C'est écrit ici plutôt que simplement supprimé parce que la forme du bug est ce qui vaut d'être
@@ -132,7 +132,7 @@ et on ajouterait un morceau sans nulle part où le voir.
 
 Un morceau sans master est **sauté** : la file continue. Une machine sans cache **arrête** — le
 défaut est celui de la destination et non de la ligne, et vider la file pour ça effacerait ce
-que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists — parti en l8 —
+que quelqu'un vient d'y mettre. Même partage que dans le panneau des playlists — parti en st0 —
 raison.
 
 Enfin, `enqueue` refuse les doublons et `moveTo` prend l'indice VOULU dans la liste finale —

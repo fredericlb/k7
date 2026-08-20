@@ -15,7 +15,7 @@ const clean = (s: string): string =>
  *
  * Every service holds its OWN registry (see docs/shared.md), so an engine has to heartbeat to
  * all of them to be pickable in all of them. This used to be a single `web-endpoint.json`
- * holding one URL, which only l8 ever wrote — so an engine was listed in l8 and
+ * holding one URL, which only st0 ever wrote — so an engine was listed in st0 and
  * invisible in the médiathèque and the decks, which had registries nobody ever announced to.
  *
  * Failure is swallowed on purpose: an unwritable `~/.studio` must not stop a backend booting,

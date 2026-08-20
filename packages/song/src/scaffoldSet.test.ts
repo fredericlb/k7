@@ -16,7 +16,6 @@ import { loadGraph } from "./graph";
 import { loadLanes, loadSongs } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
-import { projectTypeOf } from "./projectType";
 import { scaffoldSet } from "./scaffoldSet";
 import { parseSurface } from "./yaml/surfaceFile";
 
@@ -35,9 +34,9 @@ let dir: string;
 let mediatek: string;
 
 beforeEach(() => {
-  // An ordinary `.l8` folder: a set is a SHAPE of l8 project, not a kind of its own.
+  // An ordinary `.st0` folder: a set is a SHAPE of st0 project, not a kind of its own.
   ws = mkdtempSync(join(tmpdir(), "td-set-"));
-  dir = join(ws, "winter.l8");
+  dir = join(ws, "winter.st0");
 
   // A set is not self-contained: it NAMES the médiathèque's modules instead of copying them
   // in, so resolving its chains needs one. The library is a submodule mounted in the
@@ -227,12 +226,11 @@ describe("a scaffolded set", () => {
     ]);
   });
 
-  it("is an ordinary l8 project with no arrangement", () => {
+  it("is an ordinary st0 project with no arrangement", () => {
     // A set is an ARCHETYPE, not a dialect, and what says there is no timeline is that no
     // `surfaces/timeline.yaml` was written — the `turntables` file beside it being the one
     // surface it does declare. Nothing else distinguishes one.
     scaffoldSet(dir, "winter");
-    expect(projectTypeOf(dir)).toBe("l8");
     expect(existsSync(join(dir, "surfaces", "timeline.yaml"))).toBe(false);
     expect(existsSync(join(dir, "surfaces", "desk.yaml"))).toBe(true);
   });
@@ -403,7 +401,7 @@ describe("a scaffolded set", () => {
     // same, which reads as "the crossfade does nothing".
     //
     // It works because Tracktion's muting node deliberately still passes clips to sidechains,
-    // so the crossfade keeps its second signal. crossfade-demo.l8 measured the same thing.
+    // so the crossfade keeps its second signal. crossfade-demo.st0 measured the same thing.
     const doc = (scaffoldSet(dir, "winter"), compileNodeProject(dir));
     const byId = Object.fromEntries(doc.tracks.map((t) => [t.id, t]));
     expect(byId.deckB.mute).toBe(true);
@@ -417,7 +415,7 @@ describe("a scaffolded set", () => {
     const tracks = loadLanes(dir);
     expect(Object.keys(tracks).sort()).toEqual(["deckA", "deckB"]);
     // Empty in git and filled at play time: what a deck plays is whichever song from
-    // songs.yaml was loaded onto it. This is the one thing an m9 project has that an l8
+    // songs.yaml was loaded onto it. This is the one thing an m9 project has that an st0
     // song does not.
     for (const t of Object.values(tracks)) expect(t.events).toEqual([]);
   });

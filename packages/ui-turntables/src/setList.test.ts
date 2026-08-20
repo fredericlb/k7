@@ -178,7 +178,7 @@ describe("a playlist resolved against the cache", () => {
 
   it("drops a song the playlist names twice", () => {
     // A browser, not a document: two identical rows are two chances to pick the same record
-    // and no way to tell which you got. l8's screen draws both, because there you are editing.
+    // and no way to tell which you got. st0's screen draws both, because there you are editing.
     const set = resolveSet(
       playlist("lemo/mante/danse", "lemo/mante/danse"),
       CACHE,

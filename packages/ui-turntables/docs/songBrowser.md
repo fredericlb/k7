@@ -10,7 +10,7 @@ Une boîte s'ouvre, avec les morceaux **du set** — pas de la médiathèque ent
 279 morceaux quand le set en compte douze serait chercher dans la mauvaise liste.
 
 C'est un paramètre de `surfaces/<desk>.yaml` — `playlist: ete-2026`, un nom sous `_playlists/`
-à la racine du dépôt — et les playlists elles-mêmes s'écrivent dans l8, sous la roue dentée.
+à la racine du dépôt — et les playlists elles-mêmes s'écrivent dans st0, sous la roue dentée.
 Voir [setList.md](setList.md) pour le pourquoi, et `@studio/song/docs/playlists.md` pour le
 format.
 

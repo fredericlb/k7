@@ -212,7 +212,7 @@ These are static and wire up from `main()`:
 | `writeWaveformCache` | `--waveform <audiofile>` — see [cliModes.md](cliModes.md) |
 | `printFilePeak` | `--peak <audiofile>` — the measuring half of a cold module, see [cliModes.md](cliModes.md) |
 
-The param dumps are l8's text alternative to an opaque `.vstpreset`: the payload is
+The param dumps are st0's text alternative to an opaque `.vstpreset`: the payload is
 `{ "params": {paramID: value}, "complete": bool }`, where `complete` means the params fully
 reproduce the plugin state and the preset can be dropped. The translator calls them to
 store chain params on import.

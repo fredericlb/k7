@@ -77,7 +77,7 @@ export interface Playback {
    * Ici, à côté du transport, et pour la même raison que lui : une file d'attente doit
    * survivre à l'écran qui l'a remplie — on ajoute un morceau depuis l'arbre des Morceaux et
    * on continue à naviguer. Elle vit dans l'onglet, pas sur le serveur : c'est ce qu'on écoute
-   * maintenant, pas un document. Une playlist, elle, est un fichier du dépôt, écrit en l8
+   * maintenant, pas un document. Une playlist, elle, est un fichier du dépôt, écrit en st0
    * (packages/song/docs/playlists.md).
    */
   queue: QueueItem[];
@@ -91,7 +91,7 @@ export interface Playback {
   // `claimAdvance`/`advanceClaimed` étaient ici : deux choses savaient enchaîner — le panneau
   // d'une playlist et cette file — toutes deux regardaient `ended`, aucune ne voyait l'autre, et
   // sans arbitrage les deux démarraient un morceau sur le même événement. Il n'en reste qu'une :
-  // les playlists sont en l8 (`packages/song/docs/playlists.md`), avec un transport à elles. Un
+  // les playlists sont en st0 (`packages/song/docs/playlists.md`), avec un transport à elles. Un
   // arbitrage à un seul prétendant n'arbitre rien, et laisserait croire qu'il y en a deux.
 }
 

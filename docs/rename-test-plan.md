@@ -1,24 +1,40 @@
 # Recette du renommage `.lanes` → `.studio` / `lanes` → `pistes`
 
 > **HISTORIQUE — les noms de cette page sont périmés de plusieurs renommages.** Elle décrit
-> `lanes → pistes` ; depuis, `pistes → l8`, `mediatek → st0` puis `st0 → pl8`, `platines → m9`,
-> et le moteur et le capot sont passés sous `engine/`. Donc **aucune commande ni aucun chemin d'ici ne
-> s'exécute tel quel** : `apps/pistes`, `apps/moteur`, `apps/capot`, `SESSIONS.pistes`,
-> `pistes.sid`, `~/.studio/prefs/pistes/`, `npm run dev --workspace pistes` — tous morts.
+> `lanes → pistes` ; depuis, `pistes → l8`, `mediatek → st0`, `st0 → pl8`, `l8 → st0`,
+> `platines → m9`, et le moteur et le capot sont passés sous `engine/`. Donc **aucune commande ni
+> aucun chemin d'ici ne s'exécute tel quel** : `apps/pistes`, `apps/moteur`, `apps/capot`,
+> `SESSIONS.pistes`, `pistes.sid`, `~/.studio/prefs/pistes/`, `npm run dev --workspace pistes` —
+> tous morts.
 >
-> Le seul qui ait touché un identifiant écrit dans les fichiers de l'utilisateur : le NIVEAU de
-> module `@mediatek` → `@st0`, qui rattrapait `mediatek → st0` côté refs. Il a sa migration,
-> `packages/song/scripts/migrateNamespace.ts`, et sa signature d'échec est lisible pour une fois
-> — un `?` sur le nœud du graphe. Voir
+> **`st0` a désigné DEUX applications**, et c'est le piège de cette liste. La médiathèque l'a porté
+> d'abord (`mediatek → st0`), puis l'a rendu en devenant `pl8` ; l'éditeur l'a repris ensuite en
+> quittant `l8`. Un `st0` lu dans une page ancienne veut donc dire *pl8* ; dans le code
+> d'aujourd'hui il veut dire l'éditeur. Le seul endroit où l'ancien sens survit **en vigueur** est
+> le niveau de module `@st0`, ci-dessous : il nomme toujours la médiathèque.
+>
+> Le seul renommage qui ait touché un identifiant écrit dans les fichiers de l'utilisateur : le
+> NIVEAU de module `@mediatek` → `@st0`, qui rattrapait `mediatek → st0` côté refs. Il a sa
+> migration, `packages/song/scripts/migrateNamespace.ts`, et sa signature d'échec est lisible pour
+> une fois — un `?` sur le nœud du graphe. Voir
 > [packages/song/docs/moduleNamespaces.md](../packages/song/docs/moduleNamespaces.md).
 > Le dossier `~/.studio/mediatek` n'a **pas** bougé : c'est un cache, pas un nom qu'on écrit.
 >
-> **Dernier en date : `st0 → pl8`, et l8 prend la racine de l'origine.** Deux choses en une —
-> un renommage d'application et un échange d'adresses (`SERVICE_PATHS`) — et cette fois le niveau
-> `@st0` est resté tel quel, délibérément : le prix d'une migration sur toutes les machines pour
-> un mot que personne ne tape. Le nom d'hôte `st0.priv.frediver.se` n'a pas bougé non plus.
+> **`st0 → pl8`, et l8 prend la racine de l'origine.** Deux choses en une — un renommage
+> d'application et un échange d'adresses (`SERVICE_PATHS`) — et cette fois le niveau `@st0` est
+> resté tel quel, délibérément : le prix d'une migration sur toutes les machines pour un mot que
+> personne ne tape. Le nom d'hôte `st0.priv.frediver.se` n'a pas bougé non plus.
 > Ce qui NE suit pas la table des services : `/auth/*`, qui reste sans préfixe chez le backend de
 > pl8 parce que l'IdP ne connaît qu'un `redirect_uri`.
+>
+> **Dernier en date : `l8 → st0`**, l8 ne renvoyant plus à rien une fois l'éditeur devenu
+> l'application principale. Un renommage d'application seul — aucune adresse ne bouge, l8 tenait
+> déjà la racine — plus **le suffixe de dossier `.l8` → `.st0`**, qui est écrit sur disque. Pas de
+> migration : les seuls dossiers du dépôt étaient les démos de `engine/capot/songs/`, renommées
+> ici. Et l'attribut `type:` de `project.yaml` est parti à la même occasion — il nommait le
+> dialecte quand il y en avait deux, il n'en reste qu'un, et le suffixe le disait déjà. Il reste
+> **accepté et ignoré**, comme `project_type` avant lui, pour qu'un projet déjà écrit continue de
+> s'ouvrir ; `deadProjectFields` nomme la ligne à supprimer.
 >
 > Ce qui reste vivant, et pourquoi la page n'est pas supprimée : **la méthode**. L'ordre imposé
 > des phases, et surtout l'idée que chaque contrôle porte sa *signature d'échec*, sont ce qui a

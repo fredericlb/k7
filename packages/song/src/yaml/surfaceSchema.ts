@@ -138,7 +138,7 @@ export const SurfaceSchema = z
      *
      * **This is where "which songs" lives now**, and `songs.yaml` no longer answers it. The two
      * said the same thing in two files, which is one too many — and the playlist is the better
-     * of the two, because it is a document with a screen (l8's cog opens it), it can be shared
+     * of the two, because it is a document with a screen (st0's cog opens it), it can be shared
      * between sets, and it was already the thing a person had written. What `songs.yaml` keeps
      * is the half a playlist has no place for: this set's CUE points on a song, which belong to
      * the desk that plays it rather than to a list other sets read. See docs/setProject.md.

@@ -67,11 +67,11 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
  * fails the next run — a trap this repo has already been caught by once.
  */
 export function writeBenchProject(size: BenchSize): string {
-  // `<tmp>/…/bench.l8`, and the suffix is load-bearing: the file service decides what is a
+  // `<tmp>/…/bench.st0`, and the suffix is load-bearing: the file service decides what is a
   // project by the folder's NAME (`PROJECT_SUFFIXES`), so a bare temp dir compiles perfectly
   // through `@studio/song` and is invisible to `Workspace`. Both halves of the harness have to
   // be able to open it.
-  const dir = join(mkdtempSync(join(tmpdir(), "studio-bench-")), "bench.l8");
+  const dir = join(mkdtempSync(join(tmpdir(), "studio-bench-")), "bench.st0");
   writeProjectFiles(dir, benchProjectFiles(size));
   return dir;
 }

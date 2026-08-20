@@ -90,8 +90,8 @@ literals is precisely how the eighteenth gets forgotten. A new reply has to *cho
 choice is reviewable in one word.
 
 Before this, only `state` and `session-dropped` were stamped, and `forSession` passes a frame
-with no session at all. So an pl8 module audition made l8 flash `busy` and clear its warning
-badges, and l8 received `applied`, `flushed` and `recorded` for a project it did not own.
+with no session at all. So an pl8 module audition made st0 flash `busy` and clear its warning
+badges, and st0 received `applied`, `flushed` and `recorded` for a project it did not own.
 
 **`forSession` was left alone**, and that is deliberate. Pass-on-absence is what keeps a current
 client from going deaf against an older engine that stamps nothing; the leak was never in that
@@ -149,7 +149,7 @@ engine — which is a large part of what "the engine is unstable" meant.
 So sockets are counted after all, but only the ones that say they are **driving**:
 
 ```json
-{ "type": "hello", "role": "driver", "session": "l8:fred_parapluie_org" }
+{ "type": "hello", "role": "driver", "session": "st0:fred_parapluie_org" }
 ```
 
 A driver is a surface a person is looking at. Anything that does not say `role` is not one, which

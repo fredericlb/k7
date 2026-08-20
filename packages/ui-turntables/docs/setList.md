@@ -32,7 +32,7 @@ champ accepté et sans effet envoie celui qui l'a écrit chercher ailleurs.
 
 Il disait **quels** morceaux le set jouait. Il ne le dit plus : deux fichiers répondaient à
 une question, et la playlist est la meilleure des deux — c'est un document qui a un écran (le
-cog de l8 l'ouvre), qui se partage entre plusieurs sets, et que quelqu'un avait déjà écrit.
+cog de st0 l'ouvre), qui se partage entre plusieurs sets, et que quelqu'un avait déjà écrit.
 
 Ce qui reste dans `songs.yaml` est la moitié qu'une playlist n'a pas où mettre : les **repères**
 de ce set-là, huit par morceau. Un cue appartient au pupitre qui joue le morceau et non à une
@@ -46,7 +46,7 @@ au même endroit, et une playlist qui porterait les marques de l'un les donnerai
 | la playlist nommée par la surface | **quels** morceaux sont sous la main ce soir |
 | `/mediatek/list?family=songs` du service de fichiers | lesquels cette machine sait jouer |
 
-`resolveItems` croise les deux — **la même fonction que l'écran des playlists de l8**
+`resolveItems` croise les deux — **la même fonction que l'écran des playlists de st0**
 (`@studio/mediatek/playlistItems`), et c'est le point : « le chemin d'abord, le nom ensuite »
 est une règle, et deux copies auraient divergé le jour où l'une aurait appris un cas.
 
@@ -90,7 +90,7 @@ moteur sur cette machine.
 
 ## Le doublon, lui, est retiré
 
-Une playlist peut légitimement nommer deux fois le même morceau — l'écran de l8 dessine les
+Une playlist peut légitimement nommer deux fois le même morceau — l'écran de st0 dessine les
 deux rangées, parce que là c'est un document qu'on édite. Ici c'est un **navigateur** : deux
 rangées identiques sont deux chances de charger le même disque sans savoir lequel on a eu.
 
@@ -106,5 +106,5 @@ module dans un processus fils. Le navigateur ne peut pas en produire un.
 
 Jouer les vraies chaînes du set demande donc que le service de fichiers de la machine
 compile le projet et l'envoie, et que charger un morceau sur une platine devienne une
-**édition du projet** — ce que l8 fait déjà. C'est l'étape suivante. Voir
+**édition du projet** — ce que st0 fait déjà. C'est l'étape suivante. Voir
 [packages/song/docs/setProject.md](../../song/docs/setProject.md).

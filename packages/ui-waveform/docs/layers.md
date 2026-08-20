@@ -4,7 +4,7 @@
 detected events, annotations, the envelope, the threshold, the selection, the edit handles, the
 markers, the playhead, and the labels on top. One effect, one draw order, easy to read.
 
-The trouble is that **`currentTime` is in that effect's dependency list**, and in l8 the
+The trouble is that **`currentTime` is in that effect's dependency list**, and in st0 the
 playhead comes off the engine's 20 Hz state frame. So opening a clip editor during playback
 re-ran the whole thing twenty times a second, and the two most expensive pieces of it were the
 two that never change while the transport moves:
@@ -47,7 +47,7 @@ they are static between interactions and the same treatment applies.
 - the `events` / `annotations` / `markers` / `gridLines` defaults are **module-level constants**,
   not `= []` in the parameter list — a fresh array per render is a new identity, and it fired
   the draw effect on every render of the host whether or not the transport had moved;
-- a host must not build `envelope={{ intervalMs, samples }}` inline. l8's `WaveformView` holds
+- a host must not build `envelope={{ intervalMs, samples }}` inline. st0's `WaveformView` holds
   it in a `useMemo` keyed on the decoded waveform, and passes `currentTime` from a small leaf
   component (`ClipWaveform`) so the slice windows, transient markers and warp marks around the
   canvas do not re-render with the transport.

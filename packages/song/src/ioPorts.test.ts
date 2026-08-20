@@ -26,7 +26,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo.l8",
+  "synth-demo.st0",
 );
 const PREFS = {
   channels: { in: [{ label: "guitar", ch: [3] }], out: [] },

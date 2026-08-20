@@ -83,7 +83,7 @@ describe("a médiathèque chain, opened on the bench", () => {
       LIBRARIES_URI,
     );
     expect(workspace).toBe(BENCH_WORKSPACE);
-    expect(project).toBe(`${CHAIN}.l8`);
+    expect(project).toBe(`${CHAIN}.st0`);
 
     const dir = benchDir(project);
     expect(existsSync(join(dir, "project.yaml"))).toBe(true);
@@ -182,6 +182,6 @@ describe("a médiathèque chain, opened on the bench", () => {
       ensureChainBench(EMAIL, "chains/odd", LIBRARIES_URI),
     ).rejects.toThrow(/mixer/);
     // And nothing was made — a refusal that left a half-built project behind would open next time.
-    expect(existsSync(benchDir("chains/odd.l8"))).toBe(false);
+    expect(existsSync(benchDir("chains/odd.st0"))).toBe(false);
   });
 });

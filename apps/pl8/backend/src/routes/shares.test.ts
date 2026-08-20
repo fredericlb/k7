@@ -87,7 +87,7 @@ const draftOne = (): Promise<Draft> =>
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       manifest: MANIFEST,
-      origin: { repo: "band", project: "danse.l8" },
+      origin: { repo: "band", project: "danse.st0" },
     }),
   }).then(body<Draft>);
 

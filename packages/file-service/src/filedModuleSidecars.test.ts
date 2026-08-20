@@ -18,7 +18,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-filed-sidecar-"));
-  const proj = join(root, "song.l8");
+  const proj = join(root, "song.st0");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeFileSync(join(proj, "graph.yaml"), "modules: {}\n", "utf8");
@@ -29,14 +29,14 @@ beforeEach(() => {
     plugin: { type: "vst3", name: "NAM" },
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.l8");
+  ws.setActiveProject("song.st0");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a module filed one level deep", () => {
-  const FILED = "song.l8/modules/audio/amps/neural-amp-modeler/module.yaml";
-  const FLAT = "song.l8/modules/audio/reverb/module.yaml";
+  const FILED = "song.st0/modules/audio/amps/neural-amp-modeler/module.yaml";
+  const FLAT = "song.st0/modules/audio/reverb/module.yaml";
 
   it("has a panel, keyed by the ref its filing gives it", () => {
     const ui = ws.moduleUi(FILED);
@@ -51,7 +51,7 @@ describe("a module filed one level deep", () => {
 
   it("still answers for a flat module, and still refuses a non-module", () => {
     expect(ws.moduleUi(FLAT).ref).toBe("audio/reverb");
-    expect(() => ws.moduleUi("song.l8/graph.yaml")).toThrow(
+    expect(() => ws.moduleUi("song.st0/graph.yaml")).toThrow(
       /not a module file/,
     );
   });

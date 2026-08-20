@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "The song layer — parses a folder of CUE files and compiles it: to a flat ProjectDoc/GraphDoc for l8 and m9, and the same folder's picture to a VideoProjectDoc. Also resolves Strudel patterns. Consumed as source.",
+  "description": "The song layer — parses a folder of CUE files and compiles it: to a flat ProjectDoc/GraphDoc for st0 and m9, and the same folder's picture to a VideoProjectDoc. Also resolves Strudel patterns. Consumed as source.",
   "exports": {
     "./loader": "./src/loader.ts",
     "./basePreset": "./src/basePreset.ts",
@@ -73,7 +73,6 @@
     "./yaml/surfaceFile": "./src/yaml/surfaceFile.ts",
     "./yaml/surfaceSchema": "./src/yaml/surfaceSchema.ts",
     "./surfaces": "./src/surfaces.ts",
-    "./projectType": "./src/projectType.ts",
     "./scaffoldBench": "./src/scaffoldBench.ts",
     "./scaffoldSet": "./src/scaffoldSet.ts",
     "./videoDoc": "./src/videoDoc.ts",

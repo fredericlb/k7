@@ -12,7 +12,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** How long the keystrokes must stop before the buffer is written. A second, and not less: in
- *  l8 a write also re-reads the tree, the hints and the compiled project. */
+ *  st0 a write also re-reads the tree, the hints and the compiled project. */
 export const AUTOSAVE_DELAY_MS = 1000;
 
 export type AutosaveStatus =

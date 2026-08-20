@@ -1,4 +1,4 @@
-// ableton.ts — the Ableton Live (.als) -> l8 song mapper: gunzip in memory, parse the
+// ableton.ts — the Ableton Live (.als) -> st0 song mapper: gunzip in memory, parse the
 // LiveSet, project it onto the neutral shape in model.ts. NO disk I/O — a .als does not
 // embed its audio, so sample bytes come from the caller's `readSample`. Deliberately lossy
 // where Live has no portable form (native devices, sends, Session view). See docs/import.md.

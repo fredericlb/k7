@@ -17,7 +17,7 @@ export interface EnginePrefs {
  * `P` is that service's preference shape. It is a parameter rather than a fixed
  * `{engineId?}` because the schema belongs to the HOST (`packages/user-prefs/docs/store.md`)
  * and a union of every service's fields would be a shape no service actually has: pl8
- * remembers where playback happens, l8 does not. Defaulted, so an app that keeps nothing
+ * remembers where playback happens, st0 does not. Defaulted, so an app that keeps nothing
  * else says nothing.
  */
 /** What `select` answers: the secret to renew with, and whom this claim displaced if anyone. */

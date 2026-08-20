@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { songIdOf, songPathPrefix, songRefOf } from "../songRef";
 import { parseSongs, songIds, songRefs } from "./songsFile";
 
-// songs.yaml is the only file an m9 set has that l8 has no counterpart for, and the only
+// songs.yaml is the only file an m9 set has that st0 has no counterpart for, and the only
 // place the médiathèque is named from a project. What is pinned here is the REF — the shape,
 // and that it survives a round trip to a cache path — because everything downstream (the
 // sync's scope, the set list on screen) is a string comparison against it.

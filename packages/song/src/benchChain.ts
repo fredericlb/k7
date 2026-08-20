@@ -1,7 +1,7 @@
 // benchChain.ts — a médiathèque chain, as a project the bench can play, and back again.
 //
 // A shared chain runs from `@in` to `@out`: it describes a treatment and says nothing about what
-// goes through it. A bench is a real l8 project, so it has a TRACK to put material on, a strip to
+// goes through it. A bench is a real st0 project, so it has a TRACK to put material on, a strip to
 // set the level, and a sink to hear. The two files are otherwise the same shape, which is what
 // makes this a translation of the edges and not a conversion.
 //
@@ -15,7 +15,7 @@ import type { GraphFile } from "./yaml/graphSchema";
 export const CHAIN_IN = "@in";
 export const CHAIN_OUT = "@out";
 
-/** The file this translates, named once — a chain folder and an l8 project both hold one. */
+/** The file this translates, named once — a chain folder and an st0 project both hold one. */
 // The bench writes the project's graph file, same name as any project's.
 export { GRAPH_FILE as CHAIN_FILE } from "./yaml/graphSchema";
 

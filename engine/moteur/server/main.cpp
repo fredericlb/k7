@@ -530,7 +530,7 @@ int main(int argc, char** argv) {
         if (host.outputDeviceName().empty())
             std::cerr << "warning: no audio OUTPUT device is open — the transport will "
                          "run but the playhead won't advance and nothing will sound. "
-                         "Pick an output with 'l8 config --set interface'.\n";
+                         "Pick an output with 'st0 config --set interface'.\n";
     });
 
     // Loopback by default (only same-machine clients reach it); the supervisor sets STUDIO_ENGINE_HOST=0.0.0.0 so
@@ -646,7 +646,7 @@ int main(int argc, char** argv) {
                                   << listeners.size() << " listening)\n";
                         // The last ear on THAT session, not on the engine. Counting them all
                         // had a closing m9 tab take the tap off the DEFAULT session —
-                        // silencing a l8 listener still there, and leaving m9's own
+                        // silencing a st0 listener still there, and leaving m9's own
                         // tap copying every block for nobody.
                         const bool anyLeft =
                             std::any_of(listeners.begin(), listeners.end(),

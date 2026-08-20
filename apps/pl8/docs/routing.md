@@ -19,7 +19,7 @@ whole mapping and knows nothing about how deep a song sits: it splits the head o
 hands the rest along, which is why an album folder needs no change here.
 
 > The examples were `/modules/…` for a year, and the section carrying the deepest paths was
-> `modules`. Both it and `chains` left the catalogue — a module is authored in l8 — so the
+> `modules`. Both it and `chains` left the catalogue — a module is authored in st0 — so the
 > address space is three families now.
 
 ## Why `editing` is derived and not held
@@ -35,7 +35,7 @@ which is the same thing to draw — the catalogue shows through until then.
 
 ## The loop, and the two nulls
 
-`useLibraryRoute` is l8' `useViewRoute` with a different state, deliberately: the hazard
+`useLibraryRoute` is st0' `useViewRoute` with a different state, deliberately: the hazard
 is identical. Two passive effects, one writing the URL from the state and one the state from
 the URL, will ping-pong unless each can say "nothing to do here".
 
@@ -62,20 +62,20 @@ already did (`try_files $uri /index.html`), and vite's dev server does by defaul
 
 `basename` comes from `import.meta.env.BASE_URL`, and that one line is what made moving this
 app a one-line change: it read `/` while pl8 answered the origin root and reads `/pl8/` now
-that l8 does. `routes.ts` is still written as if the app owned the origin, because react-router
+that st0 does. `routes.ts` is still written as if the app owned the origin, because react-router
 strips the basename off everything it hands back — so nothing below it had to be touched.
 
 **A section id no longer has to dodge the origin's other services.** It did while this app was
-the catch-all: `/l8`, `/k7`, `/z0` and `/dev` belong to other services, and a section named
+the catch-all: `/st0`, `/k7`, `/z0` and `/dev` belong to other services, and a section named
 after one of them would have been unreachable, the edge never handing the request here. Under
 `/pl8` nothing on the origin can reach these ids at all. The constraint MOVED rather than
-vanished — it is l8 that addresses a project as `/<dépôt>/<projet>` now, so it is a REPOSITORY
+vanished — it is st0 that addresses a project as `/<dépôt>/<projet>` now, so it is a REPOSITORY
 name that can collide with `/pl8`, `/k7`, `/z0`, `/api` or `/auth`. `routes.test.ts` keeps
 asserting the old property, which costs nothing and documents what the ids used to have to be.
 
 > **`projects` was a seventh section here**, and the one case where the second half of an
-> address was not a file but a repository id. It is l8's home page now
-> (`apps/l8/frontend/docs/projects.md`), so `/projects` is an unknown first segment like any
+> address was not a file but a repository id. It is st0's home page now
+> (`apps/st0/frontend/docs/projects.md`), so `/projects` is an unknown first segment like any
 > other typo and falls back to the default — which is worth knowing when an old bookmark lands
 > on Morceaux instead of on a blank screen. The routes it called are still this service's; only
 > the screen moved.
@@ -110,7 +110,7 @@ projects   3f9a1c2b7e40     a repository id, not a path
 ```
 
 **`songs` is the only one left**, and the list stays a list because of how it got there: four
-of those five rows are gone, one per feature that moved to l8. `playlists` was the last, and it
+of those five rows are gone, one per feature that moved to st0. `playlists` was the last, and it
 was also the odd one — every other row names a file INSIDE an entry's folder, so `folderOf`
 takes the last segment off to find the entry, while a playlist HAD no folder. That asymmetry
 went with it (`packages/song/docs/playlists.md`), which is why `folderOf` now always has

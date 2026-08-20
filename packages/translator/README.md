@@ -1,11 +1,11 @@
 # @studio/translator
 
-Converts another DAW's project into a l8 **node project** — a folder of YAML the
+Converts another DAW's project into a st0 **node project** — a folder of YAML the
 `@studio/song` loader reads back. Two formats today:
 
 ```
  *.dawproject ──┐
-                ├──(translator)──► node project ──(l8 graph)
+                ├──(translator)──► node project ──(st0 graph)
  *.als ─────────┘
 ```
 
@@ -27,7 +27,7 @@ import { emitFolder } from "@studio/translator/emit";                  // Song  
 
 Every mapper returns the same `Translation`, so only the first step knows a format.
 `packages/file-service`'s `importProjectInto` is the caller: it dispatches on the file
-extension and is reached from l8 by clicking the file in the tree.
+extension and is reached from st0 by clicking the file in the tree.
 
 `resolvePluginParams` takes the engine binary as an argument — locating it is the caller's
 job (`@studio/engine-client/engineBinary`), so this package never guesses where the repo is.

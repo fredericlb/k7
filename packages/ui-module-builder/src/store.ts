@@ -1,5 +1,5 @@
 // store.ts — the five calls the builder needs from whatever is serving the files. This is the
-// ONLY thing the two apps don't share: l8 talks to a file service over workspace-relative
+// ONLY thing the two apps don't share: st0 talks to a file service over workspace-relative
 // paths, the médiathèque to its own backend over library-relative ones. Rationale: docs/store.md.
 
 import type {
@@ -65,7 +65,7 @@ export interface ModuleStore {
   /**
    * Save.
    *
-   * The return type exists for ONE host: l8 redirects a save aimed at a shared module onto a
+   * The return type exists for ONE host: st0 redirects a save aimed at a shared module onto a
    * project-local copy and repoints the chains at it (see moduleFork.ts), so the file being edited
    * moves out from under the editor. Reporting it beats the builder discovering it on the next read.
    */
@@ -74,7 +74,7 @@ export interface ModuleStore {
   /**
    * Make the files that were just written visible to everyone else.
    *
-   * OPTIONAL, and only one host implements it: l8 commits and pushes the LIBRARY repository a
+   * OPTIONAL, and only one host implements it: st0 commits and pushes the LIBRARY repository a
    * shared module lives in (`packages/song/docs/sharedFolders.md`). A host without one — or a
    * module that is the project's own — passes nothing and the save simply ends at the disk.
    *

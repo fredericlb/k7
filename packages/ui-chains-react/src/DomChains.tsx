@@ -117,7 +117,7 @@ import {
 /**
  * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
  *
- * l8' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
+ * st0' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
  * has no way to produce. Declaring the narrow union here is what lets the component say
  * what it emits instead of importing an app's idea of a menu; a host whose own type is
  * wider accepts a handler for it unchanged.
@@ -126,7 +126,7 @@ import {
  * A play button on the SINK node — for a host that can audition what reaches it.
  *
  * On the output and not on the input, because what you want to hear is the signal after
- * everything in the chain has had it. Opt-in and absent by default: l8 has a transport of
+ * everything in the chain has had it. Opt-in and absent by default: st0 has a transport of
  * its own and m9 has a deck, so neither wants a second play button inside the graph. The
  * médiathèque has neither, which is why it needs one here.
  */
@@ -162,9 +162,9 @@ export type GraphMenuCtx =
  * The glyphs a node draws itself with, supplied by the host.
  *
  * Injected rather than imported because they are the APP's vocabulary, not the graph's:
- * l8 draws the same track icons in its mixer and its timeline, so they cannot live in
- * a chains package without those two importing one. A second consumer that wants l8'
- * exact icons can pass l8' exact icons.
+ * st0 draws the same track icons in its mixer and its timeline, so they cannot live in
+ * a chains package without those two importing one. A second consumer that wants st0'
+ * exact icons can pass st0' exact icons.
  */
 export interface ChainsIcons {
   ModuleIcon: (props: {
@@ -697,7 +697,7 @@ function widgetTarget(
   }
   if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
   // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host
-  // that does NOT — l8, pl8 — keeps drawing nothing here rather than a knob that turns
+  // that does NOT — st0, pl8 — keeps drawing nothing here rather than a knob that turns
   // against an address the engine never had.
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }
@@ -812,7 +812,7 @@ interface Channels {
   // The same question for the other two channels, which went years without being asked. The
   // send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that passes
   // neither still got a widget that dragged, moved its optimistic override, sent nothing, and
-  // had no engine frame coming to correct it. l8's Graph panel was exactly that.
+  // had no engine frame coming to correct it. st0's Graph panel was exactly that.
   pluginWritable: boolean;
   trackWritable: boolean;
   // …and the same question for a RACK pad, which asks for a sound rather than a value: can this
@@ -834,7 +834,7 @@ interface Channels {
  * playhead moves, and a prop would re-render every node in the graph on each frame. The pad holds
  * its own subscription and reads a BOOLEAN, so React's own `Object.is` ends the render there.
  *
- * The graph does not know how the answer is arrived at. l8 derives it from the arrangement and the
+ * The graph does not know how the answer is arrived at. st0 derives it from the arrangement and the
  * playhead — the browser has both — which is why it lights for a SEQUENCE and not for live MIDI or
  * a strudel lane, whose notes the browser never sees. See packages/song/docs/racks.md.
  */
@@ -2496,7 +2496,7 @@ function NodeInner({
           <span>stereo</span>
           {/* Auditioning happens at the OUTPUT: what you want to hear is the signal after
               everything in the chain, so the button belongs where that signal arrives. Only a
-              host that can actually play offers one — l8 and m9 pass nothing. */}
+              host that can actually play offers one — st0 and m9 pass nothing. */}
           {sinkPlay ? (
             <button
               type="button"
@@ -2961,7 +2961,7 @@ export function DomChains({
   /** Hands the camera up, once mounted — see ChainsCamApi. */
   onCamReady?: (cam: ChainsCamApi) => void;
   /**
-   * This graph is arranged as a ROW to be read across — l8's mixer view.
+   * This graph is arranged as a ROW to be read across — st0's mixer view.
    *
    * It changes what the navigation MEANS rather than what it looks like: the wheel walks along
    * the row instead of zooming, and nothing pans vertically, because there is one line of cards
@@ -2985,7 +2985,7 @@ export function DomChains({
    * The ⋮ bubble on a node's corner: open THIS host's menu for that node there — its
    * alternatives, and its freeze.
    *
-   * Optional, and the bubble exists only when it is given — one of the props l8 passes and the
+   * Optional, and the bubble exists only when it is given — one of the props st0 passes and the
    * médiathèque's bench and m9's desk do not, like the command bar and the edge inserts. The
    * menu is the host's because it offers the host's commands and lands in the host's undo; a
    * graph that drew one would be a graph that owned a popup. See docs/hosting.md.
@@ -2995,7 +2995,7 @@ export function DomChains({
    * A RACK pad was clicked: sound that symbol of that module.
    *
    * The graph says WHICH sound was asked for and stops there. How one is made audible is the
-   * host's: l8 auditions the sample through the file service, the médiathèque could preview it
+   * host's: st0 auditions the sample through the file service, the médiathèque could preview it
    * from its own catalogue, and a host that offers nothing leaves the pads drawn but silent —
    * which is the right degradation for a surface with no engine behind it. See docs/hosting.md.
    */
@@ -4349,7 +4349,7 @@ export function DomChains({
         return;
       }
       // A RACK pad fires its sound and is done: nothing is set, so there is no override to place
-      // and nothing to commit to the file. The host decides HOW it sounds — l8 auditions the
+      // and nothing to commit to the file. The host decides HOW it sounds — st0 auditions the
       // sample — for the reason the node menu is the host's: what a click reaches belongs to the
       // application, not to the drawing. See packages/song/docs/racks.md.
       if (tgt.kind === "rack") {

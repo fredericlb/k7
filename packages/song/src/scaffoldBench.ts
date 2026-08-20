@@ -1,4 +1,4 @@
-// scaffoldBench.ts — the file map for the MODULE BENCH: a `.l8` project that exists to try the
+// scaffoldBench.ts — the file map for the MODULE BENCH: a `.st0` project that exists to try the
 // médiathèque's modules in, and nothing else. One track through a mixer to OUT, and everything
 // else is the catalogue, which is not in the folder. Rationale: apps/pl8/docs/banc.md.
 
@@ -104,7 +104,7 @@ export function benchFiles(name: string): Record<string, string> {
       `# Pas de nœud à créer : un nœud sert à avoir DEUX exemplaires d'un module réglés\n` +
       `# différemment, et un banc n'en a pas besoin. C'est aussi ce nom de dossier que le\n` +
       `# constructeur cherche pour retrouver le greffon chargé et vous donner ses vrais\n` +
-      `# paramètres — voir apps/l8/frontend/docs/moduleBuilder.md.\n` +
+      `# paramètres — voir apps/st0/frontend/docs/moduleBuilder.md.\n` +
       `modules:\n` +
       `  banc: [ mixer ]\n` +
       `  mixer: [ OUT ]\n`,

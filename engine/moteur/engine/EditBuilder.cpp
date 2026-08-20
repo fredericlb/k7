@@ -164,7 +164,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
         }
     if (info == nullptr) {
         warn("plugin '" + p.name + "' (" + p.type +
-                 ") is not in the cache — run 'l8 engine scan'",
+                 ") is not in the cache — run 'st0 engine scan'",
              p.id);
         return {};
     }
@@ -183,7 +183,7 @@ te::Plugin::Ptr makeExternalPlugin(te::Edit& edit, const PluginDoc& p) {
 
     // Fallback for an older cache with no stored description: introspect the file, which is slower. A forced
     // rescan populates the description and takes this path off the table.
-    std::cerr << "note: plugin '" << p.name << "' has no cached description — run 'l8 engine scan --force' to speed up loading\n";
+    std::cerr << "note: plugin '" << p.name << "' has no cached description — run 'st0 engine scan --force' to speed up loading\n";
     auto& formats = edit.engine.getPluginManager().pluginFormatManager;
     juce::OwnedArray<juce::PluginDescription> descs;
     for (auto* fmt : formats.getFormats())

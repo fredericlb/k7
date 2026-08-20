@@ -39,7 +39,7 @@ on every one of them — and the render body did nothing with the value except a
 `envelopeRef`. A React render per frame, per widget, to move a number into a box.
 
 It reads the store directly now (`store.subscribe` into a ref), the way `RecordingPane` and
-`useMidiRecording` already did in l8. **A live tap re-renders nothing.** The subscription still
+`useMidiRecording` already did in st0. **A live tap re-renders nothing.** The subscription still
 runs on every frame, but it is a map lookup and a length check, and it marks the canvas dirty
 instead of the component.
 

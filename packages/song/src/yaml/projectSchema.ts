@@ -3,7 +3,6 @@
 // up is what once put `libraries_from` at the top level doing nothing. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
-import type { ProjectApp } from "@studio/web-protocol/projects";
 import { z } from "zod";
 import { TIMECODE } from "./placementSchema";
 
@@ -60,32 +59,6 @@ export const ProjectSettingsSchema = z
   .strict();
 
 /**
- * What a project's files are FOR — an l8 project, or z0's blind test.
- *
- * The SAME set as `ProjectApp`, and not a second list that happens to agree. `projectTypeOf`
- * answers step 1 with `projectApp(basename(dir))`, so the two are already one question asked
- * once; restating the members here is what let them drift, and z0 arriving on one side and not
- * the other is exactly how that showed up — as an assignability error forty lines away, in a
- * function that had not changed.
- *
- * `satisfies` pins every member as a real app; the line below pins the other direction, so
- * widening `ProjectApp` fails HERE, by name, instead of somewhere downstream.
- */
-export const PROJECT_TYPES = [
-  "l8",
-  "z0",
-] as const satisfies readonly ProjectApp[];
-export type ProjectType = ProjectApp;
-
-/** Compile-time exhaustiveness: an app missing from the list above makes this `never`. */
-type _EveryAppIsAType =
-  Exclude<ProjectApp, (typeof PROJECT_TYPES)[number]> extends never
-    ? true
-    : never;
-const _everyAppIsAType: _EveryAppIsAType = true;
-void _everyAppIsAType;
-
-/**
  * The ARCHETYPES — what you can ask for when creating a project.
  *
  * Each is named after the SURFACE it opens on, because that is the whole of what is being chosen:
@@ -105,7 +78,7 @@ void _everyAppIsAType;
  * itself `live` was a legal state nothing could resolve.
  *
  * So there is one list, and it names archetypes rather than kinds of folder: every project is an
- * `.l8` folder that opens in l8, and what differs is the screen it asks for.
+ * `.st0` folder that opens in st0, and what differs is the screen it asks for.
  *
  * **`mix` writes a SET**, and that pair of names is the one mismatch here. `mix` is what you ASK
  * for, named like its two neighbours; a set is what lands on disk — `songs.yaml`, decks, a desk
@@ -130,13 +103,22 @@ const MARKER_KEY = new RegExp(`${TIMECODE.source}|${WALL_CLOCK.source}`);
 export const ProjectFileSchema = z
   .object({
     project: ProjectSettingsSchema.optional(),
-    // A ROOT sibling and not a `project:` setting, deliberately: the tiers above are the
-    // SONG's settings (its tempo, its rate), and this is a fact about the file's dialect —
-    // which entities the folder is allowed to hold and which app reads them. Putting it in
-    // `project:` is the same mistake `libraries_from` made from the other direction.
-    // The folder's SUFFIX stays authoritative (see projectType.ts): this is written down so
-    // a reader — and a loader handed an absolute path with no name to read — knows too.
-    type: z.enum(PROJECT_TYPES).optional(),
+    /**
+     * DEAD, and still accepted — the folder's SUFFIX is the only thing that says which app
+     * opens a project now.
+     *
+     * It existed to name the DIALECT for the one case the name could not: a repository that IS
+     * the project, with no suffix to read. That question had an answer worth asking while there
+     * were two dialects `@studio/song` compiled (`.st0` and the old `.m9`); there is one, and a
+     * folder saying nothing is it. Nothing branched on the answer even then — the only reader
+     * left was the diagnostic that compared this line against the folder's name.
+     *
+     * Not an enum any more, and not dropped: this object is `.strict()`, so refusing the key
+     * would turn every project already carrying it into one that will not open. Same trade as
+     * `project_type` below, and `deadProjectFields` names the line to delete rather than leaving
+     * "accepted" to mean "silently ignored".
+     */
+    type: z.string().optional(),
     /**
      * Accepted and IGNORED — the one remnant of `project_type`.
      *

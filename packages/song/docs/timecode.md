@@ -48,7 +48,7 @@ a file has not been converted yet.
 **The parser still reads the deep colon form**, and always will: refusing it would make an
 un-migrated song unreadable. Only the WRITER is short.
 
-What the rewrite costs, measured on a real 60-bar song (01.danse.l8, 173 timecodes): none failed
+What the rewrite costs, measured on a real 60-bar song (01.danse.st0, 173 timecodes): none failed
 to parse, and the worst quantisation was **0.484 ticks — about a quarter of a millisecond at
 110bpm**. The old sixth level was 1/4096 of a quarter, finer than a tick, so a few times land on
 the grid rather than exactly where they were.

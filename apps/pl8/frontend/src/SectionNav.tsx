@@ -11,16 +11,16 @@ import type { SectionId } from "./routes";
  * Les sections : les trois familles, et la zone de captures brutes.
  *
  * TROIS sont parties ensemble, et pour une seule raison : elles parlaient d'ÉCRITURE, et on
- * écrit dans l8.
+ * écrit dans st0.
  *
  * MODULES et CHAÎNES sont parties avec l'édition : un module s'écrit contre un projet où le
  * greffon qu'il nomme est réellement CHARGÉ, et se committe dans le dépôt de bibliothèques du
  * compte. Ce volume n'en tient plus aucun.
  *
- * PROJETS ouvrait la marche, et l'app y démarrait. Les dépôts sont la page d'accueil de l8
+ * PROJETS ouvrait la marche, et l'app y démarrait. Les dépôts sont la page d'accueil de st0
  * maintenant — c'était la section la plus éloignée de ce volume, la seule qui n'était pas
  * dessus du tout, et le niveau au-dessus d'un projet appartient à l'éditeur qui en ouvre un.
- * Les routes, elles, n'ont pas bougé d'ici. Voir apps/l8/frontend/docs/projects.md.
+ * Les routes, elles, n'ont pas bougé d'ici. Voir apps/st0/frontend/docs/projects.md.
  *
  * ENREGISTREMENTS n'est pas une famille non plus — c'est un dossier à la racine, sans entrée
  * de catalogue et sans listing à demander à `/list`. Il est ici parce que l'écran s'organise

@@ -125,7 +125,7 @@ juce::Image windowsFileIcon(const juce::File& pluginFile) {
 }
 #endif
 
-// l8's own icon, compiled in: the DEFAULT for a plugin editor window when the plugin brings none, without
+// st0's own icon, compiled in: the DEFAULT for a plugin editor window when the plugin brings none, without
 // which a plugin window shows the bare console-app icon. Cached, so repeated opens don't re-decode the PNG.
 juce::Image studioIcon() {
     return juce::ImageCache::getFromMemory(BinaryData::studio_icon_png, BinaryData::studio_icon_pngSize);
@@ -347,7 +347,7 @@ void PluginEditorController::show(const std::string& id) {
         warn("could not create an editor for '" + plugin.getName().toStdString() + "'", id);
         return;
     }
-    // An icon matching the plugin for its title bar and taskbar thumbnail, defaulting to l8's own. Also seed
+    // An icon matching the plugin for its title bar and taskbar thumbnail, defaulting to st0's own. Also seed
     // the autosave baseline with the state as loaded, so the first tick saves only a real change.
     juce::Image icon;
     if (auto* inst = dynamic_cast<juce::AudioPluginInstance*>(proc)) {

@@ -10,9 +10,9 @@ name, and the two ways it goes wrong.
 Before sessions, the engine held one project. Everything that reached it applied to that
 one, so:
 
-- opening a module in the médiathèque's builder replaced the song open in l8;
+- opening a module in the médiathèque's builder replaced the song open in st0;
 - an m9 deck loading a track did the same;
-- and the state frames were global, so l8' transport light lit up when a deck played.
+- and the state frames were global, so st0' transport light lit up when a deck played.
 
 Nothing arbitrated. The last `project` message won, in silence — nothing failed, nothing
 was logged, the song simply stopped being loaded.
@@ -24,11 +24,11 @@ Both clients — `@studio/engine-browser`'s `EngineClient` and `@studio/engine-c
 message, at the single `send()` both funnel through. That is the point: a verb added later
 is addressed by construction, and there is no per-call site to forget.
 
-The granularity is one session per **service and per person** — `sessionFor("l8",
-email)` → `l8:fred_parapluie_org`. The service half is what stopped l8, the
+The granularity is one session per **service and per person** — `sessionFor("st0",
+email)` → `st0:fred_parapluie_org`. The service half is what stopped st0, the
 médiathèque and m9 from overwriting each other. The person half became necessary the
 moment an engine could be **chosen per account**: two people can now pick the same machine,
-and on a bare `l8` they would drive one project between them — the same collision, moved
+and on a bare `st0` they would drive one project between them — the same collision, moved
 up a level.
 
 One session per person, not per workspace. A person drives one project at a time, and
@@ -39,9 +39,9 @@ two chances to slug differently, which is exactly the failure the next section i
 
 ## Two ways it goes wrong
 
-**Both halves of an app must spell it the same.** l8 has two: the file service compiles
+**Both halves of an app must spell it the same.** st0 has two: the file service compiles
 the song and sends it (`packages/file-service/src/engineLink.ts`), the browser drives its
-transport (`apps/l8/frontend/src/hooks/useEngineLink.ts`). Give them different ids and
+transport (`apps/st0/frontend/src/hooks/useEngineLink.ts`). Give them different ids and
 nothing errors — the song plays in one session while the frontend steers an empty other,
 which reads as "the engine ignores Play".
 
@@ -71,7 +71,7 @@ field would make a new client silently deaf rather than merely unsorted.
 
 So the correctness of one line here lives in `engine/moteur/server/main.cpp`, in its choice
 between the `broadcast` and `broadcastTo` verbs. It was not always true: for a while only
-`state` and `session-dropped` were stamped, and an pl8 module audition made l8 flash `busy`
+`state` and `session-dropped` were stamped, and an pl8 module audition made st0 flash `busy`
 and receive `applied`/`flushed`/`recorded` for a project it did not own.
 
 A capability handshake was considered instead and rejected: it would only help if the engine

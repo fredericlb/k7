@@ -7,7 +7,7 @@ une fois.
 
 ## Ce que la séparation coûtait
 
-`base` — `""` pour l8, `/pl8`, `/m9` — était passé **deux fois**, à deux fonctions
+`base` — `""` pour st0, `/pl8`, `/m9` — était passé **deux fois**, à deux fonctions
 différentes :
 
 ```ts
@@ -33,7 +33,7 @@ export const engines = engineAccess<PublicEngine>(BASE, json);
 ## `find()` — la séquence, pas les morceaux
 
 Les trois gates faisaient la même chose dans le même ordre : lister, lire la préférence,
-mesurer, appliquer la politique. Trois copies, qui avaient déjà divergé — l8 filtrait sur
+mesurer, appliquer la politique. Trois copies, qui avaient déjà divergé — st0 filtrait sur
 `wsUrl` seul, donc offrait un moteur ayant répondu sans jeton, qu'il ne pouvait ensuite pas
 sélectionner, et levait un sélecteur devant un unique moteur joignable.
 
@@ -53,7 +53,7 @@ répondrait encore ce qui a été enregistré il y a un instant.
 
 `find()` avale l'échec des deux requêtes et rend une liste vide. C'est l'état honnête — un
 service dont le registre est à terre ne peut effectivement pas être piloté — et c'est un
-**écran**, là où une promesse rejetée dans l'effet d'un gate est un spinner éternel. l8 avait
+**écran**, là où une promesse rejetée dans l'effet d'un gate est un spinner éternel. st0 avait
 exactement ce cas : sa liste n'était pas gardée, seule sa préférence l'était.
 
 ## Une sonde est un instantané — `useRelook`
@@ -78,7 +78,7 @@ Où le brancher n'est pas la même réponse partout, et la différence est un ch
 | surface | quand |
 |---|---|
 | pl8, `useEngineChoice` | **toujours** — c'est un sélecteur permanent dans l'en-tête |
-| l8 `EngineGate`, m9 `Gate` | **seulement en `picking`** — ce sont des gates, et re-mesurer après le choix ramènerait l'écran en arrière sous les doigts de quelqu'un qui travaille |
+| st0 `EngineGate`, m9 `Gate` | **seulement en `picking`** — ce sont des gates, et re-mesurer après le choix ramènerait l'écran en arrière sous les doigts de quelqu'un qui travaille |
 
 Dans pl8, la re-mesure passe le choix courant à `find(preferId)`. Ce n'est pas un détail :
 `find` rend `preferId ?? prefs.engineId`, donc sans ça un `choose()` optimiste dont
@@ -95,7 +95,7 @@ n'était que plus long.
 ## Ce qui reste au dehors
 
 - **`EngineClient`** : ouvrir le socket, avec la session du service
-  (`sessionFor(SESSIONS.l8, …)`). Chaque app tient la sienne, et une seule d'entre elles doit
+  (`sessionFor(SESSIONS.st0, …)`). Chaque app tient la sienne, et une seule d'entre elles doit
   la tenir — voir `@studio/engine-protocol/docs/sessions.md`.
 - **Le service de fichiers** : `fileBase` sort de la sonde et va dans
   `@studio/project-shell/fileApi`. Il **voyage avec l'adresse qui a répondu** : un socket

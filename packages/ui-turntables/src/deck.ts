@@ -639,7 +639,7 @@ function clickBar(tempo: DeckTempo): ClipDoc {
  *
  * A slider emits a value per pixel dragged, and re-sending a whole project for each one would
  * have the engine diff a document that differs by two numbers. `set-plugin-param` is the
- * message this exists for, and it is what l8's knobs already use.
+ * message this exists for, and it is what st0's knobs already use.
  *
  * When playback moves to the compiled project, this is the ONE function that changes: the
  * same gesture sets `Mix` on `deckA:crossfade` — the project's module — instead of a level on
@@ -666,7 +666,7 @@ export function sendDecks(
    * WHERE the document goes — `Deck.sendProject`, not an engine client.
    *
    * The two hosts disagree about who may write to an engine: m9's browser is the only writer
-   * and sends straight out of its socket, while l8's file service is the only writer and takes
+   * and sends straight out of its socket, while st0's file service is the only writer and takes
    * the document over a route. Taking a client here would have hardcoded m9's answer, which is
    * exactly the bug this parameter replaced — two writers for one engine, last one wins.
    */

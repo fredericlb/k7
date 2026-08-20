@@ -121,35 +121,35 @@ function wire(session?: string): Record<string, number> {
 // Wrapped rather than top-level await: engine/moteur declares no `"type": "module"`, so tsx
 // transforms this to CJS and a bare await is a syntax error there.
 async function main() {
-  const l8 = new EngineClient(URL, SESSIONS.l8);
+  const st0 = new EngineClient(URL, SESSIONS.st0);
   const pl8 = new EngineClient(URL, SESSIONS.pl8);
-  const onL8 = watch(l8);
+  const onSt0 = watch(st0);
   const onPl8 = watch(pl8);
   const onWire = wire(SESSIONS.pl8); // a surface on pl8, watching the wire itself
   const onProbe = wire(); // the tray: opens, says nothing, is gone
-  l8.connect();
+  st0.connect();
   pl8.connect();
 
   await wait(500);
-  l8.sendProject(doc("depuis-l8", 45));
+  st0.sendProject(doc("depuis-st0", 45));
   pl8.sendProject(doc("depuis-pl8", 64));
   await wait(3000);
 
-  // Record-enable is SESSION state. It was a process-global for a while, so arming l8 lit pl8's
+  // Record-enable is SESSION state. It was a process-global for a while, so arming st0 lit pl8's
   // record light and made rolling either one record into both.
-  l8.setRecordEnabled(true);
+  st0.setRecordEnabled(true);
   await wait(1000);
 
   // ONE of them plays. Before sessions the second project tore the first down; before the
   // client half, the silent one saw the playing one's state frames as its own.
-  l8.transport("play");
+  st0.transport("play");
   await wait(4000);
 
-  // A flush is about ONE project. Unstamped, pl8 read l8's `flushed` as its own.
-  l8.flush();
+  // A flush is about ONE project. Unstamped, pl8 read st0's `flushed` as its own.
+  st0.flush();
   await wait(1000);
 
-  console.log("l8    :", onL8);
+  console.log("st0    :", onSt0);
   console.log("pl8       :", onPl8);
   console.log("sur le fil (pl8) :", onWire);
   console.log("sur le fil (sonde):", onProbe);
@@ -170,36 +170,36 @@ async function main() {
     problems.push(
       `une sonde muette a recu ${onProbe[sid]} trame(s) de '${sid}' — elle n'a rien demande`,
     );
-  if (!onL8.playing)
-    problems.push("l8 n'a jamais vu son transport partir");
-  if (onL8.maxPlayhead < 1)
-    problems.push("la tete de lecture de l8 n'a pas avance");
+  if (!onSt0.playing)
+    problems.push("st0 n'a jamais vu son transport partir");
+  if (onSt0.maxPlayhead < 1)
+    problems.push("la tete de lecture de st0 n'a pas avance");
   if (onPl8.frames === 0)
     problems.push(
       "pl8 ne recoit aucune trame d'etat (session filtree a tort)",
     );
   if (onPl8.playing)
-    problems.push("pl8 a vu le transport de l8 — les sessions fuient");
+    problems.push("pl8 a vu le transport de st0 — les sessions fuient");
   if (onPl8.maxPlayhead > 0.5)
-    problems.push("la tete de lecture de l8 a fuit vers pl8");
-  if (!onL8.recordEnabled)
-    problems.push("l8 n'a jamais vu son propre record-enable");
+    problems.push("la tete de lecture de st0 a fuit vers pl8");
+  if (!onSt0.recordEnabled)
+    problems.push("st0 n'a jamais vu son propre record-enable");
   if (onPl8.recordEnabled)
-    problems.push("pl8 a vu le record-enable de l8 — le drapeau est global");
-  if (onL8.applied !== 1)
-    problems.push(`l8 attend 1 'applied', en a vu ${onL8.applied}`);
+    problems.push("pl8 a vu le record-enable de st0 — le drapeau est global");
+  if (onSt0.applied !== 1)
+    problems.push(`st0 attend 1 'applied', en a vu ${onSt0.applied}`);
   if (onPl8.applied !== 1)
     problems.push(
       `pl8 attend 1 'applied' (le sien), en a vu ${onPl8.applied} — reponses non estampillees`,
     );
-  if (onL8.flushed !== 1)
-    problems.push(`l8 attend 1 'flushed', en a vu ${onL8.flushed}`);
+  if (onSt0.flushed !== 1)
+    problems.push(`st0 attend 1 'flushed', en a vu ${onSt0.flushed}`);
   if (onPl8.flushed !== 0)
     problems.push(
-      `pl8 a recu le 'flushed' de l8 (${onPl8.flushed}) — reponses non estampillees`,
+      `pl8 a recu le 'flushed' de st0 (${onPl8.flushed}) — reponses non estampillees`,
     );
 
-  l8.close();
+  st0.close();
   pl8.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);

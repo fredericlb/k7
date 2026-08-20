@@ -73,7 +73,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("names a control the desk does not have", () => {
-    // A typo about your OWN project. l8's MIDI join skips a binding it cannot apply, because
+    // A typo about your OWN project. st0's MIDI join skips a binding it cannot apply, because
     // a module's map travels into projects that draw it differently — this file names this
     // set's own nodes, so silence would leave a dead fader with nothing to fix.
     const { bindings, problems } = resolveBindings(

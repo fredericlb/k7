@@ -32,7 +32,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo.l8",
+  "synth-demo.st0",
 );
 const IN = "@workspace/io/IN:in-1";
 

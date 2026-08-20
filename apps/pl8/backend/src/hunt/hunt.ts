@@ -99,7 +99,7 @@ function alreadyFiled(tags: SongTags): string | null {
 // disque du service de fichiers — ce service-ci n'y a pas accès, et lui en donner ferait de
 // celui qui tient la session et la clé de déploiement un écrivain dans le dépôt de chacun, ce
 // que apps/pl8/docs/projects.md refuse explicitement. La chasse range donc le morceau dans la
-// médiathèque, et l'ajouter à une setlist est un clic dans l8, sur le même catalogue.
+// médiathèque, et l'ajouter à une setlist est un clic dans st0, sur le même catalogue.
 
 /** Everything the network answered, up to the window or until it says it is done. */
 async function gather(searchId: string, signal: AbortSignal) {

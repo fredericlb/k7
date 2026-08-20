@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "l8's engine supervisor \u2014 owns the engine's identity, the ~/.studio contract, the registry heartbeat and the web-UI allowlist. Spawned by studio-capot (the menu-bar view) and driven over NDJSON on stdio; not a standalone CLI. Consumed as source.",
+  "description": "st0's engine supervisor \u2014 owns the engine's identity, the ~/.studio contract, the registry heartbeat and the web-UI allowlist. Spawned by studio-capot (the menu-bar view) and driven over NDJSON on stdio; not a standalone CLI. Consumed as source.",
   "exports": {
     "./identity": "./src/identity.ts",
     "./addresses": "./src/addresses.ts",

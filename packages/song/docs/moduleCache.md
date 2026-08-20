@@ -17,7 +17,7 @@ médiathèque mounted as a shared library:
 | **`loadModuleRefs` total** | | **295 ms** |
 | the stamp that replaces it | 391 `stat`, 318 `readdir` | **20 ms** |
 
-That 295 ms was paid four to six times behind ONE command in l8: `loadProject` wants the
+That 295 ms was paid four to six times behind ONE command in st0: `loadProject` wants the
 vocabulary, `loadGraph` wants it again, and so do `projectErrors` and `hints` — each of which
 the browser fetches as soon as the command returns. Switching a track's alternative — one line
 rewritten in one YAML file — cost about 2.6 s of file service, almost all of it re-reading a
@@ -73,7 +73,7 @@ walk is 20 ms; pay it per call.
 
 Per call is one walk too many all the same, and it shows in a profile. A compile asks the cache
 twice — `loadModules`, then `loadModuleRefs` a few lines later — and stamped twice. On the
-`01.danse.l8` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one walk is
+`01.danse.st0` song (15 tracks, 57 clips, 31 plugins, the médiathèque mounted) one walk is
 328 `readdir` + 418 `stat` and **28 ms**, against a 140 ms compile: the second walk was 19% of
 `compileNodeProject` and of `loadGraph` alike, spent proving nothing had changed since the
 previous line.

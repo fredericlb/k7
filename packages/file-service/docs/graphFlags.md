@@ -12,7 +12,7 @@ plugin.
 ## `notSupported` (amber)
 
 The module HAS a plugin, and its `plugin.type` is the deliberate marker
-`"not_supported"` — l8 knows about it and knows it can't load it.
+`"not_supported"` — st0 knows about it and knows it can't load it.
 
 ## `unknownPlugin` (red)
 
@@ -60,10 +60,10 @@ An unknown FORMAT is unloadable anywhere, so `nodeProject` keeps it off the wire
 entirely.
 
 An UNSCANNED plugin is a per-MACHINE condition — the same project opens fine on the
-machine that has it — so it still goes to the engine, which warns (`run 'l8 engine
+machine that has it — so it still goes to the engine, which warns (`run 'st0 engine
 scan'`) and skips it. The flag just says so up front, in the graph, instead of leaving
 you to find out at playback.
 
 Both carry no `ui` and no `pluginId`, and neither has a `hasNativePluginUI`: only a
 plugin the engine can actually instantiate has a native editor window to open. That is
-distinct from `ui`, which is the moduleUI widget grid l8 draws itself.
+distinct from `ui`, which is the moduleUI widget grid st0 draws itself.

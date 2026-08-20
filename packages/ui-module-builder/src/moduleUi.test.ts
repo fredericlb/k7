@@ -224,7 +224,7 @@ describe("an io module's direction", () => {
   });
 
   // THE bug the picker shipped with. A real input in a real song states no `io:` at all — this is
-  // `nodes/ge_rythm-in.yaml` from 01.danse.l8, whole — and reading only the file's own key called it
+  // `nodes/ge_rythm-in.yaml` from 01.danse.st0, whole — and reading only the file's own key called it
   // an ordinary plugin, so it got neither the io binds nor a channel dropdown.
   it("follows `extends` to the engine's io modules", () => {
     const node = 'extends: "@engine/IN"\nchannel: [ 2 ]\n';

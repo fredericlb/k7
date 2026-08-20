@@ -45,7 +45,7 @@ and no optimistic override to place.
 
 ## Clicking one AUDITIONS the sample
 
-The host decides how a pad is made audible (`onTriggerRack`), and l8 sends it through `preview` —
+The host decides how a pad is made audible (`onTriggerRack`), and st0 sends it through `preview` —
 the same route the editor's gutter ▶ uses: the file service resolves the clip or the slice window
 and the engine auditions it through a hidden one-shot sampler.
 
@@ -64,7 +64,7 @@ read-only, never clickable-and-silent.
 And it is **derived, not observed**. The engine reports no notes: its live frame is
 `{ playing, playhead, levels, inputLevels, armed, recordEnabled, waveform }` and nothing about a
 sampler's voices. But the browser holds the arrangement and the playhead at the same time, so it
-can answer the question itself — `apps/l8/frontend/src/rackLit.ts` turns the lane feeding a rack's
+can answer the question itself — `apps/st0/frontend/src/rackLit.ts` turns the lane feeding a rack's
 chain into a list of `{ from, to, key }` in arrangement beats, and each frame asks which of them
 contain the playhead.
 

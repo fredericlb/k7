@@ -1,5 +1,5 @@
 // Plugin-parameter dump CLIs — see the dumpPluginParams / dumpPluginParamsExternal
-// declarations in EngineHost.h. l8's text alternative to an opaque .vstpreset:
+// declarations in EngineHost.h. st0's text alternative to an opaque .vstpreset:
 // enumerate a plugin's automatable parameters and print { params, complete } as
 // sentinel-fenced JSON. `complete` means the params fully reproduce the plugin state
 // (so the preset can be dropped).

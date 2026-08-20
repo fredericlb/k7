@@ -3,7 +3,7 @@
 `camera.ts` holds the arithmetic; `DomChains` holds the element and one frame loop. The rules
 below are about **feel**, and the framing rules — `fitKey`, `fitted` vs `userMoved`, the camera
 that survives an unmount — are a separate set, in
-[l8's chainsGraph.md](../../../apps/l8/frontend/docs/chainsGraph.md).
+[st0's chainsGraph.md](../../../apps/st0/frontend/docs/chainsGraph.md).
 
 ## The camera is not React state
 
@@ -92,7 +92,7 @@ sends a great many.
 
 ## The same rule, elsewhere
 
-l8's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, but not with this
+st0's timeline, piano roll and waveform draw the same line in `usePanZoom.ts`, but not with this
 code: those are **scroll containers**, so their pan is the browser's own — a plain wheel is
 simply handed back, momentum and axis locking included, and only the pinch is intercepted. A
 pane scrolls; this one translates. Shared rule, different mechanism.

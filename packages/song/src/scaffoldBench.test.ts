@@ -1,4 +1,4 @@
-// What the bench must be for l8 to open it at all: a project that COMPILES, with a chain that
+// What the bench must be for st0 to open it at all: a project that COMPILES, with a chain that
 // already reaches the output. The rest of the bench is the catalogue, mirrored in by the file
 // service — see packages/file-service/src/bench.ts.
 

@@ -2,17 +2,17 @@
 
 Étape 6 made the library **hosted** — `studio.frediver.se` owns the files, and
 `~/.studio/mediatek` became a cache the moteur reads from. The service is `pl8`, served under
-`/pl8` — it answered the origin root until l8 took it, and `/auth/*` went with the root. That
+`/pl8` — it answered the origin root until st0 took it, and `/auth/*` went with the root. That
 reversal left a hole nobody noticed for three steps: there was no Dockerfile, no
 nginx entry and no CI job, so nothing deployed the thing the whole design now depends on.
 
-This is that. It follows l8's image closely, because the shape is the same — an SPA and
+This is that. It follows st0's image closely, because the shape is the same — an SPA and
 a Node backend behind one nginx, on the repo-root base image. Three things differ, and each
 of them is the médiathèque being a library rather than an editor.
 
 ## 1. It is stateful. The volume IS the library.
 
-l8's image deliberately has no volume: its state is a session cookie and an in-memory
+st0's image deliberately has no volume: its state is a session cookie and an in-memory
 engine list, both fine to lose. Here the container owns everyone's songs, samples and
 modules.
 
@@ -36,7 +36,7 @@ Verified: on an empty volume the backend creates its layout (`songs/`, `samples/
 
 ## 1b. It VERIFIES the session, and no longer mints it
 
-The edge sends `/auth/*` to **l8's** backend, the service with no path prefix: the `redirect_uri`
+The edge sends `/auth/*` to **st0's** backend, the service with no path prefix: the `redirect_uri`
 registered with the IdP is `<origin>/auth/callback`, so the flow belongs to whoever answers the
 root. This backend owned it while the médiathèque WAS the root, and kept it for one release after
 the swap — routed here by name in `nginx.conf` — which worked and read as an exception to every
@@ -51,7 +51,7 @@ into**, and each of the others reports its own 401 rather than pointing here.
 
 ## 2. It moves media, so nginx must not buffer
 
-The `/(api|auth)/` location carries three settings l8's does not:
+The `/(api|auth)/` location carries three settings st0's does not:
 
 * **`proxy_buffering off`.** Without it nginx reads the whole upstream response into memory
   and then a temp file before sending a byte. On a video that means the first frame waits

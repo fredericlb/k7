@@ -124,7 +124,7 @@ filesRouter.get(
 );
 
 /**
- * The chains the library repository holds — what l8's chains builder lists.
+ * The chains the library repository holds — what st0's chains builder lists.
  *
  * Beside `/module-libraries` for the same reason it is: both answer about things OUTSIDE the
  * open song, which `/tree` is deliberately not about. A chain's `path` comes from here rather
@@ -403,12 +403,12 @@ filesRouter.post(
   }),
 );
 
-// Scaffold a project at the workspace root and return its path — the same scaffold `l8 create` runs.
+// Scaffold a project at the workspace root and return its path — the same scaffold `st0 create` runs.
 const createProjectBody = z.object({
   /**
    * The ARCHETYPE: `arrangement`, `mix` or `video` — each named after the surface it opens on.
    *
-   * One field, because there is one question. Every project is an `.l8` folder, so "which app
+   * One field, because there is one question. Every project is an `.st0` folder, so "which app
    * opens this" has no answers to arbitrate; what is left is which scaffold runs. See
    * projectLifecycle.ts, and `PROJECT_SHAPES` for why an archetype is not a mode.
    *
@@ -996,7 +996,7 @@ filesRouter.get(
   wrap((req, res) => res.json(req.ws!.waveformStatus())),
 );
 // Give the machine back. The batch runs a SECOND engine process to decode audio, and a surface
-// that is playing wants those cores — l8 calls this when the transport starts and prewarms again
+// that is playing wants those cores — st0 calls this when the transport starts and prewarms again
 // when it stops. Sidecars already written stay written, so resuming costs only what was in flight.
 filesRouter.post(
   "/waveforms/cancel",

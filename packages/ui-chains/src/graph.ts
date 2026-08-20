@@ -22,7 +22,7 @@ import { hangPoints } from "./hang";
  *
  * `buildGraph` used to restate these field by field, which made "add a field" three edits in
  * three files. `assetChoices` missed the third: it reached the browser and stopped at the node,
- * so l8 re-fetched the whole graph on a click to read a value already under the mouse. The same
+ * so st0 re-fetched the whole graph on a click to read a value already under the mouse. The same
  * shape of omission put every ported cable on the node's edge once, when `targetPort` was
  * forgotten on the edge copy below.
  *
@@ -1040,11 +1040,11 @@ export function buildGraph(
   graph: WebGraph,
   opts: {
     /**
-     * Draw a card for the main output. The DEFAULT, and l8's song graph is what turns it off.
+     * Draw a card for the main output. The DEFAULT, and st0's song graph is what turns it off.
      *
      * In a song, reaching the card is what the end of a chain means — a mixer sits there and
      * its whole job is the level going out — so a node saying "OUT" adds a card, an edge and a
-     * rank to every chain to repeat what the shape already says. l8 therefore asks for it to be
+     * rank to every chain to repeat what the shape already says. st0 therefore asks for it to be
      * left out (`ChainsTab`).
      *
      * On by default all the same, because the other pictures built from this are not songs: the

@@ -60,7 +60,7 @@ export interface HostEditPlugin {
  *
  * This is what makes ONE engine serving several apps legible from the outside. Before it,
  * the tray's status line said "Running · :8833" whether that engine held nothing, held
- * l8' song, or held a deck and a module preview at once — and the apps had no way to
+ * st0' song, or held a deck and a module preview at once — and the apps had no way to
  * see each other either.
  */
 export interface HostSession {

@@ -51,7 +51,7 @@ export const SAMPLE_KINDS = ["audio", "video"] as const;
 
 // Two things stood here and left with the `modules` family: the library's own NAMESPACE
 // (`modules/config.yaml`, descriptive only — `@studio/song` decides a level from where a root
-// SITS), and `MODULE_TYPES`, the type folders this volume laid out. Modules are authored in l8
+// SITS), and `MODULE_TYPES`, the type folders this volume laid out. Modules are authored in st0
 // and committed to the account's library repository; this volume holds no `modules/` at all.
 
 export function familyDir(family: Family): string {

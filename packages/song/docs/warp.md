@@ -90,7 +90,7 @@ Which is what a bounce does to it. `clip process … normalize` renders the mate
 and points the clip at the render, and `--render` appends **two seconds** for reverb and release: a
 17.920 s take at 110 bpm came back 19.920 s long, the engine read 32.834841 beats over 19.92 s as
 **98.9 bpm**, played everything 11% slow — and, since an unlooped clip is capped at its window in
-SOURCE seconds, cut the phrase before its end. Observed in `01.danse.l8`, on the two clips that had
+SOURCE seconds, cut the phrase before its end. Observed in `01.danse.st0`, on the two clips that had
 been normalised.
 
 `retimeWarpMarkers(markers, seconds)` is the repair, and `processChain` calls it as it repoints.

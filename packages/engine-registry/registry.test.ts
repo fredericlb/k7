@@ -42,20 +42,20 @@ describe("the engine claim", () => {
 
   it("grants an open, and renews it with the secret it gave back", () => {
     const g = grant(
-      reg.claim("e1", { project: "band/winter.l8", holder: "a" }),
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
     expect(g.secret).toBeTruthy();
     expect(g.tookOver).toBeUndefined();
 
     const again = grant(
       reg.claim("e1", {
-        project: "band/winter.l8",
+        project: "band/winter.st0",
         holder: "a",
         secret: g.secret,
       }),
     );
     expect(again.secret).toBe(g.secret); // the same hold, not a second one
-    expect(reg.engineForProject("band/winter.l8")).toBe("e1");
+    expect(reg.engineForProject("band/winter.st0")).toBe("e1");
   });
 
   it("lets the newcomer take a project, and REFUSES the loser's next renewal", () => {
@@ -99,32 +99,32 @@ describe("the engine claim", () => {
 
   it("refuses a SECOND project on one engine — the file service holds only one", () => {
     const song = grant(
-      reg.claim("e1", { project: "band/winter.l8", holder: "a" }),
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
-    grant(reg.claim("e1", { project: "band/leclip.l8", holder: "b" }));
+    grant(reg.claim("e1", { project: "band/leclip.st0", holder: "b" }));
 
     // Not tidiness: `engineLink.ts` keeps a single active project per machine and says so
     // ("several browser tabs share it — last write wins"). A second one clobbers.
     const refused = reg.claim("e1", {
-      project: "band/winter.l8",
+      project: "band/winter.st0",
       holder: "a",
       secret: song.secret,
     });
     expect(refused.ok).toBe(false);
   });
 
-  it("lets a project-less holder sit beside a project — pl8 must not evict l8", () => {
+  it("lets a project-less holder sit beside a project — pl8 must not evict st0", () => {
     const song = grant(
-      reg.claim("e1", { project: "band/winter.l8", holder: "a" }),
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
     // pl8 drives an engine and opens no project. Looking at the catalogue used to be enough to
-    // take the song away from the l8 tab on the same machine.
+    // take the song away from the st0 tab on the same machine.
     const catalogue = grant(reg.claim("e1", { project: null, holder: "a" }));
 
     expect(
       grant(
         reg.claim("e1", {
-          project: "band/winter.l8",
+          project: "band/winter.st0",
           holder: "a",
           secret: song.secret,
         }),
@@ -139,7 +139,7 @@ describe("the engine claim", () => {
         }),
       ).secret,
     ).toBe(catalogue.secret);
-    expect(reg.engineForProject("band/winter.l8")).toBe("e1");
+    expect(reg.engineForProject("band/winter.st0")).toBe("e1");
   });
 
   it("forgets a hold nobody renewed, without anyone saying goodbye", () => {
@@ -167,15 +167,15 @@ describe("the engine claim", () => {
   });
 
   it("names the holder and the project in the list, so a picker can say which", () => {
-    grant(reg.claim("e1", { project: "band/winter.l8", holder: "alice" }));
+    grant(reg.claim("e1", { project: "band/winter.st0", holder: "alice" }));
     const row = reg.list().find((e) => e.id === "e1");
     expect(row?.heldBy).toBe("alice");
-    expect(row?.heldProject).toBe("band/winter.l8");
+    expect(row?.heldProject).toBe("band/winter.st0");
   });
 
   /**
    * The three refusals are three different sentences on screen, and telling them apart is the
-   * whole point of `lost`: l8 used to say "this project was opened elsewhere" for all three,
+   * whole point of `lost`: st0 used to say "this project was opened elsewhere" for all three,
    * which is false twice out of three. See docs/claim.md.
    */
   describe("says WHY the claim is gone", () => {
@@ -196,12 +196,12 @@ describe("the engine claim", () => {
 
     it("`engine` — a DIFFERENT project took the machine, and it is named", () => {
       const mine = grant(
-        reg.claim("e1", { project: "band/winter.l8", holder: "alice" }),
+        reg.claim("e1", { project: "band/winter.st0", holder: "alice" }),
       );
-      grant(reg.claim("e1", { project: "band/leclip.l8", holder: "bob" }));
+      grant(reg.claim("e1", { project: "band/leclip.st0", holder: "bob" }));
 
       const r = reg.claim("e1", {
-        project: "band/winter.l8",
+        project: "band/winter.st0",
         holder: "alice",
         secret: mine.secret,
       });
@@ -210,7 +210,7 @@ describe("the engine claim", () => {
       // Naming it is what lets the tab offer "pick another engine" instead of a wrong apology.
       expect(r.lost).toBe("engine");
       expect(r.heldBy).toBe("bob");
-      expect(r.tookFor).toBe("band/leclip.l8");
+      expect(r.tookFor).toBe("band/leclip.st0");
     });
 
     it("`lapsed` — nobody took anything; the claim just aged out", () => {
@@ -236,7 +236,7 @@ describe("the engine claim", () => {
       const catalogue = grant(reg.claim("e1", { project: null, holder: "a" }));
       vi.advanceTimersByTime(ENGINE_ASSIGN_TTL_MS + 1);
       beat(reg, "e1");
-      grant(reg.claim("e1", { project: "band/winter.l8", holder: "b" }));
+      grant(reg.claim("e1", { project: "band/winter.st0", holder: "b" }));
 
       const r = reg.claim("e1", {
         project: null,

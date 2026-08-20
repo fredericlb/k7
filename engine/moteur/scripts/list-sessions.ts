@@ -56,15 +56,15 @@ async function main() {
     q.close();
     return process.exit(0);
   }
-  const l8 = new EngineClient(`ws://127.0.0.1:${PORT}`, "l8");
+  const st0 = new EngineClient(`ws://127.0.0.1:${PORT}`, "st0");
   const m9 = new EngineClient(`ws://127.0.0.1:${PORT}`, "m9");
-  l8.connect();
+  st0.connect();
   m9.connect();
   await wait(500);
-  l8.sendProject(doc("ma-chanson"));
+  st0.sendProject(doc("ma-chanson"));
   m9.sendProject(doc("le-set"));
   await wait(2500);
-  l8.transport("play");
+  st0.transport("play");
   await wait(1500);
 
   // The supervisor's own client, on the DEFAULT session: it drives nothing and asks about
@@ -89,8 +89,8 @@ async function main() {
 
   const problems: string[] = [];
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
-  if (ids(before).join() !== "l8,m9")
-    problems.push(`sessions attendues l8+m9, vu ${ids(before)}`);
+  if (ids(before).join() !== "st0,m9")
+    problems.push(`sessions attendues st0+m9, vu ${ids(before)}`);
   // EXACTEMENT deux : une session "" ici veut dire que les requetes du superviseur en creent une.
   if ((before ?? []).some((s) => s.id === ""))
     problems.push(
@@ -98,21 +98,21 @@ async function main() {
     );
   // edit-plugins est global au moteur : il repond pour les DEUX sessions, chacune nommee.
   const sessionsVues = new Set((plugins ?? []).map((p) => p.session));
-  if (!sessionsVues.has("l8") || !sessionsVues.has("m9"))
+  if (!sessionsVues.has("st0") || !sessionsVues.has("m9"))
     problems.push(
-      `edit-plugins devrait couvrir l8 et m9, vu ${JSON.stringify([...sessionsVues])}`,
+      `edit-plugins devrait couvrir st0 et m9, vu ${JSON.stringify([...sessionsVues])}`,
     );
-  const l = before?.find((s) => s.id === "l8");
-  if (!l?.playing) problems.push("l8 ne joue pas");
+  const l = before?.find((s) => s.id === "st0");
+  if (!l?.playing) problems.push("st0 ne joue pas");
   if (!l?.loaded || l.project !== "ma-chanson" || l.tracks !== 1)
-    problems.push(`le projet de l8 est mal rapporte : ${JSON.stringify(l)}`);
+    problems.push(`le projet de st0 est mal rapporte : ${JSON.stringify(l)}`);
   if (before?.find((s) => s.id === "m9")?.playing)
     problems.push("m9 joue alors qu'on ne le lui a pas demande");
-  if (ids(after).join() !== "l8")
+  if (ids(after).join() !== "st0")
     problems.push(`drop sans effet : reste ${ids(after)}`);
 
   q.close();
-  l8.close();
+  st0.close();
   m9.close();
   if (problems.length) {
     for (const p of problems) console.error("ECHEC :", p);

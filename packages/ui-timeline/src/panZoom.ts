@@ -211,7 +211,7 @@ export function useHZoom(
   /**
    * Zoom to `next`, keeping whatever is under `clientX` where it is.
    *
-   * Exposed because the wheel is not the only gesture that zooms: l8's ruler zooms on a
+   * Exposed because the wheel is not the only gesture that zooms: st0's ruler zooms on a
    * vertical drag, and had copied this arithmetic — the same line, descended from the same
    * commit — WITHOUT the deferral above. Applied straight away, the new scrollLeft is clamped
    * by the old scrollWidth, so an anchored zoom drifts. One implementation, both gestures.

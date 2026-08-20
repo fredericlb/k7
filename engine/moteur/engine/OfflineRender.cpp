@@ -136,7 +136,7 @@ bool renderTracks(te::Edit& edit, const juce::File& out, const juce::BigInteger&
     params.useMasterPlugins = useMaster;
     std::atomic<float> progress{0.0f};
     trace("createRenderTask");
-    auto task = te::render_utils::createRenderTask(params, "l8 export", &progress, nullptr);
+    auto task = te::render_utils::createRenderTask(params, "st0 export", &progress, nullptr);
     if (!task) return false;
     trace("runJob loop");
     while (task->runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {}

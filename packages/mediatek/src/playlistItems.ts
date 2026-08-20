@@ -2,7 +2,7 @@
 // morceau each one names, which of its versions, and why a line cannot play. Pure, so the
 // resolution is testable without a screen.
 //
-// HERE and not in either surface, because there are two now and they must agree: l8's playlist
+// HERE and not in either surface, because there are two now and they must agree: st0's playlist
 // screen draws the lines to edit them, and the DJ desk draws the same lines to load one onto a
 // deck (`@studio/ui-turntables/docs/songBrowser.md`). Two copies of "path first, then name"
 // would disagree the first time one learned a case. The direction of the import is the reason

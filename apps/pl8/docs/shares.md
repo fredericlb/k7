@@ -29,7 +29,7 @@ Le prix réel n'est donc pas la posture, c'est **la place** — et il est mesur�
 ## Ce qu'un partage est
 
 Une version **gelée** d'un projet, sans moteur derrière. Tout ce qui s'entend a été rendu à
-l'avance : le mixdown, plus un fichier par piste audible. Le visiteur ouvre l8 en lecture seule,
+l'avance : le mixdown, plus un fichier par piste audible. Le visiteur ouvre st0 en lecture seule,
 écoute, regarde les chaînes et les paramètres des modules, et ne peut rien casser parce qu'il n'y
 a rien à casser — aucun processus n'attend derrière pour exécuter quoi que ce soit.
 
@@ -147,7 +147,7 @@ parse de formulaire* — et l'`express.json` global est à 8 Mo. D'où :
 C'est `finish`, et lui seul, qui rend le lien vivant : un envoi interrompu n'est donc jamais
 atteignable, et un `pending.json` qui traîne est du ménage, pas une fuite.
 
-Le jeton est celui de la **machine** (`service:l8`, celui que `npm run tokens` écrit déjà pour la
+Le jeton est celui de la **machine** (`service:st0`, celui que `npm run tokens` écrit déjà pour la
 récupération des bibliothèques). Un jeton de service n'a pas de personne à lui, donc **chacun**
 des trois appels nomme la sienne avec `?user=` — c'est le même marché que
 [`sshKeyForService.md`](sshKeyForService.md) documente : qui détient le jeton d'une machine peut
@@ -155,8 +155,8 @@ agir pour quiconque est dessus.
 
 ## Révoquer
 
-Dans l8, sur sa page d'accueil, sous la liste des dépôts
-(`apps/l8/frontend/src/projects/SharesCard.tsx`). Les deux bouts d'un partage sont donc l8
+Dans st0, sur sa page d'accueil, sous la liste des dépôts
+(`apps/st0/frontend/src/projects/SharesCard.tsx`). Les deux bouts d'un partage sont donc st0
 maintenant : c'est lui qui rend le paquet et l'envoie ici, et lui qui le retire. Ça a vécu dans
 la section Projets de ce service tant que cette section existait ; ce qui reste ici est ce que
 cette page décrit — les octets, l'index, les routes.
@@ -180,7 +180,7 @@ noreferrer"`, la page d'en face étant publique.
 
 ## Le risque qui n'a pas de plafond
 
-Un paquet construit sur un vrai morceau — douze pistes, `01.danse.l8` — pesait **484 Mo** en wav.
+Un paquet construit sur un vrai morceau — douze pistes, `01.danse.st0` — pesait **484 Mo** en wav.
 Sans expiration, sur le volume qui porte aussi la médiathèque de tout le monde. La panne, à ce
 compte-là, n'est pas « le partage ne marche plus » : c'est « le studio passe en lecture seule ».
 

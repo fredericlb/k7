@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "l8's engine-side file service. Runs on the engine's machine, owns ~/.studio/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
+  "description": "st0's engine-side file service. Runs on the engine's machine, owns ~/.studio/root/<userSlug>/<workspace>, and serves workspaces + all file operations to the browser directly (the C++ engine stays file-free). Consumed as source; run under tsx.",
   "main": "src/server.ts",
   "bin": {
     "studio-file-service": "./src/server.ts"

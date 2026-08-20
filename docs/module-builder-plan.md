@@ -16,7 +16,7 @@ modules/<type>/<nom>/presets.yaml   ses réglages nommés
 
 (Le troisième est arrivé après ; il obéit exactement aux mêmes règles que le deuxième.)
 
-Dans la médiathèque, cliquer sur n'importe lequel ouvre le même builder que l8.
+Dans la médiathèque, cliquer sur n'importe lequel ouvre le même builder que st0.
 
 ## Décisions prises
 
@@ -37,8 +37,8 @@ dérivées du schéma, liens d'entités, widget tracker — était consommée pa
 n'était pas le manque.
 
 Le manque, c'était le **builder** : pl8 avait `ModuleEditorPage.tsx` (562 l.),
-`WidgetGridEditor.tsx` (787 l.) et `YamlPane.tsx` (65 l.) ; l8 n'en avait plus du tout.
-D'où : extraction depuis pl8, puis branchement neuf côté l8.
+`WidgetGridEditor.tsx` (787 l.) et `YamlPane.tsx` (65 l.) ; st0 n'en avait plus du tout.
+D'où : extraction depuis pl8, puis branchement neuf côté st0.
 
 Pourquoi un paquet séparé plutôt que faire grossir `ui-editor` : celui-ci est la pile
 *langage*, framework-agnostique. Le builder est une *vue* React. Les fondre ferait entrer
@@ -62,7 +62,7 @@ une de trop. Ce qui a bougé :
 
 Docs refaites : `packages/song/docs/uiLibrary.md`, `docs/sharedFolders.md`,
 `docs/moduleCatalogue.md`, `packages/mediatek/docs/ingest.md`,
-`apps/l8/docs/25-syntax-instruments.md`.
+`apps/st0/docs/25-syntax-instruments.md`.
 
 Le cas `io/` **ne disparaît pas** : un ref io nu (`desk`) n'a pas de segment de type, donc
 `uiPathFor` remet le `io/` ou le fichier atterrit à la racine de la bibliothèque. Vérifié
@@ -118,20 +118,20 @@ la couture. Les deux apps le dessinent.
 le builder ne fabrique jamais un chemin — il ne repasse que ceux qu'on lui a donnés. Les deux
 espaces de chemins se ressemblent trop pour qu'il puisse en construire un. Le rationale complet
 est dans `packages/ui-module-builder/docs/store.md`, y compris la seule asymétrie : `write` peut
-répondre « ç'a atterri ailleurs », parce que l8 redirige une sauvegarde visant `_modules`
+répondre « ç'a atterri ailleurs », parce que st0 redirige une sauvegarde visant `_modules`
 vers une copie locale. Le builder le remonte par `onRelocated` et ne suit pas le chemin lui-même.
 
 Deux fichiers sont sortis plus loin que prévu :
 
 - `yamlVocabulary.ts` → **`@studio/ui-editor/yaml/vocabulary`**, pas dans le builder : trois
-  éditeurs veulent les mêmes réponses (l'`EditorPane` de l8, celui de la médiathèque, celui
+  éditeurs veulent les mêmes réponses (l'`EditorPane` de st0, celui de la médiathèque, celui
   du builder), et « ce qui se complète où » est une affaire de *langage*, pas de vue. Les deux
   copies portaient chacune un commentaire disant que sa vraie place était un paquet. Son test
   a suivi. `@studio/song/yaml/fields` est du Zod pur, donc `ui-editor` reste navigable.
-- `paramDrag.ts` est exporté par le builder (`/param-drag`) : `fileDrop.ts` de l8 lit le
+- `paramDrag.ts` est exporté par le builder (`/param-drag`) : `fileDrop.ts` de st0 lit le
   MIME pour ignorer le glisser, et deux copies d'un protocole ne sont pas un protocole.
 
-**Côté l8**, un bouton *Builder* dans la barre de l'éditeur quand le fichier ouvert est un
+**Côté st0**, un bouton *Builder* dans la barre de l'éditeur quand le fichier ouvert est un
 module, et une surcouche plein écran au-dessus du shell. Un **bouton** et pas un clic détourné :
 ouvrir `module.yaml` doit continuer d'ouvrir son texte, parce que c'est le chemin par lequel un
 module partagé se forke. La surcouche n'offre ni presets ni paramètres de greffon vivants — ils
@@ -151,17 +151,17 @@ porte maintenant `files` — ce que le dossier contient vraiment.
 
 - **Rien n'a été exercé dans un navigateur.** Les deux apps compilent, se construisent et le
   serveur de dev sert les nouveaux modules à travers l'alias de l'espace de travail ; le shell
-  frontend n'a pas de tests (voir `apps/l8/AGENTS.md`). La surcouche l8 et l'arbre de la
+  frontend n'a pas de tests (voir `apps/st0/AGENTS.md`). La surcouche st0 et l'arbre de la
   médiathèque demandent un vrai clic.
 - **Sauvegarder les params courants comme preset depuis le builder.** `saveModuleAsPreset` et
   `POST /presets/save` existent et n'ont pas de bouton : il faut un champ « nom », et une tagère
   s'écrit aussi bien à la main dans le troisième onglet. Volontairement laissé de côté.
-- **`api.listUserPresets` côté l8** ne sert toujours à personne : le builder lit la tagère
+- **`api.listUserPresets` côté st0** ne sert toujours à personne : le builder lit la tagère
   par son *store*, pas par cette route, ce qui marche identiquement dans les deux apps.
 
 ## Contexte utile
 
-La médiathèque vient de recevoir le chrome de l8 : familles en onglets, `FileTree`
+La médiathèque vient de recevoir le chrome de st0 : familles en onglets, `FileTree`
 partagé en sidebar avec menus contextuels et glisser-déposer, cog pour le moteur et la
 déconnexion. Le backend a gagné `POST /move`, `POST /folder` et `DELETE /folder`
 (`apps/pl8/backend/src/routes/library.ts`, adossées à `@studio/mediatek/write`).

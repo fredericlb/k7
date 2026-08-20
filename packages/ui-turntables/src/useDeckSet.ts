@@ -185,7 +185,7 @@ export function useDeckSet(
   /** The file service's change token — refetch the compile when the project moves on disk. */
   rev: string,
   /**
-   * The bindings, when the HOST already holds them — an l8 surface, whose mapping is in
+   * The bindings, when the HOST already holds them — an st0 surface, whose mapping is in
    * `surfaces/<id>.yaml` and which has no `views/mix.yaml` to find.
    *
    * Passed rather than read, because the two hosts keep the same map in different files and
@@ -236,7 +236,7 @@ export function useDeckSet(
     let stop = false;
     void (async () => {
       // The host's own map wins, and skips the read entirely: there is no `views/mix.yaml` in
-      // an l8 song, and asking for one would be a 404 on every reload of a surface.
+      // an st0 song, and asking for one would be a 404 on every reload of a surface.
       const v = mapping ?? (await readMixView(project));
       const songs = await readSongsText(project);
       // Not read at all when the surface names none: there is no path to ask for, and a 404

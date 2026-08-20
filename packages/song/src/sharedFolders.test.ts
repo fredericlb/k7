@@ -114,8 +114,9 @@ describe("sharedFolders", () => {
     addModules();
     addMediatek("modules");
     expect(moduleNamespaceOf(join(ws, "_modules"))).toBe("workspace");
-    // `st0`, after the app that served the library when the level was named (it is pl8 now, and
-    // the level stayed put) — NOT after the folder it is mounted in.
+    // `st0`, after the app that served the library when the level was named — the MÉDIATHÈQUE,
+    // which is pl8 now; the level stayed put and does not name today's st0. NOT after the folder
+    // it is mounted in.
     // The level is read off `_libraries/`, the parent the submodule is checked out under;
     // it used to be an exact match against `~/.studio/mediatek`, one path per machine.
     expect(moduleNamespaceOf(join(libraries, "modules"))).toBe("st0");

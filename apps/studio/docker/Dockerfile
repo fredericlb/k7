@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# studio — every HOSTED app of this repo in ONE single-origin container: l8 at
+# studio — every HOSTED app of this repo in ONE single-origin container: st0 at
 # the root, pl8 and k7 under their prefixes, z0's six SPAs under /z0 — four
 # backends beside one nginx that owns the origin's path routing. Same shape as
 # phare's monolith (apps/phare/docker), with nothing left outside it: no studio
@@ -20,7 +20,7 @@ FROM node:22-alpine AS pruner
 WORKDIR /repo
 RUN npm install -g turbo@2
 COPY . .
-RUN turbo prune pl8-frontend pl8-backend l8-frontend l8-backend \
+RUN turbo prune pl8-frontend pl8-backend st0-frontend st0-backend \
     k7-frontend k7-backend z0-backend z0-online z0-buzzer z0-remote \
     z0-editor z0-presenter z0-monitor --docker
 # A SECOND prune, scoped to the backends alone, is what the runtime stage
@@ -29,7 +29,7 @@ RUN turbo prune pl8-frontend pl8-backend l8-frontend l8-backend \
 # from the image is a dangling link and a crash on first import — and here that
 # bites harder than anywhere else, because these packages are consumed as raw
 # TYPESCRIPT SOURCE rather than as build output.
-RUN turbo prune pl8-backend l8-backend k7-backend z0-backend \
+RUN turbo prune pl8-backend st0-backend k7-backend z0-backend \
     --docker --out-dir=out-backend
 
 # ---- deps: install from the pruned lockfile --------------------------------
@@ -39,7 +39,7 @@ COPY --from=pruner /repo/out/json/ ./
 RUN npm ci
 
 # ---- frontend builds -------------------------------------------------------
-# Each vite config declares its own public prefix — none for l8 (it IS the
+# Each vite config declares its own public prefix — none for st0 (it IS the
 # origin root), `/pl8/`, `/k7/`, `/z0/` and `/z0/<app>/` — so nothing is passed
 # in but the stamp, and the folders below mirror those prefixes exactly.
 FROM deps AS frontend-build
@@ -54,11 +54,11 @@ COPY scripts ./scripts
 #
 # ENV, and NOT phare's `RUN VITE_APP_VERSION=… npm run build` command prefix:
 # a shell assignment prefixes ONE command, so in the chain below it would stamp
-# l8 and ship the other eight as "dev" — no error, eight wrong SPAs. Declared
+# st0 and ship the other eight as "dev" — no error, eight wrong SPAs. Declared
 # after the FROM so a new stamp busts this layer alone. See docs/versioning.md.
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=$APP_VERSION
-RUN npm run build --workspace l8-frontend \
+RUN npm run build --workspace st0-frontend \
  && npm run build --workspace pl8-frontend \
  && npm run build --workspace k7-frontend \
  && npm run build --workspace z0-online \
@@ -69,7 +69,7 @@ RUN npm run build --workspace l8-frontend \
  && npm run build --workspace z0-monitor
 
 # ---- backend prod deps -----------------------------------------------------
-# `tsx` survives this because it is a real dependency of pl8's and l8's
+# `tsx` survives this because it is a real dependency of pl8's and st0's
 # backends, not a devDependency: those two run their TypeScript directly, and
 # Node's own type stripping is not a substitute — it refuses to strip types
 # inside node_modules, which is exactly where @studio/* is read from.
@@ -89,9 +89,9 @@ COPY --from=pruner /repo/out-backend/full/ ./
 
 # One folder per app, matching the PUBLIC prefixes: the edge sends this
 # container the whole origin UNSTRIPPED and the nginx.conf beside this file
-# does the path routing itself. l8 lands at the root — its index.html and
+# does the path routing itself. st0 lands at the root — its index.html and
 # assets/ beside the other apps' folders — because it answers the origin.
-COPY --from=frontend-build /app/apps/l8/frontend/dist /usr/share/nginx/html/
+COPY --from=frontend-build /app/apps/st0/frontend/dist /usr/share/nginx/html/
 COPY --from=frontend-build /app/apps/pl8/frontend/dist /usr/share/nginx/html/pl8
 COPY --from=frontend-build /app/apps/k7/frontend/dist /usr/share/nginx/html/k7
 COPY --from=frontend-build /app/apps/z0/online/dist /usr/share/nginx/html/z0
@@ -106,7 +106,7 @@ RUN chmod +x /run-backends.sh
 
 # Three volumes, three different things worth keeping, all on distinct paths:
 #   /library                        the médiathèque — pl8 IS its volume
-#   /data                           l8's per-person preferences
+#   /data                           st0's per-person preferences
 #   /app/apps/k7/backend/data       k7's sessions and takes
 VOLUME ["/library", "/data", "/app/apps/k7/backend/data"]
 

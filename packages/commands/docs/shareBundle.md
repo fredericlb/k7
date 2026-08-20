@@ -5,7 +5,7 @@ project share link
 ```
 
 Renders the project, packs it with the documents a browser draws it from, sends the lot to pl8,
-and answers a secret. The link opens **l8 itself, read-only**: no account, no engine, no working
+and answers a secret. The link opens **st0 itself, read-only**: no account, no engine, no working
 copy. Anyone who has it can listen and look; nobody can change anything, because there is nothing
 on the other end that could be changed.
 
@@ -73,16 +73,16 @@ public route, so a crashed upload is never reachable and short. The bytes are st
 (`createReadStream`, `duplex: "half"`), where k7's publish reads its one mp3 into a Blob.
 
 The credential is the machine's own pl8 bearer — `mediatekBase()` / `mediatekToken()`, the
-`service:l8` token `npm run tokens` already writes for the library pull. Sharing needed no new
+`service:st0` token `npm run tokens` already writes for the library pull. Sharing needed no new
 plumbing. A service token has no person of its own, so **every** call names the user (`?user=`):
 three requests, none of which remembers the others.
 
 ## The address
 
-`<origin>/@shares/<token>.l8`
+`<origin>/@shares/<token>.st0`
 
 `@` cannot begin a git short name, so `@shares` can never collide with a repository — the same
-sentinel, for the same reason, as `@banc`. The `.l8` on the end is what makes the whole thing
+sentinel, for the same reason, as `@banc`. The `.st0` on the end is what makes the whole thing
 work: `parseLaunch` ends a project at the last segment claiming the app's suffix, so the token
 becomes the PROJECT part of an ordinary address and `parseLaunch`, `projectBasename` and every
 route below them need no change at all.
@@ -105,5 +105,5 @@ snapshot carries every track's name, every marker's name, every module's name an
 every note in the graph, to anyone the link reaches. That is the feature, and it is also the kind
 of thing that ships without anyone thinking about it.
 
-A share has no expiry. It lives until it is revoked, from l8's own home page — see
+A share has no expiry. It lives until it is revoked, from st0's own home page — see
 `apps/pl8/docs/shares.md` for where the bytes live and what revoking one actually does.

@@ -11,18 +11,18 @@ import { Workspace } from "./workspace.ts";
 
 let root: string;
 let ws: Workspace;
-const MODULE = "song.l8/modules/audio/wurli/module.yaml";
+const MODULE = "song.st0/modules/audio/wurli/module.yaml";
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-base-"));
-  const proj = join(root, "song.l8");
+  const proj = join(root, "song.st0");
   mkdirSync(join(proj, "modules", "audio", "wurli"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   writeYaml(join(proj, "modules", "audio", "wurli", "module.yaml"), {
     extends: "@engine/wurli-v2",
   });
   ws = new Workspace(root);
-  ws.setActiveProject("song.l8");
+  ws.setActiveProject("song.st0");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -30,10 +30,10 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("Workspace.baseSnapshotPath", () => {
   it("puts it in the module's own base/ folder, and creates that folder", () => {
     const { path } = ws.baseSnapshotPath(MODULE, "warm");
-    expect(path).toBe("song.l8/modules/audio/wurli/base/warm.vstpreset");
+    expect(path).toBe("song.st0/modules/audio/wurli/base/warm.vstpreset");
     // Created here rather than by the engine: the engine writes where it is told, and being told
     // a path whose parent does not exist is not something it should have to recover from.
-    expect(existsSync(join(root, "song.l8/modules/audio/wurli/base"))).toBe(
+    expect(existsSync(join(root, "song.st0/modules/audio/wurli/base"))).toBe(
       true,
     );
   });
@@ -50,7 +50,7 @@ describe("Workspace.baseSnapshotPath", () => {
     const { abs, path } = ws.baseSnapshotPath(MODULE, "warm");
     expect(abs.endsWith(join("base", "warm.vstpreset"))).toBe(true);
     // The relative one is the browser's: it has no idea where the workspace lives.
-    expect(path.startsWith("song.l8/")).toBe(true);
+    expect(path.startsWith("song.st0/")).toBe(true);
   });
 
   it("cannot climb out of the module, however the name is spelt", () => {
@@ -60,12 +60,12 @@ describe("Workspace.baseSnapshotPath", () => {
     // never do is produce a second path segment, which is what would let it leave `base/`.
     for (const evil of [
       "../../../../etc/passwd",
-      "..\..\windows\system32\cfg",
+      "....windowssystem32cfg",
       "sub/warm",
       "%2e%2e/warm",
     ]) {
       const { path } = ws.baseSnapshotPath(MODULE, evil);
-      const inside = "song.l8/modules/audio/wurli/base/";
+      const inside = "song.st0/modules/audio/wurli/base/";
       expect(path.startsWith(inside)).toBe(true);
       // One segment past `base/` — no separator survived to make a second.
       expect(path.slice(inside.length)).not.toContain("/");

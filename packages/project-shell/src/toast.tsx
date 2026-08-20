@@ -1,4 +1,4 @@
-// toast.tsx — lightweight auto-dismissing notifications, shared by l8 and m9. No external
+// toast.tsx — lightweight auto-dismissing notifications, shared by st0 and m9. No external
 // library. Render <Toaster/> once at the app root; call `showToast({ message, variant })`
 // from anywhere. Stacks bottom-right, auto-dismisses after `duration` ms.
 

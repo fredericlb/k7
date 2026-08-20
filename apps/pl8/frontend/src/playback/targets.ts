@@ -44,7 +44,7 @@ export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
   {
     id: "machine",
     label: "Les enceintes de la machine",
-    // Ce que ça change vraiment par rapport au moteur : rien ne lui est demandé, donc l8 peut
+    // Ce que ça change vraiment par rapport au moteur : rien ne lui est demandé, donc st0 peut
     // s'en servir en même temps, et le fichier ne traverse pas le réseau — il est déjà là-bas.
     hint: "joué par la machine elle-même, sans passer par le moteur",
     icon: Radio,

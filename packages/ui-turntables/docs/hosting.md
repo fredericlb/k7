@@ -1,7 +1,7 @@
 # What a host owes the desk
 
 Two turntables meeting at a crossfade, their channel strips, the waveforms, the cues and the
-set list. l8 draws it as a `surfaces/` view (`packages/song/docs/surfaces.md`).
+set list. st0 draws it as a `surfaces/` view (`packages/song/docs/surfaces.md`).
 
 ## The seam is the ENGINE, and only the engine
 
@@ -10,9 +10,9 @@ calls that watch and publish them. **Nothing in it names a host.** The registry,
 the service prefix and the lease are how a host *obtains* an engine, and none of that is in the
 type — which is what keeps the desk independent of the app around it.
 
-So a host supplies a `Deck` and the desk asks nothing else. l8 does it with an adapter over the
+So a host supplies a `Deck` and the desk asks nothing else. st0 does it with an adapter over the
 link its shell already holds, since it has an engine before it has a surface
-(`apps/l8/frontend/src/hooks/useTurntableDeck.ts`).
+(`apps/st0/frontend/src/hooks/useTurntableDeck.ts`).
 
 ### The transport is TWO readers, and a host owes both
 
@@ -43,15 +43,15 @@ literally said, and `drawNow` is an estimate of the same thing. Moving the cue p
 `drawNow` would probably be an improvement and would change where cues land by a few
 milliseconds — a musician-facing change, and so a decision rather than a tidy-up. Until then a
 host owes both, and must not implement one by calling the other.
-`@studio/engine-browser/playhead-clock` is the clock; l8's adapter feeds it the same frames it
+`@studio/engine-browser/playhead-clock` is the clock; st0's adapter feeds it the same frames it
 writes into the ref, a few lines apart.
 
 ### `sendProject` is part of the seam, and it is not optional
 
 The desk plays by handing over a whole `ProjectDoc`. **Who is allowed to hand one to an engine is
-the host's answer, not the desk's**: l8's file service loads l8's project itself and is the only
+the host's answer, not the desk's**: st0's file service loads st0's project itself and is the only
 writer to that engine. So `sendDecks` takes `Deck.sendProject` rather than an `EngineClient`, and
-l8 posts to its service.
+st0 posts to its service.
 
 Getting this wrong is not subtle and it is not loud either: two writers push documents that are
 each correct, and the last one wins. See `packages/song/docs/surfaces.md` for the ordering rule
@@ -74,12 +74,12 @@ Nor an editor or a graph view. A file tree and an editor are `@studio/ui-editor`
 desk's, and the chains graph is `@studio/ui-chains-react`'s. What the graph needs FROM here —
 `M9_ICONS` and `deckGraph` — lives here because those describe *decks*.
 
-## The set list is a FILE, and that is what makes l8 able to host it
+## The set list is a FILE, and that is what makes st0 able to host it
 
 A playlist in the workspace's `_playlists/`, named by the surface's `playlist:` and read
 through `@studio/song/playlist`. Nothing about it is desk-shaped: it names médiathèque songs,
-and l8 has a screen for writing one under its cog. That is why bringing the desk to l8 did not
-require inventing a set-list concept for l8 — the concept was already there, in the repository,
+and st0 has a screen for writing one under its cog. That is why bringing the desk to st0 did not
+require inventing a set-list concept for st0 — the concept was already there, in the repository,
 shared by every project in it.
 
 The host passes the NAME and this package reads the file. That split is the same one `mapping`

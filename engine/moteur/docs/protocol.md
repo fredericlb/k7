@@ -11,7 +11,7 @@ interprets the song, resolves clip paths to absolute, and sends the project as J
 
 `{ "session": "m9", … }` on any message names **which project on this engine** it is
 about. One process hosts several (`docs/multiEdit.md`), so without it the médiathèque's
-module preview and an m9 deck would each replace whatever l8 had loaded.
+module preview and an m9 deck would each replace whatever st0 had loaded.
 
 The field is optional and absent means `""`, the default session — so a client that has
 never heard of sessions keeps working exactly as before, which is what let the engine grow
@@ -34,7 +34,7 @@ own edit, plugins, meters, watch set, record enable and **broadcast tap**: an au
 hears the session it subscribed for, not the machine's master.
 
 The engine's own half of this — the registry's threading model and the lifecycle rule — is
-`docs/sessions.md`. Client rules, who picks the name, and why l8's two halves must agree on it
+`docs/sessions.md`. Client rules, who picks the name, and why st0's two halves must agree on it
 are in `packages/engine-protocol/docs/sessions.md`.
 
 ## client → server

@@ -33,7 +33,7 @@ page is.
 The wire verbs come from `@studio/engine-browser`'s `EngineClient`, which grew the
 control queries (`listSessions`, `listAudioDevices`, `setAudioDevice`,
 `listPlugins`, `rescanPlugins`, `listEditPlugins`, and a `session` override on
-`showNativePluginUI`) so l8 or m9 can draw the same panel without re-stating the
+`showNativePluginUI`) so st0 or m9 can draw the same panel without re-stating the
 wire.
 
 ## Routing

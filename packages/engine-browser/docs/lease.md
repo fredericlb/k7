@@ -23,13 +23,13 @@ Two apps shipped that exact bug independently:
 - m9, whose deck took the lease once and had no `release` in its api client at all — so a deck
   mid-set read as available.
 
-l8' `EngineGate` had renewed from the start. Three copies of one loop, one of which was
+st0' `EngineGate` had renewed from the start. Three copies of one loop, one of which was
 missing, is what moved it here.
 
 ## What a caller supplies
 
 `holdEngine` takes the two calls rather than making them, because each service reaches **its
-own** backend under its own path prefix — `/api` (l8 has none, it answers the origin),
+own** backend under its own path prefix — `/api` (st0 has none, it answers the origin),
 `/pl8/api`, `/m9/api` — and each
 holds its own registry (see `packages/engine-registry/docs/shared.md`). The loop is the shared
 part; the address is not.

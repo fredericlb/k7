@@ -34,7 +34,7 @@ The string was real. What the page did not say is that the string was the **smal
 
 ## What the profiler actually found
 
-A Firefox profile of l8 during playback, ~23 s on a 149 Hz screen, 15.6 s of CPU on the
+A Firefox profile of st0 during playback, ~23 s on a 149 Hz screen, 15.6 s of CPU on the
 content process's main thread:
 
 | | |

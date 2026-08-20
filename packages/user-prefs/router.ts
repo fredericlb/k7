@@ -12,7 +12,7 @@ import type { PrefsStore } from "./store.ts";
  *
  * A zod object strips what it does not declare, silently and by default, so a service whose
  * schema has fallen behind its frontend answers `{ok:true}` and stores less than it was handed.
- * l8 lost the whole command layer that way: renaming commands worked, saving said it had, and a
+ * st0 lost the whole command layer that way: renaming commands worked, saving said it had, and a
  * reload showed the catalogue's own names again — the schema still described the day it held one
  * field. Nothing anywhere said so, which is what makes this worth a check rather than a comment.
  *
@@ -28,7 +28,7 @@ export function droppedKeys(sent: unknown, kept: unknown): string[] {
 /**
  * The routes over one store, validating writes against `schema`.
  *
- * The schema is the HOST's, not this package's: l8 and the médiathèque remember
+ * The schema is the HOST's, not this package's: st0 and the médiathèque remember
  * different things, and a union of every service's fields here would be a shape no service
  * actually has.
  */

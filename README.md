@@ -5,7 +5,7 @@ The music and stage apps of the frediverse.
 | app | what it is | dev site |
 |---|---|---|
 | `apps/k7` | rehearsal recorder — sessions, takes, tablature, tuner | `st0.priv.frediver.se/k7` |
-| `apps/l8` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
+| `apps/st0` | text-first DAW — the web editor; the origin's front door | `st0.priv.frediver.se` |
 | `apps/pl8` | the media library — songs, samples, recordings | `st0.priv.frediver.se/pl8` |
 | `engine/moteur` | the native C++ audio engine (JUCE/Tracktion) | — |
 | `engine/capot` | the Tauri tray that supervises the engine | — |
@@ -14,7 +14,7 @@ The music and stage apps of the frediverse.
 `packages/` is studio's shared tier, all `@studio/*` and consumed as raw
 TypeScript source: the song compiler, the command layer, the engine client and
 supervisor, the view engines, the waveform component. The engine and the tray
-serve every audio app, not just l8 — hence their own directories. Anything
+serve every audio app, not just st0 — hence their own directories. Anything
 shared with the `phare` monorepo lives in `commons/` instead.
 
 ## Getting started

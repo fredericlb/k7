@@ -28,8 +28,8 @@ partial clone with this filter downloads commits and **trees** — the directory
 and no file contents at all. A repository with a gigabyte of stems costs a few megabytes
 here.
 
-It works because of what project detection actually is: **a folder's name**. `mysong.l8` opens
-in l8, `myset.m9` opens in m9, and `packages/web-protocol/projects.ts` is the whole rule.
+It works because of what project detection actually is: **a folder's name**. `mysong.st0` opens
+in st0, `myset.m9` opens in m9, and `packages/web-protocol/projects.ts` is the whole rule.
 Detection is therefore a question about the set of paths, and the set of paths is exactly what
 a tree is. Nothing here ever needs a blob.
 
@@ -42,8 +42,8 @@ could not run here at all. The two questions are different and both still exist 
 - **can the engine be given it** → a `project.yaml`, answered by `@studio/song` on a real
   checkout, where the file can actually be read.
 
-A `.l8` folder with no `project.yaml` is therefore listed and openable, and fails to compile
-once open, with l8's own error saying so. That is the honest order: pl8 cannot know, and
+A `.st0` folder with no `project.yaml` is therefore listed and openable, and fails to compile
+once open, with st0's own error saying so. That is the honest order: pl8 cannot know, and
 pretending otherwise would mean fetching blobs for every folder in every repository. It is
 also what lets m9 open a `.m9` folder that is chains and local modules rather than a song.
 
@@ -69,8 +69,8 @@ does not exist.
 Disk on the hosted volume, and one `git fetch` per refresh. Neither is free, so:
 
 - the mirror is refreshed **when a repository is added, and on the refresh button** — not on
-  every render. `useGitStatus` in l8 is on a ten-minute timer for the same reason
-  (`apps/l8/frontend/src/hooks/usePolls.ts:33`);
+  every render. `useGitStatus` in st0 is on a ten-minute timer for the same reason
+  (`apps/st0/frontend/src/hooks/usePolls.ts:33`);
 - a mirror nobody has read for a while can be deleted. `ensureMirror` recreates it on the
   next look, so eviction costs a wait and never data.
 
@@ -78,7 +78,7 @@ Disk on the hosted volume, and one `git fetch` per refresh. Neither is free, so:
 
 `buildTree` returns `FileNode[]` — the **same** type the file service serves from `/tree`
 (`packages/web-protocol/types.ts:6`), including the `project?: boolean` flag on directories.
-That is deliberate: l8's home page and l8's own file tree then draw the same rows from
+That is deliberate: st0's home page and st0's own file tree then draw the same rows from
 the same shape, and "is this folder a project" has one spelling across the repo.
 
 `-r` without `-t` lists blobs only, so directories arrive implied by the paths rather than as

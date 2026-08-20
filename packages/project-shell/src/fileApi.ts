@@ -1,6 +1,6 @@
 // fileApi.ts — the transport to the engine-side file service: where it is, the three headers
 // that identify the caller, and the two verbs everything else is built from. Cross-origin and
-// header-authenticated, never same-origin — see apps/l8/AGENTS.md for the three servers a
+// header-authenticated, never same-origin — see apps/st0/AGENTS.md for the three servers a
 // project app talks to and which is which.
 
 import {
@@ -76,7 +76,7 @@ const inFlight = new Map<string, Promise<string>>();
  * Not a cache: nothing is kept once a request settles, so two calls a second apart are two
  * requests. What it collapses is the burst — the derived views are asked for by several
  * components at once, every one of them on the same `reloadKey`, and each answer costs the
- * service a real compile or a real walk. In l8, four components re-fetch `/graph` on a reload
+ * service a real compile or a real walk. In st0, four components re-fetch `/graph` on a reload
  * and five `/project-doc` — whichever of them are mounted. The service answered each
  * separately, with the same bytes, out of a memo they were all hitting: the revision walk in
  * front of that memo is ~5 ms every time.

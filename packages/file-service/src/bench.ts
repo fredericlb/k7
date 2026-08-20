@@ -1,6 +1,6 @@
-// bench.ts — a generated `.l8` project that IS one chain of the library submodule, and whose
+// bench.ts — a generated `.st0` project that IS one chain of the library submodule, and whose
 // saves are written back into it instead of forking a copy. Opened on ONE chain: the
-// catalogue-at-large bench is gone, and modules are edited from l8's Libraries tab.
+// catalogue-at-large bench is gone, and modules are edited from st0's Libraries tab.
 // Rationale: apps/pl8/docs/banc.md.
 
 import {
@@ -61,12 +61,12 @@ export const BENCH_WORKSPACE = "Banc";
 function ensureBenchProject(userEmail: string, project: string): string {
   const dir = join(workspaceRoot(slugify(userEmail), BENCH_WORKSPACE), project);
   const projectFile = join(dir, "project.yaml");
-  if (!existsSync(projectFile)) scaffoldBench(dir, basename(project, ".l8"));
+  if (!existsSync(projectFile)) scaffoldBench(dir, basename(project, ".st0"));
   return dir;
 }
 
 /**
- * The same bench, opened on ONE médiathèque chain — `@banc/chains/<path>.l8`.
+ * The same bench, opened on ONE médiathèque chain — `@banc/chains/<path>.st0`.
  *
  * The chain is not COPIED into a project so much as read as one: `graph.yaml` is the catalogue's
  * file with its two boundary nodes translated into the bench's furniture (`@studio/song/benchChain`),
@@ -106,7 +106,7 @@ export async function ensureChainBench(
   writeFileSync(join(dir, CHAIN_FILE), chainToBench(text, BENCH_EDGES));
 
   // The nodes, which are flat and named by their file in both places — the médiathèque's
-  // chain folder and an l8 project use the same shape, which is why this is a copy and not a
+  // chain folder and an st0 project use the same shape, which is why this is a copy and not a
   // conversion. Emptied first, so a node dropped from the chain does not linger.
   const nodes = join(dir, "nodes");
   rmSync(nodes, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 // The chains graph, rendered from a hand-written WebGraph.
 //
 // It exists for the PORTS: which sockets a node shows depends on what is wired to it, and that is a rule you
-// have to see to judge. The repo's tests cover pure logic and nothing mounts a component (see l8's AGENTS.md),
+// have to see to judge. The repo's tests cover pure logic and nothing mounts a component (see st0's AGENTS.md),
 // so without this the only way to look at a node's sockets was to start the engine, the tray, the file service
 // and the editor, and open a song.
 //
@@ -15,7 +15,7 @@ import { useState } from "react";
 import { DomChains } from "./DomChains";
 import { ModuleIcon, moduleGlyph } from "./moduleIcons";
 
-// A track's glyph is the HOST's vocabulary (l8 draws the same one in its mixer), so the package ships none.
+// A track's glyph is the HOST's vocabulary (st0 draws the same one in its mixer), so the package ships none.
 // A coloured dot stands in — enough to see a lane apart from a module.
 const icons = {
   ModuleIcon,
@@ -141,7 +141,7 @@ export const SecondInputOffered: Story = {
   },
 };
 
-/** …and wired, which is engine/capot/songs/crossfade-demo.l8: the cable naming `#b` lands on `b`. */
+/** …and wired, which is engine/capot/songs/crossfade-demo.st0: the cable naming `#b` lands on `b`. */
 export const BothInputsWired: Story = {
   args: {
     graph: {

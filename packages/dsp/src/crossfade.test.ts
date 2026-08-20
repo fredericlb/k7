@@ -61,7 +61,7 @@ describe("the crossfade graph", () => {
           "engine",
           "capot",
           "songs",
-          "crossfade-demo.l8",
+          "crossfade-demo.st0",
           "modules",
           "audio",
           "crossfade",

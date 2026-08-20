@@ -140,7 +140,7 @@ function entryOf(r: ResolvedItem, entries: MediatekEntry[]): SetEntry {
  * Dropping it would make a set list that is missing three songs indistinguishable from one
  * that never had them.
  *
- * Deduplicated by ref, keeping the first. A playlist may legitimately name a song twice — l8's
+ * Deduplicated by ref, keeping the first. A playlist may legitimately name a song twice — st0's
  * screen draws both rows, because there it is a document you are editing — but this is a
  * BROWSER, where two identical rows are two chances to pick the same record and no way to tell
  * which you got. Same answer `songRefs` gave for `songs.yaml`, for a different reason.

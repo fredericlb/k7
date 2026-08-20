@@ -1,7 +1,7 @@
 # Les projets de z0
 
 Une session de blindtest est aujourd'hui un sous-arbre de lignes Grist. Cette page dit
-comment elle se range désormais comme l8 range un morceau : **un dossier de YAML**,
+comment elle se range désormais comme st0 range un morceau : **un dossier de YAML**,
 versionné, ouvert sur un projet. La forme est déduite des trois sessions réelles du document
 Grist `wBLP4e1P71vAW3T5zzfQtH` — les chiffres cités viennent de là, pas d'une supposition —
 et les trois sessions ont été migrées (voir « Ce qui a été migré », en bas).
@@ -52,7 +52,7 @@ Aucune de ces tables ne décrit une session ; toutes décrivent une partie joué
 
 ## La forme
 
-Comme un `.l8` : un dossier, un fichier d'en-tête, un fichier par entité, et **le nom du
+Comme un `.st0` : un dossier, un fichier d'en-tête, un fichier par entité, et **le nom du
 fichier est l'identifiant**.
 
 ```
@@ -273,7 +273,7 @@ des 304 adresses citées existe sur le volume avec un master**.
    à côté et la reprise redevient une variante — c'est une opération par morceau, sans
    toucher au YAML.
 3. **`.z0` n'est pas encore un suffixe de projet.** `packages/web-protocol/projects.ts` dit
-   `l8` et `m9`, et écrit noir sur blanc que « k7 et z0 ne possèdent pas de projets ». Les
+   `st0` et `m9`, et écrit noir sur blanc que « k7 et z0 ne possèdent pas de projets ». Les
    dossiers sont donc dans le dépôt et invisibles dans la liste de pl8 tant que z0 n'y est
    pas ajouté — un `ProjectApp` de plus, et le routage vers `/z0` qui va avec.
 

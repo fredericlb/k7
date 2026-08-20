@@ -91,7 +91,7 @@ form stays available for the common case where there is no ambiguity.
 ## The drawing
 
 A chain variant is **drawn**, through the same `ChainView` the chain editor uses — which is the
-same `buildGraph → layout → DomChains` pipeline l8 and m9 run. One figure per chain, not one
+same `buildGraph → layout → DomChains` pipeline st0 and m9 run. One figure per chain, not one
 merged graph: two variants are two different treatments of the same song, and overlaying them
 would suggest a signal path running through both.
 

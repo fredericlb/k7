@@ -19,7 +19,7 @@ that lands on its value beats a bar that chases it.
 
 The cost was not the easing. It was that `height` **cannot be animated on the compositor**, so
 each restart meant a restyle, a reflow and a display-list entry on the main thread — and there
-is one of these per fader. A Firefox profile of l8 during playback (~17 s, zoomed in far enough
+is one of these per fader. A Firefox profile of st0 during playback (~17 s, zoomed in far enough
 to draw the widget grids) counted:
 
 - **1 693 `CSS transition` markers, every one of them on `height`**, every one with

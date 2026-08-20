@@ -65,7 +65,7 @@ const SCHEMA: TableSchema = {
     ["ReleaseDate", "Text"],
     ["Description", "Text"],
     ["CanDownload", "Bool"],
-    // Stable id of the originating l8 song (set on CLI import); lets a
+    // Stable id of the originating st0 song (set on CLI import); lets a
     // re-export add a version to the same release instead of creating a new one.
     ["SongUuid", "Text"],
     ["CreatedAt", "Text"],

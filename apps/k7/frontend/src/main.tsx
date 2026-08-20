@@ -7,7 +7,7 @@ import { LocaleProvider } from "./i18n.ts";
 import "./styles.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  // basename, not a plain root, exactly as in l8, m9 and pl8: the app is served
+  // basename, not a plain root, exactly as in st0, m9 and pl8: the app is served
   // under st0.priv.frediver.se/k7, and BASE_URL is the one place that prefix is declared
   // (vite `base`). Without it every navigate() writes a bare /sessions, which
   // belongs to pl8 — the app kept working until you reloaded, and then you landed

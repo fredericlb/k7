@@ -1,4 +1,4 @@
-// The one test that stops l8' two halves from drifting apart.
+// The one test that stops st0' two halves from drifting apart.
 //
 // The browser drives transport, this service compiles and sends the song. They address the
 // same project only if they spell its session identically — and a mismatch raises nothing
@@ -86,7 +86,7 @@ describe("sessionOf", () => {
       "a.b+c@example.co.uk",
       "UPPER@Example.COM",
     ])
-      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.l8, email));
+      expect(sessionOf(wsFor(email))).toBe(sessionFor(SESSIONS.st0, email));
   });
 
   it("separates two people, and joins one person's workspaces", () => {
@@ -101,15 +101,15 @@ describe("sessionOf", () => {
   // A bare folder opened directly (rootIsProject) has no owner in its path. One machine,
   // one person — the case that shape exists for — so the bare service id is right.
   it("falls back to the bare service id outside the users root", () => {
-    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.l8);
-    expect(sessionOf(null)).toBe(SESSIONS.l8);
+    expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.st0);
+    expect(sessionOf(null)).toBe(SESSIONS.st0);
   });
 });
 
 // Narrowing a watcher is the kind of change that fails SILENTLY — a pattern edit simply stops
 // reloading, and nothing says why. So the predicate is tested rather than trusted.
 describe("outsideTheWatch", () => {
-  const dir = join("/tmp", "song.l8");
+  const dir = join("/tmp", "song.st0");
   const file = { isFile: () => true } as Stats;
   const folder = { isFile: () => false } as Stats;
 
@@ -207,7 +207,7 @@ describe("pruneIdleLinks", () => {
     // bare session — which, before any /open, is exactly the one nothing is playing in.
     ensureEngine(null);
     const client = last();
-    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.l8]);
+    expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.st0]);
     expect(client.closed).toBe(true);
   });
 
@@ -245,7 +245,7 @@ describe("enginePreview", () => {
     const client = built.at(-1);
     if (!client) throw new Error("no engine client was built");
     expect(client.session).toBe(sessionOf(wsFor("fred@parapluie.org")));
-    expect(client.session).not.toBe(SESSIONS.l8); // the bare id is the silent wrong room
+    expect(client.session).not.toBe(SESSIONS.st0); // the bare id is the silent wrong room
     expect(client.previews).toEqual([["C:/a.wav", 0, 0.5]]);
   });
 });

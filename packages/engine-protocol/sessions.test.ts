@@ -13,18 +13,18 @@ import {
 
 describe("sessionFor", () => {
   it("is stable for one person and one service", () => {
-    expect(sessionFor(SESSIONS.l8, "fred@parapluie.org")).toBe(
-      "l8:fred_parapluie_org",
+    expect(sessionFor(SESSIONS.st0, "fred@parapluie.org")).toBe(
+      "st0:fred_parapluie_org",
     );
   });
 
   // The collision this exists to end: two people on the SAME engine must not share a project.
   it("separates two people on one service", () => {
-    expect(sessionFor("l8", "a@x.org")).not.toBe(sessionFor("l8", "b@x.org"));
+    expect(sessionFor("st0", "a@x.org")).not.toBe(sessionFor("st0", "b@x.org"));
   });
 
   it("separates one person's services", () => {
-    expect(sessionFor("l8", "a@x.org")).not.toBe(sessionFor("pl8", "a@x.org"));
+    expect(sessionFor("st0", "a@x.org")).not.toBe(sessionFor("pl8", "a@x.org"));
   });
 
   // A surface with no user — a deck on the machine in front of you — is unchanged.
@@ -36,17 +36,17 @@ describe("sessionFor", () => {
 
 describe("forSession", () => {
   it("reads a frame addressed to it", () => {
-    expect(forSession({ session: "l8:a" }, "l8:a")).toBe(true);
+    expect(forSession({ session: "st0:a" }, "st0:a")).toBe(true);
   });
 
   it("drops another session's frame", () => {
-    expect(forSession({ session: "l8:b" }, "l8:a")).toBe(false);
+    expect(forSession({ session: "st0:b" }, "st0:a")).toBe(false);
   });
 
   // DISAGREEMENT, not absence: engine-global replies carry no session, and an engine older
   // than sessions stamps nothing — requiring the field would make a new client deaf.
   it("lets an unstamped frame through", () => {
-    expect(forSession({}, "l8:a")).toBe(true);
+    expect(forSession({}, "st0:a")).toBe(true);
     expect(forSession({ session: undefined }, DEFAULT_SESSION)).toBe(true);
   });
 
@@ -76,16 +76,16 @@ describe("the stamped/unstamped sets", () => {
 
   it("drops every per-session reply that belongs to someone else", () => {
     for (const type of PER_SESSION_REPLIES)
-      expect(forSession(frame(type, "l8:b"), "l8:a")).toBe(false);
+      expect(forSession(frame(type, "st0:b"), "st0:a")).toBe(false);
   });
 
   it("keeps every per-session reply of its own", () => {
     for (const type of PER_SESSION_REPLIES)
-      expect(forSession(frame(type, "l8:a"), "l8:a")).toBe(true);
+      expect(forSession(frame(type, "st0:a"), "st0:a")).toBe(true);
   });
 
   it("lets every engine-global reply through unstamped", () => {
     for (const type of ENGINE_GLOBAL_REPLIES)
-      expect(forSession(frame(type), "l8:a")).toBe(true);
+      expect(forSession(frame(type), "st0:a")).toBe(true);
   });
 });

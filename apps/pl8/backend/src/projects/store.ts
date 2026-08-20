@@ -13,7 +13,7 @@ import { fileFor } from "@studio/user-prefs";
 export interface RepoRecord {
   /** Stable across spellings: derived from the NORMALIZED uri, so adding the same repo twice is idempotent. */
   id: string;
-  /** As it was pasted — this is what gets handed to git, and to l8. */
+  /** As it was pasted — this is what gets handed to git, and to st0. */
   uri: string;
   label: string;
   addedAt: string;

@@ -1,7 +1,7 @@
 # Per-user preferences: a file, not a database
 
 One JSON per user on a volume, keyed by the OIDC subject. It exists because the hosted side
-of studio remembered **nothing** about a person: l8' engine pick lived in `sessionStorage`
+of studio remembered **nothing** about a person: st0' engine pick lived in `sessionStorage`
 (so a second tab lost it), the médiathèque had no settings screen at all, and
 `~/.studio/preferences.yaml` — the one thing that looks like this — is per-MACHINE, on the
 engine's side of the wire, shared by every hosted user who selects that machine.
@@ -11,7 +11,7 @@ engine's side of the wire, shared by every hosted user who selects that machine.
 What is stored is one engine id per person. Losing it costs one click. That is the whole
 risk budget, and it does not buy a database:
 
-- l8-backend and pl8-backend have **no database dependency today**. Adding Grist to
+- st0-backend and pl8-backend have **no database dependency today**. Adding Grist to
   both, for a string, would be the largest dependency either has ever taken for the smallest
   fact either has ever stored.
 - The médiathèque's own argument applies unchanged — *the filesystem is the index* — and it
@@ -49,7 +49,7 @@ to clear — you could pick an engine and never un-pick one.
 
 ## The schema belongs to the host
 
-`preferencesRouter(store, schema)` takes the shape from whoever mounts it. l8 and the
+`preferencesRouter(store, schema)` takes the shape from whoever mounts it. st0 and the
 médiathèque remember different things, and a union of every service's fields would be a
 shape no service actually has.
 
@@ -60,8 +60,8 @@ schema has fallen behind its frontend accepts a write, answers `{ok:true}`, and 
 it was handed — and the browser, holding the whole object in memory, sees nothing wrong until the
 next load.
 
-l8 lost its entire command layer that way. Renaming a command worked, the page said it had saved,
-and a reload showed the catalogue's own names again: `L8Prefs` had grown a `commands` field in the
+st0 lost its entire command layer that way. Renaming a command worked, the page said it had saved,
+and a reload showed the catalogue's own names again: `St0Prefs` had grown a `commands` field in the
 browser while `prefsSchema` still read `z.object({ engineId: z.string().optional() })` under a
 comment that said *one field so far*. On disk there was only ever the engine id.
 

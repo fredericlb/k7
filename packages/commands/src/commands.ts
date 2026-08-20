@@ -1,6 +1,6 @@
 // commands.ts — the feature registry: one stable SID (module.new, transport.play, …) per
 // capability, mapped to a handler that acts through a CommandHost, so the SAME feature
-// runs from the web command bar and from `l8 cmd`. Which words invoke a SID lives
+// runs from the web command bar and from `st0 cmd`. Which words invoke a SID lives
 // declaratively in commands.yaml (see commandSpec.ts); this file is just the behaviours.
 
 import {
@@ -158,7 +158,7 @@ export interface CommandHost {
    *
    * Two channels because a surface cannot tell them apart otherwise, and for a long time it
    * could not: sixty-five refusals in this file went out through `log`, so "no such track" and
-   * "3 events consolidated" reached l8's status bar as the same sentence in the same colour, and
+   * "3 events consolidated" reached st0's status bar as the same sentence in the same colour, and
    * its journal recorded both as `info`. A refused command read exactly like a command that had
    * worked — which is how a person ends up reporting that a verb "did nothing".
    *

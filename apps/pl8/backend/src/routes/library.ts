@@ -383,7 +383,7 @@ libraryRouter.post(
 
 // `POST /engine-faces` stood here: one pass turning a machine's whole plugin scan into
 // library modules that give `@engine/…` refs a name and a folder. It went with the `modules`
-// family — this volume holds none. The capability itself is worth having and belongs in l8,
+// family — this volume holds none. The capability itself is worth having and belongs in st0,
 // where a plugin is actually loaded; it is not ported yet.
 
 /** An empty folder — somewhere to drop into before the first file exists. */

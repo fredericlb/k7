@@ -1,6 +1,6 @@
 // ProjectGate.tsx — resolve the repository this app was opened on into a folder on the
 // engine's machine, cloning it if that machine has never seen it, then open the project and
-// render the app. No app picks anything here: a project is chosen on l8's home page, and
+// render the app. No app picks anything here: a project is chosen on st0's home page, and
 // arriving with no target sends you back there. See docs/launch.md.
 
 import { isBench, type ProjectApp } from "@studio/web-protocol/projects";
@@ -71,7 +71,7 @@ export interface ProjectGateStrings {
   /**
    * The bench's wait, which is a catalogue fetch and not a clone — see the gate's bench branch.
    *
-   * OPTIONAL, and that is the honest shape: the bench is a `.l8` project, so m9 can never
+   * OPTIONAL, and that is the honest shape: the bench is a `.st0` project, so m9 can never
    * be opened on one and have nothing to say about it. Required here, they would each be made to
    * translate a screen neither can reach.
    */
@@ -139,7 +139,7 @@ export function ProjectGate({
   /** Where this app is mounted, as vite's `import.meta.env.BASE_URL` gives it (`/`). The
    *  package cannot read another package's build constant, so the app hands it over. */
   base: string;
-  /** Each app owns its own wording (l8 has paraglide, m9 is French in place). */
+  /** Each app owns its own wording (st0 has paraglide, m9 is French in place). */
   strings: ProjectGateStrings;
   /** Rendered once the project is open — the app itself. */
   children: (ctx: {
@@ -189,10 +189,10 @@ export function ProjectGate({
   }, [onQuit]);
 
   // No target at all — a hand-typed address, or an app mounted with nothing after its prefix.
-  // `projectsUrl` is l8's home page, the one screen where a project is chosen, so go there
+  // `projectsUrl` is st0's home page, the one screen where a project is chosen, so go there
   // rather than inventing a second picker this app would then have to keep in step.
   //
-  // l8 itself no longer reaches this: its `main.tsx` draws that home page instead of mounting
+  // st0 itself no longer reaches this: its `main.tsx` draws that home page instead of mounting
   // the gate. This is the road for every OTHER app that mounts one — z0's editor today.
   useEffect(() => {
     if (!target) window.location.replace(projectsUrl(window.location.href));
@@ -240,10 +240,10 @@ export function ProjectGate({
          * Reported as `cloning`, because from here it is the same thing: a visible wait while a
          * machine fetches a catalogue. The first one is the slow one.
          */
-        // `app` as well as the name: the bench is a `.l8` project, so `/m9/@banc/…` names
+        // `app` as well as the name: the bench is a `.st0` project, so `/m9/@banc/…` names
         // nothing and must fall through to the ordinary road, where pl8 answers "no such
         // repository" — which is exactly what it is.
-        if (app === "l8" && isBench(repoName)) {
+        if (app === "st0" && isBench(repoName)) {
           setPhase({
             k: "cloning",
             workspace: strings.benchWorkspace ?? "",
@@ -338,7 +338,7 @@ export function ProjectGate({
           if (cancelled) return;
           // A refusal, not a fault: the service answered, and what it said is the whole story.
           // Probing it would ask whether it is reachable — it plainly is — and then show the
-          // answer under the CORS banner, which is what made this look like l8's fault.
+          // answer under the CORS banner, which is what made this look like st0's fault.
           const status = (e as { status?: number }).status;
           if (status === 400 || status === 404) {
             setPhase({ k: "missing", message: (e as Error).message });

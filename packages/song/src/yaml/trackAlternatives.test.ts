@@ -177,7 +177,9 @@ params: { Gain: 3 }
 
   it("the new take is EDITABLE without touching the old one", () => {
     // The two halves together, which is the whole report: create, then place a clip.
-    const created = addAlternative(PLAIN, undefined, { blankEvents: true }).text;
+    const created = addAlternative(PLAIN, undefined, {
+      blankEvents: true,
+    }).text;
     const after = addPlacement(created, { ref: "take2_a", start: "1:1" });
     expect(own(after).map((p: { ref: string }) => p.ref)).toEqual([
       "take1_a",

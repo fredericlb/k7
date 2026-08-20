@@ -29,11 +29,13 @@ function normalize(doc: unknown): unknown {
   );
 }
 
-// The name here is the SNAPSHOT KEY, and the folder is that plus `.l8` — the suffix that says
+// The name here is the SNAPSHOT KEY, and the folder is that plus `.st0` — the suffix that says
 // which app opens a project (see packages/web-protocol/projects.ts). Kept apart on purpose:
 // carrying it into the key would rewrite every snapshot for a rename that changed no output.
 describe.each(["synth-demo", "rack-demo"])("golden compile: %s", (song) => {
   it("compiles to a stable ProjectDoc (run `vitest -u` to update after an intended change)", () => {
-    expect(normalize(loadProject(join(SONGS, `${song}.l8`)))).toMatchSnapshot();
+    expect(
+      normalize(loadProject(join(SONGS, `${song}.st0`))),
+    ).toMatchSnapshot();
   });
 });

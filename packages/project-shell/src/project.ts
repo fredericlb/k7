@@ -1,6 +1,6 @@
 // project.ts — the file-service routes every project app needs: resolving a repository to a
 // workspace on this machine, the tree and the files in it, the compiled views the engine and
-// the graph are drawn from, and the repository's git. l8 spreads this into its own client and
+// the graph are drawn from, and the repository's git. st0 spreads this into its own client and
 // adds what only it has (timeline, waveforms, video); z0's editor uses it as it stands.
 
 import type { ProjectDoc } from "@studio/engine-protocol/project";
@@ -60,7 +60,7 @@ export const projectApi = {
       // The account's library repository: the chain being opened is IN it, and so are the
       // modules that chain names. Passed for the same reason `open` takes it.
       libraries,
-      // What the address named, handed over as it was written: `chains/<path>.l8` opens the
+      // What the address named, handed over as it was written: `chains/<path>.st0` opens the
       // bench on that médiathèque chain, anything else on the catalogue at large. The machine
       // decides, because the machine is what holds the médiathèque.
       project,
@@ -100,7 +100,7 @@ export const projectApi = {
    * project's own compile.
    *
    * Through the file service rather than out of the app's socket so that ONE thing writes to the
-   * engine: the service already loads l8's project itself, and a second writer meant whichever
+   * engine: the service already loads st0's project itself, and a second writer meant whichever
    * pushed last would win. See packages/song/docs/surfaces.md.
    */
   sendEngineProject: (doc: ProjectDoc) =>
@@ -165,7 +165,7 @@ export const projectApi = {
     fsend<{ path: string }>("POST", "/node", { path, node }),
 
   // --- The repository's git. A workspace IS one clone, so none of this needs a project. ---
-  // gitStatus fetches, so callers poll it rarely (l8 uses ten minutes).
+  // gitStatus fetches, so callers poll it rarely (st0 uses ten minutes).
   gitStatus: () => fget<GitStatus>("/git/status"),
   alternatives: () => fget<Alternatives>("/git/alternatives"),
   gitCommit: (message: string) =>

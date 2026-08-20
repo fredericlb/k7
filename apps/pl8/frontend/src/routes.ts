@@ -8,10 +8,10 @@
  *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
  *  des morceaux », opened from Morceaux). `recordings` is a section and not a family — see
  *  Library.tsx. Section ids used to have to dodge every path the proxy claimed above this app's
- *  catch-all, because this app WAS the origin root. That constraint is gone — l8 is the front
+ *  catch-all, because this app WAS the origin root. That constraint is gone — st0 is the front
  *  door now and these live under `/pl8/`, where nothing else on the origin can reach. It moved
  *  rather than disappeared: it is a REPOSITORY short name that cannot collide with `/pl8`,
- *  `/k7`, `/z0`, `/api` or `/auth` today, since l8 addresses a project as `/<dépôt>/<projet>`.
+ *  `/k7`, `/z0`, `/api` or `/auth` today, since st0 addresses a project as `/<dépôt>/<projet>`.
  *  See docs/routing.md and packages/web-protocol/projects.ts.
  *
  *  FOUR sections left, and each for its own reason. `modules` and `chains` went with the editing
@@ -23,13 +23,13 @@
  *  `playlists` left last and differently: not because it was AUTHORING, but because a playlist
  *  holds no bytes. It is a list of names of things that are still right here, so hosting it
  *  bought nothing and kept a set list out of the repository it was written for. It is a file in
- *  the workspace now — `_playlists/` — and l8's cog opens it. The morceaux it names never moved,
- *  which is the point: l8 searches THIS catalogue and uploads into it.
+ *  the workspace now — `_playlists/` — and st0's cog opens it. The morceaux it names never moved,
+ *  which is the point: st0 searches THIS catalogue and uploads into it.
  *
  *  What did NOT move is the backend: `/api/projects`, `/api/shares` and the whole of
- *  `/api/mediatek` are still this service's, and l8 calls them across the origin. An address
+ *  `/api/mediatek` are still this service's, and st0 calls them across the origin. An address
  *  under any of the departed sections now falls through to the default like any other unknown
- *  path. See apps/l8/frontend/docs/projects.md and apps/l8/frontend/docs/playlists.md. */
+ *  path. See apps/st0/frontend/docs/projects.md and apps/st0/frontend/docs/playlists.md. */
 export const SECTION_IDS = [
   "songs",
   "samples",
@@ -70,7 +70,7 @@ export interface RouteState {
    *
    * One section carries one now, which is why `folderOf` below always has something to take off
    * the end. A playlist was the case where it did not — its file WAS the entry — and playlists
-   * are in the workspace repository now, opened by l8 (see SECTION_IDS).
+   * are in the workspace repository now, opened by st0 (see SECTION_IDS).
    */
   file: string | null;
 }
@@ -80,7 +80,7 @@ export interface RouteState {
  *
  * Morceaux again. It was Projets for as long as this app held the repositories — the argument
  * being that the first thing you want at a front door is your own work — and that argument did
- * not lose, it MOVED: the repositories are l8's home page now, so the front door for one's own
+ * not lose, it MOVED: the repositories are st0's home page now, so the front door for one's own
  * work is over there. What is left here is the catalogue, and its first family is the songs.
  */
 export const DEFAULT_SECTION: SectionId = "songs";

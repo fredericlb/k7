@@ -15,8 +15,8 @@ Order is PRECEDENCE — nearest first.
 
 ## `_libraries` is a git submodule
 
-The account registers ONE library repository with pl8, from l8's home page
-(`apps/l8/frontend/docs/projects.md`), and the
+The account registers ONE library repository with pl8, from st0's home page
+(`apps/st0/frontend/docs/projects.md`), and the
 file service mounts it into every workspace it makes — `git submodule add` where the workspace
 is a repository, a plain clone where it is not. `packages/file-service/src/libraries.ts` is the
 whole of it, and `POST /open` is where it runs, on every launch rather than only on clone: the
@@ -27,12 +27,12 @@ predates the feature.
 
 A library repository somebody just created has no COMMITS, and a gitlink has to point at one —
 `git submodule add` on an unborn HEAD fails. So the first machine to mount one makes an empty
-root commit and pushes it, which is all `registerSubmodule` needs; l8 fills the repository
+root commit and pushes it, which is all `registerSubmodule` needs; st0 fills the repository
 afterwards, one module at a time.
 
 > It used to SEED it instead, copying `modules/` and `chains/` in from the hosted médiathèque,
 > because that volume was the catalogue and every `@st0/…` ref already written named something
-> living there. The volume holds neither family now — a module is authored in l8, where the
+> living there. The volume holds neither family now — a module is authored in st0, where the
 > plugin it names is actually loaded — so there is nothing left to copy from and no migration to
 > run. `initIfEmpty` is what remains of `seedIfEmpty`.
 
@@ -81,9 +81,9 @@ follow, and each is worth stating because each was a rule before:
   second machine gets the same modules at the same commit, because the gitlink pins one. The
   cache could only ever be "whatever this machine last synced".
 - **A shared module is editable in place.** There is no fork and no push-through: `_libraries/…`
-  is an ordinary workspace path, written by the ordinary write route. l8 opens it read-only
+  is an ordinary workspace path, written by the ordinary write route. st0 opens it read-only
   behind a confirmation, and its builder has a **Save button** that commits and pushes the
-  library repository once the files land (`apps/l8/frontend/docs/sharedModules.md`) — a decision
+  library repository once the files land (`apps/st0/frontend/docs/sharedModules.md`) — a decision
   somebody takes rather than a mechanism that absorbs it. The song's repository then gets ONE
   more commit, moving the gitlink so it records which version it uses: path-limited to
   `.gitmodules` and `_libraries` so nothing else in flight goes with it, and never pushed.

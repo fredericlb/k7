@@ -43,7 +43,7 @@ dossier où le moteur finirait par écrire.
 > la même identité que le nœud dessiné, pour qu'un graphe montrant un filtre que le moteur n'a
 > jamais chargé soit impossible. Un bouton **Process** rendait ensuite chaque variante-chaîne
 > hors ligne, à côté du master. Tout cela est parti avec la famille `chains`, qui a quitté le
-> catalogue : une chaîne s'écrit dans l8 et se committe dans le dépôt de bibliothèques du compte.
+> catalogue : une chaîne s'écrit dans st0 et se committe dans le dépôt de bibliothèques du compte.
 
 ## Une session, un son
 

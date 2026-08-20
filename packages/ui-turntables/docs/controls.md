@@ -48,7 +48,7 @@ n'y a plus rien à résoudre.
 Une liaison doit transformer « où est ce contrôle » en « que vaut ce paramètre ». La seule
 façon de le faire sans inventer d'échelle est de **normaliser le contrôle en 0..1** et de
 laisser le `min`/`max` du widget cible le déployer — exactement le trajet que les 0..127 d'un
-CC font déjà dans `useMidiControl` de l8. Un contrôle qui ne déclarerait pas sa plage
+CC font déjà dans `useMidiControl` de st0. Un contrôle qui ne déclarerait pas sa plage
 obligerait chaque consommateur à en deviner une.
 
 C'est aussi pourquoi `deckA.tempo` porte la plage du **knob du module** (10..300) et pas une

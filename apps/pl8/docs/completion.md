@@ -2,14 +2,14 @@
 
 L'écran de pl8 qui montre du YAML — le sidecar d'un morceau — utilise le `YamlPane`. Ils étaient
 quatre : le constructeur de modules et l'éditeur de chaînes sont partis avec leurs familles, et
-l'éditeur de playlists avec le dossier `_playlists/`, tous vers l8. Le mécanisme est décrit dans
+l'éditeur de playlists avec le dossier `_playlists/`, tous vers st0. Le mécanisme est décrit dans
 [packages/ui-editor/docs/completion.md](../../../packages/ui-editor/docs/completion.md) ; ce qui
 suit est l'autre moitié, **d'où viennent les noms ici**, parce que la réponse n'est pas celle de
-l8 et qu'elle ne pouvait pas l'être.
+st0 et qu'elle ne pouvait pas l'être.
 
 ## Le problème de fond : ce backend n'a pas de disque de moteur
 
-l8 remplit ses `Hints` depuis la machine où tourne son backend : les modules du projet, les
+st0 remplit ses `Hints` depuis la machine où tourne son backend : les modules du projet, les
 pistes, et le cache de scan (`~/.studio/exts.json`) que le moteur écrit à côté de lui.
 
 La médiathèque est **hébergée**. Son backend sert un volume de fichiers ; il n'a jamais vu de
@@ -47,7 +47,7 @@ fichiers en refs ; `moduleRefs.ts` est la conversion, et c'est tout ce qu'il est
 
 Le mot `@st0` y est **écrit en clair**. Le `MEDIATEK_REF` canonique vit dans
 `@studio/song/mediatekRoot`, qui appelle `node:os` pour trouver le dossier — un navigateur ne
-peut pas tirer ça pour apprendre un mot. Le vocabulaire des playlists, en l8, déclare son fichier
+peut pas tirer ça pour apprendre un mot. Le vocabulaire des playlists, en st0, déclare son fichier
 pour la même raison : le vocabulaire est le contrat, le résolveur de chemin ne l'est pas.
 
 Les deux listes sont **fusionnées** par le constructeur, pas substituées : elles répondent de
@@ -72,12 +72,12 @@ rien précisément pendant qu'on écrit la ligne qui en a besoin.
 ## Les playlists : parties, et le motif avec elles
 
 `fileKindFor` rendait `null` pour `playlists/x.yaml`, et c'était correct — une playlist n'est pas
-un fichier de projet l8, et `@studio/song` n'a pas à savoir à quoi ressemble un listing de
+un fichier de projet st0, et `@studio/song` n'a pas à savoir à quoi ressemble un listing de
 morceaux. L'écran fournissait donc son propre `YamlVocabulary`, construit sur le listing qu'il
 interrogeait **déjà** pour résoudre ses lignes.
 
-Cet écran est en l8 maintenant, et le motif est parti avec lui intact
-(`apps/l8/frontend/docs/playlists.md`) : c'est **toujours** ce catalogue-ci qui répond, par
+Cet écran est en st0 maintenant, et le motif est parti avec lui intact
+(`apps/st0/frontend/docs/playlists.md`) : c'est **toujours** ce catalogue-ci qui répond, par
 `/api/mediatek/list?family=songs`, seulement à travers l'origine plutôt que depuis la même app.
 Ce qui vaut la peine d'être retenu ici est la forme — un écran qui tient déjà une liste pour
 autre chose est le mieux placé pour en faire un vocabulaire, et n'a besoin de rien demander à

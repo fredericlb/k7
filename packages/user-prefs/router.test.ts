@@ -1,5 +1,5 @@
 /**
- * The bug these exist for: l8 renamed a command, saved, reloaded, and read the catalogue's own
+ * The bug these exist for: st0 renamed a command, saved, reloaded, and read the catalogue's own
  * names back. Its `prefsSchema` still said "one field so far: the engine they drive", a zod
  * object strips what it does not declare, and the PUT answered `{ok:true}` either way — so a
  * whole layer of preferences was accepted and thrown away, with nothing anywhere saying so.

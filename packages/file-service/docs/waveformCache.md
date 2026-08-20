@@ -137,7 +137,7 @@ writing. `waveformCacheVersion.test.ts` pins it.
    cheap first gate). Cleared implicitly by process lifetime.
 2. **The freshness verdict** — `cacheFresh` reads the whole sidecar and hashes 128 kB of the
    audio, so `staleWaveformSources` over a project of 110 takes spent ~190 ms answering
-   "nothing to do". l8's browser asks for a prewarm after every command, on the same single
+   "nothing to do". st0's browser asks for a prewarm after every command, on the same single
    process that is compiling that command's answer. A source judged fresh is remembered against
    the size+mtime of BOTH files, so the next ask is two `stat`s. Only YES is remembered: a
    stale source is about to be rebuilt anyway. The fingerprint still DECIDES — this only skips

@@ -350,12 +350,15 @@ export { PORT_SEP, portRef, splitPort } from "@studio/graph-model";
  * `engineCatalogue` from the machine's scan cache, so it is a level without a root.
  *
  * HERE and not beside `moduleNamespaceOf`, which decides a level from a folder on disk: this is
- * the vocabulary, and a browser has to spell it too — l8's Libraries tab writes `@st0` on a
+ * the vocabulary, and a browser has to spell it too — st0's Libraries tab writes `@st0` on a
  * row. `sharedFolders.ts` reads the disk on its first line, so importing it there would drag
  * `node:fs` into a bundle. Re-exported from it, exactly as `moduleKeyFromPath` is.
  *
- * `st0` is the médiathèque, which is called **pl8** now — and the level DELIBERATELY did not
- * follow it. A level is written into user files: every `@st0/…` in every chain of every
+ * **`@st0` names the MÉDIATHÈQUE, not the app called st0.** The médiathèque held that name when
+ * the levels were written and is called `pl8` now; the editor took the freed name later. So the
+ * one level that reads like an app is the only one that names a different one — and the level
+ * DELIBERATELY did not follow either move. A level is written into user files: every `@st0/…` in
+ * every chain of every
  * repository would have to be rewritten at once, on machines this repo does not have, and the
  * failure is silent enough to be nasty (a `?` on a graph node, nothing else). The app was
  * renamed for where it sits on the origin; the level names a folder of modules, which did not
@@ -371,10 +374,11 @@ export const MODULE_NAMESPACES = [
 export type ModuleNamespace = (typeof MODULE_NAMESPACES)[number];
 
 /**
- * What this level was called before, and nothing more: the app was `apps/mediatek` when the
- * levels were named, and became `apps/st0`, so the ref said one thing and the médiathèque
- * another. The level was rewritten to match, once. It has not moved since — the app is
- * `apps/pl8` today and the level is still `st0`, for the reason MODULE_NAMESPACES gives.
+ * What this level was called before, and nothing more: the médiathèque was `apps/mediatek` when
+ * the levels were named, and became `apps/st0`, so the ref said one thing and the médiathèque
+ * another. The level was rewritten to match, once. It has not moved since — that app is
+ * `apps/pl8` today, `apps/st0` is the editor, and the level is still `st0` and still means the
+ * médiathèque, for the reason MODULE_NAMESPACES gives.
  *
  * Kept as a NAME rather than as an accepted spelling — nothing resolves it. A file still saying
  * `@mediatek/…` names a module that no longer exists, which the loader reports as such; this
@@ -394,14 +398,14 @@ export const LEGACY_MEDIATEK_NS = "mediatek";
  * `project.yaml` could be wrong about a folder the loader can simply look for.
  *
  * HERE rather than beside `moduleLibraryDirs`, for the reason MODULE_NAMESPACES is: a browser
- * names this folder too — l8's file tree keeps it off the Project tab, since it has a tab of
+ * names this folder too — st0's file tree keeps it off the Project tab, since it has a tab of
  * its own — and `sharedFolders.ts` reads the disk on its first line.
  * See docs/sharedFolders.md.
  */
 export const LIBRARIES_DIR = "_libraries";
 
 /** The folder a WORKSPACE's own shared library sits in, at the workspace root — the
- *  `@workspace` level. Here for the same reason `LIBRARIES_DIR` is: l8's file tree names it. */
+ *  `@workspace` level. Here for the same reason `LIBRARIES_DIR` is: st0's file tree names it. */
 export const SHARED_MODULES_DIR = "_modules";
 
 /** …and where that is, relative to a project inside the workspace. */
@@ -436,7 +440,7 @@ export const moduleRefOf = (type: string, name: string): string =>
  */
 export function moduleKeyFromPath(path: string): string | null {
   const segs = path.split(/[\\/]+/);
-  // The LAST `modules/`, so a workspace-relative path (`song.l8/modules/…`) and an absolute one
+  // The LAST `modules/`, so a workspace-relative path (`song.st0/modules/…`) and an absolute one
   // both land on the same segment.
   const at = segs.lastIndexOf("modules");
   if (at < 0) return null;

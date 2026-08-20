@@ -4,8 +4,8 @@ A **headless audio server** in C++. Receives a compiled `ProjectDoc` JSON, diffs
 against the current state, applies the minimal change to a Tracktion Engine edit, plays
 audio, and pushes transport/meter state back over WebSocket. **Never parses song files.**
 
-It is deliberately its own app rather than part of l8: it serves every audio app in
-the repo. Three drive it today — l8, the médiathèque's module previews and m9's decks —
+It is deliberately its own app rather than part of st0: it serves every audio app in
+the repo. Three drive it today — st0, the médiathèque's module previews and m9's decks —
 over the same protocol, on the same binary, and it cannot tell them apart: it only ever sees
 a compiled `ProjectDoc`. They stay out of each other's way by naming a **session**; see
 `docs/protocol.md` and `packages/engine-protocol/docs/sessions.md`.
@@ -251,7 +251,7 @@ Why it matters, measured the hard way:
   reads as "the tray hangs" and sends you hunting anywhere but here.
 * **It was a second source of truth.** `~/.studio/preferences.yaml` holds the device
   the user chose; `Settings.xml` held a copy Tracktion wrote by itself and replayed
-  first. The hidden one won, before any l8 code ran.
+  first. The hidden one won, before any st0 code ran.
 
 So: offline tools open no device (`makeOfflineEngine`), the server opens one from
 `openAudioDevice()` after the port is bound, and `Settings.xml` is inert state nobody

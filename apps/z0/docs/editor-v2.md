@@ -32,7 +32,7 @@ compte.
 
 Ce qui reste vrai : le jeu garde sa porte d'**invité**, celle qui n'a pas de compte derrière.
 Un joueur ne se connecte pas ici ; c'est l'auteur du blindtest qui ouvre son dépôt, et c'est
-le même compte que pour l8, m9 et la médiathèque.
+le même compte que pour st0, m9 et la médiathèque.
 
 ## Les trois portes, dans l'ordre
 
@@ -51,8 +51,8 @@ partagé existe pour empêcher.
 ## L'adresse
 
 `st0.priv.frediver.se/z0/editor-v2/<dépôt>/<session.z0>` — le vocabulaire d'adresse de
-`@studio/web-protocol/projects`, avec un segment de plus que l8 et m9. C'est ce que
-`PROJECT_MOUNTS` dit : l8 et m9 **sont** leur service, alors que z0 est sept SPA derrière un
+`@studio/web-protocol/projects`, avec un segment de plus que st0 et m9. C'est ce que
+`PROJECT_MOUNTS` dit : st0 et m9 **sont** leur service, alors que z0 est sept SPA derrière un
 préfixe et une seule d'entre elles ouvre un projet.
 
 Le `basename` du routeur est cette adresse entière, donc rien dans l'app ne peut réécrire le
@@ -62,7 +62,7 @@ projet, et un rechargement relit la même chose.
 
 Deux tables et une phrase, toutes dans `@studio/web-protocol` :
 
-- **`.z0` est un suffixe de projet.** `PROJECT_SUFFIXES` ne connaissait que `.l8` et `.m9`, et
+- **`.z0` est un suffixe de projet.** `PROJECT_SUFFIXES` ne connaissait que `.st0` et `.m9`, et
   disait en toutes lettres que z0 ne possédait pas de projets. Désormais pl8 liste les dossiers
   `.z0` d'un dépôt, le file service accepte d'en ouvrir un (`isProjectDir`), et le message qui
   refuse les autres énumère les suffixes au lieu d'en citer deux à la main.
@@ -74,7 +74,7 @@ Deux tables et une phrase, toutes dans `@studio/web-protocol` :
 
 Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 
-- ouvrir une session `.z0` depuis la page d'accueil de l8 → l'adresse est
+- ouvrir une session `.z0` depuis la page d'accueil de st0 → l'adresse est
   `/z0/editor-v2/<dépôt>/<session.z0>` et ne bouge plus ;
 - recharger → la même session, pas pl8 ;
 - ouvrir un dépôt que cette machine n'a jamais vu → la barre de progression de git, puis la

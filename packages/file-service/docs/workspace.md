@@ -2,7 +2,7 @@
 
 The filesystem layer over ONE workspace root.
 
-This was the l8 backend's former `store.ts`, turned from a single module-level `ROOT` into
+This was the st0 backend's former `store.ts`, turned from a single module-level `ROOT` into
 a per-workspace object: the file service serves many users' workspaces from one process,
 so `root`, the active project, and the compiled/waveform caches all live on a `Workspace`
 instance. The path-traversal guards (`safePath`/`toRel`) were preserved verbatim — they
@@ -70,7 +70,7 @@ The token describes the ACTIVE project. Both caches take a `dir` because buildin
 one, not because a second project can sit in them.
 
 `hints()` is the third, added later and for the same reason: it is a pure read of the folder,
-and l8 asks for it after EVERY command — the editor pane is mounted in every layout and
+and st0 asks for it after EVERY command — the editor pane is mounted in every layout and
 refreshes its tree and its completion vocabulary together, so a command that never touched a
 file the editor is showing still rebuilt the tracks, the clips, the per-plugin params and the
 path map. 150 ms on a real song, on the one process that is also compiling the answer to that

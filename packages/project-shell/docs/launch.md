@@ -1,14 +1,14 @@
 # An app is opened ON a project — it does not choose one
 
-The level above a project is a screen of its own, and exactly one screen: **l8's home page**,
+The level above a project is a screen of its own, and exactly one screen: **st0's home page**,
 the address that names no project. It lists the account's repositories and the projects inside
 them, and it links to one with an **address**:
 
 ```
-/songs/first.l8
+/songs/first.st0
 /m9/songs/live.m9
-/band/albums/winter.l8        a project at a depth
-/m9/band/winter.l8/live.m9       a .m9 set living inside a .l8 song
+/band/albums/winter.st0        a project at a depth
+/m9/band/winter.st0/live.m9       a .m9 set living inside a .st0 song
 ```
 
 | | |
@@ -16,7 +16,7 @@ them, and it links to one with an **address**:
 | the first segment | the repository's **short name** — its last path segment without `.git`, which is also what the clone is called on the engine's machine |
 | the rest | the project folder **inside** the repository, or nothing at all when the repository *is* the project |
 
-Which of the two apps gets the link is decided by the folder's **name**: `.l8` or `.m9`
+Which of the two apps gets the link is decided by the folder's **name**: `.st0` or `.m9`
 (`@studio/web-protocol/projects`). The project is a path in the repository and not on any
 machine, because the sender has never seen the machine it will be opened on. Resolving it to a
 folder is this package's job.
@@ -41,17 +41,17 @@ else, and a wrong project is fixed by editing the URL. There is nothing to clear
 host, a port and a user, and an address bar is copied, bookmarked and pasted into chat. The
 address carries `lemo_mante`, and the editor asks pl8 what is behind it
 (`GET /api/projects/by-name/:name` → `RepoRef`). pl8 STORES the repositories, so pl8 is the one
-side that can answer — which stayed true when the screen that lists them moved into l8 — and it
+side that can answer — which stayed true when the screen that lists them moved into st0 — and it
 refuses an ambiguous name rather than guessing: two hosts can both carry a `songs.git`, and
 opening the wrong one silently is worse than saying so.
 
 ## Where the project ends, and the app's route begins
 
 One rule, and it is the one already in use: the project is everything up to and including the
-**last segment whose name claims this app**. `…/winter.l8/timeline` is the project `winter.l8`
-plus the app's own `/timeline`; a view segment never ends in `.l8` or `.m9`, so the two cannot
-be confused. Each app reads its OWN suffix, which is what lets m9 open `winter.l8/live.m9`
-without l8's suffix winning the match.
+**last segment whose name claims this app**. `…/winter.st0/timeline` is the project `winter.st0`
+plus the app's own `/timeline`; a view segment never ends in `.st0` or `.m9`, so the two cannot
+be confused. Each app reads its OWN suffix, which is what lets m9 open `winter.st0/live.m9`
+without st0's suffix winning the match.
 
 With no such segment at all, the repository itself is the project (`"."`) and everything after
 the repo name is the app's route.
@@ -64,7 +64,7 @@ the repo name is the app's route.
    missing. That reads as a broken song rather than as an account nobody finished setting up,
    which is why it gets a screen of its own and gets it *before* a thirty-second clone rather
    than after. No Retry — the answer was clear, and it stays that answer until somebody goes
-   and sets it, on l8's home page (`apps/l8/frontend/docs/projects.md`).
+   and sets it, on st0's home page (`apps/st0/frontend/docs/projects.md`).
 1. `GET /api/projects/by-name/<repo>` on **pl8** — the git URI behind the name.
 2. `GET /workspaces/by-repo?uri=` — does this machine already have this repository? The
    comparison is on a **normalised** URI, because the two ends learned the address by
@@ -88,24 +88,24 @@ produced the worst screen in the app — "this page isn't allowed to reach the e
 story, with the real message in a code block underneath — because the probe reaches a service
 that is plainly up and therefore always reports `blocked`.
 
-Arriving with **no** project in the address is not a failure to redirect away from — for l8 it
+Arriving with **no** project in the address is not a failure to redirect away from — for st0 it
 IS the home page, `main.tsx` branching on `parseLaunch` before any gate is mounted (see
-`apps/l8/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
+`apps/st0/frontend/docs/projects.md`). For every OTHER app that mounts this gate, it is a
 redirect there, through `projectsUrl`.
 
 There is still deliberately no *second* picker: one list, in one app, is the whole point. z0's
-editor comes back to l8's home rather than growing one of its own, because that list already
+editor comes back to st0's home rather than growing one of its own, because that list already
 holds `.z0` folders and a second one would be the second thing to keep in step with the first.
 
 > This used to be pl8's `/projects`, and the argument for it was that the médiathèque is the
 > studio's front door. The argument moved with the screen: the catalogue is what a project draws
 > ON, while "which repositories do I have" is the first question of the app that opens one — and
-> the machine that scaffolds a project was already l8's side of the wire. **What did not move is
+> the machine that scaffolds a project was already st0's side of the wire. **What did not move is
 > the storage**: every route this screen calls is still pl8's, and `repoByName` /
 > `librariesRepo` below are unchanged.
 >
-> The addresses caught up afterwards: l8 answers the ORIGIN now and the médiathèque is at
-> `/pl8`, so this page is `<origin>/` rather than `<origin>/l8/`. `projectsUrl` asks
+> The addresses caught up afterwards: st0 answers the ORIGIN now and the médiathèque is at
+> `/pl8`, so this page is `<origin>/` rather than `<origin>/st0/`. `projectsUrl` asks
 > `SERVICE_PATHS` and did not have to change.
 
 ## Why this is a package and not two copies
@@ -116,14 +116,14 @@ a *decision* — "is this repository already on this machine" — and the failur
 duplicate clone or a 404, neither of which looks like a drift when you meet it.
 
 The address vocabulary itself lives one level lower still, in
-`@studio/web-protocol/projects`, beside the suffix rule it depends on: l8's home page
+`@studio/web-protocol/projects`, beside the suffix rule it depends on: st0's home page
 **writes** these addresses and both editors **read** them back, which makes it a wire contract
 rather than an app's habit. It stayed there when the writing side moved out of pl8, and that is
 the point of having put it there: neither end of the contract is where the vocabulary lives.
 `launch.ts` here is what the apps import.
 
-Each app keeps what is genuinely its own: l8 adds waveforms, video, export, the timeline's
-tracks; m9 adds nothing at all. The wording is each app's too — l8 has paraglide, m9 is French
+Each app keeps what is genuinely its own: st0 adds waveforms, video, export, the timeline's
+tracks; m9 adds nothing at all. The wording is each app's too — st0 has paraglide, m9 is French
 in place — which is why the gate takes a `strings` object instead of owning a catalogue.
 
 ## What to check in a browser
@@ -139,8 +139,8 @@ run says nothing about:
   never do);
 - open a repository this machine has never seen → a progress bar with git's phases, then the
   app; do it again → no clone at all, straight in;
-- open a `.m9` folder and a `.l8` folder from the same repository → two apps, one clone;
+- open a `.m9` folder and a `.st0` folder from the same repository → two apps, one clone;
 - rename the project folder on the machine and reload → the "not in the repository" screen,
-  not the CORS one, and its button lands you back on l8's home;
+  not the CORS one, and its button lands you back on st0's home;
 - edit the repo name in the address to something nonexistent → the same screen, saying pl8 has
   no repository by that name.

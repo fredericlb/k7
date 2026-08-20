@@ -20,7 +20,7 @@ Several hints already said so in prose — *"optional — another track, of the 
 one"*. That told a person reading the catalogue and told no program anything. It cost nothing
 while the only consumer was a CLI, where a handler reads `argv` and decides for itself.
 
-It started costing the moment a **form** consumed the same catalogue. l8's command bar asks
+It started costing the moment a **form** consumed the same catalogue. st0's command bar asks
 for one param at a time and dispatches on the last one, so "how many are there" is the
 question that decides when the line can run — and `args.length` answered four for a command
 three of whose params you actually have to give. The bar could never dispatch a bare
@@ -28,7 +28,7 @@ three of whose params you actually have to give. The bar could never dispatch a 
 was right and unreachable.
 
 So the rule the handlers already implemented is now written where the catalogue can be read:
-`requiredCount` in l8's `commandFill.ts` is the whole consumer, and it is three lines.
+`requiredCount` in st0's `commandFill.ts` is the whole consumer, and it is three lines.
 
 ## TRAILING only
 
@@ -43,7 +43,7 @@ call site (a flag), which this vocabulary does not have and does not want.
 
 - It is not a default. The handler still decides what absence means — `track new audio` picks
   `audio-N`, and that lives in the handler, not here.
-- It does not make the arg unreachable. In l8's bar, **Tab** steps onto a trailing optional
-  where **Enter** would run past it; see `apps/l8/frontend/docs/commandBar.md`.
+- It does not make the arg unreachable. In st0's bar, **Tab** steps onto a trailing optional
+  where **Enter** would run past it; see `apps/st0/frontend/docs/commandBar.md`.
 - It changes no CLI behaviour. `argv` was always the handler's to read, and every handler that
   treats an argument as optional did so before this field existed.

@@ -21,7 +21,7 @@ MixView **dessine** les platines et n'en possède rien ; ce qui lui reste en pro
 du set, les enveloppes de waveform et le sélecteur de morceaux — des choses qui ne survivent
 pas à l'onglet parce qu'elles n'ont pas à le faire.
 
-Côté l8, `SurfaceTab` tient les deux moitiés séparées : les hooks au-dessus d'une ligne,
+Côté st0, `SurfaceTab` tient les deux moitiés séparées : les hooks au-dessus d'une ligne,
 l'écran en dessous, et le composant reste monté tant que le projet déclare la surface. La règle
 de `packages/song/docs/surfaces.md` sur les surfaces `view` (« dessinée seulement pendant
 qu'elle est ouverte ») ne parle donc que du DESSIN.

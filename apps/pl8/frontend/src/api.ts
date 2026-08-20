@@ -25,7 +25,7 @@ import type { Pl8Prefs } from "./prefs";
 // prefix cost this file nothing.
 //
 // The exception is `/auth/*` below, spelled BARE on purpose: it is not this backend's at all —
-// the flow belongs to l8, the service with no prefix, because the IdP has one prefixless
+// the flow belongs to st0, the service with no prefix, because the IdP has one prefixless
 // redirect_uri. This backend only verifies the cookie. `${BASE}/auth/me` would 404 into what
 // reads like a broken login. See packages/web-protocol/services.ts.
 // Exported because the engine probe needs it too: the relay answers under this same prefix.
@@ -85,7 +85,7 @@ export const auth = {
   // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
   // the module, so every later click returned you there instead of where you were. `return_to`
   // is the name the OIDC package reads; `redirect` was silently ignored, which only looked
-  // fine while this app owned the origin root — the fallback is l8's home page now, so a
+  // fine while this app owned the origin root — the fallback is st0's home page now, so a
   // missing `return_to` sends you to the other application entirely.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
@@ -103,7 +103,7 @@ export const auth = {
   },
 
   /** Ends the session for the WHOLE origin — studio.sid is shared, so this signs
-   *  you out of l8 and m9 too. See apps/l8/AGENTS.md. */
+   *  you out of st0 and m9 too. See apps/st0/AGENTS.md. */
   logout: async (): Promise<void> => {
     await fetch("/auth/logout", { method: "POST" });
     window.location.reload();
@@ -131,11 +131,11 @@ const machineHeaders = (token: string): Record<string, string> => ({
 
 /**
  * The engine MACHINE's own file service, reached cross-origin and directly — the same seam
- * l8 uses, and the only way to learn a fact about that machine rather than about the
+ * st0 uses, and the only way to learn a fact about that machine rather than about the
  * library. This app's backend is hosted: it has no scan cache and never will.
  *
  * The origin has to be trusted on that machine (`~/.studio/web-origins.json`, offered by the
- * tray), exactly as l8' is; a refusal reads as a network error here, which is why the
+ * tray), exactly as st0' is; a refusal reads as a network error here, which is why the
  * caller treats an empty list as "cannot say" and not as "no plugins".
  *
  * Elle est aussi la seule qui puisse ÉCRIRE dans un dépôt — créer ou supprimer un projet —
@@ -258,7 +258,7 @@ export const engineMachine = {
 
   // The machine's channel LABELS ("arm", "overheads") were read here, for the one screen that
   // routed a live input: the module builder's audition. Both are gone — a module is auditioned
-  // in l8 now, where the input belongs to the project's own track and the file service already
+  // in st0 now, where the input belongs to the project's own track and the file service already
   // reads `~/.studio/preferences.yaml` for it. Nothing here asked for that file for any other
   // reason, so the route is simply not called from the médiathèque any more.
 
@@ -270,7 +270,7 @@ export const engineMachine = {
    * Quel espace de travail de cette machine tient déjà ce dépôt, ou `null`.
    *
    * pl8 nomme un dépôt par son URI et ne sait rien des dossiers de cette machine-là — c'est
-   * exactement la question que l8 pose avant de décider s'il faut cloner quoi que ce soit.
+   * exactement la question que st0 pose avant de décider s'il faut cloner quoi que ce soit.
    */
   workspaceForRepo: async (
     fileBase: string,
@@ -325,8 +325,8 @@ export const engineMachine = {
   /**
    * Créer un projet dans l'espace de travail de cette machine.
    *
-   * `name` porte DÉJÀ son suffixe (`hiver.l8`) : le service prend le nom brut comme nom de
-   * dossier. Il n'y a plus qu'un suffixe — tout projet est un `.l8` — donc ce que le nom disait
+   * `name` porte DÉJÀ son suffixe (`hiver.st0`) : le service prend le nom brut comme nom de
+   * dossier. Il n'y a plus qu'un suffixe — tout projet est un `.st0` — donc ce que le nom disait
    * autrefois (quelle application l'ouvre) n'a plus de question à trancher.
    *
    * `shape` est ce qui reste, et c'est l'ARCHÉTYPE : `arrangement` (une timeline), `mix` (deux
@@ -485,7 +485,7 @@ export const engineMachine = {
 /**
  * The engines this service knows about, and what it remembers about you.
  *
- * Its OWN registry, not l8's. Each hosted service holds one — see
+ * Its OWN registry, not st0's. Each hosted service holds one — see
  * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
  * pointed at the médiathèque too.
  *
@@ -503,8 +503,8 @@ export const engines = engineAccess<PublicEngine, Pl8Prefs>(BASE, json);
  * `/api/projects` and `/api/shares` were both clients here — the repositories, the libraries,
  * the deploy key and the frozen snapshots. The ROUTES are untouched and still this service's:
  * it owns the volume they are stored on, and it is the one side that outlives every engine.
- * What left is the drawing, to l8's home page, which now calls them across the origin. See
- * apps/l8/frontend/docs/projects.md.
+ * What left is the drawing, to st0's home page, which now calls them across the origin. See
+ * apps/st0/frontend/docs/projects.md.
  */
 
 /** `/api/hunt`, its own prefix like the projects one, and for the same reason: it is not the
@@ -524,7 +524,7 @@ export const hunt = {
 
   /** La recherche range le morceau dans la médiathèque, et s'arrête là. Elle visait aussi une
    *  playlist ; celles-ci vivent dans le dépôt du workspace maintenant, hors de portée de ce
-   *  service — l'ajout se fait dans l8, sur ce même catalogue. Voir hunt/hunt.ts. */
+   *  service — l'ajout se fait dans st0, sur ce même catalogue. Voir hunt/hunt.ts. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt`, {
@@ -571,7 +571,7 @@ export const library = {
 
   // `baseModules` and `addEngineFaces` stood here. Both went with the `modules` family: the
   // first listed what a sibling's `extends:` could name, the second turned a machine's whole
-  // plugin scan into modules. A module is authored in l8 now, against a project where the
+  // plugin scan into modules. A module is authored in st0 now, against a project where the
   // plugin is actually loaded, and committed to the account's library repository.
 
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
@@ -612,14 +612,14 @@ export const library = {
   /**
    * The three sidecars — the panel, the shelf and the DSP source — used to be derived HERE,
    * three times over, from the folder of the file the builder was given. They are derived once
-   * now, in `@studio/ui-module-builder/library-store`, because l8 asks the same questions of the
+   * now, in `@studio/ui-module-builder/library-store`, because st0 asks the same questions of the
    * same library and two copies of "where does a panel go" is exactly the drift that rule exists
    * to stop. See `moduleStore` at the bottom of this file.
    */
 
   // `hints` stood here: the completion vocabulary the module builder asked this backend for,
   // of which one field was real — the library's own modules, as refs a sibling could extend.
-  // The builder left for l8, which fills the same shape from the open PROJECT.
+  // The builder left for st0, which fills the same shape from the open PROJECT.
 
   /** Drop OS files into `dir`. The File goes as the body: writeFile takes a string, which
    *  would corrupt every sample the moment one is dropped. */
@@ -796,6 +796,6 @@ export const library = {
 };
 
 // `moduleStore` stood here: this backend's three calls handed to `@studio/ui-module-builder`'s
-// shared store, so the médiathèque's Modules section and l8's Libraries tab drew the same
-// builder over the same volume. The section is gone and so is the volume's `modules/`; l8's
+// shared store, so the médiathèque's Modules section and st0's Libraries tab drew the same
+// builder over the same volume. The section is gone and so is the volume's `modules/`; st0's
 // tab reads the account's library repository through its own file service instead.

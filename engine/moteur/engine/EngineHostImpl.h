@@ -100,7 +100,7 @@ struct Session {
 
     // Whether rolling the transport RECORDS, per session for the same reason broadcastWanted is:
     // it is a wish that outlives the Edit, and it belongs to one project. Global, it meant a deck
-    // arming record lit l8's record light and recorded into l8's take on the same engine.
+    // arming record lit st0's record light and recorded into st0's take on the same engine.
     bool recordEnabled = false;
 
     // Plugins a client asked to watch, each mapped to the values last reported. The key's presence IS the

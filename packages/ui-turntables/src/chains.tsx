@@ -15,7 +15,7 @@ import { type DeckModule, deckGraph } from "./graph";
  *
  * `ModuleIcon` comes from the graph package — it is keyed on `WebModuleCategory`, the
  * graph's own vocabulary, and moving it there is what a second host made obvious. The track
- * one is m9's: a deck is not a lane, and l8' `TrackIcon` reads a name PREFIX to
+ * one is m9's: a deck is not a lane, and st0' `TrackIcon` reads a name PREFIX to
  * decide between drums and vocals, which is a convention m9 does not have.
  */
 export const M9_ICONS: ChainsIcons = {
@@ -79,7 +79,7 @@ export function ChainsPanel({
       // the new picture, moving a knob should leave the camera where it was put.
       fitKey={`${modules.length}`}
       onBypassModule={onBypass}
-      // m9 has no command bar. The prop is required because l8' graph is driven by
+      // m9 has no command bar. The prop is required because st0' graph is driven by
       // one and the package will not pretend otherwise — so this says out loud that a node's
       // command menu does nothing here, rather than silently swallowing it.
       command={(line) => {

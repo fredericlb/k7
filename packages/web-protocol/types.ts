@@ -1,5 +1,5 @@
-// types.ts — the API contract between l8/web's backend and frontend.
-// The backend serves the files of one l8 project directory; the frontend
+// types.ts — the API contract between st0/web's backend and frontend.
+// The backend serves the files of one st0 project directory; the frontend
 // renders a tree, edits text files, and autocompletes from schema-aware hints.
 
 import type { ProjectApp } from "./projects.ts";
@@ -11,7 +11,7 @@ export interface FileNode {
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
-  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.l8`/`.m9` suffix
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.m9` suffix
   children?: FileNode[]; // dirs only
 }
 
@@ -65,7 +65,7 @@ export interface GitStatus {
 
 // The alternatives (branches) of the workspace repo — mirrors @studio/commands/git.
 // `parent` is the branch an alternative was started from, "" for one that is not an
-// alternative (the root branch, or a branch made outside l8).
+// alternative (the root branch, or a branch made outside st0).
 export interface Alternatives {
   current: string;
   parent: string;
@@ -134,7 +134,7 @@ export interface Hints {
   // chain `use` ref. There is no shared library any more: a module carries what it loads.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for the bases whose plugin is a built-in l8 defines. A widget bound without one is
+  // …and their ranges, for the bases whose plugin is a built-in st0 defines. A widget bound without one is
   // drawn 0..1, which is simply wrong for a -60..+6 dB fader. The live engine's report wins where it exists.
   paramMetaByBase: Record<
     string,
@@ -229,7 +229,7 @@ export interface WebClip {
    * They are here because the browser CACHES a clip's envelope, and until it could see them a
    * trim moved the window while the picture stayed: same id, so the cached envelope was reused
    * and the block went on showing material the clip no longer plays. See
-   * apps/l8/frontend/src/clipEnvelope.ts, which is the only thing that reads them.
+   * apps/st0/frontend/src/clipEnvelope.ts, which is the only thing that reads them.
    */
   //
   // All optional, including `offset` — which is required on `ClipDoc` and cannot be here: the
@@ -392,7 +392,7 @@ export interface WebGroup {
 }
 // A video clip on a video track. Every time here is SECONDS: picture is cut against the wall
 // clock, where the song's own lanes are placed in bars against its tempo. One timeline draws
-// both, and its ruler reads either — see apps/l8/frontend/docs/picture.md.
+// both, and its ruler reads either — see apps/st0/frontend/docs/picture.md.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -477,7 +477,7 @@ export interface CommandArg {
   name: string;
   kind: ArgClass;
   // What this argument NAMES, when the answer comes off the project. The right-click menu matches
-  // on it to offer every command the clicked thing can answer — see l8's contextMenu.ts.
+  // on it to offer every command the clicked thing can answer — see st0's contextMenu.ts.
   provider?: ArgProvider;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
@@ -561,8 +561,8 @@ export interface ProjectErrors {
 }
 
 // --- Chains: the routing graph --------------------------------------------------
-// Moved to @studio/graph-model. Three apps draw chains — l8, pl8's module
-// builder and m9 — and only l8 wants the rest of this file, so the graph
+// Moved to @studio/graph-model. Three apps draw chains — st0, pl8's module
+// builder and m9 — and only st0 wants the rest of this file, so the graph
 // model is its own package. Import it from there, not through here.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
@@ -770,7 +770,7 @@ export interface RepoSummary extends RepoStatus {
   branch: string | null;
   /**
    * The projects the mirror found, so the listing can draw them under their repository and
-   * link straight into l8/m9 — the tree is for looking around, not for the common case.
+   * link straight into st0/m9 — the tree is for looking around, not for the common case.
    *
    * null while the mirror has never been read: "unknown" and "none" are different answers,
    * and `[]` on an unfetched repository would claim it holds no project. The count is
@@ -815,7 +815,7 @@ export interface PublicEngine {
   /**
    * Who holds it and what they opened on it, when somebody does.
    *
-   * On the wire because "busy" and "busy with Fred's winter.l8" are not the same screen: an
+   * On the wire because "busy" and "busy with Fred's winter.st0" are not the same screen: an
    * engine that reads simply unavailable is one people retry, and taking a project over is a
    * thing you should only do knowing whose it is. Undefined when the engine is free.
    */

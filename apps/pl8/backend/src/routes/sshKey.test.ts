@@ -23,7 +23,7 @@ let base: string;
 let session: { sub?: string; email?: string } | null;
 /** What `verifyApiToken` says about a bearer — the test's whole token scheme. */
 const tokens: Record<string, string> = {
-  "machine-token": "service:l8",
+  "machine-token": "service:st0",
   "my-token": ME,
   "other-token": OTHER,
 };

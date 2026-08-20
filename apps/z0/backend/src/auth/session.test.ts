@@ -62,7 +62,7 @@ describe("studioUser", () => {
 
 describe("one secret is enough for two cookies", () => {
   // This is why z0 does NOT need a second key, and why it must instead use
-  // `common`'s like l8 and m9 do. A guest holds a cookie this backend signed
+  // `common`'s like st0 and m9 do. A guest holds a cookie this backend signed
   // with that very key — but cookie-session signs `<name>=<value>`, so the
   // cookie's NAME is inside the signature. Renaming it to studio.sid leaves a
   // signature computed over `bt_session=…`, which no longer verifies.

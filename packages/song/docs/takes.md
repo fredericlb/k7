@@ -56,7 +56,7 @@ still take 2 after you have listened to it.
 That is also what makes the review panel's sidebar work. It lists every take plus what the lane
 plays, and **clicking one is a select** — so the take you are looking at is the take you would
 hear, in the song, with the rest of the band. Nothing there is a preview mode; there is only what
-the lane plays, and a cheap way to change it. See `apps/l8/frontend/docs/shell.md`.
+the lane plays, and a cheap way to change it. See `apps/st0/frontend/docs/shell.md`.
 
 ## Choosing one: `track take keep`
 
@@ -118,7 +118,7 @@ Absent is how a lane with no takes reads.
 | the compile | `nodeProject.ts` → `TakeDoc` (`@studio/engine-protocol/project`) |
 | the strip | `project.ts`'s `withoutTakes`, applied in `engine-client` |
 | the wire to the browser | `WebTake` in `@studio/web-protocol`, filled by `workspace.ts` |
-| the rows | `apps/l8/frontend/src/rows.ts`, drawn by `TimelineTab.tsx` and `Minimap.tsx` |
+| the rows | `apps/st0/frontend/src/rows.ts`, drawn by `TimelineTab.tsx` and `Minimap.tsx` |
 | making one while recording | `packages/commands/src/recordTake.ts` |
-| the review sidebar | `apps/l8/frontend/src/takeReview.ts` → `AudioClipPanel.tsx` |
+| the review sidebar | `apps/st0/frontend/src/takeReview.ts` → `AudioClipPanel.tsx` |
 | the three verbs | `commands.yaml` → `track.take.select` / `track.take.keep` / `track.take.delete` |

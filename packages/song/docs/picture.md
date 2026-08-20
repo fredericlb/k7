@@ -1,6 +1,6 @@
 # Picture — a song's other half
 
-An `.l8` folder holds sound **and image**. Same folder, same loader, read twice:
+An `.st0` folder holds sound **and image**. Same folder, same loader, read twice:
 
 | file | read by the SONG compile | read by the PICTURE compile |
 |---|---|---|
@@ -30,7 +30,7 @@ seconds depends on the tempo, which the author is free to change. A placement's 
 **wall-clock**: `start: 4` is four seconds, and no setting anywhere moves it.
 
 Both are drawn on the one timeline, and its ruler reads either — bars, or minutes and seconds
-(`apps/l8/frontend/docs/picture.md`). The conversion is exact and reversible in both directions
+(`apps/st0/frontend/docs/picture.md`). The conversion is exact and reversible in both directions
 because there is **one `tempo:` and no tempo map**: a shot at 4.5s sits at beat 9 at 120 bpm,
 which is a fact about the drawing rather than about the file.
 

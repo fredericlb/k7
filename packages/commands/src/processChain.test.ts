@@ -319,7 +319,7 @@ describe("the repoint — the `in place` half", () => {
 });
 
 /**
- * From `01.danse.l8`: `clip process … normalize` bounced a 17.920 s take and wrote 19.920 s —
+ * From `01.danse.st0`: `clip process … normalize` bounced a 17.920 s take and wrote 19.920 s —
  * `--render` appends two seconds for reverb and release. The clip's stretch map still ended at
  * 17.92, and the engine reads that beat span as the length of the WHOLE source, so the take's
  * 110 bpm was read as 98.9, everything played 11% slow, and the phrase was cut before its end.

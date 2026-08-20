@@ -72,7 +72,7 @@ export function publicShareRouter(): RouterT {
    * Looked UP rather than joined: `docs` is a closed list written when the snapshot was built,
    * so a name that is not in it names nothing, and no part of the request reaches a path.
    *
-   * The extension is optional, and that is what lets the viewer be l8 unmodified: `fget` asks
+   * The extension is optional, and that is what lets the viewer be st0 unmodified: `fget` asks
    * for `/project-doc` because that is the file service's route, and the snapshot calls the same
    * bytes `project-doc.json` because a file needs a name. Matching both spellings here is one
    * `||`, where teaching either side about the other would have been a special case in the one

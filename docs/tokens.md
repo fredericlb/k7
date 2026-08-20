@@ -31,7 +31,7 @@ issuing service, the identity the callee will see, and where the caller reads it
 
 | link | signed with | `sub` | written to |
 |---|---|---|---|
-| l8 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:l8` | `~/.studio/engine-tray.json` (`mediatekToken`) |
+| st0 → pl8 | `pl8-backend.API_TOKEN_SECRET` | `service:st0` | `~/.studio/engine-tray.json` (`mediatekToken`) |
 | k7 → pl8 | the same secret | `service:k7` | `env.yaml` (`k7-backend.MEDIATEK_TOKEN`) |
 
 The env section is `pl8-backend`, and that spelling matters: a section name `env.yaml` does not
@@ -66,16 +66,16 @@ is the trade the scheme makes, and it is why the secret is per service rather th
 
 | service | path |
 |---|---|
-| `l8` | `""` — the editor is the front door, so it answers the ORIGIN itself |
+| `st0` | `""` — the editor is the front door, so it answers the ORIGIN itself |
 | `pl8` | `/pl8` |
 | `k7` | `/k7` |
 | `m9` | `/m9` |
 
-l8's empty path is a real entry rather than a special case at each call site — every caller
+st0's empty path is a real entry rather than a special case at each call site — every caller
 already concatenates. It was pl8's until the editor took the front door.
 
 **`/auth/*` moved with it**, and had to: the registered `redirect_uri` has no prefix, so the
-flow can only be served by the service with no prefix — l8's backend now, pl8's before. The IdP
+flow can only be served by the service with no prefix — st0's backend now, pl8's before. The IdP
 was not touched either time; only the process serving the callback changed. The dev proxy
 mirrors what the production edge does, so dev and production differ by the origin and nothing
 else.
@@ -86,7 +86,7 @@ So nothing asks for a service's URL any more:
   (`mediatekUrlFor`), and `mediatekUrl` is gone from `~/.studio/engine-tray.json`. Asking for it
   as well made a second, hand-typed copy of a fact already on disk — which is precisely how a
   machine ends up heartbeating to one studio and syncing from another;
-- the l8 frontend derives it from `window.location.origin`, replacing a build-time branch
+- the st0 frontend derives it from `window.location.origin`, replacing a build-time branch
   that named a host of its own (`media.studio.frediver.se`, which was never a path on this
   origin);
 - k7's backend **defaults** to `serviceUrl(STUDIO_ORIGIN, "pl8")`, so a deployment sets
@@ -112,5 +112,5 @@ loopback hop is right regardless.
 still true that nobody types a URL. It never overwrites one: a checkout pointed somewhere
 deliberate is a checkout somebody set up on purpose.
 
-l8' half needs no such line — the file service is on the engine's machine and reaches the
+st0' half needs no such line — the file service is on the engine's machine and reaches the
 studio the same way a browser does, over a certificate the OS already trusts.

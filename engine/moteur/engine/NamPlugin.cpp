@@ -70,7 +70,7 @@ std::optional<double> NamPlugin::modelLoudness() const
 
 juce::ValueTree NamPlugin::create()
 {
-    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being l8's.
+    // The ids live in tracktion::engine::IDs — unqualified they resolve to nothing, this namespace being st0's.
     juce::ValueTree v(tracktion::engine::IDs::PLUGIN);
     v.setProperty(tracktion::engine::IDs::type, xmlTypeName, nullptr);
     return v;

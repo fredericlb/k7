@@ -123,7 +123,7 @@ describe("seeding a clip that has none", () => {
 });
 
 /**
- * The bug this exists for, from `01.danse.l8`: `clip process … normalize` bounced a 17.920 s take
+ * The bug this exists for, from `01.danse.st0`: `clip process … normalize` bounced a 17.920 s take
  * through a chain and wrote a 19.920 s file — the render adds a two-second tail for reverb and
  * release. The map still ended at 17.92, and the engine reads the map's beat span as the length of
  * the WHOLE source, so the take's 110 bpm became 98.9, everything played 11% slow, and the phrase

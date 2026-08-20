@@ -82,7 +82,7 @@ describe("a brand-new library repository", () => {
     // On the REMOTE, not merely committed here: a gitlink is a promise that a commit is
     // fetchable, and the caller only records one once this has happened.
     expect(git(origin, "rev-parse", "main").trim()).toHaveLength(40);
-    // Empty on purpose. There is nothing to put in it: l8 is what writes a module, and it
+    // Empty on purpose. There is nothing to put in it: st0 is what writes a module, and it
     // commits through `commitLibraries` below.
     expect(pushed()).toEqual([]);
   });
@@ -211,7 +211,7 @@ describe("a brand-new library repository", () => {
     git(inside, "init", "--initial-branch=main");
     git(inside, "remote", "add", "origin", origin);
     await initIfEmpty(inside);
-    // A module for the publish tests below to EDIT. Written here by hand: l8 is what puts one in
+    // A module for the publish tests below to EDIT. Written here by hand: st0 is what puts one in
     // a library, and this fixture stands in for a library somebody has already used.
     mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
     writeFileSync(

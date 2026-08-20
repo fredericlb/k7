@@ -15,9 +15,9 @@ beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), "td-preview-"));
   // The workspace root IS the project here, so its own folder has to carry the suffix —
   // that is what makes a folder a project now, not the file inside it.
-  root = join(base, "song.l8");
+  root = join(base, "song.st0");
   mkdirSync(join(root, "clips"), { recursive: true });
-  writeFileSync(join(root, "project.yaml"), "package l8\n");
+  writeFileSync(join(root, "project.yaml"), "package st0\n");
   writeFileSync(join(root, "clips", "kick.wav"), "RIFF"); // presence is enough
   writeFileSync(join(root, "clips", "loop.wav"), "RIFF");
   ws = new Workspace(root);

@@ -5,9 +5,9 @@ A module ref carries its level as an `@` prefix:
 | ref | where the module is | who edits it |
 |---|---|---|
 | `@engine/nam` | **nowhere** — a scanned plugin, synthesised from the machine's scan cache | nobody; it has no file |
-| `@st0/audio/delay/tape-delay` | the account's library repository, mounted at `<workspace>/_libraries/modules` | l8's Libraries tab |
+| `@st0/audio/delay/tape-delay` | the account's library repository, mounted at `<workspace>/_libraries/modules` | st0's Libraries tab |
 | `@workspace/audio/reverb` | the workspace's `_modules/`, shared by every project beside it | the médiathèque |
-| `@project/audio/reverb` | the project's own `modules/` | l8 |
+| `@project/audio/reverb` | the project's own `modules/` | st0 |
 
 ## `@st0` is a git submodule in the workspace
 
@@ -25,10 +25,18 @@ that app was `apps/mediatek`; the app became `apps/st0` and the ref did not foll
 while a chain named a library by a word that no longer appeared anywhere else in the repo. That
 is what `migrateNamespace.ts` was written for, and the level was moved once, to `@st0`.
 
-**It has not moved since, and will not.** That app is `apps/pl8` today — renamed when l8 took
-the origin root and the médiathèque moved to `/pl8` — and the level is still `@st0`. The name
-follows the *folder of modules*, which did not move, rather than the *path on the origin*, which
-did. The price of moving it is the whole reason: a level is written into user files, so every
+**It has not moved since, and will not.** That app is `apps/pl8` today — renamed when the editor
+took the origin root and the médiathèque moved to `/pl8`.
+
+> **`@st0` is not the app `apps/st0`.** The name `st0` has belonged to two applications: the
+> médiathèque first, this level's namesake, and the editor since — it was `l8` until l8 stopped
+> referring to anything. So the level reads like today's editor and means yesterday's
+> médiathèque. Nothing resolves through the app either way; the level names a **folder of
+> modules**, and that folder has not moved once in all of it.
+
+The name follows the *folder of modules*, which did not move, rather than the *path on the
+origin*, which did. The price of moving it is the whole reason: a level is written into user
+files, so every
 chain in every repository on every machine would have to be rewritten at once, and the failure
 signature is a `?` on a graph node and nothing else. Once was worth it to stop a word that
 appeared nowhere; twice would be to chase a URL.

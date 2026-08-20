@@ -11,7 +11,7 @@ export interface Settings {
   /** The registries the user pinned via "Add web UI…". Overrides every other tier.
    *
    *  A LIST because each hosted service holds its own registry now — an engine has to be
-   *  listed in l8 AND in the médiathèque to be pickable in both. See
+   *  listed in st0 AND in the médiathèque to be pickable in both. See
    *  packages/engine-registry/docs/shared.md. */
   registryUrls: string[];
   /** The engine's WebSocket port. */

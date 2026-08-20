@@ -11,7 +11,7 @@ exécuté par lots — le plan est en fin de page.
 
 ## Périmètre
 
-Trois services parlent vraiment au moteur : **l8**, **m9** et **pl8**, chacun par ses deux
+Trois services parlent vraiment au moteur : **st0**, **m9** et **pl8**, chacun par ses deux
 moitiés (navigateur + backend), plus le **superviseur** (`engine-host`) qui l'annonce aux
 registres. En marge : **z0** ne s'y relie qu'en un point, un rendu hors-ligne de 74 lignes
 (`apps/z0/backend/src/render.ts`) qui passe par le service de fichiers en HTTP et jamais par
@@ -80,7 +80,7 @@ protocole.
 
 `apps/m9/frontend/src/useEngine.ts` ne s'abonne pas à `onConnected`. `phase: {k:"ready"}` est
 posé juste après `connect()` et n'est jamais remis en cause : socket morte, le deck continue
-d'afficher « en lecture ». l8 est propre sur ce point (`useEngineLink.ts:103-116`, qui force
+d'afficher « en lecture ». st0 est propre sur ce point (`useEngineLink.ts:103-116`, qui force
 même `engineBusy` à false — « a socket that drops mid-apply never delivers `busy:false` ») ;
 pl8 branche `onConnected` mais n'en fait qu'un booléen d'affichage.
 
@@ -88,7 +88,7 @@ pl8 branche `onConnected` mais n'en fait qu'un booléen d'affichage.
 
 Le `ProjectDoc` n'est **jamais** renvoyé après une reconnexion, sur aucune surface. Seules les
 souscriptions le sont (`engine.ts:179-193` : `watched`, `waveformSubs`, `broadcast`).
-Conséquence : si le moteur redémarre, l8 pilote un projet vide et le seul symptôme est « le
+Conséquence : si le moteur redémarre, st0 pilote un projet vide et le seul symptôme est « le
 moteur ignore Play ». m9 se reconnecte sur un moteur vide sans rien lui renvoyer.
 
 Le correctif est bon marché : `EngineHost::apply` diffe contre une baseline qui survit à la
@@ -125,14 +125,14 @@ coupure de dix minutes accumule tout ce que la surface a envoyé, et le tout par
 
 ### A9 — dérives entre les trois backends
 
-| point | pl8 | m9 | l8 |
+| point | pl8 | m9 | st0 |
 |---|---|---|---|
 | limite `express.json` | 1 Mo | 1 Mo | **8 Mo** |
 | gestionnaire d'erreur Express | 22 lignes | **absent** | **absent** |
 
-Le service de fichiers accepte 8 Mo : un `POST` relayé de 1 à 8 Mo passe par l8 et fait 413
+Le service de fichiers accepte 8 Mo : un `POST` relayé de 1 à 8 Mo passe par st0 et fait 413
 par pl8 et m9. Et le commentaire du gestionnaire d'erreur de pl8 décrit précisément le
-`request aborted` que produit le relais de fichiers — que l8 et m9 relaient sans le filet.
+`request aborted` que produit le relais de fichiers — que st0 et m9 relaient sans le filet.
 
 ### A10 — `release` n'est pas authentifié
 
@@ -180,7 +180,7 @@ les trois backends. Avec l'import, `requireAuth`, `createRegistry()`, le montage
 lignes recopiées à l'identique**.
 
 Un `mountEngineRegistry(app, server, { service })` absorberait tout. Divergences réellement
-voulues à paramétrer : le nom de service, l'extra legacy de l8, le `loadServiceEnv` de pl8, et
+voulues à paramétrer : le nom de service, l'extra legacy de st0, le `loadServiceEnv` de pl8, et
 la liste des chemins gardés. Les autres (A9) sont de la dérive.
 
 À noter : `ENGINE_PROXY_PATH` est exporté par le paquet et **personne ne l'importe** — le
@@ -193,7 +193,7 @@ vides strictement identiques** : structure `Phase`, `findEngine`, `pick`, l'effe
 les trois branches de rendu, la boucle `ranked.map`. Le `diff` ne montre qu'un bandeau de
 commentaire, l'import `useRelook`, et quatre chaînes de texte.
 
-Ailleurs : l'effet `useRelook` est dupliqué mot pour mot entre l8 et m9, `biome-ignore`
+Ailleurs : l'effet `useRelook` est dupliqué mot pour mot entre st0 et m9, `biome-ignore`
 compris (26 lignes pour un `useEngineList(actif)` de ~12) ; le spinner plein écran existe en
 4 copies ; la carte « Se connecter » en 3 ; la rangée de moteur en 4 (~102 lignes).
 
@@ -214,14 +214,14 @@ structurellement impossibles les six divergences ci-dessous.
 3. **z0 ne prend jamais le bail**, alors que `lease.md:20-27` raconte que deux apps ont livré
    ce bug indépendamment. (v1 était dans le même cas ; corrigé au lot 2 bis, où il devenait la
    seule surface capable d'écraser le projet d'une autre sur la même machine.)
-4. **`assigned` ignoré par 3 gates sur 4** : seul l8 cache un moteur déjà pris.
-5. **`select` avant d'entrer : l8 seul.** Les trois autres entrent sur un jeton non vérifié
+4. **`assigned` ignoré par 3 gates sur 4** : seul st0 cache un moteur déjà pris.
+5. **`select` avant d'entrer : st0 seul.** Les trois autres entrent sur un jeton non vérifié
    côté serveur.
 6. **« Rechercher à nouveau » détruit la liste** dans m9 et z0 (`setPhase({k:"looking"})`),
-   pas dans l8 ni pl8.
+   pas dans st0 ni pl8.
 
 Et un doublon d'appel : `holdEngine` fait déjà un `renew()` immédiat, donc `access.hold()`
-contient un `select` — `l8/EngineGate.tsx:64` en émet un second dans le même tick.
+contient un `select` — `st0/EngineGate.tsx:64` en émet un second dans le même tick.
 
 ### C4 — les formes du fil, déclarées deux fois
 
@@ -310,7 +310,7 @@ séparément.
 **A1.** `patchPrefs` rejoint le client de registre — lecture, fusion, écriture — et les trois
 gates y passent, pas seulement z0. `savePrefs` reste, pour qui veut vraiment remplacer, mais le
 verbe qui ne peut pas effacer le voisin est désormais celui qu'on prend par défaut : le jour où
-l8 ou m9 gagne un second champ, personne n'aura à se souvenir de ces lignes.
+st0 ou m9 gagne un second champ, personne n'aura à se souvenir de ces lignes.
 
 **A6.** L'intention coopérative est conservée — k7 et z0 attachent bien leur propre signalisation
 à un même serveur — mais elle est maintenant vérifiée : le socket n'est détruit que si ce
@@ -364,7 +364,7 @@ bavarde — 4 Hz n'est pas le silence sur lequel la sonde part.
 ### Lot 2 — `mountEngineRegistry` ✅ FAIT
 
 C1, plus les dérives de A9 qu'il supprime par construction : `ENGINE_BODY_LIMIT`,
-`engineErrorHandler` monté par les trois, et un départ propre avec `alsoOnStop` pour ce que l8
+`engineErrorHandler` monté par les trois, et un départ propre avec `alsoOnStop` pour ce que st0
 a en propre. Voir `packages/engine-registry/docs/shared.md`, « Un registre par service, mais un
 seul montage ».
 
@@ -386,7 +386,7 @@ regagner le projet au perdant cinq secondes plus tard, indéfiniment.
 
 Ce que ça règle du présent document : **C3 point 3 pour v1**, qui ne prenait aucun bail et
 était donc la seule surface capable d'écraser silencieusement le projet d'une autre sur la même
-machine ; et **le doublon d'appel** de `l8/EngineGate.tsx:64`, parti puisqu'un `select`
+machine ; et **le doublon d'appel** de `st0/EngineGate.tsx:64`, parti puisqu'un `select`
 supplémentaire distribuerait désormais un secret que personne ne garde. z0 ne prend toujours
 pas de bail — il ne pilote pas de projet, mais il pilote un moteur, donc la ligne tient.
 

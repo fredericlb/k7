@@ -19,12 +19,12 @@ only one**, and that rule is enforced in one place rather than remembered in sev
 the header's picker cannot open a second.
 
 The session is `sessionFor(SESSIONS.pl8, currentUser())` — per service and per person. Per
-service so the médiathèque cannot tear down the song l8 has open on the same machine; per
+service so the médiathèque cannot tear down the song st0 has open on the same machine; per
 person because the médiathèque is hosted and two people can choose one machine.
 
 It claims the engine with **no project** (`engines.hold(found, { project: null })`), and that
 is deliberate: pl8 never opens one, so it must not compete for one. Claiming here would take a
-song away from the l8 tab next door every time somebody glanced at the catalogue. See
+song away from the st0 tab next door every time somebody glanced at the catalogue. See
 [packages/engine-registry/docs/claim.md](../../../packages/engine-registry/docs/claim.md).
 
 ## What left: the module builder
@@ -40,14 +40,14 @@ something to ask about. Everything else followed from that — an audition with 
 picker, its own metered channel menu, its own level gauge, and an engine gate over the whole
 Modules section demanding a machine before you could edit a text file.
 
-That is all gone. **Modules are built in l8**, from the file tree's **Libraries** tab of
+That is all gone. **Modules are built in st0**, from the file tree's **Libraries** tab of
 whatever project is open, where a real project instantiates a plugin for real and the builder
 reads the one that is actually making the sound. The reasoning is in
-[apps/l8/frontend/docs/sharedModules.md](../../l8/frontend/docs/sharedModules.md).
+[apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 
 What the médiathèque keeps is what it is: **the only editable catalogue**. The Modules section
 lists, searches, uploads, renames and deletes; opening a module shows its files, read-only. And
-l8 writes back here, through this backend's own `PUT /api/mediatek/file` — same origin, same
+st0 writes back here, through this backend's own `PUT /api/mediatek/file` — same origin, same
 session cookie — which is what makes editing a module there mean editing *the* module rather
 than forking a copy into a song.
 
@@ -56,7 +56,7 @@ would improve, and a door in front of an empty room is worse than no door.
 
 ## Why the builder passed through here at all
 
-It used to be a screen inside l8, editing the workspace's `_modules` in place through an
+It used to be a screen inside st0, editing the workspace's `_modules` in place through an
 `editShared` flag on the file service's write route. That worked because a workspace's
 `_modules` was, at the time, where modules lived.
 
@@ -72,6 +72,6 @@ is only ever in a project.
 
 The first answer to having both at once was the **bench** — a generated project holding the
 whole catalogue, which you opened *in order to* edit a module ([banc.md](banc.md)). The second
-is smaller and is what ships: l8 lists this catalogue in a second tab of its file tree and
+is smaller and is what ships: st0 lists this catalogue in a second tab of its file tree and
 writes back over these routes, so the project supplying the loaded plugin is whichever one you
 already had open. The bench still exists for a **chain**, which has no such second home.

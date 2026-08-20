@@ -1,7 +1,7 @@
 # The layers of a node project
 
 A node project routes sources through a graph. `graph.ts` loads and inspects one
-(`l8 graph <project>`).
+(`st0 graph <project>`).
 
 | layer | what it holds |
 |---|---|
@@ -15,7 +15,7 @@ A node project routes sources through a graph. `graph.ts` loads and inspects one
 A **set** is this same layout with `clips/` and `sequences/` missing and a `turntables`
 surface present: it holds no material of its own, and its lanes are DECKS — declared, with no
 arrangement, filled at play time from the playlist that surface names ([playlists.md](playlists.md)).
-Not a dialect of its own: an `.l8` read by the same loader. See [setProject.md](setProject.md).
+Not a dialect of its own: an `.st0` read by the same loader. See [setProject.md](setProject.md).
 
 The chains themselves are DERIVED from those segments (chainsGraph.ts), not written: a run
 is a maximal linear path, breaking where the signal splits and where two signals meet. The

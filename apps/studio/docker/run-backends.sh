@@ -11,7 +11,7 @@
 # one STUDIO_PREFS_DIR — distinct names, so they stay in the Dockerfile.
 #
 # Two backends run under `tsx` and two under Node's own type stripping, and
-# that is not an inconsistency to tidy up: l8 and pl8 import @studio/* as raw
+# that is not an inconsistency to tidy up: st0 and pl8 import @studio/* as raw
 # TypeScript SOURCE out of node_modules, which `--experimental-strip-types`
 # refuses to touch. Changing either line to match the other breaks it on the
 # first import.
@@ -26,7 +26,7 @@ spawn() {
   PIDS="$PIDS $!"
 }
 
-spawn l8/backend  env PORT=8789 /app/node_modules/.bin/tsx src/server.ts
+spawn st0/backend  env PORT=8789 /app/node_modules/.bin/tsx src/server.ts
 spawn pl8/backend env PORT=8795 /app/node_modules/.bin/tsx src/server.ts
 spawn k7/backend  env PORT=8787 node --experimental-strip-types --env-file-if-exists=.env src/server.ts
 # EXTRA_FLAGS passes CLI flags to z0's server (e.g. `--latest`); unset is none.

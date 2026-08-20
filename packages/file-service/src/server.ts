@@ -169,7 +169,7 @@ app.post(
 
 /**
  * Which workspace already holds a repository, if any. pl8 names a repo by its URI and knows
- * nothing about this machine's folders, so this is the question l8 asks before deciding
+ * nothing about this machine's folders, so this is the question st0 asks before deciding
  * whether anything needs cloning at all.
  */
 app.get(
@@ -188,7 +188,7 @@ app.get(
 /**
  * The BENCH — made, or refreshed, and answered as a workspace + project.
  *
- * On ONE médiathèque chain (`chains/<path>.l8`), which is what the address's project part says.
+ * On ONE médiathèque chain (`chains/<path>.st0`), which is what the address's project part says.
  *
  * Its own route rather than a clone, because there is no repository: the bench is generated
  * from the médiathèque's catalogue and regenerated every time it is opened, so putting it under
@@ -209,7 +209,7 @@ app.post(
     if (!chain)
       return res.status(404).json({
         error:
-          "@banc opens a library chain — `chains/<path>.l8`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
+          "@banc opens a library chain — `chains/<path>.st0`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
       });
     // The account's library repository, from the browser — the side that holds the session pl8
     // answers to. The bench's workspace mounts it like any other, and the chain being opened is
@@ -270,7 +270,7 @@ app.use(mediatekRouter);
 
 // Jouer un morceau du cache sur les sorties de CETTE machine, sans le moteur. Per machine et
 // sans espace de travail, comme la médiathèque au-dessus : ce qu'on écoute n'appartient à aucun
-// projet, et c'est justement ce qui permet d'écouter pendant que le moteur sert l8.
+// projet, et c'est justement ce qui permet d'écouter pendant que le moteur sert st0.
 // Voir docs/machinePlayer.md.
 app.use(playerRouter);
 
@@ -415,7 +415,7 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   } catch (e) {
     console.warn(`   mediatek unavailable: ${(e as Error).message}`);
   }
-  console.log(`📁 l8 file service on http://0.0.0.0:${FILE_PORT}`);
+  console.log(`📁 st0 file service on http://0.0.0.0:${FILE_PORT}`);
   console.log(`   root: ${rootDir()}`);
   // Bring every known repo's Examples level with this build's demos, so a fix reaches existing users unseeded.
   syncAllRepos();

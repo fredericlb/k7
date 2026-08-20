@@ -10,11 +10,13 @@ npm run vscode                     # the browser editor at /dev, on its own
 ## Where it answers
 
 **`https://st0.priv.frediver.se`** — one origin, one path per service (`/pl8`,
-`/k7`, `/z0`), with **l8** answering the root. The same shape production has under
+`/k7`, `/z0`), with **st0** answering the root. The same shape production has under
 `studio.frediver.se`, which is the point: the two differ by their origin and nothing else.
 
-The hostname is still `st0.…` and does not follow the rename: it is a DNS name in a router,
-not a fact this repo owns, and the médiathèque that was `st0` is `pl8` under `/pl8` now.
+The hostname reads like the app it now serves, and that is a coincidence worth stating: it was
+named after the **médiathèque**, which was called `st0` before it became `pl8`. It never followed
+any of the renames — a DNS name lives in a router and in everyone's bookmarks, not in this repo —
+and it happens to agree again because the editor took the name the médiathèque gave up.
 
 > **The LAN proxy's path table lives on the other machine.** It is the one piece of this
 > topology not versioned here, and it must mirror `apps/studio/docker/nginx.conf`, which is
@@ -22,24 +24,24 @@ not a fact this repo owns, and the médiathèque that was `st0` is `pl8` under `
 >
 > | path | goes to | |
 > |---|---|---|
-> | `/` | **5223** | l8's dev server — was 5224 |
+> | `/` | **5223** | st0's dev server — was 5224 |
 > | `/pl8` | **5224** | pl8's dev server — was `/` |
-> | `/api/*` | **8789** | l8's backend — the engine registry |
-> | `/auth/*` | **8789** | l8's backend — the origin's OIDC flow |
+> | `/api/*` | **8789** | st0's backend — the engine registry |
+> | `/auth/*` | **8789** | st0's backend — the origin's OIDC flow |
 > | `/pl8/api/*` | 8795 | pl8's backend |
 >
 > **`/auth/*` follows the root**, so it moved to 8789 with everything else. The registered
 > `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever
-> service answers the root — the médiathèque before, l8 now. The IdP was never touched; only
+> service answers the root — the médiathèque before, st0 now. The IdP was never touched; only
 > the process serving the callback changed.
 >
-> It briefly did NOT follow: for one release `/auth` stayed on 8795 while l8 already held the
+> It briefly did NOT follow: for one release `/auth` stayed on 8795 while st0 already held the
 > root. That worked, and it is worth knowing what the wrong half of it looks like, because both
 > mistakes are silent in the same way — a backend that mounts no auth routes answers Express's
 > own **404, `Cannot GET /auth/login`**, which reads like a broken login rather than a misrouted
 > one. Nothing else fails and the SPA still loads; only signing in is impossible.
 >
-> Routing `/auth` to **5223** instead of 8789 also works: l8's vite config proxies `/auth` to
+> Routing `/auth` to **5223** instead of 8789 also works: st0's vite config proxies `/auth` to
 > its own backend, which is what makes the dev server usable when visited directly on its port.
 > 8789 is preferred here, because it is what the production edge does and the two are meant to
 > differ by their origin and nothing else.
@@ -129,7 +131,7 @@ port over the network; the LAN is the trust boundary.
 To put auth back, swap `--without-connection-token` for `--connection-token-file <path>`.
 `serve-web` then answers `403` to a bare `code.priv.frediver.se` and expects the `?tkn=…` URL it prints
 once; it trades that for a `vscode-tkn` cookie good for seven days. The stronger option, if
-this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at l8's
+this ever leaves a dev machine, is a forward-auth rule on the LAN proxy pointed at st0's
 backend (which owns `/auth`) so the studio session gates it.
 
 The first run downloads a server build (~100 MB) and answers `202` with a self-reloading

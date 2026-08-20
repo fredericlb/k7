@@ -1358,7 +1358,7 @@ function main(): void {
     .slice(2)
     .filter((a) => !a.startsWith("-"));
   if (!projectArg) {
-    console.error("usage: l8 graph <project> [trackname]");
+    console.error("usage: st0 graph <project> [trackname]");
     process.exit(2);
   }
   let g: GraphDoc;

@@ -24,7 +24,7 @@ function urlIn(path: string): string | null {
  * The advertised file is read **by name**, not derived from whichever registry answered first.
  * Hosted, every service shares one origin at a fixed path, so either would do. In a checkout
  * they do not: each backend advertises its own loopback PORT, so "the origin of some registry"
- * is l8's 8789 as often as pl8's 8795, and the médiathèque's routes are not there.
+ * is st0's 8789 as often as pl8's 8795, and the médiathèque's routes are not there.
  */
 export function mediatekBase(): string | null {
   return process.env.MEDIATEK_URL || urlIn(join(webEndpointsDir(), "pl8.json"));

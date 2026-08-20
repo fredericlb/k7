@@ -1,5 +1,5 @@
 // projectLifecycle.ts — creating a project in a workspace: from scratch (the same
-// scaffold `l8 create` runs) or by translating a foreign project (.dawproject, .als).
+// scaffold `st0 create` runs) or by translating a foreign project (.dawproject, .als).
 // Extracted from workspace.ts; both re-root the output INSIDE the workspace and guard the
 // path through the host's safePath. See docs/import.md for the sample-path rule.
 
@@ -137,7 +137,7 @@ export function importProjectInto(
  * folder ends up with a suffix saying one thing and its contents another.
  *
  * The two callees disagree about their second argument, and the table is where that shows:
- * `scaffoldSet` is handed the LABEL (`winter`), `scaffold` the folder name (`winter.l8`), so a
+ * `scaffoldSet` is handed the LABEL (`winter`), `scaffold` the folder name (`winter.st0`), so a
  * new mix calls itself one thing and a new song another. Preserved rather than quietly
  * levelled — what a project calls itself is on screen, and changing it is its own decision.
  */
@@ -146,7 +146,7 @@ const SCAFFOLD_FOR_SHAPE: Record<
   (dir: string, name: string) => void
 > = {
   arrangement: (dir, name) => void scaffold(dir, name, "arrangement"),
-  // The label a project CALLS itself drops the suffix — `winter.l8` is the folder, "winter"
+  // The label a project CALLS itself drops the suffix — `winter.st0` is the folder, "winter"
   // is the mix. projectLabel is the one place that rule is stated.
   mix: (dir, name) => void scaffoldSet(dir, projectLabel(name)),
   video: (dir, name) => void scaffold(dir, name, "video"),
@@ -156,7 +156,7 @@ const SCAFFOLD_FOR_SHAPE: Record<
  * Scaffold a NEW project folder at the workspace root, returning its workspace-
  * relative path. This is `POST /project/create`, which pl8's "Nouveau projet" calls.
  *
- * Every one of them is an `.l8` folder, and `shape` — the ARCHETYPE — picks the file map. Each
+ * Every one of them is an `.st0` folder, and `shape` — the ARCHETYPE — picks the file map. Each
  * is named after the surface it opens on, because that is the whole of what is being chosen:
  *
  * | archetype | what it writes |

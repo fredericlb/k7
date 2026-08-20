@@ -34,7 +34,7 @@ const settle = (ms = 250): Promise<void> =>
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "module-watch-"));
-  dir = join(root, "song.l8");
+  dir = join(root, "song.st0");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "project.yaml"), "project:\n  name: t\n", "utf8");
   module_("reverb");
@@ -94,7 +94,7 @@ describe("moduleFoldersStill", () => {
   // One watch per PROJECT, not one at a time: two people on one machine each have a session,
   // each session's poll starts its own, and a change to one must not cost the other its answer.
   it("keeps two projects apart", async () => {
-    const other = join(root, "other.l8");
+    const other = join(root, "other.st0");
     mkdirSync(join(other, "modules", "audio", "chorus"), { recursive: true });
     writeFileSync(
       join(other, "modules", "audio", "chorus", "module.yaml"),

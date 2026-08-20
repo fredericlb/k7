@@ -249,7 +249,7 @@ describe("the crossfade-demo song", () => {
     "engine",
     "capot",
     "songs",
-    "crossfade-demo.l8",
+    "crossfade-demo.st0",
   );
 
   it("opens clean", () => {

@@ -17,25 +17,25 @@ export const DEFAULT_SESSION = "";
  * `sessionFor` puts a person behind. Per-user ids landed with `sessionFor` below; this is no
  * longer the whole granularity, only the part that names which app is asking.
  *
- * `l8` is spelled once and read by two processes: the browser drives transport while
+ * `st0` is spelled once and read by two processes: the browser drives transport while
  * the file service compiles and sends the project. Give them different ids and the
  * frontend drives an empty session while the song plays in another.
  */
 export const SESSIONS = {
-  l8: "l8",
+  st0: "st0",
   pl8: "pl8",
 } as const;
 
 export type SessionId = string;
 
 /**
- * One session per (service, person): `l8:fred_parapluie_org`.
+ * One session per (service, person): `st0:fred_parapluie_org`.
  *
  * Needed the moment an engine can be CHOSEN per account, because two people can now choose
  * the same one — and on a service-wide id they would drive the same project, which is
  * exactly the collision sessions exist to end, moved up a level.
  *
- * `who` must be spelled identically by both halves of an app. l8 has two: the browser
+ * `who` must be spelled identically by both halves of an app. st0 has two: the browser
  * drives transport, the file service compiles and sends. Both have the user's email, and
  * both slug it the same way here — which is why this takes the raw email and does the
  * slugging itself rather than trusting each caller to.
@@ -65,7 +65,7 @@ export const ENGINE_GLOBAL_REPLIES = [
 
 /**
  * The reply types that describe ONE project and must be stamped. Unstamped, every client on
- * the engine reads them: an pl8 module audition made l8 flash `busy` and clear its warnings.
+ * the engine reads them: an pl8 module audition made st0 flash `busy` and clear its warnings.
  */
 export const PER_SESSION_REPLIES = [
   "state",

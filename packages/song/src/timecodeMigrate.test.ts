@@ -11,7 +11,9 @@ const run = (t: string) => migrateTimecodes(t, 4, 4);
 describe("shortening the chain", () => {
   it("turns sub-beat levels into ticks", () => {
     // "1:1:1:3" is two sixteenths of a sixteenth in: 2 × 1/16 beat = 0.125 beats = 120 ticks.
-    const { text, changes } = run(`events:\n  - { ref: a, start: "1:1:1:3" }\n`);
+    const { text, changes } = run(
+      `events:\n  - { ref: a, start: "1:1:1:3" }\n`,
+    );
     expect(text).toContain(`start: "1:1.120"`);
     expect(changes).toHaveLength(1);
     expect(parsePosition("1:1.120", 4, 4)).toBeCloseTo(0.125, 9);

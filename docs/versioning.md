@@ -11,13 +11,13 @@ the same string.
 ## ONE image, like phare's
 
 Every hosted app of this repo ships in a single container — `apps/studio/docker/` —
-l8 at the origin root, pl8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
-backends beside one nginx that owns the path routing. It replaced four images (k7, l8,
+st0 at the origin root, pl8 and k7 under their prefixes, z0's six SPAs under `/z0`, four
+backends beside one nginx that owns the path routing. It replaced four images (k7, st0,
 pl8, z0), each with its own Dockerfile, nginx.conf and build job.
 
 The reason is the origin. These apps were never independent: they share one hostname,
 one session cookie, and one prefixless `/auth/*` that belongs to whichever service answers the
-root — l8 today, the médiathèque before it (the IdP has a single redirect_uri registered —
+root — st0 today, the médiathèque before it (the IdP has a single redirect_uri registered —
 `apps/z0/docs/origin.md` is the post-mortem of trying otherwise). Four images meant the EDGE held the path table, so which app answered which
 prefix was configuration living outside this repo, and each image had to be told which
 prefix to strip. Now the edge sends the whole origin **unstripped** and one nginx.conf,
@@ -133,7 +133,7 @@ All nine SPAs, now all in one image, so the nine stamps are always the same stri
 | public path | SPA | render site |
 |---|---|---|
 | `/` | `pl8-frontend` | `apps/pl8/frontend/src/Library.tsx` — header, after the subtitle |
-| `/` | `l8-frontend` | `apps/l8/frontend/src/App.tsx` — header, after the title |
+| `/` | `st0-frontend` | `apps/st0/frontend/src/App.tsx` — header, after the title |
 | `/k7` | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
 | `/z0` | `z0-online` | `src/App.tsx` — header |
 | `/z0/editor` | `z0-editor` | `src/views/EditorView.tsx` — `.topbar` |
@@ -148,7 +148,7 @@ agree or the SPA loads and its assets 404 — which is why the Dockerfile's COPY
 the nginx `location` list read in the same order as this table.
 
 Styling follows each app's own idiom — Tailwind utilities where the surrounding chrome
-is Tailwind (l8, pl8, z0-online), a small class in the app's CSS file
+is Tailwind (st0, pl8, z0-online), a small class in the app's CSS file
 everywhere else. There is deliberately **no** shared version component: putting it in
 `z0-shared`'s auth badge would have landed it in six places at once, but that badge
 is an inline topbar item in three apps and a fixed top-right overlay in the other three.

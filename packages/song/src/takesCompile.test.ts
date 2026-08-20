@@ -14,7 +14,7 @@ let dir = "";
 
 // One lane, one bar of material, and a take of the same material placed a bar later.
 function project(name: string, lane: Record<string, unknown>): string {
-  const p = join(dir, `${name}.l8`);
+  const p = join(dir, `${name}.st0`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
   writeModule(p, "io", "OUT", { io: "out" });
   writeLane(p, "gtr", "audio-track", lane);

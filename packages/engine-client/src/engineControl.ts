@@ -291,7 +291,7 @@ export class EngineControl extends EventEmitter {
 
   // Whether rolling THIS session records its armed tracks; omitting `enabled` toggles, and the
   // ENGINE resolves the toggle so two surfaces can't both read "off". Per session, like `arm` —
-  // it was a process-global for a while, which made a deck's record light l8's as well.
+  // it was a process-global for a while, which made a deck's record light st0's as well.
   setRecordEnabled(enabled?: boolean): void {
     this.send({
       type: "record-enable",

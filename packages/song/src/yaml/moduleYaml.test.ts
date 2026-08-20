@@ -108,7 +108,7 @@ rack:
 
 describe("this app's vocabulary survives YAML", () => {
   it("keeps a timecode a string, not a sexagesimal number", () => {
-    // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — l8 writes both
+    // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — st0 writes both
     // all day (marker timecodes, bypass states). 1.2 is forced in PARSE_OPTIONS; this is
     // what proves it, and what fails the day someone "modernises" that option.
     // `content` is the free-text field now that `docs:` is gone (a note is a doc module) —

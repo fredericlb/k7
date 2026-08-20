@@ -153,7 +153,7 @@ export function buildShareBundle(
     /**
      * The stems are transcoded, and the number is why.
      *
-     * Measured on `01.danse.l8`: twelve lanes, 37.2 MB of wav each, **484 MB for one share** —
+     * Measured on `01.danse.st0`: twelve lanes, 37.2 MB of wav each, **484 MB for one share** —
      * and a share has no expiry, on the volume that also holds everybody's médiathèque. A stem
      * here is for HEARING a lane in a browser, not for mastering, so mp3 is not a compromise:
      * it is what the file is for. Roughly thirty times smaller, and a phone stops downloading
@@ -203,7 +203,7 @@ export function buildShareBundle(
 export interface ShareTarget {
   /** pl8's base URL — `mediatekBase()` on the machine that renders. */
   base: string;
-  /** The machine's `service:l8` bearer — `mediatekToken()`. */
+  /** The machine's `service:st0` bearer — `mediatekToken()`. */
   token: string;
   /** Whose share this is. A service token has no person of its own and must name one. */
   user: string;
@@ -243,7 +243,7 @@ export async function uploadShare(
 ): Promise<ShareLink> {
   const auth = { Authorization: `Bearer ${to.token}` };
   // EVERY call carries `?user=`, not just the first: the credential is the MACHINE's
-  // (`service:l8`), so each request has to name the person again or pl8 files it under a service
+  // (`service:st0`), so each request has to name the person again or pl8 files it under a service
   // that owns nothing. The three steps are three requests and none of them remembers the others.
   const user = `user=${encodeURIComponent(to.user)}`;
   const api = `${to.base.replace(/\/+$/, "")}/api/shares`;

@@ -86,7 +86,7 @@ export class FrameClock implements Clock {
  * device whose sample position the picture must agree with, where inventing an engine to keep
  * time would be a whole process running to hold a number.
  *
- * UNUSED in this repo: l8 hosts the renderer and has an engine, so the picture follows
+ * UNUSED in this repo: st0 hosts the renderer and has an engine, so the picture follows
  * `EngineClock`. Kept because the seam is the point — the compositor cannot tell which clock it
  * has, which is what keeps the renderer independent of where its time comes from.
  *

@@ -34,7 +34,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo.l8",
+  "synth-demo.st0",
 );
 
 // The fixture's instrument step is found by the PREFIX "synth", not matched literally: the

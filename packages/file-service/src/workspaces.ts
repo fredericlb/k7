@@ -216,7 +216,7 @@ async function remoteOf(slug: string, name: string): Promise<string | null> {
 /**
  * The workspace already holding this repository, or null.
  *
- * This is what stops l8 re-cloning something that is already on disk, and it compares
+ * This is what stops st0 re-cloning something that is already on disk, and it compares
  * NORMALIZED uris because the two sides learn the address by different routes: pl8 has what
  * was pasted, this has whatever `git` wrote into `remote.origin.url`.
  */

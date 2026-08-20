@@ -25,13 +25,13 @@ struct Payload {
 // plugin poll from creating a phantom "" session in the tray's Sessions menu.
 void find_does_not_create() {
     SessionRegistry<Payload> reg;
-    CHECK(reg.find("l8") == nullptr);
+    CHECK(reg.find("st0") == nullptr);
     CHECK(reg.size() == 0);
     CHECK(reg.ids().empty());
 
     // …and neither does a withSession that matches nothing: it runs the lambda zero times.
     int ran = 0;
-    CHECK(reg.withSession("l8", [&](Payload&) { ++ran; }) == false);
+    CHECK(reg.withSession("st0", [&](Payload&) { ++ran; }) == false);
     CHECK(ran == 0);
     CHECK(reg.size() == 0);
 }
@@ -39,15 +39,15 @@ void find_does_not_create() {
 void emplace_creates_once() {
     SessionRegistry<Payload> reg;
     bool created = false;
-    Payload& a = reg.emplace("l8", &created);
+    Payload& a = reg.emplace("st0", &created);
     CHECK(created);
     a.sentinel = 42;
-    Payload& b = reg.emplace("l8", &created);
+    Payload& b = reg.emplace("st0", &created);
     CHECK(!created);   // what tells EngineHost whether to stamp lastTouchedMs
     CHECK(&a == &b);
     CHECK(b.sentinel == 42);
     CHECK(reg.size() == 1);
-    CHECK(reg.find("l8") == &a);
+    CHECK(reg.find("st0") == &a);
 }
 
 // The unique_ptr promise: a reference handed out stays valid however much the map grows around
@@ -64,25 +64,25 @@ void reference_survives_growth() {
 
 void erase_forgets() {
     SessionRegistry<Payload> reg;
-    reg.emplace("l8");
+    reg.emplace("st0");
     reg.emplace("m9");
-    reg.erase("l8");
-    CHECK(reg.find("l8") == nullptr);
+    reg.erase("st0");
+    CHECK(reg.find("st0") == nullptr);
     CHECK(reg.find("m9") != nullptr);
     CHECK(reg.ids() == std::vector<std::string>{"m9"});
 
     int ran = 0;
-    CHECK(reg.withSession("l8", [&](Payload&) { ++ran; }) == false);
+    CHECK(reg.withSession("st0", [&](Payload&) { ++ran; }) == false);
     CHECK(ran == 0);
 }
 
 void ids_are_sorted_and_copied() {
     SessionRegistry<Payload> reg;
     reg.emplace("m9");
-    reg.emplace("l8");
+    reg.emplace("st0");
     reg.emplace("pl8");
     // std::map ordering, and a COPY — the caller walks it without holding the lock.
-    CHECK((reg.ids() == std::vector<std::string>{"l8", "m9", "pl8"}));
+    CHECK((reg.ids() == std::vector<std::string>{"m9", "pl8", "st0"}));
 }
 
 // One writer growing the map while two readers work it, which is the shape of the real fault:

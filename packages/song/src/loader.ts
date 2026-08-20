@@ -758,26 +758,40 @@ export function libraryModuleIssues(dir: string): Diagnostic[] {
  * "silently ignored", which is the failure mode this codebase keeps paying for.
  */
 export function deadProjectFields(dir: string): Diagnostic[] {
-  let project: Record<string, unknown> | undefined;
+  let root: RawProjectRoot;
   try {
-    project = loadProjectRoot(dir).project as Record<string, unknown>;
+    root = loadProjectRoot(dir);
   } catch {
     return []; // an unreadable header is the compile's error, not this
   }
+  const project = root.project as Record<string, unknown> | undefined;
   // Project-RELATIVE, like every other Diagnostic: `rel` comes back rooted ("/project.yaml")
   // for a file at the top, and the editor matches these against its own tree paths.
   const file = (
     entityFileFor(dir, "", "project")?.rel ?? "project.yaml"
   ).replace(/^\/+/, "");
-  return (["modules_from", "libraries_from"] as const)
+  const at = (message: string): Diagnostic => ({
+    file,
+    line: 1,
+    col: 1,
+    severity: "warning",
+    message,
+  });
+  const dead = (["modules_from", "libraries_from"] as const)
     .filter((k) => project?.[k] !== undefined)
-    .map((k) => ({
-      file,
-      line: 1,
-      col: 1,
-      severity: "warning" as const,
-      message: `\`${k}\` is no longer read — the shared folders are found where they sit (../_modules, ../_library, the médiathèque). This line can be deleted.`,
-    }));
+    .map((k) =>
+      at(
+        `\`${k}\` is no longer read — the shared folders are found where they sit (../_modules, ../_library, the médiathèque). This line can be deleted.`,
+      ),
+    );
+  // A ROOT sibling rather than a `project:` setting, which is why it is asked separately.
+  if (root.type !== undefined)
+    dead.push(
+      at(
+        "`type` is no longer read — the folder's suffix is what says which app opens a project, and there is one dialect left. This line can be deleted.",
+      ),
+    );
+  return dead;
 }
 
 export function notSupportedModules(dir: string): Diagnostic[] {
@@ -930,7 +944,7 @@ export function loadChains(
 
 /**
  * The set's songs, from `songs.yaml` — the médiathèque refs an m9 project draws on,
- * deduplicated and sorted. Empty for a project that has no such file, which is every l8
+ * deduplicated and sorted. Empty for a project that has no such file, which is every st0
  * song: the file is m9's, and its absence is not a fault.
  *
  * The refs are NOT resolved here. What a ref names lives in the médiathèque, whose catalogue

@@ -284,7 +284,8 @@ export interface RawProjectRoot {
     libraries_from?: string[];
     [key: string]: unknown;
   };
-  /** The dialect the folder declares — "l8" or "m9". A root sibling; see projectSchema.ts. */
+  // The dialect a folder used to declare, when there were two. A root sibling, accepted and
+  // ignored like `project_type` below — `deadProjectFields` names the line to delete.
   type?: string;
   // Accepted and ignored — see projectSchema.ts. Typed as `string` because nothing narrows it:
   // no reader is left, and the key only survives so a folder written before the notion went away

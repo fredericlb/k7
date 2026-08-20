@@ -1,6 +1,6 @@
 // EngineStatusBar.tsx — the bar at the bottom: which engine this account auditions through
 // and how good the link to it is. Q1/Q2/Q3 off a MEASURED latency (the round trip plus what
-// the interface costs); see @studio/web-protocol/quality. l8 and m9 show the same line,
+// the interface costs); see @studio/web-protocol/quality. st0 and m9 show the same line,
 // because it describes the session rather than the screen.
 //
 // It reads `useEngineChoice`, which probes without connecting — so the bar costs no socket

@@ -1,6 +1,6 @@
 # `surfaces/` — a special view the project asks for
 
-An l8 project carries a `surfaces/` folder. One file, one surface:
+An st0 project carries a `surfaces/` folder. One file, one surface:
 
 ```yaml
 # surfaces/timeline.yaml — the arrangement
@@ -166,7 +166,7 @@ A viewport surface draws the composited picture and nothing else. Where the pict
 *placed* is the timeline's business — the same timeline the song's audio lanes are on, whose
 ruler reads bars or seconds. There is deliberately no second arrangement surface for picture:
 one grid that can be read in two units beats two grids that must be kept in step. See
-[picture.md](picture.md) and `apps/l8/frontend/docs/picture.md`.
+[picture.md](picture.md) and `apps/st0/frontend/docs/picture.md`.
 
 ### `split` is not `view` drawn smaller
 
@@ -189,7 +189,7 @@ flattens the EQ while the sound stays where you put it. See
 
 A `split` surface does not raise the question: the timeline holds a caret and a zoom stack, and
 the viewport a GL context and a `<video>` per layer — cheap to keep, maddening to rebuild, which
-is the invariant the panes obey (`apps/l8/frontend/docs/shell.md`).
+is the invariant the panes obey (`apps/st0/frontend/docs/shell.md`).
 
 That is also why a `split` surface gets **no header button** and cannot be named by
 `/surface/<id>`: it is not a screen you open, so a button that "opened" it would name a place
@@ -254,7 +254,7 @@ surfaces/<id>.yaml
   → SurfaceSchema          packages/song/src/yaml/surfaceSchema.ts   (browser-safe)
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it
-  → useSurfaces            apps/l8/frontend/src/hooks/useSurfaces.ts
+  → useSurfaces            apps/st0/frontend/src/hooks/useSurfaces.ts
   → `view`  → SurfaceTab   which picks the component for `type`
     `split` → the layout   App.tsx: `timelineSurface` / `viewportSurface` decide the panes,
                            `viewPanes(view, timeline, viewport)` the ring
@@ -264,7 +264,7 @@ Malformed files are reported through the same array as `projectTypeIssues` and t
 warnings, so a surface that will not parse is a squiggle in the editor rather than a blank
 screen. One bad surface does not take the good ones down with it.
 
-## In l8's shell: a screen, not a pane
+## In st0's shell: a screen, not a pane
 
 *(This section is about a `view` surface. A `split` one is in the layout — see the table above.)*
 
@@ -297,7 +297,7 @@ the same invariant the panes obey rather than an exception to it.
 
 ## `turntables`
 
-The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which l8
+The DJ desk, drawn by `@studio/ui-turntables`. Its one seam is the engine (`./engine`), which st0
 satisfies from the link its shell already holds; see that package's
 [docs/hosting.md](../../ui-turntables/docs/hosting.md).
 
@@ -315,8 +315,8 @@ says so on its browser, which is a sentence you can act on. Refusing the file wo
 open the project over a set list nobody has chosen yet.
 
 A playlist is not desk-specific and is not the project's either — it is a document in the
-repository, shared by every project in the workspace and written in l8 under the cog. That is
-why bringing the desk to l8 needed no set-list concept invented for l8: an `.l8` folder whose
+repository, shared by every project in the workspace and written in st0 under the cog. That is
+why bringing the desk to st0 needed no set-list concept invented for st0: an `.st0` folder whose
 `surfaces/` names a playlist is a set ([setProject.md](setProject.md)).
 
 ### One writer for one engine
@@ -324,10 +324,10 @@ why bringing the desk to l8 needed no set-list concept invented for l8: an `.l8`
 The desk drives the engine by **sending a whole `ProjectDoc`**: `sendDecks` takes the compiled
 project (`GET /engine-doc`), fills the decks' clips into it (`withDecks`) and plays the result.
 
-**The file service is the only writer**, because it is what loads l8's project into the engine
+**The file service is the only writer**, because it is what loads st0's project into the engine
 in the first place. Two writers for one engine means whichever wrote last wins: a save during a
 set drops the decks' clips, a deck gesture undoes a change the service just applied.
-`Deck.sendProject` is the seam that keeps it to one — l8 posts to `POST /engine/project`, which
+`Deck.sendProject` is the seam that keeps it to one — st0 posts to `POST /engine/project`, which
 the service forwards on its own link. Taking a `Deck` rather than an `EngineClient` is what
 makes this a parameter rather than a fork: `sendDecks` knows nothing about a socket.
 

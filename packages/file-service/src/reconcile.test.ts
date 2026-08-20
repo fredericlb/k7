@@ -119,13 +119,13 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("awaitSessions", () => {
   // Widened like awaitArm's spy: the fake takes any event, the parameter type wants one.
   const spy = () =>
-    new FakeClient("ws://x", "l8") as unknown as FakeClient &
+    new FakeClient("ws://x", "st0") as unknown as FakeClient &
       Parameters<typeof awaitSessions>[0];
 
   it("asks, and resolves with what the engine holds", async () => {
     const c = spy();
-    FakeClient.answer = [{ id: "l8", loaded: true }];
-    expect(await awaitSessions(c, 50)).toEqual([{ id: "l8", loaded: true }]);
+    FakeClient.answer = [{ id: "st0", loaded: true }];
+    expect(await awaitSessions(c, 50)).toEqual([{ id: "st0", loaded: true }]);
     expect(c.asked).toBe(1);
   });
 

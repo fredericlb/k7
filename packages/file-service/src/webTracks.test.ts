@@ -1,7 +1,7 @@
 // `toWebTracks` — the compiled document as the browser reads it. What is pinned here is what a
 // CLIP carries, because the browser caches a clip's envelope against those fields: leave one
 // behind and a timeline block goes on drawing material its clip no longer plays (the trim bug —
-// apps/l8/frontend/src/clipEnvelope.ts).
+// apps/st0/frontend/src/clipEnvelope.ts).
 
 import type { ClipDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";

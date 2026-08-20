@@ -26,7 +26,7 @@ afterEach(() => {
 
 /** A project folder carrying `surfaces/<name>.yaml`. */
 function withSurface(name: string, body: string): string {
-  const dir = join(root, "song.l8");
+  const dir = join(root, "song.st0");
   mkdirSync(join(dir, "surfaces"), { recursive: true });
   writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
   writeFileSync(join(dir, "surfaces", `${name}.yaml`), body);
@@ -170,7 +170,7 @@ describe("projectSurfaces", () => {
   it("is silent about a project with no surfaces/ folder", () => {
     // The folder is OPTIONAL and almost no project has one. Reporting its absence would put a
     // diagnostic on every song in the médiathèque.
-    const dir = join(root, "plain.l8");
+    const dir = join(root, "plain.st0");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir)).toEqual({ surfaces: [], diagnostics: [] });
@@ -231,7 +231,7 @@ describe("a project holding material and declaring no timeline", () => {
   it("warns a project with material and no surfaces/ folder at all", () => {
     // `projectSurfaces` stays silent about the missing folder, which is the ordinary case. The
     // missing ARRANGEMENT is a different sentence, and this is the one project that gets both.
-    const dir = join(root, "plain.l8");
+    const dir = join(root, "plain.st0");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "plain"\n');
     expect(projectSurfaces(dir).diagnostics).toEqual([]);
@@ -291,7 +291,7 @@ describe("a song with video lanes and no viewport", () => {
  */
 describe("createSurfaceFile", () => {
   const project = (): string => {
-    const dir = join(root, "song.l8");
+    const dir = join(root, "song.st0");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "project.yaml"), 'project:\n  name: "song"\n');
     return dir;

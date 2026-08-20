@@ -1,6 +1,6 @@
 // useModuleEngine.ts — the ONE socket to the engine this account chose. It carries the
 // transport for anything the moteur plays for the médiathèque: a chain variant, a song, a
-// playlist. It used to load MODULES too — that left with the builder, which is in l8 now,
+// playlist. It used to load MODULES too — that left with the builder, which is in st0 now,
 // where a plugin can be loaded into a real project. See docs/engine.md, docs/playbackTarget.md.
 
 import { EngineClient, type EngineWarning } from "@studio/engine-browser";
@@ -135,18 +135,18 @@ export function useModuleEngine(engineId?: string): ModuleEngine {
       if (!chosen) return setPhase({ k: "absent" });
       const found = chosen;
       setFileBase(found.fileBase ?? null);
-      // The lease, exactly as l8' EngineGate holds it. A miss is not fatal: it marks the
+      // The lease, exactly as st0' EngineGate holds it. A miss is not fatal: it marks the
       // engine in use, it does not grant the connection, which the browser makes itself.
       lease.current?.(); // a previous one, if this effect re-ran on a new choice
       // `project: null` — and that is the whole of pl8's relationship to the claim. The
       // médiathèque drives an engine without ever opening a project, so it must not compete for
-      // one: claiming here would take a song away from the l8 tab next door every time somebody
+      // one: claiming here would take a song away from the st0 tab next door every time somebody
       // looked at the catalogue. It still holds the ENGINE, which is what marks it in use.
       lease.current = engines.hold(found, { project: null });
 
       // Per SERVICE and per PERSON: the médiathèque is hosted, so two people can choose the
       // same machine, and on a bare "pl8" one of them starting a song would tear down the
-      // other's mid-listen. It also keeps this out of the slot l8 has a song in.
+      // other's mid-listen. It also keeps this out of the slot st0 has a song in.
       const client = new EngineClient(
         // Measured once here, re-measured before every reconnect: the relayed URL's ticket
         // outlives nothing, and a preview pane stays open far longer than a minute.

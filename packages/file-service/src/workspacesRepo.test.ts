@@ -1,5 +1,5 @@
 // The repo -> workspace lookup, against real git checkouts: it is the thing that decides
-// whether l8 clones or opens, and a wrong answer costs either a duplicate clone or a 404.
+// whether st0 clones or opens, and a wrong answer costs either a duplicate clone or a 404.
 
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

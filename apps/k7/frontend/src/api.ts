@@ -16,7 +16,7 @@ import type {
 // host (nginx proxies it in the image, Vite proxies it in dev), so paths stay
 // relative — there is no API origin to configure.
 // The API moved under the service prefix; AUTH did not. st0.priv.frediver.se is one origin
-// and l8 owns /auth/* at its root for every service, so those calls below use a
+// and st0 owns /auth/* at its root for every service, so those calls below use a
 // bare fetch rather than this client.
 // BASE_URL is vite's `base`; it ends in a slash, trimmed here so every path below
 // can start with one. Derived rather than spelled out again: the prefix is declared
@@ -287,7 +287,7 @@ export const api = {
   versionTrackUrl: (id: string, versionId: string, trackId: string) =>
     `${BASE}/api/releases/${id}/versions/${versionId}/tracks/${trackId}`,
 
-  // Mint a personal access token for the l8 CLI (Settings UI).
+  // Mint a personal access token for the st0 CLI (Settings UI).
   getApiToken: (): Promise<{ token: string }> => f("/api/token").then(json),
 
   // --- Pages ---

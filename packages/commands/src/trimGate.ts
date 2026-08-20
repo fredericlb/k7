@@ -10,7 +10,7 @@ export const DEFAULT_TRIM_DB = -40;
  * What a zero bucket reads as — the scale's floor, not a magic number.
  *
  * The SAME floor `peakPass.ts` declares as `PEAK_FLOOR_DB`, and deliberately not imported from
- * there: this file is browser-safe and l8's clip panel imports it, while `peakPass` reaches for
+ * there: this file is browser-safe and st0's clip panel imports it, while `peakPass` reaches for
  * `node:child_process`. Sharing the constant would drag a process spawner into the browser to
  * save one number. The duplication is structural — see `docs/inventaire.md`.
  */

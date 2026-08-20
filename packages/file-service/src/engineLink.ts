@@ -108,11 +108,11 @@ function noteServed(ws: Workspace, project: string): void {
  * exactly the case that shape exists for.
  */
 export function sessionOf(ws: { root: string } | null): string {
-  if (!ws) return SESSIONS.l8;
+  if (!ws) return SESSIONS.st0;
   const rel = relative(rootDir(), ws.root);
   const slug = rel.split(/[\\/]/)[0];
-  if (!slug || slug.startsWith("..")) return SESSIONS.l8;
-  return `${SESSIONS.l8}:${slug}`;
+  if (!slug || slug.startsWith("..")) return SESSIONS.st0;
+  return `${SESSIONS.st0}:${slug}`;
 }
 
 function wireEngine(session: string, e: EngineClient): void {
@@ -246,7 +246,7 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
     existing.lastUsed = Date.now(); // every use, so pruneIdleLinks only ever sees the abandoned
     return existing.client;
   }
-  // The other half of l8' session: this side compiles and sends the project, the browser
+  // The other half of st0' session: this side compiles and sends the project, the browser
   // side drives its transport. Same id or the two steer different projects.
   //
   // And deliberately NOT a driver. The engine counts sockets that declare `role: "driver"` on
@@ -368,7 +368,7 @@ function enginePlugins(
       clearTimeout(t);
       if (rescan) out.push(`scanned ${plugins.length} plugin(s)`);
       else if (!plugins.length)
-        out.push("no plugins cached — run: l8 engine scan");
+        out.push("no plugins cached — run: st0 engine scan");
       else
         for (const p of plugins)
           out.push(
@@ -1157,7 +1157,7 @@ function makeHost(
  *
  * The git verbs are `project commit` and `project pull` — this listed a bare `commit|pull`,
  * which matches NEITHER, so both were refused with "no project" whenever none was open. It
- * went unnoticed because l8's command bar always has one; pl8 creating a project it never
+ * went unnoticed because st0's command bar always has one; pl8 creating a project it never
  * opens is the first caller to arrive without.
  *
  * These are VERBS FROM `commands.yaml`, and this list has drifted from it once already —

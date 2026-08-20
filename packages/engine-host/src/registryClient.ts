@@ -33,7 +33,7 @@ export const DEFAULT_STUDIO_URL = STUDIO_ORIGIN;
  *   4. the hosted studio.
  *
  * A LIST since each hosted service holds its own registry: an engine must be listed in
- * l8 and in the médiathèque to be pickable in both. Deduped, because the same URL
+ * st0 and in the médiathèque to be pickable in both. Deduped, because the same URL
  * arriving twice would mean two heartbeats a tick to one server for nothing.
  */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
@@ -61,7 +61,7 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
  * exactly how a machine ends up heartbeating to one studio and syncing from another.
  *
  * Only the ORIGIN is kept, and the path comes back from the table: a registry URL may be any
- * service's (`…/pl8`, or the bare origin now that l8 answers it), and the médiathèque is under
+ * service's (`…/pl8`, or the bare origin now that st0 answers it), and the médiathèque is under
  * `/pl8`. It used to be the bare origin, and that was one `serviceUrl` call away from being
  * wrong the day the two swapped — which is the case for asking rather than assuming.
  *
@@ -94,7 +94,7 @@ function urlIn(path: string): string | null {
  * Every registry a local backend advertised, deduped.
  *
  * The DIRECTORY is the contract; the single `web-endpoint.json` is read too because an older
- * l8 backend still writes only that one, and a tray shipped before this change reads only
+ * st0 backend still writes only that one, and a tray shipped before this change reads only
  * that one. Both are cheap, and the union is what stops a version skew from silently costing
  * an app its engine.
  */

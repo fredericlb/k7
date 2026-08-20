@@ -45,7 +45,7 @@ struct StateParam {
     // grows past its reserve. It did: the four wave shapes silently vanished from the dump while the
     // hand-written entries beside them survived, which is what a reallocation looks like from outside.
     std::string property;  // the ValueTree property the CachedValue is bound to
-    std::string name;      // display name, the key l8 addresses it by
+    std::string name;      // display name, the key st0 addresses it by
     double min, max, def;
     // A DISCRETE control's settings in order, empty for a continuous one. Only where the plugin's own header
     // NAMES them: an int whose meanings are not written down anywhere gets a range and no labels, because a

@@ -2,7 +2,7 @@
 // the protocol has play/stop/seek and no varispeed), so this predicts from local time and the
 // only unknown it estimates is the OFFSET between the two clocks. A frame that disagrees is a
 // measurement, not a drift — except past SEEK_EPS, where it is a jump and the estimate is rolled
-// back. Pure: no React, no DOM, no clock of its own. See apps/l8/frontend/docs/playhead.md.
+// back. Pure: no React, no DOM, no clock of its own. See apps/st0/frontend/docs/playhead.md.
 
 /** A frame contradicting the estimate by more than this is a SEEK, not latency. */
 export const SEEK_EPS = 0.3; // seconds — the same figure ui-eyes' EngineClock uses

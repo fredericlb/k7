@@ -38,12 +38,12 @@ snapshot (`host.rs`), and a click goes back up as a command.
 
 One engine now holds several projects at once, one per app driving it. The status line
 reports the PROCESS (`● Running · id 3f2a91c4 · :8765`), and that read the same whether the
-engine held nothing, held l8' song, or held a song and a deck and a module preview
+engine held nothing, held st0' song, or held a song and a deck and a module preview
 together. The submenu is the only place the tray answers *what is my engine doing, and for
 whom*:
 
 ```
-Sessions ▸  l8 · ma-chanson · 4 tracks  ▶  ♫1   ✕
+Sessions ▸  st0 · ma-chanson · 4 tracks  ▶  ♫1   ✕
             m9 · le-set · 1 track                ✕
             pl8 · nothing loaded                 ✕
 ```

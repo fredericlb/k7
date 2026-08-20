@@ -2,7 +2,7 @@
 // hook that owns the decks both need it, and neither should have to import the other.
 
 // The shared file routes, direct. m9 reached them through its own `api.ts`, which was one line
-// re-exporting exactly this — "m9 is l8 without the timeline, not a second dialect of the same
+// re-exporting exactly this — "m9 is st0 without the timeline, not a second dialect of the same
 // file service". With the desk in a package there is no app to go through, and the indirection
 // would have been a seam over something that was already shared.
 import { projectApi as api } from "@studio/project-shell/project";
@@ -72,7 +72,7 @@ export async function readPlaylistText(name: string): Promise<string | null> {
  * songs.yaml as TEXT.
  *
  * Text and not a parse, because a cue is written back INTO it — comments and all. Absent reads
- * as empty rather than as an error: an l8 song can be opened here, and a set written before the
+ * as empty rather than as an error: an st0 song can be opened here, and a set written before the
  * file existed still opens.
  */
 export async function readSongsText(project: string): Promise<string> {

@@ -11,7 +11,7 @@ import { loadEnv } from "./env.ts";
 //                 WebSocket upgrade, which never sees req.session (ws.ts), and
 //                 for pl8's `studio.sid`, which this backend reads but never
 //                 writes. It must be env.yaml `common`'s — the same constraint
-//                 l8, m9 and k7 are under. See docs/auth.md.
+//                 st0, m9 and k7 are under. See docs/auth.md.
 //
 // Note what is NOT here either: the OIDC redirect URI, the cookie's Domain and
 // Secure flag, and the allowed return origins. Those are all host-shaped, and

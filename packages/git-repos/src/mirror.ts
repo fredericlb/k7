@@ -1,6 +1,6 @@
 // mirror.ts — a bare, blobless copy of a repository, kept so a hosted service can answer
 // "what files are in there" without ever making a working copy. Trees and commits only: a
-// project is detected by the NAME of a folder (`.l8`, `.m9`) and never by any file's
+// project is detected by the NAME of a folder (`.st0`, `.m9`) and never by any file's
 // content, which is exactly what lets this skip the blobs. See docs/mirror.md.
 
 import { execFile } from "node:child_process";
@@ -137,12 +137,12 @@ export async function listFiles(
 /**
  * The project directories in a repository, mapped to the app that opens each.
  *
- * By the folder's NAME — `mysong.l8`, `myset.m9` — and at any depth. A directory exists here
+ * By the folder's NAME — `mysong.st0`, `myset.m9` — and at any depth. A directory exists here
  * only because a file inside it does, which is git's own rule: it tracks no empty folders, so
  * a project with nothing in it is not a project anyone has lost.
  *
  * Every suffixed folder is reported, including one nested inside another. That is deliberate:
- * a `.m9` set living inside a `.l8` song's folder is a real arrangement, and picking an
+ * a `.m9` set living inside a `.st0` song's folder is a real arrangement, and picking an
  * outermost winner would hide the inner one with nothing on screen to say so.
  */
 export function projectDirs(files: string[]): Map<string, ProjectApp> {
@@ -171,7 +171,7 @@ const BINARY_EXT =
 
 /**
  * The file list as the nested shape every tree in this repo draws — the file service's
- * `FileNode`, so pl8's Projets section and l8's own tree agree on what a row is.
+ * `FileNode`, so pl8's Projets section and st0's own tree agree on what a row is.
  */
 export function buildTree(
   files: string[],

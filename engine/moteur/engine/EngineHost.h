@@ -507,10 +507,10 @@ int runPluginScanCli(bool forceRescan);
 
 // Entry for `--list-audio-devices`: enumerate the interfaces and print sentinel-fenced JSON, ASIO first.
 // Standalone — it builds only a JUCE device manager, opening no device and starting no engine, so
-// `l8 config interfaces` works with nothing running.
+// `st0 config interfaces` works with nothing running.
 int runAudioDevicesCli();
 
-// Enumerate a plugin's automatable parameters as sentinel-fenced JSON — l8's text alternative to an
+// Enumerate a plugin's automatable parameters as sentinel-fenced JSON — st0's text alternative to an
 // opaque .vstpreset, where `complete` means the params fully reproduce the state. The translator calls these on
 // import. Wired from `--dump-params` and `--dump-params-ext`. See docs/engineHost.md.
 int dumpPluginParams(const std::string& type);

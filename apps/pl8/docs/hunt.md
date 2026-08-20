@@ -264,8 +264,8 @@ pouvoir écrire dans le dépôt de chacun. Un « juste une ligne de YAML » qui 
 propriété-là est cher.
 
 Ce qui reste est le partage honnête : **la chasse range le morceau dans la médiathèque**, et
-l'ajouter à une setlist est un clic dans l8, sur exactement ce catalogue-là — sa recherche
-interroge `/api/mediatek/list?family=songs` (`apps/l8/frontend/docs/playlists.md`). Le geste
+l'ajouter à une setlist est un clic dans st0, sur exactement ce catalogue-là — sa recherche
+interroge `/api/mediatek/list?family=songs` (`apps/st0/frontend/docs/playlists.md`). Le geste
 perdu est le regroupement automatique de huit recherches d'affilée ; il se refait en huit clics
 dans un écran qui, lui, montre la setlist pendant qu'on la remplit.
 

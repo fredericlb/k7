@@ -13,13 +13,13 @@ const send = (ws,o) => ws.send(JSON.stringify(o));
 const ws = new WebSocket("ws://127.0.0.1:8833");
 ws.on("open", () => {
   // DEUX sessions distinctes, chacune son projet, chacune son transport.
-  send(ws, { type:"project", session:"l8",    doc: doc("depuis-l8", 45) });
+  send(ws, { type:"project", session:"st0",    doc: doc("depuis-st0", 45) });
   send(ws, { type:"project", session:"m9", doc: doc("depuis-m9", 64) });
-  setTimeout(() => { send(ws,{type:"transport",session:"l8",action:"play"});
+  setTimeout(() => { send(ws,{type:"transport",session:"st0",action:"play"});
                      send(ws,{type:"transport",session:"m9",action:"play"}); }, 2500);
   // Chaque session ecoute la SIENNE, sur sa propre socket.
-  const counts = { l8: 0, m9: 0 };
-  for (const sid of ["l8", "m9"]) {
+  const counts = { st0: 0, m9: 0 };
+  for (const sid of ["st0", "m9"]) {
     const l = new WebSocket("ws://127.0.0.1:8833");
     l.binaryType = "arraybuffer";
     l.on("open", () => l.send(JSON.stringify({ type: "broadcast", session: sid, on: true })));
@@ -27,7 +27,7 @@ ws.on("open", () => {
   }
   setTimeout(() => {
     console.log("trames recues par session :", counts);
-    const ok = counts.l8 > 100 && counts.m9 > 100;
+    const ok = counts.st0 > 100 && counts.m9 > 100;
     console.log(ok ? "OK — chaque session recoit son propre flux"
                    : "ECHEC — une session ne recoit rien");
     process.exit(ok ? 0 : 1);

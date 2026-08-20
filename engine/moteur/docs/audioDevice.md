@@ -6,7 +6,7 @@ ONCE, explicitly") says why, and that decision stands. This page is the other ha
 
 ## The symptom, and why it hid
 
-Recording monitoring in l8 was suddenly unusable: arm an audio track, roll the transport,
+Recording monitoring in st0 was suddenly unusable: arm an audio track, roll the transport,
 and the sound of the instrument came back a long way behind the hand playing it. Playback
 of a mix was fine. That asymmetry is the whole diagnostic — an interface only costs you
 latency in the direction you can hear it, and playback has nothing to be late against.
@@ -58,7 +58,7 @@ wrong when a preference exists and is not applied.
 
 The hole was in the first row's second column. `preferences.yaml` has held an
 `audioDevice` field all along and `engineLink` has always replayed it, but the only thing
-that ever WROTE it was a CLI (`l8 config --set interface`) that no longer exists in this
+that ever WROTE it was a CLI (`st0 config --set interface`) that no longer exists in this
 repo — `packages/song/src/preferences.ts`'s `setAudioDevice()` had no callers left, and
 the picker in pl8's « État du moteur » sent `set-audio-device` to the engine and nothing
 else. That switches the running engine and is forgotten the moment it exits. In dev the

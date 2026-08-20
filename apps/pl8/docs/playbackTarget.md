@@ -191,7 +191,7 @@ both answers are real.
 ## La troisième : les enceintes de la machine
 
 `machine` joue le fichier que la machine cache déjà, par `mpv`, sur ses propres sorties — **sans
-rien demander au moteur**. On peut donc écouter pendant que l8 s'en sert. Le pourquoi et les
+rien demander au moteur**. On peut donc écouter pendant que st0 s'en sert. Le pourquoi et les
 détails de la machine sont dans
 [packages/file-service/docs/machinePlayer.md](../../../packages/file-service/docs/machinePlayer.md).
 
@@ -222,4 +222,4 @@ was only one field, so the bug had nowhere to happen yet.
 
 `RegistryClient` in `@studio/engine-browser` is now generic in that shape (`P`), defaulted to
 `{engineId?}`. The schema belongs to the host, and a union of every service's fields would be
-a shape no service actually has: pl8 remembers where playback happens, l8 does not.
+a shape no service actually has: pl8 remembers where playback happens, st0 does not.

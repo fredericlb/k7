@@ -163,13 +163,13 @@ export class LibrariesMovedError extends Error {}
  * This replaced the seed. Until now the médiathèque held the catalogue, so a library
  * repository that started empty broke every `@st0/…` ref at once — and `seedIfEmpty` copied
  * `modules/` and `chains/` in from the hosted volume to prevent that. The volume no longer
- * holds either: a module is authored in l8 and committed here, so there is nothing left to
+ * holds either: a module is authored in st0 and committed here, so there is nothing left to
  * copy FROM and nothing to migrate.
  *
  * What still has to happen is the commit itself, and it is easy to miss why. A gitlink has to
  * point AT a commit, and a repository somebody just created through a web UI has none —
  * `git submodule add` on an unborn HEAD fails. So this makes the empty root commit that gives
- * `registerSubmodule` something to record, and l8 fills the repository afterwards.
+ * `registerSubmodule` something to record, and st0 fills the repository afterwards.
  *
  * Answers what happened, because the caller's next move depends on it: `"filled"` (it already
  * had commits), `"initialised"`, or `"unpushed"` (committed here, refused there).

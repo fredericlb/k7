@@ -113,7 +113,7 @@ function rackSounds(
 /**
  * Beats drawn for a clip whose compiled `length` is 0 — "the source's natural length".
  *
- * The same number l8's timeline draws for the same case (`NATURAL` in TimelineTab), and
+ * The same number st0's timeline draws for the same case (`NATURAL` in TimelineTab), and
  * deliberately so: neither side knows how long the audio really is, and two different guesses
  * would put a clip at one width on the lane and another on the graph.
  */
@@ -172,7 +172,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         const fmt = plugin?.type ? String(plugin.type).toLowerCase() : "";
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
         const stub = isPlugin && type !== "rack" && !plugin;
-        // A plugin l8 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
+        // A plugin st0 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
         //
         // `jsdsp` is known: the engine loads its built-in graph host and is handed the graph
         // (see enginePlugin). Missing here it cost the node BOTH its colour and its values —

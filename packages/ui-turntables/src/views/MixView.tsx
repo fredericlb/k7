@@ -73,7 +73,7 @@ export function MixView({
    * WHERE the chosen machine's file service is — the one thing this view wants from an engine
    * that is not on `deck`.
    *
-   * Narrowed to the one field when l8 became the second host. It was `RankedEngine<PublicEngine>`
+   * Narrowed to the one field when st0 became the second host. It was `RankedEngine<PublicEngine>`
    * and used for exactly this, on one line: `fileLink(engine)`. A prop that asked for a whole
    * probe reply would have forced any host without one to fabricate the other fifteen fields,
    * which is the difference between a seam and a shape m9 happened to have.
@@ -255,7 +255,7 @@ export function MixView({
               Cette surface ne nomme aucune playlist. Ajoutez une ligne{" "}
               <span className="font-mono">playlist: &lt;nom&gt;</span> dans{" "}
               <span className="font-mono">{file}</span> — les playlists du dépôt
-              s'écrivent dans l8, sous la roue dentée.
+              s'écrivent dans st0, sous la roue dentée.
             </Card>
           ) : null}
           {/* A binding that names something this project has not got. Reported by CONTROL,

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "l8's engine client \u2014 drives the C++ audio engine over the WebSocket protocol and manages the local engine daemon. Consumed as source.",
+  "description": "st0's engine client \u2014 drives the C++ audio engine over the WebSocket protocol and manages the local engine daemon. Consumed as source.",
   "exports": {
     "./engineClient": "./src/engineClient.ts",
     "./engineControl": "./src/engineControl.ts",

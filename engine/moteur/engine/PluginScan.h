@@ -46,7 +46,7 @@ std::vector<PluginInfo> builtInPlugins();
  */
 std::vector<PluginInfo> airWindowsPlugins();
 
-// Register the plugins l8 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
+// Register the plugins st0 adds to Tracktion's own: our two (the waveform tap, the Neural Amp Modeler) and
 // the two Tracktion ships without registering (the convolver, the AirWindows set).
 //
 // ONE function, called by every path that builds an Engine — the live host, the offline renderer, the param dump.

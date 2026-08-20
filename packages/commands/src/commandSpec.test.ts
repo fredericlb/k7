@@ -244,7 +244,7 @@ describe("commands.yaml is well-formed against the providers", () => {
 
   it("names every completion provider on the wire too", () => {
     // A class says what COLOUR a field is; the provider says what the argument actually names,
-    // and that is what l8's right-click menu matches on to offer a track its own commands and
+    // and that is what st0's right-click menu matches on to offer a track its own commands and
     // not a sequence's. A provider added here and not there is one the menu can never see.
     const contract = readFileSync(
       join(

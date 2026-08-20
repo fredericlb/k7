@@ -65,7 +65,7 @@ périme des deux côtés sans que personne le voie.
 | `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
 
 `@studio/dsp` est aussi l'API d'auteur publiée aux utilisateurs
-(`apps/l8/docs/25-syntax-instruments.md`), et le C++ colle son JSON généré
+(`apps/st0/docs/25-syntax-instruments.md`), et le C++ colle son JSON généré
 (`engine/moteur/engine/GraphDspPlugin.cpp`).
 
 ### `detectTransients` n'est appelé par personne, et doit le rester
@@ -104,7 +104,7 @@ Rétrécir la carte ne supprime donc presque rien : elle documente la vraie surf
 qui publient le plus large sont `ui-turntables` (12 sous-chemins sans consommateur externe),
 `song` (6) et `engine-host` (5) — le réflexe « publier tout `src/` ».
 
-`ui-turntables` est le cas à regarder : son seul hôte, l8, n'importe que `/deck-set`, `/engine`
+`ui-turntables` est le cas à regarder : son seul hôte, st0, n'importe que `/deck-set`, `/engine`
 et `/surface`. Les douze autres sont de la plomberie interne exposée.
 
 ## 2. Vraiment orphelin — rien ne l'atteint
@@ -124,7 +124,7 @@ et `/surface`. Les douze autres sont de la plomberie interne exposée.
 | `export.ts` | `packages/ui-eyes/src/` | **atteignable seulement par le baril mort ci-dessus** : `exportScene` (l'export WebCodecs, image par image) n'est donc joignable par rien. Aucune surface ne monte de bouton pour lui. |
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | remplacé par le registre ; il ne reste que de la prose qui en parle au passé. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
-| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (l8, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
+| `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (st0, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
 | export `AuthUser` | `apps/pl8/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. |
 
 ### Des SYMBOLES, pas des fichiers
@@ -199,13 +199,13 @@ générateur qui saurait dessiner autre chose que des boutons.
 ### Le client d'auth — ~~deux comportements~~ RÉGLÉ
 
 `loginUrl` doit être un **getter**, pour capturer l'adresse où l'on est *au moment du clic*.
-Les quatre copies (`k7`, `l8`, `pl8`, `z0/editor-v2`) en sont une aujourd'hui. Ce constat
+Les quatre copies (`k7`, `st0`, `pl8`, `z0/editor-v2`) en sont une aujourd'hui. Ce constat
 disait « le correctif n'a pas voyagé » ; il a voyagé depuis. Gardé barré plutôt que retiré,
 pour que la prochaine passe ne le redécouvre pas comme une nouveauté.
 
-**`AuthUser` était déclarée neuf fois** — l8, pl8, z0/editor-v2, et les six SPA de z0. Quatre de
+**`AuthUser` était déclarée neuf fois** — st0, pl8, z0/editor-v2, et les six SPA de z0. Quatre de
 ces déclarations sont parties avec la déduplication ci-dessous ; il en reste cinq, et seule celle
-de l8 porte `email?: string | null` et `groups?: string[]`.
+de st0 porte `email?: string | null` et `groups?: string[]`.
 
 ### Le magasin d'auth de z0 : quatre fichiers identiques à l'octet — RÉGLÉ
 
@@ -228,14 +228,14 @@ La même table chromatique et la même arithmétique (`((k%12)+12)%12`, `Math.fl
 |---|---|
 | `packages/ui-editor/src/tracker/RollGrid.ts` | `NOTE_NAMES` |
 | `packages/ui-editor/src/tracker/TrackerGrid.ts` | `NAMES2` (deux caractères : `C-`) |
-| `apps/l8/frontend/src/components/PianoRoll.tsx` | `NAMES`, exporté en `noteName` |
-| `apps/l8/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
+| `apps/st0/frontend/src/components/PianoRoll.tsx` | `NAMES`, exporté en `noteName` |
+| `apps/st0/frontend/src/components/IoPanel.tsx` | `NOTE_NAMES` |
 | `apps/k7/frontend/src/utils/pitch.ts` | `NOTE_NAMES` |
 | `apps/k7/packages/lyrics/src/chords.ts` | `SHARP` |
 
 Deux détails aggravants. Les deux premières sont dans **le même dossier du même paquet**. Et
 `PianoRoll.tsx` porte le commentaire « one spelling of a key, wherever it is read » — vrai dans
-l8, faux dès qu'on passe dans `@studio/ui-editor`, dont l8 dépend déjà et qui en a deux à lui.
+st0, faux dès qu'on passe dans `@studio/ui-editor`, dont st0 dépend déjà et qui en a deux à lui.
 Le prédicat suit : `isBlack = [1,3,6,8,10].includes(...)`, à l'identique dans deux fichiers.
 
 Non traité : c'est une décision de **où poser la table**, pas un nettoyage.
@@ -247,7 +247,7 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
 
 | ce qui est doublé | pourquoi ça reste |
 |---|---|
-| Le plancher `-100 dBFS` : `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), et trois fois dans `@studio/dsp` | `trimGate` est **sûr pour le navigateur** — le panneau de clip de l8 l'importe — et `peakPass` appelle `node:child_process`. Partager la constante ferait entrer un lanceur de processus dans le navigateur pour économiser un nombre. Essayé, annulé. Le C++ et le JSON généré ne peuvent pas importer du tout |
+| Le plancher `-100 dBFS` : `PEAK_FLOOR_DB` (`commands/peakPass.ts`), `MIN_DB` (`commands/trimGate.ts`), `kFloorDb` (`FilePeak.cpp`), et trois fois dans `@studio/dsp` | `trimGate` est **sûr pour le navigateur** — le panneau de clip de st0 l'importe — et `peakPass` appelle `node:child_process`. Partager la constante ferait entrer un lanceur de processus dans le navigateur pour économiser un nombre. Essayé, annulé. Le C++ et le JSON généré ne peuvent pas importer du tout |
 | `FileEnvelope` (`commands/waveform.ts`) ≡ `Envelope` (`ui-turntables/waveform.ts`) | `ui-turntables` ne dépend pas de `@studio/commands`. Les deux dépendent de `web-protocol`, qui tient déjà `RegionWaveform` — c'est là que ça irait |
 | Le détecteur de k7 : `backend/src/detect.ts` ≡ `packages/recorder/src/detect.ts` | Même forme que `detectTransients` ↔ `Waveform.cpp`, **sans** le test de contrat qui rend cet arrangement défendable : aucun test des deux côtés. L'en-tête de la copie renvoie à `backend/src/detect.js`, un chemin qui n'existe plus — la preuve qu'ils ont déjà divergé une fois |
 | `isMouseWheel` : `ui-timeline/panZoom.ts` ≡ `ui-chains-react/camera.ts` | Reconnaître une molette d'une surface tactile — trois signaux (`deltaMode`, les 120 de `wheelDeltaY`, la forme du delta), identiques des deux côtés. Aucun des deux paquets ne peut dépendre de l'autre : `ui-timeline` n'a **aucune** dépendance `@studio/` et le graphe importerait un paquet nommé pour l'arrangement. Défendable ici parce que **les deux côtés sont testés**, cas par cas — c'est exactement ce qui manque au détecteur de k7 ci-dessus. Le foyer naturel serait un paquet de gestes DOM qui n'existe pas ; le créer pour une fonction de dix lignes est une décision, pas un nettoyage |
@@ -255,13 +255,13 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
 ### Cosmétique, mais réelle
 
 - **Le glyphe `piano-16`**, corps SVG identique octet pour octet :
-  `apps/l8/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
+  `apps/st0/frontend/src/trackIcons.tsx` ≡ `packages/ui-chains-react/src/moduleIcons.tsx`.
   (Le reste de la duplication des tables de glyphes est argumenté et assumé — voir
   `moduleIcons.tsx`.)
 - **Le spinner plein écran**, quatre copies du même bloc :
-  `l8/{AuthGate,EngineGate,ProjectGate}` et `pl8/Gate.tsx`. Laissé tel quel : des blocs de
+  `st0/{AuthGate,EngineGate,ProjectGate}` et `pl8/Gate.tsx`. Laissé tel quel : des blocs de
   présentation courts, sans risque de dérive silencieuse.
-- **Les quatre `turbo.json` d'app** (`apps/{k7,l8,pl8,z0}`) sont **identiques octet pour
+- **Les quatre `turbo.json` d'app** (`apps/{k7,st0,pl8,z0}`) sont **identiques octet pour
   octet**, et leur bloc `tasks.dev` reproduit celui de la racine dont ils héritent par
   `"extends": ["//"]`. Ils ne surchargent rien.
 
@@ -278,9 +278,9 @@ propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
 | constat | où |
 |---|---|
 | ~~Des tests qui ne tournent jamais~~ **RÉGLÉ** : `translator` et `ui-waveform` déclarent tous deux `"test": "vitest run"`. Les 25 paquets en ont un, sauf les trois qui n'ont aucun fichier de test (`engine-client`, `graph-model`, `ui-eyes`). | — |
-| Lues dans le code et absentes de **tout** fichier `.md`, en plus des quatorze ci-dessous : `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/l8/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
-| Importé sans être déclaré — ne se résout que par hoisting. | `engine-host` (`@frediverse/oidc`, `yaml`), `file-service` + `web-protocol` (`@studio/engine-protocol`), `translator` (`yaml`, `vitest`), `ui-editor` (`yaml`), `ui-waveform` (`vitest`), `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `l8-frontend` (`yaml`, `zod`, `vitest`), `pl8-frontend` (`@studio/ui-editor`) |
-| `yaml` chez `l8-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. (Ce constat nommait `sliceWaveformWidget.ts`, supprimé depuis ; les deux fichiers ci-dessus l'ont repris.) | `apps/l8/frontend` |
+| Lues dans le code et absentes de **tout** fichier `.md`, en plus des quatorze ci-dessous : `STUDIO_BACKEND_URL`, `STUDIO_ENGINE_PORT`, `STUDIO_FILE_PORT`. | `apps/st0/frontend/vite.config.ts`, `packages/file-service/src/server.ts` |
+| Importé sans être déclaré — ne se résout que par hoisting. | `engine-host` (`@frediverse/oidc`, `yaml`), `file-service` + `web-protocol` (`@studio/engine-protocol`), `translator` (`yaml`, `vitest`), `ui-editor` (`yaml`), `ui-waveform` (`vitest`), `ui-chains-react` + `k7-frontend` (`@storybook/react-vite`), `st0-frontend` (`yaml`, `zod`, `vitest`), `pl8-frontend` (`@studio/ui-editor`) |
+| `yaml` chez `st0-frontend` n'est pas que du test : `rackBuilder.ts` et `sliceSymbols.ts` l'importent en production. (Ce constat nommait `sliceWaveformWidget.ts`, supprimé depuis ; les deux fichiers ci-dessus l'ont repris.) | `apps/st0/frontend` |
 | Aucun bloc `dependencies` alors que le paquet importe `@studio/engine-protocol` ; et `zod` + `@types/express` sont déclarés en devDeps sans qu'une seule ligne les importe. | `packages/web-protocol` |
 | Pas de champ `description`. | `packages/ui-waveform`, `packages/web-protocol` |
 | Lues dans le code, absentes de `env.example.yaml` : `STUDIO_REGISTRY_URL` (9 lectures), `STUDIO_WEB_ORIGIN` (5), `STUDIO_DEMOS` (4), `STUDIO_MODELS` (3), `STUDIO_WEB_PORT` (3), `STRUDEL_SAMPLES`, `DIRT_SAMPLES`, `STUDIO_ENGINE_TOKEN`, `STUDIO_SCRATCH`, `K7_URL`, `K7_TOKEN`, `Z0_RENDER_ENGINE`, `MPV_BIN`, `CHROME`. | `env.example.yaml` |
@@ -288,7 +288,7 @@ propriété-là. Même raisonnement pour `signedInAs` / `currentUser()`.
 ## 6. La chaîne d'effets par platine — un bloc, à trancher en entier
 
 Mix est un pupitre : deux vinyles et un crossfader. La chaîne d'effets d'une platine n'y a pas
-de place, et le seul hôte du pupitre (la surface `turntables` de l8) ne dessine pas de graphe
+de place, et le seul hôte du pupitre (la surface `turntables` de st0) ne dessine pas de graphe
 par platine. Trois symboles tiennent debout les uns par les autres et par rien d'autre :
 
 | symbole | où | tenu vivant par |
@@ -308,7 +308,7 @@ la différence entre un état connu et de la pourriture. Voir
 **Et voici le chaînon qui manquait à ce paragraphe.** `apps/m9` et `apps/v1` existent sur le
 disque, ne sont **ni suivis par git ni ignorés**, et ne figurent dans aucun `workspaces`. Or `m9`
 est nommé comme application vivante dans une vingtaine de fichiers suivis — `apps/pl8/backend`,
-la config vite de l8, cinq pages de `apps/pl8/docs/` — et jusque dans `M9_ICONS`, ici même. La
+la config vite de st0, cinq pages de `apps/pl8/docs/` — et jusque dans `M9_ICONS`, ici même. La
 chaîne par platine n'a pas d'hôte *dans ce dépôt* parce que son hôte n'y a jamais atterri. Ce
 n'est donc pas du code mort : c'est du code dont l'hôte est ailleurs, ce qui se tranche
 autrement.

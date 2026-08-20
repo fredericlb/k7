@@ -22,12 +22,12 @@ import {
 
 describe("projectApp", () => {
   it("reads the suffix", () => {
-    expect(projectApp("mysong.l8")).toBe("l8");
+    expect(projectApp("mysong.st0")).toBe("st0");
     expect(projectApp("session-2304.z0")).toBe("z0");
   });
 
-  it("does not know `.v1` or `.m9` — both are shapes of an l8 project", () => {
-    // Neither names a folder kind: a `.l8` carries `video_tracks/` and a `viewport` surface,
+  it("does not know `.v1` or `.m9` — both are shapes of an st0 project", () => {
+    // Neither names a folder kind: a `.st0` carries `video_tracks/` and a `viewport` surface,
     // or `songs.yaml` and a `turntables` surface. See @studio/song's PROJECT_SHAPES.
     expect(projectApp("le clip.v1")).toBe(null);
     expect(projectApp("prise v1.v1")).toBe(null);
@@ -35,18 +35,18 @@ describe("projectApp", () => {
   });
 
   it("is null for a folder claiming no app", () => {
-    for (const name of ["mysong", "songs", "mysong.l8.bak", "l8", "m9"])
+    for (const name of ["mysong", "songs", "mysong.st0.bak", "st0", "m9"])
       expect(projectApp(name), name).toBe(null);
   });
 
-  it("refuses a bare suffix — `.l8` is a dotfolder, not a nameless project", () => {
-    expect(projectApp(".l8")).toBe(null);
+  it("refuses a bare suffix — `.st0` is a dotfolder, not a nameless project", () => {
+    expect(projectApp(".st0")).toBe(null);
     expect(projectApp(".z0")).toBe(null);
   });
 
   it("reads a suffix only at the END, never as part of a name", () => {
     expect(projectApp("prise v1")).toBe(null);
-    expect(projectApp("prise v1.l8")).toBe("l8");
+    expect(projectApp("prise v1.st0")).toBe("st0");
   });
 
   it("does not match another service's name", () => {
@@ -55,14 +55,14 @@ describe("projectApp", () => {
   });
 
   it("is case-sensitive, like the folder names it reads", () => {
-    expect(projectApp("mysong.L8")).toBe(null);
+    expect(projectApp("mysong.ST0")).toBe(null);
   });
 });
 
 describe("projectLabel", () => {
   it("takes the suffix off, which is what a project is called", () => {
-    expect(projectLabel("mysong.l8")).toBe("mysong");
-    expect(projectLabel("live set.l8")).toBe("live set");
+    expect(projectLabel("mysong.st0")).toBe("mysong");
+    expect(projectLabel("live set.st0")).toBe("live set");
   });
 
   it("leaves a name that claims no app alone", () => {
@@ -70,39 +70,44 @@ describe("projectLabel", () => {
   });
 
   it("keeps a dot that is part of the name", () => {
-    expect(projectLabel("v1.2.l8")).toBe("v1.2");
+    expect(projectLabel("v1.2.st0")).toBe("v1.2");
   });
 });
 
 describe("launchUrl", () => {
   it("sends each app to its own service, under one origin", () => {
     const o = "https://st0.priv.frediver.se";
-    // l8's service path is the empty string — it answers the origin — so its projects have no
+    // st0's service path is the empty string — it answers the origin — so its projects have no
     // prefix at all, while z0's editor keeps one. That asymmetry is the table's, not this
     // function's: it concatenates either way.
-    expect(launchUrl(o, "band", "winter.l8", "l8")).toBe(
-      "https://st0.priv.frediver.se/band/winter.l8",
+    expect(launchUrl(o, "band", "winter.st0", "st0")).toBe(
+      "https://st0.priv.frediver.se/band/winter.st0",
     );
     expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
       "https://st0.priv.frediver.se/z0/editor-v2/band/partie.z0",
     );
-    expect(launchUrl(o, "band", "le clip.l8", "l8")).toBe(
-      "https://st0.priv.frediver.se/band/le%20clip.l8",
+    expect(launchUrl(o, "band", "le clip.st0", "st0")).toBe(
+      "https://st0.priv.frediver.se/band/le%20clip.st0",
     );
   });
 
   it("keeps only the origin of whatever URL it is handed", () => {
     // Callers pass `window.location.href`, which carries a path of its own.
     expect(
-      launchUrl("https://st0.priv.frediver.se/projects?x=1", "b", "c.l8", "l8"),
-    ).toBe("https://st0.priv.frediver.se/b/c.l8");
+      launchUrl(
+        "https://st0.priv.frediver.se/projects?x=1",
+        "b",
+        "c.st0",
+        "st0",
+      ),
+    ).toBe("https://st0.priv.frediver.se/b/c.st0");
   });
 });
 
 describe("which apps can be CREATED", () => {
   it("is not the same set as the apps that own a folder kind", () => {
-    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an l8 song.
-    expect(SCAFFOLDED_APPS).toEqual(["l8"]);
+    // z0 owns `.z0` and has no scaffold. Offering it built a `.z0` holding an st0 song.
+    expect(SCAFFOLDED_APPS).toEqual(["st0"]);
     expect(HAS_SCAFFOLD.z0).toBe(false);
   });
 
@@ -116,22 +121,22 @@ describe("which apps can be CREATED", () => {
 describe("a chain opened on the bench", () => {
   it("is the catalogue path, and comes back as one", () => {
     const chain = "chains/blindtest/assourdissant/music";
-    expect(benchProjectForChain(chain)).toBe(`${chain}.l8`);
-    expect(benchChainPath(`${chain}.l8`)).toBe(chain);
+    expect(benchProjectForChain(chain)).toBe(`${chain}.st0`);
+    expect(benchChainPath(`${chain}.st0`)).toBe(chain);
   });
 
   it("is not the module bench, and the module bench is not one", () => {
-    expect(benchChainPath("modules.l8")).toBeNull();
-    expect(benchChainPath("chains.l8")).toBeNull(); // the family folder itself names no chain
+    expect(benchChainPath("modules.st0")).toBeNull();
+    expect(benchChainPath("chains.st0")).toBeNull(); // the family folder itself names no chain
   });
 
   it("refuses a path that would climb out of the médiathèque", () => {
     // This is what an ADDRESS says, and the machine joins it onto two roots — the médiathèque
     // and the workspace. A traversal accepted here would be a folder made outside both.
-    expect(benchChainPath("chains/../../etc/passwd.l8")).toBeNull();
-    expect(benchChainPath("chains/./x.l8")).toBeNull();
-    expect(benchChainPath("chains//x.l8")).toBeNull();
-    expect(benchChainPath("chains/..\\x.l8")).toBeNull();
+    expect(benchChainPath("chains/../../etc/passwd.st0")).toBeNull();
+    expect(benchChainPath("chains/./x.st0")).toBeNull();
+    expect(benchChainPath("chains//x.st0")).toBeNull();
+    expect(benchChainPath("chains/..\\x.st0")).toBeNull();
   });
 });
 
@@ -152,8 +157,8 @@ describe("a shared snapshot's address", () => {
 
   it("parses back through the ORDINARY reader, with nothing taught to it", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    const at = parseLaunch(new URL(url).pathname, "l8", "/");
-    expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.l8` });
+    const at = parseLaunch(new URL(url).pathname, "st0", "/");
+    expect(at).toEqual({ repo: SHARE_REPO, project: `${TOKEN}.st0` });
     if (!at)
       throw new Error("unreachable — the expect above would have failed");
     expect(isShare(at.repo)).toBe(true);
@@ -171,43 +176,43 @@ describe("a shared snapshot's address", () => {
    */
   it("writes a link with a literal @, and takes a basename off the path unchanged", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
-    expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.l8`);
+    expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.st0`);
     const path = new URL(url).pathname;
-    expect(projectBasename(path, "l8", "/")).toBe(path);
+    expect(projectBasename(path, "st0", "/")).toBe(path);
   });
 
   it("takes the OTHER spelling of the same address just as happily", () => {
     // `%40shares` and `@shares` are one address, and an old bookmark may hold either. The
     // basename is a SLICE of whatever it was handed, so both prefix their own location.
-    const escaped = `/%40shares/${TOKEN}.l8`;
-    expect(parseLaunch(escaped, "l8", "/")).toEqual({
+    const escaped = `/%40shares/${TOKEN}.st0`;
+    expect(parseLaunch(escaped, "st0", "/")).toEqual({
       repo: SHARE_REPO,
-      project: `${TOKEN}.l8`,
+      project: `${TOKEN}.st0`,
     });
-    expect(projectBasename(escaped, "l8", "/")).toBe(escaped);
+    expect(projectBasename(escaped, "st0", "/")).toBe(escaped);
   });
 
   it("keeps the app's own route BELOW the basename", () => {
     // What the basename is for: everything after the project belongs to routes.ts.
-    const path = `/@shares/${TOKEN}.l8/timeline`;
-    expect(projectBasename(path, "l8", "/")).toBe(`/@shares/${TOKEN}.l8`);
+    const path = `/@shares/${TOKEN}.st0/timeline`;
+    expect(projectBasename(path, "st0", "/")).toBe(`/@shares/${TOKEN}.st0`);
   });
 
   it("refuses a project part that is not a token", () => {
     // The address is typed by anyone and then put into a URL, so it is checked here rather
     // than trusted and checked later.
-    expect(shareToken("winter.l8")).toBeNull(); // too short to be a secret
+    expect(shareToken("winter.st0")).toBeNull(); // too short to be a secret
     expect(shareToken(`${TOKEN}`)).toBeNull(); // no suffix: not a project at all
-    expect(shareToken("../../etc/passwd.l8")).toBeNull();
-    expect(shareToken("a/b.l8")).toBeNull();
-    expect(shareToken(".l8")).toBeNull();
+    expect(shareToken("../../etc/passwd.st0")).toBeNull();
+    expect(shareToken("a/b.st0")).toBeNull();
+    expect(shareToken(".st0")).toBeNull();
   });
 
   it("takes the base64url alphabet, which is what mints a token", () => {
     // `randomBytes(32).toString("base64url")` — letters, digits, `-` and `_`, never `+/=`.
-    expect(shareToken(`${"-_".repeat(11)}.l8`)).toBe("-_".repeat(11));
-    expect(shareToken(`${"a".repeat(30)}+.l8`)).toBeNull();
-    expect(shareToken(`${"a".repeat(30)}=.l8`)).toBeNull();
+    expect(shareToken(`${"-_".repeat(11)}.st0`)).toBe("-_".repeat(11));
+    expect(shareToken(`${"a".repeat(30)}+.st0`)).toBeNull();
+    expect(shareToken(`${"a".repeat(30)}=.st0`)).toBeNull();
   });
 
   /**
@@ -226,12 +231,12 @@ describe("a shared snapshot's address", () => {
   });
 
   it("addresses pl8 under its own prefix, on the one unauthenticated route", async () => {
-    // The PAGE the viewer is on is l8's, at the origin root; the route that serves the snapshot
+    // The PAGE the viewer is on is st0's, at the origin root; the route that serves the snapshot
     // is pl8's, under `/pl8`. Only the origin of the page URL survives, and the prefix comes
     // back from SERVICE_PATHS — which is what stopped this returning the bare origin, as it
     // correctly did while the médiathèque answered the root.
     const key = await shareKey(TOKEN);
-    expect(shareApiBase(`https://studio.frediver.se/@shares/x.l8`, key)).toBe(
+    expect(shareApiBase(`https://studio.frediver.se/@shares/x.st0`, key)).toBe(
       `https://studio.frediver.se/pl8/api/public/share/${key}`,
     );
     expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(

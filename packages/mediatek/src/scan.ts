@@ -216,14 +216,14 @@ function scanSamples(): MediatekEntry[] {
 }
 
 // `scanModules` was here, and `scanChains` below it. Both left with their families: a module
-// and a chain are authored in l8 and committed to the account's LIBRARY REPOSITORY, which is
+// and a chain are authored in st0 and committed to the account's LIBRARY REPOSITORY, which is
 // a git repository somebody owns rather than a folder on this volume. See ../docs/index.md.
 
 // `scanPlaylists` stood here. Playlists left the volume too, and for a reason of their own
 // rather than the one above: a playlist holds no BYTES. It is pure reference — names of songs
 // filed elsewhere — so hosting it bought nothing, while costing the account a document it could
 // not version alongside the work it was written for. A set list lives in the workspace's
-// `_playlists/` now, in the repository, and l8 is the app that opens one
+// `_playlists/` now, in the repository, and st0 is the app that opens one
 // (`@studio/song/docs/playlists.md`).
 
 /** Read one family off disk. Sorted by name so a listing is stable between scans — readdir

@@ -1,5 +1,5 @@
 // mixBindings.ts — join the project's `views/mix.yaml` to the desk and to the graph: which
-// control drives which param, on which plugin, over which range. The same join l8 does for a
+// control drives which param, on which plugin, over which range. The same join st0 does for a
 // MIDI map (`mappedParams`), with a desk control as the source instead of a CC.
 // See ../../docs/controls.md.
 
@@ -49,7 +49,7 @@ export interface ResolvedBindings {
  * Resolve every binding against the graph.
  *
  * Three ways a line can fail, and all three are REPORTED rather than dropped, which is where
- * this parts company with l8's MIDI join. There, a map travels with a module into projects
+ * this parts company with st0's MIDI join. There, a map travels with a module into projects
  * that may draw it differently, so a binding that does not apply is a normal state and is
  * skipped in silence. Here the file belongs to THIS set and names THIS set's own nodes:
  * a line that does not resolve is a typo somebody made about their own project, and saying so
@@ -255,7 +255,7 @@ export function engineAgrees(
  * What to send for a control at `value`.
  *
  * With a widget, the control is normalised to 0..1 and the widget's own min/max expand it —
- * the journey a MIDI CC's 0..127 makes in l8, and the reason a control declares its range.
+ * the journey a MIDI CC's 0..127 makes in st0, and the reason a control declares its range.
  * Without one, the control's own units go through untouched: inventing a range would make a
  * fader sweep one nobody chose, and passing the number along is the honest alternative.
  */
@@ -268,6 +268,6 @@ export function valueFor(b: ResolvedBinding, value: number): number {
   // (max - min)` — is right only for a LINEAR widget with no `step`: a `curve: log` param
   // moved from the desk landed somewhere else than the same param moved on the graph, in the
   // same app, on the same plugin. The comment above already claimed this was "the journey a
-  // MIDI CC makes in l8"; l8 calls the shared function, so now this does too.
+  // MIDI CC makes in st0"; st0 calls the shared function, so now this does too.
   return widgetDenorm(w, unit);
 }

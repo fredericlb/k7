@@ -23,7 +23,7 @@ into the wrong workspace, a transport that moves the wrong song).
 **3. A claim with no project conflicts with nothing.** pl8 drives an engine and opens no
 project: it auditions modules and plays songs out of the médiathèque. It passes `project: null`,
 which claims the engine as *in use* and competes for nothing. Without this exemption, looking at
-the catalogue would take the song away from the l8 tab on the same machine — which is worse than
+the catalogue would take the song away from the st0 tab on the same machine — which is worse than
 the problem being fixed.
 
 ## Why a claim carries a secret
@@ -57,7 +57,7 @@ the three ways a renewal comes back refused, and it is the least common:
 | `engine` | a DIFFERENT project took this engine (the second displacement rule above) | `heldBy`, and `tookFor` naming that project |
 | `lapsed` | nobody took anything: the secret aged out over a sleep or a network gap, or the engine deregistered | nothing — `heldBy` is empty |
 
-They exist because they are three different sentences on screen. l8 said "this project was
+They exist because they are three different sentences on screen. st0 said "this project was
 opened elsewhere, and a project runs on one engine at a time" for all three, which is false
 twice out of three — and actively misleading on `engine`, where the honest advice is the
 opposite: pick a second engine and both projects can run. Older backends that answer a bare 409
@@ -96,7 +96,7 @@ prevents.
 
 | surface | project claimed | what it does when it loses one |
 |---|---|---|
-| l8 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
+| st0 | `<repo>/<projet>` from the address | taken: `EngineGate` shows "opened elsewhere" and stops driving. Lapsed: nothing on screen — the hold loop re-opens |
 | pl8 | **none** (`null`) | nothing to lose — see rule 3 |
 
 The address is turned into a claim key by `projectClaimKey` in

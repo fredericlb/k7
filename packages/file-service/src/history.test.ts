@@ -134,34 +134,34 @@ describe("ProjectHistory", () => {
 });
 
 describe("Workspace.recordChange", () => {
-  // A workspace whose root holds one `.l8` project, made active.
+  // A workspace whose root holds one `.st0` project, made active.
   const openProject = (): { ws: Workspace; proj: string } => {
-    mkdirSync(join(dir, "proj.l8"));
+    mkdirSync(join(dir, "proj.st0"));
     const ws = new Workspace(dir);
-    ws.setActiveProject("proj.l8");
-    return { ws, proj: "proj.l8" };
+    ws.setActiveProject("proj.st0");
+    return { ws, proj: "proj.st0" };
   };
 
   it("journals a text edit and undo/redo reverts it", async () => {
     const { ws } = openProject();
-    writeFileSync(join(dir, "proj.l8", "a.yaml"), "v1");
+    writeFileSync(join(dir, "proj.st0", "a.yaml"), "v1");
 
-    await ws.recordChange("édition proj.l8/a.yaml", () =>
-      ws.write("proj.l8/a.yaml", "v2"),
+    await ws.recordChange("édition proj.st0/a.yaml", () =>
+      ws.write("proj.st0/a.yaml", "v2"),
     );
-    expect(read("proj.l8/a.yaml")).toBe("v2");
+    expect(read("proj.st0/a.yaml")).toBe("v2");
 
     const undone = ws.undoHistory();
-    expect(undone?.files).toEqual(["proj.l8/a.yaml"]);
-    expect(read("proj.l8/a.yaml")).toBe("v1");
+    expect(undone?.files).toEqual(["proj.st0/a.yaml"]);
+    expect(read("proj.st0/a.yaml")).toBe("v1");
 
     ws.redoHistory();
-    expect(read("proj.l8/a.yaml")).toBe("v2");
+    expect(read("proj.st0/a.yaml")).toBe("v2");
   });
 
   it("backs up a binary overwrite via the snapshot hook (a process)", async () => {
     const { ws } = openProject();
-    const wav = join(dir, "proj.l8", "r.wav");
+    const wav = join(dir, "proj.st0", "r.wav");
     writeFileSync(wav, Buffer.from("old"));
 
     await ws.recordChange("clip process", (snapshot) => {
@@ -171,7 +171,7 @@ describe("Workspace.recordChange", () => {
     expect(ws.peekUndo()?.kind).toBe("process");
 
     ws.undoHistory();
-    expect(read("proj.l8/r.wav")).toBe("old");
+    expect(read("proj.st0/r.wav")).toBe("old");
   });
 
   it("records nothing when the mutation changed no files", async () => {

@@ -89,7 +89,7 @@ module.
 
 `inputDevices` and `onRegroupInputs` are **props**, for the same reason `pluginParamNames` is
 one: which inputs exist, and what they can be regrouped into, is a question only the machine
-holding the sound card answers. l8 fills them from `useInputDevices`, which asks
+holding the sound card answers. st0 fills them from `useInputDevices`, which asks
 `ioLevels([])` while the builder is open — an empty set list, because metering a channel
 *enables* it engine-side and the grouping is all that is wanted — and re-asks after a
 regroup, since the engine broadcasts no second copy of the layout.

@@ -536,7 +536,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
    *
    * An add and no longer a replace, which is the whole shape of this change. Each hosted
    * service holds its own registry, so "Add web UI…" for the médiathèque must not evict
-   * l8 — that would silently take the engine out of one picker to put it in another,
+   * st0 — that would silently take the engine out of one picker to put it in another,
    * and the two are not alternatives. Idempotent: adding a URL already listed is a no-op
    * beyond re-announcing.
    */
@@ -637,7 +637,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         }
         clearPending(origin);
         refreshOrigins();
-        // A l8 web UI is single-origin, so adding one also points this engine at it — which is what puts the
+        // A st0 web UI is single-origin, so adding one also points this engine at it — which is what puts the
         // engine in that UI's picker.
         await addRegistryUrl(origin);
         reply(cmd.id, true, origin);

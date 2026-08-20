@@ -46,7 +46,7 @@ unknown" instead of a band.
 - **Measured once**, in `packages/engine-browser/src/probe.ts`, by the same round trip that
   identifies the engine — a second query would measure a second, warmer trip.
 - **Drawn** in the pickers (fastest first, each row badged) and in the status bar of every
-  service that drives an engine: l8, the médiathèque, m9. It belongs there because it
+  service that drives an engine: st0, the médiathèque, m9. It belongs there because it
   describes the SESSION, not a screen.
 - **Reported** to the backend on `select` (`latencyMs`), which is where the constraints this
   is for will live — "no take on a Q3 engine" is a question only the server can answer, and

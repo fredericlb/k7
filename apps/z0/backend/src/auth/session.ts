@@ -11,9 +11,9 @@ import type { AuthConfig } from "../config.ts";
 //   bt_session   the game's own — guests, who have no account at all. Issued
 //                here by cookie-session.
 //   studio.sid   the studio account, minted by pl8 at the origin root and
-//                shared with l8 and m9. Read-only here.
+//                shared with st0 and m9. Read-only here.
 //
-// ONE secret signs both, and it is `common`'s — the same one l8, m9 and k7
+// ONE secret signs both, and it is `common`'s — the same one st0, m9 and k7
 // verify studio.sid with. Two cookies do not need two keys: cookie-session
 // signs `<name>=<value>`, so the name is inside the signature and a bt_session
 // cookie presented as studio.sid fails to verify even under the same key.
@@ -60,7 +60,7 @@ export function isAdmin(u: SessionUser | null): boolean {
 /**
  * The studio account, read off `studio.sid` — pl8 signs it, we only verify,
  * with the very same SESSION_SECRET that signs our own guest cookie. That is
- * not a shortcut: it is the requirement l8, m9 and k7 already live under —
+ * not a shortcut: it is the requirement st0, m9 and k7 already live under —
  * `common`'s secret, or the check silently fails and nobody can sign in.
  *
  * `kind` is stamped here rather than stored: pl8's session has no idea z0

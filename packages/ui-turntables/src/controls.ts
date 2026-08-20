@@ -9,7 +9,7 @@ import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
  * `range` is the point of the whole file. A binding has to turn "where this control is" into
  * "what that param should be", and the only way to do that without inventing a scale is to
  * normalise the control to 0..1 and let the target widget's own min/max expand it — which is
- * exactly the journey a MIDI CC's 0..127 already makes in l8's `useMidiControl`. A control
+ * exactly the journey a MIDI CC's 0..127 already makes in st0's `useMidiControl`. A control
  * that did not state its range would force every consumer to guess one.
  */
 export interface MixControl {

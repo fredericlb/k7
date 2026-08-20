@@ -218,7 +218,7 @@ function pairStamp(source: string): string | null {
  * remembered: a stale one is about to be rebuilt anyway, and remembering NO would need clearing.
  *
  * The check itself reads the whole sidecar and 128 kB of the audio to hash it, so a project of
- * 110 takes spent ~190 ms answering "nothing to do" — and l8's browser asks on every command,
+ * 110 takes spent ~190 ms answering "nothing to do" — and st0's browser asks on every command,
  * on the same single process that is compiling the answer to that command. The fingerprint is
  * still what DECIDES; this only skips asking again about two files neither of which has moved,
  * which is the gate `ensureFileEnvelope`'s memo right below already stands on.

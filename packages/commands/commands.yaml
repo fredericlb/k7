@@ -1,7 +1,7 @@
 # commands.yaml — declarative command definitions (see commandSpec.ts).
 #
 # Each entry maps a command STRING (what you type in the web editor's command bar or
-# after `l8 cmd`) to a feature SID (implemented in commands.ts), plus:
+# after `st0 cmd`) to a feature SID (implemented in commands.ts), plus:
 #   readable  ONE sentence saying what the command does, `en` and `fr`. This is what the
 #             web palette LISTS and fuzzy-matches on — a person looking for a feature knows
 #             what they want done, not what it is called. Kept apart from `help` rather than

@@ -4,7 +4,7 @@
 /**
  * The two things the mediatek holds. Each is scanned, indexed and invalidated ALONE.
  *
- * There were five. `modules` and `chains` left with the editing: a module is authored in l8,
+ * There were five. `modules` and `chains` left with the editing: a module is authored in st0,
  * against a project where the plugin it names is actually LOADED, and it is committed to the
  * account's library repository — which is a git repository somebody owns, not a folder on this
  * volume. Two places holding the same modules meant one of them was always the stale copy, and
@@ -15,7 +15,7 @@
  * names of songs that stay right here, in a file that names them. Hosting reference bought
  * nothing this volume is good at, and cost the account a document it could not commit beside the
  * work it was written for. `_playlists/` in the workspace repository is where a set list is now,
- * and l8 is what opens one (`@studio/song/docs/playlists.md`).
+ * and st0 is what opens one (`@studio/song/docs/playlists.md`).
  *
  * What is left is exactly what the médiathèque is FOR: bytes nobody edits in a text editor.
  * See apps/pl8/docs/projects.md and packages/song/docs/sharedFolders.md.
@@ -44,7 +44,7 @@ export const FAMILY_ERROR = `family must be one of: ${FAMILIES.join(", ")}`;
 export const RECORDINGS_DIR = "recordings";
 
 /**
- * The file that makes a folder a CHAIN — the same name, and the same shape, a l8 project uses
+ * The file that makes a folder a CHAIN — the same name, and the same shape, a st0 project uses
  * at its root.
  *
  * Literally the same now. It said `chains.yaml` while a project's said `graph.yaml`, on the
@@ -61,7 +61,7 @@ export const CHAINS_FILE = "graph.yaml";
 
 /** Where a chain keeps the nodes its segments name, beside its graph file — `instances/` until
  *  it was migrated to this. Here for the same reason CHAINS_FILE is: the médiathèque's chain
- *  pane and l8's `clip process` both name this folder, and only one of the two may open `node:fs`. */
+ *  pane and st0's `clip process` both name this folder, and only one of the two may open `node:fs`. */
 export const NODES_DIR = "nodes";
 
 /** The sidecar that makes a folder a SONG and carries its title, its provenance and its

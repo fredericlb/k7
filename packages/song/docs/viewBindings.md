@@ -68,7 +68,7 @@ Only the third is allowed to come up empty. Without a widget there is no min/max
 cannot be scaled — but the target exists, and calling that broken would be wrong; the control's
 own units go through untouched.
 
-This is deliberately stricter than l8's MIDI join, which skips what it cannot apply in silence.
+This is deliberately stricter than st0's MIDI join, which skips what it cannot apply in silence.
 It can afford to: a module's map travels into projects that draw it differently, so a binding
 that does not apply is normal there. Here the file names **this** set's own nodes, so a
 line that does not resolve is a typo somebody made about their own project.
@@ -76,7 +76,7 @@ line that does not resolve is a typo somebody made about their own project.
 ## Scaling
 
 The control is normalised to 0..1 by its OWN range and expanded by the widget's `min`/`max` —
-the journey a MIDI CC's 0..127 already makes in l8's `useMidiControl`. That is why a control
+the journey a MIDI CC's 0..127 already makes in st0's `useMidiControl`. That is why a control
 declares a range at all: without one, every consumer would have to invent a scale, and a fader
 would sweep one nobody chose.
 

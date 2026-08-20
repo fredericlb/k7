@@ -72,7 +72,7 @@ public:
         }
 
         // For stereo, also push the right channel, interleaved into the same tap — the browser can show L/R as two
-        // l8 or as a mono sum.
+        // st0 or as a mono sum.
         if (ctx.destBuffer->getNumChannels() > 1) {
             const float* data = ctx.destBuffer->getReadPointer(1, startSample);
             for (int i = 0; i < numSamples; ++i)

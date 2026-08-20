@@ -38,7 +38,7 @@ const MODULE_TYPES: readonly string[] = MODULE_CATEGORIES;
  *
  * Reads the segment after `modules/` or `_modules/` rather than a fixed index: the same module
  * is named `modules/audio/reverb` by the médiathèque, `_modules/audio/delay/tape-delay/module.yaml`
- * by a shared library, and `LEMO - DANSE/modules/audio/amp/module.yaml` by l8 in a workspace
+ * by a shared library, and `LEMO - DANSE/modules/audio/amp/module.yaml` by st0 in a workspace
  * holding several projects. An index would be right for one of those and wrong for the others.
  *
  * Anything unrecognised draws as audio — a glyph is not worth refusing a preview over.

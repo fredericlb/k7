@@ -30,7 +30,7 @@ const mkModule = (dir: string, yaml: string, assets: string[] = []) => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "assets-"));
-  project = join(root, "ws", "song.l8");
+  project = join(root, "ws", "song.st0");
   libraries = join(root, "ws", "_libraries", "modules");
   mkdirSync(project, { recursive: true });
 });

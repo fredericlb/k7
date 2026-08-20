@@ -4,13 +4,13 @@
 
 import { LineCounter, parseDocument } from "yaml";
 import type { ZodType } from "zod";
-import { parseGraph } from "./graphFile";
 import {
   ClipSchema,
   CurveSchema,
   SequenceSchema,
   VideoTrackSchema,
 } from "./entitySchemas";
+import { parseGraph } from "./graphFile";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./mixViewFile";
 import { locate, type ModuleIssue, parseModule } from "./moduleFile";
 import {

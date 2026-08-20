@@ -5,11 +5,13 @@
 
 /**
  * The dev URL. One origin, one path per service — `st0.priv.frediver.se/pl8`, `/m9`, `/k7` —
- * with l8 answering the root, exactly as production does under `studio.frediver.se`.
+ * with st0 answering the root, exactly as production does under `studio.frediver.se`.
  *
- * The NAME does not follow the apps: it is still `st0.…` although the médiathèque it was named
- * after is `pl8` now and no longer serves the root. A hostname lives in a router and in
- * everyone's bookmarks, and renaming it buys nothing this repo can spend.
+ * The NAME does not follow the apps, and agrees with this one by accident: it was given for the
+ * médiathèque, back when the médiathèque was called `st0` and served the root. That app is `pl8`
+ * now, and the editor took the freed name — so the host matches again without ever having moved.
+ * A hostname lives in a router and in everyone's bookmarks, and renaming it buys nothing this
+ * repo can spend.
  *
  * It resolves to the LAN server, which reverse-proxies to the dev servers on the workstation.
  */
@@ -28,7 +30,7 @@ export const DEV_HOST = "st0.priv.frediver.se";
 export const LEGACY_DEV_HOSTS = ["studio.test"];
 
 /**
- * l8's backend, which serves `/auth/*` for the WHOLE origin.
+ * st0's backend, which serves `/auth/*` for the WHOLE origin.
  *
  * Here rather than in each vite config because it is the one port a config names that is NOT
  * its own backend: every SPA on this origin carries one session, minted by one service, and in
@@ -39,7 +41,7 @@ export const LEGACY_DEV_HOSTS = ["studio.test"];
  * It moved once already, from the médiathèque's 8795, and the whole cost of that move was
  * finding the three configs that had a copy of it. Hence one export.
  *
- * l8 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
+ * st0 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
  * `<origin>/auth/callback`, and that is the single redirect_uri the IdP has registered. See
  * packages/web-protocol/services.ts.
  */

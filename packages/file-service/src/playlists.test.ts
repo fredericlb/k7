@@ -29,11 +29,11 @@ const write = (rel: string, body: string): void => {
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-playlists-"));
-  const proj = join(root, "song.l8");
+  const proj = join(root, "song.st0");
   mkdirSync(proj, { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
   ws = new Workspace(root);
-  ws.setActiveProject("song.l8");
+  ws.setActiveProject("song.st0");
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -82,7 +82,7 @@ describe("Workspace.playlists", () => {
     // workspace of four songs four separate playlist folders, and a set list belongs to the
     // repository. A file under the PROJECT's own `_playlists` is therefore not one of these.
     write("_playlists/mine.yaml", "items: []\n");
-    write("song.l8/_playlists/not-mine.yaml", "items: []\n");
+    write("song.st0/_playlists/not-mine.yaml", "items: []\n");
     expect(ws.playlists().map((p) => p.path)).toEqual(["_playlists/mine.yaml"]);
   });
 

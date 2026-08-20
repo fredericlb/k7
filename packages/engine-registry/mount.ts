@@ -20,7 +20,7 @@ import { engineRegistryRouter } from "./router.ts";
  *
  * ONE number, because the relay makes these three backends a pipe to a fourth: the file service
  * accepts 8 MB, and a service that parses less turns a legitimate upload into a 413 depending
- * on which origin the browser happened to be on. l8 had raised it and the other two had not,
+ * on which origin the browser happened to be on. st0 had raised it and the other two had not,
  * so the same request worked or failed by which app relayed it.
  */
 export const ENGINE_BODY_LIMIT = "8mb";

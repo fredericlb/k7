@@ -16,7 +16,7 @@ surface names** now — `playlist:` in `surfaces/<desk>.yaml`, a file in the wor
 `_playlists/` ([playlists.md](playlists.md)).
 
 Nothing was wrong with this file; there were simply two of them. And of the two, the playlist
-is the better answer: it is a document with a SCREEN (l8's cog opens it), it can be shared
+is the better answer: it is a document with a SCREEN (st0's cog opens it), it can be shared
 between sets and reused next season, and it is the thing somebody had already written by hand.
 A list of refs in a project folder could be none of those.
 

@@ -1,5 +1,5 @@
 // useLibraryRoute.ts — keep the screen (section + open file) and the browser's URL in step,
-// both directions. Same shape as l8' useViewRoute, and for the same reason: the hazard is
+// both directions. Same shape as st0' useViewRoute, and for the same reason: the hazard is
 // a feedback loop between the state and two passive effects, so both decisions are pure
 // functions tested as a SEQUENCE rather than logic buried in the component.
 

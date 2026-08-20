@@ -21,7 +21,7 @@ mistake was that nothing picked the question up afterwards — `projectValues` h
 `graph.yaml` and returned `[]` for every other kind, so `extends:` was the one reference field
 in the whole vocabulary that completed against nothing at all.
 
-It reads `hints.baseModules` now, which the protocol has carried the whole time and l8's
+It reads `hints.baseModules` now, which the protocol has carried the whole time and st0's
 backend has been filling from the same scan cache the engine writes.
 
 ## The third layer, and why the path cannot always say

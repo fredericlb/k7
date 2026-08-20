@@ -156,7 +156,7 @@ export function readModuleFile(file: ModuleFile): ReadModule {
   };
 }
 
-/** Is `dir` a l8 project — does it hold a `project.yaml` (or `.yml`)? */
+/** Is `dir` a st0 project — does it hold a `project.yaml` (or `.yml`)? */
 export function isProjectFolder(dir: string): boolean {
   try {
     return entityFileFor(dir, "", "project") !== null;

@@ -191,7 +191,7 @@ graph is polled, and the workspace already holds that document memoised on the r
 Two consequences worth knowing:
 
 - a compiled `length` of **0** means "the source's natural length", which neither side knows.
-  The file service substitutes **4 beats** — the same stand-in l8's timeline draws for the same
+  The file service substitutes **4 beats** — the same stand-in st0's timeline draws for the same
   case — so a clip is not one width on the lane and another on the graph;
 - a project that **will not compile** has no extents, and the graph still builds. It loses the
   widths, not the clips: this is the screen you fix a broken project from.
@@ -319,7 +319,7 @@ A cable carries what its **source** emits: a track's `contentType`, or the upstr
 type folder. An instrument takes midi and emits audio, so the cable into it is blue and the
 one out of it orange. A video lane puts picture on the wire whatever `trackSignals` says.
 
-**The main output is not drawn** — `drawMainOut`, which l8's song graph turns off. Reaching the
+**The main output is not drawn** — `drawMainOut`, which st0's song graph turns off. Reaching the
 sound card is what the END of a chain means there: a mixer sits at it and its whole job is the
 level going out, so a card saying "OUT" adds a node, an edge and a rank to every chain in the
 song to repeat what the shape already says. Only OUT: any other destination the graph cannot
@@ -329,7 +329,7 @@ nowhere else to appear.
 It stays ON by default, because the other pictures built from this pipeline are not songs. The
 module preview is one module between a source and a sink, with no mixer in it to imply anything,
 and there the sink is what says which way the signal runs. pl8's chain view and m9's graph also
-still draw it — one argument each if they should follow l8.
+still draw it — one argument each if they should follow st0.
 
 A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which was the
 right target while a cable ended in an arrowhead pointing at a card; `cablePath` moves both ends

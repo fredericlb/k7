@@ -8,7 +8,7 @@ la demander, et pour qui.
 
 La règle d'origine était : le sujet du token EST le propriétaire de la clé, donc rien à
 nommer et rien à refuser. Sauf que le token qu'une machine détient est celui que
-`scripts/tokens.mjs` frappe, et son sujet est `service:l8` — une identité de service, qui n'a
+`scripts/tokens.mjs` frappe, et son sujet est `service:st0` — une identité de service, qui n'a
 pas de clé. La route répondait donc `404 no SSH key yet`, en envoyant régénérer une clé déjà
 présente. La fonctionnalité ne pouvait pas fonctionner telle qu'écrite, sur aucune machine.
 
@@ -20,7 +20,7 @@ token de **compte** continue de répondre pour lui-même.
 Le prix est réel et il a été accepté : qui détient le token d'une machine peut demander la clé
 de n'importe qui. C'est ce que coûte **un credential par machine** plutôt qu'un par personne —
 l'autre sortie était de frapper et coller un token de compte par machine, ce qui demandait une
-interface qui n'existe pas et cassait le test qui épingle `service:l8`.
+interface qui n'existe pas et cassait le test qui épingle `service:st0`.
 
 Ce qui tient encore, et qu'il ne faut pas relâcher :
 
@@ -50,7 +50,7 @@ en même temps, ce service ne minant pas de session mais en vérifiant une.
 supposition : là où l'IdP ne renvoie pas d'email, `subOf` utilise déjà le `sub` pour les deux,
 les deux orthographes sont une seule chaîne et l'annuaire est vide par construction.
 
-Une personne dont on demande la clé a nécessairement ouvert la page d'accueil de l8 pour y
+Une personne dont on demande la clé a nécessairement ouvert la page d'accueil de st0 pour y
 ajouter le dépôt, donc l'annuaire la connaît avant que la machine ne la nomme. L'écriture est au mieux-effort :
 un volume en lecture seule coûte le pont, jamais la requête qui passait par là. Elle est aussi
 mémoïsée en mémoire, parce que `/revision` est **sondée** et qu'un annuaire relu à chaque

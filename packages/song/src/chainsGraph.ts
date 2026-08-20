@@ -267,7 +267,7 @@ export function isParked(c: Chain): boolean {
  * while playing or bouncing one is a single track carrying a plugin per step. Derived from the
  * same parse the drawing uses, so the chain that is seen and the chain that is heard cannot be
  * two different chains — which is why it lives here, beside the derivation, rather than in
- * whichever surface plays it. The médiathèque draws a variant with it; l8's `track process` and
+ * whichever surface plays it. The médiathèque draws a variant with it; st0's `track process` and
  * `clip process` bounce one with it.
  *
  * `@in` and `@out` are dropped: they are the ends, not treatments. Unreadable text is an empty

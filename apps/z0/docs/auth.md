@@ -26,7 +26,7 @@ la validation et échoue plus loin, sur la longueur du `state`.
 
 La leçon est structurelle, pas accidentelle : **un service monté sous un chemin ne peut
 pas tenir son propre flux sur ce client**. Seul celui qui n'a pas de préfixe le peut, et
-c'est pl8. C'est exactement la raison pour laquelle l8, m9 et k7 ne montent aucune route
+c'est pl8. C'est exactement la raison pour laquelle st0, m9 et k7 ne montent aucune route
 d'auth non plus.
 
 ## Ce qui entre maintenant
@@ -36,7 +36,7 @@ Deux cookies arrivent sur le backend, et **un seul est de nous** :
 | cookie | signé par | ce qu'il porte |
 |---|---|---|
 | `bt_session` | z0, `SESSION_SECRET` | les invités : `guest` (mot de passe de session, sur le buzzer) et `guest_online` |
-| `studio.sid` | pl8, avec la même clé | le compte studio, celui de la médiathèque, de l8 et de m9 |
+| `studio.sid` | pl8, avec la même clé | le compte studio, celui de la médiathèque, de st0 et de m9 |
 
 `currentUser()` est le seul point de passage — le middleware, le gate admin et chaque
 route en dépendent — et il lit le compte d'abord, l'invité ensuite. **L'ordre est
@@ -48,7 +48,7 @@ L'upgrade WebSocket refait la même lecture à la main (`ws.ts`) : un `upgrade` 
 
 ## Un seul secret, celui de `common`
 
-Deux cookies, **une** clé — et c'est la même que celle de l8, m9 et k7. z0 avait sa propre
+Deux cookies, **une** clé — et c'est la même que celle de st0, m9 et k7. z0 avait sa propre
 `SESSION_SECRET` du temps où il tenait son propre flux ; il faut la lui retirer, pas lui en
 ajouter une seconde. Une clé qui n'est pas celle de `common` ne produit aucune erreur : le
 cookie ne se vérifie simplement jamais.

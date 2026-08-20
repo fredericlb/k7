@@ -1,5 +1,5 @@
 // scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at a crossfade, an
-// empty set list, and the desk that plays them. An `.l8` folder like every other, and that is
+// empty set list, and the desk that plays them. An `.st0` folder like every other, and that is
 // the whole of what a set is now — a project with no arrangement that declares a `turntables`
 // surface. Hand-authored like scaffold.ts and for the same reason — the `#` comments ship to
 // disk and are the one worked example a reader gets.
@@ -33,7 +33,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# The CUE SHEET — where THIS set's cue points are, song by song.\n` +
       `#\n` +
       `# It does NOT say which songs the set plays: that is the playlist \`surfaces/desk.yaml\`\n` +
-      `# names, a file in \`_playlists/\` at the root of the repository, written in l8 under the\n` +
+      `# names, a file in \`_playlists/\` at the root of the repository, written in st0 under the\n` +
       `# cog. See packages/song/docs/playlists.md.\n` +
       `#\n` +
       `# What is left here is the half a playlist has no place for. A cue belongs to the DESK\n` +
@@ -149,7 +149,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# \`playlist\` is what the song browser lists — the twelve songs to hand tonight rather\n` +
       `# than the two hundred and seventy-nine on the volume. A NAME under \`_playlists/\` at the\n` +
       `# root of the repository, not a path: the folder is fixed. Write the playlists themselves\n` +
-      `# in l8, under the cog. See packages/song/docs/playlists.md.\n` +
+      `# in st0, under the cog. See packages/song/docs/playlists.md.\n` +
       `#\n` +
       `# Left commented because a new set has no set list yet — the desk says so on its browser\n` +
       `# until this line names one, which is a sentence you can act on.\n` +
@@ -183,7 +183,7 @@ export function setProjectFiles(name: string): Record<string, string> {
  *
  * Mute says "this lane is not heard on its own", and it works because Tracktion's muting node
  * deliberately still passes clips to aux sends and sidechains: the crossfade keeps its second
- * signal, the master stops getting a duplicate. `engine/capot/songs/crossfade-demo.l8` measured
+ * signal, the master stops getting a duplicate. `engine/capot/songs/crossfade-demo.st0` measured
  * it, and engine/moteur/docs/sidechain.md says why.
  */
 const MUTED_LANE =

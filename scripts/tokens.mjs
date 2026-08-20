@@ -41,9 +41,9 @@ const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
 
 const LINKS = [
   {
-    name: "l8 → pl8",
+    name: "st0 → pl8",
     issuer: "pl8-backend",
-    sub: "service:l8",
+    sub: "service:st0",
     // The file service reads it from the supervisor's settings; its URL is derived from the
     // registries that supervisor already announces to, so there is no dev URL to write here.
     read: () => trayValue("mediatekToken"),

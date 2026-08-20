@@ -22,7 +22,7 @@ does not have, so this is a question of who calls, not of whether it works.
 
 ## Where a host puts them
 
-This package renders a grid; it decides nothing about where. In l8 there are four homes,
+This package renders a grid; it decides nothing about where. In st0 there are four homes,
 and the split is deliberate:
 
 | where | what persists an edit |
@@ -36,10 +36,10 @@ The first two share `SeqGridFile` rather than each reading and writing the file 
 "read it once, hand it to the grid, write every edit back" is one behaviour, and two copies of it
 is how the two homes come to disagree about when a file is re-read. What is NOT shared is the
 frame — `SeqGridPane` draws the sequence's own bar, the clip pane draws its view switch. See
-`apps/l8/frontend/docs/clipEditors.md`.
+`apps/st0/frontend/docs/clipEditors.md`.
 
 The fullscreen editor pane has neither, on purpose: it is the text editor, and a grid
-wants the room the main view has. See `apps/l8/frontend/docs/shell.md`.
+wants the room the main view has. See `apps/st0/frontend/docs/shell.md`.
 
 ## `TrackerGrid.ts` — the tracker view
 
@@ -60,7 +60,7 @@ Mounted into a standalone pane by `plugin.ts`'s `mountSeqGrid`, filling whatever
 given. Time runs left→right, pitch top→bottom, one lane per semitone. A left gutter names each
 pitch (the piano keys); a top ruler numbers the bars.
 
-The note area FILLS the pane — l8, gridlines and notes are positioned in PERCENTAGES
+The note area FILLS the pane — st0, gridlines and notes are positioned in PERCENTAGES
 of it, so it stretches both ways with the pane instead of scrolling a fixed grid. Click
 an empty cell to add a one-step note; click a note to remove it.
 

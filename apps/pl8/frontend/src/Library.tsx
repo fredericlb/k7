@@ -1,7 +1,7 @@
 // Library.tsx — the catalogue: the sections as header tabs (the families and the raw capture
 // zone), the current one's files as a tree down the side, its contents in the
 // middle. Refetches a section only when ITS token moved, which is the whole reason the
-// service hands out one per section. The chrome follows l8 — same shell, same tree.
+// service hands out one per section. The chrome follows st0 — same shell, same tree.
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
@@ -338,7 +338,7 @@ export function Library() {
   }, [entries, file]);
   /** What is open. What the tree marks active and opens down to, and what the middle of the
    *  screen is showing — three questions with one answer. A playlist was the other answer here
-   *  until it moved to the workspace and to l8 (see routes.ts). */
+   *  until it moved to the workspace and to st0 (see routes.ts). */
   const opened = editingSong;
   /** Where a drop lands, family-relative. It used to re-root a drop onto a MODULE into that
    *  module's `assets/`; nothing on this volume is a module any more. */
@@ -633,10 +633,10 @@ export function Library() {
   }, [isEngine, isFind, isZone, load, loadZone, section]);
 
   // The repositories had a SECOND poll here, on `/api/projects` and `/api/shares`, running on
-  // every section because the tab's badge had to hold a number at all times. Both are l8's home
+  // every section because the tab's badge had to hold a number at all times. Both are st0's home
   // page now, so this screen is back to one poll for one volume — which is the shape the comment
   // above always claimed. The routes are untouched and still this service's; only the caller
-  // moved. See apps/l8/frontend/docs/projects.md.
+  // moved. See apps/st0/frontend/docs/projects.md.
 
   return (
     /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
@@ -650,7 +650,7 @@ export function Library() {
       machine={{ fileBase: choice.fileBase, token: choice.token }}
     >
       <div className="flex h-full flex-col bg-background text-foreground">
-        {/* The families moved from the side to the header, where l8 puts its views: the
+        {/* The families moved from the side to the header, where st0 puts its views: the
           side is worth more as the current zone's tree than as three fixed buttons.
           La barre elle-même est celle de @frediverse/ui : elle porte la bande d'onglets, le
           point de bascule et le hamburger. Ce qui reste ici est ce que pl8 met dedans.
@@ -785,7 +785,7 @@ export function Library() {
             {/* An engine gate stood here, over the Modules section: a module is what a plugin
             is, and only a loaded plugin can say what its parameters are called. The gate went
             when the builder did, the read-only view went with the family, and now the section
-            itself is gone. Modules are l8's, in the Libraries tab of whatever project is open. */}
+            itself is gone. Modules are st0's, in the Libraries tab of whatever project is open. */}
             {/* Le voile du tiroir. Il ferme au clic, et il n'existe qu'ouvert : un élément
                 invisible qui couvre l'écran est un élément qui avale les clics. */}
             {treeOpen && (
@@ -797,7 +797,7 @@ export function Library() {
               />
             )}
             {/* The zone being explored, as a tree: /songs or /samples. Same
-            component l8 uses for a workspace, fed from the entry paths.
+            component st0 uses for a workspace, fed from the entry paths.
 
             En colonne dès qu'il y a la place, en TIROIR quand il n'y en a pas : 240 px fixes
             ne laissent rien au contenu sur un téléphone. Le même balisage dans les deux cas —
@@ -1001,7 +1001,7 @@ export function Library() {
                         // Two entries stood here: "Ajouter les N greffons du moteur", which
                         // turned a machine's whole plugin scan into library modules, and
                         // "Nouveau module depuis un greffon…" for one at a time. Both went
-                        // with the `modules` family; the capability belongs in l8 and is not
+                        // with the `modules` family; the capability belongs in st0 and is not
                         // ported yet.
                         {
                           key: "rename",

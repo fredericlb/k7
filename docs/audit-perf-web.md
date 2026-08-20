@@ -16,7 +16,7 @@ Un chiffre pris avant un `npm i`, un redémarrage ou un changement de machine ne
 
 Jusqu'ici le côté web n'avait **aucun** moyen de rejouer une mesure : zéro script `bench`, zéro
 fichier `*.bench.ts`. Les seuls chiffres étaient un profil Firefox recopié dans
-[apps/l8/frontend/docs/timeline.md](../apps/l8/frontend/docs/timeline.md) et deux nombres en
+[apps/st0/frontend/docs/timeline.md](../apps/st0/frontend/docs/timeline.md) et deux nombres en
 commentaire (`graphDoc` « ~280 ms », le jeton de révision « 4,8 ms ») que personne ne pouvait
 refaire. `timeline.md` dit « measure before paying for it » sans donner de quoi mesurer.
 
@@ -36,7 +36,7 @@ d'environ soixante-dix nœuds : une fixture d'une piste mesurerait le démarrage
 Deux tailles, 8 et 64 pistes, parce que ce qui se lit est la **courbe** — un coût qui double
 quand le morceau double va bien, un coût qui quadruple est le constat.
 
-Le dossier finit en `.l8`, et ce n'est pas cosmétique : le service décide qu'un dossier est un
+Le dossier finit en `.st0`, et ce n'est pas cosmétique : le service décide qu'un dossier est un
 projet d'après son NOM. Un dossier temporaire nu compile parfaitement à travers `@studio/song` et
 reste invisible pour `Workspace` — les deux moitiés du harnais doivent pouvoir l'ouvrir.
 
@@ -98,7 +98,7 @@ sur un cache plein.
 
 ## Les lots A et B — le service de fichiers, et ce que le navigateur lui demande
 
-Mesuré sur le vrai poste, sur `lemo_mante/01.danse.l8` — un morceau de 15 pistes dans un dépôt
+Mesuré sur le vrai poste, sur `lemo_mante/01.danse.st0` — un morceau de 15 pistes dans un dépôt
 de 721 répertoires — huit passes par point, en millisecondes :
 
 | | avant | après | |
@@ -127,9 +127,9 @@ refusé ce marché et devait le refuser — une COMPILATION périmée se trompe 
 chanson. Une liste de projets en retard de cinq secondes est un sélecteur qui n'a pas encore vu un
 dossier : une attente, pas un mensonge.
 
-Le balayage descend toujours DANS un projet : `parseLaunch` décrit un `.m9` niché dans un `.l8`,
+Le balayage descend toujours DANS un projet : `parseLaunch` décrit un `.m9` niché dans un `.st0`,
 donc s'arrêter au premier projet reconnu serait une règle que ce dépôt n'a jamais eue. Un test le
-fige, avec le projet en profondeur (`albums/winter.l8`).
+fige, avec le projet en profondeur (`albums/winter.st0`).
 
 ### `/project-errors` payait l'empreinte des modules deux fois
 
@@ -310,7 +310,7 @@ qu'on laisse tourner est une mesure de lui-même. Le format et l'avertissement W
 affichés — ils ne coûtent rien et disent quelque chose.
 
 **Ce que je ne peux pas vérifier ici, et il faut le dire** : rien ne monte de composant dans ce
-dépôt (`apps/l8/AGENTS.md` le pose noir sur blanc). Ces deux corrections se prouvent à la lecture
+dépôt (`apps/st0/AGENTS.md` le pose noir sur blanc). Ces deux corrections se prouvent à la lecture
 et par le contrat du magasin, plus `tsc` et `vite build` — pas par un rendu. À exercer à l'écran :
 le transport roule, l'image suit, et un `?profile=1` fait réapparaître la bande de dérive.
 
@@ -440,7 +440,7 @@ qu'on re-suppose.
 
 **« Hors du service de fichiers, c'est-à-dire pour la CLI. »** Il n'y a pas de CLI dans ce dépôt.
 Un seul paquet déclare un `bin` — `studio-file-service` — et les commentaires qui parlent de
-`l8 config` ou `l8 engine scan` décrivent un binaire qui vit ailleurs. Les seuls appelants des
+`st0 config` ou `st0 engine scan` décrivent un binaire qui vit ailleurs. Les seuls appelants des
 lecteurs de modules hors `@studio/song` et hors tests sont `packages/commands`, qui tourne DANS
 le service de fichiers, et un script de migration à usage unique. Le vocabulaire de modules n'a
 donc qu'un consommateur de longue durée, et il a le watcher.

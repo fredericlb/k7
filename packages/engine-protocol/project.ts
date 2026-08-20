@@ -2,7 +2,7 @@
 // goes on the wire. Types only, like the state frames beside it, so the C++ mirror in
 // engine/ProjectDoc.h has one TypeScript counterpart and no more.
 //
-// This is NOT "a l8 song". It is the OUTPUT of a compiler, and any app that can build
+// This is NOT "a st0 song". It is the OUTPUT of a compiler, and any app that can build
 // one can drive the engine — pl8's module preview is a one-track doc, an m9 deck
 // is two. That is why it lives here and not in @studio/song, which would drag the whole
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
@@ -184,7 +184,7 @@ export interface GroupDoc {
 // packages/song/docs/picture.md.
 
 export interface ProjectDoc {
-  uuid?: string; // stable song id, generated on first `l8 export`; absent until then
+  uuid?: string; // stable song id, generated on first `st0 export`; absent until then
   name: string;
   tempo: number;
   sampleRate: number;

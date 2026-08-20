@@ -113,7 +113,7 @@ describe("@monitor", () => {
     // The regex stopped the ref at `\S+`, so the whole line failed to match and the answer was
     // the usage string — a node named "front desk" could not be addressed at all. It matters now
     // that the graph's fader names the mixer node it FOUND rather than a name someone typed:
-    // see apps/l8/frontend/src/hooks/useTrackControls.ts.
+    // see apps/st0/frontend/src/hooks/useTrackControls.ts.
     await runCommand('node param "front desk" @monitor off', host(), "cli");
     expect(readFileSync(spacedFile(), "utf8")).toContain('monitor: "off"');
   });

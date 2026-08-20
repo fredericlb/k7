@@ -122,7 +122,7 @@ pub fn build_menu(app: &AppHandle, autostart_on: bool) -> tauri::Result<MenuBuil
 /// session. Cleared wholesale like the others; gated on `sessions_sig` so a moving playhead
 /// never tears down a submenu the user has open.
 ///
-/// The label is the whole point of the feature: "l8 · ma-chanson · 4 l8 ▶ · 1 écoute"
+/// The label is the whole point of the feature: "st0 · ma-chanson · 4 st0 ▶ · 1 écoute"
 /// is what the status line could never say. Before sessions there was one project and the
 /// tray had nothing to list; now the answer to "what is my engine doing, and for whom" lives
 /// here.
@@ -672,7 +672,7 @@ pub fn on_menu(app: &AppHandle, id: &str) {
 }
 
 /// Ask for a web UI URL and hand it to the supervisor. The prompt is view work, so it stays here; everything
-/// that FOLLOWS is the supervisor's. `weburi.add` has two effects there, a l8 web UI being single-origin:
+/// that FOLLOWS is the supervisor's. `weburi.add` has two effects there, a st0 web UI being single-origin:
 /// the origin joins the allowlist, and it becomes this engine's registry URL so it shows in that UI's picker.
 fn add_web_ui(app: &AppHandle) {
     let Some(input) = prompt_for_origin() else {
@@ -710,7 +710,7 @@ fn prompt_for_origin() -> Option<String> {
     use std::process::Command;
     // `with icon note` keeps it a normal dialog rather than an alarming alert, seeded with the scheme.
     let script = r#"try
-    set r to display dialog "Add a l8 web UI. Its address is allowed to reach this engine." with title "studio-capot" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
+    set r to display dialog "Add a st0 web UI. Its address is allowed to reach this engine." with title "studio-capot" default answer "https://" with icon note buttons {"Cancel", "Add"} default button "Add"
     return text returned of r
 on error number -128
     return ""

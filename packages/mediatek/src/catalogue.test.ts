@@ -164,7 +164,7 @@ describe("scanning samples", () => {
   });
 
   // Every module and chain test that stood here went with the two scanners. Both families
-  // left the catalogue: they are authored in l8 and committed to the account's library
+  // left the catalogue: they are authored in st0 and committed to the account's library
   // repository, so this volume no longer has a `modules/` or a `chains/` to walk.
 });
 

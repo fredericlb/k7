@@ -1,7 +1,7 @@
 # `npm run engine:build`
 
 `build-engine.mjs` builds the native pieces and collects their artifacts into
-`engine/capot/out/` — beside the script, not in l8: the tray is what ships them:
+`engine/capot/out/` — beside the script, not in st0: the tray is what ships them:
 
 1. the **C++ engine** — CMake, with the preset chosen from the host platform. Delegated to
    the moteur's own `build:*` npm scripts so "how the engine builds" is defined once; Linux has

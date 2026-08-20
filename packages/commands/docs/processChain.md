@@ -69,7 +69,7 @@ long the take is and therefore at what tempo it was played.
 unconditionally, for synth release and reverb. A 17.920 s take at 110 bpm came back 19.920 s, the
 engine read 32.834841 beats over 19.92 s as **98.9 bpm**, played 11% slow, and — an unlooped clip
 being capped at its window in SOURCE seconds — cut the phrase before its end. Two clips of
-`01.danse.l8` were in exactly that state, and the workaround that had been reached for was
+`01.danse.st0` were in exactly that state, and the workaround that had been reached for was
 `warp: false` on the placement.
 
 So the repoint retimes the map as it goes: `retimeWarpMarkers` moves its END onto the render's

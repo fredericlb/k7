@@ -118,7 +118,7 @@ describe("ticks", () => {
   });
 
   it("carries a remainder that rounds up to a whole beat instead of overflowing a level", () => {
-    // Real data: `"32:3:4:4:4:4:4:4"` in 01.danse.l8 is 126.999755 beats, and its sub-beat
+    // Real data: `"32:3:4:4:4:4:4:4"` in 01.danse.st0 is 126.999755 beats, and its sub-beat
     // remainder rounds to 960 ticks — a whole beat. Rounding the remainder on its own wrote
     // `"32:3:3"`: a quaver field holding TWO quavers. It played right and read wrong, and the old
     // ÷4 rule takes that spelling half a beat earlier.

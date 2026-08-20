@@ -1,8 +1,8 @@
 // types.ts — the chains routing graph as the browser receives it (mirrors the essentials
 // of the song compiler's GraphDoc). Almost all types, plus the handful of values both sides
 // must agree on BY VALUE — the port separator and the category list. Lives apart from
-// @studio/web-protocol because three apps draw chains — l8, pl8's module builder, m9 — and
-// only l8 wants auth, workspaces and the registry.
+// @studio/web-protocol because three apps draw chains — st0, pl8's module builder, m9 — and
+// only st0 wants auth, workspaces and the registry.
 
 export interface WebOut {
   to: string; // a chain name or an io sink (e.g. "OUT")
@@ -126,7 +126,7 @@ export interface WebChainStep {
   base?: string;
   bases?: string[];
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
-  notSupported?: boolean; // plugin.type is "not_supported" — l8 can't load it; bypassed
+  notSupported?: boolean; // plugin.type is "not_supported" — st0 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed
   hasNativePluginUI?: boolean; // an external plugin with a native editor the engine can open
   // The UI drawn inside this module's rectangle, already merged (extended module's, overridden per widget id by

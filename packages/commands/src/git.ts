@@ -221,7 +221,7 @@ export function newAlternative(
 ): string {
   const from = currentBranch(dir, gitEnv);
   if (!from)
-    throw new Error("not on a branch — l8 can't tell where to come back to");
+    throw new Error("not on a branch — st0 can't tell where to come back to");
   git(dir, ["switch", "-c", name], gitEnv);
   git(dir, ["config", PARENT_KEY(name), from], gitEnv);
   return from;

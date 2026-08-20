@@ -19,7 +19,7 @@ let dir = "";
  * several lanes meet at (`verb`), so the two tests differ only in where they freeze.
  */
 function project(name: string): string {
-  const p = join(dir, `${name}.l8`);
+  const p = join(dir, `${name}.st0`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
   writeModule(p, "io", "OUT", { io: "out" });
   for (const m of ["amp", "cab", "verb", "plate"])

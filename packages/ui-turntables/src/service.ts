@@ -36,7 +36,7 @@ export function fileLink(engine: { fileBase: string | null }): FileLink | null {
  * without the engine token is a 401 whatever it asks for — which is exactly what a deck got,
  * on every machine where a token is configured. The token comes from the engine's own whoami
  * probe and only the gate has it, so taking the header set from `@studio/project-shell` is
- * both the fix and the rule m9's AGENTS.md already states: a route m9 needs and l8 has goes
+ * both the fix and the rule m9's AGENTS.md already states: a route m9 needs and st0 has goes
  * through the package.
  *
  * Safe to call here because `ProjectGate` configures the transport before `Studio` — and so

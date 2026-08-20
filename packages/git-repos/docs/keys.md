@@ -11,7 +11,7 @@ lists repositories: reading a repository needs the key too, and pl8 is not on th
 The alternative was a second key — pl8 reads with one, the engine machine clones with another,
 and you register both. It keeps every private half where it is made. It was rejected because
 two deploy keys to add, per user, per git host, is a setup step people get wrong, and the
-failure mode ("pl8 can see the repo but l8 cannot clone it") is confusing in a way a single
+failure mode ("pl8 can see the repo but st0 cannot clone it") is confusing in a way a single
 key never is.
 
 ## So the private key travels
@@ -41,7 +41,7 @@ take, and the old copies stay on disk until they are overwritten.
 
 ## Le token que la machine a vraiment
 
-Ce qu'une machine détient est frappé par `scripts/tokens.mjs` avec `sub: "service:l8"` — une
+Ce qu'une machine détient est frappé par `scripts/tokens.mjs` avec `sub: "service:st0"` — une
 identité de **service**, épinglée par `packages/engine-host/src/tokensScript.test.ts`. Une
 identité de service n'a pas de clé à elle.
 

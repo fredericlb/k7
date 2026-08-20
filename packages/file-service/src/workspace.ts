@@ -94,7 +94,6 @@ import {
   loadProject,
   trackMixer,
 } from "@studio/song/project";
-import { projectTypeIssues } from "@studio/song/projectType";
 import { BENCH_EDGES } from "@studio/song/scaffoldBench";
 import {
   isInSharedModules,
@@ -172,7 +171,7 @@ function parseCompileError(msg: string): Diagnostic[] {
 }
 
 /**
- * A project is any directory whose NAME claims an app — `mysong.l8`, `party.z0`.
+ * A project is any directory whose NAME claims an app — `mysong.st0`, `party.z0`.
  *
  * The name, not a `project.yaml` inside, because pl8 has to answer the same question from a
  * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
@@ -180,7 +179,7 @@ function parseCompileError(msg: string): Diagnostic[] {
  * packages/web-protocol/projects.ts and apps/pl8/docs/projects.md.
  *
  * `isProjectFolder` (a `project.yaml` exists) is still the COMPILER's question, and
- * `@studio/song` still asks it: a `.l8` folder with no project file opens and then fails to
+ * `@studio/song` still asks it: a `.st0` folder with no project file opens and then fails to
  * compile, with the loader's own error saying so.
  *
  * It must EXIST, though — the name rule on its own answers "yes" for a folder that is not
@@ -1863,7 +1862,7 @@ export class Workspace {
   /**
    * The editor's completion vocabulary, memoised on the revision exactly as the graph is.
    *
-   * A pure read of the project folder, and l8 asks for it after EVERY command — the editor pane
+   * A pure read of the project folder, and st0 asks for it after EVERY command — the editor pane
    * is mounted in every layout and refreshes with the tree — so a track's alternative switch was
    * paying a full rebuild of the tracks, clips, params and path map for a pane that may not even
    * be on screen. Same token as `graphDoc`, so an out-of-band edit still moves it.
@@ -2014,7 +2013,7 @@ export class Workspace {
    * Render the snapshot and send it to pl8. Answers the secret the link is built from.
    *
    * The credential is NOT k7's `.settings.json` pair but the machine's own pl8 bearer —
-   * `mediatekBase()` / `mediatekToken()`, the `service:l8` token `npm run tokens` already writes
+   * `mediatekBase()` / `mediatekToken()`, the `service:st0` token `npm run tokens` already writes
    * into the supervisor's settings for the library pull. Sharing needed no new plumbing: this
    * service has been talking to pl8 with it all along.
    *
@@ -2194,10 +2193,6 @@ export class Workspace {
           ...notSupportedModules(dir),
           ...libraryModuleIssues(dir),
           ...deadProjectFields(dir),
-          // A folder named `.z0` that declares `type: l8`, or the reverse. It compiles
-          // either way — the two signals feed different readers — which is exactly why it
-          // has to be said out loud rather than left for the day someone trusts the file.
-          ...projectTypeIssues(dir),
           // A `surfaces/` file that will not read. The folder is optional and its absence is
           // silent, but a surface that is THERE and malformed draws nothing — and a blank
           // screen where a desk should be says less than the line that would not parse.

@@ -31,7 +31,7 @@ export interface EngineHolder {
    * The null case is not a detail. pl8 drives an engine without ever opening a project: it
    * auditions modules and plays songs out of the médiathèque. A null holder conflicts with
    * nothing and nothing conflicts with it, so looking at the catalogue cannot take a song away
-   * from the l8 tab beside it.
+   * from the st0 tab beside it.
    */
   project: string | null;
   /** The account holding it, for the screen shown to whoever is turned away. */
@@ -116,7 +116,7 @@ export interface EngineRegistry {
 /**
  * A registry instance.
  *
- * A FACTORY rather than the module-level Map this was as l8' own file. One process still
+ * A FACTORY rather than the module-level Map this was as st0' own file. One process still
  * holds exactly one, so nothing behaves differently today — but module state in a shared
  * package is one instance for every importer that ever appears, and this file now has two
  * services and a test suite ahead of it.
@@ -223,7 +223,7 @@ export function createRegistry(): EngineRegistry {
      *    SINGLE active project (`engineLink.ts` — "several browser tabs share it, last write
      *    wins"), so a second project there does not coexist, it clobbers.
      * 3. **A null project conflicts with nothing.** pl8 drives an engine and opens no project;
-     *    it must be able to sit beside the l8 tab on the same machine.
+     *    it must be able to sit beside the st0 tab on the same machine.
      */
     claim(id, req) {
       const e = get(id);
@@ -319,7 +319,7 @@ export function createRegistry(): EngineRegistry {
           hostname: e.hostname,
           addresses: e.addresses,
           assigned: holders.length > 0,
-          // Who and what, so a picker can say "busy with X's winter.l8" rather than just "busy".
+          // Who and what, so a picker can say "busy with X's winter.st0" rather than just "busy".
           heldBy: owner?.holder,
           heldProject: owner?.project ?? undefined,
           sameSourceIp:

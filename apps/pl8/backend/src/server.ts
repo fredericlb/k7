@@ -1,6 +1,6 @@
 // server.ts — pl8: the hosted media library. A folder on a volume scanned by @studio/mediatek
 // and served over HTTP — the same vocabulary the local service speaks. It VERIFIES the session
-// l8 mints and mounts no auth routes of its own. No database; see the package's docs/index.md
+// st0 mints and mounts no auth routes of its own. No database; see the package's docs/index.md
 // and ../docs/auth.md.
 
 import { join } from "node:path";
@@ -48,10 +48,10 @@ app.use(express.json({ limit: ENGINE_BODY_LIMIT }));
 
 const { requireAuth } = await setupAuth(app, {
   // VERIFIES the cookie, mounts nothing — `mountRoutes: []`, exactly as k7 and z0 do. The flow
-  // is l8's backend's: `redirectUriFor` builds `<origin>/auth/callback` with no prefix, so it
-  // belongs to the service with no prefix, and that is l8 since it became the front door.
+  // is st0's backend's: `redirectUriFor` builds `<origin>/auth/callback` with no prefix, so it
+  // belongs to the service with no prefix, and that is st0 since it became the front door.
   //
-  // This backend owned it while the médiathèque WAS the root, and the day l8 took the root the
+  // This backend owned it while the médiathèque WAS the root, and the day st0 took the root the
   // flow stayed here for one release — routed by name in nginx — which worked and read as an
   // exception to every rule around it. It is not an exception any more.
   //
@@ -64,7 +64,7 @@ const { requireAuth } = await setupAuth(app, {
 
 // A bearer token stands in for the session, because the main consumer has no cookie jar:
 // the LOCAL service syncing a cache runs headless beside the engine. Same scheme k7
-// already uses for the l8 CLI — a signed {sub,iat}, no server-side storage, rotate the
+// already uses for the st0 CLI — a signed {sub,iat}, no server-side storage, rotate the
 // secret to revoke everything.
 const { issueApiToken, verifyApiToken, bearerOrSession } = apiTokenAuth(
   process.env.API_TOKEN_SECRET || `${process.env.SESSION_SECRET ?? ""}:pl8`,
@@ -110,12 +110,12 @@ app.use("/api/hunt", requireAuth, huntRouter);
 
 // This service's OWN engine registry. Until now a module preview was hardcoded to
 // ws://127.0.0.1:8765, so "which engine" had no question to answer here — and no answer to
-// offer either. Same mounting rule as l8: the browser routes need a session, the
+// offer either. Same mounting rule as st0: the browser routes need a session, the
 // engine-facing heartbeat stays open because a machine authenticates with its own token.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
 
-// The engine this user auditions modules through. Same shape as l8', a different store:
-// a person's médiathèque engine and their l8 engine are two choices, and this service is
+// The engine this user auditions modules through. Same shape as st0', a different store:
+// a person's médiathèque engine and their st0 engine are two choices, and this service is
 // deployed on its own.
 // `playbackTarget` is where the person's audio comes out. A plain string and not an enum on
 // purpose: the list of destinations is the front-end's vocabulary (frontend/src/playback/
@@ -148,7 +148,7 @@ app.post("/api/token", requireAuth, (req, res) => {
 
 // Mounted LAST, after every route. Three routes here read a body up to 512 MB (`PUT /file`,
 // `POST /song`, `POST /recording`), so a caller that hangs up is an everyday event; the handler
-// moved to @studio/engine-registry because l8 and m9 relay the same bytes and had none.
+// moved to @studio/engine-registry because st0 and m9 relay the same bytes and had none.
 app.use(engineErrorHandler);
 
 const server = app.listen(PORT, () => {

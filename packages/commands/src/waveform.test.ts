@@ -224,7 +224,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
     ({ id: "c", type: "audio", source: "a.wav", start: 0, ...over }) as ClipDoc;
 
   it("prices the stretch the way the engine does — beats over source seconds", () => {
-    // 01.danse.l8's vocals: material cut at 120bpm, played in a 110bpm song. The marker pair is
+    // 01.danse.st0's vocals: material cut at 120bpm, played in a 110bpm song. The marker pair is
     // [timeline beat, source second], so the ratio is the beat span at the song tempo over the
     // source span — 12/11, the same number applyClipWarp hands Tracktion.
     const warp = {

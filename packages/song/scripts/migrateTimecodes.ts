@@ -6,7 +6,7 @@
  * something else in it, so until a song is converted, three of its times are read half a beat from
  * where they were written. This reads with the old rule and writes with the new one.
  *
- *   npx tsx packages/song/scripts/migrateTimecodes.ts <project.l8> [--write]
+ *   npx tsx packages/song/scripts/migrateTimecodes.ts <project.st0> [--write]
  *
  * Dry by default: without `--write` it prints what it would do and touches nothing. The rewriting
  * itself is src/timecodeMigrate.ts, which is where the rules and their tests live.
@@ -80,7 +80,7 @@ function main(): void {
   const write = args.includes("--write");
   const root = args.find((a) => !a.startsWith("--"));
   if (!root) {
-    console.error("usage: migrateTimecodes.ts <project.l8> [--write]");
+    console.error("usage: migrateTimecodes.ts <project.st0> [--write]");
     process.exit(2);
   }
   const { num, den } = meter(root);

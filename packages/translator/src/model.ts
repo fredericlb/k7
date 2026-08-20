@@ -1,7 +1,7 @@
 // model.ts — the neutral song shape every importer produces and emit.ts consumes. It is
 // deliberately NOT any one foreign format's model: `dawproject.ts` and `ableton.ts` both
 // project onto it, which is what lets the ~1300 lines downstream stay format-blind.
-// Mirrors l8's song schema (packages/song/src/project.ts). See docs/import.md.
+// Mirrors st0's song schema (packages/song/src/project.ts). See docs/import.md.
 
 export interface NoteOut {
   time: number; // beats, relative to the clip

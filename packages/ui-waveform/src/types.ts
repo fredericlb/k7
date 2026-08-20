@@ -1,6 +1,6 @@
 // The shapes the Waveform canvas reads. Deliberately structural and
 // app-neutral — each host passes its own richer domain objects straight
-// through (k7's annotations/markers, l8's clip grid).
+// through (k7's annotations/markers, st0's clip grid).
 
 /** A level envelope: linear RMS samples (1.0 == full scale) every intervalMs. */
 export interface Envelope {
@@ -35,7 +35,7 @@ export interface DetectedEvent {
 
 // A vertical gridline at time `t` (seconds). `bar` draws it stronger; `label`
 // (a bar number) is printed near the top. Used to overlay musical bars/beats
-// (e.g. l8's audio-clip editor) — omit for a plain waveform.
+// (e.g. st0's audio-clip editor) — omit for a plain waveform.
 export interface WaveformGrid {
   t: number;
   bar: boolean;

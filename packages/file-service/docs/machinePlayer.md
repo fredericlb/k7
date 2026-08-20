@@ -7,10 +7,10 @@ cache déjà, par `mpv`, sur ses propres sorties. Le moteur n'est pas sollicité
 
 Le moteur sait très bien jouer un fichier — mais il joue **un projet dans une session**, et
 cette session est partagée avec tout ce que pl8 auditionne. L'utiliser pour écouter de la
-musique, c'est prendre le transport à ce que l8 était en train d'y faire.
+musique, c'est prendre le transport à ce que st0 était en train d'y faire.
 
 Ici on ne lui demande rien. Conséquence directe : on peut écouter pendant que le moteur sert
-l8, ce qui est exactement l'usage d'une machine qui est un lecteur et pas un instrument.
+st0, ce qui est exactement l'usage d'une machine qui est un lecteur et pas un instrument.
 
 **Mais il doit tourner.** La machine est découverte par le registre des moteurs : la sonde du
 navigateur ouvre un WebSocket vers le moteur, et c'est de l'hôte qui répond que `fileBase` est

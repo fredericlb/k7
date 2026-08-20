@@ -965,7 +965,7 @@ export async function createRelease(ownerId, fields, firstVersion) {
   return getRelease(uid);
 }
 
-// Find the release for a l8 song id, scoped to its owner so ids from
+// Find the release for a st0 song id, scoped to its owner so ids from
 // different users can't collide. Returns the public release or null.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
@@ -1017,7 +1017,7 @@ function invalidateVersions(releaseUid) {
 
 // A version carries a mixdown ({buffer,mime} — the single playable file) and,
 // optionally, per-track stems ([{buffer,mime,name}]). Web uploads pass no
-// stems; the l8 CLI import passes both.
+// stems; the st0 CLI import passes both.
 export async function addVersion(
   releaseUid,
   { name, isDefault },

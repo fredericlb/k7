@@ -56,7 +56,7 @@ describe("the tokens script", () => {
     // The real scheme, from the package the backend itself calls — that is the whole test.
     expect(
       createApiTokens(secretIn(envFile)).verify(tray().mediatekToken),
-    ).toBe("service:l8");
+    ).toBe("service:st0");
   });
 
   it("generates the signing secret when the service has none", () => {
@@ -75,7 +75,7 @@ describe("the tokens script", () => {
     const { verify } = createApiTokens(secretIn(envFile));
     const k7 = parse(readFileSync(envFile, "utf8"))["k7-backend"];
     expect(verify(k7.MEDIATEK_TOKEN)).toBe("service:k7");
-    expect(verify(tray().mediatekToken)).toBe("service:l8");
+    expect(verify(tray().mediatekToken)).toBe("service:st0");
   });
 
   it("writes k7's loopback URL, since a checkout cannot use the fixed one", () => {
@@ -118,7 +118,7 @@ describe("the tokens script", () => {
     expect(tray().mediatekToken).not.toBe(first);
     expect(
       createApiTokens(secretIn(envFile)).verify(tray().mediatekToken),
-    ).toBe("service:l8");
+    ).toBe("service:st0");
   });
 
   it("writes nothing on --dry-run", () => {

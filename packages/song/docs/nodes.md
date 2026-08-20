@@ -147,7 +147,7 @@ So the graph's `+` writes `node new <type>/<name> ` into the bar and the person 
 For a pick from a CATALOGUE the shell runs a `module new` ahead of it, because `node new`
 instances a module that exists and a catalogue pick has no local folder yet; for a module this
 project already has, that step is absent and the gesture is one line. See `nodeInsert.ts` in
-l8's frontend.
+st0's frontend.
 
 One refusal remains on `module new`, and it is real: an `extends-ref` that **disagrees** with
 what the module already extends. Asking for it again cannot re-parent it, so proceeding would
@@ -175,12 +175,12 @@ there was nothing feeding it to reconnect to what it feeds. A lane is a module n
 ([trackModules.md](trackModules.md)), so it unlinks like anything else: it leaves the signal path
 and its file stays on disk with its clips, which is what unlinking means everywhere else.
 
-Right-clicking a module in l8's graph offers it, along with everything else a module answers —
+Right-clicking a module in st0's graph offers it, along with everything else a module answers —
 that menu is derived from this catalogue, so the entry exists because the command's first
 argument names a module and for no other reason. It survives on a **dangling** node too, where
 it is the actual repair: a step naming a module that does not exist has no file to open and no
 param to set, but removing it and closing the gap needs no module to exist. That last part the
-catalogue cannot say, and l8 lists it (`apps/l8/frontend/docs/contextMenu.md`).
+catalogue cannot say, and st0 lists it (`apps/st0/frontend/docs/contextMenu.md`).
 
 ## Not covered by this
 

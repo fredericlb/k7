@@ -1,16 +1,16 @@
-# Le banc d'essai — un projet l8 qui EST une chaîne de la médiathèque
+# Le banc d'essai — un projet st0 qui EST une chaîne de la médiathèque
 
 Une chaîne est un routage. Ce qu'elle fait ne se lit pas dans son fichier : ça s'entend. Et un
 greffon chargé — le seul endroit où les noms de ses paramètres, leurs bornes et ses presets
 d'usine existent — ne vit que dans un projet.
 
 Le banc est ce projet. Depuis l'écran d'une chaîne de la médiathèque, « Ouvrir sur le banc »
-mène à `/@banc/chains/<chemin>.l8` et l8 s'ouvre sur un projet vide dont le dossier
+mène à `/@banc/chains/<chemin>.st0` et st0 s'ouvre sur un projet vide dont le dossier
 `modules/` est le catalogue, et dont `graph.yaml` **est** la chaîne qu'on est venu éditer.
 
 > ## Il y avait un second banc, et il n'y en a plus
 >
-> `/@banc/modules.l8` : le même échafaudage ouvert sur le catalogue **entier**, et le seul
+> `/@banc/modules.st0` : le même échafaudage ouvert sur le catalogue **entier**, et le seul
 > projet autorisé à écrire dans la médiathèque. On l'ouvrait *pour* modifier un module partagé —
 > il fallait quitter sa chanson, attendre le miroir du catalogue, câbler le module dans la
 > chaîne du banc pour l'entendre, et l'éditer là.
@@ -19,9 +19,9 @@ mène à `/@banc/chains/<chemin>.l8` et l8 s'ouvre sur un projet vide dont le do
 > quel projet déjà ouvert, contre le moteur qui joue déjà la chanson — et cette chanson nomme
 > très probablement déjà le module qu'on veut changer. Les deux choses que le banc réunissait,
 > un catalogue modifiable et un greffon chargé, sont donc réunies sans rien fabriquer.
-> Voir [apps/l8/frontend/docs/sharedModules.md](../../l8/frontend/docs/sharedModules.md).
+> Voir [apps/st0/frontend/docs/sharedModules.md](../../st0/frontend/docs/sharedModules.md).
 >
-> `@banc/modules.l8` répond maintenant un 404 dont la phrase dit où va se faire l'édition.
+> `@banc/modules.st0` répond maintenant un 404 dont la phrase dit où va se faire l'édition.
 > Ce qui reste ci-dessous vaut pour le banc de CHAÎNE, qui n'a pas d'autre maison.
 
 ## Comment il est fabriqué
@@ -85,12 +85,12 @@ sens — parce que le catalogue est déjà le seul endroit modifiable du studio.
 > L'onglet Bibliothèques tranche la même question dans l'autre sens encore : il écrit chez pl8,
 > qui est la bibliothèque, puis demande à la machine de resynchroniser son cache. Les deux
 > chemins existent parce qu'ils partent d'endroits différents — le banc écrit depuis la machine,
-> qui a le fichier ; l8 écrit depuis le navigateur, qui a la session.
+> qui a le fichier ; st0 écrit depuis le navigateur, qui a la session.
 
 ## La traduction des bords
 
 Une chaîne partagée va de `@in` à `@out` : elle décrit un traitement et ne dit rien de ce qui le
-traverse. Un projet l8 n'a ni l'un ni l'autre — il a une piste, une tranche, une sortie. Les
+traverse. Un projet st0 n'a ni l'un ni l'autre — il a une piste, une tranche, une sortie. Les
 deux fichiers ont sinon exactement la même forme, donc l'ouverture ne **convertit** rien : elle
 renomme les deux bords, et la sauvegarde les renomme dans l'autre sens.
 
@@ -148,7 +148,7 @@ par l'ouverture suivante.
   posé, la piste n'a pas de clip). Ce qu'on veut garder d'un essai, on le garde dans la chaîne.
 
   Le banc ne déclare donc **aucune surface** : pas de `surfaces/timeline.yaml`, pas de
-  `surfaces/viewport.yaml`. l8 l'ouvre sur le graphe des chaînes, plein écran, sans transport
+  `surfaces/viewport.yaml`. st0 l'ouvre sur le graphe des chaînes, plein écran, sans transport
   ni minimap — un projet dessine ce qu'il DÉCLARE, et celui-ci ne déclare rien. Voir
   [packages/song/docs/surfaces.md](../../../packages/song/docs/surfaces.md).
 
@@ -167,4 +167,4 @@ que le projet généré compile.
   `@out`, et son en-tête est intact ;
 - rouvrir le banc sur la même chaîne → ce qu'on a câblé est là ;
 - ouvrir une chaîne qui nomme un `mixer` → refus lisible, et rien de créé ;
-- ouvrir `/@banc/modules.l8` → un refus qui dit où un module s'édite maintenant.
+- ouvrir `/@banc/modules.st0` → un refus qui dit où un module s'édite maintenant.

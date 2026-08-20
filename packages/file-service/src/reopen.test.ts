@@ -27,7 +27,7 @@ const SONG = join(
   "engine",
   "capot",
   "songs",
-  "synth-demo.l8",
+  "synth-demo.st0",
 );
 
 let root: string;
@@ -36,10 +36,10 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-reopen-"));
-  proj = join(root, "song.l8");
+  proj = join(root, "song.st0");
   cpSync(SONG, proj, { recursive: true });
   ws = new Workspace(root);
-  ws.setActiveProject("song.l8");
+  ws.setActiveProject("song.st0");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -89,7 +89,7 @@ describe("a project changed underneath the Workspace", () => {
     // Reopening is no longer the only signal, but it is still A signal — /open is what the
     // browser does, and it must not serve something older than what it just opened.
     setColor("#123456");
-    ws.setActiveProject("song.l8");
+    ws.setActiveProject("song.st0");
     expect(colour()).toBe("#123456");
   });
 
