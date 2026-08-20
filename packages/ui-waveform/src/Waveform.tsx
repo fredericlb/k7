@@ -112,6 +112,14 @@ const MIN_DUR = 0.1; // shortest allowed moment (s)
 const GRID_DASH = [3, 4]; // the bar/beat rule's dash: on 3px, off 4px
 const ENV_UNPLAYED = "150, 150, 163"; // grey — the material as a whole
 const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
+/**
+ * How much of the contour's ink the PEAK curve behind it gets.
+ *
+ * Low enough that the RMS stays the shape being read, high enough that the top of the peak is
+ * findable against the grid — which is the whole point of drawing it: a clip normalised to
+ * −1 dBFS has to look normalised. See `Envelope.peak`.
+ */
+const PEAK_ALPHA = 0.45;
 
 // Stable defaults: a fresh `[]` per render is a new identity, which fired the draw effect on
 // EVERY render of the host, playhead frame or not.
@@ -125,12 +133,76 @@ const NO_ONSETS: number[] = [];
 const ampToDb = (amp: number): number =>
   amp > 0 ? 20 * Math.log10(amp) : MIN_DB;
 
-// The dB scale, absolute: MIN_DB at the bottom, 0 dB (full scale) at the top. The envelope
-// stores linear RMS where 1.0 == full scale.
+// The dB scale, absolute: MIN_DB at the bottom, 0 dB (full scale) at the top. Both envelopes are
+// linear where 1.0 == full scale — RMS in `samples`, and the true peak in `peak` when the host
+// has one. Which is why the grid can be read: the peak curve's top IS the file's peak.
 const dbToYIn = (db: number, h: number): number => {
   const norm = Math.max(0, Math.min(1, (db - MIN_DB) / -MIN_DB));
   return h - norm * h;
 };
+
+/**
+ * One y per pixel column for one envelope: interpolate when zoomed in, average when zoomed out.
+ *
+ * A smoothing pass over every sample, then a pass over every pixel — neither of which depends on
+ * the transport, which is why they live here and not in the effect the playhead drives.
+ *
+ * A free function rather than the body of a memo because it is run TWICE now, once for the RMS
+ * contour and once for the peak behind it, and the two must be reduced the same way: two
+ * curves on one axis that disagreed about how they got there would be worse than one.
+ */
+export function contourYs(
+  samples: number[],
+  intervalMs: number,
+  width: number,
+  v0: number,
+  span: number,
+  height: number,
+): number[] {
+  const n = samples.length;
+  const dt = intervalMs / 1000;
+  const toTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
+  // dB per sample, lightly averaged to take the edge off single-sample spikes.
+  const R = 1; // smoothing radius, in samples
+  const sdb = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    let sum = 0;
+    let cnt = 0;
+    for (let k = i - R; k <= i + R; k++) {
+      if (k >= 0 && k < n) {
+        sum += ampToDb(samples[k]);
+        cnt++;
+      }
+    }
+    sdb[i] = cnt ? sum / cnt : MIN_DB;
+  }
+  const out = new Array<number>(Math.max(1, width));
+  for (let px = 0; px < width; px++) {
+    const a = toTime(px) / dt;
+    const b = toTime(px + 1) / dt;
+    let db: number;
+    if (b - a >= 1) {
+      const i0 = Math.max(0, Math.floor(a));
+      const i1 = Math.min(n, Math.ceil(b));
+      let sum = 0;
+      let cnt = 0;
+      for (let i = i0; i < i1; i++) {
+        sum += sdb[i];
+        cnt++;
+      }
+      db = cnt ? sum / cnt : MIN_DB;
+    } else {
+      const c = (a + b) / 2;
+      const i = Math.floor(c);
+      const f = c - i;
+      const s0 = sdb[Math.max(0, Math.min(n - 1, i))];
+      const s1 = sdb[Math.max(0, Math.min(n - 1, i + 1))];
+      db = s0 + (s1 - s0) * f;
+    }
+    out[px] = dbToYIn(db, height);
+  }
+  return out;
+}
 
 /**
  * One envelope contour rasterised onto a canvas of its own.
@@ -145,6 +217,8 @@ function envelopeLayer(
   height: number,
   dpr: number,
   rgb: string,
+  /** Scales both the fill and the line — 1 is the solid contour, less is the one behind it. */
+  alpha = 1,
 ): HTMLCanvasElement {
   const cv = document.createElement("canvas");
   cv.width = Math.max(1, Math.round(width * dpr));
@@ -171,7 +245,7 @@ function envelopeLayer(
   ctx.lineTo(width - 1, height);
   ctx.closePath();
   const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, `rgba(${rgb}, 0.22)`);
+  grad.addColorStop(0, `rgba(${rgb}, ${0.22 * alpha})`);
   grad.addColorStop(1, `rgba(${rgb}, 0)`);
   ctx.fillStyle = grad;
   ctx.fill();
@@ -180,7 +254,7 @@ function envelopeLayer(
   ctx.beginPath();
   ctx.moveTo(0, ys[0]);
   contour();
-  ctx.strokeStyle = `rgba(${rgb}, 0.9)`;
+  ctx.strokeStyle = `rgba(${rgb}, ${0.9 * alpha})`;
   ctx.lineWidth = 1;
   ctx.lineJoin = "round";
   ctx.stroke();
@@ -302,51 +376,21 @@ function WaveformInner({
    * run on each playhead frame, because they lived in the effect the transport also drives.
    * Neither depends on the transport.
    */
-  const ys = useMemo(() => {
-    const n = samples.length;
-    const dt = intervalMs / 1000;
-    const toTime = (x: number) => (width > 0 ? v0 + (x / width) * span : v0);
-    // dB per sample, lightly averaged to take the edge off single-sample spikes.
-    const R = 1; // smoothing radius, in samples
-    const sdb = new Array<number>(n);
-    for (let i = 0; i < n; i++) {
-      let sum = 0;
-      let cnt = 0;
-      for (let k = i - R; k <= i + R; k++) {
-        if (k >= 0 && k < n) {
-          sum += ampToDb(samples[k]);
-          cnt++;
-        }
-      }
-      sdb[i] = cnt ? sum / cnt : MIN_DB;
-    }
-    const out = new Array<number>(Math.max(1, width));
-    for (let px = 0; px < width; px++) {
-      const a = toTime(px) / dt;
-      const b = toTime(px + 1) / dt;
-      let db: number;
-      if (b - a >= 1) {
-        const i0 = Math.max(0, Math.floor(a));
-        const i1 = Math.min(n, Math.ceil(b));
-        let sum = 0;
-        let cnt = 0;
-        for (let i = i0; i < i1; i++) {
-          sum += sdb[i];
-          cnt++;
-        }
-        db = cnt ? sum / cnt : MIN_DB;
-      } else {
-        const c = (a + b) / 2;
-        const i = Math.floor(c);
-        const f = c - i;
-        const v0 = sdb[Math.max(0, Math.min(n - 1, i))];
-        const v1 = sdb[Math.max(0, Math.min(n - 1, i + 1))];
-        db = v0 + (v1 - v0) * f;
-      }
-      out[px] = dbToYIn(db, HEIGHT);
-    }
-    return out;
-  }, [samples, intervalMs, width, v0, span, HEIGHT]);
+  const ys = useMemo(
+    () => contourYs(samples, intervalMs, width, v0, span, HEIGHT),
+    [samples, intervalMs, width, v0, span, HEIGHT],
+  );
+  /**
+   * …and the same again for the PEAK, when the host has one. Null when it has not, which is
+   * every host but st0's clip pane — see `Envelope.peak`.
+   */
+  const peakYs = useMemo(
+    () =>
+      envelope.peak?.length
+        ? contourYs(envelope.peak, intervalMs, width, v0, span, HEIGHT)
+        : null,
+    [envelope.peak, intervalMs, width, v0, span, HEIGHT],
+  );
 
   // The two contours, rasterised once each. The DPR is read here rather than tracked: a screen
   // change without a resize leaves them scaled until the next one, which is the cheap trade.
@@ -355,8 +399,16 @@ function WaveformInner({
     return {
       unplayed: envelopeLayer(ys, width, HEIGHT, dpr, ENV_UNPLAYED),
       played: envelopeLayer(ys, width, HEIGHT, dpr, ENV_PLAYED),
+      // The peak behind it, in the same two colours so the progress fill still reads as one
+      // picture, and faint enough that the RMS stays the shape the eye follows.
+      peakUnplayed: peakYs
+        ? envelopeLayer(peakYs, width, HEIGHT, dpr, ENV_UNPLAYED, PEAK_ALPHA)
+        : null,
+      peakPlayed: peakYs
+        ? envelopeLayer(peakYs, width, HEIGHT, dpr, ENV_PLAYED, PEAK_ALPHA)
+        : null,
     };
-  }, [ys, width, HEIGHT]);
+  }, [ys, peakYs, width, HEIGHT]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -452,19 +504,29 @@ function WaveformInner({
     }
 
     // Unplayed portion in grey; played portion (left of playhead) in the accent purple — the
-    // SoundCloud-style progress fill. Both are pre-rasterised, so a frame costs two blits
-    // rather than two traced contours, and the draw ORDER is unchanged: everything below still
-    // lands on top of the fill.
-    ctx.drawImage(layers.unplayed, 0, 0, width, HEIGHT);
+    // SoundCloud-style progress fill. All pre-rasterised, so a frame costs blits rather than
+    // traced contours, and the draw ORDER is unchanged: everything below still lands on top.
+    //
+    // The PEAK goes down first, so the RMS sits inside it — which is the whole grammar of the
+    // picture: the faint outline is how loud the material gets, the solid one how loud it IS.
+    // Both take the same playhead clip, or the progress fill would stop at two different places.
     const playX = timeToX(currentTime);
-    if (playX > 0) {
+    const fill = (
+      whole: HTMLCanvasElement | null,
+      left: HTMLCanvasElement | null,
+    ) => {
+      if (!whole) return;
+      ctx.drawImage(whole, 0, 0, width, HEIGHT);
+      if (playX <= 0 || !left) return;
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, playX, HEIGHT);
       ctx.clip();
-      ctx.drawImage(layers.played, 0, 0, width, HEIGHT);
+      ctx.drawImage(left, 0, 0, width, HEIGHT);
       ctx.restore();
-    }
+    };
+    fill(layers.peakUnplayed, layers.peakPlayed);
+    fill(layers.unplayed, layers.played);
 
     // Threshold line (horizontal, at its dB level) — only when a threshold is set.
     if (threshold != null) {

@@ -215,6 +215,24 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
   },
   "curves": {
     "sweep": {
+      "points": [
+        {
+          "time": "1:1:1",
+          "value": 0,
+        },
+        {
+          "time": "2:1:1",
+          "value": 1,
+        },
+        {
+          "time": "3:1:1",
+          "value": 1,
+        },
+        {
+          "time": "4:1:1",
+          "value": 0.2,
+        },
+      ],
       "type": "custom",
     },
     "wobble": {

@@ -143,11 +143,74 @@ module first. That is what made `node insert` indistinguishable from `chain add`
 this same splice on a module already there: one act, told apart only by whether a file had to
 be written on the way. `chain add` is gone, and its half is what `node insert` now IS.
 
-So the graph's `+` writes `node new <type>/<name> ` into the bar and the person types the name.
-For a pick from a CATALOGUE the shell runs a `module new` ahead of it, because `node new`
-instances a module that exists and a catalogue pick has no local folder yet; for a module this
-project already has, that step is absent and the gesture is one line. See `nodeInsert.ts` in
-st0's frontend.
+So the graph's `+` runs `node new <type>/<name> <node>`. For a pick from a CATALOGUE the shell
+runs a `module new` ahead of it, because `node new` instances a module that exists and a
+catalogue pick has no local folder yet; for a module this project already has, that step is
+absent and the gesture is one line. See `nodeInsert.ts` in st0's frontend.
+
+## A node names itself
+
+It used to end in the command bar with the cursor after that trailing space, because the node's
+NAME was the one thing only a person could supply. It is derived now:
+
+```
+<lane>_<module>_<n>        vo_jo_reverb_1, and the next one on that lane vo_jo_reverb_2
+<module>_<n>               reverb_1 — no lane to be named after
+```
+
+Three places mint one and they share the rule, `instanceName.ts`: the graph's `+`, a `node new`
+typed with no name, and the file tree's **New node**. A forked module is named the same way and
+always was (`moduleFork.ts`) — that is where the shape comes from, and folding it into one
+function is what stopped it being two rules that happened to agree.
+
+Three things about it are deliberate:
+
+- **The counter is on the first one too.** `vo_reverb` and `vo_reverb_2` would read as different
+  kinds of thing rather than as the first and second of a series, and renaming the first to make
+  room for a sibling breaks every chain that spelled it.
+- **It takes the first FREE number**, not the one after the count, and it dodges MODULE names as
+  well as node names — the name is one flat key, so `createNode` refuses either collision.
+- **The lane is dropped when there is none.** A node dropped on the bare canvas is in the graph
+  wired to nothing, so there is no run for it to be named after yet. It is not renamed when one
+  arrives: a name that moves is a name every chain has to be rewritten around.
+
+The lane is read off the ARROW, which is why the graph's `+` spells the whole name out and
+`node new` on its own cannot: only the browser knows which arrow was clicked, and only with the
+chains around it does that arrow name a lane. The verb still takes a name for anyone who wants
+to choose one.
+
+### …and it follows the module it extends
+
+`node replace` swaps what a node extends. A node still called `vo_jo_reverb_1` while it extends a
+delay is a name that lies about the one thing a name here carries, so the verb renames it —
+`vo_jo_delay_1` — and every chain step, its file and its preset follow.
+
+**Only when the name was OURS to move.** `renamedInstance` is the judgement, and it is the same
+rule that made the name: a name this convention could have produced from the old module is one
+nobody chose, and a node somebody called `wash` means `wash`. Renaming that would rewrite every
+chain that spells it in order to undo a decision.
+
+Four things it declines to do, each for its own reason:
+
+| | why |
+|---|---|
+| a name with no counter, or one that is not digits | not a name this convention made |
+| a name built from a DIFFERENT module | it says nothing about what the node should be called now |
+| the module's leaf did not change (`@st0/audio/reverb` → `@project/audio/reverb`) | a different module, the same word — nothing to follow |
+| a name a `surfaces/` **mapping** points at | see below |
+
+The mapping is the only place outside `graph.yaml` where a node's name is a REFERENCE, and
+nothing writes one back. A desk pointing at a name that has moved loses its knob silently: the
+screen still draws, the control does nothing. So the rename declines and names the file holding
+the name (`surfacesNaming`).
+
+The counter is not carried over — `vo_jo_reverb_2` becomes `vo_jo_delay_1`, because the number
+counts uses of THAT module and there is one of the new one.
+
+And the rename is the SECOND act. `setModuleExtends` writes one line of one file and cannot fail
+halfway; moving a name touches the file, the preset and every chain step that spells it. If the
+rename declines, the replacement still stands — a node with a stale name plays correctly, and a
+half-done rename does not.
 
 One refusal remains on `module new`, and it is real: an `extends-ref` that **disagrees** with
 what the module already extends. Asking for it again cannot re-parent it, so proceeding would

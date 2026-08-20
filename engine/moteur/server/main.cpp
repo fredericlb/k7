@@ -1437,6 +1437,11 @@ int main(int argc, char** argv) {
             {"inputLevels", s.trackInputLevelsDb},
             {"armed", s.armedTracks},
             {"recordEnabled", s.recordEnabled},
+            // The master output, and whether it overloaded since the last frame. `master` here is
+            // the same number `io-levels` carries under that name, read through a second client so
+            // the two do not clear each other — see EngineHost::masterState.
+            {"master", s.masterLevelDb},
+            {"masterClipped", s.masterOverload},
             {"waveform", std::move(wf)},
         }.dump();
 

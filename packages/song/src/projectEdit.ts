@@ -3,8 +3,14 @@
 // Not yaml/edit.ts (the FILE primitive) — this knows modules, not YAML. Every write
 // changes the value and nothing else — comments, key order and layout all survive.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import {
+  existsSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { extname, join, relative, sep } from "node:path";
 import {
   baseModuleRefs,
   loadModuleRefs,
@@ -14,7 +20,7 @@ import {
 } from "@studio/song/loader";
 import { parseDocument, parse as parseYaml } from "yaml";
 import { currentAlternative } from "./alternatives";
-import { sharedRoots } from "./moduleFork";
+import { chainsUsing, sharedRoots } from "./moduleFork";
 import { resolveModule } from "./moduleResolve";
 import type { OnsetEdits } from "./onsets";
 import { isTrack } from "./trackModule";
@@ -35,6 +41,7 @@ import {
   renameNode,
   setModuleEnabled,
   setNodePosition,
+  setNodePositions,
   unlinkNode,
 } from "./yaml/graphFile";
 import { GRAPH_BASE, GRAPH_FILE } from "./yaml/graphSchema";
@@ -500,9 +507,14 @@ const DESCRIBES_WHAT_IT_IS = ["plugin", "params", "rack"] as const;
 /**
  * Repoint a node (or a module) at another module: rewrite its `extends`, keep everything else.
  *
- * This is what "replace" means on a node. The name stays, so every chain step naming it keeps
- * its place and nothing is rewired; the file stays, so its position on the graph, its panel and
- * its alternatives survive. Only what it IS changes — which is one line.
+ * ONE line of ONE file, and that is the whole of it: the file stays where it is, under the name
+ * it has, so its position on the graph, its panel and its alternatives survive. Only what it IS
+ * changes.
+ *
+ * The `node replace` VERB may then rename the node — when its name was one the convention made,
+ * and is therefore about to start lying about the module under it (`renameChainNode`, and
+ * `renamedInstance` for the judgement). That is a second act on purpose: this one cannot fail
+ * halfway, and a rename touches a file, a preset and every chain step that spells the name.
  *
  * The ref is checked against the project's real vocabulary rather than a guessed path: an
  * inherited `@ns/…` has no local file to stat, and a typo must be refused before anything is
@@ -578,6 +590,60 @@ export function unlinkChainNode(
 }
 
 /**
+ * The lane whose chain plays `node`, or null — what a name is built from (instanceName.ts).
+ *
+ * `chainsUsing` is the answer, and it is `moduleFork`'s: naming a fork after its track and naming
+ * a node after its lane are the same question. FIRST of them when several chains reach it, which
+ * is the same arbitrary-but-stable choice a fork makes.
+ */
+export function laneOfNode(dir: string, node: string): string | null {
+  try {
+    const text = readFileSync(graphFileOf(dir).path, "utf8");
+    return chainsUsing(text, node)[0] ?? null;
+  } catch {
+    return null; // no graph, or one that will not read — a node with no run to be named after
+  }
+}
+
+/**
+ * Rename a node: its file, its preset, and every trace of it in the chains.
+ *
+ * The same footprint `deleteChainNode` knows — a node is `nodes/<name>.yaml` plus, when it has
+ * one, `nodes/<name>.vstpreset` — and the same ordering rule, one step further. The FILES move
+ * first and the chains follow, so an interruption leaves a graph naming a node whose file has
+ * gone… which is the state that stops a project loading. Renaming has no safe order: whichever
+ * half lands first, the other half is dangling until it does. So the check that the destination
+ * is free happens BEFORE anything moves, and that is what keeps it from being a real risk.
+ *
+ * What it deliberately does NOT touch is the module. A node is one use of one, and its name is
+ * the key a chain writes; the thing it extends has its own name and its own file.
+ */
+export function renameChainNode(
+  dir: string,
+  from: string,
+  to: string,
+): { moved: string[]; rewired: string[] } {
+  const found = entityFileFor(join(dir, "nodes"), "nodes", from);
+  if (!found) throw new Error(`no node '${from}' in this project`);
+  const ext = extname(found.path);
+  const destAbs = join(dir, "nodes", `${to}${ext}`);
+  if (existsSync(destAbs))
+    throw new Error(`nodes/${to}${ext} already exists — refusing to overwrite`);
+  const moved = [`${found.rel} → nodes/${to}${ext}`];
+  renameSync(found.path, destAbs);
+  const preset = join(dir, "nodes", `${from}.vstpreset`);
+  if (existsSync(preset)) {
+    renameSync(preset, join(dir, "nodes", `${to}.vstpreset`));
+    moved.push(`nodes/${from}.vstpreset → nodes/${to}.vstpreset`);
+  }
+  const { path } = graphFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const r = renameNode(text, from, to);
+  if (r.text !== text) writeFileSync(path, r.text, "utf8");
+  return { moved, rewired: r.rewired };
+}
+
+/**
  * Delete a node: its file, its preset, and every trace of it in the chains.
  *
  * The order is load-bearing. The FILES go first and the chains second, because the state to
@@ -614,6 +680,21 @@ export function placeChainNode(dir: string, module: string): string {
   const { path } = graphFileOf(dir);
   const text = readFileSync(path, "utf8");
   const next = addNode(text, module);
+  if (next !== text) writeFileSync(path, next, "utf8");
+  return path;
+}
+
+/**
+ * Pin every node in `at` that has no pin yet — one write, for a graph recording where it drew
+ * itself. See setNodePositions for why existing pins are left alone.
+ */
+export function setChainNodePositions(
+  dir: string,
+  at: Record<string, { x: number; y: number }>,
+): string {
+  const { path } = graphFileOf(dir);
+  const text = readFileSync(path, "utf8");
+  const next = setNodePositions(text, at);
   if (next !== text) writeFileSync(path, next, "utf8");
   return path;
 }

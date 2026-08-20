@@ -327,6 +327,40 @@ export function removeNode(
 
 /** Drop the whole `positions:` section — `graph organize`'s write: every node handed back
  *  to the layout at once, and the file left as if nobody had ever dragged a card. */
+/**
+ * Pin MANY nodes in one write — what a freshly drawn graph records about itself.
+ *
+ * A batch rather than a loop over `setNodePosition`, and not for speed: a graph draws sixty-odd
+ * nodes, and sixty writes would be sixty entries in the undo journal for one picture that was
+ * never rearranged by hand. One write is one thing that happened.
+ *
+ * Existing pins are LEFT ALONE. The caller sends the nodes the layout had to place itself — a
+ * node already carrying a pin was not placed by the layout, and overwriting it would move a card
+ * somebody had put somewhere on purpose.
+ */
+export function setNodePositions(
+  text: string,
+  at: Record<string, { x: number; y: number }>,
+): string {
+  const names = Object.keys(at);
+  if (!names.length) return text;
+  const { doc } = read(text);
+  if (!isMap(doc.getIn(["positions"])))
+    doc.set("positions", doc.createNode({}));
+  let wrote = false;
+  for (const node of names) {
+    if (doc.getIn(["positions", node]) !== undefined) continue; // already somebody's answer
+    const entry = doc.createNode({
+      x: Math.round(at[node].x),
+      y: Math.round(at[node].y),
+    });
+    entry.flow = true;
+    doc.setIn(["positions", node], entry);
+    wrote = true;
+  }
+  return wrote ? doc.toString(OUT) : text;
+}
+
 export function clearNodePositions(text: string): string {
   const { doc } = read(text);
   if (!isMap(doc.get("positions"))) return text;

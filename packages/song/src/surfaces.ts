@@ -209,6 +209,25 @@ function hasMaterial(dir: string): boolean {
   );
 }
 
+/**
+ * The surfaces whose `mapping` names `module`, by id — empty for almost every project.
+ *
+ * Asked before a node is RENAMED. A mapping is the only place outside `graph.yaml` where a node's
+ * name is a reference, and nothing here writes one back: a desk pointing at a name that has moved
+ * loses the knob silently, with a screen that draws and a control that does nothing. So the
+ * rename declines instead, and says which file is holding the name.
+ *
+ * A surface that would not parse contributes nothing, deliberately. It is already reported by
+ * `surfaceIssues`, and a file the reader cannot understand is not evidence that a name is free.
+ */
+export function surfacesNaming(dir: string, module: string): string[] {
+  return projectSurfaces(dir)
+    .surfaces.filter(({ surface }) =>
+      Object.values(surface.mapping ?? {}).some((b) => b?.module === module),
+    )
+    .map((s) => s.id);
+}
+
 export function surfaceIssues(dir: string): Diagnostic[] {
   const { surfaces, diagnostics } = projectSurfaces(dir);
   const declares = (type: string) =>

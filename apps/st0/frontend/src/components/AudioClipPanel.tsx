@@ -984,7 +984,16 @@ export function AudioClipPanel({
               </p>
             ) : (
               <Waveform
-                envelope={{ intervalMs: wf.intervalMs, samples: wf.rms }}
+                // Both curves: the RMS solid, the PEAK faint behind it. The pane drew RMS alone
+                // on a grid labelled in dBFS, so a clip normalised to −1 dBFS drew its tallest
+                // column near −10 and read as untouched — the two are 9 dB apart on a plucked
+                // guitar. The RMS stays the solid one because the trim gate below measures it
+                // and draws its threshold on this same axis.
+                envelope={{
+                  intervalMs: wf.intervalMs,
+                  samples: wf.rms,
+                  peak: wf.peak,
+                }}
                 duration={wf.seconds}
                 height={waveH}
                 // The head of what THIS EVENT plays, in file seconds — not the file's own zero.

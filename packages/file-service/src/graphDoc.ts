@@ -203,6 +203,9 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           usedCurves[a.curve] = {
             type: cv.type,
             shape: cv.type === "lfo" ? cv.shape : undefined,
+            // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points —
+            // this is what a timeline automation row is built from.
+            points: cv.type === "custom" ? cv.points : undefined,
           };
           return true;
         });
@@ -449,6 +452,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           all[id] = {
             type: cv.type,
             shape: cv.type === "lfo" ? cv.shape : undefined,
+            points: cv.type === "custom" ? cv.points : undefined,
           };
       return Object.keys(all).length ? all : undefined;
     })(),

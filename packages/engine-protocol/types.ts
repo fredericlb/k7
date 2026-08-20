@@ -21,6 +21,23 @@ export interface EngineState {
   armed: string[];
   // This session's record enable: its armed tracks record only while this is on AND rolling.
   recordEnabled: boolean;
+  /**
+   * The MASTER output in dB (-100 == silent) — the mix as it leaves for the interface, one number
+   * for the whole song where `levels` is one per lane. A header meter asks a different question
+   * from a mixer, and an output DEVICE carries no measurer in Tracktion, so the engine reads it
+   * off a level-meter plugin on the master list.
+   */
+  master: number;
+  /**
+   * Whether the master went over full scale at any point since the last frame.
+   *
+   * Answered by the engine rather than compared here against `master`, and that is the whole point:
+   * a clip is one sample over full scale, and a client that only saw `master` could not tell a peak
+   * that was reached from one that was merely passed through. The engine reads the meter's LATCHED
+   * peak — the loudest sample of the whole 50 ms window, not a 20 Hz sample of a waveform — so this
+   * says "it clipped at some moment you did not see", which is the only thing a clip light is for.
+   */
+  masterClipped: boolean;
   // Per-module waveform envelopes keyed "chain:module:side", sampled at the state-frame rate; empty with no taps.
   waveform: Record<string, WaveformEnvelope[]>;
 }

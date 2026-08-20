@@ -170,8 +170,12 @@ export const projectApi = {
     fget<ModulePresetsFile>(`/module-presets?path=${encodeURIComponent(path)}`),
   cloneModule: (path: string, newName: string) =>
     fsend<{ path: string }>("POST", "/module/clone", { path, newName }),
-  createNode: (path: string, node: string) =>
-    fsend<{ path: string }>("POST", "/node", { path, node }),
+  // `node` is optional: without one the service names it `<module>_<n>` (see `freeNodeName`).
+  createNode: (path: string, node?: string) =>
+    fsend<{ path: string }>("POST", "/node", {
+      path,
+      ...(node ? { node } : {}),
+    }),
 
   // --- The repository's git. A workspace IS one clone, so none of this needs a project. ---
   // gitStatus fetches, so callers poll it rarely (st0 uses ten minutes).

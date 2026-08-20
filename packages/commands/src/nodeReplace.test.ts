@@ -1,9 +1,10 @@
 // `node replace` and `graph unlink` — the two verbs that change a chain without deleting
 // anything, and what they must never leave behind.
 //
-// `replace` touches one `extends:` line and MUST leave the chains alone, so its tests assert
-// that they did not move at all. `unlink` is the opposite: it rewrites the chains and must leave
-// every FILE alone.
+// `replace` touches one `extends:` line, and then — only when the node's name was AUTO-MADE —
+// renames it to follow the new module, chains and preset with it. Both halves are asserted, and
+// the sharper half is the refusal: a name somebody chose must not move an inch. `unlink` is the
+// opposite shape: it rewrites the chains and must leave every FILE alone.
 //
 // `module delete` was tested here too, and its one failure mode was the sharpest of the three —
 // a chain naming a module that no longer exists is not a cosmetic dangling reference, it is a
@@ -14,6 +15,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -198,5 +200,97 @@ describe("graph unlink", () => {
     await runCommand("graph unlink nope", host(), "cli");
     expect(logs.join(" ")).toContain("no 'nope'");
     expect(chains()).toBe(before);
+  });
+});
+
+// --- and then the NAME follows -------------------------------------------------------
+//
+// A node the graph's `+` made is called `<lane>_<module>_<n>` (`@studio/song`'s instanceName.ts),
+// so one still wearing `gtr_amp_1` while it extends a cab is a name that lies about the one
+// thing a name here carries. The judgement being tested is which names are OURS to move — and
+// what happens to the chains, the file and the preset when one does.
+
+describe("node replace — the name following the module", () => {
+  /** The same song, plus a node the convention named, spliced into gtr's run. */
+  beforeEach(() => {
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ gtr_amp_1 ]\n  gtr_amp_1: [ cab ]\n  bass: [ cab ]\n  cab: [ OUT ]\n",
+      "utf8",
+    );
+    writeFileSync(
+      join(dir, "nodes", "gtr_amp_1.yaml"),
+      '# the one somebody wrote by hand\nextends: "@project/audio/amp"\nmonitor: true\n',
+      "utf8",
+    );
+  });
+
+  const nodes = () => readdirSync(join(dir, "nodes")).sort();
+
+  it("renames the node, and the chains follow it", async () => {
+    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    expect(nodes()).toContain("gtr_cab_1.yaml");
+    expect(nodes()).not.toContain("gtr_amp_1.yaml");
+    // Every mention: the key, what feeds it, and what it feeds.
+    expect(chains()).toContain("gtr: [ gtr_cab_1 ]");
+    expect(chains()).toContain("gtr_cab_1: [ cab ]");
+    expect(chains()).not.toContain("gtr_amp_1");
+    // The FILE moved — a comment nobody could have regenerated proves it was not rewritten from
+    // scratch. (`params` would be gone, and that is `setModuleExtends`: what described the old
+    // module cannot describe the new one. The rename does not touch the contents at all.)
+    const moved = readFileSync(join(dir, "nodes", "gtr_cab_1.yaml"), "utf8");
+    expect(moved).toContain("# the one somebody wrote by hand");
+    expect(moved).toContain("monitor: true");
+    expect(logs.join(" ")).toContain("gtr_amp_1 → gtr_cab_1");
+  });
+
+  it("takes the node's preset with it", async () => {
+    // `nodes/<node>.vstpreset` is keyed by the name, so leaving it behind would silently reset a
+    // plugin's opaque state — the one part of a node nothing else can rebuild.
+    writeFileSync(join(dir, "nodes", "gtr_amp_1.vstpreset"), "x", "utf8");
+    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    expect(nodes()).toContain("gtr_cab_1.vstpreset");
+    expect(nodes()).not.toContain("gtr_amp_1.vstpreset");
+  });
+
+  it("leaves a name somebody CHOSE exactly where it is", async () => {
+    // `lead` is the shared fixture's hand-named node. The chains must not move at all.
+    await runCommand("node insert gtr gtr_amp_1 lead", host(), "cli");
+    const before = chains();
+    logs.length = 0;
+    await runCommand("node replace lead audio/cab", host(), "cli");
+    expect(chains()).toBe(before);
+    expect(nodes()).toContain("lead.yaml");
+    expect(logs.join(" ")).not.toContain("→");
+  });
+
+  it("says nothing and moves nothing when the module's name is unchanged", async () => {
+    // A different ref for the same word — nothing to follow, and the counter must not walk up.
+    const before = chains();
+    await runCommand(
+      "node replace gtr_amp_1 @project/audio/amp",
+      host(),
+      "cli",
+    );
+    expect(chains()).toBe(before);
+    expect(nodes()).toContain("gtr_amp_1.yaml");
+  });
+
+  it("keeps the name a SURFACE points at, and says which file holds it", async () => {
+    // A mapping is the one place outside the chains where the name is a reference, and nothing
+    // rewrites one — a desk pointing at a name that moved draws a knob that does nothing.
+    mkdirSync(join(dir, "surfaces"), { recursive: true });
+    writeFileSync(
+      join(dir, "surfaces", "desk.yaml"),
+      "type: turntables\nlayout: view\nmapping:\n  crossfade: { module: gtr_amp_1, param: Mix }\n",
+      "utf8",
+    );
+    await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
+    expect(nodes()).toContain("gtr_amp_1.yaml"); // not moved
+    expect(logs.join(" ")).toContain("surface desk");
+    // …and the replacement still stands. A stale name plays correctly; a half-done rename does not.
+    expect(
+      readFileSync(join(dir, "nodes", "gtr_amp_1.yaml"), "utf8"),
+    ).toContain("audio/cab");
   });
 });

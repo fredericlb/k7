@@ -77,6 +77,23 @@ describe("what a clip carries to the browser", () => {
     ).toBeUndefined();
   });
 
+  it("carries the FADES, which this mapping used to drop", () => {
+    // They were on the placement, on the engine wire and in the C++ engine, and stopped exactly
+    // here — so the timeline had nothing to draw and no way to let one be dragged. The whole of
+    // that gap was these two lines.
+    const w = first(clip({ fadeIn: 1, fadeOut: 2.5 }));
+    expect(w.fadeIn).toBe(1);
+    expect(w.fadeOut).toBe(2.5);
+  });
+
+  it("a zero fade is ABSENT, not a zero", () => {
+    // No fade is the default and the file deletes the key rather than writing it; sending zeroes
+    // would put two explicit numbers on every untouched event of a document polled every 2s.
+    const w = first(clip());
+    expect(w.fadeIn).toBeUndefined();
+    expect(w.fadeOut).toBeUndefined();
+  });
+
   it("takes go through the SAME mapping as the arrangement", () => {
     // A take should draw identically to the arrangement it was — two copies of this mapping is
     // how the two would come to differ, which is why `toWebClip` is named rather than inlined.

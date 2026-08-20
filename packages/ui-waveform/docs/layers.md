@@ -25,6 +25,11 @@ Two things, and neither of them moves a pixel:
    only when `ys` or the box changes. The per-frame draw is now `drawImage` twice — the second
    one clipped to the played portion, exactly where the traced version was clipped.
 
+   Four, on a host that also passes a `peak` envelope: the same played/unplayed pair for the
+   faint curve behind the solid one. Still blits rather than traced contours, and still rebuilt
+   only when the reduction changes — see [envelopes.md](envelopes.md) for why there are two
+   curves at all.
+
 The offscreens are sized in device pixels and the main context is already scaled by the DPR, so
 the blit is 1:1 with the backing store and stays sharp.
 

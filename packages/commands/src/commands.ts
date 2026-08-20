@@ -16,8 +16,14 @@ import type {
   AudioDeviceInfo,
   PluginInfo,
 } from "@studio/engine-client/engineClient";
+import { builtinParamsFor } from "@studio/song/builtinParams";
 import { bindModuleCc } from "@studio/song/controllerBind";
-import { createCurveFile, loadCurves } from "@studio/song/curves";
+import {
+  createCurveFile,
+  createFlatCurveFile,
+  editCurveFile,
+  loadCurves,
+} from "@studio/song/curves";
 import { freezeBlockedBy, freezePlans } from "@studio/song/freeze";
 import {
   coldPlacementError,
@@ -25,18 +31,22 @@ import {
   loadGraph,
   parseChains,
 } from "@studio/song/graph";
+import { renamedInstance } from "@studio/song/instanceName";
+import { spliceProjectTime } from "@studio/song/insertTime";
 import {
   cloneModuleFile,
   createModuleFile,
   createNode,
   createSequenceFile,
   createTrackFile,
+  freeNodeName,
   isFileParam,
   loadChains,
   loadModuleRefs,
   loadModules,
   loadProjectRoot,
   moduleRefOf,
+  nodeNameTaken,
 } from "@studio/song/loader";
 import {
   consolidateSequenceMaterial,
@@ -64,12 +74,15 @@ import {
   deleteChainNode,
   disconnectChainNodes,
   insertChainStep,
+  laneOfNode,
   moduleAlternatives,
   newModuleAlternative,
   placeChainNode,
+  renameChainNode,
   replugChainNodes,
   selectModuleAlternative,
   setChainNodePosition,
+  setChainNodePositions,
   setClipOnsets,
   setClipWarp,
   setClipWindow,
@@ -85,7 +98,7 @@ import {
   setModuleParam,
   unlinkChainNode,
 } from "@studio/song/projectEdit";
-import { createSurfaceFile } from "@studio/song/surfaces";
+import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -104,6 +117,7 @@ import {
   resizeTrackPlacement,
   selectTrackTake,
   setTrackPlacementDisabled,
+  setTrackPlacementFade,
   setTrackPlacementWarp,
   trackTakes,
 } from "@studio/song/trackMix";
@@ -112,7 +126,17 @@ import {
   seedWarp,
   setWarpPoint,
 } from "@studio/song/warpPoints";
-import { deleteFileValue, setFileValue } from "@studio/song/yaml/edit";
+import {
+  curvePoints,
+  moveCurvePoint,
+  removeCurvePoint,
+  setCurvePoint,
+} from "@studio/song/yaml/curveFile";
+import {
+  deleteFileValue,
+  setFileValue,
+  setQuotedKeyMap,
+} from "@studio/song/yaml/edit";
 import type { GraphFile } from "@studio/song/yaml/graphSchema";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
 import {
@@ -258,9 +282,12 @@ export function parseMidiNote(s: string): number | null {
 // A beat value for a note struct, 6 decimals max, mirroring the tracker so drags don't churn the file.
 const fmtBeat = (v: number) => String(Math.round(v * 1e6) / 1e6);
 
-// Rewrite the project's `markers` map. Keys are QUOTED: unquoted, `2:1:1` is a YAML 1.1 sexagesimal integer.
+// Rewrite the project's `markers` map. Keys are QUOTED: unquoted, `2:1:1` is a YAML 1.1
+// sexagesimal integer. This said so for a long time and wrote them bare anyway — `setFileValue`
+// gives every key the plain style, and `quoteTimecodes` walks VALUES under known keys, so neither
+// could see a timecode used as a key. `setQuotedKeyMap` is that sentence, implemented.
 function writeMarkers(songPath: string, map: Record<string, string>): void {
-  setFileValue(join(songPath, "project.yaml"), ["markers"], map);
+  setQuotedKeyMap(join(songPath, "project.yaml"), ["markers"], map);
 }
 
 // Flip the persisted metronome flag in settings.yaml (a FLAT file), creating it when a project has none.
@@ -445,6 +472,18 @@ export function collectPluginModules(project: ProjectDoc): PluginModule[] {
       });
     }
   return out;
+}
+
+/**
+ * An argument line as words. One function, because getting it wrong is silent.
+ *
+ * `node automate` split on `/s+/` — the LETTER `s`, not whitespace. "osc Filter Freq sweep" came
+ * apart as `["o", "c Filter Freq ", "weep"]`, and a line containing no `s` at all yielded one word
+ * and was refused with the usage text. The verb failed for essentially every input, and nothing
+ * tested it. Named here so the next handler that needs words borrows this rather than a regex.
+ */
+export function splitWords(a: string): string[] {
+  return a.trim().split(/\s+/).filter(Boolean);
 }
 
 function uniqueId(base: string, project: ProjectDoc): string {
@@ -667,6 +706,392 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
  * is — because their defaults are opposite, and both writers delete rather than write the default
  * (see trackMix). Which is why `aspect` selects the writer instead of the two sharing one.
  */
+/**
+ * `event fadein|fadeout <track> <timecode> <length>` — how long one event fades.
+ *
+ * One implementation, two commands, for the reason `event disable play|warp` is two: the word
+ * after the verb is the promise, and which end of the clip a fade is on is exactly the kind of
+ * thing a verb should say rather than an argument.
+ *
+ * `length` is a DURATION and `timecode` is a POSITION, and this is the one command that takes both
+ * — `parseDuration` for the first, `parsePosition` (inside `resolveEvent`) for the second. Both
+ * spellings are legal timecodes and nothing downstream can tell them apart, so getting the pair
+ * the wrong way round writes a fade several bars long and says it worked.
+ *
+ * A length of 0 REMOVES the fade rather than writing a zero, which is `setTrackPlacementFade`'s
+ * rule and the same one `disabled` and `warp` follow.
+ */
+async function fadeCommand(
+  a: string,
+  h: CommandHost,
+  which: "fadeIn" | "fadeOut",
+): Promise<void> {
+  const verb = which === "fadeIn" ? "event fadein" : "event fadeout";
+  const parts = splitWords(a);
+  if (parts.length !== 3) {
+    h.refuse([
+      `usage: ${verb} <track> <timecode> <length>`,
+      `       (e.g. ${verb} gtr 2:1:1 0:1 — a length, not a position; 0 removes it)`,
+    ]);
+    return;
+  }
+  const [trackArg, atTc, lenTc] = parts;
+  const found = resolveEvent(h, trackArg, atTc);
+  if (!found) return;
+  const { track, atBeats, hit, num, den } = found;
+  let beats: number;
+  try {
+    beats = parseDuration(lenTc, num, den);
+  } catch (e) {
+    h.refuse([`bad length: ${(e as Error).message}`]);
+    return;
+  }
+  if (beats < 0) {
+    h.refuse([`a fade cannot be negative — got ${lenTc}`]);
+    return;
+  }
+  try {
+    const done = setTrackPlacementFade(
+      h.songPath,
+      track.id,
+      atBeats,
+      num,
+      den,
+      which,
+      beats,
+    );
+    if (!done) {
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
+      return;
+    }
+    h.log([
+      beats > 0
+        ? `${track.id}: ${hit.name || hit.id} at ${atTc} ${which === "fadeIn" ? "fades in" : "fades out"} over ${lenTc}`
+        : `${track.id}: ${hit.name || hit.id} at ${atTc} no longer ${which === "fadeIn" ? "fades in" : "fades out"}`,
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`${verb} failed: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * `track automation add|remove <track> <param>` — an automation lane on a track, by param name.
+ *
+ * A VIEW onto `node automate`, not a second place to store a binding. A binding lives on the
+ * MODULE (`automations: [{param, curve}]`, keyed by param — one knob, one curve), and a track owns
+ * one only because the automated module sits in its chain: `ownerOf` in the compiler returns the
+ * chain's own name, which is the lane's. So this resolves the param against the track's chain and
+ * then writes through the very writer `node automate` uses. Two verbs, one source of truth.
+ *
+ * The reason it is worth a verb of its own: a lane on the timeline is reached from the LANE, and
+ * asking someone to know which module in their chain owns "Filter Freq" before they can draw a
+ * curve against it is asking them to hold the graph in their head to edit the arrangement.
+ *
+ * The param is everything after the track, spaces and all — "Filter Freq" is one argument.
+ */
+async function trackAutomationCommand(
+  a: string,
+  h: CommandHost,
+  mode: "add" | "remove",
+): Promise<void> {
+  const verb = `track automation ${mode}`;
+  const parts = splitWords(a);
+  if (parts.length < 2) {
+    h.refuse([
+      `usage: ${verb} <track> <param>`,
+      `       (e.g. ${verb} gtr Filter Freq — the param is everything after the track)`,
+    ]);
+    return;
+  }
+  const p = h.project();
+  const trackArg = parts[0];
+  const param = parts.slice(1).join(" ");
+  const track = p.tracks.find((t) => t.id === trackArg || t.name === trackArg);
+  if (!track) {
+    h.refuse([
+      `no track "${trackArg}"${p.tracks.length ? ` — try: ${p.tracks.map((t) => t.id).join(", ")}` : ""}`,
+    ]);
+    return;
+  }
+
+  // Which module on this lane's chain declares that param. The compiled plugins carry the track
+  // they landed on, so the chain has already been walked for us.
+  const owning = track.plugins.filter((pl) =>
+    (builtinParamsFor(pl) ?? []).some((b) => b.name === param),
+  );
+  if (!owning.length) {
+    const known = [
+      ...new Set(
+        track.plugins.flatMap((pl) =>
+          (builtinParamsFor(pl) ?? []).map((b) => b.name),
+        ),
+      ),
+    ].sort();
+    h.refuse([
+      `no parameter '${param}' on '${track.id}'`,
+      known.length
+        ? `  it has: ${known.join(", ")}`
+        : `  '${track.id}' runs through no module with parameters`,
+    ]);
+    return;
+  }
+  if (owning.length > 1) {
+    // Two knobs of one name on one chain is a real shape — two mixers, two filters — and there is
+    // no defensible way to pick. `node automate` can say which module, so send them there rather
+    // than automating whichever happened to compile first.
+    const names = owning.map((pl) => moduleOfPluginId(pl.id));
+    h.refuse([
+      `'${param}' is on ${owning.length} modules of '${track.id}' (${names.join(", ")}) — say which:`,
+      `  node automate ${names[0]} ${param} <curve>`,
+    ]);
+    return;
+  }
+  const plugin = owning[0];
+  const module = moduleOfPluginId(plugin.id);
+
+  try {
+    if (mode === "remove") {
+      const path = setModuleAutomationBinding(h.songPath, module, param, null);
+      await h.reload();
+      // The curve FILE stays. An unbind is not a deletion, and an unbound curve still draws as
+      // its own card on the graph — so nothing is orphaned invisibly, and rebinding is one verb.
+      //
+      // The log is the LAST statement rather than a `log(); return;` pair, which is what a
+      // handler refusing through `log` looks like — see refusal.test.ts, which reads for it.
+      h.log([`${track.id}: ${param} is no longer automated (${path})`]);
+    } else {
+      await addTrackAutomation(h, track, module, plugin, param);
+    }
+  } catch (e) {
+    h.refuse([`${verb}: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * The `add` half: create a flat curve where the knob already sits, and bind it.
+ *
+ * Its own function so the caller above ends on one statement per branch — and because the value
+ * question is the whole of what makes this more than a rename of `node automate`.
+ */
+async function addTrackAutomation(
+  h: CommandHost,
+  track: ProjectDoc["tracks"][number],
+  module: string,
+  plugin: ProjectDoc["tracks"][number]["plugins"][number],
+  param: string,
+): Promise<void> {
+  const p = h.project();
+  const meta = (builtinParamsFor(plugin) ?? []).find((b) => b.name === param);
+  // Where the knob sits NOW, normalised. A curve overrides its param the moment it is bound, so
+  // a flat curve at the wrong height is an audible jump on a verb whose promise is to change
+  // nothing yet — refuse rather than guess.
+  const cur = plugin.params?.[param] ?? meta?.def;
+  if (!meta || cur === undefined || !(meta.max > meta.min)) {
+    h.refuse([
+      `can't tell where '${param}' currently sits, so a flat curve would move it`,
+      `  set it once (node param ${module} ${param} <value>), or bind a curve yourself:`,
+      `  curve new <name> && node automate ${module} ${param} <name>`,
+    ]);
+    return;
+  }
+  const value = (cur - meta.min) / (meta.max - meta.min);
+  const id = curveIdFor(track.id, param);
+  // The song's end, so the flat line spans something you can grab at both ends. A song with no
+  // material yet gets one bar rather than a curve of zero width.
+  const last = Math.max(
+    ...p.tracks.flatMap((t) => t.clips.map((c) => c.start + c.length)),
+    p.timeSigNumerator,
+  );
+  const rel = createFlatCurveFile(
+    h.songPath,
+    id,
+    value,
+    beatsToPosition(last, p.timeSigNumerator, p.timeSigDenominator),
+  );
+  const path = setModuleAutomationBinding(h.songPath, module, param, id);
+  await h.reload();
+  h.log([
+    `${track.id}: ${param} <- ${id} (${rel}), flat at ${Math.round(value * 100)}% (${path})`,
+  ]);
+}
+
+/**
+ * `curve point add|move|remove <curve> …` — the shape of a drawn automation curve.
+ *
+ * The verbs the timeline's automation row was waiting for. Until these, a `custom` curve could be
+ * created flat (`track automation add`) and shifted wholesale (`project add`), and its individual
+ * points could only be typed into the file by hand — which made the row a picture of something
+ * you could not touch.
+ *
+ * Addressed by TIME, because a curve is a function of song time: two points cannot share a moment,
+ * so the moment is a usable name for one. The same "one address, one value" rule that makes
+ * `param` a usable address for a binding.
+ *
+ * `value` is 0..1 — the CURVE's range, not the param's. What it maps onto is the plugin's business
+ * (`polarity` decides the output range and the engine maps it onto the knob), and one curve may be
+ * bound to more than one thing over its life.
+ */
+async function curvePointCommand(
+  a: string,
+  h: CommandHost,
+  mode: "add" | "move" | "remove",
+): Promise<void> {
+  const verb = `curve point ${mode}`;
+  const parts = splitWords(a);
+  const want = mode === "remove" ? 2 : 3;
+  if (parts.length < want) {
+    h.refuse([
+      mode === "add"
+        ? `usage: ${verb} <curve> <time> <value>   (value 0..1)`
+        : mode === "move"
+          ? `usage: ${verb} <curve> <time> <newTime> [value]`
+          : `usage: ${verb} <curve> <time>`,
+    ]);
+    return;
+  }
+  const p = h.project();
+  const num = p.timeSigNumerator;
+  const den = p.timeSigDenominator;
+  const [id, atTc] = parts;
+  let atBeats: number;
+  try {
+    atBeats = parsePosition(atTc, num, den);
+  } catch (e) {
+    h.refuse([`bad timecode: ${(e as Error).message}`]);
+    return;
+  }
+  const unit = (raw: string | undefined): number | undefined => {
+    if (raw === undefined) return undefined;
+    const v = Number(raw);
+    return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : undefined;
+  };
+  try {
+    const file = join(h.songPath, "curves", `${id}.yaml`);
+    const points = curvePoints(readFileSync(file, "utf8"), num, den);
+    if (mode === "add") {
+      const v = unit(parts[2]);
+      if (v === undefined) {
+        h.refuse([`'${parts[2]}' is not a value between 0 and 1`]);
+        return;
+      }
+      const had = points.some((pt) => Math.abs(pt.beat - atBeats) < 1e-6);
+      const rel = editCurveFile(h.songPath, id, (t) =>
+        setCurvePoint(t, atBeats, v, num, den),
+      );
+      await h.reload();
+      h.log([
+        `${id}: ${had ? "set the point" : "added a point"} at ${atTc} to ${v} (${rel})`,
+      ]);
+    } else if (mode === "move") {
+      let toBeats: number;
+      try {
+        toBeats = parsePosition(parts[2], num, den);
+      } catch (e) {
+        h.refuse([`bad timecode: ${(e as Error).message}`]);
+        return;
+      }
+      const rel = editCurveFile(h.songPath, id, (t) =>
+        moveCurvePoint(t, atBeats, toBeats, unit(parts[3]), num, den),
+      );
+      await h.reload();
+      h.log([`${id}: the point at ${atTc} is now at ${parts[2]} (${rel})`]);
+    } else {
+      // A custom curve needs at least one point — `parseCurve` refuses a pointless one by name,
+      // and a curve file the loader cannot read takes the whole project down with it. So the LAST
+      // point is not removable: taking the automation away is `track automation remove`, which
+      // unbinds and leaves the curve, rather than emptying a file until it stops parsing.
+      if (points.length <= 1) {
+        h.refuse([
+          `'${id}' has one point left, and a curve with none does not load`,
+          `  to stop automating, use: track automation remove <track> <param>`,
+        ]);
+        return;
+      }
+      const rel = editCurveFile(h.songPath, id, (t) =>
+        removeCurvePoint(t, atBeats, num, den),
+      );
+      await h.reload();
+      h.log([`${id}: removed the point at ${atTc} (${rel})`]);
+    }
+  } catch (e) {
+    h.refuse([`${verb}: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * `project add|remove <at> <length>` — insert or delete a span of song time.
+ *
+ * `at` is a POSITION and `length` a DURATION, which is the one pair this vocabulary keeps getting
+ * to state out loud: both are legal timecodes and nothing downstream can tell them apart. The
+ * caret pre-answers `at` (see commandFill's CARET_ANSWERS), so from the timeline this is "insert
+ * two bars here"; from the CLI it is a whole line, which is what keeps it usable from both.
+ *
+ * What moves is everything positioned in song time and nothing else — see
+ * `@studio/song`'s docs/insertTime.md for the inventory and for the rule about a straddling
+ * event, which is decided by its START like every other range operation here.
+ */
+async function projectTimeCommand(
+  a: string,
+  h: CommandHost,
+  mode: "insert" | "delete",
+): Promise<void> {
+  const verb = mode === "insert" ? "project add" : "project remove";
+  const parts = splitWords(a);
+  if (parts.length !== 2) {
+    h.refuse([
+      `usage: ${verb} <at> <length>`,
+      `       (e.g. ${verb} 5:1:1 1:0 — a position, then a LENGTH)`,
+    ]);
+    return;
+  }
+  const p = h.project();
+  const num = p.timeSigNumerator;
+  const den = p.timeSigDenominator;
+  let atBeats: number;
+  let lenBeats: number;
+  try {
+    atBeats = parsePosition(parts[0], num, den);
+    lenBeats = parseDuration(parts[1], num, den);
+  } catch (e) {
+    h.refuse([`bad timecode: ${(e as Error).message}`]);
+    return;
+  }
+  if (!(lenBeats > 0)) {
+    h.refuse([`a length of ${parts[1]} moves nothing`]);
+    return;
+  }
+  // Nothing may be pushed before the song's start. The same guard `events move` carries, and the
+  // same reason: a negative position is not a position.
+  if (mode === "delete" && atBeats < 0) {
+    h.refuse(["can't remove time from before the song starts"]);
+    return;
+  }
+  try {
+    const r = spliceProjectTime(h.songPath, atBeats, lenBeats, mode);
+    if (!r.files.length) {
+      h.refuse([
+        `nothing at or after ${parts[0]} to ${mode === "insert" ? "push" : "pull"} — the project is unchanged`,
+      ]);
+      return;
+    }
+    await h.reload();
+    h.log([
+      `${mode === "insert" ? "inserted" : "removed"} ${parts[1]} at ${parts[0]}: ` +
+        `${r.moved} moved${r.removed ? `, ${r.removed} removed` : ""} across ${r.files.length} file${r.files.length === 1 ? "" : "s"}`,
+    ]);
+  } catch (e) {
+    h.refuse([`${verb}: ${(e as Error).message}`]);
+  }
+}
+
+/** The module half of a `chain:module` plugin id — the name a chains file and `node automate` use. */
+const moduleOfPluginId = (id: string): string => id.slice(id.indexOf(":") + 1);
+
+/** A curve id from a lane and a param. Both may hold characters a filename and a ref may not. */
+const curveIdFor = (track: string, param: string): string =>
+  `${track}-${param}`.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-|-$/g, "");
+
 async function disableCommand(
   a: string,
   h: CommandHost,
@@ -1013,6 +1438,58 @@ async function setIntrinsic(
     await h.reload();
   } catch (e) {
     h.refuse([`node param @${field} failed: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * The last segment of a module ref — `@project/audio/tape-delay` → `tape-delay`.
+ *
+ * What a use is NAMED after (`@studio/song`'s instanceName.ts), and the namespace is deliberately
+ * not part of it: the same module reached through `@st0` and through `@project` is one module.
+ */
+const moduleLeafOf = (ref: unknown): string | null => {
+  const s = typeof ref === "string" ? ref.split("/").pop() : null;
+  return s || null;
+};
+
+/**
+ * Follow a node's name onto the module it now extends, or say why it did not move.
+ *
+ * Null when there was nothing to do — a name a person chose, or a module whose leaf did not
+ * change. A STRING when something happened, including the two refusals worth reporting: a name a
+ * surface points at, and a destination already taken. Both leave the replacement standing, which
+ * is the right trade — the node plays the new module either way, and only its label is stale.
+ */
+function renameForNewModule(
+  h: CommandHost,
+  node: string,
+  was: string,
+  ref: string,
+): string | null {
+  const to = moduleLeafOf(ref);
+  if (!to) return null;
+  const dir = h.songPath;
+  const next = renamedInstance(
+    node,
+    was,
+    to,
+    laneOfNode(dir, node),
+    nodeNameTaken(dir),
+  );
+  if (!next) return null; // not a name this convention made — somebody chose it
+  // A mapping is the one place outside the chains where this name is a REFERENCE, and nothing
+  // writes one back: a desk pointing at a name that moved draws a knob that does nothing.
+  const mapped = surfacesNaming(dir, node);
+  if (mapped.length)
+    return `${node}: kept its name — ${mapped.length > 1 ? "surfaces" : "surface"} ${mapped.join(", ")} name it, and a mapping is not rewritten`;
+  try {
+    const { rewired } = renameChainNode(dir, node, next);
+    return (
+      `${node} → ${next}, following the module it now extends` +
+      (rewired.length ? ` (rewired ${rewired.join(", ")})` : "")
+    );
+  } catch (e) {
+    return `${node}: kept its name — ${(e as Error).message}`;
   }
 }
 
@@ -1542,6 +2019,15 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // event disable play|warp <track> <timecode> [on|off|toggle] — see disableCommand below.
   "event.disablePlay": (a, h) => disableCommand(a, h, "play"),
   "event.disableWarp": (a, h) => disableCommand(a, h, "warp"),
+  "event.fadeIn": (a, h) => fadeCommand(a, h, "fadeIn"),
+  "event.fadeOut": (a, h) => fadeCommand(a, h, "fadeOut"),
+  "curve.point.add": (a, h) => curvePointCommand(a, h, "add"),
+  "curve.point.move": (a, h) => curvePointCommand(a, h, "move"),
+  "curve.point.remove": (a, h) => curvePointCommand(a, h, "remove"),
+  "project.time.add": (a, h) => projectTimeCommand(a, h, "insert"),
+  "project.time.remove": (a, h) => projectTimeCommand(a, h, "delete"),
+  "track.automation.add": (a, h) => trackAutomationCommand(a, h, "add"),
+  "track.automation.remove": (a, h) => trackAutomationCommand(a, h, "remove"),
 
   // event resize <track> <timecode> <newStart> <newEnd> — both ends, one edit.
   "event.resize": async (a, h) => {
@@ -1824,6 +2310,62 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * Grouped by lane so each file is rewritten ONCE (`addTrackPlacements`), whatever the rectangle
    * spanned.
    */
+  /**
+   * `graph pin <JSON {node: {x,y}}>` — record where the graph drew itself.
+   *
+   * The other half of `graph move`, and the reason the picture stops rearranging itself: a node
+   * the LAYOUT placed is unpinned, so the next fresh layout is free to put it somewhere else, and
+   * it will whenever anything about the graph changed. That is what made the track row seem to
+   * shuffle at random — the change surfaced at a reload, long after the edit that caused it.
+   *
+   * So the drawing writes its own answer down, once, and after that the FILE is the layout. dagre
+   * speaks again only when `graph organize` empties `positions:`.
+   *
+   * A batch and a single write: sixty nodes recorded as sixty commands would be sixty entries in
+   * the undo journal for one picture nobody moved by hand.
+   *
+   * Never overwrites an existing pin — see setNodePositions. So this cannot walk over a card
+   * somebody dragged, whatever the browser thinks it drew.
+   */
+  "graph.pin": async (a, h) => {
+    const payload = a.trim();
+    if (!payload) {
+      h.refuse([
+        'usage: graph pin <JSON {node: {x,y}}>  (e.g. graph pin {"reverb":{"x":420,"y":180}})',
+      ]);
+      return;
+    }
+    let raw: unknown;
+    try {
+      raw = JSON.parse(payload);
+    } catch (e) {
+      h.refuse([`bad positions JSON: ${(e as Error).message}`]);
+      return;
+    }
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      h.refuse(["positions payload must be a JSON object of node -> {x,y}"]);
+      return;
+    }
+    const at: Record<string, { x: number; y: number }> = {};
+    for (const [node, v] of Object.entries(raw as Record<string, unknown>)) {
+      const p = v as { x?: unknown; y?: unknown };
+      const x = Number(p?.x);
+      const y = Number(p?.y);
+      if (!node || !Number.isFinite(x) || !Number.isFinite(y)) continue;
+      at[node] = { x, y };
+    }
+    if (!Object.keys(at).length) {
+      h.refuse(["no usable {x,y} in the payload"]);
+      return;
+    }
+    try {
+      const path = setChainNodePositions(h.songPath, at);
+      h.log([`pinned ${Object.keys(at).length} node(s) (${path})`]);
+    } catch (e) {
+      h.refuse([`graph pin: ${(e as Error).message}`]);
+    }
+  },
+
   "events.add": async (a, h) => {
     const payload = a.trim();
     if (!payload) {
@@ -2776,7 +3318,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * it removes, rather than a second verb whose only job is to undo this one.
    */
   "node.automate": async (a, h) => {
-    const parts = a.trim().split(/s+/).filter(Boolean);
+    const parts = splitWords(a);
     if (parts.length < 3) {
       h.refuse([
         "usage: node automate <module> <param> <curve> [trigger]",
@@ -2924,21 +3466,26 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * already holds.
    */
   "node.new": async (a, h) => {
-    const usage = "usage: node new <category>/<name> <node-name> [x,y]";
+    const usage = "usage: node new <category>/<name> [<node-name>] [x,y]";
     const parts = a.trim().split(/\s+/).filter(Boolean);
     // Born where the cursor was — the web sends the click, so a new node never asks the layout.
     const at = takeSpawnAt(parts);
-    if (parts.length !== 2) {
+    if (parts.length < 1 || parts.length > 2) {
       h.refuse([usage]);
       return;
     }
-    const [target, node] = parts;
+    const [target, named] = parts;
     const segs = target.split("/");
     if (segs.length !== 2 || !segs[0] || !segs[1]) {
       h.refuse([`'${target}' is not <category>/<name>`, usage]);
       return;
     }
     const [category, module] = segs;
+    // Nobody said what to call it: `<module>_<n>`, and no lane prefix — a node born here is in
+    // the graph wired to nothing, so there is no run for it to be named after yet. The `+` on an
+    // arrow DOES know one and spells the name out (see the frontend's nodeInsert.ts); this is
+    // the bare form, for a line somebody typed.
+    const node = named ?? freeNodeName(h.songPath, module);
     try {
       const rel = createNode(h.songPath, category, module, node);
       placeChainNode(h.songPath, node);
@@ -3026,11 +3573,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   /**
    * node replace <node> <extends-ref> — point a node at another module.
    *
-   * ONE edit, to one line: the node's `extends`. Everything that is not what it IS survives —
-   * the name, so every chain step keeps its place and nothing is rewired; the file, so its
-   * position on the graph and its panel stay put. What goes is what described the old thing
-   * (`plugin`, `params`, `rack`), and the log says which, because a field disappearing from a
-   * file somebody hand-wrote should never be discovered later.
+   * ONE edit, to one line: the node's `extends`. What goes with it is what described the old
+   * thing (`plugin`, `params`, `rack`), and the log says which, because a field disappearing
+   * from a file somebody hand-wrote should never be discovered later.
+   *
+   * …and then its NAME follows, when its name was ours to move. A node the graph's `+` created
+   * is called `<lane>_<module>_<n>`, so one still wearing `vo_jo_reverb_1` while it extends a
+   * delay is a name that lies about the one thing a name here carries. One somebody called
+   * `wash` means `wash` and is left alone — see `renamedInstance`, which decides which is which
+   * and is the same rule that made the name in the first place.
+   *
+   * The rename is the SECOND act and cannot be folded into the first: `setModuleExtends` writes
+   * one line of one file, while moving a name touches the file, its preset and every chain step
+   * that spells it. If it declines, the replacement still stands — a node with a stale name
+   * plays correctly, and a half-done rename does not.
    *
    * It used to CREATE a module — `<category>/<name>` plus an optional extends — and rewrite the
    * chains onto the new name. That answered a different question ("put a new module where this
@@ -3045,12 +3601,17 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     try {
+      // What it extended BEFORE, because that is what its name would have been made from.
+      // Read first: `setModuleExtends` is about to overwrite it.
+      const was = moduleLeafOf(loadModules(h.songPath)[key]?.extends);
       const { rel, dropped } = setModuleExtends(h.songPath, key, ref);
       h.log([
         `${key}: extends ${ref} (${rel})` +
           (dropped.length ? ` — dropped its own ${dropped.join(", ")}` : ""),
       ]);
+      const renamed = was ? renameForNewModule(h, key, was, ref) : null;
       await h.reload();
+      if (renamed) h.log([renamed]);
     } catch (e) {
       h.refuse([`node replace failed: ${(e as Error).message}`]);
     }

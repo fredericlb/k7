@@ -289,10 +289,17 @@ around, which is the same lesson the timeline's lane menu learned from its gutte
 
 ## `ModulePicker.tsx` — "which module?"
 
-Opened by the `+` on a graph arrow, before the command bar sees anything. It only PRE-WRITES,
-and unlike `ContextMenu` — which runs a line the click already filled — that is not a rule but
-the shape of the thing: picking a module answers ONE of `node insert`'s arguments, and the
-rest still has to be typed.
+Opened by the `+` on a graph arrow, before the command bar sees anything. The pick RUNS, like
+`ContextMenu`'s entries and unlike everything else here — and it used to only pre-write, for a
+reason that has gone away: it answered one of the verb's arguments and the node's NAME still had
+to be typed. A node names itself now (`<lane>_<module>_<n>`, see `packages/song/docs/nodes.md`),
+so nothing is left for a person to supply and stopping at the bar would be asking them to press
+Enter on a line they did not write.
+
+Two picks still pre-write, and both for the original reason. A **new curve** is not an instance
+of anything — there is no module to be named after, and it drives nothing until a param binds
+it. And any pick made while the module catalogue has not arrived falls back to the bar, since
+there is no module to derive a name from either.
 
 The first level is where a module COMES FROM:
 

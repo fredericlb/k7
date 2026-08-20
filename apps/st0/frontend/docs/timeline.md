@@ -639,7 +639,9 @@ silently move a placement.
 It is the left button now, because that argument lost to the one that matters more: dragging a
 block is what a left button is *for*, and a gesture nobody reaches for protects nothing. What
 guards against the stray drag instead is the 4px slop (below it the gesture is a click, and a
-click on a clip still writes nothing) and `u`, which puts it back.
+click on a clip still writes nothing) and Ctrl+Z, which puts it back. (This said `u` for a long
+time. There has never been a `u` binding — undo is deliberately outside `keys.ts` entirely, on the
+capture-phase listener in `App.tsx`.)
 
 Two things fall out, both good. The right button goes back to being only the context menu — the
 `suppressClipMenu` flag is gone, and with it the Windows `contextmenu`-after-`pointerup`
@@ -663,6 +665,34 @@ keyboard nudge never changes lane at all.
 
 Generated lanes are excluded from all of this: their clips are the scheduler's look-ahead,
 rewritten every tick and backed by no file, so there is no `start:` to rewrite.
+
+## Fading a clip
+
+Each end of a block carries a **corner handle** at the top. Dragging it inwards opens a fade,
+which draws as a wedge over the material — dark at the clip's edge, clear where the fade ends.
+Dragging it back out closes it, and a fade of nothing removes the field rather than writing a
+zero, so open-and-closed leaves the file exactly as it was.
+
+**The top corners, not the ends.** The full-height strips at `left-0` and `right-0` are the resize
+edges; putting a fade on the same pixel would make which gesture you got a coin toss. The handle
+is invisible on a clip with no fade until the block is hovered — an always-lit corner on every
+event is noise — and stays lit once there is one to grab.
+
+Ctrl suspends the grid here as it does on every other drag, read live, so a fade can reach a
+length the ruler's step cannot express.
+
+**A fade is a LENGTH.** The gesture sends `beatsToDuration`, and `event fadein` reads it back with
+`parseDuration`. The same number spelled as a POSITION is several bars, both spellings are legal
+timecodes, and nothing between here and the engine can tell them apart — which is why the wedge
+and the command are tested against each other end to end rather than each on its own
+(`packages/song/src/eventFade.test.ts`).
+
+The wedge follows the cursor while a drag is in hand rather than waiting for the round trip, the
+same courtesy a moved clip gets — the gesture in hand is read before the clip's own value.
+
+This is the last piece of a feature that was otherwise finished: `fadeIn`/`fadeOut` have been on
+the placement, on the engine's wire and in the C++ engine all along, and were absent from `WebClip`
+alone. The browser had never been told they existed.
 
 ## Zooming with two fingers
 

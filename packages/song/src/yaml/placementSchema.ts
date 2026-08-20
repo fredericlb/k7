@@ -95,4 +95,8 @@ export const TIMECODE_KEYS = new Set([
   // the same reason. A NUMBER under these keys is untouched: it is seconds, not a timecode.
   "from",
   "to",
+  // A CURVE point's position (docs/curves.md). Not a placement's key, but the same trap on the
+  // same kind of value, and this set is what every writer in the repo quotes through — so a
+  // curve point written by `project add` would otherwise come out bare.
+  "time",
 ]);

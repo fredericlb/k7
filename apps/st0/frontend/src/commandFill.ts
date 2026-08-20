@@ -169,6 +169,14 @@ const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
     from: "selFrom",
     to: "selTo",
   },
+  // Inserting and removing time HAPPEN at a point, and the point is where you are looking — so
+  // the caret answers `at` and the form opens on the one thing it cannot know, the length.
+  //
+  // Only `at`. These two are project-wide and `remove` deletes what starts inside the span, so a
+  // form that opened already complete would be one Enter from taking a bar out of every lane.
+  // Making the length the hole is what keeps the gesture deliberate.
+  "project add": { at: "at" },
+  "project remove": { at: "at" },
 };
 
 /**

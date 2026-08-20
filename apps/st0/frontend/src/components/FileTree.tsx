@@ -176,7 +176,7 @@ export function FileTree({
   onCreateFolder?: (dir: string, name: string) => void;
   onCloneModule?: (path: string, newName: string) => void;
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
-  onCreateNode?: (path: string, node: string) => void;
+  onCreateNode?: (path: string) => void;
   /**
    * The module levels this project can reach, as the file service answered — nearest first.
    *
@@ -427,23 +427,14 @@ export function FileTree({
       run: (t, name) => onCreateFolder?.(t.path, name),
     },
     {
+      // No prompt, and no ellipsis with it: a node is named `<module>_<n>` by the service, the
+      // same rule the graph's `+` and a forked module follow (`@studio/song`'s instanceName.ts).
+      // What used to be asked here was the one thing nobody had a better answer for than a
+      // counter, and the file it makes opens straight away — so the name is there to read.
       key: "new-node",
-      label: "New node…",
+      label: "New node",
       when: (t) => isLocalModuleTarget(t) && !!onCreateNode,
-      prompt: {
-        placeholder: "node-name",
-        submit: "Create",
-        // The node names the FILE and, with the module, the chain ref — so show what the chain will say.
-        hint: (t, value) => (
-          <>
-            Node of {t.name}, used as{" "}
-            <span className="text-foreground">
-              {t.name}:{value.trim() || "…"}
-            </span>
-          </>
-        ),
-      },
-      run: (t, node) => onCreateNode?.(t.path, node),
+      run: (t) => onCreateNode?.(t.path),
     },
     {
       key: "clone-module",

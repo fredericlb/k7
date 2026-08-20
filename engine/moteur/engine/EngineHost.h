@@ -199,6 +199,14 @@ public:
     // by buildLevelMeters. -100 with no edit loaded.
     float masterLevelDb(const std::string& session) const;
 
+    /** The master output for the STATE FRAME: its peak since the last frame, and whether it
+     *  overloaded since the last frame. Its own reader — see EngineHostImpl's masterStateClient. */
+    struct MasterLevel {
+        float dB = -100.0f;
+        bool overload = false;
+    };
+    MasterLevel masterState(const std::string& session) const;
+
     // --- Waveform taps (message-thread only; call via post()) ---------------
 
     // Enable waveform tapping for a module: `id` is the PluginDoc id, `side` is input or output. Inserts a tap
@@ -385,6 +393,14 @@ public:
         // This session's record enable. Arming says a track WOULD record; it records only while this is on and
         // the transport rolls. Session state, like the armed set.
         bool recordEnabled = false;
+        // The MASTER output — the mix as it leaves for the interface, in dB (-100 == silent), and
+        // whether it overloaded since the last frame. One number for the whole song, where
+        // trackLevelsDb is one per lane: a header meter asks a different question from a mixer.
+        float masterLevelDb = -100.0f;
+        // LATCHED by Tracktion between reads, which is the only honest way to report a clip on a
+        // 20 Hz frame — a clip is one sample, and a poll of a level would step over almost all of
+        // them. It says "it overloaded at some point since the last frame", not "it is over now".
+        bool masterOverload = false;
         // Per-module waveform envelopes keyed "chain:module:side", each the points drained since the last poll;
         // an empty map when no taps are active.
         std::map<std::string, std::vector<WaveformEnvelope>> waveformEnvelopes;

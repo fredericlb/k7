@@ -73,3 +73,54 @@ export function setVideoPlacementField(
   doc.setIn(["events", at, field], Math.round(value * 1000) / 1000);
   return doc.toString({ lineWidth: 0 });
 }
+
+/**
+ * Insert or delete `lenSeconds` of time at `atSeconds` on a video lane.
+ *
+ * Picture is DECIMAL SECONDS — no tempo map ever reaches it — so the caller converts the song's
+ * beats once and hands the result down. Exact, because there is one tempo.
+ *
+ * By INDEX, unlike `setVideoPlacementField` above, and that is the point: a ref may appear twice
+ * on one lane (the same shot placed twice), and this has to move both. The by-ref address is
+ * right for a drag, where the user grabbed a particular strip; it is wrong for an operation on
+ * the whole timeline, which is about every placement there is.
+ *
+ * Same rule as the lanes: by the placement's own `start`. Deleting drops the placements that
+ * start inside the span and shifts the rest back, so insert-then-delete is a round trip.
+ */
+export function spliceVideoTime(
+  text: string,
+  atSeconds: number,
+  lenSeconds: number,
+  mode: "insert" | "delete",
+): { text: string; moved: number; removed: number } {
+  let doc: ReturnType<typeof parseDocument>;
+  let moved = 0;
+  let removed = 0;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return { text, moved, removed }; // a half-typed file is left exactly as it is
+  }
+  const events = doc.getIn(["events"]);
+  if (!(lenSeconds > 0) || !isSeq(events)) return { text, moved, removed };
+  const end = atSeconds + lenSeconds;
+  // Descending, so removing one does not shift the address of the next.
+  for (let i = events.items.length - 1; i >= 0; i--) {
+    const start = num(doc.getIn(["events", i, "start"]));
+    if (mode === "delete" && start >= atSeconds - 1e-6 && start < end - 1e-6) {
+      events.items.splice(i, 1);
+      removed++;
+      continue;
+    }
+    const from = mode === "delete" ? end : atSeconds;
+    if (start < from - 1e-6) continue;
+    const next = start + (mode === "delete" ? -lenSeconds : lenSeconds);
+    // Milliseconds, the same rounding a drag writes — so a splice and a drag leave the file in
+    // the same shape and a round trip compares byte for byte.
+    doc.setIn(["events", i, "start"], Math.round(next * 1000) / 1000);
+    moved++;
+  }
+  if (!moved && !removed) return { text, moved, removed };
+  return { text: doc.toString({ lineWidth: 0 }), moved, removed };
+}

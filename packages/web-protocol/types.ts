@@ -256,6 +256,18 @@ export interface WebClip {
   // can't see is a deleted one. The ENGINE is what skips it.
   disabled?: boolean;
   /**
+   * How long this event fades in and out, IN BEATS. Absent means no fade, which is also how the
+   * file says it — the field is deleted rather than written as zero.
+   *
+   * These were on the placement, on the engine wire and in the C++ engine long before they were
+   * here, and only here: the browser was never told they existed, so the timeline could neither
+   * draw a fade nor let one be dragged, and the only way to set one was to type YAML. Beats
+   * rather than the file's timecode, like every other time on this document — a surface measures
+   * in the unit it draws in.
+   */
+  fadeIn?: number;
+  fadeOut?: number;
+  /**
    * This clip is a RENDER, not a placement — the lane is frozen and this is what stands in for it.
    *
    * Which matters to anything that would edit it: there is no `clips:` entry for a move to

@@ -195,6 +195,9 @@ void EngineHost::buildLevelMeters(const std::string& session) {
         impl_->session(session).edit->getMasterPluginList().insertPlugin(master, -1, nullptr);
         impl_->session(session).masterClient = std::make_unique<te::LevelMeasurer::Client>();
         lm->measurer.addClient(*impl_->session(session).masterClient);
+        // …and the state frame's own, so the two readers do not clear each other. See EngineHostImpl.
+        impl_->session(session).masterStateClient = std::make_unique<te::LevelMeasurer::Client>();
+        lm->measurer.addClient(*impl_->session(session).masterStateClient);
         impl_->session(session).masterMeter = master;
     }
 
@@ -214,6 +217,36 @@ float EngineHost::masterLevelDb(const std::string& session) const {
     const float l = client.getAndClearAudioLevel(0).dB;
     const float r = client.getAndClearAudioLevel(1).dB;
     return std::max(l, r);
+}
+
+/**
+ * The master output as the 20 Hz frame reports it: its peak since the last frame, and whether that
+ * peak went over full scale.
+ *
+ * Read through the state frame's own client (see EngineHostImpl), so asking here does not empty
+ * the meter `io-levels` reads.
+ *
+ * The overload is DEDUCED from that peak, and it is exact rather than a guess, because the peak
+ * itself latches: `updateAudioLevel` keeps the running MAXIMUM since the last read, so one frame's
+ * dB is the loudest sample of the whole 50 ms window and not a 20 Hz sample of a waveform. A clip
+ * is one sample over full scale; if there was one, it IS this number.
+ *
+ * Not `Client::getAndClearOverload()`, which is named for a question it does not answer: it returns
+ * `clearOverload`, the flag a meter WIDGET is handed to be told "you were asked to reset" — true
+ * once at construction, then false for good. Tracktion keeps the real per-channel `overload[]`
+ * private with no getter, which is why the level is the way in.
+ */
+EngineHost::MasterLevel EngineHost::masterState(const std::string& session) const {
+    auto* s = impl_->find(session);
+    if (s == nullptr || !s->masterStateClient) return {-100.0f, false};
+    auto& client = *s->masterStateClient;
+    // Both read unconditionally: reading CLEARS, so skipping one would carry its peak into the
+    // next frame and report a clip one window late.
+    const float l = client.getAndClearAudioLevel(0).dB;
+    const float r = client.getAndClearAudioLevel(1).dB;
+    const float peak = std::max(l, r);
+    // 0 dB, which is Tracktion's own threshold: processBuffer overloads a channel above 0.999.
+    return {peak, peak > 0.0f};
 }
 
 // Drop the clip a ClipDoc names. Clips carry their doc id as the Tracktion clip name, so that is what
@@ -871,6 +904,12 @@ private:
         // is the channel every surface already watches, so a tab connecting mid-session sees it without asking.
         s.armedTracks = host_.armedTracks(session);
         s.recordEnabled = host_.recordEnabled(session);
+        // The master output — one number for the whole mix, plus whether it overloaded since the
+        // last frame. Both ride THIS frame rather than `io-levels`, because a header meter is on
+        // screen whenever the app is and `io-levels` is asked for only while the I/O panel is open.
+        const auto master = host_.masterState(session);
+        s.masterLevelDb = master.dB;
+        s.masterOverload = master.overload;
 
         /**
          * Nothing is happening in this session, so most of these frames are not sent.

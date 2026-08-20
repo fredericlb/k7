@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createNode,
+  freeNodeName,
   loadModuleRefs,
   loadModules,
   splitModuleKey,
@@ -173,6 +174,35 @@ describe("module nodes", () => {
       loadModuleRefs(dir, {}),
     );
     expect(resolved.solo.plugin).toMatchObject({ name: "4osc" });
+  });
+
+  it("names a node by itself when nobody said — and proposes only free names", () => {
+    // No lane: a node born here is in the graph wired to nothing, so there is no run for it to
+    // be named after. The `+` on an arrow knows one and spells the whole name out.
+    expect(freeNodeName(dir, "synth")).toBe("synth_1");
+    expect(freeNodeName(dir, "synth", "vo.jo")).toBe("vo_jo_synth_1");
+    // What it proposes, `createNode` accepts — which is the whole contract between the two.
+    const rel = createNode(
+      dir,
+      "instruments",
+      "synth",
+      freeNodeName(dir, "synth"),
+    );
+    expect(rel).toBe("nodes/synth_1.yaml");
+    // …and the next one steps over it rather than colliding.
+    expect(freeNodeName(dir, "synth")).toBe("synth_2");
+  });
+
+  it("steps over a name a MODULE holds, not just a node", () => {
+    // The name is one flat key: a chain saying "vo_eq_1" must not be able to mean two things,
+    // and `createNode` refuses such a collision — so what this proposes has to dodge BOTH
+    // spaces, not just the `nodes/` folder. A fork names its module the same way, which is
+    // exactly how a module comes to hold a name a node would otherwise reach for.
+    expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_1");
+    writeModule(dir, "audio", "vo_eq_1", {
+      plugin: { type: "internal", name: "EQ" },
+    });
+    expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_2");
   });
 
   it("refuses a name already taken, project-wide", () => {

@@ -7,6 +7,7 @@
   "exports": {
     "./loader": "./src/loader.ts",
     "./basePreset": "./src/basePreset.ts",
+    "./yaml/curveFile": "./src/yaml/curveFile.ts",
     "./yaml/moduleIO": "./src/yaml/moduleIO.ts",
     "./yaml/moduleSchema": "./src/yaml/moduleSchema.ts",
     "./yaml/moduleFile": "./src/yaml/moduleFile.ts",
@@ -28,7 +29,9 @@
     "./projectEdit": "./src/projectEdit.ts",
     "./warpPoints": "./src/warpPoints.ts",
     "./curves": "./src/curves.ts",
+    "./insertTime": "./src/insertTime.ts",
     "./moduleFork": "./src/moduleFork.ts",
+    "./instanceName": "./src/instanceName.ts",
     "./uiLibrary": "./src/uiLibrary.ts",
     "./uiMigrate": "./src/uiMigrate.ts",
     "./chainsMigrate": "./src/chainsMigrate.ts",

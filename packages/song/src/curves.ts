@@ -3,7 +3,7 @@
 // frequency in cycles/bar) and `custom` (hand-placed points, linear interpolation).
 // `polarity` (unipolar 0..1 / bipolar -1..1) is per-curve — see sampleCurve.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { exportSub } from "@studio/song/loader";
 import { parsePosition } from "@studio/song/timecode";
@@ -170,6 +170,54 @@ export function createCurveFile(dir: string, id: string): string {
 ` +
       `phase: 0           # 0..1 of a cycle
 `,
+    "utf8",
+  );
+  return rel;
+}
+
+/**
+ * Scaffold `curves/<id>.yaml` as a FLAT custom curve, and return its project-relative path.
+ *
+ * The other half of `createCurveFile`, and the shape a drawn automation lane starts from: two
+ * points at the same value, one at the song's start and one at `endTc`, so the lane is a
+ * horizontal line you can grab rather than a single dot that says nothing about a slope.
+ *
+ * `value` is the param's CURRENT normalised position, and it is the caller's business to know it.
+ * A curve overrides its param the moment it is bound, so a flat curve at the wrong height is an
+ * audible jump on a verb whose whole promise is to change nothing yet — which is why there is no
+ * default here to fall back on.
+ *
+ * Custom rather than an LFO because this one is going to be EDITED: an LFO is a shape you
+ * parameterise, a custom curve is a shape you draw, and a lane on the timeline is the second.
+ *
+ * Refuses rather than overwrites, for the same reason its sibling does.
+ */
+export function createFlatCurveFile(
+  dir: string,
+  id: string,
+  value: number,
+  endTc: string,
+): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(id))
+    throw new Error(
+      `invalid curve name '${id}' — letters, digits, '_' and '-' only`,
+    );
+  const rel = `curves/${id}.yaml`;
+  const path = join(dir, rel);
+  if (existsSync(path))
+    throw new Error(`curve '${id}' already exists (${rel})`);
+  const v = Math.min(1, Math.max(0, value));
+  mkdirSync(join(dir, "curves"), { recursive: true });
+  writeFileSync(
+    path,
+    [
+      "type: custom",
+      "polarity: unipolar # unipolar 0..1 | bipolar -1..1",
+      "points:",
+      `  - { time: "1:1:1", value: ${round6(v)} }`,
+      `  - { time: "${endTc}", value: ${round6(v)} }`,
+      "",
+    ].join("\n"),
     "utf8",
   );
   return rel;
@@ -362,4 +410,28 @@ function customUnit(
     }
   }
   return last.value; // unreachable given the guards above
+}
+
+/**
+ * Read, transform, write one curve file — the seam `curve point add|move|remove` acts through.
+ *
+ * A transform returning null means "nothing was there at that address", which the caller reports
+ * by name; returning the text unchanged writes nothing, so a no-op edit stays out of the journal
+ * exactly as a drag that ends where it started does.
+ *
+ * Returns the project-relative path, like every other writer here.
+ */
+export function editCurveFile(
+  dir: string,
+  id: string,
+  transform: (text: string) => string | null,
+): string {
+  const rel = `curves/${id}.yaml`;
+  const path = join(dir, rel);
+  if (!existsSync(path)) throw new Error(`no curve '${id}' (${rel})`);
+  const before = readFileSync(path, "utf8");
+  const after = transform(before);
+  if (after === null) throw new Error(`nothing to edit in curve '${id}'`);
+  if (after !== before) writeFileSync(path, after, "utf8");
+  return rel;
 }

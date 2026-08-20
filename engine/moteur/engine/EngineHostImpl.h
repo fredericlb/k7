@@ -90,6 +90,14 @@ struct Session {
     // the master is not one of the audio tracks, and its meter has to survive being asked for on its own.
     te::Plugin::Ptr masterMeter;
     std::unique_ptr<te::LevelMeasurer::Client> masterClient;
+    // A SECOND client on the same master meter, for the 20 Hz state frame.
+    //
+    // Not a luxury: `getAndClearAudioLevel` and `getAndClearOverload` both CLEAR what they read, so
+    // two readers sharing one client steal each other's measurements — whoever asks first gets the
+    // peak and the other gets silence. `io-levels` (the I/O panel, on demand) keeps `masterClient`;
+    // the state frame every surface watches gets its own. A measurer takes as many clients as it is
+    // given, and each keeps its own accumulator, which is the whole reason per-track meters work.
+    std::unique_ptr<te::LevelMeasurer::Client> masterStateClient;
 
     // The network broadcast tap. `broadcastWanted` outlives the plugin: an apply rebuilds
     // the edit, so the WISH is what survives in order to be reasserted, otherwise a listener
@@ -167,11 +175,13 @@ struct Session {
                 lm->measurer.removeClient(*levelClients[i]);
         levelMeters.clear();
         levelClients.clear();
-        if (masterClient)
-            if (auto* lm = dynamic_cast<te::LevelMeterPlugin*>(masterMeter.get()))
-                lm->measurer.removeClient(*masterClient);
+        if (auto* lm = dynamic_cast<te::LevelMeterPlugin*>(masterMeter.get())) {
+            if (masterClient) lm->measurer.removeClient(*masterClient);
+            if (masterStateClient) lm->measurer.removeClient(*masterStateClient);
+        }
         masterMeter = nullptr;
         masterClient.reset();
+        masterStateClient.reset();
     }
 
     te::TransportControl* transport() {

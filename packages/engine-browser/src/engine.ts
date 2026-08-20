@@ -166,6 +166,10 @@ interface EngineMessage {
   playing?: boolean;
   playhead?: number;
   levels?: number[];
+  // Carried by `state` AND by `io-levels`, and it is the same number in both — the level leaving
+  // the master. Declared once, at the bottom with io-levels' own fields, the same arrangement
+  // `params` and `devices` are in: told apart by `type`, which the dispatch has already read.
+  masterClipped?: boolean; // …`state` only: did it overload since the last frame
   inputLevels?: number[];
   armed?: string[];
   recordEnabled?: boolean;
@@ -182,7 +186,7 @@ interface EngineMessage {
   subject?: string;
   message?: string;
   inputs?: number[]; // io-levels: one peak per channel set asked for
-  master?: number; // …and the level leaving the master
+  master?: number; // …and the level leaving the master — see the note beside `levels`
   pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
   clarity?: number[]; // …and how periodic each window was
   sessions?: EngineSessionInfo[]; // the 'sessions' reply
@@ -455,6 +459,8 @@ export class EngineClient {
         inputLevels: (m.inputLevels ?? []) as number[],
         armed: (m.armed ?? []) as string[],
         recordEnabled: !!m.recordEnabled,
+        master: Number(m.master ?? -100),
+        masterClipped: !!m.masterClipped,
         waveform: (m.waveform ?? {}) as Record<string, WaveformEnvelope[]>,
       });
     else if (m.type === "plugin-params" && m.id)

@@ -13,6 +13,8 @@ const INITIAL: EngineState = {
   inputLevels: [],
   armed: [],
   recordEnabled: false,
+  master: -100,
+  masterClipped: false,
   waveform: {},
 };
 

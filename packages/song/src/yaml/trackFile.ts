@@ -6,7 +6,7 @@
 
 import { isMap, isSeq, parseDocument } from "yaml";
 import { currentAlternative } from "../alternatives";
-import { parsePosition } from "../timecode";
+import { beatsToPosition, parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -422,4 +422,101 @@ export function movePlacementAt(
   doc.setIn([...eventsToEdit(doc), index, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
+}
+
+/**
+ * Every list of placements this file holds, wherever it keeps them.
+ *
+ * Not `eventsToEdit`'s question, which is "where does an edit to what is PLAYING go" and answers
+ * with the selected set alone. Inserting time is not an edit to the arrangement — it is a change
+ * to the song's clock — so it has to reach what is playing, every take of it, and every
+ * alternative's own events and takes. An alternative you switch to next week has to still line up
+ * with the markers.
+ */
+function everyEventList(
+  doc: ReturnType<typeof parseDocument>,
+): (string | number)[][] {
+  const out: (string | number)[][] = [];
+  const push = (path: (string | number)[]): void => {
+    if (isSeq(doc.getIn(path))) out.push(path);
+  };
+  const withTakes = (base: (string | number)[]): void => {
+    push([...base, "events"]);
+    const takes = doc.getIn([...base, "takes"]);
+    if (isSeq(takes))
+      takes.items.forEach((_, i) => push([...base, "takes", i, "events"]));
+  };
+  withTakes([]);
+  const alts = doc.getIn(["alternatives"]);
+  if (isSeq(alts)) alts.items.forEach((_, i) => withTakes(["alternatives", i]));
+  return out;
+}
+
+/** What `spliceTime` did to one lane — for a caller reporting it, and for refusing a no-op. */
+export interface TimeSplice {
+  moved: number;
+  removed: number;
+}
+
+/**
+ * Insert or delete `lenBeats` of time at `atBeats`, across every placement list in the file.
+ *
+ * The rule for an event straddling the cut is the house one: **by its `start`**. An event whose
+ * start is at or after the point moves; one already playing across it stays where it is and plays
+ * over the inserted silence. That is what `moveTrackPlacementsInRange` and `selection consolidate`
+ * both already do — they select by where a placement starts — and the alternative, cutting at the
+ * point, would make inserting time a verb that writes new material and renders audio (see
+ * docs/materialCut.md on why there is no free, reversible cut any more).
+ *
+ * Deleting removes the events that START inside the span and shifts the rest back, so
+ * insert-then-delete of the same span returns the file to what it was, byte for byte. That round
+ * trip is the property worth having and the one the test asserts.
+ */
+export function spliceTime(
+  text: string,
+  atBeats: number,
+  lenBeats: number,
+  mode: "insert" | "delete",
+  num: number,
+  den: number,
+): { text: string; splice: TimeSplice } {
+  const doc = parseDocument(text, OPTS);
+  const splice: TimeSplice = { moved: 0, removed: 0 };
+  if (!(lenBeats > 0)) return { text, splice };
+  const end = atBeats + lenBeats;
+  for (const path of everyEventList(doc)) {
+    const seq = doc.getIn(path);
+    if (!isSeq(seq)) continue;
+    // Descending, so removing one does not shift the address of the next.
+    for (let i = seq.items.length - 1; i >= 0; i--) {
+      const item = seq.items[i];
+      if (!isMap(item)) continue;
+      const raw = item.get("start");
+      let start: number;
+      try {
+        start = parsePosition(String(raw ?? "1:1:1"), num, den);
+      } catch {
+        continue; // an unreadable start is one placement left alone, not a failed splice
+      }
+      if (mode === "delete" && start >= atBeats - 1e-6 && start < end - 1e-6) {
+        seq.items.splice(i, 1);
+        splice.removed++;
+        continue;
+      }
+      const from = mode === "delete" ? end : atBeats;
+      if (start < from - 1e-6) continue;
+      item.set(
+        "start",
+        beatsToPosition(
+          start + (mode === "delete" ? -lenBeats : lenBeats),
+          num,
+          den,
+        ),
+      );
+      splice.moved++;
+    }
+  }
+  if (!splice.moved && !splice.removed) return { text, splice };
+  quoteTimecodes(doc);
+  return { text: doc.toString(OUT), splice };
 }

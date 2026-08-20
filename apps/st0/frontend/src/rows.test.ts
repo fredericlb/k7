@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectRows, type Row, rowKey, rowTarget } from "./rows";
+import { isCellRow, projectRows, type Row, rowKey, rowTarget } from "./rows";
 import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
 
 // The lane layout, and what each kind of row ADDRESSES — which is what a header click, a
@@ -195,6 +195,67 @@ describe("takes", () => {
   });
 
   it("adds no rows to a lane with none", () => {
+    expect(
+      projectRows({ groups: [] }, [track({ id: "gtr" })]).map(rowKey),
+    ).toEqual(["track:gtr"]);
+  });
+});
+
+describe("an automation row", () => {
+  const lane = (param: string) => ({
+    track: "gtr",
+    module: "osc",
+    param,
+    curve: `gtr-${param}`,
+    points: [{ time: "1:1:1", value: 0.5 }],
+  });
+
+  it("sits under its lane and BEFORE its takes", () => {
+    // A curve is part of what the lane is playing; a take is what it was. Reading down a lane
+    // you meet its sound before its history.
+    const gtr = track({
+      id: "gtr",
+      takes: [{ clips: [] }, { clips: [] }],
+    });
+    const rows = projectRows({ groups: [] }, [gtr], [], {
+      gtr: [lane("Level")],
+    });
+    expect(rows.map(rowKey)).toEqual([
+      "track:gtr",
+      "auto:gtr:Level",
+      "take:gtr:1",
+      "take:gtr:2",
+    ]);
+  });
+
+  it("is keyed by PARAM — one knob, one curve, so that names it uniquely", () => {
+    const rows = projectRows({ groups: [] }, [track({ id: "gtr" })], [], {
+      gtr: [lane("Level"), lane("Filter Freq")],
+    });
+    expect(rows.map(rowKey)).toEqual([
+      "track:gtr",
+      "auto:gtr:Level",
+      "auto:gtr:Filter Freq",
+    ]);
+  });
+
+  it("ADDRESSES its track, unlike a take", () => {
+    // The knob it draws is part of that lane's sound, so muting or opening from its header means
+    // the lane — the only thing it could sensibly mean.
+    const rows = projectRows({ groups: [] }, [track({ id: "gtr" })], [], {
+      gtr: [lane("Level")],
+    });
+    expect(rowTarget(rows[1] as Row)).toEqual({ kind: "track", id: "gtr" });
+  });
+
+  it("holds no caret cell — there is no beat to park on and no clip to drag", () => {
+    const rows = projectRows({ groups: [] }, [track({ id: "gtr" })], [], {
+      gtr: [lane("Level")],
+    });
+    expect(isCellRow(rows[1] as Row)).toBe(false);
+  });
+
+  it("adds nothing to a project that automates nothing", () => {
     expect(
       projectRows({ groups: [] }, [track({ id: "gtr" })]).map(rowKey),
     ).toEqual(["track:gtr"]);

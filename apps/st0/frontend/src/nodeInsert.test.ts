@@ -1,32 +1,39 @@
-// What the graph's `+` types into the command bar, and what the shell runs after it.
+// What the graph's `+` runs, and what the shell runs after it.
 //
-// It is TWO lines again, and the reason is the vocabulary rather than the plumbing: a `node …`
-// verb acts on a node, so `node insert` stopped creating modules (packages/song/docs/nodes.md)
-// and the picker's gesture split back into "make it" and "wire it". Only the first reaches the
-// bar — the node's NAME is the one thing a person has to supply — so what matters about it is
-// its SHAPE: the line has to end in a space, with the name as the last thing typed.
+// It is TWO lines, and the reason is the vocabulary rather than the plumbing: a `node …` verb
+// acts on a node, so `node insert` stopped creating modules (packages/song/docs/nodes.md) and
+// the picker's gesture split back into "make it" and "wire it".
 //
-// The second is built from what they typed, read back off the line by `chainRefFromCreate`.
+// Neither reaches the command bar any more. The node's NAME was the one thing a person had to
+// supply and it is derived now — `<lane>_<module>_<n>`, off the arrow that was clicked — so the
+// first line is completed here and the second is built from it, read back by
+// `chainRefFromCreate`. The trailing space `createForGraphCommand` leaves is still load-bearing:
+// it is the join between the two halves, and the bar still opens on it when there is no
+// catalogue to pick from.
 
+import type { WebGraph } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";
 import {
   chainRefFromCreate,
   createForGraphCommand,
   ensureModuleCommand,
+  laneOfArrow,
+  nodeNameFor,
   type PendingInsert,
   wireCommand,
 } from "./nodeInsert";
 
 const arrow: PendingInsert = { before: "melody", after: "OUT" };
 
-describe("the line the + pre-writes", () => {
+describe("the line the + builds", () => {
   it("creates the NODE, ending where its name goes", () => {
     // `node new` and not `module new`: the latter stopped making nodes, and a chain names one.
     const line = createForGraphCommand("audio", "adt");
     expect(line).toBe("node new audio/adt ");
-    // The trailing space is load-bearing: it is where the cursor lands.
+    // The trailing space is load-bearing: it is the join `nodeNameFor`'s answer lands on, and
+    // where the cursor sits on the one path that still opens the bar (no catalogue to pick from).
     expect(line.endsWith(" ")).toBe(true);
-    // Three tokens written; the node name the user types becomes the fourth and last.
+    // Three tokens written; the derived name becomes the fourth and last.
     expect(line.trim().split(/\s+/)).toHaveLength(3);
   });
 
@@ -100,5 +107,100 @@ describe("reading the node's name back off what was typed", () => {
     // Which is what stops the shell wiring something after an unrelated command.
     expect(chainRefFromCreate("node insert gtr amp adt1")).toBeNull();
     expect(chainRefFromCreate("node new adt")).toBeNull(); // not <category>/<name>
+  });
+});
+
+// --- naming the node the pick will create ------------------------------------------
+//
+// The one thing that has to be decided HERE and cannot be decided by the file service: the lane
+// is read off the arrow, and the arrow only means something with the chains around it. The rule
+// itself is `@studio/song`'s and is tested there — what is pinned below is which lane an arrow
+// belongs to, and that the name dodges every name the graph already spells.
+
+const g = (
+  chains: WebGraph["chains"],
+  rest: Partial<WebGraph> = {},
+): WebGraph =>
+  ({ chains, tracks: Object.keys(chains), warnings: [], ...rest }) as WebGraph;
+
+const step = (module: string) => ({ module });
+const OUT = [{ to: "OUT", gain: 1 }];
+
+describe("which lane an arrow is on", () => {
+  const graph = g({
+    "vo.jo": { from: "vo.jo", use: [step("amp"), step("eq")], out: OUT },
+    "da.main": { from: "da.main", use: [step("comp")], out: OUT },
+  });
+
+  it("takes the chain that IS the arrow's upstream end — a lane feeds its own run", () => {
+    expect(laneOfArrow(graph, "vo.jo")).toBe("vo.jo");
+  });
+
+  it("takes the chain that PLAYS it, for an arrow further down the run", () => {
+    expect(laneOfArrow(graph, "amp")).toBe("vo.jo");
+    expect(laneOfArrow(graph, "eq")).toBe("vo.jo");
+    expect(laneOfArrow(graph, "comp")).toBe("da.main");
+  });
+
+  it("ignores a port — it says nothing about which run this is", () => {
+    expect(laneOfArrow(graph, "amp#b")).toBe("vo.jo");
+    expect(laneOfArrow(graph, "vo.jo#midi")).toBe("vo.jo");
+  });
+
+  it("answers null on the bare canvas, and for a node in no chain", () => {
+    expect(laneOfArrow(graph, null)).toBeNull();
+    expect(laneOfArrow(graph, "")).toBeNull();
+    expect(laneOfArrow(graph, "stranger")).toBeNull();
+  });
+});
+
+describe("what the picked module lands called", () => {
+  const graph = g({
+    "vo.jo": { from: "vo.jo", use: [step("amp")], out: OUT },
+  });
+
+  it("is <lane>_<module>_<n>, with the lane cleaned", () => {
+    expect(nodeNameFor(graph, "reverb", "amp")).toBe("vo_jo_reverb_1");
+  });
+
+  it("drops the lane on the bare canvas", () => {
+    expect(nodeNameFor(graph, "reverb", null)).toBe("reverb_1");
+  });
+
+  it("steps over a name the graph already spells", () => {
+    const taken = g({
+      "vo.jo": {
+        from: "vo.jo",
+        use: [step("amp"), step("vo_jo_reverb_1")],
+        out: OUT,
+      },
+    });
+    expect(nodeNameFor(taken, "reverb", "amp")).toBe("vo_jo_reverb_2");
+  });
+
+  it("counts a curve and a note as taken too — one flat key space", () => {
+    const busy = g(
+      { "vo.jo": { from: "vo.jo", use: [step("amp")], out: OUT } },
+      {
+        curves: { vo_jo_reverb_1: {} as never },
+        modules: { vo_jo_reverb_2: {} },
+      },
+    );
+    expect(nodeNameFor(busy, "reverb", "amp")).toBe("vo_jo_reverb_3");
+  });
+
+  it("completes the line the + runs", () => {
+    // The two halves join on the trailing space, which is what that space is FOR now.
+    expect(
+      createForGraphCommand("audio", "reverb") +
+        nodeNameFor(graph, "reverb", "amp"),
+    ).toBe("node new audio/reverb vo_jo_reverb_1");
+    // …and the shell reads the name straight back off it, as it did when it was typed.
+    expect(
+      chainRefFromCreate(
+        createForGraphCommand("audio", "reverb") +
+          nodeNameFor(graph, "reverb", "amp"),
+      ),
+    ).toBe("vo_jo_reverb_1");
   });
 });

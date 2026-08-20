@@ -138,6 +138,11 @@ export class EngineControl extends EventEmitter {
             inputLevels: (msg.inputLevels ?? []) as number[],
             armed: (msg.armed ?? []) as string[],
             recordEnabled: !!msg.recordEnabled,
+            // The master's peak and its overload latch. Carried through like every other field of
+            // the frame — this client drives no meter itself, but it publishes the frame whole, and
+            // a field it dropped would be one a consumer could never get back.
+            master: Number(msg.master ?? -100),
+            masterClipped: !!msg.masterClipped,
             // Empty unless a waveform tap is subscribed — the Node client has none, so in practice this stays {}.
             waveform: (msg.waveform ?? {}) as Record<
               string,

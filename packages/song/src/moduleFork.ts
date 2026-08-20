@@ -21,6 +21,7 @@ import {
 } from "node:path";
 import { deriveChains } from "./chainsGraph";
 import { engineModules } from "./engineCatalogue";
+import { instanceName, namePart } from "./instanceName";
 import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
@@ -39,10 +40,6 @@ export type ForkedModule = {
   /** The chains repointed at the copy (empty when the project didn't play the module yet). */
   chains: string[];
 };
-
-/** A single path segment the module vocabulary accepts — see createModuleFile's own check. */
-const clean = (s: string): string =>
-  s.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "x";
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
@@ -91,8 +88,12 @@ export function sharedModuleRef(
  *
  * `out` counts as well as `use`: a module several things feed is a chain of its own now, and a chain that only
  * ever names itself tells nobody anything. Its own chain is left out for exactly that reason.
+ *
+ * Exported because naming a fork after its track and naming a NODE after its lane are the same
+ * question (instanceName.ts), and one question is entitled to one answer — the first chain this
+ * returns is the owner in both.
  */
-function chainsUsing(text: string, module: string): string[] {
+export function chainsUsing(text: string, module: string): string[] {
   const chains = deriveChains(parseGraph(text).value);
   return Object.entries(chains)
     .filter(
@@ -131,11 +132,9 @@ export function forkSharedModule(
   const graphFile = entityFileFor(dir, "", GRAPH_BASE);
   const graphText = graphFile ? readFileSync(graphFile.path, "utf8") : "";
   const track = graphText ? (chainsUsing(graphText, ref)[0] ?? null) : null;
-  const stem = track ? `${clean(track)}_${clean(leaf)}` : clean(leaf);
   const typeDir = join(dir, "modules", type);
-  let module = `${stem}_1`;
-  for (let n = 2; existsSync(join(typeDir, module)); n++)
-    module = `${stem}_${n}`;
+  // The same `<owner>_<what>_<n>` a node is named by — one rule, in instanceName.ts.
+  const module = instanceName(leaf, track, (n) => existsSync(join(typeDir, n)));
   const dest = join(typeDir, module);
 
   mkdirSync(typeDir, { recursive: true });
@@ -202,7 +201,9 @@ export function materialiseEngineModule(
 
   // Named after the slug the ref already carries, so the folder reads as the plugin it is. A name the project
   // has taken gets a counter, exactly as a fork does — two engine modules can slug the same.
-  const stem = clean(String(found.file ?? ref.split("/").pop() ?? "module"));
+  // Not `instanceName`: this one is named after a PLUGIN's own slug and wants it bare, so the
+  // folder reads as the plugin it is. The counter only appears when the name is already taken.
+  const stem = namePart(String(found.file ?? ref.split("/").pop() ?? "module"));
   const typeDir = join(dir, "modules", type);
   let module = stem;
   for (let n = 2; existsSync(join(typeDir, module)); n++)

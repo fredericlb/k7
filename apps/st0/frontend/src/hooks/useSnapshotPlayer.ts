@@ -127,6 +127,12 @@ export function useSnapshotPlayer(
       // -inf bars would be a claim about silence that nothing measured.
       levels: [],
       inputLevels: [],
+      // …and the same about the master, said the way a scalar can say it: -100 is what the engine
+      // itself returns when there is no meter to ask (EngineHost::masterState), so it already
+      // means "no reading" here rather than "measured, and silent". Nothing draws it anyway — the
+      // header's meter is not mounted on a snapshot, for exactly this reason.
+      master: -100,
+      masterClipped: false,
       armed: [],
       recordEnabled: false,
       waveform: {},

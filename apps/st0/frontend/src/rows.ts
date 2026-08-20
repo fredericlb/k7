@@ -6,6 +6,7 @@
 
 import { HATCH } from "@studio/ui-timeline/lanes";
 import type {
+  WebAutomationLane,
   WebGroup,
   WebProject,
   WebTake,
@@ -27,7 +28,12 @@ export type Row =
   | { kind: "take"; track: WebTrack; take: WebTake; n: number }
   // A VIDEO lane has no engine index — picture is the renderer's — and is drawn after the audio
   // rows, in the `layers:` draw order the picture compile already put them in.
-  | { kind: "video"; track: WebVideoTrack };
+  | { kind: "video"; track: WebVideoTrack }
+  // An AUTOMATION lane of the track above it: one knob, drawn against song time. It holds no
+  // material — the caret cannot park on a beat here (`isCellRow`), and there is nothing a clip
+  // drag could mean — but it addresses its TRACK, so mute and solo from its header still say
+  // what they say everywhere else. See @studio/graph-model's WebAutomationLane.
+  | { kind: "automation"; track: WebTrack; lane: WebAutomationLane };
 
 /**
  * Flatten tracks into rows, clustering a group's members under a header placed where its FIRST
@@ -42,6 +48,10 @@ export function projectRows(
   project: Pick<WebProject, "groups">,
   tracks: WebTrack[],
   videoTracks: WebVideoTrack[] = [],
+  // Each lane's automation, by track id — from the graph, which is where the binding and the
+  // curve both live (see `automationLanes`). Absent for every project that automates nothing,
+  // and for every caller that has no graph in hand.
+  automation: Record<string, WebAutomationLane[]> = {},
 ): Row[] {
   const byId = new Map(project.groups.map((g) => [g.id, g]));
   const members = new Map<string, { track: WebTrack; index: number }[]>();
@@ -58,6 +68,10 @@ export function projectRows(
   // off, and a take of a grouped lane is indented one step further than the lane is.
   const withTakes = (track: WebTrack, index: number, grouped: boolean) => {
     rows.push({ kind: "track", track, index, grouped });
+    // Automation before the takes: a curve is part of what the lane is PLAYING, while a take is
+    // what it was. Reading down a lane you meet its sound before its history.
+    for (const lane of automation[track.id] ?? [])
+      rows.push({ kind: "automation", track, lane });
     (track.takes ?? []).forEach((take, i) =>
       rows.push({ kind: "take", track, take, n: i + 1 }),
     );
@@ -85,7 +99,7 @@ export function projectRows(
 // A row's identity, never its index: live lanes come and go, and an index caret would slide onto another lane.
 // PREFIXED by kind, not bare: a song may name an audio lane and a video lane the same thing, and
 // they are two rows.
-export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>" | "take:<id>:<n>"
+export type RowKey = string; // "track:<id>" | "group:<id>" | "video:<id>" | "take:<id>:<n>" | "auto:<id>:<param>"
 
 export const rowKey = (r: Row): RowKey =>
   r.kind === "group"
@@ -96,7 +110,11 @@ export const rowKey = (r: Row): RowKey =>
         ? // By NUMBER, not by contents: a take has no id, and its number is what the commands
           // name it by. Selecting one renumbers nothing — the swap keeps every take in place.
           `take:${r.track.id}:${r.n}`
-        : `track:${r.track.id}`;
+        : r.kind === "automation"
+          ? // By PARAM, which is what the binding is keyed by — one knob, one curve, so a lane
+            // and its param name the row uniquely and `track automation remove` names it back.
+            `auto:${r.track.id}:${r.lane.param}`
+          : `track:${r.track.id}`;
 
 export const rowIndexOf = (rows: Row[], key: RowKey): number =>
   rows.findIndex((r) => rowKey(r) === key);
@@ -126,6 +144,10 @@ export type RowTarget = { kind: "track" | "group" | "video"; id: string };
 export function rowTarget(r: Row): RowTarget | null {
   if (r.kind === "group") return { kind: "group", id: r.group.id };
   if (r.kind === "video") return { kind: "video", id: r.track.id };
+  // An automation row DOES answer with its track, unlike a take: the knob it draws is part of
+  // that lane's sound, so muting or opening from its header means the lane, which is the only
+  // thing it could sensibly mean.
+  if (r.kind === "automation") return { kind: "track", id: r.track.id };
   // A TAKE points at nothing. Everything downstream of this asks the engine something — a level,
   // an arm, a chain — and a take is not playing: answering with its lane would put the caret's
   // marks on a row that cannot act on them, and mute the LANE from a take's own header.

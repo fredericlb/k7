@@ -833,9 +833,9 @@ export function EditorTab({
 
   // New node: add an <node>.yaml and open it — the point of a node is to state what it overrides.
   const createNodeEntry = useCallback(
-    async (path: string, node: string) => {
+    async (path: string) => {
       try {
-        const { path: newPath } = await api.createNode(path, node);
+        const { path: newPath } = await api.createNode(path);
         await refresh();
         void open(newPath);
         onChanged();

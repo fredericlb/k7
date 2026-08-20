@@ -8,10 +8,73 @@
 // The arrow goes FIRST in the line so the node name still lands last, where a person types it. That is the
 // whole reason for the argument order.
 
+import type { WebGraph } from "@studio/graph-model";
+import { instanceName } from "@studio/song/instanceName";
+
 /** The pending half of a `+` click: the arrow the module is being dropped onto. */
 export interface PendingInsert {
   before: string;
   after: string;
+}
+
+/**
+ * The lane a `+` on this arrow drops onto: the chain that plays `before`, or that IS it.
+ *
+ * A chain is called after its lane (`@studio/song`'s chainsGraph), so the key IS the answer.
+ * `before` may carry a port — `crossfade#b` — and the port says nothing about which run it is.
+ */
+export function laneOfArrow(
+  graph: Pick<WebGraph, "chains">,
+  before: string | null | undefined,
+): string | null {
+  if (!before) return null;
+  const node = before.split("#")[0];
+  if (graph.chains[node]) return node;
+  for (const [lane, c] of Object.entries(graph.chains))
+    if (c.use.some((s) => s.module.split("#")[0] === node)) return lane;
+  return null;
+}
+
+/**
+ * Every name this graph already spells, so a new one can avoid them all.
+ *
+ * Generous on purpose, and it is still only what the BROWSER can see: a module folder the
+ * project owns but no chain names is invisible here, and `createNode` refuses such a collision
+ * out loud rather than writing over anything. That is the whole cost of naming on this side, and
+ * it is the price of a `+` that does not stop to ask.
+ */
+function namesIn(graph: WebGraph): Set<string> {
+  const out = new Set<string>(graph.tracks);
+  for (const [lane, c] of Object.entries(graph.chains)) {
+    out.add(lane);
+    for (const s of c.use) out.add(s.module.split("#")[0]);
+    for (const o of c.out) out.add(o.to.split("#")[0]);
+  }
+  for (const n of graph.videoTracks ?? []) out.add(n);
+  for (const n of Object.keys(graph.modules ?? {})) out.add(n);
+  for (const n of Object.keys(graph.curves ?? {})) out.add(n);
+  return out;
+}
+
+/**
+ * What a node of `module` dropped on this arrow should be CALLED: `<lane>_<module>_<n>`.
+ *
+ * Here rather than in the file service, and that is the one thing about it worth explaining: the
+ * lane is only known at the arrow, and the arrow is only known in the browser. The verb learns
+ * the name from the line, as it always did — what changed is that nobody types it. `node new`
+ * with no name at all still answers `<module>_<n>`, which is the same rule with the half it
+ * cannot know left off (see `freeNodeName`).
+ *
+ * The rule itself is `@studio/song`'s and is shared with the fork that names `bs_lead_delay_1`:
+ * one question, one answer, whichever side of the wire asks it.
+ */
+export function nodeNameFor(
+  graph: WebGraph,
+  module: string,
+  before: string | null,
+): string {
+  const taken = namesIn(graph);
+  return instanceName(module, laneOfArrow(graph, before), (n) => taken.has(n));
 }
 
 /**

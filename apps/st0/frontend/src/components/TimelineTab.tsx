@@ -6,7 +6,11 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { arrayEq, useEngineState } from "@studio/engine-browser/store";
-import { beatsToPosition } from "@studio/song/timecode";
+import {
+  beatsToDuration,
+  beatsToPosition,
+  parsePosition,
+} from "@studio/song/timecode";
 import { trackLabel } from "@studio/song/trackKind";
 import {
   GUTTER_DESKTOP,
@@ -72,7 +76,12 @@ import {
 import { dragOffset, freeSnap, snapTo } from "../snap";
 import { recordingFrom } from "../takeCounter";
 import { TrackIcon, trackIcon } from "../trackIcons";
-import type { WebProject, WebTrack, WebVideoTrack } from "../types";
+import type {
+  WebAutomationLane,
+  WebProject,
+  WebTrack,
+  WebVideoTrack,
+} from "../types";
 import { useIsMobile } from "../useIsMobile";
 import { ClipActivity } from "./ClipActivity";
 import { ClipContent } from "./ClipContent";
@@ -594,6 +603,7 @@ export function TimelineTab({
   onSetLoop,
   onMoveEvent,
   onResizeEvent,
+  onFadeEvent,
   feedMove,
   feedTimecode,
   feedEventsMove,
@@ -707,6 +717,13 @@ export function TimelineTab({
     newStartTc: string,
     newEndTc: string,
   ) => void;
+  /** A fade's corner handle was dragged: `lenTc` is a LENGTH, not a position (see `event fadein`). */
+  onFadeEvent?: (
+    trackId: string,
+    fromTc: string,
+    which: "fadeIn" | "fadeOut",
+    lenTc: string,
+  ) => void;
   onMoveEvent?: (
     trackId: string,
     fromTc: string,
@@ -751,6 +768,9 @@ export function TimelineTab({
       { alternatives: string[]; alternative: string }
     >;
     frozen?: Record<string, "at" | "inside">;
+    /** Each lane's automation, by track id — from the graph, which is where the binding and the
+     *  curve both live. One row per entry, drawn under the lane. */
+    automation?: Record<string, WebAutomationLane[]>;
   };
   /**
    * Open a lane's ⋮ menu at a point — switch or add an alternative, freeze or thaw.
@@ -828,8 +848,11 @@ export function TimelineTab({
     [proj, orbit],
   );
   const rows = useMemo(
-    () => (proj ? projectRows(proj, allTracks, videoTracks) : []),
-    [proj, allTracks, videoTracks],
+    () =>
+      proj
+        ? projectRows(proj, allTracks, videoTracks, laneNodes?.automation)
+        : [],
+    [proj, allTracks, videoTracks, laneNodes?.automation],
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
@@ -1292,6 +1315,70 @@ export function TimelineTab({
       beatsToPosition(r.end, num, den),
     );
   }, [proj, onResizeEvent, setStatus]);
+
+  // --- dragging a FADE ----------------------------------------------------------
+  /**
+   * A fade is a LENGTH from one end of the clip inwards, so the gesture is simpler than a resize:
+   * one number, floored at nothing, capped at the clip's own extent. The handle sits at the top
+   * corner because the full-height strips at `left-0`/`right-0` are the resize edges, and two
+   * gestures on one pixel is how a drag becomes a coin toss.
+   *
+   * `orig` is read at the grab for the reason the resize does it: adding an absolute offset to the
+   * live value re-applies it every pointermove and the handle runs away from the cursor.
+   */
+  const [fade, setFade] = useState<{
+    trackId: string;
+    clipId: string;
+    which: "fadeIn" | "fadeOut";
+    start: number; // beats — the placement's key, what the command addresses
+    span: number; // the clip's drawn extent, the cap
+    orig: number; // the fade's length when grabbed
+    len: number;
+    x: number; // pointer x at grab
+    ppb: number;
+    pending?: boolean;
+  } | null>(null);
+  const fadeRef = useRef<typeof fade>(null);
+  fadeRef.current = fade;
+
+  const onFadeMove = useCallback((e: React.PointerEvent) => {
+    const f = fadeRef.current;
+    if (!f || f.pending) return;
+    const free = freeSnap(e);
+    // A fade-in grows rightwards and a fade-out leftwards, so the pointer's delta counts against
+    // the one and for the other — the only difference between the two ends.
+    const dx = (e.clientX - f.x) / f.ppb;
+    const d = snapTo(f.which === "fadeIn" ? dx : -dx, free ? 0 : 1);
+    const len = Math.max(0, Math.min(f.span, f.orig + d));
+    if (len !== f.len) setFade({ ...f, len });
+  }, []);
+
+  const commitFade = useCallback(() => {
+    const f = fadeRef.current;
+    if (f?.pending) return; // a second pointerup must not send the same edit twice
+    if (!f || !proj) {
+      setFade(null);
+      return;
+    }
+    const num = proj.timeSigNumerator;
+    const den = proj.timeSigDenominator;
+    // Ended where it started: write nothing, the courtesy every other drag here extends, and what
+    // keeps a stray click on a handle out of the undo history.
+    if (f.len === f.orig) {
+      setFade(null);
+      setStatus("fade cancelled — no change");
+      return;
+    }
+    setFade({ ...f, pending: true });
+    onFadeEvent?.(
+      f.trackId,
+      beatsToPosition(f.start, num, den),
+      f.which,
+      // A LENGTH, so it is spelled as a duration. The command reads it back with `parseDuration`,
+      // and the same beats spelled as a position would be several bars — see `event fadein`.
+      beatsToDuration(f.len, num, den),
+    );
+  }, [proj, onFadeEvent, setStatus]);
 
   // --- dragging a PICTURE placement ---------------------------------------------
   /**
@@ -2112,7 +2199,11 @@ export function TimelineTab({
     visRows.reduce(
       // A take is a short row like a group header: it is a record of what a lane held, not a
       // lane, so it never grows with the expanded clip view.
-      (h, r) => h + (r.kind === "group" || r.kind === "take" ? ROW_H : rowH),
+      (h, r) =>
+        h +
+        (r.kind === "group" || r.kind === "take" || r.kind === "automation"
+          ? ROW_H
+          : rowH),
       0,
     );
 
@@ -2689,6 +2780,116 @@ export function TimelineTab({
               );
             }
 
+            /**
+             * An AUTOMATION row: one knob of the lane above, drawn against song time.
+             *
+             * A polyline and nothing else — no clips, no caret cell, no drag. What it draws is the
+             * curve as AUTHORED (`WebCurve.points`, absolute song timecodes and values in 0..1),
+             * which is why only a `custom` curve has a shape here: an LFO is a figure you set on
+             * the graph and an ADSR is fired by note-ons, and neither is a thing you move against
+             * the ruler. A row for one of those still appears — the binding is real and worth
+             * seeing — and says so with an empty line.
+             *
+             * Its header addresses the TRACK (`rowTarget`), so mute and solo from here mean the
+             * lane, which is the only thing they could mean.
+             */
+            if (row.kind === "automation") {
+              const lane = row.lane;
+              const pts = lane.points
+                .map((pt) => {
+                  try {
+                    return {
+                      b: parsePosition(
+                        pt.time,
+                        proj?.timeSigNumerator ?? 4,
+                        proj?.timeSigDenominator ?? 4,
+                      ),
+                      v: Math.min(1, Math.max(0, pt.value)),
+                    };
+                  } catch {
+                    return null; // an unreadable timecode is one point, not a broken row
+                  }
+                })
+                .filter((pt): pt is { b: number; v: number } => !!pt)
+                .sort((a, b) => a.b - b.b);
+              return (
+                <div
+                  key={rowKey(row)}
+                  data-sel-row={rowKey(row)}
+                  className="flex border-border/40 border-b opacity-80"
+                  style={{ height: ROW_H }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // The MOMENT under the pointer, snapped to a tick the ruler actually drew —
+                    // the same rule a ruler click follows, so the grid you see and the positions
+                    // a point can land on cannot disagree. It is what makes the three
+                    // `curve point …` verbs act on where you aimed.
+                    const box = (
+                      e.currentTarget as HTMLElement
+                    ).getBoundingClientRect();
+                    const raw = Math.max(
+                      0,
+                      beatLo + (e.clientX - box.left - GUTTER) / ppb,
+                    );
+                    onContextMenu?.(
+                      {
+                        kind: "curve-point",
+                        curve: row.lane.curve,
+                        param: row.lane.param,
+                        tc: beatsToPosition(
+                          nearestTick(bars, raw) ?? raw,
+                          proj?.timeSigNumerator ?? 4,
+                          proj?.timeSigDenominator ?? 4,
+                        ),
+                      },
+                      e.clientX,
+                      e.clientY,
+                    );
+                  }}
+                >
+                  <div
+                    style={{ width: GUTTER }}
+                    {...gutterProps(row)}
+                    className={cn(
+                      "flex shrink-0 cursor-pointer select-none items-center gap-1 truncate border-r border-border bg-muted/30 px-2 text-[10px] text-muted-foreground",
+                      GUTTER_STICKY,
+                      // Indented past its lane, like a take's row — the nesting says the knob
+                      // belongs to the lane above rather than standing beside it.
+                      "pl-5",
+                    )}
+                    title={`${lane.module} · ${lane.param} ← ${lane.curve}`}
+                  >
+                    <span className="truncate">{lane.param}</span>
+                  </div>
+                  <div className="relative flex-1 overflow-hidden">
+                    {pts.length > 1 && (
+                      // `vectorEffect` so the stroke keeps its width whatever the viewBox does —
+                      // the x axis here is beats scaled to pixels, which is an extreme aspect.
+                      <svg
+                        className="pointer-events-none absolute inset-0 h-full w-full"
+                        aria-hidden="true"
+                      >
+                        <title>{lane.param}</title>
+                        <polyline
+                          fill="none"
+                          stroke="#a889b5"
+                          strokeWidth={1.5}
+                          vectorEffect="non-scaling-stroke"
+                          points={pts
+                            .map(
+                              (pt) =>
+                                `${x(pt.b)},${(1 - pt.v) * (ROW_H - 6) + 3}`,
+                            )
+                            .join(" ")}
+                        />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             const { track: t, index: ti } = row;
             const eff = effOf(t);
             const armed = armedIds.includes(t.id);
@@ -3172,6 +3373,97 @@ export function TimelineTab({
                                   )}
                                 </div>
                               ))}
+                            {/* The FADES, drawn as the two wedges they are: a triangle from the
+                                top of one end down to the baseline at the fade's length. Under
+                                the loop marks and over the activity fill, so a fade shades the
+                                material rather than hiding it, and `pointer-events-none` because
+                                what you grab is the corner handle below, not the wedge.
+
+                                Live while a fade is being dragged: `fadeOf` reads the gesture in
+                                hand before the clip's own value, so the wedge follows the cursor
+                                instead of waiting for the round trip. */}
+                            {(["fadeIn", "fadeOut"] as const).map((which) => {
+                              const live =
+                                fade?.clipId === c.id &&
+                                fade.trackId === t.id &&
+                                fade.which === which
+                                  ? fade.len
+                                  : undefined;
+                              const len =
+                                live ??
+                                (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
+                                0;
+                              if (len <= 0) return null;
+                              const w = Math.min(drawW, len * ppb);
+                              return (
+                                <div
+                                  key={which}
+                                  className={cn(
+                                    "pointer-events-none absolute inset-y-0 bg-black/45",
+                                    which === "fadeIn" ? "left-0" : "right-0",
+                                  )}
+                                  style={{
+                                    width: w,
+                                    // The wedge itself. A fade-in is dark at the head and clear
+                                    // by its end; a fade-out the mirror.
+                                    clipPath:
+                                      which === "fadeIn"
+                                        ? "polygon(0 0, 100% 100%, 0 100%)"
+                                        : "polygon(100% 0, 100% 100%, 0 100%)",
+                                  }}
+                                />
+                              );
+                            })}
+                            {/* …and the two corner handles that drag them. The TOP corners: the
+                                resize strips below are full-height at the same two ends, and two
+                                gestures on one pixel is how a drag becomes a coin toss. Absent on
+                                a read-only document rather than inert, like the resize handles. */}
+                            {!readOnly &&
+                              (["fadeIn", "fadeOut"] as const).map((which) => {
+                                const len =
+                                  (which === "fadeIn" ? c.fadeIn : c.fadeOut) ??
+                                  0;
+                                return (
+                                  <div
+                                    key={`h-${which}`}
+                                    className={cn(
+                                      "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
+                                      which === "fadeIn" ? "left-0" : "right-0",
+                                      // Visible once there is a fade; otherwise it appears on
+                                      // hover, the same disclosure the edge handles use — an
+                                      // always-lit corner on every clip is noise.
+                                      len > 0
+                                        ? "bg-white/60"
+                                        : "bg-white/0 group-hover:bg-white/35",
+                                    )}
+                                    title={
+                                      which === "fadeIn"
+                                        ? "Drag to fade in — Ctrl frees the grid"
+                                        : "Drag to fade out — Ctrl frees the grid"
+                                    }
+                                    onPointerDown={(e) => {
+                                      e.stopPropagation();
+                                      (
+                                        e.currentTarget as HTMLElement
+                                      ).setPointerCapture(e.pointerId);
+                                      setFade({
+                                        trackId: t.id,
+                                        clipId: c.id,
+                                        which,
+                                        start: c.start,
+                                        span: c.length > 0 ? c.length : NATURAL,
+                                        orig: len,
+                                        len,
+                                        x: e.clientX,
+                                        ppb,
+                                      });
+                                    }}
+                                    onPointerMove={onFadeMove}
+                                    onPointerUp={commitFade}
+                                    onPointerCancel={() => setFade(null)}
+                                  />
+                                );
+                              })}
                             {/* Edge handles. Narrow strips inside the block's own ends,
                                 so they never overlap the neighbouring event and the body
                                 between them still drags the whole clip.

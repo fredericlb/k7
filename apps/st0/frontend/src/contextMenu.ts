@@ -39,6 +39,9 @@ export type MenuCtx =
     }
   // A TAKE row under a lane: the track it belongs to, and which take it is (1-based).
   | { kind: "take"; track: string; n: number }
+  // Right-click on an AUTOMATION row: the curve it draws, and the moment under the pointer. Both
+  // are needed — the curve is what the verbs address and `tc` is where a point would go.
+  | { kind: "curve-point"; curve: string; param: string; tc: string }
   // A pass-through node — a chain with no modules. It carried the track it belonged to, for the
   // one reader that took one; nothing is offered on it now, so the id is all it needs to say.
   | { kind: "chain"; id: string }
@@ -175,6 +178,10 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   // naming three different subjects, and none of them is the control you clicked.
   param: "",
   take: "track",
+  // "curve": the row IS the curve, so its three rows read "point add", "point move", "point
+  // remove". `track automation remove` would keep its head — it names the LANE, which is the one
+  // thing that row is not.
+  "curve-point": "curve",
   chain: "",
   sink: "",
   "marker-add": "project",
@@ -391,6 +398,31 @@ export function contextMenu(
       return offer([
         { verb: "track take select", arg: `${ctx.track} ${ctx.n}` },
         { verb: "track take delete", arg: `${ctx.track} ${ctx.n}` },
+      ]);
+    case "curve-point":
+      /**
+       * An automation row's three verbs, written out for the reason a take's two are.
+       *
+       * `<curve> <timecode>` is a shape the catalogue would happily match against anything taking
+       * those two, and the point of this menu is the three that edit the shape under the pointer —
+       * plus the way OUT of automating, which is a different verb on a different noun and would
+       * never be derived from a curve id at all.
+       *
+       * `add` is left needing its value: a point placed at whatever height the last one happened
+       * to have is not a thing anybody meant, and it is the one argument the pointer cannot give.
+       */
+      return offer([
+        {
+          verb: "curve point add",
+          arg: `${ctx.curve} ${ctx.tc}`,
+          needsMore: true,
+        },
+        {
+          verb: "curve point move",
+          arg: `${ctx.curve} ${ctx.tc}`,
+          needsMore: true,
+        },
+        { verb: "curve point remove", arg: `${ctx.curve} ${ctx.tc}` },
       ]);
     case "chain":
       /**

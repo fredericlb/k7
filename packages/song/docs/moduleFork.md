@@ -35,6 +35,9 @@ stays read-only, and every save aimed into it forks — including one that meant
 2. **Name the copy after the track that plays it.** The first chain whose steps name the ref gives the name:
    `<track>_<leaf>_<n>`, with `<n>` stepping past any folder already there. A module the project doesn't play
    yet has no track to be named after and forks as `<leaf>_<n>` — it still forks, or the edit would be lost.
+   That rule is `instanceName.ts` and is not this file's alone any more: a NODE is named the same way
+   (`docs/nodes.md`), which is the same question asked about a use rather than about a copy. It was two
+   implementations that happened to agree, and one of them was a person typing.
 3. **Copy the folder**, sidecars included, and write `content` as its module file.
 4. **Repoint the chains** — every step naming the ref now names the copy — *after* the files exist. A chain
    naming a module with no file is precisely what the compiler refuses to load.

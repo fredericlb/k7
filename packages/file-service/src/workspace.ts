@@ -54,6 +54,7 @@ import {
   createNode,
   type Diagnostic,
   deadProjectFields,
+  freeNodeName,
   libraryModuleIssues,
   listBaseModules,
   loadModuleRefs,
@@ -378,6 +379,11 @@ function toWebClip(c: TrackDoc["clips"][number]) {
     warped: c.warp || c.warpOff ? true : undefined,
     warpOff: c.warpOff ? true : undefined,
     disabled: c.disabled ? true : undefined,
+    // The fades, which the compiler has always produced and this mapping has always dropped.
+    // `|| undefined` rather than a copy: a zero fade is no fade, and sending one would make every
+    // untouched event carry two explicit zeroes on a document polled every two seconds.
+    fadeIn: c.fadeIn || undefined,
+    fadeOut: c.fadeOut || undefined,
     // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
     frozen: isFrozenClipId(c.id) ? true : undefined,
     notes: c.notes.map((n) => ({
@@ -1817,14 +1823,21 @@ export class Workspace {
    * so what comes back is NOT under `rel`. Callers that reveal the new path in a tree must read
    * the returned path rather than assume it sits beside what was clicked.
    */
-  createNode(rel: string, node: string): { path: string } {
+  createNode(rel: string, node?: string): { path: string } {
     const abs = this.safePath(rel);
     let modDir = abs;
     if (PROJECT_FILE.test(basename(abs))) modDir = dirname(abs);
     const category = basename(dirname(modDir));
     const name = basename(modDir);
     const dir = this.requireActive();
-    const newPath = createNode(dir, category, name, node);
+    // Unnamed is the ordinary case: the file tree's "new node" asks for a module and nothing
+    // else, so the name is `<module>_<n>`. No lane prefix — this one is not born in a chain.
+    const newPath = createNode(
+      dir,
+      category,
+      name,
+      node || freeNodeName(dir, name),
+    );
     this.invalidateProjectDoc();
     return { path: newPath };
   }

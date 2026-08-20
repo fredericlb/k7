@@ -172,9 +172,11 @@ they never re-subscribe. A movement threshold is what keeps a pan from also sele
 Drag any node's header and it goes where you put it: written to graph.yaml's `positions:` by
 `graph move` (the drop runs the verb outright, like the cable's landing). Everything that
 can be added to the graph IS a node — a module, a track, a curve, the sink — and every node is
-addressed by one name: its chains name, a curve by its curve id, the sink by `OUT`. A curve
-draws once however many params it drives (one automation edge each), so its pin has one card
-to move. The layout
+addressed by one name: its chains name, a curve by its curve id, the sink by `OUT`. A curve draws
+one card per BINDING, not one per curve — the node id is `crv:<curve>@<module>:<param>` — because
+an envelope's event input is per-binding, and one card could not say "fired by the drums here and
+by the synth there". (This page said the opposite for a while; `packages/ui-chains/docs/graphBuild.md`
+records the reversal, and the code has been per-binding since.) The layout
 places only what has no pin: dagre still owns every NEW module and everything nobody moved,
 which keeps its "never hand-roll layout" rule intact — a pin is not routing, it is somebody's
 answer overriding the ranker's for one card. The mixer row ignores pins entirely (a strip

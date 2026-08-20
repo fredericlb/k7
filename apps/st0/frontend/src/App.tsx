@@ -78,6 +78,7 @@ import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
+import { MasterMeter } from "./components/MasterMeter";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
@@ -170,6 +171,7 @@ import {
 import type {
   CommandInfo,
   ProjectInfo,
+  WebAutomationLane,
   WebGraph,
   WebVideoTrack,
   WorkspaceInfo,
@@ -520,7 +522,8 @@ export default function App({
   const [laneNodes, setLaneNodes] = useState<{
     alternatives: WebGraph["trackAlternatives"];
     frozen: WebGraph["frozen"];
-  }>({ alternatives: undefined, frozen: undefined });
+    automation: Record<string, WebAutomationLane[]>;
+  }>({ alternatives: undefined, frozen: undefined, automation: {} });
 
   // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
   // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
@@ -2364,6 +2367,14 @@ export default function App({
     // The click's WORLD point — where the picked module will be BORN (`at` on the create
     // verbs), so a new node never asks the layout where to appear.
     at?: { x: number; y: number };
+    /**
+     * What a node of the picked module lands CALLED — `<lane>_<module>_<n>`.
+     *
+     * The chains pane's, because only it holds the graph the lane is read off (ChainsTab's
+     * `nameFor`). It travels with the click rather than being asked for at pick time so the
+     * answer describes the arrow that was clicked, not whatever the graph has become since.
+     */
+    nameFor: (module: string) => string;
   } | null>(null);
   // Offer the click into the pre-written line's `at` field — deferred a tick, because
   // prewrite has only just SET the bar's command state and a same-tick offer reads the old.
@@ -2405,20 +2416,26 @@ export default function App({
       info: { before: string; after: string },
       x: number,
       y: number,
-      at?: { x: number; y: number },
+      at: { x: number; y: number } | undefined,
+      nameFor: (module: string) => string,
     ) => {
       if (!baseModules.length) {
         prewriteCommand(`node insert ${info.before} ${info.after} `);
         offerSpawnAt(at);
         return;
       }
-      setModulePicker({ info, x, y, at });
+      setModulePicker({ info, x, y, at, nameFor });
     },
     [baseModules, prewriteCommand, offerSpawnAt],
   );
   // Right-click on empty canvas: the same picker, but the pick has nowhere to be spliced.
   const placeInGraph = useCallback(
-    (x: number, y: number, at?: { x: number; y: number }) => {
+    (
+      x: number,
+      y: number,
+      at: { x: number; y: number } | undefined,
+      nameFor: (module: string) => string,
+    ) => {
       if (!baseModules.length) {
         // No catalogue to pick from: the person names what to create, and `node new`
         // puts it in the graph itself.
@@ -2426,7 +2443,7 @@ export default function App({
         offerSpawnAt(at);
         return;
       }
-      setModulePicker({ info: null, x, y, at });
+      setModulePicker({ info: null, x, y, at, nameFor });
     },
     [baseModules, prewriteCommand, offerSpawnAt],
   );
@@ -2434,11 +2451,12 @@ export default function App({
     (pick: ModulePick) => {
       if (!modulePicker) return;
       setModulePicker(null);
-      const { info, at } = modulePicker;
+      const { info, at, nameFor } = modulePicker;
       // The picker's one non-module offer. A curve is a node like any other, so it is created
       // from the same menu — but there is no catalogue to pick from and nothing to splice it
       // into: only a person can name it, and it drives nothing until a param binds it. So the
-      // bar is prewritten, exactly as `node new` is when the module catalogue is empty.
+      // bar is prewritten, exactly as `node new` is when the module catalogue is empty. A curve
+      // is not an instance of anything, so there is no `<lane>_<module>_<n>` to propose either.
       if (pick.newCurve) {
         prewriteCommand("curve new ");
         offerSpawnAt(at);
@@ -2450,19 +2468,29 @@ export default function App({
        * the bare canvas. `node insert` used to do both from a `<category>/<name>`, which is
        * what made it indistinguishable from the verb that only spliced.
        *
-       * Only this first line reaches the bar, because only the node name is missing and only a
-       * person can supply it. The second is the shell's, run against whatever name they typed —
-       * see `chainRefFromCreate` in nodeInsert.ts, which reads it back off the line.
+       * Neither reaches the bar any more. The only thing missing from the first was the node's
+       * NAME, and it is `<lane>_<module>_<n>` now — derived from the arrow that was clicked,
+       * which is a better answer than the one a person would type at the speed they can type it.
+       * So the pick RUNS: one click, a node on the arrow. `runCommand` reads the name back off
+       * the line exactly as it did when somebody had typed it (`chainRefFromCreate`), and the
+       * second line follows from `pendingWire` — nothing else about that dance changed.
        */
       pendingWire.current = { at: info, spawn: at ?? null };
       pendingInsert.current = info; // the ghost on the arrow, while the commands run
       const ref = pick.namespace === null ? undefined : pick.ref;
       // A catalogue pick has no local folder, and `node new` instances a module that exists —
-      // so its `module new` runs ahead of the line the person is about to complete.
+      // so its `module new` runs ahead of the line below.
       pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
-      prewriteCommand(createForGraphCommand(pick.type, pick.name));
+      const spawn = at
+        ? ` ${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`
+        : "";
+      void runCommandRef.current(
+        createForGraphCommand(pick.type, pick.name) +
+          nameFor(pick.name) +
+          spawn,
+      );
     },
-    [modulePicker, prewriteCommand],
+    [modulePicker, prewriteCommand, offerSpawnAt],
   );
 
   // What the caret is currently over, for the conditional bindings (keys.ts).
@@ -2803,6 +2831,11 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
+      {/* The mix leaving for the interface, and whether it clipped on the last pass. Not on a
+          phone, where the whole right side already collapses into one button — a meter you
+          cannot fit is a meter nobody reads. Not on a snapshot either: a share has no engine,
+          so its meter could only ever draw silence. */}
+      {!isMobile && !snapshot && <MasterMeter className="mr-2" />}
       {/* On a phone the whole right side collapses into ONE button, and everywhere there is
           to go is inside it: the panes, the project's own screen surfaces, and the command
           bar. There is no studio view to toggle and no layout to go back to, so a pane is a
@@ -3264,6 +3297,13 @@ export default function App({
                     onResizeEvent={(trackId, fromTc, startTc, endTc) =>
                       void runCommand(
                         `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
+                      )
+                    }
+                    // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see
+                    // `event fadein` in commands.yaml for why the pair cannot be swapped.
+                    onFadeEvent={(trackId, fromTc, which, lenTc) =>
+                      void runCommand(
+                        `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
                       )
                     }
                     // While the bar is filling `event move`, the drag ANSWERS it instead of
@@ -3804,6 +3844,9 @@ export default function App({
               <Minimap
                 reloadKey={reloadKey}
                 orbit={orbit}
+                // Same map the timeline builds its rows from — the minimap's rows have to line
+                // up with the timeline's, and one it skipped would put every lane below it out.
+                automation={laneNodes.automation}
                 caret={caret}
                 highlight={openItem}
                 onSeek={seek}

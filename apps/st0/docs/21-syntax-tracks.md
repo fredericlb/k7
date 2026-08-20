@@ -80,6 +80,20 @@ events:
 # 1:1:1 is already a string — but under 1.1 it is the number 3661.
 ```
 
+`fadeIn` and `fadeOut` are **lengths**, not positions: `"0:1"` is one beat. That matters because
+both spellings are legal timecodes and nothing downstream can tell them apart — the same beat
+written as a position is `"1:2"`, and it would read back as five.
+
+You do not have to type them. Each end of a clip has a **corner handle** on the timeline: drag it
+inwards to open a fade, back out to close it. Ctrl frees the grid, like every other drag there. Or
+say it:
+
+```
+event fadein  gtr 2:1:1 0:1     # one beat in
+event fadeout gtr 2:1:1 0:2     # two beats out
+event fadeout gtr 2:1:1 0       # …and gone — the field is removed, not written as zero
+```
+
 ## nodes/<name>.yaml — sequences
 
 The same file. Nothing here says "MIDI": these events name `sequences/…`, so they are notes, and
@@ -135,6 +149,19 @@ synth" is written down.
 extends: "@studio/strudel-track"
 strudel: algo/pattern.strudel
 ```
+
+## Moving the whole song along
+
+`project add <at> <length>` opens a span of time at a point; `project remove` closes one. From the
+timeline the caret answers the position, so it reads as "insert two bars here".
+
+Everything positioned in song time moves together — every lane's events, its takes, its
+alternatives, the markers, any drawn automation curve, and the video lanes. A fade or a clip window
+is a **length** and stays put.
+
+An event already playing **across** the point stays where it is, decided by its start. That is the
+same rule `events move` and `selection consolidate` follow, and it is why inserting time never
+writes new material.
 
 ## takes — what the lane was playing before
 

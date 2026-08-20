@@ -8,7 +8,11 @@ import {
   type PluginParamsStore,
   usePluginParams,
 } from "@studio/engine-browser/params";
-import { splitPort } from "@studio/graph-model";
+import {
+  automationLanes,
+  splitPort,
+  type WebAutomationLane,
+} from "@studio/graph-model";
 import { showToast } from "@studio/project-shell/toast";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
@@ -33,6 +37,7 @@ import {
   type MidiControlApi,
   useMidiControl,
 } from "../hooks/useMidiControl";
+import { nodeNameFor } from "../nodeInsert";
 import { useLiveRackLit } from "../rackLit";
 import type { PreviewReq, WebGraph, WebProject } from "../types";
 import { useIsMobile } from "../useIsMobile";
@@ -148,24 +153,34 @@ export function ChainsTab({
   onLaneNodes?: (f: {
     alternatives: WebGraph["trackAlternatives"];
     frozen: WebGraph["frozen"];
+    automation: Record<string, WebAutomationLane[]>;
   }) => void;
   // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
   // that names it — so its builder lives in the médiathèque, not in one song's graph.
   // Right-click a node → the shell opens its context menu.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  // A `+` click opens the module picker at the pointer, and pre-writes a command once one is
-  // chosen. `at` is the click's WORLD point — where the picked module will be born.
+  /**
+   * A `+` click opens the module picker at the pointer, and the pick runs. `at` is the click's
+   * WORLD point — where the picked module will be born.
+   *
+   * `nameFor` answers what a node of that module dropped HERE would be called. It is handed up
+   * rather than computed by the shell because the graph is this pane's — the lane a name is
+   * built from is read off the arrow, and the arrow means nothing without the chains around it.
+   */
   onEdgeInsert?: (
     info: { before: string; after: string },
     x: number,
     y: number,
-    at?: { x: number; y: number },
+    at: { x: number; y: number } | undefined,
+    nameFor: (module: string) => string,
   ) => void;
-  // A right-click on empty canvas opens the same picker, for a module wired to nothing.
+  // A right-click on empty canvas opens the same picker, for a module wired to nothing. Same
+  // `nameFor`, with no arrow to read a lane off: `<module>_<n>`.
   onCanvasInsert?: (
     x: number,
     y: number,
-    at?: { x: number; y: number },
+    at: { x: number; y: number } | undefined,
+    nameFor: (module: string) => string,
   ) => void;
   // The patch cable landed: a free output clicked, then a free input — both as graph.yaml
   // addresses (`name` or `name#port`), ready for `graph chain connect`.
@@ -261,6 +276,42 @@ export function ChainsTab({
       })
       .catch((e) => setError((e as Error).message));
   }, [reloadKey]);
+
+  /**
+   * What a node dropped here would be CALLED — handed to the shell with the click.
+   *
+   * The shell runs the command, but only this pane can answer the question: the name is
+   * `<lane>_<module>_<n>`, the lane is read off the arrow, and the arrow means nothing without
+   * the chains around it. See nodeInsert.ts.
+   *
+   * Both wrappers keep the `undefined` they were given rather than always being a function: the
+   * renderer decides whether to OFFER the grip by whether the prop is there, so a frozen
+   * document that passes none must go on passing none.
+   */
+  const nameFor = useCallback(
+    (before: string | null) =>
+      (module: string): string =>
+        graph ? nodeNameFor(graph, module, before) : `${module}_1`,
+    [graph],
+  );
+  const edgeInsert = useMemo(
+    () =>
+      onEdgeInsert &&
+      ((
+        info: { before: string; after: string },
+        x: number,
+        y: number,
+        at?: { x: number; y: number },
+      ) => onEdgeInsert(info, x, y, at, nameFor(info.before))),
+    [onEdgeInsert, nameFor],
+  );
+  const canvasInsert = useMemo(
+    () =>
+      onCanvasInsert &&
+      ((x: number, y: number, at?: { x: number; y: number }) =>
+        onCanvasInsert(x, y, at, nameFor(null))),
+    [onCanvasInsert, nameFor],
+  );
 
   // Bypasses clicked but not yet confirmed by a graph refetch, by module name.
   //
@@ -358,7 +409,14 @@ export function ChainsTab({
    * make the effect below fire on each one.
    */
   const laneNodes = useMemo(
-    () => ({ alternatives: graph?.trackAlternatives, frozen: graph?.frozen }),
+    () => ({
+      alternatives: graph?.trackAlternatives,
+      frozen: graph?.frozen,
+      // …and each lane's AUTOMATION, by the same road and for the same reason. The binding lives
+      // on a module and the shape on a curve; a track owns the lane only because the automated
+      // module sits in its chain, and `automationLanes` is the one place that join is done.
+      automation: graph ? automationLanes(graph) : {},
+    }),
     [graph],
   );
   useEffect(() => onLaneNodes?.(laneNodes), [laneNodes, onLaneNodes]);
@@ -396,6 +454,8 @@ export function ChainsTab({
   // reorganizing the picture: dagre places only what it has never placed. `graph organize`
   // (organizeKey) is what empties it, deliberately.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
+  // What has already been written to `positions:` this session — see the pinning effect below.
+  const pinned = useRef(new Set<string>());
   const organizeSeen = useRef(organizeKey);
   const laid = useMemo(() => {
     if (!drawn) return null;
@@ -418,7 +478,13 @@ export function ChainsTab({
     // would make "reorganize" a command that visibly does nothing.
     const fresh = organizeSeen.current !== organizeKey;
     organizeSeen.current = organizeKey;
-    if (fresh) prevLaid.current = null;
+    if (fresh) {
+      prevLaid.current = null;
+      // …and forget what has been pinned, or `graph organize` would clear the file's positions and
+      // then decline to write the new ones — a reorganize that visibly does nothing, which is the
+      // very failure the `fresh` flag above exists to prevent.
+      pinned.current.clear();
+    }
     // The pins and the held positions apply only to the free graph: the mixer row IS an
     // arrangement, and a strip dragged out of the line would put a console's channel
     // wherever it last was.
@@ -437,6 +503,49 @@ export function ChainsTab({
       );
     return out;
   }, [drawn, alignModules, inputDevices, organizeKey]);
+
+  /**
+   * The graph writes down where it drew itself — once, and then the FILE is the layout.
+   *
+   * This is what stops the picture rearranging itself. A node the layout placed carries no pin,
+   * so the next FRESH layout is free to put it elsewhere, and it will as soon as anything about
+   * the graph changes: the row of tracks is one dagre rank, and its left-to-right order is
+   * crossing minimisation over the edges. `prevLaid` above hides that while you stay on the page,
+   * which is precisely why it felt arbitrary — the change surfaced at a reload, long after the
+   * edit that caused it.
+   *
+   * So: everything the layout had to place is pinned, and dagre speaks again only when
+   * `graph organize` empties `positions:`.
+   *
+   * Three things it must not do:
+   *
+   * - **Not the mixer row.** That layout is an ARRANGEMENT of the same graph, and pinning a strip
+   *   where the console put it would drag a channel's place into the free graph.
+   * - **Not a curve.** A pin is keyed by the node's NAME, and a curve draws one card per binding
+   *   while carrying one id — two cards, one key. Pinning them would stack two bindings of one
+   *   curve on the same spot.
+   * - **Not twice.** `pinned` remembers what has been sent, because `quietCommand` deliberately
+   *   does not reload: the positions we just wrote are not in `drawn` yet, so without this the
+   *   next re-render would send them all again.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `command` is a stable callback and re-running on its identity would re-send the batch.
+  useEffect(() => {
+    // `onMoveNode` absent means this graph cannot be pinned by hand — a frozen snapshot. Then it
+    // must not pin itself either: the same permission decides both.
+    if (!laid || !onMoveNode || (alignModules?.length ?? 0) > 0) return;
+    const have = drawn?.positions ?? {};
+    const at: Record<string, { x: number; y: number }> = {};
+    for (const n of laid.nodes) {
+      if (n.kind === "curve") continue;
+      const name = n.kind === "module" ? (n.module ?? n.label) : n.label;
+      if (!name || have[name] || pinned.current.has(name)) continue;
+      at[name] = { x: Math.round(n.x), y: Math.round(n.y) };
+    }
+    const names = Object.keys(at);
+    if (!names.length) return;
+    for (const name of names) pinned.current.add(name);
+    void command(`graph pin ${JSON.stringify(at)}`);
+  }, [laid, drawn?.positions, onMoveNode, alignModules]);
 
   // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
   // costs nothing and cannot move the picture under the pointer.
@@ -828,8 +937,8 @@ export function ChainsTab({
             trackOrder={trackOrder}
             onSelect={selectFromGraph}
             onContextMenu={onContextMenu}
-            onEdgeInsert={onEdgeInsert}
-            onCanvasInsert={onCanvasInsert}
+            onEdgeInsert={edgeInsert}
+            onCanvasInsert={canvasInsert}
             onConnect={onConnect}
             onAutomate={onAutomate}
             onDisconnect={onDisconnect}

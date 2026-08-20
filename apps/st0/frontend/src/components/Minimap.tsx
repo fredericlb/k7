@@ -8,7 +8,7 @@ import { api } from "../api";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { m } from "../paraglide/messages.js";
 import { HATCH, projectRows, type RowKey, rowIndexOf } from "../rows";
-import type { WebProject, WebTrack } from "../types";
+import type { WebAutomationLane, WebProject, WebTrack } from "../types";
 
 const MAX_H = 80; // the minimap never grows past this
 const ROW_MAX = 12; // per-track row height ceiling (few tracks shouldn't look bloated)
@@ -23,12 +23,16 @@ export interface MinimapItem {
 export function Minimap({
   reloadKey,
   orbit,
+  automation,
   caret,
   highlight,
   onSeek,
 }: {
   reloadKey: number;
   orbit: WebTrack[]; // the live Strudel lanes — see the rows note below
+  // Each lane's automation, by track id. Taken for the same reason the rows are built the same
+  // way: this component's job is to keep its rows lined up with the timeline's.
+  automation?: Record<string, WebAutomationLane[]>;
   // The timeline caret. `beat < 0` means its row's LABEL is selected, so there is no column to mark.
   caret: { row: RowKey; beat: number } | null;
   // The clip/track open in the editor, outlined so you can see where it sits.
@@ -56,8 +60,9 @@ export function Minimap({
   // The same rows the timeline draws, from the same track list — dropping the live lanes also dropped any group
   // whose only members they were, and a 4-lane timeline showed up here as one.
   const rows = useMemo(
-    () => (proj ? projectRows(proj, [...proj.tracks, ...orbit]) : []),
-    [proj, orbit],
+    () =>
+      proj ? projectRows(proj, [...proj.tracks, ...orbit], [], automation) : [],
+    [proj, orbit, automation],
   );
   // Rows are fractional so every one fits inside MAX_H, however many there are.
   const rowH = rows.length ? Math.min(ROW_MAX, MAX_H / rows.length) : 0;
@@ -114,6 +119,18 @@ export function Minimap({
             className="absolute inset-x-0 bg-violet-500/40"
             style={{ top: ri * rowH, height: rowH }}
           />
+        ) : row.kind === "automation" ? (
+          // An automation lane, as a thin mauve rule. Drawn for the reason a take is: this
+          // component's job is to keep its rows LINED UP with the timeline's, so a row the
+          // timeline shows and this one skips would put every lane below it one step out.
+          <div
+            key={`auto:${row.track.id}:${row.lane.param}`}
+            title={`${row.track.name} — ${row.lane.param}`}
+            className="absolute inset-x-0"
+            style={{ top: ri * rowH, height: rowH }}
+          >
+            <div className="absolute inset-x-0 top-1/2 h-px bg-[#a889b5]/60" />
+          </div>
         ) : row.kind === "take" ? (
           // A take, as pale marks: it is not playing, and the minimap's job here is to keep the
           // rows lined up with the timeline's — drawing the LANE's clips again on this row (the

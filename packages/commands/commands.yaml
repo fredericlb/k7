@@ -66,6 +66,114 @@
         hint: "the sequence's id, which is its filename — optional",
       },
     ]
+# INSERT or DELETE a span of song time: everything after the point moves.
+#
+# `at` is a POSITION and `length` is a DURATION — the pair this vocabulary keeps having to say out
+# loud, because both are legal timecodes and nothing downstream can tell them apart. From the
+# timeline the caret pre-answers `at`, so it reads as "insert two bars here"; the argument is
+# declared anyway, which is what keeps the verb usable from a terminal.
+#
+# What moves is everything positioned in SONG TIME and nothing else: every lane's events, its
+# takes, its alternatives, the markers, every drawn curve's points, and the video lanes (in
+# seconds — exact, because there is one tempo). A fade or a clip window is a DURATION and stays
+# put. See @studio/song's docs/insertTime.md for the inventory.
+#
+# An event already playing ACROSS the point stays where it is, decided by its `start` — the same
+# rule `events move` and `selection consolidate` follow. Cutting it instead would make this a verb
+# that writes new material and renders audio (docs/materialCut.md).
+# The SHAPE of a drawn curve, point by point — what the timeline's automation row is for.
+#
+# Until these, a `custom` curve could be created flat (`track automation add`) and shifted
+# wholesale (`project add`), and its individual points could only be typed into the file by hand.
+# The row drew a picture of something you could not touch.
+#
+# Addressed by TIME, because a curve is a function of song time: two points cannot share a moment,
+# so the moment names one. `add` at a time that already has a point SETS that point rather than
+# growing a twin, which is the same "one address, one value" rule a binding follows.
+#
+# `value` is 0..1 — the CURVE's range, not the param's. What it maps onto is the plugin's business,
+# and one curve may be bound to more than one knob over its life.
+#
+# The LAST point cannot be removed: a custom curve with none does not load, and a curve file the
+# loader refuses takes the whole project with it. Stopping the automation is
+# `track automation remove`, which unbinds and leaves the curve where it is.
+- command: "curve point add"
+  sid: curve.point.add
+  readable:
+    en: "Place a point on a curve"
+    fr: "Poser un point sur une courbe"
+  help: "place (or set) a point on a drawn curve (e.g. curve point add sweep 5:1:1 0.8)"
+  surfaces: [cli]
+  args:
+    [
+      { name: curve, complete: curves },
+      { name: time, type: timecode },
+      { name: value, type: number, hint: "0..1 — the curve's range, not the param's" },
+    ]
+- command: "curve point move"
+  sid: curve.point.move
+  readable:
+    en: "Move a point on a curve"
+    fr: "Déplacer un point sur une courbe"
+  help: "move one point, keeping its value unless you give a new one (e.g. curve point move sweep 5:1:1 7:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: curve, complete: curves },
+      { name: time, type: timecode, hint: "where the point is NOW" },
+      { name: newTime, type: timecode },
+      {
+        name: value,
+        type: number,
+        optional: true,
+        hint: "0..1 — optional; kept as it was when you leave it out",
+      },
+    ]
+- command: "curve point remove"
+  sid: curve.point.remove
+  readable:
+    en: "Remove a point from a curve"
+    fr: "Retirer un point d'une courbe"
+  help: "remove one point from a drawn curve (e.g. curve point remove sweep 5:1:1)"
+  surfaces: [cli]
+  args:
+    [
+      { name: curve, complete: curves },
+      { name: time, type: timecode },
+    ]
+
+- command: "project add"
+  sid: project.time.add
+  readable:
+    en: "Insert time into the song"
+    fr: "Insérer du temps dans le morceau"
+  help: "insert a span of time, pushing everything after it (e.g. project add 5:1:1 1:0)"
+  surfaces: [cli]
+  args:
+    [
+      { name: at, type: timecode },
+      {
+        name: length,
+        type: timecode,
+        hint: "a LENGTH, not a position — '1:0' is one bar",
+      },
+    ]
+- command: "project remove"
+  sid: project.time.remove
+  readable:
+    en: "Remove time from the song"
+    fr: "Retirer du temps du morceau"
+  help: "delete a span of time, pulling everything after it back (e.g. project remove 5:1:1 1:0)"
+  surfaces: [cli]
+  args:
+    [
+      { name: at, type: timecode },
+      {
+        name: length,
+        type: timecode,
+        hint: "a LENGTH — events starting inside it are removed",
+      },
+    ]
 - command: "project reload"
   sid: project.reload
   help: "reload the song from disk and re-send"
@@ -201,6 +309,47 @@
     [
       { name: track, complete: tracks },
       { name: n, type: number, hint: "which take, counting from 1" },
+    ]
+
+# The AUTOMATION of a track's sound, addressed from the LANE rather than from the module.
+#
+# A binding lives on the module — `automations: [{param, curve}]`, keyed by param, one knob one
+# curve — and a track owns one only because the automated module sits in its chain. So these two
+# are a VIEW onto `node automate` and write through the same writer; there is no second place a
+# binding is stored. The reason they are worth their own verb: an automation lane is reached from
+# the lane, and asking someone which module in their chain owns "Filter Freq" before they can draw
+# a curve against it is asking them to hold the graph in their head to edit the arrangement.
+#
+# `add` also CREATES the curve — a flat one at wherever the knob currently sits, so binding it
+# changes nothing until you move it. It refuses when it cannot tell where that is, because a flat
+# curve at the wrong height is an audible jump on a verb that promised to do nothing.
+#
+# The param is everything after the track, spaces and all: "Filter Freq" is one argument. Two
+# modules on one chain sharing a param name is a real shape and there is no defensible way to
+# pick, so that is refused by name and sent to `node automate`, which can say which.
+- command: "track automation add"
+  sid: track.automation.add
+  readable:
+    en: "Automate a parameter of this track"
+    fr: "Automatiser un paramètre de cette piste"
+  help: "draw a curve against one of a track's parameters (e.g. track automation add gtr Filter Freq)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: param, hint: "the parameter's name, spaces and all" },
+    ]
+- command: "track automation remove"
+  sid: track.automation.remove
+  readable:
+    en: "Stop automating a parameter"
+    fr: "Cesser d'automatiser un paramètre"
+  help: "unbind a track's automation, leaving the curve file (e.g. track automation remove gtr Filter Freq)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: param, hint: "the parameter's name, spaces and all" },
     ]
 
 # --- recording ---
@@ -677,12 +826,16 @@
   readable:
     en: "Create a node of a module, in the graph"
     fr: "Créer un nœud d'un module, dans le graphe"
-  help: "create a node of a module and put it in the graph, wired to nothing (e.g. node new instruments/synth lead)"
+  help: "create a node of a module and put it in the graph, wired to nothing — named <module>_<n> unless you say otherwise (e.g. node new instruments/synth, or node new instruments/synth lead)"
   surfaces: [cli]
   args:
     [
       { name: "category/name", complete: categories },
-      { name: "node-name", hint: "used in chains as name:node" },
+      {
+        name: "node-name",
+        optional: true,
+        hint: "optional — the name a chain writes; without one it is <module>_<n>, and the graph's + adds the lane it lands on",
+      },
       {
         name: at,
         optional: true,
@@ -739,7 +892,7 @@
   readable:
     en: "Point a node at another module"
     fr: "Pointer un nœud vers un autre module"
-  help: "replace what a node is, keeping its name and its place (e.g. node replace echo @engine/audio/filter/auto-wah)"
+  help: "replace what a node is, keeping its place — and its name, unless the name was auto-made, in which case it follows the new module (e.g. node replace echo @engine/audio/filter/auto-wah)"
   surfaces: [cli]
   args:
     [
@@ -1051,6 +1204,50 @@
       { name: timecode, type: timecode },
       { name: state, hint: "on · off · toggle (default) — 'on' means unwarped" },
     ]
+# The two FADES, one verb each. `fadeIn` and `fadeOut` have been on the placement, on the wire and
+# in the C++ engine all along — what was missing was any way to set them but typing YAML, because
+# the browser was never told they exist (they were absent from WebClip).
+#
+# The length is a DURATION, not a position: "0:1" is one beat, where the same beat spelled as a
+# position is "1:2". Both are legal timecodes and nothing downstream can tell them apart, so the
+# hint says so out loud. A length of 0 REMOVES the fade — the field goes away rather than being
+# written as zero, which is the rule `disabled` and `warp` already follow.
+#
+# The timeline sends these when a fade's corner handle is dragged.
+- command: "event fadein"
+  sid: event.fadeIn
+  readable:
+    en: "Fade one event in"
+    fr: "Ouvrir un fondu d'entrée sur un événement"
+  help: "fade one event in over a length (e.g. event fadein gtr 2:1:1 0:1) — 0 removes it"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      {
+        name: length,
+        type: timecode,
+        hint: "a LENGTH, not a position — '0:1' is one beat; 0 removes the fade",
+      },
+    ]
+- command: "event fadeout"
+  sid: event.fadeOut
+  readable:
+    en: "Fade one event out"
+    fr: "Fermer un fondu de sortie sur un événement"
+  help: "fade one event out over a length (e.g. event fadeout gtr 2:1:1 0:2) — 0 removes it"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      {
+        name: length,
+        type: timecode,
+        hint: "a LENGTH, not a position — '0:1' is one beat; 0 removes the fade",
+      },
+    ]
 # Re-time an event: a new start AND a new end, in one edit. The end is a POSITION on the
 # timeline, not a duration — it is what you drag, and what you can read off the ruler.
 # The timeline sends this form when an event's edge handle is dragged.
@@ -1190,6 +1387,33 @@
     fr: "Réorganiser tout le graphe"
   help: "hand every node back to the automatic layout (clears all pinned positions)"
   surfaces: [cli]
+# Record where the LAYOUT drew nodes that had no pin — the graph writing its own answer down.
+#
+# The other half of `graph move`, and the reason the picture stops rearranging itself. A node the
+# layout placed carries no pin, so the next fresh layout is free to put it elsewhere — and it will,
+# whenever anything about the graph changed. That is what made the track row seem to shuffle at
+# random: the change surfaced at a RELOAD, long after the edit that caused it.
+#
+# So the drawing writes its answer once and the FILE becomes the layout. dagre speaks again only
+# when `graph organize` empties `positions:`.
+#
+# Never overwrites an existing pin, so it cannot walk over a card somebody dragged. One write for
+# the whole batch: sixty nodes as sixty commands would be sixty undo entries for one picture that
+# nobody moved by hand.
+- command: "graph pin"
+  sid: graph.pin
+  readable:
+    en: "Record where the graph drew itself"
+    fr: "Enregistrer où le graphe s'est dessiné"
+  help: 'record the layout''s own positions (JSON {node: {x,y}}) — never overwrites a pin'
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: positions,
+        hint: 'JSON {node: {x,y}} in world px — what the layout placed',
+      },
+    ]
 # Pin a node where a drag (or a hand) put it — chains.yaml's `positions:`. The graph lays
 # out only the nodes with no pin, so a module moved once stays put for ever; `auto` hands
 # it back to the layout. The web sends this when a node's header is dropped.

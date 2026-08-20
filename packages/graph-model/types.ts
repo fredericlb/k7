@@ -216,7 +216,37 @@ export interface WebAutomation {
 export interface WebCurve {
   type: "lfo" | "custom" | "adsr";
   shape?: "sine" | "triangle" | "saw" | "square"; // lfo only
+  /**
+   * A `custom` curve's POINTS, verbatim: song timecodes and values in 0..1. Absent for every
+   * other type, and that is the whole rule — an LFO is a shape you PARAMETERISE and an ADSR is
+   * fired by note-ons, while a custom curve is a shape somebody DREW against song time, which is
+   * the only one a timeline row can show and later let you move.
+   *
+   * The definition rather than the bake: these are already absolute positions, so nothing has to
+   * be sampled and no bake logic exists twice. Baking the LFO here instead would be 24 points per
+   * bar (2048 at the ceiling) on a document the graph pane refetches on every reload, to draw a
+   * shape its own card already names in two words.
+   */
+  points?: { time: string; value: number }[];
 }
+/**
+ * One automation LANE of a track, as the timeline draws it: the knob, and the shape against time.
+ *
+ * Derived from the graph rather than carried on the project document, because that is where the
+ * facts already are — the binding lives on a module (`WebChainStep.automations`) and the shape on
+ * the curve (`WebCurve.points`), and a track owns the lane only because the automated module sits
+ * in its chain. `automationLanes` is the one place that join is computed.
+ */
+export interface WebAutomationLane {
+  track: string; // the lane it draws under — the chain's own name
+  module: string; // which node in that chain owns the knob
+  param: string;
+  curve: string; // the curve id, which is what a later edit will address
+  /** Song timecodes and 0..1 values, verbatim from the file. Empty for a curve with no drawable
+   *  shape — an LFO or an ADSR — whose row says the binding is there and nothing more. */
+  points: { time: string; value: number }[];
+}
+
 export interface WebChain {
   from?: string; // a track id (or another chain)
   // Which of the source lane's OUTPUTS this run left by — "audio" or "midi". A lane offers both
@@ -370,4 +400,38 @@ export interface WebGraph {
   // Every curve a module binds, keyed by id — its shape, for the node's label. An unreferenced curve draws nothing.
   curves?: Record<string, WebCurve>;
   warnings: string[];
+}
+
+/**
+ * Every automation lane in a graph, by the track it belongs to.
+ *
+ * The join `WebAutomationLane` describes, done once. A run is named after the lane that starts it
+ * (`@studio/song`'s docs/trackModules.md), so a chain with a `from` IS a track's chain and its
+ * steps' bindings are that track's automation. A bus chain has no `from` and owns no lane here —
+ * its automation belongs to a return track the timeline does not draw.
+ *
+ * Here rather than in the timeline because it is a fact about the GRAPH, and the graph pane is
+ * what fetches one. The timeline receives the result; deriving it twice is how the two surfaces
+ * would come to disagree about what is automated.
+ */
+export function automationLanes(
+  graph: Pick<WebGraph, "chains" | "curves">,
+): Record<string, WebAutomationLane[]> {
+  const out: Record<string, WebAutomationLane[]> = {};
+  for (const c of Object.values(graph.chains ?? {})) {
+    const track = c.from;
+    if (!track) continue;
+    for (const s of c.use)
+      for (const a of s.automations ?? []) {
+        const curve = graph.curves?.[a.curve];
+        (out[track] ??= []).push({
+          track,
+          module: s.module,
+          param: a.param,
+          curve: a.curve,
+          points: curve?.points ?? [],
+        });
+      }
+  }
+  return out;
 }

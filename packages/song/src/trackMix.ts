@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
-import { beatsToPosition, parsePosition } from "./timecode";
+import { beatsToDuration, beatsToPosition, parsePosition } from "./timecode";
 import { materialWindowOf, type WindowValue } from "./yaml/materialFile";
 import { entityFileFor } from "./yaml/moduleIO";
 import {
@@ -208,7 +208,9 @@ function setPlacementFieldAt(
   num: number,
   den: number,
   key: string,
-  value: boolean | undefined,
+  // Widened from `boolean` for the fades, which write a timecode. The primitive underneath
+  // (`setPlacementField`) has always taken the whole union; only this wrapper narrowed it.
+  value: string | number | boolean | undefined,
   what: string,
 ): boolean {
   let hit = false;
@@ -271,6 +273,38 @@ export function setTrackPlacementWarp(
     "warp",
     warp ? undefined : false,
     "set an event's warp",
+  );
+}
+
+/**
+ * How long the placement at `fromBeats` fades in or out, in beats. Zero deletes the field.
+ *
+ * A fade is a DURATION, which is why this writes `beatsToDuration` and not `beatsToPosition` — the
+ * two spell the same number differently, and a one-beat fade written as a position is `1:2:1`
+ * rather than `0:1:0`. `placementToClip` reads it back with `parseDuration`, so the pair has to
+ * agree or a fade lands a bar out.
+ *
+ * Same default rule as its two siblings above: a fade of nothing is the absence of a fade, so
+ * dragging one open and closed again leaves the file exactly as it was.
+ */
+export function setTrackPlacementFade(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  num: number,
+  den: number,
+  which: "fadeIn" | "fadeOut",
+  beats: number,
+): boolean {
+  return setPlacementFieldAt(
+    dir,
+    id,
+    fromBeats,
+    num,
+    den,
+    which,
+    beats > 0 ? beatsToDuration(beats, num, den) : undefined,
+    "set an event's fade",
   );
 }
 

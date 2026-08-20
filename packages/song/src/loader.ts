@@ -20,6 +20,7 @@ import { presetFor } from "./basePreset";
 import { loadControllerLibrary } from "./controller";
 import { studioModules } from "./docModule";
 import { engineModules, engineRef } from "./engineCatalogue";
+import { instanceName } from "./instanceName";
 import { cachedForModules, withModuleStamp } from "./moduleCache";
 import {
   mergeAuthored,
@@ -1251,6 +1252,38 @@ export function createModuleFile(
       `#   extends: instruments/fourosc\n`;
   writeFileSync(join(dir, rel), body, "utf8");
   return rel;
+}
+
+/**
+ * What to call a new use of `module`, when nobody said: `<lane>_<module>_<n>`.
+ *
+ * `lane` is the track whose chain will play it, and it is dropped when there is none — a node
+ * born on the bare canvas belongs to no run yet. The same rule a forked module is named by, and
+ * the same function: see instanceName.ts for why the counter is always written.
+ *
+ * FREE across the whole project, not merely in `nodes/`, because that is what `createNode`
+ * refuses on: the name is the key a chain writes, so a module already answering to it would be
+ * shadowed. Both halves of that check are asked here, so the name this proposes is one that
+ * function will accept.
+ */
+export function freeNodeName(
+  dir: string,
+  module: string,
+  lane?: string | null,
+): string {
+  return instanceName(module, lane, nodeNameTaken(dir));
+}
+
+/**
+ * Is this name already spoken for — as a module, or as a file in `nodes/`?
+ *
+ * Both halves, because `createNode` refuses on both: the name is the one flat key a chain writes,
+ * so a module already answering to it would be shadowed. Built once and handed to whoever is
+ * choosing a name, so proposing one and accepting one cannot come to disagree.
+ */
+export function nodeNameTaken(dir: string): (name: string) => boolean {
+  const taken = loadModules(dir);
+  return (n) => n in taken || existsSync(join(dir, NODES_DIR, `${n}.yaml`));
 }
 
 /**
