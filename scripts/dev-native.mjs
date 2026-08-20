@@ -111,7 +111,7 @@ function buildEngine() {
 // Only asked once, at startup. A session should not pay a cmake run to be told there is
 // nothing to do, but it should also not silently run the engine you had before a git pull.
 
-/** The freshest built engine binary (mirrors build-engine.mjs's findEngineBinary). */
+/** The freshest built engine binary, Debug last (mirrors build-engine.mjs's findEngineBinary). */
 function engineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
@@ -121,10 +121,15 @@ function engineBinary() {
     for (const cfg of ["", "Release", "RelWithDebInfo", "Debug"])
       for (const name of names) {
         const p = join(build, preset, cfg, name);
-        if (existsSync(p) && statSync(p).isFile()) found.push(p);
+        if (existsSync(p) && statSync(p).isFile())
+          found.push({ path: p, debug: cfg === "Debug" });
       }
-  found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  return found[0] ?? null;
+  found.sort(
+    (a, b) =>
+      Number(a.debug) - Number(b.debug) ||
+      statSync(b.path).mtimeMs - statSync(a.path).mtimeMs,
+  );
+  return found[0]?.path ?? null;
 }
 
 /** The newest mtime under a target's watch roots — the same files the watcher reacts to. */

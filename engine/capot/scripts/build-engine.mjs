@@ -70,7 +70,8 @@ function tauriCmd() {
   return { cmd: "npx", args: ["--yes", "@tauri-apps/cli@2"] };
 }
 
-// The freshest built engine binary (mirrors the CLI's findEngineBinary).
+// The freshest built engine binary, Debug last — see @studio/engine-client's engineBinary.ts for
+// why that exception exists. It matters more here than anywhere: this one is SHIPPED.
 function findEngineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
@@ -81,11 +82,16 @@ function findEngineBinary() {
     for (const cfg of configs)
       for (const name of names) {
         const p = join(build, preset, cfg, name);
-        if (existsSync(p) && statSync(p).isFile()) found.push(p);
+        if (existsSync(p) && statSync(p).isFile())
+          found.push({ path: p, debug: cfg === "Debug" });
       }
   if (!found.length) return null;
-  found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-  return found[0];
+  found.sort(
+    (a, b) =>
+      Number(a.debug) - Number(b.debug) ||
+      statSync(b.path).mtimeMs - statSync(a.path).mtimeMs,
+  );
+  return found[0].path;
 }
 
 // The build number the tray displays, stamped into the binary by build.rs — when it was BUILT, not run.
