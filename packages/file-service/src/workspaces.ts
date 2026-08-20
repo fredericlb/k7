@@ -9,12 +9,14 @@ import {
   assertSshGitUri,
   normalizeGitUri,
   repoName,
+  repoNameOfKey,
 } from "@studio/git-repos/uri";
-import type { WorkspaceSummary } from "@studio/web-protocol";
+import type { MachineWorkspace, WorkspaceSummary } from "@studio/web-protocol";
+import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { slugify, userRoot, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
-import { isProjectDir, Workspace } from "./workspace.ts";
+import { isProjectDir, projectDirsUnder, Workspace } from "./workspace.ts";
 
 const run = promisify(execFile);
 
@@ -66,9 +68,11 @@ export function liveWorkspaces(): Workspace[] {
 
 /** Create a workspace folder. Returns false if it was already there. */
 export function createWorkspace(userEmail: string, workspace: string): boolean {
-  const root = workspaceRoot(slugify(userEmail), workspace);
+  const slug = slugify(userEmail);
+  const root = workspaceRoot(slug, workspace);
   if (existsSync(root)) return false;
   mkdirSync(root, { recursive: true });
+  forgetListing(slug); // a folder this service just made must not wait out the window
   return true;
 }
 
@@ -124,6 +128,7 @@ export async function cloneWorkspace(
     throw e;
   }
   forgetRemotes(slug);
+  forgetListing(slug);
 }
 
 /** `--progress` because git only writes counters when it thinks it has a terminal. */
@@ -260,28 +265,100 @@ export function listWorkspaces(userEmail: string): WorkspaceSummary[] {
     );
   }
   const out: WorkspaceSummary[] = [];
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    if (!e.isDirectory() || e.name.startsWith(".")) continue;
-    const abs = join(dir, e.name);
+  for (const name of workspaceNames(dir)) {
+    const abs = join(dir, name);
     const single = isProjectDir(abs);
     out.push({
-      name: e.name,
+      name,
       isSingleProject: single,
-      projectCount: single ? 1 : countProjects(abs),
+      projectCount: single ? 1 : projectDirsUnder(abs).length,
     });
   }
-  out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }
 
-// Shallow count of immediate project subfolders (a container workspace holds several).
-function countProjects(dir: string): number {
-  let n = 0;
+/** The workspace folders under a user root, sorted — the one place the hidden ones are dropped. */
+function workspaceNames(dir: string): string[] {
   try {
-    for (const e of readdirSync(dir, { withFileTypes: true }))
-      if (e.isDirectory() && isProjectDir(join(dir, e.name))) n++;
+    return readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .map((e) => e.name)
+      .sort((a, b) => a.localeCompare(b));
   } catch {
-    /* unreadable — report 0 */
+    return []; // no root yet, or unreadable — no workspaces rather than a throw
   }
-  return n;
 }
+
+/**
+ * Every workspace on this machine, with the projects it holds and the repository it came from.
+ *
+ * This is what st0's home page draws, and the machine is the only thing that can answer it: the
+ * projects are folders on this disk. It replaces `GET /api/projects` on pl8, which answered the
+ * same question out of a bare blobless mirror — a second copy, a fetch behind, and unable to see
+ * a project that is committed here but not yet pushed.
+ *
+ * The counted cost is `remoteOf` per workspace, which is a `git config` subprocess. It is
+ * memoized for the process' life and dropped only when a clone adds one, so the poll behind this
+ * pays it once. The walk beside it is the same one `workspaceInfo` runs, without its cache —
+ * measured at 5.3 ms on a real workspace, and this asks it of a handful.
+ *
+ * A short name shared by two clones is reported as NOT unique rather than resolved: pl8 answers
+ * 409 for such a name, and picking a winner here would send somebody to the other one. Whether
+ * pl8 knows the repository at all is the OTHER half of that question and is not asked here — see
+ * MachineWorkspace.
+ */
+export async function listMachineWorkspaces(
+  userEmail: string,
+): Promise<MachineWorkspace[]> {
+  const slug = slugify(userEmail);
+  const hit = listings.get(slug);
+  if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
+  const dir = userRoot(slug);
+  const names = workspaceNames(dir);
+  // The origins first and on their own, because addressability is a fact about the SET: a short
+  // name only identifies a workspace when no other workspace answers to it.
+  const origins = await Promise.all(names.map((n) => remoteOf(slug, n)));
+  // , not : these origins are already normalized keys, and the
+  // validating door refuses its own output. See packages/git-repos/src/uri.ts.
+  const shortNames = origins.map((o) => (o ? repoNameOfKey(o) || null : null));
+  const times = new Map<string, number>();
+  for (const n of shortNames) if (n) times.set(n, (times.get(n) ?? 0) + 1);
+
+  const rows = names.map((name, i): MachineWorkspace => {
+    const abs = join(dir, name);
+    const single = isProjectDir(abs);
+    const short = shortNames[i];
+    return {
+      name,
+      origin: origins[i],
+      repoName: short,
+      uniqueName: short !== null && times.get(short) === 1,
+      isSingleProject: single,
+      projects: (single ? ["."] : projectDirsUnder(abs)).flatMap((path) => {
+        // `.` names the workspace folder itself; every other path ends in the folder that
+        // claims the app. Either way the NAME decides, which is the one rule both ends use.
+        const app = projectApp(path === "." ? name : path.split("/").pop()!);
+        return app ? [{ path, app }] : [];
+      }),
+    };
+  });
+  listings.set(slug, { at: Date.now(), rows });
+  return rows;
+}
+
+/**
+ * The window under the listing above, and the same one `Workspace.workspaceInfo` puts under its
+ * own project scan, for the same reason.
+ *
+ * A page polls this every few seconds and the answer changes when somebody creates a project.
+ * Without a floor, every tab on the home page walks every workspace's directory tree on every
+ * tick — a `readdir` per folder, and a real workspace has hundreds. A list five seconds behind
+ * is a row that has not appeared yet, which is a wait; the compiled-document cache refused this
+ * trade and had to, because a stale COMPILE is confidently wrong about a song.
+ *
+ * Dropped whole when a clone or a new workspace lands, which is the one change this service
+ * makes that the window would otherwise hide for the length of it.
+ */
+const LISTING_RESCAN_MS = 5_000;
+const listings = new Map<string, { at: number; rows: MachineWorkspace[] }>();
+const forgetListing = (slug: string) => listings.delete(slug);

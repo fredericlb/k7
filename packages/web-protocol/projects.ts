@@ -1,8 +1,8 @@
 // projects.ts — which studio app owns a project folder, decided by the folder's NAME
 // (`mysong.st0` in st0, `party.z0` in z0's editor), and the ADDRESS that names one:
-// `/<repo>/<project>`. Both are contracts between pl8, which writes them,
-// and the apps, which read them back — so they are stated here, browser-safe, and nowhere else.
-// See apps/pl8/docs/projects.md and packages/project-shell/docs/launch.md.
+// `/<repo>/<project>`. Both are contracts between the side that WRITES an address — st0's home
+// page — and the apps that read one back, so they are stated here, browser-safe, and nowhere
+// else. See apps/st0/frontend/docs/projects.md and packages/project-shell/docs/launch.md.
 
 import { type StudioService, serviceUrl } from "./services.ts";
 
@@ -65,13 +65,14 @@ export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
 /**
  * The app that opens a folder with this name, or null when the name claims none.
  *
- * The NAME, not the contents. That is what lets pl8 answer the question from a git tree it
- * has never checked out — a bare blobless mirror has every path and no file bodies, so any
- * rule that opened a file could not run there at all. See packages/git-repos/docs/mirror.md.
+ * The NAME, not the contents, and the two are different questions: "who opens this" and "can
+ * the engine be given it". Only the second needs a file opened.
  *
- * A `project.yaml` is still what makes a project COMPILE, and `@studio/song` still asks that
- * question its own way. These two are not the same question: one is "who opens this", the
- * other is "can the engine be given it".
+ * That separation was what let pl8 answer the first from a bare blobless mirror it had never
+ * checked out — every path, no file bodies. The mirror is gone (the machine's own clone answers
+ * now, see apps/st0/frontend/docs/projects.md), and the rule stays, because it was never the
+ * mirror that justified it: a `project.yaml` is what makes a project COMPILE, and
+ * `@studio/song` still asks that question its own way, on a real checkout.
  */
 export function projectApp(name: string): ProjectApp | null {
   for (const [app, suffix] of Object.entries(PROJECT_SUFFIXES))
@@ -163,8 +164,8 @@ export function parseLaunch(
  *
  * `encodeURIComponent` escapes it, and RFC 3986 does not: `@` is a `pchar`, legal literally in a
  * path segment, and a browser keeps it that way in the address bar. So encoding it produced an
- * address that did not match the one the person was looking at — which is how `@shares` and
- * `@banc`, the two sentinels this file mints, were the only names it could get wrong.
+ * address that did not match the one the person was looking at — which is how the sentinels
+ * this file mints (`@shares`, `@banc`, `@local`) were the only names it could get wrong.
  */
 const encodeSegment = (s: string): string =>
   encodeURIComponent(s).replace(/%40/g, "@");
@@ -372,6 +373,96 @@ export async function shareKey(token: string): Promise<string> {
  */
 export function shareApiBase(origin: string, key: string): string {
   return `${serviceUrl(origin, "pl8")}/api/public/share/${key}`;
+}
+
+// --- a project that belongs to no repository ------------------------------------------------
+
+/**
+ * A project in a workspace with no repository: `/@local/<workspace>/<projet>.st0`.
+ *
+ * The third sentinel, and the same trick as `@banc` and `@shares`: `@` cannot begin a git short
+ * name, so this can never collide with a real repository, and the gate sees it and skips the
+ * whole road that turns a name into a URI into a clone. There is nothing to clone — the folder
+ * is already on the machine and came from nowhere else.
+ *
+ * Two kinds of workspace need it. `Examples`, seeded with the demos the first time a person is
+ * seen, which is what a new account has on the day it has nothing else; and a folder somebody
+ * made by hand. Neither has an origin, so neither has a `<repo>` to put in an address — they had
+ * no address at all, and so no row on the home page, for as long as pl8's mirror was what listed
+ * projects.
+ *
+ * It is also the way OUT of an ambiguity: two clones whose origins end in the same short name
+ * make `/<name>/…` name two repositories, which pl8 refuses (409) rather than resolving. Their
+ * rows link through here instead, because a workspace name is unique on a machine by construction
+ * — it is a folder name.
+ *
+ * **`parseLaunch` needs nothing added.** `/@local/Examples/synth-demo.st0` already reads as
+ * repo `@local`, project `Examples/synth-demo.st0`: the project part ends at the last segment
+ * claiming the app, exactly as everywhere else. `localTarget` below is what splits the workspace
+ * off the front of it, and is the only new rule.
+ *
+ * The price, stated where it is paid: this address names a machine's folder, so it is **not
+ * portable**. A repository's address opens the same song on any machine — that is what
+ * `projectClaimKey` identifies a project by — while this one means nothing on the next one. A
+ * workspace that has a repository must therefore keep its `/<repo>/…` address, and this is for
+ * the ones that cannot have it.
+ */
+export const LOCAL_REPO = "@local";
+
+/** Whether an address names a workspace on the machine rather than a repository. */
+export function isLocal(repo: string): boolean {
+  return repo === LOCAL_REPO;
+}
+
+/**
+ * Split `<workspace>/<projet…>` — a `@local` address's project part — into the two.
+ *
+ * A workspace that IS a project (`/@local/hiver.st0`) has nothing after its name, and the project
+ * is `"."`: the same answer `parseLaunch` gives when a repository is the project, so everything
+ * downstream is unchanged.
+ *
+ * Null for an empty workspace name. Checked and not trusted, like `benchChainPath` and
+ * `shareToken` above: this comes off an address anyone can type and is then joined onto a root,
+ * so the name must be an ordinary one — which is what stops `../..` from naming a folder outside
+ * the user's own.
+ */
+export function localTarget(
+  project: string,
+): { workspace: string; project: string } | null {
+  const segs = segments(project);
+  const workspace = segs.shift();
+  if (
+    !workspace ||
+    workspace === "." ||
+    workspace === ".." ||
+    workspace.includes("\\")
+  )
+    return null;
+  return { workspace, project: segs.length ? segs.join("/") : "." };
+}
+
+/**
+ * …and the address itself, for the row that links to it.
+ *
+ * `app` for the reason every other row on that page takes one: a `.z0` folder in the same
+ * workspace opens in z0's editor, under its own mount, and the one link on the screen that
+ * guessed would be this one.
+ */
+export function localProjectUrl(
+  origin: string,
+  workspace: string,
+  project: string,
+  app: ProjectApp,
+): string {
+  // Through `launchUrl`, not spelled out beside it, for the reason `shareUrl` is: this address
+  // is read back by `parseLaunch` and `projectBasename`, and a second builder is a second place
+  // for the encoding to differ.
+  return launchUrl(
+    origin,
+    LOCAL_REPO,
+    project === "." ? workspace : `${workspace}/${project}`,
+    app,
+  );
 }
 
 /**

@@ -54,6 +54,7 @@ import {
   cablePath,
   type EdgeInsert,
   eventPoint,
+  type GraphEdge,
   type GraphNode,
   headerFontPx,
   type Jack,
@@ -4561,12 +4562,19 @@ export function DomChains({
       // its cables plugged.
       if (!cb.current.onReplug || !cb.current.onDisconnect) return;
       const g = graphRef.current;
+      // Matched by the jack this cable IS ON, which is the port it names — or the FIRST jack
+      // when it names none. A bare cable has always meant the first socket (`cablePath` draws it
+      // there), and it only started mattering once a node whose first output is NAMED could be
+      // fed by one: a lane's `audio` jack, wired `gtr: [ amp ]`. Without the second half of this
+      // test the cable was drawn plugged into a socket that would not give it back.
+      const portOf = (ed: GraphEdge) =>
+        (side === "out" ? ed.sourcePort : ed.targetPort) ?? undefined;
       const e = g.edges.find(
         (ed) =>
           !ed.automation &&
           (side === "out" ? ed.source : ed.target) === n.id &&
-          ((side === "out" ? ed.sourcePort : ed.targetPort) ?? undefined) ===
-            (p.name ?? undefined),
+          (portOf(ed) === (p.name ?? undefined) ||
+            (portOf(ed) === undefined && index === 0)),
       );
       if (!e) return; // only automation plugs here — those cables are edited on the module
       const src = g.nodes.find((x) => x.id === e.source);

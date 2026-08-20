@@ -29,6 +29,7 @@ import {
   cloneModuleFile,
   createModuleFile,
   createNode,
+  createSequenceFile,
   createTrackFile,
   isFileParam,
   loadChains,
@@ -492,20 +493,34 @@ function resolveEvent(
   return { track, atBeats, hit, num, den, tempo: p.tempo };
 }
 
-// `track new <kind> [name]`. Falls back to the next free <kind>-N when unnamed.
-async function newTrack(
-  arg: string,
-  h: CommandHost,
-  kind: "audio" | "midi",
-): Promise<void> {
+// `track new [name]`. Falls back to the next free track-N when unnamed.
+//
+// No kind. It was `track new audio` and `track new midi`, and a lane is not typed by what it
+// carries any more — one lane holds events naming clips and events naming sequences alike
+// (packages/song/docs/trackModules.md). What the MIDI flavour did beyond making a lane — seeding
+// the empty sequence it played — is `sequence new`, which is what that half was really about.
+async function newTrack(arg: string, h: CommandHost): Promise<void> {
   const name = arg.trim().split(/\s+/)[0] ?? "";
-  const id = name || uniqueId(kind, h.project());
+  const id = name || uniqueId("track", h.project());
   try {
-    const written = createTrackFile(h.songPath, id, kind);
+    const written = createTrackFile(h.songPath, id);
     h.reload(); // the doc now comes from disk, so the mixer and the engine agree with it
-    h.log([`+ ${kind} track ${id} (${written.join(", ")})`]);
+    h.log([`+ track ${id} (${written.join(", ")})`]);
   } catch (e) {
-    h.refuse([`track new ${kind}: ${(e as Error).message}`]);
+    h.refuse([`track new: ${(e as Error).message}`]);
+  }
+}
+
+// `sequence new [name]` — four empty bars to write into. Place it on a lane with `event new`.
+async function newSequence(arg: string, h: CommandHost): Promise<void> {
+  const name = arg.trim().split(/\s+/)[0] ?? "";
+  const id = name || uniqueId("seq", h.project());
+  try {
+    const written = createSequenceFile(h.songPath, id);
+    h.reload();
+    h.log([`+ sequence ${id} (${written.join(", ")})`]);
+  } catch (e) {
+    h.refuse([`sequence new: ${(e as Error).message}`]);
   }
 }
 
@@ -1008,8 +1023,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // caches it and tells the engine — so a strip appeared in the mixer and nothing was
   // written, and the track vanished on the next reload. Write the file, then reload, so
   // what plays is what is on disk.
-  "track.new.audio": async (a, h) => newTrack(a, h, "audio"),
-  "track.new.midi": async (a, h) => newTrack(a, h, "midi"),
+  "track.new": async (a, h) => newTrack(a, h),
+  "sequence.new": async (a, h) => newSequence(a, h),
 
   // Bounce material through a chain and keep the result: the render lands beside the source and the
   // clip files are pointed at it. The mechanism (and the reasoning) is processChain.ts; the two
@@ -1358,7 +1373,11 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`no event on '${track.id}' at ${fromTc}`]);
       return;
     }
-    // A destination track makes this a move BETWEEN lanes, refused unless both carry the same kind of material.
+    // A destination track makes this a move BETWEEN lanes, refused only when the destination has
+    // nowhere to put THIS event. It used to compare the two lanes' `contentType`, which refused
+    // every move between an audio lane and a sequences one — a lane is not typed now, so the
+    // question is about the event: a lane takes a note when its midi output is wired and a clip
+    // when its audio one is, and the wire says which in one word (docs/trackModules.md).
     let dest = track;
     if (toTrackArg) {
       const d = p.tracks.find(
@@ -1368,9 +1387,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         h.refuse([`no track "${toTrackArg}"`]);
         return;
       }
-      if (d.contentType !== track.contentType) {
+      const takes = hit.type === "midi" ? "notes" : "audio";
+      if (!d.contentType.includes(takes)) {
         h.refuse([
-          `can't move onto '${d.id}': it holds ${d.contentType}, '${track.id}' holds ${track.contentType}`,
+          `can't move onto '${d.id}': this event is ${takes} and '${d.id}' takes ${d.contentType}`,
         ]);
         return;
       }
@@ -1658,7 +1678,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   /**
-   * event consolidate <tracks> <from> <to> — write one material over a range.
+   * selection consolidate <tracks> <from> <to> — write one material over a range.
    *
    * Put a range back together, whatever is in it — a split rejoined, two materials merged, a
    * stack flattened, all by one act. `event join` stood beside it and only ever rewrote
@@ -1673,17 +1693,17 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * GAPS SURVIVE. The new material spans the whole range and silence where nothing played is part
    * of it, which is what makes the result play back identically — the same test a split has.
    */
-  "event.consolidate": async (a, h) => {
+  "selection.consolidate": async (a, h) => {
     const m = /^(\S+)\s+(\S+)\s+(\S+)$/.exec(a.trim());
     if (!m) {
-      h.refuse(["usage: event consolidate <track> <from> <to>"]);
+      h.refuse(["usage: selection consolidate <track> <from> <to>"]);
       return;
     }
     const [, tracksArg, fromTc, toTc] = m;
     const ids = [...new Set(tracksArg.split(",").filter(Boolean))];
     if (ids.length !== 1)
       return h.refuse([
-        `event consolidate takes ONE track — ${ids.length ? ids.join(", ") : "none"} given; a rectangle over several has no single file to write`,
+        `selection consolidate takes ONE track — ${ids.length ? ids.join(", ") : "none"} given; a rectangle over several has no single file to write`,
       ]);
     const found = resolveEvent(h, ids[0], fromTc);
     if (!found) return;
@@ -1700,7 +1720,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
         const bin = findEngineBinary();
         if (!bin)
           return h.refuse([
-            "event consolidate: no engine on this machine — consolidating audio means rendering a file",
+            "selection consolidate: no engine on this machine — consolidating audio means rendering a file",
           ]);
         const done = consolidateAudioMaterial(
           bin,
@@ -1734,7 +1754,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       await h.reload();
     } catch (e) {
-      h.refuse([`event consolidate failed: ${(e as Error).message}`]);
+      h.refuse([`selection consolidate failed: ${(e as Error).message}`]);
     }
   },
 
@@ -1951,7 +1971,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   "sequence.list": (_a, h) => {
     const seqs = collectSequences(h.project());
-    if (!seqs.length) h.log(["no sequences — add one with: track new midi"]);
+    if (!seqs.length) h.log(["no sequences — add one with: sequence new"]);
     else
       h.log(
         seqs.map(

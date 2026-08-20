@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  cellBox,
   clampCell,
   colSpan,
   type GridSelection,
@@ -64,6 +65,13 @@ describe("the rectangle", () => {
       colLo: 3,
       colHi: 3,
     });
+  });
+
+  // …and with NO rectangle at all, the caret is that same one-cell box. This is what lets ⌃C
+  // copy the note you are pointing at: the grids feed `cellBox(caret)` to the very code path a
+  // drawn rectangle feeds, so "copy" means one thing whether or not `v` was ever pressed.
+  it("the caret's own cell IS a rectangle — the one a copy falls back on", () => {
+    expect(cellBox({ row: 2, col: 3 })).toEqual(selBox(sel([2, 3], [2, 3])));
   });
 });
 

@@ -86,10 +86,12 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
 ```
 
 - **A track is a MODULE.** It lives in `nodes/<name>.yaml` and what it `extends` says
-  what kind of lane it is: `@studio/audio-track`, `@studio/sequence-track`, their two
-  `…-strudel-track` siblings, or `@studio/group-track`. There is no `tracks/` folder, no
-  `type:` and no `contentType:` — one `extends:` says both what signal it carries and where
-  its clips come from. See
+  what kind of lane it is: `@studio/track`, `@studio/strudel-track` or
+  `@studio/group-track`. There is no `tracks/` folder, no `type:` and no `contentType:` —
+  a lane is not typed by what it carries. It offers an `audio` and a `midi` output, holds
+  events naming clips and events naming sequences in one list, and each leaves by the one
+  its own material fits (`gtr#audio:` / `gtr#midi:` in `graph.yaml` when the two need
+  different chains). See
   [packages/song/docs/trackModules.md](../../packages/song/docs/trackModules.md).
 - **A group holds no material — only membership.** `tracks` lists the member lane
   names. That's all a group is.
@@ -108,11 +110,12 @@ nodes/<name>.yaml      one USE of a module, flat, named by its file — the LANE
   so it's checked when playback starts. **A `.strudel` file no lane links to is
   ignored**: `algo/` is a library you pick from, not a folder that autoloads.
 - **A strudel lane is a lane like any other**: a stable name, so `graph.yaml` can route
-  it and the mixer can set its gain and pan. WHICH of the two strudel modules it extends
-  decides how the pattern's events are read, so a chain and a pattern can't disagree:
-  `@studio/sequence-strudel-track` makes every event a MIDI note played by whatever
-  instrument the chain provides (`s(…)` picks a waveform, not a plugin);
-  `@studio/audio-strudel-track` makes every event a sample one-shot (`s("bd")` names it).
+  it and the mixer can set its gain and pan. How each event reads is the EVENT's business —
+  a sound that resolves to a sample plays as a one-shot (`s("bd")`), anything else plays as
+  a note for whatever instrument the chain provides (`s(…)` then picks a waveform, not a
+  plugin) — so one pattern lane can be half drums and half melody. It holds nothing until
+  the transport rolls, so its WIRING is the one place "these are notes for the synth" can
+  be written: `pad#midi: [ synth-pad ]`.
 - **A lane no track declares still plays.** The clock mints a live track for it, named
   after its label — or, for unlabelled events, one per orbit named `strudel <orbit> …`.
   Declaring a lane is the opt-in that buys the id, the chain and the mixer strip;

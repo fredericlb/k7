@@ -14,6 +14,21 @@ export interface RevisionPoller {
   subscribe: (listener: () => void) => () => void;
   /** The last token read, or null while none has been. */
   get: () => string | null;
+  /**
+   * Adopt a token the caller already holds, WITHOUT waking the listeners.
+   *
+   * A writing command answers with the token it produced, and st0's `runCommand` reloads the
+   * shell on the spot — so every consumer of this poller has already re-asked its question by
+   * the time the next tick happens. Without this the tick found a token it had never seen and
+   * ran them all a SECOND time, 0–2 s later, for a change they had answered: `/project-errors`
+   * (45 ms on the reference song) and a re-read of the open file, per write.
+   *
+   * Silent on purpose, and only safe because of that reload: whoever notes a token is promising
+   * it has already done what a notification would have caused. A caller that writes and does
+   * NOT reload — st0's `quietCommand` — must not call this, or the editor would stop following
+   * a file the command rewrote under it.
+   */
+  note: (rev: string) => void;
 }
 
 export function createRevisionPoller(
@@ -23,6 +38,10 @@ export function createRevisionPoller(
   let token: string | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
   let inFlight = false;
+  // Bumped by `note`, so an answer fetched BEFORE a command landed cannot overwrite the token
+  // that command produced — which would hand the next tick a difference it would announce, and
+  // put back the very second pass `note` exists to remove.
+  let generation = 0;
   const listeners = new Set<() => void>();
 
   const pull = async (): Promise<void> => {
@@ -31,8 +50,10 @@ export function createRevisionPoller(
     // on is how a slow answer becomes a slower one.
     if (inFlight) return;
     inFlight = true;
+    const at = generation;
     try {
       const rev = await fetchRev();
+      if (at !== generation) return; // a note() landed while this was in the air
       if (rev === token) return;
       token = rev;
       for (const l of listeners) l();
@@ -60,10 +81,22 @@ export function createRevisionPoller(
       };
     },
     get: () => token,
+    note: (rev) => {
+      generation++;
+      token = rev;
+    },
   };
 }
 
 const poller = createRevisionPoller(() => api.revision().then((r) => r.rev));
+
+/**
+ * Tell the poller the token a writing command just answered with, so its next tick has nothing
+ * to announce. Only for a caller that has already reloaded the shell — see `RevisionPoller.note`.
+ */
+export function noteRevision(rev: string): void {
+  poller.note(rev);
+}
 
 /**
  * The project's current change token, or null while none has been read yet.

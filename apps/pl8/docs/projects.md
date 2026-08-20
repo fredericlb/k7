@@ -1,11 +1,18 @@
-# Projets — pl8 détient les dépôts, st0 les dessine
+# Projets — pl8 tient le REGISTRE des dépôts, st0 les dessine
 
-Ce service **stocke** les dépôts git d'un compte, en tient un miroir pour répondre « qu'est-ce
-qu'il y a dedans », détient l'unique clé de déploiement, et sert `/api/projects`. Il ne les
-**montre** plus : l'écran est la page d'accueil de st0 (`/`), et
+Ce service tient la liste des dépôts git d'un compte, détient l'unique clé de déploiement, et sert
+`/api/projects`. Il ne les **montre** plus : l'écran est la page d'accueil de st0 (`/`), et
 [apps/st0/frontend/docs/projects.md](../../st0/frontend/docs/projects.md) est la page à lire pour
 tout ce qui se dessine. Celle-ci ne parle que de ce que ce service détient et de pourquoi c'est
 lui.
+
+> **Il ne dit plus ce qu'il y a DEDANS.** Il tenait un miroir *bare* et *sans blobs* de chaque
+> dépôt pour répondre à ça — `git clone --mirror --filter=blob:none`, les chemins sans les
+> contenus. Le miroir est supprimé, avec son code. C'était une deuxième copie de ce que la
+> machine du moteur tient déjà, en retard d'un `git fetch`, et aveugle à un projet committé là-bas
+> dont l'envoi n'était pas passé. Le service de fichiers répond désormais
+> `GET /workspaces/projects` depuis les espaces de travail clonés. Ce qui reste ici est ce
+> qu'aucune machine ne peut tenir : une liste qui appartient à une personne.
 
 > **Ce qui a bougé, ce qui n'a pas.** Il y a eu ici une sixième section, `/projects`, qui était
 > même la section d'accueil. Elle est partie entière — l'onglet, son compte, son poll et son
@@ -21,37 +28,33 @@ chaque moteur, tienne un volume, et sache déjà nommer quelqu'un : c'est là qu
 préférences, les jetons et la session de tout le monde. Une machine de moteur, elle, va et vient
 et peut être reformatée un soir sans que le studio y perde une adresse.
 
-## pl8 ne fait jamais de copie de travail
+## pl8 ne fait aucune copie d'un dépôt
 
-Il tient un miroir *bare* et *sans blobs* de chaque dépôt, uniquement pour répondre « qu'est-ce
-qu'il y a dedans ». La copie qu'on édite, qu'on joue et qu'on committe vit sur la machine du
-moteur, et c'est le file service qui la fait. Le pourquoi et le comment sont dans
-[packages/git-repos/docs/mirror.md](../../../packages/git-repos/docs/mirror.md).
+Plus aucune, désormais : la seule qu'il faisait était le miroir. La copie qu'on édite, qu'on joue
+et qu'on committe vit sur la machine du moteur, et c'est le file service qui la fait.
 
 La seule chose lourde que ce service détient à propos d'un projet est un **partage** — une copie
 gelée, publiée exprès, dont il est bel et bien la seule copie. Ce n'est pas une exception à la
 règle du dessus, et [shares.md](shares.md) ouvre en disant pourquoi.
 
-### Le nom du dossier suffit à répondre
+### Le nom du dossier suffit à répondre — et l'argument survit au miroir
 
 **Le suffixe du dossier nomme l'application** : `mysong.st0` s'ouvre dans st0, `partie.z0` dans z0
 (`packages/web-protocol/projects.ts` est la règle entière).
 
-Le NOM, et pas le contenu — c'est ce qui rend la question répondable ici. Un nom de dossier est
-une question sur l'ensemble des chemins, et l'ensemble des chemins est exactement ce qu'est un
-arbre git : aucun contenu de fichier n'est nécessaire, donc aucun n'est téléchargé. Une règle qui
-aurait dû **ouvrir** un fichier ne pourrait pas tourner ici du tout.
+Le NOM, et pas le contenu. C'est ce qui rendait la question répondable depuis un miroir sans
+blobs : un nom de dossier est une question sur l'ensemble des chemins, et l'ensemble des chemins
+est exactement ce qu'est un arbre git. Le miroir n'est plus là, mais la règle reste, et pour une
+raison qui n'a jamais dépendu de lui : « qui ouvre ce dossier » et « le moteur peut-il en être
+nourri » sont deux questions différentes, et seule la seconde a besoin de lire un fichier.
 
-`project.yaml` n'a pas disparu pour autant — il reste ce qui rend un projet **compilable**, et
-`@studio/song` pose toujours cette question-là, sur une vraie copie de travail. Un `.st0` sans
-`project.yaml` est donc listé, ouvrable, et échoue à la compilation une fois ouvert, avec le
-message de st0. C'est le bon ordre : pl8 ne peut pas savoir, et c'est précisément ce qui permet
-d'ouvrir un dossier qui n'est pas encore un morceau complet.
+`project.yaml` reste donc ce qui rend un projet **compilable**, et `@studio/song` pose toujours
+cette question-là, sur une vraie copie de travail. Un `.st0` sans `project.yaml` est listé,
+ouvrable, et échoue à la compilation une fois ouvert, avec le message de st0. C'est le bon ordre.
 
-**Le file service applique la même règle** (`isProjectDir`, `workspace.ts`), donc ce que ce
-service liste et ce que l'arbre de st0 marque ne peuvent pas diverger. Une seule règle, aux deux
-bouts. L'arbre rendu est du `FileNode` — le même type que celui que sert le file service, avec le
-même drapeau `project?: boolean`, plus `app`.
+**Le file service applique cette règle** (`isProjectDir`, `workspace.ts`), et c'est maintenant le
+seul qui l'applique : lister et marquer sont le même code, du même côté. Il n'y a plus deux bouts
+à tenir en phase, ce qui est une raison de moins de se tromper.
 
 > **Migration.** Un dossier de projet sans suffixe n'est plus un projet. Les cinq démos de
 > `engine/capot/songs/` ont été renommées (`synth-demo.st0`, …) ; leur champ `name:` reste sans
@@ -59,15 +62,15 @@ même drapeau `project?: boolean`, plus `app`.
 > suffixé** : un dépôt qui *est* lui-même un projet ne se liste pas, puisque sa racine n'a pas de
 > nom dans l'arbre.
 
-### Le compte, sur chaque dépôt
+### Ce que `GET /api/projects` répond
 
-`GET /api/projects` renvoie `projects: RepoProject[] | null` sur chaque dépôt. Le miroir avait
-déjà calculé cette liste pour en compter les éléments ; ne renvoyer que le nombre obligeait à un
-second aller-retour puis à un dépliage d'arbre pour arriver là où on allait de toute façon. Il
-n'y a pas de champ `projectCount` à côté : c'est `projects.length`, et deux sources pour un même
-chiffre finissent toujours par diverger.
+Le registre, et rien d'autre : `id`, `uri`, `name` (le nom court), `label`, `addedAt`. Plus de
+`projects`, plus de `branch`, plus d'état de récupération — les trois décrivaient le miroir.
 
-`null` reste distinct de `[]` — « miroir jamais lu » n'est pas « aucun projet ».
+**Un appelant le lit encore, et pour une raison précise.** La page d'accueil de st0 dessine les
+espaces de travail de la machine ; ce registre est ce qui dit si l'adresse portable
+`/<dépôt>/<projet>` se résoudra, puisque `by-name` ci-dessous est demandé ici. Une copie que la
+machine a et que ce registre ignore s'ouvre par `@local` et pas autrement.
 
 ## Le dépôt des bibliothèques est rangé ici aussi
 
@@ -97,24 +100,20 @@ tenait. Il n'en tient plus : un module s'écrit dans st0, contre un projet où l
 nomme est réellement chargé. Il n'y a donc plus rien à semer, et le commit vide est tout ce qui
 reste de cette étape.
 
-## Pourquoi pl8 ne peut pas écrire dans un dépôt
+## Pourquoi pl8 n'écrit dans aucun dépôt
 
-Son miroir est `git clone --mirror --filter=blob:none` : bare, donc aucune copie de travail, et
-sans blobs, donc les chemins sans les contenus. Trois raisons, par ordre de gravité :
+La raison qui compte n'a pas changé avec le miroir, et c'est celle-ci : **en faire un écrivain de
+tous les dépôts est un changement de posture de sécurité, pas une fonctionnalité.** pl8 émet la
+session de tout le monde et détient l'unique clé de déploiement ; lui donner en plus le droit
+d'écrire partout concentre tout au même endroit.
 
-1. **C'est un cache.** Un miroir que personne n'a lu depuis quinze jours est supprimé et recréé
-   au prochain regard. Y écrire la seule copie d'un projet neuf, c'est la mettre dans ce qui est
-   conçu pour être jeté.
-2. **Le partage est déjà posé** : pl8 miroite pour répondre « qu'est-ce qu'il y a dedans », et la
-   copie qu'on édite et qu'on committe vit sur la machine du moteur.
-3. **Techniquement faisable, et c'est le piège.** On *peut* fabriquer un commit en plomberie et
-   pousser depuis un clone bare sans blobs. Mais ça ferait de pl8 — le service qui émet aussi la
-   session de tout le monde et détient l'unique clé de déploiement — un **écrivain de tous les
-   dépôts**. C'est un changement de posture de sécurité, pas une fonctionnalité.
+C'était techniquement faisable même depuis un clone bare sans blobs — on peut fabriquer un commit
+en plomberie et le pousser — et c'était le piège de l'argument : « on ne peut pas » aurait été
+faux, et donc fragile. « On ne veut pas » tient toujours.
 
-C'est la raison pour laquelle créer et supprimer un projet passent par le service de fichiers de
-la machine, et l'ont toujours fait — avant comme après le déménagement de l'écran. Ce que le
-déménagement a changé, c'est que l'écran et cette machine sont maintenant du même côté.
+Créer et supprimer un projet passent donc par le service de fichiers de la machine, et l'ont
+toujours fait. Ce que le déménagement de l'écran a changé, c'est que l'écran et cette machine sont
+du même côté ; ce que le retrait du miroir a changé, c'est que la LECTURE les a rejoints.
 
 ## Pourquoi la comparaison des URI est normalisée
 
@@ -152,8 +151,10 @@ n'apparaît jamais dans un scan de famille ni dans l'API fichier.
 <STUDIO_MEDIATEK>/.projects/
   repos/<slug>-<hash>.json      ses dépôts, et son dépôt de bibliothèques
   ssh/<slug>-<hash>/            sa paire de clés
-  mirrors/<slug>-<hash>/<id>.git  les miroirs bare, sans blobs
 ```
+
+> Il y avait un `mirrors/<slug>-<hash>/<id>.git` à côté. Le code qui l'écrivait et le balayait est
+> parti ; un volume déjà déployé garde donc le dossier, inerte, et il est supprimable à la main.
 
 Le fichier porte deux champs, `repos` et `libraries`, et l'écriture les FUSIONNE : les deux
 s'éditent depuis deux endroits de l'écran et rien ne les sérialise, donc écrire une moitié ne
@@ -165,20 +166,13 @@ l'état. L'écriture, en revanche, **lève** au lieu d'être silencieuse comme c
 perdre une préférence coûte un réglage à refaire, perdre un dépôt qu'on vient d'ajouter donne un
 200 pour quelque chose qui n'a pas eu lieu.
 
-Un miroir que personne n'a lu depuis quinze jours est supprimé ; le prochain regard le recrée.
-Une éviction coûte une attente, jamais une donnée — le dépôt est ailleurs, et ceci n'en est
-qu'une copie.
-
-Un `git fetch` coûte du réseau, donc le miroir n'est pas rafraîchi à chaque demande : à l'ajout,
-sur le bouton, et au plus une fois par dix minutes.
-
 ## Ce qui tourne dans l'image
 
-Le conteneur pl8 installe `git` **et `openssh-client`** : chaque dépôt est joint par SSH, donc
-git seul ne clonerait rien. `openssh-client` porte à la fois `ssh` — que nomme `GIT_SSH_COMMAND`
-— et `ssh-keygen`, qui fabrique la paire.
+Le conteneur pl8 installe `openssh-client` pour `ssh-keygen`, qui fabrique la paire de clés. Il
+n'appelle plus `git` du tout : le clone du miroir était le seul appel, et il est parti avec lui.
 
-Tout appel à git depuis ce service hébergé porte le même durcissement que le clone du file
-service, et pour les mêmes raisons : `GIT_CONFIG_GLOBAL=/dev/null` et `GIT_CONFIG_NOSYSTEM=1`
-(un `url.insteadOf` personnel retournerait l'URI SSH en https, privilège compris),
-`GIT_TERMINAL_PROMPT=0`, `--` avant l'URI, et des délais bornés.
+Ce que ce service faisait quand il en appelait un portait le même durcissement que le clone du
+file service, et c'est là qu'il faut le relire si un appel à git revenait ici un jour :
+`GIT_CONFIG_GLOBAL=/dev/null` et `GIT_CONFIG_NOSYSTEM=1` (un `url.insteadOf` personnel
+retournerait l'URI SSH en https, privilège compris), `GIT_TERMINAL_PROMPT=0`, `--` avant l'URI,
+et des délais bornés — `packages/file-service/src/workspaces.ts` les applique tous.

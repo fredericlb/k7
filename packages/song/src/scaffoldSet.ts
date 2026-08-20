@@ -276,7 +276,7 @@ function deckTrack(letter: string, wiring: string): string {
     // `docs:` used to close this file, restating in a field what the comment above already says.
     // The field is gone (a note is a doc module now) and the comment is the better half anyway:
     // it is where a reader of the FILE looks, and it survives the round trip through the editor.
-    `extends: "@studio/audio-track"\n`
+    `extends: "@studio/track"\n`
   );
 }
 

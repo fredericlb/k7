@@ -139,17 +139,36 @@ describe("the sockets a built graph puts on its nodes", () => {
     expect(xf?.jacks?.out).toHaveLength(1);
   });
 
-  it("gives a lane an input socket, and a SPARE output once its first is taken", () => {
+  it("gives a lane TWO outputs, audio then midi", () => {
+    // A lane is not typed by what it carries — it offers both, and each event leaves by the one
+    // its material fits. The ORDER is load-bearing twice: a cable that names no port lands on the
+    // first (which is why deckA's cable is on `audio`), and the picture reads orange then blue.
+    // A lane wired to nothing at all — both outputs offered, neither taken.
+    const { nodes } = buildGraph({
+      chains: {},
+      tracks: ["deckB"],
+      warnings: [],
+    });
+    expect(nodes.find((n) => n.id === "trk:deckB")?.jacks?.out).toEqual([
+      { name: "audio", type: AUDIO, free: true },
+      { name: "midi", type: "midi", free: true },
+    ]);
+  });
+
+  it("gives a lane an input socket, and a SPARE beside the output that is taken", () => {
     // A lane used to have neither: nothing could be routed INTO it, and a lane already feeding
     // something had no free socket left to feed a second — which is what a send is.
     const { nodes } = buildGraph(wired);
     const deck = nodes.find((n) => n.id === "trk:deckA");
     expect(deck?.jacks?.in).toEqual([{ type: AUDIO, free: true }]);
-    // The taken one and the spare. Both unnamed, because they are the same socket: `jackRef` names
-    // it by the node alone, so landing on the spare writes a second ARROW, not a second port.
+    // deckA is wired BARE (`deckA: [ crossfade ]`), so its cable is on the first output. The
+    // spare beside it is UNNAMED on purpose: it is the same address the cable already there
+    // used, so a second send appends to `deckA:` rather than writing `deckA#audio:` beside it —
+    // which would be two keys, and two keys SPLIT the lane into two engine tracks.
     expect(deck?.jacks?.out).toEqual([
-      { type: AUDIO, free: false },
+      { name: "audio", type: AUDIO, free: false },
       { type: AUDIO, free: true },
+      { name: "midi", type: "midi", free: true },
     ]);
   });
 

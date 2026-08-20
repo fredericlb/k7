@@ -408,7 +408,7 @@ export function resizeTrackPlacement(
 // material, and a join that put such a pair back. Both are gone. A split that does not write is
 // a split whose halves you cannot then treat apart — which is the reason to cut one at all —
 // and every case the join refused (a different material, a gap, an overlap, a restart) is a
-// case `event consolidate` writes. One verb rejoins anything now, at the cost of a file.
+// case `selection consolidate` writes. One verb rejoins anything now, at the cost of a file.
 //
 // What is left in this file is placement arithmetic that does not cut material: move, resize,
 // disable, warp, add, remove. See packages/song/docs/materialCut.md.

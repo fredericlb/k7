@@ -2,19 +2,19 @@
 
 ## D'abord : mais [projects.md](projects.md) dit que pl8 ne stocke rien de lourd
 
-C'est vrai, et ça reste vrai. La règle qu'il pose est *« pl8 ne fait jamais de copie de travail »* :
-son miroir est `--mirror --filter=blob:none`, un **cache** balayé au bout de quinze jours, et la
-copie qu'on édite et qu'on committe vit sur la machine du moteur. Écrire la seule copie d'un
-projet dans ce qui est conçu pour être jeté serait la perdre.
+C'est vrai, et ça l'est devenu plus encore. La règle qu'il pose est *« pl8 ne fait aucune copie
+d'un dépôt »* : la copie qu'on édite, qu'on joue et qu'on committe vit sur la machine du moteur, et
+ce service n'en tient plus aucune — il tenait un miroir bare et sans blobs pour répondre « qu'est-ce
+qu'il y a dedans », et cette question est celle de la machine désormais.
 
-Un partage n'est pas une copie de travail, et c'est toute la différence :
+Un partage n'est pas une copie d'un dépôt, et c'est toute la différence :
 
-|  | le miroir d'un dépôt | un partage |
+|  | ce que pl8 tient d'un dépôt | un partage |
 |---|---|---|
-| ce que c'est | un cache de ce qui est ailleurs | **l'original**, et le seul |
-| qui peut le refaire | `git fetch`, tout seul | personne — le rendu a eu lieu une fois |
+| ce que c'est | son NOM et son URI, une entrée de registre | **l'original**, et le seul |
+| qui peut le refaire | l'inscrire à nouveau coûte un collage | personne — le rendu a eu lieu une fois |
 | ce qu'on y écrit | rien | rien non plus : il est gelé à la seconde où il arrive |
-| quand ça part | après quinze jours sans lecture | quand son auteur le retire, et jamais avant |
+| quand ça part | quand on retire le dépôt de sa liste | quand son auteur le retire, et jamais avant |
 
 Un partage est **du contenu publié**, exactement comme une release k7 ou un morceau de la
 médiathèque — deux choses que ce service héberge déjà et dont il est déjà la seule copie. Ce que

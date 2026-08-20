@@ -130,7 +130,7 @@ describe("playedZone", () => {
   });
 
   it("is the PLACEMENT's extent when it states none", () => {
-    // The case `event consolidate` produces: its window equals its content, so the compiler
+    // The case `selection consolidate` produces: its window equals its content, so the compiler
     // drops the range as saying nothing (`statedTo`) — and the roll was left with no band on an
     // event that plainly has an extent. A note past `length` sounds nowhere.
     expect(playedZone(clip({ length: 4 }))).toEqual({ from: 0, to: 4 });

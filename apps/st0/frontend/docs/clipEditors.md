@@ -282,30 +282,78 @@ Two smaller rules, both the timeline's:
 
 ### Copying a rectangle, and pasting it at the caret
 
-`ui copy` (`c`) puts the rectangle's contents aside; a paste (`p`) puts them down with their
-**top-left corner under the caret**. That is the whole model — the clipboard holds coordinates
-relative to the corner, so where you put the caret decides both the shift in time and, on a roll,
-the transposition. `src/clipboard.ts` is the arithmetic, pure and tested.
+`selection copy` (**Ctrl+C**, or `c`) puts the rectangle's contents aside; `selection paste`
+(**Ctrl+V**, or `p`) puts them down with their **top-left corner under the caret**. That is the whole model — the clipboard holds
+coordinates relative to the corner, so where you put the caret decides both the shift in time and,
+on a roll, the transposition. `src/clipboard.ts` is the arithmetic, pure and tested.
+
+**With no rectangle drawn, the caret is one.** A caret is already pointing at something, so it is
+treated as the smallest rectangle there is: one cell in a grid — the note or step under it — and
+on a lane, where the unit is a clip rather than a grid step, the **placement** under it, taken
+over its own length. `cellBox` in `gridCaret.ts` is the grid half; `TimelineTab`'s `copy` is the
+lane half, and both feed the same `clipboard.ts` path a drawn rectangle feeds.
+
+That is a fix rather than a nicety. Copy answered a `v` rectangle and nothing else, and its key
+was *conditional on one being drawn* — so selecting an event by clicking it and pressing Ctrl+C
+did nothing and **said** nothing, and the paste then reported an empty clipboard. Two rules came
+out of it, and both are pinned in `keys.test.ts`:
+
+- **The clipboard keys are unconditional**, alone among the bindings. A key that goes quiet is
+  indistinguishable from one that is broken, and these two now always have an answer.
+- **The command says what it found.** Parked on a bare stretch of lane, `selection copy` reports
+  *nothing to copy* and names both ways of pointing; the status line is where a command speaks.
 
 The clipboard is **one slot for both kinds**: copying is a single gesture with a single memory,
 and two clipboards would make "what does paste put down" a question about which pane you copied
-from three minutes ago. `ui copy` reads whichever grid is on screen, because only one rectangle is
-ever live.
+from three minutes ago.
 
-| copied from | what is held | pasted with | which runs |
-|---|---|---|---|
-| the timeline | placements, by lane offset and beat | `events paste` | `events add` |
-| the roll | notes, by semitones below the top row | `sequence notes paste` | `sequence note add` |
-| the sequencer | the same, through the rack's rows | `sequence notes paste` | `sequence note add` |
+**The copy FALLS THROUGH; the other routed verbs do not.** `ui select`, `transport locate` and
+`transport loop` stop at the pane in front — they *act* on it. `selection copy` asks it a
+question, and the pane in front is routinely the one with no answer: clicking an event in the
+timeline is what opens the clip pane, and the roll it opens starts with its caret at key 127,
+where no note has ever been. So the copy asked the roll, found nothing, and never asked about the
+event you had just clicked — with the timeline's caret sitting on it. The paste then reported an
+empty clipboard, which was true and useless. It is the clip pane **and then the timeline** now,
+first answer winning.
 
-**Two paste verbs, not one**, for the reason `track process` and `clip process` are two: the noun
-is the promise. Each names the material it puts down, so it also names the surface that answers —
-events onto the timeline's caret whatever else is on screen, notes into the open clip grid — and a
-paste never has to guess which pane you meant. `p` resolves to the verb for what is HELD
-(`clipboard_events` / `clipboard_notes` in `keys.ts`), so the key runs the same line you could
-type. A bare `paste` routed by "whichever grid is drawn" came first and was wrong in the way that
-family of commands is always wrong: the first word promised nothing, and the status line was the
-only place you could find out what had been pasted where.
+| copied from | what is held | which the paste runs |
+|---|---|---|
+| the timeline | placements, by lane offset and beat | `events add` |
+| the roll | notes, by semitones below the top row | `sequence note add` |
+| the sequencer | the same, through the rack's rows | `sequence note add` |
+
+**The selection is the subject, and that is what settled the naming.** A bare `paste` came first
+and was wrong in the way that family of commands is always wrong: the first word promised nothing,
+and the status line was the only place you could find out what had been pasted where. It was
+replaced by two verbs, `events paste` and `sequence notes paste`, each naming the material it put
+down so as to name the surface that answered. That worked and said it twice — the same rectangle
+went out under `ui copy` and came back under one of two other heads, three names for one gesture,
+two of them across a namespace line.
+
+`selection` says it once. The head names what all three verbs act on — the region you drew — and
+the routing that the plural was buying is a **fact the clipboard already carries**: it was copied
+as events or as notes, so notes land in the open roll or sequencer and events on the timeline's
+caret whatever else is on screen (a clip pane holds notes and could not place a placement). Read
+off the held rectangle in `App`'s `runLocalCommand`, which is not the guess a bare `paste` made.
+The paste is one binding again, and a plain one: what the clipboard holds is read by the handler,
+so no key has to ask.
+
+**Four tokens, two bindings.** Ctrl+C and Ctrl+V are the *only* modifier chords this shell takes
+off the browser (`CHORDS` in `keys.ts` — ⌘ fires them too, and produces the same token). They are
+where a hand already is, and a DAW that answered them with the browser's own text copy would be
+the odd one out among every application a person has open. The plain letters stay beside them
+because this timeline is driven by single keys — `v`, `z`, `m`, `s` — and a hand already there
+should not have to reach for a modifier. Each pair names **one** binding constant, so the chord
+and the letter cannot come to mean different things.
+
+One stand-aside, in `App`'s listener rather than in the keymap: with text actually **selected on
+the page** — a log line, a status message — Ctrl+C is the browser's copy and is let through. A
+grid's rectangle is not a DOM selection (the timeline's lanes are `select-none`, the roll's drags
+`preventDefault`), so the two cases cannot be confused.
+
+`selection consolidate` is the third of the head, and the catalogue's own rather than the shell's
+(`commands.yaml`). Same subject: it takes a rectangle — one lane, `from`, `to` — where every
+`event …` verb takes one placement by its start.
 
 Four rules worth knowing, each of which could reasonably have gone the other way:
 
@@ -321,9 +369,12 @@ Four rules worth knowing, each of which could reasonably have gone the other way
   pane hands the shell a command *line* rather than writing; `events add` exists for this, the
   bulk counterpart of `sequence note add` (`packages/commands/docs/`).
 
-`ui copy` is a `ui` command because the clipboard is the shell's and no file moves. **Both pastes
-are bare-named**, because they write — the line that namespace draws, the same one `event move`
-and the file-tree verbs sit on the far side of.
+**Neither is a `ui` command any more.** `ui` promises to touch nothing of the project, and by that
+rule the copy belonged to it — the clipboard is the shell's and no file moves — while the paste
+WRITES and was bare-named, which is what put one gesture's two halves on either side of the
+namespace line. The rule still holds for everything else; here a better subject was available, and
+a head that names the thing acted on beats one that classifies the side effect. `event move` and
+the file-tree verbs are still on the far side of it.
 
 ## A clip with a window is FRAMED on it — it used to be caged
 

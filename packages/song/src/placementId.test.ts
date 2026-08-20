@@ -27,7 +27,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 const lane = (events: string) => {
   writeFileSync(
     join(dir, "nodes", "bass.yaml"),
-    `extends: "@studio/audio-track"\nevents:\n${events}`,
+    `extends: "@studio/track"\nevents:\n${events}`,
   );
   return compileNodeProject(dir).tracks.find((t) => t.id === "bass");
 };

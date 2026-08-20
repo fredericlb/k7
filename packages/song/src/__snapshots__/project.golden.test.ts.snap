@@ -213,7 +213,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
       "automation": [],
       "clips": [],
       "color": "",
-      "contentType": "audio",
+      "contentType": "audio notes",
       "disabled": false,
       "generated": true,
       "group": "live",

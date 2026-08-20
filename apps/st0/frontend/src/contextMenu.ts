@@ -18,7 +18,7 @@ export type MenuCtx =
   // A placed clip. `track` + `tc` say WHICH placement, so the `event …` family can be offered; both optional.
   //
   // `sel` is the RECTANGLE the click landed in, when there is one. The range verbs —
-  // `event consolidate` and `events move` — take a span, and the clicked placement only answers where
+  // `selection consolidate` and `events move` — take a span, and the clicked placement only answers where
   // it STARTS: derived from that alone they arrived one argument short and the bar asked for the
   // end the rectangle was already holding. The same three values the palette reads (commandFill).
   | {
@@ -153,12 +153,13 @@ const readable = (help: string): string =>
 
 /**
  * The word that names the thing you right-clicked, dropped off the front of every row that
- * starts with it: on an event, `event consolidate` is drawn "consolidate".
+ * starts with it: on an event, `event remove` is drawn "remove".
  *
  * You knew what you clicked — you aimed at it — so repeating it on all ten rows is a column of
  * noise between the eye and the only word that differs. What is NOT dropped is a head that names
- * something else: `ui file` and `events move` keep theirs on an event's menu, because there the
- * head is the very thing that says this row is about something other than this one placement.
+ * something else: `ui file`, `events move` and `selection consolidate` keep theirs on an event's
+ * menu, because there the head is the very thing that says this row is about something other than
+ * this one placement — the file behind it, the whole rectangle, every event in a span.
  *
  * One word per context, and not "the head most rows share": a track's menu is nine `event …`
  * rows against six `track …` ones, and the commonest head there is the wrong one.

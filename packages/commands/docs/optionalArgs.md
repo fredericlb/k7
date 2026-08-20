@@ -41,8 +41,8 @@ call site (a flag), which this vocabulary does not have and does not want.
 
 ## What it does NOT mean
 
-- It is not a default. The handler still decides what absence means — `track new audio` picks
-  `audio-N`, and that lives in the handler, not here.
+- It is not a default. The handler still decides what absence means — `track new` picks
+  `track-N`, and that lives in the handler, not here.
 - It does not make the arg unreachable. In st0's bar, **Tab** steps onto a trailing optional
   where **Enter** would run past it; see `apps/st0/frontend/docs/commandBar.md`.
 - It changes no CLI behaviour. `argv` was always the handler's to read, and every handler that

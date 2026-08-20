@@ -42,7 +42,7 @@ function song(): string {
   for (const t of ["gtr", "bass", "drums"])
     writeFileSync(
       join(d, "nodes", `${t}.yaml`),
-      'extends: "@studio/audio-track"\nevents: []\n',
+      'extends: "@studio/track"\nevents: []\n',
       "utf8",
     );
   return d;

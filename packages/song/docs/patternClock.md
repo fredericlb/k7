@@ -43,10 +43,24 @@ track — a compiled lane with a stable id, its own chain and its own mixer stri
 Everything else keeps the old behaviour: a live track the clock mints, keyed by label or
 by orbit/sound, scoped to the pattern it came from.
 
-A declared lane's `contentType` settles how the event reads, so the pattern and the
-track's chain can't disagree about it: `s` is a sample name on an audio lane and a synth
-waveform on a sequences one — never an instrument module, since the chain owns that
-lane's plugins (see `#StrudelTrack` in graph.ts).
+**A declared lane is read exactly like an undeclared one**: the EVENT's sound says what it is. A
+name that resolves to a sample IS a sample; anything else is a waveform and plays as a note for
+whatever instrument the lane's chain provides.
+
+It used to be the lane's `contentType` that settled this — `s` was a sample name on an audio lane
+and a waveform on a sequences one — so a pattern and the lane it was declared on could not
+disagree. A detyped lane has no such word to hold them to (see @studio/song's
+docs/trackModules.md), and does not need one: one pattern lane can now be half drums and half
+melody, which is what a pattern usually is.
+
+Which of the lane's engine tracks the event lands on is `laneHalf`. A lane compiles to one track,
+or to two when its `audio` and `midi` outputs were wired separately — and `TrackDoc.contentType`
+already says which takes what, with a bare-wired lane saying `"audio notes"` and meaning either.
+So the base document answers it and the clock needed no new field.
+
+A lane whose other output is not wired has nowhere to put the event, and that is LOGGED once per
+sound rather than dropped: silence with a graph that looks right is the hardest kind to chase. The
+message names the key to add.
 
 ## `claim` — undeclared live tracks
 
@@ -55,9 +69,11 @@ first use. A labelled event claims `lbl-<slug>` and names the lane after the lab
 unlabelled one keeps the orbit/sound key and its generated name. Ids are scoped by the
 pattern, so two files can each have an unclaimed "lead".
 
-A label claims a lane only while its content type agrees — reusing one label for both a
+A label claims a live track only while its content type agrees — reusing one label for both a
 sample and an instrument would otherwise pile audio clips onto a notes track, so the odd
-one out falls back to its orbit key and keeps playing under the generated name.
+one out falls back to its orbit key and keeps playing under the generated name. This is about the
+tracks the clock MINTS, which are typed because it types them; a declared lane is not, and takes
+both by wiring both outputs.
 
 ## `emit`
 

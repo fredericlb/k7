@@ -116,6 +116,7 @@ import {
 } from "./hooks/usePolls";
 import { useProjectImport } from "./hooks/useProjectDialogs";
 import { useProjectDoc } from "./hooks/useProjectDoc";
+import { noteRevision } from "./hooks/useRevision";
 import { isMixFormat, MIX_FORMATS, useShare } from "./hooks/useShare";
 import { useSnapshotPlayer } from "./hooks/useSnapshotPlayer";
 import { useSurfaces } from "./hooks/useSurfaces";
@@ -544,12 +545,13 @@ export default function App({
   const clipGridRef = useRef<ClipGridHandle>(null);
   const [clipSel, setClipSel] = useState(false);
   /**
-   * The shell's ONE clipboard — `ui copy` fills it, `paste` puts it down.
+   * The shell's ONE clipboard — `selection copy` fills it, `selection paste` puts it down.
    *
    * One slot for both kinds rather than one per surface: copying is a single gesture with a
    * single memory, and two clipboards would make "what does paste put down" a question about
-   * which pane you copied from three minutes ago. A paste of the wrong kind is refused by name
-   * (see clipboard.ts). A ref beside it, so the command handler reads it without re-binding.
+   * which pane you copied from three minutes ago. It carries its KIND, which is what lets one
+   * paste verb name the surface without asking (and a paste of the wrong kind is refused by name
+   * — see clipboard.ts). A ref beside it, so the command handler reads it without re-binding.
    */
   const [clipboard, setClipboard] = useState<MaybeClipboard>(null);
   const clipboardRef = useRef<MaybeClipboard>(null);
@@ -1053,11 +1055,17 @@ export default function App({
   // nothing to remember -- the call sites that read the ref just clear `full`.
 
   // Mixer / graph edits run the same backend commands but must NOT bump reloadKey.
+  //
+  // …which is exactly why they ask for no graph. Not bumping the key means nothing here ever
+  // refetches `/graph`, so the picture the service used to build inside every one of these
+  // requests — 62 ms on the reference song, per mute, per solo, per knob turn, on the single
+  // thread everything else queues behind — was built and dropped. `want: []` says so out loud.
+  // See `projectApi.command`, and `runCommand` below for the caller that DOES draw it.
   const quietCommand = useCallback(
     async (line: string) => {
       pushLog("cmd", `› ${line}`);
       try {
-        const { output } = await api.command(line);
+        const { output } = await api.command(line, { want: [] });
         if (output.length) setStatus(output.join("  ·  "));
         for (const o of output) pushLog("info", o);
       } catch (e) {
@@ -1422,6 +1430,9 @@ export default function App({
        * sits over the timeline. Both surfaces expose the same three, so the shell dispatches
        * rather than deciding — the caret's rules are the pane's (TimelineHandle, ClipGridHandle).
        * Zoom stays the timeline's alone: the roll zooms with the wheel and keeps no stack.
+       *
+       * `selection copy` is the exception and says why at its own branch: it ASKS rather than
+       * acts, so a pane in front with no answer must not be the end of the question.
        */
       const clipGrid = graphSlot?.kind === "clip" ? clipGridRef.current : null;
       if (line === "select") {
@@ -1452,22 +1463,37 @@ export default function App({
         return true;
       }
       /**
-       * `ui copy` / `paste` — the rectangle put aside, and put down at the caret.
+       * `selection copy` / `selection paste` — the rectangle put aside, and put down at the caret.
        *
-       * Routed like the three above: whichever grid is on screen answers, so one pair of verbs
-       * covers events and notes without either naming the other's material. `ui copy` is a `ui`
-       * command because the clipboard is the SHELL's and no file moves; `paste` is bare-named
-       * because it writes — the line that namespace draws (see palette.ts).
+       * One pair of verbs covers events and notes without either naming the other's material.
+       * They are routed, but not like the three above — see the branch below. The head is what
+       * they have in common — a REGION a gesture aimed at — and it is the same one
+       * `selection consolidate` carries; see localCommands.ts for what the pair was before.
        *
        * The pane hands back a command LINE rather than writing: the paste then travels the same
        * journalled path a typed command takes, so one paste is one Ctrl+Z whatever it contained.
        */
-      if (line === "copy") {
-        const got = clipGrid
-          ? clipGrid.copy()
-          : (timelineRef.current?.copy() ?? null);
+      if (line === "selection copy") {
+        /**
+         * The clip pane first, and the timeline WHEN IT HAS NOTHING — the one verb of the four
+         * that falls through instead of stopping at the pane in front.
+         *
+         * The other three ACT on that pane, so "whichever grid is on screen" is the whole answer.
+         * This one asks it a question — what have you got selected? — and the pane in front is
+         * routinely the one with no answer: clicking an event in the timeline is what OPENS the
+         * clip pane, and the roll it opens starts with its caret at key 127, where no note has
+         * ever been. So copy went to the roll, found nothing, and the event you had just clicked
+         * — with the timeline's caret sitting on it — was never asked about. The paste then
+         * reported an empty clipboard, which was true and told you nothing.
+         */
+        const got = clipGrid?.copy() ?? timelineRef.current?.copy() ?? null;
         if (!got) {
-          setStatus("nothing to copy — draw a rectangle with v first");
+          // The caret is a rectangle too now, so reaching here means it was parked on nothing —
+          // an empty cell, a bare stretch of lane, a row label. Both ways of pointing are named:
+          // the message is what the key USED to say by going silent, which said nothing at all.
+          setStatus(
+            "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
+          );
           return true;
         }
         setClipboard(got);
@@ -1479,21 +1505,25 @@ export default function App({
         return true;
       }
       /**
-       * `events paste` / `sequence notes paste` — the clipboard put down at a caret.
+       * `selection paste` — the clipboard put down at a caret.
        *
-       * TWO verbs, and the split is what makes them need no routing: each names its material, so
-       * it names its surface too. Events land on the TIMELINE's caret whatever else is on screen
-       * — a clip pane holds notes and could not place a placement — and notes land in the open
-       * roll or sequencer. `ui copy` above still reads whichever grid is drawn, because there is
-       * only ever one rectangle live.
+       * ONE verb, and the surface is not guessed: the CLIPBOARD says which. It was copied as
+       * events or as notes and carries its kind, so notes land in the open roll or sequencer and
+       * events on the TIMELINE's caret whatever else is on screen — a clip pane holds notes and
+       * could not place a placement. `events paste` and `sequence notes paste` stood here for
+       * that routing, each naming its material to name its surface; naming the SELECTION says it
+       * once, for the copy and the paste alike, and a fact read off the held rectangle is not the
+       * guess a bare `paste` would have made.
        */
-      if (line === "events paste" || line === "sequence notes paste") {
+      if (line === "selection paste") {
         const held = clipboardRef.current;
         if (!held) {
-          setStatus("nothing on the clipboard — `ui copy` a rectangle first");
+          setStatus(
+            "nothing on the clipboard — `selection copy` (Ctrl+C) something first",
+          );
           return true;
         }
-        const notes = line === "sequence notes paste";
+        const notes = held.kind === "notes";
         const pane = notes ? clipGridRef.current : timelineRef.current;
         if (!pane) {
           setStatus(
@@ -1952,11 +1982,19 @@ export default function App({
         // typed `node new` needs — and it used to go through unrecorded, so a transcript showed
         // a node appearing with no module ever created. What the log promises is every command,
         // not every command somebody typed.
+        // No graph for this one whatever the pane is doing: it is the picker's FIRST half, and
+        // the only picture that matters is the one the line below leaves behind.
         if (ensure) {
           pushLog("cmd", `› ${ensure}`);
-          await api.command(ensure);
+          await api.command(ensure, { want: [] });
         }
-        const { output, refused, graph } = await api.command(s);
+        // This one DOES want the graph, and unconditionally — even with the pane off screen.
+        // ChainsTab stays MOUNTED when it is hidden (it holds the shell's MIDI runtime) and
+        // refetches `/graph` on every reloadKey, so asking for none here would not save the
+        // build: it would move it into a second request and add a round trip to it.
+        const { output, refused, graph, rev } = await api.command(s, {
+          want: ["graph"],
+        });
         // A refusal is neither a success nor a failure, and until it had its own channel it was
         // recorded as the first: `event join` declining a pair of different materials reached this
         // line in the same colour as "3 events consolidated", and the journal filed both as
@@ -1972,6 +2010,15 @@ export default function App({
           seedId.current += 1;
           setSeedGraph({ id: seedId.current, graph });
         }
+        // The token this command produced, adopted BEFORE the reload it pairs with.
+        //
+        // The reload below is what re-asks every derived question — the errors, the file the
+        // editor holds — so the `/revision` tick that noticed the same change 0 to 2 s later was
+        // running all of them a second time for an answer already on screen: `/project-errors`
+        // is 45 ms on the reference song, and the disk-sync re-reads the open file with it.
+        // Only here, and only because the reload is on the next line: `quietCommand` writes
+        // WITHOUT reloading, and must let the tick do its work. See `RevisionPoller.note`.
+        if (rev) noteRevision(rev);
         setReloadKey((k) => k + 1);
         // The picker's second half: the module exists now, so put the node it made where the
         // click was. Its own command — journalled, undoable and typeable like any other — which
@@ -2435,10 +2482,10 @@ export default function App({
     if (tlView.zoomed) cond.timeline_zoomed = "1";
     if (tlView.loop) cond.timeline_loop = "1";
     if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
-    // What the clipboard HOLDS, not merely that it holds something: `p` names one of two verbs
-    // now, and which one is a question about the material. Quiet with nothing held, the way every
-    // other conditional binding is.
-    if (clipboard) cond[`clipboard_${clipboard.kind}`] = "1";
+    // `clipboard_events` / `clipboard_notes` were reported here, for a `p` that named one of two
+    // verbs. There is one verb now and its binding is unconditional (keys.ts), so what the
+    // clipboard holds — and whether it holds anything — is the paste handler's question and no
+    // longer a key's: the command answers in every state rather than the key going quiet.
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
     else if (editTarget?.kind === "clip") {
@@ -2450,7 +2497,6 @@ export default function App({
   }, [
     anyPopin,
     caret,
-    clipboard,
     clipSel,
     editTarget,
     graphSlot,
@@ -2532,6 +2578,17 @@ export default function App({
       lastShiftAt.current = 0;
       const token = keyToken(e);
       if (!token) return;
+      // ⌃C with text actually SELECTED on the page is the browser's copy, and it is let through.
+      //
+      // The chord is this shell's otherwise (keys.ts's CHORDS), which is the whole reason the
+      // exception has to be here: a log line, a status message or a refusal reads as text and
+      // copying it is what a person means by ⌃C over it. A grid's rectangle is not a DOM
+      // selection at all — the timeline's lanes are `select-none` and the roll's drags
+      // `preventDefault` — so the two cannot be confused, and the app's own copy is unaffected.
+      if (token === "ctrl+c") {
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      }
       // Through the person's own keymap: their assignments and steals first, the app's
       // conditional bindings (esc, f, m…) as the fallback — see keys.ts's resolveToken.
       const command = resolveToken(token, conditions, effKeys);

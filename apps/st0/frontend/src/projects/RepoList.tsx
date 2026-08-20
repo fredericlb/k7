@@ -1,19 +1,24 @@
-// RepoList.tsx — les dépôts git de la personne connectée, chacun avec ses projets détectés
-// en retrait : en ajouter un par URI SSH, en retirer, en rafraîchir, ou ouvrir un projet
+// RepoList.tsx — les espaces de travail de la machine, chacun avec ses projets en retrait : en
+// ajouter un par URI SSH (ce qui l'inscrit chez pl8 ET le clone), ou ouvrir un projet
 // directement, dans un nouvel onglet. Présentationnel : la section détient l'asynchrone et
 // ce fichier dessine. Voir ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
-import type { RepoProject, RepoSummary } from "@studio/web-protocol";
+import type {
+  MachineWorkspace,
+  RepoProject,
+  RepoSummary,
+} from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import {
   CornerDownRight,
   FolderGit2,
+  HardDrive,
   Loader2,
   Plus,
-  RefreshCw,
+  ServerOff,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -22,54 +27,65 @@ import { DeleteProject } from "./DeleteProject";
 import { NewProject } from "./NewProject";
 
 /** Le nom du dossier, sans son suffixe : `chansons/hiver.st0` s'affiche « hiver », et le
- *  chemin qui la situe dans le dépôt est à côté. */
+ *  chemin qui la situe dans l'espace de travail est à côté. */
 const nameOf = (p: RepoProject): string =>
   projectLabel(p.path.split("/").pop() ?? p.path);
 
-/** Le dossier qui contient le projet, ou null quand il est à la racine du dépôt. */
+/** Le dossier qui contient le projet, ou null quand il est à la racine de l'espace. */
 const parentOf = (p: RepoProject): string | null => {
   const cut = p.path.lastIndexOf("/");
   return cut > 0 ? p.path.slice(0, cut) : null;
 };
 
 export function RepoList({
-  repos,
+  workspaces,
   busy,
   error,
+  adding,
+  hasMachine,
   onAdd,
   onOpen,
   blocked,
   onCreate,
   onDelete,
+  repoFor,
+  onForget,
   projectHref,
-  onRemove,
-  onRefresh,
 }: {
-  repos: RepoSummary[];
+  workspaces: MachineWorkspace[];
   busy: boolean;
   error: string | null;
+  /** Où en est le clone en cours, dans les mots de git, ou null. Ajouter un dépôt le CLONE
+   *  maintenant : sans ça il serait inscrit chez pl8 et invisible ici, cette liste ne montrant
+   *  que ce que la machine tient. */
+  adding: string | null;
+  hasMachine: boolean;
   onAdd: (uri: string) => void;
-  onOpen: (repo: RepoSummary) => void;
-  /** Pourquoi créer et supprimer sont impossibles, ou "". Les deux passent par une machine
-   *  moteur — pl8 n'a qu'un miroir bare et sans blobs, voir ../../docs/projects.md. */
+  onOpen: (ws: MachineWorkspace) => void;
+  /** Pourquoi créer et supprimer sont impossibles, ou "". Les deux passent par la machine, qui
+   *  est aussi ce qui LIT cette liste — voir ../../docs/projects.md. */
   blocked: string;
   onCreate: (
-    repo: RepoSummary,
+    ws: MachineWorkspace,
     folder: string,
     onStep: (s: string) => void,
-    /** st0 seulement : `arrangement` ou `live`. Voir NewProject. */
+    /** `arrangement`, `mix` ou `video`. Voir NewProject. */
     shape: ProjectShape,
   ) => Promise<void>;
   onDelete: (
-    repo: RepoSummary,
+    ws: MachineWorkspace,
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** L'adresse d'un projet dans SON application, sans passer par l'arborescence. Une adresse
-   *  et non une action : la rangée est un lien, qui s'ouvre dans un nouvel onglet. */
-  projectHref: (repo: RepoSummary, project: RepoProject) => string;
-  onRemove: (repo: RepoSummary) => void;
-  onRefresh: (repo: RepoSummary) => void;
+  /** Le dépôt inscrit chez pl8 derrière cet espace de travail, ou null. C'est lui qui rend
+   *  l'adresse portable `/<dépôt>/<projet>` résoluble — et lui qu'on peut retirer. */
+  repoFor: (ws: MachineWorkspace) => RepoSummary | null;
+  /** Retirer le dépôt du registre. Le dossier reste : retirer un nom d'une liste ne supprime
+   *  les fichiers de personne. */
+  onForget: (repo: RepoSummary) => void;
+  /** L'adresse d'un projet dans SON application. Une adresse et non une action : la rangée est
+   *  un lien, qui s'ouvre dans un nouvel onglet. */
+  projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
 }) {
   const [uri, setUri] = useState("");
   const add = () => {
@@ -84,9 +100,11 @@ export function RepoList({
     <div className="flex flex-col gap-4 p-6">
       <div className="flex items-center gap-2">
         <input
-          className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary"
+          className="flex-1 rounded-md border border-border bg-secondary px-3 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-50"
           placeholder="git@hôte:utilisateur/depot.git — URI SSH uniquement"
           value={uri}
+          disabled={!hasMachine || adding !== null}
+          title={blocked || undefined}
           onChange={(e) => setUri(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}
         />
@@ -94,17 +112,23 @@ export function RepoList({
           variant="secondary"
           size="sm"
           onClick={add}
-          disabled={!uri.trim()}
+          title={blocked || undefined}
+          disabled={!uri.trim() || !hasMachine || adding !== null}
         >
-          <Plus className="h-4 w-4" /> Ajouter
+          {adding !== null ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}{" "}
+          Ajouter
         </Button>
       </div>
 
-      {/* Le banc d'essai des modules était ici : un projet st0 sans dépôt, avec le catalogue
-          entier dedans, qu'il fallait ouvrir POUR modifier un module partagé. Un module partagé
-          s'édite depuis l'onglet Bibliothèques de n'importe quel projet ouvert maintenant, contre
-          le moteur qui joue déjà la chanson — donc il n'y a plus de projet à ouvrir pour ça, et
-          plus de carte ici. Voir apps/st0/frontend/docs/sharedModules.md. */}
+      {/* Les mots de git pendant le clone, pas les nôtres : « Receiving objects », « Resolving
+          deltas ». Une attente de trente secondes qui ne dit rien ressemble à un écran figé. */}
+      {adding !== null && (
+        <span className="text-xs text-muted-foreground">{adding}</span>
+      )}
 
       {error && (
         <code className="max-w-full overflow-x-auto rounded bg-muted px-2 py-1 text-xs text-red-400">
@@ -112,7 +136,22 @@ export function RepoList({
         </code>
       )}
 
-      {repos.length === 0 ? (
+      {!hasMachine ? (
+        // Le prix du déménagement, dit là où il se paie. Un projet est un dossier sur la machine
+        // du moteur : sans elle il n'y a pas de liste à montrer, et prétendre le contraire — une
+        // liste vide, une invitation à ajouter un dépôt — se lirait comme un compte neuf.
+        <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
+          <ServerOff className="h-5 w-5 text-amber-500" />
+          <span>
+            Aucune machine moteur joignable. Vos projets sont des dossiers sur
+            cette machine, c'est donc elle qui dit lesquels existent.
+          </span>
+          <span className="text-xs">
+            Les bibliothèques, les partages et la clé de déploiement se règlent
+            sans elle, plus bas.
+          </span>
+        </div>
+      ) : workspaces.length === 0 ? (
         <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           {busy ? (
             <span className="inline-flex items-center gap-2">
@@ -120,108 +159,93 @@ export function RepoList({
             </span>
           ) : (
             <>
-              Aucun dépôt. Collez une URI SSH ci-dessus — et pensez à ajouter la
-              clé de déploiement chez votre hébergeur git d'abord.
+              Rien sur cette machine. Collez une URI SSH ci-dessus — et pensez à
+              ajouter la clé de déploiement chez votre hébergeur git d'abord.
             </>
           )}
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {repos.map((r) => (
+          {workspaces.map((w) => (
             <li
-              key={r.id}
+              key={w.name}
               className="flex flex-col rounded-md border border-border p-3"
             >
               <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                  onClick={() => onOpen(r)}
+                  onClick={() => onOpen(w)}
                 >
-                  <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  {/* Un clone et un dossier fait à la main ne sont pas la même chose, et
+                      l'icône est ce qui le dit avant qu'on lise l'URI dessous. */}
+                  {w.origin ? (
+                    <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <HardDrive className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="truncate font-medium">{r.label}</span>
-                      {/* null n'est pas 0 : « on ne sait pas encore » et « aucun projet » diffèrent. */}
-                      {r.projects !== null && (
-                        <Badge variant={r.projects.length ? "tag" : "default"}>
-                          {r.projects.length} projet
-                          {r.projects.length === 1 ? "" : "s"}
-                        </Badge>
-                      )}
-                      {r.branch && (
-                        <span className="text-xs text-muted-foreground">
-                          {r.branch}
-                        </span>
-                      )}
-                      {r.fetching && (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                      )}
+                      <span className="truncate font-medium">{w.name}</span>
+                      <Badge variant={w.projects.length ? "tag" : "default"}>
+                        {w.projects.length} projet
+                        {w.projects.length === 1 ? "" : "s"}
+                      </Badge>
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {r.uri}
+                      {w.origin ?? "sur cette machine seulement"}
                     </span>
-                    {/* Le message de git, tel quel : « Permission denied (publickey) » est la réponse entière. */}
-                    {r.error && (
-                      <span className="mt-1 flex items-start gap-1 text-xs text-amber-500">
-                        <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                        <span className="whitespace-pre-wrap">{r.error}</span>
-                      </span>
-                    )}
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
-                  {/* Dans le bloc du dépôt, à côté de ses deux autres actions : créer un
-                      projet est une opération SUR ce dépôt, pas sur la liste. */}
+                  {/* Dans le bloc de l'espace, à côté de son contenu : créer un projet est une
+                      opération SUR celui-ci, pas sur la liste. */}
                   <NewProject
                     blocked={blocked}
                     onCreate={(folder, onStep, shape) =>
-                      onCreate(r, folder, onStep, shape)
+                      onCreate(w, folder, onStep, shape)
                     }
                   />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Récupérer les nouveautés"
-                    onClick={() => onRefresh(r)}
-                    disabled={r.fetching}
-                  >
-                    <RefreshCw
-                      className={
-                        r.fetching ? "h-4 w-4 animate-spin" : "h-4 w-4"
-                      }
-                    />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    title="Retirer ce dépôt de la liste"
-                    onClick={() => onRemove(r)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {/* Seulement quand il y a un dépôt inscrit à retirer. Le libellé dit ce qui se
+                      passe et ce qui ne se passe pas : c'est la liste qu'on quitte, pas le
+                      disque. */}
+                  {repoFor(w) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Retirer ce dépôt de vos dépôts — le dossier reste sur la machine"
+                      onClick={() => {
+                        const r = repoFor(w);
+                        if (r) onForget(r);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
-              {/* Les projets détectés, en retrait sous leur dépôt : c'est ce qu'on vient
+              {/* Les projets, en retrait sous leur espace de travail : c'est ce qu'on vient
                   chercher ici, et un clic va droit dans l'application qui l'ouvre — dans un
-                  nouvel onglet, la médiathèque restant ce à quoi on revient. Le nom du dépôt
+                  nouvel onglet, cette liste restant ce à quoi on revient. Le nom de l'espace
                   reste cliquable pour l'arborescence, qui montre tout le reste. */}
-              {r.projects && r.projects.length > 0 && (
-                <ul className="mt-2 flex flex-col border-l border-border pl-3 ml-2">
-                  {r.projects.map((p) => (
+              {w.projects.length > 0 && (
+                <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
+                  {w.projects.map((p) => (
                     // La rangée tient le lien ET le bouton : le lien s'étire, le bouton
                     // reste au bout, et le `preventDefault` de celui-ci l'empêche d'ouvrir.
                     <li key={p.path} className="flex items-center gap-1">
                       <a
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
                         title={`Ouvrir ${p.path} dans ${p.app}`}
-                        href={projectHref(r, p)}
+                        href={projectHref(w, p)}
                         target="_blank"
                         rel="noopener"
                       >
                         <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{nameOf(p)}</span>
+                        <span className="truncate">
+                          {p.path === "." ? projectLabel(w.name) : nameOf(p)}
+                        </span>
                         <Badge variant="tag">{p.app}</Badge>
                         {parentOf(p) && (
                           <span className="truncate text-xs text-muted-foreground">
@@ -231,13 +255,36 @@ export function RepoList({
                       </a>
                       <DeleteProject
                         path={p.path}
-                        label={nameOf(p)}
+                        label={p.path === "." ? w.name : nameOf(p)}
                         blocked={blocked}
-                        onDelete={(onStep) => onDelete(r, p, onStep)}
+                        onDelete={(onStep) => onDelete(w, p, onStep)}
                       />
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* Un espace dont l'adresse portable ne se résout pas s'ouvre par `@local`, qui
+                  nomme un dossier de CETTE machine et rien ailleurs. Dit ici plutôt que
+                  découvert en collant le lien à quelqu'un. */}
+              {w.origin && !w.uniqueName && (
+                <span className="mt-2 flex items-start gap-1 text-xs text-amber-500">
+                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>
+                    deux copies répondent au nom « {w.repoName} » — ces projets
+                    s'ouvrent par une adresse propre à cette machine
+                  </span>
+                </span>
+              )}
+              {w.origin && w.uniqueName && !repoFor(w) && (
+                <span className="mt-2 flex items-start gap-1 text-xs text-muted-foreground">
+                  <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>
+                    ce dépôt n'est pas dans vos dépôts — ces projets s'ouvrent
+                    par une adresse propre à cette machine. Collez son URI
+                    ci-dessus pour l'inscrire.
+                  </span>
+                </span>
               )}
             </li>
           ))}

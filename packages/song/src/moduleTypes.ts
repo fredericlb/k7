@@ -53,10 +53,18 @@ export function moduleEmits(
   outputs?: readonly { type: "audio" | "midi" | "video" }[],
 ): "audio" | "midi" | "video" | undefined {
   if (category === "io") return isIoSource(io) ? "audio" : undefined;
-  // A lane's signal is its OWN, not its folder's: an audio track and a sequence track are the
-  // same kind of thing and differ only in the port they offer, so the port is what is read. A
-  // group track offers none and emits nothing, which is right — it carries no signal.
-  if (category === TRACK_CATEGORY) return outputs?.[0]?.type;
+  /**
+   * A lane's signal is its OWN, not its folder's, so the PORTS are what is read.
+   *
+   * Which now means a lane usually has no answer here: it offers `audio` and `midi` both, and
+   * `emits` is one word for a cable's colour. Undefined is the honest one — the same undefined a
+   * GROUP gives, and for the same reason: what leaves a lane is decided per event, and the
+   * reader that needs to know asks the run which port it left by (`Chain.fromPort`).
+   */
+  if (category === TRACK_CATEGORY) {
+    const types = new Set((outputs ?? []).map((o) => o.type));
+    return types.size === 1 ? outputs?.[0]?.type : undefined;
+  }
   return MODULE_EMITS[category ?? ""];
 }
 
@@ -150,9 +158,10 @@ export const MODULE_TYPES: Record<
     outputs: [{ name: "out", type: "midi" }],
   },
   /**
-   * A LANE. The defaults here are the audio lane's, and every one of the five built-ins states
-   * its own ports anyway (trackModule.ts) — because this is the one category whose members do
-   * not share a signal. See docs/trackModules.md.
+   * A LANE. TWO outputs, because a lane is not typed by what it carries: it holds events naming
+   * clips and events naming sequences in one list, and each leaves by the port its own material
+   * fits. The three built-ins state the same pair themselves (trackModule.ts); this is the
+   * default a node inheriting the category gets. See docs/trackModules.md.
    *
    * NO input, deliberately. What arrives on a lane is its clips, and the one thing that may be
    * routed into it is a live interface channel — which the compiler lands on the lane rather
@@ -163,7 +172,10 @@ export const MODULE_TYPES: Record<
   tracks: {
     kind: "track",
     inputs: [],
-    outputs: [{ name: "out", type: "audio" }],
+    outputs: [
+      { name: "audio", type: "audio" },
+      { name: "midi", type: "midi" },
+    ],
   },
 };
 
@@ -306,27 +318,54 @@ export const isDocRef = (ref: unknown): boolean => ref === DOC_REF;
 // --- the track modules (see docs/trackModules.md) --------------------------------
 
 /**
- * The five modules a LANE is a node of. Like `@studio/doc`, none of them has a file
+ * The three modules a LANE is a node of. Like `@studio/doc`, none of them has a file
  * anywhere: there is one set for the whole studio, so a lane costs exactly its own node.
  *
- * Five and not two, because `type: single | group | strudel` × `contentType: audio | sequences`
- * was a two-axis vocabulary spelled as one field — which is the whole reason `contentType` had
- * to exist beside `type`. Flattened, the two questions (what signal does this lane carry, and
- * where do its clips come from) are both read off one `extends:`, and neither can go missing.
+ * Three and not five: a lane is NOT typed by the signal it carries. It holds events, each of
+ * which names a clip or a sequence and is therefore audio or notes on its own — so the lane
+ * offers BOTH outputs and every event leaves by the one its material fits. What is left to say
+ * is where the events come from (written down, or streamed) and whether this is a relationship
+ * rather than a lane at all. See docs/trackModules.md.
  */
-export const AUDIO_TRACK_REF = `${STUDIO_NS}/audio-track`;
-export const SEQUENCE_TRACK_REF = `${STUDIO_NS}/sequence-track`;
-export const AUDIO_STRUDEL_TRACK_REF = `${STUDIO_NS}/audio-strudel-track`;
-export const SEQUENCE_STRUDEL_TRACK_REF = `${STUDIO_NS}/sequence-strudel-track`;
+export const TRACK_REF = `${STUDIO_NS}/track`;
+export const STRUDEL_TRACK_REF = `${STUDIO_NS}/strudel-track`;
 export const GROUP_TRACK_REF = `${STUDIO_NS}/group-track`;
 
 export const TRACK_REFS = [
-  AUDIO_TRACK_REF,
-  SEQUENCE_TRACK_REF,
-  AUDIO_STRUDEL_TRACK_REF,
-  SEQUENCE_STRUDEL_TRACK_REF,
+  TRACK_REF,
+  STRUDEL_TRACK_REF,
   GROUP_TRACK_REF,
 ] as const;
+
+/**
+ * The two output ports every non-group lane offers — the whole of what detyping means.
+ *
+ * From `@studio/graph-model`, beside `splitPort`, and for the same reason: the RENDERER draws a
+ * jack per entry and does not depend on this package, so a second copy here is where the sockets
+ * and the ports would come to disagree about how many there are or which is first. Re-exported
+ * because this is where every module-vocabulary caller already looks.
+ */
+export {
+  TRACK_OUT_AUDIO,
+  TRACK_OUT_MIDI,
+  TRACK_OUTPUTS,
+} from "@studio/graph-model";
+
+/**
+ * What a lane extended when its `extends:` also said what signal it carried, mapped to the ref
+ * that replaces it — for the DIAGNOSTIC alone, since nothing resolves these.
+ *
+ * Kept as names the way `LEGACY_MEDIATEK_NS` is: a file still saying `@studio/sequence-track`
+ * names a module that no longer exists, and the loader is entitled to say which one it means
+ * instead of leaving a reader to guess that a whole axis was removed. There is no migration
+ * code, deliberately — the same call docs/nodes.md and docs/trackModules.md already made.
+ */
+export const LEGACY_TRACK_REFS: Record<string, string> = {
+  [`${STUDIO_NS}/audio-track`]: TRACK_REF,
+  [`${STUDIO_NS}/sequence-track`]: TRACK_REF,
+  [`${STUDIO_NS}/audio-strudel-track`]: STRUDEL_TRACK_REF,
+  [`${STUDIO_NS}/sequence-strudel-track`]: STRUDEL_TRACK_REF,
+};
 
 /** Is this what a lane extends? Asked of an authored `extends:`, before anything is resolved. */
 export const isTrackRef = (ref: unknown): boolean =>

@@ -133,13 +133,13 @@ export function projectFiles(name: string): Record<string, string> {
       `  synth-melody: [ OUT ]\n` +
       `  synth-pad: [ OUT ]\n`,
 
-    // The arrangement: one 2-bar MIDI sequence on a lane. A lane is a NODE of one of the
-    // five built-in track modules — what it extends says both what signal it carries and where
-    // its clips come from. The FILENAME names it; timecodes are QUOTED, or YAML reads them.
+    // The arrangement: one 2-bar MIDI sequence on a lane. A lane is a NODE of one of the three
+    // built-in track modules — what it extends says where its events come from, never what they
+    // ARE. The FILENAME names it; timecodes are QUOTED, or YAML reads them.
     "nodes/melody.yaml":
-      `# The melody lane. \`@studio/sequence-track\` is a lane carrying NOTES whose clips are\n` +
-      `# written down here; \`@studio/audio-track\` is the same for audio.\n` +
-      `extends: "@studio/sequence-track"\n` +
+      `# The melody lane. \`@studio/track\` holds events written down here — each one naming a\n` +
+      `# sequence or a clip, and leaving by the lane's midi or audio output accordingly.\n` +
+      `extends: "@studio/track"\n` +
       `events:\n  - { ref: melody, start: "1:1:1" }\n`,
 
     // A group: no material of its own, just members — nests the two lanes below so "melody" stays top-level.
@@ -152,14 +152,15 @@ export function projectFiles(name: string): Record<string, string> {
     "nodes/pad.yaml":
       `# A GENERATED lane: its clips are streamed from the pattern while the transport rolls,\n` +
       `# which is why it says \`strudel:\` where an authored lane says \`events:\`.\n` +
-      `extends: "@studio/sequence-strudel-track"\n` +
+      `extends: "@studio/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
-    // The pattern's "Kit" part: an AUDIO strudel lane, so every event is a sample one-shot rather than a waveform.
+    // The pattern's "Kit" part: the SAME module on the same file. Which events sound as samples
+    // and which as notes is decided one event at a time, by whether the sound names a sample.
     "nodes/kit.yaml":
-      `# The audio half of the same pattern: \`@studio/audio-strudel-track\` makes every event\n` +
-      `# a sample one-shot instead of a note for an instrument to play.\n` +
-      `extends: "@studio/audio-strudel-track"\n` +
+      `# The other half of the same pattern. Nothing here says "audio": an event whose sound\n` +
+      `# resolves to a sample plays as one, every other event plays as a note.\n` +
+      `extends: "@studio/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
     // Raw MIDI material: notes live inline as compact {t,d,k,v} maps; the FILENAME names the sequence.

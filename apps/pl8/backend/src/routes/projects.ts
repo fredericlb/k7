@@ -1,24 +1,16 @@
-// projects.ts — the git repositories a person has added, and what is inside them. pl8 keeps
-// a bare blobless mirror of each and NEVER a working copy: the checkout belongs on the
-// machine the engine runs on, which is the file service's job. This service also owns the
-// one deploy key, which is why the last route here hands a private key to that machine.
-// See ../../docs/projects.md, packages/git-repos/docs/{mirror,keys}.md.
+// projects.ts — the REGISTER of git repositories a person has added: which ones exist, what
+// URI is behind a short name, and which one holds the libraries. Not what is INSIDE them —
+// that is the engine machine's answer, out of the working copies it holds (see
+// apps/st0/frontend/docs/projects.md). This service also owns the one deploy key, which is why
+// the last route here hands a private key to that machine.
+// See ../../docs/projects.md and packages/git-repos/docs/keys.md.
 
 import { wrap } from "@frediverse/http/route";
 import { generateKey, privateKey, publicKey } from "@studio/git-repos/keys";
-import type { RepoProject } from "@studio/git-repos/mirror";
 import { assertSshGitUri } from "@studio/git-repos/uri";
 import type { Request } from "express";
 import express, { Router } from "express";
 import { rememberIdentity, subFor } from "../projects/identities.ts";
-import {
-  ensure,
-  forget,
-  MirrorNotReadyError,
-  read,
-  status,
-  sweep,
-} from "../projects/mirrors.ts";
 import {
   addRepo,
   clearLibrariesRepo,
@@ -134,41 +126,29 @@ export function projectsRouter(opts: {
       if (!key)
         return res.status(404).json({
           error:
-            "no SSH key yet — open Projets in the médiathèque to generate one, then add it to your git host",
+            "no SSH key yet — open st0's home page to generate one, then add it to your git host",
         });
       res.set("Cache-Control", "no-store");
       res.json({ privateKey: key, publicKey: publicKey(dir) });
     }),
   );
 
-  /** Every repository, with what its mirror can already say about it. */
+  /**
+   * Every repository this person has REGISTERED, and nothing about what is in one.
+   *
+   * It answered that too, out of a bare blobless mirror of each — a second copy of what the
+   * engine machine's working clone already held, a `git fetch` behind it, and blind to a project
+   * committed there whose push had not landed. st0's home page asks the machine now, which is
+   * the side the folders are on. What is left here is what only a hosted service can hold: the
+   * list itself, which belongs to a PERSON rather than to a machine and outlives every engine.
+   *
+   * Synchronous again, and that is the shape of the change: there is nothing to fetch.
+   */
   router.get(
     "/",
-    wrap(async (req, res) => {
+    wrap((req, res) => {
       const sub = subOf(req)!;
-      const repos = await Promise.all(
-        listRepos(sub).map(async (r) => {
-          // Refreshed here too, not only in /tree: this list carries the projects the section
-          // LINKS to, so a mirror nobody fetched hands out a folder the clone no longer has,
-          // and st0 opens on a project that is not there. Detached and freshness-gated, so it
-          // costs this request nothing; `bump()` is what brings the new list to the poll.
-          const st = ensure(sub, r.id, r.uri);
-          // A mirror that is not ready yet reports null rather than 0 — "unknown" and "none" differ.
-          let projects: RepoProject[] | null = null;
-          let branch: string | null = null;
-          if (st.ready)
-            try {
-              const listing = await read(sub, r.id);
-              projects = listing.projects;
-              branch = listing.branch;
-            } catch {
-              /* raced with an eviction — the status is the honest answer */
-            }
-          // The projects themselves, not just how many: the listing draws them under their
-          // repository and links straight into st0/m9, so opening one costs no second request.
-          return { ...r, name: nameOf(r), ...st, branch, projects };
-        }),
-      );
+      const repos = listRepos(sub).map((r) => ({ ...r, name: nameOf(r) }));
       res.json({ repos, revision: revision(sub) });
     }),
   );
@@ -191,16 +171,14 @@ export function projectsRouter(opts: {
       const matches = findReposByName(sub, req.params.name);
       if (!matches.length)
         return res.status(404).json({
-          error: `no repository called '${req.params.name}' — add it in the médiathèque's Projets section, or open the project from there`,
+          error: `no repository called '${req.params.name}' — add it on st0's home page, or open the project from there`,
         });
       // Ambiguous is not "pick one": see findReposByName.
       if (matches.length > 1)
         return res.status(409).json({
           error: `'${req.params.name}' names ${matches.length} repositories here (${matches
             .map((r) => r.uri)
-            .join(
-              ", ",
-            )}) — open the project from the médiathèque's Projets section`,
+            .join(", ")}) — open the project from st0's home page`,
         });
       const repo = matches[0];
       res.json({ id: repo.id, name: nameOf(repo), uri: repo.uri });
@@ -247,16 +225,14 @@ export function projectsRouter(opts: {
       } catch (e) {
         return res.status(400).json({ error: (e as Error).message });
       }
-      // Same key as every other repository, and the mirror below cannot run without one.
+      // Same key as every other repository: the machine that mounts this submodule fetches a
+      // copy of it, and there has to be one to copy.
       await generateKey(keyDirFor(sub), `studio-${sub}`);
       const repo = setLibrariesRepo(sub, uri);
-      // Mirrored like any other repository — not because a workspace reads it through the
-      // mirror (it clones the real thing as a submodule), but so this screen can say whether
-      // the URI is one git will actually answer for, before a machine tries it.
-      res.json({
-        libraries: { ...repo, name: nameOf(repo) },
-        ...ensure(sub, repo.id, repo.uri),
-      });
+      // Recorded, not verified. This used to mirror the repository here so the screen could say
+      // whether the URI was one git would answer for before any machine tried it; the mirror is
+      // gone, and the first clone is what says so now — later, and in git's own words.
+      res.json({ libraries: { ...repo, name: nameOf(repo) } });
     }),
   );
 
@@ -283,12 +259,13 @@ export function projectsRouter(opts: {
         return res.status(400).json({ error: (e as Error).message });
       }
       const keys = keyDirFor(sub);
-      // The mirror below cannot run without a key, and this is the first moment one is needed.
+      // The clone st0 starts right after this cannot run without a key, and this is the first
+      // moment one is needed.
       await generateKey(keys, `studio-${sub}`);
       const { repo, added } = addRepo(sub, uri, req.body?.label);
       res
         .status(added ? 201 : 200)
-        .json({ repo, ...ensure(sub, repo.id, repo.uri) });
+        .json({ repo: { ...repo, name: nameOf(repo) } });
     }),
   );
 
@@ -298,60 +275,17 @@ export function projectsRouter(opts: {
       const sub = subOf(req)!;
       if (!removeRepo(sub, req.params.id))
         return res.status(404).json({ error: "unknown repository" });
-      forget(sub, req.params.id);
+      // Nothing else to drop: this service holds no copy of the repository any more. The
+      // working clone stays on whatever machine has it, which is the honest outcome — removing
+      // a name from a list must not delete somebody's files.
       res.json({ ok: true });
     }),
   );
 
-  router.get(
-    "/:id/status",
-    wrap((req, res) => {
-      const sub = subOf(req)!;
-      const repo = findRepo(sub, req.params.id);
-      if (!repo) return res.status(404).json({ error: "unknown repository" });
-      res.json(status(sub, repo.id));
-    }),
-  );
-
-  /** Fetch again now. Returns the status, not the result — the fetch outlives this request. */
-  router.post(
-    "/:id/refresh",
-    wrap((req, res) => {
-      const sub = subOf(req)!;
-      const repo = findRepo(sub, req.params.id);
-      if (!repo) return res.status(404).json({ error: "unknown repository" });
-      res.json(ensure(sub, repo.id, repo.uri, true));
-    }),
-  );
-
-  /**
-   * The tree, with `project: true` on every folder holding a `project.yaml` — the same
-   * `FileNode` the file service serves, so both trees draw the same rows.
-   *
-   * 202 while the first fetch is still running: the repository is known, its contents are
-   * not yet, and that is neither an error nor an empty repository.
-   */
-  router.get(
-    "/:id/tree",
-    wrap(async (req, res) => {
-      const sub = subOf(req)!;
-      const repo = findRepo(sub, req.params.id);
-      if (!repo) return res.status(404).json({ error: "unknown repository" });
-      ensure(sub, repo.id, repo.uri);
-      try {
-        res.json({ repo, ...(await read(sub, repo.id)) });
-      } catch (e) {
-        if (e instanceof MirrorNotReadyError)
-          return res.status(202).json({ repo, ...status(sub, repo.id) });
-        throw e;
-      }
-    }),
-  );
-
-  // Idle mirrors are swept once at boot and daily after — a fortnight's grace, and the next
-  // look recreates what it drops.
-  sweep();
-  setInterval(sweep, 24 * 60 * 60 * 1000).unref();
+  // `/:id/status`, `/:id/refresh` and `/:id/tree` were here, and all three were about the
+  // mirror: how its fetch was doing, doing it again, and reading the tree out of it. The engine
+  // machine answers the last one from a real checkout (`GET /workspace-tree`), and the other two
+  // described work this service no longer does.
 
   return router;
 }

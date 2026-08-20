@@ -31,12 +31,12 @@ function song(): string {
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "drums.yaml"),
-    'extends: "@studio/audio-track"\nevents:\n  - { ref: kick, start: "2:1" }\n  - { ref: snare, start: "4:1" }\n',
+    'extends: "@studio/track"\nevents:\n  - { ref: kick, start: "2:1" }\n  - { ref: snare, start: "4:1" }\n',
     "utf8",
   );
   writeFileSync(
     join(d, "nodes", "bass.yaml"),
-    'extends: "@studio/audio-track"\nevents:\n  - { ref: b1, start: "1:1" }\n  - { ref: b2, start: "3:1" }\n',
+    'extends: "@studio/track"\nevents:\n  - { ref: b1, start: "1:1" }\n  - { ref: b2, start: "3:1" }\n',
     "utf8",
   );
   return d;

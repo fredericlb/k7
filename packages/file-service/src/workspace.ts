@@ -195,6 +195,46 @@ export const isProjectDir = (dir: string): boolean => {
   }
 };
 
+/**
+ * Every project folder under `root`, workspace-relative, at any depth.
+ *
+ * Directories only, and `skip()`ped the same way the tree is, so what this answers and what a
+ * tree draws cannot disagree. Its own scan rather than collecting a `FileNode` walk: that built
+ * an object per FILE and threw the tree away to keep a handful of directory paths — 30.7 ms a
+ * pass on a real workspace against 5.3 here.
+ *
+ * **A project inside a project is descended into and reported.** Nesting one is not the ordinary
+ * arrangement, but a `.m9` set living inside a `.st0` song is a real one, and picking an
+ * outermost winner would hide the inner one with nothing on screen to say so.
+ *
+ * Sorted by name at each level, which is what makes two calls comparable — a listing that
+ * reordered itself between polls would redraw for nothing.
+ */
+export function projectDirsUnder(
+  root: string,
+  abs = root,
+  out: string[] = [],
+): string[] {
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(abs, { withFileTypes: true });
+  } catch {
+    // Unreadable: no projects here rather than a throw. Raising failed a whole poll over one
+    // folder nobody could have opened anyway.
+    return out;
+  }
+  const dirs = entries
+    .filter((e) => e.isDirectory() && !skip(e.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const e of dirs) {
+    const child = join(abs, e.name);
+    if (isProjectDir(child))
+      out.push(relative(root, child).split(sep).join("/"));
+    projectDirsUnder(root, child, out);
+  }
+  return out;
+}
+
 // Files shown in the tree but not editable as text.
 const BINARY_EXT = new Set([
   ".wav",
@@ -230,6 +270,43 @@ export const skip = (name: string): boolean =>
   name === RECYCLE_DIR ||
   isHistoryDir(name) || // the undo/redo journal, never listed or diffed
   name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)
+
+/**
+ * One file found by `Workspace.walkProject` — everything the three readers of the tree want,
+ * gathered by the single `statSync` they used to do one apiece.
+ *
+ * `binary` and `source` are not the same question and neither implies the other: a `.yaml` is a
+ * source and text, a `.md` is text and not a source, a `.wav` is neither.
+ *
+ * No workspace-relative path here, deliberately, though both journal readers want one: computing
+ * it is `relative()` plus a separator pass, and the token wants none of it. Putting it in cost
+ * the two-second poll ~1 ms of arithmetic for 186 files it was only going to count. `textOf` and
+ * `binOf` take one half of the walk each, so between them they still work it out exactly once
+ * per file — which is what the two separate walks used to do.
+ */
+interface WalkedFile {
+  abs: string;
+  size: number;
+  mtimeMs: number;
+  binary: boolean;
+  source: boolean;
+}
+
+/**
+ * What a journalled mutation answers: whatever the mutation returned, and the revision token
+ * either side of it.
+ *
+ * The tokens ride along because `recordChange` is the one thing that BRACKETS a write, and it
+ * walked the tree twice to do its diff anyway — naming the two instants costs it a filter over a
+ * list it already has. Its caller would otherwise walk twice more to learn the same two facts,
+ * which is exactly what `POST /command` did.
+ */
+export interface Recorded<T> {
+  value: T;
+  /** Before the mutation. `after !== before` is what "this command changed the project" means. */
+  before: string;
+  after: string;
+}
 
 /** One file's mtime, or 0 when it is not there — absent is a state, not a failure. */
 const mtimeOf = (path: string): number => {
@@ -626,12 +703,14 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (this.isRecycled(abs))
       throw new Error(`project is in the recycle bin: ${rel}`);
-    // Said apart from the name rule below because it is the one that actually happens, and the
-    // one with a fix: pl8 links here out of a mirror that can be behind this machine's clone.
+    // Said apart from the name rule below because it is the one that actually happens: a
+    // bookmark, or a link somebody sent, naming a folder that has been renamed or is on
+    // somebody else's machine. It used to name a THIRD cause — pl8 linking here out of a mirror
+    // that could be behind this clone — and that one is gone: the listing is this machine's own.
     if (!existsSync(abs))
       throw new Error(
-        `no project '${rel}' in this workspace — it may have been renamed or removed since ` +
-          `the médiathèque last read the repository; refresh it there and open it again`,
+        `no project '${rel}' in this workspace — it may have been renamed, removed, or ` +
+          `never have been on this machine; go back to the projects page and open it from there`,
       );
     if (!isProjectDir(abs))
       throw new Error(
@@ -782,9 +861,18 @@ export class Workspace {
    * `/revision` itself is unaffected — it is polled outside any scope and still walks.
    */
   private revScope: string | null = null;
-  withRevision<T>(fn: () => T): T {
+  /**
+   * `seed` is a token the caller ALREADY holds, taken microseconds earlier and after the same
+   * write — `POST /command` gets one out of `recordChange`, which walked the tree to journal the
+   * mutation and can name the instant it finished for nothing. Opening the scope on it rather
+   * than on a fresh walk is the difference between one walk per phase and two.
+   *
+   * Only ever a token this class produced. A caller inventing one would be keying every memo
+   * under it on a lie.
+   */
+  withRevision<T>(fn: () => T, seed?: string): T {
     if (this.revScope !== null) return fn(); // already inside one
-    this.revScope = this.freshRevision();
+    this.revScope = seed ?? this.freshRevision();
     try {
       return fn();
     } finally {
@@ -798,25 +886,30 @@ export class Workspace {
     return { rev: this.revScope ?? this.freshRevision() };
   }
 
-  /** The walk itself. Only `withRevision` and an unscoped `revision()` reach it. */
-  private freshRevision(): string {
-    const dir = this.activeProject;
-    if (!dir) return `none:${this.mutations}`;
-    let count = 0;
-    // …and the two files OUTSIDE the project that a derived view still reads: the engine's scan
-    // cache (`@engine/…` modules come out of it) and the machine's preferences (a channel's
-    // label). Two stats on a walk of hundreds, and without them the views memoised on this token
-    // were wrong after a plugin rescan or a `system channel set` until the next edit — which
-    // `hints()` already was, quietly, before anything else was keyed here.
-    let newest = mtimeOf(EXTS_PATH);
-    const prefsAt = mtimeOf(PREFS_PATH);
-    if (prefsAt > newest) newest = prefsAt;
+  // --- the walk the three readers of the tree share --------------------------
+  /**
+   * ONE walk of the project, shared by everything that needs the shape of the tree at one
+   * instant — `withWalk` opens it, `revisionOf` / `textOf` / `binOf` read it.
+   *
+   * They were three walks, and a command that writes took six of them: the token before, the
+   * journal's two images before, the same two after, the token after. All of the same tree, with
+   * the same `skip()`, microseconds apart. Measured on the reference song (39 directories, 284
+   * files after `skip`): the readdir sweep is 2,1 ms and the stats on top of it 6,2 — so the
+   * three readers cost 16,4 ms per phase, of which two thirds was proving, twice over, what the
+   * first pass had just established.
+   *
+   * `sourcesOnly` is what keeps `/revision` as cheap as it was: polled every two seconds per
+   * tab, it wants the `.yaml` files alone and has no reason to stat a folder of wavs.
+   */
+  private walkScope: WalkedFile[] | null = null;
+  private walkProject(dir: string, sourcesOnly = false): WalkedFile[] {
+    const out: WalkedFile[] = [];
     const walk = (abs: string): void => {
       let entries: Dirent[];
       try {
         entries = readdirSync(abs, { withFileTypes: true });
       } catch {
-        return; // unreadable — treated as empty rather than failing the poll
+        return; // unreadable — treated as empty rather than failing the caller
       }
       for (const e of entries) {
         if (skip(e.name)) continue;
@@ -825,18 +918,79 @@ export class Workspace {
           walk(p);
           continue;
         }
-        // The project's own files only — an out-of-band edit moves the token, a media copy doesn't.
-        if (!PROJECT_FILE.test(e.name)) continue;
-        count++;
+        // A project SOURCE — an out-of-band edit to one moves the token, a media copy does not.
+        const source = PROJECT_FILE.test(e.name);
+        if (sourcesOnly && !source) continue;
         try {
-          const m = statSync(p).mtimeMs;
-          if (m > newest) newest = m;
+          const s = statSync(p);
+          out.push({
+            abs: p,
+            size: s.size,
+            mtimeMs: s.mtimeMs,
+            binary: isBinary(e.name),
+            source,
+          });
         } catch {
-          /* raced away between readdir and stat — the next poll sees it */
+          /* raced away between readdir and stat — the next walk sees it */
         }
       }
     };
     walk(dir);
+    return out;
+  }
+
+  /**
+   * Run `fn` over ONE walk of the active project, shared by everything inside it.
+   *
+   * Re-entrant and synchronous-only, exactly like `withRevision` above and for the same reason:
+   * the readers nest already, so the outermost opens the scope and the inner ones find it open.
+   * Nothing inside may WRITE — the whole promise is that every reader is describing the same
+   * instant, and a write in the middle would make half of them describe a different one.
+   */
+  private withWalk<T>(dir: string, fn: (files: WalkedFile[]) => T): T {
+    if (this.walkScope !== null) return fn(this.walkScope);
+    this.walkScope = this.walkProject(dir);
+    try {
+      return fn(this.walkScope);
+    } finally {
+      this.walkScope = null;
+    }
+  }
+
+  /** The walk itself. Only `withRevision` and an unscoped `revision()` reach it. */
+  private freshRevision(): string {
+    const dir = this.activeProject;
+    if (!dir) return `none:${this.mutations}`;
+    // The walk a mutation already has open, when there is one — see `withWalk`. Otherwise its
+    // own, and a NARROW one: the token counts sources, so an unscoped poll never stats a folder
+    // of media. That is the whole reason `walkProject` takes the flag rather than always
+    // reporting everything — `/revision` is asked for every two seconds, per tab.
+    return this.revisionOf(this.walkScope ?? this.walkProject(dir, true));
+  }
+
+  /**
+   * The token, from a walk: the mutation counter, how many SOURCES there are, and the newest
+   * thing among them.
+   *
+   * One derivation whichever walk fed it, which is the half that must not drift — a token
+   * computed two ways is two answers to "has this project moved", and every memo in this file is
+   * keyed on it.
+   */
+  private revisionOf(files: WalkedFile[]): string {
+    // …and the two files OUTSIDE the project that a derived view still reads: the engine's scan
+    // cache (`@engine/…` modules come out of it) and the machine's preferences (a channel's
+    // label). Two stats on a walk of hundreds, and without them the views memoised on this token
+    // were wrong after a plugin rescan or a `system channel set` until the next edit — which
+    // `hints()` already was, quietly, before anything else was keyed here.
+    let newest = mtimeOf(EXTS_PATH);
+    const prefsAt = mtimeOf(PREFS_PATH);
+    if (prefsAt > newest) newest = prefsAt;
+    let count = 0;
+    for (const f of files) {
+      if (!f.source) continue;
+      count++;
+      if (f.mtimeMs > newest) newest = f.mtimeMs;
+    }
     return `${this.mutations}:${count}:${newest}`;
   }
 
@@ -860,11 +1014,13 @@ export class Workspace {
   async recordChange<T>(
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
-  ): Promise<T> {
+  ): Promise<Recorded<T>> {
     const dir = this.activeProject;
-    if (!dir) return mutate(() => {}); // no project, no journal
-    const textBefore = this.snapshotText(dir);
-    const binBefore = this.snapshotBinMeta(dir);
+    if (!dir) {
+      // No project, no journal — and no walk either: the token is `none:<mutations>`.
+      const rev = this.revision().rev;
+      return { value: await mutate(() => {}), before: rev, after: rev };
+    }
     const pre = new Map<string, Buffer>(); // rel -> pre-image bytes of a binary about to be overwritten
     const snapshot = (abs: string): void => {
       try {
@@ -875,21 +1031,39 @@ export class Workspace {
         /* best effort — a missed pre-image just means that one file can't be undone */
       }
     };
+    const before = this.treeShot(dir);
     const result = await mutate(snapshot);
+    const after = this.treeShot(dir);
     try {
-      const changes = diffText(textBefore, this.snapshotText(dir));
-      const blobs = diffBin(
-        this.root,
-        binBefore,
-        this.snapshotBinMeta(dir),
-        pre,
-      );
+      const changes = diffText(before.text, after.text);
+      const blobs = diffBin(this.root, before.bin, after.bin, pre);
       if (changes.length || blobs.length)
         this.history(dir).push({ label, changes, blobs });
     } catch {
       /* journaling must never break a good write */
     }
-    return result;
+    return { value: result, before: before.rev, after: after.rev };
+  }
+
+  /**
+   * The project at one instant, from ONE walk: the two images a diff compares, and the token
+   * that names the moment they were taken.
+   *
+   * The token comes back with them because it is free here and expensive anywhere else — the
+   * walk it needs is the walk that has just happened. `POST /command` used to take two of its
+   * own around this call, one either side, and each was a second pass over the tree this one had
+   * already crossed. See `withRevision`'s `seed`.
+   */
+  private treeShot(dir: string): {
+    text: Map<string, string>;
+    bin: Map<string, string>;
+    rev: string;
+  } {
+    return this.withWalk(dir, (files) => ({
+      text: this.textOf(files),
+      bin: this.binOf(files),
+      rev: this.revisionOf(files),
+    }));
   }
 
   /**
@@ -897,75 +1071,46 @@ export class Workspace {
    * compares.
    *
    * Only files that MOVED are re-read: each one's size+mtime is checked against the last walk's,
-   * and the content is carried over when it matches. Every command took two of these walks — one
-   * before the mutation and one after — so a song of 180 small YAML files read 360 of them to
-   * journal the one line a command rewrote, and the "before" image is almost always the "after"
-   * image of the command before it.
+   * and the content is carried over when it matches. Every command takes two of these images —
+   * one before the mutation and one after — so a song of 180 small YAML files would read 360 of
+   * them to journal the one line a command rewrote, and the "before" image is almost always the
+   * "after" image of the command before it.
    *
-   * The gate is the one `snapshotBinMeta` already trusts for binaries: a write that kept both the
-   * size and the sub-millisecond mtime would be missed, which no real write does.
+   * The gate is the one `binOf` already trusts for binaries: a write that kept both the size and
+   * the sub-millisecond mtime would be missed, which no real write does.
+   *
+   * It takes the walk rather than doing one — it and `binOf` split the same tree between them
+   * (text here, binaries there) and used to cross it separately to do it. See `withWalk`.
    */
-  private snapshotText(dir: string): Map<string, string> {
+  private textOf(files: WalkedFile[]): Map<string, string> {
     const out = new Map<string, string>();
     // Built fresh so a deleted file leaves the cache with it, rather than lingering for ever.
     const seen = new Map<string, { stamp: string; text: string }>();
-    const walk = (abs: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(abs, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const e of entries) {
-        if (skip(e.name)) continue;
-        const p = join(abs, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (!isBinary(e.name)) {
-          const rel = this.toRel(p);
-          try {
-            const s = statSync(p);
-            const stamp = `${s.size}:${s.mtimeMs}`;
-            const hit = this.textCache.get(rel);
-            const text =
-              hit?.stamp === stamp ? hit.text : readFileSync(p, "utf8");
-            out.set(rel, text);
-            seen.set(rel, { stamp, text });
-          } catch {
-            /* unreadable — treated as absent */
-          }
+    for (const f of files) {
+      if (f.binary) continue;
+      const rel = this.toRel(f.abs);
+      const stamp = `${f.size}:${f.mtimeMs}`;
+      const hit = this.textCache.get(rel);
+      let text: string;
+      if (hit?.stamp === stamp) text = hit.text;
+      else
+        try {
+          text = readFileSync(f.abs, "utf8");
+        } catch {
+          continue; // unreadable — treated as absent, as it always was
         }
-      }
-    };
-    walk(dir);
+      out.set(rel, text);
+      seen.set(rel, { stamp, text });
+    }
     this.textCache = seen;
     return out;
   }
 
   // Size+mtime of every binary file — enough to tell created/overwritten from untouched.
-  private snapshotBinMeta(dir: string): Map<string, string> {
+  private binOf(files: WalkedFile[]): Map<string, string> {
     const out = new Map<string, string>();
-    const walk = (abs: string): void => {
-      let entries: Dirent[];
-      try {
-        entries = readdirSync(abs, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const e of entries) {
-        if (skip(e.name)) continue;
-        const p = join(abs, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (isBinary(e.name)) {
-          try {
-            const s = statSync(p);
-            out.set(this.toRel(p), `${s.size}:${s.mtimeMs}`);
-          } catch {
-            /* raced away */
-          }
-        }
-      }
-    };
-    walk(dir);
+    for (const f of files)
+      if (f.binary) out.set(this.toRel(f.abs), `${f.size}:${f.mtimeMs}`);
     return out;
   }
 
@@ -1016,6 +1161,10 @@ export class Workspace {
             path,
             dir: true,
             project: isProjectDir(childAbs) || undefined,
+            // WHICH app opens it, beside the flag that says one does. The home page's tree
+            // draws a departure per project and needs the name of where it leads — a `.z0`
+            // in an st0 workspace opens somewhere else, and that row must not guess.
+            app: (isProjectDir(childAbs) && projectApp(e.name)) || undefined,
             children: this.walk(childAbs),
           }
         : {
@@ -1041,6 +1190,22 @@ export class Workspace {
    */
   tree(): FileNode[] {
     return this.walk(this.activeProject ?? this.root);
+  }
+
+  /**
+   * The WHOLE workspace as a tree — everything `tree()` deliberately leaves out.
+   *
+   * Its own method rather than a flag on `tree()`, because they answer different questions and
+   * only one of them is the editor's. This one is the home page's 'look inside' pane: the
+   * repository around the song, which is exactly what an editor must not draw and what
+   * somebody choosing a project wants.
+   *
+   * It replaces pl8's `/api/projects/:id/tree`, which read the same shape out of a bare mirror.
+   * Same `FileNode`, same `project` flag, same `skip()` — so the rows did not change when the
+   * source did.
+   */
+  workspaceTree(): FileNode[] {
+    return this.walk(this.root);
   }
 
   /**
@@ -1327,38 +1492,6 @@ export class Workspace {
   }
 
   /**
-   * Every project folder under the workspace root, in the order `walk` would have listed them.
-   *
-   * Its own scan rather than `collect(this.walk(root))`, which is what this replaced: that built
-   * a `FileNode` for every FILE in the repository — a `toRel`, an `isBinary`, an object — and
-   * then threw the whole tree away to keep a handful of directory paths. This route is polled
-   * every two seconds by every tab; measured on a real workspace it cost 30.7 ms a pass, and
-   * 5.3 once the tree stopped being built.
-   *
-   * Directories only, and the same `skip()` and the same ordering, so what it answers is
-   * unchanged. A project inside a project is still descended into: nesting one is not the
-   * arrangement, but refusing to look would be a rule this has never had.
-   */
-  private projectDirs(abs: string, out: string[]): void {
-    let entries: Dirent[];
-    try {
-      entries = readdirSync(abs, { withFileTypes: true });
-    } catch {
-      // Unreadable: no projects here rather than a throw. `walk` raised, which failed the whole
-      // poll over one folder nobody could have opened anyway.
-      return;
-    }
-    const dirs = entries
-      .filter((e) => e.isDirectory() && !skip(e.name))
-      .sort((a, b) => a.name.localeCompare(b.name));
-    for (const e of dirs) {
-      const child = join(abs, e.name);
-      if (isProjectDir(child)) out.push(this.toRel(child));
-      this.projectDirs(child, out);
-    }
-  }
-
-  /**
    * The project list, re-scanned at most this often — see `workspaceInfo`.
    *
    * The same shape as engineLink's `RECONCILE_EVERY_MS`, and for the same reason: a poll asking
@@ -1400,9 +1533,9 @@ export class Workspace {
     if (hit && Date.now() - hit.at < Workspace.PROJECTS_RESCAN_MS)
       return hit.list;
     // From the ROOT, not `tree()`: this lists every project the workspace holds, and the
-    // tree now shows only the open one.
-    const list: string[] = [];
-    this.projectDirs(this.root, list);
+    // tree now shows only the open one. The walk itself is shared with the home page's
+    // listing (`projectDirsUnder`), which asks the same question about every workspace at once.
+    const list = projectDirsUnder(this.root);
     if (this.rootIsProject) list.unshift(".");
     this.projectsCache = { at: Date.now(), list };
     return list;

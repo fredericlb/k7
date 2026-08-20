@@ -3,7 +3,12 @@
 // render the app. No app picks anything here: a project is chosen on st0's home page, and
 // arriving with no target sends you back there. See docs/launch.md.
 
-import { isBench, type ProjectApp } from "@studio/web-protocol/projects";
+import {
+  isBench,
+  isLocal,
+  localTarget,
+  type ProjectApp,
+} from "@studio/web-protocol/projects";
 import {
   FolderGit2,
   FolderSearch,
@@ -215,6 +220,50 @@ export function ProjectGate({
         if (cancelled) return;
         setEmail(userEmail);
         configure(userEmail, ""); // base set; the workspace is what we are about to find
+
+        /**
+         * A project that belongs to NO repository takes the shortest road of the three, and
+         * takes it first — before the libraries, and before pl8 is asked anything at all.
+         *
+         * `/@local/<workspace>/<projet>` names a folder that is already on this machine. There
+         * is no short name to resolve, no URI to hand git, and nothing to clone; the two calls
+         * below are the whole of it.
+         *
+         * **And no library repository is required**, which is the one place this road disagrees
+         * with the two under it. The refusal below exists because an unresolved `@st0/…` ref
+         * makes a song read as broken rather than as an account nobody finished setting up — but
+         * a workspace with no repository mounts no submodule and is what a NEW account has:
+         * `Examples`, seeded with the demos. Insisting on a library there would put the demos
+         * behind the one piece of setup they exist to precede. A ref that does not resolve still
+         * says so, on its own node.
+         */
+        if (isLocal(repoName)) {
+          const local = localTarget(project);
+          if (!local)
+            return setPhase({
+              k: "missing",
+              message:
+                "@local opens a project in a workspace on this machine — `/@local/<workspace>/<projet>`.",
+            });
+          configure(userEmail, local.workspace);
+          try {
+            await projectApi.open(local.project);
+          } catch (e) {
+            if (cancelled) return;
+            const status = (e as { status?: number }).status;
+            // 404 is the workspace or the folder: a machine that answered perfectly well about
+            // something it has not got. Its sentence IS the explanation, as everywhere else here.
+            if (status === 400 || status === 404)
+              return setPhase({ k: "missing", message: (e as Error).message });
+            throw e;
+          }
+          if (cancelled) return;
+          return setPhase({
+            k: "open",
+            workspace: local.workspace,
+            project: local.project,
+          });
+        }
 
         /**
          * The LIBRARIES, before anything about the project — including the bench.

@@ -1,16 +1,18 @@
 // api.ts — the two services this screen talks to, and they are not the same machine:
-// pl8 (same origin, session cookie) OWNS the repositories, the libraries, the deploy key and
-// the shares; the file service on the chosen ENGINE owns every working copy, so creating and
-// deleting a project happen there. Neither half moved when this screen did — only the drawing
-// did. See ../../docs/projects.md.
+// pl8 (same origin, session cookie) holds the REGISTER of repositories, the libraries pointer,
+// the deploy key and the shares; the file service on the chosen ENGINE holds every working copy,
+// so what projects EXIST — and creating, deleting and opening one — is its answer.
+// See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,
   type FileNode,
+  type MachineWorkspace,
+  type MachineWorkspaceList,
+  type RepoProject,
   type RepoRef,
-  type RepoStatus,
   type RepoSummary,
   type ShareSummary,
   type SshKeyInfo,
@@ -19,7 +21,7 @@ import {
 } from "@studio/web-protocol";
 import {
   launchUrl,
-  type ProjectApp,
+  localProjectUrl,
   shareUrl,
 } from "@studio/web-protocol/projects";
 import { serviceUrl } from "@studio/web-protocol/services";
@@ -88,12 +90,14 @@ const psend = async <T>(
   );
 
 /**
- * The account's git repositories.
+ * The account's REGISTER of git repositories.
  *
  * pl8 answers, and always will: a repository belongs to a PERSON rather than to a machine, and
  * the hosted service is the one side that outlives every engine and holds the whole list. What
- * it keeps of one is a bare blobless mirror — enough to answer "what is in there" and nothing
- * more. The checkout is the engine's, further down. See ../../docs/projects.md.
+ * it no longer answers is what is INSIDE one — that was a bare blobless mirror of every
+ * repository, and the machine's working copy is the better source for it. This list is now
+ * read for one thing on this screen: whether `/<dépôt>/<projet>` will resolve. See
+ * `projectHref` below and ../../docs/projects.md.
  */
 export const projects = {
   list: () => pget<{ repos: RepoSummary[]; revision: string }>("", "projects"),
@@ -101,23 +105,6 @@ export const projects = {
   add: (uri: string, label?: string) =>
     psend<{ repo: RepoSummary }>("POST", "", { uri, label }),
   remove: (id: string) => psend<{ ok: true }>("DELETE", `/${id}`),
-  refresh: (id: string) => psend<RepoStatus>("POST", `/${id}/refresh`),
-
-  /**
-   * The repository's tree. 202 means "known, but the mirror is still being fetched" — a state
-   * of its own, and neither an error nor an empty repository, so it is returned rather than
-   * thrown.
-   */
-  tree: async (
-    id: string,
-  ): Promise<{
-    nodes: FileNode[];
-    projects: { path: string; app: ProjectApp }[];
-  } | null> => {
-    const res = await fetch(`${PL8_URL}/api/projects/${id}/tree`);
-    if (res.status === 202) return null;
-    return json(res, "tree");
-  },
 
   sshKey: () => pget<SshKeyInfo>("/ssh-key", "ssh-key"),
   generateSshKey: () => psend<SshKeyInfo>("POST", "/ssh-key", {}),
@@ -134,18 +121,49 @@ export const projects = {
   /** SET, not add — there is one. Doing it twice with the same URI is doing it once. */
   setLibraries: (uri: string) =>
     psend<{ libraries: RepoRef }>("PUT", "/libraries", { uri }),
-
-  /**
-   * Where a project opens — st0 or z0, whichever its folder name claims.
-   *
-   * Still built through `launchUrl` even though this page IS st0: a `.z0` folder in the same
-   * repository opens somewhere else entirely, and the row that leads to it must not be the one
-   * link on the screen that guesses. Still a new tab, too, for the reason it always was — see
-   * ../../docs/projects.md.
-   */
-  openIn: (repoName: string, project: string, app: ProjectApp): string =>
-    launchUrl(window.location.origin, repoName, project, app),
 };
+
+/**
+ * Whether `/<dépôt>/<projet>` will actually resolve for this workspace — the question only this
+ * page can answer, because only this page talks to both services.
+ *
+ * Two halves, and they come from opposite ends. The MACHINE says whether the short name is
+ * unique among its clones (`uniqueName`); pl8's REGISTRY says whether it knows that repository
+ * at all, which is what `GET /api/projects/by-name/:name` is asked one click later. A clone this
+ * machine has and that registry does not — added by hand, or removed from the list since — has a
+ * perfectly good short name that resolves to a 404 at the gate.
+ *
+ * `registered` is the set of short names pl8 answered with.
+ */
+const namedByRepo = (ws: MachineWorkspace, registered: Set<string>): boolean =>
+  ws.uniqueName && ws.repoName !== null && registered.has(ws.repoName);
+
+/**
+ * Where a project opens — st0 or z0, whichever its folder name claims, and by whichever of the
+ * two addresses this workspace can be named by.
+ *
+ * The repository's address wins whenever it works, and that is the whole ordering: `/<dépôt>/…`
+ * means the same song on ANY machine — it is what `projectClaimKey` identifies a project by, and
+ * what a link pasted to somebody else has to be — while `@local` names a folder on this one and
+ * nowhere else. So `@local` is the fallback, for a workspace that is no clone, one whose short
+ * name is ambiguous, and one pl8's registry has never heard of.
+ *
+ * Built through `launchUrl` either way, even though this page IS st0: a `.z0` folder in the same
+ * workspace opens somewhere else entirely, and the row that leads to it must not be the one link
+ * on the screen that guesses. Still a new tab, too — see ../../docs/projects.md.
+ */
+export function projectHref(
+  ws: MachineWorkspace,
+  p: RepoProject,
+  registered: Set<string>,
+): string {
+  return namedByRepo(ws, registered) && ws.repoName
+    ? launchUrl(window.location.origin, ws.repoName, p.path, p.app)
+    : localProjectUrl(window.location.origin, ws.name, p.path, p.app);
+}
+
+/** …and the same question on its own, for the row that wants to SAY which address it got. */
+export const isRegistered = namedByRepo;
 
 // ── pl8: the shares ─────────────────────────────────────────────────────────────
 
@@ -195,6 +213,34 @@ export interface Machine {
  * different repository on every row — several of them before anything is open at all.
  */
 export const engineMachine = {
+  /**
+   * Every workspace on this machine, with the projects in it — the list this page draws.
+   *
+   * The MACHINE answers what projects exist, and nothing else can: they are folders on its disk.
+   * pl8 answered it for a while out of a bare blobless mirror of every repository, which was a
+   * second copy of this one — a `git fetch` behind, and blind to a project committed here whose
+   * push had not landed. See ../../docs/projects.md.
+   */
+  workspaces: async (m: Machine): Promise<MachineWorkspace[]> => {
+    const { workspaces } = await json<MachineWorkspaceList>(
+      await fetch(`${m.fileBase}/workspaces/projects`, {
+        headers: machineHeaders(m),
+      }),
+      "workspaces",
+    );
+    return workspaces;
+  },
+
+  /** One workspace's whole tree — the "look inside" pane. `/workspace-tree` and not `/tree`:
+   *  that one is the OPEN PROJECT's files, which is the editor's question and not this one. */
+  workspaceTree: async (m: Machine, workspace: string): Promise<FileNode[]> =>
+    json(
+      await fetch(`${m.fileBase}/workspace-tree`, {
+        headers: { ...machineHeaders(m), [WORKSPACE_HEADER]: workspace },
+      }),
+      "arborescence",
+    ),
+
   /** Does this machine already hold this repository? A NORMALISED comparison on the far side —
    *  the two ends learned the address by different routes. See packages/git-repos/src/uri.ts. */
   workspaceForRepo: async (m: Machine, uri: string): Promise<string | null> => {

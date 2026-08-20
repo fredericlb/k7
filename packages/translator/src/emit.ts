@@ -243,29 +243,17 @@ function windowFields(
   };
 }
 
-// A track holding any MIDI is a "sequences" track, anything else audio; one holding BOTH has no valid shape here.
-const contentTypeOf = (t: TrackOut): "audio" | "sequences" =>
-  (t.clips ?? []).some((c) => c.type === "midi") ? "sequences" : "audio";
-
-const isMixed = (t: TrackOut): boolean => {
-  const clips = t.clips ?? [];
-  return (
-    clips.some((c) => c.type === "midi") && clips.some((c) => c.type !== "midi")
-  );
-};
-
 function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
   // No `name` field: the FILE names the lane, and `t.name` drives the slug, so the display name is that slug.
   //
-  // A lane is a NODE of one of the five built-in track modules now, so `type:` and
-  // `contentType:` are one `extends:` — which signal it carries is what it extends. Its mute is
-  // its module's bypass and goes to graph.yaml, not here. See packages/song/docs/trackModules.md.
+  // A lane is a NODE of `@studio/track`, and there is nothing to decide: a lane is not typed, so
+  // an imported track's clips carry their own kind and one holding both — which used to have no
+  // shape here at all, and was counted and reported as `mixedTracks` — is now the ordinary case.
+  // Its mute is its module's bypass and goes to graph.yaml, not here.
+  // See packages/song/docs/trackModules.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
-  value.extends =
-    contentTypeOf(t) === "sequences"
-      ? "@studio/sequence-track"
-      : "@studio/audio-track";
+  value.extends = "@studio/track";
   // The lane file's own key — `events:`, not `clips:`. A clip is the material in
   // clips/<id>.yaml; these are placements of it. See song/yaml/moduleSchema.
   value.events = placements;
@@ -286,7 +274,6 @@ export interface EmitStats {
   missingAudio: string[];
   missingPlugins: string[]; // referenced but not in the st0 cache -> stubbed
   // Tracks given both audio and MIDI: they import as "sequences", and their audio won't load until split by hand.
-  mixedTracks: string[];
 }
 
 export function emitFolder(
@@ -373,7 +360,6 @@ export function emitFolder(
   let clipFiles = 0;
   let sequenceFiles = 0;
   const missingAudio: string[] = [];
-  const mixedTracks: string[] = [];
 
   // One chain per source: its ordered plugins become `use` steps, each naming a module node, routed to `terminal`.
   const addChain = (
@@ -500,7 +486,6 @@ export function emitFolder(
     if (isBus) busChains.add(slug);
 
     if (!isBus) {
-      if (isMixed(t)) mixedTracks.push(slug);
       writeFile(
         join(outDir, `nodes/${slug}.yaml`),
         trackText(t, emitArrangement(t, slug)),
@@ -687,7 +672,6 @@ export function emitFolder(
     modulePresetFiles,
     missingAudio,
     missingPlugins: [...missingPlugins],
-    mixedTracks,
   };
 }
 

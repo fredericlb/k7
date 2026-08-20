@@ -71,7 +71,7 @@ const played = (): string[] =>
 
 describe("a take recorded on a lane running its FIRST set", () => {
   it("lands where it is played — the case that always worked", () => {
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     const id = addTakeToTrack(dir, doc(), take());
     expect(played()).toContain(id);
   });
@@ -82,7 +82,7 @@ describe("a take recorded while an ALTERNATIVE is running", () => {
     // THE bug: appended to the top-level `events:` instead, the take is on disk, declared, named
     // after the right bar — and absent from the lane, because the running set replaced that list.
     lane(
-      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     const id = addTakeToTrack(dir, doc(), take());
     expect(played()).toContain(id);
@@ -91,7 +91,7 @@ describe("a take recorded while an ALTERNATIVE is running", () => {
   it("keeps the other sets untouched", () => {
     // An alternative is a take you can go back to. Recording into one must not edit the others.
     lane(
-      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@studio/track"\nevents: [ { ref: first, start: "1:1" } ]\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTakeToTrack(dir, doc(), take());
     const text = readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
@@ -101,7 +101,7 @@ describe("a take recorded while an ALTERNATIVE is running", () => {
 
   it("still names the take after the bar it was played at", () => {
     lane(
-      'extends: "@studio/audio-track"\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@studio/track"\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     const id = addTakeToTrack(dir, doc(), take());
     expect(id).toContain("_3.1_");

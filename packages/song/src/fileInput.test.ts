@@ -87,7 +87,7 @@ describe("the file input", () => {
       "modules/audio/amp/module.yaml",
       "plugin: {type: internal, name: Chorus}\n",
     );
-    file("nodes/t.yaml", 'extends: "@studio/audio-track"\nevents: []\n');
+    file("nodes/t.yaml", 'extends: "@studio/track"\nevents: []\n');
     writeFileSync(
       join(dir, "graph.yaml"),
       "modules:\n  t: [ amp ]\n  amp: [ FILE ]\n",

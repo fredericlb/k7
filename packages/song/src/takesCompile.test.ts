@@ -17,7 +17,7 @@ function project(name: string, lane: Record<string, unknown>): string {
   const p = join(dir, `${name}.st0`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
   writeModule(p, "io", "OUT", { io: "out" });
-  writeLane(p, "gtr", "audio-track", lane);
+  writeLane(p, "gtr", "track", lane);
   writeYaml(join(p, "clips", "riff.yaml"), {
     source: "clips/riff.wav",
     to: "2:1",

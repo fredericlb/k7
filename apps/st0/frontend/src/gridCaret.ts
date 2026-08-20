@@ -70,6 +70,22 @@ export function selBox(sel: GridSelection): GridBox {
   };
 }
 
+/**
+ * The caret's own cell, as a box — the one-by-one rectangle a copy falls back on.
+ *
+ * With nothing drawn, `selection copy` used to answer null and the key went quiet, which reads
+ * as a broken shortcut rather than as "there was nothing selected": ⌃C means "copy what I am
+ * pointing at" in every other application. A caret IS pointing at something, so it is treated as
+ * the smallest rectangle there is and the same copy path runs. An empty cell then returns null
+ * for the honest reason — nothing in it — and the shell says so out loud.
+ */
+export const cellBox = (c: GridCell): GridBox => ({
+  rowLo: c.row,
+  rowHi: c.row,
+  colLo: c.col,
+  colHi: c.col,
+});
+
 /** Whether a cell is inside the box — inclusive, so the cell under the head counts. */
 export function inBox(box: GridBox, row: number, col: number): boolean {
   return (
@@ -134,10 +150,10 @@ export interface ClipGridHandle {
   seekToCaret: () => void;
   /** Shift+L — the rectangle becomes the loop region, or clears it when there is none. */
   toggleLoop: () => void;
-  /** `ui copy` — the rectangle's contents, or null when it holds nothing. */
+  /** `selection copy` — the rectangle's contents, or null when it holds nothing. */
   copy: () => MaybeClipboard;
   /**
-   * `paste` — the command LINE that would put the clipboard down at the caret.
+   * `selection paste` — the command LINE that would put the clipboard down at the caret.
    *
    * A line rather than a write, so the paste goes through the same journalled path a typed
    * command takes: the pane decides WHAT lands where, the shell runs it, and one paste is one
@@ -147,7 +163,7 @@ export interface ClipGridHandle {
   pasteLine: (clip: Clipboard) => PasteResult;
 }
 
-/** What a pane answers `paste` with: what to run, if anything, and what to say either way. */
+/** What a pane answers `selection paste` with: what to run, if anything, and what to say. */
 export interface PasteResult {
   line?: string;
   note: string;

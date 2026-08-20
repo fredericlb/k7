@@ -150,7 +150,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     // NAME — the bench's own furniture — rather than which folder it sits in.
     ws.write(
       `${project}/nodes/banc.yaml`,
-      'extends: "@studio/audio-track"\nevents: []\n',
+      'extends: "@studio/track"\nevents: []\n',
     );
     expect(existsSync(join(libraryChain(), "nodes", "banc.yaml"))).toBe(false);
   });

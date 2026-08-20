@@ -77,14 +77,17 @@ describe("the repository list", () => {
 
 describe("revision", () => {
   it("moves on every write, including two inside one clock tick", async () => {
-    const { addRepo, revision, bump } = await load();
+    const { addRepo, removeRepo, revision } = await load();
     const before = revision("sub-1");
-    addRepo("sub-1", "git@h:me/a.git");
+    const { repo } = addRepo("sub-1", "git@h:me/a.git");
     const afterAdd = revision("sub-1");
     expect(afterAdd).not.toBe(before);
-    // A finished mirror fetch moves nothing on disk but changes what /tree would answer.
-    bump();
-    expect(revision("sub-1")).not.toBe(afterAdd);
+    // Back to the same count, and possibly the same filesystem timestamp: it is the mutation
+    // counter alone that keeps these three tokens apart, which is what it is for.
+    removeRepo("sub-1", repo.id);
+    const afterRemove = revision("sub-1");
+    expect(afterRemove).not.toBe(afterAdd);
+    expect(afterRemove).not.toBe(before);
   });
 
   it("is per user", async () => {
@@ -99,11 +102,9 @@ describe("revision", () => {
 });
 
 describe("paths", () => {
-  it("keeps every user's key and mirrors in their own directory", async () => {
-    const { keyDirFor, mirrorDirFor } = await load();
+  it("keeps every user's key in their own directory", async () => {
+    const { keyDirFor } = await load();
     expect(keyDirFor("sub-1")).not.toBe(keyDirFor("sub-2"));
-    expect(mirrorDirFor("sub-1", "abc")).not.toBe(mirrorDirFor("sub-2", "abc"));
-    expect(mirrorDirFor("sub-1", "abc").endsWith("abc.git")).toBe(true);
   });
 
   it("never lets an OIDC subject become a path segment as-is", async () => {

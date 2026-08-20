@@ -62,7 +62,7 @@ beforeEach(() => {
   );
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nevents: []\n',
+    'extends: "@studio/track"\nevents: []\n',
     "utf8",
   );
   // A local io module too, so the shared path is shown to be a BRANCH and not the only one.

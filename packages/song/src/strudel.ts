@@ -17,7 +17,9 @@ import type { Lane } from "./trackModule";
 export interface StrudelLane {
   track: string; // the declaring track's id — a real, chainable, mixable track
   label: string; // the lane it claims: the track's name, defaulting to its id
-  contentType: "sequences" | "audio"; // how this lane's events are read
+  // No `contentType`: a lane is not typed, so how an event reads is the EVENT's business — a
+  // sound that resolves to a sample is a sample, anything else is a waveform, and each leaves by
+  // the lane's matching output. See patternClock's resolve() and docs/trackModules.md.
 }
 
 // A pattern file and everything the project declares about it.
@@ -64,7 +66,6 @@ export function strudelPatterns(dir: string): StrudelLink[] {
       track,
       // The lane's name is its node file's, so the label and the id are one string.
       label: track,
-      contentType: t.contentType === "audio" ? "audio" : "sequences",
     });
     byPath.set(path, link);
   }

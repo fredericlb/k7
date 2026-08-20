@@ -433,6 +433,41 @@ within; the drawing may be wider. Live pattern lanes deliberately do **not** ext
 their clips are the scheduler's look-ahead, so following them would grow the timeline a bar
 at a time as playback runs.
 
+## The same material, placed twice
+
+A material placed more than once wears a **ghost** on every occurrence but the first, and the
+first is the **earliest in time** — not the first in the file, and not the first on the lane.
+`src/clipInstances.ts` answers both questions and is pure and tested; the timeline only draws it.
+
+The badge sits beside the kind icon (a note, a speaker) rather than in a corner, because what a
+block *is* and how many times you have already seen it are the same question asked at the same
+moment. Only the returns wear it: an icon on every copy would say "these are copies" without
+saying of what, and the eye would have nowhere to look for the take itself.
+
+Selecting one of them **lights the others** — a one-pixel primary outline and a touch of
+brightness, no more. It answers "where else does this play" while the eye is on the block you
+picked, so anything louder would compete with the thing being pointed at. Selecting here is the
+caret: parking on a block is what selects it, so a click already does it.
+
+Three things are deliberately NOT counted, and the exclusions are the judgement:
+
+- **Takes.** A take holds what its lane was playing, which is the same material by construction.
+  Counting them would ghost every event on every lane that has ever been recorded over.
+- **Generated lanes.** Their clips are the scheduler's look-ahead rather than placements anybody
+  wrote — a pattern streaming one bar sixteen times would ghost the real placement above it.
+- **Video lanes.** A material space of their own, with their own renderer.
+
+Two rules fall out of "the earliest wins" and both are pinned in `clipInstances.test.ts`:
+
+- **Across lanes, not down one.** A verse played by the bass and then by the guitar is one
+  material twice; counting per lane would call both of them a first.
+- **An exact tie goes to the higher lane.** Two copies on one beat still have to have a first,
+  and "the one nearer the top" is the only answer a person can check by looking.
+
+The count is a fact about the **song**, not about the view: it reads every track rather than the
+drawn rows, so zooming into three lanes cannot un-ghost an event because the copy it repeats is
+on the fourth, and a repeat scrolled off the left edge is still a repeat.
+
 ## Activity runs through the blocks
 
 An event's block is not a flat fill: its opacity runs from **50% where the content is quiet to

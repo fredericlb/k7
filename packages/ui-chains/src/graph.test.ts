@@ -368,10 +368,10 @@ describe("nodeSize", () => {
   });
 });
 
-// A cable is coloured by WHAT IT CARRIES, so the signal path reads at a glance. The
-// type comes from the edge's SOURCE — a track's contentType, or the module's type
-// folder — because an instrument takes midi and gives back audio: the wire into it is
-// blue and the one out of it orange.
+// A cable is coloured by WHAT IT CARRIES, so the signal path reads at a glance. The type comes
+// from the edge's SOURCE — the lane output the run left by (`fromPort`), what the lane holds
+// (`trackSignals`) when it left bare, or the module's type folder — because an instrument takes
+// midi and gives back audio: the wire into it is blue and the one out of it orange.
 describe("cable signal typing", () => {
   const sig = (edges: { source: string; target: string; signal?: string }[]) =>
     Object.fromEntries(
@@ -401,6 +401,43 @@ describe("cable signal typing", () => {
       "mod:synth->mod:reverb": "audio", // …and the instrument hands back audio
       "mod:reverb->snk:OUT": "audio",
     });
+  });
+
+  it("draws a split lane's two cables from their own jacks", () => {
+    // A lane is not typed by what it carries: it offers `audio` and `midi`, and a run that named
+    // one carries that answer as `fromPort`. Without it both runs read `trackSignals[gtr]` — one
+    // colour for two cables that carry different things — and both left the same socket, so the
+    // node drew one wire where there are two. See @studio/song's docs/trackModules.md.
+    const { edges } = buildGraph({
+      ...graph(
+        {
+          "gtr#audio": {
+            from: "gtr",
+            fromPort: "audio",
+            use: [{ module: "amp", emits: "audio" }],
+            out: [{ to: "OUT", gain: 1 }],
+          },
+          "gtr#midi": {
+            from: "gtr",
+            fromPort: "midi",
+            use: [{ module: "synth", emits: "audio" }],
+            out: [{ to: "OUT", gain: 1 }],
+          },
+        },
+        ["gtr"],
+      ),
+      trackSignals: { gtr: "audio" },
+    });
+    expect(sig(edges)).toMatchObject({
+      "trk:gtr->mod:amp": "audio",
+      "trk:gtr->mod:synth": "midi",
+    });
+    const jacks = Object.fromEntries(
+      edges
+        .filter((e) => e.source === "trk:gtr")
+        .map((e) => [e.target, e.sourcePort]),
+    );
+    expect(jacks).toEqual({ "mod:amp": "audio", "mod:synth": "midi" });
   });
 
   it("keeps a midi transformer's output midi", () => {

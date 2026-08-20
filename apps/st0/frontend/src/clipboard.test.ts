@@ -138,6 +138,25 @@ describe("copying events", () => {
     if (c?.kind !== "events") return;
     expect(c.events[0].loop).toBeUndefined();
   });
+
+  // The shape the CARET's copy takes when no rectangle is drawn: one lane, and the clicked
+  // clip's own span. ⌃C over a placement has to come back holding that placement and nothing
+  // else — copying only what a `v` rectangle held is the bug this pins (TimelineTab's `copy`).
+  it("one lane and one clip's span copies that clip alone", () => {
+    // The caret parked on the SECOND kick, which starts at 8 and runs four beats. Its lane holds
+    // another placement at 0, and that one must not come along: the span is the clip's own.
+    const c = copyEvents([rows[0]], 8, 12);
+    if (c?.kind !== "events") return;
+    expect(c.events).toEqual([{ row: 0, ref: "kick", start: 0 }]);
+    expect(c.rows).toBe(1);
+    expect(c.beats).toBe(4);
+  });
+
+  // …and parked on bare lane it answers null, which is what makes the shell say "nothing to
+  // copy" rather than putting an empty rectangle on the clipboard for a paste to find.
+  it("answers null where the caret is on nothing", () => {
+    expect(copyEvents([rows[0]], 100, 104)).toBeNull();
+  });
 });
 
 describe("pasting events", () => {

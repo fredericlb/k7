@@ -58,7 +58,7 @@ import {
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
 import { sortTracksByKind } from "./trackKind";
-import { type Lane, lanesOf } from "./trackModule";
+import { lanesOf, type Material } from "./trackModule";
 
 // A placement -> a resolved ClipDoc. `start`/`loop` are 1-based positions, the rest 0-based durations.
 /**
@@ -556,9 +556,12 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       if (!isSink(to) && chains[to] && !isTrackFed(chains[to]))
         busChains.add(to);
 
-  // The track id a chain contributes to: its source track, or its own bus track.
+  // The track id a chain contributes to: its source track, or its own bus track — and both are
+  // the chain's own NAME. A track-fed run is called after its lane, or after the lane's output
+  // port when the lane was wired on both (`melody#midi`), which is exactly the engine track its
+  // plugins belong on. See halvesOf.
   const ownerOf = (name: string, c: Chain): string =>
-    isTrackFed(c) ? String(c.from) : busChains.has(name) ? name : "";
+    isTrackFed(c) || busChains.has(name) ? name : "";
 
   // --- FROZEN points (see docs/freeze.md) --------------------------------------
   //
@@ -783,6 +786,50 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   if (!num || !den)
     throw new Error(`timeSignature must look like '4/4', got '${ts}'`);
 
+  /**
+   * The engine tracks one lane compiles to — its HALVES.
+   *
+   * One, called after the lane, for every lane wired the way every lane has been wired until
+   * now. Two when the lane's `audio` and `midi` outputs were keyed separately in graph.yaml:
+   * `melody#audio` and `melody#midi`, each carrying the events its port fits and the plugins of
+   * the run that left by it.
+   *
+   * This is not a new shape for the engine. It holds ONE plugin chain per track, so a lane
+   * playing a riff through an amp and a line through a synth was always two tracks down there —
+   * and used to be two lanes up here too, one typed `audio` and one typed `sequences`, with
+   * nothing but a naming convention saying they belonged together. Detyping makes it one lane
+   * whose material sorts itself; the split survives only where the engine's model requires it,
+   * which is the same relationship `Mixer` already has with the engine's fader.
+   */
+  interface Half {
+    id: string;
+    port?: string; // "audio" | "midi"; absent means this half takes whatever is left
+  }
+  const halvesOf = (lane: string): Half[] => {
+    const out: Half[] = [];
+    for (const [name, c] of Object.entries(chains))
+      if (c.from === lane) out.push({ id: name, port: c.fromPort });
+    // A lane wired to nothing still plays: it is a track with no plugins, which is what a lane
+    // dropped in and not yet routed IS.
+    return out.length ? out : [{ id: lane }];
+  };
+  // What an event's ref names, which is the whole of what decides its output port.
+  const materialOf = (ref: string): Material =>
+    seqMap[ref] ? "midi" : clipsMap[ref] ? "audio" : "missing";
+  // The engine's word for what a track holds. `TrackDoc.contentType` has documented three values
+  // all along and only ever carried two; the third is what a bare-wired detyped lane is. A ref
+  // resolving to nothing counts as audio, which is what it compiles to (see placementToClip).
+  const contentTypeOf = (materials: Material[]): string => {
+    const midi = materials.includes("midi");
+    const audio = materials.some((m) => m !== "midi");
+    return midi ? (audio ? "audio notes" : "notes") : "audio";
+  };
+  // The half an event lands on: the one whose port matches its material, or the one that named
+  // no port and therefore takes everything else. Undefined when neither exists — an event with
+  // nowhere to go, which is reported rather than dropped (see laneErrs).
+  const halfFor = (halves: Half[], material: Material): Half | undefined =>
+    halves.find((h) => h.port === material) ?? halves.find((h) => !h.port);
+
   // A group holds no material, so it's a parent pointer on its members plus an entry in `groups` — never a lane.
   const groupOf: Record<string, string> = {};
   for (const [id, t] of Object.entries(lanesMap))
@@ -837,65 +884,116 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   // Sorted by instrument family here, on the compiled doc, so every surface and the
   // engine agree on what "the third track" is (see trackKind.ts). The name it sorts on is
   // the NODE's — the lane's file names it, exactly as its track file used to.
+  //
+  // One entry per HALF, and the sort is over the LANES: both halves of a lane take its rank and
+  // stay adjacent, so a split reads as one thing in two strips rather than as two lanes that
+  // drifted apart in the list.
+  const laneErrs: string[] = [];
   const tracks: TrackDoc[] = sortTracksByKind(
     Object.entries(lanesMap).filter(
       ([, t]) => t.type !== "group" && !t.disabled,
     ),
     ([id]) => id,
-  ).map(
-    ([id, t]): TrackDoc => ({
-      id,
-      name: id,
-      role: "regular",
-      contentType: t.contentType === "sequences" ? "notes" : "audio", // the engine's vocabulary
-      group: groupOf[id] ?? "",
-      generated: t.type === "strudel",
-      color: t.color ?? "",
-      // The lane's own bypass. It is the same button every module node carries, and on a source it
-      // reads as "produces nothing" — which is what muting a lane has always meant.
-      mute: bypassed.has(id),
-      // Its own entry, or its group's — the fold the engine cannot do (see `soloed` above).
-      solo: soloed.has(id) || soloed.has(groupOf[id] ?? ""),
-      disabled: false, // filtered out above
-      // From the io "in" module that names this track, if any (see inputOf above).
-      inputChannels: inputOf[id]?.channels ?? [],
-      monitor: inputOf[id]?.monitor ?? "auto",
-      inputGain: inputOf[id]?.gain ?? 0,
-      // A FROZEN lane. Three states, and the order matters: the lane the render is taken ON
-      // plays it; a lane merely INSIDE the render plays nothing, because its material is already
-      // in that file and playing it again would be the take twice; everything else plays its own
-      // clips. See docs/freeze.md.
-      clips: renderOn.has(id)
-        ? [frozenClip(id, renderOn.get(id) as string)]
-        : frozenLanes.has(id)
-          ? []
-          : // The lane's authored `events:` become the engine's `clips` — this line IS the
-            // boundary between the two words. See moduleSchema's `events:`.
-            t.events.map((p) =>
-              placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
-            ),
-      // The lane's TAKES, through the SAME compiler its events go through, so a take has the real
-      // extents of the arrangement it was and a surface can draw one without a second reader.
-      // Stripped before the document reaches the engine (`withoutTakes`), and left off entirely
-      // when there are none — see docs/takes.md.
-      ...(t.takes.length
-        ? {
-            takes: t.takes.map((tk) => ({
-              ...(tk.name ? { name: tk.name } : {}),
-              clips: tk.events.map((p) =>
+  ).flatMap(([lane, t]): TrackDoc[] => {
+    const halves = halvesOf(lane);
+    // Which half each of this lane's events plays on. An event whose material has no half is
+    // named here rather than dropped: a lane wired only to its `midi` output and holding an
+    // audio clip is a wiring that says less than the arrangement does, and the fix is one line
+    // in graph.yaml — so say which line.
+    const eventsFor = (evts: typeof t.events, half: Half) =>
+      evts.filter((p) => {
+        const ref = String(p?.ref ?? "");
+        const at = halfFor(halves, materialOf(ref));
+        if (!at) {
+          const kind = materialOf(ref) === "midi" ? "sequence" : "clip";
+          laneErrs.push(
+            `lane '${lane}': event '${ref}' is a ${kind}, but only the lane's ` +
+              `'${halves.map((h) => h.port).join("', '")}' output is wired — ` +
+              `add a '${lane}#${materialOf(ref)}:' key to graph.yaml`,
+          );
+          return false;
+        }
+        return at.id === half.id;
+      });
+    return halves.map((half): TrackDoc => {
+      const id = half.id;
+      // An interface input carries audio, so it lands on whichever half takes audio.
+      const inp =
+        inputOf[id] ??
+        (halfFor(halves, "audio") === half ? inputOf[lane] : undefined);
+      const events = eventsFor(t.events, half);
+      return {
+        id,
+        name: id,
+        role: "regular",
+        // The engine's vocabulary — and the one place its third value is ever written: a lane
+        // wired bare carries both kinds down one chain, which is what "audio notes" says.
+        contentType: half.port
+          ? half.port === "midi"
+            ? "notes"
+            : "audio"
+          : t.type === "strudel"
+            ? // A generated lane holds nothing when stopped, so its events cannot answer. Wired
+              // bare it takes whatever the pattern turns out to play — which is what the clock
+              // reads this field for (patternClock's laneHalf).
+              "audio notes"
+            : contentTypeOf(
+                events.map((p) => materialOf(String(p?.ref ?? ""))),
+              ),
+        group: groupOf[lane] ?? "",
+        generated: t.type === "strudel",
+        color: t.color ?? "",
+        // The lane's own bypass. It is the same button every module node carries, and on a source it
+        // reads as "produces nothing" — which is what muting a lane has always meant. Both halves
+        // take it: muting is a fact about the lane, not about one of its outputs.
+        mute: bypassed.has(lane),
+        // Its own entry, or its group's — the fold the engine cannot do (see `soloed` above).
+        solo: soloed.has(lane) || soloed.has(groupOf[lane] ?? ""),
+        disabled: false, // filtered out above
+        // From the io "in" module that names this track, if any (see inputOf above).
+        inputChannels: inp?.channels ?? [],
+        monitor: inp?.monitor ?? "auto",
+        inputGain: inp?.gain ?? 0,
+        // A FROZEN lane. Three states, and the order matters: the lane the render is taken ON
+        // plays it; a lane merely INSIDE the render plays nothing, because its material is already
+        // in that file and playing it again would be the take twice; everything else plays its own
+        // clips. See docs/freeze.md.
+        clips: renderOn.has(id)
+          ? [frozenClip(id, renderOn.get(id) as string)]
+          : frozenLanes.has(lane)
+            ? []
+            : // The lane's authored `events:` become the engine's `clips` — this line IS the
+              // boundary between the two words. See moduleSchema's `events:`.
+              events.map((p) =>
                 placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
               ),
-            })),
-          }
-        : {}),
-      plugins: trackPlugins[id] ?? [],
-      sends: trackSends[id] ?? [],
-      automation: [],
-      // `docs`/`todos` were carried through here for the Docs panel. Both are gone: a note is a
-      // doc module on the graph now, and the module schema refuses the fields outright — so this
-      // could only ever have copied something nothing can author. See docs/docModules.md.
-    }),
-  );
+        // The lane's TAKES, through the SAME compiler its events go through, so a take has the real
+        // extents of the arrangement it was and a surface can draw one without a second reader.
+        // Stripped before the document reaches the engine (`withoutTakes`), and left off entirely
+        // when there are none — see docs/takes.md.
+        ...(t.takes.length
+          ? {
+              takes: t.takes.map((tk) => ({
+                ...(tk.name ? { name: tk.name } : {}),
+                clips: eventsFor(tk.events, half).map((p) =>
+                  placementToClip(dir, p, clipsMap, seqMap, num, den, tempo),
+                ),
+              })),
+            }
+          : {}),
+        plugins: trackPlugins[id] ?? [],
+        sends: trackSends[id] ?? [],
+        automation: [],
+        // `docs`/`todos` were carried through here for the Docs panel. Both are gone: a note is a
+        // doc module on the graph now, and the module schema refuses the fields outright — so this
+        // could only ever have copied something nothing can author. See docs/docModules.md.
+      };
+    });
+  });
+  if (laneErrs.length)
+    throw new Error(
+      `lane wiring invalid:\n  - ${[...new Set(laneErrs)].join("\n  - ")}`,
+    );
 
   // A return track per bus: no clips, the bus chain's plugins (its AuxReturn goes ahead of them), and onward sends.
   for (const name of busChains)

@@ -26,6 +26,13 @@ render backup (blob), undone atomically.
 The `snapshot` callback — not size/mtime — is the authority for overwrites, so a
 same-size re-bounce still registers even on a coarse-mtime filesystem.
 
+It answers a `Recorded<T>` rather than the mutation's own value: whatever `mutate` returned, plus
+the **revision token either side**. That is not the journal's business and it is nonetheless the
+right place for it — `recordChange` is the one thing that brackets a write, and it has to cross
+the tree twice to diff it, so naming both instants costs it a filter over a list it already
+holds. Its caller would otherwise walk twice more to learn the same two facts, which is precisely
+what `POST /command` used to do. See `docs/audit-perf-web.md`, lot E.
+
 ## The entry model
 
 A ring of up to **1000** entries with a cursor (`entries[0..cursor-1]` are applied;

@@ -113,7 +113,7 @@ export function benchFiles(name: string): Record<string, string> {
     "nodes/banc.yaml":
       `# La piste du banc. Vide : ce qu'on y entend vient de ce qu'on met dans la chaîne —\n` +
       `# une entrée live (voir modules/io/OUT/module.yaml), ou un clip déposé ici.\n` +
-      `extends: "@studio/audio-track"\n`,
+      `extends: "@studio/track"\n`,
 
     // Same reason as the ordinary scaffold's: git tracks files, not directories, and a folder
     // that is not there is one the editor cannot offer.

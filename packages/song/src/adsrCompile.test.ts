@@ -25,7 +25,7 @@ function song(automation: string, curve: string): void {
   put("graph.yaml", "modules:\n  synth: [ osc ]\n  osc: [ OUT ]\n");
   put(
     "nodes/synth.yaml",
-    'extends: "@studio/sequence-track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
     "sequences/riff.yaml",

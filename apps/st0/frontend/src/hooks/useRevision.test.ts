@@ -92,6 +92,50 @@ describe("createRevisionPoller", () => {
     expect(calls).toBe(2); // only once it answered does the next one go
   });
 
+  it("adopts a noted token silently, so the next tick has nothing to announce", async () => {
+    let rev = "a";
+    const seen: number[] = [];
+    const p = createRevisionPoller(async () => rev, 2000);
+    p.subscribe(() => seen.push(1));
+    await settle();
+    expect(seen).toHaveLength(1); // null -> "a"
+
+    // A writing command answered with "b" and the caller reloaded on the spot.
+    rev = "b";
+    p.note("b");
+    expect(seen).toHaveLength(1); // silent: nobody is told
+    expect(p.get()).toBe("b");
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(1); // …and the tick that reads "b" has nothing to say either
+
+    rev = "c"; // somebody else's edit still gets through
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(seen).toHaveLength(2);
+  });
+
+  it("does not let an answer fetched before a note overwrite it", async () => {
+    const seen: number[] = [];
+    const pending: { release: ((v: string) => void) | null } = {
+      release: null,
+    };
+    const p = createRevisionPoller(
+      () =>
+        new Promise<string>((res) => {
+          pending.release = res;
+        }),
+      1000,
+    );
+    p.subscribe(() => seen.push(1));
+    await settle(); // a poll is in the air, holding the token from BEFORE the write
+
+    p.note("b"); // the command landed while it was out
+    pending.release?.("a"); // …and now the stale answer arrives
+    await settle();
+    expect(p.get()).toBe("b"); // it does not win
+    expect(seen).toHaveLength(0); // and announces nothing, or the second pass is back
+  });
+
   it("keeps the last token, and notifies nobody, when the service is unreachable", async () => {
     let ok = true;
     const seen: number[] = [];

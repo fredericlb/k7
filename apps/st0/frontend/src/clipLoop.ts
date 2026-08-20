@@ -65,7 +65,7 @@ export function clipLoop(clip: WebClip): ClipLoop | null {
  *
  * That second case used to be `null`, which drew no band and refused nothing. It was invisible
  * while every windowed clip had a band and every unwindowed one was a sequence you were writing
- * — and it became visible the day `event consolidate` started producing clips whose window
+ * — and it became visible the day `selection consolidate` started producing clips whose window
  * equals their content: the compiler drops the range as saying nothing (`nodeProject.ts`'s
  * `statedTo`), so the band vanished from an event that plainly has an extent.
  *

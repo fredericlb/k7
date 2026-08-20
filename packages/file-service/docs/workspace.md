@@ -89,10 +89,21 @@ whole-folder walks per command — 180 small YAML files read 360 times to journa
 command rewrote. The "before" image is also almost always the "after" image of the command
 before it.
 
-So `snapshotText` keeps the last walk's content, keyed by path, beside each file's size+mtime,
-and re-reads only the files whose stamp moved. The gate is the one `snapshotBinMeta` has always
-trusted for binaries; the walk itself still happens, so a file created or deleted out of band is
-still seen.
+So `textOf` keeps the last walk's content, keyed by path, beside each file's size+mtime, and
+re-reads only the files whose stamp moved. The gate is the one `binOf` has always trusted for
+binaries; the walk itself still happens, so a file created or deleted out of band is still seen.
+
+The walk is now ONE walk. `textOf` and `binOf` split the same tree between them and used to cross
+it separately to do it, and `revision()` crossed it a third time for the token — six passes per
+writing command, since the journal takes an image either side of the mutation and the route took
+a token either side of the command. `walkProject` does it once and reports every file's
+`size`/`mtime`/`binary`/`source`; `withWalk` holds that list for one phase, exactly as
+`withRevision` holds the token and for the same reason; and `recordChange` hands its caller the
+token of both instants, so the route walks not at all. 31–34 ms → 16 ms on a real song, with the
+token identical to the character. Two things that had to stay true, and are tested
+(`revisionWalk.test.ts`): the narrow walk `/revision` takes and the wide one a mutation takes
+must produce the SAME token, and the two-second poll must not start paying for a folder of wavs —
+which is what `sourcesOnly` is, and why no workspace-relative path is computed on that path.
 
 `diffBin` had a sharper version of the same problem, and it was a plain mistake rather than a
 trade: it read every binary's bytes BEFORE deciding whether the diff could use them. A song with

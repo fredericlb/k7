@@ -1,6 +1,7 @@
-// clipboard.ts — what `ui copy` puts aside and `paste` puts down: a rectangle's contents, in
-// coordinates RELATIVE to its top-left corner. Pure, so the offset arithmetic that decides where a
-// paste lands can be pinned without a project. See apps/st0/frontend/docs/clipEditors.md.
+// clipboard.ts — what `selection copy` puts aside and `selection paste` puts down: a
+// rectangle's contents, in coordinates RELATIVE to its top-left corner. Pure, so the offset
+// arithmetic that decides where a paste lands can be pinned without a project. See
+// apps/st0/frontend/docs/clipEditors.md.
 
 /** One copied note. `t` is beats from the rectangle's left edge, `k` semitones below its top row. */
 export interface CopiedNote {

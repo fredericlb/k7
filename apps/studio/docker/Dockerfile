@@ -79,10 +79,14 @@ RUN npm prune --omit=dev
 
 # ---- final image -----------------------------------------------------------
 FROM ${BASE_IMAGE} AS runtime
-# git + openssh-client: pl8 owns the account's repositories and the deploy key.
+# openssh-client: pl8 owns the account's deploy key, and `ssh-keygen` makes the pair.
+# `git` was beside it while pl8 kept a bare mirror of every repository to answer "what is in
+# there"; the machine's own clone answers that now, so no backend in this image shells out to
+# git at all. Dropped rather than kept "just in case" — an installed git is a tool an injected
+# argument can reach, and nothing here calls it.
 # yt-dlp: the médiathèque's imports. ffmpeg: k7's takes, z0's audio, pl8's
 # transcodes — one copy now serves all three.
-RUN apk add --no-cache git openssh-client yt-dlp ffmpeg
+RUN apk add --no-cache openssh-client yt-dlp ffmpeg
 WORKDIR /app
 COPY --from=backend-deps /app/node_modules ./node_modules
 COPY --from=pruner /repo/out-backend/full/ ./

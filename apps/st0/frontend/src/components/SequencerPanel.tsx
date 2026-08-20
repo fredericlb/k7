@@ -21,6 +21,7 @@ import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
 import { clipLoop } from "../clipLoop";
 import {
   type ClipGridHandle,
+  cellBox,
   colSpan,
   inBox,
   type OnGridSelection,
@@ -194,15 +195,17 @@ export function SequencerPanel({
         grid.clearSelect();
       },
       /**
-       * `ui copy` — the notes the rectangle holds. A row here is a rack SOUND rather than a
-       * pitch, so the corner is taken through the rows' own notes: the sounds are listed in the
-       * rack's order, which is not the keyboard's, and a paste has to move by rows the way the
-       * eye reads them.
+       * `selection copy` — the notes the rectangle holds. A row here is a rack SOUND rather
+       * than a pitch, so the corner is taken through the rows' own notes: the sounds are listed
+       * in the rack's order, which is not the keyboard's, and a paste has to move by rows the
+       * way the eye reads them.
        */
       copy: () => {
         const s = grid.sel;
-        if (!s) return null;
-        const b = selBox(s);
+        // No rectangle: the caret's own cell is one (gridCaret's `cellBox`) — ⌃C over a step
+        // copies that step, an empty one answers null and the shell says so. The caret's two
+        // fields spelt out rather than the object: they are what this handle already depends on.
+        const b = s ? selBox(s) : cellBox({ row: caret.row, col: caret.col });
         const keys = rows.slice(b.rowLo, b.rowHi + 1).map((r) => r.note);
         if (!keys.length) return null;
         return copyNotes(
@@ -214,7 +217,8 @@ export function SequencerPanel({
           (cells[b.colHi] ?? origin) + prec.beats,
         );
       },
-      /** `paste` — one `sequence note add`, landing the rectangle's corner on the caret's cell. */
+      /** `selection paste` — one `sequence note add`, landing the rectangle's corner on the
+       *  caret's cell. */
       pasteLine: (c) => {
         if (c.kind !== "notes")
           return {

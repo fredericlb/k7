@@ -219,6 +219,11 @@ export interface WebCurve {
 }
 export interface WebChain {
   from?: string; // a track id (or another chain)
+  // Which of the source lane's OUTPUTS this run left by — "audio" or "midi". A lane offers both
+  // and is not typed by what it carries, so two runs may start at one lane; this is what tells
+  // them apart, and it is the cable's signal without anything having to be looked up. Absent
+  // unless the lane was wired on both. See @studio/song's docs/trackModules.md.
+  fromPort?: string;
   use: WebChainStep[]; // ordered module nodes
   enabled?: boolean; // whole-chain bypass
   out: WebOut[];
@@ -261,6 +266,27 @@ export function splitPort(ref: string): { node: string; port?: string } {
  *  what every chains file written so far says. */
 export const portRef = (node: string, port?: string): string =>
   port ? `${node}${PORT_SEP}${port}` : node;
+
+/**
+ * The two outputs every LANE offers, in the order they are drawn.
+ *
+ * A lane is not typed by what it carries: it holds events naming clips and events naming
+ * sequences in one list, and each leaves by the port its own material fits. Audio FIRST, and the
+ * order is load-bearing twice — a cable that named no port is the first output (see the compiler's
+ * `isFed` and the renderer's `cablePath`), and audio is what a bare-wired lane overwhelmingly
+ * carries. Orange then blue, left to right, on every lane in the graph.
+ *
+ * HERE for the reason `PORT_SEP` is: both sides need it and neither may depend on the other. The
+ * compiler builds the lane module's ports from it (`@studio/song`'s trackModule.ts) and the
+ * renderer draws a jack per entry, so the sockets and the refs cannot come to disagree about how
+ * many there are or which is which. See `@studio/song`'s docs/trackModules.md.
+ */
+export const TRACK_OUT_AUDIO = "audio";
+export const TRACK_OUT_MIDI = "midi";
+export const TRACK_OUTPUTS = [
+  { name: TRACK_OUT_AUDIO, type: "audio" },
+  { name: TRACK_OUT_MIDI, type: "midi" },
+] as const satisfies readonly { name: string; type: WebSignal }[];
 
 /**
  * One clip a track holds, as the GRAPH needs it — enough to list it on the track's node.

@@ -1,7 +1,7 @@
 # Saying NO — `h.refuse()`
 
-A handler has one output channel and used to say everything through it. `event consolidate` on
-a two-lane rectangle wrote a line; so did `event consolidate` on a good one. Both arrived as the
+A handler has one output channel and used to say everything through it. `selection consolidate` on
+a two-lane rectangle wrote a line; so did `selection consolidate` on a good one. Both arrived as the
 same grey text under the command bar, and the app went on as if the edit had landed — because
 nothing in the wire said otherwise.
 

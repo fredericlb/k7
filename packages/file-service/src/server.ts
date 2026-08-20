@@ -11,7 +11,7 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
-import type { WorkspaceList } from "@studio/web-protocol";
+import type { MachineWorkspaceList, WorkspaceList } from "@studio/web-protocol";
 import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
@@ -46,6 +46,7 @@ import {
   assertSshGitUri,
   createWorkspace,
   getWorkspace,
+  listMachineWorkspaces,
   listWorkspaces,
   UnknownWorkspaceError,
   workspaceForRepo,
@@ -168,6 +169,27 @@ app.post(
 );
 
 /**
+ * Every workspace on this machine and the projects in it — st0's home page, in one call.
+ *
+ * Registered beside `/workspaces` and for the same reason: it needs the user and no workspace.
+ * A LIST route rather than one call per workspace, because the page draws them all and N round
+ * trips over the LAN would be N waits for one screen.
+ *
+ * This is the machine answering "what projects exist", which is now the only answer there is.
+ * pl8 held a bare blobless mirror of every repository to answer it from the hosted side; see
+ * apps/st0/frontend/docs/projects.md for why that copy went.
+ */
+app.get(
+  "/workspaces/projects",
+  wrap(async (req, res) => {
+    const reply: MachineWorkspaceList = {
+      workspaces: await listMachineWorkspaces(req.userEmail!),
+    };
+    res.json(reply);
+  }),
+);
+
+/**
  * Which workspace already holds a repository, if any. pl8 names a repo by its URI and knows
  * nothing about this machine's folders, so this is the question st0 asks before deciding
  * whether anything needs cloning at all.
@@ -218,7 +240,7 @@ app.post(
     if (!libraries)
       return res.status(400).json({
         error:
-          "no libraries repository — add one in the médiathèque's Projets section",
+          "no libraries repository — add one on st0's home page, in the card above the list",
       });
     try {
       res.json(await ensureChainBench(req.userEmail!, chain, libraries));

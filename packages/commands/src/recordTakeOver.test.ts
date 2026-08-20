@@ -72,7 +72,7 @@ function laneWithRiff(): void {
   );
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\nevents:\n  - { ref: riff, start: "3:1" }\n',
+    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "3:1" }\n',
     "utf8",
   );
 }
@@ -81,7 +81,7 @@ function laneWithRiff(): void {
 function bareLane(): void {
   writeFileSync(
     join(dir, "nodes", "gtr.yaml"),
-    'extends: "@studio/audio-track"\n',
+    'extends: "@studio/track"\n',
     "utf8",
   );
 }
@@ -150,7 +150,7 @@ describe("recording over an alternative", () => {
     writeFileSync(
       join(dir, "nodes", "gtr.yaml"),
       [
-        'extends: "@studio/audio-track"',
+        'extends: "@studio/track"',
         "events:",
         '  - { ref: riff, start: "3:1" }',
         "alternative: loud",

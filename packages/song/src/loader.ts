@@ -11,7 +11,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
@@ -39,6 +39,7 @@ import {
   type PortDef,
   slugifyPluginName,
   splitModuleKey,
+  TRACK_REF,
 } from "./moduleTypes";
 import type {
   LoadedModule,
@@ -1136,75 +1137,43 @@ export function withChainModuleRefs(
 }
 
 // Create modules/<category>/<module>/module.yaml, optionally extending another; throws verbatim for the user.
-// Create tracks/<id>.yaml — and, for a MIDI track, the empty sequence it plays.
-//
-// `track new` used to build a ProjectDoc in memory and hand it to the engine, which put a
-// strip in the mixer and wrote NOTHING: the track was gone on the next reload, because a
-// track IS its file. This is that file.
-//
-// Appends to `trackOrder` only when the project HAS one — buildDoc reads
-// `trackOrder ?? Object.keys(tracksMap)` and then filters, so a project that orders its
-// tracks explicitly would simply not show a track missing from the list, while one that
-// doesn't order them needs no entry at all.
-export function createTrackFile(
-  dir: string,
-  id: string,
-  kind: "audio" | "midi",
-): string[] {
-  // The filename is the id, and the id is what a chain's `{track: …}` head names.
+/**
+ * Create `nodes/<id>.yaml` — a LANE, and nothing else.
+ *
+ * `track new` used to build a ProjectDoc in memory and hand it to the engine, which put a strip
+ * in the mixer and wrote NOTHING: the track was gone on the next reload, because a track IS its
+ * file. This is that file.
+ *
+ * No kind. It wrote `tracks/<id>.yaml` with a `type:` and a `contentType:`, in two flavours — an
+ * audio one and a MIDI one that also seeded a sequence to play. Both words are gone: a lane is a
+ * node of `@studio/track`, and it is not typed by what it carries (docs/trackModules.md). Seeding
+ * material is `createSequenceFile` beside this, which is the half of `track new midi` that was
+ * really about a sequence.
+ *
+ * Appends to `trackOrder` only when the project HAS one — buildDoc reads
+ * `trackOrder ?? Object.keys(tracksMap)` and then filters, so a project that orders its
+ * tracks explicitly would simply not show a track missing from the list, while one that
+ * doesn't order them needs no entry at all.
+ */
+export function createTrackFile(dir: string, id: string): string[] {
+  // The filename is the id, and the id is what a chain's key names.
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
       `invalid track name '${id}' — letters, digits, '.', '_' and '-' only`,
     );
-  const rel = `tracks/${id}.yaml`;
+  const rel = `nodes/${id}.yaml`;
   if (existsSync(join(dir, rel)))
     throw new Error(`track '${id}' already exists (${rel})`);
+  // One flat name space: a lane and a module cannot share a name (docs/trackModules.md).
+  if (id in loadModules(dir))
+    throw new Error(`'${id}' is already a module in this project`);
 
-  const written: string[] = [];
-  const put = (r: string, body: string) => {
-    const path = join(dir, r);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, body, "utf8");
-    written.push(r);
-  };
-
-  if (kind === "midi") {
-    // Seeded with an empty 4-bar sequence: a MIDI track with no clip has nowhere to
-    // record into, and the piano roll needs something to open.
-    // Four empty bars, said as the sequence's own window: with no notes there is nothing to measure, and a
-    // sequence with no extent draws as a clip of no width. The placement only says where it starts.
-    put(
-      `sequences/${id}.yaml`,
-      `from: "1:1"
-to: "5:1"
-notes: []
-`,
-    );
-    put(
-      rel,
-      `type: single
-contentType: sequences
-` +
-        `mute: false
-solo: false
-` +
-        `events:
-  - { ref: ${id}, start: "1:1:1" }
-`,
-    );
-  } else {
-    put(
-      rel,
-      `type: single
-contentType: audio
-` +
-        `mute: false
-solo: false
-` +
-        `events: []
-`,
-    );
-  }
+  mkdirSync(join(dir, "nodes"), { recursive: true });
+  writeFileSync(
+    join(dir, rel),
+    [`extends: "${TRACK_REF}"`, "events: []", ""].join("\n"),
+    "utf8",
+  );
 
   const root = loadProjectRoot(dir, true);
   if (Array.isArray(root.trackOrder)) {
@@ -1212,7 +1181,35 @@ solo: false
     if (projectFile)
       setFileValue(projectFile.path, ["trackOrder"], [...root.trackOrder, id]);
   }
-  return written;
+  return [rel];
+}
+
+/**
+ * Create `sequences/<id>.yaml` — four empty bars, ready for the piano roll.
+ *
+ * This was the second half of `track new midi`, which made a lane AND the sequence it played
+ * because a lane could only hold one kind of thing and a MIDI one with nothing on it had nowhere
+ * to record into. A lane holds either kind now, so the two are two actions: make a lane, put
+ * something on it.
+ *
+ * Four empty bars said as the sequence's own window: with no notes there is nothing to measure,
+ * and a sequence with no extent draws as a clip of no width.
+ */
+export function createSequenceFile(dir: string, id: string): string[] {
+  if (!/^[A-Za-z0-9_.-]+$/.test(id))
+    throw new Error(
+      `invalid sequence name '${id}' — letters, digits, '.', '_' and '-' only`,
+    );
+  const rel = `sequences/${id}.yaml`;
+  if (existsSync(join(dir, rel)))
+    throw new Error(`sequence '${id}' already exists (${rel})`);
+  mkdirSync(join(dir, "sequences"), { recursive: true });
+  writeFileSync(
+    join(dir, rel),
+    ['from: "1:1"', 'to: "5:1"', "notes: []", ""].join("\n"),
+    "utf8",
+  );
+  return [rel];
 }
 
 export function createModuleFile(

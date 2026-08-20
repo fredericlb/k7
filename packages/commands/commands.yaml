@@ -29,14 +29,19 @@
 #             a range, a convention, a payload shape (see CLASS_HINT for the defaults).
 
 # --- tracks / project ---
-# The name is OPTIONAL: `track new audio` still works and picks audio-1, audio-2, … but a
-# track's name is its id and its filename, so naming it up front saves a rename later.
-- command: "track new audio"
-  sid: track.new.audio
+# The name is OPTIONAL: `track new` picks track-1, track-2, … but a track's name is its id and
+# its filename, so naming it up front saves a rename later.
+#
+# ONE verb, where there were two. `track new audio` and `track new midi` made two kinds of lane;
+# a lane is not typed by what it carries any more (packages/song/docs/trackModules.md), so there
+# is one kind. Seeding an empty sequence — what the MIDI one did beyond making a lane — is
+# `sequence new`, which is what that half of it was really about.
+- command: "track new"
+  sid: track.new
   readable:
-    en: "Add an audio track"
-    fr: "Ajouter une piste audio"
-  help: "add an audio track (e.g. track new audio gtr) — named audio-N if you don't say"
+    en: "Add a track"
+    fr: "Ajouter une piste"
+  help: "add a track (e.g. track new gtr) — named track-N if you don't say"
   surfaces: [cli]
   args:
     [
@@ -46,19 +51,19 @@
         hint: "the track's id, which is its filename — optional",
       },
     ]
-- command: "track new midi"
-  sid: track.new.midi
+- command: "sequence new"
+  sid: sequence.new
   readable:
-    en: "Add a MIDI track"
-    fr: "Ajouter une piste MIDI"
-  help: "add a MIDI track, seeded with an empty sequence (e.g. track new midi lead)"
+    en: "Add an empty sequence"
+    fr: "Ajouter une séquence vide"
+  help: "add an empty 4-bar sequence to write notes into (e.g. sequence new lead)"
   surfaces: [cli]
   args:
     [
       {
         name: name,
         optional: true,
-        hint: "the track's id, which is its filename — optional",
+        hint: "the sequence's id, which is its filename — optional",
       },
     ]
 - command: "project reload"
@@ -955,7 +960,7 @@
   readable:
     en: "Put a batch of placed events on their tracks"
     fr: "Poser un lot d'événements placés sur leurs pistes"
-  help: "put a batch of already-placed events down in one step (JSON payload — see `ui copy`)"
+  help: "put a batch of already-placed events down in one step (JSON payload — see `selection copy`)"
   surfaces: [cli]
   args:
     [
@@ -1078,7 +1083,7 @@
 #
 # There was a VIRTUAL split beside this one, which wrote nothing and left two placements of one
 # material — and an `event join` that put such a pair back. Both are gone: a split that does not
-# write is a split you cannot then treat the halves of, and `event consolidate` is what rejoins
+# write is a split you cannot then treat the halves of, and `selection consolidate` is what rejoins
 # anything at all. See packages/song/docs/materialCut.md.
 # …and the other half of the same gesture: cut the MATERIAL, not the placement. Two new files are
 # written and the event is replaced by two events naming them — a sequence is divided note by note,
@@ -1103,17 +1108,26 @@
 # by the same act. `event join` stood beside it and only ever rewrote placements, which meant it
 # held out for the one case where nothing had to be written; it is gone with the virtual split.
 #
+# `selection`, not `event`, and it is the only entry of that head in this file. Every other `event`
+# verb addresses ONE placement by its start; this one takes a rectangle — lane, from, to — and
+# the head is what says so before the arguments do. In the editor the rectangle is drawn and the
+# form arrives full (commandFill.ts); typed bare, the three arguments spell the same rectangle out.
+# `selection copy` and `selection paste` are the shell's own and live beside it in the palette:
+# what they share is not a material but the region a gesture aimed at. It stays HERE in the file
+# rather than moving to a section of its own — catalogue order is what orders a right-click menu,
+# and split's inverse belongs next to split. See apps/st0/frontend/docs/clipEditors.md.
+#
 # The rectangle exactly as `events move` takes it, and ONE lane: what would a consolidation across
 # two lanes even be — one file, or one per lane? Refused rather than guessed.
 #
 # Gaps are kept as gaps. The new material spans the whole range, and silence where nothing played
 # is what makes the result play back identically — the same test a split has to pass.
-- command: "event consolidate"
-  sid: event.consolidate
+- command: "selection consolidate"
+  sid: selection.consolidate
   readable:
     en: "Consolidate a range into one clip"
     fr: "Consolider une plage en un seul clip"
-  help: "write one new clip over a range (e.g. event consolidate drums 2:1 6:1)"
+  help: "write one new clip over a range (e.g. selection consolidate drums 2:1 6:1)"
   surfaces: [cli]
   args:
     [

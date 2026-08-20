@@ -1,6 +1,6 @@
 # The A deck — four on the floor. It FLOWS into the crossfade, so it fills the module's
 # first port. (Was `docs:`, read by the Docs panel; a note is a doc module now.)
-extends: "@studio/audio-track"
+extends: "@studio/track"
 events:
   - { ref: kick, start: "1:1:1" }
   - { ref: kick, start: "1:2:1" }

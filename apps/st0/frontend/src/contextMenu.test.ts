@@ -51,8 +51,8 @@ const CATALOGUE: CommandInfo[] = [
     ],
   },
   {
-    command: "event consolidate",
-    help: "write one new clip over a range (e.g. event consolidate drums 2:1 6:1)",
+    command: "selection consolidate",
+    help: "write one new clip over a range (e.g. selection consolidate drums 2:1 6:1)",
     args: [
       a("tracks", "track", "tracks"),
       a("from", "timecode"),
@@ -139,7 +139,7 @@ describe("a track", () => {
       "track pan gtr ",
       "event remove gtr ",
       "event move gtr ",
-      "event consolidate gtr ",
+      "selection consolidate gtr ",
       "ui file gtr",
     ]);
   });
@@ -158,11 +158,12 @@ describe("a track", () => {
       "mute",
       "gain",
       "pan",
-      // …and a head naming something ELSE stays: these two are about one placement on the lane,
-      // and `ui file` about the file behind it. That is exactly what the head is saying.
+      // …and a head naming something ELSE stays: the two `event` rows are about one placement on
+      // the lane, `selection consolidate` about a rectangle of them, and `ui file` about the
+      // file behind the track. That is exactly what each head is saying.
       "event remove",
       "event move",
-      "event consolidate",
+      "selection consolidate",
       "ui file",
     ]);
   });
@@ -313,20 +314,21 @@ describe("a clip", () => {
       "ui file riff",
       "event remove gtr 2:1:1",
       "event move gtr 2:1:1 ",
-      "event consolidate gtr 2:1:1 ",
+      "selection consolidate gtr 2:1:1 ",
     ]);
   });
 
   it("drops `event`, which is what you right-clicked", () => {
-    // The rows read "remove", "move" — and on the real catalogue "consolidate", "split virtual".
-    // `ui file` keeps its head: it is about the material's file, not about this placement.
+    // The rows read "remove", "move". `ui file` keeps its head: it is about the material's
+    // file, not about this placement — and `selection consolidate` keeps its own, which is what
+    // says that row reaches past the one event you clicked.
     const l = labels(
       contextMenu(
         { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
         CATALOGUE,
       ),
     );
-    expect(l).toEqual(["ui file", "remove", "move", "consolidate"]);
+    expect(l).toEqual(["ui file", "remove", "move", "selection consolidate"]);
   });
 
   it("says nothing about a placement it was not told the address of", () => {
@@ -352,10 +354,12 @@ describe("a clip", () => {
         CATALOGUE,
       ),
     );
-    expect(l).toContain("event consolidate gtr 2:1:1 6:1:1");
+    expect(l).toContain("selection consolidate gtr 2:1:1 6:1:1");
     // …and ONCE. The placement-shaped derivation matches its leading arguments too, so without
     // the filter it appeared twice — the second half-filled, which is the one that asks.
-    expect(l.filter((x) => x.startsWith("event consolidate"))).toHaveLength(1);
+    expect(l.filter((x) => x.startsWith("selection consolidate"))).toHaveLength(
+      1,
+    );
   });
 
   it("still asks for the range when no rectangle is drawn", () => {
@@ -367,7 +371,7 @@ describe("a clip", () => {
         CATALOGUE,
       ),
     );
-    expect(l).toContain("event consolidate gtr 2:1:1 ");
+    expect(l).toContain("selection consolidate gtr 2:1:1 ");
   });
 
   it("never offers the `clip …` family — an event is a placement, not the material", () => {

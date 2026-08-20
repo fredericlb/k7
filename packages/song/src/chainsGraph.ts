@@ -80,13 +80,54 @@ export function chainsOf(
   const bypassed = new Set(file.bypassed ?? []);
 
   // `@in` is a lane wherever it appears: a template has no project to ask, and it is the one name
-  // that means "the signal starts here" with nothing behind it.
-  const lane = (n: string): boolean => n === CHAIN_IN || isLane(n);
+  // that means "the signal starts here" with nothing behind it. Asked of a ref that may name a
+  // port, since a lane's outputs are addressable (below).
+  const lane = (n: string): boolean => {
+    const node = splitPort(n).node;
+    return node === CHAIN_IN || isLane(node);
+  };
 
   // Everything below reasons about the NODE, never the port: `crossfade` fed twice is one
   // meeting point, not two nodes. The port rides along on the edge and is read back where it
   // means something — which input of the target this feeder lands on.
   const nodeOf = (ref: string): string => splitPort(ref).node;
+
+  /**
+   * A LANE keyed on more than one output is more than one SOURCE — the one place the rule above
+   * does not hold, and the whole of what detyping costs the derivation.
+   *
+   * A module's outputs are one signal path as far as the engine is concerned (`out` compiles as a
+   * parallel send — docs/ports.md), so `stemsplit#drums` and `stemsplit#vocals` must stay one
+   * node or the two would absorb their targets into runs that in fact split. A lane's two outputs
+   * are not that: they carry different MATERIAL, and the engine can perfectly well hold a track
+   * for each. So `melody#audio` and `melody#midi` are two runs, each absorbing its own modules,
+   * and each compiling onto its own engine track.
+   *
+   * Only when both are written. A lane keyed once — every project written before this, and every
+   * lane that plays one kind of thing — is its bare name, so nothing gained a suffix by existing.
+   */
+  const splitLanes = new Set<string>();
+  // …and, for a lane keyed exactly ONCE, the port that key named. A lane wired only to its midi
+  // output is not split — its identity is still its bare name, so nothing gained a suffix — but
+  // it did say which jack, and the compiler needs to hear it: that is what decides whether the
+  // lane's audio events have anywhere to go.
+  const soleLanePort = new Map<string, string | undefined>();
+  {
+    const perLane = new Map<string, Set<string>>();
+    for (const key of Object.keys(modules)) {
+      if (!lane(key)) continue;
+      const node = nodeOf(key);
+      const keys = perLane.get(node) ?? new Set<string>();
+      keys.add(key);
+      perLane.set(node, keys);
+    }
+    for (const [node, keys] of perLane)
+      if (keys.size > 1) splitLanes.add(node);
+      else soleLanePort.set(node, splitPort([...keys][0]).port);
+  }
+  // What a source key is a run OF: its node, or the key itself for a split lane's output.
+  const srcId = (key: string): string =>
+    splitLanes.has(nodeOf(key)) ? key : nodeOf(key);
 
   // A module may be keyed with a port on the source side too (`deck#cue: [...]`), so its
   // destinations are the UNION of every key naming it. Keying on the raw string would have
@@ -98,17 +139,17 @@ export function chainsOf(
   const dests = (n: string): Dest[] => {
     const out: Dest[] = [];
     for (const [key, ds] of Object.entries(modules)) {
-      const { node, port } = splitPort(key);
-      if (node !== n) continue;
+      const { port } = splitPort(key);
+      if (srcId(key) !== n) continue;
       for (const to of ds) out.push(port ? { to, fromPort: port } : { to });
     }
     return out;
   };
-  // …and the module names this file mentions, each once, in first-seen order.
+  // …and the sources this file mentions, each once, in first-seen order.
   const moduleNodes = (): string[] => {
     const seen: string[] = [];
     for (const key of Object.keys(modules)) {
-      const n = nodeOf(key);
+      const n = srcId(key);
       if (!seen.includes(n)) seen.push(n);
     }
     return seen;
@@ -128,12 +169,13 @@ export function chainsOf(
   // second port, so the run would claim it as its next step and its real flow input would go
   // unnoticed.
   //
-  // The out-degree is the NODE's, not the key's. A module keyed once is the same either way,
-  // but one split across its outputs (`sep#drums:` and `sep#bass:`, a key apiece) has two
-  // lists of one — and per-key counting would call each edge an only child, absorbing both
-  // targets into a single run through a module that in fact splits.
+  // The out-degree is the SOURCE's — which for a module is its node, whatever port a key names.
+  // One split across its outputs (`sep#drums:` and `sep#bass:`, a key apiece) has two lists of
+  // one, and per-key counting would call each edge an only child, absorbing both targets into a
+  // single run through a module that in fact splits. A split LANE is the exception `srcId`
+  // makes: its two outputs are two runs, so each counts its own.
   for (const [key, ds] of Object.entries(modules)) {
-    const deg = dests(nodeOf(key)).length;
+    const deg = dests(srcId(key)).length;
     for (const d of ds) if (!splitPort(d).port) edge(d, deg);
   }
 
@@ -150,7 +192,7 @@ export function chainsOf(
     else named.set(node, [from]);
   };
   for (const [m, ds] of Object.entries(modules))
-    for (const d of ds) feedPort(nodeOf(m), d);
+    for (const d of ds) feedPort(srcId(m), d);
 
   /**
    * Does `n` belong to the run that reaches it, rather than starting one of its own?
@@ -224,12 +266,25 @@ export function chainsOf(
   // There is no "both a track and a module" refusal here any more. It existed because the file
   // had two maps and one name could appear in each; with one map a name is one node, and the
   // collision it guarded against cannot be written.
+  //
+  // The run is named after the SOURCE and `from` after the lane, which are the same string
+  // unless the lane split — then the name carries the port (`melody#midi`) and `fromPort` says
+  // which one, so a reader asking "whose material is this" and a reader asking "which jack did
+  // it leave by" each get their answer without parsing the other's.
   for (const n of moduleNodes()) {
     if (!lane(n)) continue;
     placed.add(n);
     const ds = dests(n);
     if (!ds.length) continue; // feeds nothing — the same as not being listed
-    chains[n] = { from: n, ...follow(ds) };
+    const { node } = splitPort(n);
+    const port = splitLanes.has(node)
+      ? splitPort(n).port
+      : soleLanePort.get(node);
+    chains[n] = {
+      from: node,
+      ...(port ? { fromPort: port } : {}),
+      ...follow(ds),
+    };
   }
   // Then every module that starts a run of its own: a bus (several things feed it), the
   // far side of a split, or a node nothing feeds at all.

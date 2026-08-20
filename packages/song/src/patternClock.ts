@@ -207,9 +207,15 @@ export class PatternClock {
       }
     }
     this.patterns = loaded;
+    // Keyed by the compiled track id, which is the lane's — or one per HALF when the lane wired
+    // both outputs. `emit` fills the clips of everything in here, so both halves have to be in it
+    // or the midi half of a split lane would never receive what the scheduler put on it.
     this.declared = new Map();
     for (const p of loaded)
-      for (const lane of p.lanes.values()) this.declared.set(lane.track, lane);
+      for (const lane of p.lanes.values())
+        for (const t of this.base?.tracks ?? [])
+          if (t.id === lane.track || t.id.startsWith(`${lane.track}#`))
+            this.declared.set(t.id, lane);
     // Pre-create the tracks each orbit will use, so an instrument add's rebuild prepares them before playback starts.
     for (const p of loaded)
       for (const e of p.pattern.query(0, 8)) this.resolve(e, p);
@@ -267,24 +273,38 @@ export class PatternClock {
     const s = e.s;
     const lane = e.label ? p.lanes.get(labelKey(e.label)) : undefined;
 
-    // A declared lane: contentType settles how the event reads, so pattern and chain can't disagree.
+    /**
+     * A declared lane, read exactly like an undeclared one: the EVENT's sound says what it is.
+     *
+     * It used to be the lane's `contentType` that settled this — `s` was a sample name on an
+     * audio lane and a waveform on a sequences one — so a pattern and the lane it was declared
+     * on could not disagree. A detyped lane has no such word to hold them to, and does not need
+     * one: a name that resolves to a sample IS a sample, anything else is a waveform, and each
+     * leaves by the output its own kind fits. One pattern may now be half drums and half melody
+     * on one lane, which is what a pattern usually is.
+     */
     if (lane) {
-      if (lane.contentType !== "audio")
-        return {
-          trackId: lane.track,
-          note: hapPitch(e.note, e.n) ?? (s ? fallbackPitch(s) : 60),
-        };
       const src = s ? resolveSample(this.projectDir, s, e.n ?? 0) : null;
-      if (src) return { trackId: lane.track, sample: src };
-      // Dropping an unresolvable sample is right, but do it OUT LOUD once per sound, or a typo'd name is just silence.
-      const key = `${lane.track}:${s ?? ""}`;
-      if (!this.warned.has(key)) {
-        this.warned.add(key);
-        this.log(
-          `strudel: track '${lane.track}' is an audio lane but ${s ? `no sample matches '${s}'` : "an event names no sound"} — skipped`,
-        );
+      const half = this.laneHalf(lane.track, src ? "audio" : "notes");
+      if (!half) {
+        // The lane's other output is not wired, so there is nowhere for this event to go. Say so
+        // once per sound: silence with a graph that looks right is the hardest kind to chase.
+        const key = `${lane.track}:${src ? "audio" : "notes"}`;
+        if (!this.warned.has(key)) {
+          this.warned.add(key);
+          this.log(
+            `strudel: lane '${lane.track}' has no ${src ? "audio" : "midi"} output wired — ` +
+              `${src ? `sample '${s}'` : "a note"} skipped; add a '${lane.track}#${src ? "audio" : "midi"}:' key`,
+          );
+        }
+        return null;
       }
-      return null;
+      return src
+        ? { trackId: half, sample: src }
+        : {
+            trackId: half,
+            note: hapPitch(e.note, e.n) ?? (s ? fallbackPitch(s) : 60),
+          };
     }
 
     // 1. a project instrument module → a note on that instrument's own track
@@ -327,6 +347,25 @@ export class PatternClock {
       trackId,
       note: hapPitch(e.note, e.n) ?? (s ? fallbackPitch(s) : 60),
     };
+  }
+
+  /**
+   * The compiled track a declared lane's event lands on, by what the event carries.
+   *
+   * A lane is one engine track, or two when its `audio` and `midi` outputs were wired
+   * separately (`melody#audio`, `melody#midi` — see nodeProject's halvesOf). Which is which is
+   * already on the wire: `contentType` says what each half takes, and a bare-wired lane says
+   * "audio notes", meaning either. So the base document answers this and no new field is needed.
+   */
+  private laneHalf(lane: string, want: "audio" | "notes"): string | null {
+    const prefix = `${lane}#`;
+    for (const t of this.base?.tracks ?? [])
+      if (
+        (t.id === lane || t.id.startsWith(prefix)) &&
+        t.contentType.includes(want)
+      )
+        return t.id;
+    return null;
   }
 
   // Pick (or register) the id of the live track an UNDECLARED event lands on — see docs/patternClock.md.

@@ -480,9 +480,16 @@ filesRouter.get(
 // `at` is a workspace-relative folder the verbs should act on INSTEAD of the open project — the
 // chains builder's template. Through `safePath` like every other path a browser sends, so it
 // cannot address its way out of the workspace, and absent for every ordinary command.
-const cmdBody = z.object({ line: z.string(), at: z.string().optional() });
+// `want` names the derived views the caller will actually DRAW — see the route's own comment.
+// Absent means "the graph, as before", so a caller that has never heard of the field behaves
+// exactly as it did; an empty list is a caller saying, out loud, that it wants none.
+const cmdBody = z.object({
+  line: z.string(),
+  at: z.string().optional(),
+  want: z.array(z.enum(["graph"])).optional(),
+});
 /**
- * Run a verb, and hand back the new GRAPH with it when the project changed.
+ * Run a verb, and hand back the new GRAPH with it when the project changed and the caller wants it.
  *
  * A command that writes used to cost three sequential round trips: this one, then `/graph`, then
  * `/project-doc` — and the last two each rebuild from disk, `buildGraphDoc` through `loadGraph`
@@ -493,44 +500,62 @@ const cmdBody = z.object({ line: z.string(), at: z.string().optional() });
  *
  * Building it HERE costs the same 401 ms but spends it inside a request the client is already
  * waiting on, so the canvas can redraw the moment this returns instead of a fetch and a parse
- * later. Two things follow for free: `graphDoc()` fills `graphCache`, so a client that ignores
- * the field finds a warm cache on its next `GET /graph` and is faster without
- * changing; and keying it on the revision keeps `transport play` exactly as cheap as it was.
+ * later. And keying it on the revision keeps `transport play` exactly as cheap as it was.
+ *
+ * `want` is the other half, and it took a measurement to find: st0 runs a whole class of gestures
+ * — mute, solo, a fader, a knob — through a caller that deliberately does NOT reload the shell,
+ * so nothing ever fetched `/graph` afterwards and the picture built here was thrown away whole.
+ * 62 ms on the reference song, per knob turn, on the one thread everything else queues behind.
+ * So the caller says which views it will draw, and this builds only those. The old behaviour is
+ * the DEFAULT rather than the exception: a body without the field still gets the graph.
+ *
+ * `rev` rides beside it and no longer depends on it — it is the token AFTER the command, which a
+ * client uses to stop re-asking the questions this reply has already answered (st0's
+ * `noteRevision`). Pairing it with the graph meant a caller that wanted no picture also got no
+ * token, which is the one thing every writing caller can use.
  */
 filesRouter.post(
   "/command",
   validate(cmdBody),
   wrap(async (req, res) => {
-    const { line, at } = req.body as z.infer<typeof cmdBody>;
+    const { line, at, want } = req.body as z.infer<typeof cmdBody>;
+    // Absent is the old contract — build it. An empty list is a caller that means no.
+    const wantsGraph = !want || want.includes("graph");
     const target = at ? req.ws!.mediaPath(at) : undefined;
-    const before = req.ws!.revision().rev;
     const t0 = performance.now();
-    // req.userEmail lets commit/pull pin git to this user's deploy key (see makeHost).
-    const output = await runWebCommand(req.ws!, line, req.userEmail, target);
-    const ran = performance.now();
     /**
-     * The token AFTER the command, and the graph read in the same scope.
+     * The two tokens come OUT of the run, and this route takes no walk of its own.
      *
-     * One walk for the pair rather than two: `graphDoc()` opens its own scope when it is called
-     * outside one, and here it is called microseconds after the token was taken — the same
-     * instant, so the same answer. The walk before the command (above) stays its own: comparing
-     * two moments is the whole point of it. See `Workspace.withRevision`.
+     * It used to take two — one before the command and one after — and the run took four more
+     * inside `recordChange`, all of the same tree, all microseconds apart. `recordChange` has to
+     * cross it twice whatever happens, to diff what the mutation did, so it names both instants
+     * off walks it was doing anyway. `Workspace.Recorded` is the shape.
+     *
+     * req.userEmail lets commit/pull pin git to this user's deploy key (see makeHost).
      */
-    const { rev, graph } = req.ws!.withRevision(() => {
-      const rev = req.ws!.revision().rev;
-      return {
-        rev,
-        graph: rev !== before ? req.ws!.graphDoc() : undefined,
-      };
-    });
+    const {
+      output,
+      before,
+      after: rev,
+    } = await runWebCommand(req.ws!, line, req.userEmail, target);
+    const ran = performance.now();
     const changed = rev !== before;
+    // …and the graph, drawn in a scope SEEDED with that same token rather than one this route
+    // walked for: `graphDoc` asks for the revision several times over (its own memo, then
+    // `clipExtents` through the compiled doc) and would have opened a scope on a fresh walk.
+    // The seed is a token taken microseconds earlier, after the same write. See `withRevision`.
+    const graph =
+      changed && wantsGraph
+        ? req.ws!.withRevision(() => req.ws!.graphDoc(), rev)
+        : undefined;
     // One line per WRITING command, in the shape the engine's `[applyFull]` uses: the two halves
-    // of the wait, so "the insert is slow" can be answered without a profiler.
+    // of the wait, so "the insert is slow" can be answered without a profiler. `graph=skipped`
+    // is the third state and it is the one worth seeing: a gesture that costs nothing here.
     if (changed)
       console.log(
-        `[cmd] ${line.trim().slice(0, 60)} — ran=${(ran - t0).toFixed(0)}ms graph=${(
-          performance.now() - ran
-        ).toFixed(0)}ms`,
+        `[cmd] ${line.trim().slice(0, 60)} — ran=${(ran - t0).toFixed(0)}ms graph=${
+          wantsGraph ? `${(performance.now() - ran).toFixed(0)}ms` : "skipped"
+        }`,
       );
     // `refused` rides beside the lines: the command was understood and declined, which is a
     // different fact from "it ran" and from "it threw". Sent only when true, so a surface reading
@@ -538,7 +563,8 @@ filesRouter.post(
     res.json({
       output,
       ...(output.refused ? { refused: true } : {}),
-      ...(graph ? { graph, rev } : {}),
+      ...(changed ? { rev } : {}),
+      ...(graph ? { graph } : {}),
     });
   }),
 );
@@ -800,6 +826,13 @@ filesRouter.get(
 filesRouter.get(
   "/tree",
   wrap((req, res) => res.json(req.ws!.tree())),
+);
+// The whole workspace, not the open project — st0's home page looking inside a repository.
+// Its own route for the reason `Workspace.workspaceTree` is its own method: two questions, and
+// only one of them is the editor's. It replaces pl8's `/api/projects/:id/tree`.
+filesRouter.get(
+  "/workspace-tree",
+  wrap((req, res) => res.json(req.ws!.workspaceTree())),
 );
 filesRouter.get(
   "/hints",
@@ -1116,7 +1149,9 @@ filesRouter.put(
       const r = await req.ws!.recordChange(`édition ${path}`, () =>
         req.ws!.write(path, content),
       );
-      res.json({ ok: true, ...r });
+      // `.value` because a journalled mutation now answers with the tokens either side of it too
+      // — this route wants neither, the editor asks `/revision` like everything else.
+      res.json({ ok: true, ...r.value });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
     }

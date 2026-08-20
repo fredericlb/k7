@@ -418,13 +418,145 @@ sorte de la comparaison, médiane de cinq :
 
 Rationale complet : `packages/file-service/docs/moduleWatch.md`.
 
+## Le lot E — ce qu'une commande qui ÉCRIT paie
+
+Les lots A à D regardaient tous des LECTURES : les sondages, les vues dérivées, les trames. La
+plainte qui a ouvert celui-ci est l'autre moitié — « il y a une latence dans toutes les
+opérations qui écrivent » (coller, couper le son d'une piste).
+
+Décomposition sur `lemo_mante/01.danse.st0`, la chanson de référence des lots A et B, cinq
+passes, médiane. Une réserve d'entrée : la COMPILATION n'a pas pu être mesurée sur elle — dans
+l'arbre de travail du jour elle refuse (`@studio/audio-track`, `@studio/sequence-track` non
+résolus : le détypage des pistes, sans migration, `packages/song/docs/trackModules.md`). Les
+chiffres ci-dessous sont donc des **planchers** partout où la compilation entre en jeu.
+
+| | ms |
+|---|---|
+| `revision()` — une marche | 7,6 |
+| `recordChange` **à vide** — les quatre marches du journal | 25,2 |
+| `graphDoc` froid | 62 |
+| `graphDoc` chaud | 5,8 *(la marche du jeton, rien d'autre)* |
+| `projectErrors` froid | 45 |
+
+Soit ~95 ms de plancher côté service avant que le verbe fasse quoi que ce soit, dont ~40 ms de
+pure marche de répertoire à prouver que rien n'a bougé. Le service est **un seul processus** :
+tout ça fait la queue.
+
+### Le graphe était construit pour des gestes qui ne le regardent jamais
+
+`POST /command` construisait le graphe sur *toute* commande qui change quelque chose, et le
+commentaire de la route explique très bien pourquoi — l'insertion d'un module dans le canevas.
+Ce qu'il ne dit pas, et que seul un coup d'œil aux appelants montre : st0 fait passer **mute,
+solo, les faders et les potards** par `quietCommand`, qui ne bouge délibérément pas `reloadKey`.
+Rien ne redemande `/graph` derrière. Les 62 ms étaient donc dépensées, par geste, pour un
+document que personne ne lisait — sur le fil unique où tout le reste attend.
+
+Le remède est que l'appelant DISE ce qu'il va dessiner : `want` dans le corps de la requête.
+L'absence du champ garde l'ancien contrat (le graphe revient), une liste vide est un appelant
+qui dit non. Trois appelants disent non — le mixer, la première moitié du sélecteur de module
+(`node new` a besoin que le module existe, pas d'une image), et le builder de chaînes, dont le
+graphe est celui de la CHAÎNE et jamais celui du morceau ouvert.
+
+`runCommand` — coller, couper, tout ce qui recharge le shell — continue de le demander, **sans
+condition, même panneau caché**. C'est le piège de ce lot, et il vaut d'être écrit : `ChainsTab`
+reste MONTÉ quand il est masqué (il porte le runtime MIDI de tout le shell) et refait son
+`/graph` à chaque `reloadKey`. Ne pas le construire ici n'économiserait donc rien — ça
+déplacerait la construction dans une seconde requête, et lui ajouterait un aller-retour.
+
+Le test compte l'appel plutôt que de le chronométrer (`commandWant.test.ts`), avec l'assertion
+qui l'empêche de passer pour la mauvaise raison : une ligne qui n'écrit rien prend la branche
+`rev === before` et saute la construction toute seule. C'est le premier test de ce paquet qui
+monte le routeur ; `req.ws` et `req.userEmail` sont ce que `resolveWorkspace` y aurait mis.
+
+### La rafale partait deux fois par écriture
+
+`runCommand` recharge le shell, ce qui fait re-poser à chaque vue dérivée sa question. Puis, 0 à
+2 s plus tard, le tic de `/revision` trouvait un jeton qu'il n'avait jamais vu et les faisait
+**toutes recommencer** — pour un changement déjà à l'écran. Soit `/project-errors` (45 ms) et
+une relecture du fichier ouvert, par écriture.
+
+La réponse de la commande porte pourtant déjà le jeton d'après. Il était jeté. `noteRevision`
+l'adopte, en silence : le sondeur sait, personne n'est réveillé, et le tic suivant n'a rien à
+annoncer. Deux garde-fous, tous deux testés. Une réponse partie AVANT la commande ne peut pas
+écraser le jeton qu'elle a produit (une génération, comme l'époque de `fget`) — sans quoi le tic
+d'après retrouverait une différence à annoncer et la seconde rafale reviendrait. Et seul un
+appelant qui RECHARGE a le droit de noter : `quietCommand` écrit sans recharger, donc il se tait,
+ou l'éditeur cesserait de suivre un fichier qu'une commande vient de réécrire sous lui.
+
+Deux conséquences de forme sur la route : `rev` ne voyage plus avec le graphe mais avec le fait
+d'avoir changé — un appelant qui ne veut pas d'image veut quand même le jeton — et la ligne
+`[cmd]` imprime `graph=skipped`, qui est le troisième état et le seul qu'on ait envie de voir.
+
+### Six marches du même arbre, devenues deux
+
+`revision()`, `snapshotText` et `snapshotBinMeta` parcouraient le même arbre avec le même
+`skip()` : le jeton avant la commande, les deux images du journal avant, les deux mêmes après, le
+jeton après. Six passages, à quelques microsecondes d'intervalle.
+
+Ce que ça coûte, décomposé sur la chanson de référence (39 répertoires, 284 fichiers après
+`skip`) :
+
+| | ms |
+|---|---|
+| le balayage `readdir` seul | 2,1 |
+| `readdir` + un `stat` par fichier | 8,3 |
+| les trois lecteurs, comme une commande les paie | 16,4 |
+
+Les `stat` sont donc les deux tiers du coût, et ils étaient refaits à chaque passage.
+
+`walkProject` fait la marche une fois et rend, par fichier, `{abs, size, mtime, binary, source}` ;
+`withWalk` la tient le temps d'une phase, exactement comme `withRevision` tient le jeton et pour
+la même raison ; `revisionOf`, `textOf` et `binOf` la lisent. `recordChange` en ouvre une de
+chaque côté de la mutation — il DOIT traverser deux fois, c'est son diff — et rend au passage le
+jeton des deux instants, que la route lisait jusque-là en marchant elle-même. Elle n'en prend
+plus aucune : `changed` est `after !== before`, et le graphe se construit dans une portée
+*semée* avec le jeton d'après (`withRevision(fn, seed)`) au lieu d'une septième marche.
+
+**Mesuré**, les deux bras dans une seule invocation — la classe telle qu'elle était à HEAD
+importée à côté de la nouvelle, alternées, médiane de neuf :
+
+| | avant | après |
+|---|---|---|
+| les marches d'une commande qui écrit | 31–34 ms | **16 ms** |
+| `GET /revision` | 5,0–5,3 ms | 5,1–5,5 ms |
+
+Et le jeton est **identique au caractère près** (`0:186:1787222710176.4082` des deux côtés), ce
+qui est la seule chose qui compte vraiment ici : tous les mémos du service sont clés sur cette
+chaîne.
+
+Deux pièges payés en route, tous les deux invisibles au chronomètre global :
+
+**Le sondage ne doit pas payer la marche large.** `/revision` veut les sources seules ; la carte
+binaire veut tout. D'où le drapeau `sourcesOnly` — sans lui, la route la plus sondée du service
+(toutes les deux secondes, par onglet) se serait mise à `stat` un dossier de wavs.
+
+**Et il ne doit pas payer les chemins relatifs non plus.** La première version mettait un `rel`
+dans chaque entrée : `relative()` plus une passe de séparateurs, 186 fois, pour une route qui
+n'allait que les compter — ~1 ms, soit 15 % sur `/revision`. Il est calculé par `textOf` et
+`binOf`, qui se partagent la marche moitié-moitié et le calculent donc une fois par fichier,
+exactement comme les deux marches séparées le faisaient. Le reste de l'écart mesuré (0,1–0,2 ms)
+est le tableau lui-même, et c'est du bruit.
+
+`revisionWalk.test.ts` fige l'invariant qui a remplacé le risque : le jeton de la marche étroite
+et celui de la marche large disent la même chose, y compris quand un binaire vient d'apparaître —
+un fichier que la large voit et que l'étroite n'a jamais vu.
+
+### Ce que le lot E n'a PAS fait
+
+`setCachedProjectDoc` appelle `revision()` au MILIEU de la mutation — donc hors de toute portée,
+donc une marche de plus, pour toute commande qui passe par `applyProject` (mute, solo, un fader).
+Elle ne peut pas être partagée : elle décrit un instant qui n'est ni l'avant ni l'après. La
+supprimer voudrait dire que le doc compilé se donne un jeton qu'il n'a pas mesuré, ce qui est
+exactement le mensonge que `cachedProjectDoc` refuse. Laissée, sciemment.
+
 ## Ce qui reste, et n'a pas été fait
 
 Écrit ici plutôt que laissé à re-trouver. Chacun demande sa propre vérification.
 
 | constat | où | pourquoi c'est en attente |
 |---|---|---|
-*(Il n'en reste aucun. Les deux derniers étaient FAUX — voir juste en dessous.)*
+*(Il n'en reste aucun. Les deux d'origine étaient FAUX — voir juste en dessous ; les six marches
+ont été faites, lot E.)*
 
 ## Deux constats retirés, et un bug qu'ils ont fait sortir
 

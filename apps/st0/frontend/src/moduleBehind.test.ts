@@ -30,7 +30,7 @@ describe("moduleBehind", () => {
   });
 
   it("answers nothing for a base with no file — the engine's, the track bases", () => {
-    expect(moduleBehind('extends: "@studio/audio-track"\n', hints)).toBeNull();
+    expect(moduleBehind('extends: "@studio/track"\n', hints)).toBeNull();
     expect(moduleBehind('extends: "@engine/IN"\n', hints)).toBeNull();
   });
 

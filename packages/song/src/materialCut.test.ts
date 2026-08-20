@@ -45,7 +45,7 @@ const seq = (name: string, notes: string, head = "") =>
 const lane = (events: string) =>
   writeFileSync(
     join(dir, "nodes", "drums.yaml"),
-    `extends: "@studio/sequence-track"\nevents:\n${events}`,
+    `extends: "@studio/track"\nevents:\n${events}`,
     "utf8",
   );
 
@@ -158,7 +158,7 @@ describe("event split, on a sequence", () => {
   });
 });
 
-describe("event consolidate, on sequences", () => {
+describe("selection consolidate, on sequences", () => {
   it("writes ONE sequence holding what the rectangle plays", () => {
     seq("a", "  - { t: 0, d: 1, k: 36 }\n");
     seq("b", "  - { t: 0, d: 1, k: 38 }\n");

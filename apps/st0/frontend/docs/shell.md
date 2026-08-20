@@ -1089,6 +1089,15 @@ It is not "writes no file", and the difference is deliberate: a pin, a language 
 flag are remembered — in `localStorage` and in the account's preferences — and remembering how
 you like to work is not editing a song. What draws the line is the PROJECT.
 
+**A better subject beats the rule.** `ui copy` and a bare paste were correct by it — the copy
+only fills a slot in this shell, the paste writes through `events add` — and that is exactly
+what put one gesture's two halves on either side of the line. Both are `selection copy` and
+`selection paste` now, beside the catalogue's `selection consolidate`: the head names what all
+three act on, the rectangle you drew. The rule is what a command falls back on when nothing
+better names it, not something to obey against a subject that is right there
+([clipEditors.md](clipEditors.md)). `ui copy path` stayed where it was — that one puts a *path*
+on the system clipboard and is a different act.
+
 A line the shell recognises but cannot act on is reported as *handled* rather than passed
 down: the backend has no such command either, and "unknown command" would say less.
 
@@ -1162,6 +1171,11 @@ reach whichever grid is on screen: the clip pane's caret while it is open (the p
 sequencer's — see [clipEditors.md](clipEditors.md)), the timeline's otherwise. The commands are
 one thing, and which surface answers is a question about what you are looking at, not about the
 verb. `ui zoom` stays the timeline's alone: it is the only one that keeps a zoom stack.
+
+`selection copy` has two answers as well, and takes them in ORDER rather than picking one: the
+clip pane, then the timeline, first answer winning. It is the only one that asks the pane a
+question instead of acting on it, so a pane in front with nothing selected must not end the
+question — see [clipEditors.md](clipEditors.md), where that difference cost a working copy.
 
 Three things are deliberately NOT commands, and the line is the same one every time — a
 command names something you could *ask for*, and none of these is:

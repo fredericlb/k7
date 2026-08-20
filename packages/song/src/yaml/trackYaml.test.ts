@@ -18,7 +18,7 @@ import {
 // A lane as the app leaves it: what it extends, then one placement per line as a flow map,
 // every timecode quoted.
 const AUTHORED = `color: "#739814"
-extends: "@studio/audio-track"
+extends: "@studio/track"
 disabled: false
 events:
   - { ref: bass_3_0, start: "25:1", fadeIn: "8:0:3:0:0:1:1:2" }
@@ -29,7 +29,7 @@ describe("the timecode trap", () => {
   it("reads a quoted timecode as the string it is", () => {
     const { value, issues } = parseModule(AUTHORED);
     expect(issues).toEqual([]);
-    expect(value?.extends).toBe("@studio/audio-track");
+    expect(value?.extends).toBe("@studio/track");
     expect(value?.events?.[0]).toEqual({
       ref: "bass_3_0",
       start: "25:1",
@@ -81,7 +81,7 @@ describe("the timecode trap", () => {
 
   it("rejects something that isn't a timecode", () => {
     const { value, issues } = parseModule(
-      'extends: "@studio/audio-track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
+      'extends: "@studio/track"\nevents:\n  - { ref: b, start: "bar 25" }\n',
     );
     expect(value).toBeNull();
     expect(issues[0].path).toBe("events.0.start");
@@ -140,7 +140,7 @@ describe("the edits the app makes most", () => {
   it("keeps the colour, the extends and every other field byte-identical", () => {
     const after = setTrackField(AUTHORED, "disabled", true);
     expect(after).toContain('color: "#739814"');
-    expect(after).toContain('extends: "@studio/audio-track"');
+    expect(after).toContain('extends: "@studio/track"');
   });
 });
 
@@ -154,14 +154,14 @@ describe("the fields a lane carries", () => {
     ).toEqual([]);
     expect(
       parseModule(
-        'extends: "@studio/audio-strudel-track"\nstrudel: algo/beat.strudel\n',
+        'extends: "@studio/strudel-track"\nstrudel: algo/beat.strudel\n',
       ).issues,
     ).toEqual([]);
   });
 
   it("pins a strudel lane's pattern path", () => {
     const bad = parseModule(
-      'extends: "@studio/audio-strudel-track"\nstrudel: beat.txt\n',
+      'extends: "@studio/strudel-track"\nstrudel: beat.txt\n',
     );
     expect(bad.value).toBeNull();
     expect(bad.issues[0].message).toMatch(/algo\//);
@@ -171,7 +171,7 @@ describe("the fields a lane carries", () => {
     // `.strict()`, so `type: single` — which a track file used to open with — says so by name
     // and by line rather than being read and dropped.
     const { value, issues } = parseModule(
-      'extends: "@studio/audio-track"\ncontentType: audio\n',
+      'extends: "@studio/track"\ncontentType: audio\n',
     );
     expect(value).toBeNull();
     expect(issues.some((i) => i.path.includes("contentType"))).toBe(true);

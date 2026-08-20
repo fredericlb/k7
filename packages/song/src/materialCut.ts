@@ -1,5 +1,5 @@
 // materialCut.ts — cutting and merging MATERIAL, where trackMix.ts moves and resizes PLACEMENTS.
-// `event split` writes two sequences, `event consolidate` writes one over a range. Sequences only: notes are text this package reads
+// `event split` writes two sequences, `selection consolidate` writes one over a range. Sequences only: notes are text this package reads
 // and writes, while the same verbs on audio need a render and live with the bounce
 // (@studio/commands' processChain.ts). Full rationale: docs/materialCut.md.
 
@@ -155,7 +155,7 @@ function writeSequence(
           : "");
   writeFileSync(
     join(dir, rel),
-    `# Written by \`event ${window?.verb ?? "consolidate"}\`.\n` +
+    `# Written by \`${window?.verb ?? "selection consolidate"}\`.\n` +
       edges +
       `notes:\n${lines.join("\n")}${lines.length ? "\n" : ""}`,
     "utf8",
@@ -240,7 +240,7 @@ export function splitSequenceMaterial(
     dir,
     freeSequenceName(dir, ref, taken),
     notesIn(all, win.from, cut),
-    { to: cut - win.from, verb: "split" },
+    { to: cut - win.from, verb: "event split" },
     num,
     den,
   );
@@ -248,7 +248,7 @@ export function splitSequenceMaterial(
     dir,
     freeSequenceName(dir, ref, taken),
     notesIn(all, cut, end),
-    { to: end - cut, verb: "split" },
+    { to: end - cut, verb: "event split" },
     num,
     den,
   );
@@ -369,7 +369,7 @@ export function consolidateSequenceMaterial(
     {
       from: 0,
       to: Math.max(toBeats - fromBeats, lastNote),
-      verb: "consolidate",
+      verb: "selection consolidate",
     },
     num,
     den,

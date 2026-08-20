@@ -21,6 +21,7 @@ import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
 import { clipLoop, playedZone } from "../clipLoop";
 import {
   type ClipGridHandle,
+  cellBox,
   colSpan,
   type OnGridSelection,
   selBox,
@@ -282,13 +283,19 @@ export function PianoRoll({
         grid.clearSelect();
       },
       /**
-       * `ui copy` — the notes the rectangle holds, in the rectangle's own coordinates. A row is a
-       * pitch here, so the corner is its TOP key and its left beat; `clipboard.ts` does the rest.
+       * `selection copy` — the notes the rectangle holds, in the rectangle's own
+       * coordinates. A row is a pitch here, so the corner is its TOP key and its left beat;
+       * `clipboard.ts` does the rest.
+       *
+       * With NO rectangle the caret's own cell is one (`cellBox`), so ⌃C over a note copies that
+       * note — the same path, one cell wide. An empty cell answers null and the shell says there
+       * was nothing, which is the honest version of the silence this used to answer with.
        */
       copy: () => {
         const s = grid.sel;
-        if (!s) return null;
-        const b = selBox(s);
+        // The caret's two fields spelt out rather than the object: they are what this handle
+        // already depends on, and they are all a cell is.
+        const b = s ? selBox(s) : cellBox({ row: caret.row, col: caret.col });
         return copyNotes(
           notes,
           seqId,
@@ -299,9 +306,10 @@ export function PianoRoll({
         );
       },
       /**
-       * `paste` — one `sequence note add`, so a paste of twelve notes is one journal entry and
-       * one Ctrl+Z. It lands relative to the CARET: the rectangle's top-left goes under it, which
-       * is what makes a copied bar paste a bar later, or a chord paste a fourth up.
+       * `selection paste` — one `sequence note add`, so a paste of twelve notes is one
+       * journal entry and one Ctrl+Z. It lands relative to the CARET: the rectangle's top-left
+       * goes under it, which is what makes a copied bar paste a bar later, or a chord paste a
+       * fourth up.
        */
       pasteLine: (c) => {
         if (c.kind !== "notes")

@@ -356,7 +356,7 @@ describe("caretAnswers", () => {
     expect(caretAnswers("event split", null)).toEqual({});
   });
 
-  // `event consolidate` is answered by the RECTANGLE, not by where the caret sits: what to rejoin is a
+  // `selection consolidate` is answered by the RECTANGLE, not by where the caret sits: what to rejoin is a
   // range, and a range is what you drew.
   describe("and the rectangle, for a consolidation", () => {
     const JOIN: PaletteArg[] = [
@@ -368,7 +368,7 @@ describe("caretAnswers", () => {
       on({ selTracks: tracks, selFrom: "2:1:1", selTo: "4:1:1" });
 
     it("fills the whole line from one rectangle", () => {
-      const answers = caretAnswers("event consolidate", dragged("drums"));
+      const answers = caretAnswers("selection consolidate", dragged("drums"));
       const filled = applyOffer(JOIN, answers, emptyValues(JOIN), 0);
       expect(filled?.values).toEqual(["drums", "2:1:1", "4:1:1"]);
       expect(canRun(JOIN, filled!.values)).toBe(true);
@@ -378,7 +378,7 @@ describe("caretAnswers", () => {
       // The whole line, so the form never asks: what to consolidate is a range, and the range is
       // what you drew. `to` is a required argument because the CLI has no selection to read —
       // here it is deduced, exactly as a join's is.
-      const answers = caretAnswers("event consolidate", dragged("drums"));
+      const answers = caretAnswers("selection consolidate", dragged("drums"));
       const filled = applyOffer(JOIN, answers, emptyValues(JOIN), 0);
       expect(filled?.values).toEqual(["drums", "2:1:1", "4:1:1"]);
       expect(canRun(JOIN, filled!.values)).toBe(true);
@@ -389,7 +389,7 @@ describe("caretAnswers", () => {
       // all: a caret sitting on an event says nothing about how far a consolidation should reach.
       // Nothing is filled, so the form asks — and the CLI, which has no selection to read ever,
       // is in this case permanently.
-      expect(caretAnswers("event consolidate", on())).toEqual({});
+      expect(caretAnswers("selection consolidate", on())).toEqual({});
       expect(canRun(JOIN, emptyValues(JOIN))).toBe(false);
     });
 
@@ -397,14 +397,14 @@ describe("caretAnswers", () => {
       // The refusal is the handler's, and it can only make it if what it receives is what was
       // selected. Quietly keeping the first lane here would run a join nobody asked for on it.
       expect(
-        caretAnswers("event consolidate", dragged("drums,bass")).tracks,
+        caretAnswers("selection consolidate", dragged("drums,bass")).tracks,
       ).toBe("drums,bass");
     });
 
     it("says nothing when no rectangle is drawn", () => {
-      // A caret parked on a clip is not a range. `event consolidate` then opens its form empty,
+      // A caret parked on a clip is not a range. `selection consolidate` then opens its form empty,
       // right: it is asking which stretch, and nobody has said.
-      expect(caretAnswers("event consolidate", on())).toEqual({});
+      expect(caretAnswers("selection consolidate", on())).toEqual({});
     });
   });
 });

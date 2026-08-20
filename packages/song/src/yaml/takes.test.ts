@@ -14,7 +14,7 @@ import {
   takeValues,
 } from "./trackFile";
 
-const LANE = `extends: "@studio/audio-track"
+const LANE = `extends: "@studio/track"
 events:
   - { ref: gtr_1, start: "1:1" }
   - { ref: gtr_2, start: "5:1" }
@@ -54,7 +54,7 @@ describe("pushEventsToTake", () => {
   it("makes NO take of a lane holding nothing", () => {
     // An empty take is a row that says nothing — and recording onto an empty lane is not
     // recording over anything.
-    const empty = 'extends: "@studio/audio-track"\nevents: []\n';
+    const empty = 'extends: "@studio/track"\nevents: []\n';
     expect(pushEventsToTake(empty)).toBe(empty);
   });
 });
@@ -154,7 +154,7 @@ describe("takeValues", () => {
 // what makes a take belong to the set it was played in. Two settings are two ways of playing the
 // part, and a take of one is not a take of the other.
 describe("takes inside an alternative", () => {
-  const WITH_SET = `extends: "@studio/audio-track"
+  const WITH_SET = `extends: "@studio/track"
 events:
   - { ref: gtr_1, start: "1:1" }
 alternative: loud

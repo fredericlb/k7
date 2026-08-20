@@ -290,13 +290,34 @@ left out of `jacksFor` (which types a jack by the signal it carries, and a curve
 and the renderer gives it one mauve socket of its own. An **automation** edge occupies no jack
 for the same reason; counted as a feeder it would have revealed the next free socket for nothing.
 
-A **track** is the one node whose sockets are not a fixed set. It has an input jack — what a lane
-PLAYS is its clips, which was never a reason nothing could arrive on it — typed by what the lane
-puts on the wire, so a midi lane offers a midi socket rather than the audio an unfed jack falls
-back to. And its outputs are its SENDS: the one it has taken, it grows a free one beside it
-(`spare` in `jacksFor`), or a lane feeding one thing could never feed a second. Both jacks are the
-same socket, since `jackRef` names an unnamed one by its node alone — landing on the spare writes
-a second *arrow*, not a second port, which is exactly what a send is.
+A **track** has an input jack — what a lane PLAYS is its clips, which was never a reason nothing
+could arrive on it — typed by what the lane puts on the wire, so a midi lane offers a midi socket
+rather than the audio an unfed jack falls back to.
+
+And it has **two outputs, `audio` then `midi`** — orange, then blue, left to right. A lane is not
+typed by what it carries (`@studio/song`'s docs/trackModules.md): it holds events naming clips and
+events naming sequences in one list, and each leaves by the port its own material fits. The list
+is `TRACK_OUTPUTS`, in `@studio/graph-model` beside `splitPort` and for the same reason — the
+compiler builds the lane module's ports from it and the renderer draws a jack per entry, so the
+sockets and the refs cannot come to disagree about how many there are or which is first.
+
+The ORDER is load-bearing twice over. A cable that names no port is the **first** output — that is
+what `isFed`'s `i === 0 && fed.has("")` says in the compiler and what `cablePath`'s `: 0` says in
+the drawing — and audio is what a bare-wired lane overwhelmingly carries. Swap them and every
+cable drawn before source ports existed lands on the blue socket.
+
+A lane's outputs are also its SENDS, so an output already feeding something grows a free twin
+beside it (`spare` in `jacksFor`), or a lane feeding one thing could never feed a second. The twin
+carries the **same address** as the cable already on it — unnamed when that cable named no port —
+so a second send off a bare-wired lane writes `gtr: [ amp, reverb ]` the way the first was
+written. Naming it would write `gtr#audio:` beside `gtr:`, and two keys SPLIT the lane into two
+engine tracks: a drag for a second send would quietly re-route the lane's material, which is not
+what anybody reaches for a spare socket to do.
+
+That is also why lifting a cable matches on `port === jack.name` **or** `no port && index 0`: a
+bare cable has always sat on the first socket, and it only started mattering once that socket had
+a name. Without the second half the cable was drawn plugged into a jack that would not give it
+back.
 
 > What may LAND on that socket is narrower than what may be dragged to it: a run carrying a live
 > interface input, and nothing else — recording a preamp onto a lane. `graph chain connect` used
@@ -315,9 +336,15 @@ look at them without starting the engine, the tray, the file service and the edi
 
 ## Cables
 
-A cable carries what its **source** emits: a track's `contentType`, or the upstream module's
-type folder. An instrument takes midi and emits audio, so the cable into it is blue and the
-one out of it orange. A video lane puts picture on the wire whatever `trackSignals` says.
+A cable carries what its **source** emits: the upstream module's type folder, or — from a lane —
+the OUTPUT it left by. An instrument takes midi and emits audio, so the cable into it is blue and
+the one out of it orange. A video lane puts picture on the wire whatever `trackSignals` says.
+
+A lane is not typed by what it carries: it offers an `audio` and a `midi` output, and a run that
+named one says so as `WebChain.fromPort`, which is the signal AND the jack the cable is drawn from
+— that is what keeps a split lane's two cables apart instead of stacking them on one socket. A run
+leaving the lane bare falls back to `trackSignals`, which is what the lane HOLDS: midi when every
+event names a sequence, audio otherwise. See @studio/song's docs/trackModules.md.
 
 **The main output is not drawn** — `drawMainOut`, which st0's song graph turns off. Reaching the
 sound card is what the END of a chain means there: a mixer sits at it and its whole job is the

@@ -3,21 +3,34 @@
 A track is a **module**. It lives in `nodes/<name>.yaml` like every other use of a module,
 and what it `extends` says what kind of lane it is. There is no `tracks/` folder.
 
-Five built-in modules, and none of them has a file anywhere — they belong to the studio, so a
+Three built-in modules, and none of them has a file anywhere — they belong to the studio, so a
 lane costs exactly one file, its own:
 
-| extends | carries | its events come from |
-|---|---|---|
-| `@studio/audio-track` | audio | `events:` |
-| `@studio/sequence-track` | notes | `events:` |
-| `@studio/audio-strudel-track` | audio | `strudel:` |
-| `@studio/sequence-strudel-track` | notes | `strudel:` |
-| `@studio/group-track` | nothing — it is a relationship | nothing |
+| extends | its events come from |
+|---|---|
+| `@studio/track` | `events:`, written down here |
+| `@studio/strudel-track` | `strudel:`, streamed while the transport rolls |
+| `@studio/group-track` | nothing — it is a relationship |
 
-Five because there were always two questions, and `type: single | group | strudel` beside
-`contentType: audio | sequences` only ever asked one of them at a time. What signal a lane
-carries and where its events come from are both read off one `extends:` now, and neither can go
-missing or disagree with the other.
+**A track is not audio or MIDI.** It holds events, and each one names a clip or a sequence, so
+each one is audio or notes on its own. One lane can hold both: two bars of a sampled riff and a
+line for a synth, on one row, with one colour and one strip.
+
+A lane has two outputs, `audio` and `midi`, and an event leaves by the one its material fits.
+`graph.yaml` names the output when the two need different chains:
+
+```yaml schema=GraphFile
+modules:
+  gtr#audio: [ amp ]      # the events naming clips
+  gtr#midi:  [ synth ]    # the events naming sequences
+```
+
+…and says nothing when they do not, which is the ordinary case:
+
+```yaml schema=GraphFile
+modules:
+  gtr: [ amp ]            # everything this lane holds, down one chain
+```
 
 A track has no `volume` and no `pan`. They were the one part of its sound that lived outside its
 chain — nothing could be placed after them, and the graph could not show where they applied. A
@@ -52,10 +65,10 @@ timeline draws that event's stretch icon with a line through it.
 Neither field is ever written at its default: switching one off and back on leaves the file
 exactly as it was.
 
-## nodes/<name>.yaml — audio
+## nodes/<name>.yaml — clips
 
 ```yaml schema=Module
-extends: "@studio/audio-track"
+extends: "@studio/track"
 # color: "#c8a97e"   # the lane's colour, and its icon's in the timeline
 # disabled: true     # excluded from the render entirely, chains and all
 events:
@@ -67,17 +80,36 @@ events:
 # 1:1:1 is already a string — but under 1.1 it is the number 3661.
 ```
 
-## nodes/<name>.yaml — MIDI
+## nodes/<name>.yaml — sequences
 
-A lane of sequence refs. A sequence lane never holds audio: which of the two it carries is what
-it extends, and a module has one output port.
+The same file. Nothing here says "MIDI": these events name `sequences/…`, so they are notes, and
+they leave by the lane's `midi` output.
 
 ```yaml schema=Module
-extends: "@studio/sequence-track"
+extends: "@studio/track"
 events:
   - { ref: melody, start: "1:1:1" }
   - { ref: melody, start: "5:1:1", loop: 8 }   # the same sequence, eight times over
 ```
+
+## nodes/<name>.yaml — both
+
+Also the same file, and this is the one that used to be unsayable:
+
+```yaml schema=Module
+extends: "@studio/track"
+events:
+  - { ref: riff, start: "1:1:1" }     # a clip  — leaves by `audio`
+  - { ref: melody, start: "3:1:1" }   # a sequence — leaves by `midi`
+```
+
+Wire it bare (`gtr: [ amp ]`) and all of it goes through the amp, notes included, which is
+probably not what you meant — st0 warns and tells you the two keys to write. Wire `gtr#audio:`
+and `gtr#midi:` and each half takes its own chain.
+
+If you wire only ONE of them and the lane holds the other kind, the project refuses to load and
+names the key to add. That is deliberate: a clip with nowhere to go would be drawn on the
+timeline and simply never heard.
 
 ## nodes/<name>.yaml — group
 
@@ -90,13 +122,17 @@ tracks: [pad, kit]
 
 ## nodes/<name>.yaml — strudel
 
-Streams one `algo/` pattern; the lane's name picks the part by its `.label`. Which of the two
-strudel modules it extends decides how the events read: `@studio/sequence-strudel-track` makes
-them MIDI notes for the chain's instrument, `@studio/audio-strudel-track` makes them sample
-one-shots.
+Streams one `algo/` pattern; the lane's name picks the part by its `.label`. How an event reads
+is the EVENT's business: a sound that resolves to a sample plays as a one-shot, anything else
+plays as a note for whatever instrument the chain provides (`s(…)` then picks a waveform, not a
+plugin). So one pattern lane can be half drums and half melody.
+
+A streaming lane holds nothing until the transport rolls, so it is the one case where the WIRING
+has to say what the file cannot: `pad#midi: [ synth ]` is where "these events are notes for the
+synth" is written down.
 
 ```yaml schema=Module
-extends: "@studio/sequence-strudel-track"
+extends: "@studio/strudel-track"
 strudel: algo/pattern.strudel
 ```
 
@@ -107,7 +143,7 @@ Record over an event, or round a loop, and what was there is not lost: it is mov
 indented under the lane, playing nothing.
 
 ```yaml schema=Module
-extends: "@studio/audio-track"
+extends: "@studio/track"
 events:
   - { ref: gtr_3.1_260815T221030, start: "3:1:1" }   # the newest pass — what plays
 takes:
@@ -147,8 +183,32 @@ happened to share a name now have to be told apart.
 
 ## What went away
 
-`type:` and `contentType:` are gone — one `extends:` says both. So are `mute:` and `solo:` (see
+`type:` and `contentType:` are gone. `type:` became the `extends:`; `contentType:` became
+nothing, because the events already said it — an event names a clip or a sequence, and no word at
+the top of the file can be more true about that than the event is. So are `mute:` and `solo:` (see
 above).
+
+The four typed track modules went with it:
+
+| was | is |
+|---|---|
+| `@studio/audio-track` | `@studio/track` |
+| `@studio/sequence-track` | `@studio/track` |
+| `@studio/audio-strudel-track` | `@studio/strudel-track` |
+| `@studio/sequence-strudel-track` | `@studio/strudel-track` |
+
+If you kept an audio lane and a sequence lane side by side for one part, they can be one lane
+now — and if the two halves need different chains, that is what `#audio:` / `#midi:` is for.
+
+An old project opens with a refusal naming every lane. One command rewrites them:
+
+```bash
+npx tsx packages/song/scripts/migrateTracks.ts <your-project.st0> --write
+```
+
+Leave off `--write` first to see what it would touch. It lists any **streaming** lane separately:
+that is the one it cannot finish for you, because only `graph.yaml` can say whether a pattern's
+events are notes or samples (`pad#midi: [ synth ]`).
 
 A lane's **alternatives** and its **freeze** are still here, and both belong to every module now
 rather than to lanes alone: `alternatives:` holds other sets of attributes (for a lane, one of
@@ -160,5 +220,6 @@ One field is simply gone:
 - **`video_source:`** — an audio track taking its placements from a video track, so a shot and
   its sound could not drift. Nothing reads it.
 
-All five schemas are `.strict()`, so a file still carrying any of them says so by name and by
-line rather than being read and dropped.
+Every schema is `.strict()`, so a file still carrying any of them says so by name and by line
+rather than being read and dropped. There is no migration code and no accepted old spelling: an
+`extends:` naming one of the four above names a module that does not exist, and says so.

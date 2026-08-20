@@ -162,6 +162,9 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   for (const [name, c] of Object.entries(g.chains))
     chains[name] = {
       from: c.from,
+      // Which of the lane's outputs this run left by, when the lane wired both. The renderer
+      // draws the cable from that jack and colours it accordingly — see trackSignals below.
+      ...(c.fromPort ? { fromPort: c.fromPort } : {}),
       use: c.use.map((s) => {
         // Already RESOLVED by buildGraph — what it extends is folded in, so every read
         // below is the module's own. See moduleResolve.ts.
@@ -377,7 +380,15 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
   const trackClips: NonNullable<WebGraph["trackClips"]> = {};
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.color) trackColors[id] = t.color;
-    trackSignals[id] = t.contentType === "sequences" ? "midi" : "audio";
+    // What the lane puts on a wire when a run leaves it BARE — which is what it holds: midi if
+    // every event names a sequence, audio otherwise, including the mixed case, where the one
+    // cable really does carry both and audio is the colour a reader expects. A run that named a
+    // port carries its own answer instead (`WebChain.fromPort`), so this is only ever the
+    // fallback. There is no `contentType` to read: a lane is not typed (docs/trackModules.md).
+    trackSignals[id] =
+      t.placements.length && t.placements.every((p) => p.kind === "midi")
+        ? "midi"
+        : "audio";
     const lane = g.modules[id];
     if (lane?.alternatives && lane.alternative)
       trackAlternatives[id] = {

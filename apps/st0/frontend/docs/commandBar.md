@@ -222,9 +222,11 @@ The caret speaks the same currency a gesture does, **param names** (`caretAnswer
 Two of those are different timecodes and it matters: feeding the caret's own position as the
 event's address would split whatever begins under the cut, or nothing at all.
 
-`event consolidate` is answered by the **rectangle** instead, because what to consolidate
+`selection consolidate` is answered by the **rectangle** instead, because what to consolidate
 is a range and a range is what you drew: `tracks`, `from`, `to`, the same three values
-`feedEventsMove` sends. The rectangle's lane list is passed on **whole**, several lanes included,
+`feedEventsMove` sends. Its head says so before its arguments do — it is the catalogue's one
+`selection …` verb, beside the shell's `selection copy` and `selection paste`, and what those
+three have in common is not a material but the region a gesture aimed at. The rectangle's lane list is passed on **whole**, several lanes included,
 even though a join only works on one. The refusal is the handler's, and it can only make it if what
 it receives is what was selected — quietly keeping the first lane here would run a join on it that
 nobody asked for.

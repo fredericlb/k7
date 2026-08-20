@@ -1174,6 +1174,20 @@ const GLOBAL_COMMAND = /^(channel|audio|project (commit|pull))\b/;
  */
 export type CommandOutput = string[] & { refused?: boolean };
 
+/**
+ * What a run answers: the lines, and the revision either side of the write.
+ *
+ * The tokens are `recordChange`'s, passed straight through — it brackets the mutation and walked
+ * the tree twice to journal it, so it can name both instants for nothing. The route needs them
+ * for two things, and used to take a walk of its own for each: whether the project CHANGED
+ * (`after !== before`), and the token it hands the browser so the poll has nothing left to say.
+ */
+export interface WebCommandRun {
+  output: CommandOutput;
+  before: string;
+  after: string;
+}
+
 export async function runWebCommand(
   ws: Workspace,
   line: string,
@@ -1181,17 +1195,20 @@ export async function runWebCommand(
   // The folder the verbs act on, when the caller means something other than the open project —
   // the chains builder's template. Absolute; the route resolves and checks it.
   at?: string,
-): Promise<CommandOutput> {
+): Promise<WebCommandRun> {
   const out: CommandOutput = [];
   // A refusal too, and the first one a caller meets: there is no project open, so the verb has
   // nothing to act on. It read as ordinary output for as long as everything did.
   if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim())) {
     const no: CommandOutput = [NO_PROJECT];
     no.refused = true;
-    return no;
+    // Nothing ran, so the two instants are one. Free: with no project open the token is
+    // `none:<mutations>` and no walk happens.
+    const rev = ws.revision().rev;
+    return { output: no, before: rev, after: rev };
   }
   // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
-  await ws.recordChange(line, async (snapshot) => {
+  const { before, after } = await ws.recordChange(line, async (snapshot) => {
     try {
       await runCommand(
         line,
@@ -1202,7 +1219,7 @@ export async function runWebCommand(
       out.push(`error: ${(e as Error).message}`);
     }
   });
-  return out;
+  return { output: out, before, after };
 }
 
 export function webCompletions(ws: Workspace, line: string): string[] {

@@ -147,6 +147,7 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
     },
     "pad": {
       "from": "pad",
+      "fromPort": "midi",
       "out": [
         {
           "gain": 1,
@@ -237,7 +238,7 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
     "kit": "audio",
     "live": "audio",
     "melody": "midi",
-    "pad": "midi",
+    "pad": "audio",
   },
   "tracks": [
     "kit",

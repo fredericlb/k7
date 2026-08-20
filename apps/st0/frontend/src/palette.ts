@@ -18,7 +18,7 @@ import type { CommandInfo } from "./types";
 // Everything whose ONLY effect is on the shell lives under `ui` — the namespace promises it touches nothing of
 // the PROJECT and never moves the transport. Not "writes no file": a pin, a language and the vim flag are
 // remembered (localStorage, the account's preferences), and remembering how you like to work is not editing a
-// song. `locate`, `loop`, `record`, `new/delete project`, `event move` and the file-tree verbs keep bare names.
+// song. `locate`, `loop`, `record`, `event move`, the `selection` pair and the file-tree verbs keep bare names.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui global", // the layout view — the default, and the only one a project does not derive
@@ -42,23 +42,23 @@ export const LOCAL_COMMANDS = [
   "ui zoom", // frame the selection
   "ui zoom out", // back to the enclosing view
   "ui zoom reset", // back to the whole song
-  "ui copy", // the selected rectangle onto the shell's clipboard (events or notes)
   "transport locate", // move the playhead to the caret
   "transport loop", // set/clear the transport loop from the selection
   "transport record", // the global record enable (engine session state, over the wire)
   "transport replay", // back to where playback last started, and roll again (shift+space)
   /**
-   * Bare-named because they WRITE — through `events add` and `sequence note add`, which are
-   * changes to the project. Their other half, `ui copy`, only fills a slot in this shell and
-   * stays `ui`; that asymmetry IS the rule at the head of this list.
+   * The RECTANGLE's own two, beside the catalogue's `selection consolidate` — one head for the
+   * three verbs that take a region rather than a named thing.
    *
-   * TWO verbs and not one `paste`, for the reason `track process` and `clip process` are two:
-   * the noun is the promise. Each names the material it puts down, so it also names the surface
-   * that answers — events onto the timeline's caret, notes onto the open clip grid's — and a
-   * paste never has to guess which pane you meant.
+   * They were `ui copy` and a bare `events paste` / `sequence notes paste`, split by the rule at
+   * the head of this list: the copy only fills a slot in this shell, the paste WRITES. That rule
+   * still holds everywhere else, and here it cut one gesture in half — the same rectangle, put
+   * aside and put back, under two namespaces and three names. `selection` is the better subject,
+   * and it takes the paste's plural with it: each name said which material it put down so as to
+   * name its surface, and the held rectangle answers that itself (App's `runLocalCommand`).
    */
-  "events paste", // put copied events down on the timeline, at its caret
-  "sequence notes paste", // put copied notes down in the open roll or sequencer, at its caret
+  "selection copy", // the selected rectangle onto the shell's clipboard (events or notes)
+  "selection paste", // put it down at the caret — on the timeline, or in the open grid
   "event move", // pick up the clip under the caret and nudge it; commits to disk
   "ui help", // the `?` overlay: commands, keys, and the song-file syntax reference
   // The footer's own buttons, beside the panel row, and the two toggles in the timeline's header.
@@ -179,17 +179,13 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Show the whole song",
     fr: "Afficher tout le morceau",
   },
-  "ui copy": {
+  "selection copy": {
     en: "Copy the selected events or notes",
     fr: "Copier les événements ou notes sélectionnés",
   },
-  "events paste": {
-    en: "Paste the copied events at the caret",
-    fr: "Coller les événements copiés au curseur",
-  },
-  "sequence notes paste": {
-    en: "Paste the copied notes at the caret",
-    fr: "Coller les notes copiées au curseur",
+  "selection paste": {
+    en: "Paste what was copied at the caret",
+    fr: "Coller ce qui a été copié au curseur",
   },
   "transport locate": {
     en: "Move the playhead to the caret",

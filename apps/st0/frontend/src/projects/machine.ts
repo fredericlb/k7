@@ -1,6 +1,6 @@
-// machine.ts — créer et supprimer un projet passent par la MACHINE, pas par pl8 : son miroir
-// est bare, sans blobs, et balayé au bout de quinze jours. La copie qu'on committe vit là-bas,
-// et le file-service sait déjà la faire. Voir ../../docs/projects.md.
+// machine.ts — créer et supprimer un projet passent par la MACHINE : c'est là que vit la copie
+// de travail qu'on committe, et pl8 n'a jamais tenu que le registre des dépôts. `ensureWorkspace`
+// est ce qui clone, et sert désormais à l'AJOUT d'un dépôt. Voir ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import { engineMachine, type Machine } from "./api";
@@ -93,13 +93,15 @@ export async function commitAndPush(
  */
 export async function createProjectOnMachine(
   m: Machine,
-  uri: string,
+  /** Le dossier d'espace de travail sur CETTE machine. La page le tient déjà : c'est la machine
+   *  qui a listé la rangée d'où part ce clic, donc il n'y a plus ni URI à résoudre ni clone à
+   *  s'assurer ici. `ensureWorkspace` sert encore, mais à l'AJOUT d'un dépôt. */
+  workspace: string,
   folder: string,
   onStep: (s: string) => void,
   /** Quel gabarit écrire : `arrangement`, `mix` ou `video`. */
   shape: ProjectShape,
 ): Promise<{ project: string; gripe: string | null }> {
-  const workspace = await ensureWorkspace(m, uri, onStep);
   onStep(`création de ${folder}…`);
   const project = await engineMachine.createProject(
     m,
@@ -115,14 +117,13 @@ export async function createProjectOnMachine(
 }
 
 /** …et le supprimer. Le service le recycle (corbeille) ; c'est le commit qui le retire du
- *  dépôt, donc des autres machines et du miroir de pl8. */
+ *  dépôt, donc des autres machines. */
 export async function deleteProjectOnMachine(
   m: Machine,
-  uri: string,
+  workspace: string,
   path: string,
   onStep: (s: string) => void,
 ): Promise<{ gripe: string | null }> {
-  const workspace = await ensureWorkspace(m, uri, onStep);
   onStep(`suppression de ${path}…`);
   await engineMachine.deleteProject(m, workspace, path);
   onStep("commit et envoi…");

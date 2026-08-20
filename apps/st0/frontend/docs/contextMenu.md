@@ -36,7 +36,7 @@ A row that will ask shows a trailing `…`, so which is which is visible before 
 ## A range verb needs the rectangle, not the click
 
 A placement answers *where it starts* and nothing more. That is enough for `event remove` and
-`event move`, and one argument short for every verb that takes a **span** — `event consolidate`
+`event move`, and one argument short for every verb that takes a **span** — `selection consolidate`
 and `events move`. Derived from the click alone they arrived incomplete, so the
 bar opened and asked for an end the selection was already holding.
 
@@ -101,11 +101,12 @@ redundant half.
 ### The word that gets dropped
 
 `CLICKED_HEAD` in `contextMenu.ts`: one word per context, dropped off the front of every row
-that starts with it. On an event, `event consolidate` reads "consolidate".
+that starts with it. On an event, `event remove` reads "remove".
 
 A head that names **something else** stays, and that is the whole value of dropping the one that
-does not. On an event's menu, `ui file` is about the material's file and `events move` about a
-whole range of them — neither is this placement, and their head is the word saying so.
+does not. On an event's menu, `ui file` is about the material's file, `events move` about a
+whole range of them, and `selection consolidate` about the rectangle the click landed in — none
+of them is this placement, and their head is the word saying so.
 
 It is one word chosen per context, not "the head most rows share": a track's menu is nine
 `event …` rows against six `track …` ones, and the commonest head there is the wrong one.

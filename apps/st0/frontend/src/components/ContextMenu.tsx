@@ -137,7 +137,7 @@ export function ContextMenu({
             className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-accent hover:text-accent-foreground"
           >
             {/* The NAME of the command, minus the word naming what you right-clicked:
-              "consolidate" on an event, not "event consolidate" and not a sentence about it. What it
+              "remove" on an event, not "event remove" and not a sentence about it. What it
               does went to the status bar (`onHint`), and the line it will write is in the title —
               three questions, three places, and the row answers the one you scan for.
 

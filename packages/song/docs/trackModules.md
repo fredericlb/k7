@@ -1,11 +1,11 @@
 # Track modules — a lane IN the graph
 
 A lane is a module. It lives in `nodes/<name>.yaml` like every other use of a module, and
-what it `extends` says what kind of lane it is:
+what it `extends` says what kind of lane it is — which is a smaller question than it used to be:
 
 ```yaml
 # nodes/melody.yaml
-extends: "@studio/sequence-track"
+extends: "@studio/track"
 color: "#c8a97e"
 events:
   - { ref: melody, start: "1:1:1" }
@@ -22,39 +22,118 @@ bypassed: [ melody ]     # a lane in this list is MUTED
 
 There is no `tracks/` folder, and no `tracks:` half of `graph.yaml`.
 
-## The five, as a grid
+## Three, and none of them says what it carries
 
 ```
-                clips written down     clips streamed
-  audio         @studio/audio-track    @studio/audio-strudel-track
-  notes         @studio/sequence-track @studio/sequence-strudel-track
+  events written down     @studio/track
+  events streamed         @studio/strudel-track
 
-  neither       @studio/group-track
+  neither                 @studio/group-track
 ```
 
-`type: single | group | strudel` beside `contentType: audio | sequences` was that grid spelled as
-two fields, and it is the whole reason `contentType` existed: `type` could not say what signal a
-lane carried, so a second field had to. Flattened, both questions are read off one `extends:`, and
-neither can go missing or disagree with the other — a `@studio/sequence-track` carries notes
-because that is what it IS.
+There were five. The grid had a second axis — `audio` or `notes` — and a lane sat in one cell of
+it for ever: `@studio/sequence-track` carried notes *because that is what it IS*, which was the
+argument for having five rather than two.
 
-`trackModule.ts` builds the five from one table keyed by `{ signal, generated }` rather than five
-literals, for the same reason: the grid is the vocabulary, and five hand-written copies is where
-the audio and sequence halves start to drift.
+The argument was sound and the premise was wrong. **A lane does not carry a signal — its EVENTS
+do.** An event names a `clips/<id>.yaml` or a `sequences/<id>.yaml`, and that is already the whole
+answer, stated once per event by the material itself. The word at the top of the lane file was a
+second copy of a fact each event was carrying anyway, and its only real power was the power to
+refuse: a lane could not hold both. Which is a thing songs do constantly — a guitar part where two
+bars are a sampled riff and the rest is a line for a synth, a strudel pattern that is half drums
+and half melody — and it cost a second lane, a second strip, a second name, and a convention
+saying the two belonged together.
 
-## No ports but one output
+So the axis is gone, and with it `contentType`, `Lane.contentType`, `Track.contentType`,
+`StrudelLane.contentType` and the four rules that read them. What survives is the one axis that is
+genuinely about the lane and not about its material: **where the events come from** — written
+down, or streamed while the transport rolls.
 
-A lane offers `out` and nothing else. What arrives on a lane is its clips.
+## Two outputs
+
+A lane offers `audio` and `midi`, and nothing else. An event leaves by the one its material fits.
+
+```yaml
+modules:
+  gtr#audio: [ amp ]      # the events naming clips
+  gtr#midi:  [ synth ]    # the events naming sequences
+  amp: [ OUT ]
+  synth: [ OUT ]
+```
+
+The `#port` syntax is not new — it is [ports.md](ports.md)'s, already used for a stem separator's
+outputs — and neither is a bare key:
+
+```yaml
+modules:
+  gtr: [ amp ]            # everything this lane emits, down one chain
+```
+
+**Bare means everything.** That is what every project written before this says, and it stays
+exactly what it meant: one engine track, one chain, all the lane's events. A port only has to be
+named when there is a genuine choice to make, which is when the lane holds both kinds and you want
+them treated differently. Nothing gained a suffix by existing.
+
+The one thing bare cannot do is be *wrong quietly*. A lane holding both kinds, wired bare into a
+module that takes one of them, means the synth is handed the guitar clips too — so `validate()`
+warns and names the two keys that split it. It is a warning rather than a refusal because the
+song still plays; it just plays something nobody asked for.
+
+And the inverse is a refusal: a lane wired ONLY to its `midi` output while holding an audio clip
+has nowhere to put that clip. Dropping it silently is the one outcome worth refusing — the graph
+looks right, the timeline draws the clip, and it is simply never heard — so the compile fails and
+names the key to add.
+
+## One lane, two engine tracks
+
+The engine holds **one plugin chain per track**. So a lane running its clips through an amp and
+its sequences through a synth is two tracks down there, and always was.
+
+`nodeProject`'s `halvesOf` is where that happens: a lane wired on both outputs compiles to
+`gtr#audio` and `gtr#midi`, each carrying the events its port fits and the plugins of the run that
+left by it. A lane wired bare — or on one port only — compiles to one track called after the lane,
+which is why every existing project's compiled document is unchanged.
+
+That the split exists at all is the engine's model showing through, not the authoring model's. It
+is the same relationship `Mixer` already has with the engine's fader, and the same one the whole
+of `ProjectDoc` has with `nodes/`: **the engine's lanes are a compilation target.** What changed is
+that the two lanes are one lane HERE, where the song is written.
+
+Both halves take the lane's mute, its solo, its group and its colour — those are facts about the
+lane, not about one of its outputs. A live interface input lands on whichever half takes audio,
+which is the other refusal detyping removed: recording a guitar onto the lane you wrote the line
+on used to be a `contentType: sequences` warning, and is now just an overdub.
+
+## `deriveChains` has one exception now
+
+A module's outputs stay **one node**: `stemsplit#drums` and `stemsplit#vocals` are one meeting
+point, because `out` compiles as a parallel send and per-key counting would absorb both targets
+into a run through a module that in fact splits ([ports.md](ports.md)).
+
+A LANE's outputs are not that. They carry different material and compile to different engine
+tracks, so `melody#audio` and `melody#midi` are two runs, each absorbing its own modules. That is
+`srcId` in `chainsGraph.ts`, and it is the whole cost of detyping to the derivation: one predicate
+the derivation already had (`isLane`) deciding whether a source key's port is part of its identity.
+
+`Chain.fromPort` carries the port up to everyone else. `from` stays the bare lane name — a reader
+asking "whose material is this" and a reader asking "which jack did it leave by" each get their
+answer without parsing the other's — and the run's NAME is the id the engine track takes.
+
+## No ports IN, still
+
+A lane offers no input. What arrives on a lane is its events.
 
 The one thing that may be routed INTO a lane is a live interface channel, and that is still the
 special case it always was (`validate`'s out-check): the flat model the engine plays cannot
 express routing into a lane's input, so the compiler LANDS the input on the lane rather than
-feeding a port. That is an engine ceiling, not a name-space artefact, and merging the two name
-spaces did not move it.
+feeding a port. That is an engine ceiling, not a name-space artefact, and neither merging the two
+name spaces nor detyping moved it. What detyping DID move is where it lands: on the half that
+takes audio, since that is what an interface input carries.
 
 A group offers no output either. It holds member names and carries no signal — the same fact its
 old `type: group` stated, said with a port list instead of a word, which is why `isGroupTrack`
-asks the ports rather than the ref.
+asks the ports rather than the ref. It is the one lane kind detyping left exactly as it was: a
+group was never typed by its material, having none.
 
 ## Bypass is the mute
 
@@ -91,12 +170,12 @@ obvious road — the lane keeps its name, the synth is named for the lane it ser
 
 ## Every lane is a node of a built-in
 
-None of the five has a file anywhere, which makes them the third such set in the repo after the
+None of the three has a file anywhere, which makes them the third such set in the repo after the
 synthesised `@engine/…` plugins ([moduleNamespaces.md](moduleNamespaces.md)) and `@studio/doc`
 ([docModules.md](docModules.md)). A lane costs exactly one file — its own.
 
 The alternative is what settled it, and it is the argument `@studio/doc` already made: a
-project-local `modules/tracks/audio/module.yaml` would be a file every project must scaffold
+project-local `modules/tracks/track/module.yaml` would be a file every project must scaffold
 before its first lane, and every old project would have to create it by hand.
 
 A lane being a *node* is not a trick — it is what a node already is here: one USE of a
@@ -119,14 +198,28 @@ Widening it made the compiler point at each place that assumed three. That was t
 **compilation target**, not the authoring model — exactly the relationship the `Mixer` module
 already has with the engine's fader.
 
+Detyping needed nothing from the engine, and that is worth stating: `EditBuilder` has dispatched
+per CLIP for as long as it has existed (`c.type == ClipType::Midi ? insertMidiClip : insertClip`),
+and `TrackDoc.contentType` is read into `ProjectDoc.h` and then used by nothing at all. The engine
+never believed a track was typed. Only the authoring model did.
+
+`contentType` on the wire has documented three values all along — `"audio" | "notes" | "audio
+notes"` — and only ever carried two. The third is what a bare-wired detyped lane is, so the field
+finally says something: it is what `patternClock` asks to find which half of a lane a streamed
+event lands on, without needing a new field to ask it with.
+
 `graph.ts`'s `Track` survives as a *projection* of a track module, and `trackModule.ts`'s `Lane`
 is the one place that projection is computed: `graph.ts` turns it into what every surface draws
 (timecodes parsed to beats) and `nodeProject.ts` compiles it for the engine (placements kept as
 authored). Both ask the same question of the same module, and a second copy of "is this a group"
-is exactly how the two would come to disagree.
+is exactly how the two would come to disagree. Neither carries a `contentType` any more —
+`Placement.kind` already said it, per event, and was right.
 
-The compiled `ProjectDoc` for `synth-demo.st0` came out byte-identical across this change but for
-the one deliberate rename, which is the measurement that says the engine's half was untouched.
+The measurement: the compiled `ProjectDoc` for `synth-demo.st0` came out identical across detyping
+in every field but one — `kit`, a strudel lane wired to nothing, now reads `"audio notes"` where it
+read `"audio"`. It is unwired, so nothing says what it carries and it streams whatever the pattern
+gives it; the old value was the old vocabulary's best guess. Every track id, every clip, every
+plugin is byte-for-byte what it was.
 
 ## Which nodes are lanes has to be TOLD
 
@@ -150,12 +243,43 @@ There is no migration code, deliberately, and every schema is `.strict()` — so
 old field says so by name and by line rather than being read and dropped. This is the outcome this
 repo keeps choosing (see [nodes.md](nodes.md), which made the same call).
 
+| was | is |
+|---|---|
+| `extends: "@studio/audio-track"` | `extends: "@studio/track"` |
+| `extends: "@studio/sequence-track"` | `extends: "@studio/track"` |
+| `extends: "@studio/audio-strudel-track"` | `extends: "@studio/strudel-track"` |
+| `extends: "@studio/sequence-strudel-track"` | `extends: "@studio/strudel-track"` |
+| `extends: "@studio/group-track"` | unchanged |
+| two lanes, one audio and one sequences, for one part | one lane, and `#audio:` / `#midi:` in `graph.yaml` if the two need different chains |
+
+A lane that streams (`@studio/strudel-track`) is the one case where the wiring has to say what the
+file no longer does: it holds nothing until the transport rolls, so `pad#midi: [ synth ]` is the
+only place "these events are notes for the synth" is written down. An authored lane says it by
+holding events.
+
+`LEGACY_TRACK_REFS` in `moduleTypes.ts` keeps the four old spellings as NAMES, so a diagnostic can
+say which one a file means. Nothing resolves them — the same call
+[moduleNamespaces.md](moduleNamespaces.md) made for `@mediatek/…`.
+
+No migration CODE, and a migration SCRIPT, which is the distinction this repo keeps drawing
+(`migrateChains`, `migrateNamespace`, `migrateModules`, …). The loader refuses, once, by name and
+by line; a one-shot rewrites the files and is then done with:
+
+```bash
+npx tsx packages/song/scripts/migrateTracks.ts <project-or-workspace>          # dry run
+npx tsx packages/song/scripts/migrateTracks.ts <project-or-workspace> --write
+```
+
+It reports every STREAMING lane it touched separately, because that is the one case it cannot
+finish: a written-down lane says what it carries by holding events, and a streaming one holds
+nothing until it rolls — so `graph.yaml` has to name the output, and only a person knows which.
+
+And the older move, from before lanes were modules at all:
+
 | was, in `tracks/<id>.yaml` | is, in `nodes/<id>.yaml` |
 |---|---|
-| `type: single` + `contentType: audio` | `extends: "@studio/audio-track"` |
-| `type: single` + `contentType: sequences` | `extends: "@studio/sequence-track"` |
-| `type: strudel` + `contentType: audio` | `extends: "@studio/audio-strudel-track"` |
-| `type: strudel` + `contentType: sequences` | `extends: "@studio/sequence-strudel-track"` |
+| `type: single` \| `strudel` | `extends:` one of the two above |
+| `contentType:` | **gone** — the events say it |
 | `type: group` | `extends: "@studio/group-track"` |
 | `events:`, `color:`, `disabled:`, `tracks:`, `strudel:` | unchanged, on the node |
 | `mute: true` | the name in `graph.yaml`'s `bypassed:` |
@@ -184,5 +308,12 @@ to the module — which is the same feature arriving where it belongs, a lane be
   whose neutralisation pass the new one does not need — gain and pan are a module now, so where
   they sit relative to the freeze point already says whether they bake in.
 
-`contentType` and `video_source` are simply gone: the first is what the module type says, and the
-second is sayable — a song carries picture ([picture.md](picture.md)) — and nothing reads it.
+`video_source` is simply gone: it is sayable — a song carries picture ([picture.md](picture.md)) —
+and nothing reads it.
+
+`contentType` went in two steps, and the second is the interesting one. It came off the FILE first,
+folded into `extends:` so it could not go missing or disagree with `type:`. That was right about
+the redundancy and wrong about where the fact lived: it moved a lane's material from one word to
+another word, when the material was never the lane's to state. The second step took the word away
+altogether. Which is the shape of most of the good moves in this repo — not "say it once instead of
+twice" but "notice that the thing already says it".

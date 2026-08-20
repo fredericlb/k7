@@ -13,7 +13,7 @@ import type {
   WebSignal,
   WebWidget,
 } from "@studio/graph-model";
-import { splitPort } from "@studio/graph-model";
+import { splitPort, TRACK_OUTPUTS } from "@studio/graph-model";
 // Type-only the other way (hang.ts takes `Pt` as a type), so this import cannot cycle.
 import { hangPoints } from "./hang";
 
@@ -309,10 +309,11 @@ export interface Jack {
  * Outputs do not: all of them show at once. An output is offered, never required, so there is no
  * progression to disclose — the question "what can I take off this module" wants one answer.
  *
- * `spare` is for a node whose sockets are a LIST rather than a fixed set — a lane's outputs, which
- * are its sends. Its one undeclared socket taken, it grows a free one beside it, or a lane feeding
- * one thing could never feed a second. It says nothing about a node that DECLARES its ports: a
- * separator with three stems has three, and a fourth hole would be a lie about the module.
+ * `spare` is a LANE's, whose outputs are also its sends: an output already feeding something grows
+ * a free twin beside it, or a lane feeding one thing could never feed a second. It is not for a
+ * node that merely declares ports — a separator with three stems has three, and a fourth hole
+ * would be a lie about the module — which is why it is a flag the caller sets for tracks and for
+ * nothing else.
  */
 export function jacksFor(
   ports: { name: string; type: WebSignal; mandatory?: boolean }[] | undefined,
@@ -320,6 +321,13 @@ export function jacksFor(
   fallback: WebSignal | undefined,
   grow: boolean,
   spare = false,
+  /**
+   * Which declared port a cable that NAMES none counts against. The first, for every module —
+   * that is what a bare ref has always meant. A LANE is the exception: it is wired bare far more
+   * often than not, and what leaves it then is what it HOLDS, so the cable belongs on the socket
+   * carrying that. Otherwise a lane of sequences drew a blue cable out of its orange jack.
+   */
+  bareOn?: string,
 ): Jack[] {
   // A module that declares nothing has the one port every module has, typed by what it handles.
   if (!ports?.length) {
@@ -334,18 +342,36 @@ export function jacksFor(
       ];
     return [{ type, free: !fed.size }];
   }
+  // A cable that named no port lands on `bareOn` when the caller says which, else on the first.
+  const takesBare = (p: { name: string }, i: number) =>
+    bareOn ? p.name === bareOn : i === 0;
   const isFed = (p: { name: string }, i: number) =>
-    fed.has(p.name) || (i === 0 && fed.has(""));
+    fed.has(p.name) || (takesBare(p, i) && fed.has(""));
   // Outputs, which show all at once and read their occupancy the same way inputs do: the edge
   // now carries which jack it left from (`sep#vocals: [ reverb ]`), so a separator with three
   // stems wired and one spare says so. `""` is a cable that named no port — the first output,
   // and what every cable drawn before source ports existed means.
   if (!grow)
-    return ports.map((p, i) => ({
-      name: p.name,
-      type: p.type,
-      free: !isFed(p, i),
-    }));
+    return ports.flatMap((p, i) => {
+      const jack = { name: p.name, type: p.type, free: !isFed(p, i) };
+      if (!spare || jack.free) return [jack];
+      /**
+       * A LANE's outputs are its SENDS, so an output already feeding something grows a free twin
+       * beside it — or a lane feeding one thing could never feed a second.
+       *
+       * The twin carries the SAME ADDRESS as the cable already on it: unnamed when that cable
+       * named no port, so a second send off a bare-wired lane is written `gtr: [ amp, reverb ]`
+       * the way the first was. Naming it would write `gtr#audio:` beside `gtr:` — two keys, which
+       * SPLITS the lane into two engine tracks (see @studio/song's docs/trackModules.md). A drag
+       * for a second send would then quietly re-route the lane's material, which is not what
+       * anybody reaches for a spare socket to do.
+       */
+      const bare = takesBare(p, i) && fed.has("");
+      return [
+        jack,
+        { ...(bare ? {} : { name: p.name }), type: p.type, free: true },
+      ];
+    });
   const mandatory = ports.filter((p) => p.mandatory !== false).length;
   // One past the LAST occupied port, not one past the count: a module fed only on `b` still has
   // to show `a`, or the empty socket the cable came from would vanish from under it.
@@ -468,9 +494,15 @@ export function cablePath(
       true, // always sideways: both ends are on a left or right edge
     );
   }
+  // A cable that names a port leaves that jack. One that names none leaves the FIRST — except off
+  // a lane, where a bare cable was counted against the socket carrying what the lane holds
+  // (`jacksFor`'s `bareOn`), so it leaves the first OCCUPIED one instead. Reading it back off the
+  // jacks rather than recomputing it is what keeps the plate and the cable end one answer.
   const fromIndex = e.sourcePort
     ? (src?.jacks?.out.findIndex((j) => j.name === e.sourcePort) ?? -1)
-    : 0;
+    : src?.kind === "track"
+      ? (src.jacks?.out.findIndex((j) => !j.free) ?? -1)
+      : 0;
   const from = src
     ? jackPoint(src, "out", fromIndex < 0 ? 0 : fromIndex)
     : pts[0];
@@ -1182,6 +1214,9 @@ export function buildGraph(
     seen.add(chain);
     if (c.use.length) return c.use[c.use.length - 1].emits;
     if (!c.from) return undefined;
+    // A run that left a lane by a named output carries that output's signal, whatever the lane
+    // as a whole holds — see the `fromPort` note below.
+    if (c.fromPort === "midi" || c.fromPort === "audio") return c.fromPort;
     return isChain(c.from) && !isTrack(c.from)
       ? exitSignal(c.from, seen)
       : graph.trackSignals?.[c.from];
@@ -1332,6 +1367,11 @@ export function buildGraph(
           label: c.from,
           kind: "track",
           video,
+          // The two outputs a lane offers, audio first — orange then blue, and the order a bare
+          // cable relies on (it lands on the first). A VIDEO lane is not detyped and keeps its
+          // single picture output, typed by `trackSignals`. See @studio/graph-model's
+          // TRACK_OUTPUTS and @studio/song's docs/trackModules.md.
+          ...(video ? {} : { outputs: TRACK_OUTPUTS.map((o) => ({ ...o })) }),
           color: graph.trackColors?.[c.from],
           // A lane is a module node, so it is addressable like one — which is what the
           // alternatives menu on its card acts through. See packages/song/docs/alternatives.md.
@@ -1351,12 +1391,29 @@ export function buildGraph(
           // "which take is on this lane" — a question about the lane, asked at the lane.
           ...clipsOf(graph, c.from, nodeSize(ui), clipSpan),
         });
-        // A sequences track puts MIDI on the wire, an audio one audio, and a video lane picture whatever trackSignals says.
+        /**
+         * What the cable carries, and which jack it leaves by.
+         *
+         * A lane offers an `audio` and a `midi` output and is not typed by what it holds, so a
+         * run that named one says so itself: `fromPort` IS the signal, and it is also the socket
+         * the cable is drawn from — which is what keeps a split lane's two cables apart instead
+         * of stacking them on one jack. A run leaving the lane bare falls back to what the lane
+         * holds (`trackSignals`), and a video lane is picture whatever it says.
+         */
+        const port = c.fromPort;
         link(
           trackId(c.from),
           entryId(name),
           undefined,
-          video ? "video" : (graph.trackSignals?.[c.from] ?? "audio"),
+          video
+            ? "video"
+            : port === "midi"
+              ? "midi"
+              : port === "audio"
+                ? "audio"
+                : (graph.trackSignals?.[c.from] ?? "audio"),
+          undefined,
+          port,
         );
       }
     }
@@ -1423,6 +1480,9 @@ export function buildGraph(
       sub: "no chain",
       kind: "track",
       video,
+      // Both outputs, exactly as a routed lane's — a lane offers them whether or not anything is
+      // plugged in, and an orphan is the node most likely to be about to have one plugged in.
+      ...(video ? {} : { outputs: TRACK_OUTPUTS.map((o) => ({ ...o })) }),
       color: graph.trackColors?.[id],
       module: id,
       ...(graph.trackAlternatives?.[id] ?? {}),
@@ -1525,6 +1585,12 @@ export function buildGraph(
               false,
               // A lane's outputs are its SENDS, so a taken one grows a spare. See jacksFor.
               n.kind === "track",
+              // …and a lane wired BARE puts its cable on the socket carrying what it holds,
+              // rather than on the first one. `trackSignals` is the same answer that colours
+              // the cable, so the jack and the wire in it agree.
+              n.kind === "track"
+                ? (graph.trackSignals?.[n.label] ?? "audio")
+                : undefined,
             ),
     };
   }

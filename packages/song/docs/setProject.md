@@ -110,7 +110,7 @@ The file still exists, and that is deliberate. The alternative — inferring the
   the master tempo: none of those are the song, all of them are the deck, and inventing a
   second home for them later is worse than having one now.
 
-A deck's file is now an ordinary node — `extends: "@studio/audio-track"` and its own
+A deck's file is now an ordinary node — `extends: "@studio/track"` and its own
 settings — which is the same argument arriving at the same place from the other side: a
 node is exactly "one use of a module, with its own settings".
 

@@ -91,7 +91,7 @@ Three consequences worth knowing:
 - **Out-degree is the NODE's, not the key's.** Those two keys are one destination each, and
   counting per key would call every edge an only child — absorbing both targets into a single
   run through a module that in fact splits. `absorbed` is unchanged; what it reads is now
-  counted correctly.
+  counted correctly. There is exactly one exception, a LANE — see below.
 - **A wrong source port is reported.** `crossfade#typo` on a destination has always thrown;
   `stemsplit#vocls` on a source routed silently onto the first jack. `validate()` checks it
   against the module's `outputs` now.
@@ -102,6 +102,30 @@ What has **not** changed is that `out` compiles as a parallel send (below). Four
 today are four copies of the same signal as far as the engine is concerned — which is why a
 module that genuinely fans out has to be `offline` and produce files instead. See
 `docs/coldModules.md`.
+
+### The one source whose port IS its identity: a lane
+
+Everything above is why a module keyed on two outputs stays one node. A **lane** is the exception,
+and for exactly the reason the rule exists.
+
+`stemsplit#drums` and `stemsplit#vocals` are one signal path to the engine — parallel sends off one
+track — so splitting them into two nodes would absorb both targets into runs through a module that
+in fact fans out. A lane's `audio` and `midi` outputs are not one signal path: they carry different
+MATERIAL, and the engine can hold a track for each. So they are two runs, `melody#audio` and
+`melody#midi`, each absorbing its own modules and each compiling onto its own engine track.
+
+`chainsGraph`'s `srcId` is the whole of it: a source key's port is part of its identity when the
+node is a lane keyed on more than one. The derivation already knew which nodes were lanes
+(`isLane`, see [trackModules.md](trackModules.md)), so this cost no new fact.
+
+Two details worth having:
+
+- A lane keyed **once** keeps its bare name whatever port that key named, so nothing gained a
+  suffix by existing. The port still rides up as `Chain.fromPort` — it is what says a streaming
+  lane's events are notes, which its file cannot.
+- `Chain.from` stays the bare lane name; the run's NAME carries the port. A reader asking "whose
+  material is this" and a reader asking "which jack did it leave by" each get their answer
+  without parsing the other's.
 
 ## What validates, and how loudly
 

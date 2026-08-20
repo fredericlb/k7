@@ -177,7 +177,10 @@ export function CommandsSettings({
         return;
       }
       const token = keyToken(e);
-      if (!token) return; // a ⌘/⌃/⌥ chord — those stay the browser's, so they can't be bound
+      // A ⌘/⌃/⌥ chord: those stay the browser's and cannot be bound. ⌃C and ⌃V are the two
+      // exceptions and DO capture here — they are the shell's keys (keys.ts's CHORDS), so a
+      // person may move them onto another command exactly as they may move `c` or `p`.
+      if (!token) return;
       patch(capturing, {
         key: token === keyForCommand(capturing) ? undefined : token,
       });

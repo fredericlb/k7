@@ -50,7 +50,7 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
   const segments: string[] = [];
   for (let i = 0; i < size.lanes; i++) {
     files[`nodes/lane${i}.yaml`] =
-      `extends: "@studio/sequence-track"\nevents:\n  - { ref: seq${i}, start: "1:1:1" }\n`;
+      `extends: "@studio/track"\nevents:\n  - { ref: seq${i}, start: "1:1:1" }\n`;
     files[`nodes/synth${i}.yaml`] = `extends: "@project/instruments/synth"\n`;
     files[`sequences/seq${i}.yaml`] = `notes:\n${notes}\n`;
     segments.push(`  lane${i}: [ synth${i} ]`, `  synth${i}: [ OUT ]`);

@@ -1,4 +1,4 @@
-// materialRender.ts — the AUDIO half of `event split` and `event consolidate`. The
+// materialRender.ts — the AUDIO half of `event split` and `selection consolidate`. The
 // sequence half is pure text and lives in @studio/song's materialCut.ts; audio has to be
 // RENDERED, so it lives here beside the bounce, which already owns "write new material through
 // the engine". See packages/song/docs/materialCut.md.

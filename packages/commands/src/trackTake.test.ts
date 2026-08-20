@@ -21,7 +21,7 @@ let dir: string;
 const logs: string[] = [];
 let reloaded = 0;
 
-const LANE = `extends: "@studio/audio-track"
+const LANE = `extends: "@studio/track"
 events:
   - { ref: pass3, start: "3:1" }
 takes:

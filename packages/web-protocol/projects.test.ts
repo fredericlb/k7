@@ -5,8 +5,12 @@ import {
   benchChainPath,
   benchProjectForChain,
   HAS_SCAFFOLD,
+  isLocal,
   isShare,
+  LOCAL_REPO,
   launchUrl,
+  localProjectUrl,
+  localTarget,
   PROJECT_SUFFIXES,
   parseLaunch,
   projectApp,
@@ -242,5 +246,75 @@ describe("a shared snapshot's address", () => {
     expect(shareApiBase("https://st0.priv.frediver.se", key)).toBe(
       `https://st0.priv.frediver.se/pl8/api/public/share/${key}`,
     );
+  });
+});
+
+describe("a project in a workspace with no repository", () => {
+  const ORIGIN = "https://st0.priv.frediver.se";
+
+  it("reads back through parseLaunch with nothing added to it", () => {
+    // The whole argument for spelling it this way: `@local` sits where a repository goes, and
+    // the project part ends at the last segment claiming the app — the ordinary rule, unchanged.
+    expect(parseLaunch("/@local/Examples/synth-demo.st0", "st0", "/")).toEqual({
+      repo: "@local",
+      project: "Examples/synth-demo.st0",
+    });
+    expect(isLocal("@local")).toBe(true);
+    expect(isLocal("songs")).toBe(false);
+  });
+
+  it("splits the workspace off the front of what parseLaunch answered", () => {
+    expect(localTarget("Examples/synth-demo.st0")).toEqual({
+      workspace: "Examples",
+      project: "synth-demo.st0",
+    });
+    // A workspace that IS a project: `.` is what every other route already calls its root, and
+    // what parseLaunch answers when a repository is the project.
+    expect(localTarget("hiver.st0")).toEqual({
+      workspace: "hiver.st0",
+      project: ".",
+    });
+    expect(localTarget("Examples/albums/hiver.st0")).toEqual({
+      workspace: "Examples",
+      project: "albums/hiver.st0",
+    });
+  });
+
+  it("refuses a workspace name that is not one", () => {
+    // Checked and not trusted: this comes off an address anyone can type and is then joined
+    // onto the user's root, exactly as benchChainPath and shareToken are.
+    expect(localTarget("../elsewhere/x.st0")).toBe(null);
+    expect(localTarget("./x.st0")).toBe(null);
+    expect(localTarget("")).toBe(null);
+  });
+
+  it("builds the address the row links to, round-tripping its own encoding", () => {
+    const url = localProjectUrl(ORIGIN, "mes projets", "hiver.st0", "st0");
+    expect(url).toBe(`${ORIGIN}/@local/mes%20projets/hiver.st0`);
+    const back = parseLaunch(new URL(url).pathname, "st0", "/");
+    expect(back && localTarget(back.project)).toEqual({
+      workspace: "mes projets",
+      project: "hiver.st0",
+    });
+  });
+
+  it("puts a single-project workspace's name where the project goes, once", () => {
+    // `.` is the project, and the workspace folder IS it — so the address names it once rather
+    // than twice, and `localTarget` reads that back as the same pair.
+    const url = localProjectUrl(ORIGIN, "hiver.st0", ".", "st0");
+    expect(url).toBe(`${ORIGIN}/@local/hiver.st0`);
+    const back = parseLaunch(new URL(url).pathname, "st0", "/");
+    expect(back && localTarget(back.project)).toEqual({
+      workspace: "hiver.st0",
+      project: ".",
+    });
+  });
+
+  it("is a sentinel no repository can be mistaken for", () => {
+    // The same argument as @banc and @shares: `@` cannot begin a git short name, which is the
+    // last segment of an SSH URI without `.git`. Three sentinels, one rule.
+    for (const sentinel of [LOCAL_REPO, BENCH_REPO, SHARE_REPO])
+      expect(sentinel.startsWith("@")).toBe(true);
+    expect(new Set([LOCAL_REPO, BENCH_REPO, SHARE_REPO]).size).toBe(3);
   });
 });

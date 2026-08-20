@@ -29,7 +29,7 @@ import {
   resolveModule,
   resolveModuleMap,
 } from "./moduleResolve";
-import { isIoSource, type ModuleKind, splitPort } from "./moduleTypes";
+import { isIoSource, type ModuleKind, portRef, splitPort } from "./moduleTypes";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 import type {
   LoadedModule,
@@ -40,7 +40,7 @@ import type {
   RawVideoTrack,
 } from "./rawDoc";
 import { parsePosition } from "./timecode";
-import { type Lane, lanesOf } from "./trackModule";
+import { type Lane, laneMaterials, laneSignal, lanesOf } from "./trackModule";
 import type { ControllerFile } from "./yaml/moduleSchema";
 
 // --- model -------------------------------------------------------------------
@@ -65,11 +65,14 @@ export interface Placement {
  * A single lane holds placements; a group holds member names; a strudel lane links the pattern its
  * material streams from. The fields of the other kinds are always present but empty, so callers
  * can read any without narrowing first.
+ *
+ * No `contentType`: a lane is not typed by what it carries, each PLACEMENT is (`Placement.kind`).
+ * A reader that wants the summary asks the placements — and gets "both" as an honest answer,
+ * which the old field had no way to give.
  */
 export interface Track {
   name: string;
   type: "single" | "group" | "strudel";
-  contentType: "audio" | "sequences"; // single/strudel: what its material is
   color?: string; // authored display colour (hex, e.g. "#ff5706"); absent when unset
   // Silenced. Read off `graph.yaml`'s `bypassed:` — a lane's mute IS its module's bypass, which
   // is why the lane file carries no `mute:` for the two to disagree over.
@@ -118,6 +121,11 @@ export interface OutputDef {
 export type Out = WebOut;
 export interface Chain {
   from?: string;
+  // Which of the source lane's OUTPUTS this run left by — "audio" or "midi", and absent unless
+  // the lane was keyed on both. A detyped lane holds clips and sequences at once, so two runs may
+  // start at one lane; this is what tells them apart, and what the compiler makes a track id
+  // from. See docs/trackModules.md.
+  fromPort?: string;
   use: Step[]; // ordered module nodes: from -> use[0] -> … -> out
   enabled?: boolean; // whole-chain bypass
   out: Out[];
@@ -365,19 +373,35 @@ function normalizeOutputs(raw: unknown): OutputDef[] {
   );
 }
 
-// The signal type a track carries. A declared contentType settles it ("sequences"
-// == midi) — which is every strudel lane, since that arm always has one; otherwise
-// fall back to reading the clips' content: 'midi' if every placement refers to a
-// sequence, 'audio' if every one is a clip; undefined when empty, mixed, or
-// referencing something unresolved (caller then skips the check).
-// A group carries no signal of its own, so it's never a chain source.
-//
-// It used to sniff the lane's clips when `contentType:` was absent, and could answer "can't say"
-// three different ways. A lane's signal is its module's output port now, so there is nothing left
-// to guess: `@studio/sequence-track` carries midi because that is what it IS.
-function trackType(lane: Lane | undefined): "audio" | "midi" | undefined {
+/**
+ * The signal a track puts on a wire, or undefined when it cannot be said.
+ *
+ * A lane is DETYPED: it offers both outputs, so what it emits is decided one of two ways. Name
+ * the port (`melody#midi`) and the port is the answer, flatly. Name the lane bare and the answer
+ * is what the lane actually HOLDS — audio if every event names a clip, midi if every one names a
+ * sequence, and undefined when it is empty, mixed, or names something unresolved, which is the
+ * caller's cue to skip the check rather than guess.
+ *
+ * So this reads the events again, which is what it did before the five track modules existed. It
+ * is not the same reading: then it was a GUESS at a fact the file failed to state, now it is the
+ * fact. A lane holding a riff and a line holds a riff and a line, and no word at the top of the
+ * file can be more true about that than the events are.
+ *
+ * A group carries no signal of its own, so it is never a chain source.
+ */
+function trackType(
+  lane: Lane | undefined,
+  port: string | undefined,
+  clips: Record<string, RawClip>,
+  seqs: Record<string, RawSequence>,
+): "audio" | "midi" | undefined {
   if (!lane || lane.type === "group") return undefined;
-  return lane.contentType === "sequences" ? "midi" : "audio";
+  if (port === "midi" || port === "audio") return port;
+  return laneSignal(
+    laneMaterials(lane.events, (ref) =>
+      seqs?.[ref] ? "midi" : clips?.[ref] ? "audio" : "missing",
+    ),
+  );
 }
 
 // The type a chain-input source id resolves to, or undefined when unknowable
@@ -388,6 +412,9 @@ function trackType(lane: Lane | undefined): "audio" | "midi" | undefined {
 // a video source typed as nothing and the whole video-chain half of the model
 // (video_effects / video_transitions / VIDEO_OUT / VideoPluginDoc) had no way to be
 // reached from a real song.
+//
+// The id may name a lane's OUTPUT PORT (`melody#midi`), which is the one address that says what
+// it carries without anything having to be looked up.
 function sourceType(
   id: string,
   lanes: Record<string, Lane>,
@@ -398,8 +425,9 @@ function sourceType(
   if (seqs?.[id]) return "midi";
   if (clips?.[id])
     return isVideoSource(String(clips[id]?.source ?? "")) ? "video" : "audio";
-  if (lanes?.[id]) return trackType(lanes[id]);
-  if (videoTracks?.[id]) return "video";
+  const { node, port } = splitPort(id);
+  if (lanes?.[node]) return trackType(lanes[node], port, clips, seqs);
+  if (videoTracks?.[node]) return "video";
   return undefined;
 }
 
@@ -462,9 +490,15 @@ export function checkChainInputs(
         sources.push(
           idx === 0 && c.from
             ? {
-                id: String(c.from),
+                // With the port when the run left by one: a detyped lane's own address says
+                // what it carries, where the bare name can only be asked about its events.
+                id: c.fromPort
+                  ? portRef(String(c.from), c.fromPort)
+                  : String(c.from),
                 type: sourceType(
-                  String(c.from),
+                  c.fromPort
+                    ? portRef(String(c.from), c.fromPort)
+                    : String(c.from),
                   lanes,
                   clips,
                   seqs,
@@ -675,7 +709,6 @@ export function buildGraph(
       name,
       type: lane.type,
       color: lane.color,
-      contentType: lane.contentType,
       mute: bypassed.has(name),
       // Derived by the surface, never written. See the note on Track.solo.
       solo: false,
@@ -925,6 +958,30 @@ export function validate(g: GraphDoc): string[] {
       !(c.from !== name && g.chains[c.from])
     )
       w.push(`chain '${name}': from '${c.from}' is not a track or chain`);
+    /**
+     * A DETYPED lane holding both kinds, running down one chain that expects one of them.
+     *
+     * Wiring a lane bare means "everything this lane emits, down here", which is what every
+     * project has always said and is right for a lane holding one kind of thing. Once it holds
+     * both, the first module decides whether that is still what you meant: a synth is handed the
+     * audio clips too, and passes them through or eats them depending on the plugin. Neither is
+     * a crash and neither is what was intended, so this warns and names the two keys that split
+     * it. See docs/trackModules.md.
+     */
+    if (c.from && !c.fromPort && c.use.length) {
+      const lane = g.tracks[c.from];
+      const kinds = new Set((lane?.placements ?? []).map((p) => p.kind));
+      const wants = g.modules[c.use[0].module]?.inputs?.[0]?.type;
+      if (
+        kinds.has("audio") &&
+        kinds.has("midi") &&
+        (wants === "audio" || wants === "midi")
+      )
+        w.push(
+          `chain '${name}': track '${c.from}' holds audio AND sequences, and '${c.use[0].module}' takes ${wants} —` +
+            ` all of it goes through it. Split the lane: '${c.from}#audio:' and '${c.from}#midi:'`,
+        );
+    }
     for (const s of c.use) {
       const module = g.modules[s.module];
       if (!module)
@@ -1036,10 +1093,10 @@ export function validate(g: GraphDoc): string[] {
         w.push(
           `input '${s.module}': track '${track}' is a strudel lane — its pattern is the source`,
         );
-      else if (target.contentType === "sequences")
-        w.push(
-          `input '${s.module}': track '${track}' is a sequences track — an interface input carries audio`,
-        );
+      // There was a third refusal here: landing an input on a `contentType: sequences` track,
+      // since an interface input carries audio. A lane has an audio output whatever it holds
+      // now, so there is nothing left to refuse — the input lands on the audio half, which
+      // always exists.
       // The engine assigns ONE input per track: a second would silently replace the
       // first, so name both rather than let the last one loaded win.
       const prev = fedBy.get(track);

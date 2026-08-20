@@ -14,6 +14,23 @@ export type ConditionCtx = Record<string, string | undefined>;
 // Sentinel excluding the palette-opener from the completion base-command list; no key binds to it.
 export const RESERVED_COMMAND = "@command";
 
+/**
+ * The rectangle's two, held by FOUR tokens — the clipboard chords and two plain letters.
+ *
+ * UNCONDITIONAL, unlike every other binding here, and that is the one thing worth reading twice.
+ * They were conditional — copy on a rectangle being drawn, paste on something being held — which
+ * is the rule that keeps a key from being dead. The rule cost more than it bought here: a person
+ * who had selected an event by CLICKING it pressed copy, nothing happened and nothing was said,
+ * and the paste then told them the clipboard was empty. A key that goes quiet is indistinguishable
+ * from one that is broken.
+ *
+ * Both commands answer in every state now — the copy takes the caret's own cell when no rectangle
+ * is drawn (`cellBox`, and the placement under it on a lane), and each says out loud when it found
+ * nothing. So the shortcut is never dead: it either does the thing or gives the reason.
+ */
+const COPY_SELECTION: Binding = "selection copy";
+const PASTE_SELECTION: Binding = "selection paste";
+
 export const KEYS: Record<string, Binding> = {
   // The palette is NOT bound here — it opens on a double-tap of Shift, handled in App's listener.
   // `?` (shift+/) opens the help overlay, a command like any other; keyToken keeps shift, rejecting only meta/ctrl/alt.
@@ -77,29 +94,54 @@ export const KEYS: Record<string, Binding> = {
     { if: "timeline_selection", command: "transport loop" },
     { if: "timeline_loop", command: "transport loop" },
   ],
-  // Copy the rectangle, paste it at the caret. Both conditional, so neither is a dead key: `c`
-  // needs something selected, `p` needs something held. Plain letters rather than Ctrl+C/Ctrl+V,
-  // which belong to the BROWSER's own copy of whatever text is selected — and which this shell
-  // deliberately never steals (see keyToken, which rejects every modifier chord).
-  c: [
-    { if: "clip_selection", command: "ui copy" },
-    { if: "timeline_selection", command: "ui copy" },
-  ],
-  // …and `p` resolves to the verb for what is HELD, so the key runs the same line you could type.
-  // Two commands rather than one, because each names its material and therefore its surface.
-  p: [
-    { if: "clipboard_events", command: "events paste" },
-    { if: "clipboard_notes", command: "sequence notes paste" },
-  ],
+  // Copy the rectangle, paste it at the caret — on the clipboard chords FIRST, which is what
+  // makes them the pair the help legend advertises (`shortcutsByCommand` takes the first token).
+  // ⌃C/⌃V are the only chords this shell takes off the browser; keyToken says why.
+  "ctrl+c": COPY_SELECTION,
+  "ctrl+v": PASTE_SELECTION,
+  // The plain letters stay beside them. This timeline is driven by single keys — `v`, `z`, `m`,
+  // `s` — and a hand already there should not have to reach for a modifier; a hand coming from
+  // any other application should not have to learn that it must not. Both, then.
+  c: COPY_SELECTION,
+  // `p` is one line whatever is held: the clipboard carries its kind, so the verb no longer has
+  // to. It was two — `clipboard_events` / `clipboard_notes`, one command each — which is why the
+  // condition is now merely that something IS held.
+  p: PASTE_SELECTION,
 };
 
 /**
+ * The clipboard chords, and the ONLY ones this shell takes off the browser.
+ *
+ * ⌘/⌃ + C and V are where a hand already is for copy and paste, and a DAW that answered them
+ * with the browser's copy of whatever text happened to be selected would be the odd one out
+ * among every application a person has open. Everything else with a modifier stays the
+ * browser's — ⌘1/⌃1 is its tab switching — because a web app that holds chords nobody asked it
+ * to hold is how one starts feeling broken. ⌃Z/⌃Y never reach here at all: they have their own
+ * capture listener in App, the editor's keystroke history having to be spent first.
+ *
+ * ⌘ and ⌃ produce the SAME token. Which of the two is the clipboard modifier is the platform's
+ * business, and a keymap spelling both would be two rows saying one thing.
+ *
+ * The stand-aside that matters is not here but in App's listener: with text actually selected
+ * on the page, ⌃C is the browser's copy and is let through. Here the binding is conditional
+ * anyway, so the chord is only ever taken while there IS a rectangle to copy.
+ */
+const CHORDS: Record<string, string> = { c: "ctrl+c", v: "ctrl+v" };
+
+/** ⌘/⌃ + a letter → its token, or null for every chord that is not ours. */
+const chordToken = (e: KeyboardEvent): string | null =>
+  e.altKey || e.shiftKey || (e.metaKey && e.ctrlKey)
+    ? null
+    : (CHORDS[e.key.toLowerCase()] ?? null);
+
+/**
  * Canonical token for a browser key event, matching the strings used as KEYS keys.
- * Returns null for anything unbindable — including any modifier chord, so ⌘1 / ⌃1
- * stay with the browser (its own tab switching) rather than being stolen here.
+ * Returns null for anything unbindable — every modifier chord but the two above, so
+ * ⌘1 / ⌃1 stay with the browser rather than being stolen here.
  */
 export function keyToken(e: KeyboardEvent): string | null {
-  if (e.metaKey || e.ctrlKey || e.altKey) return null;
+  if (e.metaKey || e.ctrlKey) return chordToken(e);
+  if (e.altKey) return null;
   // Shift+space still arrives as " ", so the shift is read here — a letter would arrive
   // already uppercased ("Z"), which is why only the named keys need the modifier spelt out.
   if (e.key === " ") return e.shiftKey ? "shift+space" : "space";
@@ -224,6 +266,10 @@ export function keyLabel(token: string): string {
     enter: "Enter",
     esc: "Esc",
     tab: "Tab",
+    // Spelt out rather than as ⌃, which too few people read at a glance. It is ⌘ that fires it
+    // on a Mac, and one label cannot say both without becoming a sentence — see CHORDS.
+    "ctrl+c": "Ctrl+C",
+    "ctrl+v": "Ctrl+V",
   };
   if (named[token]) return named[token];
   // A shifted letter arrives as its own uppercase token ("Z", "L"…) — spell the shift out,

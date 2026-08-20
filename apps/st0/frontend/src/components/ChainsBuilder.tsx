@@ -104,7 +104,9 @@ export function ChainsBuilder({
       // command that touched the song.
       onLog?.("cmd", `› [${chosen.ref}] ${line}`);
       try {
-        await projectApi.command(line, chosen.path);
+        // `want: []` because the graph this pane draws is the CHAIN's, fetched by `graphAt` on
+        // the `rev` below — never the open song's, which is the only one the route would build.
+        await projectApi.command(line, { at: chosen.path, want: [] });
         setRev((r) => r + 1);
       } catch (e) {
         setError((e as Error).message);

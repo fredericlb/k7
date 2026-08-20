@@ -1,48 +1,47 @@
-// trackModule.ts — the five modules a LANE is a node of. Like `@studio/doc` none of them
-// has a file anywhere, so a lane costs exactly its own node and nothing else. They are built
-// from one two-axis table, not five literals: the grid IS the vocabulary, and five hand-written
-// copies is where the audio and sequence halves start to drift. Rationale: docs/trackModules.md.
+// trackModule.ts — the three modules a LANE is a node of. Like `@studio/doc` none of them has a
+// file anywhere, so a lane costs exactly its own node and nothing else. A lane is NOT typed by
+// the signal it carries: it offers an `audio` and a `midi` output, and each event leaves by the
+// one its own material fits. Rationale: docs/trackModules.md.
 
 import {
-  AUDIO_STRUDEL_TRACK_REF,
-  AUDIO_TRACK_REF,
   GROUP_TRACK_REF,
-  SEQUENCE_STRUDEL_TRACK_REF,
-  SEQUENCE_TRACK_REF,
+  STRUDEL_TRACK_REF,
   TRACK_CATEGORY,
+  TRACK_OUTPUTS,
+  TRACK_REF,
   TRACK_REFS,
 } from "./moduleTypes";
 import type { LoadedModule, RawPlacement } from "./rawDoc";
 
 export {
-  AUDIO_STRUDEL_TRACK_REF,
-  AUDIO_TRACK_REF,
   GROUP_TRACK_REF,
   isTrackRef,
-  SEQUENCE_STRUDEL_TRACK_REF,
-  SEQUENCE_TRACK_REF,
+  LEGACY_TRACK_REFS,
+  STRUDEL_TRACK_REF,
   TRACK_CATEGORY,
+  TRACK_OUT_AUDIO,
+  TRACK_OUT_MIDI,
+  TRACK_OUTPUTS,
+  TRACK_REF,
   TRACK_REFS,
 } from "./moduleTypes";
 
 /**
- * What tells the five apart, and the only thing that does.
+ * What tells the three apart, and the only thing that does.
  *
- * `signal` is null for a group: it holds member names and carries nothing, which is why it has
- * neither port. `generated` says where the lane's events come from — written down in `events:`, or
- * streamed from `strudel:` while the transport rolls.
+ * `group` holds member names and carries nothing, which is why it has no port at all — the one
+ * axis a lane still has. `generated` says where the events come from: written down in `events:`,
+ * or streamed from `strudel:` while the transport rolls.
  */
 interface TrackShape {
-  signal: "audio" | "midi" | null;
-  generated: boolean;
+  group?: boolean;
+  generated?: boolean;
 }
 
 const SHAPES: Record<string, TrackShape> = {
-  [AUDIO_TRACK_REF]: { signal: "audio", generated: false },
-  [SEQUENCE_TRACK_REF]: { signal: "midi", generated: false },
-  [AUDIO_STRUDEL_TRACK_REF]: { signal: "audio", generated: true },
-  [SEQUENCE_STRUDEL_TRACK_REF]: { signal: "midi", generated: true },
-  [GROUP_TRACK_REF]: { signal: null, generated: false },
+  [TRACK_REF]: {},
+  [STRUDEL_TRACK_REF]: { generated: true },
+  [GROUP_TRACK_REF]: { group: true },
 };
 
 /**
@@ -50,26 +49,33 @@ const SHAPES: Record<string, TrackShape> = {
  * synthesises, because a module with no folder still answers the same questions as one with a
  * folder.
  *
- * NO input on any of the five: what arrives on a lane is its events. A live interface channel is
+ * NO input on any of the three: what arrives on a lane is its events. A live interface channel is
  * the one thing that may be routed into one, and the compiler lands it on the lane rather than
  * feeding a port — see MODULE_TYPES.tracks for why that stayed as it was.
  *
- * A group offers no OUTPUT either: it holds member names and carries no signal, which is the
+ * TWO OUTPUTS, and this is the whole of detyping: a lane holds events naming clips and events
+ * naming sequences, in one list, and each leaves by the port its material fits. Wire one port and
+ * the lane is what it always was; wire both and it is a lane playing a riff through an amp and a
+ * line through a synth, which used to take two lanes and a rule about which was which.
+ *
+ * A group offers no output at all: it holds member names and carries no signal, which is the
  * same fact its old `type: group` stated, said with a port list instead of a word.
  */
 function trackModule(ref: string): LoadedModule {
-  const { signal, generated } = SHAPES[ref];
+  const { group, generated } = SHAPES[ref];
   return {
     kind: "track",
     category: TRACK_CATEGORY,
     inputs: [],
-    outputs: signal ? [{ name: "out", type: signal }] : [],
+    // Audio first — the order is what a bare cable means (it lands on the first output) and the
+    // order the graph draws the jacks in, orange then blue.
+    outputs: group ? [] : TRACK_OUTPUTS.map((o) => ({ ...o })),
     generated: generated || undefined,
     file: ref.slice(ref.lastIndexOf("/") + 1),
   };
 }
 
-/** The five built-in refs, for the ref map to start from. */
+/** The three built-in refs, for the ref map to start from. */
 export const trackModules = (): Record<string, LoadedModule> =>
   Object.fromEntries(TRACK_REFS.map((ref) => [ref, trackModule(ref)]));
 
@@ -98,10 +104,12 @@ export const isGroupTrack = (
  * Note what decides each kind: a GROUP is one with no output port, a GENERATED lane one whose
  * module says so. Neither is read off a word in the file — `type:` and `contentType:` are gone,
  * and what the lane extends is the whole answer.
+ *
+ * There is no `contentType` HERE either, and that is the point: what a lane holds is a property
+ * of each event, not of the lane. Ask `laneMaterials()` when you need the summary.
  */
 export interface Lane {
   type: "single" | "group" | "strudel";
-  contentType: "audio" | "sequences";
   color?: string;
   /** As AUTHORED — timecodes still strings. Empty for a group and for a generated lane. */
   events: RawPlacement[];
@@ -128,7 +136,6 @@ export function laneOf(m: LoadedModule | undefined | null): Lane | null {
   const strudel = m.generated === true;
   return {
     type: group ? "group" : strudel ? "strudel" : "single",
-    contentType: m.outputs?.[0]?.type === "midi" ? "sequences" : "audio",
     color: typeof m.color === "string" && m.color ? m.color : undefined,
     events:
       group || strudel || !Array.isArray(m.events)
@@ -160,4 +167,38 @@ export function lanesOf(
     if (lane) out[name] = lane;
   }
   return out;
+}
+
+/** What one event's ref resolves to. `missing` names nothing the project holds. */
+export type Material = "audio" | "midi" | "missing";
+
+/** Which materials a list of events actually holds — the summary nothing stores any more. */
+export interface LaneMaterials {
+  audio: boolean;
+  midi: boolean;
+  missing: boolean;
+}
+
+// What a lane holds, event by event. A generated lane answers "neither": its material arrives
+// while the transport rolls, so the file cannot say, and only the WIRING settles its ports.
+export function laneMaterials(
+  events: readonly RawPlacement[],
+  materialOf: (ref: string) => Material,
+): LaneMaterials {
+  const out: LaneMaterials = { audio: false, midi: false, missing: false };
+  for (const p of events) out[materialOf(String(p?.ref ?? ""))] = true;
+  return out;
+}
+
+/**
+ * The ONE signal a lane puts on a wire, or undefined when it can't be said.
+ *
+ * Undefined for an empty lane, a generated one, a lane whose refs resolve to nothing, and — the
+ * new case — a lane holding both. A caller checking a port's type skips an undefined rather than
+ * guessing, which is what it already did for every other unknowable source.
+ */
+export function laneSignal(m: LaneMaterials): "audio" | "midi" | undefined {
+  if (m.missing) return undefined;
+  if (m.audio && m.midi) return undefined;
+  return m.audio ? "audio" : m.midi ? "midi" : undefined;
 }

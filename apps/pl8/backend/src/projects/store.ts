@@ -33,10 +33,6 @@ export function keyDirFor(sub: string): string {
   return join(projectsDir(), "ssh", userDir(sub));
 }
 
-export function mirrorDirFor(sub: string, repoId: string): string {
-  return join(projectsDir(), "mirrors", userDir(sub), `${repoId}.git`);
-}
-
 function listPath(sub: string): string {
   return join(projectsDir(), "repos", fileFor(sub));
 }
@@ -183,17 +179,7 @@ export function clearLibrariesRepo(sub: string): boolean {
   return true;
 }
 
-/**
- * This user's change token, for the médiathèque's one poll.
- *
- * `bump()` is what a finished mirror fetch calls: the list has not moved, but what a tree
- * request would answer has, and the section would otherwise sit on the listing it got
- * before the clone landed.
- */
-export function bump(): void {
-  mutations++;
-}
-
+/** This user's change token, for st0's one poll. */
 export function revision(sub: string): string {
   let stamp = 0;
   try {

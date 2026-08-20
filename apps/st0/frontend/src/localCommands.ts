@@ -18,10 +18,9 @@ export const UI_EXACT: readonly string[] = [
   "popin close",
   "slot close",
   "select",
-  // The selected rectangle onto the shell's clipboard. `ui`, because the clipboard is this
-  // shell's and no file moves — its other half, `paste`, writes and so is bare-named. Exact, so
-  // it cannot swallow `ui copy path <file>`, which is a head below.
-  "copy",
+  // `copy` was here, as the rectangle onto the shell's clipboard. It is `selection copy` now —
+  // see the note above BARE_TRANSPORT. What is left under `ui` is `copy path <file>`, a head
+  // below: the tree's verb, which puts a PATH on the system clipboard and is a different act.
   "zoom",
   "zoom out",
   "zoom reset",
@@ -71,6 +70,15 @@ export const UI_HEADS: readonly string[] = [
 // open — so without it the pairing rule answered every `file <verb>` with "type: ui file …".
 // They are `fs file new`, `fs folder new` … now, and share a head with nothing: the group name
 // does what the exception did, so the exception is gone.
+
+// `selection copy` and `selection paste` are answered here too, and have no table of their own:
+// App matches them by name, the way `transport locate` and `transport loop` are matched.
+//
+// They are NOT `ui` lines, and the pair had to move together. `copy` was under `ui` — the
+// clipboard is the shell's and no file moves — while the paste WROTE and so was bare-named, which
+// put one gesture's two halves on either side of the namespace line. `selection` answers it better
+// than the write/no-write rule did: what they share is the region a gesture aimed at, and the head
+// says so. `selection consolidate` is the catalogue's own, and joins them in the palette.
 
 /**
  * The transport verbs the shell answers over the ENGINE's socket instead of sending to the file

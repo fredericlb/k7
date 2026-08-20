@@ -1,4 +1,4 @@
-# Cutting the MATERIAL — `event split` and `event consolidate`
+# Cutting the MATERIAL — `event split` and `selection consolidate`
 
 Two verbs that write new material, where every other `event` verb only rewrites placements.
 
@@ -10,7 +10,7 @@ for the cases those refusals name.
 | verb | what it writes |
 |---|---|
 | `event split` | two materials, and a placement pointing at each |
-| `event consolidate` | one material over a range, and one placement of it |
+| `selection consolidate` | one material over a range, and one placement of it |
 
 Two verbs, and both write. That is the whole design, and it was not the first one.
 
@@ -70,7 +70,7 @@ The KIND of material decides which runs, and they do not live together:
   bounce that already owns "write new material through the engine" — it builds a one-track
   `ProjectDoc` and runs `renderMixdown`, exactly as `clip process` does.
 
-The command handlers (`event.split`, `event.consolidate`) are the only place the two meet:
+The command handlers (`event.split`, `selection.consolidate`) are the only place the two meet:
 they read the clip's `type` off the compiled document and call one or the other. With no engine
 binary on the machine, the audio path says so rather than failing further in.
 
@@ -86,7 +86,7 @@ timestamp for audio (the same `fileStamp` a take uses). A split run twice theref
 sequences rather than silently replacing the first pair — the right default for a verb whose whole
 point is that it writes.
 
-## What `event consolidate` takes, and why it is plural
+## What `selection consolidate` takes, and why it is plural
 
 `<tracks> <from> <to>` — the rectangle, exactly as `events move` takes it, and one lane.
 `tracks` is plural although it acts on one, and deliberately: the timeline's

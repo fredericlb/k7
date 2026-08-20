@@ -84,7 +84,7 @@ function song(): string {
   put(
     d,
     "nodes/gtr.yaml",
-    'extends: "@studio/audio-track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
   );
   put(
     d,
@@ -251,7 +251,7 @@ describe("what a target names", () => {
   });
 
   it("refuses a track with nothing to process", () => {
-    put(dir, "nodes/empty.yaml", 'extends: "@studio/audio-track"\n');
+    put(dir, "nodes/empty.yaml", 'extends: "@studio/track"\n');
     expect(() =>
       resolveTargets(dir, loadProject(dir), "empty", "track"),
     ).toThrow(/no audio clips/);

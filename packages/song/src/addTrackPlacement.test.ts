@@ -31,7 +31,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("putting a clip on a lane", () => {
   it("writes the reference and the position, and nothing else", () => {
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     addTrackPlacement(dir, "gtr", "riff", "3:1");
     expect(laneText()).toContain("ref: riff");
     expect(laneText()).toContain('start: "3:1"');
@@ -40,14 +40,14 @@ describe("putting a clip on a lane", () => {
   });
 
   it("creates the clips list on a lane that had none", () => {
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     addTrackPlacement(dir, "gtr", "riff", "1:1");
     expect(laneText()).toContain("events:");
   });
 
   it("keeps the placements already there", () => {
     lane(
-      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\n',
+      'extends: "@studio/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
     );
     addTrackPlacement(dir, "gtr", "second", "5:1");
     expect(laneText()).toContain("ref: first");
@@ -56,7 +56,7 @@ describe("putting a clip on a lane", () => {
 
   it("lands on the set the lane is PLAYING, not the first one", () => {
     lane(
-      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTrackPlacement(dir, "gtr", "riff", "2:1");
     // The running set gets it; the file's top-level list stays empty.
@@ -76,7 +76,7 @@ describe("putting a clip on a lane", () => {
   });
 
   it("does not touch the clip itself — a placement is a reference", () => {
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     mkdirSync(join(dir, "clips"), { recursive: true });
     const clip = join(dir, "clips", "riff.yaml");
     writeFileSync(clip, "source: clips/riff.wav\n", "utf8");
@@ -91,7 +91,7 @@ describe("putting a clip on a lane", () => {
 describe("putting several on a lane at once", () => {
   it("writes every one, keeping what was there", () => {
     lane(
-      'extends: "@studio/audio-track"\nevents: [ { ref: first, start: "1:1" } ]\n',
+      'extends: "@studio/track"\nevents: [ { ref: first, start: "1:1" } ]\n',
     );
     addTrackPlacements(dir, "gtr", [
       { ref: "riff", start: "3:1" },
@@ -105,7 +105,7 @@ describe("putting several on a lane at once", () => {
   });
 
   it("keeps a loop count when one is given, and writes none otherwise", () => {
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     addTrackPlacements(dir, "gtr", [
       { ref: "riff", start: "1:1", loop: 4 },
       { ref: "solo", start: "9:1" },
@@ -119,7 +119,7 @@ describe("putting several on a lane at once", () => {
     // The case a loop of the singular got wrong in spirit: each call re-reads the file, so the
     // second placement is written against a document the first already changed. Folding the
     // transforms means one read and one write whatever the count.
-    lane('extends: "@studio/audio-track"\n');
+    lane('extends: "@studio/track"\n');
     addTrackPlacements(
       dir,
       "gtr",
@@ -130,7 +130,7 @@ describe("putting several on a lane at once", () => {
 
   it("lands on the set the lane is PLAYING, like the singular", () => {
     lane(
-      'extends: "@studio/audio-track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
+      'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );
     addTrackPlacements(dir, "gtr", [{ ref: "riff", start: "2:1" }]);
     const text = laneText();

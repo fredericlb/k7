@@ -31,7 +31,7 @@ import {
 } from "./trackFile";
 
 /** A lane on its SECOND set, which states nothing — so it plays the module's own arrangement. */
-const INHERITING = `extends: "@studio/audio-track"
+const INHERITING = `extends: "@studio/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
@@ -41,7 +41,7 @@ alternative: "2"
 `;
 
 /** The same lane on a second set that states an arrangement of its OWN. */
-const OWN = `extends: "@studio/audio-track"
+const OWN = `extends: "@studio/track"
 events:
   - { ref: take1_a, start: "1:1" }
 alternatives:
@@ -128,7 +128,7 @@ describe("a lane playing an alternative", () => {
 
   it("still edits the module's own list when the FIRST set is on", () => {
     // The ordinary case, and the one that must not have moved: no `alternative:` key at all.
-    const plain = `extends: "@studio/audio-track"
+    const plain = `extends: "@studio/track"
 events:
   - { ref: a, start: "1:1" }
 `;
@@ -139,7 +139,7 @@ events:
 });
 
 /** A lane on its own, no sets yet — what `create` is asked about most. */
-const PLAIN = `extends: "@studio/audio-track"
+const PLAIN = `extends: "@studio/track"
 events:
   - { ref: take1_a, start: "1:1" }
   - { ref: take1_b, start: "5:1" }
@@ -201,7 +201,7 @@ describe("newModuleAlternative, through the real loader", () => {
       join(dir, "modules", "audio", "amp", "module.yaml"),
       "plugin: { type: internal, name: Chorus }\nparams: { Gain: 1 }\n",
     );
-    writeLane(dir, "gtr", "audio-track", {
+    writeLane(dir, "gtr", "track", {
       events: [{ ref: "take1_a", start: "1:1" }],
     });
     writeNode(dir, "ampli", { extends: "@project/audio/amp", params: {} });

@@ -84,7 +84,7 @@ describe("removeTrackPlacement", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   const THREE = `# the drum lane
-extends: "@studio/audio-track"
+extends: "@studio/track"
 events:
   - { ref: kick, start: "1:1:1", length: "1:0:0" }
   - { ref: snare, start: "2:1:1", length: "1:0:0" }
@@ -114,7 +114,7 @@ events:
 
   it("empties the list cleanly when it was the only placement", () => {
     const read = track(
-      'extends: "@studio/audio-track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
+      'extends: "@studio/track"\nevents:\n  - { ref: kick, start: "1:1:1" }\n',
     );
     expect(removeTrackPlacement(dir, "drums", 0, 4, 4)).toBe(true);
     expect(read()).not.toContain("kick");

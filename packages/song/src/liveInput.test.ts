@@ -77,10 +77,7 @@ describe("a live input, wired by its chain", () => {
     // sequences — so the input gets an audio lane of its own. Called `mic` rather than
     // `live`: the fixture already has a group by that name, and one flat name space
     // means one name, one node.
-    writeFileSync(
-      join(dir, "nodes", "mic.yaml"),
-      'extends: "@studio/audio-track"\n',
-    );
+    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@studio/track"\n');
     wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
   });
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
@@ -149,15 +146,41 @@ describe("a live input, wired by its chain", () => {
     });
   });
 
-  it("still refuses a track that carries no audio", () => {
-    // The input goes AHEAD of the synth on the melody run, so the only thing wrong with
-    // the wiring is the one this is about: melody carries sequences, not audio.
+  it("lands on the AUDIO half of a split lane", () => {
+    // A lane wired on both its outputs compiles to two engine tracks. An interface input
+    // carries audio, so it belongs on the one that takes audio — put on the midi half it would
+    // arm a track whose chain is an instrument, and the recording would go through the synth.
+    writeFileSync(
+      join(dir, "nodes", "mic.yaml"),
+      [
+        'extends: "@studio/track"',
+        "events:",
+        '  - { ref: melody, start: "1:1:1" }',
+        "",
+      ].join("\n"),
+    );
+    wire({
+      modules: { "mic#audio": ["OUT"], "mic#midi": ["lead"], mic: [IN] },
+    });
+    const tracks = compileNodeProject(dir).tracks;
+    expect(tracks.find((t) => t.id === "mic#audio")?.inputChannels).toEqual([
+      1,
+    ]);
+    expect(tracks.find((t) => t.id === "mic#midi")?.inputChannels).toEqual([]);
+  });
+
+  it("no longer refuses a lane holding sequences — every lane has an audio output", () => {
+    // This used to warn: the lane was `contentType: sequences`, and an interface input carries
+    // audio. A detyped lane offers both outputs whatever it holds, so there is nothing left to
+    // refuse — the recording lands on the half that takes audio, beside the sequences already
+    // there. Which is the point: overdubbing a guitar onto the lane you wrote the line on no
+    // longer needs a second lane.
     wire({ modules: { mic: [], melody: [IN], [IN]: ["lead"] } });
     expect(
       loadGraph(dir).warnings.some((x) =>
-        x.includes("is a sequences track — an interface input carries audio"),
+        x.includes("an interface input carries audio"),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   // An input at the END of a run is read as somewhere to route TO — which is exactly what
@@ -202,10 +225,7 @@ describe("an input's monitoring and gain", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    writeFileSync(
-      join(dir, "nodes", "mic.yaml"),
-      'extends: "@studio/audio-track"\n',
-    );
+    writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@studio/track"\n');
     const c = join(dir, "graph.yaml");
     const cur = parseGraph(readFileSync(c, "utf8")).value ?? {};
     writeFileSync(

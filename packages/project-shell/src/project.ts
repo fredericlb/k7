@@ -36,6 +36,15 @@ import type {
 } from "@studio/web-protocol";
 import { fget, fsend } from "./fileApi.ts";
 
+/**
+ * A derived view a writing command may be asked to build and hand back — see `command` below.
+ *
+ * A union of one, and deliberately a list rather than a boolean: the question a caller answers
+ * here is "which of the pictures will I draw", and the next expensive one to arrive (the picture
+ * document, the errors) is a member rather than a second flag beside the first.
+ */
+export type CommandWant = "graph";
+
 export const projectApi = {
   // --- Resolving what pl8 named -------------------------------------------------
   // pl8 knows a REPOSITORY; this machine knows folders. These three bridge that, cloning
@@ -177,28 +186,37 @@ export const projectApi = {
   complete: (line: string) =>
     fget<string[]>(`/complete?line=${encodeURIComponent(line)}`),
   /**
-   * Run a verb. `graph` comes back ONLY when the command changed the project — the service
-   * builds it once inside this request rather than making the caller fetch it (see the route).
-   * Optional on purpose: a host that ignores it behaves exactly as before, and still benefits,
-   * because building it warmed the cache its next `/graph` will hit.
+   * Run a verb. `graph` comes back ONLY when the command changed the project AND the caller asked
+   * for it — the service builds it once inside this request rather than making the caller fetch
+   * it (see the route). Optional on purpose: a host that ignores it behaves exactly as before.
+   *
+   * `want` is what a caller says when it will NOT draw the picture. Building it is ~62 ms on a
+   * real song, on the one thread the service has, and st0 runs mute/solo/faders through a path
+   * that never refetches the graph — so that whole class of gesture was paying for a document
+   * nobody read. Omit the option and the graph comes back as it always did; pass `want: []` to
+   * say no. The `rev` beside it does NOT depend on it: every writing command answers with the
+   * token it produced, which is what lets a client stop re-asking what this reply already said.
    *
    * `refused` is the same shape of fact about the OTHER half: the command was understood and
    * declined, and the lines in `output` say why. Present only when true — a surface that ignores
    * it reads a refusal exactly as it always did, which is as ordinary output.
    */
-  command: (line: string, at?: string) =>
+  command: (
+    line: string,
+    // `at` points the verbs at a folder OTHER than the open project — the chains builder's
+    // template. A path this caller was GIVEN (`/library-chains` answered it), never one it built.
+    opts?: { at?: string; want?: CommandWant[] },
+  ) =>
     fsend<{
       output: string[];
       refused?: boolean;
       graph?: WebGraph;
       rev?: string;
-    }>(
-      "POST",
-      "/command",
-      // `at` points the verbs at a folder OTHER than the open project — the chains builder's
-      // template. A path this caller was GIVEN (`/library-chains` answered it), never one it built.
-      { line, ...(at ? { at } : {}) },
-    ),
+    }>("POST", "/command", {
+      line,
+      ...(opts?.at ? { at: opts.at } : {}),
+      ...(opts?.want ? { want: opts.want } : {}),
+    }),
 
   // --- The project-wide undo/redo journal, driven by Ctrl+Z / Ctrl+Y ------------
   // `confirm` applies a process step (restoring a bounced file); without it, a process step

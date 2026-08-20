@@ -22,6 +22,7 @@ import {
 import { nearestTick } from "@studio/ui-waveform";
 import {
   Clock,
+  Ghost,
   Music,
   Repeat,
   StretchVertical,
@@ -45,6 +46,11 @@ import {
   type MaybeClipboard,
   pasteEvents,
 } from "../clipboard";
+import {
+  isFirstPlacement,
+  materialInstances,
+  materialOf,
+} from "../clipInstances";
 import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
 import type { PasteResult } from "../gridCaret";
@@ -113,6 +119,13 @@ const NATURAL = 4; // beats drawn for a length-0 clip
 const MIN_LOOP_GLYPH_PX = 18;
 const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
 const VU_MAX_DB = 6; // dB mapped to a full-width header fill
+
+// A track row as the CLIPBOARD reads it — the placements it holds, by ref and start beat. Both
+// halves of `copy` go through it (a rectangle's lanes, and the one lane the caret is on), so what
+// a copied event is called cannot depend on which of the two put it there.
+const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
+  events: r.track.clips.map((c) => ({ ref: materialOf(c), start: c.start })),
+});
 
 // A selected label wears the caret cell's fill + outline: it IS the caret, parked on the row instead of the lane.
 const LABEL_SELECTED =
@@ -525,7 +538,7 @@ interface Move {
   length: number; // beats (0 == natural) — the block/ghost width
   name: string;
   offset: number; // beats added to origStart; 0 the instant it's picked up
-  // The lane it is over — only ever another track holding the same kind of material. The keyboard never changes it.
+  // The lane it is over — only ever one whose wiring can take THIS event. The keyboard never changes it.
   toTrackId: string;
   // A pointer drag is live: it commits on release, and must not also be cancelled by the keymap's handlers.
   dragging?: boolean;
@@ -551,9 +564,9 @@ export interface TimelineHandle {
   zoomReset: () => void;
   seekToCaret: () => void;
   toggleLoop: () => void;
-  /** `ui copy` — the events the rectangle holds, in its own coordinates (clipboard.ts). */
+  /** `selection copy` — the events the rectangle holds, in its own coordinates (clipboard.ts). */
   copy: () => MaybeClipboard;
-  /** `paste` — the `events add` line that puts the clipboard down at the caret, or why not. */
+  /** `selection paste` — the `events add` line putting the clipboard down at the caret. */
   pasteLine: (clip: Clipboard) => PasteResult;
   startMove: () => void;
   // The two header toggles, so `ui ruler` and `ui lanes` reach what the buttons reach.
@@ -664,7 +677,7 @@ export function TimelineTab({
        *
        * The same three values `feedEventsMove` sends, computed once here — but reported
        * unconditionally rather than only while the bar is filling `events move`, because a
-       * command can now be answered by the selection BEFORE its form exists (`event consolidate`).
+       * command can now be answered by the selection BEFORE its form exists (`selection consolidate`).
        * `tracks` keeps every lane the rectangle touched, including several: a verb that only
        * works on one has to be the one to say so.
        */
@@ -966,6 +979,24 @@ export function TimelineTab({
         : null,
     );
   }, [active, proj, clipUnderCaret, onEditTarget]);
+
+  // Which materials are placed more than once, and where each one's first placement is — one
+  // pass over the song per compile, rather than a scan of every lane per drawn block.
+  const instances = useMemo(
+    () => materialInstances(proj?.tracks ?? []),
+    [proj],
+  );
+  /**
+   * The material the caret is parked on, when it has copies elsewhere — what lights the others up.
+   *
+   * Null when the material is placed only once: there would be no others to light, and saying so
+   * here keeps the per-block test to one string comparison.
+   */
+  const kinOfCaret = useMemo(() => {
+    if (!clipUnderCaret) return null;
+    const ref = materialOf(clipUnderCaret);
+    return (instances.get(ref)?.n ?? 0) > 1 ? ref : null;
+  }, [clipUnderCaret, instances]);
 
   // What m/s aim at from here — a lane's track, a header's group, a pattern lane's GROUP. See docs/timeline.md.
   const caretTrackId = useMemo(() => {
@@ -1417,9 +1448,18 @@ export function TimelineTab({
         m.origStart,
       );
       const lane = laneAtPoint(e.clientX, e.clientY);
+      // Where the event may LAND. It used to be a lane whose `contentType` matched the source
+      // lane's, which refused every drag between an audio lane and a sequences one. A lane is
+      // not typed now, so the question is about the event under the hand: a lane takes it when
+      // its matching output is wired, which `contentType` says in one word — and a lane wired
+      // bare says "audio notes", meaning either. See packages/song/docs/trackModules.md.
       const src = projRef.current?.tracks.find((t) => t.id === m.trackId);
+      const takes =
+        src?.clips.find((c) => c.id === m.clipId)?.type === "midi"
+          ? "notes"
+          : "audio";
       const toTrackId =
-        lane && src && !lane.generated && lane.contentType === src.contentType
+        lane && !lane.generated && lane.contentType.includes(takes)
           ? lane.id
           : m.toTrackId;
       if (offset !== m.offset || toTrackId !== m.toTrackId) {
@@ -1658,7 +1698,7 @@ export function TimelineTab({
         onSeek?.((caret.beat * 60) / proj.tempo);
       },
       /**
-       * `ui copy` — the events inside the rectangle, relative to its corner.
+       * `selection copy` — the events inside the rectangle, relative to its corner.
        *
        * TRACK rows only, and their order on screen is the clipboard's row order: a group header
        * holds no placements and a generated lane's are the scheduler's, rewritten every tick.
@@ -1667,7 +1707,25 @@ export function TimelineTab({
        */
       copy: () => {
         const s = selRef.current;
-        if (!s) return null;
+        /**
+         * NO RECTANGLE: the PLACEMENT under the caret is what gets copied.
+         *
+         * A lane's unit is a clip rather than a grid step, so the caret's own "cell" here is the
+         * event it is parked on — and copying the clip you just clicked is what ⌃C means in
+         * every other application. Without this the key answered a `v` rectangle and nothing
+         * else, so a person who had selected an event by clicking it pressed copy, saw nothing
+         * happen, and was told by the paste that the clipboard was empty. The clip's own length
+         * is the span, so what comes back is a rectangle the size of what was copied.
+         */
+        if (!s) {
+          const c = clipUnderCaret;
+          // A generated lane's clips are the scheduler's look-ahead, backed by no file — there
+          // is no placement to put down again. The rectangle path skips them for the same reason.
+          if (!c || caretRow?.kind !== "track" || caretRow.track.generated)
+            return null;
+          const len = c.length > 0 ? c.length : NATURAL;
+          return copyEvents([laneEvents(caretRow)], c.start, c.start + len);
+        }
         const a = rowIndexOf(visRows, s.anchor.row);
         const b = rowIndexOf(visRows, s.head.row);
         if (a < 0 || b < 0) return null;
@@ -1676,21 +1734,12 @@ export function TimelineTab({
         const lanes = visRows
           .slice(Math.min(a, b), Math.max(a, b) + 1)
           .flatMap((r) =>
-            r.kind === "track" && !r.track.generated
-              ? [
-                  {
-                    events: r.track.clips.map((c) => ({
-                      ref: c.name || c.id,
-                      start: c.start,
-                    })),
-                  },
-                ]
-              : [],
+            r.kind === "track" && !r.track.generated ? [laneEvents(r)] : [],
           );
         return lanes.length ? copyEvents(lanes, lo, hi + 1) : null;
       },
       /**
-       * `paste` — one `events add`, so a rectangle of twelve placements is one journal entry.
+       * `selection paste` — one `events add`, so a rectangle of twelve placements is one journal entry.
        *
        * The lanes it can reach are the track rows from the CARET down; rows with nothing under
        * them are dropped rather than folded onto the last lane. A label-selected caret has no
@@ -2986,6 +3035,27 @@ export function TimelineTab({
                         // playing at its own rate is a state worth seeing rather than an absence.
                         const stretched = !!c.warped;
                         const unwarped = !!c.warpOff;
+                        /**
+                         * The same material, placed elsewhere too.
+                         *
+                         * `ghost` marks every placement but the earliest, so a lane of repeats
+                         * reads as one take and its returns rather than as material a person
+                         * would have to remember placing. The FIRST wears nothing: an icon on
+                         * all of them would say "these are copies" without saying of what.
+                         *
+                         * `kin` is the other half — the caret on one of them lights the rest,
+                         * which is what answers "where else does this play" without a search.
+                         * The clip under the caret is excluded by identity: both sides come out
+                         * of the same compiled project, so it is the same object.
+                         */
+                        const inst = instances.get(materialOf(c));
+                        const ghost =
+                          (inst?.n ?? 1) > 1 &&
+                          !isFirstPlacement(inst, t.id, c.start);
+                        const kin =
+                          !!kinOfCaret &&
+                          materialOf(c) === kinOfCaret &&
+                          c !== clipUnderCaret;
                         // Is THIS placement the one being moved? Pinned by track + original start, since an id can sit at several beats.
                         const moving =
                           !!move &&
@@ -3011,7 +3081,7 @@ export function TimelineTab({
                           <div
                             // A track may place the same clip ref twice, so the id alone collides — key by placement, id + index.
                             key={`${c.id}-${i}`}
-                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""} — click to select, drag to move (ctrl : hors grille)`}
+                            title={`${c.name} (${c.type})${looping ? " · looping" : ""}${stretched ? (unwarped ? " · unwarped (plays at its own rate)" : " · stretched") : ""}${(inst?.n ?? 1) > 1 ? ` · ${ghost ? "another instance" : "first"} of ${inst?.n}` : ""} — click to select, drag to move (ctrl : hors grille)`}
                             // Drag to move: along the lane, or onto one holding the same material. Nothing is written until release.
                             onPointerDown={(e) => beginClipDrag(e, t, c)}
                             onPointerMove={onClipDragMove}
@@ -3034,7 +3104,7 @@ export function TimelineTab({
                                   ),
                                   // …and the RECTANGLE, when one is drawn. A range verb takes a
                                   // span, and the placement only says where it starts — so
-                                  // without this `event consolidate` reached the menu one
+                                  // without this `selection consolidate` reached the menu one
                                   // argument short and the bar asked for the end that was
                                   // already selected. The same value the palette reads.
                                   sel: selRange,
@@ -3051,6 +3121,12 @@ export function TimelineTab({
                               // hidden — an event you can't see is a deleted one.
                               c.disabled &&
                                 "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
+                              // A SIBLING of the one under the caret: the same material, playing
+                              // somewhere else. Light, and light on purpose — it answers "where
+                              // else does this play" while the eye is on the clip you picked, so
+                              // anything louder would compete with the thing being pointed at.
+                              kin &&
+                                "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
                               // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
                               expanded ? "flex-col" : "items-center",
                               // The clip in hand: ring it and lift it over its ghost.
@@ -3151,6 +3227,15 @@ export function TimelineTab({
                                 <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               ) : (
                                 <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
+                              )}
+                              {/* A RETURN of material that first plays earlier in the song.
+                                  Drawn on every placement but that first one, so the eye can
+                                  tell a lane of repeats from a lane of takes without opening
+                                  any of them. Beside the kind icon rather than in a corner:
+                                  what a block IS and how many times it has been seen are the
+                                  same question, asked at the same moment. */}
+                              {ghost && (
+                                <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
                               {/* The loop badge that sat here is gone: the marks down the
                                   block say the same thing and say WHERE, which a badge in a

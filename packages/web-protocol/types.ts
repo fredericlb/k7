@@ -639,13 +639,51 @@ export interface EngineAddresses {
 /** A workspace under ~/.studio/root/<slug>/, as the picker lists them. */
 export interface WorkspaceSummary {
   name: string; // the folder name (== the workspace name the user picks)
-  projectCount: number; // number of project.yaml folders inside (0 for empty)
-  isSingleProject: boolean; // the folder itself is a project (has project.yaml)
+  projectCount: number; // project folders inside, at any depth (0 for empty)
+  isSingleProject: boolean; // the folder itself is a project
 }
 
 /** Reply to GET /workspaces on the file service. */
 export interface WorkspaceList {
   workspaces: WorkspaceSummary[];
+}
+
+/**
+ * One workspace on the machine, with the projects it actually holds — what st0's home page
+ * lists.
+ *
+ * The machine answers this, and nothing else does. pl8 kept a bare blobless mirror of every
+ * repository to answer the same question from the hosted side; it was a second copy of what the
+ * working clone already had, and a worse one — a fetch behind, and blind to a project that is
+ * committed but not yet pushed. See apps/st0/frontend/docs/projects.md.
+ *
+ * `origin` is `remote.origin.url` as git wrote it, normalized; null for a workspace that is not
+ * a clone at all. `repoName` is its SHORT name, derived here rather than asked of pl8, because
+ * that is the half of a project's address a person reads — and deriving it costs nothing the
+ * `origin` has not already paid for.
+ *
+ * `uniqueName: false` says the short name does NOT identify this workspace *on this machine*: two
+ * clones whose origins end in the same name make `/<name>/…` ambiguous, and pl8 refuses such an
+ * address (409) rather than picking one.
+ *
+ * That is only HALF of whether the portable address works, and deliberately the only half this
+ * side can answer. The other half is whether pl8's registry knows the repository at all — a
+ * `/<name>/…` address is resolved through it, so a clone this machine has and that registry does
+ * not is unaddressable that way however unique its name is. The page holds both answers because
+ * the page talks to both services; the machine states what it knows and guesses nothing.
+ */
+export interface MachineWorkspace {
+  name: string;
+  origin: string | null;
+  repoName: string | null;
+  uniqueName: boolean;
+  isSingleProject: boolean;
+  projects: RepoProject[];
+}
+
+/** Reply to GET /workspaces/projects on the file service. */
+export interface MachineWorkspaceList {
+  workspaces: MachineWorkspace[];
 }
 
 /** Reply to GET/POST /api/projects/ssh-key on pl8 — the user's PUBLIC deploy key, the one
@@ -692,14 +730,6 @@ export interface SeparateJob {
   percent: number | null; // null while doing something with no measurable end
   lines: string[]; // notes worth reading — which execution provider won, and why a run failed
   files: string[]; // the stems written, absolute. Empty until `done`.
-}
-
-/** How pl8's mirror of one repository is doing. `ready` means there is something to read,
- *  whether or not a refresh is running on top of it. */
-export interface RepoStatus {
-  fetching: boolean;
-  ready: boolean;
-  error: string | null;
 }
 
 /** One project inside a repository: where it is, and which app opens it. The folder's NAME
@@ -751,8 +781,18 @@ export interface RepoRef {
   uri: string;
 }
 
-/** One git repository a person has added to pl8, as the Projets section lists them. */
-export interface RepoSummary extends RepoStatus {
+/**
+ * One git repository a person has REGISTERED with pl8.
+ *
+ * The register and nothing more: which repositories exist, and what URI is behind each short
+ * name. What is INSIDE one is `MachineWorkspace` above, answered by the machine that holds the
+ * working copy — pl8 kept a bare blobless mirror to answer it too, and that copy is gone.
+ *
+ * So there is no `projects`, no `branch`, and no fetch status here any more: all three
+ * described the mirror. What survives is what only a hosted service can hold — a list that
+ * belongs to a person rather than to a machine.
+ */
+export interface RepoSummary {
   id: string;
   uri: string;
   /**
@@ -767,16 +807,6 @@ export interface RepoSummary extends RepoStatus {
   name: string;
   label: string;
   addedAt: string;
-  branch: string | null;
-  /**
-   * The projects the mirror found, so the listing can draw them under their repository and
-   * link straight into st0/m9 — the tree is for looking around, not for the common case.
-   *
-   * null while the mirror has never been read: "unknown" and "none" are different answers,
-   * and `[]` on an unfetched repository would claim it holds no project. The count is
-   * `projects.length`, which is why there is no separate field for it.
-   */
-  projects: RepoProject[] | null;
 }
 
 /**

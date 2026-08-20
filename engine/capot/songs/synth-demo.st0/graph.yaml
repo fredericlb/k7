@@ -9,8 +9,14 @@
 # `bypassed` lists the modules the signal passes through untouched, and on a lane — which
 # produces rather than passes — that is its mute.
 
+# A lane offers TWO outputs, `audio` and `midi`, and is not typed by what it holds — so the
+# key names the one a run leaves by whenever there is anything to say. "melody" holds only
+# sequences, so its bare key is unambiguous; "pad" streams from a pattern and holds nothing
+# until the transport rolls, so nothing but this line can say its events are notes for the
+# synth. See packages/song/docs/trackModules.md.
+
 modules:
   melody: [ lead ]
-  pad: [ synth-pad ]
+  pad#midi: [ synth-pad ]
   lead: [ OUT ]
   synth-pad: [ OUT ]

@@ -6,7 +6,7 @@ under the new pass.
 
 ```yaml
 # nodes/gtr.yaml
-extends: "@studio/audio-track"
+extends: "@studio/track"
 events:
   - { ref: gtr_3.1_260815T221030, start: "3:1:1" }
 takes:

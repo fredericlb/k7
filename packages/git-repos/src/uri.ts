@@ -28,7 +28,7 @@ export function isSshGitUri(uri: string): boolean {
  * repository, and the two sides of this feature learn about it by different routes — pl8
  * from what a person pasted, the file service from a checkout's `remote.origin.url`, which
  * git may have rewritten. Comparing the raw strings would clone a repo that is already
- * there. See docs/mirror.md.
+ * there. See apps/st0/frontend/docs/projects.md.
  *
  * Throws on anything `assertSshGitUri` refuses: a key derived from an unvalidated string
  * would be a key for something that must never be fetched.
@@ -61,6 +61,18 @@ export function normalizeGitUri(uri: string): string {
 
 /** The last path segment, without `.git` — the default name for a folder holding this repo. */
 export function repoName(uri: string): string {
-  const last = normalizeGitUri(uri).split("/").filter(Boolean).pop() ?? "";
-  return last;
+  return repoNameOfKey(normalizeGitUri(uri));
+}
+
+/**
+ * The same short name, out of a key `normalizeGitUri` already produced.
+ *
+ * Its own function because that key is `host/path` and **not an SSH URI any more**: handing it
+ * back to `repoName` throws, since `assertSshGitUri` refuses a string with no user and no
+ * scheme. Which is correct of it — a validator that accepted its own output would accept a
+ * hostname as a repository — and is why callers holding a normalized origin (the file service
+ * reads one off every checkout) need this door rather than that one.
+ */
+export function repoNameOfKey(key: string): string {
+  return key.split("/").filter(Boolean).pop() ?? "";
 }

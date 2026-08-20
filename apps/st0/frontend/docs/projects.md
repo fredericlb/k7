@@ -10,11 +10,18 @@ dit ce que l'écran fait, et — puisque c'est un déménagement — pourquoi il
 
 ## Pourquoi ça a bougé, et ce qui n'a PAS bougé
 
-**Ce qui a bougé est le dessin, et rien d'autre.** Les routes sont toujours celles de pl8 :
-`/api/projects`, `/api/shares`, `/api/projects/ssh-key`. Le volume est toujours le sien, les
-miroirs bare aussi, la clé aussi, et les octets d'un partage aussi. Rien de tout cela n'a de
-raison de déménager, et [apps/pl8/docs/projects.md](../../pl8/docs/projects.md) est la page qui
+**Ce qui a bougé d'abord est le dessin.** Les routes de pl8 sont restées les siennes :
+`/api/projects`, `/api/shares`, `/api/projects/ssh-key`. Le volume est toujours le sien, la clé
+aussi, et les octets d'un partage aussi — [apps/pl8/docs/projects.md](../../pl8/docs/projects.md)
 dit pourquoi ce service en est le bon dépositaire.
+
+**Une deuxième chose a bougé depuis, et celle-là n'est pas du dessin : la SOURCE de la liste.**
+pl8 tenait un miroir *bare* et *sans blobs* de chaque dépôt pour répondre « qu'est-ce qu'il y a
+dedans ». C'était une deuxième copie de ce que la machine du moteur tient déjà, et une moins
+bonne : en retard d'un `git fetch` (rafraîchi à l'ajout et sur le bouton, pas plus), et aveugle à
+un projet créé, committé, dont l'envoi n'était pas passé — le cas exact que `commitOutcome` traite
+comme rattrapable. Le miroir est supprimé, avec tout son code chez pl8 ; ce qui liste les projets
+est le service de fichiers, sur les espaces de travail clonés.
 
 Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où ils pèsent :
 
@@ -24,11 +31,10 @@ Ce qui a changé est **qui pose la question**. Trois arguments, dans l'ordre où
    la première question de l'éditeur, celle à laquelle il faut répondre avant qu'il y ait quoi
    que ce soit à éditer. Les modules et les chaînes ont fait le même trajet, dans la même
    semaine et pour la même raison : on les ÉCRIT, et on écrit ici.
-2. **La machine était déjà de ce côté-ci.** Créer et supprimer un projet passent par le service
-   de fichiers du moteur — le miroir de pl8 est bare et sans blobs, il ne peut rien écrire (et
-   ne doit pas, voir sa page). La médiathèque devait donc tendre le bras vers une machine dont
-   elle ne fait rien d'autre. st0 y est branché en permanence : c'est là que le projet s'ouvre,
-   se compile et se joue.
+2. **La machine était déjà de ce côté-ci.** Créer, supprimer et désormais LISTER un projet
+   passent par le service de fichiers du moteur, parce qu'un projet est un dossier chez lui. La
+   médiathèque devait tendre le bras vers une machine dont elle ne faisait rien d'autre ; st0 y
+   est branché en permanence — c'est là que le projet s'ouvre, se compile et se joue.
 3. **Il n'y avait plus qu'un pas entre les deux écrans.** On choisissait un projet là-bas, on
    atterrissait ici. Une des deux pages était toujours de trop dans le trajet.
 
@@ -68,9 +74,10 @@ sauvegarde. Voir `playlists.md`.
 ## Ce que l'adresse dit, et ce qu'elle ne dit pas
 
 ```
-/                  la page d'accueil — st0 répond à la racine de l'origine
-/?repo=<id>        …avec l'arborescence d'un dépôt ouverte
-/band/leclip.st0    un projet — la page d'accueil ne s'affiche plus du tout
+/                     la page d'accueil — st0 répond à la racine de l'origine
+/?ws=<espace>         …avec l'arborescence d'un espace de travail dépliée
+/band/leclip.st0      un projet, par son dépôt — la même adresse sur toute machine
+/@local/demos/x.st0   un projet dans un espace qui n'a pas de dépôt — voir plus bas
 ```
 
 **Le chemin appartient au lancement.** `parseLaunch` le lit avant que quoi que ce soit ne soit
@@ -83,8 +90,10 @@ voyage dans la **query**, qui est exactement ce qu'un routeur de SPA possède �
 de [packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md) pris
 dans l'autre sens. Et elle se met en signet, se recopie, et répond au bouton « précédent ».
 
-`?repo=` est posé en `replace` : parcourir trois dépôts pour voir ce qu'il y a dedans n'est pas
-une navigation dont on veut trois entrées dans l'historique.
+`?ws=` est posé en `replace` : parcourir trois espaces pour voir ce qu'il y a dedans n'est pas
+une navigation dont on veut trois entrées dans l'historique. C'était `?repo=<id>`, un identifiant
+de dépôt chez pl8 ; ce qu'on déplie est un dossier sur la machine, et son nom le désigne — lisible,
+en plus, ce que le hachage n'était pas.
 
 ### Le branchement se fait au montage, en trois
 
@@ -101,12 +110,20 @@ La ligne du milieu est neuve, et c'est elle qui remplace un `window.location.rep
 Le `Profiler` reste sur la troisième seulement : il facture chaque commit du sous-arbre pour en
 retenir les rares longs, et cette page-ci n'a pas de rafales de commits à mesurer.
 
-**Aucun moteur n'est exigé.** Lister les dépôts, ouvrir une arborescence, régler les
-bibliothèques, révoquer un partage, lire la clé : tout ça est pl8, sur la session. Seuls
-« Nouveau projet » et « Supprimer » ont besoin d'une machine, ils sont grisés sans elle **et
-disent pourquoi**. Une page qu'un sélecteur de moteur barrerait entièrement serait une page où
-l'on ne peut plus poser de clé de déploiement le jour où le moteur est éteint — c'est-à-dire le
-jour de l'installation.
+### Le moteur est devenu nécessaire pour la liste, et c'est le prix de tout le reste
+
+Cette page ne réclamait **aucun** moteur, et c'était écrit ici comme une propriété à tenir : une
+page qu'un sélecteur de moteur barrerait entièrement serait une page où l'on ne peut plus poser de
+clé de déploiement le jour où le moteur est éteint — le jour de l'installation.
+
+Elle en réclame un pour **la liste des projets**, et pour l'ajout d'un dépôt (qui le clone). C'est
+la conséquence directe du miroir supprimé : les projets sont des dossiers sur cette machine, donc
+elle seule sait lesquels existent. Sans elle, la liste est remplacée par la phrase qui le dit,
+plutôt que par un écran vide qui ressemblerait à un compte neuf.
+
+Ce qui se lit et se règle **toujours sans machine**, et c'est ce qui sauve l'argument
+d'installation : la clé de déploiement, le dépôt des bibliothèques, et les partages. On peut donc
+encore faire, moteur éteint, exactement ce qu'il faut faire avant d'en allumer un.
 
 L'en-tête dit quand même laquelle : « machine prête » ou « aucune machine », avec l'adresse en
 info-bulle et un bouton pour re-sonder. Découvrir au clic pourquoi un bouton ne fait rien est
@@ -188,46 +205,121 @@ aurait répondu la même chose aux trois.
 
 ## L'arborescence n'est pas le chemin normal
 
-Ce qu'on vient chercher ici, c'est un projet — pas un dépôt. `GET /api/projects` renvoie donc
-`projects: RepoProject[] | null` sur chaque dépôt, et la liste les dessine **en retrait sous le
-leur**, chacun menant droit à son application. Il n'y a pas de champ `projectCount` à côté : c'est
-`projects.length`, et deux sources pour un même chiffre finissent toujours par diverger.
+Ce qu'on vient chercher ici, c'est un projet — pas un dépôt. `GET /workspaces/projects` sur la
+machine renvoie donc, par espace de travail, la liste de ses projets, et l'écran les dessine **en
+retrait sous le leur**, chacun menant droit à son application. Il n'y a pas de champ
+`projectCount` à côté : c'est `projects.length`, et deux sources pour un même chiffre finissent
+toujours par diverger.
 
-`null` reste distinct de `[]` — « miroir jamais lu » n'est pas « aucun projet », et afficher un
-dépôt sans projet alors qu'il n'a pas encore été récupéré serait un mensonge qui se corrige tout
-seul dix secondes plus tard, donc que personne ne signalerait.
+Il n'y a plus de `null` non plus, et c'est le gain le plus net : « miroir jamais lu » était un
+troisième état qu'il fallait distinguer de « aucun projet », parce qu'un dépôt affiché sans projet
+alors qu'il n'avait pas encore été récupéré est un mensonge qui se corrige tout seul dix secondes
+plus tard, donc que personne ne signale. Un `readdir` sur un disque qui est là ne connaît pas cet
+état : la réponse est la réponse.
+
+Les projets sont trouvés **à n'importe quelle profondeur**, `songs/hiver.st0` compris, et un projet
+dans un projet est descendu et rapporté — un `.z0` rangé dans un dossier `.st0` est une vraie
+disposition. C'est `projectDirsUnder` dans le service de fichiers, le même marcheur que la liste
+que l'éditeur poll déjà.
 
 L'arborescence garde son bouton : elle sert à regarder ce qu'il y a dedans, y compris les
 dossiers qui ne sont pas des projets.
 
+### Une rangée par ESPACE DE TRAVAIL, pas par dépôt
+
+La liste montre ce que la machine tient, donc ses dossiers sous `~/.studio/root/<vous>/`. Deux
+conséquences, et il faut les deux :
+
+**Un dépôt inscrit chez pl8 que cette machine n'a pas cloné n'a aucune rangée.** Une deuxième
+machine, ou un compte déjà rempli, ne montre ici que ce qui est sur celle-ci. Son adresse
+`/<dépôt>/<projet>` continue de marcher — `ProjectGate` le clonera à l'ouverture — et c'est la
+façon de le rapatrier.
+
+**Un espace de travail SANS dépôt en a enfin une.** `Examples`, semé avec les démos au premier
+contact, n'apparaissait nulle part tant que la liste venait des dépôts : il n'y en a pas, donc
+rien à miroiter, donc rien à lister. C'est pourtant ce qu'un compte neuf a le jour où il n'a rien
+d'autre. Il lui fallait une adresse, et c'est `@local`.
+
+## `@local` — un projet qui n'appartient à aucun dépôt
+
+```
+/@local/Examples/synth-demo.st0     un projet dans l'espace « Examples »
+/@local/hiver.st0                   un espace de travail qui EST le projet
+```
+
+La troisième sentinelle, après `@banc` et `@shares`, et exactement le même tour : `@` ne peut pas
+commencer un nom court git — c'est le dernier segment d'une URI SSH sans `.git` — donc ça ne peut
+jamais entrer en collision avec un vrai dépôt, et la porte le voit et saute toute la route qui
+transforme un nom en URI puis en clone. Il n'y a rien à cloner : le dossier est déjà là.
+
+**`parseLaunch` n'a rien appris.** `/@local/Examples/synth-demo.st0` se lit déjà comme dépôt
+`@local`, projet `Examples/synth-demo.st0` — la part projet s'arrête au dernier segment qui
+revendique le suffixe de l'app, la règle ordinaire. `localTarget` détache l'espace de travail du
+début, et c'est la seule règle neuve. Un espace qui EST un projet n'a rien après son nom, et le
+projet est `"."` : la même réponse que pour un dépôt qui est le projet, donc rien en aval ne
+change.
+
+**Le prix, écrit là où il se paie : cette adresse n'est pas portable.** L'adresse d'un dépôt ouvre
+la même chanson sur n'importe quelle machine — c'est par `<dépôt>/<projet>` que `projectClaimKey`
+identifie un projet, et c'est ce qu'un lien collé à quelqu'un doit être. `@local` nomme un dossier
+sur celle-ci et rien ailleurs. L'adresse portable gagne donc dès qu'elle existe, et `@local` est
+le repli.
+
+Trois cas y tombent, et c'est la page qui tranche parce qu'elle est la seule à parler aux deux
+services :
+
+| cas | qui le sait |
+|---|---|
+| l'espace n'est pas un clone du tout | la machine : pas d'`origin` |
+| deux clones répondent au même nom court | la machine : `uniqueName: false` — pl8 répond 409 pour un tel nom plutôt que d'en choisir un |
+| le registre de pl8 ne connaît pas ce dépôt | pl8 : le nom court n'est pas dans sa liste |
+
+Le troisième est celui qu'on oublie : un clone parfaitement nommé que le registre ignore a un nom
+court impeccable et se résout en 404 à la porte. C'est pour ça que cette page demande encore
+`GET /api/projects` — pas pour dessiner une liste, mais pour savoir laquelle des deux adresses
+écrire.
+
+**`@local` n'exige PAS de dépôt de bibliothèques**, et c'est le seul endroit où cette route est en
+désaccord avec les deux autres. Le refus `no-libraries` est posé avant tout le reste parce qu'une
+référence `@st0/…` non résolue fait lire une chanson comme cassée plutôt que comme un compte qu'on
+n'a pas fini d'installer. Mais un espace sans dépôt ne monte aucun sous-module, et c'est ce qu'un
+compte NEUF a : exiger une bibliothèque mettrait les démos derrière la seule chose qu'elles
+existent pour précéder. Une référence qui ne résout pas se signale déjà, sur son nœud.
+
 ### Comment elle s'ouvre
 
-Le **premier niveau est déplié** dès que le miroir répond, et rien en dessous : un dépôt qui
+Le **premier niveau est déplié** dès que la machine répond, et rien en dessous : un espace qui
 s'ouvre tout replié cache derrière un clic la seule chose qu'on vient y chercher, et tout
 déplier noierait un projet dans le `node_modules` du voisin.
 
-Ce dépliage est fait **une fois par dépôt**, pas à chaque arbre reçu : ensuite les plis
-appartiennent à la personne, y compris ceux qu'elle a refermés, et un rafraîchissement (bouton,
-ou `fetch` qui se termine) ne les rouvre pas.
+Ce dépliage est fait **une fois par espace**, pas à chaque arbre reçu : ensuite les plis
+appartiennent à la personne, y compris ceux qu'elle a refermés.
 
-Les lignes sont triées **alphabétiquement, à tous les niveaux**, dossiers et fichiers mêlés :
-git répond dans l'ordre de son arbre, qui n'est pas un ordre où l'on cherche quelque chose. Le
+Les lignes sont triées **alphabétiquement, à tous les niveaux**, dossiers et fichiers mêlés. Le
 comparateur est `@studio/web-protocol/tree` — `Intl.Collator` : la casse et les accents ne
 comptent pas, et `prise 2` précède `prise 10`. Il est dans un paquet et non dans une app parce
 que la médiathèque trie ses familles avec le même, et deux ordres pour deux arbres du même
 studio se lisent comme un bug dans l'un des deux.
 
-L'arbre rendu est du `FileNode` — **le même type** que celui que sert le file service, avec le
-même drapeau `project?: boolean` sur les dossiers, plus `app` qui dit laquelle des applications
-l'ouvre. Les deux arbres du dépôt dessinent donc les mêmes lignes.
+L'arbre vient de `GET /workspace-tree` sur la machine, et **pas** de `/tree` : celui-là est
+enraciné sur le projet ACTIF, délibérément, parce que c'est la question de l'éditeur et pas
+celle-ci. Deux méthodes plutôt qu'un drapeau, pour cette raison exacte.
+
+C'est du `FileNode`, le même type que partout ailleurs, avec le même drapeau `project?: boolean`
+sur les dossiers et `app` qui dit laquelle des applications l'ouvre. Ce type était déjà commun
+avec ce que le miroir rendait — c'était écrit comme délibéré — ce qui est précisément pourquoi
+changer la source n'a pas changé une ligne du dessin.
 
 ## Le trajet complet
 
 1. Sur la page d'accueil, on colle une URI SSH. pl8 génère la clé de déploiement si elle
-   n'existe pas encore, enregistre le dépôt et lance le miroir en tâche de fond.
-2. La liste affiche chaque dépôt avec **ses projets en retrait dessous** ; un clic sur l'un
-   d'eux part directement dans son application, **dans un nouvel onglet**. Le nom du dépôt, lui,
-   ouvre l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
+   n'existe pas encore et inscrit le dépôt à son registre ; la page enchaîne aussitôt sur
+   `POST /workspaces/clone` et suit le job, **avec la progression de git à l'écran**. Le clone
+   n'est pas un extra : cette liste ne montre que ce que la machine tient, donc sans lui l'ajout
+   serait un formulaire qui ne change rien à l'écran.
+2. La liste affiche chaque espace de travail avec **ses projets en retrait dessous** ; un clic sur
+   l'un d'eux part directement dans son application, **dans un nouvel onglet**. Le nom de l'espace,
+   lui, déplie l'arborescence — ici même —, où les dossiers-projets sont marqués de la même façon.
 3. Dans les deux cas on arrive à `/<app>/<nom-du-dépôt>/<dossier>` — `/band/leclip.st0` pour
    une chanson — une ADRESSE, et le dépôt par son **nom court**, pas par son URI : une barre
    d'adresse se copie et se colle, et une URI SSH y traîne une machine, un port et un
@@ -353,9 +445,11 @@ machine, et seul l'envoi a manqué — hors ligne, pas d'amont. Le dialogue se f
 affiche « créé, mais : … ». Supprimer le projet pour faire propre serait jeter le travail de
 quelqu'un pour une panne de réseau, et lever inviterait à recommencer une création qui a eu lieu.
 
-Après coup, on demande explicitement à pl8 un `git fetch` de son miroir : le poll n'en fait un
-qu'au plus toutes les dix minutes, et la liste serait sinon restée telle quelle — un clic qui a
-l'air de n'avoir rien fait.
+Il n'y a plus rien à redemander après coup. Le projet est un dossier que la machine vient de
+faire, et c'est elle qui répond la liste : il y apparaît au tick suivant. C'était le contraire —
+un `git fetch` du miroir de pl8 réclamé explicitement, parce que le poll n'en faisait un qu'au
+plus toutes les dix minutes et que la liste serait sinon restée telle quelle, un clic qui a l'air
+de n'avoir rien fait.
 
 ## Les partages
 
@@ -382,16 +476,23 @@ Ce que cette carte doit dire, elle le dit :
 - la confirmation nomme les deux choses qui surprennent — les octets s'en vont tout de suite et
   pour de bon, et **un lien déjà envoyé ne se dé-envoie pas**.
 
-## Un seul poll, là où il y en avait deux
+## Deux polls, parce qu'il y a deux services
 
-La médiathèque en tenait deux : le sien pour le volume, et un pour `/api/projects`, séparés parce
-qu'un `git fetch` qui traîne ne devait pas empêcher le catalogue de se rafraîchir. Ici les dépôts
-et les partages sont le **même écran** et viennent du **même service**, donc un seul minuteur, et
-les partages sur le même tick.
+La liste des projets est demandée à la **machine**, les partages et le registre à **pl8** : deux
+services, deux minuteurs, et ils ne peuvent pas partager de jeton.
 
-Un `git fetch` coûte du réseau, donc le miroir n'est pas rafraîchi à chaque affichage : à
-l'ajout, sur le bouton, et au plus une fois par dix minutes côté pl8. C'est la raison pour
-laquelle `useGitStatus` dans l'éditeur est déjà sur un timer de dix minutes.
+Celui de la machine n'en a d'ailleurs aucun devant lui — pas de `/revision` à interroger d'abord.
+Le service répond la liste elle-même, derrière une fenêtre de cinq secondes de son côté
+(`LISTING_RESCAN_MS`, la même que celle sous le scan de projets de `workspaceInfo`, et pour la
+même raison : sans plancher, chaque onglet ferait un `readdir` par dossier toutes les trois
+secondes). Demander d'abord si ça a bougé serait un aller-retour de plus pour économiser un scan
+déjà mémoïsé.
+
+Une liste en retard de cinq secondes est une rangée qui n'est pas encore apparue, c'est-à-dire une
+attente. Le cache du document compilé refuse ce marché et doit le refuser — une compilation
+périmée se trompe avec assurance sur une chanson — et c'est la différence qui vaut d'être notée.
+Un clone ou un espace fait ici vide la fenêtre tout de suite (`forgetListing`), donc le seul retard
+possible vient d'une main extérieure au processus.
 
 ### Le jeton dit « à jour », pas « en main »
 
@@ -410,9 +511,14 @@ couverts, l'écran ne l'est pas. Ce qu'un run vert ne dit pas :
 
 - ouvrir `/` sans être connecté → l'écran de connexion, puis la page d'accueil (et pas la
   médiathèque) ;
-- **sans machine moteur** : la liste s'affiche, « Nouveau projet » et « Supprimer » sont gris et
-  leur info-bulle dit pourquoi, la clé et les bibliothèques se règlent quand même ;
-- déplier un dépôt, recharger la page → le même dépôt déplié, `?repo=` dans l'adresse ;
+- **sans machine moteur** : la liste des projets est remplacée par la phrase qui dit pourquoi,
+  le champ d'ajout et « Nouveau projet » sont gris, et la clé, les bibliothèques et les partages
+  se règlent quand même — c'est le contrôle qui tient tout le paragraphe sur le prix payé ;
+- **avec une machine et AUCUN dépôt de bibliothèques** : `Examples` est là, et une de ses démos
+  s'ouvre sur `/@local/Examples/<démo>.st0`. C'est le contrôle du jour de l'installation ;
+- déplier un espace, recharger la page → le même espace déplié, `?ws=` dans l'adresse ;
+- créer un projet → la rangée apparaît **sans rien rafraîchir**, en cinq secondes au pire. Une
+  rangée qui n'arrive qu'au bout de dix minutes est la signature du miroir revenu ;
 - ouvrir un projet → un nouvel onglet, la page d'accueil intacte derrière ; ctrl-clic et clic du
   milieu font la même chose ;
 - quitter un projet depuis l'éditeur, et perdre son moteur au profit de quelqu'un d'autre → les

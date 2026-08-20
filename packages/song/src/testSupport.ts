@@ -52,21 +52,15 @@ export function writeModule(
 }
 
 /**
- * Write a LANE: a node extending one of the five built-in track modules.
+ * Write a LANE: a node extending one of the three built-in track modules.
  *
  * A thin wrapper over `writeNode`, because that is all a lane is now — but it spells the
- * `extends` so a fixture says "an audio lane" rather than repeating a ref. See
- * docs/trackModules.md.
+ * `extends` so a fixture says "a lane" rather than repeating a ref. See docs/trackModules.md.
  */
 export function writeLane(
   dir: string,
   name: string,
-  extend:
-    | "audio-track"
-    | "sequence-track"
-    | "audio-strudel-track"
-    | "sequence-strudel-track"
-    | "group-track" = "audio-track",
+  extend: "track" | "strudel-track" | "group-track" = "track",
   value: Record<string, unknown> = {},
 ): string {
   return writeNode(dir, name, { extends: `@studio/${extend}`, ...value });

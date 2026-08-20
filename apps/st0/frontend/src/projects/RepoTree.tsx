@@ -1,9 +1,9 @@
-// RepoTree.tsx — l'arborescence d'un dépôt, telle que le miroir la lit, avec un bouton
-// « Ouvrir dans st0 » sur chaque dossier qui est un projet. Lecture seule : pl8 ne fait pas de
-// copie de travail, il n'y a donc rien à écrire ici. Voir ../../docs/projects.md.
+// RepoTree.tsx — l'arborescence d'un espace de travail telle qu'elle est sur la machine, avec un
+// bouton « Ouvrir dans st0 » sur chaque dossier qui est un projet. Lecture seule : ce qui s'écrit
+// dans un projet s'écrit une fois ouvert. Voir ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
-import type { FileNode, RepoSummary } from "@studio/web-protocol";
+import type { FileNode, MachineWorkspace } from "@studio/web-protocol";
 import type { ProjectApp } from "@studio/web-protocol/projects";
 import { sortNodes } from "@studio/web-protocol/tree";
 import {
@@ -15,7 +15,6 @@ import {
   Folder,
   FolderGit2,
   Loader2,
-  RefreshCw,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -97,34 +96,32 @@ function Row({
 }
 
 export function RepoTree({
-  repo,
+  workspace,
   nodes,
   onBack,
-  onRefresh,
   projectHref,
 }: {
-  repo: RepoSummary;
-  /** null tant que le miroir n'a rien à lire — ce n'est pas un dépôt vide. */
+  workspace: MachineWorkspace;
+  /** null tant que la machine n'a pas répondu — ce n'est pas un espace vide. */
   nodes: FileNode[] | null;
   onBack: () => void;
-  onRefresh: () => void;
   /** L'adresse d'un projet, pas l'action de l'ouvrir : la rangée en fait un vrai lien. */
   projectHref: (path: string, app: ProjectApp) => string;
 }) {
-  // L'ordre de lecture, à tous les niveaux : le miroir répond dans celui de l'arbre git.
+  // L'ordre de lecture, à tous les niveaux : dossiers d'abord, puis par nom.
   const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
   // Les dossiers dépliés au départ : ceux qu'il faut traverser pour voir un projet seraient
-  // le bon calcul ; le premier niveau suffit, et un dépôt qui s'ouvre tout replié cache
+  // le bon calcul ; le premier niveau suffit, et un espace qui s'ouvre tout replié cache
   // derrière un clic la seule chose qu'on vient y chercher.
   const [open, setOpen] = useState<Set<string>>(new Set());
-  // Une seule fois par dépôt, à l'arrivée de l'arbre : ensuite les plis sont ceux de la
-  // personne, y compris ceux qu'elle a refermés — un rafraîchissement ne les rouvre pas.
+  // Une seule fois par espace, à l'arrivée de l'arbre : ensuite les plis sont ceux de la
+  // personne, y compris ceux qu'elle a refermés.
   const seeded = useRef<string | null>(null);
   useEffect(() => {
-    if (!rows || seeded.current === repo.id) return;
-    seeded.current = repo.id;
+    if (!rows || seeded.current === workspace.name) return;
+    seeded.current = workspace.name;
     setOpen(new Set(rows.filter((n) => n.dir).map((n) => n.path)));
-  }, [rows, repo.id]);
+  }, [rows, workspace.name]);
   const toggle = (path: string) =>
     setOpen((s) => {
       const next = new Set(s);
@@ -136,35 +133,23 @@ export function RepoTree({
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b px-6 py-2">
         <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="h-4 w-4" /> Dépôts
+          <ArrowLeft className="h-4 w-4" /> Projets
         </Button>
-        <span className="truncate font-medium">{repo.label}</span>
+        <span className="truncate font-medium">{workspace.name}</span>
         <span className="truncate text-xs text-muted-foreground">
-          {repo.uri}
+          {workspace.origin ?? "sur cette machine seulement"}
         </span>
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRefresh}
-            disabled={repo.fetching}
-          >
-            <RefreshCw
-              className={repo.fetching ? "h-4 w-4 animate-spin" : "h-4 w-4"}
-            />
-          </Button>
-        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto py-2">
         {rows === null ? (
           <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Récupération du dépôt…
+            Lecture de la machine…
           </div>
         ) : rows.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            Ce dépôt est vide.
+            Cet espace de travail est vide.
           </div>
         ) : (
           rows.map((n) => (

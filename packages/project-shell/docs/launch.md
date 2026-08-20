@@ -56,7 +56,32 @@ without st0's suffix winning the match.
 With no such segment at all, the repository itself is the project (`"."`) and everything after
 the repo name is the app's route.
 
-## What the gate does with it
+## Three addresses take a road of their own, and take it first
+
+The repository part of an address may be a **sentinel** instead of a name, and `@` is what makes
+that safe: it cannot begin a git short name — the last segment of an SSH URI without `.git` — so
+none of these can ever collide with a real repository. Each skips the whole name → URI → clone
+sequence below, because in each there is no repository to resolve.
+
+| address | what it opens | what it skips |
+|---|---|---|
+| `/@shares/<token>.st0` | a frozen snapshot pl8 holds | everything: no account, no engine, no working copy |
+| `/@banc/chains/<path>.st0` | one médiathèque chain on the generated bench | the lookup and the clone — the bench is regenerated on every open |
+| `/@local/<espace>/<projet>` | a project in a workspace with no repository | the lookup, the clone, **and the libraries check** |
+
+`@local` is the one that disagrees with step 0 below, and deliberately: a workspace with no
+repository mounts no submodule, and it is what a NEW account has — `Examples`, seeded with the
+demos. Refusing to open it without a library repository would put those demos behind the single
+piece of setup they exist to precede. See `apps/st0/frontend/docs/projects.md`.
+
+**`parseLaunch` knows about none of them.** All three are ordinary addresses whose repository part
+happens to start with `@`: the project part still ends at the last segment claiming the app's
+suffix, which is why `@shares` spells its token `<token>.st0` and why `@local` puts the workspace
+name in front of an ordinary project path. The only rule any of them adds is a splitter —
+`shareToken`, `benchChainPath`, `localTarget` — and all three live in
+`packages/web-protocol/projects.ts`, beside the address they read.
+
+## What the gate does with an ordinary one
 
 0. `GET /api/projects/libraries` on **pl8** — the account's library repository, or null.
    Before everything below, including the bench: a workspace mounts it as a submodule and every
