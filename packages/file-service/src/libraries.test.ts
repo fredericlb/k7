@@ -109,7 +109,7 @@ describe("a brand-new library repository", () => {
     const files = pushed();
     expect(files).toContain("modules/audio/filter/sweep/ui.yaml");
     expect(files).toContain("modules/audio/filter/sweep/jsdsp.ts");
-    expect(files).toContain("modules/instruments/wurlitzer/dsp.dsp");
+    expect(files).toContain("modules/instruments/synth/wurlitzer/dsp.dsp");
   });
 
   it("does nothing at all the second time", async () => {

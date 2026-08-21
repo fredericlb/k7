@@ -1,6 +1,6 @@
 # Le Wurlitzer : d'où viennent ses nombres, et ce qui manque pour l'entendre
 
-`modules/instruments/wurlitzer/` est un module Faust — `plugin: {type: faust}` et un `dsp.dsp`. Cette
+`modules/instruments/synth/wurlitzer/` est un module Faust — `plugin: {type: faust}` et un `dsp.dsp`. Cette
 page est sa provenance : il n'y a **pas** de Wurlitzer en Faust dans la distribution
 officielle, donc il est porté d'ailleurs, et tout ce qui suit est vérifiable ligne à ligne
 contre la source d'origine.

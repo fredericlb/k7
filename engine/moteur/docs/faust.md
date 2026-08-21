@@ -39,7 +39,7 @@ d'autant plus qu'il joue longtemps.
 ## La couture INSTRUMENT, qui est un second manque
 
 Ce qui est posé est la couture d'un **effet** : audio en entrée, audio en sortie, et le
-greffon est inscrit au catalogue avec le rôle `audioEffect`. `packages/dsp/modules/wurlitzer`
+greffon est inscrit au catalogue avec le rôle `audioEffect`. `packages/dsp/modules/instruments/synth/wurlitzer`
 est le premier module à demander autre chose, et il demande trois ajouts :
 
 - `takesMidiInput()` vrai, et la lecture du flux de notes dans `applyToBuffer` — le

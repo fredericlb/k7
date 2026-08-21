@@ -88,10 +88,21 @@ describe("a faust module", () => {
   // Two tests and not one loop, because WHERE each may sit is the difference between them and
   // is worth writing down: the fixture's `lead` is fed the melody lane's notes, so only an
   // instrument fits there. A one-line loop would have hidden that behind a parameter.
-  // `at` is the module's path in the CATALOGUE, which is laid out exactly as a library is
-  // (packages/dsp/docs/catalogue.md) — so it is also the ref minus its `@st0/` namespace.
-  const ship = (at: string): void => {
-    const to = join(dir, "modules", ...at.split("/"));
+  /**
+   * Copy a shipped module out of the catalogue and into this project.
+   *
+   * `at` is its path in the CATALOGUE, which is laid out exactly as a library is
+   * (packages/dsp/docs/catalogue.md); `into` is where it lands HERE, and the two differ for the
+   * Wurlitzer for a reason worth knowing: a module's folder holds one `module.yaml` and nothing
+   * else that is a module, so the loader does not descend into one. In the library
+   * `instruments/synth/` is a category — piano-v3, wurli-v2, stage-73-v2 all live under it —
+   * but in this fixture `instruments/synth` IS a module, so nothing nested inside it is found.
+   *
+   * Which is the honest shape of the thing: a catalogue path is a LIBRARY path, and where a copy
+   * of it can sit inside a project depends on what that project already owns.
+   */
+  const ship = (at: string, into = at): void => {
+    const to = join(dir, "modules", ...into.split("/"));
     mkdirSync(dirname(to), { recursive: true });
     cpSync(join(here, "..", "..", "dsp", "modules", ...at.split("/")), to, {
       recursive: true,
@@ -99,7 +110,7 @@ describe("a faust module", () => {
   };
 
   it("ships wurlitzer, which fits where an instrument is played", () => {
-    ship("instruments/wurlitzer");
+    ship("instruments/synth/wurlitzer", "instruments/wurlitzer");
     writeFileSync(
       join(dir, "nodes", "lead.yaml"),
       "extends: instruments/wurlitzer\n",

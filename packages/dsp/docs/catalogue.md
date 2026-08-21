@@ -23,7 +23,7 @@ tempo, eq3, sweep — et arrivait donc muet, sans une ligne pour le dire.
 packages/dsp/modules/
   audio/filter/{eq3,sweep,moogladder}/
   audio/utility/{crossfade,tempo,normalize,stemsplit}/
-  instruments/wurlitzer/
+  instruments/synth/wurlitzer/
 ```
 
 Ce rangement n'est pas cosmétique : c'est ce qui permet au semis d'être **une copie** plutôt
