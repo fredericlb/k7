@@ -489,7 +489,7 @@ nothing flashes.
 
 ### That cache is keyed by the WINDOW, not by the clip id
 
-`src/clipEnvelope.ts` builds the key, and it exists because the id is not enough. `clip trim`
+`src/clipEnvelope.ts` builds the key, and it exists because the id is not enough. `event trim`
 rewrites the clip file's `from`/`to` and *nothing else* — same id, same start, same length — so
 a cache filed under the id answered the trimmed block with the untrimmed envelope, and went on
 doing so for the rest of the session, since nothing ever evicted an entry. The block kept the

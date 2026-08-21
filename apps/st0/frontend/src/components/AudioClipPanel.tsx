@@ -28,6 +28,7 @@ import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipPlayhead } from "../clipPlayhead";
+import { warpLine } from "../clipWarp";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -611,8 +612,9 @@ export function AudioClipPanel({
             )}
             {editingWarp && (
               <span className="text-muted-foreground/70">
-                les traits gris sont les onsets, en repère — clip warp pose les
-                points d'étirement
+                double-clic pose un point d'étirement · glisser sa poignée bleue
+                dit sur quel temps il tombe · les traits gris sont les onsets,
+                en repère
               </span>
             )}
             {/* What is on screen, and the two ways out of it: the whole FILE, and back to the
@@ -720,30 +722,30 @@ export function AudioClipPanel({
                     ? `garde ${keep.from.toFixed(2)}s → ${keep.to.toFixed(2)}s`
                     : "rien au-dessus de ce seuil"}
                 </p>
-                {/* The clip's window is what a trim writes, and every placement of that clip
-                    shares it — so a clip on several events is worth saying out loud, once, where
-                    the decision is taken. Moving one placement alone is `event resize`. */}
-                {framed && (
-                  <p className="mt-1 text-[11px] text-amber-500">
-                    cherche seulement dans l'événement — mais réécrit la fenêtre
-                    du CLIP, que toutes ses occurrences partagent
-                  </p>
-                )}
+                {/* The warning that stood here is gone with what it warned about: a trim wrote
+                    the CLIP's window, which every placement of it shared. It writes this EVENT's
+                    now — there is no clip window left to share (song/docs/materialCut.md) — so
+                    the caveat would be describing a hazard that no longer exists. */}
                 <Button
                   size="sm"
                   className="mt-2 w-full"
-                  disabled={!keep || !!busy}
+                  // …and off with no EVENT to name: the verb addresses a placement, and a take
+                  // being reviewed has no position in the song. A button that clicked and did
+                  // nothing would be the one failure this shell says everywhere it will not have.
+                  disabled={!keep || !!busy || !eventAt || !track}
                   onClick={() => {
                     setGateOpen(false);
-                    // The same bound the preview was drawn against, handed to the command — a
-                    // preview that disagreed with the act would be worse than no preview.
-                    if (clip)
+                    // The EVENT is the bound, and naming it is all the command needs: it reads the
+                    // window this placement already plays and gates inside it, which is the very
+                    // pair the preview above was drawn against. A preview that disagreed with the
+                    // act would be worse than no preview.
+                    if (eventAt && track)
                       void run(
-                        `clip trim ${clip} ${gate}${framed ? ` ${act.from.toFixed(4)} ${act.to.toFixed(4)}` : ""}`,
+                        `event trim ${track} ${eventAt} ${gate}`,
                         "trim",
                       );
                   }}
-                  title="déplace la fenêtre du clip — l'audio n'est pas touché"
+                  title="déplace la fenêtre de l'événement — l'audio n'est pas touché"
                 >
                   rogner
                 </Button>
@@ -1033,6 +1035,38 @@ export function AudioClipPanel({
                 // The clip's stretch points, if it has a map: a dashed rule at the moment of the
                 // source, a blue one where that moment's beat lands. `clip warp` is what moves them.
                 warps={editingWarp ? wf.warpMarks : undefined}
+                /**
+                 * Double-click places a stretch point where you pointed; dragging its handle says
+                 * where that moment should land. One verb for both — `commands.yaml` says why:
+                 * from the waveform they are one gesture, and whether a point was already there is
+                 * not something you decide beforehand.
+                 *
+                 * A new point is pinned to where it ALREADY is (`sec` twice), so placing one
+                 * changes no sound: what it makes is a handle. The stretch appears when you drag
+                 * it, which is the only moment anything is being asked for.
+                 *
+                 * The picture is in region seconds and the command speaks source seconds and
+                 * beats; `clipWarp.ts` owns both conversions, off `wf.sourceMap` rather than out
+                 * of a second copy of the producer's mapping.
+                 */
+                onWarpAdd={
+                  editingWarp && clip
+                    ? (sec) =>
+                        void run(
+                          warpLine(clip, sec, sec, wf.sourceMap, tempo),
+                          "warp",
+                        )
+                    : undefined
+                }
+                onWarpMove={
+                  editingWarp && clip
+                    ? (mark, to) =>
+                        void run(
+                          warpLine(clip, mark.orig, to, wf.sourceMap, tempo),
+                          "warp",
+                        )
+                    : undefined
+                }
                 // …and the onsets under them, as plain rules. A stretch point is placed by
                 // dropping a beat onto a hit, so the hits have to be on screen — as reference,
                 // not as pins: only the `onsets` view lets you touch them. In the onset editor

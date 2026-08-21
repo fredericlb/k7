@@ -58,6 +58,16 @@ export interface RegionWaveform {
    * of `(sec - inPoint) * stretch` somewhere else is how the two come to disagree.
    */
   toDisplay: (fileSec: number) => number;
+  /**
+   * …and the two numbers `toDisplay` IS, for a caller that has to go back the other way.
+   *
+   * `display = (file − inPoint) × stretch`, so `file = display / stretch + inPoint`. A function
+   * cannot cross a wire, and the browser needs the inverse the moment a GESTURE on the picture
+   * names a moment of the source — a double-click placing a stretch point does exactly that.
+   * Sending the pair keeps the note above true across the wire: there is still one mapping, and
+   * the far side applies it rather than reinventing it from `offset`, `sourceFrom` and a tempo.
+   */
+  sourceMap: { inPoint: number; stretch: number };
 }
 
 /**
@@ -239,6 +249,7 @@ export function regionWaveform(
     warpMarks,
     transients,
     toDisplay,
+    sourceMap: { inPoint: inPointSec, stretch },
   };
 }
 

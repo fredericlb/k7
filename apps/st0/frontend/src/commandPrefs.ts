@@ -47,7 +47,7 @@ export interface CommandPref {
 }
 
 /**
- * Keyed by the CANONICAL line — `clip trim`, `ui help` — and never by what is displayed, which a
+ * Keyed by the CANONICAL line — `event trim`, `ui help` — and never by what is displayed, which a
  * rename or a change of language moves.
  *
  * The canonical rather than the sid because it is the one id BOTH halves of the catalogue have:

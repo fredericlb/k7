@@ -64,7 +64,7 @@ const tidy = (n: number): number => Math.round(n * 1e6) / 1e6;
  * should land where the sound will. A left edge dragged past `bounds.from` stops there, and the
  * placement's `start` is pulled along so what is left stays under the same beat instead of
  * sliding; a right edge dragged past `bounds.to` stops at the material's end — reaching further
- * is the material's edit (its own pane, or `clip trim`), not the event's.
+ * is out of what this event plays; widening it is the same drag the other way (`event trim` gates).
  */
 export function resizeToWindow(
   before: ResizeBefore,

@@ -85,7 +85,6 @@ import {
   setChainNodePositions,
   setClipOnsets,
   setClipWarp,
-  setClipWindow,
   setModuleAsset,
   setModuleAutomationBinding,
   setModuleBase,
@@ -213,7 +212,7 @@ export interface CommandHost {
   // node per input of the one in use. Optional: a host with no engine link simply
   // populates the plugin modules and says the inputs were skipped.
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
-  // A clip's source envelope — per-bucket peaks over the file's whole duration, for `clip trim`,
+  // A clip's source envelope — per-bucket peaks over the file's whole duration, for `event trim`,
   // which has to know where the sound is before it can cut what is not. Optional for the reason
   // above: building it needs the engine (it decodes and downsamples into the `.cache` sidecar), so
   // a host without one refuses the trim by name rather than guessing at a window.
@@ -1235,68 +1234,6 @@ async function statusCommand(
 }
 
 /**
- * The interval a clip PLAYS, in file seconds — its `from`/`to` resolved the way the compiler
- * resolves them (timecode spelling included), or null when it states none.
- *
- * This is what bounds `clip trim`: an operation launched on an event acts on the material that
- * event IS, not on the rest of the take around it. `to` comes back as Infinity when only `from`
- * is stated — the caller clamps it to what it knows the file to be.
- *
- * `clip normalize` was the other caller and is gone with `track normalize`, normalising having
- * become a chain (docs/processChain.md) — which is why this now has a single one.
- */
-/** A window from two optional arguments: `null` for none given, `"bad"` for a pair that is not one. */
-export function boundArg(
-  fromArg: string | undefined,
-  toArg: string | undefined,
-): { from: number; to: number } | null | "bad" {
-  if (fromArg === undefined && toArg === undefined) return null;
-  const from = Number(fromArg);
-  const to = Number(toArg);
-  if (!Number.isFinite(from) || !Number.isFinite(to)) return "bad";
-  if (from < 0 || to <= from) return "bad";
-  return { from, to };
-}
-
-/**
- * The more restrictive of two windows — the intersection, with `null` meaning "states none".
- *
- * The rule `event resize` already draws between a material's window and a placement's, applied
- * here between a clip's and whatever bound a caller named. Answering the INTERSECTION is what
- * stops an argument widening a window: `clip trim` may refine what a clip plays and may never
- * reach back into material an earlier trim removed.
- */
-export function narrowest(
-  a: { from: number; to: number } | null,
-  b: { from: number; to: number } | null,
-): { from: number; to: number } | null {
-  if (!a) return b;
-  if (!b) return a;
-  const from = Math.max(a.from, b.from);
-  const to = Math.min(a.to, b.to);
-  // An empty intersection is a caller asking about material this clip does not play. Its own
-  // window is the honest answer — the alternative is a trim that keeps nothing and says nothing.
-  return to > from ? { from, to } : a;
-}
-
-function clipWindow(
-  h: CommandHost,
-  clip: string,
-): { from: number; to: number } | null {
-  const p = h.project();
-  const doc = loadAudioClipDoc(h.songPath, clip, {
-    tempo: p.tempo,
-    num: p.timeSigNumerator,
-    den: p.timeSigDenominator,
-  });
-  if (!doc || (doc.sourceFrom == null && doc.sourceTo == null)) return null;
-  return {
-    from: doc.sourceFrom ?? 0,
-    to: doc.sourceTo ?? Number.POSITIVE_INFINITY,
-  };
-}
-
-/**
  * `clip onset add|remove|move <clip> <sec…>` — a correction to the detected onsets, in FILE seconds.
  *
  * A time within ONSET_MATCH_S of an existing one is understood as that one, which is what lets a person
@@ -1607,39 +1544,33 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // sensitivity (song/onsets.ts). Three verbs rather than one that takes a list: each is a thing a person
   // does, each is one line in the file, and each is one entry in the undo journal.
   /**
-   * clip trim <clip> [gate-dB] [from] [to] — cut the silence off both ends.
+   * event trim <track> <at> [gate-dB] — cut the silence off both ends of ONE event.
    *
-   * It moves the clip's WINDOW (`from`/`to` in its sidecar), it does not touch the audio. A take's
-   * head is the tail of a count-in and the player settling; its foot is a room and a hand leaving a
-   * string. Both are things you stop PLAYING, not things you want destroyed — and a window is one
-   * line to put back, where a rewritten wav is a restore from the undo journal.
+   * It moves that event's WINDOW (`from`/`to` on the placement), it does not touch the audio. A
+   * take's head is the tail of a count-in and the player settling; its foot is a room and a hand
+   * leaving a string. Both are things you stop PLAYING, not things you want destroyed — and a
+   * window is one line to put back, where a rewritten wav is a restore from the undo journal.
    *
    * The gate is in dBFS and defaults to −40: below a room's floor on any usable take, above true
    * digital silence. Where it lands is `trimWindow`'s decision and is tested there — BOUNDED to
-   * the window the clip already has, so a re-trim refines it and never reaches back into material
-   * an earlier trim removed (undo is how that comes back, deliberately).
+   * the window the event already plays, so a re-trim refines it and never reaches back into
+   * material an earlier trim removed (undo is how that comes back, deliberately). A gate that
+   * reached outside what the panel shows lit would cut on evidence nobody could see.
    *
-   * `from`/`to`, in FILE seconds, narrow that bound further and are what an EVENT is: a placement
-   * carries its own window, so the clip panel opened on one is looking at a slice of the material
-   * rather than at all of it, and a gate that reached outside what is on screen would cut on
-   * evidence nobody could see. Intersected with the clip's own window, never widening it —
-   * whichever pair is more restrictive wins, the same rule `event resize` follows.
-   *
-   * What it still writes is the CLIP's window, which every placement of that clip shares. That is
-   * the command's meaning and is deliberately not changed by naming a narrower bound: moving one
-   * placement alone is `event resize`, and the take this panel was built for has exactly one.
+   * It was `clip trim` and wrote the CLIP's window, which every placement of that clip shared.
+   * There is no clip window any more — a clip file describes the bytes, a placement describes the
+   * use (song/docs/materialCut.md) — so this names the event it acts on, and trimming one
+   * placement leaves the others alone by construction rather than by a warning in the help.
    */
-  "clip.trim": async (a, h) => {
-    const [clip, gateArg, fromArg, toArg] = a
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-    if (!clip) {
+  "event.trim": async (a, h) => {
+    const parts = splitWords(a);
+    if (parts.length < 2 || parts.length > 3) {
       h.refuse([
-        "usage: clip trim <clip> [gate-dB] [from] [to]  (e.g. clip trim prise-01 -40)",
+        "usage: event trim <track> <timecode> [gate-dB]  (e.g. event trim vox 24:1 -40)",
       ]);
       return;
     }
+    const [trackArg, atTc, gateArg] = parts;
     const gate = gateArg === undefined ? DEFAULT_TRIM_DB : Number(gateArg);
     if (!Number.isFinite(gate) || gate > 0) {
       h.refuse([
@@ -1647,46 +1578,56 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const bound = boundArg(fromArg, toArg);
-    if (bound === "bad") {
-      h.refuse([
-        `'${fromArg} ${toArg}' is not a window in seconds — two numbers, the first smaller`,
-      ]);
-      return;
-    }
+    const found = resolveEvent(h, trackArg, atTc);
+    if (!found) return;
+    const { track, atBeats, hit, num, den } = found;
     if (!h.clipEnvelope) {
       h.refuse([
-        "this host cannot read a clip's envelope — `clip trim` needs the engine, which builds it",
+        "this host cannot read a clip's envelope — `event trim` needs the engine, which builds it",
       ]);
       return;
     }
-    const env = await h.clipEnvelope(clip);
+    const env = await h.clipEnvelope(hit.id);
     if (!env) {
       h.refuse([
-        `${clip}: no envelope yet — the engine builds it on first read`,
+        `${hit.name || hit.id}: no envelope yet — the engine builds it on first read`,
       ]);
       return;
     }
-    const within = narrowest(clipWindow(h, clip), bound);
+    // The bound is what this EVENT plays. `sourceTo` absent is "to the end of the file", which is
+    // what the envelope just measured — the one number the compiler declines to open a wav for.
+    const within = {
+      from: hit.sourceFrom ?? 0,
+      to: hit.sourceTo && hit.sourceTo > 0 ? hit.sourceTo : env.seconds,
+    };
     const win = trimWindow(env.peak, env.seconds, gate, within);
     if (!win) {
       h.refuse([
-        `${clip}: nothing above ${gate} dB in its window — the gate is too high, or the take is silent`,
+        `${hit.name || hit.id}: nothing above ${gate} dB in what this event plays — the gate is too high, or the take is silent`,
         "nothing was changed: a window of zero length would play nothing at all",
       ]);
       return;
     }
     try {
-      // Snapshot BEFORE the write, so undo has the window the clip HAD. The clip's own file is
-      // what changes — the audio is untouched, which is the whole point.
-      h.snapshot?.(clipFilePath(h.songPath, clip));
-      setClipWindow(h.songPath, clip, win.from, win.to);
+      const done = setTrackPlacementWindow(
+        h.songPath,
+        track.id,
+        atBeats,
+        num,
+        den,
+        win,
+        env.seconds,
+      );
+      if (!done) {
+        h.refuse([`no event on '${track.id}' at ${atTc}`]);
+        return;
+      }
     } catch (e) {
-      h.refuse([`clip trim failed: ${(e as Error).message}`]);
+      h.refuse([`event trim failed: ${(e as Error).message}`]);
       return;
     }
     h.log([
-      `${clip}: kept ${win.from.toFixed(2)}s → ${win.to.toFixed(2)}s of ${env.seconds.toFixed(2)}s (gate ${gate} dB)`,
+      `${track.id}: ${hit.name || hit.id} at ${atTc} keeps ${win.from.toFixed(2)}s → ${win.to.toFixed(2)}s of ${env.seconds.toFixed(2)}s (gate ${gate} dB)`,
     ]);
     await h.reload();
   },
@@ -2167,7 +2108,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
           (done.loops > 1 ? ` × ${done.loops}` : ""),
         // The edit is the EVENT's own window, clamped inside the material's `from`/`to` — the
         // most restrictive pair wins, so other placements of the material are untouched, and
-        // reaching OUTSIDE the material's window is its own edit (`clip trim`, its pane), not
+        // reaching OUTSIDE what the event plays is its own edit (`event trim`, its pane), not
         // this one's. See @studio/song's docs/clipResize.md.
         `  this event only — ${done.material} keeps its own from/to`,
       ]);

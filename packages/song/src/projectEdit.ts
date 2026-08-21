@@ -45,7 +45,6 @@ import {
   unlinkNode,
 } from "./yaml/graphFile";
 import { GRAPH_BASE, GRAPH_FILE } from "./yaml/graphSchema";
-import { setMaterialWindow } from "./yaml/materialFile";
 import {
   setModuleAutomation,
   setModuleList,
@@ -369,27 +368,6 @@ export function setClipOnsets(
   const after = setModuleValue(before, ["onsets"], empty ? null : edits);
   if (after !== before) writeFileSync(file.path, after, "utf8");
   return file.path;
-}
-
-/**
- * Set a clip's WINDOW — which span of its source file it plays, in seconds.
- *
- * What `clip trim` writes. It moves the window and never the audio: a take's head is the tail of a
- * count-in and its foot is a room, and both are things you stop playing rather than things you want
- * destroyed. One line to put back, where a rewritten file is a restore from the undo journal.
- *
- * Answers the file it changed, like every writer here.
- */
-export function setClipWindow(
-  dir: string,
-  ref: string,
-  from: number,
-  to: number,
-): string {
-  const path = clipFilePath(dir, ref);
-  if (!(to > from)) throw new Error("a clip's window has to have some length");
-  setMaterialWindow(path, from, to);
-  return path;
 }
 
 /**

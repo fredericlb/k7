@@ -110,6 +110,7 @@ function buildWaveform(
     clipBeats: w.clipBeats,
     grid: beatGrid(w),
     warpMarks: w.warpMarks,
+    sourceMap: w.sourceMap,
     transients: w.transients,
     // Sent only when it actually cuts something: a band over the whole pane says nothing.
     ...(shade &&

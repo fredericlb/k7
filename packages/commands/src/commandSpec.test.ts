@@ -196,12 +196,12 @@ describe("commands.yaml is well-formed against the providers", () => {
     expect(validateArgs(of("project marker new"), "xyz Chorus")).toMatch(
       /bar:beat/,
     );
-    expect(validateArgs(of("clip trim"), "riff abc")).toMatch(/a number/);
+    expect(validateArgs(of("event trim"), "vox 24:1 abc")).toMatch(/a number/);
     expect(validateArgs(of("sequence note new"), "melody H9 4 6")).toMatch(
       /note name/,
     );
     // The offending token appears in the message, so the palette can point at it.
-    expect(validateArgs(of("clip trim"), "riff left")).toContain('"left"');
+    expect(validateArgs(of("event trim"), "vox 24:1 left")).toContain('"left"');
   });
 
   it("accepts every shape its handlers accept", () => {
@@ -211,7 +211,7 @@ describe("commands.yaml is well-formed against the providers", () => {
       expect(validateArgs(of("project marker new"), `${tc} Chorus`)).toBeNull();
     // Negative and fractional numbers, notes as names or as MIDI numbers. A trim gate is in dB,
     // so a negative one is the ordinary case rather than an edge.
-    expect(validateArgs(of("clip trim"), "riff -6.5")).toBeNull();
+    expect(validateArgs(of("event trim"), "vox 24:1 -6.5")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody F#3 0 1")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody 60 0 1")).toBeNull();
     // Too few arguments is the handler's message to give, not a shape error.

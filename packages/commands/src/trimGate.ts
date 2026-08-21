@@ -1,6 +1,6 @@
 // trimGate.ts — where a take actually starts and stops sounding. Given an envelope and a gate in
 // dBFS, the first and last moment the signal is above it: the count-in bleed at the head and the
-// room tail at the foot are what this removes. Pure, and the whole of the decision `clip trim` makes.
+// room tail at the foot are what this removes. Pure, and the whole of the decision `event trim` makes.
 
 /** The default gate: −40 dBFS. Below a room's noise floor on any usable take, above true digital
  *  silence, so a take recorded with the preamp up does not trim to nothing. */

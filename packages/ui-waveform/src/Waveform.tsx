@@ -56,6 +56,24 @@ interface Props {
    */
   warps?: { orig: number; target: number }[];
   /**
+   * Place a stretch point at this second. Absent ⇒ a double-click means nothing, as it did.
+   *
+   * A DOUBLE-click, because a single one already seeks and selects here and a view cannot quietly
+   * take that away — the wave is still a wave in warp mode. The host gets a region second and owns
+   * the units: this canvas has no idea what a beat is.
+   */
+  onWarpAdd?: (atSec: number) => void;
+  /**
+   * Drag a stretch point's TARGET — where the moment it holds should land. Absent ⇒ the marks are
+   * drawn and cannot be touched, which is what they were.
+   *
+   * The mark is given back whole rather than by index: `warps` is rebuilt from the file on every
+   * reload, and an index taken on pointerdown can name a different point by the time the hand
+   * lets go. Committed on RELEASE, like a marker's move and the window's edges — a stretch point
+   * written on every pointermove would be a file write per pixel.
+   */
+  onWarpMove?: (mark: { orig: number; target: number }, toSec: number) => void;
+  /**
    * Onsets to draw as plain rules, in seconds — reference material, not something to grab.
    *
    * The same times `markers` carries as pins, in the form a host wants when they are the
@@ -122,6 +140,9 @@ const DB_GRID = [0, -20, -40, -60, -80, -100];
 const HANDLE_HIT = 9; // px from an edge that counts as grabbing its handle
 const MIN_DUR = 0.1; // shortest allowed moment (s)
 const GRID_DASH = [3, 4]; // the bar/beat rule's dash: on 3px, off 4px
+/** How high the warp arrow's shaft sits, and how long its head is. */
+const WARP_ARROW_Y = 12;
+const WARP_ARROW_PX = 6;
 const ENV_UNPLAYED = "150, 150, 163"; // grey — the material as a whole
 const ENV_PLAYED = "139, 92, 246"; // accent purple — left of the playhead
 /**
@@ -283,6 +304,8 @@ function WaveformInner({
   view,
   markerPlace = "top",
   warps = NO_WARPS,
+  onWarpAdd,
+  onWarpMove,
   onsets = NO_ONSETS,
   sourceWindow = null,
   gridLines = NO_GRID,
@@ -318,6 +341,13 @@ function WaveformInner({
   } | null>(null);
   // Which edge of the editing moment is being dragged, if any.
   const editDrag = useRef<"start" | "end" | null>(null);
+  // The stretch point being dragged and where its TARGET is now, so the arrow follows the hand
+  // rather than the round trip. Keyed by `orig`, which is the point's identity — the target is the
+  // thing moving, so it cannot also be the name.
+  const [warpDrag, setWarpDrag] = useState<{
+    orig: number;
+    target: number;
+  } | null>(null);
 
   /**
    * Track the container's width, so the canvas is responsive.
@@ -641,8 +671,14 @@ function WaveformInner({
     // div because `timeToX` is the one authoritative mapping — an absolutely positioned layer over
     // the canvas has to reproduce it, and a border or a rounding then puts the two a pixel apart.
     for (const w of warps) {
+      // The one being dragged is drawn where the HAND is, not where the file still says. Matched
+      // on `orig`, the point's identity — the target is what moves, so it cannot also be the name.
+      const target =
+        warpDrag && Math.abs(warpDrag.orig - w.orig) < 1e-9
+          ? warpDrag.target
+          : w.target;
       const ox = Math.round(timeToX(w.orig)) + 0.5;
-      const tx = Math.round(timeToX(w.target)) + 0.5;
+      const tx = Math.round(timeToX(target)) + 0.5;
       ctx.strokeStyle = "rgba(235,235,242,0.55)";
       ctx.lineWidth = 1;
       ctx.setLineDash([3, 3]);
@@ -652,16 +688,32 @@ function WaveformInner({
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.strokeStyle = "rgb(96,165,250)";
+      ctx.fillStyle = "rgb(96,165,250)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(tx, 0);
       ctx.lineTo(tx, HEIGHT);
       ctx.stroke();
+      // An ARROW from the moment to where it lands, and not the plain connector this was: the
+      // pair is directional — the source point is dragged onto a beat, never the other way — and a
+      // bare rule between two verticals says they are related without saying which way it reads.
+      // Under WARP_ARROW_PX the head would be most of the line, so the shaft alone is drawn: a
+      // stretch of a pixel or two is a point that has barely moved, which is worth seeing as such.
       if (Math.abs(tx - ox) > 2) {
+        const y = WARP_ARROW_Y;
         ctx.beginPath();
-        ctx.moveTo(ox, 12);
-        ctx.lineTo(tx, 12);
+        ctx.moveTo(ox, y);
+        ctx.lineTo(tx, y);
         ctx.stroke();
+        if (Math.abs(tx - ox) > WARP_ARROW_PX) {
+          const dir = tx > ox ? 1 : -1;
+          ctx.beginPath();
+          ctx.moveTo(tx, y);
+          ctx.lineTo(tx - dir * WARP_ARROW_PX, y - WARP_ARROW_PX * 0.6);
+          ctx.lineTo(tx - dir * WARP_ARROW_PX, y + WARP_ARROW_PX * 0.6);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
     }
 
@@ -750,6 +802,9 @@ function WaveformInner({
     // envelope, which invalidates `layers` and redraws anyway. That is a coincidence of the fetch,
     // not a rule, and it would go quiet the first time one of them was set from local state.
     warps,
+    // …and the same rule for the stretch point under the hand: it is LOCAL state, so nothing else
+    // invalidates the draw while it moves. Exactly the coincidence the note above warns about.
+    warpDrag,
     onsets,
     sourceWindow,
     winDrag,
@@ -861,6 +916,22 @@ function WaveformInner({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        /**
+         * A stretch point, where you pointed.
+         *
+         * On DOUBLE-click and not on click, because a single one already seeks and starts a
+         * selection here and a mode cannot quietly take that away — the wave is still a wave while
+         * you warp it. The seek that the first click of the pair fires is harmless: it moves the
+         * playhead to the very second the point is about to be placed at.
+         *
+         * Unsnapped, deliberately, unlike the click below it. What you are naming is a MOMENT OF
+         * THE SOURCE — an attack, a syllable — and the whole gesture is to pin it to the grid
+         * afterwards. Snapping the origin would place the point at the beat it is already near,
+         * which is the one place that says nothing.
+         */
+        onDoubleClick={
+          onWarpAdd ? (e) => onWarpAdd(xToTime(localX(e.clientX))) : undefined
+        }
         onPointerCancel={() => {
           drag.current = null;
           editDrag.current = null;
@@ -918,6 +989,60 @@ function WaveformInner({
                 if (d?.edge === edge) onWindowMove({ from: d.from, to: d.to });
               }}
               onPointerCancel={() => setWinDrag(null)}
+            />
+          );
+        })}
+      {/* A stretch point's TARGET, as a grab handle on the blue rule — the same layer and the same
+          `timeToX` as the window's edges, for the same reason: a handle that reproduced the
+          mapping would sit a pixel off the line it holds.
+
+          On the target and not on the origin, because the origin is what the point IS — the moment
+          of the source it pins — and the target is where that moment is being SENT. Dragging the
+          origin would be dragging the identity, which `clip warp` addresses by. */}
+      {onWarpMove &&
+        warps.map((w) => {
+          const held =
+            warpDrag && Math.abs(warpDrag.orig - w.orig) < 1e-9
+              ? warpDrag
+              : null;
+          const at = held ? held.target : w.target;
+          return (
+            <button
+              key={`warp-${w.orig}`}
+              type="button"
+              className="waveform-edge"
+              style={{
+                left: Math.max(0, Math.min(width, timeToX(at))),
+                height: HEIGHT,
+              }}
+              title={`Drag to move where ${w.orig.toFixed(3)}s lands (${at.toFixed(3)}s)`}
+              aria-label="stretch point"
+              onPointerDown={(e) => {
+                e.stopPropagation(); // …or the canvas starts a selection under the same finger
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setWarpDrag({ orig: w.orig, target: w.target });
+              }}
+              onPointerMove={(e) => {
+                if (!held) return;
+                // Snapped to the grid, unlike the double-click that made the point: a target IS a
+                // beat, and the list snapped to is the one that was DRAWN (docs/ticks.md), so a
+                // line you can see is a line you can land on.
+                const raw = Math.max(
+                  0,
+                  Math.min(total, xToTime(localX(e.clientX))),
+                );
+                setWarpDrag({
+                  orig: w.orig,
+                  target: nearestTick(gridTimes, raw) ?? raw,
+                });
+              }}
+              onPointerUp={() => {
+                const d = warpDrag;
+                setWarpDrag(null);
+                if (d && Math.abs(d.orig - w.orig) < 1e-9)
+                  onWarpMove({ orig: w.orig, target: w.target }, d.target);
+              }}
+              onPointerCancel={() => setWarpDrag(null)}
             />
           );
         })}

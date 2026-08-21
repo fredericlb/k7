@@ -385,45 +385,37 @@
 # module, so a chain naming it does the same job through `track process` / `clip process` — over a
 # whole track's files or over one clip's — and can be followed by something. See docs/processChain.md.
 
-# Cut the silence off both ends of a clip. It moves the clip's WINDOW (`from`/`to` in its own
-# file) and never the audio: a take's head is the tail of a count-in and the player settling, its
-# foot is a room and a hand leaving a string, and both are things you stop PLAYING rather than
-# things you want destroyed. One line to put back, where a rewritten wav is a restore from the
-# undo journal. The gate is dBFS, default -40 — below a room's floor on any usable take, above
-# true digital silence. Nothing above the gate changes nothing, and says so.
+# Cut the silence off both ends of ONE EVENT. It moves that event's WINDOW (`from`/`to` on the
+# placement) and never the audio: a take's head is the tail of a count-in and the player settling,
+# its foot is a room and a hand leaving a string, and both are things you stop PLAYING rather than
+# things you want destroyed. One line to put back, where a rewritten wav is a restore from the undo
+# journal. The gate is dBFS, default -40 — below a room's floor on any usable take, above true
+# digital silence. Nothing above the gate changes nothing, and says so.
 #
-# `from`/`to`, in file seconds, narrow where it may look — what an EVENT is, since a placement
-# carries its own window and the clip panel opened on one shows a slice of the material rather
-# than all of it. Intersected with the clip's own window, never widening it. What it WRITES is
-# still the clip's window, which every placement shares: moving one placement alone is
-# `event resize`.
-- command: "clip trim"
-  sid: clip.trim
+# It was `clip trim` and wrote the CLIP's window, which every placement of that clip shared. There
+# is no clip window any more: a clip file describes the bytes, a placement describes the use (see
+# song/docs/materialCut.md). So the verb names the event it acts on, like every other `event …`,
+# and trimming one placement leaves the others alone by construction rather than by warning.
+#
+# It looks only INSIDE what that event already plays, and can only narrow it: a gate reaching past
+# the window would cut on evidence nobody could see, and material an earlier trim removed comes
+# back through undo, deliberately.
+- command: "event trim"
+  sid: event.trim
   readable:
-    en: "Cut the silence off both ends of a clip"
-    fr: "Couper le silence aux deux bouts d'un clip"
-  help: "trim a clip's head and tail at a gate (e.g. clip trim prise-01 -40)"
+    en: "Cut the silence off both ends of one event"
+    fr: "Couper le silence aux deux bouts d'un evenement"
+  help: "trim one event's head and tail at a gate (e.g. event trim vox 24:1 -40)"
   surfaces: [cli]
   args:
     [
-      { name: clip, complete: clipTargets },
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
       {
         name: gate,
         type: number,
         optional: true,
         hint: "the gate in dBFS — a negative number, default -40",
-      },
-      {
-        name: from,
-        type: number,
-        optional: true,
-        hint: "only look inside this window — seconds into the file",
-      },
-      {
-        name: to,
-        type: number,
-        optional: true,
-        hint: "…and where it ends, in seconds",
       },
     ]
 
@@ -1301,7 +1293,7 @@
 # The timeline sends this form when an event's edge handle is dragged.
 # The edit lands on the EVENT's own `from`/`to` (PlacementSchema), clamped inside the
 # material's window — the most restrictive pair wins — so the material and its other
-# placements are untouched. Reaching outside the material's window is `clip trim`'s job.
+# placements are untouched. Widening past what the event plays is `event trim`'s bound too.
 - command: "event resize"
   sid: event.resize
   readable:

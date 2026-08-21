@@ -396,7 +396,7 @@ dev it restarts on every code change. The ✓ ends it for good as well. A take c
 become unreachable while its file sat in `clips/`.
 
 `ui review <clip>` names one and opens the panel on it. It is a `ui` command because it opens a
-VIEW and writes nothing — what the panel then does (`clip process`, `clip trim`, `clip onset …`)
+VIEW and writes nothing — what the panel then does (`clip process`, `event trim`, `clip onset …`)
 is the brain's — and the named clip outranks the automatic one, without the rolling guard: asking
 for a clip by name is a deliberate act, not something that appeared while you were playing.
 
@@ -436,8 +436,8 @@ many bars long).
 
 #### Trimming moves the WINDOW, and previews before it does
 
-`clip trim <clip> [gate-dB]` cuts the head and the tail at a gate. It moves the clip's window
-(`from`/`to` in its own file) and **never the audio**: a take's head is the tail of a count-in and
+`event trim <track> <at> [gate-dB]` cuts the head and the tail at a gate. It moves that EVENT's
+window (`from`/`to` on the placement) and **never the audio**: a take's head is the tail of a count-in and
 the player settling, its foot is a room and a hand leaving a string, and both are things you stop
 *playing* rather than things you want destroyed. One line to put back, where a rewritten wav is a
 restore from the undo journal.
@@ -951,7 +951,7 @@ the catalogue, kept in `commandPrefs.ts` and applied by `orderCommands` / `label
 
 Four decisions, and the last two are the load-bearing ones:
 
-- **Keyed by the canonical LINE** (`clip trim`, `ui help`), not by the sid. The sid is the more
+- **Keyed by the canonical LINE** (`event trim`, `ui help`), not by the sid. The sid is the more
   stable id but only the backend's commands have one — the shell's own `ui …` lines do not — and a
   page that could arrange half the catalogue would order a menu it does not draw.
 - **The entity a command acts on is the first word of its line**, which is what the filter offers.

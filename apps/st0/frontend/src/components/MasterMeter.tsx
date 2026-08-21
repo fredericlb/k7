@@ -7,8 +7,8 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
-import { useEffect, useRef, useState } from "react";
 import { MASTER_MAX_DB } from "@studio/song/yaml/projectSchema";
+import { useEffect, useRef, useState } from "react";
 import { TARGET_DB } from "../gainTrim";
 
 /** The bottom of the scale, in dB. Below this the bar is empty rather than negative. */

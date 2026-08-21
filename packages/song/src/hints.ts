@@ -22,11 +22,7 @@ import {
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
-import {
-  completionOrder,
-  isEngineRef,
-  moduleStatusOf,
-} from "./moduleTypes";
+import { completionOrder, isEngineRef, moduleStatusOf } from "./moduleTypes";
 import { loadPreferences } from "./preferences";
 
 export interface Hints {

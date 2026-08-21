@@ -1177,7 +1177,7 @@ function makeHost(
         });
         c.listPlugins(filter);
       }),
-    // A clip's source envelope, for `clip trim`. Straight through to the workspace's waveform
+    // A clip's source envelope, for `event trim`. Straight through to the workspace's waveform
     // machinery, which is where the `.cache` sidecar and the engine that builds it already live —
     // the WHOLE file, since a trim is about the source's silence and not the placement's span.
     // `ws`, not a global: the clip named is one of THIS command's project's, and reading it out

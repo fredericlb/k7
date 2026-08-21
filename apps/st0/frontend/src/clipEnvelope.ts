@@ -16,7 +16,7 @@ export interface EnvelopeProject {
 /**
  * Everything `regionWaveform` reads, in one string.
  *
- * The id is NOT enough on its own, and that is the whole point: `clip trim` rewrites the clip
+ * The id is NOT enough on its own, and that is the whole point: `event trim` rewrites the event's
  * file's `from`/`to` and nothing else, so the placement keeps its id, its start and its length
  * while the material under it changes. A cache keyed on the id alone answered the trimmed block
  * with the untrimmed envelope — for the rest of the session, since nothing ever evicted it.

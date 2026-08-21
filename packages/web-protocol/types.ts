@@ -299,6 +299,17 @@ export interface WebWaveform {
   grid: WebWaveformGrid[];
   warpMarks: WebWarpMark[]; // stretch markers, in region seconds (empty == not warped)
   /**
+   * The linear file↔display mapping every second above went through:
+   * `display = (file − inPoint) × stretch`, so `file = display / stretch + inPoint`.
+   *
+   * On the wire because a GESTURE goes the other way. Everything here is in region seconds, which
+   * is the right space to DRAW in and the wrong one to command in — `clip warp` names a moment of
+   * the SOURCE file. Without this pair a surface would have to rebuild it out of `offset`,
+   * `sourceFrom` and the warp ratio, which is a second copy of the one thing the producer already
+   * computed (`RegionWaveform.toDisplay` says why that matters).
+   */
+  sourceMap: { inPoint: number; stretch: number };
+  /**
    * The material's own `from`/`to` — the span of the source this clip IS — in the same region
    * seconds as everything above.
    *

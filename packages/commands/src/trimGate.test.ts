@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ampToDb, trimWindow } from "./trimGate";
 
 // Where a take starts and stops SOUNDING. A recorded take begins with the tail of a count-in and
-// the player settling, and ends with a room and a hand leaving a string: `clip trim` cuts both by
+// the player settling, and ends with a room and a hand leaving a string: `event trim` cuts both by
 // asking where the envelope crosses a gate. The whole decision is here, so it is the whole test.
 //
 // Ten buckets over ten seconds: one bucket is one second, which keeps the arithmetic readable.

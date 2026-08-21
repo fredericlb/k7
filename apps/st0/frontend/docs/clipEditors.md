@@ -514,9 +514,10 @@ whole take, and there was no way to tell which part of it was the one on the lan
 
 What acting "only on it" means, verb by verb:
 
-- **the trim gate** previews inside `act` and hands the same pair to the command, so the preview
-  and the act cannot disagree — `clip trim <clip> <gate> [from] [to]`, the bound intersected with
-  the clip's own window and never widening it;
+- **the trim gate** previews inside `act`, and the command it runs — `event trim <track> <at>
+  [gate]` — reads the very same window off the placement, so the preview and the act cannot
+  disagree by construction rather than by being handed matching numbers. It only ever NARROWS:
+  material an earlier trim removed comes back through undo, deliberately;
 - **the middle button pans**, as it does on every scrolling pane through `usePanScroll`. Written
   out here because this pane does not scroll — it draws a view span, so the drag moves the window
   rather than a `scrollLeft` — with the same direction (the view follows the hand) and the same two
@@ -528,11 +529,12 @@ What acting "only on it" means, verb by verb:
 - **the ruler** offsets from `act.from`, since `placedAt` is the beat that window starts playing
   at. The file's head is not placed anywhere at all.
 
-**What a trim WRITES is still the clip's window**, which every placement of that clip shares — that
-is what `clip trim` means, and naming a narrower bound deliberately does not change it. The panel
-says so, in amber, beside the button, whenever the event is a slice rather than the whole file.
-Moving one placement alone is `event resize`; see `@studio/commands`' `commands.yaml`, which draws
-the same line from the other end.
+**What a trim WRITES is this EVENT's window.** It wrote the clip's, which every placement of that
+clip shared, and the panel said so in amber beside the button whenever the event was a slice. Both
+the caveat and the amber are gone with the thing they warned about: a clip file describes the bytes
+and a placement describes the use (`packages/song/docs/materialCut.md`), so trimming one event
+leaves the others alone by construction. The verb moved with the meaning — `clip trim` is
+`event trim`, and it names the placement it acts on like every other `event …`.
 
 ### `whole` was cropping the picture it was shading
 
@@ -612,29 +614,35 @@ away — a new ▶ makes a new span, and a new span restarts it.
 
 ## Dragging the window's edges
 
-The clip band's two edges are handles, and releasing one rewrites `from`/`to` **in the open
-buffer** — not through a verb. That is what makes the text under the waveform move with the hand:
-autosave carries it to disk on its own timer, and one Ctrl+Z undoes the drag like any other edit.
+The window is the EVENT's, so the gesture is on the event: `AudioClipPanel`'s band has two handles,
+and releasing one runs `event window <track> <at> <from> <to>` — journalled like every other edit
+here, and undone with one Ctrl+Z. A clip file states no window at all any more (the descent, see
+`packages/song/docs/materialCut.md`), so there is nothing to drag on the editor's own strip.
 
-It is the same overlay and the same gesture a slice rack's symbols already had; only the writer on
-release differs, chosen by the band's symbol (`clipWindowBand` names its one band `clip`). Two rules
-are worth stating because they are not obvious from the gesture:
+The handles live **inside `@studio/ui-waveform`'s canvas**, not on a layer the host puts over it.
+`timeToX` is the one authoritative mapping — it already carries the view's zoom and the measured
+width — and a second `(sec - v0) / span` computed outside is exactly how a handle comes to sit a
+pixel off the line it is holding. The marker pins beside them are placed the same way. Twelve
+pixels straddling a 1.5px line, because the line itself is not a thing a hand can catch.
 
-- **The spelling is preserved.** A number stays a number and a timecode stays a timecode. Not
-  politeness — the two mean different things when the tempo changes: a bare number is seconds into
-  the file and holds still, a timecode is musical and follows the grid (`AudioClipSchema`).
-  Rewriting one as the other mid-drag would silently change what the clip is pinned to, which is
-  exactly the kind of edit nobody goes looking for afterwards. An edge that was ABSENT is written in
-  seconds — there is no intent to preserve, and the drag happened on an axis of source seconds.
-- **The two absences are kept.** A `from` dragged back to the start is DELETED rather than written
-  as 0, since absent already means the material's start and a file full of zeroes makes "not
-  trimmed" and "trimmed to the beginning" read alike. A `to` at the file's end is left out for the
-  same reason. Both are the rules `setMaterialWindow` follows server-side.
+Three rules are worth stating because the gesture does not show them:
 
-**A clip that trims nothing still gets handles**, as a *hollow* band: the two edges drawn faintly,
-no wash. Without it only an already-trimmed clip could be trimmed by dragging, which is the wrong
-half of the population. The band stays hollow — and unnamed — until an edge actually moves, so it
-never claims a window the file does not have.
+- **Seconds, always.** The pair addresses a file, and a hand pointing at a waveform points at a
+  second of it. The field takes both spellings, so a window written musically by hand survives
+  untouched — until somebody drags it, and then it is seconds.
+- **The two absences are kept.** A `from` pulled back to the material's start is DELETED rather
+  than written as 0, since absent already means the start; a `to` pushed onto the file's end is
+  left out for the same reason. Both edges go out on every commit, or an old one would keep
+  narrowing what the drag just opened.
+- **An event that plays its whole file still has handles.** It states no window, so no band is lit
+  — a wash over the whole picture would tint everything and mark nothing — but its edges are the
+  file's and they are still grabbable. That is the case with the *most* reason to reach for them:
+  pulling one in is how a window comes into being. The band appears on the first drag.
+
+Those handles are **clamped into the strip**, unlike the pins, and the difference is what each is
+for. A pin is read, so one hanging outside the canvas would lie about where its mark is. A handle
+is grabbed, and one that has left the canvas is a control that has vanished — which is precisely
+what a whole-file event's edges do at any zoom past fit. The title carries the true second.
 
 ## Velocity, on the note itself
 

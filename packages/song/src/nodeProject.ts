@@ -30,6 +30,7 @@ import {
 } from "./loader";
 import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
+import { materialRefOf, placementId } from "./placementId";
 import {
   defaultPreferences,
   loadPreferences,
@@ -55,7 +56,6 @@ import {
   parseMarkers,
   parseSettings,
 } from "./project";
-import { materialRefOf, placementId } from "./placementId";
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
 import { sortTracksByKind } from "./trackKind";

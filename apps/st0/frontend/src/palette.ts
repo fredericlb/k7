@@ -607,7 +607,7 @@ export function makeListArg(shell: {
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
       return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
-    // The review takes a clip ID, not a path — `clip process`, `clip trim` and `clip onset` name it
+    // The review takes a clip ID, not a path — `clip process` and `clip onset` name it
     // that way too, and the panel passes it straight to them. So the tree is filtered to clips/ and
     // the basename handed back, which is what the id IS (see recordTake: the filename is the id).
     if (canonical === "ui review" && first)

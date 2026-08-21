@@ -43,7 +43,7 @@ edge written past it would never play, and the drag should land where the sound 
 left edge dragged past the material's `from` stops there, with the placement's `start`
 pulled along so what is left stays under the same beat; a right edge dragged past the
 material's `to` stops at the material's end. **Reaching further is the material's edit** —
-its own pane, `clip trim`, or the file — not the event's.
+its own pane, `event trim`, or the file.
 
 An edge that only restates the material's own is **cleared rather than copied**: the
 placement then says nothing, which is what "no further restriction" should look like in a
