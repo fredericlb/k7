@@ -22,6 +22,7 @@
 #include <list>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Faust's two GUI statics, defined once per program — the same pair FaustPlugin.cpp carries, and
@@ -238,6 +239,60 @@ static void it_still_sounds_after_more_notes_than_there_are_voices()
     CHECK(last > first * 0.5f);
 }
 
+/** Sign changes in a block — a crude but honest stand-in for "how bright is this". */
+static int crossingsOf(const std::vector<std::vector<float>>& out, int n)
+{
+    int crossings = 0;
+    for (int i = 1; i < n; ++i)
+        if ((out[0][i - 1] < 0.0f) != (out[0][i] < 0.0f)) ++crossings;
+    return crossings;
+}
+
+static void velocity_changes_the_timbre_and_not_only_the_level()
+{
+    // Reported as "the sound isn't great", and this is what reading the port against STK turned
+    // up: `noteOn` scales all FOUR operator gains by the velocity, and a MODULATOR's gain is its
+    // modulation index. Scaling it removes harmonics; scaling only the output does not. The first
+    // version put the velocity once, at the output — so every note had an identical timbre and
+    // merely a different level, which on an electric piano is the whole character missing.
+    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
+    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+
+    const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
+    const char* argv[] = {"-I", libs.c_str()};
+    std::string error;
+    auto* factory = createInterpreterDSPFactoryFromString("vel", readAll(file), 2, argv, error);
+    CHECK(factory != nullptr);
+    if (factory == nullptr) return;
+
+    const int n = 1024;
+    const auto strike = [&](int velocity) {
+        auto* poly = new mydsp_poly(factory->createDSPInstance(), 4, true, true);
+        poly->init(48000);
+        std::vector<std::vector<float>> out((size_t)poly->getNumOutputs(),
+                                            std::vector<float>(n, 0.0f));
+        std::vector<float*> outp;
+        for (auto& c : out) outp.push_back(c.data());
+        poly->keyOn(1, 60, velocity);
+        poly->compute(n, nullptr, outp.data());
+        const auto r = std::pair<float, int>{peakOf(out, n), crossingsOf(out, n)};
+        delete poly;
+        return r;
+    };
+
+    const auto soft = strike(20);
+    const auto hard = strike(127);
+    std::printf("    velocity 20:  peak %.4f, %d crossings\n", soft.first, soft.second);
+    std::printf("    velocity 127: peak %.4f, %d crossings\n", hard.first, hard.second);
+
+    // Louder, obviously — and BRIGHTER, which is the half that was missing. Both directions
+    // asserted, because a change that only made it louder is exactly the bug being fixed.
+    CHECK(hard.first > soft.first * 2.0f);
+    CHECK(hard.second > soft.second);
+
+    deleteInterpreterDSPFactory(factory);
+}
+
 static void the_interpreter_is_fast_enough_to_put_in_series()
 {
     // The number the route was chosen without: an INTERPRETER runs slower than machine code, and
@@ -330,6 +385,7 @@ int main()
     RUN(every_shipped_dsp_compiles);
     RUN(an_instrument_sounds_when_a_note_is_played);
     RUN(it_still_sounds_after_more_notes_than_there_are_voices);
+    RUN(velocity_changes_the_timbre_and_not_only_the_level);
     RUN(the_interpreter_is_fast_enough_to_put_in_series);
     RUN(a_broken_program_is_refused_with_its_reason);
     RUN(the_faust_libraries_are_where_the_build_says);
