@@ -23,6 +23,7 @@ import { currentAlternative } from "./alternatives";
 import { chainsUsing, sharedRoots } from "./moduleFork";
 import { resolveModule } from "./moduleResolve";
 import type { OnsetEdits } from "./onsets";
+import { materialRefOf } from "./placementId";
 import { isTrack } from "./trackModule";
 import type { WarpMarker } from "./warpPoints";
 import {
@@ -350,6 +351,43 @@ export function setModuleAsset(
 // --- clip files ---------------------------------------------------------------
 
 /**
+ * A clip's own file — `clips/<material>.yaml` — from whichever of its two names you are holding.
+ *
+ * **Half the callers hold a PLACEMENT id.** A clip on a lane is `bass_2_0@16` (`placementId.ts`):
+ * the material, and where it plays. Everything in this section is a property of the MATERIAL —
+ * the stretch map, the onset corrections, the file itself — and is shared by every placement of
+ * it, so the `@16` has to come off before a path is built from the name.
+ *
+ * It did not, and the failure was the loud kind for once: `no clip "sy.chrpan2_…@106" in this
+ * project`, raised while placing a stretch point from the waveform. Every surface that draws a
+ * clip already holds the placement id, because that is what the compiler put on it and what
+ * `/waveform` is asked with — so the verbs `clip warp` and `clip onset …` were reachable only by
+ * typing a material name by hand.
+ *
+ * Fixed HERE and not in the callers, for the reason the file service fixed it at its own boundary
+ * (`waveformOps.ts`, `workspace.ts`, both with this same note): there is one rule, and the place
+ * that turns a name into a path is where it belongs. `materialRefOf` returns a bare material name
+ * unchanged, so a hand-typed one is untouched.
+ */
+function clipFileOf(dir: string, id: string): ReturnType<typeof entityFileFor> {
+  return entityFileFor(join(dir, "clips"), "clips", materialRefOf(id));
+}
+
+/**
+ * …and when there is none, say what was LOOKED FOR and not only what was asked.
+ *
+ * The old line named the id alone, which for a placement is the one string that is not the file's
+ * name — so the message pointed at `sy.chrpan2_…@106` while the thing missing was
+ * `clips/sy.chrpan2_….yaml`. Naming both is what turns "this is broken" into "that file is gone".
+ */
+function missingClip(id: string): string {
+  const ref = materialRefOf(id);
+  return ref === id
+    ? `no clip "${id}" in this project — clips/${id}.yaml does not exist`
+    : `no clip "${id}" in this project — clips/${ref}.yaml does not exist`;
+}
+
+/**
  * Write a clip's onset CORRECTIONS — the block that outlives a re-detection (see song/onsets.ts).
  *
  * Corrections that cancel out take the key away rather than writing `onsets: {}`: a clip nobody has corrected
@@ -361,8 +399,8 @@ export function setClipOnsets(
   ref: string,
   edits: OnsetEdits,
 ): string {
-  const file = entityFileFor(join(dir, "clips"), "clips", ref);
-  if (!file) throw new Error(`no clip "${ref}" in this project`);
+  const file = clipFileOf(dir, ref);
+  if (!file) throw new Error(missingClip(ref));
   const empty = !edits.added?.length && !edits.removed?.length;
   const before = readFileSync(file.path, "utf8");
   const after = setModuleValue(before, ["onsets"], empty ? null : edits);
@@ -419,14 +457,14 @@ export function setClipWarp(
 /** Where a clip's own file is. Exported so a caller can back it up BEFORE asking for a write —
  *  the undo journal wants the version that is about to be replaced, not the replacement. */
 export function clipFilePath(dir: string, ref: string): string {
-  const file = entityFileFor(join(dir, "clips"), "clips", ref);
-  if (!file) throw new Error(`no clip "${ref}" in this project`);
+  const file = clipFileOf(dir, ref);
+  if (!file) throw new Error(missingClip(ref));
   return file.path;
 }
 
 /** A clip's onset corrections as its file holds them — `{}` when it has none. */
 export function clipOnsets(dir: string, ref: string): OnsetEdits {
-  const file = entityFileFor(join(dir, "clips"), "clips", ref);
+  const file = clipFileOf(dir, ref);
   if (!file) return {};
   try {
     const raw = parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
