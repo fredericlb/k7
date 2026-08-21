@@ -2,6 +2,7 @@
 // resolveWorkspace, so `req.ws` is always a Workspace here. Every former store call
 // is now a method on that workspace; the command layer takes it explicitly.
 
+import { resolve, sep } from "node:path";
 import { validate, wrap } from "@frediverse/http/route";
 import {
   alternatives,
@@ -1157,8 +1158,35 @@ filesRouter.put(
       const r = await req.ws!.recordChange(`édition ${path}`, () =>
         req.ws!.write(path, content),
       );
-      // `.value` because a journalled mutation now answers with the tokens either side of it too
-      // — this route wants neither, the editor asks `/revision` like everything else.
+      /**
+       * A hand-edited source is a project change, and the ENGINE only ever hears about one when
+       * something pushes: a command through the host's `applyProject`, `/open` and a reconnect
+       * through `sendActiveProject`. A write did neither. So editing a clip's `from`/`to` in the
+       * editor moved the file, moved the revision and redrew every surface, while the engine went
+       * on playing the window it already had — until something restarted the link and its `open`
+       * re-sent the document. That is the whole of "I have to restart it for the change to land".
+       *
+       * TWO gates, because either alone is wrong. The token — `recordChange` brackets the
+       * mutation with the revision either side, and the route used to take `.value` and drop
+       * both — says the tree moved, but it moves for a playlist and a library module too, which
+       * are not this song. And the path alone would push for a `.wav` dropped beside the clips.
+       * Measured, not assumed: a write to `_playlists/` does move that token (writePushes.test.ts).
+       *
+       * `startEngineForActive` rather than `reloadActiveProject`: the latter drops the browser's
+       * document, which on a turntables surface is the live desk — a save during a set must not
+       * empty the decks (`useTurntableDeck.ts`). This one only flushes when the project CHANGES,
+       * which a save never does.
+       */
+      const active = req.ws!.activeProjectPath();
+      const abs = resolve(req.ws!.root, path);
+      if (
+        r.after !== r.before &&
+        active &&
+        (abs === active || abs.startsWith(active + sep))
+      )
+        startEngineForActive(req.ws!);
+      // `.value` because a journalled mutation answers with the tokens either side of it too —
+      // the editor asks `/revision` like everything else, so only the write's own answer goes back.
       res.json({ ok: true, ...r.value });
     } catch (e) {
       res.status(400).json({ error: (e as Error).message });
