@@ -61,6 +61,9 @@ const CARRIED = [
   // `withBaseOptions` turns the LIST into the dropdown's entries, and the renderer needs the
   // chosen name again to know which of those entries is the current one.
   "base",
+  // The module this node is a USE of. Carried rather than consumed: the header draws it as the
+  // card's name and keeps the node's own underneath, so both reach the renderer.
+  "uses",
 ] as const satisfies readonly (keyof WebChainStep)[];
 
 /** …and the optional flags, which the node wants definite rather than `undefined`. */
@@ -598,6 +601,22 @@ export const UI_HEADER = 38;
 export const HEADER_MAX_PX = 12.5; // .dgx-nm's size today, and the ceiling
 export const HEADER_MIN_PX = 7.5;
 const GLYPH_W = 0.55; // average advance per px of font size, for the header's face
+
+/**
+ * What a module ref is CALLED — `@st0/audio/modulation/chorus-ense` → `chorus-ense`.
+ *
+ * The last segment, because that is the module's own name and everything before it is where it
+ * is filed: a namespace, a type folder, a shelf. A card is as wide as its panel's grid, and
+ * spending that width on `@st0/audio/modulation/` — which every neighbour repeats — leaves no
+ * room for the word that tells them apart.
+ *
+ * The whole ref stays as the header's `title`, so the filing is one hover away.
+ */
+export function moduleDisplayName(ref: string): string {
+  const cut = ref.lastIndexOf("/");
+  const name = cut >= 0 ? ref.slice(cut + 1) : ref;
+  return name || ref;
+}
 
 export function headerFontPx(label: string, availableW: number): number {
   const n = Math.max(1, label.length);

@@ -60,6 +60,7 @@ import {
   type Jack,
   jackPoint,
   type LaidOutGraph,
+  moduleDisplayName,
   PORT_PLATE,
   rackBindSymbol,
   type TrackControlValues,
@@ -334,6 +335,19 @@ const CSS = `
    the name (headerFontPx). The ellipsis stays as the last resort: the fit is floored, so a name
    long enough still gets cut rather than shrunk into a smudge. */
 .dgx-nm { font-size:12.5px; font-weight:560; letter-spacing:-.005em; flex:1;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* TWO names, stacked: the MODULE this node uses on top, the node's own underneath.
+   They are different things and the card said only the second, so seventeen uses of one
+   mixer read as seventeen unrelated cards and what a node IS could only be learnt by
+   opening it.
+
+   Inside UI_HEADER (38px), which is shared with the layout and the hit areas — 7px of
+   padding either side leaves 24, so both line-heights are stated rather than inherited:
+   a header that grew would put every widget grid under its own card's chrome.
+   min-width:0 is what makes the ellipsis inside a flex row work at all. */
+.dgx-nms { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+.dgx-nms .dgx-nm { flex:none; line-height:14px; }
+.dgx-nodenm { font:9.5px ui-monospace,monospace; line-height:10px; color:var(--faint);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 /* The instrument glyph on a track node: its own centred line above the name, at both
    LODs. White rather than the track's colour — the colour is already the card's top
@@ -1991,6 +2005,16 @@ function NodeInner({
         : undefined;
   // Does this node draw a glyph? Decides whether the accent dot steps aside and the far card reserves height.
   const hasGlyph = n.kind === "track" || !!moduleGlyph(iconCategory, n.missing);
+  /**
+   * The name the card wears: the MODULE this node uses, or its own when there is no second name.
+   *
+   * A node and its module are two different things — `sy_jun-chorus` is one use of
+   * `@st0/audio/modulation/chorus-ense` — and the header used to say only the first. Seventeen
+   * uses of one mixer then read as seventeen unrelated cards, and what a node IS could only be
+   * learnt by opening it. The node's own name goes underneath, small, where it answers the
+   * second question: WHICH use is this.
+   */
+  const headName = n.uses ? moduleDisplayName(n.uses) : n.label;
   // The corner cluster, decided once: the buttons below, the header's padding and the width the
   // name is measured against all read this same list.
   const corners = cornerButtons(n, !!onNodeMenu);
@@ -2096,7 +2120,10 @@ function NodeInner({
 
   // Far LOD: widgets are unreadable at this zoom, so the whole card becomes the name, sized to fill it.
   if (far) {
-    const label = n.label || (n.kind === "sink" ? "OUT" : n.kind);
+    // The module here too, for the reason the header says it: at this zoom the card IS one word,
+    // and the useful one is what the node is rather than which copy of it. Two LODs answering
+    // differently would be two cards.
+    const label = headName || (n.kind === "sink" ? "OUT" : n.kind);
     return (
       <div
         className={`${cls}${onHeaderDrag ? " grab" : ""}`}
@@ -2209,17 +2236,24 @@ function NodeInner({
             What is left for it is the card less the header's padding, the leading glyph or dot,
             and the room a corner button takes out of the right — see headerFontPx. `title`
             stays: a name floored at the minimum can still be shorter than the truth. */}
-        <span
-          className={`dgx-nm${flagCls}`}
-          title={n.label}
-          style={{
-            fontSize: headerFontPx(
-              n.label,
-              headerNameW(n, hasGlyph, corners.length),
-            ),
-          }}
-        >
-          {n.label}
+        <span className="dgx-nms">
+          <span
+            className={`dgx-nm${flagCls}`}
+            // The whole ref, not just the word drawn: the filing a card cannot spare the width
+            // for — the namespace, the type folder — is one hover away rather than gone.
+            title={n.uses ? `${n.uses}\n${n.label}` : n.label}
+            style={{
+              fontSize: headerFontPx(
+                headName,
+                headerNameW(n, hasGlyph, corners.length),
+              ),
+            }}
+          >
+            {headName}
+          </span>
+          {/* Only when there are two names to tell apart. A module that names itself, and a
+              track, have one — and a second line repeating the first would be noise. */}
+          {n.uses && <span className="dgx-nodenm">{n.label}</span>}
         </span>
         {/* The flag moved to the content area (it explains the missing options down
             there); the header keeps only a real sub — the chains a module is shared

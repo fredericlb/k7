@@ -9,6 +9,7 @@ import {
   headerFontPx,
   jackPoint,
   layout,
+  moduleDisplayName,
   moduleRow,
   NODE_H,
   NODE_MIN_W,
@@ -1041,6 +1042,23 @@ describe("headerFontPx", () => {
 
   it("survives an empty label without dividing by zero", () => {
     expect(Number.isFinite(headerFontPx("", 84))).toBe(true);
+  });
+});
+
+describe("moduleDisplayName", () => {
+  // The header wears the module, so what it wears is the LAST segment: a card is one word wide
+  // and "@st0/audio/dynamics/comp-opto" would fit as "@st0/…" — the prefix, the useless half.
+  it("keeps the last segment of a namespaced reference", () => {
+    expect(moduleDisplayName("@st0/audio/dynamics/comp-opto")).toBe("comp-opto");
+  });
+
+  it("leaves a bare name alone", () => {
+    expect(moduleDisplayName("gain")).toBe("gain");
+  });
+
+  it("falls back to the whole reference rather than showing nothing", () => {
+    expect(moduleDisplayName("@st0/audio/")).toBe("@st0/audio/");
+    expect(moduleDisplayName("")).toBe("");
   });
 });
 

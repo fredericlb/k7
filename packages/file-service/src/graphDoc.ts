@@ -216,6 +216,11 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         });
         return {
           module: s.module,
+          // …and WHICH module it is a use of. Authored, so it survives the resolution above —
+          // the fold merges what the base declares INTO this module and leaves the ref saying
+          // where that came from. Absent on a module that names itself, which is the case the
+          // header reads as "there is only one name here".
+          ...(module?.extends ? { uses: String(module.extends) } : {}),
           // Everything below already reads `undefined` off a missing module; this flag is what lets the graph SAY so.
           missing: module ? undefined : true,
           // Only when there is more than one: a single flow input is what every node already

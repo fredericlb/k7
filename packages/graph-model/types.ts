@@ -86,6 +86,18 @@ export type WebModuleCategory = (typeof MODULE_CATEGORIES)[number];
 
 export interface WebChainStep {
   module: string; // a module node name
+  /**
+   * The module this node USES — its `extends` ref, as written (`@st0/audio/modulation/chorus`).
+   *
+   * A node and the module behind it are two different names, and the card used to draw only the
+   * first: seventeen nodes of one mixer read as seventeen unrelated things, and what a node IS
+   * could only be learnt by opening it. So the header says the MODULE, with the node's own name
+   * small underneath — see `moduleDisplayName`.
+   *
+   * Absent on a node that IS a module (a `modules/…/module.yaml` names itself) and on a track,
+   * which has no module at all. That absence is what the header reads as "one name here".
+   */
+  uses?: string;
   category?: WebModuleCategory; // its type folder — picks the node's icon
   // What this module EMITS. Absent for a module that emits nothing (a sink) or whose category is unknown.
   emits?: WebSignal;
