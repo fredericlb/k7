@@ -99,9 +99,26 @@ target_link_libraries(studio_engine PRIVATE
 # object library above).
 target_link_libraries(studio_engine PUBLIC studio_nam)
 
+# --- Faust, for FaustPlugin ---------------------------------------------------
+#
+# The static libfaust the top level fetched, plus its `architecture/` headers (that is where
+# `faust/dsp/interpreter-dsp.h` and `faust/gui/UI.h` live).
+#
+# `staticlib` is a TARGET, not a path, and that is load-bearing: the build presets pin
+# `targets: ["studio-moteur"]`, so nothing builds a library nobody depends on. Naming the file
+# instead — which is what this said first — links fine on a tree where it happens to exist and
+# fails with `LNK1104: cannot open libfaust.lib` on a fresh one, at the very last step of a long
+# build. The generic name is Faust's own (build/CMakeLists.txt); it is not ours to rename.
+target_include_directories(studio_engine PRIVATE "${STUDIO_FAUST_SRC}/architecture")
+target_link_libraries(studio_engine PRIVATE staticlib)
+target_compile_definitions(studio_engine PRIVATE
+    STUDIO_FAUST_LIBS_DEV="${STUDIO_FAUST_LIBS}")
+
 # DbgHelp backs the offline render's stack watchdog (see watchdogStack in OfflineRender.cpp).
+# ws2_32 is Faust's: libfaust embeds an HTTP source fetcher (sourcefetcher.obj), and without
+# Winsock the link fails on eight symbols that have nothing to do with anything we call.
 if (WIN32)
-    target_link_libraries(studio_engine PRIVATE dbghelp)
+    target_link_libraries(studio_engine PRIVATE dbghelp ws2_32)
 endif()
 
 # Headless JUCE build flags — only the engine compiles JUCE, so keep them PRIVATE.

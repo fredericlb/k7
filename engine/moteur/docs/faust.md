@@ -1,40 +1,56 @@
-# FaustPlugin — le moignon, et les trois façons de le remplir
+# FaustPlugin — le moteur compile le Faust d'un module
 
-`FaustPlugin` est le greffon intégré qu'un module `plugin: {type: faust}` charge. Il reçoit
-la source Faust du module sur la propriété `faust` de son `ValueTree`, **ne la compile pas**,
-déclare zéro paramètre et passe l'audio inchangé — en le disant une fois par instance sur le
-canal des avertissements.
+`FaustPlugin` est le greffon intégré qu'un module `plugin: {type: faust}` charge. Il reçoit la
+source sur la propriété `faust` de son `ValueTree`, **la compile** avec libfaust (backend
+interpréteur), déclare un paramètre par contrôle que le programme annonce, et la fait tourner.
 
-Le côté TypeScript est fini : voir `packages/song/docs/faustModules.md`. Cette page est ce
-qui reste, ici.
+Le côté TypeScript est décrit dans `packages/song/docs/faustModules.md`.
 
-## Pourquoi un moignon plutôt que rien
+## Le contrat structurel
 
-Parce que la couture est ce qui se vérifie en premier. Avec ce fichier, un module Faust se
-charge, se dessine dans le graphe avec la bonne couleur, s'édite dans le builder, atteint le
-document compilé et arrive dans une chaîne. Sans lui, tout ça était invisible et il aurait
-fallu choisir un compilateur avant de savoir si le reste tenait.
+**Les paramètres sont créés dans le constructeur.** Tracktion crée ses `AutomatableParameter`
+là et jamais après, et un programme Faust déclare les siens (`hslider`, `nentry`, `checkbox`).
+La compilation se fait donc dans le constructeur, pas paresseusement dans `prepare()`. C'est le
+même contrat que `GraphDspPlugin`, et c'est pour ça que `EditBuilder::addPlugin` fabrique ces
+deux greffons-là depuis un `ValueTree` plutôt que depuis un nom de type.
 
-Il avertit au lieu de se taire pour une raison précise : un module qui se dessine, répond sur
-ses paramètres et joue son entrée telle quelle est **indiscernable d'un module contourné**.
-C'est exactement la forme de bug que la porte du compilateur, côté TS, a déjà coûtée une fois.
+Trois décisions qui vont avec :
 
-## Le contrat que la vraie version devra tenir
+- **Les groupes Faust sont ignorés.** Un `hgroup`/`vgroup` imbrique le chemin complet d'un
+  contrôle. Le replier dans le nom du paramètre ferait dépendre ce nom de la façon dont
+  quelqu'un a groupé sa source, alors que `ui.yaml` est écrit à la main contre ces noms.
+- **Un `bargraph` n'est pas un paramètre** : c'est une sortie que le programme écrit pour un
+  vumètre. L'exposer laisserait un fader écrire là où seule la DSP doit.
+- **Le rendu n'est jamais en place.** Entrée et sortie sont deux tampons, alloués dans
+  `initialise` et jamais dans le rappel : un `.dsp` ne promet pas de ne pas relire une entrée
+  après avoir écrit une sortie.
 
-Un seul, et il est structurel : **les paramètres sont créés dans le constructeur**. Tracktion
-crée ses `AutomatableParameter` là et jamais après, et un programme Faust déclare les siens
-(`hslider`, `nentry`, `checkbox`). Donc la compilation se fait dans le constructeur, pas
-paresseusement dans `prepare()`. C'est le même contrat que `GraphDspPlugin`, et c'est pour ça
-que `EditBuilder::addPlugin` fabrique ces deux greffons-là depuis un `ValueTree` plutôt que
-depuis un nom de type.
+`takesAudioInput` et `producesAudioWhenNoAudioInput` sont répondus **d'après le programme
+compilé** (`getNumInputs`), ce qui distingue un effet d'un instrument sans que personne ait à
+le déclarer nulle part.
 
-Ce qui suit dans le constructeur est déjà écrit à côté et se recopie presque mot pour mot :
-la boucle de `GraphDspPlugin` qui transforme chaque `DspGraphParam` en `CachedValue` +
-`AutomatableParameter`, avec `DiscreteLabelledParameter` quand il y a des libellés.
+Et `applyToBuffer` pose un `juce::ScopedNoDenormals` : un filtre résonant en fin de queue est
+le générateur canonique de dénormaux, et le symptôme est un moteur qui ralentit d'autant plus
+qu'il joue longtemps.
 
-Et `applyToBuffer` doit poser un `juce::ScopedNoDenormals` : un filtre résonant en fin de
-queue est le générateur canonique de dénormaux, et le symptôme est un moteur qui ralentit
-d'autant plus qu'il joue longtemps.
+## Ce que ça coûte, mesuré
+
+| | |
+|---|---|
+| `studio-moteur.exe` avant | 36,0 Mo |
+| après | **42,1 Mo** |
+
+Six mégaoctets. C'est le prix du backend interpréteur ; celui de LLVM aurait été d'un autre
+ordre.
+
+## Deux pièges qui n'apparaissent pas chez celui qui écrit
+
+- **Lier la CIBLE `staticlib`, jamais le chemin du `.lib`.** Les presets épinglent
+  `targets: ["studio-moteur"]`, donc rien ne construit une bibliothèque dont personne ne
+  dépend. Nommer le fichier lie parfaitement sur un arbre où il existe déjà — et échoue avec
+  `LNK1104` sur un arbre neuf, au tout dernier pas d'une construction de vingt minutes.
+- **`ws2_32` est obligatoire** sur Windows : libfaust embarque un récupérateur HTTP de sources,
+  et sans Winsock le lien échoue sur huit symboles qui n'ont rien à voir avec ce qu'on appelle.
 
 ## La couture INSTRUMENT, qui est un second manque
 

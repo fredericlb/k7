@@ -61,6 +61,55 @@ FetchContent_Declare(eigen
     GIT_TAG        87300c93cae6a8afd9a4f8aa8d9d5c5324cf02e1
     SOURCE_SUBDIR  studio-does-not-build-this)
 
+# --- Faust : compile a module's `dsp.dsp` at runtime (engine) ------------------
+#
+# The INTERPRETER backend, not LLVM. It is already in libfaust's static library by default
+# (build/backends/interp.cmake), it needs no LLVM at all, and it costs ~4 MB in the linked
+# binary where LLVM would cost tens. Measured, with the three traps that came with it:
+# engine/moteur/docs/faust.md.
+#
+# The backend selection is normally made by preloading that file with cmake's `-C`, which
+# FetchContent cannot do — so the same variables are FORCEd here instead. They have to be set
+# BEFORE MakeAvailable, like every other flag that has to reach a fetched target.
+set(C_BACKEND      OFF              CACHE STRING "" FORCE)
+set(CPP_BACKEND    "STATIC DYNAMIC" CACHE STRING "" FORCE)
+set(CMAJOR_BACKEND OFF              CACHE STRING "" FORCE)
+set(CSHARP_BACKEND OFF              CACHE STRING "" FORCE)
+set(DLANG_BACKEND  OFF              CACHE STRING "" FORCE)
+set(FIR_BACKEND    OFF              CACHE STRING "" FORCE)
+set(INTERP_BACKEND OFF              CACHE STRING "" FORCE)
+set(INTERP_COMP_BACKEND "STATIC DYNAMIC" CACHE STRING "" FORCE)
+set(JAVA_BACKEND   OFF              CACHE STRING "" FORCE)
+set(JAX_BACKEND    OFF              CACHE STRING "" FORCE)
+set(JULIA_BACKEND  OFF              CACHE STRING "" FORCE)
+set(JSFX_BACKEND   OFF              CACHE STRING "" FORCE)
+set(LLVM_BACKEND   OFF              CACHE STRING "" FORCE)
+set(OLDCPP_BACKEND OFF              CACHE STRING "" FORCE)
+set(RUST_BACKEND   OFF              CACHE STRING "" FORCE)
+set(TEMPLATE_BACKEND OFF            CACHE STRING "" FORCE)
+set(WASM_BACKEND   OFF              CACHE STRING "" FORCE)
+# The static library and nothing else: no `faust` command-line compiler, no OSC or HTTP
+# servers (the latter wants libmicrohttpd), no emscripten targets.
+set(INCLUDE_STATIC     ON  CACHE BOOL "" FORCE)
+set(INCLUDE_DYNAMIC    OFF CACHE BOOL "" FORCE)
+set(INCLUDE_EXECUTABLE OFF CACHE BOOL "" FORCE)
+set(INCLUDE_OSC        OFF CACHE BOOL "" FORCE)
+set(INCLUDE_HTTP       OFF CACHE BOOL "" FORCE)
+set(INCLUDE_EMCC       OFF CACHE BOOL "" FORCE)
+set(INCLUDE_WASM_GLUE  OFF CACHE BOOL "" FORCE)
+
+# `libraries/` is a SUBMODULE (grame-cncm/faustlibraries) and it is not optional: it is where
+# `import("stdfaust.lib")` resolves. Without it the build succeeds and every module fails to
+# compile at RUNTIME, which is the worst place to find out. Named explicitly rather than
+# recursing, because the other eight submodules are oboe, clap and friends — hundreds of MB
+# for architectures we do not build.
+FetchContent_Declare(faust
+    GIT_REPOSITORY https://github.com/grame-cncm/faust.git
+    GIT_TAG        2.85.9
+    GIT_SUBMODULES "libraries"
+    GIT_SHALLOW    ON
+    SOURCE_SUBDIR  build)
+
 # --- IXWebSocket : the WebSocket server transport (server) --------------------
 FetchContent_Declare(ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
@@ -179,7 +228,15 @@ if(WIN32)
     add_compile_definitions(JUCE_ASIO=1)
 endif()
 
-FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen)
+FetchContent_MakeAvailable(nlohmann_json ixwebsocket tracktion_engine nam_core eigen faust)
+
+# Where engine/CMakeLists.txt finds the headers and the standard libraries. The LIBRARY itself
+# is linked as the `staticlib` TARGET rather than by path — see the note there.
+#
+# The second is a RUNTIME path, not a build one: `import("stdfaust.lib")` is resolved when a
+# module is compiled, which happens while the engine runs. See FaustPlugin::faustLibrariesDir.
+set(STUDIO_FAUST_SRC "${faust_SOURCE_DIR}" CACHE INTERNAL "Faust source")
+set(STUDIO_FAUST_LIBS "${faust_SOURCE_DIR}/libraries" CACHE INTERNAL "Faust standard libraries")
 
 # Where engine/CMakeLists.txt picks the NAM sources and Eigen's headers up from.
 set(STUDIO_NAM_DIR "${nam_core_SOURCE_DIR}" CACHE INTERNAL "NeuralAmpModelerCore source")

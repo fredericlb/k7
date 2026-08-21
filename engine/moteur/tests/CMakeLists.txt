@@ -63,3 +63,22 @@ target_compile_definitions(studio_dspgraph_tests PRIVATE
     JUCE_WEB_BROWSER=0
     DONT_SET_USING_JUCE_NAMESPACE=1)
 add_test(NAME studio_dspgraph_tests COMMAND studio_dspgraph_tests)
+
+# --- Faust tests --------------------------------------------------------------
+# Compiles every `.dsp` this repo ships with the engine's own libfaust. JUCE-FREE, unlike the two
+# above: it links libfaust and nothing else, so it keeps the "builds in seconds, no audio device"
+# property — and it is the test that was missing when a module reached somebody's library without
+# ever having compiled. Both paths are baked in because the sources and the Faust libraries live
+# outside this tree.
+add_executable(studio_faust_tests Faust_test.cpp)
+target_link_libraries(studio_faust_tests PRIVATE staticlib)
+target_include_directories(studio_faust_tests PRIVATE
+    "${STUDIO_FAUST_SRC}/architecture"
+    ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+target_compile_definitions(studio_faust_tests PRIVATE
+    STUDIO_FAUST_LIBS="${STUDIO_FAUST_LIBS}"
+    STUDIO_DSP_MODULES="${CMAKE_CURRENT_SOURCE_DIR}/../../../packages/dsp/modules")
+if (WIN32)
+    target_link_libraries(studio_faust_tests PRIVATE ws2_32)
+endif()
+add_test(NAME studio_faust_tests COMMAND studio_faust_tests)
