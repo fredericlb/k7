@@ -3270,17 +3270,26 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     // a space. It could not be addressed at all before — `\S+` stopped at the space and the whole
     // line failed to match — which the graph's own fader now walks into, since it names the mixer
     // node it found rather than a name someone typed.
-    const m = /^("[^"]*"|\S+)\s+(.+?)\s+(\S+)$/.exec(a.trim());
+    // The VALUE may be quoted too, and that is not symmetry for its own sake. It was `(\S+)$` —
+    // a value could never contain a space, whatever the caller did — and a file-valued param
+    // routinely names one: `nam "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright Off.nam"`.
+    // The lazy `(.+?)` for the param then swallowed the whole path and left the LAST token as
+    // the value, so picking an amp refused with `"101.nam"" is not a number` — a message naming
+    // the tail of the file it had just cut in half, which points nowhere near the cause.
+    const m = /^("[^"]*"|\S+)\s+("[^"]*"|.+?)\s+("[^"]*"|\S+)$/.exec(a.trim());
     if (!m) {
       h.refuse([
         'usage: node param <node> <param> <value>  (e.g. node param synth "Filter Freq" 69)',
       ]);
       return;
     }
-    const [, rawModule, rawParam, rawValue] = m;
+    const [, rawModule, rawParam, quotedValue] = m;
     const unquote = (s: string) => s.replace(/^"(.*)"$/s, "$1").trim();
     const module = unquote(rawModule);
     const param = unquote(rawParam);
+    // Unquoted for EVERY branch below, not just the file one: `Number('"5"')` is NaN, so a
+    // caller that quoted a number would have been refused for quoting it.
+    const rawValue = unquote(quotedValue);
     // An INTRINSIC: `@channel`, `@monitor`, `@gain` — the module's own field rather than a
     // plugin's parameter. Same verb because it is the same act from the outside (set this
     // control on this module), and the `@` is the whole of the difference: a plugin param is
