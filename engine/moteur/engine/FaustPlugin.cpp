@@ -234,10 +234,10 @@ void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
     const auto n = static_cast<size_t>(juce::jmax(info.blockSizeSamples, 1));
     in_.assign(static_cast<size_t>(juce::jmax(numIn_, 1)), std::vector<float>(n, 0.0f));
     out_.assign(static_cast<size_t>(juce::jmax(numOut_, 1)), std::vector<float>(n, 0.0f));
-    inPtr_.clear();
-    outPtr_.clear();
-    for (auto& c : in_) inPtr_.push_back(c.data());
-    for (auto& c : out_) outPtr_.push_back(c.data());
+    // The per-SEGMENT pointer arrays, sized here so the note-accurate walk in renderWithNotes
+    // allocates nothing on the audio thread.
+    segIn_.assign(in_.size(), nullptr);
+    segOut_.assign(out_.size(), nullptr);
 }
 
 void FaustPlugin::deinitialise() {}
@@ -247,6 +247,67 @@ void FaustPlugin::reset()
     if (run_ != nullptr) run_->instanceClear();
 }
 
+/**
+ * Render one block, cutting it at every note so each one starts on ITS sample.
+ *
+ * The naive version applied every message at the block's start. At 5 ms that is inaudible on a
+ * keyboard part and plainly wrong on a programmed roll: two hits 2 ms apart land together, and a
+ * pattern quantised to 32nds at speed loses its swing to the block grid.
+ *
+ * So the block is walked in segments — apply what is due, compute up to the next event, repeat.
+ * Faust's `compute` takes any length, so a segment is just a shorter call.
+ *
+ * NO ALLOCATION: the per-segment pointer arrays are sized in `initialise`, and the walk consumes
+ * the message list in order rather than sorting a copy of it. Tracktion hands them in time order.
+ */
+void FaustPlugin::renderWithNotes(const te::PluginRenderContext& ctx, int n)
+{
+    auto segment = [&](int from, int len) {
+        if (len <= 0) return;
+        for (int c = 0; c < numIn_; ++c) segIn_[(size_t)c] = in_[(size_t)c].data() + from;
+        for (int c = 0; c < numOut_; ++c) segOut_[(size_t)c] = out_[(size_t)c].data() + from;
+        run_->compute(len, numIn_ > 0 ? segIn_.data() : nullptr, segOut_.data());
+    };
+
+    if (poly_ == nullptr || ctx.bufferForMidiMessages == nullptr) {
+        segment(0, n);
+        return;
+    }
+
+    const double rate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    // A message's timestamp is absolute; `midiBufferOffset` is where this block starts on that
+    // same clock. The inverse of what ExternalPlugin does on the way OUT — see its line that
+    // builds `midiBufferOffset + samplePosition / sampleRate`.
+    const auto offsetOf = [&](const juce::MidiMessage& m) {
+        const double secs = m.getTimeStamp() - ctx.midiBufferOffset;
+        return juce::jlimit(0, n, static_cast<int>(secs * rate));
+    };
+
+    int done = 0;
+    auto it = ctx.bufferForMidiMessages->begin();
+    const auto end = ctx.bufferForMidiMessages->end();
+    while (done < n) {
+        int next = n;
+        while (it != end) {
+            const int at = offsetOf(*it);
+            if (at > done) {
+                next = juce::jmin(n, at);
+                break;
+            }
+            const auto& m = *it;
+            if (m.isNoteOn())
+                poly_->keyOn(m.getChannel(), m.getNoteNumber(), m.getVelocity());
+            else if (m.isNoteOff())
+                poly_->keyOff(m.getChannel(), m.getNoteNumber(), m.getVelocity());
+            else if (m.isAllNotesOff() || m.isAllSoundOff())
+                poly_->allNotesOff(true);
+            ++it;
+        }
+        segment(done, next - done);
+        done = next;
+    }
+}
+
 void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 {
     // A resonant filter's tail is the canonical denormal generator, and the symptom is an engine
@@ -254,23 +315,6 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     const juce::ScopedNoDenormals noDenormals;
     if (ctx.destBuffer == nullptr || run_ == nullptr) return;
 
-    // The notes, BEFORE the block they belong to. Tracktion hands the plugin the messages for
-    // this block; Faust's allocator takes a note at a time and picks the voice, which is the one
-    // piece of polyphony we do not have to write.
-    //
-    // Sample-accurate placement inside the block is NOT done: every note in a block lands at its
-    // start. At 5 ms that is under the threshold for a keyboard part and audible on a programmed
-    // drum roll — the honest limit of this pass, and where to look first if timing feels loose.
-    if (poly_ != nullptr && ctx.bufferForMidiMessages != nullptr) {
-        for (auto& m : *ctx.bufferForMidiMessages) {
-            if (m.isNoteOn())
-                poly_->keyOn(m.getChannel(), m.getNoteNumber(), m.getVelocity());
-            else if (m.isNoteOff())
-                poly_->keyOff(m.getChannel(), m.getNoteNumber(), m.getVelocity());
-            else if (m.isAllNotesOff() || m.isAllSoundOff())
-                poly_->allNotesOff(true);
-        }
-    }
 
     const int n = ctx.bufferNumSamples;
     const int start = ctx.bufferStartSample;
@@ -290,7 +334,7 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
             std::fill_n(dst.data(), n, 0.0f);
     }
 
-    run_->compute(n, numIn_ > 0 ? inPtr_.data() : nullptr, outPtr_.data());
+    renderWithNotes(ctx, n);
 
     for (int c = 0; c < chans; ++c) {
         // A mono program feeding a stereo buffer sends its one output to both sides; anything

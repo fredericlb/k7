@@ -15,6 +15,7 @@
 
 #include "test_harness.h"
 
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -191,6 +192,71 @@ static void an_instrument_sounds_when_a_note_is_played()
     deleteInterpreterDSPFactory(factory);
 }
 
+static void the_interpreter_is_fast_enough_to_put_in_series()
+{
+    // The number the route was chosen without: an INTERPRETER runs slower than machine code, and
+    // "slower" only means something against a block budget. So this measures what a strip really
+    // costs — several instances of the same effect in series, the way a chain stacks them.
+    //
+    // The budget is the engine's own: 256 frames at 48 kHz is 5,33 ms of wall clock to produce
+    // 5,33 ms of audio. Anything above 100% of that is an underrun.
+    const auto file = catalogueDir() / "audio" / "filter" / "moogladder" / "dsp.dsp";
+    CHECK(fs::is_regular_file(file));
+    if (!fs::is_regular_file(file)) return;
+
+    const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
+    const char* argv[] = {"-I", libs.c_str()};
+    std::string error;
+    auto* factory = createInterpreterDSPFactoryFromString("bench", readAll(file), 2, argv, error);
+    CHECK(factory != nullptr);
+    if (factory == nullptr) return;
+
+    constexpr int STAGES = 8;      // a fat strip: eight of the same filter, one after another
+    constexpr int BLOCK = 256;     // the engine's block
+    constexpr double RATE = 48000.0;
+    constexpr int BLOCKS = 2000;   // ~10,7 s of audio, enough that the clock is not the noise
+
+    std::vector<::dsp*> chain;
+    for (int i = 0; i < STAGES; ++i) {
+        auto* d = factory->createDSPInstance();
+        d->init(static_cast<int>(RATE));
+        chain.push_back(d);
+    }
+
+    std::vector<std::vector<float>> buf(2, std::vector<float>(BLOCK, 0.0f));
+    std::vector<std::vector<float>> tmp(2, std::vector<float>(BLOCK, 0.0f));
+    std::vector<float*> in{buf[0].data(), buf[1].data()};
+    std::vector<float*> out{tmp[0].data(), tmp[1].data()};
+    // Something to chew on: silence would let a denormal-flushing CPU cheat the measurement.
+    for (int i = 0; i < BLOCK; ++i) {
+        buf[0][i] = 0.25f * std::sin(0.05f * static_cast<float>(i));
+        buf[1][i] = buf[0][i];
+    }
+
+    const auto t0 = std::chrono::steady_clock::now();
+    for (int b = 0; b < BLOCKS; ++b)
+        for (auto* d : chain) {
+            d->compute(BLOCK, in.data(), out.data());
+            std::swap(in, out);
+        }
+    const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+
+    const double audio = BLOCKS * BLOCK / RATE;
+    const double load = elapsed / audio * 100.0;
+    std::printf("    %d moogladder in series: %.1f%% of the block budget (%.2f ms per %d-frame block)\n",
+                STAGES, load, elapsed / BLOCKS * 1000.0, BLOCK);
+    std::printf("    -> one instance costs about %.2f%%\n", load / STAGES);
+
+    // A generous ceiling, on purpose: this runs on whatever machine happens to build, beside a
+    // compiler and a dev server. It is here to catch an ORDER of magnitude — an interpreter that
+    // turned out to cost 30% per instance would make the route wrong, and that is the finding
+    // this guards. It is not a performance target.
+    CHECK(load < 50.0);
+
+    for (auto* d : chain) delete d;
+    deleteInterpreterDSPFactory(factory);
+}
+
 static void a_broken_program_is_refused_with_its_reason()
 {
     // The other half: a failure has to come back with Faust's own message, because that message
@@ -217,6 +283,7 @@ int main()
 {
     RUN(every_shipped_dsp_compiles);
     RUN(an_instrument_sounds_when_a_note_is_played);
+    RUN(the_interpreter_is_fast_enough_to_put_in_series);
     RUN(a_broken_program_is_refused_with_its_reason);
     RUN(the_faust_libraries_are_where_the_build_says);
     TEST_MAIN_END();

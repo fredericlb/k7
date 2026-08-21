@@ -29,6 +29,21 @@ Trois décisions qui vont avec :
 compilé** (`getNumInputs`), ce qui distingue un effet d'un instrument sans que personne ait à
 le déclarer nulle part.
 
+## Les notes tombent sur LEUR échantillon
+
+`renderWithNotes` découpe le bloc à chaque message : appliquer ce qui est dû, calculer jusqu'au
+prochain événement, recommencer. Faust accepte n'importe quelle longueur, donc un segment n'est
+qu'un `compute` plus court.
+
+La première version posait tout au début du bloc. À 5 ms c'est inaudible sur un jeu de clavier
+et faux sur un roulement programmé : deux frappes à 2 ms d'écart tombent ensemble, et un motif
+en triples croches perd son placement au profit de la grille des blocs.
+
+L'horodatage d'un message est absolu ; `midiBufferOffset` dit où ce bloc commence sur la même
+horloge. L'inverse exact de ce que fait `ExternalPlugin` en SORTIE. Rien n'alloue dans le
+rappel : les tableaux de pointeurs par segment sont dimensionnés dans `initialise`, et la
+marche consomme la liste dans l'ordre plutôt que d'en trier une copie.
+
 Et `applyToBuffer` pose un `juce::ScopedNoDenormals` : un filtre résonant en fin de queue est
 le générateur canonique de dénormaux, et le symptôme est un moteur qui ralentit d'autant plus
 qu'il joue longtemps.
@@ -121,9 +136,22 @@ Trois pièges, tous rencontrés :
   `createInterpreterDSPFactoryFromString(name, source, argc, argv, error)`. La documentation en
   ligne décrit la variante LLVM ; c'est l'en-tête qui fait foi.
 
-Reste le prix vrai de cette route : un interpréteur, donc plus lent que du code machine. Pas
-mesuré ici — c'est la prochaine chose à faire, et le seuil qui compte est ce qu'on met en série
-dans une tranche, pas un module isolé.
+### Et sa vitesse, mesurée en SÉRIE
+
+Un module isolé ne dit rien : ce qui compte est ce qu'une tranche empile. `studio_faust_tests`
+enchaîne huit `moogladder` l'un derrière l'autre, sur des blocs de 256 à 48 kHz — le budget du
+moteur, 5,33 ms de calcul pour 5,33 ms d'audio :
+
+```
+8 moogladder in series: 19.9% of the block budget (1.06 ms per 256-frame block)
+-> one instance costs about 2.49%
+```
+
+Environ **2,5 % du budget par instance**. Un interpréteur reste plus lent que du code machine,
+et ça se voit ; ce que ça dit, c'est qu'on peut en mettre une dizaine dans une chaîne sans y
+penser, ce qui est l'usage. Le plafond du test est volontairement large (50 %) : il est là pour
+attraper un ORDRE de grandeur — un interpréteur à 30 % l'instance rendrait la route fausse — et
+pas pour servir d'objectif de performance sur une machine qui construit en même temps.
 
 ### `faust -lang cpp` à la compilation du moteur
 

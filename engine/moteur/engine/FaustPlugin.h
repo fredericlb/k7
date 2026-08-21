@@ -71,6 +71,9 @@ public:
     void restorePluginStateFromValueTree(const juce::ValueTree&) override;
 
 private:
+    /** Render `n` frames, cut at every note so each starts on its own sample. See the .cpp. */
+    void renderWithNotes(const tracktion::engine::PluginRenderContext&, int n);
+
     std::string source_;
     interpreter_dsp_factory* factory_ = nullptr;
     interpreter_dsp* dsp_ = nullptr;
@@ -93,7 +96,9 @@ private:
     // free to read an input after writing an output. So the block is rendered into these and
     // copied back. Sized at prepare, never in the callback.
     std::vector<std::vector<float>> in_, out_;
-    std::vector<float*> inPtr_, outPtr_;
+    // One pointer per channel INTO those, re-aimed per segment by renderWithNotes. Sized at
+    // prepare so cutting a block at its notes allocates nothing in the callback.
+    std::vector<float*> segIn_, segOut_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FaustPlugin)
 };
