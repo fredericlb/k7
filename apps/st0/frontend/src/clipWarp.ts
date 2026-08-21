@@ -47,43 +47,10 @@ export function toClipBeat(displaySec: number, tempo: number): number {
  * exists — `setWarpPoint` matches on it — so it has to round-trip, while the beat is only ever a
  * destination.
  */
-/**
- * The stretch point under `displaySec`, within `withinPx` of it — or null.
- *
- * There WAS one of these, removed two commits ago because the drag ended up on DOM handles and
- * nothing called it. It is back because a DOUBLE-CLICK has to decide between two acts on one
- * gesture — place a point, or drop the one you double-clicked — and only a hit test can tell them
- * apart. Written down rather than quietly restored: a function that comes back is worth as much
- * of a note as one that goes.
- *
- * By `orig`, which is where the point is DRAWN. Now that the picture is warped that is also where
- * it lands, so the two readings have stopped disagreeing — but `orig` stays the one asked for,
- * because it is the position a hand is pointing at whatever the picture is doing.
- *
- * In PIXELS rather than seconds, so the grab zone is the same size at every zoom.
- */
-export function warpAt<T extends { orig: number }>(
-  marks: readonly T[],
-  displaySec: number,
-  pxPerSec: number,
-  withinPx = 8,
-): T | null {
-  let best: T | null = null;
-  let bestPx = withinPx;
-  for (const m of marks) {
-    const px = Math.abs(m.orig - displaySec) * pxPerSec;
-    if (px <= bestPx) {
-      best = m;
-      bestPx = px;
-    }
-  }
-  return best;
-}
-
-/** Drop the point that pins `src`. One verb per act: placing and removing are not one gesture. */
-export function warpRemoveLine(clip: string, src: number): string {
-  return `clip warp remove ${clip} ${src.toFixed(4)}`;
-}
+// A `warpAt` hit test lived here twice — once for a drag that went to DOM handles instead, once
+// for a double-click that removed a point. Removing moved to the RIGHT-CLICK menu, where the
+// pointer is already on the handle and there is nothing to search for. Twice written, twice
+// unneeded: what kept asking for it was a gesture looking for the wrong owner.
 
 export function warpLine(
   clip: string,

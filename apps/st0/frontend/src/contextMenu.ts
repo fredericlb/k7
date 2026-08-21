@@ -50,7 +50,15 @@ export type MenuCtx =
   // pointer snapped to the ruler's drawn grid (the timeline resolves it).
   | { kind: "marker-add"; tc: string }
   // Right-click on an existing marker — offer to delete it by name.
-  | { kind: "marker"; name: string };
+  | { kind: "marker"; name: string }
+  /**
+   * Right-click on a STRETCH POINT in the clip editor's warp view.
+   *
+   * `src` is the FILE second the point pins, already spelled — the one thing `clip warp remove`
+   * addresses one by, and a string for the reason `tc` is: the rounding is the caller's, since it
+   * is the caller that drew the point and has to be able to name the same one twice.
+   */
+  | { kind: "warp-point"; clip: string; src: string };
 
 // A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is still owed.
 // `help` overrides the catalogue's line — only the shell's OWN commands need it, having none there.
@@ -186,6 +194,9 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   sink: "",
   "marker-add": "project",
   marker: "project",
+  // "clip": the row reads "warp remove", which is what the point under the pointer IS about. The
+  // clip is named by the picture you are looking at, not by the row.
+  "warp-point": "clip",
 };
 
 const shortName = (name: string, head: string): string =>
@@ -441,5 +452,18 @@ export function contextMenu(
       // Through `offer` like every other case: going straight to `build` skipped the prefs, so a
       // verb somebody had taken off the right-click came back on this one menu out of nine.
       return offer(from([{ provider: "markerNames", value: ctx.name }]));
+    case "warp-point":
+      /**
+       * Written out rather than derived, for the reason a take's two verbs are: `<clip> <number>`
+       * is a shape the catalogue would match against anything taking those two, and what this
+       * menu is about is the one point under the pointer.
+       *
+       * One entry, and `clip warp` is deliberately NOT beside it: placing and moving are the
+       * gestures — a double-click and a drag — and offering them here would be a second way to do
+       * what your hand is already on, worded as a command that then asks for a beat.
+       */
+      return offer([
+        { verb: "clip warp remove", arg: `${ctx.clip} ${ctx.src}` },
+      ]);
   }
 }

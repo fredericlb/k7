@@ -28,7 +28,8 @@ import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipPlayhead } from "../clipPlayhead";
-import { warpAt, warpLine, warpRemoveLine } from "../clipWarp";
+import { warpLine } from "../clipWarp";
+import type { MenuCtx } from "../contextMenu";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -102,6 +103,7 @@ export function AudioClipPanel({
   onPlay,
   onSeek,
   command,
+  onContextMenu,
   onStop,
   onClose,
 }: {
@@ -166,6 +168,15 @@ export function AudioClipPanel({
   onSeek?: (seconds: number) => void;
   /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
   command: (line: string) => void | Promise<void>;
+  /**
+   * Open the shell's right-click menu. Absent ⇒ the browser's own, which is what a host with no
+   * command catalogue to derive from should get.
+   *
+   * The shell's and not one of this panel's own, so an entry here is the same kind of thing as an
+   * entry on a clip in the timeline: a command line, named in the language being read, hidden if
+   * somebody has taken that verb off the right-click, undone with the same Ctrl+Z.
+   */
+  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   /** Stop the take. Absent when there is no take to stop — a clip opened from the timeline. */
   onStop?: () => void;
   onClose: () => void;
@@ -612,9 +623,9 @@ export function AudioClipPanel({
             )}
             {editingWarp && (
               <span className="text-muted-foreground/70">
-                double-clic pose un point d'étirement — ou l'enlève, sur un
-                point existant · glisser sa poignée bleue dit sur quel temps il
-                tombe · les traits gris sont les onsets, en repère
+                double-clic pose un point d'étirement · glisser sa poignée bleue
+                dit sur quel temps il tombe · clic droit dessus pour l'enlever ·
+                les traits gris sont les onsets, en repère
               </span>
             )}
             {/* What is on screen, and the two ways out of it: the whole FILE, and back to the
@@ -1051,18 +1062,41 @@ export function AudioClipPanel({
                  */
                 onWarpAdd={
                   editingWarp && clip
-                    ? (sec, pxPerSec) => {
-                        // On a point already there, the double-click DROPS it — one gesture, two
-                        // acts, told apart by what is under the pointer. Addressed by the file
-                        // second the mark carries (`src`), not by inverting the picture: the
-                        // mapping is piecewise now, and the point can already say what it pins.
-                        const hit = warpAt(wf.warpMarks, sec, pxPerSec);
+                    ? (sec) =>
                         void run(
-                          hit
-                            ? warpRemoveLine(clip, hit.src)
-                            : warpLine(clip, sec, sec, wf.sourceMap, tempo),
+                          warpLine(clip, sec, sec, wf.sourceMap, tempo),
                           "warp",
+                        )
+                    : undefined
+                }
+                /**
+                 * …and a RIGHT-CLICK on a point is where removing it lives.
+                 *
+                 * Through the shell's own menu, derived from the command catalogue like every
+                 * other right-click here (`contextMenu.ts`) — so the entry carries the verb's
+                 * name in the language being read, obeys "not on the right-click" if somebody has
+                 * taken it off, and lands in the undo journal as the command it is.
+                 *
+                 * Addressed by the FILE second the mark carries, not by inverting the picture:
+                 * the mapping is piecewise, and a point that can already say what it pins should
+                 * be asked rather than reverse-engineered.
+                 */
+                onWarpMenu={
+                  editingWarp && clip && onContextMenu
+                    ? (mark, x, y) => {
+                        const hit = wf.warpMarks.find(
+                          (m) => Math.abs(m.orig - mark.orig) < 1e-9,
                         );
+                        if (hit)
+                          onContextMenu(
+                            {
+                              kind: "warp-point",
+                              clip,
+                              src: hit.src.toFixed(4),
+                            },
+                            x,
+                            y,
+                          );
                       }
                     : undefined
                 }

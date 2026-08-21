@@ -3584,6 +3584,8 @@ export default function App({
                     // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are
                     // command lines like everything else here.
                     command={runCommand}
+                    // …and its stretch points get the same right-click every other entity has.
+                    onContextMenu={openContextMenu}
                     // The roll's velocity drag, committed the way the timeline's clip drag is: one
                     // command on release, and the reload it ends in brings the new value back.
                     onSetVelocity={(seqId, key, start, vel) =>
@@ -3655,6 +3657,7 @@ export default function App({
                     trackOrder={trackOrder}
                     trackNames={recInfo.names}
                     command={runCommand}
+                    onContextMenu={openContextMenu}
                     onStop={() => void runCommand("transport stop")}
                     onClose={() => {
                       setReviewOn(null);

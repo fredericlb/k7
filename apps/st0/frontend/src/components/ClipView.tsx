@@ -12,6 +12,7 @@ import { beatsToPosition } from "@studio/song/timecode";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { type RefObject, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import type { MenuCtx } from "../contextMenu";
 import type { ClipGridHandle, OnGridSelection } from "../gridCaret";
 import { fileStem } from "../projectPaths";
 import { rackFor } from "../rackFor";
@@ -156,6 +157,7 @@ export function ClipView({
   reloadKey = 0,
   onSeek,
   command,
+  onContextMenu,
   onChanged,
   setStatus,
   caretRef,
@@ -195,6 +197,8 @@ export function ClipView({
    *  onsets, trim and normalise go through. A note edit takes the callbacks below instead, because
    *  those existed first and the roll builds its own lines. */
   command: (line: string) => void | Promise<void>;
+  /** The shell's right-click menu, for the waveform's stretch points. Absent ⇒ the browser's own. */
+  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
   onCreateNote?: (seqId: string, key: number, t0: number, t1: number) => void;
   // Set one note's velocity: (seqId, key, startBeat, 0..1). Runs `sequence note velocity`.
@@ -447,6 +451,7 @@ export function ClipView({
         // clicking it was the one that could not act on it.
         clip && (
           <AudioClipPanel
+            onContextMenu={onContextMenu}
             clip={clip.id}
             track={trackPlacing(project ?? target.project, clip.id)}
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.

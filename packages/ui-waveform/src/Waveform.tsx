@@ -56,18 +56,26 @@ interface Props {
    */
   warps?: { orig: number; target: number }[];
   /**
-   * A double-click in the picture: place a stretch point here, or drop the one already here.
+   * Place a stretch point at this second. Absent ⇒ a double-click means nothing, as it did.
    *
    * A DOUBLE-click, because a single one already seeks and selects and a view cannot quietly take
-   * that away — the wave is still a wave in warp mode. The host gets a region second, the pixels
-   * per second it was measured against, and owns both decisions: this canvas has no idea what a
-   * beat is, and no opinion on how near is near enough to mean "that one".
-   *
-   * `pxPerSec` because the grab zone is the host's rule but the ZOOM is this component's — it
-   * carries the view and the measured width, and a caller recomputing either would be holding a
-   * second copy of the mapping this file spends its comments warning about.
+   * that away — the wave is still a wave in warp mode. The host gets a region second and owns the
+   * units: this canvas has no idea what a beat is.
    */
-  onWarpAdd?: (atSec: number, pxPerSec: number) => void;
+  onWarpAdd?: (atSec: number) => void;
+  /**
+   * Right-click on a stretch point. Absent ⇒ the browser's own menu, as everywhere else here.
+   *
+   * On the POINT and not on the picture, which is what makes it a different question from the
+   * double-click above: one asks "put one here", this one asks "about that one". The mark is
+   * handed back whole so the host can name it however its verbs do — this component knows it as
+   * two display seconds and has no idea which of them anything is filed under.
+   */
+  onWarpMenu?: (
+    mark: { orig: number; target: number },
+    x: number,
+    y: number,
+  ) => void;
   /**
    * Drag a stretch point's TARGET — where the moment it holds should land. Absent ⇒ the marks are
    * drawn and cannot be touched, which is what they were.
@@ -311,6 +319,7 @@ function WaveformInner({
   warps = NO_WARPS,
   onWarpAdd,
   onWarpMove,
+  onWarpMenu,
   onsets = NO_ONSETS,
   sourceWindow = null,
   gridLines = NO_GRID,
@@ -935,13 +944,7 @@ function WaveformInner({
          * which is the one place that says nothing.
          */
         onDoubleClick={
-          onWarpAdd
-            ? (e) =>
-                onWarpAdd(
-                  xToTime(localX(e.clientX)),
-                  span > 0 ? width / span : 0,
-                )
-            : undefined
+          onWarpAdd ? (e) => onWarpAdd(xToTime(localX(e.clientX))) : undefined
         }
         onPointerCancel={() => {
           drag.current = null;
@@ -1026,8 +1029,23 @@ function WaveformInner({
                 left: Math.max(0, Math.min(width, timeToX(at))),
                 height: HEIGHT,
               }}
-              title={`Drag to move where ${w.orig.toFixed(3)}s lands (${at.toFixed(3)}s)`}
+              title={`Drag to move where ${w.orig.toFixed(3)}s lands (${at.toFixed(3)}s) — right-click for more`}
               aria-label="stretch point"
+              // The host's menu, not the browser's — and only when it offers one, so a caller
+              // that has nothing to say about a point still gets the default it always had.
+              onContextMenu={
+                onWarpMenu
+                  ? (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onWarpMenu(
+                        { orig: w.orig, target: w.target },
+                        e.clientX,
+                        e.clientY,
+                      );
+                    }
+                  : undefined
+              }
               onPointerDown={(e) => {
                 e.stopPropagation(); // …or the canvas starts a selection under the same finger
                 e.currentTarget.setPointerCapture(e.pointerId);

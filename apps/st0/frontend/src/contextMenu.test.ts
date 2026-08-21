@@ -120,6 +120,11 @@ const CATALOGUE: CommandInfo[] = [
     help: "remove a marker by name (e.g. project marker delete Chorus)",
     args: [a("name", "marker", "markerNames")],
   },
+  {
+    command: "clip warp remove",
+    help: "drop one stretch point (e.g. clip warp remove break 1.94)",
+    args: [a("clip", "file", "clipTargets"), a("sec", "number")],
+  },
 ];
 
 const lines = (items: { command: string }[]) => items.map((i) => i.command);
@@ -480,6 +485,47 @@ describe("the ruler and its markers", () => {
       contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE, {
         "project marker delete": { menu: false },
       }),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * A STRETCH POINT in the clip editor's warp view.
+ *
+ * Placing one and moving it are GESTURES — a double-click and a drag — so the menu carries the
+ * one act a hand cannot express: dropping the point it is already on.
+ */
+describe("a warp point", () => {
+  const ctx = { kind: "warp-point", clip: "break", src: "1.9400" } as const;
+
+  it("names the point by the FILE second it pins, complete", () => {
+    const items = contextMenu(ctx, CATALOGUE);
+    expect(lines(items)).toEqual(["clip warp remove break 1.9400"]);
+    // Nothing left for the bar to collect: the pointer was ON the point, so both arguments
+    // are already known and the row RUNS rather than pre-writing.
+    expect(items[0].complete).toBe(true);
+  });
+
+  it("drops `clip` from the name — the row is about the point, not the material", () => {
+    expect(labels(contextMenu(ctx, CATALOGUE))).toEqual(["warp remove"]);
+  });
+
+  it("offers no way to PLACE one: that is the double-click, not a row", () => {
+    // A menu entry for it would ask for a beat in the command bar, which is the gesture's own
+    // job and worse at it — you are pointing at the beat already.
+    //
+    // Asserted on the LINES rather than with `not.toContain(expect.stringContaining(…))`, which
+    // is how this was first written and passes on anything: `toContain` compares by reference,
+    // so an asymmetric matcher inside it never matches and the negation is always true.
+    const got = lines(contextMenu(ctx, CATALOGUE));
+    expect(got.filter((l) => l.startsWith("clip warp"))).toEqual([
+      "clip warp remove break 1.9400",
+    ]);
+  });
+
+  it("obeys what the person turned off, like every other menu", () => {
+    expect(
+      contextMenu(ctx, CATALOGUE, { "clip warp remove": { menu: false } }),
     ).toEqual([]);
   });
 });
