@@ -204,6 +204,30 @@ function projectHintsIn(dir: string): Hints {
   // song was invisible here.
   const paramsByBase: Record<string, string[]> = {};
   const paramMetaByBase: Record<string, Record<string, ParamRange>> = {};
+  /**
+   * What each base ref's EXTENDERS have written on it — indexed once, in one pass.
+   *
+   * This was a scan of every module inside the loop over every base ref, with a fresh
+   * `Object.values(modules)` per turn. On `01.danse.st0` that is 573 base refs × 395 modules —
+   * 226 000 comparisons and 573 allocations of the same array — and it was most of the 55 ms
+   * `/hints` costs, paid after every command in the app.
+   *
+   * A node needs no case of its own: it names what it uses with `extends`, like any other
+   * extender. Both spellings of a LOCAL ref land in the same bucket — a project's own module
+   * answers to the bare `<category>/<file>` and to `@project/<category>/<file>`, and new files
+   * write the second (see loadModuleRefs). A namespaced ref (`@st0/…`) has no second spelling
+   * and is kept whole, which is what the old `=== ref` arm did for it.
+   */
+  const PROJECT_NS = "@project/";
+  const byExtends = new Map<string, Set<string>>();
+  for (const b of Object.values<any>(modules)) {
+    const ext = b?.extends;
+    if (typeof ext !== "string" || !ext) continue;
+    const ref = ext.startsWith(PROJECT_NS) ? ext.slice(PROJECT_NS.length) : ext;
+    let keys = byExtends.get(ref);
+    if (!keys) byExtends.set(ref, (keys = new Set<string>()));
+    for (const k of Object.keys(b?.params ?? {})) keys.add(k);
+  }
   for (const ref of baseRefs) {
     const base = moduleRefs[ref] as any;
     const keys = new Set<string>(Object.keys(base?.params ?? {}));
@@ -216,13 +240,14 @@ function projectHintsIn(dir: string): Hints {
       }
       paramMetaByBase[ref] = meta;
     }
-    // A node no longer needs a case of its own: it names what it uses with `extends`, like
-    // any other extender. Both spellings of a local ref count — a project's own module answers to
-    // the bare "<category>/<file>" and to "@project/<category>/<file>", and new files write the
-    // second (see loadModuleRefs).
-    for (const b of Object.values<any>(modules))
-      if (b?.extends === ref || b?.extends === `@project/${ref}`)
-        for (const k of Object.keys(b?.params ?? {})) keys.add(k);
+    // The ref is normalised on the way IN too: `loadModuleRefs` registers a local module under
+    // both spellings, so `baseRefs` holds `audio/amp` AND `@project/audio/amp`. Folding only the
+    // module side left the second one reading an empty bucket — 238 entries where there were 239,
+    // which is exactly the kind of off-by-one a rewrite of a nested loop is for.
+    const bucket = ref.startsWith(PROJECT_NS)
+      ? ref.slice(PROJECT_NS.length)
+      : ref;
+    for (const k of byExtends.get(bucket) ?? []) keys.add(k);
     if (keys.size) paramsByBase[ref] = [...keys].sort();
   }
 
