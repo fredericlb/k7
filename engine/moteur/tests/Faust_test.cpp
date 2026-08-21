@@ -155,7 +155,7 @@ static void an_instrument_sounds_when_a_note_is_played()
     if (factory == nullptr) return;
 
     // Exactly what the plugin builds: the instance handed over, cloned per voice, controls shared.
-    auto* poly = new mydsp_poly(factory->createDSPInstance(), 16, false, true);
+    auto* poly = new mydsp_poly(factory->createDSPInstance(), 16, true, true);
     poly->init(48000);
 
     const int n = 512;
@@ -190,6 +190,52 @@ static void an_instrument_sounds_when_a_note_is_played()
 
     delete poly;
     deleteInterpreterDSPFactory(factory);
+}
+
+static void it_still_sounds_after_more_notes_than_there_are_voices()
+{
+    // THE regression. Reported as "it only plays for a few seconds, then nothing", and the cause
+    // was `mydsp_poly`'s `control` flag: with false, Faust's own doc says all voices are always
+    // running — and the branch that runs then never returns a released voice to the free pool.
+    // Sixteen notes in, every further one stole a voice that had never been let go.
+    //
+    // So: play well past the voice count, releasing each note properly, and check the last one is
+    // as loud as the first. Playing SIXTEEN would have passed on the broken build.
+    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
+    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+
+    const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
+    const char* argv[] = {"-I", libs.c_str()};
+    std::string error;
+    auto* factory = createInterpreterDSPFactoryFromString("voices", readAll(file), 2, argv, error);
+    CHECK(factory != nullptr);
+    if (factory == nullptr) return;
+
+    constexpr int VOICES = 16;
+    auto* poly = new mydsp_poly(factory->createDSPInstance(), VOICES, true, true);
+    poly->init(48000);
+
+    const int n = 512;
+    std::vector<std::vector<float>> out((size_t)poly->getNumOutputs(), std::vector<float>(n, 0.0f));
+    std::vector<float*> outp;
+    for (auto& c : out) outp.push_back(c.data());
+
+    const auto playOne = [&](int pitch) {
+        poly->keyOn(1, pitch, 100);
+        poly->compute(n, nullptr, outp.data());
+        const float peak = peakOf(out, n);
+        poly->keyOff(1, pitch, 0);
+        // Long enough for the 40 ms release to finish and the voice to fall under -90 dB.
+        for (int b = 0; b < 20; ++b) poly->compute(n, nullptr, outp.data());
+        return peak;
+    };
+
+    const float first = playOne(60);
+    float last = 0.0f;
+    for (int i = 0; i < VOICES * 3; ++i) last = playOne(48 + (i % 24));
+    std::printf("    note 1 peak = %.4f, note %d peak = %.4f\n", first, VOICES * 3 + 1, last);
+    CHECK(first > 0.001f);
+    CHECK(last > first * 0.5f);
 }
 
 static void the_interpreter_is_fast_enough_to_put_in_series()
@@ -283,6 +329,7 @@ int main()
 {
     RUN(every_shipped_dsp_compiles);
     RUN(an_instrument_sounds_when_a_note_is_played);
+    RUN(it_still_sounds_after_more_notes_than_there_are_voices);
     RUN(the_interpreter_is_fast_enough_to_put_in_series);
     RUN(a_broken_program_is_refused_with_its_reason);
     RUN(the_faust_libraries_are_where_the_build_says);

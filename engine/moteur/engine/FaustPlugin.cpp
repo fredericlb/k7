@@ -145,7 +145,17 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
     // instance it is handed and clones it once per voice; `group: true` makes the program's own
     // controls shared across them, which is what "one Tine knob for the whole keyboard" means.
     if (numIn_ == 0) {
-        poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ false, /*group*/ true);
+        // `control: true` is NOT optional, and false is why the instrument fell silent after a
+        // few seconds. Faust's own doc: "whether voices will be dynamically allocated and
+        // controlled. If false ALL VOICES ARE ALWAYS RUNNING." With false, `compute` takes a
+        // branch that mixes all sixteen every block and never returns one to the free pool — so
+        // the cost is sixteen FM voices from the first sample whether or not anybody is playing,
+        // and every note after the sixteenth steals a voice that was never released.
+        //
+        // With true, only playing voices are computed and a released one is freed once it falls
+        // below -90 dB (VOICE_STOP_LEVEL) — which is also what makes the release audible instead
+        // of merely allowed.
+        poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ true, /*group*/ true);
         run_ = poly_;
         numOut_ = poly_->getNumOutputs();
     } else {
