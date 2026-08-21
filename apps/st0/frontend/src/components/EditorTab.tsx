@@ -1142,6 +1142,10 @@ export function EditorTab({
         <Breadcrumb
           tree={tree}
           path={file?.path ?? null}
+          // Where `tree` is rooted: `Workspace.tree()` walks from the active project while
+          // keeping every path workspace-relative, so the breadcrumb needs BOTH to tell the
+          // two spaces apart. "." is a lone-project workspace — the tree is already the root.
+          root={activeProject && activeProject !== "." ? activeProject : ""}
           // In a workspace the folder name IS the project; alone, only the song knows what it is called.
           rootLabel={
             (activeProject && activeProject !== "."

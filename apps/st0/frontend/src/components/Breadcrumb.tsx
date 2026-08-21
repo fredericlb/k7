@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FileNode } from "../types";
 
 // A directory's children ("" is the root), walking by segment: two folders can share a basename.
-function childrenOf(tree: FileNode[], dir: string): FileNode[] {
+export function childrenOf(tree: FileNode[], dir: string): FileNode[] {
   if (!dir) return tree;
   let nodes = tree;
   for (const part of dir.split("/")) {
@@ -20,14 +20,34 @@ function childrenOf(tree: FileNode[], dir: string): FileNode[] {
 }
 
 // Every directory prefix, shallowest first — the segments that get a menu; the file's is the last one repeated.
-function dirPrefixes(path: string): string[] {
+export function dirPrefixes(path: string): string[] {
   const parts = path.split("/").slice(0, -1);
   return ["", ...parts.map((_, i) => parts.slice(0, i + 1).join("/"))];
+}
+
+/**
+ * A workspace-relative path in the TREE's own space, or null when it is outside the tree.
+ *
+ * The two are not the same space, and mixing them is what made every menu here answer "empty".
+ * `Workspace.tree()` moves the root of its WALK onto the active project while leaving every
+ * `path` workspace-relative — so the tree's top-level nodes are the song's own `modules`,
+ * `project.yaml`…, and the open file is `songs/first.st0/modules/…`. Walking that by segment
+ * looked for a top-level `songs`, found nothing, and stopped. Only a workspace whose root IS
+ * the project — where `root` is "" — happened to work, which is why this survived.
+ *
+ * So: menus are keyed in the tree's space, and the two boundaries that LEAVE — `onOpen` and the
+ * active-project comparison — keep the workspace-relative path the rest of the app speaks.
+ */
+export function underRoot(path: string, root: string): string | null {
+  if (!root) return path;
+  if (path === root) return "";
+  return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : null;
 }
 
 export function Breadcrumb({
   tree,
   path,
+  root,
   rootLabel,
   activeProject,
   onOpen,
@@ -35,6 +55,8 @@ export function Breadcrumb({
 }: {
   tree: FileNode[];
   path: string | null; // the open file, workspace-relative
+  /** Where `tree` is rooted, workspace-relative — "" when it is the workspace itself. */
+  root: string;
   rootLabel: string;
   activeProject: string | null;
   onOpen: (path: string) => void;
@@ -57,8 +79,15 @@ export function Breadcrumb({
   // A file opened elsewhere moves the breadcrumb under us, and a menu left open would describe the old path.
   useEffect(() => setMenu(null), [path]);
 
-  const parts = useMemo(() => (path ? path.split("/") : []), [path]);
-  const prefixes = useMemo(() => (path ? dirPrefixes(path) : [""]), [path]);
+  // In the tree's space from here down. A file OUTSIDE it — a library module, which `tree()`
+  // excludes on purpose — keeps its own path: its segments then draw, and their menus are
+  // honestly empty rather than wrong.
+  const rel = useMemo(
+    () => (path === null ? null : (underRoot(path, root) ?? path)),
+    [path, root],
+  );
+  const parts = useMemo(() => (rel ? rel.split("/") : []), [rel]);
+  const prefixes = useMemo(() => (rel ? dirPrefixes(rel) : [""]), [rel]);
 
   const entries = menu === null ? [] : childrenOf(tree, menu);
 
@@ -103,12 +132,15 @@ export function Breadcrumb({
                 <button
                   onClick={() => {
                     // A folder drills in, a file is the destination — staying open on a folder is what makes this a navigator.
-                    if (n.dir) setMenu(n.path);
+                    // `n.path` is workspace-relative: a menu key is in the tree's space, an open is not.
+                    if (n.dir) setMenu(underRoot(n.path, root) ?? n.path);
                     else {
                       onOpen(n.path);
                       setMenu(null);
                     }
                   }}
+                  // Compared in the WORKSPACE's space, like `activeProject` below: both props
+                  // arrive that way, and only the menu keys were ever moved.
                   className={`flex min-w-0 flex-1 items-center gap-1.5 truncate rounded px-2 py-1 text-left font-mono hover:bg-accent ${
                     n.path === path ? "bg-accent" : ""
                   }`}
