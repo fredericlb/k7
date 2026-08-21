@@ -26,6 +26,7 @@ import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
 import { parsePosition } from "./timecode";
+import { readClipWarp } from "./warpPoints";
 import { GRAPH_FILE } from "./yaml/graphSchema";
 
 export type * from "@studio/engine-protocol/project";
@@ -303,6 +304,17 @@ function mapClip(
       : {}),
     fadeIn: Number(c.fadeIn ?? 0),
     fadeOut: Number(c.fadeOut ?? 0),
+    // The clip's own stretch map, when it has one and does not decline it. Read through the same
+    // `readClipWarp` the node compiler uses: this builds the UNPLACED clip — what the clip editor
+    // asks for when it wants the whole file — and it carried no map at all, so the warp view drew
+    // no stretch marks and `warpStretch` priced a warped clip at 1. There is no placement here to
+    // decline one, which is the only half of that rule this side does not have.
+    ...(() => {
+      const { map, declined } = readClipWarp(
+        (c as { warp?: Parameters<typeof readClipWarp>[0] }).warp,
+      );
+      return map && !declined ? { warp: map } : {};
+    })(),
     ...(c.disabled ? { disabled: true } : {}),
     loopStart: Number(c.loopStart ?? 0),
     loopEnd: Number(c.loopEnd ?? 0),

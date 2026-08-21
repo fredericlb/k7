@@ -60,6 +60,7 @@ import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
 import { parseDuration, parsePosition } from "./timecode";
 import { sortTracksByKind } from "./trackKind";
 import { lanesOf, type Material } from "./trackModule";
+import { readClipWarp } from "./warpPoints";
 
 // A placement's id and its inverse live in ./placementId — two lines of rule with no imports, so
 // the BROWSER can hold them too (the context menu hands the editor a placement id). Re-exported
@@ -128,17 +129,11 @@ function placementToClip(
   };
   if (clipsMap[ref]) {
     const cm = clipsMap[ref];
-    // Absent or malformed -> no warp, and the clip plays at its natural rate.
-    const map =
-      cm.warp && Array.isArray(cm.warp.markers) && cm.warp.markers.length >= 2
-        ? {
-            algorithm: String(cm.warp.algorithm ?? "elastique"),
-            markers: cm.warp.markers.map((m): [number, number] => [
-              Number(m[0]),
-              Number(m[1]),
-            ]),
-          }
-        : undefined;
+    // Absent or malformed -> no warp, and the clip plays at its natural rate. Read through
+    // `readClipWarp` because `project.mapClip` builds the same field for the UNPLACED clip a
+    // surface draws, and the two reading it differently is how the clip editor came to show no
+    // stretch marks at all.
+    const { map, declined } = readClipWarp(cm.warp);
     /**
      * …unless it is declined, which TWO things may do and which compile to one answer.
      *
@@ -153,7 +148,7 @@ function placementToClip(
      * still say the material is warped and this event is not — the timeline crosses its icon.
      * One flag for both refusals, since what a surface draws is the refusal and not its author.
      */
-    const off = p.warp === false || cm.warp?.disable === true;
+    const off = p.warp === false || declined;
     const warp = off ? undefined : map;
     /**
      * The effective window: the clip's own, narrowed by the EVENT's (`from`/`to` on the

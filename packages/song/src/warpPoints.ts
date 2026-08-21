@@ -5,6 +5,42 @@
 /** One point of the map: where a moment of the SOURCE lands on the timeline. */
 export type WarpMarker = [beat: number, sec: number];
 
+/** A clip's stretch map as the compiled document carries it. */
+export interface ClipWarp {
+  algorithm: string;
+  markers: WarpMarker[];
+}
+
+/**
+ * The map a clip FILE declares, and whether the file itself declines it.
+ *
+ * Here because there are TWO compilers — `nodeProject` builds a placement, `project.mapClip`
+ * builds the unplaced clip a surface draws before any lane names it — and only the first of them
+ * ever read `warp`. So the clip editor, which asks for the whole FILE, was handed a document with
+ * no map at all: no stretch marks were drawn in the warp view, ever, and `warpStretch` priced a
+ * warped clip at 1 so the picture was drawn at the wrong rate into the bargain.
+ *
+ * The DECLINE is answered separately rather than folded in, because the two callers need
+ * different things from it: a placement that declines still has to say `warpOff` so the timeline
+ * can cross its icon, while an unplaced clip has nobody to say it to. Fewer than two markers is
+ * no map — one point cannot state a rate.
+ */
+export function readClipWarp(
+  raw:
+    | { algorithm?: unknown; markers?: unknown; disable?: unknown }
+    | undefined,
+): { map?: ClipWarp; declined: boolean } {
+  const m = raw?.markers;
+  const map =
+    Array.isArray(m) && m.length >= 2
+      ? {
+          algorithm: String(raw?.algorithm ?? "elastique"),
+          markers: m.map((p): WarpMarker => [Number(p[0]), Number(p[1])]),
+        }
+      : undefined;
+  return { map, declined: raw?.disable === true };
+}
+
 /** How close two source seconds have to be to mean the same point. A millisecond: the UI hands
  *  back the exact second of the marker it grabbed, so this only has to survive a round trip. */
 const SAME_SEC = 1e-3;
