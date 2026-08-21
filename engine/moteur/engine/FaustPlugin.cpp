@@ -155,7 +155,18 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
         // With true, only playing voices are computed and a released one is freed once it falls
         // below -90 dB (VOICE_STOP_LEVEL) — which is also what makes the release audible instead
         // of merely allowed.
-        poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ true, /*group*/ true);
+        //
+        // `group: FALSE`, and that is the other half of making the knobs work. With true, the
+        // wrapper builds ONE shared control per name and dispatches it onto the voices — "assuming
+        // GUI::updateAllGuis() is called", which nobody here does and nobody should: it is a
+        // global static walking a std::list, and the audio thread has no business in it. So the
+        // knobs were written into a group zone that never reached a voice, and moving Tine did
+        // nothing at all.
+        //
+        // With false, every voice exposes its own controls, and the dispatch is ours: one
+        // parameter per NAME, holding the zone of each voice that declares it (see `zones_`).
+        // Writing sixteen floats per parameter per block is the whole cost, and it is nothing.
+        poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ true, /*group*/ false);
         run_ = poly_;
         numOut_ = poly_->getNumOutputs();
     } else {
@@ -169,9 +180,26 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
     Controls controls;
     run_->buildUserInterface(&controls);
 
-    auto* um = getUndoManager();
+    // One parameter per NAME, holding every voice's zone for it. With one voice this is the
+    // identity; with sixteen it is the dispatch `group: true` promised and did not deliver.
+    // First-seen order, so the parameter list does not depend on a map's iteration.
+    std::vector<Controls::Entry> unique;
+    std::vector<std::vector<float*>> zonesFor;
     for (const auto& c : controls.entries) {
         if (poly_ != nullptr && isVoiceControl(c.label)) continue;
+        auto it = std::find_if(unique.begin(), unique.end(),
+                               [&](const Controls::Entry& e) { return e.label == c.label; });
+        if (it == unique.end()) {
+            unique.push_back(c);
+            zonesFor.push_back({c.zone});
+        } else {
+            zonesFor[(size_t)(it - unique.begin())].push_back(c.zone);
+        }
+    }
+
+    auto* um = getUndoManager();
+    for (size_t i = 0; i < unique.size(); ++i) {
+        const auto& c = unique[i];
         const juce::String name(c.label);
         auto value = std::make_unique<juce::CachedValue<float>>();
         value->referTo(state, juce::Identifier("p_" + name), um, c.init);
@@ -188,7 +216,7 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
         param->attachToCurrentValue(*value);
         params_.push_back(param);
         values_.push_back(std::move(value));
-        zones_.push_back(c.zone);
+        zones_.push_back(std::move(zonesFor[i]));
     }
 }
 
@@ -332,8 +360,12 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
 
     // The parameters, read once per block — the audio path never touches Tracktion's parameter
     // objects beyond this loop.
-    for (size_t i = 0; i < zones_.size(); ++i)
-        *zones_[i] = params_[i]->getCurrentValue();
+    for (size_t i = 0; i < zones_.size(); ++i) {
+        const float v = params_[i]->getCurrentValue();
+        // Every voice that declares this control, not just one — see the `group: false` note in
+        // the constructor. Sixteen stores per knob per block, and no allocation.
+        for (float* zone : zones_[i]) *zone = v;
+    }
 
     const int chans = ctx.destBuffer->getNumChannels();
     for (int c = 0; c < numIn_; ++c) {

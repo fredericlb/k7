@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <fstream>
 #include <list>
+#include <map>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -293,6 +294,91 @@ static void velocity_changes_the_timbre_and_not_only_the_level()
     deleteInterpreterDSPFactory(factory);
 }
 
+/** Every voice's zone for a control name — the dispatch FaustPlugin builds, in miniature. */
+struct ZonesByName : public UI {
+    std::map<std::string, std::vector<FAUSTFLOAT*>> zones;
+    void openTabBox(const char*) override {}
+    void openHorizontalBox(const char*) override {}
+    void openVerticalBox(const char*) override {}
+    void closeBox() override {}
+    void addButton(const char* l, FAUSTFLOAT* z) override { zones[l].push_back(z); }
+    void addCheckButton(const char* l, FAUSTFLOAT* z) override { zones[l].push_back(z); }
+    void addVerticalSlider(const char* l, FAUSTFLOAT* z, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT,
+                           FAUSTFLOAT) override { zones[l].push_back(z); }
+    void addHorizontalSlider(const char* l, FAUSTFLOAT* z, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT,
+                             FAUSTFLOAT) override { zones[l].push_back(z); }
+    void addNumEntry(const char* l, FAUSTFLOAT* z, FAUSTFLOAT, FAUSTFLOAT, FAUSTFLOAT,
+                     FAUSTFLOAT) override { zones[l].push_back(z); }
+    void addHorizontalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addVerticalBargraph(const char*, FAUSTFLOAT*, FAUSTFLOAT, FAUSTFLOAT) override {}
+    void addSoundfile(const char*, const char*, Soundfile**) override {}
+};
+
+static void a_knob_reaches_every_voice()
+{
+    // Reported as "the knobs do nothing", and nothing here caught it because no test had ever
+    // TURNED one. `group: true` builds a single shared control and dispatches it onto the voices
+    // only when `GUI::updateAllGuis()` is called — which the audio thread must not do. So the
+    // knobs were written somewhere no voice read.
+    //
+    // `group: false` gives each voice its own zone and the dispatch becomes ours. This drives it
+    // the way the plugin does: collect the zones per NAME, write them all, listen for a change.
+    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
+    if (!fs::is_regular_file(file)) { CHECK(false); return; }
+
+    const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
+    const char* argv[] = {"-I", libs.c_str()};
+    std::string error;
+    auto* factory = createInterpreterDSPFactoryFromString("knob", readAll(file), 2, argv, error);
+    CHECK(factory != nullptr);
+    if (factory == nullptr) return;
+
+    constexpr int VOICES = 16;
+    const int n = 1024;
+    const auto strikeWith = [&](const char* knob, float value) {
+        auto* poly = new mydsp_poly(factory->createDSPInstance(), VOICES, true, false);
+        poly->init(48000);
+        ZonesByName ui;
+        poly->buildUserInterface(&ui);
+        // Sixteen voices, so sixteen zones per name. If this is 1, `group` went back to true and
+        // the dispatch below is writing into something no voice reads.
+        // SEVENTEEN, measured: the sixteen voices plus one shared zone the wrapper builds
+        // anyway. Asserted as "at least one per voice" rather than pinned at 17 — the extra one
+        // is Faust's business and may change, but a collapse to a single zone is the bug this
+        // whole test exists for, and that is what `>= VOICES` refuses.
+        std::printf("    zones for %s: %zu\n", knob, ui.zones[knob].size());
+        CHECK(ui.zones[knob].size() >= VOICES);
+        for (auto* z : ui.zones[knob]) *z = value;
+
+        std::vector<std::vector<float>> out((size_t)poly->getNumOutputs(),
+                                            std::vector<float>(n, 0.0f));
+        std::vector<float*> outp;
+        for (auto& c : out) outp.push_back(c.data());
+        poly->keyOn(1, 60, 100);
+        poly->compute(n, nullptr, outp.data());
+        const auto r = std::pair<float, int>{peakOf(out, n), crossingsOf(out, n)};
+        delete poly;
+        return r;
+    };
+
+    // `Index` IS the modulation index of the body pair: at 0 the carrier is an unmodulated sine,
+    // at 2 it is as rich as the model goes. Brightness is the thing it moves, so brightness is
+    // what this measures.
+    const auto flat = strikeWith("Index", 0.0f);
+    const auto rich = strikeWith("Index", 2.0f);
+    std::printf("    Index 0: %d crossings, Index 2: %d crossings\n", flat.second, rich.second);
+    CHECK(rich.second > flat.second);
+
+    // `Tine` crossfades body against the fixed-pitch attack pair — a different sound, not a
+    // louder one, so it is the peak-independent shape that has to move.
+    const auto body = strikeWith("Tine", 0.0f);
+    const auto bark = strikeWith("Tine", 2.0f);
+    std::printf("    Tine 0: %d crossings, Tine 2: %d crossings\n", body.second, bark.second);
+    CHECK(body.second != bark.second);
+
+    deleteInterpreterDSPFactory(factory);
+}
+
 static void the_interpreter_is_fast_enough_to_put_in_series()
 {
     // The number the route was chosen without: an INTERPRETER runs slower than machine code, and
@@ -386,6 +472,7 @@ int main()
     RUN(an_instrument_sounds_when_a_note_is_played);
     RUN(it_still_sounds_after_more_notes_than_there_are_voices);
     RUN(velocity_changes_the_timbre_and_not_only_the_level);
+    RUN(a_knob_reaches_every_voice);
     RUN(the_interpreter_is_fast_enough_to_put_in_series);
     RUN(a_broken_program_is_refused_with_its_reason);
     RUN(the_faust_libraries_are_where_the_build_says);

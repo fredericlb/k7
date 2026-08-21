@@ -86,9 +86,15 @@ private:
     ::dsp* run_ = nullptr;
     int numIn_ = 0, numOut_ = 0;
 
-    // One entry per control the program declares, in the order buildUserInterface reported them.
-    // `zone` points INTO the dsp instance; writing it is how a parameter reaches the program.
-    std::vector<float*> zones_;
+    /**
+     * One entry per PARAMETER, holding every voice's zone for it.
+     *
+     * A zone points into a dsp instance, and writing it is how a parameter reaches the program.
+     * There are as many as there are voices, because the voice group exposes each voice's
+     * controls separately — the alternative, one shared zone, only reaches the voices through
+     * `GUI::updateAllGuis()`, which the audio thread must not call. See the constructor.
+     */
+    std::vector<std::vector<float*>> zones_;
     std::vector<tracktion::engine::AutomatableParameter::Ptr> params_;
     std::vector<std::unique_ptr<juce::CachedValue<float>>> values_;
 
