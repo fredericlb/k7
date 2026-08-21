@@ -33,6 +33,7 @@ export function EditorPane({
   onSave,
   onOpenEntity,
   onPreview,
+  onPlayStrip,
   onSliceEdit,
   diagnostics,
   onEditorView,
@@ -46,14 +47,29 @@ export function EditorPane({
     clip: WebClip;
     // Span the whole source rather than the clip's placed region — see WaveformView.
     whole?: boolean;
-    sliceRanges?: { symbol: string; from: number; to: number }[];
+    sliceRanges?: {
+      symbol: string;
+      from: number;
+      to: number;
+      hollow?: boolean;
+    }[];
+    // What the strip's ▶ sends. Carried rather than derived, because a strip's `clip.id` is not
+    // always a clip id: a rack's dock synthesises one from a bare filename (see EditorTab).
+    play?: PreviewReq;
   } | null;
   // A gutter-auditioned sound takes the strip over from `audioClip` until dismissed (onClosePreview).
   preview?: {
     project: WebProject;
     clip: WebClip;
     whole?: boolean;
-    sliceRanges?: { symbol: string; from: number; to: number }[];
+    sliceRanges?: {
+      symbol: string;
+      from: number;
+      to: number;
+      hollow?: boolean;
+    }[];
+    // The request that opened it — so ▶ replays exactly what the gutter played, slice window included.
+    play?: PreviewReq;
   } | null;
   onClosePreview?: () => void;
   onChange: (value: string) => void;
@@ -61,6 +77,17 @@ export function EditorPane({
   onOpenEntity?: (path: string) => void;
   // Audition a sample from a gutter play button on a source/clip/slice line.
   onPreview?: (req: PreviewReq) => void;
+  /**
+   * Audition the STRIP — its ▶, sending the request the strip carries and answering the WINDOW
+   * the service resolved it to, in file seconds (`length: 0` == to the end of the file).
+   *
+   * Separate from `onPreview` and not a convenience: that one resolves a gutter's raw `source`
+   * against the open file, and a strip's is already resolved, so re-running it would prefix a
+   * rack's directory a second time. Two callers, two states of the same field, two doors.
+   */
+  onPlayStrip?: (
+    req: PreviewReq,
+  ) => Promise<{ start: number; length: number } | null>;
   // The docked slicer's drag: rewrite one symbol's from/to in THIS pane's buffer. Passed only
   // when the buffer is the file the slices live in — with it, the dock's windows grow handles.
   onSliceEdit?: (symbol: string, from: number, to: number) => void;
@@ -164,6 +191,8 @@ export function EditorPane({
   // An audio clip's waveform docks HERE, pinned to the bottom of the code pane (the editor is position:relative).
   // A dismissable gutter preview takes it over; with neither, there is no strip and the editor fills the pane.
   const strip = preview ?? audioClip;
+  // A local, so the closure below narrows it: `strip` is a union and its field would stay optional.
+  const playReq = strip?.play;
   if (strip) {
     return (
       <div className="relative h-full">
@@ -178,6 +207,11 @@ export function EditorPane({
             // preview shows some OTHER file's sound, and its windows are not this buffer's.
             onSliceEdit={preview ? undefined : onSliceEdit}
             onClose={preview ? onClosePreview : undefined}
+            // ▶ only when there is something to send it through AND a request describing the
+            // strip — a video clip's dock has neither, and a button that refused would be worse.
+            onPlay={
+              onPlayStrip && playReq ? () => onPlayStrip(playReq) : undefined
+            }
           />
         </div>
       </div>

@@ -47,10 +47,12 @@ export interface RawClip {
   source?: string;
   name?: unknown;
   gain?: unknown;
-  // The window into the source, in seconds — see AudioClipSchema for why these are not timecodes.
+  // The window into the source. `unknown` because the SPELLING is the unit: a bare number is
+  // seconds into the file, a timecode is musical — see AudioClipSchema.
   from?: unknown;
   to?: unknown;
-  warp?: { algorithm?: unknown; markers?: unknown };
+  // `disable` switches the map off without deleting it (AudioClipSchema's WarpSchema).
+  warp?: { algorithm?: unknown; markers?: unknown; disable?: unknown };
   [key: string]: unknown;
 }
 

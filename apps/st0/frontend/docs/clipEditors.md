@@ -480,7 +480,7 @@ answer it two ways:
 
 | | how the window shows |
 |---|---|
-| `WaveformView` (a clip file in the editor, `whole`) | shaded over the whole file, from the TEXT, live as you type — the view the window is JUDGED in |
+| `WaveformView` (a clip file in the editor, `whole`) | shaded over the whole file, from the TEXT, live as you type — the view the window is JUDGED in, and the one it is SET in: both edges drag |
 | `AudioClipPanel` (clicking an audio event) | the pane roams the FILE and the event's window is a band on it — see below |
 | the roll, placed sequence or `sequences/*.yaml` | the canvas spans the sequence and the pair is a band on it — the panel's shape, in beats |
 | the tracker and the inline grids | the band, drawn as ground under the notes |
@@ -564,6 +564,77 @@ The window rides on the payload in the same display seconds as the onsets and th
 through `RegionWaveform.toDisplay` — the region's own projection, handed out rather than copied. A
 second `(sec - inPoint) * stretch` elsewhere is exactly how a band comes to sit a pixel off the marks
 beside it.
+
+## The strip's ▶ plays the WINDOW, not the file
+
+`WaveformView`'s header carries a play button, and what it plays is what the strip is showing: for
+a clip file open in the editor, the span `from`/`to` declare, at the material's own rate.
+
+It sends the `PreviewReq` the strip CARRIES rather than one built from what is on screen, because
+the three strips are three different requests — a clip file names its clip, a slice rack's dock
+names the shared source, a gutter preview is whatever was auditioned there, slice window included.
+Deriving one from `clip.id` would work for exactly one of them: a source preview's id is a *path*.
+
+**The window is resolved server-side**, in `Workspace.resolvePreview`, and that is where the
+substance was. It used to answer `{start: 0, length: 0}` for a clip — the whole file, end to end —
+so a take trimmed down to one bar of a five-minute pass played the five minutes, and the ▶ said
+nothing about the clip you were looking at. It now reads the compiled `sourceFrom`/`sourceTo`, with
+the project's grid passed in so a **timecode** edge resolves the way it does everywhere else. An
+absent `to` stays a length of 0, which the engine reads as "to the end of the file" — the only
+honest answer about an extent nobody here has opened the wav to measure.
+
+One shot, and no Stop button. The engine fires a voice through a preview sampler independent of the
+transport (`EngineHost::previewSample`); there is no state to poll and nothing to stop, so a toggle
+would be drawing a state this side cannot know. It also means the ▶ is **not** the transport: it
+ignores the placement, the track's chain and the master — you are hearing the material, not the mix.
+Warping is not applied either, for the same reason: a stretch map maps the source onto the SONG's
+grid, and there is no song in a one-shot.
+
+### The audition has its own playhead, and a clock drives it
+
+An amber line, over the span that is sounding — a different mark from the transport's near-white
+one, because "where the song is" and "where the audition is" are two claims about one picture and
+they can be on screen together.
+
+**Driven by the clock, not by the engine**, and that is the honest description rather than an
+apology. A sampler voice does not ride the state frame; nothing about it reaches this side. What IS
+known exactly is the window — the service answers it in the `/preview` reply rather than leaving the
+browser to resolve `from`/`to` a second time, since a second resolution is precisely how a mark
+comes to sit where the sound is not — and a sample plays at its own rate, so elapsed time since the
+trigger *is* the position. One error term, the engine's: the first play of a file loads it
+asynchronously and fires a turn later, so that first mark can run slightly ahead. Every play after
+it is immediate.
+
+`AuditionPlayhead` is a LEAF for the same reason `ClipWaveform` is one: it moves sixty times a
+second, and the slice handles, warp marks and loop lines have no business re-rendering with it. It
+stops itself at the end of the span instead of telling the parent, which keeps even that one render
+away — a new ▶ makes a new span, and a new span restarts it.
+
+## Dragging the window's edges
+
+The clip band's two edges are handles, and releasing one rewrites `from`/`to` **in the open
+buffer** — not through a verb. That is what makes the text under the waveform move with the hand:
+autosave carries it to disk on its own timer, and one Ctrl+Z undoes the drag like any other edit.
+
+It is the same overlay and the same gesture a slice rack's symbols already had; only the writer on
+release differs, chosen by the band's symbol (`clipWindowBand` names its one band `clip`). Two rules
+are worth stating because they are not obvious from the gesture:
+
+- **The spelling is preserved.** A number stays a number and a timecode stays a timecode. Not
+  politeness — the two mean different things when the tempo changes: a bare number is seconds into
+  the file and holds still, a timecode is musical and follows the grid (`AudioClipSchema`).
+  Rewriting one as the other mid-drag would silently change what the clip is pinned to, which is
+  exactly the kind of edit nobody goes looking for afterwards. An edge that was ABSENT is written in
+  seconds — there is no intent to preserve, and the drag happened on an axis of source seconds.
+- **The two absences are kept.** A `from` dragged back to the start is DELETED rather than written
+  as 0, since absent already means the material's start and a file full of zeroes makes "not
+  trimmed" and "trimmed to the beginning" read alike. A `to` at the file's end is left out for the
+  same reason. Both are the rules `setMaterialWindow` follows server-side.
+
+**A clip that trims nothing still gets handles**, as a *hollow* band: the two edges drawn faintly,
+no wash. Without it only an already-trimmed clip could be trimmed by dragging, which is the wrong
+half of the population. The band stays hollow — and unnamed — until an edge actually moves, so it
+never claims a window the file does not have.
 
 ## Velocity, on the note itself
 

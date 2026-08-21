@@ -11,6 +11,15 @@ export const WarpSchema = z
     algorithm: z.string().min(1),
     // [timeline beat, source second], monotonic, at least two points.
     markers: z.array(z.tuple([z.number(), z.number()])).min(2),
+    /**
+     * Switch the map OFF while keeping it: the clip plays at its own rate, and the markers wait.
+     *
+     * The map is the expensive half — an import computes it, and a hand-placed one is minutes of
+     * work — so "don't stretch this" cannot be spelled by deleting it. A material declines its own
+     * map the way a placement already declines it (`warp: false` on an event, PlacementSchema):
+     * same meaning, one level up, and the compiler folds the two into one answer.
+     */
+    disable: z.boolean().optional(),
   })
   .strict();
 

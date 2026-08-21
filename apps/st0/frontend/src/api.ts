@@ -225,8 +225,11 @@ export const api = {
         sensitivity === undefined ? "" : `&sensitivity=${sensitivity}`
       }`,
     ),
-  // Audition one sample: the file service resolves it to an absolute file + window and fires it at the engine.
-  preview: (req: PreviewReq) => fsend<{ ok: true }>("POST", "/preview", req),
+  // Audition one sample: the file service resolves it to an absolute file + window and fires it at
+  // the engine, answering the window it sent so a caller can draw a playhead over the right span.
+  // `length: 0` means "to the end of the file" — a duration only the decoded audio knows.
+  preview: (req: PreviewReq) =>
+    fsend<{ ok: true; start: number; length: number }>("POST", "/preview", req),
   // Render the mixdown and hand back blob + filename. "mp3" needs ffmpeg on the engine host; "wav" always works.
   exportMix: async (
     format: "wav" | "mp3",

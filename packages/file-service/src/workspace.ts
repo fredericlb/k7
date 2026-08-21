@@ -73,7 +73,7 @@ import {
   sharedModuleRef,
 } from "@studio/song/moduleFork";
 import { ENGINE_NS, type ModuleNamespace } from "@studio/song/moduleTypes";
-import { isFrozenClipId } from "@studio/song/nodeProject";
+import { isFrozenClipId, materialRefOf } from "@studio/song/nodeProject";
 import {
   PLAYLIST_EXT,
   PLAYLISTS_DIR,
@@ -2240,13 +2240,42 @@ export class Workspace {
       return abs;
     };
     if (req.kind === "clip") {
+      const p = this.cachedProjectDoc(dir);
+      // The grid, so a TIMECODE `from:`/`to:` becomes seconds here as it does in the compiler —
+      // the same pair waveformOps passes, and for the same reason: an imported song writes nearly
+      // all of its windows that way, and without it the definition comes back with none.
+      const grid = {
+        tempo: p.tempo,
+        num: p.timeSigNumerator,
+        den: p.timeSigDenominator,
+      };
+      // A clip id may name a PLACEMENT (`bass_2_0@16`); the definition is keyed by the material.
       const clip =
-        findClip(this.cachedProjectDoc(dir), req.clip) ??
-        loadAudioClipDoc(dir, req.clip);
+        findClip(p, req.clip) ??
+        loadAudioClipDoc(dir, materialRefOf(req.clip), grid);
       if (!clip) throw new Error(`no clip '${req.clip}'`);
       if (clip.type !== "audio")
         throw new Error(`'${req.clip}' is not an audio clip`);
-      return { file: clip.source, start: 0, length: 0 };
+      /**
+       * The clip's own WINDOW, not the whole file — auditioning has to play what the clip plays.
+       *
+       * This returned `{0, 0}` and so played the file end to end, which for a take trimmed down to
+       * one bar of a five-minute pass meant the ▶ said nothing about the clip you were looking at.
+       * `sourceFrom`/`sourceTo` are the compiler's own answer in file seconds, timecode spelling
+       * already resolved (see AudioClipSchema), and on a placement they are the material's window
+       * already narrowed by the event's.
+       *
+       * A `to` that is absent — or not past the in-point, which is what an empty intersection
+       * leaves — stays a length of 0: the engine reads that as "to the end of the file", and it is
+       * the only honest thing to say about an extent no one here has opened the wav to measure.
+       */
+      const start = Math.max(0, clip.sourceFrom ?? 0);
+      const to = clip.sourceTo ?? 0;
+      return {
+        file: clip.source,
+        start,
+        length: to > start ? to - start : 0,
+      };
     }
     if (req.kind === "slice") {
       const from = Math.max(0, req.from);

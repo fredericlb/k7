@@ -1111,7 +1111,12 @@ filesRouter.post(
         req.body as z.infer<typeof previewBody>,
       );
       enginePreview(req.ws ?? null, file, start, length);
-      res.json({ ok: true });
+      // The window that was actually SENT, handed back rather than left for the caller to compute
+      // a second time. The browser draws an audition playhead over it, and a second resolution of
+      // `from`/`to` there — timecode spelling, house rules for an absent edge and all — is exactly
+      // how a mark comes to sit somewhere the sound is not. `length: 0` is "to the end of the
+      // file", the one number this side genuinely does not know.
+      res.json({ ok: true, start, length });
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code === "ENOENT" ? 404 : 400;
       res.status(code).json({ error: (e as Error).message });

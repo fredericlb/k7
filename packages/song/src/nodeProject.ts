@@ -170,15 +170,20 @@ function placementToClip(
           }
         : undefined;
     /**
-     * …unless THIS event declines it (`warp: false` on the placement). The map stays on the clip
-     * and every other placement of it keeps stretching; this one plays the sample as recorded.
+     * …unless it is declined, which TWO things may do and which compile to one answer.
+     *
+     * `warp: false` on the placement declines it for THIS event: the map stays on the clip and
+     * every other placement of it keeps stretching; this one plays the sample as recorded.
+     * `warp.disable: true` on the clip file declines it for the material, so no placement
+     * stretches — the map is kept, waiting, because computing one is the expensive half.
      *
      * Dropped HERE rather than in the engine, because the engine is handed a compiled document
      * and never asks why: an event with no `warp` in its ClipDoc is an event that does not warp,
      * which is exactly what it should be told. `warpOff` rides along beside it so the SURFACE can
      * still say the material is warped and this event is not — the timeline crosses its icon.
+     * One flag for both refusals, since what a surface draws is the refusal and not its author.
      */
-    const off = p.warp === false;
+    const off = p.warp === false || cm.warp?.disable === true;
     const warp = off ? undefined : map;
     /**
      * The effective window: the clip's own, narrowed by the EVENT's (`from`/`to` on the

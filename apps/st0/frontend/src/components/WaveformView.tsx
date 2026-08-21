@@ -7,6 +7,7 @@
 import { useEngineState } from "@studio/engine-browser/store";
 import { useHZoom, usePanScroll } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
+import { Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { clipEnvelopeKey } from "../clipEnvelope";
@@ -25,6 +26,7 @@ export function WaveformView({
   sliceRanges,
   onSliceEdit,
   onClose,
+  onPlay,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -35,14 +37,52 @@ export function WaveformView({
   // where each sound sits. `color` is the slice's own hue (sliceSymbols.ts), shared with the
   // symbol's painted name in the editor; absent, the window is the colourless band a clip's
   // `from`/`to` draws — the two uses of this overlay that must not look alike.
-  sliceRanges?: { symbol: string; from: number; to: number; color?: string }[];
+  // `hollow` is the clip band with NOTHING trimmed: edges only, no wash. It is drawn so the edges
+  // can be grabbed — a clip that has never been trimmed still has to be trimmable — while saying
+  // nothing about a window it does not have. See clipWindowText.ts.
+  sliceRanges?: {
+    symbol: string;
+    from: number;
+    to: number;
+    color?: string;
+    hollow?: boolean;
+  }[];
   // With this, each window grows draggable edges that rewrite the symbol's from/to — only when its own file is open.
   onSliceEdit?: (symbol: string, from: number, to: number) => void;
   // Docked in the editor there is nothing to close (the strip lives and dies with the file), so the header drops it.
   onClose?: () => void;
+  /**
+   * Audition what this strip is showing — the header's ▶ — answering the WINDOW that was sent, in
+   * file seconds, or null when nothing played.
+   *
+   * A callback rather than a request built here, because only the host knows what the strip IS:
+   * the dock is a clip file, a gutter preview is some other source or a slice of one, and the
+   * three are three different `PreviewReq`s. The window (`from`/`to`) is resolved SERVER-side,
+   * where the compiler already turns a timecode edge into seconds — see workspace's resolvePreview
+   * — and comes back so the playhead below is drawn over the span that is actually sounding.
+   *
+   * One shot and no Stop: the engine fires a voice through a sampler, independent of the transport
+   * (EngineHost::previewSample). There is nothing to stop, so a toggle would be drawing a state
+   * this side cannot know.
+   */
+  onPlay?: () => Promise<{ start: number; length: number } | null>;
 }) {
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The span the last ▶ is sounding, and WHEN it was sent — the audition's playhead, which is a
+   * different mark from the transport's and has to be told apart from it.
+   *
+   * A span rather than a position: the position is the child's business, sixty times a second, and
+   * this pane deliberately keeps the transport's subscription down in `ClipWaveform` so a moving
+   * mark does not re-render the slice handles and the warp marks with it. Set twice per audition —
+   * on the reply, and never again — so the same rule holds for this one.
+   */
+  const [audition, setAudition] = useState<{
+    from: number;
+    to: number;
+    at: number;
+  } | null>(null);
 
   // Wheel zooms past fit and middle-drag pans. No gutter here — the canvas fills the width — so the anchor uses 0.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -132,6 +172,8 @@ export function WaveformView({
     let cancelled = false;
     setWf(null);
     setError(null);
+    // A different region: whatever was sounding is about someone else's picture now.
+    setAudition(null);
     // A different region opens at FIT, like the roll's: the zoom multiplier belonged to the clip
     // being left, and the pane's width is `zoomX * 100%` — so without this the next clip arrives
     // stretched to whatever the last one was examined at. A trim IS a different region, so it
@@ -170,6 +212,27 @@ export function WaveformView({
   return (
     <div className="flex h-full min-h-0 flex-col border-t-2 border-border bg-background">
       <div className="flex items-center gap-2 border-b border-border px-3 py-1 text-xs">
+        {onPlay && (
+          <button
+            type="button"
+            onClick={() => {
+              void onPlay().then((w) => {
+                if (!w) return;
+                // `length: 0` is the service saying "to the end of the file" — a duration only the
+                // decoded audio knows, and this pane is the one place that has it.
+                const to =
+                  w.length > 0 ? w.start + w.length : (wf?.seconds ?? 0);
+                if (to > w.start)
+                  setAudition({ from: w.start, to, at: performance.now() });
+              });
+            }}
+            title="écouter — la fenêtre from/to du fichier, à son propre tempo"
+            aria-label="écouter"
+            className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Play className="h-3.5 w-3.5" />
+          </button>
+        )}
         <span className="font-semibold text-primary">
           🔊 {clip.name || clip.id}
         </span>
@@ -250,7 +313,9 @@ export function WaveformView({
                       className={
                         r.color
                           ? "absolute inset-y-0 border-x"
-                          : "absolute inset-y-0 border-x border-primary/70 bg-primary/10"
+                          : r.hollow
+                            ? "absolute inset-y-0 border-x border-primary/40"
+                            : "absolute inset-y-0 border-x border-primary/70 bg-primary/10"
                       }
                       style={{
                         left: `${clampF * 100}%`,
@@ -265,12 +330,15 @@ export function WaveformView({
                           : {}),
                       }}
                     >
-                      <span
-                        className="absolute left-0.5 top-0.5 rounded bg-background/70 px-0.5 font-mono text-[10px] text-primary"
-                        style={r.color ? { color: r.color } : undefined}
-                      >
-                        {r.symbol}
-                      </span>
+                      {/* No name on a hollow band: it is not a window, it is two handles. */}
+                      {!r.hollow && (
+                        <span
+                          className="absolute left-0.5 top-0.5 rounded bg-background/70 px-0.5 font-mono text-[10px] text-primary"
+                          style={r.color ? { color: r.color } : undefined}
+                        >
+                          {r.symbol}
+                        </span>
+                      )}
                       {onSliceEdit && (
                         <>
                           {/* Edge handles — drag to change from/to. A generous 12px-wide
@@ -441,10 +509,76 @@ export function WaveformView({
                 ))}
               </svg>
             )}
+            {/* Last, so the audition's mark sits over everything it is running across. */}
+            {audition && (
+              <AuditionPlayhead span={audition} seconds={wf.seconds} />
+            )}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * The AUDITION's playhead — the ▶'s own mark, amber, over the span the service said it sent.
+ *
+ * Driven by the CLOCK and not by the engine, which is the honest description of it: a preview is a
+ * one-shot voice through a sampler (`EngineHost::previewSample`), and nothing about a sampler voice
+ * rides the state frame. What is known exactly is the window — the service answers it — and that a
+ * sample plays at its own rate, so elapsed time since the trigger IS the position. The one error
+ * term is the engine's: the first play of a file loads it asynchronously and fires a turn later, so
+ * that mark can run a little ahead. Every play after it is immediate.
+ *
+ * A LEAF, for the reason `ClipWaveform` below is one: this moves sixty times a second, and the
+ * slice handles, the warp marks and the loop lines have no business re-rendering with it. It stops
+ * itself at the end of the span rather than telling the parent, which keeps that one render away
+ * too — a new ▶ makes a new span, and a new span restarts it.
+ *
+ * Amber, where the transport's is near-white: the two can be on screen together, and "where the
+ * song is" and "where the audition is" are not the same claim about the same picture.
+ */
+function AuditionPlayhead({
+  span,
+  seconds,
+}: {
+  span: { from: number; to: number; at: number };
+  seconds: number;
+}) {
+  const [sec, setSec] = useState(span.from);
+  useEffect(() => {
+    setSec(span.from);
+    let raf = 0;
+    const tick = () => {
+      const at = span.from + (performance.now() - span.at) / 1000;
+      if (at >= span.to) {
+        setSec(Number.NaN); // past the end — drawn no more
+        return;
+      }
+      setSec(at);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [span]);
+
+  if (!Number.isFinite(sec) || seconds <= 0) return null;
+  const x = Math.max(0, Math.min(1, sec / seconds)) * 100;
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      preserveAspectRatio="none"
+    >
+      <title>{`écoute — ${sec.toFixed(2)}s`}</title>
+      <line
+        x1={`${x}%`}
+        y1="0"
+        x2={`${x}%`}
+        y2="100%"
+        stroke="rgb(245,158,11)" // amber-500
+        strokeWidth={2}
+      />
+    </svg>
   );
 }
 

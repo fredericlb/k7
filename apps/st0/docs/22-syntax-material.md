@@ -173,3 +173,17 @@ warp:
     - [4, 1.9382]
     - [8, 3.8764]
 ```
+
+### clips/<id>.yaml — the map kept, the stretching off
+
+`disable: true` switches the stretching off **without losing the map**: no placement of the clip follows the grid any more, and the markers wait in the file for you to turn it back on. Use it when the same sample is wanted at its own rate — another song, another tempo, a one-shot — where deleting the map would mean computing it again. One event can refuse on its own instead, with `warp: false` beside it in the track file.
+
+```yaml schema=Clip
+source: clips/break.wav
+warp:
+  algorithm: elastique
+  disable: true
+  markers:
+    - [0, 0]
+    - [8, 3.8764]
+```

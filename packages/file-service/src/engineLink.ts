@@ -31,7 +31,6 @@ import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { strudelPatterns } from "@studio/song/strudel";
 import {
   type CommandInfo,
-  ENGINE_RECONNECT_MAX_MS,
   ENGINE_RECONNECT_MIN_MS,
 } from "@studio/web-protocol";
 import chokidar from "chokidar";
@@ -60,6 +59,22 @@ const links = new Map<string, Link>();
 /** How long a link may go untouched before it is dropped. Minutes, not seconds: a person reading
  *  a score between takes is idle, and reconnecting costs a round trip. */
 const LINK_IDLE_MS = 5 * 60_000;
+
+/**
+ * The reconnect backoff's ceiling HERE — deliberately not the browser's.
+ *
+ * `ENGINE_RECONNECT_MAX_MS` is 30 s and its own comment says why: "so a forgotten tab stops
+ * hammering the relay". Neither half of that is true on this side. There is no forgotten tab —
+ * this is a service dialling `127.0.0.1`, where a refusal costs one instant loopback connect
+ * rather than a sequential dial of every address an engine ever advertised. And the engine
+ * restarts on every C++ save in the dev session, so what the ceiling really buys is the delay
+ * before edits reach the audio again.
+ *
+ * Taking the browser's number gave that delay up to thirty seconds where it had been one, which
+ * reads exactly like the engine ignoring your edit — the backoff is what a restart resets.
+ * Doubling still stops the 1 Hz spin; the ceiling is what has to fit the distance.
+ */
+const LOCAL_RECONNECT_MAX_MS = 4000;
 let selectedEngineUrl: string | undefined;
 
 /**
@@ -161,16 +176,16 @@ function wireEngine(session: string, e: EngineClient): void {
     const s = served.get(session);
     if (s) sendActiveProject(s.ws, s.project);
   });
-  // Doubled, capped and jittered, like the browser client and from the same constants. It was a
-  // flat second, for ever: a machine whose engine is simply off knocked once a second for as long
-  // as the service lived, and `pruneIdleLinks` does not stop it — it skips any session in
-  // `served`, which is precisely the one holding a project. The jitter is for the other half:
-  // several sessions dropped by one engine restart would otherwise come back in lockstep.
+  // Doubled and jittered, but capped SHORT. It was a flat second for ever: a machine whose engine
+  // is off knocked once a second for as long as the service lived, and `pruneIdleLinks` does not
+  // stop it — it skips any session in `served`, which is precisely the one holding a project. The
+  // jitter is for the other half: several sessions dropped by one engine restart would otherwise
+  // come back in lockstep.
   e.on("close", () => {
     const l = links.get(session);
     if (l) l.ready = false;
     const step = Math.min(
-      ENGINE_RECONNECT_MAX_MS,
+      LOCAL_RECONNECT_MAX_MS,
       ENGINE_RECONNECT_MIN_MS * 2 ** (l?.attempt ?? 0),
     );
     if (l) l.attempt++;

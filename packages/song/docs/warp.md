@@ -72,6 +72,46 @@ What it is for: the map fits the song the clip was warped INTO. A second use of 
 somewhere else — another tempo, another song, a one-shot — wants it at its own rate, and the only
 way before was to copy the file.
 
+## …and so can the MATERIAL
+
+```yaml
+# clips/break.yaml
+warp:
+  algorithm: elastique
+  disable: true      # keep the map, stop stretching
+  markers: [...]
+```
+
+`disable: true` is the same refusal one level up: no placement of this clip stretches, and the map
+stays in the file. Where `warp: false` says *not this event*, this says *not this material* — and
+the reason to have both is that a sample used once and a sample used twenty times need the same
+answer written in different places.
+
+**It keeps the map, and that is the whole point.** Deleting `warp:` would say the same thing to the
+engine, but a map is the expensive half: an import computes it, and a hand-placed one is minutes of
+dropping beats onto hits. "Don't stretch this for now" has to be one word to write and one to
+remove, or it is not a switch — it is a decision you make once and cannot walk back.
+
+The compiler folds the two refusals into one answer:
+
+```ts
+const off = p.warp === false || cm.warp?.disable === true;
+```
+
+One flag, because what a SURFACE draws is the refusal and not its author — the timeline crosses the
+stretch icon either way. `disable: false` is the absent value written out and changes nothing, so a
+round trip through the flag leaves nothing behind.
+
+Two consequences worth knowing:
+
+- **The waveform's stretch marks disappear** while it is off. They are derived from the compiled
+  clip's map through the region's own mapping, and with no map that mapping is identity — marks
+  drawn on it would be pointing at beats the picture no longer places anywhere. The markers are
+  still in the text you are looking at, which is where you switched them off.
+- **A `to:` written as a timecode still resolves at the project tempo.** The window and the map are
+  independent: one says which slice of the file plays, the other how that slice is stretched onto
+  the grid. Switching the map off does not un-quote the window.
+
 ## `algorithm` is documentation
 
 The engine ignores it. A warp is realised through Tracktion's auto-tempo, with the intermediate

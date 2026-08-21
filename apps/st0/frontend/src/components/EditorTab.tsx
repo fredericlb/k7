@@ -11,7 +11,6 @@ import { Button } from "@frediverse/ui/button";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
-import { parsePosition } from "@studio/song/timecode";
 import {
   listVideoPlacements,
   setVideoPlacementField,
@@ -44,6 +43,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { moduleBehind } from "../moduleBehind";
 import {
@@ -191,47 +191,18 @@ const isAudioClipFile = (text: string): boolean => {
   return !!src && !VIDEO_EXT.test(src);
 };
 
-/**
- * The clip's `from`/`to` as a window to draw over its waveform, or undefined when it trims nothing.
- *
- * Read from the TEXT rather than the compiled clip, so the shading follows what you are typing — the same reason
- * the source is read this way. It reuses the slice-window overlay: a clip's window and a rack slice's are the
- * same picture of the same thing, seconds into one file.
- *
- * `tempo`/`num`/`den` because an edge may be written either way (see AudioClipSchema): a number is seconds, a
- * timecode is a POSITION in the file and needs the project's grid to become one. Without this the shading
- * simply never appeared for a timecode, which reads as the field being ignored.
- */
-function clipWindow(
-  text: string,
-  tempo: number,
-  num: number,
-  den: number,
-): { symbol: string; from: number; to: number }[] | undefined {
-  const edge = (field: string): number | null => {
-    const raw = readScalarField(text, field);
-    if (raw == null || raw === "") return null;
-    const n = Number(raw);
-    if (Number.isFinite(n)) return n >= 0 ? n : null; // already seconds
-    try {
-      return (parsePosition(raw, num, den) * 60) / tempo;
-    } catch {
-      return null; // half-typed timecode — draw nothing rather than jump about
-    }
-  };
-  const from = edge("from");
-  const to = edge("to");
-  if (from == null && to == null) return undefined;
-  // An unwritten edge is the file's own — `to` is filled in by the view, which is the only place the duration is
-  // known. A backwards pair is refused by the schema; here it would just draw nothing, so it is left to say so.
-  return [
-    { symbol: "clip", from: from ?? 0, to: to ?? Number.POSITIVE_INFINITY },
-  ];
-}
-
 // The rack module a sequence names via use_rack, so a slice rack can dock its source waveform.
 const findUseRack = (text: string): string | null =>
   readScalarField(text, "use_rack");
+
+// The grid a clip's window is read and written on — a timecode edge means nothing without it.
+// Defaulted rather than optional: an edge spelled in SECONDS needs no grid at all, and refusing to
+// draw or move one because the doc had not arrived would be an outage for the commoner spelling.
+const gridOf = (p: WebProject | null | undefined) => ({
+  tempo: p?.tempo || 120,
+  num: p?.timeSigNumerator || 4,
+  den: p?.timeSigDenominator || 4,
+});
 
 // What the toolbar says where the Save button was. "clean" says nothing: a file that is saved
 // is the ordinary state, and a badge for it would be noise on every screen.
@@ -375,18 +346,31 @@ export function EditorTab({
     // Span the whole source, not the placed region — what a clips/*.yaml shows (see WaveformView).
     whole?: boolean;
     // Slice-rack windows to overlay on the waveform — coloured, when they are a rack's slices.
+    // `hollow` is the clip band of a file that trims nothing: handles without a wash.
     sliceRanges?: {
       symbol: string;
       from: number;
       to: number;
       color?: string;
+      hollow?: boolean;
     }[];
+    // What the strip's ▶ sends. A clip file names its CLIP, so the window the file declares is
+    // what plays; a rack's dock names the plain SOURCE it shares, which has no window at all.
+    play?: PreviewReq;
   } | null>(null);
   // The last sound auditioned from a gutter ▶, docked under the editor until dismissed or the file changes.
   const [preview, setPreview] = useState<{
     project: WebProject;
     clip: WebClip;
-    sliceRanges?: { symbol: string; from: number; to: number }[];
+    sliceRanges?: {
+      symbol: string;
+      from: number;
+      to: number;
+      hollow?: boolean;
+    }[];
+    // The request that opened it, kept so the strip's ▶ can play it again: the `clip` synthesised
+    // below cannot be turned back into one — a source preview's id is a PATH, not a clip name.
+    play: PreviewReq;
   } | null>(null);
 
   // Point the minimap at the open file's entity: a clip or sequence highlights a clip, a track file a track.
@@ -426,6 +410,7 @@ export function EditorTab({
         if (req.kind === "clip") {
           setPreview({
             project: proj,
+            play: req,
             clip: {
               id: req.clip,
               type: "audio",
@@ -448,6 +433,9 @@ export function EditorTab({
           setPreview({
             project: proj,
             clip,
+            // The RESOLVED request — `handlePreview` rewrites a rack's relative source
+            // project-relative before playing it, and a ▶ resending the raw one would miss.
+            play: req,
             sliceRanges:
               req.kind === "slice"
                 ? [{ symbol: "▶", from: req.from, to: req.to }]
@@ -503,6 +491,26 @@ export function EditorTab({
     [previewSound, setStatus, filePath, activeProject],
   );
 
+  /**
+   * The waveform strip's ▶ — send the request the strip already carries, and nothing else.
+   *
+   * No `resolveGutterSource` here on purpose: a strip's request is the one that was PLAYED (or
+   * the clip id of the file you have open), so resolving it again would prefix a rack module's
+   * directory twice. And no `previewSound`: the strip is already showing what this plays.
+   */
+  const playStrip = useCallback(
+    async (req: PreviewReq) => {
+      try {
+        const { start, length } = await api.preview(req);
+        return { start, length };
+      } catch (e) {
+        setStatus(`preview error: ${(e as Error).message}`);
+        return null; // no sound, so no playhead: the strip draws nothing rather than a lie
+      }
+    },
+    [setStatus],
+  );
+
   // Feed the shared Editor panel the SOURCE behind the open file, so the bottom pane shows what you're looking at.
   useEffect(() => {
     if (!active) return;
@@ -534,7 +542,14 @@ export function EditorTab({
               length: 0,
               notes: [],
             };
-            setAudioClip({ project: proj, clip, sliceRanges: ranges });
+            // The rack's shared SOURCE, whole: a slice rack's windows belong to its symbols, and
+            // the file itself declares none — ▶ here plays the material every symbol cuts from.
+            setAudioClip({
+              project: proj,
+              clip,
+              sliceRanges: ranges,
+              play: { kind: "source", source },
+            });
             onEditTarget(null);
           })
           .catch(() => {
@@ -583,12 +598,12 @@ export function EditorTab({
               project: proj,
               clip,
               whole: true,
-              sliceRanges: clipWindow(
-                file.content,
-                proj.tempo || 120,
-                proj.timeSigNumerator || 4,
-                proj.timeSigDenominator || 4,
-              ),
+              // The CLIP, not its source: the file's own `from`/`to` are what ▶ has to honour, and
+              // the service resolves them — timecode spelling included — from this id alone.
+              play: { kind: "clip", clip: clip.id },
+              // Editable: this buffer IS the clip file, so the band's edges are handles even when
+              // it trims nothing — otherwise only an already-trimmed clip could be trimmed.
+              sliceRanges: clipWindowBand(file.content, gridOf(proj), true),
             });
             onEditTarget(null);
           } else if (clip) {
@@ -1135,6 +1150,18 @@ export function EditorTab({
     () => !!file && !file.binary && scanSlices(file.content) != null,
     [file],
   );
+  /**
+   * A CLIP file's own band is draggable too, and by the same machinery.
+   *
+   * The window and a rack slice's are the same picture of the same thing — two seconds into one
+   * file — so they are one overlay with one gesture, told apart by the band's symbol. What differs
+   * is only which writer the release calls, which is why this is a second flag rather than a
+   * second set of handles.
+   */
+  const canWindowEdit = useMemo(
+    () => !!file && !file.binary && isClipFile(file.path),
+    [file],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1367,17 +1394,33 @@ export function EditorTab({
                     onSave={autosave.flush}
                     onOpenEntity={open}
                     onPreview={handlePreview}
-                    // The docked slicer's drag — only when the symbols live in THIS buffer.
+                    onPlayStrip={playStrip}
+                    /**
+                     * The dock's edge drags — a rack symbol's window, or the clip's own.
+                     *
+                     * Both rewrite the OPEN BUFFER rather than run a verb, which is what makes the
+                     * text under the waveform move with the hand: autosave carries it to disk on
+                     * its own timer, and one Ctrl+Z undoes the drag like any other edit. `symbol`
+                     * is what tells them apart — `clipWindowBand` names its one band "clip".
+                     */
                     onSliceEdit={
-                      canSliceEdit
+                      canSliceEdit || canWindowEdit
                         ? (symbol, from, to) => {
                             if (!file || file.binary) return;
-                            const next = setSliceWindow(
-                              file.content,
-                              symbol,
-                              from,
-                              to,
-                            );
+                            const next =
+                              symbol === "clip" && canWindowEdit
+                                ? setClipWindowText(
+                                    file.content,
+                                    from,
+                                    to,
+                                    gridOf(audioClip?.project),
+                                  )
+                                : setSliceWindow(
+                                    file.content,
+                                    symbol,
+                                    from,
+                                    to,
+                                  );
                             if (next != null)
                               setFile({ ...file, content: next });
                           }
