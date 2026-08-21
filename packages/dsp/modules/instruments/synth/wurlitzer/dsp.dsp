@@ -32,7 +32,7 @@ fmGain(i) = pow(0.933033, 99 - i);
 
 // Modulation de phase. `m` est en CYCLES et non en radians, comme l'`addPhaseOffset` de STK,
 // pour que les gains ci-dessous se lisent contre le C++ sans conversion à faire de tête.
-pm(f, m) = sin(2 * ma.PI * (os.phasor(1.0, f) + m));
+phasemod(f, m) = sin(2 * ma.PI * (os.phasor(1.0, f) + m));
 
 // Le deux-zéros de STK, gain 2 : y = 2·(x − x[n−2]). Il adoucit le modulateur d'attaque avant
 // qu'il ne pousse sa porteuse, ce qui est ce qui empêche la frappe de claquer.
@@ -52,14 +52,14 @@ vib = os.osc(8.0) * vibrato;
 //
 // Paire A, le CORPS : l'opérateur 1 (rapport 4) module l'opérateur 0 (rapport 1). C'est la
 // partie qui suit la note et qui tient une seconde et demie.
-modA = fmGain(82) * e1 * pm(freq * 4.0, 0);
-carA = fmGain(99) * e0 * pm(freq, modA * index);
+modA = fmGain(82) * e1 * phasemod(freq * 4.0, 0);
+carA = fmGain(99) * e0 * phasemod(freq, modA * index);
 
 // Paire B, l'ATTAQUE : l'opérateur 3 module l'opérateur 2, et les deux sont à 510 Hz FIXES —
 // un rapport négatif chez STK veut dire une fréquence absolue. D'où le « bark » qui ne
 // transpose pas : le bruit du marteau sur la lame est celui du mécanisme, pas de la note.
-modB = fmGain(68) * e3 * pm(510.0, vib);
-carB = fmGain(82) * e2 * pm(510.0, tz(modB));
+modB = fmGain(68) * e3 * phasemod(510.0, vib);
+carB = fmGain(82) * e2 * phasemod(510.0, tz(modB));
 
 // Le mélange de STK, y compris le facteur 2 de sortie.
 out = ((1.0 - tine * 0.5) * carA + tine * 0.5 * carB) * 2.0;

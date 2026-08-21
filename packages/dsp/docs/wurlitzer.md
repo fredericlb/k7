@@ -44,6 +44,21 @@ pas, et c'est le cœur du son — le bruit du marteau sur la lame appartient au 
 la note qu'on joue. Un port qui lirait `-510` comme un rapport ferait un instrument qui sonne
 juste dans le grave et faux ailleurs, sans rien qui le signale.
 
+## `pm` était déjà pris, et rien ne pouvait le dire avant un compilateur
+
+La première version définissait `phasemod` sous le nom `pm`. `pm` est l'alias de
+`physmodels.lib` dans `stdfaust.lib`, et Faust refuse une redéfinition :
+
+```
+stdfaust.lib:30 ERROR : redefinition of symbols are not allowed : pm
+```
+
+Le module a donc été écrit, relu, commité, poussé dans la bibliothèque du compte et vu dans le
+constructeur **sans jamais compiler une fois**. C'est exactement ce que « le moteur n'a pas de
+compilateur » coûte, et c'est la première chose qu'un compilateur a trouvée. Les deux lettres
+sont un nom court par facilité ; les alias de `stdfaust.lib` en occupent une trentaine, tous
+de deux à trois lettres, donc un helper local doit être nommé plus longuement.
+
 ## Les trois écarts, assumés
 
 1. **`waves_[3]` utilise `fwavblnk.raw` chez STK, une sinusoïde ici.** C'est une table

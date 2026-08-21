@@ -57,23 +57,44 @@ un `Faust` effet et un `Faust Instrument` — puisque le rôle décide du dossie
 lequel un module est classé et de sa place dans une chaîne, et qu'une seule classe ne peut
 pas répondre les deux.
 
-## Les trois routes, et ce qu'elles coûtent
+## La route retenue : libfaust, backend INTERPRÉTEUR — mesurée, pas estimée
 
-### libfaust (backend LLVM), compilation à l'exécution
+**Il n'y a pas besoin de LLVM.** Le backend interpréteur est déjà dans la bibliothèque statique
+par défaut (`build/backends/interp.cmake` pose `INTERP_COMP_BACKEND STATIC DYNAMIC`), et
+`createInterpreterDSPFactoryFromString` compile une source à l'exécution comme la variante LLVM.
+Tout ce qui suit a été construit et exécuté ici, sur Faust 2.85.9 et MSVC :
 
-La seule qui garde la propriété entière : on écrit un module dans l'app, on l'entend. La
-compilation tient dans le constructeur.
+```
+cmake -S faust/build -B out -C faust/build/backends/interp.cmake \
+      -DINCLUDE_STATIC=ON -DINCLUDE_DYNAMIC=OFF -DINCLUDE_EXECUTABLE=OFF \
+      -DINCLUDE_OSC=OFF -DINCLUDE_HTTP=OFF -DINCLUDE_EMCC=OFF -DINCLUDE_WASM_GLUE=OFF
+```
 
-Prix : libfaust + LLVM, des dizaines de Mo dans un binaire que le capot embarque, sur trois
-plateformes. Et une licence à lire avant de s'engager — le code *généré* par Faust est
-explicitement libre d'usage, la bibliothèque du compilateur elle-même est une autre question.
+Ce que ça donne, et ce sont des nombres relevés :
 
-### Le backend WASM et un interpréteur embarqué
+| | |
+|---|---|
+| `libfaust.lib` (statique, non liée) | 108 Mo |
+| un exécutable qui la LIE et compile un module | **4,0 Mo** |
+| les bibliothèques standard (`libraries/`) | 47 fichiers, 2,0 Mo |
 
-`faust -lang wasm`, puis wasm3 ou WAMR dans le moteur. Beaucoup plus petit que LLVM. Mais un
-interpréteur wasm tourne autour d'un ordre de grandeur sous le natif, ce qui est acceptable
-pour un filtre et ne l'est pas pour ce qu'on met en série dans une tranche. À ne considérer
-que si la taille du binaire devient le critère qui tranche.
+**Les dizaines de Mo que cette page annonçait étaient celles de LLVM.** Par cette route le coût
+réel est de l'ordre de 4 Mo, ce qui change la décision.
+
+Trois pièges, tous rencontrés :
+
+- **`ws2_32` est obligatoire sur Windows.** libfaust embarque un récupérateur HTTP de sources
+  (`sourcefetcher.obj`) et l'édition de liens échoue sur huit symboles Winsock sans lui.
+- **`libraries/` est un SOUS-MODULE** de faust (`grame-cncm/faustlibraries`). Un clone qui ne
+  l'initialise pas donne un dossier vide, et `import("stdfaust.lib")` échoue à l'exécution —
+  pas à la construction.
+- **La signature réelle a cinq paramètres**, pas sept :
+  `createInterpreterDSPFactoryFromString(name, source, argc, argv, error)`. La documentation en
+  ligne décrit la variante LLVM ; c'est l'en-tête qui fait foi.
+
+Reste le prix vrai de cette route : un interpréteur, donc plus lent que du code machine. Pas
+mesuré ici — c'est la prochaine chose à faire, et le seuil qui compte est ce qu'on met en série
+dans une tranche, pas un module isolé.
 
 ### `faust -lang cpp` à la compilation du moteur
 
