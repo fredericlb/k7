@@ -61,3 +61,22 @@
   filter: grayscale(1) brightness(3);
   display: block;
 }
+
+/* A window edge's grab zone — 12px straddling a 1.5px line, which is what a hand can actually
+   catch. Transparent: the EDGE is drawn on the canvas underneath, and a second one here would be
+   two lines a pixel apart. It lights only under the cursor, so the picture stays the picture. */
+.waveform-edge {
+  position: absolute;
+  top: 0;
+  width: 12px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.waveform-edge:hover,
+.waveform-edge:active {
+  background: rgba(226, 232, 240, 0.18);
+}

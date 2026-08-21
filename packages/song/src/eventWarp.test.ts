@@ -1,4 +1,4 @@
-// Switching an event's WARP off — `event disable warp`, and the file it writes.
+// Switching an event's WARP off — `event status warp`, and the file it writes.
 //
 // The polarity is the interesting part and is the opposite of `disabled`'s: a warp belongs to the
 // CLIP, so every placement of it stretches by default and `warp: false` is a placement declining

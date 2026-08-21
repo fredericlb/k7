@@ -1184,23 +1184,27 @@
 # Drops one placement from a track, addressed the same way `event move` addresses it.
 # The clip/sequence itself stays in clips/ — a placement is a reference, and the same
 # material may sit on other tracks. Also on the timeline: right-click an event → Remove.
-# `event disable <what>` — switch off ONE aspect of ONE event, without removing it. Two so far,
-# and the head is what makes room for a third: `disable` names the act, the word after it names
-# what stops. It was a bare `event disable` while silencing was the only thing you could switch
-# off; `play` is that command under a name that says which of an event's properties it means.
+# `event status <what>` — set ONE aspect of ONE event, without removing it. Two so far, and the
+# head is what makes room for a third: `status` names the act, the word after it names which
+# property. It was a bare `event disable` while silencing was the only thing you could switch off,
+# then `event disable play`; `status mute` is that command under a name that says which of an
+# event's properties it means without also asserting a direction.
 #
-# Both take `on|off|toggle` and toggle when it is omitted, and in both `on` means the DISABLING
-# is on — the state belongs to the command's own verb, not to the event's.
+# Both take `on|off|toggle` and toggle when it is omitted. `on` means the NAMED STATE is on, which
+# reads straight for `mute` and INVERTED for `warp` — `event status warp on` makes the event
+# decline the map. That is the polarity `event disable warp` had and it was kept rather than
+# quietly flipped, because flipping it would change what a habit does with nothing on screen
+# saying so. Each `state` hint spells its own direction; do not shorten them.
 #
 # Silence one event — a track's mute at the level of a placement. It stays in the file, so its
 # position, length and fades survive being switched off and on. The timeline draws it dimmed,
 # and the ENGINE is what skips it.
-- command: "event disable play"
-  sid: event.disablePlay
+- command: "event status mute"
+  sid: event.statusMute
   readable:
     en: "Silence one clip without removing it"
     fr: "Rendre un clip muet sans le supprimer"
-  help: "silence one event without removing it (e.g. event disable play drums 2:1:1)"
+  help: "silence one event without removing it (e.g. event status mute drums 2:1:1)"
   surfaces: [cli]
   args:
     [
@@ -1213,12 +1217,12 @@
 # this is an event declining it, written `warp: false` on the placement. What it is for: the map
 # fits the song the clip was warped INTO, and a second use of that clip elsewhere wants the
 # sample as recorded. The only way before was to copy the file.
-- command: "event disable warp"
-  sid: event.disableWarp
+- command: "event status warp"
+  sid: event.statusWarp
   readable:
     en: "Play one clip at its own rate, unwarped"
     fr: "Jouer un clip à son propre tempo, sans étirement"
-  help: "stop one event playing the clip's stretch map (e.g. event disable warp drums 2:1:1)"
+  help: "stop one event playing the clip's stretch map (e.g. event status warp drums 2:1:1)"
   surfaces: [cli]
   args:
     [
@@ -1236,6 +1240,23 @@
 # written as zero, which is the rule `disabled` and `warp` already follow.
 #
 # The timeline sends these when a fade's corner handle is dragged.
+- command: "event window"
+  sid: event.window
+  readable:
+    en: "Set which slice of its material one event plays"
+    fr: "Choisir la part de sa matiere qu'un evenement joue"
+  help: "which slice of the file an event plays, in SECONDS (e.g. event window vox 24:1 52.36 69.82)"
+  surfaces: [cli]
+  args:
+    [
+      { name: track, complete: tracks },
+      { name: timecode, type: timecode },
+      {
+        name: from,
+        hint: "seconds into the FILE, not a timecode — 0 means its start",
+      },
+      { name: to, hint: "seconds into the FILE; past its end means its end" },
+    ]
 - command: "event fadein"
   sid: event.fadeIn
   readable:

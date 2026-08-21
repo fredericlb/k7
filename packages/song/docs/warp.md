@@ -50,7 +50,7 @@ it did. The **third** point is what makes it a warp.
 
 ## One EVENT can decline it
 
-The map is the clip's, so every placement of that clip stretches by it. `event disable warp` is
+The map is the clip's, so every placement of that clip stretches by it. `event status warp` is
 one placement saying no: it writes `warp: false` on the event (`PlacementSchema`), and the
 compiler simply omits the map from that event's `ClipDoc`.
 

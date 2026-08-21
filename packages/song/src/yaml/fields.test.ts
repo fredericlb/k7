@@ -154,7 +154,7 @@ describe("derived lane fields", () => {
       "fadeOut",
       "loop",
       "disabled",
-      // Whether this event plays the material's stretch map — `event disable warp` writes it,
+      // Whether this event plays the material's stretch map — `event status warp` writes it,
       // and the editor offers it here because the completion is DERIVED from the schema.
       "warp",
     ]);

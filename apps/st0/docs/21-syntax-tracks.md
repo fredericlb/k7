@@ -49,12 +49,18 @@ There is no `length` and no `offset` here: trimming belongs to the clip, so ever
 plays the same thing and no two lines can disagree about what that is.
 
 Two things a placement may switch OFF for itself, and both are written by
-`event disable <what>`:
+`event status <what>`:
 
-| field | absent means | what `event disable …` writes |
+| field | absent means | what `event status …` writes |
 |---|---|---|
-| `disabled: true` | it plays | `event disable play` — silenced, still drawn (dimmed) |
-| `warp: false` | it uses the clip's stretch map | `event disable warp` — plays at the sample's own rate |
+| `disabled: true` | it plays | `event status mute` — silenced, still drawn (dimmed) |
+| `warp: false` | it uses the clip's stretch map | `event status warp` — plays at the sample's own rate |
+
+Both take `on`, `off` or `toggle`, and toggle when you leave it out. **`on` switches the named
+state ON — so `event status mute on` silences the event, and `event status warp on` makes it
+DECLINE the map** rather than take it. The second reads backwards on purpose: it is the direction
+the command had when it was called `event disable warp`, kept so that a line you already know
+keeps doing what it did.
 
 The polarities are opposite because the defaults are: an event plays unless told otherwise, and it
 warps because the CLIP is warped. `warp: false` is one placement declining a map that belongs to

@@ -308,6 +308,53 @@ export function setTrackPlacementFade(
   );
 }
 
+/**
+ * Which slice of its material the placement at `fromBeats` plays — its `from`/`to`, in SECONDS.
+ *
+ * The event's window, which since the descent is the only one there is: a clip file describes the
+ * bytes, a placement describes the use (packages/song/docs/materialCut.md). What the clip panel's
+ * two edge handles commit, and what `event window` writes.
+ *
+ * Seconds and not a timecode, because that is the axis the gesture happened on — a waveform is a
+ * file, and a hand pointing at it is pointing at a second of it. Both spellings stay legal on the
+ * field (`WindowEdge`), so a window somebody wrote musically by hand is only converted if they
+ * drag it; a hair of rounding at 0.1 ms, which is finer than a sample at any rate.
+ *
+ * A `from` of 0 and a `to` past the end are DELETED rather than written: absent already means the
+ * material's start and its end, and a file full of edges that restate the file makes "not trimmed"
+ * and "trimmed to exactly the whole thing" read alike. `dur` is what the caller knows the source
+ * to be; pass 0 for "unknown" and the `to` is always written.
+ */
+export function setTrackPlacementWindow(
+  dir: string,
+  id: string,
+  fromBeats: number,
+  num: number,
+  den: number,
+  win: { from: number; to: number },
+  dur = 0,
+): boolean {
+  const tidy = (s: number) => Math.round(s * 10000) / 10000;
+  const from = win.from > 1e-4 ? tidy(win.from) : undefined;
+  const to = dur > 0 && win.to >= dur - 1e-4 ? undefined : tidy(win.to);
+  const set = (field: "from" | "to", v: number | undefined) =>
+    setPlacementFieldAt(
+      dir,
+      id,
+      fromBeats,
+      num,
+      den,
+      field,
+      v,
+      "set an event's window",
+    );
+  // Both, always: an edge the drag decided against has to go, or it would keep narrowing what the
+  // other one just opened. Two writes and one file — `editTrackStruct` skips an unchanged text.
+  const a = set("from", from);
+  const b = set("to", to);
+  return a || b;
+}
+
 /** What a resize touched — ONE event, now that the window it writes is the placement's own. */
 export interface ResizeReport {
   ref: string; // the material the event plays

@@ -124,6 +124,30 @@ Two consequences of writing the DOM rather than rendering:
 | `Minimap` | `MinimapPlayhead` |
 | `PianoRoll` | `RollPlayhead` |
 | `SequencerPanel` | `StepPlayhead` — moved off `left` onto a transform while we were here; `left` is layout, and it was relaying out the grid of buttons twenty times a second |
+| `AudioClipPanel` | `LiveWaveform` — the clip panel's own line, on the FILE's axis; see below |
+
+### The clip panel converts before it draws
+
+`AudioClipPanel` is the one reader whose picture is not in song time. A waveform is a **file**, and
+a window into it: its axis is file seconds. The transport speaks song seconds. What joins them is
+the pair the panel is opened with — `placedAt`, the beat the event's window opens at in the
+arrangement, and `act.from`, the second it opens at in the file — so beats elapsed since the one
+land as seconds after the other. The conversion is `src/clipPlayhead.ts`, on its own so it can be
+held to something without mounting anything.
+
+**Outside the event it draws nothing new**: the line falls back to `act.from`, the head of what
+this event plays, which is what the panel drew before it moved at all. Not the picture's left edge
+— that is out in the bar of context `frameOnEvent` leaves either side, and a mark parked there
+reads as a playhead somewhere it never plays. `clipPlayhead` answers `null` rather than clamping,
+so the fallback is the caller's choice and not a number pretending.
+
+A warped clip is a known approximation, the same one the panel's ruler already states: a stretch
+map bends time INSIDE the clip, and this reads the placement's grid — the frame, not the warp.
+
+`LiveWaveform` is a **leaf**, and that is the same rule as the beat counter beside it taken the
+other way round. The counter subscribes at whole-beat granularity *because* re-rendering on every
+frame would redraw the waveform; the mark that must move every frame is therefore put where its
+re-render reaches nothing else — not the sidebar, not the ruler, not the trim menu.
 
 ## Who is deliberately NOT, and why
 

@@ -3232,7 +3232,7 @@ export function TimelineTab({
                           !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
                         // A time-stretched clip plays back at an altered rate — flag it with a
                         // countdown-timer icon. CROSSED when this event has declined the map
-                        // (`event disable warp`): the material is still warped, and this one
+                        // (`event status warp`): the material is still warped, and this one
                         // playing at its own rate is a state worth seeing rather than an absence.
                         const stretched = !!c.warped;
                         const unwarped = !!c.warpOff;

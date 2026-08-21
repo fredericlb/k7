@@ -98,6 +98,18 @@ interface Props {
    * mark stay together. A drag that does not move is a click, and reaches `onMarkerClick`.
    */
   onMarkerMove?: (marker: Marker, toSec: number) => void;
+  /**
+   * Drag the `sourceWindow`'s two edges. Absent ⇒ the band is drawn and cannot be touched.
+   *
+   * The edges live HERE, on the canvas, and not on a layer the host puts over it: `timeToX` is the
+   * one authoritative mapping — it already carries the view's zoom and the measured width — and a
+   * second `(sec - v0) / span` computed outside is exactly how a handle comes to sit a pixel off
+   * the line it is supposed to be holding. The pins beside them are placed the same way.
+   *
+   * Committed on RELEASE, like a marker's move: an edge written on every pointermove would be a
+   * file write per pixel, while the band follows the hand from local state meanwhile.
+   */
+  onWindowMove?: (win: { from: number; to: number }) => void;
   // Live draft range of the moment currently being range-edited (null when not
   // editing). Dragging the edge handles updates it via onEditRange.
   editing?: Selection | null;
@@ -281,6 +293,7 @@ function WaveformInner({
   onSelect,
   onMarkerClick,
   onMarkerMove,
+  onWindowMove,
   editing = null,
   onEditRange,
 }: Props) {
@@ -295,6 +308,13 @@ function WaveformInner({
     id: string;
     atSec: number;
     moved: boolean;
+  } | null>(null);
+  // The window edge being dragged, with the pair it makes — so the band resizes under the hand
+  // rather than after the write. Null when nothing is being held.
+  const [winDrag, setWinDrag] = useState<{
+    edge: "from" | "to";
+    from: number;
+    to: number;
   } | null>(null);
   // Which edge of the editing moment is being dragged, if any.
   const editDrag = useRef<"start" | "end" | null>(null);
@@ -477,9 +497,11 @@ function WaveformInner({
     // this pane already spends violet on a selection, blue on a warp, teal on a marker, amber and
     // green on regions, and a seventh hue for the thing all of those sit INSIDE would compete with
     // every one of them.
-    if (sourceWindow && sourceWindow.to > sourceWindow.from) {
-      const wx0 = timeToX(sourceWindow.from);
-      const wx1 = timeToX(sourceWindow.to);
+    // The dragged pair while an edge is held: the band has to follow the hand, not the write.
+    const shown = winDrag ?? sourceWindow;
+    if (shown && shown.to > shown.from) {
+      const wx0 = timeToX(shown.from);
+      const wx1 = timeToX(shown.to);
       ctx.fillStyle = "rgba(255,255,255,0.1)";
       ctx.fillRect(wx0, 0, Math.max(1, wx1 - wx0), HEIGHT);
       // The EDGES carry it, not the wash: the envelope's own fill is a gradient up to 22% drawn on
@@ -718,6 +740,7 @@ function WaveformInner({
     warps,
     onsets,
     sourceWindow,
+    winDrag,
   ]);
 
   // The grid's times alone — what a click snaps to (see nearestTick). The subdivisions are in
@@ -832,6 +855,50 @@ function WaveformInner({
           setDragSel(null);
         }}
       />
+      {/* The window's two EDGES, when the host offers the move. Same layer as the pins and the
+          same `timeToX`, so a handle cannot drift from the line it holds. A 12px grab zone
+          straddling the edge: the line itself is 1.5px, which is not a thing a hand can catch. */}
+      {onWindowMove &&
+        sourceWindow &&
+        sourceWindow.to > sourceWindow.from &&
+        (["from", "to"] as const).map((edge) => {
+          const at = (winDrag ?? sourceWindow)[edge];
+          return (
+            <button
+              key={edge}
+              type="button"
+              className="waveform-edge"
+              style={{ left: timeToX(at), height: HEIGHT }}
+              title={`Drag to set the event's ${edge} (${at.toFixed(3)}s)`}
+              aria-label={`window ${edge}`}
+              onPointerDown={(e) => {
+                e.stopPropagation(); // …or the canvas starts a selection under the same finger
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setWinDrag({ edge, ...sourceWindow });
+              }}
+              onPointerMove={(e) => {
+                if (winDrag?.edge !== edge) return;
+                // Clamped to the FILE, and kept a hair apart: a window that crossed itself is not
+                // a narrower window, it is one that plays nothing.
+                const sec = Math.max(
+                  0,
+                  Math.min(total, xToTime(localX(e.clientX))),
+                );
+                setWinDrag(
+                  edge === "from"
+                    ? { ...winDrag, from: Math.min(sec, winDrag.to - 0.001) }
+                    : { ...winDrag, to: Math.max(sec, winDrag.from + 0.001) },
+                );
+              }}
+              onPointerUp={() => {
+                const d = winDrag;
+                setWinDrag(null);
+                if (d?.edge === edge) onWindowMove({ from: d.from, to: d.to });
+              }}
+              onPointerCancel={() => setWinDrag(null)}
+            />
+          );
+        })}
       {/* Only the pins inside the window. Their `left` is absolute px, so one outside would sit
           off the canvas rather than be clipped by it — a flag hanging in the panel's chrome. */}
       {markers

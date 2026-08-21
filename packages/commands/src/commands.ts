@@ -31,8 +31,8 @@ import {
   loadGraph,
   parseChains,
 } from "@studio/song/graph";
-import { renamedInstance } from "@studio/song/instanceName";
 import { spliceProjectTime } from "@studio/song/insertTime";
+import { renamedInstance } from "@studio/song/instanceName";
 import {
   cloneModuleFile,
   createModuleFile,
@@ -119,6 +119,7 @@ import {
   setTrackPlacementDisabled,
   setTrackPlacementFade,
   setTrackPlacementWarp,
+  setTrackPlacementWindow,
   trackTakes,
 } from "@studio/song/trackMix";
 import {
@@ -132,7 +133,6 @@ import {
   removeCurvePoint,
   setCurvePoint,
 } from "@studio/song/yaml/curveFile";
-import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
 import {
   deleteFileValue,
   setFileValue,
@@ -140,6 +140,7 @@ import {
 } from "@studio/song/yaml/edit";
 import type { GraphFile } from "@studio/song/yaml/graphSchema";
 import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
+import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
 import {
   appendNotes,
   isPlayableNote,
@@ -163,6 +164,7 @@ import { consolidateAudioMaterial, splitAudioMaterial } from "./materialRender";
 import { processWithChain, type Scope } from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
+import { wavSeconds } from "./wavLength";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
 // module's own file — a node's folder is `nodes/`, shared by every node in the song,
@@ -692,16 +694,22 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
  * noun makes. See processChain.ts and docs/processChain.md.
  */
 /**
- * `event disable play|warp <track> <timecode> [on|off|toggle]` — switch off one aspect of one
- * event, without removing it.
+ * `event status mute|warp <track> <timecode> [on|off|toggle]` — set one aspect of one event,
+ * without removing it.
  *
- * One implementation, two commands, because the only thing that differs is WHICH property stops:
- * `play` silences the event, `warp` makes it ignore the clip's stretch map. That difference is
+ * One implementation, two commands, because the only thing that differs is WHICH property moves:
+ * `mute` silences the event, `warp` makes it ignore the clip's stretch map. That difference is
  * worth a command each for the reason `track process` and `clip process` are two — the word after
  * the verb is the promise — and it is what leaves room for a third without renaming anything.
  *
- * In both, `on` means the DISABLING is on: the state belongs to this command's own verb, not to
- * the event's. Toggling reads the current flag off the compiled clip.
+ * **`on` means the NAMED STATE is on, and that reads straight for `mute` and INVERTED for `warp`**:
+ * `event status warp on` makes the event DECLINE the map. It is the polarity `event disable warp`
+ * had — under that head both aspects named something negative and both read alike — and it was
+ * kept rather than quietly flipped when the head changed, because flipping it would change what
+ * an existing habit does with nothing on screen saying so. Each `state` hint in commands.yaml
+ * spells its own direction, which is now the only thing that does.
+ *
+ * Toggling reads the current flag off the compiled clip.
  *
  * The two flags have opposite polarity in the FILE — `disabled: true` is written, `warp: false`
  * is — because their defaults are opposite, and both writers delete rather than write the default
@@ -710,7 +718,7 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
 /**
  * `event fadein|fadeout <track> <timecode> <length>` — how long one event fades.
  *
- * One implementation, two commands, for the reason `event disable play|warp` is two: the word
+ * One implementation, two commands, for the reason `event status mute|warp` is two: the word
  * after the verb is the promise, and which end of the clip a fade is on is exactly the kind of
  * thing a verb should say rather than an argument.
  *
@@ -773,6 +781,75 @@ async function fadeCommand(
     await h.reload();
   } catch (e) {
     h.refuse([`${verb} failed: ${(e as Error).message}`]);
+  }
+}
+
+/**
+ * `event window <track> <at> <from> <to>` — which slice of its material one event plays.
+ *
+ * The event's own `from`/`to`, in SECONDS of the file, which since the descent is the only window
+ * there is: a clip file describes the bytes, a placement describes the use. What the clip panel's
+ * two edge handles commit on release.
+ *
+ * Seconds and not a timecode, deliberately, where every other argument this family takes is
+ * musical. The pair addresses a FILE — a waveform is a file and a hand pointing at it points at a
+ * second of it — and the field accepts both spellings, so a hand-written musical window is only
+ * converted if somebody drags it. `<at>` beside them is the ordinary timecode: it says WHICH event,
+ * on the song's grid, exactly as `event fadein` and `event split` take it.
+ *
+ * An edge that restates the material's own is cleared rather than written, which is
+ * `setTrackPlacementWindow`'s rule and the same one the fades follow.
+ */
+async function windowCommand(a: string, h: CommandHost): Promise<void> {
+  const parts = splitWords(a);
+  if (parts.length !== 4) {
+    h.refuse([
+      "usage: event window <track> <timecode> <from> <to>",
+      "       (from/to in SECONDS of the file, e.g. event window vox 24:1 52.36 69.82)",
+    ]);
+    return;
+  }
+  const [trackArg, atTc, fromArg, toArg] = parts;
+  const found = resolveEvent(h, trackArg, atTc);
+  if (!found) return;
+  const { track, atBeats, hit, num, den } = found;
+  const from = Number(fromArg);
+  const to = Number(toArg);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0) {
+    h.refuse([
+      `'${fromArg} ${toArg}' is not a window in seconds — two numbers, the first not negative`,
+    ]);
+    return;
+  }
+  if (!(to > from)) {
+    h.refuse([
+      `a window has to run forwards — got ${fromArg} to ${toArg}`,
+      "nothing was changed: a window of zero length would play nothing at all",
+    ]);
+    return;
+  }
+  try {
+    const done = setTrackPlacementWindow(
+      h.songPath,
+      track.id,
+      atBeats,
+      num,
+      den,
+      { from, to },
+      // The source's own length, so an edge that lands on the file's end is cleared rather than
+      // written. Absent host or unreadable file: the `to` is written, which is never wrong.
+      hit.source ? (wavSeconds(hit.source) ?? 0) : 0,
+    );
+    if (!done) {
+      h.refuse([`no event on '${track.id}' at ${atTc}`]);
+      return;
+    }
+    h.log([
+      `${track.id}: ${hit.name || hit.id} at ${atTc} plays ${from.toFixed(3)}s → ${to.toFixed(3)}s of its file`,
+    ]);
+    await h.reload();
+  } catch (e) {
+    h.refuse([`event window failed: ${(e as Error).message}`]);
   }
 }
 
@@ -1093,12 +1170,12 @@ const moduleOfPluginId = (id: string): string => id.slice(id.indexOf(":") + 1);
 const curveIdFor = (track: string, param: string): string =>
   `${track}-${param}`.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-|-$/g, "");
 
-async function disableCommand(
+async function statusCommand(
   a: string,
   h: CommandHost,
-  aspect: "play" | "warp",
+  aspect: "mute" | "warp",
 ): Promise<void> {
-  const verb = `event disable ${aspect}`;
+  const verb = `event status ${aspect}`;
   const m = /^(\S+)\s+(\S+)(?:\s+(\S+))?$/.exec(a.trim());
   if (!m) {
     h.refuse([`usage: ${verb} <track> <timecode> [on|off|toggle]`]);
@@ -1114,11 +1191,11 @@ async function disableCommand(
     return;
   }
   // What is currently OFF, read off the compiled event: silenced, or declining the warp.
-  const now = aspect === "play" ? !!hit.disabled : hit.warpOff === true;
+  const now = aspect === "mute" ? !!hit.disabled : hit.warpOff === true;
   const next = state === "toggle" ? !now : state === "on";
   try {
     const done =
-      aspect === "play"
+      aspect === "mute"
         ? setTrackPlacementDisabled(
             h.songPath,
             track.id,
@@ -1131,7 +1208,7 @@ async function disableCommand(
           setTrackPlacementWarp(h.songPath, track.id, atBeats, num, den, !next);
     if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
     const said =
-      aspect === "play"
+      aspect === "mute"
         ? next
           ? "disabled"
           : "enabled"
@@ -2016,11 +2093,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // event remove <track> <timecode> — drop that placement, addressed exactly as `event move` addresses it.
+  // (the `event status …` pair below was `event disable play|warp` until the head was renamed)
   // The clip itself stays: a placement is a REFERENCE, and an unplaced clip in clips/ is still yours.
-  // event disable play|warp <track> <timecode> [on|off|toggle] — see disableCommand below.
-  "event.disablePlay": (a, h) => disableCommand(a, h, "play"),
-  "event.disableWarp": (a, h) => disableCommand(a, h, "warp"),
+  // event status mute|warp <track> <timecode> [on|off|toggle] — see statusCommand below.
+  "event.statusMute": (a, h) => statusCommand(a, h, "mute"),
+  "event.statusWarp": (a, h) => statusCommand(a, h, "warp"),
   "event.fadeIn": (a, h) => fadeCommand(a, h, "fadeIn"),
+  "event.window": windowCommand,
   "event.fadeOut": (a, h) => fadeCommand(a, h, "fadeOut"),
   "curve.point.add": (a, h) => curvePointCommand(a, h, "add"),
   "curve.point.move": (a, h) => curvePointCommand(a, h, "move"),

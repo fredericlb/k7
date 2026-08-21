@@ -16,10 +16,18 @@ import { projectApi } from "@studio/project-shell/project";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";
 import { Waveform } from "@studio/ui-waveform";
 import { Check, Loader2, Play, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { chainOps, filterOps, processLine } from "../clipOps";
+import { clipPlayhead } from "../clipPlayhead";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -85,6 +93,7 @@ export function AudioClipPanel({
   trackOrder = NO_TRACKS,
   trackNames = NO_NAMES,
   placedAt = null,
+  eventAt = null,
   eventWindow = null,
   takes = NO_TAKES,
   onPickTake,
@@ -122,6 +131,14 @@ export function AudioClipPanel({
   /** The arrangement beat where the clip's window PLAYS — what puts the song's ruler over the
    *  wave. Null for a clip nothing places, which has no position in the song to point at. */
   placedAt?: number | null;
+  /**
+   * This event's start as a TIMECODE — how the `event …` verbs address one.
+   *
+   * Given rather than derived from `placedAt`: turning a beat into a timecode needs the project's
+   * time signature, denominator included, and a panel that guessed 4 would address the wrong event
+   * in 6/8 and say it worked. The host has the grid; this only has to spell the command.
+   */
+  eventAt?: string | null;
   /**
    * The window THIS EVENT plays, in seconds of the file — what the panel frames and acts on.
    *
@@ -976,7 +993,12 @@ export function AudioClipPanel({
                 lecture de la prise…
               </p>
             ) : (
-              <Waveform
+              <LiveWaveform
+                // Where this event sits in the song, and which slice of the file it plays — the two
+                // numbers that turn the transport's position into a second of THIS picture.
+                placedAt={placedAt}
+                act={act}
+                tempo={tempo}
                 // Both curves: the RMS solid, the PEAK faint behind it. The pane drew RMS alone
                 // on a grid labelled in dBFS, so a clip normalised to −1 dBFS drew its tallest
                 // column near −10 and read as untouched — the two are 9 dB apart on a plucked
@@ -989,15 +1011,6 @@ export function AudioClipPanel({
                 }}
                 duration={wf.seconds}
                 height={waveH}
-                // The head of what THIS EVENT plays, in file seconds — not the file's own zero.
-                //
-                // The canvas maps `currentTime` through `timeToX`, which is file seconds, and this
-                // was `0`. That read correctly for every clip whose window starts at the file's
-                // head, which is every clip until one is trimmed or SPLIT: a split's tail opens at
-                // the cut, so the line landed a whole window to the left — out in the bar of
-                // context `frameOnEvent` leaves either side, rather than at the start of the lit
-                // band. `act` is that window, already intersected by the compiler.
-                currentTime={act.from}
                 // The project's bars and beats, straight from the same endpoint — WebWaveformGrid and
                 // the canvas's WaveformGrid are the same three fields, so no translation is needed.
                 gridLines={wf.grid}
@@ -1032,6 +1045,26 @@ export function AudioClipPanel({
                 // where a trim or an onset may land. Passed only when it actually cuts something:
                 // a band over the whole picture would tint everything and mark nothing.
                 sourceWindow={framed ? act : null}
+                /**
+                 * …and its two edges DRAG, which is how an event's window is set now.
+                 *
+                 * The window is the placement's — a clip file describes the bytes, a placement
+                 * describes the use (packages/song/docs/materialCut.md) — so this is an `event …`
+                 * verb like every other edit here, journalled and undone with one Ctrl+Z.
+                 *
+                 * Only where there is an event to address: `placedAt` is what says which one, and
+                 * a take being reviewed has no position in the song to name. Only when `framed`
+                 * too, since that is when the band exists at all — an untrimmed clip's edges are
+                 * the file's, and there is nothing yet to take hold of.
+                 */
+                onWindowMove={
+                  eventAt && track
+                    ? (w) =>
+                        command(
+                          `event window ${track} ${eventAt} ${w.from.toFixed(4)} ${w.to.toFixed(4)}`,
+                        )
+                    : undefined
+                }
                 // A click on a mark refuses that onset; on a detected one that records a removal, on a
                 // hand-placed one it takes the addition back — one verb, because from here it is one act.
                 onMarkerClick={
@@ -1078,4 +1111,38 @@ export function AudioClipPanel({
       </div>
     </section>
   );
+}
+
+/**
+ * The canvas with the TRANSPORT on it — the one thing in this panel that watches the 20 Hz frame.
+ *
+ * A LEAF, and that is not tidiness: the beat counter above deliberately subscribes at whole-beat
+ * granularity because "one that re-rendered on every frame would redraw the waveform beside it".
+ * The same rule taken the other way round — the mark that MUST move every frame is put where its
+ * re-render reaches nothing else, so the sidebar, the ruler and the trim menu stay still.
+ *
+ * Two axes meet here and the conversion is the whole of it. The transport speaks SONG seconds; this
+ * picture is FILE seconds. `placedAt` is the beat the event's window opens at in the arrangement
+ * and `act.from` the second it opens at in the file, so beats elapsed since the one land as seconds
+ * after the other.
+ *
+ * Outside the event it falls back to `act.from`, which is what this drew before it moved at all:
+ * the head of what this event plays. Not −1 — the canvas would draw the line at the picture's left
+ * edge, out in the bar of context, which reads as a playhead parked somewhere it never plays.
+ */
+function LiveWaveform({
+  placedAt,
+  act,
+  tempo,
+  ...rest
+}: Omit<ComponentProps<typeof Waveform>, "currentTime"> & {
+  /** The beat this event's window starts playing at, or null for a clip nothing places. */
+  placedAt: number | null;
+  /** The slice of the file the event plays, in file seconds. */
+  act: { from: number; to: number };
+  tempo: number;
+}) {
+  const playhead = useEngineState((s) => s.playhead);
+  const at = clipPlayhead(playhead, placedAt, act, tempo);
+  return <Waveform {...rest} currentTime={at ?? act.from} />;
 }

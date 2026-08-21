@@ -8,6 +8,7 @@
 
 import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
+import { beatsToPosition } from "@studio/song/timecode";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { type RefObject, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
@@ -453,6 +454,13 @@ export function ClipView({
             beatsPerBar={(project ?? target.project).timeSigNumerator}
             // The clicked EVENT's beat — what puts the song's ruler over the wave.
             placedAt={clip.start}
+            // …and the same beat as a TIMECODE, which is how the `event …` verbs address one.
+            // Spelled HERE because it needs the project's time signature, denominator included.
+            eventAt={beatsToPosition(
+              clip.start,
+              (project ?? target.project).timeSigNumerator,
+              (project ?? target.project).timeSigDenominator,
+            )}
             // …and the slice of the file it plays, which the panel frames and acts on. Already the
             // intersection of the clip's own window with this placement's — the compiler does that
             // (nodeProject.ts), so there is nothing to re-derive and no second answer to keep.
