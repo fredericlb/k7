@@ -58,6 +58,7 @@ import {
 import { clipLoop, placedRepeats } from "../clipLoop";
 import type { MenuCtx } from "../contextMenu";
 import type { PasteResult } from "../gridCaret";
+import { useDocument } from "../hooks/useDocument";
 import { usePlayheadFrames } from "../hooks/usePlayheadFrames";
 import { blurOnClick } from "../keys";
 import {
@@ -795,8 +796,11 @@ export function TimelineTab({
   // hands out a fresh snapshot ~20x/s, that re-rendered the entire arrangement at frame rate
   // whether or not anything in it had changed. docs/timeline.md has the profile.
   const armedIds = useEngineState((s) => s.armed, arrayEq);
-  const [proj, setProj] = useState<WebProject | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Re-asked when the project moves, and again on a backoff while the service is not answering.
+  // This pane is the one the hole was FOUND on: a single empty reply — a file service restarting
+  // mid-request — pinned "timeline unavailable" for half an hour over a healthy service, because
+  // nothing here re-asks unless a command moves `reloadKey`. See useDocument.
+  const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, not a saved preference.
@@ -819,16 +823,6 @@ export function TimelineTab({
   const projRef = useRef<WebProject | null>(null);
   projRef.current = proj;
   const commitMoveRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    api
-      .projectDoc()
-      .then((p) => {
-        setProj(p);
-        setError(null);
-      })
-      .catch((e) => setError((e as Error).message));
-  }, [reloadKey]);
 
   // A committed move stops being drawn once the project it wrote has come back — which is also
   // the right answer when the command FAILED: the clip returns to where the file still says it

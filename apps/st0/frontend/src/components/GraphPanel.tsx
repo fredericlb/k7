@@ -12,9 +12,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { useDocument } from "../hooks/useDocument";
 import { m } from "../paraglide/messages.js";
 import { useLiveRackLit } from "../rackLit";
-import type { WebGraph, WebProject } from "../types";
+import type { WebProject } from "../types";
 
 export function GraphPanel({
   reloadKey,
@@ -81,19 +82,11 @@ export function GraphPanel({
   // panel is closed, and a camera held inside it would be a fresh frame on every reopen. Same
   // rule as ChainsTab's, and the reason DomChains takes the ref rather than owning it.
   const camStore = useRef<Cam | null>(null);
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .graph()
-      .then((g) => {
-        setGraph(g);
-        setError(null);
-      })
-      .catch((e) => setError((e as Error).message));
-  }, [reloadKey]);
+  // Re-asked when the project moves, and again on a backoff while the service is not answering —
+  // see useDocument. This pane is read far more than it is edited, so a failure with nothing to
+  // lift it would sit here until a command happened along.
+  const { doc: graph, error } = useDocument(() => api.graph(), reloadKey);
 
   // The session memory ChainsTab keeps, for the same reason: an edit must not reorganize
   // the picture under the pointer. Per TRACK — another track is another picture — and

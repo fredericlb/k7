@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
+import { useDocument } from "../hooks/useDocument";
 import {
   type MappedParam,
   type MidiControlApi,
@@ -240,8 +241,6 @@ export function ChainsTab({
   /** Say what a learn is waiting for, or what it captured. */
   onMidiStatus?: (line: string) => void;
 }) {
-  const [graph, setGraph] = useState<WebGraph | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const camApi = useRef<ChainsCamApi | null>(null);
@@ -260,22 +259,17 @@ export function ChainsTab({
   const seedRef = useRef(seedGraph);
   seedRef.current = seedGraph;
   const consumedSeed = useRef(0);
-  useEffect(() => {
+  // The seed is just another way of ANSWERING, so it lives INSIDE the load rather than beside it:
+  // the pane has one document from one place, and the retry in useDocument then covers the seeded
+  // path too — a seed that never arrives falls through to a request like any other miss.
+  const { doc: graph, error } = useDocument(async () => {
     const seed = seedRef.current;
     if (seed && seed.id > consumedSeed.current) {
       consumedSeed.current = seed.id;
-      setGraph(seed.graph);
-      setError(null);
-      return;
+      return seed.graph;
     }
-    api
-      .graph()
-      .then((g) => {
-        setGraph(g);
-        setError(null);
-      })
-      .catch((e) => setError((e as Error).message));
-  }, [reloadKey]);
+    return api.graph();
+  }, reloadKey);
 
   /**
    * What a node dropped here would be CALLED — handed to the shell with the click.
