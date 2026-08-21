@@ -116,6 +116,22 @@ export interface UndoResult {
   files?: string[];
 }
 
+/**
+ * One file a writing command touched, as `POST /command` reports it.
+ *
+ * It comes out of the journal's own diff — the two images `recordChange` compares to build the
+ * undo entry — so naming it costs nothing. What it is FOR is the reload behind a command: a
+ * client that knows a marker moved inside one clip file can skip the routes that answer about
+ * files and names, which cannot have changed. See apps/st0/frontend/src/reloadScope.ts.
+ *
+ * Paths are PROJECT-relative (`clips/x.yaml`) — the vocabulary `hints.paths` speaks, and the
+ * one an anchored test can trust. The journal's own `files` stay workspace-relative.
+ */
+export interface ChangedFile {
+  path: string;
+  kind: "added" | "edited" | "removed";
+}
+
 // Autocompletion source — the project's real entities; empty arrays when it is malformed, so the editor degrades.
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can extend ("type/name", "@ns/type/name")

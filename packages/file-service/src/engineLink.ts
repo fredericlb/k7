@@ -30,6 +30,7 @@ import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { strudelPatterns } from "@studio/song/strudel";
 import {
+  type ChangedFile,
   type CommandInfo,
   ENGINE_RECONNECT_MIN_MS,
 } from "@studio/web-protocol";
@@ -1235,17 +1236,20 @@ const GLOBAL_COMMAND = /^(channel|audio|project (commit|pull))\b/;
 export type CommandOutput = string[] & { refused?: boolean };
 
 /**
- * What a run answers: the lines, and the revision either side of the write.
+ * What a run answers: the lines, the revision either side of the write, and what it wrote.
  *
- * The tokens are `recordChange`'s, passed straight through — it brackets the mutation and walked
- * the tree twice to journal it, so it can name both instants for nothing. The route needs them
- * for two things, and used to take a walk of its own for each: whether the project CHANGED
- * (`after !== before`), and the token it hands the browser so the poll has nothing left to say.
+ * All three are `recordChange`'s, passed straight through — it brackets the mutation and walked
+ * the tree twice to journal it, so it can name both instants and both images for nothing. The
+ * route needs them for three things, and used to take a walk of its own for each: whether the
+ * project CHANGED (`after !== before`), the token it hands the browser so the poll has nothing
+ * left to say, and now the file list a client scopes its reload on.
  */
 export interface WebCommandRun {
   output: CommandOutput;
   before: string;
   after: string;
+  /** …and which files it wrote, from the same diff. `null` = not known; see `Recorded`. */
+  files: ChangedFile[] | null;
 }
 
 export async function runWebCommand(
@@ -1262,24 +1266,29 @@ export async function runWebCommand(
   if (!at && !ws.activeProjectPath() && !GLOBAL_COMMAND.test(line.trim())) {
     const no: CommandOutput = [NO_PROJECT];
     no.refused = true;
-    // Nothing ran, so the two instants are one. Free: with no project open the token is
-    // `none:<mutations>` and no walk happens.
+    // Nothing ran, so the two instants are one and nothing was written. Free: with no project
+    // open the token is `none:<mutations>` and no walk happens. `[]` and not `null` — the empty
+    // list is the truth about a command refused before it started, where "not known" would send
+    // a client off to re-ask everything.
     const rev = ws.revision().rev;
-    return { output: no, before: rev, after: rev };
+    return { output: no, before: rev, after: rev, files: [] };
   }
   // Journal whatever files the command changes, so Ctrl+Z can undo it (a no-op when nothing changed).
-  const { before, after } = await ws.recordChange(line, async (snapshot) => {
-    try {
-      await runCommand(
-        line,
-        makeHost(ws, out, userEmail, snapshot, at),
-        SURFACE,
-      );
-    } catch (e) {
-      out.push(`error: ${(e as Error).message}`);
-    }
-  });
-  return { output: out, before, after };
+  const { before, after, files } = await ws.recordChange(
+    line,
+    async (snapshot) => {
+      try {
+        await runCommand(
+          line,
+          makeHost(ws, out, userEmail, snapshot, at),
+          SURFACE,
+        );
+      } catch (e) {
+        out.push(`error: ${(e as Error).message}`);
+      }
+    },
+  );
+  return { output: out, before, after, files };
 }
 
 export function webCompletions(ws: Workspace, line: string): string[] {

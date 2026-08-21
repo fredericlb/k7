@@ -129,8 +129,38 @@ La limite, dite plutôt que cachée : une bibliothèque changée **hors de cet o
 `project pull`, un autre navigateur — n'apparaît qu'au prochain montage du volet. C'est le même
 marché que « Many browsers at once » prend déjà partout ailleurs.
 
-Reste `/hints` à 51 ms, et il n'y a pas de coup facile : sa mémoïsation est correcte, c'est son
-jeton qui ne peut pas être plus fin sans redevenir faux.
+Restait `/hints` à 51 ms, sans coup facile : sa mémoïsation est correcte, c'est son jeton qui ne
+peut pas être plus fin sans redevenir faux.
+
+**FAIT aussi, en cessant de chercher un jeton plus fin.** La question n'est pas « le service
+peut-il savoir que rien n'a bougé » — il ne le peut pas, `mutations` bouge pour tout — mais
+« le client peut-il demander quelque chose de plus précis ». Il le peut, et la matière était
+déjà là : `recordChange` encadre chaque mutation et compare les deux images pour construire
+l'entrée d'undo, donc il connaît les fichiers écrits. `POST /command` les renvoie
+(`changed`, project-relative, gratuit), `reloadKey` devient `{ key, files }`, et
+`EditorTab` demande `/tree` et `/hints` seulement quand ce qui a bougé peut les avoir bougés :
+
+| ce qui a changé | `/tree` | `/hints` |
+|---|---|---|
+| un fichier apparaît ou disparaît | oui | oui |
+| réécriture d'un `clips/`, `sequences/`, `curves/` | non | non — ils sont recensés PAR NOM |
+| réécriture de n'importe quoi d'autre | non | oui |
+| liste absente (`null`) | oui | oui — personne n'a rien dit |
+
+Donc un point d'étirement, une note dessinée, un point de courbe ne paient plus les deux routes
+qui répondent sur les fichiers et sur les noms — `/hints` (51 ms mesurés ci-dessus) et `/tree`
+(27 ms) ; `/project-doc`, `/graph` et `/project-errors` restent inconditionnels, une écriture
+pouvant réellement les changer. Arithmétique du tableau ci-dessus : le bout-en-bout n'a pas été
+remesuré depuis.
+
+`null` ≠ `[]` est le point porteur : un service qui n'a pas pu differ dit « je ne sais pas », et
+tout redevient l'ancien compteur. L'ouverture d'un projet, un undo, un `project pull` et le tic
+`/revision` n'ont donc rien eu à apprendre.
+
+La limite, dite plutôt que cachée : le `source` d'un clip décide aussi s'il est listé comme clip
+audio ou vidéo. Une commande qui repointerait un clip EXISTANT d'un wav vers un mp4 laisserait
+cette seule répartition périmée jusqu'au prochain rechargement complet. Les prédicats et leurs
+tests sont dans `apps/st0/frontend/src/reloadScope.ts`.
 
 Et à côté, le même raisonnement pour les gestes eux-mêmes : `quietCommand` (`want: []`, pas de
 bump) porte sa propre mesure — « 62 ms per mute, per solo, per knob turn, built and dropped ».

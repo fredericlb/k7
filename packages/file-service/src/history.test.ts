@@ -179,4 +179,46 @@ describe("Workspace.recordChange", () => {
     await ws.recordChange("noop", () => {});
     expect(ws.historyState().canUndo).toBe(false);
   });
+
+  // The same diff, said the other way: what a CLIENT is told so it can scope its reload. The
+  // journal's own paths stay workspace-relative; these are the project's own.
+  describe("names what it changed", () => {
+    it("tells a rewrite from an appearance, project-relative", async () => {
+      const { ws } = openProject();
+      mkdirSync(join(dir, "proj.st0", "clips"));
+      writeFileSync(join(dir, "proj.st0", "clips", "a.yaml"), "v1");
+
+      const rewrite = await ws.recordChange("edit", () =>
+        ws.write("proj.st0/clips/a.yaml", "v2"),
+      );
+      expect(rewrite.files).toEqual([{ path: "clips/a.yaml", kind: "edited" }]);
+
+      const appear = await ws.recordChange("new", () =>
+        ws.write("proj.st0/clips/b.yaml", "v1"),
+      );
+      expect(appear.files).toEqual([{ path: "clips/b.yaml", kind: "added" }]);
+    });
+
+    it("reports a file that went", async () => {
+      const { ws } = openProject();
+      writeFileSync(join(dir, "proj.st0", "a.yaml"), "v1");
+      const gone = await ws.recordChange("delete", () =>
+        rmSync(join(dir, "proj.st0", "a.yaml")),
+      );
+      expect(gone.files).toEqual([{ path: "a.yaml", kind: "removed" }]);
+    });
+
+    it("answers an empty list when the mutation wrote nothing", async () => {
+      const { ws } = openProject();
+      const nothing = await ws.recordChange("noop", () => {});
+      expect(nothing.files).toEqual([]);
+    });
+
+    // …and NULL when there was no diff to take, which a client must not read as "nothing".
+    it("answers null with no project open", async () => {
+      const ws = new Workspace(dir);
+      const none = await ws.recordChange("noop", () => {});
+      expect(none.files).toBeNull();
+    });
+  });
 });

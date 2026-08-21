@@ -11,6 +11,7 @@ import type { ProjectSurfaces } from "@studio/song/yaml/surfaceFile";
 import type {
   Alternatives,
   CatalogueModule,
+  ChangedFile,
   CloneJob,
   CommandInfo,
   FileContent,
@@ -204,6 +205,10 @@ export const projectApi = {
    * `refused` is the same shape of fact about the OTHER half: the command was understood and
    * declined, and the lines in `output` say why. Present only when true — a surface that ignores
    * it reads a refusal exactly as it always did, which is as ordinary output.
+   *
+   * `changed` names the FILES it wrote, project-relative, out of the journal's own diff. It is
+   * what lets a host reload only what depends on them; absent means the service could not say,
+   * which is "re-ask everything" and never "nothing moved".
    */
   command: (
     line: string,
@@ -216,6 +221,7 @@ export const projectApi = {
       refused?: boolean;
       graph?: WebGraph;
       rev?: string;
+      changed?: ChangedFile[];
     }>("POST", "/command", {
       line,
       ...(opts?.at ? { at: opts.at } : {}),

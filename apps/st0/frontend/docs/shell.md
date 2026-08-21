@@ -920,6 +920,67 @@ vocabulary of its own: pick a command, fill its parameters, Enter runs it. The c
 and the argument completers live in [`../src/palette.ts`](../src/palette.ts); why it is
 docked rather than opened is in [`commandBar.md`](commandBar.md).
 
+## What a command RELOADS — the token, not the counter
+
+Every writing command ends in a reload, and for a long time that reload was one number. `App`
+bumped `reloadKey`, and each consumer keyed an effect off it: the compiled document, the graph,
+the project errors, the file tree, the completion vocabulary, the open file. One counter can only
+say **"everything is stale"**, so that is what every command said, whatever it had done.
+
+Measured on `01.danse.st0`, per command, on a service that is **one thread** — so these queue
+rather than overlap:
+
+| route | cost | can a stretch point have moved it? |
+|---|---|---|
+| `/hints` | **65 ms / 108 KB** | no |
+| `/module-libraries` | **70 ms / 100 KB** | no |
+| `/project-doc` | 81 ms / 65 KB | yes |
+| `/graph` | 34 ms / 50 KB | sometimes |
+| `/tree` | 27 ms / 35 KB | no, unless a file appeared |
+| `/project-errors` | 18 ms | yes |
+| `/library-chains` | 12 ms | no |
+
+Three things came out of that, and they are three different answers to one question:
+
+- **`quietCommand`** — the gesture says *I will reload nothing*. A mixer knob, a mute, a warp
+  point. It passes `want: []` so no graph is built either, and whoever must move re-reads its own
+  picture. The `/revision` tick catches the rest within 2 s.
+- **`refreshLibraries`** — the pane says *ask me when it can have MOVED, not when anything moved*.
+  The two library routes are fetched on mount and by the two acts that write there.
+- **`Reload`** — the command says **which files it wrote**, and each consumer decides.
+
+That last one is what `reloadKey` became. `POST /command` answers with `changed`: the files it
+wrote, project-relative, taken straight out of the undo journal's own diff — `recordChange`
+brackets every mutation and compares the two images anyway, so naming them is free. `App` holds
+`{ key, files }`; `key` is still a counter, because "the same file twice" has to fire twice and a
+list cannot say that.
+
+**`files: null` means nobody said, and every predicate reads that as *re-ask*.** That is what
+keeps a project opened, an undo, a repository pulled and a poll that noticed something behaving
+exactly as they did — none of them had to learn the new vocabulary, and a service too old or too
+broken to answer degrades to the counter it replaced.
+
+The predicates are [`../src/reloadScope.ts`](../src/reloadScope.ts), and they are pure functions
+with a test each, because what they encode is a claim about the SERVICE that is not visible from
+here:
+
+- **`movedTheTree`** — did a file appear or disappear? Exactly what `/tree` draws, so this one is
+  total: a rewrite never moves it.
+- **`movedTheVocabulary`** — could `/hints` differ? Yes for everything except a **rewrite** of a
+  clip, a sequence or a curve. Those three are gathered by NAME (`projectHints` keys them off
+  their filenames), so a note drawn, a stretch point placed or a curve point moved changes nothing
+  the completion source carries. Anchored at the project root on purpose — a module may be called
+  `clips`, and `modules/audio/clips/module.yaml` must not read as one.
+
+**The limit, stated because it is real:** a clip's `source` also decides whether it is listed as
+an audio or a video clip. A command that repointed an *existing* clip from a wav to an mp4 would
+leave that one split stale until the next reload that does ask. Everything else about a clip —
+that it exists, where its file is, what it is called — is a name, and names are covered above.
+
+So a warp point, a note, a curve point now costs the two routes that answer about the SONG, and
+neither of the two that answer about files and names. What is deliberately still unscoped:
+`/project-doc`, `/graph` and `/project-errors`, which any project write can genuinely change.
+
 ## Live state does not re-render the tree
 
 The transport and the engine's live state arrive over the WebSocket at roughly 20 Hz.

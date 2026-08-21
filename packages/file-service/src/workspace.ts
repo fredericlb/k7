@@ -112,6 +112,7 @@ import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
 import type { ProjectShape } from "@studio/song/yaml/projectSchema";
 import type {
+  ChangedFile,
   FileContent,
   FileNode,
   Hints,
@@ -309,6 +310,16 @@ export interface Recorded<T> {
   /** Before the mutation. `after !== before` is what "this command changed the project" means. */
   before: string;
   after: string;
+  /**
+   * …and WHICH files moved, project-relative — `null` when the diff could not be taken.
+   *
+   * Free for the same reason the tokens are: the two images are already compared to build the
+   * undo entry. `null` is a distinct answer from `[]` and the distinction is load-bearing: a
+   * caller skipping work on "nothing of that kind changed" must not read a failed diff as one.
+   *
+   * Project-relative, unlike the journal's own paths — see `ChangedFile`.
+   */
+  files: ChangedFile[] | null;
 }
 
 /** One file's mtime, or 0 when it is not there — absent is a state, not a failure. */
@@ -550,6 +561,37 @@ function diffText(
     if (b !== a) changes.push({ path, before: b ?? null, after: a ?? null });
   }
   return changes;
+}
+
+/**
+ * The two diffs above, said in the vocabulary a client thinks in: project-relative, and
+ * appeared / edited / disappeared rather than a pair of contents.
+ *
+ * `base` is the project's own workspace-relative path (`.` when the project IS the workspace
+ * root, which a lone-project clone gives). Stripping it here rather than at the route is what
+ * keeps the conversion in the one place that holds both halves.
+ */
+function changedFiles(
+  base: string,
+  // Both diffs, read only for their SHAPE: a path, and which side was absent. `diffBin` carries
+  // bytes and `diffText` carries strings, and nothing here looks at either.
+  ...diffs: { path: string; before: unknown; after: unknown }[][]
+): ChangedFile[] {
+  const head = base === "." || base === "" ? "" : `${base}/`;
+  const out = new Map<string, ChangedFile>();
+  for (const c of diffs.flat()) {
+    // A path outside the project cannot happen — both images come from a walk of it — but a
+    // prefix that did not match would otherwise be reported as an absolute-looking path.
+    if (head && !c.path.startsWith(head)) continue;
+    const path = head ? c.path.slice(head.length) : c.path;
+    const kind =
+      c.before === null ? "added" : c.after === null ? "removed" : "edited";
+    // A file in both lists (a text file the render also snapshotted) is one change, and the
+    // stronger fact wins: appearing or disappearing outranks being rewritten.
+    const seen = out.get(path);
+    if (!seen || seen.kind === "edited") out.set(path, { path, kind });
+  }
+  return [...out.values()];
 }
 
 // Binary files that were created or overwritten. A newly created file is caught by presence
@@ -1095,8 +1137,14 @@ export class Workspace {
     const dir = this.activeProject;
     if (!dir) {
       // No project, no journal — and no walk either: the token is `none:<mutations>`.
+      // `files: null` and not `[]`: nothing was diffed, so nothing is known.
       const rev = this.revision().rev;
-      return { value: await mutate(() => {}), before: rev, after: rev };
+      return {
+        value: await mutate(() => {}),
+        before: rev,
+        after: rev,
+        files: null,
+      };
     }
     const pre = new Map<string, Buffer>(); // rel -> pre-image bytes of a binary about to be overwritten
     const snapshot = (abs: string): void => {
@@ -1111,15 +1159,19 @@ export class Workspace {
     const before = this.treeShot(dir);
     const result = await mutate(snapshot);
     const after = this.treeShot(dir);
+    // Null until the diff has actually been taken — a throw below leaves it null, which is the
+    // client's "I don't know, re-ask everything" and never a false "nothing changed".
+    let files: ChangedFile[] | null = null;
     try {
       const changes = diffText(before.text, after.text);
       const blobs = diffBin(this.root, before.bin, after.bin, pre);
+      files = changedFiles(this.toRel(dir), changes, blobs);
       if (changes.length || blobs.length)
         this.history(dir).push({ label, changes, blobs });
     } catch {
       /* journaling must never break a good write */
     }
-    return { value: result, before: before.rev, after: after.rev };
+    return { value: result, before: before.rev, after: after.rev, files };
   }
 
   /**

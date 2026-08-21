@@ -65,6 +65,7 @@ import {
   rackKeyOf,
   readScalarField,
 } from "../projectPaths";
+import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
 import type { SeqView } from "../sequenceEdit";
 import { rackSliceRanges, scanSlices, setSliceWindow } from "../sliceSymbols";
 import type {
@@ -257,7 +258,7 @@ export function EditorTab({
   active,
   showTree,
   popin,
-  reloadKey,
+  reload,
   activeProject,
   projectName,
   vimMode,
@@ -286,7 +287,13 @@ export function EditorTab({
   // not the same question — this one asks "is this a glance at one thing", and it is what puts a
   // sequence's grids on tabs here and nowhere else.
   popin: boolean;
-  reloadKey: number;
+  /**
+   * The shell's "something changed", and what — see `reloadScope.ts`.
+   *
+   * This pane is the reason the list exists: it holds the two routes that answer about FILES and
+   * about NAMES, and it re-asked both after every command in the app.
+   */
+  reload: Reload;
   activeProject: string | null;
   // The whole project's load findings; the editor draws the open file's inline. Refreshed by App's 2s vet poll.
   diagnostics: Diagnostic[];
@@ -336,6 +343,9 @@ export function EditorTab({
   onRegroupInputs?: (channel: number, stereo: boolean) => void;
   ref?: React.Ref<EditorHandle>;
 }) {
+  // Everything that only needs "something happened" still keys off the counter, and there is one
+  // of them — derived here rather than passed beside the token, which would be two props to agree.
+  const reloadKey = reload.key;
   const [tree, setTree] = useState<FileNode[]>([]);
   // Mobile only: the tree is a drawer over the editor, closed by default — the editor is the point of this pane.
   const isMobile = useIsMobile();
@@ -747,21 +757,47 @@ export function EditorTab({
     }
   }, [setStatus]);
 
-  /** The project's own tree and vocabulary — what a command CAN have changed. */
-  const refresh = useCallback(async () => {
-    try {
-      const [t, h] = await Promise.all([api.tree(), api.hints()]);
-      setTree(t);
-      setHints(h);
-    } catch (e) {
-      setStatus(`load error: ${(e as Error).message}`);
-    }
-  }, [setStatus]);
-  // The project's half on mount and after every command; the libraries' half on mount alone —
-  // see `refreshLibraries` for what pays for that and what it costs.
+  /**
+   * The project's own tree and vocabulary — what a command CAN have changed.
+   *
+   * `want` is for the one caller that knows better: the reload below, which has the list of files
+   * the command wrote. Both by default, because every OTHER caller here has just created, renamed,
+   * moved or deleted something and means all of it — a default that is the truth for them rather
+   * than a convenience.
+   */
+  const refresh = useCallback(
+    async (want = { tree: true, hints: true }) => {
+      try {
+        const [t, h] = await Promise.all([
+          want.tree ? api.tree() : null,
+          want.hints ? api.hints() : null,
+        ]);
+        if (t) setTree(t);
+        if (h) setHints(h);
+      } catch (e) {
+        setStatus(`load error: ${(e as Error).message}`);
+      }
+    },
+    [setStatus],
+  );
+  /**
+   * …and after a command, only the half of it that can have moved.
+   *
+   * Measured on `01.danse.st0`: `/tree` is 27 ms / 35 KB and `/hints` is 65 ms / 108 KB, on the
+   * one thread everything else queues behind, and this pane asked for both after EVERY command in
+   * the app — a fader, a mute, a stretch point. Neither can answer differently for any of those:
+   * no file appears, and nothing is named. The predicates and the one limit they leave are in
+   * `reloadScope.ts`; a reload that says nothing about its files still asks for both.
+   *
+   * The libraries' half is on mount alone — see `refreshLibraries` for what that buys and costs.
+   */
   useEffect(() => {
-    void refresh();
-  }, [refresh, reloadKey]);
+    const want = {
+      tree: movedTheTree(reload),
+      hints: movedTheVocabulary(reload),
+    };
+    if (want.tree || want.hints) void refresh(want);
+  }, [refresh, reload]);
   useEffect(() => {
     void refreshLibraries();
   }, [refreshLibraries]);

@@ -516,6 +516,12 @@ const cmdBody = z.object({
  * client uses to stop re-asking the questions this reply has already answered (st0's
  * `noteRevision`). Pairing it with the graph meant a caller that wanted no picture also got no
  * token, which is the one thing every writing caller can use.
+ *
+ * `changed` is the third of that family and the finest-grained: WHICH files the command wrote.
+ * The token says something moved, this says what — so a client can re-ask the questions that
+ * depend on it and skip the ones that cannot. It comes out of the journal's own diff and costs
+ * nothing here. Absent when the diff could not be taken, which a client must read as "I don't
+ * know" and not as "nothing". See `ChangedFile` and st0's `reloadScope.ts`.
  */
 filesRouter.post(
   "/command",
@@ -540,21 +546,24 @@ filesRouter.post(
       output,
       before,
       after: rev,
+      files,
     } = await runWebCommand(req.ws!, line, req.userEmail, target);
     const ran = performance.now();
-    const changed = rev !== before;
+    // The project MOVED. Not to be confused with `changed` on the reply below, which is the finer
+    // fact: this one is "something", that one is "these files".
+    const moved = rev !== before;
     // …and the graph, drawn in a scope SEEDED with that same token rather than one this route
     // walked for: `graphDoc` asks for the revision several times over (its own memo, then
     // `clipExtents` through the compiled doc) and would have opened a scope on a fresh walk.
     // The seed is a token taken microseconds earlier, after the same write. See `withRevision`.
     const graph =
-      changed && wantsGraph
+      moved && wantsGraph
         ? req.ws!.withRevision(() => req.ws!.graphDoc(), rev)
         : undefined;
     // One line per WRITING command, in the shape the engine's `[applyFull]` uses: the two halves
     // of the wait, so "the insert is slow" can be answered without a profiler. `graph=skipped`
     // is the third state and it is the one worth seeing: a gesture that costs nothing here.
-    if (changed)
+    if (moved)
       console.log(
         `[cmd] ${line.trim().slice(0, 60)} — ran=${(ran - t0).toFixed(0)}ms graph=${
           wantsGraph ? `${(performance.now() - ran).toFixed(0)}ms` : "skipped"
@@ -566,7 +575,8 @@ filesRouter.post(
     res.json({
       output,
       ...(output.refused ? { refused: true } : {}),
-      ...(changed ? { rev } : {}),
+      ...(moved ? { rev } : {}),
+      ...(files ? { changed: files } : {}),
       ...(graph ? { graph } : {}),
     });
   }),

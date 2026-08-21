@@ -150,6 +150,7 @@ import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
 import { entityFile, fileStem } from "./projectPaths";
 import { rememberCommand } from "./recentCommands";
+import { type Reload, UNKNOWN_RELOAD } from "./reloadScope";
 import { type Pane, type Panel, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
@@ -391,11 +392,25 @@ export default function App({
     (text: string) => setStatusLine({ text, refused: true }),
     [],
   );
-  const [reloadKey, setReloadKey] = useState(0);
+  /**
+   * "Something changed — re-read what you draw", and now WHAT changed with it.
+   *
+   * The counter is unchanged and every consumer still keys off it. What is new is `files`: the
+   * list a writing command answers with, so a consumer whose route depends on files or on names
+   * can decide whether it is one of them. `null` means nobody said, and every predicate in
+   * `reloadScope.ts` reads that as "re-ask" — which is what makes the bump below, the open, the
+   * undo and the poll all keep behaving exactly as they did.
+   */
+  const [reload, setReload] = useState<Reload>(UNKNOWN_RELOAD);
+  const reloadKey = reload.key;
   // Bumped when `graph organize` runs: the graph hosts hold every drawn node in place across
   // ordinary edits, and this is the one signal that lets dagre re-lay out everything.
   const [organizeKey, setOrganizeKey] = useState(0);
-  const bumpReload = useCallback(() => setReloadKey((k) => k + 1), []);
+  // The unscoped bump: whatever the caller did, it is not saying what moved.
+  const bumpReload = useCallback(
+    () => setReload((r) => ({ key: r.key + 1, files: null })),
+    [],
+  );
   // MIDI recording is browser-side (the engine records audio only), one track at a time, landing in its sequence.
   const [midiArmed, setMidiArmed] = useState<string | null>(null);
   const [tlView, setTlView] = useState({
@@ -1201,24 +1216,27 @@ export default function App({
       .catch(() => {});
   }, [refreshGitStatus, bumpReload]);
 
-  const openProject = useCallback(async (path: string) => {
-    try {
-      const w = await api.open(path);
-      setWs(w);
-      lastActive.current = w.activeProject;
-      void api
-        .project()
-        .then(setProject)
-        .catch(() => {});
-      setReloadKey((k) => k + 1);
-      setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
-      setFull(null);
-      // The layout the project that was open had — the doc effect above corrects it a moment
-      // later, once THIS project's doc says which shape it is.
-    } catch (e) {
-      setStatus(`open error: ${(e as Error).message}`);
-    }
-  }, []);
+  const openProject = useCallback(
+    async (path: string) => {
+      try {
+        const w = await api.open(path);
+        setWs(w);
+        lastActive.current = w.activeProject;
+        void api
+          .project()
+          .then(setProject)
+          .catch(() => {});
+        bumpReload();
+        setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
+        setFull(null);
+        // The layout the project that was open had — the doc effect above corrects it a moment
+        // later, once THIS project's doc says which shape it is.
+      } catch (e) {
+        setStatus(`open error: ${(e as Error).message}`);
+      }
+    },
+    [bumpReload],
+  );
 
   // The import (.dawproject) and delete-project dialog flows. Both are Radix dialogs, which
   // answer Escape themselves but let it go on propagating — so they register here too, or the
@@ -2054,7 +2072,7 @@ export default function App({
         // ChainsTab stays MOUNTED when it is hidden (it holds the shell's MIDI runtime) and
         // refetches `/graph` on every reloadKey, so asking for none here would not save the
         // build: it would move it into a second request and add a round trip to it.
-        const { output, refused, graph, rev } = await api.command(s, {
+        const { output, refused, graph, rev, changed } = await api.command(s, {
           want: ["graph"],
         });
         // A refusal is neither a success nor a failure, and until it had its own channel it was
@@ -2081,7 +2099,17 @@ export default function App({
         // Only here, and only because the reload is on the next line: `quietCommand` writes
         // WITHOUT reloading, and must let the tick do its work. See `RevisionPoller.note`.
         if (rev) noteRevision(rev);
-        setReloadKey((k) => k + 1);
+        /**
+         * …and the reload, carrying the files this command wrote.
+         *
+         * Measured on `01.danse.st0`: the bump alone costs ≈335 ms of routes queued on a
+         * single-threaded service, and two of them — `/tree` (27 ms) and `/hints` (65 ms,
+         * 108 KB) — answer about files and about names. A stretch point placed, a note drawn, a
+         * curve point moved changes neither, and there was no way to say so: a counter means
+         * "everything". The list is what the consumers read (`reloadScope.ts`); `undefined`,
+         * from a service that could not diff, still means everything.
+         */
+        setReload((r) => ({ key: r.key + 1, files: changed ?? null }));
         // The picker's second half: the module exists now, so put the node it made where the
         // click was. Its own command — journalled, undoable and typeable like any other — which
         // is the price of verbs that do one thing each.
@@ -3221,7 +3249,9 @@ export default function App({
                 // command that already named it.
                 showTree={full === "editor"}
                 popin={editorPopin}
-                reloadKey={reloadKey}
+                // The whole token, not the counter: this pane holds the two routes that answer
+                // about files and about names, and the list is what lets it skip them.
+                reload={reload}
                 activeProject={ws?.activeProject ?? null}
                 projectName={project?.name ?? null}
                 vimMode={vimMode}
