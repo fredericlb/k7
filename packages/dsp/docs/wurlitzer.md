@@ -59,6 +59,17 @@ compilateur » coûte, et c'est la première chose qu'un compilateur a trouvée.
 sont un nom court par facilité ; les alias de `stdfaust.lib` en occupent une trentaine, tous
 de deux à trois lettres, donc un helper local doit être nommé plus longuement.
 
+## Il dépasse 0 dBFS sur une note, et c'est STK
+
+Mesuré : une note à vélocité 100 sort à **1,027** de crête. Au-dessus de l'unité, donc écrêté
+si rien ne l'atténue avant la sortie — et à vélocité 127 ce sera davantage.
+
+Ce n'est pas une erreur de port : `Wurley::tick` finit par `lastFrame_[0] = temp * 2.0`, et ce
+facteur 2 est repris tel quel. STK est une bibliothèque de recherche, pas une tranche de
+console ; le niveau y est l'affaire de qui l'emploie. Baisser le facteur ici ferait diverger le
+modèle de sa source pour une raison de mixage, ce qui est exactement ce que le mixeur du nœud
+est là pour faire.
+
 ## Les trois écarts, assumés
 
 1. **`waves_[3]` utilise `fwavblnk.raw` chez STK, une sinusoïde ici.** C'est une table

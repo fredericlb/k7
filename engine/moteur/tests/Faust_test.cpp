@@ -10,15 +10,23 @@
 // and runs in seconds and needs no audio device.
 
 #include "faust/dsp/interpreter-dsp.h"
+#include "faust/dsp/poly-dsp.h"
 #include "faust/gui/UI.h"
 
 #include "test_harness.h"
 
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <list>
 #include <sstream>
 #include <string>
 #include <vector>
+
+// Faust's two GUI statics, defined once per program — the same pair FaustPlugin.cpp carries, and
+// for the same reason: `poly-dsp.h` drags GUI in.
+std::list<GUI*> GUI::fGuiList;
+ztimedmap GUI::gTimedZoneMap;
 
 namespace fs = std::filesystem;
 
@@ -120,6 +128,69 @@ static void every_shipped_dsp_compiles()
     CHECK(seen >= 2);
 }
 
+/** The loudest sample in a block — what "did anything come out" means, measurably. */
+static float peakOf(const std::vector<std::vector<float>>& out, int n)
+{
+    float peak = 0.0f;
+    for (const auto& chan : out)
+        for (int i = 0; i < n; ++i) peak = std::max(peak, std::fabs(chan[i]));
+    return peak;
+}
+
+static void an_instrument_sounds_when_a_note_is_played()
+{
+    // The whole point of the polyphony seam, as one measurement: the Wurlitzer used to be silent
+    // because nothing opened its `gate`. This plays a note the way FaustPlugin does — through
+    // Faust's own voice allocator — and looks at what comes out.
+    const auto file = catalogueDir() / "instruments" / "synth" / "wurlitzer" / "dsp.dsp";
+    CHECK(fs::is_regular_file(file));
+    if (!fs::is_regular_file(file)) return;
+
+    const std::string libs = fs::path{STUDIO_FAUST_LIBS}.string();
+    const char* argv[] = {"-I", libs.c_str()};
+    std::string error;
+    auto* factory = createInterpreterDSPFactoryFromString("poly", readAll(file), 2, argv, error);
+    CHECK(factory != nullptr);
+    if (factory == nullptr) return;
+
+    // Exactly what the plugin builds: the instance handed over, cloned per voice, controls shared.
+    auto* poly = new mydsp_poly(factory->createDSPInstance(), 16, false, true);
+    poly->init(48000);
+
+    const int n = 512;
+    const int chans = poly->getNumOutputs();
+    std::vector<std::vector<float>> out(static_cast<size_t>(chans), std::vector<float>(n, 0.0f));
+    std::vector<float*> outp;
+    for (auto& c : out) outp.push_back(c.data());
+
+    // Before any note: silence. If this failed, "it makes sound" below would prove nothing — the
+    // instrument would simply be droning.
+    poly->compute(n, nullptr, outp.data());
+    CHECK(peakOf(out, n) == 0.0f);
+
+    // Middle C, hard enough to hear. The attack is 1 ms, so one 512-frame block at 48 kHz is ten
+    // times longer than the envelope needs to open.
+    poly->keyOn(1, 60, 100);
+    poly->compute(n, nullptr, outp.data());
+    const float sounding = peakOf(out, n);
+    std::printf("    wurlitzer: peak after note-on = %.4f\n", sounding);
+    CHECK(sounding > 0.001f);
+
+    // …and it DECAYS. A note whose gate never closes is the other way to fail this test while
+    // technically making sound. STK's Wurley holds no sustain: a struck reed dies away.
+    poly->keyOff(1, 60, 0);
+    float last = sounding;
+    for (int block = 0; block < 200; ++block) {
+        poly->compute(n, nullptr, outp.data());
+        last = peakOf(out, n);
+    }
+    std::printf("    wurlitzer: peak after 200 blocks of release = %.6f\n", last);
+    CHECK(last < sounding);
+
+    delete poly;
+    deleteInterpreterDSPFactory(factory);
+}
+
 static void a_broken_program_is_refused_with_its_reason()
 {
     // The other half: a failure has to come back with Faust's own message, because that message
@@ -145,6 +216,7 @@ static void the_faust_libraries_are_where_the_build_says()
 int main()
 {
     RUN(every_shipped_dsp_compiles);
+    RUN(an_instrument_sounds_when_a_note_is_played);
     RUN(a_broken_program_is_refused_with_its_reason);
     RUN(the_faust_libraries_are_where_the_build_says);
     TEST_MAIN_END();

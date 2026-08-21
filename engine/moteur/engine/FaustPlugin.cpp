@@ -2,9 +2,20 @@
 #include "Warnings.h"
 
 #include "faust/dsp/interpreter-dsp.h"
+#include "faust/dsp/poly-dsp.h"
 #include "faust/gui/UI.h"
 
 #include <algorithm>
+#include <list>
+
+// Faust's `GUI` base declares two statics and defines them nowhere: every architecture file in
+// the distribution carries exactly these two lines, once per program. `poly-dsp.h` is what drags
+// GUI in here — the voice group is a GUI client — so this is our architecture file.
+//
+// Without them the whole engine links until the last step and dies on one unresolved symbol with
+// no obvious owner, which is how this was found.
+std::list<GUI*> GUI::fGuiList;
+ztimedmap GUI::gTimedZoneMap;
 
 namespace studio {
 
@@ -52,6 +63,29 @@ struct Controls : public UI {
     void addSoundfile(const char*, const char*, Soundfile**) override {}
 };
 
+/**
+ * How many notes an instrument can hold at once.
+ *
+ * Sixteen, and fixed: a voice is a whole copy of the program, so this is the cost of the module
+ * whether or not anybody plays a chord. It is not in `module.yaml` because a module file
+ * describes what a module IS, and how many fingers you have is not that.
+ */
+constexpr int VOICES = 16;
+
+/**
+ * The three names Faust's voice allocator DRIVES: pitch, velocity and the note itself.
+ *
+ * Filtered out of the parameter list on an instrument, and this is not cosmetic. They are real
+ * controls in the source — `dsp.dsp` declares them, and it must — but on a polyphonic instrument
+ * they belong to whichever voice is playing. Exposed as automatable parameters they would be a
+ * fader fighting the voice allocator for the same zone, and the fader would win between notes.
+ */
+bool isVoiceControl(const std::string& label)
+{
+    return label == "freq" || label == "gain" || label == "gate" || label == "key"
+           || label == "bend";
+}
+
 }  // namespace
 
 juce::File FaustPlugin::faustLibrariesDir()
@@ -98,15 +132,28 @@ FaustPlugin::FaustPlugin(te::PluginCreationInfo info)
     dsp_ = factory_->createDSPInstance();
     numIn_ = dsp_->getNumInputs();
     numOut_ = dsp_->getNumOutputs();
+
+    // No audio input means an INSTRUMENT, so it gets voices. The wrapper takes ownership of the
+    // instance it is handed and clones it once per voice; `group: true` makes the program's own
+    // controls shared across them, which is what "one Tine knob for the whole keyboard" means.
+    if (numIn_ == 0) {
+        poly_ = new mydsp_poly(dsp_, VOICES, /*control*/ false, /*group*/ true);
+        run_ = poly_;
+        numOut_ = poly_->getNumOutputs();
+    } else {
+        run_ = dsp_;
+    }
+
     // Initialised at a placeholder rate so the control zones exist to be read; `initialise` does
     // it again with the real one, which is what the program actually runs at.
-    dsp_->init(44100);
+    run_->init(44100);
 
     Controls controls;
-    dsp_->buildUserInterface(&controls);
+    run_->buildUserInterface(&controls);
 
     auto* um = getUndoManager();
     for (const auto& c : controls.entries) {
+        if (poly_ != nullptr && isVoiceControl(c.label)) continue;
         const juce::String name(c.label);
         auto value = std::make_unique<juce::CachedValue<float>>();
         value->referTo(state, juce::Identifier("p_" + name), um, c.init);
@@ -131,9 +178,15 @@ FaustPlugin::~FaustPlugin()
 {
     notifyListenersOfDeletion();
     for (auto& p : params_) p->detachFromCurrentValue();
-    // The instance before the factory: the factory owns the code the instance runs.
-    delete dsp_;
+    // ONE of the two, never both: the voice group deallocates the instance it was handed. Then
+    // the factory, which owns the code every voice runs.
+    if (poly_ != nullptr)
+        delete poly_;
+    else
+        delete dsp_;
+    poly_ = nullptr;
     dsp_ = nullptr;
+    run_ = nullptr;
     if (factory_ != nullptr) deleteInterpreterDSPFactory(factory_);
 }
 
@@ -143,9 +196,11 @@ bool FaustPlugin::takesAudioInput() { return numIn_ > 0; }
 // it, or it never produces its first sample.
 bool FaustPlugin::producesAudioWhenNoAudioInput() { return numIn_ == 0; }
 
+bool FaustPlugin::takesMidiInput() { return poly_ != nullptr; }
+
 int FaustPlugin::getNumOutputChannelsGivenInputs(int n)
 {
-    if (dsp_ == nullptr) return juce::jmin(n, 2);
+    if (run_ == nullptr) return juce::jmin(n, 2);
     return juce::jmin(numOut_, 2);
 }
 
@@ -162,15 +217,15 @@ void FaustPlugin::restorePluginStateFromValueTree(const juce::ValueTree& v)
 
 void FaustPlugin::initialise(const te::PluginInitialisationInfo& info)
 {
-    if (dsp_ == nullptr) return;
-    dsp_->init(static_cast<int>(info.sampleRate));
+    if (run_ == nullptr) return;
+    run_->init(static_cast<int>(info.sampleRate));
 
     // The scratch buffers, allocated once HERE and never in the callback. Faust is handed
     // separate input and output pointers because a program may read an input after writing an
     // output — in-place is not something a `.dsp` promises.
-    const auto n = static_cast<size_t>(std::max(info.blockSizeSamples, 1));
-    in_.assign(static_cast<size_t>(std::max(numIn_, 1)), std::vector<float>(n, 0.0f));
-    out_.assign(static_cast<size_t>(std::max(numOut_, 1)), std::vector<float>(n, 0.0f));
+    const auto n = static_cast<size_t>(juce::jmax(info.blockSizeSamples, 1));
+    in_.assign(static_cast<size_t>(juce::jmax(numIn_, 1)), std::vector<float>(n, 0.0f));
+    out_.assign(static_cast<size_t>(juce::jmax(numOut_, 1)), std::vector<float>(n, 0.0f));
     inPtr_.clear();
     outPtr_.clear();
     for (auto& c : in_) inPtr_.push_back(c.data());
@@ -181,7 +236,7 @@ void FaustPlugin::deinitialise() {}
 
 void FaustPlugin::reset()
 {
-    if (dsp_ != nullptr) dsp_->instanceClear();
+    if (run_ != nullptr) run_->instanceClear();
 }
 
 void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
@@ -189,7 +244,25 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
     // A resonant filter's tail is the canonical denormal generator, and the symptom is an engine
     // that gets slower the longer it plays. Same reason GraphDspPlugin carries one.
     const juce::ScopedNoDenormals noDenormals;
-    if (ctx.destBuffer == nullptr || dsp_ == nullptr) return;
+    if (ctx.destBuffer == nullptr || run_ == nullptr) return;
+
+    // The notes, BEFORE the block they belong to. Tracktion hands the plugin the messages for
+    // this block; Faust's allocator takes a note at a time and picks the voice, which is the one
+    // piece of polyphony we do not have to write.
+    //
+    // Sample-accurate placement inside the block is NOT done: every note in a block lands at its
+    // start. At 5 ms that is under the threshold for a keyboard part and audible on a programmed
+    // drum roll — the honest limit of this pass, and where to look first if timing feels loose.
+    if (poly_ != nullptr && ctx.bufferForMidiMessages != nullptr) {
+        for (auto& m : *ctx.bufferForMidiMessages) {
+            if (m.isNoteOn())
+                poly_->keyOn(m.getChannel(), m.getNoteNumber(), m.getVelocity());
+            else if (m.isNoteOff())
+                poly_->keyOff(m.getChannel(), m.getNoteNumber(), m.getVelocity());
+            else if (m.isAllNotesOff() || m.isAllSoundOff())
+                poly_->allNotesOff(true);
+        }
+    }
 
     const int n = ctx.bufferNumSamples;
     const int start = ctx.bufferStartSample;
@@ -209,13 +282,13 @@ void FaustPlugin::applyToBuffer(const te::PluginRenderContext& ctx)
             std::fill_n(dst.data(), n, 0.0f);
     }
 
-    dsp_->compute(n, numIn_ > 0 ? inPtr_.data() : nullptr, outPtr_.data());
+    run_->compute(n, numIn_ > 0 ? inPtr_.data() : nullptr, outPtr_.data());
 
     for (int c = 0; c < chans; ++c) {
         // A mono program feeding a stereo buffer sends its one output to both sides; anything
         // past what the program produces is left as it was rather than zeroed, which is what a
         // plugin that does not touch a channel should do.
-        const int from = numOut_ > 0 ? std::min(c, numOut_ - 1) : -1;
+        const int from = numOut_ > 0 ? juce::jmin(c, numOut_ - 1) : -1;
         if (from < 0) break;
         std::copy_n(out_[static_cast<size_t>(from)].data(), n,
                     ctx.destBuffer->getWritePointer(c, start));

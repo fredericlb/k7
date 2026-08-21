@@ -75,7 +75,13 @@ target_link_libraries(studio_faust_tests PRIVATE staticlib)
 target_include_directories(studio_faust_tests PRIVATE
     "${STUDIO_FAUST_SRC}/architecture"
     ${CMAKE_CURRENT_SOURCE_DIR}/../engine)
+# NOMINMAX because Faust's poly-dsp.h reaches <windows.h>, whose `max`/`min` MACROS then eat
+# every `std::max(` as an illegal token after `::`. The engine's own TU dodges it by using
+# juce::jmax; this binary is JUCE-free on purpose, so it says so instead. Same rule the root
+# CMakeLists already states for <shellapi.h>.
 target_compile_definitions(studio_faust_tests PRIVATE
+    NOMINMAX
+    WIN32_LEAN_AND_MEAN
     STUDIO_FAUST_LIBS="${STUDIO_FAUST_LIBS}"
     STUDIO_DSP_MODULES="${CMAKE_CURRENT_SOURCE_DIR}/../../../packages/dsp/modules")
 if (WIN32)

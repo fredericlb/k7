@@ -15,9 +15,11 @@
 #include <vector>
 
 // Forward-declared so libfaust's headers stay out of everything that includes this one — the
-// same rule EngineHost.h keeps for JUCE.
+// same rule EngineHost.h keeps for JUCE. The bare names are Faust's own.
+class dsp;
 class interpreter_dsp;
 class interpreter_dsp_factory;
+class mydsp_poly;
 
 namespace studio {
 
@@ -50,6 +52,14 @@ public:
     // tell Tracktion which it is looking at.
     bool takesAudioInput() override;
     bool producesAudioWhenNoAudioInput() override;
+    /**
+     * A program with no audio input is an INSTRUMENT, and an instrument is played by notes.
+     *
+     * Answered from the compiled program rather than declared anywhere: `process = _ : …` takes
+     * audio and this is false, `process` with no input takes notes and it is true. Nothing in
+     * `module.yaml` says which, and nothing should — the source already does.
+     */
+    bool takesMidiInput() override;
     bool noTail() override { return false; }
 
     int getNumOutputChannelsGivenInputs(int n) override;
@@ -64,6 +74,13 @@ private:
     std::string source_;
     interpreter_dsp_factory* factory_ = nullptr;
     interpreter_dsp* dsp_ = nullptr;
+    /**
+     * The polyphonic wrapper, for an instrument only — and it OWNS `dsp_` once it exists
+     * (`~dsp_poly` deallocates the instance it was handed), so the destructor must not free both.
+     */
+    mydsp_poly* poly_ = nullptr;
+    /** Whichever of the two is actually run: the voice group if there is one, else the instance. */
+    ::dsp* run_ = nullptr;
     int numIn_ = 0, numOut_ = 0;
 
     // One entry per control the program declares, in the order buildUserInterface reported them.
