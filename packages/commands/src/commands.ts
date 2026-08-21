@@ -702,14 +702,21 @@ function mixTarget(a: string, h: CommandHost, verb: string): MixTarget | null {
  * worth a command each for the reason `track process` and `clip process` are two — the word after
  * the verb is the promise — and it is what leaves room for a third without renaming anything.
  *
- * **`on` means the NAMED STATE is on, and that reads straight for `mute` and INVERTED for `warp`**:
- * `event status warp on` makes the event DECLINE the map. It is the polarity `event disable warp`
- * had — under that head both aspects named something negative and both read alike — and it was
- * kept rather than quietly flipped when the head changed, because flipping it would change what
- * an existing habit does with nothing on screen saying so. Each `state` hint in commands.yaml
- * spells its own direction, which is now the only thing that does.
+ * **`on` means the NAMED STATE is on**, in both: `event status mute on` silences the event, and
+ * `event status warp on` makes it FOLLOW the clip's map. One rule, no exception to remember.
  *
- * Toggling reads the current flag off the compiled clip.
+ * It was not always so, and the reason is worth keeping. Under the old head both aspects named
+ * something negative — `event disable play`, `event disable warp` — so `on` meant "the disabling
+ * is on" and the two read alike. Renaming the head to `status` broke that symmetry: `mute` is
+ * still a negative to switch on, `warp` is a positive, and `warp on` went on meaning UNwarped.
+ * The `!` that produced it sat on the call to `setTrackPlacementWarp` and is gone; both writers
+ * now take the state under its own name.
+ *
+ * The FILE keeps the negative spelling (`warp: false` on the placement), because that is what an
+ * absent field has to mean there — an event warps because its CLIP does. Turning it is this
+ * function's job and happens once, where `now` is read.
+ *
+ * Toggling reads the current state off the compiled clip.
  *
  * The two flags have opposite polarity in the FILE — `disabled: true` is written, `warp: false`
  * is — because their defaults are opposite, and both writers delete rather than write the default
@@ -1190,10 +1197,16 @@ async function statusCommand(
     h.refuse([`'${stateArg}' is not on, off or toggle`]);
     return;
   }
-  // What is currently OFF, read off the compiled event: silenced, or declining the warp.
-  const now = aspect === "mute" ? !!hit.disabled : hit.warpOff === true;
+  // The NAMED STATE as it stands, read off the compiled event: is it muted, does it warp. Both
+  // asked the same way round — `on` means the word after the verb is true — which is what let the
+  // inversion below go. `warpOff` is the FILE's spelling and is the negative one, so it is turned
+  // here, once, at the only place that reads it.
+  const now = aspect === "mute" ? !!hit.disabled : hit.warpOff !== true;
   const next = state === "toggle" ? !now : state === "on";
   try {
+    // Both writers take the state under its own name — `disabled`, and "does it warp" — so `next`
+    // goes to each unchanged. `setTrackPlacementWarp` used to be handed `!next`, and that single
+    // `!` was the whole of the polarity `event disable warp` had.
     const done =
       aspect === "mute"
         ? setTrackPlacementDisabled(
@@ -1204,17 +1217,16 @@ async function statusCommand(
             den,
             next,
           )
-        : // The writer takes "does it warp", so the disabling is inverted on the way in.
-          setTrackPlacementWarp(h.songPath, track.id, atBeats, num, den, !next);
+        : setTrackPlacementWarp(h.songPath, track.id, atBeats, num, den, next);
     if (!done) return h.refuse([`no event on '${track.id}' at ${atTc}`]);
     const said =
       aspect === "mute"
         ? next
-          ? "disabled"
-          : "enabled"
+          ? "muted"
+          : "unmuted"
         : next
-          ? "unwarped — plays at its own rate"
-          : "warped again";
+          ? "warped — follows the clip's map"
+          : "unwarped — plays at its own rate";
     h.log([`${track.id}: ${hit.name || hit.id} at ${atTc} ${said}`]);
     await h.reload();
   } catch (e) {

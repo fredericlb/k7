@@ -53,14 +53,16 @@ Two things a placement may switch OFF for itself, and both are written by
 
 | field | absent means | what `event status …` writes |
 |---|---|---|
-| `disabled: true` | it plays | `event status mute` — silenced, still drawn (dimmed) |
-| `warp: false` | it uses the clip's stretch map | `event status warp` — plays at the sample's own rate |
+| `disabled: true` | it plays | `event status mute on` — silenced, still drawn (dimmed) |
+| `warp: false` | it uses the clip's stretch map | `event status warp off` — plays at the sample's own rate |
 
 Both take `on`, `off` or `toggle`, and toggle when you leave it out. **`on` switches the named
-state ON — so `event status mute on` silences the event, and `event status warp on` makes it
-DECLINE the map** rather than take it. The second reads backwards on purpose: it is the direction
-the command had when it was called `event disable warp`, kept so that a line you already know
-keeps doing what it did.
+state on**: `event status mute on` silences the event, `event status warp on` makes it follow the
+clip's map. One rule, both commands.
+
+Note that the FILE spells warp the other way round — `warp: false` is what a declining event
+carries — because an absent field there has to mean "it warps, because the clip does". The
+command says what you want; the file says what is unusual about this placement.
 
 The polarities are opposite because the defaults are: an event plays unless told otherwise, and it
 warps because the CLIP is warped. `warp: false` is one placement declining a map that belongs to

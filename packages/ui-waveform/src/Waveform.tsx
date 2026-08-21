@@ -356,6 +356,18 @@ function WaveformInner({
 
   const total =
     duration || (envelope.samples.length * envelope.intervalMs) / 1000;
+
+  /**
+   * The pair the two edge HANDLES sit on — which is not always the pair the band is drawn from.
+   *
+   * An event that plays its whole file states no window, so there is no band to light: a wash over
+   * the whole picture would tint everything and mark nothing. Its edges are still the file's, and
+   * they still have to be grabbable — that is the case with the most reason to reach for them,
+   * since pulling one in is how a window gets made in the first place. So the handles fall back to
+   * `{0, total}` while the band stays absent, and the first drag is what brings one into being.
+   */
+  const winEdges =
+    winDrag ?? sourceWindow ?? (onWindowMove ? { from: 0, to: total } : null);
   // The visible span. Absent ⇒ the whole material, which is what every caller got before there was
   // a window at all. Everything a host hands in or gets back stays in ABSOLUTE seconds — a view is
   // a way of looking, not a change of units, so a marker's time means the same zoomed or not.
@@ -859,22 +871,32 @@ function WaveformInner({
           same `timeToX`, so a handle cannot drift from the line it holds. A 12px grab zone
           straddling the edge: the line itself is 1.5px, which is not a thing a hand can catch. */}
       {onWindowMove &&
-        sourceWindow &&
-        sourceWindow.to > sourceWindow.from &&
+        winEdges &&
         (["from", "to"] as const).map((edge) => {
-          const at = (winDrag ?? sourceWindow)[edge];
+          const at = winEdges[edge];
           return (
             <button
               key={edge}
               type="button"
               className="waveform-edge"
-              style={{ left: timeToX(at), height: HEIGHT }}
+              // CLAMPED into the strip, unlike the pins above, and the difference is what each is
+              // FOR: a pin is read, so one hanging outside would lie about where its mark is; a
+              // handle is grabbed, and one that leaves the canvas is a control that has vanished.
+              // An event playing its whole file has its edges at the file's, which any zoom past
+              // fit puts off screen — exactly the case with the most reason to reach for them.
+              // The title carries the true second either way.
+              style={{
+                left: Math.max(0, Math.min(width, timeToX(at))),
+                height: HEIGHT,
+              }}
               title={`Drag to set the event's ${edge} (${at.toFixed(3)}s)`}
               aria-label={`window ${edge}`}
               onPointerDown={(e) => {
                 e.stopPropagation(); // …or the canvas starts a selection under the same finger
                 e.currentTarget.setPointerCapture(e.pointerId);
-                setWinDrag({ edge, ...sourceWindow });
+                // `edge` AFTER the spread: `winEdges` may itself be a drag in flight, which
+                // carries its own, and a spread that came last would grab the wrong side.
+                setWinDrag({ ...winEdges, edge });
               }}
               onPointerMove={(e) => {
                 if (winDrag?.edge !== edge) return;

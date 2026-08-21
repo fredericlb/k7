@@ -1190,11 +1190,13 @@
 # then `event disable play`; `status mute` is that command under a name that says which of an
 # event's properties it means without also asserting a direction.
 #
-# Both take `on|off|toggle` and toggle when it is omitted. `on` means the NAMED STATE is on, which
-# reads straight for `mute` and INVERTED for `warp` — `event status warp on` makes the event
-# decline the map. That is the polarity `event disable warp` had and it was kept rather than
-# quietly flipped, because flipping it would change what a habit does with nothing on screen
-# saying so. Each `state` hint spells its own direction; do not shorten them.
+# Both take `on|off|toggle` and toggle when it is omitted, and in both `on` means the NAMED STATE
+# is on: `event status mute on` silences the event, `event status warp on` makes it FOLLOW the
+# clip's map. One rule and no exception — which is the point of the head being `status` rather than
+# `disable`, under which `on` meant "the disabling is on" and `warp on` meant UNwarped.
+#
+# The FILE still spells warp negatively (`warp: false` on the placement): an absent field has to
+# mean "it warps, because the clip does". The command turns it, once.
 #
 # Silence one event — a track's mute at the level of a placement. It stays in the file, so its
 # position, length and fades survive being switched off and on. The timeline draws it dimmed,
@@ -1212,23 +1214,26 @@
       { name: timecode, type: timecode },
       { name: state, hint: "on · off · toggle (default) — 'on' means silenced" },
     ]
-# …and stop one event playing the material's STRETCH MAP, so the sample runs at its own rate.
-# A warp belongs to the clip — one map shared by every placement of it (song/docs/warp.md) — so
-# this is an event declining it, written `warp: false` on the placement. What it is for: the map
-# fits the song the clip was warped INTO, and a second use of that clip elsewhere wants the
-# sample as recorded. The only way before was to copy the file.
+# …and whether one event plays the material's STRETCH MAP. A warp belongs to the clip — one map
+# shared by every placement of it (song/docs/warp.md) — so switching this OFF is an event declining
+# it, written `warp: false` on the placement. What that is for: the map fits the song the clip was
+# warped INTO, and a second use of that clip elsewhere wants the sample as recorded. The only way
+# before was to copy the file.
 - command: "event status warp"
   sid: event.statusWarp
   readable:
-    en: "Play one clip at its own rate, unwarped"
-    fr: "Jouer un clip à son propre tempo, sans étirement"
-  help: "stop one event playing the clip's stretch map (e.g. event status warp drums 2:1:1)"
+    en: "Whether one clip follows its stretch map"
+    fr: "Si un clip suit sa carte d'étirement"
+  help: "whether one event plays the clip's stretch map — off plays it at its own rate (e.g. event status warp drums 2:1:1 off)"
   surfaces: [cli]
   args:
     [
       { name: track, complete: tracks },
       { name: timecode, type: timecode },
-      { name: state, hint: "on · off · toggle (default) — 'on' means unwarped" },
+      {
+        name: state,
+        hint: "on · off · toggle (default) — 'on' means it follows the map",
+      },
     ]
 # The two FADES, one verb each. `fadeIn` and `fadeOut` have been on the placement, on the wire and
 # in the C++ engine all along — what was missing was any way to set them but typing YAML, because
