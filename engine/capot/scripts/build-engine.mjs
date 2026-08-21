@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  copyFileSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -244,6 +245,42 @@ function stageDemos(destDir) {
   });
   const names = readdirSync(destDir).filter((n) => !n.startsWith("."));
   console.log(`  ${names.length} demo(s): ${names.join(", ")}`);
+}
+
+/**
+ * Copy the Faust standard libraries out of the engine's build tree into the app's resources.
+ *
+ * Found by walking the build presets rather than named: which preset was used is the caller's
+ * business, and `findEngineBinary` above already answers the same question the same way. The
+ * NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
+ * builds any more would ship a different Faust than the engine beside it.
+ */
+function stageFaustLibs(destDir) {
+  const build = join(engineDir, "build");
+  const found = existsSync(build)
+    ? readdirSync(build)
+        .map((preset) => join(build, preset, "_deps", "faust-src", "libraries"))
+        .filter((p) => existsSync(join(p, "stdfaust.lib")))
+    : [];
+  if (!found.length) {
+    console.error(
+      "error: no Faust libraries found under engine/moteur/build/*/_deps/faust-src/libraries.\n" +
+        "       Build the engine first — the libraries are a git submodule fetched by its CMake.",
+    );
+    process.exit(1);
+  }
+  found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  rmSync(destDir, { recursive: true, force: true });
+  mkdirSync(destDir, { recursive: true });
+  // The `.lib` files only: the submodule also carries its own docs, tests and CI config, none of
+  // which the compiler reads.
+  let n = 0;
+  for (const f of readdirSync(found[0]))
+    if (f.endsWith(".lib")) {
+      copyFileSync(join(found[0], f), join(destDir, f));
+      n++;
+    }
+  console.log(`  ${n} Faust library file(s) from ${found[0]}`);
 }
 
 /**
@@ -550,6 +587,17 @@ stageNodeModule("onnxruntime-common", resourceModules);
 // The demo songs. A new workspace is seeded from these, and an installed .app has no repo to copy them from.
 console.log("\n=== demo songs ===");
 stageDemos(join(trayDir, "src-tauri", "resources", "songs"));
+
+// The Faust standard libraries. `import("stdfaust.lib")` is resolved when the ENGINE compiles a
+// module — at runtime, on the musician's machine — so `libraries/` has to travel with the app.
+// Its only other copy is `_deps/faust-src`, which is a build directory and does not ship.
+//
+// FATAL when missing, following vendorNode: without it every Faust module fails to compile in
+// the installed app, one warning at a time, from a build that reported nothing wrong. That is
+// the failure mode this repo goes out of its way to avoid, and it is one `cmake --build` away
+// from being impossible to reproduce on the machine that made the bundle.
+console.log("\n=== faust libraries ===");
+stageFaustLibs(join(trayDir, "src-tauri", "resources", "faust-libs"));
 
 if (sidecarOnly) {
   console.log(

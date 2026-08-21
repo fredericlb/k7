@@ -90,10 +90,18 @@ bool isVoiceControl(const std::string& label)
 
 juce::File FaustPlugin::faustLibrariesDir()
 {
-    const auto beside = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
-                            .getParentDirectory()
-                            .getChildFile("faust-libs");
-    if (beside.isDirectory()) return beside;
+    const auto dir = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                         .getParentDirectory();
+    // The four layouts a packaged app may use, PROBED rather than assumed — the same list, in
+    // the same order and for the same reason, as hostcmd.rs's for the supervisor script: Tauri's
+    // exact resource layout differs per platform and has moved before.
+    for (const char* rel : {"faust-libs", "resources/faust-libs", "../Resources/faust-libs",
+                            "../Resources/resources/faust-libs"}) {
+        const auto candidate = dir.getChildFile(rel);
+        if (candidate.isDirectory()) return candidate;
+    }
+    // The DEV tier: the folder the engine's own CMake fetched. It is inside a build directory and
+    // does not travel, so reaching it in a shipped app would mean the staging above never ran.
     return juce::File{juce::String{STUDIO_FAUST_LIBS_DEV}};
 }
 

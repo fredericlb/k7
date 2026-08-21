@@ -43,6 +43,19 @@ qu'il joue longtemps.
 Six mégaoctets. C'est le prix du backend interpréteur ; celui de LLVM aurait été d'un autre
 ordre.
 
+## Où `import("stdfaust.lib")` est résolu
+
+À l'**exécution**, quand le moteur compile un module — pas à la construction. Le dossier doit
+donc voyager avec l'app : `build-engine.mjs` copie les 43 `.lib` du sous-module dans
+`resources/faust-libs/`, et `faustLibrariesDir()` sonde les quatre dispositions qu'un paquet
+Tauri peut prendre, dans le même ordre et pour la même raison que `hostcmd.rs` le fait pour le
+script du superviseur.
+
+Le repli est le dossier que le CMake du moteur a récupéré. Il est dans un répertoire de
+construction et ne voyage pas : y arriver dans une app installée veut dire que la mise en
+ressource n'a pas eu lieu. C'est pour ça que le script échoue franchement s'il ne trouve rien à
+copier, plutôt que de produire un paquet qui a l'air construit.
+
 ## Deux pièges qui n'apparaissent pas chez celui qui écrit
 
 - **Lier la CIBLE `staticlib`, jamais le chemin du `.lib`.** Les presets épinglent
