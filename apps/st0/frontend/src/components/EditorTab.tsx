@@ -117,6 +117,15 @@ export interface EditorHandle {
   pickUpload: (dir: string, folder: boolean) => boolean;
   /** Is this path a folder? `file …` has to tell "into which" from "which", and only the tree knows. */
   isDir: (path: string) => boolean;
+  /**
+   * Re-read the module LIBRARIES — the levels and the chains in them.
+   *
+   * On the handle because the other writer of a library is outside this pane: the module
+   * builder, which the shell opens over the whole app and which PUBLISHES on save. The pane
+   * stopped asking for these after every command (they cost 82 ms and a command cannot move
+   * them), so the acts that do move them have to say so, and this is how the one upstairs does.
+   */
+  refreshLibraries: () => void;
 }
 
 // The popin's three views of a sequence, in the order they read: the file, then its notes twice.
@@ -352,7 +361,7 @@ export function EditorTab({
   /**
    * The Process menu on a clip file: which chain is running, and what is typed in its search.
    *
-   * The chains themselves are `libChains`, already fetched by `refresh()` — the waveform panel
+   * The chains themselves are `libChains`, fetched by `refreshLibraries()` — the waveform panel
    * asks `/library-chains` for itself because it opens on its own, whereas this pane has the
    * list in hand and a second request would only be able to disagree with it.
    */
@@ -709,28 +718,53 @@ export function EditorTab({
     onEditTarget(null);
   }, [active, file, hints, onEditTarget, popin]);
 
-  const refresh = useCallback(async () => {
+  /**
+   * The LIBRARIES — the shared module levels and the chains in them.
+   *
+   * Split off, and the reason is a measurement. These two read the SHARED FOLDERS
+   * (`_libraries`, `_modules`) and the project's own `modules/`; the service memoises neither,
+   * so each call walks them and builds a tree. On `01.danse.st0` that is 70 ms / 100 KB and
+   * 12 ms — and it was being paid on every `reloadKey`, which is after EVERY command in the app.
+   * A fader, a mute, a stretch point: none of them can put a module in a library.
+   *
+   * So this is asked when it can have MOVED rather than when anything moved: on mount, and by the
+   * two actions that write there (`createModule` below, and the module builder's save, which the
+   * shell reports through the handle). `project pull` is the case this does not cover, and the
+   * honest statement of the limit is that a library changed OUTSIDE this tab shows up the next
+   * time the pane mounts — the same bargain "many browsers at once" already takes for everything
+   * else. What it buys is 82 ms off every command, on the one thread the service has.
+   */
+  const refreshLibraries = useCallback(async () => {
     try {
-      // The libraries ride along: they change for the same reasons the tree does — a module
-      // created, a submodule mounted — and one refresh is one round trip rather than two.
-      const [t, h, l, c] = await Promise.all([
-        api.tree(),
-        api.hints(),
+      const [l, c] = await Promise.all([
         api.moduleLibraries(),
         api.libraryChains(),
       ]);
-      setTree(t);
-      setHints(h);
       setLibraries(l.libraries);
       setLibChains(c.chains);
     } catch (e) {
       setStatus(`load error: ${(e as Error).message}`);
     }
   }, [setStatus]);
-  // Refresh on mount and whenever a command elsewhere may have changed the files.
+
+  /** The project's own tree and vocabulary — what a command CAN have changed. */
+  const refresh = useCallback(async () => {
+    try {
+      const [t, h] = await Promise.all([api.tree(), api.hints()]);
+      setTree(t);
+      setHints(h);
+    } catch (e) {
+      setStatus(`load error: ${(e as Error).message}`);
+    }
+  }, [setStatus]);
+  // The project's half on mount and after every command; the libraries' half on mount alone —
+  // see `refreshLibraries` for what pays for that and what it costs.
   useEffect(() => {
     void refresh();
   }, [refresh, reloadKey]);
+  useEffect(() => {
+    void refreshLibraries();
+  }, [refreshLibraries]);
 
   const open = useCallback(
     async (path: string): Promise<boolean> => {
@@ -918,6 +952,7 @@ export function EditorTab({
       // service's — which is the one that actually decides what may be touched.
       entries: () => allEntries(tree).map((e) => e.path),
       isDir: (path) => !!allEntries(tree).find((e) => e.path === path)?.dir,
+      refreshLibraries: () => void refreshLibraries(),
       createFile: createProjectFile,
       createFolder,
       rename: renameEntry,
@@ -982,7 +1017,8 @@ export function EditorTab({
       // chains follow. Open the copy, so what's on screen is the file that now holds the edit. The text is
       // identical, so the cursor stays where it was.
       if (forked) {
-        await refresh();
+        // …and the fork LANDED in the project's own `modules/`, which is a library level too.
+        await Promise.all([refresh(), refreshLibraries()]);
         void open(forked.path);
         onChanged();
         setStatus(
@@ -1447,7 +1483,9 @@ export function EditorTab({
               onCreateModule={async (root, rel) => {
                 try {
                   const { path } = await api.createModule(root, rel);
-                  await refresh();
+                  // Both halves: `root` IS a library level, so this is one of the two acts that
+                  // can move the list `refreshLibraries` otherwise only reads on mount.
+                  await Promise.all([refresh(), refreshLibraries()]);
                   // Straight into the builder: making a module and then hunting for the row
                   // you just made is two acts where somebody meant one.
                   onOpenLibraryModule(path);

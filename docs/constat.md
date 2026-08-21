@@ -106,13 +106,35 @@ Mesuré sur `01.danse.st0`, le lot que **toute** commande déclenche en bumpant 
 | `/library-chains` | 12 ms | non |
 
 **≈335 ms**, en file sur un service mono-thread, en plus des ~100 ms de la commande. Les quatre
-lignes « non » font 174 ms — c'est `EditorTab.refresh()`, qui refetche les quatre d'un bloc sur
-chaque `reloadKey`, y compris quand ce qui a bougé est un marqueur dans un fichier de clip.
+lignes « non » font 174 ms — c'était `EditorTab.refresh()`, qui refetchait les quatre d'un bloc
+sur chaque `reloadKey`, y compris quand ce qui avait bougé était un marqueur dans un clip.
 
-Le lot : donner à `refresh()` de quoi savoir ce qui a changé, plutôt que tout redemander. Le
-chemin existe déjà à côté — `quietCommand` (`want: []`, pas de bump) porte le même raisonnement
-et sa propre mesure : « 62 ms per mute, per solo, per knob turn, built and dropped ». Les gestes
-de warp l'empruntent depuis, ce qui les fait passer de ~465 ms à ~130.
+**FAIT, et pas de la façon prévue.** Le plan disait « donner à `refresh()` de quoi savoir ce qui
+a changé ». Il n'y a rien à lui donner : le jeton de révision est
+`${mutations}:${count}:${newest}`, et `mutations` est incrémenté par TOUTE écriture — donc il
+bouge pour tout, par construction. On ne peut pas le retirer non plus : c'est lui qui défend
+contre deux écritures dans la même milliseconde, le même piège que `SETTLE_MS` pare dans
+`yamlCache`. `hints()` est mémoïsé sur ce jeton et rate donc à chaque commande ; les trois autres
+routes ne sont pas mémoïsées du tout.
+
+Ce qui a permis de trancher est ailleurs : `/module-libraries` et `/library-chains` lisent les
+**dossiers partagés**, qu'une commande de projet ne peut pas toucher. La question n'était donc
+pas « qu'est-ce qui a changé » mais « qui peut les changer », et la réponse tient en trois actes
+— créer un module, forker un module partagé, publier depuis le builder. Ils le disent maintenant ;
+le reste du temps la liste est lue au montage du volet.
+
+**65 ms de moins par commande** (139 → 74 sur le lot), sur toute la surface de l'app.
+
+La limite, dite plutôt que cachée : une bibliothèque changée **hors de cet onglet** — un
+`project pull`, un autre navigateur — n'apparaît qu'au prochain montage du volet. C'est le même
+marché que « Many browsers at once » prend déjà partout ailleurs.
+
+Reste `/hints` à 51 ms, et il n'y a pas de coup facile : sa mémoïsation est correcte, c'est son
+jeton qui ne peut pas être plus fin sans redevenir faux.
+
+Et à côté, le même raisonnement pour les gestes eux-mêmes : `quietCommand` (`want: []`, pas de
+bump) porte sa propre mesure — « 62 ms per mute, per solo, per knob turn, built and dropped ».
+Les gestes de warp l'empruntent, ce qui les fait passer de ~465 ms à ~130.
 
 ### Ce qui reste, par ordre de rendement
 

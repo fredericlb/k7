@@ -4204,7 +4204,13 @@ export default function App({
                   : undefined
               }
               onBack={() => setBuilder(null)}
-              onSaved={bumpReload}
+              onSaved={() => {
+                bumpReload();
+                // A save here PUBLISHES — a shared module's four files, committed and pushed onto
+                // the library repository. The editor stopped re-reading the libraries on every
+                // command (82 ms a command cannot have earned), so the acts that move them say so.
+                editorRef.current?.refreshLibraries();
+              }}
               setStatus={setStatus}
               // What the plugin calls its parameters, and what each spans — so a widget adopts the
               // real range instead of the 0..1 a hand-typed binding falls back to.
