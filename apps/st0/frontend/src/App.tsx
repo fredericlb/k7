@@ -79,7 +79,6 @@ import { ImportDialog } from "./components/ImportDialog";
 import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
 import { MasterMeter } from "./components/MasterMeter";
-import { TARGET_DB, trimFor, trimmedStrips } from "./gainTrim";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
@@ -102,7 +101,7 @@ import {
 import { TrackModulesPane } from "./components/TrackModulesPane";
 import { ViewportTab } from "./components/ViewportTab";
 import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
-import { fuzzyScore } from "./fuzzy";
+import { TARGET_DB, trimFor, trimmedStrips } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
@@ -145,6 +144,7 @@ import {
   type PendingInsert,
   wireCommand,
 } from "./nodeInsert";
+import { resolveEditorFile } from "./openInEditor";
 import { buildPaletteCommands, commandNameOf, makeListArg } from "./palette";
 import { m } from "./paraglide/messages.js";
 import { closeTopPopin, useAnyPopin, usePopin } from "./popins";
@@ -1262,31 +1262,42 @@ export default function App({
    * Open a file in the editor pane, by path or by name.
    *
    * An exact project path opens as-is, anything else takes the best fuzzy match — which is
-   * what lets `ui file <track>` be typed with a bare id. Returns the path it settled on.
+   * what lets `ui file <track>` be typed with a bare id. Returns the path it settled on, or null
+   * when there was nothing to settle on.
    *
    * `reveal` brings the pane up and puts the keyboard in it: right for a typed command, whose
    * whole point was to go and read the file, and wrong for the timeline pointing the panes at
    * a track — there the hands are still on the arrangement.
+   *
+   * **The reveal FOLLOWS the read**, and neither of the two ways this can fail is silent any more.
+   * It used to open the pane first and then try, through an `editorRef.current?.` that swallowed a
+   * handle not yet attached and a `?? arg` that fell back to opening whatever had been typed. Both
+   * land on the same screen: an editor popped open over your work with no file in it and nothing
+   * said — which is a command that ran, reported success and did nothing, the one failure this
+   * shell says everywhere else it will not have.
    */
   const openInEditor = useCallback(
     (arg: string, reveal = true): string | null => {
       if (!arg) return null;
-      const files = editorRef.current?.files() ?? [];
-      const path = files.includes(arg)
-        ? arg
-        : (files
-            .map((p) => ({ p, score: fuzzyScore(arg, p) }))
-            .filter((x) => x.score >= 0)
-            .sort((a, b) => b.score - a.score || a.p.localeCompare(b.p))[0]
-            ?.p ?? arg);
-      if (reveal) {
+      const ed = editorRef.current;
+      if (!ed) {
+        setStatus("the editor is not ready yet — try again in a moment");
+        return null;
+      }
+      // Exact path, then a fuzzy name, then the MATERIAL behind a placement id — see openInEditor.ts.
+      const path = resolveEditorFile(arg, ed.files());
+      if (path === null) {
+        setStatus(`no file matching "${arg}" in this project`);
+        return null;
+      }
+      void ed.open(path).then((opened) => {
+        if (!opened || !reveal) return;
         // Off screen: bring it up as a POPIN rather than fullscreening the pane. A command that
         // sends the editor to a file asked for the FILE, not for the view to be rearranged — and
         // fullscreening it threw away the timeline or graph you were reading it against.
         if (!visible("editor")) setEditorPopin(true);
         else focusOn("editor");
-      }
-      editorRef.current?.open(path);
+      });
       return path;
     },
     [visible, focusOn],
@@ -3217,6 +3228,10 @@ export default function App({
                 onOpenProject={openProject}
                 onImportProject={imp.askImport}
                 onChanged={bumpReload}
+                // The clip file's Process menu runs `clip process` through here — the same path
+                // the palette takes, so it is journalled and one Ctrl+Z. Its reload is what
+                // brings the rewritten file back into the buffer.
+                command={runCommand}
                 setStatus={setStatus}
                 onEditTarget={setEditTarget}
                 onOpenItem={setOpenItem}

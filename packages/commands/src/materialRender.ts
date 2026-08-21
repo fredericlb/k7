@@ -16,6 +16,7 @@ import {
 import { entityFileFor } from "@studio/song/yaml/moduleIO";
 import { fileStamp } from "./recordTake";
 import { renderMixdown } from "./render";
+import { wavSeconds } from "./wavLength";
 
 /** Two placements at the same beat are the same placement — the rule every event verb shares. */
 const EDGE_EPS = 1e-6;
@@ -58,10 +59,36 @@ function freeClipName(dir: string, base: string): string {
 }
 
 /**
+ * The DEFINITION a render files beside its wav — the text, and the only part of `fileRender` that
+ * can be held to anything without an engine to render through.
+ *
+ * **It states a `source:` and nothing else**, and the nothing is the decision.
+ *
+ * `from`/`to` are a WINDOW into a file. What was rendered is the whole of the new material, so
+ * there is no window: carrying the numbers over from the thing this was cut out of would frame the
+ * render with somebody else's, and writing a `to` equal to the file's own end would not be a
+ * window at all — it would be the file's DURATION, copied into the song. That copy goes stale the
+ * moment `clip process` repoints `source:` at a processed wav of a different length, and nothing
+ * would notice: the clip would draw and play to a second that no longer exists in it.
+ *
+ * The reason to want one was real — an absent extent used to reach the browser as `length: 0`,
+ * where nothing can measure a file, so the timeline drew a single bar for a three-bar render. That
+ * is answered where it belongs, on the side that HAS the audio: the file service measures the
+ * source and fills the length in on its way to the browser (`naturalBeats` in workspace.ts). One
+ * source of truth, and it is the file.
+ */
+export function renderedClipYaml(verb: string, ref: string): string {
+  return `# Rendered by \`event ${verb}\`.\nsource: clips/${ref}.wav\n`;
+}
+
+/**
  * Render `doc` and file the result as `clips/<ref>.wav` + `clips/<ref>.yaml`.
  *
- * The definition states NO window: what was rendered is the whole of the new material, so a
- * `from`/`to` here would window the render with the numbers of the thing it was cut out of.
+ * The definition states no window — see `renderedClipYaml` for why, and for where the length the
+ * surfaces need is answered instead.
+ *
+ * The log's `seconds` is the wav that came OUT, not the span that went in: a tail ringing past the
+ * cut is in the file and is what plays, so reporting the request would understate what was written.
  */
 function fileRender(
   engineBin: string,
@@ -70,20 +97,17 @@ function fileRender(
   ref: string,
   seconds: number,
 ): RenderedMaterial {
+  const wav = join(dir, "clips", `${ref}.wav`);
   const tmp = mkdtempSync(join(tmpdir(), "tbcut-"));
   try {
     const manifest = renderMixdown(engineBin, doc, tmp);
-    copyFileSync(join(tmp, manifest.mix), join(dir, "clips", `${ref}.wav`));
+    copyFileSync(join(tmp, manifest.mix), wav);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
   const file = `clips/${ref}.yaml`;
-  writeFileSync(
-    join(dir, file),
-    `# Rendered by \`event ${doc.name}\`.\nsource: clips/${ref}.wav\n`,
-    "utf8",
-  );
-  return { ref, file, seconds };
+  writeFileSync(join(dir, file), renderedClipYaml(doc.name, ref), "utf8");
+  return { ref, file, seconds: wavSeconds(wav) ?? seconds };
 }
 
 /** One clip, at position zero, playing exactly `[from, to)` of its source. */

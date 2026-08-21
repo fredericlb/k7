@@ -40,6 +40,7 @@ import {
   type ShareBundle,
   uploadShare,
 } from "@studio/commands/share-bundle";
+import { wavSeconds } from "@studio/commands/wavLength";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
@@ -357,16 +358,75 @@ function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
   return { mixer: { module: p.name, volume: v("Volume"), pan: v("Pan") } };
 }
 
+/**
+ * How long a source is, in seconds — memoised on the file's IDENTITY, not its name.
+ *
+ * The key is size + mtime, so a re-render at the same path is a different file and gets measured
+ * again, while the ordinary case — sixty clips, polled every two seconds, none of them touched —
+ * costs one `stat` each and no read at all.
+ *
+ * Not the `{source}.cache` sidecar, which holds this number and is right next door: that one is an
+ * ENVELOPE, kept against a fingerprint the engine refreshes on its own schedule, and a duration
+ * taken from a stale one would be the old file's. The header is the truth and it is 44 bytes in.
+ */
+const durations = new Map<string, { key: string; secs: number | null }>();
+function sourceSeconds(abs: string): number | null {
+  let key: string;
+  try {
+    const s = statSync(abs);
+    key = `${s.size}-${s.mtimeMs}`;
+  } catch {
+    return null; // gone, or never there — the caller draws what the document says
+  }
+  const hit = durations.get(abs);
+  if (hit && hit.key === key) return hit.secs;
+  const secs = wavSeconds(abs);
+  durations.set(abs, { key, secs });
+  return secs;
+}
+
+/**
+ * The extent a clip DRAWS at, in beats, for one whose document states none.
+ *
+ * `length: 0` on a ClipDoc means "to the end of the source" — a duration the compiler will not
+ * open a wav to learn, and which the ENGINE fills in from the file it holds. That 0 used to reach
+ * the browser unchanged, where it means nothing anyone can act on: a browser may not resolve a
+ * path on this machine, let alone read a header. So the timeline fell back to drawing one bar, and
+ * a consolidated event played its three bars while being drawn as one.
+ *
+ * Answered HERE because this is the only side that can: the service runs on the machine with the
+ * audio. Nothing is written into the song for it — the file's length is the file's, and copying it
+ * into a `to:` would be a cache that goes stale the moment `clip process` repoints `source:` at a
+ * processed wav of a different length.
+ *
+ * From the in-point, since that is where the drawing starts. 0 when it cannot be measured, which
+ * leaves the old behaviour exactly.
+ */
+function naturalBeats(c: TrackDoc["clips"][number], tempo: number): number {
+  if (c.type !== "audio" || !c.source || tempo <= 0) return 0;
+  const secs = sourceSeconds(c.source);
+  if (secs === null) return 0;
+  const rest = secs - (c.sourceFrom ?? 0);
+  return rest > 0 ? (rest * tempo) / 60 : 0;
+}
+
 // One clip as the browser reads it. Named, rather than written inline where the lane's clips are
 // mapped, because a lane's TAKES hold the same thing and a take should draw identically to the
 // arrangement it was — two copies of this is how the two would come to differ.
-function toWebClip(c: TrackDoc["clips"][number]) {
+function toWebClip(
+  c: TrackDoc["clips"][number],
+  // The extent to draw when the document states none — see naturalBeats. Absent for lanes with no
+  // files behind them (Strudel's live orbits), where 0 is the honest answer and stays.
+  natural?: (c: TrackDoc["clips"][number]) => number,
+) {
   return {
     id: c.id,
     type: c.type,
     name: c.name,
     start: c.start,
-    length: c.length,
+    // `|| natural`, not `??`: 0 is precisely the value that means "unstated", and the browser
+    // must never be handed one — it has no file to measure and would draw a single bar.
+    length: c.length || natural?.(c) || 0,
     // The window of material this placement draws — what the browser's envelope cache keys on.
     offset: c.offset,
     sourceFrom: c.sourceFrom,
@@ -399,8 +459,18 @@ function toWebClip(c: TrackDoc["clips"][number]) {
   };
 }
 
-// TrackDoc[] -> the flat WebTrack[] the Timeline draws, root-independent so live lanes share it.
-export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
+/**
+ * TrackDoc[] -> the flat WebTrack[] the Timeline draws, root-independent so live lanes share it.
+ *
+ * `tempo` is what turns a source's SECONDS into the beats a clip is drawn at, for the clips whose
+ * document states no extent (see naturalBeats). Omitted — Strudel's live orbits, which have no
+ * files behind them — nothing is measured and a stated 0 stays 0.
+ */
+export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
+  const natural =
+    tempo === undefined
+      ? undefined
+      : (c: TrackDoc["clips"][number]) => naturalBeats(c, tempo);
   return tracks.map((t) => ({
     id: t.id,
     name: t.name,
@@ -411,14 +481,14 @@ export function toWebTracks(tracks: TrackDoc[]): WebTrack[] {
     ...mixerOf(t),
     mute: t.mute,
     solo: t.solo,
-    clips: t.clips.map(toWebClip),
+    clips: t.clips.map((c) => toWebClip(c, natural)),
     // The takes, through the same mapping — absent when the lane has none, exactly as the
     // compiled doc leaves it. See packages/song/docs/takes.md.
     ...(t.takes?.length
       ? {
           takes: t.takes.map((k) => ({
             ...(k.name ? { name: k.name } : {}),
-            clips: k.clips.map(toWebClip),
+            clips: k.clips.map((c) => toWebClip(c, natural)),
           })),
         }
       : {}),
@@ -2423,7 +2493,7 @@ export class Workspace {
         tempo: p.tempo,
         timeSigNumerator: p.timeSigNumerator,
         timeSigDenominator: p.timeSigDenominator,
-        tracks: toWebTracks(p.tracks),
+        tracks: toWebTracks(p.tracks, p.tempo),
         groups: p.groups.map((g) => ({
           id: g.id,
           name: g.name,

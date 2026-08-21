@@ -19,6 +19,7 @@ import { Check, Loader2, Play, Square, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
+import { chainOps, filterOps, processLine } from "../clipOps";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -68,9 +69,8 @@ const DEFAULT_BARS = 12;
 const NO_TRACKS: string[] = [];
 const NO_NAMES: Record<string, string> = {};
 const NO_TAKES: TakeOption[] = [];
-/** The token a library chain is named by — @studio/commands' MEDIATEK_CHAIN, which is not an
- *  export subpath. One word, and  refuses the ref without it. */
-const MEDIATEK_CHAIN = "@st0/";
+// The chain token, the filter and the command line moved to ../clipOps.ts when the text editor
+// grew the same menu: two surfaces, one spelling.
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
@@ -167,10 +167,7 @@ export function AudioClipPanel({
     let live = true;
     projectApi
       .libraryChains()
-      .then(
-        (r) =>
-          live && setChains(r.chains.map((c) => `${MEDIATEK_CHAIN}${c.ref}`)),
-      )
+      .then((r) => live && setChains(chainOps(r.chains)))
       .catch(() => live && setChains([]));
     return () => {
       live = false;
@@ -179,10 +176,7 @@ export function AudioClipPanel({
   // Filtered on the whole ref, so typing  finds  wherever the word
   // sits — a chain is filed by path, and nobody remembers which folder it went in.
   const ops = useMemo(
-    () =>
-      (chains ?? []).filter((c) =>
-        c.toLowerCase().includes(opSearch.trim().toLowerCase()),
-      ),
+    () => filterOps(chains ?? [], opSearch),
     [chains, opSearch],
   );
 
@@ -773,8 +767,7 @@ export function AudioClipPanel({
                         key={c}
                         type="button"
                         onClick={() =>
-                          clip &&
-                          void run(`clip process ${clip} ${c}`, "process")
+                          clip && void run(processLine(clip, c), "process")
                         }
                         className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
                       >

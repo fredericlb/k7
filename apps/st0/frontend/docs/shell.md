@@ -620,6 +620,22 @@ were about to read it against.
 It opens as a popin instead — over the layout, on a dimmed backdrop, **without the file tree**,
 because a command already named the one file it is showing.
 
+**And it opens only once the file has been READ.** The reveal used to come first, so a name that
+resolved to nothing left an editor popped open over your work with no file in it — the tree its
+only other indication of one gone by design, and the failure itself silent: an
+`editorRef.current?.` swallowed a handle not yet attached, and a `?? arg` fallback opened whatever
+had been typed and reported an "open error" about a file nobody had named. `EditorHandle.open`
+answers whether it landed, and the popin follows that answer. A command that runs, reports success
+and does nothing is the one failure this shell says everywhere else it will not have.
+
+What it resolves is in `src/openInEditor.ts`, and the third of its three passes is the one worth
+knowing: **half the callers name a PLACEMENT, not a file.** The right-click on an event offers
+`ui file` with a clip's id — `audio_14_0@98.5` (`@studio/song/placementId`) — and the file it
+wants is `clips/audio_14_0.yaml`. That `@98.5` is a subsequence of no path, so the fuzzy pass
+scored −1 on every file in the project. The material behind the id is tried last, after the
+written name has had its say, because a material name is what `materialRefOf` returns unchanged
+and an entity may legitimately carry an `@`.
+
 It is the SAME EditorTab, in the same place in the tree, wearing different classes. That is
 forced by the invariant above and is also what makes it good: the open file, its undo history
 and the CodeMirror instance survive being popped out and put back, because nothing unmounted.

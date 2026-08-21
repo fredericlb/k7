@@ -223,7 +223,20 @@ export class WaveformOps {
      * A TIMECODE window escaped it, because `mapClip` only reads a number, so the two spellings of one field
      * drew two different pictures. Drawn windowless here and shaded instead, they draw the same one.
      */
-    const window = whole ? materialWindow(clip) : null;
+    /**
+     * The window to SHADE — the PLACEMENT's, not the definition's.
+     *
+     * `clip` above is deliberately the definition in `whole` mode, because that is what makes the
+     * span the file. Its window is a different question, and since the descent (song/docs/
+     * materialCut.md) a material states none at all: a clip file describes the bytes, a placement
+     * describes the use. Shading with the definition's left every whole-file view unshaded — and a
+     * caller that has no `eventWindow` of its own, like the take review, then framed on the whole
+     * file and put its mark at zero instead of at the take's head.
+     *
+     * Handed a bare material name — which this route also is — there is no placement to ask, and
+     * the answer is honestly nothing to shade.
+     */
+    const window = whole ? materialWindow(findClip(p, clipId) ?? clip) : null;
     const drawn = window
       ? { ...clip, sourceFrom: undefined, sourceTo: undefined }
       : clip;

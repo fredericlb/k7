@@ -86,6 +86,34 @@ timestamp for audio (the same `fileStamp` a take uses). A split run twice theref
 sequences rather than silently replacing the first pair — the right default for a verb whose whole
 point is that it writes.
 
+## What a rendered definition STATES, and what it deliberately does not
+
+`clips/<ref>.yaml` gets a `source:` and **nothing else**. No `from`, no `to`.
+
+`from`/`to` are a WINDOW into a file, and a render **is** its file: there is no window. Carrying
+the numbers over from the thing it was cut out of would frame it with somebody else's, and writing
+a `to` equal to its own end would not be a window at all — it would be the file's **duration**,
+copied into the song. A copy goes stale: `clip process` repoints `source:` at a processed wav of
+another length and nothing notices, so the clip would draw and play to a second the file no longer
+has. The length of a file is the file's, and it stays there.
+
+`recordTake` writes `from`/`to` and is not the exception it looks like: a take's window is
+**musical** — it was recorded to the click, and its two edges are timecodes. A render's extent is
+a fact about audio, in seconds, which is a different kind of thing.
+
+### The length the surfaces need is answered elsewhere
+
+The reason to want a `to` here was real. An absent extent compiles to `length: 0`, which means *to
+the end of the source*: the ENGINE fills it in from the file it holds, and the browser cannot — it
+may not resolve a path on the engine's machine, let alone read a header. So a 0 reached the
+timeline, which fell back to drawing **one bar**, and a three-bar consolidated render was drawn as
+one while playing all of it.
+
+That is answered on the side that HAS the audio. The file service measures the source and fills
+the length in on its way to the browser — `naturalBeats` in `packages/file-service/src/workspace.ts`,
+memoised on each file's size and mtime, from the in-point. The compiled document the engine
+receives still says 0, because 0 is what is true there. Nothing is written into the song at all.
+
 ## What `selection consolidate` takes, and why it is plural
 
 `<tracks> <from> <to>` — the rectangle, exactly as `events move` takes it, and one lane.

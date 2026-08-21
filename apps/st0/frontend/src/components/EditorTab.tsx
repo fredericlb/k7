@@ -8,6 +8,11 @@
 import { redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import type { EditorView } from "@codemirror/view";
 import { Button } from "@frediverse/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@frediverse/ui/dropdown-menu";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
 import { showToast } from "@studio/project-shell/toast";
@@ -32,6 +37,7 @@ import {
   Loader2,
   Piano,
   TriangleAlert,
+  Wand2,
 } from "lucide-react";
 import {
   useCallback,
@@ -43,6 +49,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipWindowBand, setClipWindowText } from "../clipWindowText";
 import { useDiskSync } from "../hooks/useDiskSync";
 import { moduleBehind } from "../moduleBehind";
@@ -84,7 +91,9 @@ import { type VideoReader, VideoReadersStrip } from "./VideoReadersStrip";
 // The `local*` methods expose the live CodeMirror buffer so the shell can arbitrate Ctrl+Z between the
 // editor's own keystroke history and the project-wide undo journal — see App.tsx's onKey.
 export interface EditorHandle {
-  open: (path: string) => void;
+  /** Read a file into the pane. Answers whether it LANDED — a caller that reveals the pane on the
+   *  strength of it must not pop one open over a read that refused (see App's openInEditor). */
+  open: (path: string) => Promise<boolean>;
   files: () => string[];
   currentFile: () => string | null;
   editorFocused: () => boolean;
@@ -246,6 +255,7 @@ export function EditorTab({
   onOpenProject,
   onImportProject,
   onChanged,
+  command,
   setStatus,
   onEditTarget,
   onOpenItem,
@@ -277,6 +287,17 @@ export function EditorTab({
   onOpenProject: (path: string) => void;
   onImportProject: (path: string) => void; // a .dawproject or .als was clicked
   onChanged: () => void;
+  /**
+   * Run a command line through the shell — the SAME path the palette and every key binding take,
+   * so what happens here is journalled, undoable and typeable.
+   *
+   * It is also what refreshes the open file afterwards, and that is not a coincidence to rely on
+   * quietly: `runCommand` bumps `reloadKey` when it is done, and this component's `useDiskSync`
+   * re-reads the file on that key. A process that rewrites `clips/<ref>.yaml` therefore lands in
+   * the buffer without a second path having to exist — and a buffer with unsaved edits is ASKED
+   * rather than overwritten, which a bespoke re-read here would have got wrong.
+   */
+  command: (line: string) => void | Promise<void>;
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the open sequence, for the Editor panel
   onOpenItem: (item: MinimapItem | null) => void; // the open clip/track, for the minimap
@@ -328,6 +349,15 @@ export function EditorTab({
   const [libChains, setLibChains] = useState<{ ref: string; path: string }[]>(
     [],
   );
+  /**
+   * The Process menu on a clip file: which chain is running, and what is typed in its search.
+   *
+   * The chains themselves are `libChains`, already fetched by `refresh()` — the waveform panel
+   * asks `/library-chains` for itself because it opens on its own, whereas this pane has the
+   * list in hand and a second request would only be able to disagree with it.
+   */
+  const [processing, setProcessing] = useState(false);
+  const [opSearch, setOpSearch] = useState("");
   // What is on disk for the open file. Dirty is derived from it and the buffer, never a flag:
   // with autosave writing constantly, a flag is one more thing that can disagree with the text.
   const [saved, setSaved] = useState("");
@@ -703,19 +733,19 @@ export function EditorTab({
   }, [refresh, reloadKey]);
 
   const open = useCallback(
-    async (path: string) => {
+    async (path: string): Promise<boolean> => {
       const posix = path.replace(/\\/g, "/").toLowerCase();
       // A .dawproject is a ZIP and a .als gzip — offer to import either rather than decoding bytes as text.
       if (posix.endsWith(".dawproject") || posix.endsWith(".als")) {
         onImportProject(path);
-        return;
+        return false; // an import is not a file in the pane, so nothing should be revealed for it
       }
       try {
         const f = await api.read(path);
         // Never open a binary: the tree disables them, but the breadcrumb reaches here too, so guard centrally.
         if (f.binary) {
           setStatus(`${path} — binary file, not shown`);
-          return;
+          return false;
         }
         // An edit that could never be written — it did not compile — outlived the pane showing
         // it. Give it back rather than the disk copy, which is not what the author last typed.
@@ -723,8 +753,10 @@ export function EditorTab({
         setFile(kept == null ? f : { ...f, content: kept });
         setSaved(f.content);
         setStatus(path);
+        return true;
       } catch (e) {
         setStatus(`open error: ${(e as Error).message}`);
+        return false;
       }
     },
     [setStatus, onImportProject],
@@ -1150,6 +1182,32 @@ export function EditorTab({
     () => !!file && !file.binary && scanSlices(file.content) != null,
     [file],
   );
+
+  /** The library's chains as `clip process` names them, filtered by what is typed. */
+  const clipOps = useMemo(
+    () => filterOps(chainOps(libChains), opSearch),
+    [libChains, opSearch],
+  );
+
+  /**
+   * Run one chain over the open clip.
+   *
+   * Serialised through `processing` so a double-click cannot put two renders on one file, and
+   * the ref is the file's STEM — `clips/<ref>.yaml` is where the editor found it, and the stem
+   * is the only name the verb knows. The reload is `command`'s; see its prop comment.
+   */
+  const runProcess = useCallback(
+    async (chain: string) => {
+      if (!file || processing) return;
+      setProcessing(true);
+      try {
+        await command(processLine(fileStem(file.path), chain));
+      } finally {
+        setProcessing(false);
+      }
+    },
+    [file, processing, command],
+  );
   /**
    * A CLIP file's own band is draggable too, and by the same machinery.
    *
@@ -1237,6 +1295,61 @@ export function EditorTab({
             <LayoutGrid className="mr-1 h-4 w-4" />
             Builder
           </Button>
+        )}
+        {/* The waveform panel's "operations" menu, on the clip's TEXT — every chain the library
+            offers, run over this clip. Same list, same verb, same one command (../clipOps.ts):
+            editing `from`/`to` by hand and treating the audio are two halves of the same sitting,
+            and only one of them used to be reachable from here.
+
+            The refresh the act ends in is `runCommand`'s: it bumps `reloadKey`, and `useDiskSync`
+            re-reads the open file on that key — `clip process` repoints `source:` at the render it
+            just made, so the buffer has to follow or it would overwrite it on the next save. */}
+        {file && isClipFile(file.path) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={processing}
+                title="run a library chain over this clip — the render lands beside the source"
+              >
+                {processing ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="mr-1 h-4 w-4" />
+                )}
+                Process
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 p-1">
+              <input
+                value={opSearch}
+                onChange={(e) => setOpSearch(e.target.value)}
+                placeholder="chercher une chaîne…"
+                // Not autofocused, for the reason the waveform panel's is not: the menu takes the
+                // focus itself, and stealing it back breaks the arrow keys the list is walked with.
+                className="mb-1 w-full rounded border bg-transparent px-2 py-1 text-xs outline-none"
+              />
+              <div className="max-h-64 overflow-auto">
+                {clipOps.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">
+                    aucune chaîne
+                  </p>
+                ) : (
+                  clipOps.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => void runProcess(c)}
+                      className="block w-full truncate rounded px-2 py-1 text-left text-xs hover:bg-muted"
+                    >
+                      {c}
+                    </button>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         {/* Where the Save button was. It says nothing while the file is saved — that is the
             normal state — and stays amber, with the reason, for as long as it is not. */}

@@ -12,7 +12,8 @@
     "./render": "./src/render.ts",
     "./share-bundle": "./src/shareBundle.ts",
     "./waveform": "./src/waveform.ts",
-    "./trim-gate": "./src/trimGate.ts"
+    "./trim-gate": "./src/trimGate.ts",
+    "./wavLength": "./src/wavLength.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

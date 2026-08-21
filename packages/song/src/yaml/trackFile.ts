@@ -448,8 +448,12 @@ export function movePlacementAt(
  * to the song's clock — so it has to reach what is playing, every take of it, and every
  * alternative's own events and takes. An alternative you switch to next week has to still line up
  * with the markers.
+ *
+ * Exported for the other operation with the same reach: moving a material's window down onto every
+ * placement of it (src/windowDescend.ts). A migration that missed a take would leave that take
+ * playing the whole file the day you swapped it back onto the lane.
  */
-function everyEventList(
+export function everyEventList(
   doc: ReturnType<typeof parseDocument>,
 ): (string | number)[][] {
   const out: (string | number)[][] = [];
