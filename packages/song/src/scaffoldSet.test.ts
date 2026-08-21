@@ -1,5 +1,5 @@
 import {
-  copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { loadGraph } from "./graph";
@@ -44,23 +44,29 @@ beforeEach(() => {
   // makes one by writing that folder, with no environment to point anywhere.
   mediatek = join(ws, "_libraries");
 
+  // The REAL files this repo ships, not paraphrases of them: if one of these stops being a
+  // module the loader accepts, this test is where that shows up. Whole FOLDERS, because a
+  // module is one — a panel or a `jsdsp.ts` left behind would otherwise only surface in the
+  // builder, on somebody else's screen, later.
+  //
+  // Copied at the SAME path they have in the catalogue, and that is the point of the catalogue
+  // being laid out as a library (packages/dsp/docs/catalogue.md): this fixture used to hold its
+  // own flat-to-library mapping by hand, which was a second copy of the rule `seedIfEmpty`
+  // applies for real.
+  const catalogue = join(import.meta.dirname, "..", "..", "dsp", "modules");
+  for (const at of [
+    "audio/utility/tempo",
+    "audio/utility/crossfade",
+    "audio/filter/sweep",
+  ]) {
+    const to = join(mediatek, "modules", ...at.split("/"));
+    mkdirSync(dirname(to), { recursive: true });
+    cpSync(join(catalogue, ...at.split("/")), to, { recursive: true });
+  }
+
   const utility = join(mediatek, "modules", "audio", "utility");
-  // The REAL file this repo ships, not a paraphrase of it: if `packages/dsp/modules/tempo`
-  // stops being a module the loader accepts, this test is where that shows up.
-  mkdirSync(join(utility, "tempo"), { recursive: true });
-  const shipped = join(
-    import.meta.dirname,
-    "..",
-    "..",
-    "dsp",
-    "modules",
-    "tempo",
-  );
-  // `ui.yaml` too: the panel is part of the module, and a malformed one would otherwise
-  // only surface in pl8's builder — on somebody else's screen, later.
-  for (const f of ["module.yaml", "ui.yaml"])
-    copyFileSync(join(shipped, f), join(utility, "tempo", f));
-  // The EQ, stated INLINE rather than copied from `packages/dsp/modules/eq3`.
+  const filter = join(mediatek, "modules", "audio", "filter");
+  // The EQ, stated INLINE rather than copied from the catalogue.
   //
   // The shipped file says `extends: "@engine/equaliser"`, and an `@engine/` ref resolves
   // against the MACHINE's plugin scan (`~/.studio/exts.json`, a path no env var moves). A test
@@ -68,7 +74,6 @@ beforeEach(() => {
   // an unresolved ref makes a module a silent STUB rather than an error, so the failure would
   // read as "the EQ is missing from the document" with nothing to point at. So the fixture
   // states the shape the set depends on: an internal plugin, three gains.
-  const filter = join(mediatek, "modules", "audio", "filter");
   mkdirSync(join(filter, "eq3"), { recursive: true });
   writeFileSync(
     join(filter, "eq3", "module.yaml"),
@@ -77,34 +82,6 @@ beforeEach(() => {
       "  Low-shelf gain: 0\n  Mid gain 1: 0\n  High-shelf gain: 0\n" +
       "  Low-shelf freq: 200\n  Mid freq 1: 1000\n  High-shelf freq: 6000\n" +
       "  Mid gain 2: 0\n",
-    "utf8",
-  );
-
-  // The sweep filter, from the files this repo ships — jsdsp.ts included, because the module's
-  // DSP is part of it and a description the builder rejects would otherwise only surface at
-  // playback.
-  mkdirSync(join(filter, "sweep"), { recursive: true });
-  const sweep = join(
-    import.meta.dirname,
-    "..",
-    "..",
-    "dsp",
-    "modules",
-    "sweep",
-  );
-  for (const f of ["module.yaml", "ui.yaml", "jsdsp.ts"])
-    copyFileSync(join(sweep, f), join(filter, "sweep", f));
-
-  // The crossfade has no copy in this repo — pl8's catalogue is its home — so the fixture
-  // states the shape the set depends on: two audio inputs, the second optional.
-  mkdirSync(join(utility, "crossfade"), { recursive: true });
-  writeFileSync(
-    join(utility, "crossfade", "module.yaml"),
-    "plugin: { type: jsdsp, name: Crossfade }\n" +
-      "inputs:\n" +
-      "  - { name: a, type: audio }\n" +
-      "  - { name: b, type: audio, mandatory: false }\n" +
-      "outputs:\n  - { name: out, type: audio }\nparams:\n  Mix: 0.5\n",
     "utf8",
   );
 });

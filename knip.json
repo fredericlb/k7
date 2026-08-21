@@ -42,7 +42,11 @@
       "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
     },
     "packages/dsp": {
-      "entry": ["src/emit.ts", "modules/**/jsdsp.ts"]
+      "entry": [
+        "src/emit.ts",
+        "scripts/gen-catalogue.ts",
+        "modules/**/jsdsp.ts"
+      ]
     },
     "packages/file-service": {
       "entry": ["src/server.ts", "src/separateWorker.ts", "src/render.ts"]

@@ -72,4 +72,26 @@ describe("the crossfade graph", () => {
     ) as GraphJson;
     expect(g).toEqual(demo);
   });
+
+  it("matches the CATALOGUE's copy — the one every new library is seeded with", () => {
+    // A third copy, for the third reason a module folder is self-contained: this one is what
+    // `seedIfEmpty` writes into everybody's `@st0` library, and a set scaffolded tomorrow names
+    // it (`@st0/audio/utility/crossfade`). The demo above is a demo; this one is the shipped
+    // article, and it is the one that must not drift.
+    const seeded = JSON.parse(
+      readFileSync(
+        join(
+          here,
+          "..",
+          "modules",
+          "audio",
+          "utility",
+          "crossfade",
+          "jsdsp.json",
+        ),
+        "utf8",
+      ),
+    ) as GraphJson;
+    expect(g).toEqual(seeded);
+  });
 });

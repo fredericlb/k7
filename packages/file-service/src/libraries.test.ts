@@ -1,8 +1,7 @@
-// Mounting the account's library repository into a workspace: giving a brand-new one its
-// first commit, keeping it out of the song repo's `git add -A` until it is registered,
-// adopting it as a submodule, and publishing an edit back. It used to SEED the new repository
-// from the hosted catalogue; that catalogue no longer holds modules or chains, so what is left
-// is the commit a gitlink needs. See packages/song/docs/sharedFolders.md.
+// Mounting the account's library repository into a workspace: SEEDING a brand-new one with the
+// catalogue this build ships, keeping it out of the song repo's `git add -A` until it is
+// registered, adopting it as a submodule, and publishing an edit back. See
+// packages/song/docs/sharedFolders.md and packages/dsp/docs/catalogue.md.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -22,7 +21,7 @@ const {
   commitLibraries,
   excludeFromProjectRepo,
   registerSubmodule,
-  initIfEmpty,
+  seedIfEmpty,
 } = await import("./libraries.ts");
 
 /** git refuses a file:// submodule by default (CVE-2022-39253); the real thing is SSH. */
@@ -77,28 +76,56 @@ const pushed = (): string[] =>
     .filter(Boolean);
 
 describe("a brand-new library repository", () => {
-  it("gets a first commit, and pushes it", async () => {
-    expect(await initIfEmpty(lib)).toBe("initialised");
+  it("gets the catalogue, and pushes it", async () => {
+    expect(await seedIfEmpty(lib)).toBe("seeded");
     // On the REMOTE, not merely committed here: a gitlink is a promise that a commit is
     // fetchable, and the caller only records one once this has happened.
     expect(git(origin, "rev-parse", "main").trim()).toHaveLength(40);
-    // Empty on purpose. There is nothing to put in it: st0 is what writes a module, and it
-    // commits through `commitLibraries` below.
-    expect(pushed()).toEqual([]);
+    expect(pushed().length).toBeGreaterThan(0);
+  });
+
+  it("puts the four modules a scaffolded SET names where it names them", async () => {
+    // THE regression this exists for. `scaffoldSet` writes four `@st0/…` refs into every new
+    // set's nodes, and a library that started empty resolved none of them — silently, because an
+    // unresolved ref is not a compile error. These paths are those refs minus the namespace, so
+    // a rename on either side that does not happen on the other fails here rather than in a set
+    // somebody just made.
+    await seedIfEmpty(lib);
+    const files = pushed();
+    for (const ref of [
+      "audio/utility/crossfade",
+      "audio/utility/tempo",
+      "audio/filter/eq3",
+      "audio/filter/sweep",
+    ])
+      expect(files).toContain(`modules/${ref}/module.yaml`);
+  });
+
+  it("seeds a module's whole folder, not just what it IS", async () => {
+    // A module is a folder: its panel and its DSP source travel with it. A seed that carried
+    // only `module.yaml` would give everybody a catalogue of modules with no faces, which draws
+    // exactly like a catalogue whose faces were never written.
+    await seedIfEmpty(lib);
+    const files = pushed();
+    expect(files).toContain("modules/audio/filter/sweep/ui.yaml");
+    expect(files).toContain("modules/audio/filter/sweep/jsdsp.ts");
+    expect(files).toContain("modules/instruments/wurlitzer/dsp.dsp");
   });
 
   it("does nothing at all the second time", async () => {
-    await initIfEmpty(lib);
+    await seedIfEmpty(lib);
     const head = git(lib, "rev-parse", "HEAD").trim();
     // The whole safety of this: "already started" is a question about the CHECKOUT, not a
     // flag somebody has to keep. A repository with a commit has been here before.
-    expect(await initIfEmpty(lib)).toBe("filled");
+    expect(await seedIfEmpty(lib)).toBe("filled");
     expect(git(lib, "rev-parse", "HEAD").trim()).toBe(head);
   });
 
-  it("leaves a repository somebody has already committed to alone", async () => {
-    // Not "no files at all": a repository made through a web UI usually arrives with a README
-    // and a commit, and committing over one would be writing in somebody's history.
+  it("seeds a repository that has a commit but no modules, and keeps what was there", async () => {
+    // "Empty" is not "no files at all": a repository made through a web UI arrives with a README
+    // and a commit, and refusing to seed on account of one would leave a new account with a
+    // catalogue of nothing and no way to explain it. Having a commit and having modules are two
+    // different questions, and conflating them is what left the seed doing nothing.
     writeFileSync(join(lib, "README.md"), "# les bibliotheques\n", "utf8");
     git(lib, "add", "-A");
     git(
@@ -111,7 +138,46 @@ describe("a brand-new library repository", () => {
       "-m",
       "readme",
     );
-    expect(await initIfEmpty(lib)).toBe("filled");
+    expect(await seedIfEmpty(lib)).toBe("seeded");
+    expect(pushed()).toContain("README.md");
+    expect(pushed()).toContain("modules/audio/utility/tempo/module.yaml");
+  });
+
+  it("never writes over a modules/ somebody already has", async () => {
+    // The one thing this must never do. The account's own modules live there, and replacing one
+    // with whatever version this build happens to ship is silent data loss — so the question is
+    // asked of the FOLDER, and a single module in it means hands off the whole thing.
+    mkdirSync(join(lib, "modules", "audio", "filter", "sweep"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(lib, "modules", "audio", "filter", "sweep", "module.yaml"),
+      "# mine\nplugin: { type: jsdsp, name: Mine }\n",
+      "utf8",
+    );
+    git(lib, "add", "-A");
+    git(
+      lib,
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "-m",
+      "mine",
+    );
+
+    expect(await seedIfEmpty(lib)).toBe("filled");
+    expect(
+      readFileSync(
+        join(lib, "modules", "audio", "filter", "sweep", "module.yaml"),
+        "utf8",
+      ),
+    ).toContain("# mine");
+    // …and nothing else arrived either: it is the whole folder that is left alone.
+    expect(existsSync(join(lib, "modules", "audio", "utility", "tempo"))).toBe(
+      false,
+    );
   });
 
   it("keeps an unregistered library out of the project repo's `git add -A`", async () => {
@@ -167,7 +233,7 @@ describe("a brand-new library repository", () => {
     mkdirSync(inside, { recursive: true });
     git(inside, "init", "--initial-branch=main");
     git(inside, "remote", "add", "origin", origin);
-    await initIfEmpty(inside);
+    await seedIfEmpty(inside);
 
     await excludeFromProjectRepo(project);
     expect(git(project, "check-ignore", "-v", "_libraries")).toContain(
@@ -210,7 +276,7 @@ describe("a brand-new library repository", () => {
     mkdirSync(inside, { recursive: true });
     git(inside, "init", "--initial-branch=main");
     git(inside, "remote", "add", "origin", origin);
-    await initIfEmpty(inside);
+    await seedIfEmpty(inside);
     // A module for the publish tests below to EDIT. Written here by hand: st0 is what puts one in
     // a library, and this fixture stands in for a library somebody has already used.
     mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
@@ -318,7 +384,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("says there was nothing to commit rather than making an empty one", async () => {
-    await initIfEmpty(lib);
+    await seedIfEmpty(lib);
     const project = dirname(lib);
     expect(await commitLibraries("me@example.test", project, "again")).toEqual({
       committed: false,
@@ -328,7 +394,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("keeps the work and says so when the push is refused", async () => {
-    await initIfEmpty(lib);
+    await seedIfEmpty(lib);
     mkdirSync(join(lib, "modules"), { recursive: true });
     writeFileSync(join(lib, "modules", "new.yaml"), "a: 1\n", "utf8");
     git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
@@ -348,8 +414,8 @@ describe("a brand-new library repository", () => {
     // rejected — and its caller must then NOT record a gitlink, or the workspace would point
     // at a commit nobody else can fetch.
     git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
-    expect(await initIfEmpty(lib)).toBe("unpushed");
+    expect(await seedIfEmpty(lib)).toBe("unpushed");
     // Still committed locally, so the next open has something to push rather than starting over.
-    expect(git(lib, "log", "--oneline")).toContain("premier commit");
+    expect(git(lib, "log", "--oneline")).toContain("catalogue");
   });
 });

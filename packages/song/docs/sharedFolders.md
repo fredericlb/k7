@@ -23,24 +23,35 @@ whole of it, and `POST /open` is where it runs, on every launch rather than only
 setting can be added after a workspace already exists, which is true of every workspace that
 predates the feature.
 
-### A new repository gets its first commit
+### A new repository is SEEDED with the catalogue
 
-A library repository somebody just created has no COMMITS, and a gitlink has to point at one —
-`git submodule add` on an unborn HEAD fails. So the first machine to mount one makes an empty
-root commit and pushes it, which is all `registerSubmodule` needs; st0 fills the repository
-afterwards, one module at a time.
+Two things have to happen to a library repository somebody just created, and they are
+independent — conflating them is what left this broken for a release.
 
-> It used to SEED it instead, copying `modules/` and `chains/` in from the hosted médiathèque,
-> because that volume was the catalogue and every `@st0/…` ref already written named something
-> living there. The volume holds neither family now — a module is authored in st0, where the
-> plugin it names is actually loaded — so there is nothing left to copy from and no migration to
-> run. `initIfEmpty` is what remains of `seedIfEmpty`.
+**It needs a commit.** A gitlink has to point at one, and `git submodule add` on an unborn HEAD
+fails. So the first machine to mount one commits and pushes, which is all `registerSubmodule`
+needs.
+
+**It needs the catalogue.** Every `@st0/…` ref names something that has to be IN there —
+including the four a scaffolded set writes for its decks (`@st0/audio/utility/crossfade`,
+`…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). A library that starts empty resolves none of
+them, silently, because an unresolved ref is not a compile error. `seedIfEmpty` writes the
+modules this build ships, out of `@studio/dsp/catalogue` — see
+[packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md) for why they are embedded rather
+than read off disk, and how the folder is kept in step.
+
+> The catalogue used to come from the hosted médiathèque over HTTP. When that volume stopped
+> holding modules, the copy was dropped and only the empty commit kept (`seedIfEmpty` became
+> `initIfEmpty`) — and nothing replaced the source, so a new account got a library of nothing.
+> The catalogue lives in the repo now, which is where the modules were all along.
 
 Three details are load-bearing:
 
-- **"Empty" means neither family present, not "no files".** A repository made through a web UI
-  usually arrives with a README, and refusing to seed over one would leave a new account with an
-  empty catalogue and no way to explain it.
+- **"Empty" means no `modules/`, not "no files".** A repository made through a web UI usually
+  arrives with a README, and refusing to seed over one would leave a new account with an empty
+  catalogue and no way to explain it. Conversely a single module in `modules/` means hands off
+  the whole folder: those are the account's, and replacing one with the version this build
+  happens to ship is silent data loss.
 - **The gitlink is recorded only after the push succeeds.** A gitlink promises that a commit is
   fetchable; pointing one at a commit that never left the machine breaks the workspace for
   everybody who clones it. Two machines racing to seed the same new repository is the ordinary

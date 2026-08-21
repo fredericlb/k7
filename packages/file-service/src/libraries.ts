@@ -13,6 +13,7 @@ import {
 } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
+import { CATALOGUE, isFresh, MODULES_DIR } from "@studio/dsp/catalogue";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
@@ -158,35 +159,55 @@ const isPopulated = (dir: string): boolean => {
 export class LibrariesMovedError extends Error {}
 
 /**
- * Give a brand-new library repository its FIRST COMMIT, and push it.
+ * Fill a brand-new library repository with the modules this build ships, commit, and push.
  *
- * This replaced the seed. Until now the médiathèque held the catalogue, so a library
- * repository that started empty broke every `@st0/…` ref at once — and `seedIfEmpty` copied
- * `modules/` and `chains/` in from the hosted volume to prevent that. The volume no longer
- * holds either: a module is authored in st0 and committed here, so there is nothing left to
- * copy FROM and nothing to migrate.
+ * **Two independent questions, and conflating them is what broke this before.** A gitlink has to
+ * point AT a commit, so a repository somebody just created through a web UI — unborn HEAD —
+ * needs one made whatever else happens (`git submodule add` on an unborn HEAD fails). And a
+ * library with no `modules/` needs the catalogue, so that `@st0/audio/utility/tempo` and its
+ * siblings resolve. A repository can be in either state without the other: one created with a
+ * README has a commit and no modules, and this seeds it.
  *
- * What still has to happen is the commit itself, and it is easy to miss why. A gitlink has to
- * point AT a commit, and a repository somebody just created through a web UI has none —
- * `git submodule add` on an unborn HEAD fails. So this makes the empty root commit that gives
- * `registerSubmodule` something to record, and st0 fills the repository afterwards.
+ * The catalogue used to be copied from the hosted médiathèque over HTTP, and when that volume
+ * stopped holding modules the copy was dropped and only the empty commit kept — which left every
+ * `@st0/…` ref in a new account resolving to nothing, silently, including the four a scaffolded
+ * SET writes for its decks. It is EMBEDDED now (`@studio/dsp/catalogue`), and it has to be:
+ * this service is esbuilt into a single .mjs inside the tray, so there is no `packages/dsp/`
+ * beside it to read at runtime. See packages/dsp/docs/catalogue.md.
  *
- * Answers what happened, because the caller's next move depends on it: `"filled"` (it already
- * had commits), `"initialised"`, or `"unpushed"` (committed here, refused there).
+ * Never touches an existing `modules/`. The account's own modules live there, and overwriting
+ * one with the version this build happens to ship would be silent data loss — which is why the
+ * question is asked of the FOLDER rather than of a flag somebody has to keep.
+ *
+ * Answers what happened, because the caller's next move depends on it: `"filled"` (nothing to
+ * do), `"seeded"`, `"initialised"` (a commit, no catalogue needed), or `"unpushed"` (committed
+ * here, refused there).
  */
-export async function initIfEmpty(
+export async function seedIfEmpty(
   at: string,
   env: NodeJS.ProcessEnv = envFor(""),
-): Promise<"initialised" | "unpushed" | "filled"> {
+): Promise<"seeded" | "initialised" | "unpushed" | "filled"> {
+  const fresh = isFresh(at);
+  let unborn = false;
   try {
     await git(at, ["rev-parse", "--verify", "HEAD"], env);
-    return "filled";
   } catch {
-    // An unborn HEAD: no commits at all, which is the one case this exists for.
+    unborn = true;
+  }
+  if (!fresh && !unborn) return "filled";
+
+  if (fresh) {
+    for (const [rel, text] of Object.entries(CATALOGUE)) {
+      const dest = join(at, MODULES_DIR, ...rel.split("/"));
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, text, "utf8");
+    }
+    await git(at, ["add", "--", MODULES_DIR], env);
   }
 
   // An author, because a repository with no `user.email` configured refuses to commit at all —
-  // and this runs on a machine nobody has set up for git.
+  // and this runs on a machine nobody has set up for git. `--allow-empty` because the unborn
+  // case may have nothing to write, and a commit that fails here costs the gitlink.
   await git(
     at,
     [
@@ -197,24 +218,32 @@ export async function initIfEmpty(
       "commit",
       "--allow-empty",
       "-m",
-      "les bibliotheques : premier commit",
+      fresh
+        ? "les bibliotheques : le catalogue de depart"
+        : "les bibliotheques : premier commit",
     ],
     env,
   );
   try {
     await git(at, ["push", "-u", "origin", "HEAD"], env);
   } catch (e) {
-    // Two machines racing to initialise the same new repository is the ordinary way this
-    // happens: the loser's push is rejected, and the winner's commit is just as empty. Say so
-    // and leave the checkout alone — the caller declines to record a gitlink, so nothing
-    // downstream ends up pointing at a commit that never left here.
+    // Two machines racing to fill the same new repository is the ordinary way this happens: the
+    // loser's push is rejected, and the winner's commit holds the same catalogue. Say so and
+    // leave the checkout alone — the caller declines to record a gitlink, so nothing downstream
+    // ends up pointing at a commit that never left here.
     console.warn(
       `[libraries] committed in ${at} but could not push: ${(e as Error).message}`,
     );
     return "unpushed";
   }
-  console.log(`[libraries] initialised ${at}`);
-  return "initialised";
+  if (!fresh) {
+    console.log(`[libraries] initialised ${at}`);
+    return "initialised";
+  }
+  console.log(
+    `[libraries] seeded ${at} with ${Object.keys(CATALOGUE).length} catalogue file(s)`,
+  );
+  return "seeded";
 }
 
 /**
@@ -270,7 +299,7 @@ export async function ensureLibraries(
      * cloning a second time.
      */
     await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
-    const started = await initIfEmpty(at, env);
+    const started = await seedIfEmpty(at, env);
     // Only NOW is the gitlink recorded — and not at all if the seed could not be pushed. A
     // gitlink is a promise that a commit is fetchable; pointing it at one that never left this
     // machine would break the workspace for everybody who clones it, including you tomorrow.
@@ -285,7 +314,7 @@ export async function ensureLibraries(
   if (isPopulated(at)) return { mounted: false };
   await ensureKey(userEmail);
   await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
-  await initIfEmpty(at, env);
+  await seedIfEmpty(at, env);
   return { mounted: true };
 }
 

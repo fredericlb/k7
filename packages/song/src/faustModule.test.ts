@@ -88,16 +88,18 @@ describe("a faust module", () => {
   // Two tests and not one loop, because WHERE each may sit is the difference between them and
   // is worth writing down: the fixture's `lead` is fed the melody lane's notes, so only an
   // instrument fits there. A one-line loop would have hidden that behind a parameter.
-  const ship = (name: string, type: string): void => {
-    const to = join(dir, "modules", type, name);
+  // `at` is the module's path in the CATALOGUE, which is laid out exactly as a library is
+  // (packages/dsp/docs/catalogue.md) — so it is also the ref minus its `@st0/` namespace.
+  const ship = (at: string): void => {
+    const to = join(dir, "modules", ...at.split("/"));
     mkdirSync(dirname(to), { recursive: true });
-    cpSync(join(here, "..", "..", "dsp", "modules", name), to, {
+    cpSync(join(here, "..", "..", "dsp", "modules", ...at.split("/")), to, {
       recursive: true,
     });
   };
 
   it("ships wurlitzer, which fits where an instrument is played", () => {
-    ship("wurlitzer", "instruments");
+    ship("instruments/wurlitzer");
     writeFileSync(
       join(dir, "nodes", "lead.yaml"),
       "extends: instruments/wurlitzer\n",
@@ -112,10 +114,10 @@ describe("a faust module", () => {
     // An audio effect on `lead`'s own slot is refused by the typed-input check — "port 'in'
     // expects audio but source 'melody' is midi" — and that refusal is the check working.
     // So it goes where an effect goes: between the instrument and the output.
-    ship("moogladder", "audio");
+    ship("audio/filter/moogladder");
     writeFileSync(
       join(dir, "nodes", "moog.yaml"),
-      "extends: audio/moogladder\n",
+      "extends: audio/filter/moogladder\n",
       "utf8",
     );
     writeFileSync(
