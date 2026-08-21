@@ -1123,6 +1123,10 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     sampleRate: Number(proj.sampleRate ?? 48000),
     timeSigNumerator: num || 4,
     timeSigDenominator: den || 4,
+    // Unity when the song says nothing, and DEFAULTED here rather than left absent: the engine
+    // diffs documents, so a missing field would read as "unchanged" and a master put back to
+    // unity would never come back down. See docs/masterVolume.md.
+    masterVolume: Number(proj.masterVolume ?? 0),
     recordDir: "", // set by loadProject, which is what knows this is a folder project
     tracks,
     groups,

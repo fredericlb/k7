@@ -35,7 +35,8 @@
     "@codemirror/view": "^6.34.0",
     "@lezer/highlight": "^1.2.0",
     "@studio/song": "*",
-    "@studio/web-protocol": "*"
+    "@studio/web-protocol": "*",
+    "yaml": "^2.5.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",

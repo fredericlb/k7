@@ -414,9 +414,17 @@ function WaveformInner({
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = HEIGHT * dpr;
+    // Only when it actually changed. Assigning `width` — even the value it already holds —
+    // reallocates the backing store and resets the whole context, and this effect runs on every
+    // engine frame because `currentTime` is in its dependency list. Twenty throwaway
+    // reallocations a second, for a box whose size moves when the window does.
+    const w = Math.round(width * dpr);
+    const h = Math.round(HEIGHT * dpr);
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
     const ctx = canvas.getContext("2d")!;
+    // What the resize used to reset for free, now asserted: the transform here, and every style
+    // below set before it is used. The three `setLineDash` calls each restore `[]` — keep it that way.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, HEIGHT);
 

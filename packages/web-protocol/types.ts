@@ -518,6 +518,10 @@ export interface WebProject {
   tempo: number;
   timeSigNumerator: number;
   timeSigDenominator: number;
+  // The song's OUTPUT level in dB — 0 is unity, +6 the top of the fader. The header's fader reads
+  // it and `project master` writes it; see @studio/song's docs/masterVolume.md, including why +6
+  // is rarely the answer to a quiet mix.
+  masterVolume: number;
   tracks: WebTrack[];
   groups: WebGroup[];
   // The metronome enable from settings.yaml — the header button's source of truth; toggling rewrites the file.

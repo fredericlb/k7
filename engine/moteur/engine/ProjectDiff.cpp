@@ -164,6 +164,13 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
         ch.doubleValue = to.tempo;
         out.push_back(std::move(ch));
     }
+    // A float compared for exact equality on purpose: this value is not computed here, it is
+    // carried verbatim from the document, so "unchanged" means the same number arrived twice.
+    if (from.masterVolume != to.masterVolume) {
+        Change ch{ChangeKind::MasterVolumeChanged};
+        ch.doubleValue = to.masterVolume;
+        out.push_back(std::move(ch));
+    }
     if (from.timeSigNumerator != to.timeSigNumerator ||
         from.timeSigDenominator != to.timeSigDenominator) {
         Change ch{ChangeKind::TimeSignatureChanged};
@@ -271,6 +278,7 @@ std::string describe(const Change& c) {
     std::ostringstream s;
     switch (c.kind) {
         case ChangeKind::TempoChanged:         s << "tempo -> " << c.doubleValue << " bpm"; break;
+        case ChangeKind::MasterVolumeChanged:  s << "master -> " << c.doubleValue << " dB"; break;
         case ChangeKind::TimeSignatureChanged: s << "time sig -> " << c.intA << "/" << c.intB; break;
         case ChangeKind::SampleRateChanged:    s << "sample rate -> " << c.intA << " (full rebuild)"; break;
         case ChangeKind::TrackAdded:           s << "+ track " << c.trackId; break;

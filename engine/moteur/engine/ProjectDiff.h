@@ -21,6 +21,7 @@ enum class ChangeKind {
     // Global — some of these force a full rebuild (see needsFullRebuild).
     TempoChanged,
     TimeSignatureChanged,
+    MasterVolumeChanged,      // the song's output fader — applied in place, no rebuild
     SampleRateChanged,        // forces full rebuild: the device must reopen
 
     // Structural

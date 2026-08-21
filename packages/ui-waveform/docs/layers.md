@@ -45,6 +45,41 @@ Two blits, the grids, and the label pass. The grids are one stroke per line and 
 laid out from `gridLines` on every frame. Neither has shown up in a profile since; if one does,
 they are static between interactions and the same treatment applies.
 
+**And, until recently, a backing-store reallocation.** The effect opened with
+
+```ts
+canvas.width = width * dpr;
+canvas.height = HEIGHT * dpr;
+```
+
+unconditionally. Assigning `width` is not a no-op when the value is unchanged: it reallocates
+the canvas's backing store and resets the entire 2D context. Since this effect runs on every
+engine frame, that was twenty discarded allocations a second per open clip editor, on a box
+whose size only changes when the window does. It is now guarded by a comparison.
+
+What the resize used to do for free was reset the context, so that is now asserted instead:
+`setTransform` re-establishes the transform each frame, every style is set before it is used,
+and each of the three `setLineDash` calls restores `[]`. A style set and not restored would now
+leak into the next frame — a constraint the code already met, written down so it keeps meeting it.
+
+## Still open: the playhead re-renders the host
+
+`ClipWaveform` (st0's `WaveformView.tsx`) reads the transport with
+`useEngineState((s) => s.playhead)` — a SELECTOR hook, so the component renders at the frame
+rate and the draw effect runs with it. `usePlayheadFrames` is this repo's answer to exactly
+that, and its own header says why: *"a selector hook here would put a render on the component at
+the meter rate, and going from 20 Hz to 60 would then be three times the renders rather than a
+smoother line."*
+
+It cannot simply be swapped in here, because that hook hands you a number to write onto a **DOM
+node**, and this component draws its playhead onto the canvas along with everything else. Doing
+it properly means a thin overlay canvas carrying the playhead and the progress edge, which is
+the same move [rejected above](#what-changed) for the progress FILL — and rejected there for a
+reason that does not apply to a one-pixel line: a translucent wash over the bar numbers is a
+visible change, a hairline is not.
+
+That is a design lot, not a patch. It is named in `docs/constat.md`.
+
 ## The host's side of the bargain
 
 `Waveform` is `memo`'d, which is worth nothing unless its props hold their identity:

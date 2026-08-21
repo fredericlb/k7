@@ -8,12 +8,22 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { useEffect, useRef, useState } from "react";
+import { MASTER_MAX_DB } from "@studio/song/yaml/projectSchema";
 import { TARGET_DB } from "../gainTrim";
 
 /** The bottom of the scale, in dB. Below this the bar is empty rather than negative. */
 export const FLOOR_DB = -60;
 /** Where the bar turns from green to amber — the last few dB before there is no headroom left. */
 const HOT_DB = -6;
+/**
+ * The bottom of the FADER, which is not the bottom of the field.
+ *
+ * The schema's floor is -100 dB, where Tracktion's curve reaches zero. Drawing that would spend
+ * two thirds of a 96-pixel fader on the difference between inaudible and more inaudible, leaving
+ * the range anybody actually uses squeezed into the top third. `project master -80` still reaches
+ * it by name; a fader is for reaching, not for completeness.
+ */
+const FADER_MIN_DB = -60;
 
 /** dB → 0..1 across the drawn scale. Linear in dB, which is what a meter's markings are. */
 export const meterFill = (db: number): number =>
@@ -68,6 +78,8 @@ export const peakHold = (
 export function MasterMeter({
   className,
   onFix,
+  master,
+  onMaster,
 }: {
   className?: string;
   /**
@@ -79,6 +91,15 @@ export function MasterMeter({
    * with nothing to lower — and the button is not drawn at all.
    */
   onFix?: (peakDb: number) => void;
+  /**
+   * The song's output level in dB, and how to write it — the fader under the bar.
+   *
+   * The VALUE is the project's, not the engine's: it is what the file says, so it survives a stop
+   * and reads the same before a note has played. Absent (a host with no project, a share) and no
+   * fader is drawn — which is right, since there would be nothing to write it to.
+   */
+  master?: number;
+  onMaster?: (db: number) => void;
 }) {
   const db = useEngineState((s) => s.master);
   const overload = useEngineState((s) => s.masterClipped);
@@ -132,37 +153,53 @@ export function MasterMeter({
   const peak = useRef(FLOOR_DB);
   peak.current = peakHold(peak.current, db, playing, wasPlaying.current);
 
+  /**
+   * What the fader SHOWS while it is being dragged, before the file has answered.
+   *
+   * Optimistic, like the mixer's knobs: a drag is dozens of values and the write goes on release,
+   * so between the two the only thing that knows where the fader is, is the fader. Cleared when
+   * the project comes back — `master` is then the truth again, and holding the local value would
+   * be a fader that ignored an edit made anywhere else.
+   */
+  const [dragged, setDragged] = useState<number | null>(null);
+  // A fresh document is the TRIGGER, not a value this body reads — the same shape `useGridCaret`'s
+  // `resetKey` has, and it needs the same directive, which must sit on the line before to count.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `master` is the trigger, not a read.
+  useEffect(() => setDragged(null), [master]);
+  const level = dragged ?? master ?? 0;
+
   const w = meterFill(db);
   return (
-    <div
-      className={cn("flex items-center gap-1.5", className)}
-      // The number, for anyone who wants it exactly — a bar answers "how loud", never "how much".
-      title={
-        `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
-        (clipped ? " — a saturé pendant la dernière lecture" : "")
-      }
-    >
-      <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-foreground/15">
-        <div
-          className={cn(
-            "absolute inset-y-0 left-0 rounded-full transition-[width] duration-75",
-            db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400",
-          )}
-          style={{ width: `${w * 100}%` }}
-        />
-      </div>
-      {/* Always drawn, never appearing and disappearing: a light that is only there when it is on
+    <div className={cn("flex flex-col gap-1", className)}>
+      <div
+        className={cn("flex items-center gap-1.5")}
+        // The number, for anyone who wants it exactly — a bar answers "how loud", never "how much".
+        title={
+          `sortie ${db <= FLOOR_DB ? "silence" : `${db.toFixed(1)} dB`}` +
+          (clipped ? " — a saturé pendant la dernière lecture" : "")
+        }
+      >
+        <div className="relative h-1.5 w-24 overflow-hidden rounded-full bg-foreground/15">
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 rounded-full transition-[width] duration-75",
+              db >= HOT_DB ? "bg-amber-400" : "bg-emerald-400",
+            )}
+            style={{ width: `${w * 100}%` }}
+          />
+        </div>
+        {/* Always drawn, never appearing and disappearing: a light that is only there when it is on
           cannot be looked at to check, and checking is what it is for. Dark when nothing clipped. */}
-      <span
-        aria-label={clipped ? "a saturé" : "pas de saturation"}
-        className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full",
-          clipped
-            ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
-            : "bg-foreground/20",
-        )}
-      />
-      {/* …and unlike the light, this one DOES come and go, for the opposite reason: it is not a
+        <span
+          aria-label={clipped ? "a saturé" : "pas de saturation"}
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            clipped
+              ? "bg-red-500 shadow-[0_0_4px_1px] shadow-red-500/60"
+              : "bg-foreground/20",
+          )}
+        />
+        {/* …and unlike the light, this one DOES come and go, for the opposite reason: it is not a
           reading to be checked but an offer to act, and an offer that is permanently on screen
           greyed out is a button you learn to stop seeing. It appears when there is something to
           fix, and leaves both ways it can stop being worth offering: taken, or made stale by a
@@ -171,18 +208,67 @@ export function MasterMeter({
 
           It reads the ref rather than a piece of state, which is safe here because a click is not
           a render: whatever the last frame put there is the pass's peak. */}
-      {clipped && !fixed && onFix && (
-        <button
-          type="button"
-          onClick={() => {
-            setFixed(true);
-            onFix(peak.current);
-          }}
-          title={`baisser toutes les tranches d'un même gain, pour un pic à ${TARGET_DB} dB`}
-          className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
-        >
-          fix
-        </button>
+        {clipped && !fixed && onFix && (
+          <button
+            type="button"
+            onClick={() => {
+              setFixed(true);
+              onFix(peak.current);
+            }}
+            title={`baisser toutes les tranches d'un même gain, pour un pic à ${TARGET_DB} dB`}
+            className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
+          >
+            fix
+          </button>
+        )}
+      </div>
+      {/* THE FADER, under the bar it answers for — the song's own output level.
+
+          A native range input, deliberately: this is one linear value with a keyboard story the
+          platform already tells (arrows, Home/End, a focus ring), and every canvas knob in this
+          app exists because it had to draw something a range cannot. This one does not.
+
+          `onChange` paints, `onPointerUp` and `onKeyUp` COMMIT — the rule the mixer's knobs
+          follow, and for the same reason: a drag is dozens of values and each write recompiles
+          the project. Between the two the local value is what the fader shows.
+
+          -60 rather than the schema's -100 floor: below -60 the curve is silence, and spending
+          two thirds of a 96-pixel fader on the difference between inaudible and more inaudible
+          would leave the useful range unusable. Typing `project master -80` still reaches it. */}
+      {master !== undefined && onMaster && (
+        <div className="flex items-center gap-1.5">
+          <input
+            type="range"
+            min={FADER_MIN_DB}
+            max={MASTER_MAX_DB}
+            step={0.5}
+            value={level}
+            aria-label="niveau de sortie du morceau"
+            title={`niveau de sortie — ${level > 0 ? "+" : ""}${level.toFixed(1)} dB (0 = unité, +${MASTER_MAX_DB} le haut du fader)`}
+            onChange={(e) => setDragged(Number(e.target.value))}
+            onPointerUp={() => dragged !== null && onMaster(dragged)}
+            onKeyUp={() => dragged !== null && onMaster(dragged)}
+            // HALF the platform's thumb: ~8px instead of ~16. A default thumb is drawn for a
+            // control that owns a row, and this one shares a 24-pixel-wide lane with a meter bar
+            // — at full size it read as a blob on a hairline rather than as a fader. The track
+            // stays 1.5 (the bar's height above it), so the two rows line up.
+            //
+            // Per-browser pseudo-elements, because there is no standard one: `appearance-none`
+            // removes the platform thumb, and each engine's own selector puts ours back. Both are
+            // written or Firefox draws nothing at all.
+            className={cn(
+              "h-1.5 w-24 cursor-pointer appearance-none rounded-full bg-foreground/15",
+              "[&::-webkit-slider-thumb]:h-2 [&::-webkit-slider-thumb]:w-2 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-foreground/60",
+              "[&::-moz-range-thumb]:h-2 [&::-moz-range-thumb]:w-2 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-foreground/60",
+            )}
+          />
+          {/* The number, because a fader answers "how much" only if it says so. Tabular, so it
+              does not shuffle the row as the digits change under a drag. */}
+          <span className="w-8 shrink-0 text-right font-mono text-[10px] text-muted-foreground tabular-nums">
+            {level > 0 ? "+" : ""}
+            {level.toFixed(1)}
+          </span>
+        </div>
       )}
     </div>
   );

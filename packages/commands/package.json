@@ -8,7 +8,6 @@
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
     "./git": "./src/git.ts",
-    "./timeline": "./src/timeline.ts",
     "./recordTake": "./src/recordTake.ts",
     "./render": "./src/render.ts",
     "./share-bundle": "./src/shareBundle.ts",

@@ -170,7 +170,7 @@ export function resolveSet(
     const row = entryOf(r, entries);
     // The VARIANT is part of the identity: a set list naming a song's master and its
     // instrumental names two different records, and folding them would drop one.
-    const key = `${row.ref} ${row.variant ?? ""}`;
+    const key = `${row.ref}\u0000${row.variant ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);

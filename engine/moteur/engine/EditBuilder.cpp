@@ -519,6 +519,11 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     // played at another would be audible the moment you froze a track. It matters most where a render is
     // written BACK onto the material — `clip process` treated the same audio 3 dB quieter every pass.
     // See packages/commands/docs/peakPass.md.
+    //
+    // It stays a hard 0. The song's own output level does NOT go here: this fader stops at +6 dB
+    // and a master trim is exactly where that ceiling bites, so `masterVolume` is applied by a
+    // gain the engine owns, first on the master plugin list (MasterGainPlugin.h). Pinning this one
+    // is what keeps the two from multiplying. See packages/song/docs/masterVolume.md.
     if (auto master = edit.getMasterVolumePlugin()) master->setVolumeDb(0.0f);
 
     edit.tempoSequence.getTempo(0)->setBpm(doc.tempo);

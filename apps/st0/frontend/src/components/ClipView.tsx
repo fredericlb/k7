@@ -35,6 +35,7 @@ const FALLBACK_PROJECT: WebProject = {
   tempo: 120,
   timeSigNumerator: 4,
   timeSigDenominator: 4,
+  masterVolume: 0, // unity — a stand-in draws no fader, and a roll asks nothing of it
   strudel: false,
   tracks: [],
   groups: [],

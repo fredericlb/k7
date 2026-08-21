@@ -19,6 +19,7 @@ import {
 import { PROJECT_SHAPES } from "@studio/song/yaml/projectSchema";
 import express, { Router } from "express";
 import { z } from "zod";
+import { guard } from "../background.ts";
 import {
   applyClientProject,
   enginePreview,
@@ -1021,7 +1022,8 @@ filesRouter.post(
 filesRouter.post(
   "/waveforms/prewarm",
   wrap((req, res) => {
-    void req.ws!.prewarmWaveforms();
+    // Fire-and-forget, so `wrap` cannot see it: it only catches what the handler RETURNS.
+    guard("waveform prewarm", req.ws!.prewarmWaveforms());
     res.json(req.ws!.waveformStatus());
   }),
 );

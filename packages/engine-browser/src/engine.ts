@@ -337,7 +337,12 @@ export class EngineClient {
       if (this.gen !== myGen) return;
       this.down(myGen);
     };
-    ws.onerror = () => {};
+    // Empty on purpose — `onclose` always follows and owns the retry — but not silent: this is
+    // the only place a refused dial says anything at all, and "engine off" and "engine wedged"
+    // read identically from the console without it.
+    ws.onerror = () => {
+      if (this.gen === myGen) console.warn(`engine socket error: ${url}`);
+    };
     ws.onmessage = (ev) => {
       if (this.gen !== myGen) return;
       // Anything at all proves the link carries. The engine's own 20 Hz state frame is what

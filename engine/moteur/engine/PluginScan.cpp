@@ -6,6 +6,7 @@
 
 #include "EngineTypes.h"    // Tracktion/JUCE + the te/tt/fs aliases
 #include "GraphDspPlugin.h"
+#include "MasterGainPlugin.h"
 #include "MixerPlugin.h"
 #include "MidiGraphPlugin.h"
 #include "NamPlugin.h"
@@ -258,6 +259,10 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::GraphDspPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
+    // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue
+    // above: nobody places this in a chain. The engine puts exactly one on the master bus, which
+    // is the only place a gain with no fader curve belongs. See MasterGainPlugin.h.
+    pm.createBuiltInType<studio::MasterGainPlugin>();
     // Tracktion SHIPS these but registers neither, so both were dead weight in the binary until now: the
     // convolver — a cabinet or a space as an audio file the project OWNS — and the 186 AirWindows effects,
     // whose initialiseAirWindows() is defined in PluginManager.cpp and called from nowhere in the module.

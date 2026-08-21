@@ -8,7 +8,6 @@
   "exports": {
     ".": "./src/ModuleBuilder.tsx",
     "./store": "./src/store.ts",
-    "./library-store": "./src/libraryStore.ts",
     "./module-ui": "./src/moduleUi.ts",
     "./input-channels": "./src/InputChannelBar.tsx",
     "./yaml-pane": "./src/YamlPane.tsx",

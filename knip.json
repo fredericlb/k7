@@ -1,0 +1,63 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "vitest": {
+    "config": ["vitest.config.ts"],
+    "entry": [
+      "**/*.{test,bench}.?(c|m)[jt]s?(x)",
+      "**/__tests__/**/*.?(c|m)[jt]s?(x)"
+    ]
+  },
+  "ignoreDependencies": [
+    "tsx",
+    "concurrently",
+    "@inlang/paraglide-js",
+    "@vitejs/plugin-react",
+    "@tailwindcss/vite",
+    "esbuild",
+    "yaml"
+  ],
+  "ignoreBinaries": ["cmake", "ctest", "ffmpeg", "tilt", "where.exe"],
+  "ignore": ["scripts/dev-hosts.d.mts"],
+  "ignoreWorkspaces": [
+    "commons/**",
+    "apps/z0",
+    "apps/z0/**",
+    "apps/k7",
+    "apps/k7/**",
+    "apps/pl8",
+    "apps/pl8/**",
+    "engine/capot"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "scripts/**/*.mjs"]
+    },
+    "engine/moteur": {
+      "entry": ["scripts/*.{ts,mjs}"]
+    },
+    "apps/st0/frontend": {
+      "entry": ["src/main.tsx", "src/docs/examples.ts", "vite.config.ts"]
+    },
+    "packages/song": {
+      "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
+    },
+    "packages/dsp": {
+      "entry": ["src/emit.ts", "modules/**/jsdsp.ts"]
+    },
+    "packages/file-service": {
+      "entry": ["src/server.ts", "src/separateWorker.ts", "src/render.ts"]
+    },
+    "packages/engine-host": {
+      "entry": ["src/main.ts", "src/engineQueries.ts"]
+    },
+    "packages/commands": {
+      "entry": ["src/timeline.ts"]
+    },
+    "packages/ui-turntables": {
+      "entry": ["scripts/*.ts"]
+    },
+    "packages/ui-chains-react": {
+      "entry": ["src/DomChains.stories.tsx"]
+    }
+  }
+}

@@ -58,8 +58,10 @@ export function commitAndPush(
   git(dir, ["commit", "-m", message], gitEnv);
   const sha = git(dir, ["rev-parse", "--short", "HEAD"], gitEnv);
   // Push last: it can fail where a commit can't, and that must not pretend the landed commit didn't happen.
+  // Bounded like `pull` and `fetch`: this runs in the file service's single process, so an unreachable
+  // remote would otherwise wedge the socket to the engine and the pattern clock along with the request.
   try {
-    git(dir, ["push"], gitEnv);
+    git(dir, ["push"], gitEnv, 60_000);
     return { nothingToCommit: false, sha, changed, pushed: true };
   } catch (e) {
     return {

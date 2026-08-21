@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
@@ -24,12 +25,14 @@
   "dependencies": {
     "@studio/engine-protocol": "*",
     "@studio/song": "*",
+    "@studio/web-protocol": "*",
     "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.10",
     "tsx": "^4.16.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

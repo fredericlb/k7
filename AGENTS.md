@@ -81,8 +81,12 @@ Notes for the whole repo — CI, deployment, the dev session — are in `docs/`:
 and two plan/recipe pages, [module-builder-plan.md](docs/module-builder-plan.md) and
 [rename-test-plan.md](docs/rename-test-plan.md) — the latter **historical**, written for
 `lanes → pistes` and two renames stale in its names; its method is what survives.
+[constat.md](docs/constat.md) is the transversal reading of the audio axis — performance,
+stability and dead code in one place, dated and with the commands to replay it. Start there
+when you don't yet know which of the four specialised pages you need.
 [inventaire.md](docs/inventaire.md) is the standing inventory of dead and duplicated code —
-read it before deleting anything that merely *looks* unused.
+read it before deleting anything that merely *looks* unused, and note it now has a TOOL:
+`npm run lint:dead` (knip), non-blocking, scoped to the audio axis.
 [audit-moteur.md](docs/audit-moteur.md) is the standing audit of everything that links a
 surface to `engine/moteur` — what is shared, what is copied, where the connections give way,
 and the plan by lots. Read it before touching the registry, the relay or a gate.

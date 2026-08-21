@@ -132,6 +132,7 @@ import {
   removeCurvePoint,
   setCurvePoint,
 } from "@studio/song/yaml/curveFile";
+import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
 import {
   deleteFileValue,
   setFileValue,
@@ -2864,6 +2865,46 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   },
 
   // Add or move a named marker, stored under a CANONICAL timecode so `5` and `5:1:1` are the same marker.
+  /**
+   * project master <dB> — the song's output level, on the fader after everything else.
+   *
+   * UNITY IS NOT WRITTEN. `project master 0` deletes the key rather than writing a zero, the rule
+   * `type:` and a module's `status:` already follow: a file with nothing to say about its output
+   * level should stay a file that says nothing.
+   *
+   * The ceiling is refused rather than clamped. Tracktion's fader curve tops out at +6 dB — above
+   * it `decibelsToVolumeFaderPosition` returns the same position — so accepting 12 would set 6 and
+   * report 12, and the file would then disagree with the sound for ever. See the catalogue entry.
+   */
+  "project.master": async (a, h) => {
+    const raw = a.trim();
+    const db = Number(raw);
+    if (!raw || !Number.isFinite(db)) {
+      h.refuse(["usage: project master <dB>  (0 is unity, -100..+6)"]);
+      return;
+    }
+    if (db > MASTER_MAX_DB || db < MASTER_MIN_DB) {
+      h.refuse([
+        `${db} dB is outside the fader — it runs ${MASTER_MIN_DB}..+${MASTER_MAX_DB} dB`,
+        ...(db > MASTER_MAX_DB
+          ? [
+              "a mix that needs more than +12 on its output has its headroom in the STRIPS — see packages/song/docs/masterVolume.md",
+            ]
+          : []),
+      ]);
+      return;
+    }
+    const file = join(h.songPath, "project.yaml");
+    if (db === 0) deleteFileValue(file, ["project", "masterVolume"]);
+    else setFileValue(file, ["project", "masterVolume"], db);
+    h.log([
+      db === 0
+        ? "master at unity (0 dB) — the line is removed, which is what unity means"
+        : `master ${db > 0 ? "+" : ""}${db} dB`,
+    ]);
+    await h.reload();
+  },
+
   "project.marker.create": async (arg, h) => {
     const trimmed = arg.trim();
     const sp = trimmed.search(/\s/);

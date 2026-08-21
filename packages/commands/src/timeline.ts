@@ -3,7 +3,9 @@
 // (which shows ROUTING rather than what is ARRANGED). Both were commands once — `project
 // inspect timeline` and `project inspect graph` — and are scripts alone now: what they print
 // is what the panes draw, so the palette row was a verb nobody ran. describeTimeline stays
-// pure, a doc in and strings out, which is what let the two surfaces share it.
+// pure, a doc in and strings out, which is what let the two surfaces share it. Run with
+// `npx tsx` — and NOT published in `exports`, because a script is reached by path, never by
+// specifier: the subpath was one nothing could ever import.
 
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";

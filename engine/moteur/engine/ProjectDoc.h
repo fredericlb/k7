@@ -145,6 +145,14 @@ struct ProjectDoc {
     int sampleRate = 48000;
     int timeSigNumerator = 4;
     int timeSigDenominator = 4;
+    // The song's OUTPUT level in dB, on the master fader — 0 is unity, and unity is what a doc that
+    // says nothing means. It used to be pinned to 0 outright in EditBuilder, because Tracktion's own
+    // default of -3 dB was silently costing every mixdown 3 dB; the pin is now this value.
+    //
+    // +6 is the top of the fader and not a policy: `decibelsToVolumeFaderPosition` is
+    // `exp((dB - 6) / 20)` clamped to 1, so anything above +6 sets the same position. The brain's
+    // schema refuses it rather than letting it be quietly clamped here.
+    float masterVolume = 0.0f;
     // The absolute directory a live recording writes into — the brain's <project>/clips, where an audio clip's file
     // lives. The engine still parses no project files: this is the one location it is told, because a take has to
     // land somewhere before the brain can declare it. Empty means the project cannot record, and arming is refused.

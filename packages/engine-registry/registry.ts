@@ -1,8 +1,8 @@
 // registry.ts — the in-memory engine registry, so a hosted web UI can list what's
 // available, and the CLAIMS that say which project an engine is driving and for whom.
 // Engines announce themselves with a periodic heartbeat and drop out after REGISTRY_TTL_MS of
-// silence. The per-engine token NEVER leaves the server: list() returns a token-stripped shape,
-// and verifyToken is what stops a lookalike being selected as a real engine's id.
+// silence. list() is token-stripped and verifyToken stops a lookalike claiming a real engine's
+// id — but the token is NOT a secret from the browser, whatever this line used to say: docs/token.md.
 // The claim's rules — one project per engine, one engine per project, newcomer wins — and why
 // they are three rules and not one, are in docs/claim.md.
 

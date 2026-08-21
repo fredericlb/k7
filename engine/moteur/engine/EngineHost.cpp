@@ -1,5 +1,7 @@
 #include "EngineHost.h"
 
+#include "MasterGainPlugin.h"
+
 #include "EngineTypes.h"       // Tracktion/JUCE + the te/tt/fs aliases
 #include "EngineHostImpl.h"    // struct EngineHost::Impl (the PImpl state)
 #include "PluginParams.h"      // namedParams / allParams / applyPluginParams / paramsJson / …
@@ -150,6 +152,11 @@ void EngineHost::applyFull(const std::string& session, const ProjectDoc& doc, co
     const double t4 = juce::Time::getMillisecondCounterHiRes();
 
     impl_->session(session).current = doc;
+    // The song's output level, on the gain buildLevelMeters just put at the head of the master
+    // list. Here rather than there because HERE is where `doc` is the truth — see its note.
+    if (auto* mg = dynamic_cast<studio::MasterGainPlugin*>(
+            impl_->session(session).masterGain.get()))
+        mg->setGainDb(doc.masterVolume);
     impl_->session(session).baseDir = baseDir;
     // Live inputs need the context ensureContextAllocated() just made, and map ids through `current`.
     applyAllTrackInputs(session, doc);
@@ -199,6 +206,31 @@ void EngineHost::buildLevelMeters(const std::string& session) {
         impl_->session(session).masterStateClient = std::make_unique<te::LevelMeasurer::Client>();
         lm->measurer.addClient(*impl_->session(session).masterStateClient);
         impl_->session(session).masterMeter = master;
+    }
+
+    /**
+     * The song's OUTPUT LEVEL, LAST on the master list — after the meter above, and after the tap
+     * below, which inserts AT this plugin's index rather than appending so it stays last when
+     * broadcast joins later (see enableBroadcast).
+     *
+     * After, and that is the whole arrangement: the meter and the Fix button answer for the MIX,
+     * and this trim is a delivery decision taken on top of it. Metered post-gain, a person who
+     * raised the output would see their own trim reported back as if the mix had got louder, and
+     * the Fix button — which lowers the STRIPS — would rewrite every lane in the song to
+     * compensate for one number they had just set.
+     *
+     * The cost is stated rather than hidden: clipping caused BY the trim is downstream of the
+     * meter, so the clip light will not see it. See packages/song/docs/masterVolume.md.
+     */
+    auto gain = impl_->session(session).edit->getPluginCache().createNewPlugin(
+        studio::MasterGainPlugin::xmlTypeName, {});
+    if (auto* mg = dynamic_cast<studio::MasterGainPlugin*>(gain.get())) {
+        impl_->session(session).edit->getMasterPluginList().insertPlugin(gain, -1, nullptr);
+        // At unity here, and SET BY THE CALLER from the doc being applied. `current` is still the
+        // previous document at this point — it is assigned further down applyFull — so reading it
+        // here would leave the gain one apply behind the song, silently.
+        mg->setGainDb(0.0f);
+        impl_->session(session).masterGain = gain;
     }
 
     // The broadcast tap goes back on the same list. A rebuild threw away the old edit and
@@ -280,6 +312,14 @@ ProjectDiff EngineHost::apply(const std::string& session, const ProjectDoc& targ
         switch (c.kind) {
             case ChangeKind::TempoChanged:
                 edit.tempoSequence.getTempo(0)->setBpm(c.doubleValue);
+                break;
+            // In place, and that is the point of it having a change at all: a master move while the
+            // song plays must not stop the song, which a full rebuild would (it replaces the Edit,
+            // and the transport with it).
+            case ChangeKind::MasterVolumeChanged:
+                if (auto* mg = dynamic_cast<studio::MasterGainPlugin*>(
+                        impl_->session(session).masterGain.get()))
+                    mg->setGainDb(static_cast<float>(c.doubleValue));
                 break;
             case ChangeKind::TimeSignatureChanged:
                 if (auto* ts = edit.tempoSequence.getTimeSig(0)) {
@@ -728,8 +768,9 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     if (impl_->session(session).broadcastPlugin != nullptr) return;   // already tapping
     if (!impl_->session(session).edit) return;                        // reasserted by buildLevelMeters later
 
-    // Appended (-1) to the MASTER list, so it sees the mix after everything, exactly like
-    // the master level meter it sits beside — that is the signal leaving for the interface.
+    // On the MASTER list, so it hears the mix after everything — exactly like the master level
+    // meter it sits beside. BEFORE the output trim, for the same reason the meter is: a listener
+    // hears the mix, not the level this room happens to be monitoring at.
     auto tap = impl_->session(session).edit->getPluginCache().createNewPlugin(
         studio::BroadcastTapPlugin::xmlTypeName, {});
     if (!tap) return;
@@ -737,7 +778,13 @@ void EngineHost::enableBroadcast(const std::string& session, bool on) {
     // reach it at any moment, and a plugin with no ring yet would drop those blocks.
     if (auto* bt = dynamic_cast<studio::BroadcastTapPlugin*>(tap.get()))
         bt->setTap(&impl_->session(session).broadcastRing);
-    impl_->session(session).edit->getMasterPluginList().insertPlugin(tap, -1, nullptr);
+    // …which means inserting AT the gain rather than appending, or the tap would land after it.
+    // -1 when there is no gain yet, which is the append this used to be.
+    auto& masterList = impl_->session(session).edit->getMasterPluginList();
+    const int atGain = impl_->session(session).masterGain
+                           ? masterList.indexOf(impl_->session(session).masterGain.get())
+                           : -1;
+    masterList.insertPlugin(tap, atGain, nullptr);
     impl_->session(session).broadcastPlugin = tap;
 }
 

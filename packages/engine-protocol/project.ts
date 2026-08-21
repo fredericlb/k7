@@ -190,6 +190,15 @@ export interface ProjectDoc {
   sampleRate: number;
   timeSigNumerator: number;
   timeSigDenominator: number;
+  /**
+   * The song's output level in dB, applied to the master fader — 0 is unity.
+   *
+   * Always sent, defaulted rather than optional, because the engine DIFFS documents: an absent
+   * field would read as "unchanged" against a doc that carried one, and a master returned to
+   * unity would never come back down. +6 is the ceiling — Tracktion's fader curve, not a policy
+   * (see @studio/song's docs/masterVolume.md).
+   */
+  masterVolume: number;
   // Where a live take lands ('' for a single-file song, which the engine refuses to arm) — the ONE path it is told.
   recordDir: string;
   tracks: TrackDoc[];

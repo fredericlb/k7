@@ -1081,6 +1081,18 @@ export default function App({
   );
 
   /**
+   * The header fader: the song's OUTPUT level, written where every other project edit goes.
+   *
+   * Quietly and with no reload bump, exactly like a mixer knob's release — the doc it would
+   * refetch is the one that answers this fader, and refetching it mid-drag is what fights the
+   * next drag. The next edit reconciles it, and until then the fader shows what you set.
+   */
+  const setMaster = useCallback(
+    (db: number) => void quietCommand(`project master ${db.toFixed(1)}`),
+    [quietCommand],
+  );
+
+  /**
    * The header meter's Fix button: every strip down by one number, until the pass would have
    * peaked at -6 dB.
    *
@@ -1104,8 +1116,8 @@ export default function App({
         setStatus("rien à baisser — aucune piste n'a de tranche");
         return;
       }
+      // Quoted: a node ref carries a `:` and may carry spaces, and `node param` splits on them.
       for (const { node, db } of strips)
-        // Quoted: a node ref carries a `:` and may carry spaces, and `node param` splits on them.
         await quietCommand(`node param "${node}" Volume ${db.toFixed(1)}`);
       bumpReload();
       setStatus(
@@ -2872,7 +2884,14 @@ export default function App({
           cannot fit is a meter nobody reads. Not on a snapshot either: a share has no engine,
           so its meter could only ever draw silence. */}
       {!isMobile && !snapshot && (
-        <MasterMeter className="mr-2" onFix={fixClipping} />
+        <MasterMeter
+          className="mr-2"
+          onFix={fixClipping}
+          // The song's own level, off the compiled doc — what the FILE says, so the fader reads
+          // right before a note has played and survives the transport stopping.
+          master={projectDoc?.masterVolume}
+          onMaster={setMaster}
+        />
       )}
       {/* On a phone the whole right side collapses into ONE button, and everywhere there is
           to go is inside it: the panes, the project's own screen surfaces, and the command

@@ -34,6 +34,7 @@ export function emptyDoc(over: Partial<ProjectDoc> = {}): ProjectDoc {
     sampleRate: 48000,
     timeSigNumerator: 4,
     timeSigDenominator: 4,
+    masterVolume: 0, // unity — the fader after everything else
     recordDir: "",
     tracks: [],
     groups: [],

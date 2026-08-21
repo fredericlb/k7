@@ -89,6 +89,10 @@ struct Session {
     // The same pair for the MASTER plugin list — the signal actually leaving for the interface. Separate because
     // the master is not one of the audio tracks, and its meter has to survive being asked for on its own.
     te::Plugin::Ptr masterMeter;
+    // The song's output level, as a plain gain BEFORE the meter above — so what the meter reports
+    // is what leaves, trim included. Tracktion's own master fader stays pinned at unity; it cannot
+    // go past +6 dB, which is the whole reason this one exists (MasterGainPlugin.h).
+    te::Plugin::Ptr masterGain;
     std::unique_ptr<te::LevelMeasurer::Client> masterClient;
     // A SECOND client on the same master meter, for the 20 Hz state frame.
     //

@@ -6,6 +6,25 @@
 import { z } from "zod";
 import { TIMECODE } from "./placementSchema";
 
+/**
+ * The master fader's range, in dB.
+ *
+ * +12 because the engine applies this with a gain of its OWN (`MasterGainPlugin`), dB straight to
+ * a linear factor with no fader curve in the way. It used to stop at +6, which was never a policy:
+ * Tracktion's `decibelsToVolumeFaderPosition` is `exp((dB - 6) / 20)` clamped to [0, 1], so +6 was
+ * the top of THEIR fader and every value above it set the same position — silently. A master trim
+ * is the one place that ceiling is a limitation rather than a shape, since a mix built with
+ * headroom sits far below full scale and asking for +12 there is ordinary.
+ *
+ * -100 is still where the app calls silence, which is where that same curve reaches zero.
+ *
+ * Exported so the schema and the `project master` verb cannot come to disagree — a command that
+ * accepted what the file refuses would write a project that will not load. The engine's own
+ * parameter is wider still (±, to +24), so widening this again is a one-line change here.
+ */
+export const MASTER_MIN_DB = -100;
+export const MASTER_MAX_DB = 12;
+
 export const ProjectSettingsSchema = z
   .object({
     uuid: z.string().optional(),
@@ -16,6 +35,21 @@ export const ProjectSettingsSchema = z
       .string()
       .regex(/^[0-9]+\/[0-9]+$/, "expected a time signature like 4/4")
       .optional(),
+    /**
+     * The song's OUTPUT level, in dB — the one fader after everything else.
+     *
+     * A fact about the mix rather than about this machine, which is why it is here and not in
+     * settings.yaml beside the metronome: it moves playback, `--render` and a freeze together, and
+     * it travels in a share. A monitoring level that only changed what you hear in this room would
+     * be a different field in a different file.
+     *
+     * Absent means UNITY, and unity is never written. Until this existed the engine pinned the
+     * master to 0 dB outright — a fader no surface drew and nothing could reach (EditBuilder.cpp).
+     *
+     * Its range is MASTER_MIN_DB..MASTER_MAX_DB, and the ceiling is real rather than borrowed: the
+     * engine applies this with a gain of its own, so +12 plays +12. See docs/masterVolume.md.
+     */
+    masterVolume: z.number().min(MASTER_MIN_DB).max(MASTER_MAX_DB).optional(),
     /**
      * This project is the MODULE BENCH, and a save aimed at a `@st0` module writes
      * THROUGH to the catalogue instead of forking a copy into the project.

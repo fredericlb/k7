@@ -14,6 +14,7 @@ import {
   forSession,
   type SessionId,
 } from "@studio/engine-protocol/sessions";
+import { ENGINE_OUTBOX_MAX, ENGINE_OUTBOX_TTL_MS } from "@studio/web-protocol";
 import WebSocket from "ws";
 
 // The wire shapes shared with the browser client live in @studio/engine-protocol, so the two can't drift.
@@ -93,7 +94,10 @@ export interface EditPluginInfo {
 
 export class EngineControl extends EventEmitter {
   protected ws?: WebSocket;
-  private outbox: string[] = [];
+  // Stamped, because what is queued is REPLAYED: a command held through a long outage is not
+  // worth sending when the socket finally opens. Same bound and same TTL as the browser client
+  // (`engine-browser/src/engine.ts`), from the constants both read.
+  private outbox: { at: number; s: string }[] = [];
 
   /**
    * @param session which project on that engine this client drives — see
@@ -113,8 +117,13 @@ export class EngineControl extends EventEmitter {
     this.ws = ws;
 
     ws.on("open", () => {
-      for (const m of this.outbox) ws.send(m);
+      // Replay what is still worth replaying, oldest first, and drop the rest.
+      const now = Date.now();
+      const fresh = this.outbox.filter(
+        (e) => now - e.at < ENGINE_OUTBOX_TTL_MS,
+      );
       this.outbox = [];
+      for (const e of fresh) ws.send(e.s);
       this.emit("open");
     });
     ws.on("close", () => this.emit("close"));
@@ -264,8 +273,14 @@ export class EngineControl extends EventEmitter {
     const s = JSON.stringify(
       this.session ? { session: this.session, ...obj } : obj,
     );
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(s);
-    else this.outbox.push(s); // flushed on 'open'
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(s);
+      return;
+    }
+    this.outbox.push({ at: Date.now(), s }); // flushed on 'open'
+    // Bounded, and the oldest goes: a queue that grew all outage long used to hand the engine a
+    // ten-minute backlog the instant it came back. This one holds a blink, and only a blink.
+    if (this.outbox.length > ENGINE_OUTBOX_MAX) this.outbox.shift();
   }
 
   // Ask the engine to forget the song — plugins, editors, Edit, diff baseline — so the next send is built fresh.

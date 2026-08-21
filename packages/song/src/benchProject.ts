@@ -6,7 +6,7 @@
 // here is the CURVE — a cost that doubles when the song doubles is fine, one that quadruples is
 // the finding.
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeProjectFiles } from "./scaffold";
@@ -60,11 +60,13 @@ export function benchProjectFiles(size: BenchSize): Record<string, string> {
 }
 
 /**
- * …written to a fresh temp folder, whose path is returned.
+ * …written to a fresh temp folder, whose path is returned, with every file's mtime aged.
  *
  * Its OWN `mkdtemp` every time, and nothing outside it. On Windows `process.env.HOME` does not
  * move `~/.studio`, so a bench that wrote anywhere near the real one would leave a residue that
  * fails the next run — a trap this repo has already been caught by once.
+ *
+ * The ageing is what makes the number mean anything: see docs/benchSettle.md.
  */
 export function writeBenchProject(size: BenchSize): string {
   // `<tmp>/…/bench.st0`, and the suffix is load-bearing: the file service decides what is a
@@ -72,6 +74,17 @@ export function writeBenchProject(size: BenchSize): string {
   // through `@studio/song` and is invisible to `Workspace`. Both halves of the harness have to
   // be able to open it.
   const dir = join(mkdtempSync(join(tmpdir(), "studio-bench-")), "bench.st0");
-  writeProjectFiles(dir, benchProjectFiles(size));
+  const files = benchProjectFiles(size);
+  writeProjectFiles(dir, files);
+  // Stamp every file an hour back, so `yamlCache` may actually cache it. A file written a
+  // millisecond ago is inside SETTLE_MS (2 s), which the cache refuses on purpose — a stamp that
+  // young could still be reproduced by the next write. A bench that writes its fixture and
+  // measures at once therefore times a cache that CANNOT hit, until the wall clock catches up
+  // and then one that does: 109 ms then 21 ms at 64 lanes, straddled by an average describing
+  // neither. An hour back rather than a sleep — the point is a fixture in the state a real song
+  // is in, written days ago, not a slower bench. The map's keys ARE the relative paths, so this
+  // needs no walk. docs/benchSettle.md.
+  const when = new Date(Date.now() - 3_600_000);
+  for (const rel of Object.keys(files)) utimesSync(join(dir, rel), when, when);
   return dir;
 }

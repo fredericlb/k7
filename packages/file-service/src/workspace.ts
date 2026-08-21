@@ -127,6 +127,7 @@ import type {
   WorkspaceInfo,
 } from "@studio/web-protocol";
 import { PROJECT_SUFFIXES, projectApp } from "@studio/web-protocol/projects";
+import { guard } from "./background.ts";
 import {
   benchChainOf,
   isBenchProject,
@@ -725,7 +726,7 @@ export class Workspace {
     this.activeProject = abs;
     this.writeActiveMarker(abs);
     this.invalidateProjectDoc();
-    void this.prewarmWaveforms();
+    guard("waveform prewarm", this.prewarmWaveforms());
     return abs;
   }
 
@@ -2401,6 +2402,7 @@ export class Workspace {
           mute: g.mute,
           solo: g.solo,
         })),
+        masterVolume: p.masterVolume,
         metronome: p.settings.metronome,
         countIn: p.settings.countIn,
         strudel: p.strudel,

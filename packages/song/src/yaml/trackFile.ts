@@ -317,7 +317,19 @@ export function findPlacementAt(
   });
 }
 
-/** The placement at `index`, as a plain object — for carrying one to another lane. */
+/**
+ * The placement at `index`, as PLAIN VALUES — for carrying one to another lane.
+ *
+ * `toJSON()` and not the document node, and the difference is not cosmetic: this used to return
+ * the node (`getIn(…, false)`), which its own summary and its return type both denied. Its one
+ * caller — `movePlacementToTrack` — spreads what it gets, and spreading a YAMLMap copies the
+ * MAP's fields rather than the placement's, so dragging an event onto another lane wrote
+ * `{ items: […], flow: true, range: […] }` into the file. The lane then failed to compile and
+ * took the whole timeline with it, which is a long way from a drag.
+ *
+ * A node cannot cross documents anyway — it carries a `range` into offsets of the file it was
+ * parsed from — so there was never a reader that wanted one.
+ */
 export function placementAt(
   text: string,
   index: number,
@@ -326,14 +338,18 @@ export function placementAt(
   const path = eventsIn(doc);
   const events = doc.getIn(path);
   if (!isSeq(events) || index < 0 || index >= events.items.length) return null;
-  return doc.getIn([...path, index], false) as Record<string, unknown> | null;
+  const node = doc.getIn([...path, index], false) as
+    | { toJSON?: () => unknown }
+    | undefined;
+  return (node?.toJSON?.() as Record<string, unknown> | undefined) ?? null;
 }
 
 /**
  * Every placement in `text`, as PLAIN VALUES.
  *
- * Distinct from `placementAt`, which hands back the document node so a placement can be
- * carried into another file whole — read `ref` off that and you get a Scalar, not a string.
+ * The list to `placementAt`'s one, and both hand back plain values now: a document node cannot
+ * cross into another file (its `range` points at offsets of the one it was parsed from), and the
+ * one caller that tried spread it into the shape of a YAMLMap instead — see `placementAt`.
  */
 export function placementValues(text: string): Record<string, unknown>[] {
   const doc = parseDocument(text, OPTS);

@@ -16,6 +16,7 @@ import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
+import { installProcessNet } from "./background.ts";
 import { ensureChainBench } from "./bench.ts";
 import { cloneJob, startClone } from "./cloneJobs.ts";
 import {
@@ -52,6 +53,10 @@ import {
   workspaceForRepo,
   workspaceNameFor,
 } from "./workspaces.ts";
+
+// First, and only here: this is ONE process holding the engine socket, the pattern clock and the
+// watcher beside every request — a fire-and-forget rejection must not cost all of it. background.ts.
+installProcessNet();
 
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
 const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);

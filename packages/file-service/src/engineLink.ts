@@ -29,8 +29,13 @@ import { PatternClock } from "@studio/song/patternClock";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
 import { strudelPatterns } from "@studio/song/strudel";
-import type { CommandInfo } from "@studio/web-protocol";
+import {
+  type CommandInfo,
+  ENGINE_RECONNECT_MAX_MS,
+  ENGINE_RECONNECT_MIN_MS,
+} from "@studio/web-protocol";
 import chokidar from "chokidar";
+import { guard } from "./background.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { rootDir } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
@@ -47,6 +52,8 @@ interface Link {
   ready: boolean;
   /** When something last asked for it, so an abandoned one can be reaped — see pruneIdleLinks. */
   lastUsed: number;
+  /** Consecutive failed dials, reset by a socket that opened. Drives the reconnect backoff. */
+  attempt: number;
 }
 const links = new Map<string, Link>();
 
@@ -118,7 +125,10 @@ export function sessionOf(ws: { root: string } | null): string {
 function wireEngine(session: string, e: EngineClient): void {
   e.on("open", () => {
     const l = links.get(session);
-    if (l) l.ready = true;
+    if (l) {
+      l.ready = true;
+      l.attempt = 0; // a socket that opened earns the next outage a fresh, short first wait
+    }
     // Whatever the clock believes the engine is holding, it no longer does — a fresh socket can
     // mean a fresh engine. Said BEFORE anything is re-sent, so the first emit after this is a
     // whole document and not a delta aimed at a project that is not there.
@@ -151,14 +161,31 @@ function wireEngine(session: string, e: EngineClient): void {
     const s = served.get(session);
     if (s) sendActiveProject(s.ws, s.project);
   });
+  // Doubled, capped and jittered, like the browser client and from the same constants. It was a
+  // flat second, for ever: a machine whose engine is simply off knocked once a second for as long
+  // as the service lived, and `pruneIdleLinks` does not stop it — it skips any session in
+  // `served`, which is precisely the one holding a project. The jitter is for the other half:
+  // several sessions dropped by one engine restart would otherwise come back in lockstep.
   e.on("close", () => {
     const l = links.get(session);
     if (l) l.ready = false;
-    setTimeout(() => {
-      if (links.get(session)?.client === e) e.connect();
-    }, 1000);
+    const step = Math.min(
+      ENGINE_RECONNECT_MAX_MS,
+      ENGINE_RECONNECT_MIN_MS * 2 ** (l?.attempt ?? 0),
+    );
+    if (l) l.attempt++;
+    setTimeout(
+      () => {
+        if (links.get(session)?.client === e) e.connect();
+      },
+      step / 2 + Math.random() * (step / 2),
+    );
   });
-  e.on("wserror", () => {});
+  // Not silent: a refused dial against the local engine used to leave no trace at all, which is
+  // how "the engine is off" and "the engine is wedged" came to look identical from the logs.
+  e.on("wserror", (err: Error) =>
+    console.error(`   ✗ engine socket ${session}: ${err.message}`),
+  );
   e.on("state", (s: { playing?: boolean; playhead?: number }) =>
     patternClock.onState(!!s.playing, Number(s.playhead ?? 0)),
   );
@@ -255,7 +282,12 @@ export function ensureEngine(ws: Workspace | null): EngineClient | undefined {
   // ever looked abandoned — which is the whole point of the count. Saying nothing is what keeps
   // it out; there is no flag to pass.
   const client = new EngineClient(selectedEngineUrl, session);
-  links.set(session, { client, ready: false, lastUsed: Date.now() });
+  links.set(session, {
+    client,
+    ready: false,
+    lastUsed: Date.now(),
+    attempt: 0,
+  });
   wireEngine(session, client);
   client.connect();
   return client;
@@ -347,7 +379,10 @@ function loadPatternsFor(ws: Workspace, dir: string): void {
   // browser polls `/revision`, rebuilds from the fresh compile and hands it back, so the new
   // state arrives complete instead of arriving twice.
   if (!clientDoc) setClockProject(ws, ws.cachedProjectDoc(dir));
-  void patternClock.refreshPatterns(strudelPatterns(dir), dir);
+  guard(
+    "pattern refresh",
+    patternClock.refreshPatterns(strudelPatterns(dir), dir),
+  );
 }
 
 function enginePlugins(
@@ -663,7 +698,10 @@ function watchStrudel(dir: string | null): void {
   if (!dir) return;
   const onChange = (p: string): void => {
     if (p.endsWith(".strudel"))
-      void patternClock.refreshPatterns(strudelPatterns(dir), dir);
+      guard(
+        "pattern refresh",
+        patternClock.refreshPatterns(strudelPatterns(dir), dir),
+      );
   };
   strudelWatcher = chokidar
     .watch(dir, {
@@ -673,7 +711,14 @@ function watchStrudel(dir: string | null): void {
     .on("add", onChange)
     .on("change", onChange)
     .on("unlink", onChange)
-    .on("error", () => {});
+    // A watcher that dies here stops feeding pattern edits to the engine for ever, and used to do
+    // it without a word. Unlike moduleWatch, this one has no walk-anyway ceiling to heal it — so
+    // the line is all there is, and it is what tells you why editing a .strudel stopped working.
+    .on("error", (err: unknown) =>
+      console.error(
+        `   ✗ strudel watcher: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    );
 }
 
 // Point the engine at the active project and send it; switching to a DIFFERENT project flushes it first.

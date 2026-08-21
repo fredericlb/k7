@@ -33,16 +33,23 @@ hints()             // what the code pane completes against
 write(path, text)   // save; may answer with where the content actually landed
 ```
 
-## The library half is written once
+## The library half — REMOVED, and why it is written down rather than deleted
 
-`@studio/ui-module-builder/library-store` implements all of it over three calls — read one
-file, write one file, hints — because a library serves FILES and the sidecars are siblings of
-the file you were given. st0's Libraries tab and pl8's module screen both take it.
+`@studio/ui-module-builder/library-store` implemented all of it over three calls — read one
+file, write one file, hints — deriving the sidecars as siblings of the file it was given,
+because a library serves FILES. Its header said st0's Libraries tab and pl8's module screen
+both took it.
 
-That derivation is deliberate here and deliberately *not* done over a workspace, which is worth
-stating because it looks like an inconsistency. Over a workspace the SERVER decides where a
-panel would go, since a shared module's panel does not land beside the copy that forked. A
-library has one place for every file — the module's own folder — so there is nothing to ask.
+Neither did, and by the time this was noticed neither could: pl8's Modules section is gone
+along with that volume's `modules/`, and st0's Libraries tab reads the account's library
+repository through its own file service. The tombstone in `apps/pl8/frontend/src/api.ts` says
+so at the bottom of the same file whose middle still pointed here — a page and a comment both
+describing a wiring that had been cut.
+
+The file is deleted. What is worth keeping is the distinction it drew, which will come back the
+day a second library host does: over a **workspace** the SERVER decides where a panel would go,
+since a shared module's panel does not land beside the copy that forked; over a **library**
+there is one place for every file — the module's own folder — so there is nothing to ask.
 
 ## Read-only, and who owns the warning
 

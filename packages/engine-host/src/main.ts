@@ -4,8 +4,13 @@
 // The import order matters — ipcStdio quarantines stdout as an import side effect.
 
 import "./ipcStdio.ts";
+import { installProcessNet } from "./background.ts";
 import { armDevReload, RELOAD_EXIT_CODE } from "./devReload.ts";
 import { startSupervisor } from "./supervisor.ts";
+
+// First, and only here: a rejected poll must not take the supervisor down with the engine
+// orphaned behind it. docs/background.md.
+installProcessNet();
 
 // Dev only: exit when this package's source changes and let the tray relaunch us. The engine survives on its
 // pidfile and the fresh supervisor adopts it, so editing supervisor code costs no audio dropout.

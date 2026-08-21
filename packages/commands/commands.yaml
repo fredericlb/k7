@@ -698,6 +698,28 @@
       },
     ]
 
+# The song's OUTPUT level, on the master fader — the one gain after everything else, and until
+# this verb the only global level in the app was a 0 dB the engine pinned and nothing could reach.
+#
+# It is the SONG's, not the machine's: it moves playback, `--render` and a freeze together, and it
+# travels in a share. A level that only changed what you hear in this room would be a preference
+# in a different file.
+#
+# It runs -100..+12 dB, and the top is real rather than borrowed. Tracktion's own master fader stops
+# at +6 — its curve is `exp((dB - 6) / 20)` clamped to 1, so everything above set the same position,
+# silently — so the engine applies this with a gain of its OWN instead (MasterGainPlugin), dB
+# straight to a linear factor. Outside the range it is REFUSED rather than clamped: a fader that
+# answers 20 with 12 is worse than one that says no. See @studio/song's docs/masterVolume.md,
+# including why the output is rarely where a quiet mix's headroom actually is.
+- command: "project master"
+  sid: project.master
+  readable:
+    en: "Set the song's output level"
+    fr: "Régler le niveau de sortie du morceau"
+  help: "set the song's output level in dB, -100..+12 (e.g. project master -3) — 0 is unity"
+  surfaces: [cli]
+  args: [{ name: db, type: number, hint: "dB — 0 is unity, +12 the top of the fader" }]
+
 # --- markers (timeline cue points) ---
 # A marker names a timeline position. `timecode` is bar:beat:sixteenth (5, 5:1, 5:1:1);
 # the name is the rest of the line, so it may contain spaces. Stored in project.cue's

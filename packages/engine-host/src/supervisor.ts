@@ -12,6 +12,7 @@ import {
 } from "@studio/engine-client/paths";
 import { gatherAddresses } from "./addresses.ts";
 import { desiredSwitch, menuSignature, signature } from "./audioPolicy.ts";
+import { guard } from "./background.ts";
 import * as engineProcess from "./engineProcess.ts";
 import { EngineQueries } from "./engineQueries.ts";
 import * as fileService from "./fileServiceProcess.ts";
@@ -792,26 +793,41 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   if (opts.own.engine) await startEngine();
 
   await beat();
-  beatTimer = setInterval(() => void beat(), HEARTBEAT_MS);
+  // Every timer below reaches the network or the disk, and `void` catches nothing: one rejected
+  // poll used to kill the supervisor and orphan the engine behind it. docs/background.md.
+  beatTimer = setInterval(() => guard("heartbeat", beat()), HEARTBEAT_MS);
   pendingTimer = setInterval(pollPending, PENDING_POLL_MS);
   if (opts.own.engine)
-    crashTimer = setInterval(() => void crashWatch(), WATCH_MS);
+    crashTimer = setInterval(
+      () => guard("crash watch", crashWatch()),
+      WATCH_MS,
+    );
   if (opts.own.fileService) {
-    fileTimer = setInterval(() => void fileServiceWatch(), WATCH_MS);
+    fileTimer = setInterval(
+      () => guard("file-service watch", fileServiceWatch()),
+      WATCH_MS,
+    );
   }
   if (opts.own.engineQueries) {
-    devicesTimer = setInterval(() => void pollDevices(), DEVICES_POLL_MS);
+    devicesTimer = setInterval(
+      () => guard("device poll", pollDevices()),
+      DEVICES_POLL_MS,
+    );
     editPluginsTimer = setInterval(
-      () => void pollEditPlugins(),
+      () => guard("edit-plugin poll", pollEditPlugins()),
       EDIT_PLUGINS_POLL_MS,
     );
-    sessionsTimer = setInterval(() => void pollSessions(), SESSIONS_POLL_MS);
+    sessionsTimer = setInterval(
+      () => guard("session poll", pollSessions()),
+      SESSIONS_POLL_MS,
+    );
     // Self-rescheduling: ask hard until the scan lands (keeping the spinner honest), then back off to once a minute.
     const schedulePlugins = (): void => {
       const known = state.pluginCount !== null;
       pluginsTimer = setTimeout(
         () => {
-          void pollPlugins().finally(schedulePlugins);
+          // `finally` reschedules whether the poll resolved or threw; `guard` is what reports the throw.
+          guard("plugin poll", pollPlugins().finally(schedulePlugins));
         },
         known ? PLUGINS_POLL_MS : PLUGINS_POLL_FAST_MS,
       );

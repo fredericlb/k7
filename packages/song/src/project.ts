@@ -235,6 +235,9 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
     sampleRate: Number(proj.sampleRate ?? 48000),
     timeSigNumerator: num,
     timeSigDenominator: den,
+    // Unity when unsaid, and always present: the engine diffs, so an absent field would read as
+    // "unchanged" (docs/masterVolume.md).
+    masterVolume: Number(proj.masterVolume ?? 0),
     recordDir: "", // loadProject sets it for a folder project; a single file can't record
     tracks: activeTracks,
     groups,

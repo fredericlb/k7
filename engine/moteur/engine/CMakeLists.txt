@@ -25,6 +25,7 @@ add_library(studio_engine STATIC
     NamPlugin.cpp
     DspGraph.cpp
     GraphDspPlugin.cpp
+    MasterGainPlugin.cpp
     MixerPlugin.cpp
     MidiGraphPlugin.cpp
     FilePeak.cpp

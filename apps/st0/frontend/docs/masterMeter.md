@@ -86,3 +86,48 @@ twice — taking another 6 dB off a mix already brought down.
 It is a callback (`onFix`), not an act the meter performs. Which faders exist and how a level is
 written is the host's business; the meter's contribution is the one thing only it saw — the peak.
 A host that passes no `onFix` draws no button.
+
+## The fader under it
+
+The bar says how loud the mix IS; the fader under it says how loud it should be — the song's own
+output level (`@studio/song`'s [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)).
+Two rows, one column, because they are the same subject read in two directions.
+
+A **native range input**, and that is a choice worth stating in a codebase that draws its knobs on
+canvas: those exist because a knob had to show something a range cannot — a bind, an automation
+lane, a value arriving from the engine. This is one linear number, and the platform already tells
+its keyboard story better than a canvas would (arrows, Home/End, a focus ring, a screen reader).
+
+**`onChange` paints, the release commits.** The rule the mixer's knobs follow: a drag is dozens of
+values and each write recompiles the project. Between the two, a local `dragged` value is what the
+fader shows — cleared when a fresh document arrives, so an edit made anywhere else wins rather than
+being ignored by a fader holding its own opinion.
+
+**Its thumb is half the platform's** (~8px). A default thumb is drawn for a control that owns a
+row; this one shares a 24-pixel-wide lane with a meter bar, where at full size it read as a blob on
+a hairline rather than as a fader. That needs per-browser pseudo-element rules — `appearance-none`
+takes the platform thumb away and each engine's own selector puts ours back — and **both** must be
+written or Firefox draws no thumb at all.
+
+**It runs to -60, where the field runs to -100.** Below -60 the curve is silence, and spending two
+thirds of a 96-pixel fader on the difference between inaudible and more inaudible would squeeze the
+useful range into the top third. `project master -80` still reaches it by name — a fader is for
+reaching, not for completeness.
+
+It is drawn only when the host passes both `master` and `onMaster`, so a share — no project to
+write to — gets the meter and no fader.
+
+## What the meter does NOT include
+
+The **output trim is downstream of it** (`@studio/song`'s
+[`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)). The bar, the clip light
+and the peak the Fix button spends all read the mix *before* the fader under them.
+
+That is what keeps the two halves of this component honest. Metered post-trim, raising the fader
+would report itself back as if the mix had got louder — and the Fix button, which lowers the
+**strips**, would rewrite every lane in the song to compensate for one number you had just set on
+the fader an inch below it.
+
+The cost is real and worth knowing: **clipping caused by the trim itself will not light the clip
+light.** The meter answers "is my mix too hot"; whether the output overruns what the interface can
+take is a different question, and nothing asks it yet.

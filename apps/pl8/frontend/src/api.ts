@@ -609,13 +609,9 @@ export const library = {
     return { path, content: await res.text() };
   },
 
-  /**
-   * The three sidecars — the panel, the shelf and the DSP source — used to be derived HERE,
-   * three times over, from the folder of the file the builder was given. They are derived once
-   * now, in `@studio/ui-module-builder/library-store`, because st0 asks the same questions of the
-   * same library and two copies of "where does a panel go" is exactly the drift that rule exists
-   * to stop. See `moduleStore` at the bottom of this file.
-   */
+  // The three sidecars — the panel, the shelf and the DSP source — were derived HERE, then moved
+  // to a shared store, which nothing ever called: see the tombstone at the bottom of this file,
+  // which this note used to point at while claiming the opposite of what it said.
 
   // `hints` stood here: the completion vocabulary the module builder asked this backend for,
   // of which one field was real — the library's own modules, as refs a sibling could extend.

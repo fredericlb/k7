@@ -14,6 +14,7 @@ import {
   MAX_GAIN,
   MAX_GAIN_DB,
   MIN_GAIN_DB,
+  movePlacementToTrack,
   panToLabel,
   removeTrackPlacement,
 } from "./trackMix";
@@ -127,5 +128,54 @@ events:
     const before = read();
     expect(removeTrackPlacement(dir, "drums", 99, 4, 4)).toBe(false);
     expect(read()).toBe(before);
+  });
+});
+
+// Dragging an event onto ANOTHER lane. It wrote a YAMLMap's own fields into the file —
+// `{ items: […], flow: true, range: […] }` — because `placementAt` handed back the document node
+// and the move spreads what it gets. The lane then failed to compile and took the timeline with
+// it. What is pinned here is the shape that reaches the destination file, not just that it moved.
+describe("moving a placement onto another lane", () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "td-crosslane-"));
+    mkdirSync(join(dir, "nodes"), { recursive: true });
+    writeFileSync(
+      join(dir, "nodes", "bs.yaml"),
+      'extends: "@studio/track"\nevents:\n  - { ref: bass_0, start: "25:1", loop: 2 }\n',
+      "utf8",
+    );
+    writeFileSync(
+      join(dir, "nodes", "gtr.yaml"),
+      'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "1:1" }\n',
+      "utf8",
+    );
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  const gtr = () => readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
+
+  it("carries the placement's VALUES, not the node's fields", () => {
+    expect(movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4)).toBe(true);
+    // The exact three that leaked, and the ones that must be there instead.
+    expect(gtr()).not.toContain("items:");
+    expect(gtr()).not.toContain("flow:");
+    expect(gtr()).not.toContain("range:");
+    expect(gtr()).toContain('{ ref: bass_0, start: "30:1", loop: 2 }');
+  });
+
+  it("keeps everything the placement carried except its start", () => {
+    // `loop` is the one that proves it: a rebuild from {ref, start} would have dropped it, and
+    // the event would have played once instead of twice with nothing on screen to say why.
+    movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
+    expect(gtr()).toContain("loop: 2");
+    expect(gtr()).not.toContain('"25:1"'); // …and the old start did not travel
+  });
+
+  it("leaves the source lane without it", () => {
+    movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
+    expect(readFileSync(join(dir, "nodes", "bs.yaml"), "utf8")).not.toContain(
+      "bass_0",
+    );
   });
 });

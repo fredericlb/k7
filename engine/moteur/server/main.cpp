@@ -134,6 +134,8 @@ studio::ProjectDoc docFromJson(const json& j) {
     doc.sampleRate = j.value("sampleRate", 48000);
     doc.timeSigNumerator = j.value("timeSigNumerator", 4);
     doc.timeSigDenominator = j.value("timeSigDenominator", 4);
+    // Unity for a doc that predates the field — the same thing an absent one has always meant.
+    doc.masterVolume = j.value("masterVolume", 0.0f);
     doc.recordDir = j.value("recordDir", std::string{});
     // Project settings ride in a nested `settings` object; the engine reads only what it plays — the metronome flag
     // and the count-in bars. Absent settings mean the defaults.
