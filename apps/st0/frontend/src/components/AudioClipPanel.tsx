@@ -1096,7 +1096,18 @@ export function AudioClipPanel({
                   editingWarp && clip
                     ? (sec) =>
                         void run(
-                          warpLine(clip, sec, sec, wf.sourceMap, tempo),
+                          // The marks go WITH the map: the picture is piecewise, so inverting it
+                          // needs the points and not just the overall ratio. Without them a point
+                          // placed on an already-bent clip landed at the wrong source second and
+                          // bent it further — the "I add a second point and the waveform changes".
+                          warpLine(
+                            clip,
+                            sec,
+                            sec,
+                            wf.sourceMap,
+                            tempo,
+                            wf.warpMarks,
+                          ),
                           "warp",
                           true, // quiet: a marker inside one clip file changes nothing else
                         )
@@ -1137,7 +1148,14 @@ export function AudioClipPanel({
                   editingWarp && clip
                     ? (mark, to) =>
                         void run(
-                          warpLine(clip, mark.orig, to, wf.sourceMap, tempo),
+                          warpLine(
+                            clip,
+                            mark.orig,
+                            to,
+                            wf.sourceMap,
+                            tempo,
+                            wf.warpMarks,
+                          ),
                           "warp",
                           true,
                         )

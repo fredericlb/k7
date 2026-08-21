@@ -1053,16 +1053,17 @@ function WaveformInner({
               }}
               onPointerMove={(e) => {
                 if (!held) return;
-                // Snapped to the grid, unlike the double-click that made the point: a target IS a
-                // beat, and the list snapped to is the one that was DRAWN (docs/ticks.md), so a
-                // line you can see is a line you can land on.
-                const raw = Math.max(
-                  0,
-                  Math.min(total, xToTime(localX(e.clientX))),
-                );
+                // NOT snapped, and that is the point of a warp. Everywhere else on this canvas a
+                // click lands on the nearest drawn tick, because what you are naming there IS a
+                // beat. Here you are saying where a MOMENT of the material belongs, and the whole
+                // reason to drag one by hand is that it does not sit on the grid — snapping it
+                // answers a question nobody asked and takes the fine placement away.
                 setWarpDrag({
                   orig: w.orig,
-                  target: nearestTick(gridTimes, raw) ?? raw,
+                  target: Math.max(
+                    0,
+                    Math.min(total, xToTime(localX(e.clientX))),
+                  ),
                 });
               }}
               onPointerUp={() => {

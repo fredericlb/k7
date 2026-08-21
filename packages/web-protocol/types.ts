@@ -332,7 +332,7 @@ export interface WebWaveform {
    * `sourceFrom` and the warp ratio, which is a second copy of the one thing the producer already
    * computed (`RegionWaveform.toDisplay` says why that matters).
    */
-  sourceMap: { inPoint: number; stretch: number };
+  sourceMap: { inPoint: number; stretch: number; zeroBeat: number };
   /**
    * The material's own `from`/`to` — the span of the source this clip IS — in the same region
    * seconds as everything above.

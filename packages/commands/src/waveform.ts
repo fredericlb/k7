@@ -69,7 +69,7 @@ export interface RegionWaveform {
    * Sending the pair keeps the note above true across the wire: there is still one mapping, and
    * the far side applies it rather than reinventing it from `offset`, `sourceFrom` and a tempo.
    */
-  sourceMap: { inPoint: number; stretch: number };
+  sourceMap: { inPoint: number; stretch: number; zeroBeat: number };
 }
 
 /**
@@ -294,7 +294,11 @@ export function regionWaveform(
     warpMarks,
     transients,
     toDisplay,
-    sourceMap: { inPoint: inPointSec, stretch },
+    // …and `zeroBeat` with them: the map's beats are counted from the FILE's start while the
+    // region's zero is the clip's in-point, and every `target` above has had it subtracted. A
+    // caller naming a beat must add it back, and on an untrimmed clip it is 0 — which is why its
+    // absence was invisible until a trimmed one was warped.
+    sourceMap: { inPoint: inPointSec, stretch, zeroBeat },
   };
 }
 

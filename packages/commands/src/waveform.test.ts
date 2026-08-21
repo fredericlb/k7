@@ -23,7 +23,9 @@ function region(over: Partial<RegionWaveform>): RegionWaveform {
     warpMarks: [],
     transients: [],
     toDisplay: (s) => s, // identity: nothing here is windowed or warped
-    sourceMap: { inPoint: 0, stretch: 1 }, // …and the same identity, as the pair the wire carries
+    // …and the same identity, as the three numbers the wire carries: no trim, no stretch, and a
+    // map whose zero is the region's own.
+    sourceMap: { inPoint: 0, stretch: 1, zeroBeat: 0 },
     ...over,
   };
 }
