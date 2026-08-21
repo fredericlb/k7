@@ -6,6 +6,7 @@
   "description": "st0's CodeMirror editor language stack \u2014 the YAML language mode + schema-derived completions + entity links, and the sequence 'tracker' note-grid widget. Consumed as source.",
   "exports": {
     "./yaml/language": "./src/yaml/language.ts",
+    "./faust/language": "./src/faust/language.ts",
     "./yaml/entityLinks": "./src/yaml/entityLinks.ts",
     "./yaml/previewGutter": "./src/yaml/previewGutter.ts",
     "./yaml/previewTriggers": "./src/yaml/previewTriggers.ts",

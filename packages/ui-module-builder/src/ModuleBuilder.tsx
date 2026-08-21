@@ -1214,7 +1214,9 @@ export function ModuleBuilder({
                 </span>
               )}
             </div>
-            <div className="min-h-0 flex-1">
+            {/* `overflow-hidden` so nothing inside can push the column taller than its share:
+                the editor's own scroller is what should move, never this. */}
+            <div className="min-h-0 flex-1 overflow-hidden">
               {pane === "params" ? (
                 <ParamsPane
                   rows={paramRows}
