@@ -9,7 +9,7 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import type { ParamMeta } from "@studio/engine-protocol";
-import { JSDSP_FILE } from "@studio/engine-protocol/build";
+import { FAUST_FILE, JSDSP_FILE } from "@studio/engine-protocol/build";
 import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
@@ -448,6 +448,29 @@ export const mediatek = {
 };
 
 /**
+ * What an empty DSP source is pre-filled with, per language.
+ *
+ * A stub that LOADS, in both cases and for the same reason: an empty file fails at some later,
+ * less obvious moment than the first save. What "loads" means differs — the jsdsp loader RUNS
+ * the source to get a graph, so it must export one; the Faust source is compiled by the engine,
+ * so it must define `process`. Neither is a template anyone would keep, and both are the
+ * shortest thing that is not an error.
+ *
+ * Here rather than in the builder because the builder does not know what a host's languages
+ * are — it asks for a file by name and this is the side that answers (see ModuleStore.dspSource).
+ */
+function dspStub(ref: string, file: string): string {
+  const head = `// ${ref} — the module's DSP.`;
+  // Keyed by FILE and not by a default, so a language nobody wrote a stub for gets a comment
+  // rather than the wrong language's boilerplate — which would look like a bug in the module.
+  if (file === JSDSP_FILE)
+    return `${head} Export the graph the engine will host.\nexport default {};\n`;
+  if (file === FAUST_FILE)
+    return `${head} The engine compiles this.\nimport("stdfaust.lib");\n\nprocess = _, _;\n`;
+  return `${head}\n`;
+}
+
+/**
  * The shared module builder's view of the file service (`@studio/ui-module-builder/store`).
  *
  * Four calls, all already above — the adapter is shapes, not behaviour, except for `write`:
@@ -469,29 +492,23 @@ export const moduleStore: ModuleStore = {
   moduleUi: (path) => api.moduleUi(path),
   presets: (path) => api.modulePresets(path),
   /**
-   * The module's `jsdsp.ts`. Derived HERE and not on the server, unlike the two sidecars above:
-   * those have routes because the server also decides where a panel WOULD go for a shared
-   * module; this one is always the plain sibling, and `/file` already reads any workspace path.
+   * The module's DSP source, whichever language it is written in. Derived HERE and not on the
+   * server, unlike the two sidecars above: those have routes because the server also decides
+   * where a panel WOULD go for a shared module; this one is always the plain sibling, and
+   * `/file` already reads any workspace path.
    *
    * Absent is not an error — a module can declare `plugin: {type: jsdsp}` before its source
    * exists, and the first save creates it through the ordinary write route.
    */
-  jsdsp: async (path) => {
+  dspSource: async (path, file) => {
     const parts = path.split("/");
     const ref = parts.slice(0, -1).join("/");
-    const at = [...parts.slice(0, -1), JSDSP_FILE].join("/");
+    const at = [...parts.slice(0, -1), file].join("/");
     try {
       const f = await api.read(at);
       return { ref, path: at, content: f.content, exists: true };
     } catch {
-      return {
-        ref,
-        path: at,
-        // A stub that COMPILES: the loader RUNS this source to get the graph, so an empty file
-        // fails on the first save rather than at some later, less obvious moment.
-        content: `// ${ref} — the module's DSP. Export the graph the engine will host.\nexport default {};\n`,
-        exists: false,
-      };
+      return { ref, path: at, content: dspStub(ref, file), exists: false };
     }
   },
   hints: () => api.hints(),

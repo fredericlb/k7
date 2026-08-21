@@ -145,6 +145,25 @@ export const DSP_GRAPH_PLUGIN = "DSP Graph";
 export const JSDSP_FILE = "jsdsp.ts";
 
 /**
+ * The same statement, one layer down: a module whose DSP is the Faust source beside it.
+ *
+ * The two are siblings on purpose, and they differ in exactly one place — WHO compiles. `jsdsp`
+ * runs its JS here, at compile time, and sends the engine a description to interpret; `faust`
+ * sends the SOURCE and the engine compiles it. That is why there is no generated artifact beside
+ * a `dsp.dsp` the way there is beside a `jsdsp.ts`: the compiler is on the far side, so a cached
+ * copy of its output would be a second source of truth for nobody's benefit.
+ *
+ * See packages/song/docs/faustModules.md for the whole of it, including what the day the app
+ * needs the parameter list WITHOUT an engine would cost (`faust -json`, and a sibling after all).
+ */
+export const FAUST_TYPE = "faust";
+/** …and the built-in that runs one: a host handed a source rather than a graph. */
+export const FAUST_PLUGIN = "Faust";
+
+/** The DSP source a `faust` module carries. Fixed, for the reason JSDSP_FILE is. */
+export const FAUST_FILE = "dsp.dsp";
+
+/**
  * The plugin type a mixer module instantiates. An internal plugin reaches the engine under its
  * DISPLAY name (see enginePlugin), so this is the string a compiled PluginDoc actually carries.
  *
@@ -186,6 +205,8 @@ export function enginePlugin(
   // is handed the compiled graph in the doc. The mapping is here so the author never has to
   // spell `internal` + `DSP Graph`, which said nothing about the file beside the module.
   if (type === JSDSP_TYPE) return { type: DSP_GRAPH_PLUGIN, name: fallback };
+  // …and its sibling, whose source the ENGINE compiles. Same shape of mapping, same reason.
+  if (type === FAUST_TYPE) return { type: FAUST_PLUGIN, name: fallback };
   if (type === "internal") return { type: name, name: fallback };
   if (EXTERNAL_PLUGIN_FORMATS.has(type.toLowerCase()))
     return { type, name: name || fallback };

@@ -19,6 +19,7 @@ import {
 } from "@studio/song/moduleAssetChoices";
 import {
   EXTERNAL_PLUGIN_FORMATS,
+  FAUST_TYPE,
   JSDSP_TYPE,
   OFFLINE_TYPE,
 } from "@studio/song/project";
@@ -184,9 +185,13 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         // `offline` is known for the same reason `jsdsp` is: the compiler recognises it, so a
         // node drawn red — the colour for "the engine cannot load this" — would be a lie about a
         // module that is working exactly as written. It loads nothing BY DESIGN.
+        // `faust` is known on the same grounds as `jsdsp`: a built-in host, handed the module's
+        // own source. Whether that source COMPILES is the engine's answer and arrives as a
+        // warning — not something to guess at here and paint the node red for.
         const known =
           fmt === "internal" ||
           fmt === JSDSP_TYPE ||
+          fmt === FAUST_TYPE ||
           fmt === OFFLINE_TYPE ||
           EXTERNAL_PLUGIN_FORMATS.has(fmt);
         const notSupported = isPlugin && fmt === "not_supported";

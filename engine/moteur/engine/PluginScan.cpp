@@ -5,6 +5,7 @@
 #include "EngineHost.h"
 
 #include "EngineTypes.h"    // Tracktion/JUCE + the te/tt/fs aliases
+#include "FaustPlugin.h"
 #include "GraphDspPlugin.h"
 #include "MasterGainPlugin.h"
 #include "MixerPlugin.h"
@@ -225,6 +226,10 @@ std::vector<PluginInfo> builtInPlugins() {
         // DSP described as DATA rather than compiled in — the experiment behind DspGraph.h. Its parameters
         // come from the description, so two graphs are two different-looking plugins of the same type.
         e("DSP Graph", studio::GraphDspPlugin::xmlTypeName, "audioEffect", "filter"),
+        // The same idea with the compiler on THIS side: the module carries Faust source and the engine builds it.
+        // Listed like any other built-in so a module can name it and the catalogue can offer it — what this
+        // build does with the source is FaustPlugin's business, and today it says so and passes through.
+        e("Faust", studio::FaustPlugin::xmlTypeName, "audioEffect", "utility"),
         // The same idea over the note stream. `midiEffect` is not cosmetic: it is what files the module under
         // transformers/ rather than audio/, and what puts it BEFORE the instrument in a chain.
         e("MIDI Graph", studio::MidiGraphPlugin::xmlTypeName, "midiEffect", "utility"),
@@ -257,6 +262,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::BroadcastTapPlugin>();
     pm.createBuiltInType<studio::NamPlugin>();
     pm.createBuiltInType<studio::GraphDspPlugin>();
+    pm.createBuiltInType<studio::FaustPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue

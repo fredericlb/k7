@@ -49,15 +49,20 @@ export interface ModuleStore {
   presets(path: string): Promise<ModulePresetsFile>;
 
   /**
-   * The `jsdsp.ts` beside a module file — the module's own DSP source, answered like the two
-   * above: the existing one, or the path it WOULD take and empty text.
+   * The DSP source beside a module file — answered like the two above: the existing one, or the
+   * path it WOULD take and empty text.
    *
-   * OPTIONAL, and the only optional call here. A host that does not implement it simply shows no
-   * such tab, which is the honest answer for one that cannot serve the file. Asked for rather
-   * than derived, for the same reason the panel and the shelf are: a sibling derivation would be
-   * right in both path spaces today and is exactly the kind of rule that rots.
+   * `file` is the source's NAME (`jsdsp.ts`, `dsp.dsp`), because a module's DSP can be written in
+   * more than one language and the builder is what read the type. The host resolves the name in
+   * its own path space and picks the stub it writes for an absent file from it — it is the one
+   * that knows what an empty file of that kind must contain to be loadable.
+   *
+   * OPTIONAL. A host that does not implement it simply shows no such tab, which is the honest
+   * answer for one that cannot serve the file. Asked for rather than derived, for the same reason
+   * the panel and the shelf are: a sibling derivation would be right in both path spaces today
+   * and is exactly the kind of rule that rots.
    */
-  jsdsp?(path: string): Promise<ModulePresetsFile>;
+  dspSource?(path: string, file: string): Promise<ModulePresetsFile>;
 
   /** What the code pane completes against. A host with nothing to offer returns empty lists. */
   hints(): Promise<Hints>;
@@ -97,7 +102,7 @@ export interface ModuleStore {
    * works out such a path itself. It passes back the `path` it was given and the ref it read out
    * of the module's own text, and the host resolves where that lands in its own space.
    *
-   * OPTIONAL, like `jsdsp` and `publish`: a host with no engine, or one that serves files it
+   * OPTIONAL, like `dspSource` and `publish`: a host with no engine, or one that serves files it
    * cannot write blobs beside, simply shows no button. Rejects with something worth reading — no
    * window opened yet is the common one, and it is the user's to fix.
    */

@@ -366,16 +366,20 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
     if (p.type.empty())
         return {};
     // A built-in is created from a STATE tree rather than a type name whenever the module carries something the
-    // plugin must know before its constructor returns. That is the case for exactly one thing so far: a DSP
-    // graph declares the plugin's parameters, and Tracktion plugins create their AutomatableParameters in the
-    // constructor and never after — so the description has to be on the tree already. See GraphDspPlugin.
+    // plugin must know before its constructor returns. Two things qualify, for one reason: a DSP graph and a
+    // Faust program each DECLARE the plugin's parameters, and Tracktion plugins create their
+    // AutomatableParameters in the constructor and never after — so it has to be on the tree already. See
+    // GraphDspPlugin and FaustPlugin.
     const auto makeBuiltIn = [&]() -> te::Plugin::Ptr {
         const juce::String type{resolveBuiltInType(p.type)};
-        if (p.dspGraph.empty())
+        // Never both: a module names one plugin, and that plugin reads one of these two properties.
+        const char* const prop = !p.dspGraph.empty() ? "graph" : (!p.faustDsp.empty() ? "faust" : nullptr);
+        if (prop == nullptr)
             return edit.getPluginCache().createNewPlugin(type, {});
         juce::ValueTree v(te::IDs::PLUGIN);
         v.setProperty(te::IDs::type, type, nullptr);
-        v.setProperty(juce::Identifier("graph"), juce::String(p.dspGraph), nullptr);
+        v.setProperty(juce::Identifier(prop),
+                      juce::String(!p.dspGraph.empty() ? p.dspGraph : p.faustDsp), nullptr);
         return edit.getPluginCache().createNewPlugin(v);
     };
     te::Plugin::Ptr plugin = isExternalFormat(p.type) ? makeExternalPlugin(edit, p) : makeBuiltIn();

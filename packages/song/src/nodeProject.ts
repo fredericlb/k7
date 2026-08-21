@@ -50,6 +50,7 @@ import type {
 import {
   EXTERNAL_PLUGIN_FORMATS,
   enginePlugin,
+  FAUST_TYPE,
   JSDSP_TYPE,
   MIXER_PLUGIN,
   OFFLINE_TYPE,
@@ -335,6 +336,27 @@ function readJsDspGraph(source: string): string | undefined {
         return undefined;
       }
     }
+    return undefined;
+  }
+}
+
+/**
+ * A module's Faust source, as text — the whole of `readJsDspGraph`'s job, minus everything that
+ * made that one long.
+ *
+ * There is no build step and no sibling artifact here, because the compiler is on the other side
+ * of the wire: what the engine wants is the `.dsp` itself. So no child process, no 200 ms, no
+ * mtime check, and nothing to commit beyond the source somebody wrote.
+ *
+ * Nothing is fatal, same as its neighbour: a missing or unreadable file leaves the field absent,
+ * the engine loads its host with no source, and it says so. One broken effect must not take a
+ * song down. What it CANNOT do is catch a syntax error — only the engine's compiler can, and it
+ * reports through the warning channel like every other plugin that failed to load.
+ */
+function readFaustSource(source: string): string | undefined {
+  try {
+    return readFileSync(source, "utf8") || undefined;
+  } catch {
     return undefined;
   }
 }
@@ -686,6 +708,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       if (
         rawType !== "internal" &&
         rawType !== JSDSP_TYPE &&
+        rawType !== FAUST_TYPE &&
         !EXTERNAL_PLUGIN_FORMATS.has(rawType)
       )
         continue;
@@ -721,6 +744,15 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
           if (!src) return {};
           const json = readJsDspGraph(String(src));
           return json ? { dspGraph: json } : {};
+        })(),
+        // The Faust source, likewise inline — and likewise because it declares the plugin's
+        // parameters. A plain read and no cache: the compiler is in the ENGINE, so there is
+        // nothing here to memoise. See readFaustSource.
+        ...(() => {
+          const src = module.faust;
+          if (!src) return {};
+          const text = readFaustSource(String(src));
+          return text ? { faustDsp: text } : {};
         })(),
         // The feeder of the module's SECOND input port, as a lane. Only the first is carried: Tracktion
         // routes one such source per plugin, so a module declaring a third port can be wired and drawn but

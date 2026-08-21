@@ -1,0 +1,21 @@
+# Moog Ladder [audioEffect] — le passe-bas quatre pôles résonant, celui des synthés Moog :
+# 24 dB par octave, et une résonance qui chante puis s'auto-oscille juste avant le haut de course.
+#
+# Sa DSP est décrite dans dsp.dsp à côté, en Faust, et c'est le MOTEUR qui la compile — à la
+# différence d'un module jsdsp, dont le JS tourne ici et n'envoie qu'une description. Les deux
+# écritures sont voisines et ne diffèrent qu'en cela : voir packages/song/docs/faustModules.md.
+plugin:
+  type: faust
+  name: Moog Ladder
+params:
+  # Les noms sont ceux des hslider() de dsp.dsp, et rien ne le vérifie de ce côté-ci : c'est le
+  # compilateur du moteur qui déclare les paramètres, donc une faute de frappe ici donne un
+  # réglage que personne ne lit plutôt qu'une erreur. Le panneau les montre tels que le moteur
+  # les a annoncés, ce qui est la façon de s'en apercevoir.
+  Cutoff: 1200
+  Res: 0.3
+# En un paragraphe : l'échelle de coupure est logarithmique parce qu'un balayage linéaire en Hz
+# rampe puis s'emballe — la même raison que le `geolerp` de @studio/dsp, ici obtenue en écrivant
+# la course du potard côté panneau. La résonance s'arrête à 0.95 et pas à 1 : au-delà, le filtre
+# entre en oscillation entretenue et le module devient un générateur, ce qui n'est pas ce qu'on
+# vient chercher dans une tranche.

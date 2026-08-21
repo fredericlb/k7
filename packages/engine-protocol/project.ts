@@ -98,6 +98,9 @@ export interface PluginDoc {
   // A DSP-graph module's description, INLINE as JSON rather than a path: the compiler has already read it, and
   // the engine parses no files. Its parameters come from it, so it must reach the plugin's constructor.
   dspGraph?: string;
+  // A Faust module's source, INLINE for the same reason — except that here the engine is what
+  // compiles it, so what travels is the `.dsp` text itself rather than something already chewed.
+  faustDsp?: string;
   // The TRACK id feeding this module's SECOND input port — what a chains file writes as `crossfade#b`
   // (see @studio/song docs/ports.md), resolved to the lane the engine can route from. Absent when the
   // module has one input, or when a declared port is left unwired, which is a legitimate state.

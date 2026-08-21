@@ -12,7 +12,12 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
-import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
+import {
+  FAUST_FILE,
+  FAUST_TYPE,
+  JSDSP_FILE,
+  JSDSP_TYPE,
+} from "@studio/engine-protocol/build";
 import { parse as parseYaml } from "yaml";
 import type { ZodType } from "zod";
 import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
@@ -331,7 +336,7 @@ function readModuleTree(
         preset: presetFor(folder, leaf, node, value.base),
         // …and its DSP source, resolved against ITS OWN folder — unlike an asset, which follows the opened song.
         // A shared module carries its source the way it carries its preset: the folder is the module.
-        jsdsp: jsDspFileFor(value, folder),
+        ...dspSourceFor(value, folder),
         // …and the files its params name, out of its OWN assets/ — a borrowed module brings its own.
         ...resolveAssets(value, folder),
         // Its own folder, so the ancestry fold can resolve a file this module inherits.
@@ -470,8 +475,8 @@ function readModules(dir: string): ModulesRead {
           kind: meta.kind, // derived from the type folder, like a base module others `extends`
           ...portsOf(value, meta),
           preset,
-          // The module's own DSP source, resolved against its FOLDER — see jsDspFileFor.
-          jsdsp: jsDspFileFor(value, folder),
+          // The module's own DSP source, resolved against its FOLDER — see dspSourceFor.
+          ...dspSourceFor(value, folder),
           // Resolved on this copy, same reason as `rack` above; `folder` is what makes its own assets reachable.
           ...resolveAssets(value, folder),
           // Its own folder, so the ancestry fold can resolve a file this module inherits.
@@ -601,7 +606,7 @@ function loadNodes(
         ? resolveRackAudio(value.rack as RawRack, folder)
         : undefined,
       ...(preset ? { preset } : {}),
-      jsdsp: jsDspFileFor(value, folder),
+      ...dspSourceFor(value, folder),
       ...resolveAssets(value, folder),
       // Its own folder, so the ancestry fold can resolve a file this module inherits.
       folderAbs: folder,
@@ -968,23 +973,29 @@ export function loadSongs(dir: string, validate = false): string[] {
 }
 
 /**
- * The DSP source of a module, or undefined when it has none.
+ * The DSP source of a module, resolved against its own folder — `{}` when it has none.
  *
  * The PLUGIN TYPE decides: `plugin.type: jsdsp` means the sound comes from `jsdsp.ts` in this
- * module's own folder. It used to be a `jsdsp:` field naming the file, beside a
- * `plugin: {type: internal, name: DSP Graph}` that said nothing about it — two things to keep
- * in step, and the interesting one was the one nobody read. One statement now says both, and a
- * module with the type but no file is a module whose source is missing rather than one that
- * silently loads a graph host with nothing in it.
+ * module's own folder, `plugin.type: faust` from the `dsp.dsp` beside it. It used to be a
+ * `jsdsp:` field naming the file, beside a `plugin: {type: internal, name: DSP Graph}` that said
+ * nothing about it — two things to keep in step, and the interesting one was the one nobody read.
+ * One statement now says both, and a module with the type but no file is a module whose source is
+ * missing rather than one that silently loads a graph host with nothing in it.
+ *
+ * ONE function for the two languages, and it returns the FIELD rather than a path, so the mapping
+ * from a type to a filename lives here alone. A second copy of it is how the two would drift the
+ * day a third language turns up.
  */
-function jsDspFileFor(
+function dspSourceFor(
   value: Record<string, unknown>,
   folder: string,
-): string | undefined {
-  const plugin = value.plugin as { type?: unknown } | undefined;
-  return String(plugin?.type ?? "") === JSDSP_TYPE
-    ? join(folder, JSDSP_FILE)
-    : undefined;
+): Pick<LoadedModule, "jsdsp" | "faust"> {
+  const type = String(
+    (value.plugin as { type?: unknown } | undefined)?.type ?? "",
+  );
+  if (type === JSDSP_TYPE) return { jsdsp: join(folder, JSDSP_FILE) };
+  if (type === FAUST_TYPE) return { faust: join(folder, FAUST_FILE) };
+  return {};
 }
 
 /**

@@ -94,6 +94,11 @@ the engine's `isExternalFormat`. `EXTERNAL_PLUGIN_FORMATS` itself has ONE defini
 an unimported plugin — red); neither is a compile error, both are bypassed by the engine
 and flagged visually instead.
 
+`jsdsp` and `faust` are in NEITHER set: they name no external binary and no built-in by its
+xmlTypeName, so they are neither validated here nor bypassed. `dspSourceFor` reads them, and
+`enginePlugin` maps each onto the built-in that hosts it — `docs/faustModules.md` has the pair
+side by side, including the four gates a new plugin type has to be added to.
+
 The one rule that still BLOCKS the compile: a module whose plugin uses a KNOWN format
 must name it (`plugin.name` — the xmlTypeName for `"internal"`, else the plugin's real
 name). This is deliberately narrow — a mistyped format or an unimported plugin must not

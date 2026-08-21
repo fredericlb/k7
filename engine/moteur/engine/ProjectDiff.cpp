@@ -31,6 +31,11 @@ std::string keyOf(const PluginDoc& p) {
     // input has to read as a replace. Left out, moving the cable produced an empty diff — the surest kind of
     // bug here, where the file says one thing and the engine goes on playing another with nothing to see.
     if (!p.sidechainFrom.empty()) k += "<-" + p.sidechainFrom;
+    // A Faust module's source belongs in the identity for the same reason: it is compiled in the plugin's
+    // CONSTRUCTOR, so an edited program can only take effect by re-creating the plugin. Left out, saving
+    // dsp.dsp would reach the engine and change nothing you could hear. The source, not a hash of it — the
+    // string is already in hand and a collision here would be silent in exactly the way this guards against.
+    if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
     // A rack's sounds are built at insert time, not carried as params, so identity must fold them in — otherwise
     // remapping a note or clip reads as "same plugin" and the sampler never rebuilds. Compiled order is stable.
     for (const auto& e : p.rack)

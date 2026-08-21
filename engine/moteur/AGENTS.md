@@ -49,6 +49,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
   DspGraph.{h,cpp}          the DSP graph model @studio/dsp emits
   GraphDspPlugin.{h,cpp}     that graph as an audio plugin
   MidiGraphPlugin.{h,cpp}    the MIDI-side counterpart
+  FaustPlugin.{h,cpp}       the same seam for a module written in Faust — A STUB: it receives the
+                            source and passes audio through (docs/faust.md)
   AirWindowsList.h          generated effect list (docs/airWindowsList.md)
 
   taps — pull state out of the running graph without owning it:
@@ -79,7 +81,9 @@ lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
 `audit-stabilite.md` (the standing audit of this engine's own stability and speed — read it
 before touching the audio callback, `applyFull`, or the build flags),
-`builtinParams.md`, `namPlugin.md`, `sidechain.md` (a module's second input),
+`builtinParams.md`, `namPlugin.md`, `faust.md` (what `FaustPlugin` does NOT do yet, and the
+three ways to fill it in — read it before assuming a Faust module makes a sound),
+`sidechain.md` (a module's second input),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.

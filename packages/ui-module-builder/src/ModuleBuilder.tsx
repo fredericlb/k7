@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
+import { cn } from "@frediverse/ui/lib/utils";
 import {
   Select,
   SelectContent,
@@ -20,9 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@frediverse/ui/select";
-import { cn } from "@frediverse/ui/lib/utils";
 import type { ParamMeta } from "@studio/engine-protocol";
-import { JSDSP_FILE, JSDSP_TYPE } from "@studio/engine-protocol/build";
+import {
+  FAUST_FILE,
+  FAUST_TYPE,
+  JSDSP_FILE,
+  JSDSP_TYPE,
+} from "@studio/engine-protocol/build";
 import {
   builtinPluginFor,
   builtinPluginForRef,
@@ -107,7 +112,20 @@ const STATUS_LABEL: Record<ModuleStatus, string> = {
   hidden: "hidden",
 };
 
-export type BuilderPane = "module" | "panel" | "presets" | "jsdsp" | "params";
+export type BuilderPane = "module" | "panel" | "presets" | "dsp" | "params";
+
+/**
+ * The DSP source a module's plugin type implies, or null for a type that has none.
+ *
+ * ONE table, because the tab, the fetch and the stub the host writes all have to agree on the
+ * filename, and the type is the only thing that says which. The names themselves come from
+ * `@studio/engine-protocol/build`, where the compiler already reads them — this is a lookup, not
+ * a second spelling.
+ */
+const DSP_SOURCE: Record<string, string> = {
+  [JSDSP_TYPE]: JSDSP_FILE,
+  [FAUST_TYPE]: FAUST_FILE,
+};
 
 /**
  * The `plugin.type` a module file declares, read off the raw text.
@@ -329,15 +347,16 @@ export function ModuleBuilder({
       ? uiFile
       : pane === "presets"
         ? presetFile
-        : pane === "jsdsp"
+        : pane === "dsp"
           ? dspFile
           : null;
 
-  // Does this module's DSP come from its own source? The TYPE says so, and the file is
-  // `jsdsp.ts` beside it — one statement, read straight off the buffer being edited so the tab
-  // appears the moment the type is typed rather than after a save.
-  const isJsDsp = useMemo(
-    () => (content == null ? false : pluginTypeOf(content) === JSDSP_TYPE),
+  // Does this module's DSP come from its own source, and in WHICH language? The TYPE says both —
+  // one statement, read straight off the buffer being edited so the tab appears the moment the
+  // type is typed rather than after a save. Null for every other module.
+  const dspSourceName = useMemo(
+    () =>
+      content == null ? null : (DSP_SOURCE[pluginTypeOf(content)] ?? null),
     [content],
   );
 
@@ -430,13 +449,13 @@ export function ModuleBuilder({
   }, [path, store]);
 
   // The DSP source, fetched only once the module says it HAS one. Its own effect rather than a
-  // fourth call in the one above: `isJsDsp` is read off the buffer, so it becomes true the moment
+  // fourth call in the one above: the language is read off the buffer, so it lands the moment
   // someone types the type — and an ordinary module never asks a host for a file that is not there.
   useEffect(() => {
-    if (!isJsDsp || !store.jsdsp) return setDspFile(null);
+    if (!dspSourceName || !store.dspSource) return setDspFile(null);
     let alive = true;
     void store
-      .jsdsp(path)
+      .dspSource(path, dspSourceName)
       .then((f) => {
         if (!alive) return;
         const kept = recallBuffer(f.path);
@@ -447,7 +466,7 @@ export function ModuleBuilder({
     return () => {
       alive = false;
     };
-  }, [isJsDsp, path, store]);
+  }, [dspSourceName, path, store]);
 
   // A visual edit rewrites the PANEL file; the code pane is controlled by it, so switching to it shows the change.
   const onUiChange = useCallback((next: ModuleUI) => {
@@ -1132,11 +1151,11 @@ export function ModuleBuilder({
                   // Only for a module that HAS one. A tab that is always there and usually dead
                   // would say every module could have DSP source, which is the opposite of what
                   // the type means.
-                  ...(isJsDsp
+                  ...(dspSourceName
                     ? ([
                         [
-                          "jsdsp",
-                          baseName(dspFile?.path) ?? JSDSP_FILE,
+                          "dsp",
+                          baseName(dspFile?.path) ?? dspSourceName,
                           dspDirty,
                           !!dspFile,
                           dspFile
@@ -1225,7 +1244,7 @@ export function ModuleBuilder({
                       ? onPanelChange
                       : pane === "presets"
                         ? onPresetsChange
-                        : pane === "jsdsp"
+                        : pane === "dsp"
                           ? onDspChange
                           : onCodeChange
                   }

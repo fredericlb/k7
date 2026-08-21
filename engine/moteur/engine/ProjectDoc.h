@@ -38,6 +38,9 @@ struct PluginDoc {
     // already read (and may have generated) it, and the engine should no more re-read it than it re-reads a
     // chain. See DspGraph.h. Empty for every other plugin.
     std::string dspGraph;
+    // …and a "Faust" module's SOURCE, likewise inline. The difference from the line above is who compiles: a
+    // graph arrives already described, a Faust program arrives as text for this side to build. See FaustPlugin.h.
+    std::string faustDsp;
     // The TRACK feeding this plugin's SECOND input port, by id — empty when it has one input, or when the
     // port is declared and left unwired (which is a legitimate state; see packages/song/docs/ports.md).
     // A track and not a chain: the engine's model has lanes, and Tracktion routes one such source per
