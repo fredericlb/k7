@@ -36,6 +36,27 @@ Et `applyToBuffer` doit poser un `juce::ScopedNoDenormals` : un filtre résonant
 queue est le générateur canonique de dénormaux, et le symptôme est un moteur qui ralentit
 d'autant plus qu'il joue longtemps.
 
+## La couture INSTRUMENT, qui est un second manque
+
+Ce qui est posé est la couture d'un **effet** : audio en entrée, audio en sortie, et le
+greffon est inscrit au catalogue avec le rôle `audioEffect`. `packages/dsp/modules/wurlitzer`
+est le premier module à demander autre chose, et il demande trois ajouts :
+
+- `takesMidiInput()` vrai, et la lecture du flux de notes dans `applyToBuffer` — le
+  `PluginRenderContext` de Tracktion porte déjà le tampon MIDI, et aucun de nos greffons
+  intégrés ne le lit aujourd'hui ;
+- `producesAudioWhenNoAudioInput()` vrai, sans quoi rien ne tourne sur une piste sans entrée ;
+- un **répartiteur de voix**, qui remplit les `freq`/`gain`/`gate` qu'un instrument Faust
+  déclare. Faust le fournit (`mydsp_poly`) et il arrive AVEC le compilateur : sans
+  compilateur il n'y a pas de voix à répartir.
+
+Le troisième est pourquoi ça n'a pas été fait d'avance : ça ne se teste pas. Du code MIDI
+écrit contre une classe qui ne compile rien aura l'air juste jusqu'au jour où on l'exercera,
+ce qui est la définition d'un piège. Le catalogue devra probablement porter **deux** entrées —
+un `Faust` effet et un `Faust Instrument` — puisque le rôle décide du dossier de type sous
+lequel un module est classé et de sa place dans une chaîne, et qu'une seule classe ne peut
+pas répondre les deux.
+
 ## Les trois routes, et ce qu'elles coûtent
 
 ### libfaust (backend LLVM), compilation à l'exécution
