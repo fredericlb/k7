@@ -28,7 +28,7 @@ import { api } from "../api";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "../barWindow";
 import { chainOps, filterOps, processLine } from "../clipOps";
 import { clipPlayhead } from "../clipPlayhead";
-import { warpLine } from "../clipWarp";
+import { warpAt, warpLine, warpRemoveLine } from "../clipWarp";
 import { useLiveEnvelope } from "../hooks/useLiveEnvelope";
 import { barBeat, takeCounter } from "../takeCounter";
 import type { TakeOption } from "../takeReview";
@@ -612,9 +612,9 @@ export function AudioClipPanel({
             )}
             {editingWarp && (
               <span className="text-muted-foreground/70">
-                double-clic pose un point d'étirement · glisser sa poignée bleue
-                dit sur quel temps il tombe · les traits gris sont les onsets,
-                en repère
+                double-clic pose un point d'étirement — ou l'enlève, sur un
+                point existant · glisser sa poignée bleue dit sur quel temps il
+                tombe · les traits gris sont les onsets, en repère
               </span>
             )}
             {/* What is on screen, and the two ways out of it: the whole FILE, and back to the
@@ -1051,11 +1051,19 @@ export function AudioClipPanel({
                  */
                 onWarpAdd={
                   editingWarp && clip
-                    ? (sec) =>
+                    ? (sec, pxPerSec) => {
+                        // On a point already there, the double-click DROPS it — one gesture, two
+                        // acts, told apart by what is under the pointer. Addressed by the file
+                        // second the mark carries (`src`), not by inverting the picture: the
+                        // mapping is piecewise now, and the point can already say what it pins.
+                        const hit = warpAt(wf.warpMarks, sec, pxPerSec);
                         void run(
-                          warpLine(clip, sec, sec, wf.sourceMap, tempo),
+                          hit
+                            ? warpRemoveLine(clip, hit.src)
+                            : warpLine(clip, sec, sec, wf.sourceMap, tempo),
                           "warp",
-                        )
+                        );
+                      }
                     : undefined
                 }
                 onWarpMove={

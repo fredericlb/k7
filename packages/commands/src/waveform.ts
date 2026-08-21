@@ -4,6 +4,7 @@
 // writes a placement-independent `{source}.cache` sidecar; this only reads it.
 
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
+import { beatAtSource, sourceAtBeat } from "@studio/song/warpPoints";
 
 // The whole-file envelope the engine computes and caches, placement-independent: it describes the FILE, and
 // regionWaveform maps a clip's region onto it. A fixed-density downsample, 0..1.
@@ -38,6 +39,7 @@ export interface FileEnvelope {
 export interface WarpMark {
   orig: number; // display seconds — the source point, as the waveform draws it
   target: number; // display seconds — where that point's beat sits on the grid
+  src: number; // the FILE second it pins — what `clip warp …` addresses
 }
 
 export interface RegionWaveform {
@@ -171,8 +173,30 @@ export function regionWaveform(
   // not the file drawn at its own rate but at the rate it is PLAYED at, which is the whole of what
   // makes a waveform line up with what is heard.
   const stretch = warpStretch(clip.warp, tempo);
+  /**
+   * The map's own points, when there are enough of them to bend anything.
+   *
+   * PIECEWISE, because the engine is: `applyClipWarp` pins every interior marker as a beat point
+   * so each segment stretches on its own. `stretch` is one ratio over the whole clip — the right
+   * answer to "how long is this", which is what it is still used for below, and the wrong one to
+   * "where is this moment". Drawn with the ratio alone, a point pinned in the middle moved the
+   * sound and left the picture exactly where it was.
+   */
+  const markers = clip.warp?.markers;
+  const warped = Array.isArray(markers) && markers.length >= 2;
+  const beatToDisp = 60 / tempo;
+  // Where the clip's in-point lands, so display 0 stays the clip's start whatever the map says.
+  const zeroBeat = warped ? beatAtSource(markers, inPointSec) : 0;
   /** A source position, as a position on the drawn region. The one mapping everything below uses. */
-  const toDisplay = (srcSec: number): number => (srcSec - inPointSec) * stretch;
+  const toDisplay = (srcSec: number): number =>
+    warped
+      ? (beatAtSource(markers, srcSec) - zeroBeat) * beatToDisp
+      : (srcSec - inPointSec) * stretch;
+  /** …and back, which is what resamples the envelope: a display bucket asks which audio it shows. */
+  const toSource = (dispSec: number): number =>
+    warped
+      ? sourceAtBeat(markers, zeroBeat + dispSec / beatToDisp)
+      : dispSec / (stretch || 1) + inPointSec;
 
   const envN = env.peak.length;
   const startFrame = Math.min(totalFrames, Math.floor(inPointSec * sr));
@@ -182,23 +206,28 @@ export function regionWaveform(
     clip.sourceTo && clip.sourceTo > inPointSec
       ? Math.min(clip.sourceTo, fileSeconds)
       : fileSeconds;
+  // How many source frames the region asks for, at the map's OVERALL rate — a count, which is
+  // what `stretch` answers well. Only the per-column spans below are piecewise.
   const wantFrames = Math.max(1, Math.round((seconds / stretch) * sr));
-  const haveFrames = Math.max(
-    0,
-    Math.min(wantFrames, (endSec - inPointSec) * sr),
-  );
   const n = Math.max(1, Math.min(buckets, wantFrames));
   const peak = new Array<number>(n).fill(0);
   const rms = new Array<number>(n).fill(0);
-  const per = wantFrames / n;
+  const dispPer = n > 0 ? seconds / n : 0;
   const framesPerEnv = envN > 0 ? totalFrames / envN : 1;
+  // The last source frame this region may show — its own `to`, or the end of the file.
+  const endFrame = Math.min(totalFrames, Math.floor(endSec * sr));
   for (let b = 0; b < n; b++) {
-    const d0 = Math.floor(b * per);
-    const d1 = Math.min(Math.floor((b + 1) * per), haveFrames); // clamp to real audio; past it stays 0 (silence)
-    if (d1 <= d0 || envN === 0) continue;
-    // The file-frame span this display bucket covers, aggregated over the envelope (peak = max, rms = quadratic mean).
-    const f0 = startFrame + d0;
-    const f1 = startFrame + d1;
+    /**
+     * Which audio this column shows — ASKED of the mapping rather than stepped through.
+     *
+     * It used to advance by a constant `wantFrames / n`, which is a straight line and therefore
+     * only correct while the map is one. Under a real map the segments run at different rates,
+     * so a column near a pinned point covers more or less source than its neighbours — which is
+     * the whole of what "the waveform reflects the warp" means.
+     */
+    const f0 = Math.max(startFrame, Math.floor(toSource(b * dispPer) * sr));
+    const f1 = Math.min(endFrame, Math.floor(toSource((b + 1) * dispPer) * sr));
+    if (f1 <= f0 || envN === 0) continue; // past the audio: the column stays silent
     const e0 = Math.floor(f0 / framesPerEnv);
     const e1 = Math.max(e0 + 1, Math.min(envN, Math.ceil(f1 / framesPerEnv)));
     let mx = 0;
@@ -213,10 +242,26 @@ export function regionWaveform(
     rms[b] = cnt ? Math.sqrt(sq / cnt) : 0;
   }
   // Warp markers → display seconds: `orig` mirrors how the audio is drawn, `target` where its beat lands.
+  /**
+   * The map's points on the drawn region — and `orig === target` now, which is the POINT.
+   *
+   * The picture is warped, so a pinned moment is drawn exactly where it lands: there is no
+   * displacement left to show, because it has been applied to the audio under it. The pair is
+   * kept because a DRAG needs somewhere to put the target while the hand holds it, and the arrow
+   * between the two is then the move being asked for rather than a state.
+   *
+   * Both are region-relative. `target` used to be the absolute beat priced in seconds, which
+   * agreed with `orig` only while the clip was untrimmed — the two origins differed by the
+   * in-point, silently, on exactly the clips a warp is usually for.
+   */
   const warpMarks: WarpMark[] = (clip.warp?.markers ?? [])
     .map(([beat, srcSec]) => ({
       orig: toDisplay(srcSec),
-      target: (beat * 60) / tempo,
+      target: (beat - zeroBeat) * beatToDisp,
+      // The FILE second it pins — what `clip warp` and `clip warp remove` address. Sent rather
+      // than left to be inverted: the mapping is piecewise now, and a surface that rebuilt it to
+      // name a point it can already see would be the second copy this file keeps warning about.
+      src: srcSec,
     }))
     .filter(
       (mk) =>

@@ -287,4 +287,74 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
     // …but the onsets are pushed apart, because less of the file fits in it.
     expect(w.transients[0]).toBeGreaterThan(flat.transients[0]);
   });
+
+  /**
+   * A point pinned IN THE MIDDLE has to bend the picture — the whole of "the waveform reflects
+   * the warps".
+   *
+   * The overall ratio cannot see this: both maps below span the same source seconds over the same
+   * beats, so `warpStretch` answers the same number for each. What differs is where the interior
+   * point sends the material around it, which is exactly what the engine pins as a beat point and
+   * exactly what the drawing used to ignore.
+   */
+  const bendEnv: FileEnvelope = {
+    fingerprint: "x",
+    sampleRate: 48000,
+    channels: 1,
+    frames: 48000 * 4,
+    seconds: 4,
+    peak: new Array(400).fill(0.5),
+    rms: new Array(400).fill(0.25),
+    transients: [1, 2, 3],
+    sensitivity: 2,
+    bpm: 120,
+  };
+  const ends: [number, number][] = [
+    [0, 0],
+    [8, 4],
+  ];
+
+  it("moves a transient when an interior point is pinned, and not otherwise", () => {
+    const flat = regionWaveform(
+      bendEnv,
+      clip({ length: 8, warp: { algorithm: "e", markers: ends } }),
+      project,
+      200,
+    );
+    // The same two ends, plus one point saying "one source second in lands on beat 4" — the first
+    // second now covers half the clip instead of a quarter.
+    const bent = regionWaveform(
+      bendEnv,
+      clip({
+        length: 8,
+        warp: { algorithm: "e", markers: [ends[0], [4, 1], ends[1]] },
+      }),
+      project,
+      200,
+    );
+    expect(warpStretch({ algorithm: "e", markers: ends }, 110)).toBeCloseTo(
+      warpStretch({ algorithm: "e", markers: [ends[0], [4, 1], ends[1]] }, 110),
+      9,
+    );
+    // …so anything reading only that ratio would have drawn these two identically.
+    expect(bent.transients[0]).toBeGreaterThan(flat.transients[0] + 1e-3);
+  });
+
+  it("draws every marker where its beat lands, so a point sits on its own line", () => {
+    const bent = regionWaveform(
+      bendEnv,
+      clip({
+        length: 8,
+        warp: { algorithm: "e", markers: [ends[0], [4, 1], ends[1]] },
+      }),
+      project,
+      200,
+    );
+    // `orig` and `target` coincide once the picture is warped: the moment is drawn where it
+    // lands, because the displacement has been applied to the audio under it. What is left for
+    // the arrow to show is a DRAG in flight, which is the only displacement still pending.
+    for (const m of bent.warpMarks) expect(m.orig).toBeCloseTo(m.target, 6);
+    // …and each carries the file second it pins, which is how a surface names one to remove it.
+    expect(bent.warpMarks.map((m) => m.src)).toEqual([0, 1, 4]);
+  });
 });

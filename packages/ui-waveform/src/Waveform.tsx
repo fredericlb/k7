@@ -56,13 +56,18 @@ interface Props {
    */
   warps?: { orig: number; target: number }[];
   /**
-   * Place a stretch point at this second. Absent ⇒ a double-click means nothing, as it did.
+   * A double-click in the picture: place a stretch point here, or drop the one already here.
    *
-   * A DOUBLE-click, because a single one already seeks and selects here and a view cannot quietly
-   * take that away — the wave is still a wave in warp mode. The host gets a region second and owns
-   * the units: this canvas has no idea what a beat is.
+   * A DOUBLE-click, because a single one already seeks and selects and a view cannot quietly take
+   * that away — the wave is still a wave in warp mode. The host gets a region second, the pixels
+   * per second it was measured against, and owns both decisions: this canvas has no idea what a
+   * beat is, and no opinion on how near is near enough to mean "that one".
+   *
+   * `pxPerSec` because the grab zone is the host's rule but the ZOOM is this component's — it
+   * carries the view and the measured width, and a caller recomputing either would be holding a
+   * second copy of the mapping this file spends its comments warning about.
    */
-  onWarpAdd?: (atSec: number) => void;
+  onWarpAdd?: (atSec: number, pxPerSec: number) => void;
   /**
    * Drag a stretch point's TARGET — where the moment it holds should land. Absent ⇒ the marks are
    * drawn and cannot be touched, which is what they were.
@@ -930,7 +935,13 @@ function WaveformInner({
          * which is the one place that says nothing.
          */
         onDoubleClick={
-          onWarpAdd ? (e) => onWarpAdd(xToTime(localX(e.clientX))) : undefined
+          onWarpAdd
+            ? (e) =>
+                onWarpAdd(
+                  xToTime(localX(e.clientX)),
+                  span > 0 ? width / span : 0,
+                )
+            : undefined
         }
         onPointerCancel={() => {
           drag.current = null;

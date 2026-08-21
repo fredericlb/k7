@@ -288,6 +288,14 @@ export interface WebWaveformGrid {
 export interface WebWarpMark {
   orig: number;
   target: number;
+  /**
+   * The FILE second this point pins — what `clip warp` and `clip warp remove` name it by.
+   *
+   * On the wire because the file↔display mapping is PIECEWISE (the engine pins every interior
+   * marker as its own beat point), so a surface cannot invert it from two numbers. It can see
+   * the point; this is what lets it name the one it is pointing at.
+   */
+  src: number;
 }
 export interface WebWaveform {
   rms: number[]; // 0..1 linear per bucket (feeds the recorder Waveform's dB envelope)

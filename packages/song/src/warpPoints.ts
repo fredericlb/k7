@@ -41,6 +41,54 @@ export function readClipWarp(
   return { map, declined: raw?.disable === true };
 }
 
+/**
+ * The timeline BEAT a source second lands on, through the map — segment by segment.
+ *
+ * **The engine is piecewise and the drawing was not.** `applyClipWarp` pins every interior marker
+ * as a beat point so each segment stretches on its own (EditBuilder.cpp), while `warpStretch`
+ * answers ONE ratio — the first marker to the last. That ratio is the right answer to "how long is
+ * this clip", which is what it was written for, and the wrong one for "where is this moment": a
+ * point pinned in the middle moved the sound and left the picture where it was.
+ *
+ * Outside the map, the end segments' own rate continues. Extrapolating rather than clamping is
+ * what the engine does too — a clip is not silent past its last marker — and it keeps this
+ * monotonic, which is what makes `sourceAtBeat` below an inverse rather than a guess.
+ */
+export function beatAtSource(
+  markers: readonly WarpMarker[],
+  sec: number,
+): number {
+  if (markers.length < 2) return sec;
+  const seg = (i: number): number => {
+    const [b0, s0] = markers[i];
+    const [b1, s1] = markers[i + 1];
+    const d = s1 - s0;
+    return d > 0 ? b0 + ((sec - s0) / d) * (b1 - b0) : b0;
+  };
+  if (sec <= markers[0][1]) return seg(0);
+  for (let i = 0; i + 1 < markers.length; i++)
+    if (sec <= markers[i + 1][1]) return seg(i);
+  return seg(markers.length - 2);
+}
+
+/** …and back: the source second that lands on `beat`. The inverse of the above, segment for segment. */
+export function sourceAtBeat(
+  markers: readonly WarpMarker[],
+  beat: number,
+): number {
+  if (markers.length < 2) return beat;
+  const seg = (i: number): number => {
+    const [b0, s0] = markers[i];
+    const [b1, s1] = markers[i + 1];
+    const d = b1 - b0;
+    return d > 0 ? s0 + ((beat - b0) / d) * (s1 - s0) : s0;
+  };
+  if (beat <= markers[0][0]) return seg(0);
+  for (let i = 0; i + 1 < markers.length; i++)
+    if (beat <= markers[i + 1][0]) return seg(i);
+  return seg(markers.length - 2);
+}
+
 /** How close two source seconds have to be to mean the same point. A millisecond: the UI hands
  *  back the exact second of the marker it grabbed, so this only has to survive a round trip. */
 const SAME_SEC = 1e-3;
