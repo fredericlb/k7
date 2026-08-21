@@ -4083,8 +4083,22 @@ export default function App({
               // verb per param (`module nam …`), which this line built from the param's own name
               // — so picking an `.onnx` sent a command nobody had written. "" is a real choice,
               // clearing the asset; the command spells that `none`.
+              // QUOTED, all three — and the filename is the one that matters. A `.nam` routinely
+              // carries spaces and a subfolder: `two rocks/Two-Rock_Studio Overdrive_SM7b_All
+              // Flat_Clean.nam`. Unquoted, the splitter folded most of that path into the PARAM
+              // name (which may legitimately contain spaces — "Wet Level") and took the last
+              // token as the value, so picking an amp refused with
+              // `"Flat_Clean.nam" is not a number`, naming the tail of the file it had just cut.
+              //
+              // The fix was already written twenty lines up, for the node ref, and not applied
+              // here: "a node ref carries a `:` and may carry spaces, and `node param` splits on
+              // them". A filename does too, and more often.
+              //
+              // The sentinel stays BARE: `none` is a word the command understands, not a file.
               void runCommand(
-                `node param ${module} ${param} ${file || "none"}`,
+                file
+                  ? `node param "${module}" "${param}" "${file}"`
+                  : `node param "${module}" "${param}" none`,
               );
             }}
             onClose={() => setAssetPicker(null)}
