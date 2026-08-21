@@ -91,6 +91,29 @@ dont la taille ne bouge qu'avec la fenêtre. `docs/layers.md` recensait le rési
 mentionnait pas celle-là. **Corrigé** (P3), avec l'invariant que la réallocation assurait
 gratuitement — le contexte est réétabli à chaque frame — désormais écrit.
 
+### `reloadKey` refait le vocabulaire de l'éditeur à chaque commande
+
+Mesuré sur `01.danse.st0`, le lot que **toute** commande déclenche en bumpant `reloadKey` :
+
+| route | coût | change avec une édition de clip ? |
+|---|---|---|
+| `/hints` | **65 ms / 108 Ko** | non |
+| `/module-libraries` | **70 ms / 100 Ko** | non |
+| `/project-doc` | 81 ms / 65 Ko | oui |
+| `/graph` | 34 ms / 50 Ko | parfois |
+| `/tree` | 27 ms / 35 Ko | non, sauf création |
+| `/project-errors` | 18 ms | oui |
+| `/library-chains` | 12 ms | non |
+
+**≈335 ms**, en file sur un service mono-thread, en plus des ~100 ms de la commande. Les quatre
+lignes « non » font 174 ms — c'est `EditorTab.refresh()`, qui refetche les quatre d'un bloc sur
+chaque `reloadKey`, y compris quand ce qui a bougé est un marqueur dans un fichier de clip.
+
+Le lot : donner à `refresh()` de quoi savoir ce qui a changé, plutôt que tout redemander. Le
+chemin existe déjà à côté — `quietCommand` (`want: []`, pas de bump) porte le même raisonnement
+et sa propre mesure : « 62 ms per mute, per solo, per knob turn, built and dropped ». Les gestes
+de warp l'empruntent depuis, ce qui les fait passer de ~465 ms à ~130.
+
 ### Ce qui reste, par ordre de rendement
 
 1. **`ClipWaveform` rend son hôte à la cadence des frames.** Il lit le transport avec

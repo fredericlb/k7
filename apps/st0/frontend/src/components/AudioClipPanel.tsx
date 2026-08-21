@@ -103,7 +103,9 @@ export function AudioClipPanel({
   onPlay,
   onSeek,
   command,
+  quietCommand,
   onContextMenu,
+  reloadKey = 0,
   onStop,
   onClose,
 }: {
@@ -168,6 +170,19 @@ export function AudioClipPanel({
   onSeek?: (seconds: number) => void;
   /** Runs a command line through the shell, which journals it — so every edit here is one Ctrl+Z. */
   command: (line: string) => void | Promise<void>;
+  /**
+   * …and the same, WITHOUT the shell-wide reload — for an edit that changes nothing outside this
+   * clip. Absent ⇒ everything goes the loud way, which is what a host with one refresh should do.
+   */
+  quietCommand?: (line: string) => void | Promise<void>;
+  /**
+   * Bumped by the shell after a command it reloaded on — what re-reads the picture.
+   *
+   * Needed the moment an edit to this clip could come from OUTSIDE the panel, which is what the
+   * right-click menu is: `clip warp remove` runs through the shell's own path, so nothing here
+   * would have known to look again and the wave would have kept the point that had just gone.
+   */
+  reloadKey?: number;
   /**
    * Open the shell's right-click menu. Absent ⇒ the browser's own, which is what a host with no
    * command catalogue to derive from should get.
@@ -315,16 +330,33 @@ export function AudioClipPanel({
       })
       .catch((e) => setError((e as Error).message));
   }, [clip, sensitivity]);
-  useEffect(load, [load]);
+  // `reloadKey` is a TRIGGER, not a value `load` reads — an edit that came from the right-click
+  // menu went through the shell, not through `run`, so this is the only thing that says "look again".
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above — dropping it leaves a removed point drawn.
+  useEffect(load, [load, reloadKey]);
 
   // Every edit is a command, and every command is followed by a re-read: the file service resolves
   // the corrections into `transients`, so what comes back IS the answer rather than this component's
   // guess at it. Serialised through `busy` so a double-click cannot race two writes onto one file.
-  const run = async (line: string, label: string) => {
+  /**
+   * `quiet` skips the shell-wide reload, for an edit confined to THIS clip.
+   *
+   * Measured on `01.danse.st0`, per stretch point placed, moved or dropped: the command itself is
+   * ~100 ms and the reload behind it is ~335 — of which `/hints` (65 ms, 108 KB) and
+   * `/module-libraries` (70 ms, 100 KB) are the editor's completion vocabulary, refetched because
+   * a marker moved inside one clip file. They cannot have changed; nothing here adds a module or
+   * a name. `/tree` cannot either — no file appears.
+   *
+   * So a warp edit asks for none of it, and for no graph (`quietCommand` already passes
+   * `want: []`, which is where another 30 ms went). What DOES have to move is the picture, and
+   * `load()` below fetches that itself. The timeline's block follows on the 2 s `/revision` tick,
+   * which is the same bargain a mixer knob takes — see `quietCommand` in App.
+   */
+  const run = async (line: string, label: string, quiet = false) => {
     if (busy) return;
     setBusy(label);
     try {
-      await command(line);
+      await ((quiet && quietCommand) || command)(line);
       load();
     } finally {
       setBusy(null);
@@ -1066,6 +1098,7 @@ export function AudioClipPanel({
                         void run(
                           warpLine(clip, sec, sec, wf.sourceMap, tempo),
                           "warp",
+                          true, // quiet: a marker inside one clip file changes nothing else
                         )
                     : undefined
                 }
@@ -1106,6 +1139,7 @@ export function AudioClipPanel({
                         void run(
                           warpLine(clip, mark.orig, to, wf.sourceMap, tempo),
                           "warp",
+                          true,
                         )
                     : undefined
                 }

@@ -157,6 +157,7 @@ export function ClipView({
   reloadKey = 0,
   onSeek,
   command,
+  quietCommand,
   onContextMenu,
   onChanged,
   setStatus,
@@ -197,6 +198,8 @@ export function ClipView({
    *  onsets, trim and normalise go through. A note edit takes the callbacks below instead, because
    *  those existed first and the roll builds its own lines. */
   command: (line: string) => void | Promise<void>;
+  /** …and the same without the shell-wide reload, for an edit confined to one clip. */
+  quietCommand?: (line: string) => void | Promise<void>;
   /** The shell's right-click menu, for the waveform's stretch points. Absent ⇒ the browser's own. */
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   // Draw a note into a sequence: (seqId, key, startBeat, endBeat). Runs `sequence note new`.
@@ -452,6 +455,10 @@ export function ClipView({
         clip && (
           <AudioClipPanel
             onContextMenu={onContextMenu}
+            quietCommand={quietCommand}
+            // So a stretch point dropped from the right-click menu — which runs through the
+            // SHELL and not through this pane — is gone from the picture too.
+            reloadKey={reloadKey}
             clip={clip.id}
             track={trackPlacing(project ?? target.project, clip.id)}
             // The project's own, so the twelve-bar window is twelve of THIS song's bars.
