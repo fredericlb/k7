@@ -1,19 +1,11 @@
-// The workspace's set lists: what `_playlists/` answers, and what making one writes. The one
-// thing worth pinning here is that the folder sits beside the ACTIVE PROJECT rather than inside
-// it — `/tree` is rooted at the project on purpose, so a listing that followed the project would
-// be empty from the day it shipped. See @studio/song/docs/playlists.md.
+// The workspace's set lists: what `_playlists/` answers. The one thing worth pinning here is
+// that the folder sits beside the ACTIVE PROJECT rather than inside it — `/tree` is rooted at the
+// project on purpose, so a listing that followed the project would be empty from the day it
+// shipped. See @studio/song/docs/playlists.md.
 
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parsePlaylist } from "@studio/song/playlist";
 import { writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
@@ -93,39 +85,6 @@ describe("Workspace.playlists", () => {
   });
 });
 
-describe("Workspace.createPlaylist", () => {
-  it("writes a stub that PARSES, and adds the extension", () => {
-    const { path } = ws.createPlaylist("été 2026");
-    expect(path).toBe("_playlists/été 2026.yaml");
-    const text = readFileSync(join(root, path), "utf8");
-    // Not an empty file: the screen draws its right-hand pane from the text, so a blank one
-    // would open on a parse failure for a playlist nobody has yet had a chance to get wrong.
-    expect(parsePlaylist(text)).toEqual({ title: "été 2026", items: [] });
-  });
-
-  it("keeps an extension already typed rather than doubling it", () => {
-    expect(ws.createPlaylist("set.yaml").path).toBe("_playlists/set.yaml");
-  });
-
-  it("refuses one that is already there rather than opening it", () => {
-    ws.createPlaylist("set");
-    // A "create" that quietly handed back somebody else's set list is how you edit the wrong
-    // one — and the file on disk must be untouched by the refusal.
-    expect(() => ws.createPlaylist("set")).toThrow(/already there/);
-    expect(
-      parsePlaylist(readFileSync(join(root, "_playlists/set.yaml"), "utf8")),
-    ).toEqual({
-      title: "set",
-      items: [],
-    });
-  });
-
-  it("cannot be talked out of the folder", () => {
-    expect(() => ws.createPlaylist("../../escaped")).toThrow();
-    expect(existsSync(join(root, "..", "escaped.yaml"))).toBe(false);
-  });
-
-  it("refuses a name that is only whitespace", () => {
-    expect(() => ws.createPlaylist("   ")).toThrow(/needs a name/);
-  });
-});
+// `Workspace.createPlaylist` was tested here — the stub, the extension, the refusals and the
+// `..` that must not leave the folder. Making a playlist is `playlist new` now, so those five
+// cases moved with the behaviour: @studio/commands' `playlist.test.ts`.

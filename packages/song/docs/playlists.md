@@ -129,11 +129,27 @@ commence par un indicateur, ce qui contient `: ` ou ` #`, et ce que YAML lirait 
 qu'une chaîne (`No`, `null`, `42`). Tout citer serait plus simple à écrire et mettrait deux
 conventions dans un fichier qui s'édite aussi à la main.
 
-## Créer
+## Créer, et ajouter une ligne
 
-`Workspace.createPlaylist` écrit le **gabarit**, pas un fichier vide : l'écran dessine son volet
-de droite à partir du texte, donc un fichier vide s'ouvrirait sur un échec de parsing pour une
-playlist que personne n'a encore eu l'occasion de rater. Il ajoute l'extension si elle manque —
-c'est elle qui fait le fichier — et refuse un nom déjà pris plutôt que de l'ouvrir : un
-« créer » qui rendrait discrètement la setlist de quelqu'un d'autre, c'est ainsi qu'on édite la
-mauvaise.
+Deux **commandes**, `playlist new <nom>` et `playlist song add <playlist> <morceau> [variante]`
+(`@studio/commands`) — les seules du catalogue qui agissent sur le dépôt (`repoDir`) plutôt que sur
+un projet, ce qui est exactement ce qu'est une playlist. Elles marchent donc sans projet ouvert.
+
+`playlist new` écrit le **gabarit**, pas un fichier vide : l'écran dessine son volet de droite à
+partir du texte, donc un fichier vide s'ouvrirait sur un échec de parsing pour une playlist que
+personne n'a encore eu l'occasion de rater. Il ajoute l'extension si elle manque — c'est elle qui
+fait le fichier — et refuse un nom déjà pris plutôt que de l'ouvrir : un « créer » qui rendrait
+discrètement la setlist de quelqu'un d'autre, c'est ainsi qu'on édite la mauvaise.
+
+`playlist song add` passe par `appendPlaylistItem` ci-dessus, donc par le TEXTE : les commentaires
+et l'ordre qu'on a écrits sont encore là après. Une forme que l'ajout ne sait pas étendre est
+refusée par son nom, jamais contournée en écrivant un second `items:` plus bas.
+
+Le nom traverse `playlistPathOf`, qui refuse un segment `..` — et le verbe vérifie en plus que le
+chemin RÉSOLU reste sous `_playlists/`, parce que cette fonction découpe sur `/` : `..\..\x` est un
+seul segment pour elle et trois pour `join` sous Windows. C'est la phrase que `safePath` dit côté
+service de fichiers, dite ici pour un chemin qui vient d'une ligne de commande.
+
+> Ces règles étaient `Workspace.createPlaylist`, derrière un `POST /playlists`. Créer une playlist
+> est une commande depuis que l'écran de st0 en dispatche une comme tout le reste de ce qu'il fait,
+> et la route était une seconde porte sur un même fichier.

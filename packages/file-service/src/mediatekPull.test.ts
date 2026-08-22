@@ -86,7 +86,7 @@ function project(...refs: string[]): string {
   );
   writeFileSync(
     join(dir, "surfaces", "desk.yaml"),
-    "type: turntables\nlayout: view\nplaylist: ce-soir\n",
+    "type: turntables\nlayout: split\nplaylist: ce-soir\n",
     "utf8",
   );
   mkdirSync(join(ws, "_playlists"), { recursive: true });
