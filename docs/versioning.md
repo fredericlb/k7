@@ -48,8 +48,8 @@ OneDev CommandStep (node -e, Europe/Paris)  →  ./build_version   e.g. "26.0803
              → <span>{VERSION}</span> in every app's chrome
 ```
 
-One stamp now covers all nine SPAs, which is the honest thing for one image: they ship
-together, so they were never separately versionable in practice.
+One stamp now covers every SPA that renders one, which is the honest thing for one image:
+they ship together, so they were never separately versionable in practice.
 
 `YY.MMDDHHmm` in Europe/Paris — `26.08031412` is 3 August 2026, 14:12. Sortable,
 readable at a glance, and short enough to sit in a header without crowding it. The
@@ -127,7 +127,7 @@ Both layers exist so the stamp can never render `undefined`.
 
 ## Where it shows
 
-All nine SPAs, now all in one image, so the nine stamps are always the same string.
+Eight of the nine SPAs, all in one image, so the eight stamps are always the same string.
 `VERSION` is read at module scope in each so it constant-folds into the bundle.
 
 | public path | SPA | render site |
@@ -136,11 +136,18 @@ All nine SPAs, now all in one image, so the nine stamps are always the same stri
 | `/` | `st0-frontend` | `apps/st0/frontend/src/App.tsx` — header, after the title |
 | `/k7` | `k7-frontend` | `apps/k7/frontend/src/views/HeaderView.tsx` — beside the mark |
 | `/z0` | `z0-online` | `src/App.tsx` — header |
-| `/z0/editor` | `z0-editor` | `src/views/EditorView.tsx` — `.topbar` |
 | `/z0/monitor` | `z0-monitor` | `src/views/MonitorView.tsx` — `.topbar` |
 | `/z0/remote` | `z0-remote` | `src/views/RemoteView.tsx` — `.status-bar` |
 | `/z0/buzzer` | `z0-buzzer` | `src/views/BuzzerView.tsx` — fixed bottom-left |
 | `/z0/presenter` | `z0-presenter` | `src/components/Game2D.tsx` — overlay, bottom-left |
+| `/z0/editor` | `z0-editor` | **nowhere** — it ships in the image and renders no stamp |
+
+`z0-editor` is the one gap, and it is listed rather than left out so the table still answers
+"what is in the image". The `z0-editor` that used to hold this row rendered its stamp in
+`src/views/EditorView.tsx`, but that was the **Grist** editor, now retired; the `.z0` project
+editor took its name, its path and its port. Its chrome is `@frediverse/ui` like st0's rather
+than z0's own CSS, so when the stamp is added the placement is st0's idiom and not the
+`.topbar` class its four siblings share.
 
 The path column is also the folder each `dist/` lands in under
 `/usr/share/nginx/html`, and the `base` its vite config declares. Those three have to

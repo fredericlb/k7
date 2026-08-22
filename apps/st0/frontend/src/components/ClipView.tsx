@@ -6,6 +6,7 @@
 // Audio used to open `WaveformView`, which draws the same picture and can act on none of it. There
 // is one audio clip panel now, and clicking a clip reaches it.
 
+import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import type { WebGraph } from "@studio/graph-model";
 import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
 import { beatsToPosition } from "@studio/song/timecode";
@@ -42,6 +43,7 @@ const FALLBACK_PROJECT: WebProject = {
   tracks: [],
   groups: [],
   metronome: false,
+  metronomeLevel: DEFAULT_METRONOME_LEVEL,
   countIn: 0,
   markers: [],
 };
@@ -365,6 +367,8 @@ export function ClipView({
             onSelection={onSelection}
             onSeek={onSeek}
             onSetLoop={onSetLoop}
+            // …and the same right-click every other entity has, here for a pad's effects.
+            onContextMenu={onContextMenu}
           />
         ) : view === "tracker" ? (
           // The tracker over the sequence FILE, headed the way the other two are — the pane's

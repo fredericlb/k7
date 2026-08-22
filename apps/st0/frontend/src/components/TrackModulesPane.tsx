@@ -28,6 +28,7 @@ export function TrackModulesPane({
   requestPluginParams,
   watchPluginParams,
   setPluginParam,
+  moduleParams,
   trackControls,
   onContextMenu,
   engineWarnings,
@@ -42,6 +43,10 @@ export function TrackModulesPane({
   requestPluginParams: (id: string) => void;
   watchPluginParams: (id: string, on: boolean) => void;
   setPluginParam: (id: string, name: string, value: number) => void;
+  /** What the modules with NO plugin are set to. A deck's tempo node hangs off a track, so it
+   *  can land in this row too — and drawing it stale here would be the same bug in a smaller
+   *  frame. Same prop as ChainsTab's. */
+  moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
   engineWarnings?: Record<string, string>;
@@ -139,6 +144,7 @@ export function TrackModulesPane({
       engineWarnings={engineWarnings}
       pluginParamsStore={pluginParamsStore}
       setPluginParam={setPluginParam}
+      moduleParams={moduleParams}
       trackControls={trackControls}
     />,
   );

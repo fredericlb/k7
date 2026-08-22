@@ -47,7 +47,7 @@ sont écrits noir sur blanc. Le problème n'est pas qu'on ignore les modes de pa
 
 ### A1 — z0 efface les préférences de la médiathèque
 
-`apps/z0/editor-v2` se lie au préfixe de **pl8** (`api.ts:42`) et y écrit par `savePrefs`. La
+`apps/z0/editor` se lie au préfixe de **pl8** (`api.ts:42`) et y écrit par `savePrefs`. La
 route est un `PUT` en remplacement intégral (`packages/user-prefs/router.ts:35-45`) et le
 document de pl8 porte deux champs (`engineId`, `playbackTarget`). Choisir une machine dans
 l'éditeur z0 **efface donc la destination de lecture de la médiathèque**. pl8 est le seul des
@@ -188,7 +188,7 @@ chemin est réécrit en dur côté navigateur (`probe.ts:170`).
 
 ### C2 — les sélecteurs de moteur, quatre copies
 
-`apps/m9/frontend/src/Gate.tsx` et `apps/z0/editor-v2/src/Gate.tsx` partagent **102 lignes non
+`apps/m9/frontend/src/Gate.tsx` et `apps/z0/editor/src/Gate.tsx` partagent **102 lignes non
 vides strictement identiques** : structure `Phase`, `findEngine`, `pick`, l'effet `auth.me`,
 les trois branches de rendu, la boucle `ranked.map`. Le `diff` ne montre qu'un bandeau de
 commentaire, l'import `useRelook`, et quatre chaînes de texte.

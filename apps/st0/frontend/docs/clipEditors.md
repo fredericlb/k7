@@ -368,6 +368,51 @@ Four rules worth knowing, each of which could reasonably have gone the other way
 - **A paste is ONE command**, so it is one journal entry and one Ctrl+Z whatever it contained. The
   pane hands the shell a command *line* rather than writing; `events add` exists for this, the
   bulk counterpart of `sequence note add` (`packages/commands/docs/`).
+- **An event is copied WHOLE** — its window, its fades, its passes, its `disabled` and its
+  `warp: false`, not just its `ref` and where it sat. See below for why that took a wire change.
+
+### Copying an event needs the placement's own words
+
+An event's attributes were dropped by a paste for a structural reason rather than an oversight: a
+**compiled clip is a placement and its material already resolved together**, and that resolution is
+one-way.
+
+| what the file says | what the compiled clip has | can you get back? |
+|---|---|---|
+| the event's `from`/`to` | `sourceFrom`/`sourceTo` — the INTERSECTION with the material's own window | no |
+| a *sequence's* `from`/`to` | `loopStart`/`loopEnd`, sharing the field with the loop range | no |
+| `loop: 4` | folded into `length`, as `4 × window` | no |
+| `fadeIn: "0:2"` | `fadeIn` in beats | only with the tempo |
+
+So `ref` and `start` were the only two fields a copy could read off a clip and write back, and the
+timeline copies off the compiled document because that is all a surface is given. A trimmed, faded,
+four-pass event pasted as one plain pass of the whole material, silently.
+
+Guessing the rest from the resolved numbers was the tempting fix and is wrong twice: writing the
+INTERSECTION as the pasted event's own window pins it to today's material — the copy stops
+following the clip file — and a sequence's window is not separable from its loop range at all.
+
+What it took instead is one field, `ClipDoc.event`, carrying the placement's own words **unmerged
+and as authored**, mirrored onto `WebClip.event`. As authored matters: a window spelled `"2:1"`
+comes back `"2:1"` rather than the seconds it means at the current tempo, because what reads it
+writes it straight back into a file that must still mean the same thing after a tempo change.
+
+Three consequences worth knowing:
+
+- **Only what the file SAID.** No `loop: 1`, no `warp: true`. A default written out is a default
+  the paste would then write into the new lane's file, restating what its absence already says —
+  and this rides on a document polled every two seconds.
+- **`start` is the only field a paste re-spells.** The window and the fades measure into the
+  MATERIAL — seconds into a file, positions in a sequence's notes — while `start` is a position in
+  the arrangement. Offsetting them too would play a different slice of the file the further along
+  you pasted.
+- **The engine ignores it**, like `warpOff` and `disabled` beside it: it is handed the merged
+  answer as ever. Verified by rendering a document that carries one, not by TypeScript — the C++
+  reads named keys, so an unknown one costs it nothing.
+
+`events add` takes the whole placement vocabulary to receive it, and validates against
+`PlacementSchema` rather than field by field: that schema is `.strict()`, so a key this verb has no
+business writing is refused by name instead of landing in a lane's file.
 
 **Neither is a `ui` command any more.** `ui` promises to touch nothing of the project, and by that
 rule the copy belonged to it — the clipboard is the shell's and no file moves — while the paste

@@ -29,6 +29,35 @@ and it happens to agree again because the editor took the name the médiathèque
 > | `/api/*` | **8789** | st0's backend — the engine registry |
 > | `/auth/*` | **8789** | st0's backend — the origin's OIDC flow |
 > | `/pl8/api/*` | 8795 | pl8's backend |
+> | `/k7` | 5173 | k7's dev server |
+> | `/k7/api/*`, `/k7/rtc*` | 8787 | k7's backend — prefix STRIPPED |
+> | `/z0/api/*`, `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` | 8080 | z0's backend — prefix STRIPPED |
+> | `/z0/presenter` | 3001 | |
+> | `/z0/monitor` | 3002 | |
+> | `/z0/buzzer` | 3004 | |
+> | `/z0/remote` | 3005 | |
+> | `/z0/editor` | 3006 | the `.z0` project editor |
+> | `/z0` | 3003 | `z0-online`, the apex — must come LAST of the z0 rules |
+>
+> The SPA rows are **not** stripped: each vite `base` is the full public path, so the dev
+> server has to see it. Only the API rows strip.
+>
+> **Delete any `/z0/editor-v2` rule you still have.** It routed the `.z0` project editor while
+> that editor was being built beside the Grist one; the Grist editor is retired, and the
+> survivor took `/z0/editor` and port 3006, so the rule above already covers it. This is also
+> why the table now lists the SPAs instead of stopping at pl8 — the omission is what let the
+> editor-v2 rule go missing on the other machine in the first place, and the symptom was
+> unhelpful: `/z0/editor` is a literal string prefix of `/z0/editor-v2`, so a proxy matching raw
+> prefixes handed the project address to the Grist editor on 3006, which answered with vite's
+> own message about its `base`:
+>
+> ```
+> The server is configured with a public base URL of /z0/editor/ —
+> did you mean to visit /z0/editor/z0/editor-v2/lemo_mante/session-2304.z0 instead?
+> ```
+>
+> That reads like a bad link on st0's home page. It was not: the address was correct and the
+> proxy sent it to the wrong dev server. One name means the two can no longer overlap.
 >
 > **`/auth/*` follows the root**, so it moved to 8789 with everything else. The registered
 > `redirect_uri` is `<origin>/auth/callback` and has no prefix, so the flow belongs to whichever

@@ -25,6 +25,7 @@ import {
 import {
   type Cam,
   type ChainsCamApi,
+  type ChainsIcons,
   DomChains,
 } from "@studio/ui-chains-react";
 import { ChevronRight, List } from "lucide-react";
@@ -51,6 +52,7 @@ export function ChainsTab({
   organizeKey = 0,
   active,
   showList,
+  icons = STUDIO_ICONS,
   trackOrder,
   project,
   command,
@@ -77,6 +79,7 @@ export function ChainsTab({
   requestPluginParams,
   watchPluginParams,
   setPluginParam,
+  moduleParams,
   trackControls,
   onTrackToggle,
   onTrackSet,
@@ -94,6 +97,12 @@ export function ChainsTab({
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
   active: boolean;
   showList: boolean; // the sidebar is fullscreen chrome; the global view's pane is canvas only
+  /**
+   * Which glyph set the nodes wear. Defaulted, so the mounts that draw an ordinary song say
+   * nothing; a SET passes `DECK_ICONS`, whose lane glyph is a record rather than the question
+   * mark a name with no instrument prefix earns. See chainsIcons.tsx.
+   */
+  icons?: ChainsIcons;
   // The engine's track order; liveness is derived off the store here, so only the graph re-runs it.
   trackOrder: string[];
   /** The compiled doc, for the one thing the graph cannot derive on its own: which notes a lane
@@ -205,6 +214,15 @@ export function ChainsTab({
   requestPluginParams: (id: string) => void;
   watchPluginParams: (id: string, on: boolean) => void;
   setPluginParam: (id: string, name: string, value: number) => void;
+  /**
+   * What each `offline` module is currently set to — the desk's numbers, lent to the graph.
+   *
+   * An `offline` module compiles to no plugin, so the engine has nothing to report and no id to
+   * report it under: a tempo node's knob would draw the number `project.yaml` declares and never
+   * move. Passing this is what turns those widgets on at all, which is why it is optional and
+   * why the shell only passes it when a surface is actually realising them (see App).
+   */
+  moduleParams?: Record<string, Record<string, number>>;
   // Live mixer state plus the two callbacks a track node's controls actuate — pure pass-through to the canvas.
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
@@ -921,7 +939,7 @@ export function ChainsTab({
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
-            icons={STUDIO_ICONS}
+            icons={icons}
             // The mixer arrangement is a ROW: the wheel walks along it and nothing pans
             // vertically. Derived from the same list that made it a row, so the two cannot
             // disagree about which view is on.
@@ -951,6 +969,7 @@ export function ChainsTab({
             onWatchWaveform={onWatchWaveform}
             pluginParamsStore={pluginParamsStore}
             setPluginParam={setPluginParam}
+            moduleParams={moduleParams}
             trackControls={trackControls}
             onTrackToggle={onTrackToggle}
             onTrackSet={onTrackSet}

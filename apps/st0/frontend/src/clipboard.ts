@@ -9,14 +9,67 @@ export interface CopiedNote {
   t: number;
   d: number;
   v?: number;
+  // A PAD's effects ride along, for the reason an event's window does: a copy is of the thing you
+  // copied. See @studio/song docs/padEffects.md.
+  repeat?: number;
+  skip?: number;
 }
 
-/** One copied event. `row` is lanes below the rectangle's top, `start` beats from its left edge. */
+/**
+ * One copied event. `row` is lanes below the rectangle's top, `start` beats from its left edge.
+ *
+ * Everything after those is the placement's OWN words, carried whole so a paste puts down the
+ * event you copied rather than a bare `ref` at a new position. They were dropped until they were
+ * on the wire to be copied: a compiled clip is a placement and its material already merged, so
+ * `ref` and `start` were the only two fields that survived being read back off one. A trimmed,
+ * faded, four-pass event pasted as an untrimmed single pass of the whole material.
+ *
+ * `loop` was declared here throughout and never once set — `laneEvents` had no repeat count to
+ * give it — which is worth knowing before trusting a field that merely exists.
+ */
 export interface CopiedEvent {
   row: number;
   ref: string;
   start: number;
+  /** The window into the material: seconds for a clip, a timecode for a sequence. As authored. */
+  from?: number | string;
+  to?: number | string;
+  fadeIn?: string;
+  fadeOut?: string;
   loop?: number;
+  disabled?: boolean;
+  warp?: boolean;
+}
+
+/** The placement fields a copy carries beside `ref`/`start` — the shape `WebClip.event` has. */
+export interface EventAttrs {
+  from?: number | string;
+  to?: number | string;
+  fadeIn?: string;
+  fadeOut?: string;
+  loop?: number;
+  disabled?: boolean;
+  warp?: boolean;
+}
+
+/**
+ * The authored fields worth carrying, with the absent ones left out.
+ *
+ * Rebuilt key by key rather than spread wholesale: what arrives is a wire object, and copying it
+ * in one go would carry any field a newer producer added into a `events add` payload that has not
+ * been taught to check it. The vocabulary a paste can write is stated once, here.
+ */
+function attrsOf(e: EventAttrs | undefined): EventAttrs {
+  if (!e) return {};
+  return {
+    ...(e.from !== undefined ? { from: e.from } : {}),
+    ...(e.to !== undefined ? { to: e.to } : {}),
+    ...(e.fadeIn ? { fadeIn: e.fadeIn } : {}),
+    ...(e.fadeOut ? { fadeOut: e.fadeOut } : {}),
+    ...(e.loop && e.loop > 1 ? { loop: e.loop } : {}),
+    ...(e.disabled ? { disabled: true } : {}),
+    ...(e.warp === false ? { warp: false } : {}),
+  };
 }
 
 /**
@@ -65,6 +118,8 @@ export function copyNotes(
     time: number;
     duration: number;
     vel?: number;
+    repeat?: number;
+    skip?: number;
   }[],
   sequence: string,
   loKey: number,
@@ -90,6 +145,8 @@ export function copyNotes(
       t: n.time - from,
       d: n.duration,
       ...(n.vel === undefined || n.vel === 1 ? {} : { v: n.vel }),
+      ...(n.repeat ? { repeat: n.repeat } : {}),
+      ...(n.skip ? { skip: n.skip } : {}),
     })),
   };
 }
@@ -106,7 +163,14 @@ export function pasteNotes(
   clip: Clipboard,
   topKey: number,
   at: number,
-): { t: number; d: number; k: number; v?: number }[] {
+): {
+  t: number;
+  d: number;
+  k: number;
+  v?: number;
+  repeat?: number;
+  skip?: number;
+}[] {
   if (clip.kind !== "notes") return [];
   return clip.notes
     .map((n) => ({
@@ -114,6 +178,10 @@ export function pasteNotes(
       t: at + n.t,
       d: n.d,
       ...(n.v === undefined ? {} : { v: n.v }),
+      // Unchanged by the offset: `repeat` counts inside the note's own duration and `skip` counts
+      // passes, so neither means anything about where the pad was put down.
+      ...(n.repeat ? { repeat: n.repeat } : {}),
+      ...(n.skip ? { skip: n.skip } : {}),
     }))
     .filter((n) => n.k >= 0 && n.k <= 127 && n.t >= 0);
 }
@@ -126,7 +194,7 @@ export function pasteNotes(
  */
 export function copyEvents(
   rows: readonly {
-    events: readonly { ref: string; start: number; loop?: number }[];
+    events: readonly { ref: string; start: number; event?: EventAttrs }[];
   }[],
   from: number,
   to: number,
@@ -139,7 +207,7 @@ export function copyEvents(
           row,
           ref: e.ref,
           start: e.start - from,
-          ...(e.loop && e.loop > 1 ? { loop: e.loop } : {}),
+          ...attrsOf(e.event),
         });
   if (!events.length) return null;
   return { kind: "events", events, rows: rows.length, beats: to - from };
@@ -157,14 +225,17 @@ export function pasteEvents(
   clip: Clipboard,
   lanes: readonly string[],
   at: number,
-): { track: string; ref: string; start: number; loop?: number }[] {
+): ({ track: string; ref: string; start: number } & EventAttrs)[] {
   if (clip.kind !== "events") return [];
   return clip.events.flatMap((e) => {
     const track = lanes[e.row];
     if (!track) return [];
     const start = at + e.start;
     if (start < 0) return [];
-    return [{ track, ref: e.ref, start, ...(e.loop ? { loop: e.loop } : {}) }];
+    // The window and the fades ride along UNCHANGED while only `start` moves: they measure into
+    // the material, not into the arrangement, so a paste four bars later plays the same slice of
+    // the same file. It is the one pair of coordinates a paste must NOT offset.
+    return [{ track, ref: e.ref, start, ...attrsOf(e) }];
   });
 }
 

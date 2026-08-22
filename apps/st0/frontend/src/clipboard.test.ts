@@ -120,7 +120,7 @@ describe("copying events", () => {
         { ref: "kick", start: 8 },
       ],
     },
-    { events: [{ ref: "snare", start: 2, loop: 4 }] },
+    { events: [{ ref: "snare", start: 2, event: { loop: 4 } }] },
   ];
 
   it("takes what starts inside, keyed by the row's offset", () => {
@@ -133,10 +133,88 @@ describe("copying events", () => {
     expect(c.rows).toBe(2);
   });
 
-  it("keeps a loop count only when there is one to keep", () => {
-    const c = copyEvents([{ events: [{ ref: "a", start: 0, loop: 1 }] }], 0, 4);
+  /**
+   * The whole placement, not just where it sat.
+   *
+   * A compiled clip is a placement and its material already merged — `sourceFrom`/`sourceTo` are
+   * the intersection of two windows, a sequence's window went into the loop range, the passes were
+   * multiplied into `length` — so `ref` and `start` were the only fields a copy could read back
+   * off one. A trimmed, faded, four-pass, warp-declining event came back as a plain single pass of
+   * the whole material, and nothing said so.
+   */
+  it("carries every attribute the placement stated", () => {
+    const c = copyEvents(
+      [
+        {
+          events: [
+            {
+              ref: "gtr",
+              start: 0,
+              event: {
+                from: 1.5,
+                to: 6.5455,
+                fadeIn: "0:2",
+                fadeOut: "0:1",
+                loop: 3,
+                disabled: true,
+                warp: false,
+              },
+            },
+          ],
+        },
+      ],
+      0,
+      4,
+    );
     if (c?.kind !== "events") return;
-    expect(c.events[0].loop).toBeUndefined();
+    expect(c.events[0]).toEqual({
+      row: 0,
+      ref: "gtr",
+      start: 0,
+      from: 1.5,
+      to: 6.5455,
+      fadeIn: "0:2",
+      fadeOut: "0:1",
+      loop: 3,
+      disabled: true,
+      warp: false,
+    });
+  });
+
+  // A timecode window survives as the STRING it was written as. Re-spelling it in seconds would
+  // need the tempo, and a copy has no business baking today's tempo into a sequence's window.
+  it("keeps a window spelled as a timecode spelled that way", () => {
+    const c = copyEvents(
+      [{ events: [{ ref: "s", start: 0, event: { from: "2:1", to: "4:1" } }] }],
+      0,
+      4,
+    );
+    if (c?.kind !== "events") return;
+    expect(c.events[0].from).toBe("2:1");
+    expect(c.events[0].to).toBe("4:1");
+  });
+
+  /**
+   * Only what the file SAID. A default written out is a default the paste would then write into
+   * the new lane's file — `loop: 1` and `warp: true` on every duplicated event, restating what
+   * their absence already says.
+   */
+  it("leaves out the defaults", () => {
+    const c = copyEvents(
+      [{ events: [{ ref: "a", start: 0, event: { loop: 1, warp: true } }] }],
+      0,
+      4,
+    );
+    if (c?.kind !== "events") return;
+    expect(c.events[0]).toEqual({ row: 0, ref: "a", start: 0 });
+  });
+
+  // An event that stated nothing copies as the three fields it has, with no empty attributes
+  // hanging off it — which is also what keeps the payload of a big paste small.
+  it("adds nothing to an event that said nothing", () => {
+    const c = copyEvents([{ events: [{ ref: "a", start: 0 }] }], 0, 4);
+    if (c?.kind !== "events") return;
+    expect(c.events[0]).toEqual({ row: 0, ref: "a", start: 0 });
   });
 
   // The shape the CARET's copy takes when no rectangle is drawn: one lane, and the clicked
@@ -185,5 +263,42 @@ describe("pasting events", () => {
   it("refuses to paste the other KIND", () => {
     const notes = copyNotes([note(60, 0)], "r", 60, 60, 0, 4) as Clipboard;
     expect(pasteEvents(notes, ["gtr"], 0)).toEqual([]);
+  });
+
+  /**
+   * `start` moves; the window and the fades do NOT.
+   *
+   * They measure into the MATERIAL — seconds into a file, positions in a sequence's notes — while
+   * `start` is a position in the arrangement. Offsetting them by the paste distance would play a
+   * different slice of the file the further along you pasted, which is the one way this could go
+   * wrong while still looking plausible on screen.
+   */
+  it("moves the start and leaves the material's coordinates alone", () => {
+    const c = copyEvents(
+      [
+        {
+          events: [
+            {
+              ref: "gtr",
+              start: 4,
+              event: { from: 1.5, to: 6.5455, fadeIn: "0:2", loop: 3 },
+            },
+          ],
+        },
+      ],
+      4,
+      8,
+    ) as Clipboard;
+    expect(pasteEvents(c, ["bass"], 64)).toEqual([
+      {
+        track: "bass",
+        ref: "gtr",
+        start: 64,
+        from: 1.5,
+        to: 6.5455,
+        fadeIn: "0:2",
+        loop: 3,
+      },
+    ]);
   });
 });

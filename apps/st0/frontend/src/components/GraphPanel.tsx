@@ -30,6 +30,7 @@ export function GraphPanel({
   onContextMenu,
   pluginParamsStore,
   setPluginParam,
+  moduleParams,
   trackControls,
   onTrackToggle,
   onTrackSet,
@@ -70,6 +71,9 @@ export function GraphPanel({
    */
   pluginParamsStore: PluginParamsStore;
   setPluginParam: (id: string, name: string, value: number) => void;
+  /** …and the third source, for the modules the engine holds NOTHING of. Same prop, same
+   *  reason as ChainsTab's: without it a tempo node draws its file's number forever. */
+  moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
   onTrackSet?: (
@@ -149,6 +153,7 @@ export function GraphPanel({
         engineWarnings={engineWarnings}
         pluginParamsStore={pluginParamsStore}
         setPluginParam={setPluginParam}
+        moduleParams={moduleParams}
         trackControls={trackControls}
         onTrackToggle={onTrackToggle}
         onTrackSet={onTrackSet}

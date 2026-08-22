@@ -28,6 +28,7 @@ import {
   Clock,
   Ghost,
   Music,
+  Plus,
   Repeat,
   StretchVertical,
   Timer,
@@ -133,8 +134,14 @@ const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 // A track row as the CLIPBOARD reads it — the placements it holds, by ref and start beat. Both
 // halves of `copy` go through it (a rectangle's lanes, and the one lane the caret is on), so what
 // a copied event is called cannot depend on which of the two put it there.
+// `event` is the placement's own words, which the rest of a compiled clip has already merged away
+// — without it a copy can only carry the material's name and where it sat. See clipboard.ts.
 const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
-  events: r.track.clips.map((c) => ({ ref: materialOf(c), start: c.start })),
+  events: r.track.clips.map((c) => ({
+    ref: materialOf(c),
+    start: c.start,
+    event: c.event,
+  })),
 });
 
 // A selected label wears the caret cell's fill + outline: it IS the caret, parked on the row instead of the lane.
@@ -600,6 +607,7 @@ export function TimelineTab({
   onCaret,
   onView,
   onContextMenu,
+  onNewTrack,
   onSeek,
   onSetLoop,
   onMoveEvent,
@@ -706,6 +714,9 @@ export function TimelineTab({
   }) => void;
   // Right-click: report what is under the cursor and where, so the shell can open its menu (see contextMenu.ts).
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
+  /** Make a lane — the corner button over the name column. Absent ⇒ no button, which is what a
+   *  frozen or read-only song gets. */
+  onNewTrack?: () => void;
   // Move the transport, in seconds — the same engine seek the minimap's click uses.
   onSeek?: (seconds: number) => void;
   // Set/clear the transport loop region, in seconds (Shift+L → toggleLoop below).
@@ -1847,11 +1858,19 @@ export function TimelineTab({
           };
         const num = proj.timeSigNumerator;
         const den = proj.timeSigDenominator;
+        // `start` is the only field re-spelled: it is a position in the ARRANGEMENT and the paste
+        // moved it. The window and the fades measure into the material and go over verbatim.
         const payload = out.map((e) => ({
           track: e.track,
           ref: e.ref,
           start: beatsToPosition(e.start, num, den),
+          ...(e.from !== undefined ? { from: e.from } : {}),
+          ...(e.to !== undefined ? { to: e.to } : {}),
+          ...(e.fadeIn ? { fadeIn: e.fadeIn } : {}),
+          ...(e.fadeOut ? { fadeOut: e.fadeOut } : {}),
           ...(e.loop ? { loop: e.loop } : {}),
+          ...(e.disabled ? { disabled: true } : {}),
+          ...(e.warp === false ? { warp: false } : {}),
         }));
         const dropped = droppedCount(out.length, c);
         return {
@@ -2311,8 +2330,25 @@ export function TimelineTab({
                 its own — the ruler row it sits in is opaque across the full width. */}
             <div
               style={{ width: GUTTER }}
-              className="sticky left-0 shrink-0 border-r border-border bg-background"
-            />
+              className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-background px-1"
+            >
+              {/* NEW TRACK, in the corner over the name column — the one place that is above the
+                  list of lanes and scrolls with neither axis. It is `track new` like everything
+                  else here, so it journals and undoes as one step; the lane it makes is named for
+                  you, and renaming is the gutter's own business. Hidden on a frozen song, where
+                  every other structural edit is refused too. */}
+              {onNewTrack && (
+                <button
+                  type="button"
+                  onClick={onNewTrack}
+                  title="nouvelle piste (track new)"
+                  className="flex h-5 items-center gap-1 rounded px-1 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-3 w-3" />
+                  piste
+                </button>
+              )}
+            </div>
             {/* The ruler is both the transport scrubber and a time-range selector. A plain
                 CLICK moves the playhead to the nearest DRAWN tick, and moves nothing else —
                 the caret stays where you left it. A DRAG sweeps a selection over the dragged

@@ -8,7 +8,13 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
 import { MASTER_MAX_DB } from "@studio/song/yaml/projectSchema";
-import { useEffect, useRef, useState } from "react";
+import {
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { TARGET_DB } from "../gainTrim";
 
 /** The bottom of the scale, in dB. Below this the bar is empty rather than negative. */
@@ -75,11 +81,30 @@ export const peakHold = (
   wasPlaying: boolean,
 ): number => (newPass(playing, wasPlaying) ? now : Math.max(held, now));
 
+/**
+ * What the Fix button knows and nothing else does — read by `project master fix`.
+ *
+ * The verb is the shell's (`palette.ts` says why it cannot be the backend's) and the reading is
+ * this leaf's, so the two meet at a handle rather than through a prop threaded back up: the peak
+ * is folded during render at 20 Hz, and a callback reporting it would re-render App on every
+ * frame to carry a number nobody looks at until the transport has stopped.
+ *
+ * `take` marks the OFFER spent, which is what the button does on its click. The command calls it
+ * too — otherwise a line run from the bar would leave the button up and a second run would take
+ * another 6 dB off a mix already brought down.
+ */
+export interface MasterMeterHandle {
+  /** The pass's loudest, and whether there is anything to offer about it. */
+  pass(): { peak: number; offered: boolean };
+  take(): void;
+}
+
 export function MasterMeter({
   className,
   onFix,
   master,
   onMaster,
+  ref,
 }: {
   className?: string;
   /**
@@ -89,8 +114,12 @@ export function MasterMeter({
    * store twenty times a second and knows nothing of the project. Which faders exist and how a
    * level is written is App's (`gainTrim.ts` is the arithmetic between them). Absent — a host
    * with nothing to lower — and the button is not drawn at all.
+   *
+   * It takes no argument any more: what it runs is `project master fix`, and a command reads the
+   * pass off the handle below rather than being handed it — the bar can run the same line, and a
+   * measurement that arrived only with the click would leave that line nothing to spend.
    */
-  onFix?: (peakDb: number) => void;
+  onFix?: () => void;
   /**
    * The song's output level in dB, and how to write it — the fader under the bar.
    *
@@ -100,6 +129,7 @@ export function MasterMeter({
    */
   master?: number;
   onMaster?: (db: number) => void;
+  ref?: Ref<MasterMeterHandle>;
 }) {
   const db = useEngineState((s) => s.master);
   const overload = useEngineState((s) => s.masterClipped);
@@ -152,6 +182,18 @@ export function MasterMeter({
    */
   const peak = useRef(FLOOR_DB);
   peak.current = peakHold(peak.current, db, playing, wasPlaying.current);
+
+  // …and the same two facts the button is drawn from, for the command that does the same thing.
+  // Rebuilt when either changes rather than reading state through a stale closure; the peak is a
+  // ref, so it is fresh whenever it is asked for.
+  useImperativeHandle(
+    ref,
+    (): MasterMeterHandle => ({
+      pass: () => ({ peak: peak.current, offered: clipped && !fixed }),
+      take: () => setFixed(true),
+    }),
+    [clipped, fixed],
+  );
 
   /**
    * What the fader SHOWS while it is being dragged, before the file has answered.
@@ -213,7 +255,7 @@ export function MasterMeter({
             type="button"
             onClick={() => {
               setFixed(true);
-              onFix(peak.current);
+              onFix();
             }}
             title={`baisser toutes les tranches d'un même gain, pour un pic à ${TARGET_DB} dB`}
             className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"

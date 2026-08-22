@@ -150,7 +150,7 @@ et `/surface`. Les douze autres sont de la plomberie interne exposée.
 | `probeLocalEngine` | `packages/engine-browser/src/probe.ts` | remplacé par le registre ; il ne reste que de la prose qui en parle au passé. Le supprimer ferait tomber une sonde loopback que rien ne rejoue : à trancher, pas à laisser pourrir. |
 | type `Signal` | `packages/dsp/src/index.ts` | `@deprecated`, plus une seule référence dans tout le dépôt. |
 | `rollGridPlugin` / `trackerPlugin` | `packages/ui-editor/src/tracker/plugin.ts` | les deux extensions CodeMirror qui remplacent le `notes:` **sur place**, dans le texte. Le seul hôte des grilles (st0, `SeqGrid.tsx`) passe par `mountSeqGrid`, qui rend la même grille dans un conteneur à part. Elles gardent une propriété que `mountSeqGrid` n'a pas — l'enveloppe YAML reste visible autour de la grille. |
-| export `AuthUser` | `apps/pl8/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. **Et il y en a un second dans le même cas** : `apps/z0/editor-v2/src/api.ts`. |
+| export `AuthUser` | `apps/pl8/frontend/src/api.ts` | utilisé dans son propre fichier, importé par personne : c'est l'`export` qui est de trop. **Et il y en a un second dans le même cas** : `apps/z0/editor/src/api.ts`. |
 | ~~`libraryStore.ts`~~ | ~~`packages/ui-module-builder/src/`~~ | **SUPPRIMÉ le 2026-08-21.** Le fichier entier — `libraryModuleStore` et `LibraryFileIO` — n'était prononcé nulle part, pas même par lui-même, alors que son en-tête affirmait servir « pl8's own screen and st0's Libraries tab » et que `docs/store.md` le documentait comme branché. La preuve était dans `apps/pl8/frontend/src/api.ts`, qui y renvoyait en son milieu et portait au bas du **même fichier** la pierre tombale disant que la section avait disparu. Trouvé par la passe 4, pas par les yeux. |
 | sous-chemin `./timeline` | `packages/commands/package.json` | **RETIRÉ le 2026-08-21.** `src/timeline.ts` est vivant — un script documenté (`commands.yaml`), lancé par `npx tsx`. Mais un script se lance par CHEMIN : la carte `exports` ne pouvait servir à personne. Le fichier reste, le sous-chemin non. Même famille que `dsp/src/emit.ts` au §0, sauf que celui-là n'était pas publié. |
 | `frame.mjs` | `packages/engine-client/` | **NOUVEAU, et trouvé par knip à son tout premier passage.** Un brouillon de sonde : neuf lignes, un chemin ABSOLU en dur vers `C:/Users/flb/.studio/engine-id.json`, aucun appelant. Suivi par git, et committé dans `a4808e35` — le dernier commit au moment du relevé. **Non supprimé** : il vient d'atterrir, donc c'est à son auteur de dire s'il partait ou s'il restait. |
@@ -241,13 +241,15 @@ générateur qui saurait dessiner autre chose que des boutons.
 ### Le client d'auth — ~~deux comportements~~ RÉGLÉ
 
 `loginUrl` doit être un **getter**, pour capturer l'adresse où l'on est *au moment du clic*.
-Les quatre copies (`k7`, `st0`, `pl8`, `z0/editor-v2`) en sont une aujourd'hui. Ce constat
+Les quatre copies (`k7`, `st0`, `pl8`, `z0/editor`) en sont une aujourd'hui. Ce constat
 disait « le correctif n'a pas voyagé » ; il a voyagé depuis. Gardé barré plutôt que retiré,
 pour que la prochaine passe ne le redécouvre pas comme une nouveauté.
 
-**`AuthUser` était déclarée neuf fois** — st0, pl8, z0/editor-v2, et les six SPA de z0. Quatre de
-ces déclarations sont parties avec la déduplication ci-dessous ; il en reste cinq, et seule celle
-de st0 porte `email?: string | null` et `groups?: string[]`.
+**`AuthUser` était déclarée neuf fois** — st0, pl8, l'éditeur de projet (`z0/editor-v2` à
+l'époque, `z0/editor` depuis qu'il a repris le nom de l'éditeur Grist retiré), et les six SPA que
+z0 avait alors. Quatre de ces déclarations sont parties avec la déduplication ci-dessous ; il en
+reste cinq, et seule celle de st0 porte `email?: string | null` et `groups?: string[]`. Le
+retrait de l'écran Grist n'a rien changé à ce compte : il ne faisait que ré-exporter le type.
 
 ### Le magasin d'auth de z0 : quatre fichiers identiques à l'octet — RÉGLÉ
 
@@ -303,7 +305,7 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
 - **Le spinner plein écran**, ~~quatre~~ **cinq** copies du même bloc :
   `apps/st0/frontend/src/components/{AuthGate,EngineGate}.tsx`,
   `packages/project-shell/src/ProjectGate.tsx` (parti de st0 depuis),
-  `apps/pl8/frontend/src/Gate.tsx` et `apps/z0/editor-v2/src/Gate.tsx`. Laissé tel quel : des
+  `apps/pl8/frontend/src/Gate.tsx` et `apps/z0/editor/src/Gate.tsx`. Laissé tel quel : des
   blocs de présentation courts, sans risque de dérive silencieuse — mais il en pousse une par
   gate, ce qui n'était pas prévu quand ce constat disait « quatre ».
 - **Les quatre `turbo.json` d'app** (`apps/{k7,st0,pl8,z0}`) sont **identiques octet pour
@@ -312,7 +314,7 @@ bundle. Écrites ici pour qu'on cesse de les prendre pour de la paresse.
 
 ### Laissé exprès
 
-`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor-v2/src/Gate.tsx` —
+`where()` (`apps/pl8/frontend/src/engine/EnginePicker.tsx`, `apps/z0/editor/src/Gate.tsx` —
 les deux chemins de ce constat avaient tous les deux bougé) est deux lignes identiques dont le
 seul foyer naturel serait `packages/web-protocol/quality.ts`, à côté de `formatLatency` — mais
 ce paquet ne contient **aucune chaîne d'interface en français**, et « hors de portée » y ferait

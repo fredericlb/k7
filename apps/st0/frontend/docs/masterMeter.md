@@ -87,6 +87,34 @@ It is a callback (`onFix`), not an act the meter performs. Which faders exist an
 written is the host's business; the meter's contribution is the one thing only it saw — the peak.
 A host that passes no `onFix` draws no button.
 
+## …and the button runs a COMMAND, like every other button here
+
+`project master fix` is the verb (`docs/shell.md`, *every action on screen is a command*), so the
+mix can be brought down from the bar, from a key, from the right-click menu — and the transcript
+says a trim happened rather than showing thirty `node param` lines with nothing above them.
+
+It is **web-local** (`palette.ts`'s `LOCAL_COMMANDS`) although every write it makes is a backend
+verb, and the reason is the measurement rather than the act: the pass's peak exists nowhere but in
+the browser that watched it go by. The engine reports a level per frame and keeps no maximum, and
+by the time anything is clicked the transport has stopped and the bar reads silence. A backend
+`project master fix` would have nothing to compute a trim from.
+
+Which leaves one thing to say between the two, and `MasterMeterHandle` is it:
+
+| the handle | why it exists |
+|---|---|
+| `pass()` | the peak, and whether there is anything to offer about it — a command can be run at any moment, including one where nothing has clipped |
+| `take()` | mark the offer spent, which is what the click already did to itself — otherwise a line run from the BAR would leave the button up, and the next click would take another 6 dB off a mix already brought down |
+
+A handle and not a prop threaded back up, for the reason the whole component is a leaf: the peak is
+folded during render at 20 Hz, and a callback reporting it would re-render `App` on every frame to
+carry a number nobody reads until the transport has stopped.
+
+**A dB may be given** — `project master fix -2.4` — and then the meter is not consulted at all.
+That is the line for a pass this browser did not see. Without one, a pass that did **not** clip is
+refused rather than trimmed: `trimFor` floors the peak at full scale, so this verb has no no-op to
+fall back on and "nothing to fix" has to be said out loud.
+
 ## The fader under it
 
 The bar says how loud the mix IS; the fader under it says how loud it should be — the song's own

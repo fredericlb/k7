@@ -4,7 +4,6 @@
 
 import type { EngineClient, EngineInputDevice } from "@studio/engine-browser";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
 
 const NONE: EngineInputDevice[] = [];
 
@@ -24,10 +23,19 @@ const NONE: EngineInputDevice[] = [];
  * `regroup` re-asks straight after: the engine sends nothing back for it (the layout has exactly one
  * route to a client, and a second would be a second thing to keep in step), and it forces the
  * device-list rebuild through before it answers anything else, so the next reply is the new grouping.
+ *
+ * The act itself is a COMMAND — `system channel type <channel> <mono|stereo>` — and not this hook's
+ * two calls any more. It was the engine message on the shell's own socket plus a write to the rig's
+ * preferences, which is one act with two doors and no name: nothing in the palette could pair two
+ * inputs, and nothing in the log said anybody had. The verb does both on the service's side; what
+ * is left here is asking the engine what it became.
  */
 export function useInputDevices(
   engine: EngineClient | null,
   want: boolean,
+  /** How to run a command line. The re-ask waits on it, so the devices are read back after the
+   *  grouping has actually changed rather than one round trip before it. */
+  command: (line: string) => Promise<void>,
 ): {
   devices: EngineInputDevice[];
   regroup: (channel: number, stereo: boolean) => void;
@@ -48,16 +56,14 @@ export function useInputDevices(
 
   const regroup = useCallback(
     (channel: number, stereo: boolean) => {
-      if (!engine) return;
-      engine.setInputStereo(channel, stereo);
-      setAsked((n) => n + 1); // …and read back what the interface became
-      // The engine forgets this across a restart as surely as it forgets which interface to open,
-      // so the rig's file is what makes it stick — replayed by engineLink on the next connect.
-      // Fire and forget: the grouping has already happened, and a failed write costs its memory,
-      // not the act.
-      void api.setInputPair(channel, stereo).catch(() => {});
+      // …and read back what the interface became, once the verb has been through. Bumped even on
+      // a refusal: the question is "what is the grouping now", and the honest answer after a
+      // command that did not land is the one the engine already had.
+      void command(
+        `system channel type ${channel} ${stereo ? "stereo" : "mono"}`,
+      ).finally(() => setAsked((n) => n + 1));
     },
-    [engine],
+    [command],
   );
 
   return { devices, regroup };

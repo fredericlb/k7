@@ -593,8 +593,22 @@ export function AudioClipPanel({
   }, [rolling, wf, zoomTo]);
 
   return (
+    /**
+     * `w-full min-w-0 flex-1` and not only `h-full` — the width half is what this was missing.
+     *
+     * This panel takes the GRAPH's place, and that pane is a flex ROW. A child with no width rule
+     * is sized by its content, and this one's content is a canvas that `Waveform` sizes to 100% of
+     * ITS parent — which is this section. The two then define each other, and the loop settles on
+     * the canvas's unmeasured default of 800px: the panel drew at ~880px in a pane twice that, and
+     * resizing the window changed nothing, because nothing in the chain ever read the window.
+     *
+     * These are the classes `GraphSlotPane` puts on every other occupant of this pane; its own
+     * header warns that a root which does not fill the pane gets patched at the mount site
+     * instead. This panel draws its own header and close button, so it never went through that
+     * frame — and it was the last occupant still paying for it.
+     */
     <section
-      className="flex h-full min-h-0 flex-col gap-1 bg-card/40 px-3 py-2"
+      className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-1 bg-card/40 px-3 py-2"
       aria-label={rolling ? "prise en cours" : `clip ${clip ?? ""}`}
     >
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
