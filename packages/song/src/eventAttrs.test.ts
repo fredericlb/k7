@@ -1,0 +1,105 @@
+// `ClipDoc.event` — the placement's own words, carried through the compiler UNMERGED.
+//
+// Everything else on a compiled clip is the placement and its material resolved together, and that
+// resolution is one-way: the two windows are intersected into `sourceFrom`/`sourceTo`, a sequence's
+// window becomes a loop range, the passes are multiplied into `length`. So a surface could draw an
+// event off a compiled document and could not write one back — which is what made copy/paste on the
+// timeline drop the trim, the fades and the passes (apps/st0/frontend/src/clipboard.ts).
+
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { compileNodeProject } from "./nodeProject";
+import type { ClipDoc } from "./project";
+import { writeLane, writeModule, writeYaml } from "./testSupport";
+
+let dir = "";
+
+/** One lane playing `riff` once, with whatever the placement wants to say about it. */
+function project(name: string, event: Record<string, unknown>): string {
+  const p = join(dir, `${name}.st0`);
+  writeYaml(join(p, "project.yaml"), { project: { name, tempo: 120 } });
+  writeModule(p, "io", "OUT", { io: "out" });
+  writeLane(p, "gtr", "track", {
+    events: [{ ref: "riff", start: "1:1:1", ...event }],
+  });
+  // The material's own window. It has to state a `to`, or a placement asking for `loop` is
+  // refused before this gets anywhere: a repeat needs an end to come round from.
+  writeYaml(join(p, "clips", "riff.yaml"), {
+    source: "clips/riff.wav",
+    to: 8,
+  });
+  writeFileSync(join(p, "clips", "riff.wav"), "");
+  writeYaml(join(p, "graph.yaml"), { modules: { gtr: ["OUT"] } });
+  return p;
+}
+
+const clipOf = (p: string): ClipDoc =>
+  compileNodeProject(p).tracks.flatMap((t) => t.clips)[0];
+
+beforeAll(() => {
+  dir = mkdtempSync(join(tmpdir(), "evattrs-"));
+});
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+describe("a placement's own words", () => {
+  it("carries every field the event stated", () => {
+    const c = clipOf(
+      project("all", {
+        from: 1.5,
+        to: 6.5455,
+        fadeIn: "0:2",
+        fadeOut: "0:1",
+        loop: 3,
+        disabled: true,
+        warp: false,
+      }),
+    );
+    expect(c.event).toEqual({
+      from: 1.5,
+      to: 6.5455,
+      fadeIn: "0:2",
+      fadeOut: "0:1",
+      loop: 3,
+      disabled: true,
+      warp: false,
+    });
+  });
+
+  /**
+   * As AUTHORED, not as resolved. A timecode window stays the string it was written as: turning it
+   * into seconds needs the tempo, and whatever reads this writes it straight back into a file that
+   * must still mean the same thing after the tempo changes.
+   */
+  it("keeps a timecode window spelled as a timecode", () => {
+    const c = clipOf(project("tc", { from: "2:1", to: "4:1" }));
+    expect(c.event?.from).toBe("2:1");
+    expect(c.event?.to).toBe("4:1");
+  });
+
+  // …and it is NOT the merged pair beside it. The compiler resolves `from` into `sourceFrom` in
+  // seconds; both are on the document, saying different things, and only one can be written back.
+  it("sits beside the resolved window rather than replacing it", () => {
+    const c = clipOf(project("both", { from: "2:1" }));
+    expect(c.event?.from).toBe("2:1"); // as written
+    expect(c.sourceFrom).toBeCloseTo(2, 6); // one bar at 120bpm, in seconds
+  });
+
+  /**
+   * Absent where the event said nothing, rather than an object full of defaults.
+   *
+   * This rides on a document polled every two seconds, and whatever copies it writes what it finds:
+   * a `loop: 1` here would become a `loop: 1` in the file of every pasted event, restating what its
+   * absence already says.
+   */
+  it("is absent on an event that stated nothing", () => {
+    expect(clipOf(project("bare", {})).event).toBeUndefined();
+  });
+
+  it("leaves out the values that mean the default", () => {
+    expect(
+      clipOf(project("dflt", { loop: 1, warp: true })).event,
+    ).toBeUndefined();
+  });
+});

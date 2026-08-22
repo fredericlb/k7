@@ -24,6 +24,14 @@ export interface Marker {
 // Project-level playback/recording settings, carried on every ProjectDoc and defaulted when the file is absent.
 export interface SettingsDoc {
   metronome: boolean; // the project's stored click-track default (the engine also has a live toggle)
+  /**
+   * How loud the click is, 0.2 … 1 — `settings.yaml`'s `metronome_level`.
+   *
+   * Never 0: silencing the click is `metronome: false`, and this range is Tracktion's own
+   * (`Edit::setClickTrackVolume` clamps to it). A level that could reach zero would be a second
+   * way to switch it off, and the two would disagree the moment one was set and the other read.
+   */
+  metronomeLevel: number;
   countIn: number; // BARS the transport rolls before an armed track records; 0 == immediately
 }
 
@@ -34,12 +42,51 @@ export interface NoteDoc {
   vel: number; // 0..1
   channel: number;
   rel: number; // release velocity 0..1
+  /**
+   * A step sequencer PAD's two effects, carried UNREALISED — see @studio/song docs/padEffects.md.
+   *
+   * `repeat` retriggers the note that many times inside its own duration; `skip` silences it on
+   * every Nth pass of the pattern. Both are expanded by the ENGINE (`insertMidiClip`), not by the
+   * compiler, and that split is the point: expanding `skip` needs the passes unrolled, and a
+   * document with four passes of notes in it is a document the sequencer would draw four times
+   * over. The pattern the surface edits and the notes the engine plays are not the same list.
+   *
+   * It also keeps a render and live playback identical for free, since both build their edit
+   * through the same EditBuilder.
+   */
+  repeat?: number;
+  skip?: number;
 }
 
 // Time-stretch for an audio clip: two markers is a linear stretch, more is piecewise (Tracktion's WarpTimeManager).
 export interface WarpDoc {
   algorithm: string; // the stretch engine, e.g. "elastique" | "slice"
   markers: [number, number][]; // [timeline beat, source second]
+}
+
+/**
+ * A placement's OWN words, carried through the compiler unmerged — `from`/`to`/`fadeIn`/… exactly
+ * as `nodes/<lane>.yaml` spells them, minus the `ref` and `start` every clip states anyway.
+ *
+ * The rest of `ClipDoc` is the placement and its MATERIAL resolved together, which is what playing
+ * it needs and what DUPLICATING it cannot use: `sourceFrom`/`sourceTo` are already the
+ * intersection of the two windows, a sequence's window went into `loopStart`/`loopEnd`, and the
+ * repeat count was multiplied into `length`. Copying an event off a compiled document therefore
+ * lost its trim, its fades and its passes — see apps/st0/frontend/docs/clipEditors.md.
+ *
+ * The ENGINE has no use for any of it (it is handed the merged answer, as ever) — this is the
+ * third fact carried for a SURFACE alone, beside `warpOff` and `disabled`. As AUTHORED rather
+ * than normalised, because what reads it writes it straight back out: a window spelled `"2:1"`
+ * should come back `"2:1"` and not the seconds it happens to mean at today's tempo.
+ */
+export interface EventDoc {
+  from?: number | string; // seconds into a clip's file, or a timecode into a sequence's notes
+  to?: number | string;
+  fadeIn?: string; // a timecode, as the file writes it
+  fadeOut?: string;
+  loop?: number; // passes; absent == 1
+  disabled?: boolean;
+  warp?: boolean; // `false` == this event declines the material's stretch map
 }
 
 export interface ClipDoc {
@@ -77,6 +124,8 @@ export interface ClipDoc {
   // carried to the engine rather than filtered out here, because the timeline still has
   // to DRAW it: a disabled event you can't see is a deleted one.
   disabled?: boolean;
+  // What the placement itself said, unmerged, for anything that has to write it out again.
+  event?: EventDoc;
 }
 
 // One rack sound: a note playing a whole clip ("samples") or a window of the shared source ("slice").

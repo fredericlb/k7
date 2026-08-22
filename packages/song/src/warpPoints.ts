@@ -44,11 +44,17 @@ export function readClipWarp(
 /**
  * The timeline BEAT a source second lands on, through the map — segment by segment.
  *
- * **The engine is piecewise and the drawing was not.** `applyClipWarp` pins every interior marker
- * as a beat point so each segment stretches on its own (EditBuilder.cpp), while `warpStretch`
- * answers ONE ratio — the first marker to the last. That ratio is the right answer to "how long is
- * this clip", which is what it was written for, and the wrong one for "where is this moment": a
- * point pinned in the middle moved the sound and left the picture where it was.
+ * **The engine is piecewise and the drawing was not.** `applyClipWarp` gives every interior marker
+ * to Tracktion's `WarpTimeManager`, which re-times each segment on its own (EditBuilder.cpp),
+ * while `warpStretch` answers ONE ratio — the first marker to the last. That ratio is the right
+ * answer to "how long is this clip", which is what it was written for, and the wrong one for
+ * "where is this moment": a point pinned in the middle moved the sound and left the picture where
+ * it was.
+ *
+ * Worth knowing when reading old comments: the engine was for a while piecewise only on paper. It
+ * pinned those markers as `LoopInfo` beat points, which auto-tempo prices at one constant rate, so
+ * the sound was a straight stretch and it was the PICTURE here that was right. See the engine's
+ * docs/warp.md.
  *
  * Outside the map, the end segments' own rate continues. Extrapolating rather than clamping is
  * what the engine does too — a clip is not silent past its last marker — and it keeps this

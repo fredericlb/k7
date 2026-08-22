@@ -10,6 +10,9 @@ export interface NoteIn {
   d: number;
   k: number;
   v?: number;
+  // A pad's effects, carried so a note that is COPIED brings them along — see docs/padEffects.md.
+  repeat?: number;
+  skip?: number;
 }
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
@@ -32,6 +35,9 @@ export function appendNotes(text: string, notes: NoteIn[]): string {
       d: n.d,
       k: n.k,
       ...(n.v === undefined ? {} : { v: n.v }),
+      // Only when there is one: a pad with no effect must not gain two keys saying so.
+      ...(n.repeat ? { repeat: n.repeat } : {}),
+      ...(n.skip ? { skip: n.skip } : {}),
     });
     node.flow = true;
     return node;
@@ -200,5 +206,39 @@ export function setNoteVelocity(
   const doc = parseDocument(text, OPTS);
   if (v === undefined) doc.deleteIn(["notes", at, "v"]);
   else doc.setIn(["notes", at, "v"], v);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** The two effects a PAD can carry — see @studio/song docs/padEffects.md. */
+export type PadEffect = "repeat" | "skip";
+
+/**
+ * Turn one of a pad's effects on, or off with `undefined` — what the sequencer's context menu writes.
+ *
+ * ONE writer for both, like `setNoteTimeRange`'s two grips: they are the same act on the same note,
+ * differing only in which word is written, and two functions would be two places to keep the
+ * addressing and the clearing rule identical.
+ *
+ * Off DELETES the key rather than writing a 1 or a 0. A pad with `repeat: 1` would be a pad
+ * declaring it plays once, which is what every pad with no `repeat` already says — and the schema
+ * refuses anything under 2 precisely so that state cannot be written down. Same rule as the
+ * velocity above, and as `alternative:` going back to the first set.
+ */
+export function setNoteEffect(
+  text: string,
+  k: number,
+  t: number,
+  effect: PadEffect,
+  n: number | undefined,
+): string {
+  const at = findNote(text, k, t);
+  if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
+  if (n !== undefined && (!Number.isInteger(n) || n < 2))
+    throw new Error(
+      `${effect} takes a whole number of 2 or more — ${n} says nothing a pad without it does not`,
+    );
+  const doc = parseDocument(text, OPTS);
+  if (n === undefined) doc.deleteIn(["notes", at, effect]);
+  else doc.setIn(["notes", at, effect], n);
   return doc.toString({ lineWidth: 0 });
 }

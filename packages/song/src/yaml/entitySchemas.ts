@@ -95,12 +95,27 @@ export const VideoClipSchema = z
 // which is what #Clip does, and what lets a clip file say only `source:`.
 export const ClipSchema = z.union([VideoClipSchema, AudioClipSchema]);
 
+/**
+ * One note — and, on a step sequencer, one PAD, which is why two effects live here.
+ *
+ * `t`/`d`/`k`/`v` are single letters because every note carries all four and a pattern is hundreds
+ * of them on one line. `repeat` and `skip` are spelled out instead, deliberately: they appear on
+ * the few pads that have an effect, so they cost nothing in width, and a letter apiece would be two
+ * more things to learn from a file that no longer explains itself. See docs/padEffects.md.
+ */
 export const NoteSchema = z
   .object({
     t: z.number().min(0), // onset, beats (fractional = microtiming)
     d: z.number().positive(), // duration, beats
     k: z.number().int().min(0).max(127), // MIDI key
     v: z.number().min(0).max(1).optional(), // velocity, default 1
+    // Retrigger: play the note `repeat` times inside its OWN duration, which on a pad is the step
+    // it was drawn on. Absent == once.
+    repeat: z.number().int().min(2).optional(),
+    // Fall silent on every `skip`-th pass of the pattern: 2 plays one pass in two, 4 plays three in
+    // four. Absent == every pass. Means nothing on a sequence that is placed once, which is not an
+    // error — a placement gaining a `loop:` later is what makes it audible.
+    skip: z.number().int().min(2).optional(),
   })
   .strict();
 

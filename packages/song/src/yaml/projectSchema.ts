@@ -3,6 +3,7 @@
 // up is what once put `libraries_from` at the top level doing nothing. `markers` keys
 // are quoted timecodes (unquoted, "5:1:1" is 18061 under YAML 1.1 — see trackFile.ts).
 
+import { METRONOME_MIN } from "@studio/engine-protocol/build";
 import { z } from "zod";
 import { TIMECODE } from "./placementSchema";
 
@@ -191,6 +192,14 @@ export type ProjectFile = z.infer<typeof ProjectFileSchema>;
 /** settings.yaml — project-level preferences, a flat file of its own. */
 export const SettingsSchema = z.looseObject({
   metronome: z.boolean().optional(),
+  /**
+   * How loud the click is, 0.2 … 1. NOT a way to silence it — `metronome: false` is that, and the
+   * range says so: Tracktion clamps its click gain to those two bounds (`Edit::setClickTrackVolume`),
+   * so a 0 written here would come back as 0.2 and the file would state a level the engine does
+   * not play. Refused at the schema rather than clamped, for the reason a pad effect's `1` is:
+   * a value that means something other than what it says is worse than an error.
+   */
+  metronome_level: z.number().min(METRONOME_MIN).max(1).optional(),
   count_in: z.number().int().min(0).optional(),
 });
 

@@ -15,8 +15,32 @@ import type {
   TrackDoc,
 } from "./project";
 
+/**
+ * The click's level when `settings.yaml` names none — Tracktion's own default.
+ *
+ * Here rather than beside `DEFAULT_COUNT_IN` in @studio/song, because `DEFAULT_SETTINGS` below
+ * needs it and this package cannot import that one: song depends on this, not the other way round.
+ */
+export const DEFAULT_METRONOME_LEVEL = 0.6;
+
+/**
+ * The quietest click there is — Tracktion's floor (`Edit::setClickTrackVolume` clamps to 0.2..1).
+ *
+ * Stated once and read by the schema, the command and the slider, because it is not a preference:
+ * a smaller number is accepted, written down, and then played at 0.2, so every surface that offers
+ * a level has to stop in the same place or the file ends up claiming something nobody hears.
+ * Silence is `metronome: false`, which is a different question and a different control.
+ */
+export const METRONOME_MIN = 0.2;
+
 /** Project settings the engine is happy with when nothing has been authored. */
-export const DEFAULT_SETTINGS: SettingsDoc = { metronome: false, countIn: 0 };
+export const DEFAULT_SETTINGS: SettingsDoc = {
+  metronome: false,
+  // Tracktion's own default click level, so a project that never mentions one sounds like the
+  // engine's idea of a metronome rather than this file's.
+  metronomeLevel: DEFAULT_METRONOME_LEVEL,
+  countIn: 0,
+};
 
 /**
  * A valid, empty project. Every required field defaulted; override what you mean.

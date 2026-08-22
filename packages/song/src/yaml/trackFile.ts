@@ -8,6 +8,7 @@ import { isMap, isSeq, parseDocument } from "yaml";
 import { currentAlternative } from "../alternatives";
 import { beatsToPosition, parsePosition } from "../timecode";
 import { quoteTimecodes } from "./moduleFile";
+import type { Placement } from "./placementSchema";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };
@@ -277,8 +278,11 @@ export function removePlacement(text: string, start: string): string {
 /** Append a placement — the receiving half of a cross-lane clip move. */
 export function addPlacement(
   text: string,
-  // No `length`: how long a placement sounds is the material's window times `loop` (see PlacementSchema).
-  placement: { ref: string; start?: string; loop?: number },
+  // No `length`: how long a placement sounds is the material's window times `loop` (see
+  // PlacementSchema). Everything else that schema allows IS written — a paste puts down the event
+  // it copied, window and fades included — and `quoteTimecodes` below is what keeps `from: "2:1"`
+  // from being written bare and read back as a sexagesimal.
+  placement: Placement,
 ): string {
   const doc = parseDocument(text, OPTS);
   const path = eventsToEdit(doc);

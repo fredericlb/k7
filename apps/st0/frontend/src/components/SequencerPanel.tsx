@@ -8,6 +8,7 @@
 import { cn } from "@frediverse/ui/lib/utils";
 import type { WebRackSound } from "@studio/graph-model";
 import {
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
   useCallback,
@@ -19,6 +20,7 @@ import {
 } from "react";
 import { copyNotes, droppedCount, pasteNotes } from "../clipboard";
 import { clipLoop } from "../clipLoop";
+import type { MenuCtx } from "../contextMenu";
 import {
   type ClipGridHandle,
   cellBox,
@@ -73,6 +75,7 @@ export function SequencerPanel({
   onSelection,
   onSeek,
   onSetLoop,
+  onContextMenu,
 }: {
   project: WebProject;
   clip: WebClip;
@@ -95,6 +98,8 @@ export function SequencerPanel({
   onSeek?: (seconds: number) => void;
   /** Set or clear the transport's loop region, in SONG seconds — Shift+L on the rectangle. */
   onSetLoop?: (fromSec: number, toSec: number, on: boolean) => void;
+  /** The shell's right-click menu, for a pad's effects. Absent ⇒ the browser's own. */
+  onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
 }) {
   const notes = clip.notes;
   const seqId = clip.name || clip.id;
@@ -340,6 +345,33 @@ export function SequencerPanel({
   };
 
   /**
+   * Right-click on a PAD: its effects, through the shell's own menu.
+   *
+   * Only on a LIT cell. The effects belong to a note, and `sequence note repeat` addresses one by
+   * (key, start) — an empty cell has no note to name, so the browser's own menu is left alone
+   * rather than opening ours onto rows that could not run. Its REAL start is what is passed, as
+   * every other edit here does: a played take's hit lives mid-cell, and the cell's line is not
+   * where the note is.
+   */
+  const onCellMenu = (e: ReactMouseEvent, hit: WebNote | null | undefined) => {
+    if (!hit || !onContextMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onContextMenu(
+      {
+        kind: "pad",
+        sequence: seqId,
+        note: hit.key,
+        start: hit.time,
+        ...(hit.repeat ? { repeat: hit.repeat } : {}),
+        ...(hit.skip ? { skip: hit.skip } : {}),
+      },
+      e.clientX,
+      e.clientY,
+    );
+  };
+
+  /**
    * The press on a lit cell, undecided until it travels — the roll's rule, with the roll's 4px
    * slop: a drag sets the VELOCITY (live line, committed on release), a press that never moves
    * toggles the note OFF. An empty cell has only the toggle. The live value is a ref with state
@@ -385,6 +417,23 @@ export function SequencerPanel({
     hit: WebNote | null,
     at: { row: number; col: number },
   ) => {
+    /**
+     * The PRIMARY button only, and this is load-bearing rather than tidy.
+     *
+     * A pointer event fires for EVERY button, so without it a right-click ran the whole press
+     * path: the release never travelled, so it was read as the toggle, and the pad was removed.
+     * The menu that the browser then raised a moment later found no note under the cursor —
+     * `onCellMenu` needs one to name — so it fell through to the browser's own. Two symptoms,
+     * both of them this line: the pad vanished AND the wrong menu opened.
+     *
+     * Returning before `pressed.current` is set is what makes the release a no-op too, and
+     * before `preventDefault` so the contextmenu event still arrives.
+     *
+     * The piano roll has guarded both its press paths this way all along; this grid was the one
+     * that did not, and a right-click quietly deleted a pad here long before there was a menu to
+     * blame it on.
+     */
+    if (e.button !== 0) return;
     e.preventDefault();
     /**
      * SHIFT: the caret grows into the rectangle, anchored where it already is (or where the
@@ -734,6 +783,7 @@ export function SequencerPanel({
                       onPointerMove={onCellMove}
                       onPointerUp={(e) => onCellUp(e, row, hit)}
                       onWheel={(e) => onCellWheel(e, row, hit, cellStart)}
+                      onContextMenu={(e) => onCellMenu(e, hit)}
                       title={
                         hit
                           ? `${row.symbol} · beat ${+cellStart.toFixed(3)}${nudge ? ` +${nudge}/100` : ""} · vel ${+live.toFixed(2)} — glisser règle la vélocité, ⇧molette décale, ctrl+glisser déplace, cliquer enlève`
@@ -797,6 +847,25 @@ export function SequencerPanel({
                       {nudge > 0 && (
                         <span className="pointer-events-none absolute top-0 right-0.5 font-mono text-[9px] text-white/80 leading-none tabular-nums">
                           {nudge}
+                        </span>
+                      )}
+                      {/* The pad's EFFECTS, bottom-left — the one corner the level bars, the
+                          nudge and the caret outline all leave alone. Glyph plus number, not a
+                          bare glyph: the difference between ×2 and ×4 is the whole of what was
+                          chosen, and a pad you cannot read the value off is one you have to open
+                          a menu to interrogate. See docs/padEffects.md. */}
+                      {hit && (hit.repeat || hit.skip) && (
+                        <span className="pointer-events-none absolute bottom-0 left-0.5 flex gap-0.5 font-mono text-[9px] text-white leading-none tabular-nums">
+                          {hit.repeat && (
+                            <span title={`répété ×${hit.repeat}`}>
+                              ⁝{hit.repeat}
+                            </span>
+                          )}
+                          {hit.skip && (
+                            <span title={`muet une passe sur ${hit.skip}`}>
+                              ⌇{hit.skip}
+                            </span>
+                          )}
                         </span>
                       )}
                     </button>
