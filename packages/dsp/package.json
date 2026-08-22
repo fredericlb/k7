@@ -7,12 +7,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./autowah": "./src/autowah.ts",
-    "./normalize": "./src/normalize.ts",
-    "./catalogue": "./src/catalogue.ts"
+    "./normalize": "./src/normalize.ts"
   },
   "scripts": {
     "build": "tsx src/emit.ts",
-    "gen:catalogue": "tsx scripts/gen-catalogue.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

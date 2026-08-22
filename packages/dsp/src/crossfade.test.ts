@@ -73,12 +73,16 @@ describe("the crossfade graph", () => {
     expect(g).toEqual(demo);
   });
 
-  it("matches the CATALOGUE's copy — the one every new library is seeded with", () => {
-    // A third copy, for the third reason a module folder is self-contained: this one is what
-    // `seedIfEmpty` writes into everybody's `@st0` library, and a set scaffolded tomorrow names
-    // it (`@st0/audio/utility/crossfade`). The demo above is a demo; this one is the shipped
-    // article, and it is the one that must not drift.
-    const seeded = JSON.parse(
+  it("matches the copy in `modules/` — the authored article", () => {
+    // A third copy, for the third reason a module folder is self-contained: this one is the
+    // module as it is AUTHORED, `modules/audio/utility/crossfade/`, which is what somebody
+    // copies into their library repository (`docs/catalogue.md`). The demo above is a demo;
+    // this one is what a set naming `@st0/audio/utility/crossfade` ends up running.
+    //
+    // It used to be "the one every new library is seeded with", and nothing seeds any more —
+    // the account's library repository is the reference. What the test pins is unchanged: the
+    // folder's compiled graph against this package's function, so the two cannot drift.
+    const authored = JSON.parse(
       readFileSync(
         join(
           here,
@@ -92,6 +96,6 @@ describe("the crossfade graph", () => {
         "utf8",
       ),
     ) as GraphJson;
-    expect(g).toEqual(seeded);
+    expect(g).toEqual(authored);
   });
 });

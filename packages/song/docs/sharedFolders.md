@@ -25,54 +25,54 @@ predates the feature.
 
 ### A new repository is SEEDED with the catalogue
 
-Two things have to happen to a library repository somebody just created, and they are
-independent — conflating them is what left this broken for a release.
+ONE thing has to happen to a library repository somebody just created, and it is not about
+modules at all.
 
 **It needs a commit.** A gitlink has to point at one, and `git submodule add` on an unborn HEAD
 fails. So the first machine to mount one commits and pushes, which is all `registerSubmodule`
-needs.
+needs. That is the whole of `initIfEmpty`.
 
-**It needs the catalogue.** Every `@st0/…` ref names something that has to be IN there —
-including the four a scaffolded set writes for its decks (`@st0/audio/utility/crossfade`,
-`…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). A library that starts empty resolves none of
-them, silently, because an unresolved ref is not a compile error. `seedIfEmpty` writes the
-modules this build ships, out of `@studio/dsp/catalogue` — see
-[packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md) for why they are embedded rather
-than read off disk, and how the folder is kept in step.
+**Nothing is put IN it.** The repository is the reference: what is in it is what its projects
+inherit, and nothing anywhere else has an opinion about what a library ought to contain.
 
-> The catalogue used to come from the hosted médiathèque over HTTP. When that volume stopped
-> holding modules, the copy was dropped and only the empty commit kept (`seedIfEmpty` became
-> `initIfEmpty`) — and nothing replaced the source, so a new account got a library of nothing.
-> The catalogue lives in the repo now, which is where the modules were all along.
+> It was seeded, twice over. A catalogue came from the hosted médiathèque over HTTP; when that
+> volume stopped holding modules the copy was dropped and only the empty commit kept, so a new
+> account got a library of nothing — silently. The answer then was to EMBED the catalogue in the
+> build (`@studio/dsp/catalogue`) and write it into every fresh repository. That is gone too: a
+> build shipping its own copy of somebody's modules is a second source of truth, and the modules
+> in `packages/dsp/modules/` are a place to copy FROM now, not a seed
+> ([packages/dsp/docs/catalogue.md](../../dsp/docs/catalogue.md)).
 
-Three details are load-bearing:
+**What that costs, and it is deliberate:** a new library is empty, so every `@st0/…` ref resolves
+to nothing until modules are put there — including the four a scaffolded set writes for its decks
+(`@st0/audio/utility/crossfade`, `…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). An unresolved ref
+is **not** a compile error (below), so such a project reads as one whose modules are bypassed. The
+day that needs to be visible, the place to say it is the compile — not a seed putting files in
+somebody's repository so the question never comes up.
 
-- **"Empty" means no `modules/`, not "no files".** A repository made through a web UI usually
-  arrives with a README, and refusing to seed over one would leave a new account with an empty
-  catalogue and no way to explain it. Conversely a single module in `modules/` means hands off
-  the whole folder: those are the account's, and replacing one with the version this build
-  happens to ship is silent data loss.
+Two details are load-bearing:
+
 - **The gitlink is recorded only after the push succeeds.** A gitlink promises that a commit is
   fetchable; pointing one at a commit that never left the machine breaks the workspace for
-  everybody who clones it. Two machines racing to seed the same new repository is the ordinary
+  everybody who clones it. Two machines racing to adopt the same new repository is the ordinary
   way this happens — the loser is told, keeps its checkout, and records nothing.
-- **The FILE SERVICE does it, not pl8.** pl8 holds the catalogue but is deliberately not a git
-  writer (`apps/pl8/docs/projects.md`: the service that mints everyone's session and holds the
-  one deploy key must not also be able to push to every repository). This machine already writes
-  to git, already has a working copy, and already has a copy of the key.
+- **The FILE SERVICE does it, not pl8.** pl8 holds the repository's ADDRESS but is deliberately
+  not a git writer (`apps/pl8/docs/projects.md`: the service that mints everyone's session and
+  holds the one deploy key must not also be able to push to every repository). This machine
+  already writes to git, already has a working copy, and already has a copy of the key.
 
 ### The library is written to. A project repository is not
 
-Seeding commits and pushes to the LIBRARY repository, and to nothing else. The only mark the
-mount leaves on a project repository is `submodule add`'s: a `.gitmodules` entry and a gitlink,
+The mount commits and pushes to the LIBRARY repository, and to nothing else. The only mark it
+leaves on a project repository is `submodule add`'s: a `.gitmodules` entry and a gitlink,
 **staged and not committed** — publishing them is `project commit`, which is somebody's
 decision. A song repository is somebody's work and nothing here has business committing to it.
 
-One leak had to be closed for that to hold. Until `submodule add` has run — the seed could not
-be pushed, or the mount only just happened — `_libraries` is an *untracked folder inside a song
-repository*, and `project commit` does `git add -A` over the whole tree. Git would then either
-commit the entire catalogue into the song, or record an "embedded repository" gitlink with no
-`.gitmodules` beside it, which is a submodule nobody who clones can resolve.
+One leak had to be closed for that to hold. Until `submodule add` has run — the first commit
+could not be pushed, or the mount only just happened — `_libraries` is an *untracked folder
+inside a song repository*, and `project commit` does `git add -A` over the whole tree. Git would
+then either commit the whole library into the song, or record an "embedded repository" gitlink
+with no `.gitmodules` beside it, which is a submodule nobody who clones can resolve.
 
 So the file service writes `/_libraries/` into the project repository's **`.git/info/exclude`**
 before it puts anything there. Per-checkout, never committed, never travelling — so it touches

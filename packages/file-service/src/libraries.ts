@@ -1,6 +1,7 @@
 // libraries.ts — mount the account's library repository into a workspace, at `_libraries`.
 // A git SUBMODULE where the workspace is a git repository, a plain clone where it is not.
-// This is what `@st0/…` resolves against; nothing syncs modules from the médiathèque any more.
+// This is what `@st0/…` resolves against, and it is the ONLY source: nothing syncs modules from
+// the médiathèque, and nothing seeds a catalogue into it either.
 // Rationale: packages/song/docs/sharedFolders.md.
 
 import { execFile } from "node:child_process";
@@ -13,7 +14,6 @@ import {
 } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
-import { CATALOGUE, isFresh, MODULES_DIR } from "@studio/dsp/catalogue";
 import { assertSshGitUri, normalizeGitUri } from "@studio/git-repos/uri";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
@@ -159,55 +159,41 @@ const isPopulated = (dir: string): boolean => {
 export class LibrariesMovedError extends Error {}
 
 /**
- * Fill a brand-new library repository with the modules this build ships, commit, and push.
+ * Give a brand-new library repository the one thing a gitlink needs: a commit.
  *
- * **Two independent questions, and conflating them is what broke this before.** A gitlink has to
- * point AT a commit, so a repository somebody just created through a web UI — unborn HEAD —
- * needs one made whatever else happens (`git submodule add` on an unborn HEAD fails). And a
- * library with no `modules/` needs the catalogue, so that `@st0/audio/utility/tempo` and its
- * siblings resolve. A repository can be in either state without the other: one created with a
- * README has a commit and no modules, and this seeds it.
+ * ONE question, where there were two. A gitlink has to point AT a commit, so a repository
+ * somebody just created through a web UI — unborn HEAD — needs one made before it can be adopted
+ * as a submodule (`git submodule add` on an unborn HEAD fails). That is the whole of what this
+ * does now.
  *
- * The catalogue used to be copied from the hosted médiathèque over HTTP, and when that volume
- * stopped holding modules the copy was dropped and only the empty commit kept — which left every
- * `@st0/…` ref in a new account resolving to nothing, silently, including the four a scaffolded
- * SET writes for its decks. It is EMBEDDED now (`@studio/dsp/catalogue`), and it has to be:
- * this service is esbuilt into a single .mjs inside the tray, so there is no `packages/dsp/`
- * beside it to read at runtime. See packages/dsp/docs/catalogue.md.
+ * **It no longer fills anything.** A catalogue used to be written in here — copied from the
+ * hosted médiathèque over HTTP, then embedded in the build — so that `@st0/…` refs resolved on a
+ * new account. The account's LIBRARY REPOSITORY is the reference now: what is in it is what a
+ * project inherits, and a build shipping its own copy of somebody's modules was a second source
+ * of truth that could only ever disagree with the first.
  *
- * Never touches an existing `modules/`. The account's own modules live there, and overwriting
- * one with the version this build happens to ship would be silent data loss — which is why the
- * question is asked of the FOLDER rather than of a flag somebody has to keep.
+ * The consequence is worth knowing rather than discovering: a new library is EMPTY, so every
+ * `@st0/…` ref resolves to nothing until modules are put there — including the four a scaffolded
+ * SET writes for its decks. An unresolved ref is not a compile error (@studio/song's
+ * docs/sharedFolders.md), so a project naming one reads as a project whose module is bypassed.
  *
- * Answers what happened, because the caller's next move depends on it: `"filled"` (nothing to
- * do), `"seeded"`, `"initialised"` (a commit, no catalogue needed), or `"unpushed"` (committed
- * here, refused there).
+ * Answers what happened, because the caller's next move depends on it: `"filled"` (there is a
+ * commit — nothing to do), `"initialised"`, or `"unpushed"` (committed here, refused there).
  */
-export async function seedIfEmpty(
+export async function initIfEmpty(
   at: string,
   env: NodeJS.ProcessEnv = envFor(""),
-): Promise<"seeded" | "initialised" | "unpushed" | "filled"> {
-  const fresh = isFresh(at);
-  let unborn = false;
+): Promise<"initialised" | "unpushed" | "filled"> {
   try {
     await git(at, ["rev-parse", "--verify", "HEAD"], env);
+    return "filled";
   } catch {
-    unborn = true;
-  }
-  if (!fresh && !unborn) return "filled";
-
-  if (fresh) {
-    for (const [rel, text] of Object.entries(CATALOGUE)) {
-      const dest = join(at, MODULES_DIR, ...rel.split("/"));
-      mkdirSync(dirname(dest), { recursive: true });
-      writeFileSync(dest, text, "utf8");
-    }
-    await git(at, ["add", "--", MODULES_DIR], env);
+    /* unborn HEAD — the one case this exists for */
   }
 
   // An author, because a repository with no `user.email` configured refuses to commit at all —
-  // and this runs on a machine nobody has set up for git. `--allow-empty` because the unborn
-  // case may have nothing to write, and a commit that fails here costs the gitlink.
+  // and this runs on a machine nobody has set up for git. `--allow-empty` because there is by
+  // definition nothing to write, and a commit that fails here costs the gitlink.
   await git(
     at,
     [
@@ -218,32 +204,24 @@ export async function seedIfEmpty(
       "commit",
       "--allow-empty",
       "-m",
-      fresh
-        ? "les bibliotheques : le catalogue de depart"
-        : "les bibliotheques : premier commit",
+      "les bibliotheques : premier commit",
     ],
     env,
   );
   try {
     await git(at, ["push", "-u", "origin", "HEAD"], env);
   } catch (e) {
-    // Two machines racing to fill the same new repository is the ordinary way this happens: the
-    // loser's push is rejected, and the winner's commit holds the same catalogue. Say so and
-    // leave the checkout alone — the caller declines to record a gitlink, so nothing downstream
-    // ends up pointing at a commit that never left here.
+    // Two machines racing to adopt the same new repository is the ordinary way this happens: the
+    // loser's push is rejected, and the winner's commit is just as good a thing to point at. Say
+    // so and leave the checkout alone — the caller declines to record a gitlink, so nothing
+    // downstream ends up pointing at a commit that never left this machine.
     console.warn(
       `[libraries] committed in ${at} but could not push: ${(e as Error).message}`,
     );
     return "unpushed";
   }
-  if (!fresh) {
-    console.log(`[libraries] initialised ${at}`);
-    return "initialised";
-  }
-  console.log(
-    `[libraries] seeded ${at} with ${Object.keys(CATALOGUE).length} catalogue file(s)`,
-  );
-  return "seeded";
+  console.log(`[libraries] initialised ${at}`);
+  return "initialised";
 }
 
 /**
@@ -294,13 +272,13 @@ export async function ensureLibraries(
      * CLONED first and adopted second, rather than one `git submodule add`, and the reason is
      * the case this whole path exists for: a library repository somebody just created has NO
      * COMMITS, and a gitlink has to point at one. `submodule add` on an unborn HEAD fails.
-     * Cloning it, filling it (below), and only then adding it hands `submodule add` a repo with
-     * a commit — and `submodule add` on a path that is already a checkout adopts it rather than
-     * cloning a second time.
+     * Cloning it, giving it a commit (below), and only then adding it hands `submodule add` a
+     * repo with a commit — and `submodule add` on a path that is already a checkout adopts it
+     * rather than cloning a second time.
      */
     await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
-    const started = await seedIfEmpty(at, env);
-    // Only NOW is the gitlink recorded — and not at all if the seed could not be pushed. A
+    const started = await initIfEmpty(at, env);
+    // Only NOW is the gitlink recorded — and not at all if that commit could not be pushed. A
     // gitlink is a promise that a commit is fetchable; pointing it at one that never left this
     // machine would break the workspace for everybody who clones it, including you tomorrow.
     if (started !== "unpushed") await registerSubmodule(root, uri, env);
@@ -314,7 +292,7 @@ export async function ensureLibraries(
   if (isPopulated(at)) return { mounted: false };
   await ensureKey(userEmail);
   await run("git", ["clone", "--", uri, at], { env, timeout: TIMEOUT_MS });
-  await seedIfEmpty(at, env);
+  await initIfEmpty(at, env);
   return { mounted: true };
 }
 
