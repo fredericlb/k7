@@ -33,10 +33,29 @@ type Phase =
       tookFor: string | null;
     };
 
-export function EngineGate() {
+export function EngineGate({
+  /**
+   * The surface this tab was opened on, when the address named one — see
+   * `@studio/web-protocol/projects`. Forwarded, not acted on: this gate's job is the engine,
+   * and an external surface needs exactly the same one for exactly the same reasons.
+   */
+  external,
+}: {
+  external?: string | null;
+} = {}) {
   const [phase, setPhase] = useState<Phase>({ k: "loading" });
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [busy, setBusy] = useState(false);
+  /**
+   * La session s'est endormie, et ce gate-ci en tire une conséquence : LÂCHER LE BAIL.
+   *
+   * Ce n'est pas une phase. Le moteur choisi ne change pas, et `ProjectGate` reste monté — c'est
+   * lui qui dessine l'écran de reprise et qui sait comment rouvrir. Ici, une veille ne fait
+   * qu'une chose, et c'est la seule que ce niveau possède : arrêter de renouveler la
+   * revendication toutes les cinq secondes. Un onglet qui n'a plus de socket, plus de projet
+   * chargé, et qui garderait quand même la machine pour lui n'est pas déconnecté ; il squatte.
+   */
+  const [asleep, setAsleep] = useState(false);
 
   // Re-measure and redraw the picker, for the Refresh button and the way back from a switch.
   const refresh = useCallback(async (): Promise<void> => {
@@ -113,9 +132,12 @@ export function EngineGate() {
   // when it is lost. Losing it is not an error to retry: somebody opened the project, and this
   // tab stops driving. `phase.k` rather than `phase` in the deps, or the state we set inside
   // would restart the very hold that reported the loss.
+  // Endormi, la boucle s'arrête : le nettoyage de l'effet `release`, et la machine redevient
+  // libre dans les sélecteurs. Se réveiller la relance, ce qui est une réouverture délibérée —
+  // donc une reprise en règle, refusée par `onLost` si quelqu'un s'est installé entre-temps.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen", and depending on the whole object would re-hold on every phase change.
   useEffect(() => {
-    if (phase.k !== "chosen") return;
+    if (phase.k !== "chosen" || asleep) return;
     const engine = phase.engine;
     return engines.hold(engine, {
       project: claimProject,
@@ -127,7 +149,7 @@ export function EngineGate() {
           tookFor: why.tookFor,
         }),
     });
-  }, [phase.k, claimProject]);
+  }, [phase.k, claimProject, asleep]);
 
   useEffect(() => {
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
@@ -155,12 +177,15 @@ export function EngineGate() {
       <ProjectGate
         key={phase.engine.wsUrl!}
         engine={phase.engine}
+        external={external}
         // Re-probe on the way back: the list behind the picker is minutes old by now, and
         // showing a stale one would offer engines that have since gone.
         onChangeEngine={() => {
           setPhase({ k: "picking" });
           void refresh();
         }}
+        onIdle={() => setAsleep(true)}
+        onResume={() => setAsleep(false)}
       />
     );
 

@@ -10,6 +10,7 @@
     "./fileApi": "./src/fileApi.ts",
     "./project": "./src/project.ts",
     "./gate": "./src/ProjectGate.tsx",
+    "./idle": "./src/idle.ts",
     "./toast": "./src/toast.tsx",
     "./undo": "./src/undo.ts"
   },

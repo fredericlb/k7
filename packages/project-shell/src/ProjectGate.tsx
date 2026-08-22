@@ -14,6 +14,7 @@ import {
   FolderSearch,
   LibraryBig,
   Loader2,
+  Moon,
   ServerCrash,
   ShieldAlert,
   UserRoundX,
@@ -23,6 +24,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -30,6 +32,7 @@ import {
   diagnoseFileService,
   type FileServiceFault,
 } from "./fileApi.ts";
+import { useIdleTimeout } from "./idle.ts";
 import { parseLaunch, projectsUrl } from "./launch.ts";
 import { projectApi } from "./project.ts";
 import { librariesRepo, repoByName } from "./repoLookup.ts";
@@ -47,6 +50,10 @@ type Phase =
   // The ACCOUNT is not set up: no library repository, so no project can resolve a shared
   // module. Nothing is broken and there is nothing to retry — the one move is to go and set it.
   | { k: "no-libraries" }
+  // Nobody has touched this tab for a long time. The app is unmounted — which is what closes the
+  // engine socket — and the project is flushed out of the engine. Retryable, and only that: the
+  // one button reopens it. See docs/idle.md.
+  | { k: "idle" }
   | { k: "open"; workspace: string; project: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -82,6 +89,14 @@ export interface ProjectGateStrings {
    */
   benchWorkspace?: string;
   benchFetching?: string;
+  /**
+   * The idle screen. OPTIONAL, like the bench's: an app that passes no `idleTimeoutMs` can never
+   * reach this phase, and requiring the three strings would make it translate a screen it does
+   * not have. The gate falls back to plain English rather than to an empty card.
+   */
+  idleTitle?: string;
+  idleBody?: string;
+  resume?: string;
 }
 
 /**
@@ -137,6 +152,9 @@ export function ProjectGate({
   strings,
   children,
   onQuit,
+  idleTimeoutMs = 0,
+  onIdle,
+  onResume,
 }: {
   engine: GateEngine;
   /** Which app this is — it decides the suffix that ends the project in the address. */
@@ -155,6 +173,23 @@ export function ProjectGate({
   }) => ReactNode;
   /** Called before leaving, for an app that must let go of something first. */
   onQuit?: () => void;
+  /**
+   * After this long with nobody touching the tab, close the session. `0` — the default — is off,
+   * so an app opts in rather than inheriting a behaviour it never asked for.
+   * `@studio/project-shell/idle` holds the number and the reasoning.
+   */
+  idleTimeoutMs?: number;
+  /**
+   * The session just went idle. The gate has already stopped rendering the app and is about to
+   * flush the project; this is for whatever the APP holds that the gate cannot see — st0 lets go
+   * of its engine lease here.
+   *
+   * A callback and not an import, for the reason `ProjectTakenOver` states above: this package
+   * deliberately does not depend on `@studio/engine-browser`.
+   */
+  onIdle?: () => void;
+  /** Taking it back. Called before the reopen starts, so the app can retake what it released. */
+  onResume?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>({ k: "resolving" });
   const [email, setEmail] = useState("");
@@ -192,6 +227,44 @@ export function ProjectGate({
     });
     window.location.href = projectsUrl(window.location.href);
   }, [onQuit]);
+
+  /**
+   * Twenty minutes with nobody there: stop being a client of this engine.
+   *
+   * Armed only while the project is OPEN. Every other phase is already a screen with nothing
+   * running behind it — a clone in progress, an error, the picker — and timing those out would
+   * replace one card with another for no gain.
+   */
+  useIdleTimeout(phase.k === "open" ? idleTimeoutMs : 0, () => {
+    setPhase({ k: "idle" });
+  });
+
+  /**
+   * The disconnection itself, in an EFFECT and not in the callback above — and the order is the
+   * whole point.
+   *
+   * Setting the phase unmounts `children`, which is the app: its engine hook's cleanup runs
+   * `EngineClient.dispose()`, and the WebSocket closes. An effect runs after that commit, so by
+   * the time `unloadEngine` reaches the file service there is nothing left to push a document
+   * back in behind it. Called from the timer instead, the flush would race a socket still open.
+   *
+   * `unloadEngine` is the same call `quit()` makes: stop the transport, flush, forget the served
+   * project, and `drop-session` to the engine. A failure is ignored on purpose — the machine
+   * being gone is one of the reasons a tab sits untouched for twenty minutes, and the screen
+   * that offers to reopen is right either way.
+   */
+  // By ref, and this one is load-bearing: an app passing an inline closure would give a new
+  // `onIdle` every render, and with it in the deps the effect below would re-fire — releasing the
+  // lease and flushing the engine again on every frame of the idle screen.
+  const idleCallback = useRef(onIdle);
+  idleCallback.current = onIdle;
+  useEffect(() => {
+    if (phase.k !== "idle") return;
+    idleCallback.current?.();
+    void projectApi.unloadEngine().catch(() => {
+      /* engine or file service gone — the session is over here regardless */
+    });
+  }, [phase.k]);
 
   // No target at all — a hand-typed address, or an app mounted with nothing after its prefix.
   // `projectsUrl` is st0's home page, the one screen where a project is chosen, so go there
@@ -493,6 +566,54 @@ export function ProjectGate({
           >
             {strings.back}
           </button>
+        </div>
+      </div>
+    );
+
+  /**
+   * Inactive. Nothing is broken, nothing was lost, and the one move is to say you are back.
+   *
+   * "Reprendre" is exactly the Retry road below: `resolving` plus a bumped `attempt` re-runs the
+   * whole setup — resolve, clone if the machine has since forgotten the workspace, `POST /open`.
+   * Which is the reason this screen can be so plain: reopening a project is a road the gate
+   * already had, and being idle only means taking it again.
+   *
+   * No automatic resume on the first click either. The point was to stop being a client of that
+   * engine, and a tab that reconnected the moment a cat walked over the keyboard would have
+   * spent twenty minutes achieving nothing.
+   */
+  if (phase.k === "idle")
+    return (
+      <div className="flex h-full items-center justify-center bg-background p-8 text-foreground">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <Moon className="h-10 w-10 text-muted-foreground" />
+          <h1 className="text-lg font-semibold">
+            {strings.idleTitle ?? "Session suspended"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {strings.idleBody ??
+              "Nothing happened here for a while, so the project was unloaded from the engine and this tab let go of it. Your files are untouched."}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground"
+              onClick={() => {
+                onResume?.();
+                setPhase({ k: "resolving" });
+                setAttempt((n) => n + 1);
+              }}
+            >
+              {strings.resume ?? "Resume"}
+            </button>
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-sm text-muted-foreground"
+              onClick={quit}
+            >
+              {strings.back}
+            </button>
+          </div>
         </div>
       </div>
     );
