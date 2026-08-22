@@ -648,6 +648,11 @@ std::unique_ptr<tracktion::engine::Engine> makeOfflineEngine();
 int renderOffline(const ProjectDoc& doc, const std::string& baseDir,
                   const std::string& outDir, bool stems);
 
+// Print a symbolised stack when the process is about to die of an access violation, then let it die.
+// There is no debugger on these machines, so a crash otherwise leaves only a fault offset in the
+// Windows event log. Same dbghelp walk as watchdogStack — see OfflineRender.cpp.
+void installCrashHandler();
+
 // THROWAWAY PROBE — play several documents at once on ONE audio device and report whether
 // each one's master actually produced signal. It exists to answer whether N services can
 // share one low-latency device as N Edits rather than as N processes, which is the

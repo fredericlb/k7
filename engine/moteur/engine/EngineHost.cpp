@@ -281,10 +281,12 @@ EngineHost::MasterLevel EngineHost::masterState(const std::string& session) cons
     return {peak, peak > 0.0f};
 }
 
-// Drop the clip a ClipDoc names. Clips carry their doc id as the Tracktion clip name, so that is what
-// identifies one; iterating a COPY is deliberate, since removeFromParent() mutates the live list.
+// Drop the clip a ClipDoc names. Clips carry their PLACEMENT id as the Tracktion clip name, so that is
+// what identifies one — `clipNameFor` is the single spelling of that, and the three sites drifting from
+// each other is what let a pasted event remove its own original (EditBuilder, docs/clipIdentity.md).
+// Iterating a COPY is deliberate, since removeFromParent() mutates the live list.
 static void removeClipFor(te::AudioTrack& t, const ClipDoc& c) {
-    const juce::String name = juce::String(c.name.empty() ? c.id : c.name);
+    const juce::String name = juce::String(clipNameFor(c));
     auto clips = t.getClips();
     for (auto* clip : clips)
         if (clip != nullptr && clip->getName() == name) {
@@ -577,6 +579,12 @@ void EngineHost::applyMetronome(const std::string& session) {
     if (!impl_->session(session).edit) return;
     impl_->session(session).edit->clickTrackEnabled = impl_->session(session).current.metronome;
     impl_->session(session).edit->clickTrackEmphasiseBars = true;
+    // The level, through Tracktion's setter rather than the value directly: it clamps to 0.2..1 and
+    // remembers the choice in the engine's own property storage, which is what makes a new Edit in
+    // this process start where the last one left off. The document is still the source of truth —
+    // this runs on every apply, so a project that states a level always wins over that memory.
+    impl_->session(session).edit->setClickTrackVolume(
+        (float) impl_->session(session).current.metronomeLevel);
 }
 void EngineHost::stop(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->stop(false, false); }
 void EngineHost::rewind(const std::string& session) { if (auto* tc = impl_->transport(session)) tc->setPosition(tt::TimePosition()); }

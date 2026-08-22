@@ -80,6 +80,54 @@ void watchdogStack(int seconds) {
 void watchdogStack(int) {}
 #endif
 
+}  // namespace
+
+#if JUCE_WINDOWS
+namespace {
+// Walk and symbolise the faulting thread's stack, from inside the exception filter — the context
+// the OS hands us IS the faulting one, so there is no thread to suspend.
+LONG WINAPI crashFilter(EXCEPTION_POINTERS* info) {
+    auto proc = GetCurrentProcess();
+    SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME);
+    SymInitialize(proc, nullptr, TRUE);
+    std::cerr << "\n[crash] exception 0x" << std::hex
+              << info->ExceptionRecord->ExceptionCode << std::dec << " — stack:\n";
+    CONTEXT ctx = *info->ContextRecord;
+    STACKFRAME64 f{};
+    f.AddrPC.Offset = ctx.Rip;       f.AddrPC.Mode = AddrModeFlat;
+    f.AddrFrame.Offset = ctx.Rbp;    f.AddrFrame.Mode = AddrModeFlat;
+    f.AddrStack.Offset = ctx.Rsp;    f.AddrStack.Mode = AddrModeFlat;
+    for (int i = 0; i < 60; ++i) {
+        if (!StackWalk64(IMAGE_FILE_MACHINE_AMD64, proc, GetCurrentThread(), &f, &ctx, nullptr,
+                         SymFunctionTableAccess64, SymGetModuleBase64, nullptr) || f.AddrPC.Offset == 0)
+            break;
+        char buf[sizeof(SYMBOL_INFO) + 512]{};
+        auto* sym = reinterpret_cast<SYMBOL_INFO*>(buf);
+        sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+        sym->MaxNameLen = 500;
+        DWORD64 disp = 0;
+        std::cerr << "  #" << i << " ";
+        if (SymFromAddr(proc, f.AddrPC.Offset, &disp, sym)) std::cerr << sym->Name;
+        else std::cerr << std::hex << f.AddrPC.Offset << std::dec;
+        IMAGEHLP_LINE64 lineInfo{};
+        lineInfo.SizeOfStruct = sizeof(lineInfo);
+        DWORD lineDisp = 0;
+        if (SymGetLineFromAddr64(proc, f.AddrPC.Offset, &lineDisp, &lineInfo))
+            std::cerr << "  (" << lineInfo.FileName << ":" << lineInfo.LineNumber << ")";
+        std::cerr << "\n";
+    }
+    std::cerr.flush();
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+}  // namespace
+
+void installCrashHandler() { SetUnhandledExceptionFilter(crashFilter); }
+#else
+void installCrashHandler() {}
+#endif
+
+namespace {
+
 // Filesystem-safe stem filename from a track name.
 std::string sanitizeStem(const std::string& name, int index) {
     std::string out;

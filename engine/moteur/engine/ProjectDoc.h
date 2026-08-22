@@ -59,13 +59,24 @@ struct NoteDoc {
     int channel = 0;
     double rel = 1.0;     // release velocity 0..1
 
+    // A step sequencer PAD's two effects, arriving UNREALISED — this side is what expands them
+    // (insertMidiClip). `repeat` retriggers the note that many times inside its own duration;
+    // `skip` silences it on every Nth pass of the pattern. 0 == none.
+    // The compiler deliberately does not resolve them: unrolling `skip` needs the passes written
+    // out, and the sequencer draws the very same document. See @studio/song docs/padEffects.md.
+    int repeat = 0;
+    int skip = 0;
+
     // Compared FIELD BY FIELD by the diff: a MIDI clip's notes are applied when the clip is
     // inserted and nowhere else, so a clip whose notes changed has to be re-inserted. Without
     // this the whole note vocabulary — add, remove, velocity, move — reached the engine and
     // changed nothing you could hear. See ProjectDiff's clipMoved.
     bool operator==(const NoteDoc& o) const {
         return time == o.time && duration == o.duration && key == o.key && vel == o.vel
-            && channel == o.channel && rel == o.rel;
+            && channel == o.channel && rel == o.rel
+            // The effects too, and for exactly the same reason: they are realised at insert time,
+            // so a pad that gained a repeat must re-insert or the change is silent.
+            && repeat == o.repeat && skip == o.skip;
     }
     bool operator!=(const NoteDoc& o) const { return ! (*this == o); }
 };
@@ -101,6 +112,10 @@ struct ClipDoc {
     // in the doc because the surfaces DRAW it (dimmed); this side simply doesn't play it.
     bool disabled = false;
 };
+
+// The Tracktion clip name this ClipDoc gets: its PLACEMENT id, which is what tells two placements of
+// one material apart. Every insert and every removal must use it — see ProjectDoc.cpp.
+std::string clipNameFor(const ClipDoc& c);
 
 // A send from this track to a destination (return) track.
 struct SendDoc {
@@ -163,6 +178,10 @@ struct ProjectDoc {
     // The metronome enable from the project's settings. The engine clicks during playback when true, emphasising
     // each bar's first beat. The single source of truth: a surface toggles it by rewriting settings and re-sending.
     bool metronome = false;
+    // How loud the click is, 0.2 … 1 (settings.yaml's `metronome_level`). NEVER 0 — silencing it is
+    // `metronome` above, and Tracktion clamps this to those two bounds anyway, so a 0 here would be
+    // played as 0.2 and read back as a level nobody chose. Default is Tracktion's own.
+    double metronomeLevel = 0.6;
     // Count-in length in BARS. When recording, the transport rolls this many bars clicking before capture, so the
     // take starts cleanly on the beat. 0 means none, and Tracktion's CountIn mode clamps anything above two.
     int countIn = 0;

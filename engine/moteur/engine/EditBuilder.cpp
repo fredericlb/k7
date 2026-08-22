@@ -112,24 +112,42 @@ void applyClipWarp(te::AudioClipBase& clip, te::Edit& edit, const ClipDoc& c) {
     // per block but always completes, and keeps the live and offline paths identical.
     clip.setUsesProxy(false);
 
-    // Declare the source's musical length and let auto-tempo stretch. WarpTime is off: the two are mutually
-    // exclusive in AudioSegmentList, and auto-tempo is the one that can change duration. The time signature only
-    // groups beats into bars, so a plain 4/4 is fine.
-    clip.setWarpTime(false);
+    // Declare the source's musical length and let auto-tempo stretch: that is the OVERALL ratio, first marker to
+    // last. The time signature only groups beats into bars, so a plain 4/4 is fine.
     auto& li = clip.getLoopInfo();
     li.setNumerator(4);
     li.setDenominator(4);
     li.setNumBeats(beatSpan);
-
-    // Piecewise: pin each interior marker's SOURCE position as a beat point, so segments stretch independently.
-    auto wi = clip.getWaveInfo();
     li.clearLoopPoints();
-    for (size_t i = 1; i + 1 < markers.size(); ++i) {
-        const auto sample = static_cast<tt::SampleCount>(markers[i].second * wi.sampleRate);
-        li.addLoopPoint(sample, te::LoopInfo::LoopPointType::manual);
-    }
-
     clip.setAutoTempo(true);
+
+    // The interior markers, as a WARP MAP. Auto-tempo cannot place them and loop points do not either: this used
+    // to pin each one as a LoopInfo beat point, believing segments would then stretch independently, and they
+    // never did — `AudioSegmentList::buildAutoTempo` advances its beat cursor by `segmentSeconds *
+    // LoopInfo::getBeatsPerSecond()`, ONE constant for the whole file, so sync points only decide where the audio
+    // is cut and every segment keeps the same rate. Every warp point between the ends was silently discarded.
+    // Full rationale, and why this composes rather than replaces: docs/warp.md.
+    if (markers.size() > 2) {
+        // Both layers apply — `EditNodeBuilder` passes the warp map INTO the auto-tempo node — so the map carries
+        // only the DEVIATION from linear: each marker's source second moves to where its beat falls once the
+        // map's span is spread evenly across the file, and auto-tempo applies the overall ratio on top. The two
+        // endpoints come out identity, so the warped stream is still `srcSpanS` long and `setNumBeats` above
+        // stays exact.
+        const double srcStart = markers.front().second;
+        const double beatStart = markers.front().first;
+        auto& wtm = clip.getWarpTimeManager();
+        wtm.removeAllMarkers(); // back to the two identity endpoints Tracktion seeds
+        for (size_t i = 1; i + 1 < markers.size(); ++i) {
+            const double linear =
+                srcStart + (markers[i].first - beatStart) / beatSpan * srcSpanS;
+            wtm.insertMarker(te::WarpMarker(tt::TimePosition::fromSeconds(markers[i].second),
+                                            tt::TimePosition::fromSeconds(linear)));
+        }
+        // AFTER setUsesProxy(false) above, and that order is the whole safety of it: `WaveAudioClip::needsRender`
+        // is `warpTime && canUseProxy()`, so with the proxy already refused no WarpTimeRenderJob is created — and
+        // a render job here is the background task the headless renderer never pumps.
+        clip.setWarpTime(true);
+    }
 }
 
 // ASCII case-insensitive equality: plugin names and formats round-trip through JSON and YAML, whose casing we
@@ -274,9 +292,9 @@ void insertClip(te::Engine& engine, te::Edit& edit, te::AudioTrack& track,
         warn("clip source not found/invalid: " + path);
         return;
     }
-    // Name the clip by its doc id, as MIDI clips are, so identity is consistent and ClipRemoved can match it —
-    // which is what lets a live-streamed audio pattern prune played one-shots instead of piling them up.
-    auto clip = track.insertWaveClip(juce::String(c.name.empty() ? c.id : c.name), file,
+    // Named by its PLACEMENT id (clipNameFor) — which is what lets a live-streamed audio pattern prune played
+    // one-shots instead of piling them up, and what keeps two placements of one material apart.
+    auto clip = track.insertWaveClip(juce::String(clipNameFor(c)), file,
                                      clipPositionFor(edit, c, af.getLength()), false);
     if (clip != nullptr) {
         applyClipLoop(*clip, c);
@@ -308,20 +326,75 @@ void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
 
 // Create a MIDI clip on the track from a ClipDoc's notes. NB: ClipTrack::insertMIDIClip takes a TimeRange, NOT
 // a ClipPosition, and MidiList::addNote takes (pitch, BeatPosition, BeatDuration, velocity, colour, undo).
+// One note into the sequence, retriggered `repeat` times inside its OWN duration — a pad's ratchet.
+// The duration is the whole of what a pad occupies (the sequencer writes a step's worth), so the
+// hits divide it rather than overrunning into the next step.
+static void addNoteWithRepeat(te::MidiList& seq, const NoteDoc& n, double atBeat) {
+    const double dur = n.duration > 0.0 ? n.duration : 0.25;
+    const int hits = n.repeat >= 2 ? n.repeat : 1;
+    const double each = dur / hits;
+    const int vel = juce::jlimit(1, 127, juce::roundToInt(n.vel * 127.0));
+    for (int i = 0; i < hits; ++i)
+        seq.addNote(n.key,
+                    tt::BeatPosition::fromBeats(atBeat + i * each),
+                    tt::BeatDuration::fromBeats(each),
+                    vel, 0, nullptr);
+}
+
+/**
+ * A MIDI clip, with its pads' effects realised.
+ *
+ * `repeat` is local to a note and costs nothing. `skip` is not: it silences a pad on every Nth PASS
+ * of the pattern, and a pass only exists because the clip carries a loop range that Tracktion
+ * repeats. There is no per-repetition hook to hang it on, so the passes are UNROLLED here — the
+ * notes are written out for each one, the skipped pads left out, and the loop range not applied.
+ *
+ * Unrolled only when some pad actually asks for it. Without that, every looping sequence would
+ * stop being a loop and become its own expansion: more notes in the edit, and a diff that has to
+ * re-insert all of them for a change to one pass. A pattern with no `skip` takes exactly the path
+ * it always did.
+ *
+ * Why here and not in the compiler: the sequencer draws the same document the engine plays, and a
+ * document holding four passes of a one-bar pattern is one the grid would draw four bars of. The
+ * pattern as authored and the notes as played are different lists, and this is where they part.
+ */
 void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c) {
     const auto len = c.length > 0.0 ? c.length : 4.0;
     const tt::TimeRange range{beatToTime(edit, c.start), beatToTime(edit, c.start + len)};
-    auto clip = track.insertMIDIClip(juce::String(c.name.empty() ? c.id : c.name), range, nullptr);
+    auto clip = track.insertMIDIClip(juce::String(clipNameFor(c)), range, nullptr);
     if (clip == nullptr)
         return;
     auto& seq = clip->getSequence();
+
+    const double win = c.loopEnd > c.loopStart ? c.loopEnd - c.loopStart : 0.0;
+    bool anySkip = false;
     for (const auto& n : c.notes)
-        seq.addNote(n.key,
-                    tt::BeatPosition::fromBeats(n.time),
-                    tt::BeatDuration::fromBeats(n.duration > 0.0 ? n.duration : 0.25),
-                    juce::jlimit(1, 127, juce::roundToInt(n.vel * 127.0)),
-                    0, nullptr);
-    applyClipLoop(*clip, c);
+        if (n.skip >= 2) { anySkip = true; break; }
+
+    if (!anySkip || win <= 0.0) {
+        // The path every pattern took before pad effects existed, `repeat` aside.
+        for (const auto& n : c.notes)
+            addNoteWithRepeat(seq, n, n.time);
+        applyClipLoop(*clip, c);
+        return;
+    }
+
+    // How many times the window fits the clip — the passes a `skip` counts. Rounded rather than
+    // truncated: `length` is win × loops computed in floating point, so the last pass can land a
+    // few ulps short of a whole one and be dropped by a floor().
+    const int passes = std::max(1, (int)std::llround(len / win));
+    for (int p = 0; p < passes; ++p)
+        for (const auto& n : c.notes) {
+            // Every Nth pass is the one that falls silent, counting the first as pass 1: `skip: 2`
+            // plays one pass in two, `skip: 4` plays three in four.
+            if (n.skip >= 2 && ((p + 1) % n.skip) == 0)
+                continue;
+            // Clip-relative, as the loop range would have made it: the window's start becomes the
+            // clip's start, and each pass follows the one before.
+            addNoteWithRepeat(seq, n, (n.time - c.loopStart) + p * win);
+        }
+    // Deliberately NO applyClipLoop: the repetition is now written out, and looping it again would
+    // play the whole expansion over.
 }
 
 bool saveVstPreset(te::Plugin& plugin, const juce::File& file) {

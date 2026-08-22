@@ -255,6 +255,34 @@ void diff_clip_moved() {
     CHECK(hasKind(d, ChangeKind::ClipMoved));
 }
 
+/**
+ * Two placements of ONE material must not share an engine clip name.
+ *
+ * The name is how a clip is found again: `removeClipFor` matches on it and stops at the first hit.
+ * All three sites spelled it `name.empty() ? id : name`, and `ClipDoc::name` is the MATERIAL — the
+ * same string for every placement of a sample, and never empty — so the id was never reached.
+ *
+ * What that cost: a PASTE makes a second placement of one material by definition, so moving either
+ * one removed the OTHER from the edit and left the moved clip behind. The lane then played a clip
+ * the document no longer held, under the one that had just moved — one event doubled from a certain
+ * point, and only until the next reload, since a rebuild puts back what the document says.
+ */
+void clip_name_is_the_placement_not_the_material() {
+    ClipDoc a = mkClip("riff@0", 0.0);
+    ClipDoc b = mkClip("riff@16", 16.0);
+    a.name = "riff";  // the MATERIAL — deliberately the same on both
+    b.name = "riff";
+
+    CHECK(clipNameFor(a) != clipNameFor(b));
+    CHECK(clipNameFor(a) == "riff@0");
+    CHECK(clipNameFor(b) == "riff@16");
+
+    // The fallback, for a document with no id at all — which the compiler never emits.
+    ClipDoc noId = a;
+    noId.id.clear();
+    CHECK(clipNameFor(noId) == "riff");
+}
+
 // Everything clipPositionFor/applyClipLoop/applyClipWarp read at INSERT time has to make the clip move, or the
 // edit is silently dropped: the doc changes, the engine compares, sees nothing it tracks, and re-inserts
 // nothing. `from` on a clip read as doing nothing for exactly this reason, and `offset` had the same hole.
@@ -366,6 +394,7 @@ int main() {
     RUN(diff_plugin_remove_is_incremental);
     RUN(diff_plugin_add_rebuilds_when_it_must);
     RUN(diff_clip_moved);
+    RUN(clip_name_is_the_placement_not_the_material);
     RUN(diff_clip_retimed_by_every_field);
     RUN(diff_removals_before_adds);
     RUN(diff_duplicate_id_is_reported);

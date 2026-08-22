@@ -63,7 +63,8 @@ std::string readAll(const fs::path& p)
     return ss.str();
 }
 
-/** The shipped catalogue — the same folder `seedIfEmpty` fills a new library from. */
+/** The modules written in this repo — `packages/dsp/modules/`, a place to copy FROM rather
+ *  than a seed: nothing fills a library any more (packages/dsp/docs/catalogue.md). */
 fs::path catalogueDir() { return fs::path{STUDIO_DSP_MODULES}; }
 
 /** Compile one file the way FaustPlugin does, and answer what happened. */

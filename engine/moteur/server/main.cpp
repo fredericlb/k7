@@ -142,6 +142,9 @@ studio::ProjectDoc docFromJson(const json& j) {
     if (j.contains("settings") && j.at("settings").is_object()) {
         const auto& s = j.at("settings");
         doc.metronome = s.value("metronome", false);
+        // 0.6 for a document that predates the field — Tracktion's own default, so an old project
+        // clicks exactly as loudly as it did before there was a level to state.
+        doc.metronomeLevel = s.value("metronomeLevel", 0.6);
         doc.countIn = s.value("countIn", 0);
     }
 
@@ -203,6 +206,10 @@ studio::TrackDoc trackFromJson(const json& t) {
                     nd.vel = n.value("vel", 1.0);
                     nd.channel = n.value("channel", 0);
                     nd.rel = n.value("rel", 1.0);
+                    // A pad's effects; absent == none. Not clamped: everything downstream tests
+                    // for >= 2, so a nonsense value is already inert.
+                    nd.repeat = n.value("repeat", 0);
+                    nd.skip = n.value("skip", 0);
                     cl.notes.push_back(nd);
                 }
             tr.clips.push_back(std::move(cl));
@@ -340,6 +347,8 @@ bool readDocArg(const std::string& input, studio::ProjectDoc& out) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    studio::installCrashHandler();
+
     // Child-process scan mode: the parent spawns us with `--scan-plugin <format> <id>` to load one plugin in
     // isolation. Runs before any server or engine setup, and exits with no port bound.
     if (argc >= 4 && std::string(argv[1]) == "--scan-plugin")

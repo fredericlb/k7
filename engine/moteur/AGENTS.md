@@ -70,6 +70,13 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          packages/song/src/builtinParams.generated.ts. The one script here that is a
                          GENERATOR: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace moteur`. docs/builtinParams.md.
+  warp-points.ts         a clip's INTERIOR warp points move the sound — rendered and measured,
+                         since this is timing no TypeScript test can see (docs/warp.md)
+  pad-effects.ts         a sequencer pad's `repeat` and `skip` reach the sound — same kind of
+                         proof, counting hits per pass (@studio/song docs/padEffects.md)
+  send-one.ts            compile a project folder and push it at a running engine, once. The
+                         smallest repro of "the file service sent a document", for when the
+                         browser is not the thing under test
   listen-headless.mjs    a headless listener
   measure-broadcast.mjs  the numbers behind docs/broadcast.md
   render-once.ts         one offline render
@@ -84,6 +91,10 @@ before touching the audio callback, `applyFull`, or the build flags),
 `builtinParams.md`, `namPlugin.md`, `faust.md` (what `FaustPlugin` does NOT do yet, and the
 three ways to fill it in — read it before assuming a Faust module makes a sound),
 `sidechain.md` (a module's second input),
+`warp.md` (a clip's stretch map: which half is auto-tempo and which is the warp map, and why loop
+points cannot carry the points in between — read it before touching `applyClipWarp`),
+`clipIdentity.md` (a clip is named by its PLACEMENT id, never its material — read it before
+inserting or removing a clip, since a fourth site that spells the rule again will get it wrong),
 `audioDevice.md` (which interface is opened, who remembers the choice, and what an
 interface change does to the live inputs),
 `inputTuner.md`, `airWindowsList.md` and `airwindows-inventaire.md`.
@@ -201,6 +212,40 @@ often locked while the engine is running — stop it before rebuilding.
 `release-gcc`). First configure fetches JUCE + Tracktion (~hundreds of MB). Needs CMake
 ≥ 3.24, C++20, and the JUCE Linux dev deps.
 
+### A half-rebuilt engine crashes on the first project, and nothing says so
+
+An interrupted Windows build — the dev watcher restarting mid-compile, a PDB collision (see the
+`C1041` note in `docs/dev.md`) — can leave `studio_engine.dir/RelWithDebInfo` with **some** objects
+compiled against the new `ProjectDoc.h` and some against the old one. It still links: the struct is
+a layout, not a symbol, so nothing in the toolchain objects to a mismatch.
+
+What it does is add a field's worth of offset to everything after it. `tracks` is the LAST member of
+`ProjectDoc`, so *any* field inserted above it moves it, and a stale translation unit reads
+`doc.tracks` off the end of the struct: a garbage `std::vector`, and an access violation the moment
+something walks it. Measured 2026-08-22 — `metronomeLevel` inserted in front of `tracks`, a stale
+`ProjectDiff.obj`, and the engine died in `keyOf` on every project it was handed, so the tray sat in
+a two-second `engine is gone — relaunching` loop and no project could ever be played. Nothing in
+the log named the engine as the culprit; `installCrashHandler` above is what did.
+
+Suspect it whenever a fresh-looking build crashes early on a document. To confirm, compare object
+mtimes against the header — and note that "it rebuilt when I touched the header" only proves the
+tlogs are healthy *now*:
+
+```powershell
+$h = (Get-Item engine/ProjectDoc.h).LastWriteTime
+Get-ChildItem build/windows-msvc/engine/studio_engine.dir/RelWithDebInfo -Filter *.obj |
+  Where-Object LastWriteTime -lt $h
+```
+
+The cure is to delete the objects for **our own** sources — not JUCE's or Tracktion's, which include
+none of our headers and cost minutes — and rebuild:
+
+```powershell
+$srcs = (Get-ChildItem engine -Filter *.cpp).BaseName
+Get-ChildItem build/windows-msvc/engine/studio_engine.dir/RelWithDebInfo -Filter *.obj |
+  Where-Object { $srcs -contains $_.BaseName } | Remove-Item
+```
+
 Build gotchas:
 - The macOS deployment target must be re-asserted **after** Tracktion's
   `FetchContent_MakeAvailable` forces 10.13.
@@ -298,6 +343,18 @@ To confirm the machine rather than the code, from any shell:
 
 If that hangs, `midisrv.exe` is stuck and every MIDI-enumerating app on the box is too;
 restarting the process clears it. The render no longer cares either way.
+
+### Debugging a CRASH with no debugger
+
+`installCrashHandler()` in `OfflineRender.cpp`, called first thing in `main`, prints the faulting
+thread's symbolised stack — with file and line — on an access violation, then lets the process die
+normally. Always on: a crash is rare and the handler costs nothing until one happens.
+
+Without it a crash leaves only a fault offset in the Windows event log
+(`Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='Application Error'}`), and
+there is no cdb or WinDbg here to turn that into a name. Note the engine dies *silently* from the
+supervisor's point of view — the tray only reports `engine is gone — relaunching`, on a loop, which
+reads as a supervisor fault rather than an engine one. The stack is what tells the two apart.
 
 ### Debugging a hang with no debugger
 
