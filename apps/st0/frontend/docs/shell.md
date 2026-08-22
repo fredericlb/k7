@@ -18,6 +18,13 @@ supplies this app's wording. Read
 before touching any of it, in particular why the address is a path and the repository is named
 rather than spelled out.
 
+**ProjectGate also closes the session again.** Twenty minutes with nobody touching the tab and it
+stops rendering the editor — which is what closes the engine socket — flushes the project out of
+the engine, and draws a card offering to resume. EngineGate lets go of its lease at the same
+moment, since a tab with no socket that kept renewing a claim would be squatting the machine.
+[packages/project-shell/docs/idle.md](../../../../packages/project-shell/docs/idle.md) is the
+page, including why a playing transport does not count as idleness.
+
 `LocaleProvider` sits above all of them: switching language remounts its children, so
 nothing that renders a message may live above it.
 
@@ -69,32 +76,36 @@ wiring and the layout; almost nothing else.
 |---|---|
 | `title` / `subtitle` | `st0`, and the build stamp |
 | `children` | the project's name, its alternatives picker, the workspace warning, and the **transport** centred over them |
-| `items` | the project's **screen surfaces** — the desk, and whatever else `surfaces/` declares |
-| `actions` | the pane row, Share, Settings — or, on a phone, the one menu they collapse into |
+| `items` | **empty** — see below |
+| `actions` | the pane row, Playlists (a SET only), Share, the cog — or, on a phone, the one menu they collapse into |
 
 The split between `items` and `actions` is the shared bar's own rule (*a page goes in `items`, a
 control goes in `actions`*), and here it lands on a real distinction. A **pane** button fullscreens
 something that is already mounted, and Escape backs out of it: `aria-pressed`, not `aria-current`,
 and each one carries its key in its tooltip — which is why the row stays as it is rather than
-becoming labelled entries that would drop the shortcut. A **surface** is a page: declared by the
-project, reached by name, one at a time.
+becoming labelled entries that would drop the shortcut.
 
-Two things st0 asks the bar for. The padding: it is `px-5 py-3` by default and this app trims it
-through the inner box — every row of chrome is a row the panes don't get, and a phone in landscape
-is about 400 px tall. And on a phone the bar is handed **no `items` at all**: `AppHeader` folds
-that prop into a hamburger of its own below 640 px, and st0's `actions` already collapse into one —
-two hamburgers side by side being two answers to "where do I go". The surfaces are in st0's,
-alongside the panes.
+`items` held the project's **screen surfaces** — the desk, reached by name, one at a time — and is
+empty because there are none: every surface is a pane now, so the desk is in the icon row with the
+rest and gets a tooltip carrying its key. The prop is still passed (empty) rather than dropped,
+because it is the shared bar's slot for exactly that kind of page and the next one this app grows
+belongs in it. Note the constraint if you do: `AppHeader` folds `items` into a hamburger of its own
+below 640 px, and st0's `actions` already collapse into one — two hamburgers side by side being two
+answers to "where do I go" — so anything put there must also be in st0's own menu.
+
+The other thing st0 asks the bar for is the padding: it is `px-5 py-3` by default and this app trims
+it through the inner box — every row of chrome is a row the panes don't get, and a phone in
+landscape is about 400 px tall.
 
 ### On a phone, one menu holds everywhere there is to go
 
 There was a **bottom tab bar**, one tab per pane. It is gone and its contents are in `MobileMenu`:
-the panes, the project's screen surfaces, then the tools. Three reasons, and the last is the one
-that settles it:
+the panes, then the tools. Three reasons, and the last is the one that settles it:
 
 - it spent a row of a screen that is ~400 px tall in landscape on a control used a few times a
   session, and the panes are what you came to look at;
-- it could only ever hold the panes, so the surfaces sat in a second hamburger beside the first;
+- it could only ever hold the panes, so the screen surfaces sat in a second hamburger beside the
+  first — moot now that a surface IS a pane, but it was true when the tab bar went;
 - **it never worked.** `onSelect` dispatched the bare pane name, and `runLocalCommand` refuses
   that — pane names are `ui` verbs, so a tap set the status line to *"timeline" is a ui command*
   and changed nothing else. The menu rows send `ui <pane>`.
@@ -121,6 +132,19 @@ timeline in the same column. Its mounting rule is the one that matters: it owns 
 and one `<video>` per layer, so it is hidden and never unmounted — the same invariant the
 editor's undo history relies on, protecting something more expensive. See
 [picture.md](picture.md).
+
+**The DESK is the third**, `surfaces/turntables.yaml` (usually named `desk.yaml`), and it sits
+directly *over the graph* — last in the column, nearest the chains it is played against. A set
+declares no timeline, so those two panes are its whole layout, half each. It was a screen over the
+window until it became a pane, and the reason for the move is the pairing: a fader on the desk is
+a param on a module in the graph, and a screen that covered the graph made "which module is this
+one on" a round trip. `full` is how the desk gets the whole window when you do want it whole.
+
+It benefits from the same mounting rule as the viewport, for a different reason: what it holds is
+a DOCUMENT — the loaded songs, the crossfader, the six EQ knobs — and a set does not stop existing
+because you went to look at the graph. That used to need a prop on `SurfaceTab`; being a pane
+covers it. See
+[packages/ui-turntables/docs/deckSet.md](../../../../packages/ui-turntables/docs/deckSet.md).
 
 The editor is not in it. It had the left half, which meant every song opened with half the
 screen showing a YAML file you had not asked for, while the two views of the song that are
@@ -553,10 +577,44 @@ registry as its `popin` condition. Two things fall out of it, both deliberate:
 
 Three things deliberately do NOT take part. The **pickers** (module, asset — both `TreePicker`)
 and the **context menu** already listen in the *capture* phase and swallow the key outright, so
-the shell never sees it. The **settings screens and the module builder** are pages that own the
-whole surface: the listener returns early for them, exactly as it always did for settings, so no
-binding of any kind reaches the layout underneath. And **`AudioClipPanel`** keeps Escape for
-stopping a rolling take, which is neither a popin nor a slot but a transport action.
+the shell never sees it. The **settings PAGE and the module builder** own the surface they are
+on: the listener returns early for them, so no binding reaches the layout underneath. And
+**`AudioClipPanel`** keeps Escape for stopping a rolling take, which is neither a popin nor a
+slot but a transport action.
+
+The three **docked panels** are deliberately not in that list, and the distinction arrived with
+them: a docked panel leaves the panes on screen, so the keys that drive them have to keep
+working — Space while you watch a level on the I/O tab is the whole point of that tab not being
+a dialog over the thing it meters. Typing stays safe because the guard that protects it is
+about the FOCUSED element, not about which screen is open. Escape is the settings panel's own
+and closes it.
+
+## The right column: three panels, one at a time
+
+The end of the bar holds three buttons, and each toggles a panel **docked at the right** of the
+pane row — pushing the panes rather than covering them:
+
+| button | panel | what it is |
+|---|---|---|
+| ♪ (a SET only) | Playlists | the repository's set lists: a searchable dropdown, its songs under it |
+| ⇪ | Partager | commit, pull, export, publish — and the badge saying how far behind the repo is |
+| ⚙ | Réglages | tabs: Éditeur, I/O, Compte |
+
+`rightPanel` in `App` is one value and not three booleans, because there is **one column**:
+two panels open at once would be two columns, and the panes have already given up the width for
+one. Opening any of them closes whichever was there, which is what a single value says and
+three flags would only promise.
+
+Three panels rather than one set of tabs, because they are three different verbs — what you
+**set**, what you **play from**, what you **send**. Playlists had a tab under the cog for
+exactly one iteration, and it was filing by where it used to live: settings are things you set
+and leave, a set list is a thing you work from. The share was a dropdown, which is the wrong
+shape for a surface that *reports* — a pull says how far behind you were, an export takes a
+minute and says where the file went.
+
+None of them is a **pane**. A pane is what the project DECLARES ([shellRouting.md](shellRouting.md),
+`packages/song/docs/surfaces.md`); none of this is the project's, which is why none of it is in
+the URL either.
 
 ### Space is the transport, wherever the last click landed
 
@@ -1189,6 +1247,16 @@ two lists and no special case. The group is worth having on its own terms (they 
 family that acts on the workspace's files rather than on the song), and it happens to be what
 the exception was standing in for.
 
+`ui external <surface>` is the namespace's odd one and belongs to it squarely: it reads an
+address and puts it on the clipboard, touching neither the project nor the transport nor even
+this shell's view. It **does not navigate** — the whole point of the address is to be carried to a
+second device, and following it here would replace the editor you are standing at with the
+tablet's screen. The line is echoed in the status bar as well as copied, so a browser that
+refuses the clipboard still leaves it readable. The share panel lists the same addresses as real
+`<a target="_blank">` links, and that is not a second copy of the behaviour: OPENING one is
+navigation, which a command has no business being, while the *Copier* button beside each row
+dispatches this line ([external.md](external.md)).
+
 ### Every action on screen is a command
 
 There is no button, menu entry or toggle in this shell that the command bar cannot reach.
@@ -1229,15 +1297,26 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the footer's mixer / notes buttons | `ui mixer`, `ui notes` | `toggleMixer` / `toggleDocs` in `App` |
 | the footer's panel row | `ui panel <graph\|logs>` | `togglePanel` |
 | the log panel's *clear* | `ui logs clear` | `useLogs` |
-| a `view` surface's header button | `ui surface <id>` | `setOpenSurface` |
+| a surface's pane button (the desk) | `ui turntables` | `fullscreen` / `setFull` in `App`, like any pane |
 | the timeline header's clock / height | `ui ruler`, `ui lanes` | `TimelineHandle` |
-| the cog menu | `ui settings editor\|io\|commands\|playlists`, `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
-| the editor settings screen's one toggle | `ui vim` | `toggleVim` in `App` |
-| the share menu | `project commit`, `project pull` (the CLI's), `project export`, `project share k7`, `project share link` | `hooks/useShare.ts` |
+| the cog | `ui settings` — toggles its panel | `App` |
+| the header's Playlists button, on a SET | `ui playlists` — toggles its panel | `App` |
+| the header's Share button | `ui share` — toggles its panel | `App` |
+| the settings panel's tabs | `ui settings editor\|io\|account` | `App` |
+| the settings panel's *Commandes* | `ui settings commands` — the one that is still a page | `App` |
+| the account tab's rows | `ui engine`, `ui workspace quit`, `ui logout`, `ui language` | `App` |
+| the share panel's rows | `project commit`, `project pull`, `project export`, `project share k7\|link` | `@studio/commands` and `hooks/useShare.ts` |
+| the share panel's *Copier* beside a surface | `ui external <surface>` | `App` — the row itself is an anchor, see below |
+| the editor tab's one toggle | `ui vim` | `toggleVim` in `App` |
 | Ctrl+Z / Ctrl+Y | `project undo`, `project redo` | `@studio/project-shell/undo` |
 | the file tree's right-click menu | `fs file new`, `fs folder new`, `fs file rename`, `fs file move`, `fs file delete`, `fs file upload`, `ui pin`, `ui copy path` | `EditorHandle`, and `FileTreeHandle` under it |
 | the recording pane's *stop* | `transport stop` | the engine |
 | a `.dawproject` / `.als` clicked in the tree | `project import <path>` | `useProjectImport` |
+| the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
+| the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
+| the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |
+| the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | `POST /stems`, see [playlists.md](playlists.md) |
+| the I/O tab's *séparation des stems* | `system stems <chaîne>` | `@studio/commands` — `~/.studio/preferences.yaml`, read by every screen that could start one |
 
 Two of those handles exist only for this: `EditorHandle` grew the tree's own verbs, and
 `FileTreeHandle` exposes the two things nothing else holds — the pins, which are that
@@ -1268,10 +1347,19 @@ command names something you could *ask for*, and none of these is:
   and are not: they write a number into the file the editor is showing, which autosave then
   saves like any keystroke. A command for them would be a command for typing.
 
-The two transport buttons in the header are the one place a button does NOT dispatch its
+The two transport buttons in the header are the clearest place a button does NOT dispatch its
 command, and the reason is latency: `transport toggle` is a CLI verb, so it travels to the file
 service and back, while the button already holds an open socket to the engine. The command
 exists and does the same thing — it is the button that takes the short way.
+
+Two of the Playlists panel's buttons take a road of their own for a different reason each, and
+both are in [playlists.md](playlists.md): *Ajouter un morceau* writes into the OPEN BUFFER rather
+than the file, because a command writing the file underneath a modified buffer would race the
+autosave; and *Séparer les stems* drives `POST /stems` once per line rather than dispatching
+`playlist stems`, because that verb reports its lines when it is finished and finishing takes an
+hour. The rule this bends is worth stating exactly: what must be reachable from the bar is the
+ACT, and it is — the verb does the same work headless. What the button adds is a bar you can
+watch, which a command's reply has no shape for.
 
 ## Two-step flows
 

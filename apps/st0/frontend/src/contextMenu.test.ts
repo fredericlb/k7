@@ -132,6 +132,65 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 const says = (items: { label: string; description: string }[], label: string) =>
   items.find((i) => i.label === label)?.description;
 
+/**
+ * A PAD's two effects.
+ *
+ * Written out rather than derived, for the reason a take's verbs are: `<sequence> <note> <start>`
+ * is the shape of EVERY `sequence note` verb, so asking the catalogue for "commands taking these
+ * three" would offer to remove the note and set its velocity — the things the pad is already under
+ * your hand for. These rows are a menu somebody chose.
+ */
+describe("a pad", () => {
+  const pad = (has: { repeat?: number; skip?: number } = {}) =>
+    contextMenu(
+      { kind: "pad", sequence: "beat", note: 36, start: 2, ...has },
+      CATALOGUE,
+    );
+
+  it("offers both values of both effects, fully filled in", () => {
+    expect(lines(pad())).toEqual([
+      "sequence note repeat beat 36 2 2",
+      "sequence note repeat beat 36 2 4",
+      "sequence note skip beat 36 2 2",
+      "sequence note skip beat 36 2 4",
+    ]);
+    // Named by the VALUE, since two rows share a verb — "repeat" twice would be a menu you
+    // cannot choose from.
+    expect(labels(pad())).toEqual([
+      "repeat ×2",
+      "repeat ×4",
+      "skip 1/2",
+      "skip 1/4",
+    ]);
+  });
+
+  // Every row RUNS: the click already knows the sequence, the note, the beat and the value, so
+  // there is nothing left for the command bar to collect.
+  it("leaves nothing for the bar to ask", () => {
+    expect(pad().every((i) => i.complete)).toBe(true);
+  });
+
+  /**
+   * The value it is already ON is not offered, and an `off` row appears instead.
+   *
+   * A row that sets a pad to what it already is would do nothing, and a menu with no way back off
+   * would make an effect a one-way decision.
+   */
+  it("drops the value already set, and offers the way off", () => {
+    const menu = lines(pad({ repeat: 4 }));
+    expect(menu).not.toContain("sequence note repeat beat 36 2 4");
+    expect(menu).toContain("sequence note repeat beat 36 2 2");
+    expect(menu).toContain("sequence note repeat beat 36 2 off");
+    // …and the OTHER effect is untouched by that: both are still on offer.
+    expect(menu).toContain("sequence note skip beat 36 2 2");
+    expect(menu).not.toContain("sequence note skip beat 36 2 off");
+  });
+
+  it("offers no way off an effect that is not on", () => {
+    expect(lines(pad())).not.toContain("sequence note repeat beat 36 2 off");
+  });
+});
+
 describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
 

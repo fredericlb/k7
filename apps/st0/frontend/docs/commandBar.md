@@ -1,5 +1,11 @@
 # The command palette and the module picker
 
+> **Two screens mount this component.** The editor's bar is what this page describes; the HOME
+> page runs the same one over a catalogue of its own — six verbs about repositories and projects,
+> since there is no project open there to have any others (`projects.md`). Everything below about
+> matching, the form, the docked strip and double-Shift is true of both; the gesture inlets and
+> the caret are the editor's alone, and the home page passes neither.
+
 ## `CommandBar.tsx` — one question, then a form
 
 The bar asks ONE thing: **what do you want done**. You answer in your own words, it lists

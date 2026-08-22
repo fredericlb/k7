@@ -111,6 +111,8 @@ function cannedFor(manifest: ShareManifest): Record<string, unknown> {
     audioDevice: null,
     channels: { in: "", out: "" },
     vim: false,
+    // A snapshot has no machine behind it, so nothing here could separate anything.
+    stemsChain: null,
   };
   return {
     "/project": project,

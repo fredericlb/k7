@@ -36,9 +36,18 @@ export const KEYS: Record<string, Binding> = {
   // `?` (shift+/) opens the help overlay, a command like any other; keyToken keeps shift, rejecting only meta/ctrl/alt.
   "?": "ui help",
   // These no longer SWITCH view — every pane is already on screen, so they fullscreen one instead.
+  //
+  // Named panes, not ring positions: `2` is the timeline wherever the timeline is, and says so
+  // rather than going quiet on a project that has none (`fullscreen` refuses out loud). The DESK
+  // is `4` because a set is the one layout where it is a pane you reach constantly — a set
+  // declares no timeline, so `2` is the dead key there and this is the live one.
+  //
+  // The VIEWPORT deliberately has none, and never has: picture is rare enough that a digit is
+  // better spent elsewhere, and the frame is reached by its header button, Tab, or `f`.
   "1": "ui editor",
   "2": "ui timeline",
   "3": "ui chains",
+  "4": "ui turntables",
   // `f` fullscreens whatever is focused, interpolating the pane into the command name; unset focus goes quiet.
   f: { if: "focus_pane", command: "ui {focus_pane}" },
   // Tab cycles which pane owns the keys, taking Tab from focus traversal — hence the skip-a-focused-control rule.

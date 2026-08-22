@@ -71,10 +71,19 @@ export const LOCAL_COMMANDS = [
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui logs clear",
-  // The cog menu. All of them leave the project alone, which is why they are `ui`.
+  // The three RIGHT-HAND panels, and the settings tabs. All of them leave the project alone,
+  // which is why they are `ui` — `ui share` opens the panel; the verbs inside it are `project`
+  // ones and write. The bare lines toggle, which is what their buttons do.
+  "ui settings",
   "ui settings editor",
   "ui settings io",
-  "ui settings playlists", // the workspace's set lists — docs/playlists.md
+  "ui settings account", // who you are, the engine, the workspace, the language
+  "ui settings commands", // the one that is still a PAGE — see components/SettingsPanel.tsx
+  "ui playlists", // the workspace's set lists — docs/playlists.md
+  "ui share", // commit, pull, export, publish — docs/shell.md
+  // The LINK to a surface, for another device to open it on — docs/external.md. `ui` because
+  // it copies an address and changes nothing: the surface it names is not even opened here.
+  "ui external",
   "ui vim", // the editor's modality — the toggle on the settings screen
   "ui engine", // back to the engine picker
   "ui workspace quit",
@@ -86,6 +95,18 @@ export const LOCAL_COMMANDS = [
   // journal, the mixdown, the k7 publish, and the file tree's own right-click verbs.
   "project undo",
   "project redo",
+  /**
+   * The header meter's Fix button, as a verb: every strip down by one gain, until the last pass
+   * would have peaked at -6 dB.
+   *
+   * WEB-LOCAL although it only runs `node param` lines, and the reason is the measurement. The
+   * pass's peak exists nowhere but in the browser that watched it go by — the engine reports a
+   * level per frame and keeps no maximum, and by the time anything is clicked the transport has
+   * stopped and the meter reads silence. So the shell holds it (`MasterMeter`'s fold) and this
+   * spends it; a backend verb would have nothing to compute a trim from. Give it a number and it
+   * uses that instead, which is what makes the act nameable from a CLI that never saw the pass.
+   */
+  "project master fix",
   "project export",
   "project share k7",
   "project share link",
@@ -130,6 +151,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui viewport": {
     en: "Fullscreen the picture",
     fr: "Passer l'image en plein écran",
+  },
+  "ui turntables": {
+    en: "Fullscreen the DJ desk",
+    fr: "Passer le pupitre DJ en plein écran",
   },
   "ui chains": {
     en: "Fullscreen the chains graph",
@@ -257,17 +282,37 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Empty the log panel",
     fr: "Vider le journal",
   },
+  "ui settings": {
+    en: "Open or close the settings panel",
+    fr: "Ouvrir ou fermer le panneau de réglages",
+  },
   "ui settings editor": {
     en: "Open the editor's settings",
     fr: "Ouvrir les réglages de l'éditeur",
+  },
+  "ui settings account": {
+    en: "Open the account, engine and language settings",
+    fr: "Ouvrir le compte, le moteur et la langue",
+  },
+  "ui settings commands": {
+    en: "Rename, reorder and rebind the commands",
+    fr: "Renommer, réordonner et relier les commandes",
   },
   "ui settings io": {
     en: "Open the audio inputs and outputs",
     fr: "Ouvrir les entrées et sorties audio",
   },
-  "ui settings playlists": {
-    en: "Open this repository's playlists",
-    fr: "Ouvrir les playlists de ce dépôt",
+  "ui playlists": {
+    en: "Open or close this repository's playlists",
+    fr: "Ouvrir ou fermer les playlists de ce dépôt",
+  },
+  "ui share": {
+    en: "Open or close the share and export panel",
+    fr: "Ouvrir ou fermer le panneau de partage",
+  },
+  "ui external": {
+    en: "Copy a surface's link, to drive it from another device",
+    fr: "Copier le lien d'une surface, pour un autre appareil",
   },
   "ui vim": {
     en: "Turn the editor's vim mode on or off",
@@ -301,6 +346,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "project redo": {
     en: "Redo the change you took back",
     fr: "Rétablir la modification annulée",
+  },
+  "project master fix": {
+    en: "Lower every strip until the last pass fits",
+    fr: "Baisser les tranches pour rentrer le dernier passage",
   },
   "project export": {
     en: "Render the mixdown and download it",
@@ -345,6 +394,9 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
 // The trailing params for the shell's own commands; `kind` is what the param NAMES, and colours the field
 export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui file": [{ name: "path", kind: "file", hint: "a file of this project" }],
+  "ui external": [
+    { name: "surface", kind: "text", hint: "a surface this project declares" },
+  ],
   // `shape` is the fixed audio|live|set choice completed below in makeCompleteArg.
   "ui edit sequence": [
     { name: "name", kind: "file", hint: "a sequence of this project" },
@@ -370,6 +422,17 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   ],
   "ui language": [{ name: "language", kind: "choice", hint: "en · fr" }],
   "project export": [{ name: "format", kind: "choice", hint: "wav · mp3" }],
+  // Optional, and the blank is the ordinary answer: the meter holds the pass's peak and the
+  // button sends nothing. A number is for the case the meter cannot serve — another tab, a CLI,
+  // a level read somewhere else.
+  "project master fix": [
+    {
+      name: "peak",
+      kind: "number",
+      optional: true,
+      hint: "the pass's peak in dB — the header meter's own when left blank",
+    },
+  ],
   "ui builder": [
     { name: "module", kind: "module", hint: "a module of this project" },
   ],
@@ -587,7 +650,13 @@ export function makeListArg(shell: {
   files: () => string[];
   /** Every path the tree draws, folders included — what a `file …` verb may name. */
   entries: () => string[];
-  /** The screens this project declares (`surfaces/`, `layout: view`). */
+  /**
+   * The surfaces this project declares, by id — `ui external`'s vocabulary.
+   *
+   * It answered `ui surface <id>` once, went when every surface became a pane and its name
+   * joined the fixed `ui <pane>` list, and is back for a different question: an EXTERNAL link
+   * names a surface by its filename, and only this app can enumerate one project's.
+   */
   surfaces: () => string[];
   /** The languages the shell is compiled for. */
   locales: () => string[];
@@ -603,7 +672,7 @@ export function makeListArg(shell: {
     if (canonical === "project export" && first) return ["wav", "mp3"];
     if (canonical === "fs file upload" && !first) return ["files", "folder"];
     // …and the ones that are the project's, but that only this app can answer.
-    if (canonical === "ui surface" && first) return shell.surfaces();
+    if (canonical === "ui external" && first) return shell.surfaces();
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
       return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));

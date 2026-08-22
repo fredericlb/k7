@@ -32,14 +32,26 @@ export const UI_EXACT: readonly string[] = [
   // The timeline header's two toggles.
   "ruler",
   "lanes",
-  // The cog menu and the screen it opens.
+  // The three RIGHT-HAND panels. Each bare line TOGGLES its own, which is what its button in
+  // the bar does; one column, so opening any closes the others (see App's `rightPanel`).
+  "settings",
+  // The workspace's set lists — its own panel, because what it opens belongs to the REPOSITORY
+  // and is a thing you work FROM rather than one you set. See docs/playlists.md.
+  "playlists",
+  // Commit, pull, export, publish. `ui` because the PANEL is a view; every verb inside it is a
+  // `project` one and writes.
+  "share",
+  // …and the settings panel's tabs.
   "settings editor",
   "settings io",
-  // The command catalogue as this person arranges it: names, icons, menu order.
+  // Who you are, the engine, the workspace, the language — the old menu's top and bottom, which
+  // were actions rather than a screen and now have a tab of their own.
+  "settings account",
+  // The command catalogue as this person arranges it: names, icons, menu order. The one that
+  // is still a full PAGE — a catalogue is not orderable in a 24rem column.
   "settings commands",
-  // The workspace's set lists. Under the cog with the rest, because what it opens belongs to
-  // the REPOSITORY and not to the project on screen — see docs/playlists.md.
-  "settings playlists",
+  // `external <surface>` takes an argument, so it is a HEAD below rather than an exact — listed
+  // here only in this comment, where somebody looking for it will be.
   // The library's chains, edited as the graphs they are — a screen of its own, so it is opened
   // the way `help` and the settings screens are rather than by a pane. See docs/chainsBuilder.md.
   "chains builder",
@@ -59,6 +71,8 @@ export const UI_HEADS: readonly string[] = [
   "midi learn ",
   "panel ",
   "surface ",
+  // A surface's link, for another device — `ui external <surface>`. See docs/external.md.
+  "external ",
   "builder ",
   "language ",
   "pin ",

@@ -1,29 +1,33 @@
-// useViewRoute.ts — keep the shell's screen (full/panel/help/surface) and the browser's URL
+// useViewRoute.ts — keep the shell's screen (full/panel/help/builder) and the browser's URL
 // in step, both directions, without lifting a dozen writers into route components. The
 // hazard is a feedback loop between the layout and passive effects, so both decisions are
 // pure functions tested as a SEQUENCE. See docs/shellRouting.md.
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { fromLocation, type RouteState, sameRoute, toPath } from "./routes";
+import {
+  type Declared,
+  fromLocation,
+  type RouteState,
+  sameRoute,
+  toPath,
+} from "./routes";
 
 /**
  * URL → state: the screen the address names, or null when the state already shows it.
+ *
+ * `declared` is what the PROJECT says it draws — not part of `RouteState`, since it is a fact
+ * about the project rather than about the screen, but the parse needs it: `/timeline` names no
+ * pane in a project that declares none, and `/turntables` none in a song that is not a set. See
+ * `viewPanes` in routes.ts.
  */
 export function stateForLocation(
   pathname: string,
   search: string,
   state: RouteState,
-  // Whether the project declares a timeline. Not part of `RouteState` — it is a fact about the
-  // PROJECT, not about the screen — but the parse needs it: `/timeline` names no pane in a
-  // project that declares none. See `viewPanes` in routes.ts.
-  timeline = true,
-  /** The same for the frame — `/viewport` names no pane in a song that carries no picture. */
-  viewport = false,
-  /** …and for a frozen snapshot, which has no source: `/editor` names no pane in one. */
-  frozen = false,
+  declared: Declared = {},
 ): RouteState | null {
-  const next = fromLocation(pathname, search, timeline, viewport, frozen);
+  const next = fromLocation(pathname, search, declared);
   return sameRoute(next, state) ? null : next;
 }
 
@@ -47,12 +51,10 @@ export function urlForState(
   prev: RouteState,
   pathname: string,
   search: string,
-  timeline = true,
-  viewport = false,
-  frozen = false,
+  declared: Declared = {},
 ): string | null {
   if (sameRoute(state, prev)) return null;
-  const url = fromLocation(pathname, search, timeline, viewport, frozen);
+  const url = fromLocation(pathname, search, declared);
   if (sameRoute(state, url)) return null;
   return toPath(state);
 }
@@ -64,12 +66,8 @@ export function urlForState(
 export function useViewRoute(
   state: RouteState,
   apply: (next: RouteState) => void,
-  /** Whether the open project declares a timeline surface — see `stateForLocation`. */
-  timeline: boolean,
-  /** Whether it declares a viewport surface — the same fact, about the frame. */
-  viewport: boolean,
-  /** Whether this is a shared snapshot — a fact about the DOCUMENT, not about the project. */
-  frozen = false,
+  /** What the open project declares, plus whether this is a snapshot — see `stateForLocation`. */
+  declared: Declared,
 ): void {
   const location = useLocation();
   const navigate = useNavigate();
@@ -77,37 +75,46 @@ export function useViewRoute(
   // Deliberately NOT touched by the URL→state effect: doing so read as "the app moved" and caused the ping-pong.
   const prev = useRef<RouteState>(state);
 
+  // Taken apart here and put back together INSIDE each effect, rather than closed over as an
+  // object: the caller builds it inline, so a new identity every render would re-run both
+  // effects every render. Passing the primitives is also what lets the dependency lists be
+  // honest — a dependency on `declared` would be a dependency on that identity.
+  const { timeline, viewport, turntables, frozen } = declared;
+
   // URL → state, on mount and every back/forward. useLayoutEffect, so a deep link draws its screen before paint.
   useLayoutEffect(() => {
-    const next = stateForLocation(
-      location.pathname,
-      location.search,
-      state,
+    const next = stateForLocation(location.pathname, location.search, state, {
       timeline,
       viewport,
+      turntables,
       frozen,
-    );
+    });
     if (next) apply(next);
     // `state` is deliberately NOT a dependency: this direction reacts to the LOCATION, and including it
     // would run it on every screen change too — the other half of the loop described in the header.
-    // `timeline` and `viewport` ARE: the surfaces land a moment after the shell, and a `/timeline`
-    // or `/viewport` deep link has to be re-read once the project has said whether it has one.
+    // The declared flags ARE: the surfaces land a moment after the shell, and a `/timeline`,
+    // `/viewport` or `/turntables` deep link has to be re-read once the project has said whether
+    // it has one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search, timeline, viewport, frozen]);
+  }, [
+    location.pathname,
+    location.search,
+    timeline,
+    viewport,
+    turntables,
+    frozen,
+  ]);
 
   // state → URL.
   useEffect(() => {
     const before = prev.current;
     prev.current = state;
-    const url = urlForState(
-      state,
-      before,
-      location.pathname,
-      location.search,
+    const url = urlForState(state, before, location.pathname, location.search, {
       timeline,
       viewport,
+      turntables,
       frozen,
-    );
+    });
     if (url === null) return;
     // Entering help pushes so Back leaves it; everything else replaces (see the header).
     navigate(url, { replace: !(state.help && !before.help) });
@@ -118,6 +125,7 @@ export function useViewRoute(
     location.search,
     timeline,
     viewport,
+    turntables,
     frozen,
   ]);
 }

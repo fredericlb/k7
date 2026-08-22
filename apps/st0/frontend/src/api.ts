@@ -142,9 +142,9 @@ export const api = {
   // Only the LISTING is its own route: `read`/`write` above already serve any workspace path,
   // and a second pair spelling `_playlists` into their URLs would be two ways to write one file
   // — with the autosave this screen runs on built on the pair that is already there.
+  // Making one is not here either, for the same reason one step further on: `playlist new` is a
+  // command, so it travels the `/command` road with every other act on that screen.
   playlists: () => fget<{ playlists: PlaylistInfo[] }>("/playlists"),
-  createPlaylist: (name: string) =>
-    fsend<{ path: string }>("POST", "/playlists", { name }),
   // `createProject` and `deleteProject` were here, for the two verbs this app has stopped
   // carrying. The routes are the file service's and pl8 calls them — see apps/pl8/docs/projects.md.
   // Scaffold a project at the workspace root (the same scaffold `st0 create` runs) and return its

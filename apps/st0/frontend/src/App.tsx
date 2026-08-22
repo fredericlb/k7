@@ -26,6 +26,11 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
+import { markActive } from "@studio/project-shell/idle";
+// The address of ONE surface, for another device to open — see `ui external` below and
+// docs/external.md. Read and written through the same module the launch is, so the two spell a
+// project the same way by construction.
+import { externalUrl, parseLaunch } from "@studio/project-shell/launch";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
@@ -34,17 +39,22 @@ import { moduleKeyFromPath } from "@studio/song/moduleTypes";
 import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
+// The desk's rule about where PLAY starts, imported rather than restated here — see
+// `transportForSet`. st0 is a host of that package, so this is the ordinary direction.
+import { playFrom, TIMELINE_BASE } from "@studio/ui-turntables/deck";
 import {
   type EngineLatency,
   formatLatency,
 } from "@studio/web-protocol/quality";
 import {
   Circle,
-  Disc3,
+  ListMusic,
   Loader2,
   Lock,
   Pause,
   Play,
+  Settings,
+  Share2,
   Square,
   StickyNote,
   Terminal,
@@ -52,7 +62,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, engines, moduleStore } from "./api";
-import { STUDIO_ICONS } from "./chainsIcons";
+import { DECK_ICONS, STUDIO_ICONS } from "./chainsIcons";
 import type { MaybeClipboard } from "./clipboard";
 import { canonicalizeCommand } from "./commandI18n";
 import { type CommandPrefs, labelOf, orderCommands } from "./commandPrefs";
@@ -70,15 +80,15 @@ import {
 } from "./components/CommandBar";
 import { CommandsSettings } from "./components/CommandsSettings";
 import { ContextMenu } from "./components/ContextMenu";
-import { EditorSettingsPage } from "./components/EditorSettingsPage";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
+import { isRemotable } from "./components/ExternalSurface";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
-import { IoPanel } from "./components/IoPanel";
 import { LogsPanel } from "./components/LogsPanel";
-import { MasterMeter } from "./components/MasterMeter";
+import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
+import { MetronomeButton } from "./components/MetronomeButton";
 import { Minimap, type MinimapItem } from "./components/Minimap";
 import { MobileMenu, MobileMenuItem } from "./components/MobileChrome";
 import {
@@ -86,12 +96,17 @@ import {
   ModulePicker,
   type PickerModule,
 } from "./components/ModulePicker";
-import { PlaylistsPage } from "./components/PlaylistsPage";
+import { PlaylistsPanel } from "./components/PlaylistsPanel";
 import { RackBuilder } from "./components/RackBuilder";
 import { SeqGridPane } from "./components/SeqGridPane";
-import { SettingsMenu, type SettingsScreen } from "./components/SettingsMenu";
+import {
+  isSettingsTab,
+  SETTINGS_TABS,
+  SettingsPanel,
+  type SettingsTab,
+} from "./components/SettingsPanel";
 import { type OpenShare, ShareDownload } from "./components/SharedGate";
-import { ShareMenu } from "./components/ShareMenu";
+import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
 import {
   type TimelineHandle,
@@ -156,7 +171,6 @@ import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
   DOUBLE_SHIFT_MS,
-  MetronomeIcon,
   MiniTransport,
   MixerIcon,
   PANE_META,
@@ -206,7 +220,7 @@ export default function App({
    *  projects rather than overwriting each other's. */
   userEmail: string;
   onQuitWorkspace: () => void;
-  /** Back to the engine picker — see SettingsMenu. */
+  /** Back to the engine picker — the settings panel's Compte tab. */
   onChangeEngine: () => void;
   /**
    * The FROZEN snapshot this shell is drawing, when it was opened through a share link.
@@ -234,21 +248,16 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  /**
-   * Which SURFACE has the screen, by its filename, or null for the layout.
-   *
-   * Its own state rather than a `full` value, for the reason `RouteState.surface` gives: the
-   * list is the project's and is not knowable until one is open, so it cannot be a member of
-   * `Pane`. It behaves like `help` — over the layout, which is left exactly as it was underneath.
-   */
-  const [openSurface, setOpenSurface] = useState<string | null>(null);
+  // `openSurface` was here: which `view` surface had the screen, by its filename. The desk was the
+  // only one and is a PANE now, so `full` names it like any other and there is no second kind of
+  // screen to track. See packages/song/docs/surfaces.md.
   /**
    * The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed.
    *
-   * Beside `openSurface` and for the same reason — a screen over the layout, not a pane — but it
-   * edits a document that is not the open project at all: a chain template in `_libraries`. What
-   * makes that possible without a second editor is that a chain IS a graph, so the same verbs
-   * reach it once they are pointed at its folder. See docs/chainsBuilder.md.
+   * A screen over the layout rather than a pane, because it edits a document that is not the open
+   * project at all: a chain template in `_libraries`. What makes that possible without a second
+   * editor is that a chain IS a graph, so the same verbs reach it once they are pointed at its
+   * folder. See docs/chainsBuilder.md.
    */
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
   /** The NODE of that chain to land on, when the tree row was one — its file name, or null for
@@ -419,8 +428,27 @@ export default function App({
     loop: false,
     expanded: false,
   });
-  const [settingsScreen, setSettingsScreen] = useState<SettingsScreen | null>(
-    null,
+  /**
+   * Which panel has the RIGHT COLUMN, or null for none.
+   *
+   * One state and not three, because there is one column: two panels open at once would be two
+   * columns, and the panes have already given up the width for one. Opening any of them closes
+   * whichever was there, which is what a single value says and three booleans would only
+   * promise. Each is docked (`SettingsPanel`, `PlaylistsPanel`, `SharePanel`).
+   */
+  const [rightPanel, setRightPanel] = useState<
+    "settings" | "playlists" | "share" | null
+  >(null);
+  /** Which tab the settings panel shows. Kept while it is closed, so the cog reopens where you
+   *  left it — and it is state rather than a ref because the panel renders from it. */
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
+  /** The command catalogue, the one settings screen still drawn as a full PAGE. */
+  const [commandsPage, setCommandsPage] = useState(false);
+  /** Open `which`, or close it when it is already the one showing — every panel button toggles. */
+  const toggleRight = useCallback(
+    (which: "settings" | "playlists" | "share") =>
+      setRightPanel((cur) => (cur === which ? null : which)),
+    [],
   );
   // Vim mode is a global user preference (~/.studio/preferences.yaml). Starts ON to match the brain's default.
   const [vimMode, setVimMode] = useState(true);
@@ -711,17 +739,22 @@ export default function App({
     });
   }, [store]);
 
-  // The interface's inputs, asked for only while the builder is open on a module that HAS an input
-  // to point somewhere. Nothing else in st0 needs the grouping: the IO panel meters the ports the
-  // project already declares, where this is the list you pick a new one from.
-  // Asked once per connection rather than while a particular screen is open: TWO surfaces want the
-  // list now — the builder and the editor's channel strip — and an input is most often a node you
-  // open in the editor. `connected` is the trigger and not just a guard: `engineRef` is a ref, so a
-  // link coming up later re-renders nothing on its own and the ask would never be sent.
-  const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
-    engineRef.current ?? null,
-    connected,
-  );
+  /**
+   * Un morceau qui joue est une session ACTIVE, même si personne ne touche rien.
+   *
+   * Sans ça, le minuteur d'inactivité couperait un set de quarante minutes à la vingtième —
+   * en plein milieu, et en déchargeant le projet du moteur, donc en coupant le son. Écouter est
+   * précisément ce qu'on fait de cette application sans bouger la souris.
+   *
+   * Un battement plutôt qu'un drapeau : `markActive` est une affectation dans un module, et une
+   * minute est très en dessous des vingt qu'on mesure. Voir @studio/project-shell/docs/idle.md.
+   */
+  useEffect(() => {
+    if (!playing) return;
+    markActive();
+    const t = setInterval(markActive, 60_000);
+    return () => clearInterval(t);
+  }, [playing]);
 
   // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it.
   // Both are cheap and unconditional: a project with no surfaces gets an empty list, and the
@@ -807,12 +840,52 @@ export default function App({
     },
     [ws?.activeProject, bumpReload, setStatus],
   );
-  // The ones that ARE a screen of their own — the only kind the header can offer and the
-  // `/surface/<id>` address can name. A `split` surface is in the layout already.
-  const screenSurfaces = useMemo(
-    () => surfaces.filter((s) => s.surface.layout === "view"),
+  /**
+   * The project's DESK, if it declares one: a `split` surface of type `turntables`.
+   *
+   * Found the same way the arrangement and the frame are, and drawn the same way — a pane in the
+   * column. It was the one `view` surface, a screen over the whole window reached from the
+   * header; the graph it is played against was underneath it, which is the wrong side of the
+   * screen for "which module is this fader on". See packages/song/docs/surfaces.md.
+   */
+  const turntablesSurface = useMemo(
+    () =>
+      surfaces.find(
+        (s) => s.surface.type === "turntables" && s.surface.layout === "split",
+      ) ?? null,
     [surfaces],
   );
+  const hasTurntables = !!turntablesSurface;
+
+  /**
+   * The addresses this project's surfaces answer on, for the share panel to hand out.
+   *
+   * Built here rather than in the panel because both halves are here: `surfaces` is the polled
+   * list, and the launch parameters come off the address this tab is on. `window.location.href`
+   * for the origin, as `shareUrl` does — a local checkout, the LAN proxy and the public host are
+   * three answers, and the tablet is on the LAN one.
+   *
+   * Only the REMOTABLE types, which is a narrower list than "every surface": all of them have an
+   * address, but a timeline opened on a phone can only explain that it is drawn by the editor,
+   * and a row that leads to that is a row worth not drawing. `ui external <id>` stays permissive
+   * — an address you asked for by name is one you get. See docs/external.md.
+   */
+  const externals = useMemo(() => {
+    const at = parseLaunch(
+      window.location.pathname,
+      "st0",
+      import.meta.env.BASE_URL,
+    );
+    if (!at) return [];
+    return surfaces
+      .filter((s) => isRemotable(s.surface.type))
+      .map((s) => ({
+        id: s.id,
+        type: s.surface.type,
+        url: externalUrl(window.location.href, at, s.id, "st0"),
+      }));
+  }, [surfaces]);
+
   const turntableDeck = useTurntableDeck({
     store,
     engineRef,
@@ -822,25 +895,70 @@ export default function App({
     engineUrl,
   });
 
+  /**
+   * What the modules with NO plugin are set to, for the three screens that draw a graph.
+   *
+   * A `cold`/`offline` module compiles to nothing the engine holds — the deck's tempo node is the
+   * one this project has — so there is no plugin to watch and no id to watch it by. Its value
+   * lives on the surface that REALISES it, and the desk publishes it here through
+   * `deck.setModuleParam`. Without this the node draws the number `project.yaml` declares and
+   * never moves, which is a knob apparently stuck on its default.
+   *
+   * `undefined` when no surface realises anything, and that is the whole point of the prop being
+   * optional: passing an empty record would switch those widgets ON in an ordinary song, where
+   * nothing is behind them. See @studio/ui-chains-react's `moduleParams`.
+   */
+  const offlineParams = hasTurntables ? turntableDeck.moduleParams : undefined;
+
+  /**
+   * The transport, with a SET's one rule folded in: play starts where the music is.
+   *
+   * A deck's clip begins ten minutes into the timeline (`TIMELINE_BASE`, and its own note says
+   * why), so the first ten minutes of a set's timeline are guaranteed silence. Rolling from a
+   * transport left in there makes Play a button that visibly does nothing — the playhead
+   * advances and every meter stays dead.
+   *
+   * Wrapped HERE, over `transport`, rather than on the header button: Space, `transport play`,
+   * `transport replay` and the button are four roads to the same verb, and the desk's own Play
+   * is a fifth (`useDeckSet.toggleTransport`). Four of the five come through this one function.
+   *
+   * `playFrom` is the desk's rule, imported rather than restated — st0 is a HOST of that
+   * package, and a second copy of the number would be a second thing to keep in step.
+   */
+  const transportForSet = useCallback(
+    (action: TransportAction) => {
+      const starting = action === "play" || (action === "toggle" && !playing);
+      if (hasTurntables && starting) {
+        // The RAW anchor, not `drawNow`: this decides whether to MOVE the transport, and the
+        // steered reader is allowed to be up to 10% out for the sake of drawing smoothly.
+        const from = playFrom(turntableDeck.playhead.current.seconds);
+        if (from !== null) seek(from);
+      }
+      transport(action);
+    },
+    [hasTurntables, playing, seek, transport, turntableDeck.playhead],
+  );
+
   // The screen is mirrored in the URL both ways; these four setters are the only way it changes. See routes.ts.
   useViewRoute(
     {
       full,
       panel,
       help: showHelp,
-      surface: openSurface,
       builder: openBuilder,
     },
     useCallback((next) => {
       setFull(next.full);
       setPanel(next.panel);
       setShowHelp(next.help);
-      setOpenSurface(next.surface);
       setOpenBuilder(next.builder);
     }, []),
-    hasTimeline,
-    hasViewport,
-    frozen,
+    {
+      timeline: hasTimeline,
+      viewport: hasViewport,
+      turntables: hasTurntables,
+      frozen,
+    },
   );
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
@@ -877,8 +995,14 @@ export default function App({
   // `thirdPane`, which could only ever name the pane UNDER the timeline and so had nothing to
   // say about a layout with no timeline in it. See `viewPanes` in routes.ts.
   const layout = useMemo(
-    () => viewPanes(hasTimeline, hasViewport, frozen),
-    [hasTimeline, hasViewport, frozen],
+    () =>
+      viewPanes({
+        timeline: hasTimeline,
+        viewport: hasViewport,
+        turntables: hasTurntables,
+        frozen,
+      }),
+    [hasTimeline, hasViewport, hasTurntables, frozen],
   );
   const ringPanes = layout.ring;
 
@@ -924,10 +1048,23 @@ export default function App({
    */
   const chainsOffScreen =
     full === "timeline" ||
+    // The desk fullscreened takes the column exactly as the arrangement does.
+    full === "turntables" ||
     (full === null && !ringPanes.includes("chains")) ||
     // Expanded lanes give the timeline the whole column — which can only happen in a layout that
     // HAS a timeline. Without one the graph is the only pane, and nothing may take it away.
     (full === null && ringPanes.includes("timeline") && tlView.expanded);
+
+  /**
+   * Is the graph the ONLY pane in the column? What decides whether it takes the height outright
+   * and whether ChainsTab draws its sidebar.
+   *
+   * `noArrangement` answered both until a set grew a desk pane: with no timeline it was true, so
+   * the graph claimed `flex-1` and the fullscreen chrome while the desk sat above it holding half
+   * the column. The question was never "is there an arrangement" — it was "has the graph got the
+   * window", and the ring is what knows.
+   */
+  const chainsAlone = ringPanes.length === 1;
 
   const timelineVisible = visible("timeline");
   // Never without an ARRANGEMENT, in either place. The minimap is a second view of one — it earns
@@ -1056,6 +1193,7 @@ export default function App({
   const {
     trackOrder,
     metronomeOn,
+    metronomeLevel,
     recInfo,
     docTracks,
     doc: projectDoc,
@@ -1107,6 +1245,23 @@ export default function App({
     [quietCommand],
   );
 
+  // The interface's inputs, and the one act that changes their grouping. Nothing else in st0 needs
+  // the list: the IO panel meters the ports the project already declares, where this is the list
+  // you pick a new one from.
+  //
+  // Asked once per connection rather than while a particular screen is open: TWO surfaces want it
+  // — the builder and the editor's channel strip — and an input is most often a node you open in
+  // the editor. `connected` is the trigger and not just a guard: `engineRef` is a ref, so a link
+  // coming up later re-renders nothing on its own and the ask would never be sent.
+  //
+  // Below `quietCommand` rather than beside the other engine hooks, because the regrouping is a
+  // COMMAND now (`system channel type`) and this is where the shell's command runners exist.
+  const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
+    engineRef.current ?? null,
+    connected,
+    quietCommand,
+  );
+
   /**
    * The header meter's Fix button: every strip down by one number, until the pass would have
    * peaked at -6 dB.
@@ -1124,6 +1279,9 @@ export default function App({
    * Serial rather than `Promise.all`, because each is a read-modify-write of one file through a
    * single-threaded service — the rule `settledEdits` and the sequencer's chaining already follow.
    */
+  // The meter holds the pass — its peak, and whether it clipped — because it is the only thing
+  // that watched it go by. `project master fix` asks it through this.
+  const masterMeterRef = useRef<MasterMeterHandle | null>(null);
   const fixClipping = useCallback(
     async (peakDb: number) => {
       const strips = trimmedStrips(docTracks, peakDb);
@@ -1629,6 +1787,8 @@ export default function App({
       // Pressed mid-playback it jumps back and keeps rolling; `play` is not a toggle.
       if (line === "transport replay") {
         seek(replayAtRef.current);
+        // Deliberately the BARE verb: the seek above has already chosen a position, and letting
+        // the set rule move it would make replay return somewhere other than where it started.
         transport("play");
         return true;
       }
@@ -1658,7 +1818,7 @@ export default function App({
         // service that is not there, and Space would do nothing. `transport` is already the
         // browser player here, so it is always the one that can answer.
         if (!frozen && (!connected || engineBusyRef.current)) return false;
-        transport(line.slice("transport ".length) as TransportAction);
+        transportForSet(line.slice("transport ".length) as TransportAction);
         return true;
       }
       // `rec <track>`: an instrument track arms in the browser, an audio track in the engine. See docs/shell.md.
@@ -1767,20 +1927,48 @@ export default function App({
         else togglePanel(want as Panel);
         return true;
       }
-      // `ui surface <id>`: the screens this PROJECT declares (`surfaces/`, `layout: view`), which
-      // is why the list cannot be a fixed one. Naming the open one closes it, as its button does.
+      // `ui surface <id>` was here: the screens a project declared with `layout: view`, looked up
+      // by filename because the list could not be a fixed one. Every surface is a PANE now, so
+      // `ui turntables` reaches the desk through the same branch as `ui timeline` — and the arm
+      // stays only to say so, since the verb was in the docs and in people's fingers.
       if (line.startsWith("surface ")) {
-        const arg = s.slice("surface ".length).trim();
-        const hit = screenSurfaces.find((x) => x.id === arg);
-        if (!hit)
+        setStatus(
+          "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
+        );
+        return true;
+      }
+      /**
+       * `ui external <surface>` — the link that opens ONE surface on another device.
+       *
+       * It COPIES rather than navigating: the whole point is to get the address onto a second
+       * device, and following it here would replace the editor you are standing in front of with
+       * the tablet's screen. The address goes in the status line as well as the clipboard, so a
+       * browser that refuses the write still leaves something to read off and type.
+       *
+       * Built from `window.location.href` — the origin this tab is on — because a checkout, the
+       * LAN proxy and the public host are three different answers and the tablet is on the LAN
+       * one. See @studio/web-protocol/projects.
+       */
+      if (line.startsWith("external ")) {
+        const want = s.slice("external ".length).trim();
+        const hit = surfaces.find((x) => x.id === want);
+        if (!hit) {
           setStatus(
-            screenSurfaces.length
-              ? `no surface "${arg}" — this project declares ${screenSurfaces
-                  .map((x) => x.id)
-                  .join(", ")}`
-              : "this project declares no surface of its own — see surfaces/",
+            surfaces.length
+              ? `no surface "${want}" — this project declares ${surfaces.map((x) => x.id).join(", ")}`
+              : "this project declares no surface — see surfaces/",
           );
-        else setOpenSurface((cur) => (cur === hit.id ? null : hit.id));
+          return true;
+        }
+        const at = parseLaunch(
+          window.location.pathname,
+          "st0",
+          import.meta.env.BASE_URL,
+        );
+        if (!at) return false; // no project in the address; nothing to hang a surface off
+        const url = externalUrl(window.location.href, at, hit.id, "st0");
+        void navigator.clipboard?.writeText(url).catch(() => {});
+        setStatus(url);
         return true;
       }
       // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio
@@ -1793,16 +1981,31 @@ export default function App({
         return true;
       }
 
-      // --- the cog menu --------------------------------------------------------
+      // --- the three right-hand panels, and the one page left --------------------
+      // The bare lines TOGGLE, which is what their buttons do. Naming a settings TAB always
+      // opens, never closes: you asked for that screen, and a second press of the palette is
+      // not a request to go away.
+      if (line === "settings") {
+        toggleRight("settings");
+        return true;
+      }
+      if (line === "playlists") {
+        toggleRight("playlists");
+        return true;
+      }
+      if (line === "share") {
+        toggleRight("share");
+        return true;
+      }
+      if (line === "settings commands") {
+        setCommandsPage(true);
+        return true;
+      }
       if (line.startsWith("settings ")) {
-        const which = line.slice("settings ".length) as SettingsScreen;
-        if (
-          which === "editor" ||
-          which === "io" ||
-          which === "commands" ||
-          which === "playlists"
-        ) {
-          setSettingsScreen(which);
+        const which = line.slice("settings ".length);
+        if (isSettingsTab(which)) {
+          setSettingsTab(which);
+          setRightPanel("settings");
           return true;
         }
       }
@@ -1938,6 +2141,38 @@ export default function App({
           : runUndo(historyDeps));
         return true;
       }
+      /**
+       * `project master fix [peak-db]` — the header meter's Fix button as a verb.
+       *
+       * Local although every write it makes is a `node param` the backend owns: the TRIM is
+       * computed from the last pass's peak, and that number exists only in the browser that
+       * watched it (see palette.ts). So the meter is asked for it, and told the offer is spent.
+       *
+       * A dB may be given instead, and then the meter is not consulted at all — that is the line
+       * a person can run without having played anything, and the one a second surface could send.
+       * Without one, a pass that did not clip is REFUSED rather than trimmed by 6 dB for nothing:
+       * `trimFor` floors the peak at full scale, so this verb never has a no-op to fall back on.
+       */
+      if (namesLine(line, "project master fix")) {
+        const arg = s.slice("project master fix".length).trim();
+        const given = arg ? Number(arg) : null;
+        if (given !== null && !Number.isFinite(given)) {
+          setStatus(`"${arg}" n'est pas un niveau en dB`);
+          return true;
+        }
+        const pass = masterMeterRef.current?.pass();
+        if (given === null && !pass?.offered) {
+          setStatus(
+            pass
+              ? "rien à rattraper — le dernier passage n'a pas saturé (donnez un niveau en dB pour forcer)"
+              : "pas de vumètre sur cet écran — donnez un niveau en dB",
+          );
+          return true;
+        }
+        masterMeterRef.current?.take();
+        void fixClipping(given ?? (pass?.peak as number));
+        return true;
+      }
       if (line.startsWith("project export")) {
         const fmt = s.slice("project export".length).trim().toLowerCase();
         if (!isMixFormat(fmt))
@@ -1995,7 +2230,6 @@ export default function App({
       toggleDocs,
       clearLogs,
       togglePanel,
-      screenSurfaces,
       onChangeEngine,
       onQuitWorkspace,
       toggleVim,
@@ -2003,6 +2237,7 @@ export default function App({
       setLocale,
       historyDeps,
       share,
+      fixClipping,
     ],
   );
 
@@ -2623,9 +2858,18 @@ export default function App({
   // Global keys. Every binding names a command and runs through runCommand.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // A settings screen or the builder owns the surface: the panes these bindings would act
-      // on are hidden behind it, and Esc must not reach past it to close the slot underneath.
-      if (settingsScreen || builder) return;
+      /**
+       * A settings PAGE or the builder owns the surface: the panes these bindings would act on
+       * are hidden behind it, and Esc must not reach past it to close the slot underneath.
+       *
+       * The settings PANEL is deliberately not in that list, and the distinction arrived with
+       * it: a docked panel leaves the panes on screen, so the keys that drive them must keep
+       * working — Space while you watch a level on the I/O tab is the whole point of the tab
+       * not being a dialog over the thing it meters. Typing is still safe, because the guard
+       * below is about the FOCUSED element rather than about which screen is open: a field in
+       * the panel owns every key it is given, exactly as one in the editor does.
+       */
+      if (commandsPage || builder) return;
       const el = e.target as HTMLElement | null;
       // Two different reasons to stand aside, and only one of them holds for Space.
       //
@@ -2713,7 +2957,7 @@ export default function App({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [builder, conditions, docked, effKeys, runCommand, settingsScreen]);
+  }, [builder, commandsPage, conditions, docked, effKeys, runCommand]);
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
   // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
@@ -2721,7 +2965,9 @@ export default function App({
   // (or focus is elsewhere) the same key walks the journal instead. See project-shell/undo.ts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (settingsScreen || undoConfirm) return; // don't stack a second confirm
+      // The PAGE owns the surface; a docked panel does not, and Ctrl+Z belongs to the project
+      // underneath it either way. Not `undoConfirm` twice: don't stack a second confirm.
+      if (commandsPage || undoConfirm) return;
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const key = e.key.toLowerCase();
       if (key !== "z" && key !== "y") return;
@@ -2755,7 +3001,7 @@ export default function App({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [historyDeps, settingsScreen, undoConfirm]);
+  }, [commandsPage, historyDeps, undoConfirm]);
 
   // The global view has no mobile form, so entering mobile lands on a pane — the timeline, being
   // the one that says what a song is. A LIVE project is skipped entirely: it fullscreens nothing
@@ -2872,15 +3118,17 @@ export default function App({
   paletteRef.current = allCommands;
   // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds —
   // what the editor can open, every path the tree draws, this project's surfaces, the languages.
+  // The surfaces answer `ui external <surface>`, which names one by its filename; they stopped
+  // being needed when `ui surface <id>` went and came back with the external link.
   const listArg = useMemo(
     () =>
       makeListArg({
         files: () => editorRef.current?.files() ?? [],
         entries: () => editorRef.current?.entries() ?? [],
-        surfaces: () => screenSurfaces.map((s) => s.id),
+        surfaces: () => surfaces.map((s) => s.id),
         locales: () => [...locales],
       }),
-    [screenSurfaces, locales],
+    [surfaces, locales],
   );
 
   /**
@@ -2895,24 +3143,93 @@ export default function App({
    * its own key in its tooltip. The project's SCREEN surfaces are the pages, and they are `items`.
    */
   /**
-   * The two menus at the end of the bar — or, on a frozen snapshot, the one thing a visitor
-   * may take away.
+   * The three panel buttons at the end of the bar — or, on a frozen snapshot, the one thing a
+   * visitor may take away.
    *
-   * Both menus go, and neither is merely disabled: Partager publishes THIS project somewhere
-   * (there is no project here, only a copy of one), and Réglages changes engine, workspace and
-   * account-wide preferences, none of which a visitor has. A greyed-out menu would be an
-   * invitation to sign in, which is exactly what a share exists to avoid needing.
+   * All three go on a snapshot, and none is merely disabled: Partager publishes THIS project
+   * somewhere (there is no project here, only a copy of one), Playlists opens a repository this
+   * visitor has not got, and Réglages changes engine, workspace and account-wide preferences.
+   * A greyed-out control would be an invitation to sign in, which is exactly what a share
+   * exists to avoid needing.
+   *
+   * Each is a TOGGLE on its panel, so all three are `aria-pressed` and lit while theirs has the
+   * column — never `aria-expanded`, which is a menu's word for something that closes on the next
+   * click. They are mutually exclusive because the column is one; see `rightPanel`.
    */
+  // Whatever key reaches each panel, for the tooltips below — this app advertises a shortcut
+  // wherever a control is drawn. Undefined when nothing is bound, and the tooltip then says
+  // only what the button does.
+  const playlistKey = keyForCommand("ui playlists", commandPrefs);
+  const shareKey = keyForCommand("ui share", commandPrefs);
+  const settingsKey = keyForCommand("ui settings", commandPrefs);
+  const { behind, conflicted, badge } = shareBadge(gitStatus);
+
   const headerTools = snapshot ? (
     <ShareDownload base={snapshot.base} />
   ) : (
     <>
-      <ShareMenu
-        gitStatus={gitStatus}
-        busy={share.busy}
-        onRun={(c) => void runCommand(c)}
-      />
-      <SettingsMenu onRun={(c) => void runCommand(c)} />
+      {/* The PLAYLIST, for a SET only — first of the three, because on a desk it is the one you
+          reach for during the evening while the other two are things you do at the end of it.
+
+          Only there. Every project's playlists are reachable from the palette (`ui playlists`),
+          but a button in the bar is width, and on a song the set lists are not what you came
+          for. See frontend/docs/playlists.md. */}
+      {hasTurntables && (
+        <Button
+          size="icon"
+          variant={rightPanel === "playlists" ? "default" : "ghost"}
+          aria-pressed={rightPanel === "playlists"}
+          title={`Playlists${playlistKey ? ` (${playlistKey})` : ""}`}
+          aria-label="Playlists"
+          aria-keyshortcuts={playlistKey}
+          onClick={() => void runCommand("ui playlists")}
+        >
+          <ListMusic className="h-4 w-4" />
+        </Button>
+      )}
+      {/* SHARE. It was a dropdown; the badge it wore is the one thing that has to stay on the
+          button, because it says the repository is behind BEFORE you open anything. */}
+      <Button
+        size="icon"
+        variant={rightPanel === "share" ? "default" : "ghost"}
+        className="relative"
+        aria-pressed={rightPanel === "share"}
+        disabled={share.busy}
+        title={
+          conflicted
+            ? "Partager / exporter — le dépôt a divergé, un pull demande une fusion"
+            : behind > 0
+              ? `Partager / exporter — ${behind} commit${behind === 1 ? "" : "s"} à tirer`
+              : `Partager / exporter${shareKey ? ` (${shareKey})` : ""}`
+        }
+        aria-label="Partager / exporter"
+        aria-keyshortcuts={shareKey}
+        onClick={() => void runCommand("ui share")}
+      >
+        <Share2 className="h-4 w-4" />
+        {badge && (
+          <span
+            className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none text-white ${
+              conflicted ? "bg-amber-500" : "bg-primary"
+            }`}
+          >
+            {badge}
+          </span>
+        )}
+      </Button>
+      {/* The COG was a dropdown of entries, each opening a page or a dialog. It opens the
+          settings panel instead — one surface with a tab per entry. */}
+      <Button
+        size="icon"
+        variant={rightPanel === "settings" ? "default" : "ghost"}
+        aria-pressed={rightPanel === "settings"}
+        title={`${m["settings.menu"]()}${settingsKey ? ` (${settingsKey})` : ""}`}
+        aria-label={m["settings.menu"]()}
+        aria-keyshortcuts={settingsKey}
+        onClick={() => void runCommand("ui settings")}
+      >
+        <Settings className="h-4 w-4" />
+      </Button>
     </>
   );
 
@@ -2925,7 +3242,10 @@ export default function App({
       {!isMobile && !snapshot && (
         <MasterMeter
           className="mr-2"
-          onFix={fixClipping}
+          ref={masterMeterRef}
+          // The button dispatches the command rather than calling the handler, like every other
+          // button in this shell: one behaviour, one transcript line, one Ctrl+Z per strip.
+          onFix={() => void runCommand("project master fix")}
           // The song's own level, off the compiled doc — what the FILE says, so the fader reads
           // right before a note has played and survives the transport stopping.
           master={projectDoc?.masterVolume}
@@ -2933,15 +3253,14 @@ export default function App({
         />
       )}
       {/* On a phone the whole right side collapses into ONE button, and everywhere there is
-          to go is inside it: the panes, the project's own screen surfaces, and the command
-          bar. There is no studio view to toggle and no layout to go back to, so a pane is a
-          destination here rather than a fullscreen switch — always `ui <pane>`, never
-          `ui global`.
+          to go is inside it: the panes and the command bar. There is no studio view to toggle
+          and no layout to go back to, so a pane is a destination here rather than a fullscreen
+          switch — always `ui <pane>`, never `ui global`.
 
-          The surfaces are here and NOT in `AppHeader`'s `items` (see its call below): that
-          prop draws its own hamburger under 640px, and two hamburgers on one bar is two
-          answers to "where do I go". The metronome and the panel toggles stay out — they
-          live in the footer, and a second copy is one more thing to keep in step. */}
+          The project's own surfaces used to be listed separately below the panes. They are panes
+          themselves now, so `layout.fullscreen` above already carries the desk with its icon and
+          its key. The metronome and the panel toggles stay out — they live in the footer, and a
+          second copy is one more thing to keep in step. */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
           <div className="flex flex-col">
@@ -2954,18 +3273,6 @@ export default function App({
                 onSelect={() => {
                   setMobileMenu(false);
                   void runCommand(`ui ${p}`);
-                }}
-              />
-            ))}
-            {screenSurfaces.map((s) => (
-              <MobileMenuItem
-                key={s.id}
-                icon={Disc3}
-                label={s.id}
-                current={openSurface === s.id}
-                onSelect={() => {
-                  setMobileMenu(false);
-                  void runCommand(`ui surface ${s.id}`);
                 }}
               />
             ))}
@@ -3034,18 +3341,18 @@ export default function App({
             title and the build stamp are its slots, everything between them is `children`,
             and the right side is `actions`.
 
-            WHAT GOES IN `items` — the project's SCREEN surfaces, and only those. The doc's line
-            is "a page goes in items, a control goes in actions", and a pane button is a control:
-            it fullscreens a pane that is already mounted and Escape backs out of it (aria-pressed,
-            not aria-current). A surface is a page — the desk, the viewport — declared by the
-            project and reached by name. Which is also why the panes keep their icon-only row: it
-            carries each pane's key in its tooltip, and this app advertises a shortcut wherever a
-            control is drawn.
+            NOTHING GOES IN `items` any more. The doc's line is "a page goes in items, a control
+            goes in actions", and this bar has no pages left: the desk was the one, and a pane
+            button is a control — it fullscreens a pane that is already mounted and Escape backs
+            out of it (aria-pressed, not aria-current). So the desk moved into the icon-only pane
+            row with the rest, which is also where it gets a tooltip carrying its key, as this app
+            advertises a shortcut wherever a control is drawn.
 
-            EMPTY on a phone, and that is the one exception. This prop folds itself into a
-            hamburger of its own below 640px, which next to `actions`' hamburger would be two
-            buttons a thumb has to choose between to answer one question. The surfaces are in
-            that other menu instead — see `headerActions`.
+            The prop is left rather than dropped: it is the shared bar's slot for exactly that
+            kind of page, and the next one this app grows belongs in it. Note it folds itself into
+            a hamburger of its own below 640px, which next to `actions`' hamburger would be two
+            buttons a thumb has to choose between to answer one question — so anything put here
+            must be in `headerActions`' menu on a phone.
 
             The padding is overridden through the inner box: the shared bar is px-5 py-3 and every
             row of chrome is a row the panes don't get — a phone in landscape is ~400px tall. */}
@@ -3060,16 +3367,7 @@ export default function App({
           )}
           title="st0"
           subtitle={VERSION}
-          items={
-            isMobile
-              ? []
-              : screenSurfaces.map((s) => ({
-                  label: s.id,
-                  icon: <Disc3 className="h-4 w-4" />,
-                  active: openSurface === s.id,
-                  onClick: () => void runCommand(`ui surface ${s.id}`),
-                }))
-          }
+          items={[]}
           actions={headerActions}
         >
           {/* Between the two: what you are looking AT, and the transport over it. `mx-auto` on
@@ -3112,13 +3410,17 @@ export default function App({
               eats the keypress. On play/pause the theft is invisible (the button does
               what Space would); on stop and record it is not.
 
-              Absent wherever there is no ARRANGEMENT — a `live` project, or one that simply
-              declares no timeline surface. Every control here addresses a position in an
-              arrangement — a playhead to move, a take to punch in — and a project with no
-              timeline has none: the clock would count bars nothing is written against and
-              record would arm a lane with nowhere to put a take. Sound still reaches the
-              engine, played by what is wired in the graph. See docs/surfaces.md. */}
-            {!noArrangement && (
+              A SET gets the two that mean something and not the other two, in the SAME place —
+              this is the bar you reach for whichever project is open, so play and stop do not
+              move around. What it drops is the clock and record: a set declares no tempo and no
+              time signature (`project.yaml` says so outright), so the clock would count bars
+              nothing is written against, and record would arm a lane with nowhere to put a take.
+
+              Absent altogether only where there is NEITHER — a project with no timeline and no
+              desk. Every control here addresses a position in something, and that project has
+              nothing to address. Sound still reaches the engine, played by what is wired in the
+              graph. See docs/surfaces.md. */}
+            {(!noArrangement || hasTurntables) && (
               <div className="mx-auto flex shrink-0 items-center gap-1">
                 <Button
                   size="icon"
@@ -3126,7 +3428,7 @@ export default function App({
                   // While the engine is loading a project it reads nothing: the spinner replaces the icon and the button goes dead.
                   disabled={transportWaiting}
                   onClick={(e) => {
-                    transport(playing ? "stop" : "play");
+                    transportForSet(playing ? "stop" : "play");
                     blurOnClick(e);
                   }}
                   title={
@@ -3158,32 +3460,43 @@ export default function App({
                   variant="secondary"
                   onClick={(e) => {
                     transport("stop");
-                    transport("rewind");
+                    // "Back to the start" — and on a SET the start is not zero. `rewind` is
+                    // `setPosition(0)`, which on a desk's timeline lands ten minutes before the
+                    // music and leaves the next Play looking broken all over again. See
+                    // `playFrom`, which is the same rule read the other way round.
+                    if (hasTurntables) seek(TIMELINE_BASE);
+                    else transport("rewind");
                     blurOnClick(e);
                   }}
                   title={m["transport.stop"]()}
                 >
                   <Square className="h-4 w-4" />
                 </Button>
-                <TransportClock
-                  tempo={recInfo.tempo}
-                  beatsPerBar={recInfo.beatsPerBar}
-                />
-                <Button
-                  size="icon"
-                  variant={recordEnabled ? "default" : "secondary"}
-                  aria-pressed={recordEnabled}
-                  onClick={(e) => {
-                    engineRef.current?.setRecordEnabled(!recordEnabled);
-                    blurOnClick(e);
-                  }}
-                  title={m["transport.record"]()}
-                  aria-label={m["transport.record"]()}
-                >
-                  <Circle
-                    className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
-                  />
-                </Button>
+                {/* The clock and record are the ARRANGEMENT's half of this cluster — see the
+                    note above. A set has no bars to count and no lane to arm. */}
+                {!noArrangement && (
+                  <>
+                    <TransportClock
+                      tempo={recInfo.tempo}
+                      beatsPerBar={recInfo.beatsPerBar}
+                    />
+                    <Button
+                      size="icon"
+                      variant={recordEnabled ? "default" : "secondary"}
+                      aria-pressed={recordEnabled}
+                      onClick={(e) => {
+                        engineRef.current?.setRecordEnabled(!recordEnabled);
+                        blurOnClick(e);
+                      }}
+                      title={m["transport.record"]()}
+                      aria-label={m["transport.record"]()}
+                    >
+                      <Circle
+                        className={`h-4 w-4 ${recordEnabled ? "fill-red-500 text-red-500" : ""}`}
+                      />
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -3442,6 +3755,13 @@ export default function App({
                         : undefined
                     }
                     onFocusRow={focusRowInPanes}
+                    // The corner button over the name column. `track new` with no name, which is
+                    // what the command already does when given none — a lane called `track1`,
+                    // renamed from the gutter afterwards. Off on a frozen song, like every other
+                    // structural edit here.
+                    onNewTrack={
+                      frozen ? undefined : () => void runCommand("track new")
+                    }
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
                     laneNodes={laneNodes}
@@ -3451,14 +3771,48 @@ export default function App({
                   />
                 </div>
               )}
+              {/* The DESK, on the same terms as the two above it: a `split` surface the project
+                  declares (`surfaces/`, `type: turntables`), mounted for as long as it does.
+                  Directly over the graph, which is the point of it being a pane — a fader here is
+                  a param on a module there, and the two are readable at once. A set declares no
+                  timeline, so these two ARE its column.
+
+                  Mounted, never unmounted, like the rest: a desk holds a DOCUMENT — the loaded
+                  songs, the crossfader, the six EQ knobs — and a set does not stop existing
+                  because you went to look at the graph. That used to need a prop on `SurfaceTab`;
+                  the pane invariant covers it now. See packages/ui-turntables/docs/deckSet.md. */}
+              {turntablesSurface && (
+                <div
+                  {...paneProps("turntables")}
+                  className={cn(
+                    "flex min-h-0 min-w-0",
+                    full === "turntables"
+                      ? "flex-1"
+                      : full !== null
+                        ? "hidden"
+                        : // Expanded lanes have asked for the height; the desk stands down for
+                          // them as the frame and the graph do.
+                          tlView.expanded
+                          ? "hidden"
+                          : "h-1/2 shrink-0 border-b border-border",
+                    ringFor("turntables"),
+                  )}
+                >
+                  <SurfaceTab
+                    surface={turntablesSurface}
+                    deck={turntableDeck}
+                    project={ws?.activeProject ?? "."}
+                  />
+                </div>
+              )}
               <div
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  // With no arrangement it is the only pane in the column, so it takes it
-                  // outright — the same `flex-1` a fullscreened graph gets, reached without
-                  // `full` being set (a live layout fullscreens nothing; see `viewPanes`).
-                  noArrangement || full === "chains"
+                  // Alone in the column it takes it outright — the same `flex-1` a fullscreened
+                  // graph gets, reached without `full` being set (a layout whose ring is one pane
+                  // fullscreens nothing; see `viewPanes`).
+                  chainsAlone || full === "chains"
                     ? "flex-1"
                     : chainsOffScreen
                       ? "hidden"
@@ -3481,11 +3835,17 @@ export default function App({
                     reloadKey={reloadKey}
                     organizeKey={organizeKey}
                     active={!chainsOffScreen && !graphSlot}
+                    // A SET's lanes are DECKS, and they wear the record the header wears rather
+                    // than the question mark a name with no instrument prefix earns. The choice
+                    // is the project's, so it is made here where the surfaces are. See
+                    // chainsIcons.tsx.
+                    icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
                     // The sidebar is fullscreen chrome (ChainsTab's own rule): it belongs wherever
-                    // the graph has the window rather than half of it. A project with no
-                    // arrangement is that case permanently, and it is also where the list matters
-                    // most — with no timeline, picking a chain is the only navigation there is.
-                    showList={noArrangement || full === "chains"}
+                    // the graph has the window rather than half of it. A project whose ring is the
+                    // graph alone is that case permanently, and it is also where the list matters
+                    // most — with nothing else in the column, picking a chain is the only
+                    // navigation there is. A set does NOT qualify: its desk holds the other half.
+                    showList={chainsAlone || full === "chains"}
                     trackOrder={trackOrder}
                     project={projectDoc}
                     command={quietCommand}
@@ -3565,6 +3925,7 @@ export default function App({
                     requestPluginParams={requestPluginParams}
                     watchPluginParams={watchPluginParams}
                     setPluginParam={setPluginParam}
+                    moduleParams={offlineParams}
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
                     onTrackSet={onTrackSet}
@@ -3649,6 +4010,7 @@ export default function App({
                     requestPluginParams={requestPluginParams}
                     watchPluginParams={watchPluginParams}
                     setPluginParam={setPluginParam}
+                    moduleParams={offlineParams}
                     trackControls={trackControls}
                     onContextMenu={openContextMenu}
                     engineWarnings={engineWarnings}
@@ -3703,6 +4065,45 @@ export default function App({
                 )}
               </div>
             </div>
+
+            {/* THE RIGHT COLUMN — one of three panels, docked beside the panes rather than
+                covering them. Each is about something you are looking at: the inputs you are
+                plugging in, the set list you are playing from, the repository you are about to
+                push. A full-screen page for any of those meant leaving the thing to go and do
+                it, and a dropdown could not report back.
+
+                Three panels and not one set of tabs, because they are three different verbs —
+                what you SET, what you PLAY FROM, what you SEND. Filing the last two under a cog
+                would be filing them by where they used to live.
+
+                None of them is a pane, although they have a column: a pane is what the PROJECT
+                declares (routes.ts, packages/song/docs/surfaces.md), and none of this is the
+                project's. `rightPanel` is what makes them exclusive — see its note. */}
+            {rightPanel === "settings" && (
+              <SettingsPanel
+                tab={settingsTab}
+                engine={engineRef.current ?? null}
+                vimMode={vimMode}
+                onRun={runCommand}
+                onClose={() => setRightPanel(null)}
+              />
+            )}
+            {rightPanel === "playlists" && (
+              <PlaylistsPanel
+                vimMode={vimMode}
+                onRun={runCommand}
+                onClose={() => setRightPanel(null)}
+              />
+            )}
+            {rightPanel === "share" && (
+              <SharePanel
+                gitStatus={gitStatus}
+                busy={share.busy}
+                externals={externals}
+                onRun={(c) => void runCommand(c)}
+                onClose={() => setRightPanel(null)}
+              />
+            )}
           </div>
 
           {/* bottom split panel — available on every tab, resizable divider */}
@@ -3732,6 +4133,7 @@ export default function App({
                     onContextMenu={openContextMenu}
                     pluginParamsStore={pluginParamsStore}
                     setPluginParam={setPluginParam}
+                    moduleParams={offlineParams}
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
                     onTrackSet={onTrackSet}
@@ -3850,16 +4252,16 @@ export default function App({
               <span className="mx-1 text-border">·</span>
               {recInfo.beatsPerBar}/{recInfo.beatUnit}
             </span>
-            <Button
-              size="icon-xs"
-              variant={metronomeOn ? "default" : "ghost"}
-              aria-pressed={metronomeOn}
-              onClick={() => void runCommand("transport metronome")}
-              title={m["transport.metronome"]()}
-              aria-label={m["transport.metronome"]()}
-            >
-              <MetronomeIcon className="h-3.5 w-3.5" />
-            </Button>
+            {/* Left click toggles the click; RIGHT click opens its level. Both are project
+                settings, so both are command lines — see MetronomeButton. */}
+            <MetronomeButton
+              on={metronomeOn}
+              level={metronomeLevel}
+              onToggle={() => void runCommand("transport metronome")}
+              onLevel={(v) =>
+                void runCommand(`transport metronome volume ${v}`)
+              }
+            />
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
               {/* The mixer, beside the panel buttons but not one of them: it REARRANGES the graph,
@@ -4125,49 +4527,11 @@ export default function App({
           </div>
         )}
 
-        {/* Every SCREEN surface the project declares, mounted for as long as it is open — and
-            drawing only the one whose id is in the address.
-
-            Mounted, not conditional. A desk holds a DOCUMENT — the loaded songs, the crossfader,
-            the six EQ knobs, the compiled project — and a set does not stop existing because you
-            went to look at the graph. Behind `openSurface &&`, a round trip would re-centre the
-            crossfader and flatten the EQ while the sound stayed where you put it. `SurfaceTab`
-            owns that split: hooks above the line, screen below it.
-            See packages/ui-turntables/docs/deckSet.md. */}
-        {screenSurfaces.map((s) => (
-          <SurfaceTab
-            key={s.id}
-            surface={s}
-            deck={turntableDeck}
-            project={ws?.activeProject ?? "."}
-            open={openSurface === s.id}
-            onClose={() => setOpenSurface(null)}
-          />
-        ))}
-        {/* A deep link naming a surface this project has not got — `fromLocation` deliberately
-            does not check the id, since the list arrives a moment after the shell. A `split`
-            surface lands here too: it is drawn in the layout and has no screen to open, so
-            naming it in the address is the same miss as naming a file that is not there. */}
-        {openSurface && !screenSurfaces.some((s) => s.id === openSurface) && (
-          <div className="fixed inset-0 z-50 flex flex-col bg-background">
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-              <Disc3 className="h-4 w-4 text-muted-foreground" />
-              <span className="truncate text-sm">{openSurface}</span>
-              <Button
-                size="xs"
-                variant="secondary"
-                className="ml-auto"
-                onClick={() => setOpenSurface(null)}
-              >
-                Fermer
-              </Button>
-            </div>
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-              Aucune surface « {openSurface} » dans ce projet — cherchez un
-              fichier <code className="mx-1">surfaces/{openSurface}.yaml</code>.
-            </div>
-          </div>
-        )}
+        {/* The SCREEN surfaces were mounted here, over the layout, each drawing only when its id
+            was in the address — and beside them a "no such surface" card for a deep link naming
+            one the project had not got. Both are gone with the `view` layout: the desk is a pane
+            in the column above, and an address naming a pane a project has not declared already
+            falls through to the layout in `fromLocation`. See packages/song/docs/surfaces.md. */}
 
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog
@@ -4180,16 +4544,11 @@ export default function App({
           onCancel={imp.cancelImport}
         />
 
-        {/* Settings screens (cog menu) — an OVERLAY covering the shell, not a view. I/O is
-            the exception: a dialog over the shell, because you read it while plugging
-            something in and want it gone in one key. */}
-        {settingsScreen === "io" && (
-          <IoPanel
-            engine={engineRef.current ?? null}
-            onClose={() => setSettingsScreen(null)}
-          />
-        )}
-        {settingsScreen === "commands" && (
+        {/* COMMANDS is the one settings screen still drawn as a page, and the only one: it is a
+            table of the whole catalogue — sixty rows, a field per language — and there is no
+            ordering a catalogue in a 24rem column. Its four neighbours are tabs of the panel in
+            the row above. See components/SettingsPanel.tsx. */}
+        {commandsPage && (
           <div className="absolute inset-0 z-40 bg-background">
             <CommandsSettings
               // The whole catalogue, both halves: the shell's own `ui …` lines and the backend's.
@@ -4197,27 +4556,7 @@ export default function App({
               commands={allCommands}
               prefs={commandPrefs}
               onSave={saveCommandPrefs}
-              onBack={() => setSettingsScreen(null)}
-            />
-          </div>
-        )}
-        {settingsScreen === "editor" && (
-          <div className="absolute inset-0 z-40 bg-background">
-            <EditorSettingsPage
-              vimMode={vimMode}
-              onToggleVim={() => void runCommand("ui vim")}
-              onBack={() => setSettingsScreen(null)}
-            />
-          </div>
-        )}
-        {/* The workspace's set lists, and the screen for one. An overlay like its neighbours,
-            and for the extra reason that it is not ABOUT the open project at all: it edits a
-            file beside it in the repository. See frontend/docs/playlists.md. */}
-        {settingsScreen === "playlists" && (
-          <div className="absolute inset-0 z-40 bg-background">
-            <PlaylistsPage
-              vimMode={vimMode}
-              onBack={() => setSettingsScreen(null)}
+              onBack={() => setCommandsPage(false)}
             />
           </div>
         )}

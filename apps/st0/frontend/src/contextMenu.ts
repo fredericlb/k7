@@ -58,7 +58,30 @@ export type MenuCtx =
    * addresses one by, and a string for the reason `tc` is: the rounding is the caller's, since it
    * is the caller that drew the point and has to be able to name the same one twice.
    */
-  | { kind: "warp-point"; clip: string; src: string };
+  | { kind: "warp-point"; clip: string; src: string }
+  /**
+   * A PAD in the step sequencer: the sequence it belongs to, the key it sits on, and the beat it
+   * starts at — the same (key, start) every `sequence note` verb addresses a note by.
+   *
+   * `repeat`/`skip` are what it ALREADY carries, so the menu can offer the value it is not on and
+   * an `off` row only when there is something to turn off. A menu that offered `×2` on a pad
+   * already repeating twice would be a row that does nothing.
+   */
+  | {
+      kind: "pad";
+      sequence: string;
+      note: number;
+      start: number;
+      repeat?: number;
+      skip?: number;
+    };
+
+/**
+ * The values a pad's effects are offered at — a closed set, so the menu is a choice rather than a
+ * question. The SCHEMA takes any whole number from 2 up, so a three-against-four feel can still be
+ * typed; these are the two that earn a row.
+ */
+export const PAD_EFFECT_VALUES = [2, 4] as const;
 
 // A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is still owed.
 // `help` overrides the catalogue's line — only the shell's OWN commands need it, having none there.
@@ -197,6 +220,9 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   // "clip": the row reads "warp remove", which is what the point under the pointer IS about. The
   // clip is named by the picture you are looking at, not by the row.
   "warp-point": "clip",
+  // "sequence note": a pad's rows are already named for the value they set (`repeat ×2`,
+  // `skip 1/4`), and the head is the two words every one of them shares.
+  pad: "sequence note",
 };
 
 const shortName = (name: string, head: string): string =>
@@ -465,5 +491,49 @@ export function contextMenu(
       return offer([
         { verb: "clip warp remove", arg: `${ctx.clip} ${ctx.src}` },
       ]);
+    case "pad": {
+      /**
+       * A pad's effects, written out for the reason a take's two verbs are: `<sequence> <note>
+       * <start>` is the shape of every `sequence note` verb, so asking the catalogue for "commands
+       * taking these three" would offer to remove the note, move it and set its velocity — the
+       * things the pad is already under your hand for.
+       *
+       * One row per VALUE rather than one per verb needing a number. The set is closed and short,
+       * the menu is where you choose from a closed set, and `repeat ` left waiting in the command
+       * bar would ask for a number nothing on screen tells you the range of.
+       *
+       * `name` on every row because two rows share a verb — without it the menu would read
+       * "repeat" twice — and the value is what tells them apart.
+       */
+      const where = `${ctx.sequence} ${ctx.note} ${ctx.start}`;
+      const rows: Entry[] = [];
+      for (const n of PAD_EFFECT_VALUES)
+        if (ctx.repeat !== n)
+          rows.push({
+            verb: "sequence note repeat",
+            arg: `${where} ${n}`,
+            name: `repeat ×${n}`,
+          });
+      if (ctx.repeat)
+        rows.push({
+          verb: "sequence note repeat",
+          arg: `${where} off`,
+          name: "repeat off",
+        });
+      for (const n of PAD_EFFECT_VALUES)
+        if (ctx.skip !== n)
+          rows.push({
+            verb: "sequence note skip",
+            arg: `${where} ${n}`,
+            name: `skip 1/${n}`,
+          });
+      if (ctx.skip)
+        rows.push({
+          verb: "sequence note skip",
+          arg: `${where} off`,
+          name: "skip off",
+        });
+      return offer(rows);
+    }
   }
 }

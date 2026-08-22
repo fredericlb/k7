@@ -17,7 +17,6 @@ const GLOBAL: RouteState = {
   full: null,
   panel: null,
   help: false,
-  surface: null,
   builder: null,
 };
 

@@ -6,6 +6,7 @@
 import { useEngineState } from "@studio/engine-browser/store";
 import {
   AudioWaveform,
+  Disc3,
   FileCode,
   Loader2,
   type LucideIcon,
@@ -20,11 +21,18 @@ import { m } from "./paraglide/messages.js";
 import type { Pane, Panel } from "./routes";
 
 // The panes, not tabs: a "view" is a LAYOUT over the same instances, and the default one stacks the
-// frame over the timeline over the graph. `editor` is in this list because it can be FULLSCREENED and
-// toggled from the header — it just has no slot in either layout (see App's ringPanes). `viewport` is
-// here for the same reason `timeline` is: both are `split` SURFACES the project declares, and which of
-// them a given project actually mounts is `viewPanes` in routes.ts, not this table.
-export const PANES: Pane[] = ["editor", "viewport", "timeline", "chains"];
+// frame over the timeline over the desk over the graph. `editor` is in this list because it can be
+// FULLSCREENED and toggled from the header — it just has no slot in either layout (see App's
+// ringPanes). `viewport` and `turntables` are here for the same reason `timeline` is: all three are
+// `split` SURFACES the project declares, and which of them a given project actually mounts is
+// `viewPanes` in routes.ts, not this table.
+export const PANES: Pane[] = [
+  "editor",
+  "viewport",
+  "timeline",
+  "turntables",
+  "chains",
+];
 
 // Max gap between the two Shift presses that open the command palette (IntelliJ style).
 export const DOUBLE_SHIFT_MS = 400;
@@ -33,6 +41,7 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   editor: { icon: FileCode, label: "Editor" },
   viewport: { icon: MonitorPlay, label: "Viewport" },
   timeline: { icon: AudioWaveform, label: "Timeline" },
+  turntables: { icon: Disc3, label: "Turntables" },
   chains: { icon: Workflow, label: "Chains" },
 };
 

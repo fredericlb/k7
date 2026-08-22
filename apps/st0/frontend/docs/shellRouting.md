@@ -2,27 +2,27 @@
 
 `routes.ts` holds the table; `useViewRoute.ts` keeps the two in step.
 
-## The three orthogonal pieces (`routes.ts`)
+## The two orthogonal pieces (`routes.ts`)
 
-The shell's screen is three independent pieces of state, which is why this needs a table
+The shell's screen is two independent pieces of state, which is why this needs a table
 rather than a component tree:
 
 | piece | meaning |
 |---|---|
 | `full` | which single pane has the whole screen, or `null` for the layout. |
-| `panel` | the side panel (graph, docs, logs), independent of both. |
-| `surface` | a `view` surface the PROJECT declares (`surfaces/`), over the layout — `/surface/<id>`. |
+| `panel` | the side panel (graph, logs), independent of it. |
 
-`surface` is its own field and not a `Pane`, for the reason the table cannot show: the panes are
-a closed union the shell declares, while a surface's list is the project's and is not knowable
-until one is open. It stacks like `help` — over the layout, which is untouched underneath — and
-`toPath` names the topmost of the three (help, then surface, then a fullscreened pane). See
-[packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
+> **There was a third**, `surface`: the open `view` surface the project declared, over the layout
+> at `/surface/<id>`. It was its own field and not a `Pane` because the panes are a closed union
+> the shell declares, while a surface's list was the project's and not knowable until one was
+> open. Every surface is a pane now — there is exactly one per type, so the type IS the name —
+> and the field went with the last `view`. See
+> [packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
 
-A **`split`** surface is not in this table at all, and that is the point of the word: it is *in*
-the layout rather than over it, so it has no address of its own and never appears in `surface`.
-There are two — the timeline and the viewport. What they reach is the pane list below, which is
-a function of what the project declares rather than a constant.
+A surface is not in this table at all, and that is the point: it is *in* the layout rather than
+over it, so it has no address of its own beyond the pane's. There are three — the timeline, the
+viewport and the turntables. What they reach is the pane list below, which is a function of what
+the project declares rather than a constant.
 
 ### The layout is the project's, not the user's
 
@@ -30,15 +30,19 @@ There is ONE layout, and which panes it holds is a function of what the project 
 `viewPanes` (in `routes.ts`) is that function:
 
 ```ts
-viewPanes(true,  false) // { ring: ["timeline", "chains"],             fullscreen: ["editor", …ring] }
-viewPanes(true,  true)  // { ring: ["viewport", "timeline", "chains"], fullscreen: ["editor", …ring] }
-viewPanes(false, false) // { ring: ["chains"],                         fullscreen: ["editor", "chains"] }
-viewPanes(false, true)  // { ring: ["viewport", "chains"],             fullscreen: ["editor", …ring] }
+viewPanes({ timeline: true })                     // ring: ["timeline", "chains"]
+viewPanes({ timeline: true, viewport: true })     // ring: ["viewport", "timeline", "chains"]
+viewPanes({ timeline: false })                    // ring: ["chains"]
+viewPanes({ timeline: false, turntables: true })  // ring: ["turntables", "chains"]   ← a SET
+// fullscreen is ["editor", ...ring], or just the ring when `frozen`.
 ```
 
-A **function**, because two of the panes are surfaces the project declares rather than panes the
-shell hands out. Its arguments are those declarations, and they have to reach here: a list
+A **function**, because three of the panes are surfaces the project declares rather than panes the
+shell hands out. Its argument is those declarations, and they have to reach here: a list
 naming a pane nothing will mount is a screen that cannot be drawn.
+
+An **object** rather than positional flags, because there are four of them and they are all
+booleans — `viewPanes(true, false, true)` said nothing about which pane was which.
 
 The ring is built TOP-DOWN, in the order the panes are stacked on screen — the number keys and
 the mobile tabs read it, so a ring that disagreed with the column would make `2` land somewhere
