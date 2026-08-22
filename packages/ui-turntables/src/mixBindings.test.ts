@@ -5,6 +5,7 @@ import { mixControl } from "./controls";
 import {
   controlDriving,
   engineAgrees,
+  offlinePublish,
   resolveBindings,
   shownValue,
   stretchTargets,
@@ -393,5 +394,75 @@ describe("what a control's position sends", () => {
   it("passes the number through when there is no range to map onto", () => {
     // Inventing one would make a fader sweep a range nobody chose.
     expect(valueFor(bind(), 0.42)).toBeCloseTo(0.42);
+  });
+});
+
+// What the graph is lent for the modules the engine holds nothing of. The desk is the only
+// place a tempo's numbers exist, so a rule broken here is a node stuck on a stale reading —
+// see ../docs/bpm.md.
+describe("what an offline module reads", () => {
+  /** A measured deck: the song runs at 128, the fader has been pulled to 124. */
+  const TEMPO = { natural: 128, seconds: 210, target: 124 };
+  const TEMPO_VIEW: MixView = {
+    "deckA.tempo": { module: "tempoA", param: "Target BPM" },
+  };
+  const tempoGraph = graphWith([
+    { module: "tempoA", widget: { bind: "Target BPM", min: 10, max: 300 } },
+  ]);
+  const bindings = resolveBindings(TEMPO_VIEW, tempoGraph).bindings;
+
+  it("publishes BOTH of a tempo node's numbers, not just the bound one", () => {
+    // `views/mix.yaml` names one param per control, so only `Target BPM` is bound. `Source BPM`
+    // is the song's own tempo — measured, drawn as a meter — and nothing else in the repo ever
+    // wrote it.
+    expect(offlinePublish(bindings, { deckA: TEMPO }, "Source BPM")).toEqual([
+      { module: "tempoA", param: "Target BPM", value: 124 },
+      { module: "tempoA", param: "Source BPM", value: 128 },
+    ]);
+  });
+
+  it("publishes 0 for a deck with no tempo rather than saying nothing", () => {
+    // Putting a record on CLEARS the fader and the measurement lands a moment later. Staying
+    // quiet across that gap left the node showing the outgoing song, at exactly the moment
+    // somebody looks at it to see what they just loaded. 0 is the module's own "leave alone".
+    expect(offlinePublish(bindings, {}, "Source BPM")).toEqual([
+      { module: "tempoA", param: "Target BPM", value: 0 },
+      { module: "tempoA", param: "Source BPM", value: 0 },
+    ]);
+  });
+
+  it("says nothing about a binding the ENGINE answers for", () => {
+    // A real plugin reports its own value down the socket; publishing it here too would give
+    // one param two sources, and the slower one would win half the time.
+    const withPlugin = resolveBindings(
+      VIEW,
+      graphWith([
+        {
+          module: "crossfade",
+          pluginId: "deckA:crossfade",
+          widget: { bind: "Mix", min: 0, max: 1 },
+        },
+      ]),
+    ).bindings;
+    expect(offlinePublish(withPlugin, { deckA: TEMPO }, "Source BPM")).toEqual(
+      [],
+    );
+  });
+
+  it("says nothing about an offline module that is NOT a tempo", () => {
+    // The rule used to be "every binding with no plugin", and the number published was the
+    // deck's tempo target — so a stem cut read its deck's BPM as its own value. This list is
+    // drawn from the tempos and holds nothing for those controls; saying nothing is the honest
+    // answer until their value has a home on the desk.
+    const cutView: MixView = {
+      "deckA.stemBass": { module: "stemsA", param: "Bass" },
+    };
+    const cut = resolveBindings(
+      cutView,
+      graphWith([
+        { module: "stemsA", widget: { bind: "Bass", min: 0, max: 1 } },
+      ]),
+    ).bindings;
+    expect(offlinePublish(cut, { deckA: TEMPO }, "Source BPM")).toEqual([]);
   });
 });

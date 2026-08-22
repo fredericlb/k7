@@ -21,6 +21,7 @@ export function Vinyl({
   at,
   length,
   markers,
+  size,
 }: {
   /** "A" or "B" — the deck's own name, shown on the label when nothing is loaded. */
   side: string;
@@ -44,6 +45,14 @@ export function Vinyl({
   length: number;
   /** The cues, positional by button. Drawn as circles around the dial at their own moment. */
   markers: readonly (number | null)[];
+  /**
+   * How big the record may be, in pixels — the deck's own answer from `deskLayout`.
+   *
+   * A cap on the WIDTH, not a fixed size: the disc is `aspect-square w-full`, so bounding the
+   * width is what bounds the height, and `w-full` still shrinks it on a narrow deck. Capping
+   * the height instead would let a wide column draw a record taller than its own column.
+   */
+  size: number;
 }) {
   const loaded = !!title;
   const wedge = useRef<SVGPathElement>(null);
@@ -61,10 +70,17 @@ export function Vinyl({
     return () => cancelAnimationFrame(frame);
   }, [at, length]);
   return (
-    <div className="relative aspect-square w-full max-w-[22rem] select-none">
+    <div
+      className="relative aspect-square w-full shrink-0 select-none"
+      style={{ maxWidth: `${size}px` }}
+    >
       <svg
         viewBox="0 0 100 100"
-        className={`h-full w-full ${spinning ? "m9-spin" : ""}`}
+        // 1.8 s a turn — 33⅓ rpm, a twelve-inch. `m9-spin` was here and was defined NOWHERE:
+        // a class m9 owned, left behind when that app went, so the record has not actually
+        // turned since. Tailwind's own `spin` keyframes at the right rate instead, which the
+        // scanner can see now that `packages/ui-turntables/src` is a `@source` (st0's index.css).
+        className={`h-full w-full ${spinning ? "animate-[spin_1.8s_linear_infinite]" : ""}`}
         // The record turns; the LABEL below does not. On a real deck it would, but a title
         // you have to tilt your head to read is a worse trade than the lost realism.
         aria-hidden="true"

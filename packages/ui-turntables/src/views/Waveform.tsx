@@ -47,6 +47,7 @@ export function Waveform({
   /** Why there is none, when there will not be one. Shown rather than swallowed: the strip
    *  cannot draw the difference between "failed" and "none", so it has to say it. */
   problem,
+  height,
 }: {
   envelope: Envelope | null;
   /** Where to draw the transport — steered, so this canvas does not carry the frames'
@@ -55,6 +56,14 @@ export function Waveform({
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
+  /**
+   * How tall to draw, in pixels — the deck's own answer from `deskLayout`, which grows this
+   * when the record is not drawn.
+   *
+   * The canvas needs no other change to follow it: `draw` reads `clientHeight` every frame and
+   * re-sizes the backing store when it moves, which is the same path a window resize takes.
+   */
+  height: number;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
 
@@ -158,7 +167,10 @@ export function Waveform({
   }, [envelope, drawNow, tempo]);
 
   return (
-    <div className="relative h-20 w-full overflow-hidden rounded-md bg-muted/40">
+    <div
+      className="relative w-full shrink-0 overflow-hidden rounded-md bg-muted/40"
+      style={{ height: `${height}px` }}
+    >
       <canvas ref={canvas} className="h-full w-full" />
       {analysing ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">

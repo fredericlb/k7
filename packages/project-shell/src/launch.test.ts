@@ -22,7 +22,7 @@ describe("parseLaunch", () => {
     // `/pl8/…`, `/k7/…` and `/z0/…` away from this reader is the EDGE, which never sends them
     // here — see apps/studio/docker/nginx.conf. z0's editor still has a prefix and is the case
     // this branch is exercised by.
-    expect(parseLaunch("/k7/sessions", "z0", "/z0/editor-v2/")).toBe(null);
+    expect(parseLaunch("/k7/sessions", "z0", "/z0/editor/")).toBe(null);
   });
 
   it("reads a path the edge claims as a repository name, which is exactly right", () => {
@@ -63,8 +63,8 @@ describe("parseLaunch", () => {
 
   it("reads each app's OWN suffix, so a nested project belongs to the app that claims it", () => {
     // A `.z0` inside a `.st0` is a real arrangement — see git-repos/src/mirror.ts.
-    const path = "/z0/editor-v2/band/winter.st0/partie.z0";
-    expect(parseLaunch(path, "z0", "/z0/editor-v2/")).toEqual({
+    const path = "/z0/editor/band/winter.st0/partie.z0";
+    expect(parseLaunch(path, "z0", "/z0/editor/")).toEqual({
       repo: "band",
       project: "winter.st0/partie.z0",
     });
@@ -136,7 +136,7 @@ describe("launchUrl", () => {
     ).toBe("https://st0.priv.frediver.se/band/live.st0");
   });
 
-  // z0 is seven SPAs behind one prefix, and only one of them opens a project — so its address
+  // z0 is six SPAs behind one prefix, and only one of them opens a project — so its address
   // carries the SPA too (PROJECT_MOUNTS). This is the pair that would silently 404 if the two
   // ends ever disagreed about that segment.
   it("sends a z0 session to the editor, not to the game's apex", () => {
@@ -147,9 +147,7 @@ describe("launchUrl", () => {
         "session-2304.z0",
         "z0",
       ),
-    ).toBe(
-      "https://st0.priv.frediver.se/z0/editor-v2/lemo_mante/session-2304.z0",
-    );
+    ).toBe("https://st0.priv.frediver.se/z0/editor/lemo_mante/session-2304.z0");
   });
 
   it("round-trips a z0 session through the editor's own base", () => {
@@ -161,7 +159,7 @@ describe("launchUrl", () => {
         "z0",
       ),
     );
-    expect(parseLaunch(url.pathname, "z0", "/z0/editor-v2/")).toEqual({
+    expect(parseLaunch(url.pathname, "z0", "/z0/editor/")).toEqual({
       repo: "lemo_mante",
       project: "a/party.z0",
     });

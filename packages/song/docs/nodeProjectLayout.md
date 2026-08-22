@@ -9,7 +9,7 @@ A node project routes sources through a graph. `graph.ts` loads and inspects one
 | `modules/<type>/<name>/module.yaml` | a module: a plugin, io or rack, its params, and an optional `extends` naming another module to inherit from (`modules/io/OUT/module.yaml` is the sink) |
 | `nodes/<name>.yaml` | one USE of a module, flat, named by its file — **the arrangements too**: a lane is a node of a `@studio/…-track` module ([trackModules.md](trackModules.md)), and there is no `tracks/` folder |
 | `graph.yaml` | the routing SEGMENTS, in one `modules:` map: which module(s) each node feeds |
-| `songs.yaml` | a SET's cue points, written by the desk (see [songsFile.md](songsFile.md)) |
+| `mix.yaml` | a SET's cue points, written by the desk (see [mixFile.md](mixFile.md)) |
 | `views/<view>.yaml` | what a VIEW's own controls drive — see [viewBindings.md](viewBindings.md) |
 
 A **set** is this same layout with `clips/` and `sequences/` missing and a `turntables`

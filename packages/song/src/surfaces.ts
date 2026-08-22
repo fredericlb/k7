@@ -81,7 +81,7 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
  *
  * The id defaults to the type, because that is what a project usually has one of. It stays an
  * argument for the case the docs use — `surfaces/desk.yaml` reads better than `turntables.yaml`
- * on a set, and the id is what the header button and `/surface/<id>` say.
+ * on a set, and the id is the filename you open and read.
  *
  * Two refusals, and they are different:
  *
@@ -89,8 +89,13 @@ export function projectSurfaces(dir: string): ProjectSurfaces {
  * - a `split` surface of this type is already declared. Only one can be drawn: `App.tsx` takes
  *   the FIRST of each and the pane ring has one slot for it, so a second is a file that changes
  *   nothing and shows nothing — the shape of thing that gets edited for an hour before anyone
- *   works out it was never on screen. A `view` surface is not refused: each gets its own header
- *   button, so several are a real arrangement.
+ *   works out it was never on screen.
+ *
+ * That second refusal now covers EVERY type, the desk included. A `view` surface used to be
+ * exempt — each got its own header button, so a warm-up desk beside the main one was a real
+ * arrangement — and nothing draws in `view` any more. The `layout === "split"` test below is
+ * therefore always true today; it is kept because it is the reason for the rule rather than a
+ * restatement of the type list, and it is what a future `view` would be measured against.
  */
 export function createSurfaceFile(
   dir: string,

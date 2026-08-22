@@ -11,6 +11,7 @@ import {
   VideoTrackSchema,
 } from "./entitySchemas";
 import { parseGraph } from "./graphFile";
+import { MIX_BASE, parseMix } from "./mixFile";
 import { MIX_VIEW_BASE, parseMixView, VIEWS_DIR } from "./mixViewFile";
 import { locate, type ModuleIssue, parseModule } from "./moduleFile";
 import {
@@ -19,7 +20,6 @@ import {
   PresetsFileSchema,
 } from "./moduleSchema";
 import { ProjectFileSchema } from "./projectSchema";
-import { parseSongs } from "./songsFile";
 import { parseUiFile } from "./uiFile";
 
 // YAML 1.2 for the reason every parser here pins it: `5:1:1` stays a string.
@@ -106,7 +106,10 @@ export function parserFor(path: string): Parse | null {
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
   if (base === "chains") return parseGraph;
   if (base === "project") return against(ProjectFileSchema);
-  if (base === "songs") return parseSongs;
+  // The cue sheet, at the ROOT. `views/mix.yaml` has the same base and is a different file
+  // entirely — the desk's old bindings — which is why that branch is above this one and not
+  // below it. Ordering is the whole of what tells the two apart.
+  if (base === MIX_BASE) return parseMix;
   return null;
 }
 

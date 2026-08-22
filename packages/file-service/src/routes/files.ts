@@ -43,7 +43,6 @@ import { resolvePlugin } from "../pluginRef.ts";
 import {
   preferences,
   setAudioDevicePref,
-  setInputPairPref,
   setVim,
   toWebTracks,
 } from "../workspace.ts";
@@ -97,20 +96,11 @@ filesRouter.put(
     res.json({ audioDevice: setAudioDevicePref(name, type) });
   }),
 );
-// How that interface's inputs are grouped — the other half of the same rig, remembered for the same
-// reason and replayed on the same connect. `channel` is 1-based and names its PAIR, either half of it.
-const inputPairBody = z.object({
-  channel: z.number().int().positive(),
-  stereo: z.boolean(),
-});
-filesRouter.put(
-  "/preferences/input-pair",
-  validate(inputPairBody),
-  wrap((req, res) => {
-    const { channel, stereo } = req.body as z.infer<typeof inputPairBody>;
-    res.json({ inputPairs: setInputPairPref(channel, stereo) });
-  }),
-);
+// `PUT /preferences/input-pair` was here — how that interface's inputs are GROUPED, the other half
+// of the same rig, remembered for the same reason and replayed on the same connect. It is
+// `system channel type` now:
+// the route remembered the pairing while the browser told the engine on its own socket, which made
+// one act two doors — and the verb does both, in the order that survives a slow rig.
 
 /**
  * The module libraries this project can reach, in precedence order.
@@ -156,23 +146,10 @@ filesRouter.get(
   }),
 );
 
-const newPlaylistBody = z.object({ name: z.string().min(1).max(200) });
-
-/**
- * Make one, from the stub. A 400 for a name already taken or one that escapes the folder:
- * both are the caller's to fix by typing another, neither is a retry of this request.
- */
-filesRouter.post(
-  "/playlists",
-  validate(newPlaylistBody),
-  wrap((req, res) => {
-    try {
-      res.json(req.ws!.createPlaylist(req.body.name));
-    } catch (e) {
-      res.status(400).json({ error: (e as Error).message });
-    }
-  }),
-);
+// `POST /playlists` was here, with `Workspace.createPlaylist` under it. Making one is
+// `playlist new` — a command, like every other act on this screen — so the write goes through
+// `/command` with the rest and the route was a second door onto one file. Which is what the
+// comment above already said about reading and writing one.
 
 /**
  * Make an empty module: `<root>/<type>/<name>/module.yaml`.

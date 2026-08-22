@@ -711,9 +711,9 @@ function widgetTarget(
     return n.module ? { kind: "module", module: n.module, field } : null;
   }
   if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
-  // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host
-  // that does NOT — st0, pl8 — keeps drawing nothing here rather than a knob that turns
-  // against an address the engine never had.
+  // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host with
+  // no surface realising them — pl8, or st0 on a project that declares no desk — keeps drawing
+  // nothing here rather than a knob that turns against an address the engine never had.
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }
     : null;

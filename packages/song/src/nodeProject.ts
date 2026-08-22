@@ -39,6 +39,7 @@ import {
 } from "./preferences";
 import type {
   ClipDoc,
+  EventDoc,
   GroupDoc,
   NoteDoc,
   PluginDoc,
@@ -104,6 +105,29 @@ function placementToClip(
   };
   // How many times the material's window is played, back to back. Absent is one pass.
   const loops = Math.max(1, Math.floor(Number(p.loop ?? 1)) || 1);
+  /**
+   * The placement's own words, kept UNMERGED beside the resolved answer below — see EventDoc for
+   * why anything needs them once the two have been combined.
+   *
+   * Only what the file actually said. An absent field is the default, and writing the default back
+   * out would put an explicit `loop: 1` and two zero fades on every untouched event of a document
+   * that is polled every two seconds — and would then be COPIED onto whatever a paste writes,
+   * turning a duplicate of a plain event into four lines of restated defaults.
+   */
+  const evWin = (v: unknown): number | string | undefined =>
+    typeof v === "number" || (typeof v === "string" && v !== "")
+      ? v
+      : undefined;
+  const event: EventDoc = {
+    ...(evWin(p.from) !== undefined ? { from: evWin(p.from) } : {}),
+    ...(evWin(p.to) !== undefined ? { to: evWin(p.to) } : {}),
+    ...(p.fadeIn ? { fadeIn: String(p.fadeIn) } : {}),
+    ...(p.fadeOut ? { fadeOut: String(p.fadeOut) } : {}),
+    ...(loops > 1 ? { loop: loops } : {}),
+    ...(p.disabled ? { disabled: true } : {}),
+    // `false` is the only value that says anything here, exactly as the file spells it.
+    ...(p.warp === false ? { warp: false } : {}),
+  };
   const base: ClipDoc = {
     // The PLACEMENT's identity, not the material's — `name` below is the material, and the two
     // are only the same string while a material is placed once. A SPLIT makes two placements of
@@ -127,6 +151,7 @@ function placementToClip(
     // Carried, not filtered: the timeline draws a disabled event dimmed, so it has to
     // reach the surfaces. The ENGINE is what skips it (EditBuilder).
     ...(p.disabled ? { disabled: true } : {}),
+    ...(Object.keys(event).length ? { event } : {}),
   };
   if (clipsMap[ref]) {
     const cm = clipsMap[ref];
@@ -204,16 +229,33 @@ function placementToClip(
   }
   if (seqMap[ref]) {
     // Notes are inline in the sequence's .yaml (compact {t,d,k,v}).
+    // A pad effect is carried, never resolved: the ENGINE expands both (see NoteDoc), because
+    // unrolling `skip`'s passes here would hand the sequencer four copies of its own pattern.
+    const eff = (v: unknown): number | undefined => {
+      const n = Math.floor(Number(v));
+      return Number.isFinite(n) && n >= 2 ? n : undefined;
+    };
     const notes: NoteDoc[] = (
       Array.isArray(seqMap[ref].notes) ? seqMap[ref].notes : []
-    ).map((n: { t?: unknown; d?: unknown; k?: unknown; v?: unknown }) => ({
-      time: Number(n?.t ?? 0),
-      duration: Number(n?.d ?? 0),
-      key: Number(n?.k ?? 0),
-      vel: Number(n?.v ?? 1),
-      channel: 0,
-      rel: 1,
-    }));
+    ).map(
+      (n: {
+        t?: unknown;
+        d?: unknown;
+        k?: unknown;
+        v?: unknown;
+        repeat?: unknown;
+        skip?: unknown;
+      }) => ({
+        time: Number(n?.t ?? 0),
+        duration: Number(n?.d ?? 0),
+        key: Number(n?.k ?? 0),
+        vel: Number(n?.v ?? 1),
+        channel: 0,
+        rel: 1,
+        ...(eff(n?.repeat) ? { repeat: eff(n?.repeat) } : {}),
+        ...(eff(n?.skip) ? { skip: eff(n?.skip) } : {}),
+      }),
+    );
     /**
      * The sequence's window, in beats. `from`/`to` are POSITIONS in the notes, read like the `start:` on the
      * placement — `"1:1"` is the first beat. Unwritten, the window is everything the notes cover.

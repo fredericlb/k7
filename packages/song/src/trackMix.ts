@@ -8,6 +8,7 @@ import { type MaterialKind, resizeToWindow } from "./clipResize";
 import { beatsToDuration, beatsToPosition, parsePosition } from "./timecode";
 import { materialWindowOf, type WindowValue } from "./yaml/materialFile";
 import { entityFileFor } from "./yaml/moduleIO";
+import type { Placement } from "./yaml/placementSchema";
 import {
   addPlacement,
   copyPlacementAt,
@@ -543,7 +544,9 @@ export function addTrackPlacement(
 export function addTrackPlacements(
   dir: string,
   id: string,
-  placements: { ref: string; start: string; loop?: number }[],
+  // A WHOLE placement, not just where it goes: a paste reproduces the event it copied, including
+  // its window, its fades and its passes. Already schema-checked by the caller (`events add`).
+  placements: Placement[],
 ): string {
   return editTrackStruct(
     dir,

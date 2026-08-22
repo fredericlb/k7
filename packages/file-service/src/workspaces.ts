@@ -2,8 +2,14 @@
 // plus listing a user's workspaces for the picker.
 
 import { execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   assertSshGitUri,
@@ -11,12 +17,22 @@ import {
   repoName,
   repoNameOfKey,
 } from "@studio/git-repos/uri";
-import type { MachineWorkspace, WorkspaceSummary } from "@studio/web-protocol";
+import { projectSurfaces } from "@studio/song/surfaces";
+import type {
+  MachineWorkspace,
+  SurfacedProject,
+  WorkspaceSummary,
+} from "@studio/web-protocol";
 import { projectApp } from "@studio/web-protocol/projects";
 import { EXAMPLES_WORKSPACE, mirrorDemos } from "./demos.ts";
 import { slugify, userRoot, workspaceRoot } from "./slug.ts";
 import { ensureKey, sshCommand } from "./sshKeys.ts";
-import { isProjectDir, projectDirsUnder, Workspace } from "./workspace.ts";
+import {
+  ACTIVE_MARKER,
+  isProjectDir,
+  projectDirsUnder,
+  Workspace,
+} from "./workspace.ts";
 
 const run = promisify(execFile);
 
@@ -361,4 +377,76 @@ export async function listMachineWorkspaces(
  */
 const LISTING_RESCAN_MS = 5_000;
 const listings = new Map<string, { at: number; rows: MachineWorkspace[] }>();
-const forgetListing = (slug: string) => listings.delete(slug);
+// Both listings, since the second is built on the first: a clone that adds a workspace adds any
+// surfaces it holds, and one window dropped without the other would show the projects and not
+// their screens.
+const forgetListing = (slug: string) => {
+  listings.delete(slug);
+  surfaced.delete(slug);
+};
+
+/**
+ * Every project on this machine that DECLARES a surface, flat, with those surfaces.
+ *
+ * What st0's `/external` page draws: the list of screens this account could put on a second
+ * device. Built on the listing above rather than beside it, so "which projects are there" is
+ * asked once and answered the same way for both pages, and only the surface scan is new.
+ *
+ * That scan is a `readdir` of `surfaces/` plus a small YAML parse per file, and it is asked of
+ * every project rather than of one — hence a window of its own, the same length and for the same
+ * reason. It is deliberately NOT folded into `listMachineWorkspaces`: the home page is the front
+ * door and does not draw surfaces, and making it pay for them would be a cost with no reader.
+ *
+ * No policy here about which surfaces are worth a second device. The service reports what the
+ * project declares; whether a `timeline` can be driven from a phone is the APP's question, and
+ * st0 answers it in one place (see apps/st0/frontend/docs/external.md).
+ */
+export async function listSurfacedProjects(
+  userEmail: string,
+): Promise<SurfacedProject[]> {
+  const slug = slugify(userEmail);
+  const hit = surfaced.get(slug);
+  if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
+  const dir = userRoot(slug);
+  const workspaces = await listMachineWorkspaces(userEmail);
+  const rows: SurfacedProject[] = [];
+  for (const w of workspaces) {
+    const abs = join(dir, w.name);
+    const active = activeOf(abs);
+    for (const p of w.projects) {
+      const at = p.path === "." ? abs : join(abs, p.path);
+      // Diagnostics are dropped on purpose: a surface file that will not parse is not a row this
+      // page can offer, and the place that says WHY is the editor, which shows them beside the
+      // project's other faults.
+      const { surfaces } = projectSurfaces(at);
+      if (!surfaces.length) continue;
+      rows.push({
+        workspace: w.name,
+        repoName: w.repoName,
+        uniqueName: w.uniqueName,
+        path: p.path,
+        app: p.app,
+        active: active !== null && active === resolve(at),
+        surfaces: surfaces.map((s) => ({ id: s.id, type: s.surface.type })),
+      });
+    }
+  }
+  surfaced.set(slug, { at: Date.now(), rows });
+  return rows;
+}
+
+const surfaced = new Map<string, { at: number; rows: SurfacedProject[] }>();
+
+/** The workspace's open project, absolute, straight off the marker file — without opening a
+ *  Workspace, which would build its caches to read one line. Null when nothing is open. */
+function activeOf(workspaceRootDir: string): string | null {
+  try {
+    const rel = readFileSync(
+      join(workspaceRootDir, ACTIVE_MARKER),
+      "utf8",
+    ).trim();
+    return rel ? resolve(workspaceRootDir, rel) : null;
+  } catch {
+    return null;
+  }
+}

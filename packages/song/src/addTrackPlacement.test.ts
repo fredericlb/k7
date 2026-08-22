@@ -115,6 +115,53 @@ describe("putting several on a lane at once", () => {
     expect(text.match(/loop:/g)).toHaveLength(1);
   });
 
+  /**
+   * The WHOLE placement, because this is what a paste lands through.
+   *
+   * A copy carries the event's own words (`ClipDoc.event`), and they are worth nothing if the
+   * writer drops them on the floor — a trimmed, faded event pasted as an untrimmed one is the bug
+   * this pins from the far end.
+   */
+  it("writes the window, the fades and the flags a paste hands it", () => {
+    lane('extends: "@studio/track"\n');
+    addTrackPlacements(dir, "gtr", [
+      {
+        ref: "riff",
+        start: "3:1",
+        from: 1.5,
+        to: 6.5455,
+        fadeIn: "0:2",
+        fadeOut: "0:1",
+        loop: 3,
+        disabled: true,
+        warp: false,
+      },
+    ]);
+    const text = laneText();
+    expect(text).toContain("from: 1.5");
+    expect(text).toContain("to: 6.5455");
+    expect(text).toContain("loop: 3");
+    expect(text).toContain("disabled: true");
+    expect(text).toContain("warp: false");
+  });
+
+  /**
+   * A timecode window comes out QUOTED, like every other timecode in these files.
+   *
+   * Written bare, `from: 2:1` is a YAML 1.1 sexagesimal and reads back as 121 — a window nobody
+   * wrote, on a file that still loads. `quoteTimecodes` covers `from`/`to` (TIMECODE_KEYS), and a
+   * paste is the first writer to put a timecode under either of them.
+   */
+  it("quotes a window spelled as a timecode", () => {
+    lane('extends: "@studio/track"\n');
+    addTrackPlacements(dir, "gtr", [
+      { ref: "seq", start: "1:1", from: "2:1", to: "4:1" },
+    ]);
+    const text = laneText();
+    expect(text).toContain('from: "2:1"');
+    expect(text).toContain('to: "4:1"');
+  });
+
   it("is ONE rewrite, so the same material may repeat at several positions", () => {
     // The case a loop of the singular got wrong in spirit: each call re-reads the file, so the
     // second placement is written against a document the first already changed. Folding the

@@ -6,7 +6,7 @@ of. It exists because the editors autosave now
 decide whether the text in the pane is worth writing.
 
 It adds no schema of its own. Every file kind here already had a parser — `parseModule`,
-`parseUiFile`, `parseTrack`, `parseChains`, `parseSongs`, `parseMixView` — all with the same
+`parseUiFile`, `parseTrack`, `parseChains`, `parseMix`, `parseMixView` — all with the same
 shape, `{ value, issues }`, all returning located findings, all browser-safe. This is a
 **router** over them, plus a plain Zod check for the kinds that have no parser of their own
 (clips, sequences, curves, video tracks, `project.yaml`, and a module folder's shelf and MIDI
@@ -29,7 +29,7 @@ By folder and basename, the way `fileKindFor` reads one:
 | `modules/**/*.yaml` — anything else | a module, generic or node (`ModuleSchema`) |
 | `nodes/*.yaml` | a module, again — the project's flat nodes folder, LANES included ([trackModules.md](trackModules.md)) |
 | `clips/`, `sequences/`, `curves/`, `video_tracks/` | that kind's schema |
-| `graph.yaml`, `project.yaml`, `songs.yaml`, `views/mix.yaml` | the root files |
+| `graph.yaml`, `project.yaml`, `mix.yaml`, `views/mix.yaml` | the root files — the last two share a base and are told apart by FOLDER, `views/` first |
 | any other `.yaml` | parsed, not judged |
 | anything not YAML | not this module's business |
 

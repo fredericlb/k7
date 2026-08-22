@@ -282,7 +282,7 @@ describe("node replace — the name following the module", () => {
     mkdirSync(join(dir, "surfaces"), { recursive: true });
     writeFileSync(
       join(dir, "surfaces", "desk.yaml"),
-      "type: turntables\nlayout: view\nmapping:\n  crossfade: { module: gtr_amp_1, param: Mix }\n",
+      "type: turntables\nlayout: split\nmapping:\n  crossfade: { module: gtr_amp_1, param: Mix }\n",
       "utf8",
     );
     await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");

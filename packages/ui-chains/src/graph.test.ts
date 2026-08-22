@@ -1049,7 +1049,9 @@ describe("moduleDisplayName", () => {
   // The header wears the module, so what it wears is the LAST segment: a card is one word wide
   // and "@st0/audio/dynamics/comp-opto" would fit as "@st0/…" — the prefix, the useless half.
   it("keeps the last segment of a namespaced reference", () => {
-    expect(moduleDisplayName("@st0/audio/dynamics/comp-opto")).toBe("comp-opto");
+    expect(moduleDisplayName("@st0/audio/dynamics/comp-opto")).toBe(
+      "comp-opto",
+    );
   });
 
   it("leaves a bare name alone", () => {

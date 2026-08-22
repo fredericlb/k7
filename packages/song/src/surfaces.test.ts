@@ -34,7 +34,7 @@ function withSurface(name: string, body: string): string {
 }
 
 const DESK = `type: turntables
-layout: view
+layout: split
 mapping:
   crossfade: { module: crossfade, param: Mix }
   deckA.tempo: { module: tempoA, param: Target BPM }
@@ -45,7 +45,7 @@ describe("parseSurface", () => {
     const { value, issues } = parseSurface(DESK);
     expect(issues).toEqual([]);
     expect(value?.type).toBe("turntables");
-    expect(value?.layout).toBe("view");
+    expect(value?.layout).toBe("split");
     expect(value?.mapping?.crossfade).toEqual({
       module: "crossfade",
       param: "Mix",
@@ -56,14 +56,16 @@ describe("parseSurface", () => {
     // The unwired state is a real one and belongs on the SCREEN, component by component —
     // "ce composant n'est pas mappé" is something you read next to the knob that does nothing.
     // Refusing the file would refuse to open the project because one knob is unwired.
-    const { value, issues } = parseSurface("type: turntables\nlayout: view\n");
+    const { value, issues } = parseSurface("type: turntables\nlayout: split\n");
     expect(issues).toEqual([]);
     expect(value?.mapping).toBeUndefined();
   });
 
   it("reads the PLAYLIST a desk draws its browser from", () => {
     const { value, issues } = parseSurface(
-      ["type: turntables", "layout: view", "playlist: ete-2026", ""].join("\n"),
+      ["type: turntables", "layout: split", "playlist: ete-2026", ""].join(
+        "\n",
+      ),
     );
     expect(issues).toEqual([]);
     // A NAME, not a path: the folder is fixed, so spelling it into the declaration would let a
@@ -75,7 +77,7 @@ describe("parseSurface", () => {
     // Same rule as `mapping` above: the browser says "this desk names no playlist", which is a
     // sentence you can act on. Refusing the file would refuse to open the project.
     const { value, issues } = parseSurface(
-      ["type: turntables", "layout: view", ""].join("\n"),
+      ["type: turntables", "layout: split", ""].join("\n"),
     );
     expect(issues).toEqual([]);
     expect(value?.playlist).toBeUndefined();
@@ -119,12 +121,15 @@ describe("parseSurface", () => {
 
   it("refuses a PAIR the editor has no component for", () => {
     // Both halves are valid on their own, which is exactly why the pair needs its own check: a
-    // timeline asking for its own screen, or a desk asking for a slot in the layout, names
-    // something nothing draws — the blank screen the `type` enum exists to prevent.
-    const inSplit = parseSurface("type: turntables\nlayout: split\n");
-    expect(inSplit.value).toBeNull();
-    expect(inSplit.issues[0].path).toBe("layout");
-    expect(inSplit.issues[0].message).toContain("'view'");
+    // surface asking for a layout nothing places it in names something nothing draws — the
+    // blank screen the `type` enum exists to prevent.
+    //
+    // NOTHING draws in `view` any more: the desk was the last one and became a pane. The word is
+    // still in the enum precisely so this check can answer a file that says it, by name.
+    const inView = parseSurface("type: turntables\nlayout: view\n");
+    expect(inView.value).toBeNull();
+    expect(inView.issues[0].path).toBe("layout");
+    expect(inView.issues[0].message).toContain("'split'");
     expect(parseSurface("type: timeline\nlayout: view\n").value).toBeNull();
     // A viewport owns a GL context and a <video> per layer; a screen you open and close would
     // rebuild both every time. `full` is how the picture gets big.
@@ -140,7 +145,7 @@ describe("parseSurface", () => {
     // `.strict()` reports an extra key on the OBJECT, so without unwrapping `keys` the message
     // lands on the whole file and the reader has to hunt for the line they typed.
     const { issues } = parseSurface(
-      "type: turntables\nlayout: view\nmappings: {}\n",
+      "type: turntables\nlayout: split\nmappings: {}\n",
     );
     expect(issues.some((i) => i.path.includes("mappings"))).toBe(true);
   });
@@ -304,7 +309,7 @@ describe("createSurfaceFile", () => {
     for (const [type, layout] of [
       ["timeline", "split"],
       ["viewport", "split"],
-      ["turntables", "view"],
+      ["turntables", "split"],
     ] as const) {
       const rel = createSurfaceFile(dir, type);
       expect(rel).toBe(`surfaces/${type}.yaml`);
@@ -362,7 +367,7 @@ describe("createSurfaceFile", () => {
     );
   });
 
-  it("refuses a SECOND split surface of the same type", () => {
+  it("refuses a SECOND surface of the same type", () => {
     // Only one is drawn — App.tsx takes the first of each and the pane ring has one slot — so a
     // second is a file that changes nothing and shows nothing.
     const dir = project();
@@ -372,10 +377,15 @@ describe("createSurfaceFile", () => {
     );
   });
 
-  it("allows several VIEW surfaces, which each get their own button", () => {
+  it("refuses a second DESK too, now that it is a pane", () => {
+    // It used to be allowed: a `turntables` was a `view`, each got its own header button, and
+    // several were a real arrangement — a warm-up desk beside the main one. The desk is a pane
+    // now, with one slot in the ring like every other type, so the second would draw nowhere.
     const dir = project();
     createSurfaceFile(dir, "turntables", "desk");
-    expect(() => createSurfaceFile(dir, "turntables", "warmup")).not.toThrow();
+    expect(() => createSurfaceFile(dir, "turntables", "warmup")).toThrow(
+      /already declares a turntables/,
+    );
   });
 
   it("refuses a name that is taken, and one a path could not carry", () => {

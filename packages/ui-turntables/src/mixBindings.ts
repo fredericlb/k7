@@ -158,6 +158,51 @@ export function stretchTargets(
 }
 
 /**
+ * What every module with NO plugin should currently READ, for a host to lend to the graph.
+ *
+ * The engine cannot answer for these: an `offline` module compiles to nothing it holds, so there
+ * is no plugin to watch and no id to watch it by. The value exists only on the surface that
+ * realises it — for a tempo, the desk that warps the clip — and this is the list that surface
+ * hands over.
+ *
+ * Two rules worth having in a function rather than in an effect, because both were once wrong:
+ *
+ * - **A tempo node has TWO numbers.** `views/mix.yaml` binds one param per control, so only
+ *   `Target BPM` is named by a binding; `Source BPM` is the song's own tempo, MEASURED rather
+ *   than chosen, and the node draws it as a meter. Nothing named it, so nothing wrote it, and
+ *   that meter read 0 for every song ever loaded.
+ * - **A deck with no tempo publishes 0, it does not stay quiet.** Putting a record on clears the
+ *   fader and the measurement lands a moment later; a list that skipped the gap left the graph
+ *   showing the OUTGOING song — at exactly the moment somebody looks at the node to see what
+ *   they just put on. 0 is the tempo module's own "leave it alone".
+ *
+ * TEMPO controls only, and that is the third correction. The rule was "every binding with no
+ * plugin", and the value it published was the deck's tempo target — so an offline module bound to
+ * anything else (a stem cut) read its deck's BPM as its own value. There is nothing dishonest
+ * about publishing nothing for those: this list is drawn from `DeckTempos` and holds no number
+ * for them. When their value gets a home on the desk, it comes through here with its own arm.
+ *
+ * See ../docs/bpm.md.
+ */
+export function offlinePublish(
+  bindings: readonly ResolvedBinding[],
+  byDeck: DeckTempos,
+  /** The tempo module's measured param. Passed in rather than imported to keep this file's
+   *  dependency on `deck.ts` to types only. */
+  sourceParam: string,
+): { module: string; param: string; value: number }[] {
+  const out: { module: string; param: string; value: number }[] = [];
+  for (const b of bindings) {
+    if (b.pluginId) continue; // a real plugin — the engine reports that one itself
+    if (b.control.wants !== "tempo") continue;
+    const t = byDeck[b.control.id.split(".")[0] as DeckId];
+    out.push({ module: b.module, param: b.param, value: t?.target ?? 0 });
+    out.push({ module: b.module, param: sourceParam, value: t?.natural ?? 0 });
+  }
+  return out;
+}
+
+/**
  * Is this binding's target a plugin the engine has LOADED?
  *
  * The distinction that decides which of the two paths a control takes, and it cannot be read

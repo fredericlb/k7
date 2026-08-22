@@ -3,7 +3,7 @@
 // the surfaces it appears on. Drives both completions() and runCommand(), shared by the
 // web editor and the CLI; the behaviours themselves live in commands.ts.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { type Dirent, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { alternativesOf } from "@studio/song/alternatives";
@@ -15,6 +15,7 @@ import {
   type ModuleStatus,
   moduleStatusOf,
 } from "@studio/song/moduleTypes";
+import { PLAYLISTS_DIR } from "@studio/song/playlist";
 import { parsePosition } from "@studio/song/timecode";
 import { SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
 import { parse as parseYaml } from "yaml";
@@ -166,6 +167,35 @@ const PROVIDERS = {
   },
   // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
+  /**
+   * The workspace's set lists, by the NAME `playlist song add` takes — `_playlists/` stripped and
+   * the extension with it, subfolders kept (`live/repet` is one).
+   *
+   * Off `repoDir` and never `songPath`: a playlist belongs to the repository, so a project folder
+   * is the one place it cannot be. No workspace means nothing to offer rather than an error — the
+   * command itself has the refusal, and a completion that threw would take the whole bar with it.
+   */
+  playlists: (h) => {
+    const root = h.repoDir;
+    if (!root) return [];
+    const out: string[] = [];
+    const walk = (at: string, under: string): void => {
+      let entries: Dirent[];
+      try {
+        entries = readdirSync(at, { withFileTypes: true });
+      } catch {
+        return; // no folder yet: an account with no set list has none, which is not an error
+      }
+      for (const e of entries) {
+        const name = under ? `${under}/${e.name}` : e.name;
+        if (e.isDirectory()) walk(join(at, e.name), name);
+        else if (e.isFile() && /\.ya?ml$/i.test(e.name))
+          out.push(name.replace(/\.ya?ml$/i, ""));
+      }
+    };
+    walk(join(root, PLAYLISTS_DIR), "");
+    return out.sort();
+  },
   // What `clip process` accepts: the audio clips this project places, then its audio files —
   // for material no clip file has claimed yet. Tracks are deliberately absent, and the handler
   // refuses one by name: `track process` is the command for those. Clip ids were dropped from a
@@ -345,6 +375,9 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
+  // A playlist IS its file — there is no `playlist.yaml` marker inside a folder, the extension
+  // is the whole rule — so it is coloured as one, exactly as a sequence's id is.
+  playlists: "file",
   // A closed set of words the EDITOR has components for, which is what `choice` colours. Not
   // "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
@@ -375,6 +408,7 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   markerNames: "a marker of this project",
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
+  playlists: "a set list of this repository (_playlists/<name>.yaml)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",
 };

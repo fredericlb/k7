@@ -209,6 +209,37 @@ affiche `—` et le sync est désactivé. Ce n'est pas une panne, c'est l'état 
 qui n'a jamais été analysé ; l'endroit naturel pour préchauffer, plus tard, c'est la liste du
 set (la playlist que la surface nomme désigne déjà exactement les morceaux concernés).
 
+## Le nœud dans le graphe montre les deux nombres
+
+Le pupitre n'est pas le seul écran où ce tempo se lit : le **nœud** du module est juste en
+dessous, dans le graphe, avec son knob `Target BPM` et son afficheur `Source BPM`. Comme le
+module est `offline`, il ne compile en aucun plugin — le moteur n'a rien à rapporter et aucune
+adresse sous laquelle le rapporter. La valeur n'existe que sur la surface qui la **réalise**,
+et c'est `useDeckSet` qui la prête au graphe, via `deck.setModuleParam`.
+
+Trois choses manquaient, et le nœud restait figé sur ce que `project.yaml` déclare — ce qui
+se lit exactement comme « le BPM ne se met pas à jour quand on charge un morceau » :
+
+| | ce qui manquait |
+|---|---|
+| l'hôte | st0 ne passait ni `moduleParams` ni `onModuleParam` à `DomChains`, et les deux sont ce qui **allume** ces widgets. Le graphe dessinait `–`, inerte. |
+| `Source BPM` | **rien ne l'écrivait, nulle part.** `views/mix.yaml` lie un paramètre par contrôle, donc seul `Target BPM` est nommé ; l'autre est mesuré, et l'afficheur est resté à 0 pour tous les morceaux jamais chargés. |
+| le trou | poser un disque **efface** le fader (`clearTempo`) et la mesure arrive un instant plus tard. Une publication sautée pendant ce trou laissait le nœud sur les nombres du morceau **sortant** — au moment précis où on le regarde pour voir ce qu'on vient de poser. |
+
+Les deux dernières règles sont dans `offlinePublish` (`mixBindings.ts`), à côté des autres
+lectures du même fichier, pour qu'un test les tienne. Une platine sans tempo publie **0**, qui
+est le « ne touche à rien » du module lui-même — et non le silence.
+
+`offlinePublish` ne répond que pour les contrôles de **tempo**. La règle était « toute liaison
+sans plugin » et la valeur publiée était la cible de la platine : un module `offline` lié à
+autre chose — une coupure de stem — lisait donc le BPM de sa platine comme sa propre valeur.
+Cette liste est tirée des tempos et ne tient rien pour ces contrôles-là.
+
+Le widget reste **en lecture seule** dans le graphe : `moduleParams` allume l'affichage,
+`onModuleParam` seul rendrait le knob actionnable, et le chemin retour n'existe pas encore —
+`fromGraph`, ici, n'a aucun appelant. Lecture seule est honnête ; tournable-et-ignoré ne
+l'est pas.
+
 ## Le sync aligne aussi les temps
 
 Deux platines à 128 BPM dont les temps forts sont à 200 ms l'un de l'autre ne sont pas

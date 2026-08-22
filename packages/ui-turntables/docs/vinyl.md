@@ -5,7 +5,8 @@ passe — vide à 0 %, plein à 100 % — et porte les repères sous forme de ce
 
 ## Une couche qui ne tourne PAS
 
-Le disque tourne (`m9-spin`), donc la progression et les repères vivent dans un **second SVG**,
+Le disque tourne (`animate-[spin_1.8s_linear_infinite]`, soit 33⅓ tours/minute — un trente
+centimètres), donc la progression et les repères vivent dans un **second SVG**,
 frère du premier, immobile.
 
 Dessinés à l'intérieur du disque qui tourne, ils monteraient avec lui : un secteur qui tourne

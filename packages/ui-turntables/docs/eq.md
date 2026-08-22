@@ -41,6 +41,27 @@ parce que la commande le lui interdit.
 En **décibels**, jamais en 0..1. Même règle que le `Volume` d'une tranche : une surface qui
 enverrait 0,5 pour « moitié » aurait l'air de marcher et se tromperait de six décibels.
 
+## Ce qu'un potard montre : trois choses
+
+| dessiné | ce que ça dit |
+|---|---|
+| le petit trait en haut | où est le **neutre** — la référence, toujours à midi |
+| l'**aiguille** | où le potard est *posé* |
+| l'**arc** de midi à l'aiguille | **de combien** on s'en écarte, et dans quel sens |
+
+L'aiguille seule dit une position ; c'est l'arc qui dit une **quantité**. Sa longueur EST le
+réglage, ancré au neutre, donc un boost pousse l'arc vers la droite et une coupe vers la gauche,
+et deux potards se comparent d'un coup d'œil sans lire un chiffre.
+
+Au repos l'arc est **vide** — pas un moignon. Un potard qu'on n'a pas touché montre un cadran
+nu, et une colonne de potards portant chacun une petite marque serait exactement le bruit qu'on
+cherchait à éviter en retirant les chiffres.
+
+Car c'est bien pour cela qu'il existe : sur une tranche courte (un pupitre en panneau), les
+**valeurs chiffrées sont retirées** faute de hauteur — voir [deskLayout.md](deskLayout.md). Le
+chiffre était un confort, l'arc est ce qui reste pour dire combien, et il ne coûte pas un pixel
+de hauteur.
+
 ## Après le tempo, avant le crossfade
 
 ```

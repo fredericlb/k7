@@ -51,15 +51,20 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
  *
  * Empty for st0, which IS its service: `st0.priv.frediver.se/<repo>/<project>`. z0 is six
  * SPAs behind one prefix and only one of them opens a project, so its address has to name the
- * SPA too — `st0.priv.frediver.se/z0/editor-v2/<repo>/<project.z0>`.
+ * SPA too — `st0.priv.frediver.se/z0/editor/<repo>/<project.z0>`.
  *
  * It belongs here rather than in pl8's link builder for the reason the suffixes do: the
  * address is a contract between the side that WRITES it and the side that parses it back, and
  * a mount known to only one of them is a 404 nobody can attribute.
+ *
+ * It read `/editor-v2` while the Grist editor still held `/z0/editor`. That editor is retired
+ * and this one took the name — which also removed a trap, since `/z0/editor` is a literal
+ * prefix of `/z0/editor-v2` and a proxy comparing raw prefixes sent the project to the wrong
+ * SPA. One name, no overlap. See apps/z0/docs/editor.md.
  */
 export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
   st0: "",
-  z0: "/editor-v2",
+  z0: "/editor",
 };
 
 /**
@@ -108,7 +113,7 @@ const segments = (p: string): string[] => p.split("/").filter(Boolean);
  * `/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never
  * be opened: the request never reaches this app. Nothing here can detect that, and nothing
  * should try; it is the edge's routing table, and `apps/studio/docker/nginx.conf` is where it is
- * written down. z0's editor keeps a prefix (`/z0/editor-v2`) and is unaffected.
+ * written down. z0's editor keeps a prefix (`/z0/editor`) and is unaffected.
  *
  * **Where the project ends** is decided by the folder's own name — the same rule as
  * `projectApp` above: the project is everything up to and including the LAST segment claiming
@@ -120,7 +125,7 @@ const segments = (p: string): string[] => p.split("/").filter(Boolean);
  * repo is the app's route — a view segment never ends in `.st0` or `.m9`, so the two cannot be
  * confused.
  *
- * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for st0, `/z0/editor-v2/`
+ * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for st0, `/z0/editor/`
  * for z0's. An address outside it names something else: null.
  */
 export function parseLaunch(
@@ -498,4 +503,117 @@ export function launchUrl(
     PROJECT_MOUNTS[app] +
     launchPath({ repo, project }, "")
   );
+}
+
+// --- a surface, opened on its own -----------------------------------------------------------
+
+/**
+ * The segment that turns a project address into ONE SURFACE, addressed on its own:
+ * `<project>/@external/<surface>`.
+ *
+ * A surface is a screen the project declares, and some of them are things you stand away from
+ * the computer to use — a desk you want on a tablet by the decks, not on the laptop behind
+ * them. So every surface has an address of its own, and opening it on another device gives that
+ * surface and nothing else, driving the same engine as the tab that has the project open.
+ *
+ * BELOW the project, not beside it, and that is what makes it cost nothing: `parseLaunch` ends a
+ * project at the last segment claiming the app's suffix, so everything after is already the
+ * app's own route. The repo and the project parse exactly as they always did, the router's
+ * basename is unchanged, and a reload or a pasted link re-reads the address.
+ *
+ * `@` for the same reason `@shares` and `@banc` use it — it cannot begin a git short name, and
+ * here it cannot be a surface id either (`createSurfaceFile` allows letters, digits, `_` and `-`
+ * and nothing else). So the sentinel can never collide with the thing it sits next to.
+ */
+export const EXTERNAL_SEGMENT = "@external";
+
+/**
+ * Which surface this address opens on its own, or null when it opens the editor.
+ *
+ * Read the same way `parseLaunch` reads the project — off the address and nothing else — so the
+ * two cannot disagree about what a tab is on. Returns null for a bare `@external` with no name:
+ * that is not "some surface", it is an address somebody truncated.
+ */
+export function parseExternal(
+  pathname: string,
+  app: ProjectApp,
+  base: string,
+): string | null {
+  const at = parseLaunch(pathname, app, base);
+  if (!at) return null;
+  const segs = segments(pathname);
+  const i = segs.indexOf(EXTERNAL_SEGMENT);
+  // The LAST segment before it must be the project's, or this `@external` belongs to something
+  // else entirely — a folder called that, inside a repository.
+  if (i < 0 || i + 1 >= segs.length) return null;
+  const name = segs[i + 1];
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name; // a hand-typed % that is not an escape — keep it, as parseLaunch does
+  }
+}
+
+/**
+ * The link to hand another device — the whole URL, origin included.
+ *
+ * Built from the ORIGIN the browser is on, like `shareUrl` and for the same reason: a checkout,
+ * the LAN proxy and the public host are three different answers and only the tab knows which one
+ * it is reading. A tablet by the decks is on the LAN one.
+ *
+ * Through `launchUrl`, not spelled out beside it: this is read back by `parseLaunch` and
+ * `projectBasename`, and a second builder is a second place for the encoding to differ.
+ */
+export function externalUrl(
+  origin: string,
+  l: Launch,
+  surface: string,
+  app: ProjectApp,
+): string {
+  return externalOf(launchUrl(origin, l.repo, l.project, app), surface);
+}
+
+/**
+ * …and the same segment hung off a project URL somebody else built.
+ *
+ * For the caller that did not CHOOSE the address: a workspace is named by its repository when
+ * that works and by `@local` when it does not (`projectHref`), and a lister has already made
+ * that decision by the time it wants the surface's link. One encoder either way, which is the
+ * point of it being here rather than a template string at the call site.
+ */
+export function externalOf(projectUrl: string, surface: string): string {
+  return `${projectUrl}/${EXTERNAL_SEGMENT}/${encodeSegment(surface)}`;
+}
+
+/**
+ * The MENU of those addresses, above every project: `/external`.
+ *
+ * The page a second device opens first and, installed as a PWA, the one it starts on — every
+ * surface this account can drive, across every project on the machine. It needs no project in
+ * the address, which is why it sits at the app's mount rather than under one.
+ *
+ * **It is a reserved short name.** A single segment is a legal project address — `/<repo>` is
+ * how a lone-project clone is opened — so claiming `external` there means a repository of that
+ * exact name can no longer be opened at its root. It joins the list the origin already keeps
+ * (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`), with the same remedy: rename the repository, or
+ * address a project inside it, which is unaffected — `/external/song.st0` still parses as the
+ * repo `external`. The sentinel spelling `@external` would have avoided the shadow outright and
+ * is what `@shares` does; the plain word is the address that was asked for, and one reserved
+ * word is a cost that can be read in the URL bar.
+ */
+export const EXTERNAL_INDEX = "external";
+
+/** Is this address that menu? Exactly one segment below the mount, and that word. */
+export function isExternalIndex(pathname: string, base: string): boolean {
+  const segs = segments(pathname);
+  const skip = segments(base);
+  for (let i = 0; i < skip.length; i++) if (segs[i] !== skip[i]) return false;
+  const rest = segs.slice(skip.length);
+  return rest.length === 1 && rest[0] === EXTERNAL_INDEX;
+}
+
+/** …and the whole URL of it, for a link back from a surface — which cannot use the router,
+ *  being mounted under a basename that ends at the project. */
+export function externalIndexUrl(origin: string, app: ProjectApp): string {
+  return `${serviceUrl(origin, app)}${PROJECT_MOUNTS[app]}/${EXTERNAL_INDEX}`;
 }

@@ -51,6 +51,22 @@ export function parseMarkers(raw: unknown, num: number, den: number): Marker[] {
 
 /** Bars of count-in a project gets when settings.yaml doesn't say. See parseSettings. */
 export const DEFAULT_COUNT_IN = 1;
+/**
+ * The click's default and its floor live on the WIRE side — `DEFAULT_SETTINGS` needs them there
+ * and this package cannot be imported from it.
+ *
+ * Imported as well as re-exported, the arrangement `MIXER_PLUGIN` below spells out: `export … from`
+ * republishes a name without BINDING it locally, and `parseSettings` reads both.
+ */
+export {
+  DEFAULT_METRONOME_LEVEL,
+  METRONOME_MIN,
+} from "@studio/engine-protocol/build";
+
+import {
+  DEFAULT_METRONOME_LEVEL,
+  METRONOME_MIN,
+} from "@studio/engine-protocol/build";
 
 // Read settings.yaml, defaulting each field so a partial file never fails the load (`count_in` is the on-disk name).
 export function parseSettings(raw: unknown): SettingsDoc {
@@ -62,8 +78,14 @@ export function parseSettings(raw: unknown): SettingsDoc {
   // mentions count_in gets the usual one rather than none. `count_in: 0` still means "record
   // immediately": it is a stated 0, which `??` leaves alone.
   const n = Number(s.count_in ?? DEFAULT_COUNT_IN);
+  // The click's level, defaulted and CLAMPED to the range the engine will actually honour — a file
+  // edited by hand can say anything, and 0.2..1 is Tracktion's own bound (see SettingsSchema).
+  const lvl = Number(s.metronome_level ?? DEFAULT_METRONOME_LEVEL);
   return {
     metronome: Boolean(s.metronome ?? false),
+    metronomeLevel: Number.isFinite(lvl)
+      ? Math.min(1, Math.max(METRONOME_MIN, lvl))
+      : DEFAULT_METRONOME_LEVEL,
     countIn: Number.isFinite(n) && n > 0 ? Math.floor(n) : 0,
   };
 }

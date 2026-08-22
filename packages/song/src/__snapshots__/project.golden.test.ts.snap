@@ -11,6 +11,7 @@ exports[`golden compile: rack-demo > compiles to a stable ProjectDoc (run \`vite
   "settings": {
     "countIn": 1,
     "metronome": false,
+    "metronomeLevel": 0.6,
   },
   "strudel": false,
   "tempo": 120,
@@ -205,6 +206,7 @@ exports[`golden compile: synth-demo > compiles to a stable ProjectDoc (run \`vit
   "settings": {
     "countIn": 1,
     "metronome": false,
+    "metronomeLevel": 0.6,
   },
   "strudel": true,
   "tempo": 120,

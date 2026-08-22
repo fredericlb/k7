@@ -8,7 +8,14 @@ import { serviceUrl } from "@studio/web-protocol/services";
 
 export type { Launch } from "@studio/web-protocol/projects";
 export {
+  EXTERNAL_INDEX,
+  EXTERNAL_SEGMENT,
+  externalIndexUrl,
+  externalOf,
+  externalUrl,
+  isExternalIndex,
   launchUrl,
+  parseExternal,
   parseLaunch,
   projectApp,
   projectBasename,

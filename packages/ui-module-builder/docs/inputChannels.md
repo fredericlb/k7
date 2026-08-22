@@ -76,6 +76,20 @@ and it is unreadable in practice — the only call that loads it also reopens th
 interface, which `engine/moteur/AGENTS.md` forbids — so without this the pairing lasted until
 the next engine restart and then silently reverted, taking the module's sound with it.
 
+### Both halves are one COMMAND
+
+`system channel type <channel> <mono|stereo>`. The host passes `onRegroupInputs`, st0 dispatches
+that line, and the two writes above happen on the service's side — the preference first, so a rig
+that answers slowly still remembers what was asked of it.
+
+It was the engine message on the shell's own socket **plus** a write through a file route: one act
+with two doors and no name, so nothing in the palette could pair two inputs and nothing in the log
+said anybody had. A host with no engine attached still gets the durable half and is told so, rather
+than a refusal for an act that is already recorded.
+
+What is left on the surface's side is asking the engine what the interface BECAME — `ioLevels([])`,
+once the command has been through, since the engine sends nothing back for the change itself.
+
 ## A label is left a label
 
 `channel:` has two spellings. A list of numbers is the rig's channels directly; a **string**

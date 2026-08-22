@@ -60,6 +60,7 @@ import { setFileValue } from "./yaml/edit";
 import { ENTITY_SCHEMAS } from "./yaml/entitySchemas";
 import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
 import { GRAPH_BASE } from "./yaml/graphSchema";
+import { cueRefs, MIX_BASE, parseMix as parseMixYaml } from "./yaml/mixFile";
 import { formatIssue } from "./yaml/moduleFile";
 import {
   entityFileFor,
@@ -69,7 +70,6 @@ import {
   readModuleFile,
 } from "./yaml/moduleIO";
 import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
-import { parseSongs as parseSongsYaml, songRefs } from "./yaml/songsFile";
 import { parsedYaml } from "./yaml/yamlCache";
 
 // The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine
@@ -950,26 +950,29 @@ export function loadChains(
 }
 
 /**
- * The set's songs, from `songs.yaml` — the médiathèque refs an m9 project draws on,
- * deduplicated and sorted. Empty for a project that has no such file, which is every st0
- * song: the file is m9's, and its absence is not a fault.
+ * The songs the desk's CUE SHEET names, from `mix.yaml` — deduplicated and sorted. Empty for a
+ * project that has no such file, which is every st0 song: the sheet belongs to a set, and its
+ * absence is not a fault.
+ *
+ * It is NOT the set list, and has not been since the playlist took that job: a song is here
+ * because somebody dropped a cue on it, not because the evening plays it. See docs/mixFile.md.
  *
  * The refs are NOT resolved here. What a ref names lives in the médiathèque, whose catalogue
  * this package cannot read and should not learn to — and a ref that resolves to nothing is
  * exactly the one worth reporting, so resolution belongs where the catalogue is (the cache
  * sync fetches it, the surface says it is missing). Same reasoning as mediatekRefs.ts.
  */
-export function loadSongs(dir: string, validate = false): string[] {
-  const file = entityFileFor(dir, "", "songs");
+export function loadCuedSongs(dir: string, validate = false): string[] {
+  const file = entityFileFor(dir, "", MIX_BASE);
   if (!file) return [];
-  const { value, issues } = parseSongsYaml(readFileSync(file.path, "utf8"));
+  const { value, issues } = parseMixYaml(readFileSync(file.path, "utf8"));
   if (issues.length && validate)
     throw new Error(
-      `invalid songs:\n  ${issues
+      `invalid cue sheet:\n  ${issues
         .map((i) => formatIssue(file.rel, i))
         .join("\n  ")}`,
     );
-  return songRefs(value);
+  return cueRefs(value);
 }
 
 /**

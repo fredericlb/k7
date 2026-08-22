@@ -4,7 +4,12 @@ import {
   BENCH_REPO,
   benchChainPath,
   benchProjectForChain,
+  EXTERNAL_INDEX,
+  EXTERNAL_SEGMENT,
+  externalIndexUrl,
+  externalUrl,
   HAS_SCAFFOLD,
+  isExternalIndex,
   isLocal,
   isShare,
   LOCAL_REPO,
@@ -12,6 +17,7 @@ import {
   localProjectUrl,
   localTarget,
   PROJECT_SUFFIXES,
+  parseExternal,
   parseLaunch,
   projectApp,
   projectBasename,
@@ -88,7 +94,7 @@ describe("launchUrl", () => {
       "https://st0.priv.frediver.se/band/winter.st0",
     );
     expect(launchUrl(o, "band", "partie.z0", "z0")).toBe(
-      "https://st0.priv.frediver.se/z0/editor-v2/band/partie.z0",
+      "https://st0.priv.frediver.se/z0/editor/band/partie.z0",
     );
     expect(launchUrl(o, "band", "le clip.st0", "st0")).toBe(
       "https://st0.priv.frediver.se/band/le%20clip.st0",
@@ -105,6 +111,124 @@ describe("launchUrl", () => {
         "st0",
       ),
     ).toBe("https://st0.priv.frediver.se/b/c.st0");
+  });
+});
+
+// A surface addressed on its own — the link you send to the tablet by the decks. The whole
+// point of putting it BELOW the project is that nothing above it has to change, so most of what
+// is pinned here is that `parseLaunch` and `projectBasename` still answer as they always did.
+describe("a surface's external address", () => {
+  const O = "https://st0.priv.frediver.se";
+
+  it("hangs off the project, and names the surface", () => {
+    expect(
+      externalUrl(O, { repo: "band", project: "winter.st0" }, "desk", "st0"),
+    ).toBe("https://st0.priv.frediver.se/band/winter.st0/@external/desk");
+  });
+
+  it("leaves the PROJECT parsing exactly as it was", () => {
+    // The reason this shape was chosen. A route below the project is already the app's, so the
+    // repo, the project and the router's basename are untouched by the segment after them.
+    const p = "/band/winter.st0/@external/desk";
+    expect(parseLaunch(p, "st0", "/")).toEqual({
+      repo: "band",
+      project: "winter.st0",
+    });
+    expect(projectBasename(p, "st0", "/")).toBe("/band/winter.st0");
+  });
+
+  it("reads the surface back out", () => {
+    expect(parseExternal("/band/winter.st0/@external/desk", "st0", "/")).toBe(
+      "desk",
+    );
+    // A project at a depth, and one that IS its repository — both still work, because the
+    // segment is found by name rather than by counting.
+    expect(
+      parseExternal("/band/songs/winter.st0/@external/desk", "st0", "/"),
+    ).toBe("desk");
+    expect(parseExternal("/band/@external/desk", "st0", "/")).toBe("desk");
+  });
+
+  it("is null for the editor's own addresses", () => {
+    for (const p of [
+      "/band/winter.st0",
+      "/band/winter.st0/timeline",
+      "/band/winter.st0/chains-builder/process/normalize",
+    ])
+      expect(parseExternal(p, "st0", "/"), p).toBeNull();
+  });
+
+  it("is null for a truncated one, rather than 'some surface'", () => {
+    expect(parseExternal("/band/winter.st0/@external", "st0", "/")).toBeNull();
+    expect(parseExternal("/band/winter.st0/@external/", "st0", "/")).toBeNull();
+  });
+
+  it("round-trips a name that needs encoding", () => {
+    const url = externalUrl(
+      O,
+      { repo: "band", project: "winter.st0" },
+      "le desk",
+      "st0",
+    );
+    expect(url).toContain("/@external/le%20desk");
+    expect(parseExternal(new URL(url).pathname, "st0", "/")).toBe("le desk");
+  });
+
+  it("keeps `@` literal, as every other sentinel here does", () => {
+    // `encodeURIComponent` escapes it and RFC 3986 does not, so an encoded one would not match
+    // the address the person is looking at — the bug this file's `encodeSegment` exists for.
+    expect(
+      externalUrl(O, { repo: "band", project: "w.st0" }, "desk", "st0"),
+    ).toContain(`/${EXTERNAL_SEGMENT}/`);
+    expect(
+      externalUrl(O, { repo: "band", project: "w.st0" }, "desk", "st0"),
+    ).not.toContain("%40");
+  });
+
+  it("is null outside the app's mount", () => {
+    // Same gate `parseLaunch` applies: an address that is not this app's names nothing here.
+    expect(parseExternal("/pl8/band/w.st0/@external/desk", "st0", "/z0/")).toBe(
+      null,
+    );
+  });
+});
+
+describe("the menu of those addresses", () => {
+  const O = "https://st0.priv.frediver.se";
+
+  it("sits at the app's mount, with no project in it", () => {
+    expect(externalIndexUrl(O, "st0")).toBe(
+      "https://st0.priv.frediver.se/external",
+    );
+    expect(isExternalIndex("/external", "/")).toBe(true);
+    expect(isExternalIndex("/external/", "/")).toBe(true);
+  });
+
+  it("follows the mount for an app that has one", () => {
+    expect(externalIndexUrl(O, "z0")).toBe(
+      "https://st0.priv.frediver.se/z0/editor/external",
+    );
+    expect(isExternalIndex("/z0/editor/external", "/z0/editor/")).toBe(true);
+    // …and the same path is NOT the menu for an app mounted elsewhere.
+    expect(isExternalIndex("/z0/editor/external", "/")).toBe(false);
+  });
+
+  it("is exactly one segment, so nothing under it is mistaken for it", () => {
+    for (const p of ["/", "/band", "/band/winter.st0", "/external/winter.st0"])
+      expect(isExternalIndex(p, "/"), p).toBe(false);
+  });
+
+  it("SHADOWS a repository of that name at its root, and only there", () => {
+    // The cost of a plain word instead of an `@` sentinel, written down rather than discovered.
+    // A lone-project clone called `external` is addressed `/external`, which is this page now.
+    expect(isExternalIndex(`/${EXTERNAL_INDEX}`, "/")).toBe(true);
+    // Every project INSIDE such a repository is untouched: two segments, so `parseLaunch` reads
+    // the repo and the project exactly as before and the menu does not claim it.
+    expect(parseLaunch("/external/winter.st0", "st0", "/")).toEqual({
+      repo: "external",
+      project: "winter.st0",
+    });
+    expect(isExternalIndex("/external/winter.st0", "/")).toBe(false);
   });
 });
 
