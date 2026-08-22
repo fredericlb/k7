@@ -16,10 +16,13 @@ import {
   type RepoSummary,
   type ShareSummary,
   type SshKeyInfo,
+  type SurfacedProject,
+  type SurfacedProjectList,
   USER_HEADER,
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import {
+  externalOf,
   launchUrl,
   localProjectUrl,
   shareUrl,
@@ -135,7 +138,12 @@ export const projects = {
  *
  * `registered` is the set of short names pl8 answered with.
  */
-const namedByRepo = (ws: MachineWorkspace, registered: Set<string>): boolean =>
+/** The three fields an address is chosen from. Narrower than `MachineWorkspace` on purpose: the
+ *  surfaces listing carries the same identity flattened onto each project, and a cast to the
+ *  wider type to reuse one function would be a lie about the four fields it does not have. */
+type Addressable = Pick<MachineWorkspace, "name" | "repoName" | "uniqueName">;
+
+const namedByRepo = (ws: Addressable, registered: Set<string>): boolean =>
   ws.uniqueName && ws.repoName !== null && registered.has(ws.repoName);
 
 /**
@@ -153,7 +161,7 @@ const namedByRepo = (ws: MachineWorkspace, registered: Set<string>): boolean =>
  * on the screen that guesses. Still a new tab, too — see ../../docs/projects.md.
  */
 export function projectHref(
-  ws: MachineWorkspace,
+  ws: Addressable,
   p: RepoProject,
   registered: Set<string>,
 ): string {
@@ -165,6 +173,30 @@ export function projectHref(
 /** …and the same question on its own, for the row that wants to SAY which address it got. */
 export const isRegistered = namedByRepo;
 
+/**
+ * Where ONE SURFACE of that project opens, on its own.
+ *
+ * Through `projectHref` and not beside it, which is what makes the tablet and the laptop agree on
+ * what project this is: the engine's lease identifies a project by its address
+ * (`projectClaimKey`), so a second device arriving at `@local/…` while the editor holds
+ * `/<dépôt>/…` would be two claims on one song.
+ */
+export function externalHref(
+  row: SurfacedProject,
+  surface: string,
+  registered: Set<string>,
+): string {
+  const ws: Addressable = {
+    name: row.workspace,
+    repoName: row.repoName,
+    uniqueName: row.uniqueName,
+  };
+  return externalOf(
+    projectHref(ws, { path: row.path, app: row.app }, registered),
+    surface,
+  );
+}
+
 // ── pl8: the shares ─────────────────────────────────────────────────────────────
 
 const sget = async <T>(path: string, what: string): Promise<T> =>
@@ -175,7 +207,8 @@ const sget = async <T>(path: string, what: string): Promise<T> =>
  *
  * Both ends are st0's now. `project share link` renders the bundle here, on the machine that has
  * an engine, and uploads it to pl8 — which holds the only copy and serves it to people with no
- * account at all. This screen is where one is watched and withdrawn. See ../../docs/shares.md.
+ * account at all. This screen is where one is watched and withdrawn, on the row of the project it
+ * came from. See ../../docs/projects.md and apps/pl8/docs/shares.md.
  */
 export const shares = {
   list: () => sget<{ shares: ShareSummary[]; revision: string }>("", "shares"),
@@ -229,6 +262,23 @@ export const engineMachine = {
       "workspaces",
     );
     return workspaces;
+  },
+
+  /**
+   * The same disk, asked what could be put on a SECOND DEVICE: every project declaring a surface,
+   * flat, with those surfaces. `/external`'s whole fetch.
+   *
+   * A route of its own rather than a field on `workspaces` above, because the home page draws no
+   * surfaces and would be paying a scan per project for nothing. See ../../docs/external.md.
+   */
+  surfacedProjects: async (m: Machine): Promise<SurfacedProject[]> => {
+    const { projects } = await json<SurfacedProjectList>(
+      await fetch(`${m.fileBase}/workspaces/surfaces`, {
+        headers: machineHeaders(m),
+      }),
+      "surfaces",
+    );
+    return projects;
   },
 
   /** One workspace's whole tree — the "look inside" pane. `/workspace-tree` and not `/tree`:

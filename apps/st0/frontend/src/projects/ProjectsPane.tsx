@@ -22,7 +22,6 @@ import {
 } from "./machine";
 import { RepoList } from "./RepoList";
 import { RepoTree } from "./RepoTree";
-import { SharesCard } from "./SharesCard";
 import { SshKeyCard } from "./SshKeyCard";
 
 export function ProjectsPane({
@@ -44,7 +43,13 @@ export function ProjectsPane({
    * et que ce registre ignore s'ouvre par `@local`. Voir `projectHref` dans ./api.
    */
   repos: RepoSummary[];
-  /** Les instantanés gelés publiés par `project share link`. Poll de la page, chez pl8. */
+  /**
+   * Les instantanés gelés publiés par `project share link`. Poll de la page, chez pl8.
+   *
+   * La liste ENTIÈRE du compte, et pas une par projet : pl8 ne sait pas filtrer, et un appel par
+   * rangée serait dix requêtes pour ce qu'un seul `GET /api/shares` rend déjà. Ce sont les
+   * rangées qui découpent, avec `sharesOf`.
+   */
   shares: ShareSummary[];
   busy: boolean;
   /** Le nom de l'espace de travail déplié, tiré de l'adresse, ou null pour la liste. */
@@ -238,12 +243,13 @@ export function ProjectsPane({
             onForget={forgetRepo}
             // Même départ que depuis l'arborescence : l'adresse de l'application, pas une vue d'ici.
             projectHref={(w, p) => projectHref(w, p, registered)}
+            // Les partages SORTENT d'un projet : ils sont à sa rangée, derrière un bouton, et
+            // non dans une carte du bas qui mélangeait ceux de tous les projets du compte.
+            shares={shares}
+            onChanged={onChanged}
           />
-          {/* Sous la liste, et pas au-dessus : les partages SORTENT des projets qu'elle
-              montre, et c'est un écran qu'on ouvre pour retirer quelque chose, jamais pour
-              commencer par là. La clé de déploiement reste tout en bas, réglée une fois. */}
+          {/* La clé de déploiement reste tout en bas : réglée une fois, sur le compte. */}
           <div className="mt-auto">
-            <SharesCard shares={shares} onChanged={onChanged} />
             <SshKeyCard />
           </div>
         </>

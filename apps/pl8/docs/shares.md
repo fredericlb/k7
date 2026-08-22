@@ -155,8 +155,9 @@ agir pour quiconque est dessus.
 
 ## Révoquer
 
-Dans st0, sur sa page d'accueil, sous la liste des dépôts
-(`apps/st0/frontend/src/projects/SharesCard.tsx`). Les deux bouts d'un partage sont donc st0
+Dans st0, sur sa page d'accueil, **à la rangée du projet dont il sort** : un bouton « Partages »
+qui ouvre la popin de ce projet-là (`apps/st0/frontend/src/projects/ProjectShares.tsx`, le
+découpage étant `sharesForProject.ts`). Les deux bouts d'un partage sont donc st0
 maintenant : c'est lui qui rend le paquet et l'envoie ici, et lui qui le retire. Ça a vécu dans
 la section Projets de ce service tant que cette section existait ; ce qui reste ici est ce que
 cette page décrit — les octets, l'index, les routes.

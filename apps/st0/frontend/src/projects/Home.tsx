@@ -12,10 +12,20 @@ import type {
   ShareSummary,
 } from "@studio/web-protocol";
 import { Library, RefreshCw, Server, ServerOff } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";
+import { CommandBar, type CommandBarHandle } from "../components/CommandBar";
+import { useLocale } from "../i18n";
+import { DOUBLE_SHIFT_MS } from "../shellMeta";
 import { engineMachine, pl8Url, projects, shares as sharesApi } from "./api";
+import {
+  type ArmedDelete,
+  buildHomePalette,
+  HOME_ACTS,
+  homeArgValues,
+  runHomeCommand,
+} from "./homeCommands";
 import type { Machine } from "./machine";
 import { ProjectsPane } from "./ProjectsPane";
 
@@ -207,6 +217,80 @@ export function Home() {
     };
   }, [loadRepos, loadShares]);
 
+  /**
+   * La barre de commande de cet écran, et sa ligne d'état.
+   *
+   * Elle a son propre vocabulaire (`homeCommands.ts`) et pas celui de l'éditeur : ici il n'y a ni
+   * projet ouvert, ni session moteur, ni fichier — `LOCAL_COMMANDS` serait un catalogue de choses
+   * qu'on ne peut pas faire. Six verbes, ceux des boutons de la page.
+   */
+  const cmdRef = useRef<CommandBarHandle>(null);
+  const { locale } = useLocale();
+  const palette = useMemo(() => buildHomePalette(locale), [locale]);
+  const [said, setSaid] = useState<{ text: string; refused: boolean } | null>(
+    null,
+  );
+  /** Le projet qu'un `project delete init` a désigné, en attente de son confirm. Une ref : elle
+   *  est lue par la commande suivante et jamais dessinée. */
+  const armed = useRef<ArmedDelete | null>(null);
+
+  /** Tout relire MAINTENANT après une écriture d'ici : la liste de la machine ne bouge sinon
+   *  qu'au prochain tick, et un projet qu'on vient de créer se ferait attendre trois secondes. */
+  const reread = useCallback(() => {
+    changed();
+    if (machine) void loadWorkspaces(machine);
+  }, [changed, machine, loadWorkspaces]);
+
+  const run = useCallback(
+    async (line: string) => {
+      setSaid(null);
+      const known = await runHomeCommand(line, {
+        machine: machine ?? null,
+        workspaces,
+        repos,
+        openWs,
+        acts: HOME_ACTS,
+        say: (text) => setSaid({ text, refused: false }),
+        refuse: (text) => setSaid({ text, refused: true }),
+        changed: reread,
+        armed,
+      });
+      // Une ligne que cet écran ne connaît pas est refusée ICI : il n'y a pas de service derrière
+      // à qui la passer, contrairement à l'éditeur, dont la barre finit chez `/command`.
+      if (!known)
+        setSaid({
+          text: `« ${line.trim()} » n'est pas une commande de cet écran`,
+          refused: true,
+        });
+    },
+    [machine, workspaces, repos, openWs, reread],
+  );
+
+  /**
+   * Deux Shift seuls pour lui donner le clavier — le même geste que dans l'éditeur.
+   *
+   * Le seul raccourci de cet écran, et il ne peut pas être autre chose : la barre ne prend jamais
+   * le clavier d'elle-même, donc sans lui on ne l'atteindrait qu'à la souris. `e.repeat` écarte un
+   * Shift maintenu, et la branche est inatteignable depuis la barre elle-même, qui est un champ
+   * de saisie.
+   */
+  const lastShiftAt = useRef(0);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Shift" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) {
+        lastShiftAt.current = 0;
+        return;
+      }
+      const now = e.timeStamp;
+      if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
+        lastShiftAt.current = 0;
+        cmdRef.current?.focus();
+      } else lastShiftAt.current = now;
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /** Déplier un espace de travail, ou revenir à la liste. `replace` : en parcourir trois pour
    *  voir ce qu'il y a dedans n'est pas une navigation dont on veut trois entrées dans
    *  l'historique du bouton « retour ». */
@@ -301,6 +385,43 @@ export function Home() {
         onOpen={open}
         onChanged={changed}
       />
+
+      {/* La barre, en bas et sur toute la largeur — la même place et la même règle que dans
+          l'éditeur : elle est là où l'on tape, donc elle est toujours là, et elle ne prend jamais
+          le clavier d'elle-même (../../docs/commandBar.md). Ce qu'elle a dit tient au-dessus
+          d'elle, refus en ambre, parce que ces verbes-là parlent à deux services et qu'un
+          « ça n'a rien fait » silencieux est exactement ce qu'on évite. */}
+      <div className="shrink-0 border-t border-border bg-popover">
+        {said && (
+          <p
+            className={`truncate px-3 pt-1.5 text-xs ${
+              said.refused ? "text-amber-500" : "text-muted-foreground"
+            }`}
+            title={said.text}
+          >
+            {said.text}
+          </p>
+        )}
+        <div className="flex items-center px-3 py-2">
+          <CommandBar
+            ref={cmdRef}
+            commands={palette}
+            // Tout ce qu'un champ peut proposer est déjà sur cet écran — il interroge les deux
+            // services en boucle — donc la réponse est immédiate là où celle de l'éditeur est un
+            // aller-retour. La promesse est la même : le vocabulaire complet, une fois par champ.
+            listArg={async (command, prior) =>
+              homeArgValues(command, prior.length, {
+                machine: machine ?? null,
+                workspaces,
+                repos,
+                openWs,
+              })
+            }
+            onRun={(line) => void run(line)}
+            onClose={() => cmdRef.current?.blur()}
+          />
+        </div>
+      </div>
     </div>
   );
 }

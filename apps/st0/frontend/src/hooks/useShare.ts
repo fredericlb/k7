@@ -1,10 +1,10 @@
-// useShare.ts — the two share-menu entries that are not already CLI verbs: render a mixdown
-// through the engine, and publish to k7. Lifted out of ShareMenu so the dropdown and the
-// command bar run one implementation — `project export` and `project share k7` are those same
-// entries, and a second copy behind the palette is how the two come to differ.
+// useShare.ts — the two share-panel entries that are not already CLI verbs: render a mixdown
+// through the engine, and publish to k7. Held here rather than in `SharePanel` so the panel and
+// the command bar run one implementation — `project export` and `project share k7` are those
+// same entries, and a second copy behind the palette is how the two come to differ.
 //
 // Commit and pull are NOT here: they are `project commit` / `project pull` in the catalogue,
-// and the menu dispatches those rather than calling their routes a second time.
+// and the panel dispatches those rather than calling their routes a second time.
 
 import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";

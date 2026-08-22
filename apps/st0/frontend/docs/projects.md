@@ -122,8 +122,13 @@ elle seule sait lesquels existent. Sans elle, la liste est remplacée par la phr
 plutôt que par un écran vide qui ressemblerait à un compte neuf.
 
 Ce qui se lit et se règle **toujours sans machine**, et c'est ce qui sauve l'argument
-d'installation : la clé de déploiement, le dépôt des bibliothèques, et les partages. On peut donc
-encore faire, moteur éteint, exactement ce qu'il faut faire avant d'en allumer un.
+d'installation : la clé de déploiement et le dépôt des bibliothèques. On peut donc encore faire,
+moteur éteint, exactement ce qu'il faut faire avant d'en allumer un.
+
+Les partages étaient de cette liste et n'y sont plus : ils sont désormais derrière un bouton sur
+la rangée d'un projet, donc derrière une liste qui exige une machine (§ Les partages). Ça ne
+touche pas l'argument d'installation — un compte neuf n'a rien publié — mais il faut le dire, et
+c'est le prix noté là-bas.
 
 L'en-tête dit quand même laquelle : « machine prête » ou « aucune machine », avec l'adresse en
 info-bulle et un bouton pour re-sonder. Découvrir au clic pourquoi un bouton ne fait rien est
@@ -145,6 +150,62 @@ Tout ce qu'un projet st0 peut ÊTRE tient dans les **surfaces** qu'il déclare �
 (`packages/song/docs/picture.md`), une surface `turntables` et la playlist qu'elle nomme pour un set
 (`packages/song/docs/setProject.md`). C'est pour ça que les trois archétypes du menu de création
 portent le nom de leur surface — plus bas.
+
+## La barre de commande de cet écran
+
+Elle est en bas, sur toute la largeur, exactement comme dans l'éditeur — et pour la même raison :
+c'est là qu'on tape, donc elle est toujours là, jamais convoquée. Double-Shift lui donne le
+clavier, Échap le rend. `frontend/docs/commandBar.md` décrit le composant ; ce qui suit est ce
+qui le distingue ici.
+
+**Son vocabulaire est le sien** (`src/projects/homeCommands.ts`), et pas `LOCAL_COMMANDS`. Cet
+écran n'a ni projet ouvert, ni session moteur, ni fichier : le catalogue de l'éditeur y serait une
+liste de choses qu'on ne peut pas faire, et la moitié qui vient du service de fichiers ne
+répondrait même pas — `/complete` et `/command` veulent un projet actif. Six verbes, et ce sont
+ceux des boutons de la page :
+
+| la ligne | ce qu'elle fait, et par où |
+|---|---|
+| `project new <type> <name>` | les trois archétypes, puis `projectFolderName` pose le `.st0` — échafaudage sur la machine, puis commit et push |
+| `project delete init <name>` | **désigne** le projet et dit ce que confirmer fera. N'écrit rien |
+| `project delete confirm <name>` | supprime celui-là, si c'est bien celui qui a été désigné |
+| `system repo add <repo_url>` | inscrit chez pl8 **puis** clone ici — les deux, dans cet ordre |
+| `system repo remove <repo_name>` | retire du registre. Les fichiers restent |
+| `system repo sync <repo_name>` | `project pull`, puis `project commit sync` dans cet espace |
+
+### Deux verbes pour supprimer, et c'est la confirmation
+
+Une palette peut lancer une ligne destructrice sur un Enter posé sur une correspondance floue.
+Le dialogue de la page pose une seconde question ; la barre n'a pas de dialogue, donc elle pose
+un **second verbe**. Nommer le projet deux fois est ce qui fait de la deuxième frappe une
+décision, et `init` est le seul endroit où l'on LIT ce que la suppression fera — le dossier
+recyclé sur la machine, le commit poussé, le contenu qui reste dans l'historique git.
+
+Le confirm **exige le même nom** : autrement la seconde ligne serait une formalité, ce qu'elle ne
+doit surtout pas être. Et l'armement est **consommé par n'importe quelle commande**, pas seulement
+par son confirm — c'est la règle que suit déjà l'insertion en attente du graphe (`docs/shell.md`),
+et elle interdit ici qu'un verbe destructeur reste armé derrière trois lignes sans rapport.
+
+### Dans quel dépôt une ligne atterrit
+
+Les verbes `project …` ne nomment pas d'espace de travail : c'est **celui que l'adresse a
+déplié** (`?ws=`), et à défaut le seul qu'il y ait. Entre plusieurs, la ligne est **refusée en les
+nommant** plutôt que d'en choisir un — créer un projet dans le mauvais dépôt, c'est un commit
+poussé là où personne ne regardait. L'autre option aurait été un troisième argument sur chaque
+verbe, qui est le dépôt où l'on se tient déjà.
+
+### Les boutons et la barre passent par les mêmes fonctions
+
+`createProjectOnMachine`, `deleteProjectOnMachine`, `ensureWorkspace`, le registre de pl8 : une
+seule implémentation, deux portes. C'est la relation qu'ont déjà le menu de l'arbre de fichiers et
+les verbes `fs …` (`docs/shell.md`) — les dialogues gardent leur progression pas à pas et leur
+confirmation, la barre a la sienne. Ce que la barre ajoute, c'est de pouvoir faire tout ça sans la
+souris, et de le dire dans une ligne d'état au-dessus d'elle : refus en ambre, parce que ces
+verbes-là parlent à deux services et qu'un « ça n'a rien fait » silencieux est ce qu'on évite
+partout ailleurs.
+
+Une ligne que cet écran ne connaît pas est refusée **ici** : il n'y a pas de service derrière à
+qui la passer, contrairement à la barre de l'éditeur, dont les lignes finissent chez `/command`.
 
 ## Le dépôt des BIBLIOTHÈQUES, avant tout le reste
 
@@ -170,10 +231,14 @@ détail de plomberie : un gitlink doit pointer SUR un commit, et un dépôt qu'o
 dans une interface web n'en a aucun — `git submodule add` sur un HEAD non né échoue. Le dépôt
 est ensuite rempli par ici, à mesure qu'on y écrit des modules et des chaînes.
 
-> Il y a eu une SEMENCE à cet endroit : la machine y recopiait `modules/` et `chains/` depuis la
-> médiathèque, pour qu'un dépôt neuf ne casse pas d'un coup toutes les références `@st0/…` déjà
-> écrites. Ce volume n'en tient plus aucun — un module s'écrit dans st0 — donc il n'y a plus rien
-> à copier ni à migrer. Seul le commit reste, et c'est `initIfEmpty` et non `seedIfEmpty`.
+> Il y a eu une SEMENCE à cet endroit, deux fois. La machine y recopiait d'abord `modules/` et
+> `chains/` depuis la médiathèque, pour qu'un dépôt neuf ne casse pas d'un coup toutes les
+> références `@st0/…` déjà écrites ; ce volume n'en tient plus aucun — un module s'écrit dans st0.
+> Puis le catalogue a été EMBARQUÉ dans le build et réécrit dans chaque dépôt vide, ce qui faisait
+> du build une seconde source de vérité sur les modules de quelqu'un d'autre. Les deux sont
+> partis. Seul le commit reste, et c'est `initIfEmpty` : le dépôt des bibliothèques est la
+> référence, et une bibliothèque neuve est **vide** — les `@st0/…` d'un set échafaudé n'y résolvent
+> rien tant qu'on n'y a rien mis (`packages/song/docs/sharedFolders.md`).
 
 **En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
 leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
@@ -451,12 +516,13 @@ un `git fetch` du miroir de pl8 réclamé explicitement, parce que le poll n'en 
 plus toutes les dix minutes et que la liste serait sinon restée telle quelle, un clic qui a l'air
 de n'avoir rien fait.
 
-## Les partages
+## Les partages, à la rangée du projet dont ils sortent
 
-La carte du bas liste les instantanés gelés que ce compte a publiés, et c'est le seul endroit
-où l'on en retire un. **Les deux bouts sont st0 maintenant** : `project share link` fabrique le
-paquet ici, sur la machine qui a un moteur et peut donc rendre du son, et l'envoie à pl8 — qui
-en détient l'unique copie et le sert à des gens sans compte.
+Un bouton **« Partages »** sur chaque rangée de projet, à côté de « Supprimer », ouvre une popin
+qui liste les instantanés gelés que **ce projet-là** a publiés, et c'est le seul endroit où l'on
+en retire un. **Les deux bouts sont st0** : `project share link` fabrique le paquet ici, sur la
+machine qui a un moteur et peut donc rendre du son, et l'envoie à pl8 — qui en détient l'unique
+copie et le sert à des gens sans compte.
 
 Que la révocation ait vécu dans la médiathèque était le dernier morceau d'une chose coupée en
 deux. Ce que le paquet contient et pourquoi est dans
@@ -464,7 +530,13 @@ deux. Ce que le paquet contient et pourquoi est dans
 pl8 en fait, y compris pourquoi héberger ça ne contredit pas « pl8 ne fait jamais de copie de
 travail », est dans [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
 
-Ce que cette carte doit dire, elle le dit :
+**C'était une carte en bas de page, listant ceux de tout le compte.** Elle a bougé pour une raison
+simple : un partage SORT d'un projet, et la question qu'on se pose est « qu'est-ce que j'ai publié
+de ce morceau-là », jamais « donne-moi les vingt liens du compte triés par rien ». Le nom du projet
+était déjà dans chaque ligne — c'est-à-dire que la carte redessinait à la main le groupement que la
+liste au-dessus d'elle faisait déjà. À la rangée, le regroupement est la disposition.
+
+Ce que la popin doit dire, elle le dit — les quatre points ont voyagé tels quels :
 
 - **le total en octets**, en tête — un partage n'expire jamais, donc voir ce qu'ils coûtent
   ensemble est la seule chose qui peut faire décider d'en retirer un ;
@@ -475,6 +547,49 @@ Ce que cette carte doit dire, elle le dit :
   façon de vérifier ce qu'ils voient est de l'ouvrir ;
 - la confirmation nomme les deux choses qui surprennent — les octets s'en vont tout de suite et
   pour de bon, et **un lien déjà envoyé ne se dé-envoie pas**.
+
+Le **compte est sur le bouton** (« Partages (2) ») plutôt que dans la popin seule : sinon il
+faudrait ouvrir dix popins pour savoir laquelle n'est pas vide, ce qui est exactement ce que la
+carte donnait d'un coup d'œil. Le bouton est là même à zéro, parce qu'un bouton qui apparaît et
+disparaît selon l'état ne se cherche pas au bon endroit.
+
+### Rattacher un partage à un projet est une jointure, et elle est faillible
+
+`origin` est écrit par la machine, en deux basenames :
+
+```ts
+origin: { repo: basename(this.root), project: basename(dir) }   // file-service/src/workspace.ts
+```
+
+Donc `origin.repo` est le nom de l'**espace de travail** — `MachineWorkspace.name`, et pas le nom
+court du dépôt chez pl8 — et `origin.project` est le **dernier segment avec son suffixe**, pas le
+chemin. `sharesForProject.ts` franchit cet écart, seul et testé, parce que c'est le genre de règle
+qu'on ne relit pas dans un JSX — nommé au long plutôt que « projectShares », qui se heurterait à
+`ProjectShares.tsx` sur un disque insensible à la casse. Deux conséquences à connaître :
+
+- un projet qui EST son espace de travail (`path: "."`) porte le nom de l'espace des deux côtés,
+  `dir` valant `root` là-bas ;
+- **deux projets du même nom dans deux dossiers d'un même espace sont indiscernables** et voient
+  donc les mêmes lignes. Élargir la comparaison demande que la machine écrive le chemin ; ça se
+  règle là-bas, et rien ici ne peut le deviner.
+
+### Le prix : un partage orphelin n'a plus d'écran
+
+La carte du bas montrait **tout**, donc y compris le partage d'un projet supprimé depuis, ou
+publié depuis une autre machine que celle-ci. Accroché à une rangée, il n'a plus rien à quoi
+s'accrocher : ses octets restent sur le volume de pl8, sans bouton pour les reprendre. Le partage
+n'expire jamais, donc c'est définitif tant que personne n'appelle `DELETE /api/shares/:key` à la
+main.
+
+C'est un compromis assumé et non un oubli : le cas courant est « qu'ai-je publié de ce morceau »,
+et ce qu'il faudrait pour couvrir l'autre — une deuxième liste, quelque part, montrant ce que la
+première ne montre pas — est précisément la carte qu'on vient d'enlever. Si ça se met à mordre, la
+réponse est un « Partages sans projet » dans l'en-tête de la page, vide et donc invisible la
+plupart du temps.
+
+Et il y a un second prix, plus discret : **cette popin est derrière la liste des projets, qui
+exige une machine.** Les partages étaient jusqu'ici dans la colonne « se règle moteur éteint »,
+avec la clé et les bibliothèques. Ils n'y sont plus.
 
 ## Deux polls, parce qu'il y a deux services
 
@@ -506,14 +621,16 @@ faire.
 
 ## Ce qu'il faut vérifier dans un navigateur
 
-Les suites d'ici tournent dans node et ne montent rien : `commitOutcome` et `projectName` sont
-couverts, l'écran ne l'est pas. Ce qu'un run vert ne dit pas :
+Les suites d'ici tournent dans node et ne montent rien : `commitOutcome`, `projectName`,
+`sharesForProject` et les six verbes de la barre (`homeCommands.test.ts` — le catalogue, la
+résolution du dépôt, l'armement du delete) sont couverts, l'écran ne l'est pas. Ce qu'un run vert
+ne dit pas :
 
 - ouvrir `/` sans être connecté → l'écran de connexion, puis la page d'accueil (et pas la
   médiathèque) ;
 - **sans machine moteur** : la liste des projets est remplacée par la phrase qui dit pourquoi,
-  le champ d'ajout et « Nouveau projet » sont gris, et la clé, les bibliothèques et les partages
-  se règlent quand même — c'est le contrôle qui tient tout le paragraphe sur le prix payé ;
+  le champ d'ajout et « Nouveau projet » sont gris, et la clé et les bibliothèques se règlent
+  quand même — c'est le contrôle qui tient tout le paragraphe sur le prix payé ;
 - **avec une machine et AUCUN dépôt de bibliothèques** : `Examples` est là, et une de ses démos
   s'ouvre sur `/@local/Examples/<démo>.st0`. C'est le contrôle du jour de l'installation ;
 - déplier un espace, recharger la page → le même espace déplié, `?ws=` dans l'adresse ;
@@ -525,4 +642,11 @@ couverts, l'écran ne l'est pas. Ce qu'un run vert ne dit pas :
   deux ramènent ici, pas sur `/projects` ;
 - créer un projet dans un dépôt **vide** que cette machine n'a jamais vu → le clone avec la
   progression de git, puis le dossier, puis le commit ;
-- révoquer un partage, puis ouvrir son lien → « introuvable ».
+- **« Partages » sur la rangée d'un projet qui en a** → le compte sur le bouton, la popin listant
+  les siens et pas ceux du voisin ; sur un projet qui n'en a pas → la popin le dit ;
+- le bouton ne doit **pas** ouvrir le projet : la rangée entière est un lien, et c'est le
+  `preventDefault` qui l'en empêche ;
+- révoquer un partage, puis ouvrir son lien → « introuvable » ;
+- **la barre** : double-Shift lui donne le clavier ; `project new` ouvre un champ à trois valeurs
+  puis demande le nom ; `project delete init` puis `confirm` supprime, et `confirm` seul refuse ;
+  une ligne inconnue est refusée sans partir nulle part.

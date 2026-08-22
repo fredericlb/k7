@@ -10,6 +10,7 @@ import type {
   MachineWorkspace,
   RepoProject,
   RepoSummary,
+  ShareSummary,
 } from "@studio/web-protocol";
 import { projectLabel } from "@studio/web-protocol/projects";
 import {
@@ -25,6 +26,8 @@ import {
 import { useState } from "react";
 import { DeleteProject } from "./DeleteProject";
 import { NewProject } from "./NewProject";
+import { ProjectShares } from "./ProjectShares";
+import { sharesOf } from "./sharesForProject";
 
 /** Le nom du dossier, sans son suffixe : `chansons/hiver.st0` s'affiche « hiver », et le
  *  chemin qui la situe dans l'espace de travail est à côté. */
@@ -51,6 +54,8 @@ export function RepoList({
   repoFor,
   onForget,
   projectHref,
+  shares,
+  onChanged,
 }: {
   workspaces: MachineWorkspace[];
   busy: boolean;
@@ -86,6 +91,11 @@ export function RepoList({
   /** L'adresse d'un projet dans SON application. Une adresse et non une action : la rangée est
    *  un lien, qui s'ouvre dans un nouvel onglet. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
+  /** Tous les partages du compte. Chaque rangée prend les siens (`sharesOf`) — pl8 rend la liste
+   *  entière en un appel, et découper ici évite une requête par projet. */
+  shares: ShareSummary[];
+  /** Après une révocation, pour que la page relise sans attendre le poll. */
+  onChanged: () => void;
 }) {
   const [uri, setUri] = useState("");
   const add = () => {
@@ -232,8 +242,8 @@ export function RepoList({
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
                   {w.projects.map((p) => (
-                    // La rangée tient le lien ET le bouton : le lien s'étire, le bouton
-                    // reste au bout, et le `preventDefault` de celui-ci l'empêche d'ouvrir.
+                    // La rangée tient le lien ET les boutons : le lien s'étire, les boutons
+                    // restent au bout, et le `preventDefault` de chacun l'empêche d'ouvrir.
                     <li key={p.path} className="flex items-center gap-1">
                       <a
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
@@ -253,6 +263,14 @@ export function RepoList({
                           </span>
                         )}
                       </a>
+                      {/* Avant « Supprimer » : voir ce qu'on a publié est une lecture, et
+                          elle passe devant l'action destructrice. Sans machine, cette liste
+                          n'existe pas — voir ../../docs/projects.md. */}
+                      <ProjectShares
+                        label={p.path === "." ? w.name : nameOf(p)}
+                        shares={sharesOf(shares, w.name, p.path)}
+                        onChanged={onChanged}
+                      />
                       <DeleteProject
                         path={p.path}
                         label={p.path === "." ? w.name : nameOf(p)}
