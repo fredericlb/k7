@@ -5,6 +5,9 @@
 
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
+// Where a separation's four files land, beside the master. `@studio/song`'s, because the graph
+// of a set names the same folder and neither package can hold the word alone.
+import { STEMS_DIR } from "@studio/song/stems";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
@@ -165,6 +168,16 @@ function scanSongs(): MediatekEntry[] {
           // audio (the moteur, which takes file paths) has nothing to open. Absent when
           // the folder is catalogued but carries no audio yet.
           ...(master ? { master: master.name } : {}),
+          // Has this song been SEPARATED — is there a `stems/` beside its master? The desk asks,
+          // because a deck can only subtract an instrument from a record whose stems exist
+          // (packages/dsp/docs/stemcut.md), and the browser shows it so a set can be prepared.
+          //
+          // Read off the dirents already in hand: the folder, not its contents. Descending would
+          // be a syscall per song for a fact the directory entry itself carries — and the same
+          // "is it there" the preparation command asks before skipping a song.
+          ...(entries.some((e) => e.isDirectory() && e.name === STEMS_DIR)
+            ? { stems: true }
+            : {}),
           ...(artist ? { artist } : {}),
           // Detected at upload and then EDITABLE — see setSongBpm. Surfaced because a surface
           // that lines a song up to a grid needs it, and re-reading the sidecar would be a

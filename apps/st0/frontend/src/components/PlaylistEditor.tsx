@@ -57,17 +57,40 @@ export function PlaylistEditor({
   path,
   name,
   vimMode,
+  panel = false,
   onBack,
   onSaved,
+  onRun,
 }: {
   /** The playlist's workspace-relative path (`_playlists/ete-2026.yaml`). */
   path: string;
   /** What the header calls it — the title the listing parsed, else the file's stem. */
   name: string;
   vimMode: boolean;
-  onBack: () => void;
+  /**
+   * Draw as the right-hand PANEL rather than as the page: no header of its own (the panel's
+   * carries the dropdown that chose this file) and no YAML half — there is no room for the text
+   * beside the songs at 24rem, and the panel offers the page as an escape hatch for the edits
+   * that need it.
+   *
+   * A mode on this component rather than a second one, because everything under the layout is
+   * the same: the same load, the same buffer, the same autosave, the same resolved list. Two
+   * components would be two documents to keep in step, which is the bug this file's own header
+   * is about. See ../docs/playlists.md.
+   */
+  panel?: boolean;
+  /** Back to the listing. Unused in `panel` mode, where there is nothing to go back to. */
+  onBack?: () => void;
   /** The file has reached disk: the listing behind this screen is one row out of date. */
   onSaved: () => void;
+  /**
+   * Dispatch a command line. Passed straight through to the songs pane, whose stem bar opens the
+   * settings with one (`ui settings io`) rather than reaching into `App`'s state.
+   *
+   * Optional so the page and the panel can both mount this without either inventing a shell: the
+   * pane draws the sentence and drops the button when it has nowhere to send you.
+   */
+  onRun?: (line: string) => Promise<void>;
 }) {
   const [content, setContent] = useState<string | null>(null);
   // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
@@ -223,35 +246,37 @@ export function PlaylistEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-      <header className="flex items-center gap-3 border-b border-border px-3 py-2">
-        <Button variant="secondary" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Retour
-        </Button>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 truncate text-sm font-semibold">
-            <ListMusic className="h-4 w-4" /> Playlist · {name}
+      {panel ? null : (
+        <header className="flex items-center gap-3 border-b border-border px-3 py-2">
+          <Button variant="secondary" size="sm" onClick={onBack}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> Retour
+          </Button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 truncate text-sm font-semibold">
+              <ListMusic className="h-4 w-4" /> Playlist · {name}
+            </div>
+            <div className="truncate font-mono text-xs text-muted-foreground">
+              {path}
+            </div>
           </div>
-          <div className="truncate font-mono text-xs text-muted-foreground">
-            {path}
-          </div>
-        </div>
-        {/* Where the Save button was. It says nothing while the file is saved — that is the
-            normal state — and stays amber, with the reason, for as long as it is not. The same
-            two words EditorTab's toolbar uses, so "not saved" reads the same on both screens. */}
-        <span
-          className={`ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs ${
-            autosave.status === "held" || autosave.status === "error"
-              ? "text-amber-500"
-              : "text-muted-foreground"
-          }`}
-          title={autosave.reason ?? undefined}
-        >
-          {autosave.status === "saving" && (
-            <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-          )}
-          <span className="truncate">{SAVE_LABEL[autosave.status]}</span>
-        </span>
-      </header>
+          {/* Where the Save button was. It says nothing while the file is saved — that is the
+              normal state — and stays amber, with the reason, for as long as it is not. The same
+              two words EditorTab's toolbar uses, so "not saved" reads the same on both screens. */}
+          <span
+            className={`ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs ${
+              autosave.status === "held" || autosave.status === "error"
+                ? "text-amber-500"
+                : "text-muted-foreground"
+            }`}
+            title={autosave.reason ?? undefined}
+          >
+            {autosave.status === "saving" && (
+              <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+            )}
+            <span className="truncate">{SAVE_LABEL[autosave.status]}</span>
+          </span>
+        </header>
+      )}
 
       {content == null ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -260,20 +285,23 @@ export function PlaylistEditor({
       ) : (
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un
-              écran de téléphone font deux colonnes où rien ne tient. */}
-          <div className="h-1/2 min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
-            <YamlPane
-              path={path}
-              content={content}
-              // The path cannot say what this file is — a playlist is not one of the project's
-              // documents — so the vocabulary comes from the catalogue polled above. See
-              // ../playlistVocabulary.ts.
-              vocabulary={vocabulary}
-              vimMode={vimMode}
-              onChange={setContent}
-              onSave={autosave.flush}
-            />
-          </div>
+              écran de téléphone font deux colonnes où rien ne tient. Absent dans le PANNEAU,
+              où il n'y a de place ni pour l'un ni pour l'autre — voir `panel`. */}
+          {panel ? null : (
+            <div className="h-1/2 min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
+              <YamlPane
+                path={path}
+                content={content}
+                // The path cannot say what this file is — a playlist is not one of the project's
+                // documents — so the vocabulary comes from the catalogue polled above. See
+                // ../playlistVocabulary.ts.
+                vocabulary={vocabulary}
+                vimMode={vimMode}
+                onChange={setContent}
+                onSave={autosave.flush}
+              />
+            </div>
+          )}
           <div className="min-h-0 min-w-0 flex-1">
             <PlaylistPane
               items={items}
@@ -281,6 +309,7 @@ export function PlaylistEditor({
               onAdd={addItem}
               onFiled={() => void refreshSongs()}
               addRefusal={addRefusal}
+              onRun={onRun}
             />
           </div>
         </div>

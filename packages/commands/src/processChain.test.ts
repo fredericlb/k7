@@ -21,6 +21,7 @@ import { parse as parseYaml } from "yaml";
 import {
   bounceDoc,
   chainNames,
+  processWithChain,
   renderPath,
   repointClips,
   resolveChain,
@@ -211,6 +212,126 @@ describe("resolving a chain of the médiathèque", () => {
     expect(() =>
       resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip"),
     ).toThrow(/cannot load: hp .*not in this machine's cache/);
+  });
+});
+
+/**
+ * A chain that SEPARATES — the offline half, wired in `mediatekChain`.
+ *
+ * Three things would be wrong silently here: an offline step reported as a module this machine
+ * cannot load (it is right there, and simply runs elsewhere), a chain that both separates and
+ * treats running half of itself, and a host with no way to run the model bouncing the mix
+ * unseparated under a name promising stems.
+ */
+describe("a chain that separates", () => {
+  /** The library module and a chain holding it. `model: false` writes no `assets/` file, which
+   *  is a machine that has not downloaded it — a different refusal from an unauthored one. */
+  const stemChain = (
+    opts: { model?: boolean; withEq?: boolean } = {},
+  ): void => {
+    const { model = true, withEq = false } = opts;
+    put(
+      library,
+      "modules/audio/stemsplit/module.yaml",
+      "cold: true\nplugin: { type: offline, name: Stem Split }\nparams:\n  onnx: htdemucs.onnx\n",
+    );
+    if (model)
+      put(
+        library,
+        "modules/audio/stemsplit/assets/htdemucs.onnx",
+        "not a model",
+      );
+    put(
+      library,
+      "chains/tools/stems/graph.yaml",
+      withEq
+        ? 'modules:\n  "@in": [ split ]\n  split: [ air ]\n  air: [ "@out" ]\n'
+        : 'modules:\n  "@in": [ split ]\n  split: [ "@out" ]\n',
+    );
+    put(
+      library,
+      "chains/tools/stems/nodes/split.yaml",
+      'extends: "@st0/audio/stemsplit"\n',
+    );
+    if (withEq)
+      put(
+        library,
+        "chains/tools/stems/nodes/air.yaml",
+        'extends: "@st0/audio/eq"\n',
+      );
+  };
+
+  it("resolves the offline step as COLD, with its model, and no plugin", () => {
+    stemChain();
+    const c = resolveChain(dir, loadProject(dir), "@st0/tools/stems");
+    expect(c.plugins).toEqual([]);
+    expect(c.cold.map((s) => s.step)).toEqual(["split"]);
+    expect(c.cold[0].model).toMatch(/htdemucs\.onnx$/);
+  });
+
+  it("refuses a chain that both separates and treats", () => {
+    // Flattened for a render a chain is a list of names with no ports on it, so a step after a
+    // separator has four inputs and no way to name one. Refused rather than guessed at.
+    stemChain({ withEq: true });
+    expect(() =>
+      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
+    ).toThrow(/both separates \(split\) and processes/);
+  });
+
+  it("tells a missing MODEL from a module authored without one", () => {
+    stemChain({ model: false });
+    expect(() =>
+      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
+    ).toThrow(/not on this machine.*~\/\.studio\/models/s);
+    put(
+      library,
+      "modules/audio/stemsplit/module.yaml",
+      "cold: true\nplugin: { type: offline, name: Stem Split }\n",
+    );
+    expect(() =>
+      resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
+    ).toThrow(/names no model/);
+  });
+
+  it("runs the pass over each source and says what it wrote", async () => {
+    stemChain();
+    const seen: { step: string; source: string; outDir: string }[] = [];
+    const r = await processWithChain(
+      dir,
+      loadProject(dir),
+      "riff",
+      "@st0/tools/stems",
+      "clip",
+      undefined,
+      async ({ step, source, outDir }) => {
+        seen.push({ step: step.step, source, outDir });
+        return ["drums", "bass", "other", "vocals"].map((s) =>
+          join(outDir, `${s}.wav`),
+        );
+      },
+    );
+    // Beside the source, under `stems/` — where the médiathèque already looks for them.
+    expect(seen).toHaveLength(1);
+    expect(seen[0].outDir).toBe(join(dir, "clips", "stems"));
+    expect(r.changed).toBe(true);
+    expect(r.lines.join("\n")).toMatch(/4 file\(s\)/);
+    expect(r.lines.join("\n")).toMatch(/stems\/vocals\.wav/);
+    // No render, so nothing about the engine binary — the cold branch is BEFORE that check,
+    // a separation needing ffmpeg and a model rather than the moteur.
+    expect(r.lines.join("\n")).not.toMatch(/studio-moteur/);
+  });
+
+  it("refuses when the host cannot run an offline step, and writes nothing", async () => {
+    stemChain();
+    const r = await processWithChain(
+      dir,
+      loadProject(dir),
+      "riff",
+      "@st0/tools/stems",
+      "clip",
+    );
+    expect(r.changed).toBe(false);
+    expect(r.lines.join(" ")).toMatch(/cannot run an offline step/);
   });
 });
 

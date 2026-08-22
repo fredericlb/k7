@@ -1,7 +1,21 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
+import { STEMS, type Stem, stemControl } from "@studio/song/stems";
 import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
+
+/** How much of an instrument to REMOVE: none of it, or all of it. The `stemcut` module's own
+ *  `Cut` param, so a binding cannot offer a range the module refuses. */
+const CUT_RANGE = [0, 1] as const;
+
+/** What each stem is called on the desk. The model's four, in French like the rest of it —
+ *  `other` being everything the three named ones are not, which is what "reste" says. */
+const STEM_LABELS: Record<Stem, string> = {
+  drums: "Batterie",
+  bass: "Basse",
+  other: "Reste",
+  vocals: "Voix",
+};
 
 /**
  * One control on the desk.
@@ -97,6 +111,23 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     home: 0,
     wants: "filter",
   },
+  // The STEMS: one knob per separated instrument, in the same shape as the EQ's three. A
+  // PROPORTION rather than decibels — what you ask for here is a part of the instrument, and
+  // taking it away completely has to be a position on the travel, which −∞ dB is not.
+  //
+  // Each names its own node (`cutBassA`), unlike the EQ's three which share one: a stem is
+  // removed by a module of its own, because the removal is a negative gain on the lane playing
+  // that stem. See packages/dsp/docs/stemcut.md.
+  ...STEMS.map((stem) => ({
+    id: stemControl(deck, stem),
+    label: `${STEM_LABELS[stem]} platine ${letter}`,
+    kind: "fader" as const,
+    range: CUT_RANGE,
+    // 0 is the record untouched. A stem knob at rest must leave the disc alone, which is the
+    // whole promise of subtracting rather than summing four stems.
+    home: 0,
+    wants: "stem",
+  })),
 ];
 
 /**

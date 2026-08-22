@@ -97,10 +97,26 @@ describe("unmappedControls", () => {
 describe("the scaffold offers every control that must be wired", () => {
   const skeleton = SURFACE_MAPPING_SKELETON.turntables.map(([id]) => id);
 
-  it("names them all, and nothing that is not one", () => {
-    // Both directions. A missing id is a component somebody has to find out about from the docs;
-    // an extra one is a line the desk will call "n'est pas un contrôle du pupitre".
-    expect(skeleton.slice().sort()).toEqual(ids(REQUIRED_CONTROLS));
+  it("offers every control that must be wired", () => {
+    // A required control missing from the skeleton is a component somebody has to find out
+    // about from the docs.
+    for (const id of ids(REQUIRED_CONTROLS)) expect(skeleton).toContain(id);
+  });
+
+  it("offers nothing that is not a control of this desk", () => {
+    // The other direction, and it is no longer equality: the skeleton is a SUPERSET now. The
+    // stem cuts are offered and not required — a desk with none is a complete desk, so a set
+    // that does not wire them must not be told it is missing something — which is exactly the
+    // difference between "what you may wire" and "what has to be wired before this draws".
+    //
+    // What still cannot happen is a line the desk would call "n'est pas un contrôle du
+    // pupitre", so every id is held to being a real control.
+    for (const id of skeleton) expect(mixControl(id), id).toBeTruthy();
+    // …and the stems in particular ARE offered: the scaffold is where somebody finds out the
+    // knobs exist at all.
+    for (const d of DECKS)
+      for (const s of ["stemDrums", "stemBass", "stemOther", "stemVocals"])
+        expect(skeleton).toContain(`${d}.${s}`);
   });
 
   it("leaves out the controls that drive no param", () => {
@@ -125,7 +141,9 @@ describe("the scaffold offers every control that must be wired", () => {
     // where a commented line is not something a parser can ever tell you that you got wrong.
     const mapping = Object.fromEntries(skeleton.map((id) => [id, null]));
     expect(MixViewSchema.safeParse(mapping).success).toBe(true);
-    // …and an unwired one is reported by the gate, exactly as an absent one is.
+    // …and an unwired one is reported by the gate, exactly as an absent one is. The stems are
+    // in the mapping and NOT in this list, which is the superset rule seen from the gate: an
+    // offered line nobody filled in is not a missing one.
     expect(ids(unmappedControls(mapping))).toEqual(ids(REQUIRED_CONTROLS));
   });
 });

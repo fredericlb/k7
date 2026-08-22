@@ -11,7 +11,7 @@ export interface FileNode {
   dir: boolean;
   kind?: "text" | "binary"; // files only
   project?: boolean; // dirs only — the folder is a project someone can open
-  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.m9` suffix
+  app?: ProjectApp; // dirs only — WHICH app opens it, from the `.st0`/`.z0` suffix
   children?: FileNode[]; // dirs only
 }
 
@@ -211,6 +211,10 @@ export interface WebPreferences {
   audioDevice: string | null;
   channels: { in: string; out: string };
   vim: boolean; // the editor's vim mode
+  /** The chain that separates a record into stems, or null when this machine separates nothing.
+   *  Written by `system stems <chaîne>`, read by every surface that could start a separation —
+   *  which is why none of them asks for one. */
+  stemsChain: string | null;
 }
 
 // The project the backend is serving (name + absolute path) — for the header.
@@ -230,6 +234,11 @@ export interface WebNote {
   // so a roll draws a note that never mentioned velocity at full, and dragging it back to full
   // clears the field rather than writing one.
   vel?: number;
+  // A pad's two effects, UNREALISED — the sequencer draws an icon from them, and the engine is what
+  // expands them. The surface sees the pattern as authored, one note per pad, however many times
+  // the engine ends up playing it (@studio/song docs/padEffects.md).
+  repeat?: number;
+  skip?: number;
 }
 export interface WebClip {
   id: string;
@@ -291,7 +300,33 @@ export interface WebClip {
    * material the lane is not even showing. See packages/song/docs/freeze.md.
    */
   frozen?: boolean;
+  /**
+   * What the PLACEMENT itself said, unmerged — the same `EventDoc` the compiler builds, passed
+   * through untouched. Absent when the event stated nothing beyond its `ref` and `start`.
+   *
+   * Everything else on this clip is the placement and its material already resolved together, and
+   * that is one-way: `sourceFrom`/`sourceTo` are the intersection of two windows, a sequence's
+   * window is over in `loopStart`/`loopEnd`, and the repeat count was multiplied into `length`. So
+   * a surface can DRAW an event from the rest of this object and cannot WRITE one back — which is
+   * what made a copy/paste on the timeline drop the trim, the fades and the passes.
+   *
+   * Read by `clipboard.ts` alone. It is not what the timeline draws from: the resolved numbers
+   * above stay the drawing's single source, and this is deliberately beside them rather than
+   * instead of them.
+   */
+  event?: WebEvent;
   notes: WebNote[]; // midi only
+}
+
+/** A placement's own fields, as authored — mirrors `EventDoc` in @studio/engine-protocol. */
+export interface WebEvent {
+  from?: number | string;
+  to?: number | string;
+  fadeIn?: string;
+  fadeOut?: string;
+  loop?: number;
+  disabled?: boolean;
+  warp?: boolean;
 }
 
 // A downsampled waveform for one audio clip plus the bar/beat grid aligning it — for the audio-clip editor.
@@ -515,6 +550,9 @@ export type ArgProvider =
   // Separate from `modules` because a `@ref` names a shared definition, and those are edited in
   // the builder rather than by a verb. See packages/song/docs/nodes.md.
   | "nodes"
+  // A set list of the REPOSITORY, by name — `_playlists/<name>.yaml`, subfolders kept. The one
+  // provider here that reads nothing of the open project, a playlist belonging to the workspace.
+  | "playlists"
   | "sequenceFiles"
   // The kinds of SURFACE the editor can draw — a closed set of words, not something read off the
   // project: the file being named is the one the command is about to create.
@@ -561,6 +599,9 @@ export interface WebProject {
   groups: WebGroup[];
   // The metronome enable from settings.yaml — the header button's source of truth; toggling rewrites the file.
   metronome: boolean;
+  // …and how loud it clicks, 0.2 … 1. Never 0: silence is the flag above, and the floor is the
+  // engine's own (see METRONOME_MIN). What the footer button's right-click slider sits on.
+  metronomeLevel: number;
   // Whether any track streams from an algo/ pattern; false == the shell need not poll the pattern clock.
   strudel: boolean;
   // Count-in length in BARS from settings.yaml (0 == none); the engine applies the actual pre-roll.
@@ -737,6 +778,44 @@ export interface MachineWorkspaceList {
   workspaces: MachineWorkspace[];
 }
 
+/** One surface a project declares, named and typed and nothing more — enough to build its
+ *  address and to decide whether a given device can drive it. */
+export interface SurfaceRef {
+  id: string;
+  type: string;
+}
+
+/**
+ * One project on this machine that declares at least one surface, with those surfaces.
+ *
+ * The identity fields are `MachineWorkspace`'s, repeated per project rather than nested, because
+ * this list is read as a flat one: the caller is looking for a SURFACE and the workspace it lives
+ * in is a detail of the address. `path` is workspace-relative, `.` for a lone-project clone.
+ *
+ * `active` is the workspace's `.studio-active` marker — the project this workspace currently has
+ * open. One per workspace at a time, which is why it is a flag here and not a filter: a caller
+ * that wants only the live ones can say so, and one showing a menu wants to know which row is
+ * already up. See apps/st0/frontend/docs/external.md.
+ */
+export interface SurfacedProject {
+  workspace: string;
+  repoName: string | null;
+  uniqueName: boolean;
+  path: string;
+  app: ProjectApp;
+  active: boolean;
+  surfaces: SurfaceRef[];
+}
+
+/** Reply to GET /workspaces/surfaces on the file service. Projects declaring none are absent
+ *  rather than present and empty.
+ *
+ *  Not `ProjectSurfaces`, which is @studio/song's — that one is ONE project's surfaces with the
+ *  diagnostics from reading them, and this is the machine's list of the projects that have any. */
+export interface SurfacedProjectList {
+  projects: SurfacedProject[];
+}
+
 /** Reply to GET/POST /api/projects/ssh-key on pl8 — the user's PUBLIC deploy key, the one
  * they paste into their git host. pl8 generates the pair and owns the private half; see
  * packages/git-repos/docs/keys.md. */
@@ -781,6 +860,19 @@ export interface SeparateJob {
   percent: number | null; // null while doing something with no measurable end
   lines: string[]; // notes worth reading — which execution provider won, and why a run failed
   files: string[]; // the stems written, absolute. Empty until `done`.
+}
+
+/**
+ * What `POST /stems` answers — the desk asking for ONE record to be prepared.
+ *
+ * Two fields rather than one job, because a record already separated must start nothing: the
+ * desk asks on every load, and the scan flag it asks WITH is a snapshot taken minutes ago. So
+ * `ready` is the state of the disk, and `job` is only there when there was work to do. Encoding
+ * the first as a job that is instantly done would hand the caller an id nobody can poll.
+ */
+export interface StemsReply {
+  ready: boolean;
+  job: SeparateJob | null;
 }
 
 /** One project inside a repository: where it is, and which app opens it. The folder's NAME

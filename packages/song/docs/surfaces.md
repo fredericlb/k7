@@ -15,9 +15,9 @@ layout: split
 ```
 
 ```yaml
-# surfaces/desk.yaml
+# surfaces/desk.yaml — the DJ desk
 type: turntables
-layout: view
+layout: split
 mapping:
   crossfade:   { module: crossfade, param: Mix }
   deckA.tempo: { module: tempoA,    param: Target BPM }
@@ -43,13 +43,14 @@ each type is drawn in, and every type has exactly one — so an argument could o
 or be refused by the schema a moment later. Deriving it means `createSurfaceFile` writes a file
 the parser accepts by construction, which is the whole job of a scaffold.
 
-The id defaults to the type. It stays an argument because it is what the header button and
-`/surface/<id>` say, and `desk` reads better than `turntables` on a set.
+The id defaults to the type. It stays an argument because it is the filename you open and read,
+and `desk` reads better than `turntables` on a set.
 
 Two things it refuses. The file already existing is the ordinary one. The other is **a second
-`split` surface of the same type**: only the first is drawn — `App.tsx` takes it and the pane ring
-has one slot — so a second is a file that changes nothing and shows nothing. A `view` surface is
-not refused; each gets its own header button, so several are a real arrangement.
+surface of the same type**: only the first is drawn — `App.tsx` takes it and the pane ring has one
+slot per type — so a second is a file that changes nothing and shows nothing. That used to hold
+for `split` only, because a `view` surface got a header button of its own and several were a real
+arrangement. Every surface is `split` now, so the rule covers all of them.
 
 ### It scaffolds the mapping
 
@@ -57,7 +58,7 @@ A `turntables` surface comes out with every component listed, each waiting for a
 
 ```yaml
 type: turntables
-layout: view
+layout: split
 mapping:
   crossfade: null # un module crossfade — son param de mélange
   deckA.tempo: null # un module tempo — l'étirement de la platine A
@@ -92,7 +93,7 @@ expectation that changes takes the scaffold's sentence with it.
 | field | what it says | validated |
 |---|---|---|
 | `type` | which component draws it — `timeline`, `viewport`, `turntables` | **yes**, an enum |
-| `layout` | where it goes — `split` (a slot in the layout) or `view` (its own screen) | **yes**, an enum, **and the pair** |
+| `layout` | where it goes — `split` (a slot in the layout). `view` (its own screen) is still a word and nothing draws in it | **yes**, an enum, **and the pair** |
 | `mapping` | which module each of its components moves | shape only |
 
 ### Which pairs exist
@@ -103,12 +104,24 @@ expectation that changes takes the scaffold's sentence with it.
 |---|---|
 | `timeline` | `split` |
 | `viewport` | `split` |
-| `turntables` | `view` |
+| `turntables` | `split` |
 
 The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on
-their own and still name something no component draws — a timeline asking for its own screen, a
-desk asking for a slot — and the result is the blank screen this schema exists to prevent. It is
-refused on the `layout` line, with the list of what that type can be.
+their own and still name something no component draws, and the result is the blank screen this
+schema exists to prevent. It is refused on the `layout` line, with the list of what that type
+can be.
+
+**Nothing draws in `view` today.** The desk was the last one — its own screen off the header, over
+the whole window — and it is a pane now: a fader on a desk is a param on a module, and a screen
+that covered the graph made "which module is this one on" a round trip. As a pane it sits directly
+over the chains, joins the ring, and `full` is how it gets the window when you want it whole,
+which is the answer the frame already had.
+
+The word stays in the enum on purpose. It is what lets the pair check answer a file that still
+says `layout: view` with *"a 'turntables' surface draws in 'split', not in 'view'"* — a sentence
+that names the fix. Dropped from the enum, the same file would get zod's own "invalid enum value",
+which names the field and not the remedy. Deleting it is a one-line change the day nothing on any
+disk says it any more.
 
 ### Why `type` is an enum and a control id is not
 
@@ -168,32 +181,34 @@ ruler reads bars or seconds. There is deliberately no second arrangement surface
 one grid that can be read in two units beats two grids that must be kept in step. See
 [picture.md](picture.md) and `apps/st0/frontend/docs/picture.md`.
 
-### `split` is not `view` drawn smaller
+### `split` was never `view` drawn smaller
 
-| | `view` | `split` |
+| | `view` *(historic)* | `split` |
 |---|---|---|
 | where | its own screen, off the header | a slot in the layout, sharing the window |
 | drawn | only while open | whenever the layout shows it |
 | in the pane ring | no | yes — number keys, `ui <pane>`, `full`, the mobile tabs |
 | reached by | a header button, `/surface/<id>` | it is already there |
 
+Every surface is `split` today; the left column is kept because it is what the difference between
+the two words *was*, and the argument is what a future `view` would have to answer.
+
 The row says **drawn**, not *mounted*, and the difference is load-bearing.
 
 A surface's DOCUMENT is not its screen. A desk holds the loaded songs, the crossfader, the six
 EQ knobs and a compiled project; a set does not stop existing because you went to look at the
-graph. So `SurfaceTab` splits the two — the hooks above a line, the screen below it — and stays
-mounted for as long as the project declares the surface, drawing only when its id is in the
-address. Hold the document in the screen instead and a round trip re-centres the crossfader and
-flattens the EQ while the sound stays where you put it. See
+graph. While the desk was a `view`, `SurfaceTab` had to split the two itself — the hooks above a
+line, the screen below it, mounted for as long as the project declared the surface and drawing
+only when its id was in the address. Hold the document in the screen instead and a round trip
+re-centres the crossfader and flattens the EQ while the sound stays where you put it. See
 [../../ui-turntables/docs/deckSet.md](../../ui-turntables/docs/deckSet.md).
 
-A `split` surface does not raise the question: the timeline holds a caret and a zoom stack, and
-the viewport a GL context and a `<video>` per layer — cheap to keep, maddening to rebuild, which
-is the invariant the panes obey (`apps/st0/frontend/docs/shell.md`).
-
-That is also why a `split` surface gets **no header button** and cannot be named by
-`/surface/<id>`: it is not a screen you open, so a button that "opened" it would name a place
-there is none of.
+A `split` surface does not raise the question, which is the quiet reason the desk moving over was
+a simplification rather than a port: **a pane is mounted once and never unmounted**, `hidden`
+takes it off screen, and that one invariant covers what the prop was protecting. The timeline
+holds a caret and a zoom stack, the viewport a GL context and a `<video>` per layer, the desk its
+document — all cheap to keep, all maddening to rebuild
+(`apps/st0/frontend/docs/shell.md`).
 
 ## `mapping` is `views/mix.yaml`'s binding, reused
 
@@ -255,45 +270,51 @@ surfaces/<id>.yaml
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it
   → useSurfaces            apps/st0/frontend/src/hooks/useSurfaces.ts
-  → `view`  → SurfaceTab   which picks the component for `type`
-    `split` → the layout   App.tsx: `timelineSurface` / `viewportSurface` decide the panes,
-                           `viewPanes(view, timeline, viewport)` the ring
+  → the layout             App.tsx: `timelineSurface` / `viewportSurface` /
+                           `turntablesSurface` decide the panes, `viewPanes({…})` the ring
+  → the component          TimelineTab and ViewportTab are the shell's own; the desk goes
+                           through SurfaceTab, which picks the component for `type`
 ```
 
 Malformed files are reported through the same array as `projectTypeIssues` and the dead-field
 warnings, so a surface that will not parse is a squiggle in the editor rather than a blank
 screen. One bad surface does not take the good ones down with it.
 
-## In st0's shell: a screen, not a pane
+## In st0's shell: every surface is a pane
 
-*(This section is about a `view` surface. A `split` one is in the layout — see the table above.)*
+Each `split` surface is a member of `Pane` — `timeline`, `viewport`, `turntables` — beside the
+`editor` and `chains` the shell owns outright. So a surface is reached the way any pane is: its
+number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`.
 
-`RouteState.surface` is its own field, beside `help`, and **not** a member of `Pane`. The panes
-are a closed union the shell declares and the layout says what each does with them; a surface is
-declared by the project, so the list is not knowable until one is open and a union could not name
-it.
+`RouteState.surface` was a field of its own beside `help`, holding the open `view` surface by
+FILENAME, because the list was the project's and a union could not name it. That reasoning was
+sound and it stopped applying when the last `view` became a pane: there is exactly one surface
+per type, so the type IS the name.
 
 ### The layout table is a function
 
-`viewPanes(view, timeline, viewport)`, not a constant, because two of the panes are the
-project's to declare: one that declares no timeline surface has no arrangement, and a list
-naming one would name a pane that will not be mounted. The same flags reach `fromLocation`, so
-`/timeline` typed at such a project falls through to the layout instead of parsing into a screen
-that cannot be drawn — the same rule `live` follows, arriving from the other side.
+`viewPanes({ timeline, viewport, turntables, frozen })`, not a constant, because three of the
+panes are the project's to declare: one that declares no timeline surface has no arrangement, and
+a list naming one would name a pane that will not be mounted. An object rather than positional
+flags — there are four now and they are all booleans, so `viewPanes(true, false, true)` said
+nothing about which pane was which.
 
-The surface list lands a moment after the shell, so there is **one frame with no timeline** on
-open, which is the same frame every other fact off the surface list flashes for.
+The same flags reach `fromLocation`, so `/timeline` typed at such a project falls through to the
+layout instead of parsing into a screen that cannot be drawn.
 
-So it behaves like the help page: it comes over the layout, which is left exactly as it was
-underneath — the timeline keeps its caret and the graph its camera. The address is
-`/surface/<id>`, and `fromLocation` deliberately **does not check that the id exists**: the list
-arrives a moment after the shell, so a validated address would parse to "no surface" on every
-deep link and quietly drop you on the layout. The screen resolves it when the list lands and says
-so if there is no such file.
+`timeline` defaults **true** there and false in `viewPanes`, and that asymmetry is deliberate: the
+surface list lands a moment after the shell, so there is one frame in which the address has to be
+read against a guess, and almost every project has an arrangement. `viewport` and `turntables` get
+no such optimism — both are the exception, so the same default would make `/viewport` and
+`/turntables` briefly parse for every ordinary song.
 
-It is DRAWN only while open, unlike the panes — but its component is mounted for as long as the
-project declares it, because the document behind a desk outlives the screen showing it. That is
-the same invariant the panes obey rather than an exception to it.
+### Where the desk goes in the column
+
+Directly over the graph: the ring is built top-down as the panes are stacked — frame, arrangement,
+desk, chains. A set declares no timeline, so in practice the desk and the graph *are* its column,
+each taking half, which is the point of the desk being a pane at all. A fader on the desk is a
+param on a module in the graph, and the two are now readable at once; `full` is how either gets
+the whole window.
 
 ## `turntables`
 
@@ -305,7 +326,7 @@ A turntables surface plays a **set**, and it says which one: `playlist:`, a name
 workspace's `_playlists/` ([playlists.md](playlists.md)). That is what the desk's song browser
 lists — the twelve songs to hand tonight rather than the two hundred on the volume.
 
-**The only surface type with a parameter of its own**, and the schema refuses it on the other
+**The only surface type with parameters of its own**, and the schema refuses them on the other
 two: a `timeline` or a `viewport` draws no song browser, so a playlist on one names something
 nothing reads. Refused rather than ignored, for the reason the object is `.strict()` — a field
 that is accepted and does nothing sends whoever wrote it looking elsewhere.
@@ -313,6 +334,18 @@ that is accepted and does nothing sends whoever wrote it looking elsewhere.
 It is OPTIONAL, like `mapping` and for the same reason: a desk that names none still draws and
 says so on its browser, which is a sentence you can act on. Refusing the file would refuse to
 open the project over a set list nobody has chosen yet.
+
+`stems:` is the second, and follows every one of those rules. `stems: true` lets a record put on a
+deck unprepared get separated then and there, with the progress shown on the knobs that will use
+it. Absent is again a state rather than a fault: the knobs grey with the reason, and the whole set
+list can be prepared in advance with `playlist stems` instead.
+
+It is a BOOLEAN, and it named a chain for exactly one afternoon. Which module separates and which
+model it wants is one answer for the machine — `system stems`, kept in `~/.studio/preferences.yaml`
+— and asking a project for it made three surfaces spell the same thing. What a set decides is
+whether an hour of arithmetic may start because somebody put a record on, which is worth deciding
+per set: a rehearsal rig and a stage rig answer it differently. See
+[ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md).
 
 A playlist is not desk-specific and is not the project's either — it is a document in the
 repository, shared by every project in the workspace and written in st0 under the cog. That is

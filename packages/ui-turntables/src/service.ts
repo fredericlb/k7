@@ -5,6 +5,7 @@
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { fileHeaders } from "@studio/project-shell/fileApi";
+import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import type { Envelope } from "./waveform";
 
 /**
@@ -58,6 +59,24 @@ async function get<T>(s: FileLink, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** The same shape, for a body. One function per verb rather than a `method` argument, so the
+ *  three headers and the error handling above are written once and cannot diverge. */
+async function post<T>(s: FileLink, path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${s.base}${path}`, {
+    method: "POST",
+    headers: { ...fileHeaders(), "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const said = await res
+      .json()
+      .then((b: { error?: string }) => b?.error)
+      .catch(() => undefined);
+    throw new Error(said || `${path} → ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
 export interface CacheSummary {
   present: boolean;
   /** The cache's ABSOLUTE root on this machine — the half of a playable path the catalogue
@@ -84,6 +103,26 @@ export const service = {
    */
   envelope: (s: FileLink, path: string) =>
     get<Envelope>(s, `/mediatek/envelope?path=${encodeURIComponent(path)}`),
+
+  /**
+   * Separate one song, so this deck's stem knobs have something to subtract.
+   *
+   * `song` is the CACHE-relative master — the same string the envelope is asked for — and that is
+   * the WHOLE request. No chain travels: which module separates and which `.onnx` this machine
+   * holds is a question only the machine can answer, and it answered it once, when somebody ran
+   * `system stems`. A desk that sent one would be a third place to spell it.
+   *
+   * Cheap to call on a record that is already prepared: the reply says `ready` and nothing
+   * starts. Cheap to call twice, too — the job id hashes the WORK, so a second tab joins the
+   * run in flight (docs/stemSplit.md).
+   */
+  prepareStems: (s: FileLink, song: string) =>
+    post<StemsReply>(s, "/stems", { song }),
+
+  /** How a separation is getting on. 404s once the machine has forgotten a finished job, which
+   *  the caller reads as "look at the disk" rather than as a failure. */
+  separation: (s: FileLink, id: string) =>
+    get<SeparateJob>(s, `/separate/${encodeURIComponent(id)}`),
 
   /** One cached file's text. The deck needs a module's `plugin:` block, and the catalogue
    *  carries where a module IS, never what it runs. */

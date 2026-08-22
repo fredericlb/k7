@@ -9,10 +9,11 @@ import {
   deinterleave,
   HOP,
   OverlapAdd,
+  peakOf,
   SEGMENT,
   STEMS,
   triangle,
-  wavFloat32,
+  wavPcm24,
   windowStarts,
 } from "./separateAudio";
 
@@ -97,29 +98,65 @@ describe("the WAV it writes", () => {
     Float32Array.from([0, 0.5, -0.5]),
     Float32Array.from([1, -1, 0]),
   ];
+  /** One 24-bit sample, signed, out of the data chunk. */
+  const sampleAt = (b: Buffer, frame: number, channel: number): number => {
+    const at = 44 + (frame * CHANNELS + channel) * 3;
+    const u = b[at] | (b[at + 1] << 8) | (b[at + 2] << 16);
+    return u & 0x800000 ? u - 0x1000000 : u;
+  };
 
-  it("declares itself float, stereo, and the right length", () => {
-    const b = wavFloat32(chans, 44100);
+  it("declares itself 24-bit PCM, stereo, and the right length", () => {
+    const b = wavPcm24(chans, 44100);
     expect(b.subarray(0, 4).toString("ascii")).toBe("RIFF");
     expect(b.subarray(8, 12).toString("ascii")).toBe("WAVE");
-    expect(b.readUInt16LE(20)).toBe(3); // WAVE_FORMAT_IEEE_FLOAT, not 1
+    // WAVE_FORMAT_PCM, not the 3 a float file carried. Tracktion reads a plain WAV without
+    // building a cached proxy first, which is the whole reason for the change — see wavPcm24.
+    expect(b.readUInt16LE(20)).toBe(1);
     expect(b.readUInt16LE(22)).toBe(CHANNELS);
     expect(b.readUInt32LE(24)).toBe(44100);
-    expect(b.readUInt16LE(34)).toBe(32);
-    expect(b.readUInt32LE(40)).toBe(3 * 2 * 4);
-    expect(b.length).toBe(44 + 3 * 2 * 4);
+    expect(b.readUInt32LE(28)).toBe(44100 * 2 * 3); // byte rate
+    expect(b.readUInt16LE(32)).toBe(2 * 3); // block align
+    expect(b.readUInt16LE(34)).toBe(24);
+    expect(b.readUInt32LE(40)).toBe(3 * 2 * 3);
+    expect(b.length).toBe(44 + 3 * 2 * 3);
   });
 
-  it("round-trips the samples, interleaved", () => {
-    const b = wavFloat32(chans);
+  it("round-trips the samples, interleaved, to within a quantum", () => {
+    const b = wavPcm24(chans);
     const back = [0, 1, 2].map((i) => [
-      b.readFloatLE(44 + i * 8),
-      b.readFloatLE(44 + i * 8 + 4),
+      sampleAt(b, i, 0) / 0x7fffff,
+      sampleAt(b, i, 1) / 0x7fffff,
     ]);
-    expect(back).toEqual([
-      [0, 1],
-      [0.5, -1],
-      [-0.5, 0],
-    ]);
+    expect(back[0][0]).toBeCloseTo(0, 6);
+    expect(back[0][1]).toBeCloseTo(1, 6);
+    expect(back[1][0]).toBeCloseTo(0.5, 6);
+    expect(back[1][1]).toBeCloseTo(-1, 6);
+    expect(back[2][0]).toBeCloseTo(-0.5, 6);
+    expect(back[2][1]).toBeCloseTo(0, 6);
+  });
+
+  it("clamps an overshoot instead of wrapping it", () => {
+    // The failure this stops is not a quiet one: two's complement wrapping turns the loudest
+    // sample of a drum stem into full-scale the OTHER way, which is a click, not a clip.
+    const b = wavPcm24([Float32Array.from([2, -2])], 44100);
+    const at = (i: number) => {
+      const o = 44 + i * 3;
+      const u = b[o] | (b[o + 1] << 8) | (b[o + 2] << 16);
+      return u & 0x800000 ? u - 0x1000000 : u;
+    };
+    expect(at(0)).toBe(0x7fffff);
+    expect(at(1)).toBe(-0x800000);
+  });
+});
+
+describe("peakOf", () => {
+  it("finds the loudest sample across every channel, either sign", () => {
+    expect(
+      peakOf([Float32Array.from([0.2, -0.9]), Float32Array.from([1.4, 0])]),
+    ).toBeCloseTo(1.4, 6);
+  });
+
+  it("is zero on silence, so nothing is reported as clamped", () => {
+    expect(peakOf([new Float32Array(8), new Float32Array(8)])).toBe(0);
   });
 });

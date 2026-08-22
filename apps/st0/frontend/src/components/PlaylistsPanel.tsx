@@ -1,0 +1,305 @@
+// PlaylistsPanel.tsx — the workspace's set lists as a PANEL anchored at the right: a searchable
+// dropdown naming one, and its songs under it. Docked beside the panes rather than covering
+// them, because it is something you keep open while you work.
+//
+// Its OWN panel and not a tab of the settings one. It was briefly that, and it was the wrong
+// filing: settings are things you set and leave, and a set list is a thing you work FROM — you
+// open it to put a record on, not to configure anything. It also has the one header that is not
+// a title (a dropdown, a ＋ and the text button), which a shared tab strip has nowhere to put.
+// See ../docs/playlists.md.
+
+import { Button } from "@frediverse/ui/button";
+import { playlistPathOf } from "@studio/song/playlist";
+import {
+  ListMusic,
+  Loader2,
+  Maximize2,
+  Plus,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
+import { fuzzyScore } from "../fuzzy";
+import type { PlaylistInfo } from "../types";
+import { PlaylistEditor } from "./PlaylistEditor";
+import { type TreeNode, TreePicker } from "./TreePicker";
+
+/** How many playlists the dropdown's search lists before it stops. The same cap the module
+ *  picker uses, and for the same reason: a list you scroll past is one you gave up on. */
+const SEARCH_LIMIT = 40;
+
+/** What a playlist reads as in the dropdown — its title if the file states one, else the
+ *  filename, with the path muted beside it so two `repet.yaml` in two folders are told apart. */
+const nodeOf = (p: PlaylistInfo): TreeNode<PlaylistInfo> => ({
+  key: p.path,
+  label: p.title || p.name,
+  hint: p.path,
+  entry: p,
+});
+
+/**
+ * The dropdown's search: fuzzy over the name AND the path, best first.
+ *
+ * Both, because a set list is looked for by either — the title somebody typed, or the folder
+ * they filed it under (`live/repet`). Scored with the shell's one matcher, so "typing a few
+ * letters" behaves here exactly as it does in the module picker and the file picker.
+ */
+export function searchPlaylists(
+  rows: PlaylistInfo[],
+  query: string,
+): TreeNode<PlaylistInfo>[] {
+  const q = query.trim();
+  if (!q) return [];
+  return rows
+    .map((p) => ({
+      p,
+      score: Math.max(fuzzyScore(q, p.title || p.name), fuzzyScore(q, p.path)),
+    }))
+    .filter((r) => r.score >= 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, SEARCH_LIMIT)
+    .map((r) => nodeOf(r.p));
+}
+
+export function PlaylistsPanel({
+  vimMode,
+  onRun,
+  onClose,
+}: {
+  vimMode: boolean;
+  /** Run a command line through the shell — what « Nouvelle playlist » dispatches, so the
+   *  palette can reach it and the log records it (../docs/shell.md). */
+  onRun: (line: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<PlaylistInfo[] | null>(null);
+  const [error, setError] = useState("");
+  /** Which one the panel is showing, by PATH — the listing is re-read on every save, so holding
+   *  the row object would reopen the songs on a fresh identity three times a minute. */
+  const [open, setOpen] = useState<string | null>(null);
+  /** Where to put the dropdown, in viewport coords, or null when it is closed. */
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  /**
+   * The FULL editor, over the shell.
+   *
+   * The panel is too narrow for the YAML text beside the songs, and the text is still the only
+   * way to remove a line or reorder one — `PlaylistPane` can add and nothing else. So the page
+   * is not gone, it is demoted: the panel is what you keep open, and this is the escape hatch
+   * for the edits it cannot make. See ../docs/playlists.md.
+   */
+  const [expanded, setExpanded] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const pickRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (creating) nameRef.current?.focus();
+  }, [creating]);
+
+  // Answers the listing as well as storing it: `create` has to know whether the playlist it just
+  // asked for is really there before opening it, and reading it back off `rows` would be reading
+  // state this very call is setting.
+  const refresh = useCallback(
+    (): Promise<PlaylistInfo[] | null> =>
+      api
+        .playlists()
+        .then((r) => {
+          setRows(r.playlists);
+          setError("");
+          return r.playlists;
+        })
+        .catch((e: Error) => {
+          setError(e.message);
+          return null;
+        }),
+    [],
+  );
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  /**
+   * Land on one as soon as there is one to land on.
+   *
+   * A dropdown over an empty body is a panel that asks a question before it has said anything.
+   * Only while nothing is chosen, so a re-read after a save never moves you off the set list you
+   * are working on — and never when the listing is empty, which is its own screen below.
+   */
+  useEffect(() => {
+    if (open === null && rows?.length) setOpen(rows[0].path);
+  }, [rows, open]);
+
+  const tree = useMemo(() => (rows ?? []).map(nodeOf), [rows]);
+  const current = rows?.find((p) => p.path === open) ?? null;
+
+  /**
+   * `playlist new <name>` — the button dispatches the command rather than calling the route.
+   *
+   * Where the file LANDS is not read back from a reply, because a command answers in prose:
+   * `playlistPathOf` derives it from the name, which is the same function the handler writes
+   * through. A refusal shows in the shell's status line and the listing simply does not grow.
+   */
+  const create = useCallback(() => {
+    const want = name.trim();
+    if (!want) return;
+    const rel = playlistPathOf(want);
+    void onRun(`playlist new ${want}`)
+      .then(() => refresh())
+      .then((list) => {
+        setCreating(false);
+        setName("");
+        // Straight into it — but only if it is really there: a refused create must not show a
+        // panel for a file nobody wrote.
+        if (rel && list?.some((p) => p.path === rel)) setOpen(rel);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, [name, onRun, refresh]);
+
+  if (expanded && open)
+    return (
+      <div className="absolute inset-0 z-40 bg-background">
+        <PlaylistEditor
+          path={open}
+          name={current?.title || current?.name || open}
+          vimMode={vimMode}
+          onBack={() => {
+            setExpanded(false);
+            void refresh();
+          }}
+          onSaved={() => void refresh()}
+          onRun={onRun}
+        />
+      </div>
+    );
+
+  return (
+    <aside className="flex w-[24rem] min-w-0 shrink-0 flex-col border-l border-border bg-background">
+      <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
+        <ListMusic className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+        {/* The dropdown. A BUTTON that opens the same searchable popup the module picker uses,
+            rather than a <select>: the list is as long as the repository is old, and picking
+            from it by typing three letters is the gesture this shell has everywhere else. */}
+        <button
+          ref={pickRef}
+          type="button"
+          disabled={!rows?.length}
+          onClick={() => {
+            const r = pickRef.current?.getBoundingClientRect();
+            if (r) setMenu({ x: r.left, y: r.bottom + 4 });
+          }}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded px-1.5 py-1 text-left text-sm hover:bg-accent disabled:opacity-50"
+          title={current?.path ?? "aucune playlist"}
+        >
+          <span className="min-w-0 flex-1 truncate">
+            {rows === null
+              ? "chargement…"
+              : (current?.title ?? current?.name ?? "aucune playlist")}
+          </span>
+          <span className="shrink-0 text-muted-foreground">▾</span>
+        </button>
+
+        <Button
+          size="icon"
+          variant={creating ? "default" : "ghost"}
+          title="Nouvelle playlist"
+          aria-label="Nouvelle playlist"
+          onClick={() => setCreating((c) => !c)}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+        {/* The text, when the panel cannot do what you need — see `expanded`. */}
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={!open}
+          title="Éditer le fichier (texte + morceaux)"
+          aria-label="Éditer le fichier"
+          onClick={() => setExpanded(true)}
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+        <Button size="icon" variant="ghost" title="Fermer" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </header>
+
+      {creating ? (
+        <div className="flex shrink-0 items-center gap-2 border-b bg-muted/30 px-2 py-1.5">
+          {/* Focused through a ref rather than `autoFocus`: the attribute steals focus on MOUNT,
+              which is not the same event as "the button that opens this was just pressed". */}
+          <input
+            ref={nameRef}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation(); // the shell binds bare keys; a field keeps its own
+              if (e.key === "Escape") setCreating(false);
+              if (e.key === "Enter") create();
+            }}
+            placeholder="nom — l'extension est ajoutée"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+          <Button size="sm" onClick={create} disabled={!name.trim()}>
+            Créer
+          </Button>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p className="shrink-0 border-b px-2 py-1.5 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+
+      {current && !current.ok ? (
+        <p className="flex shrink-0 items-center gap-1 border-b bg-muted/30 px-2 py-1.5 text-xs text-destructive">
+          <TriangleAlert className="h-3 w-3 shrink-0" /> ce fichier ne parse pas
+          — ouvrez le texte pour le réparer
+        </p>
+      ) : null}
+
+      {/* The songs, under the dropdown. `PlaylistEditor` in panel mode: the same document, the
+          same autosave, the same resolved list — only the YAML half is left out. */}
+      <div className="min-h-0 flex-1">
+        {rows === null ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> chargement…
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="p-3 text-sm text-muted-foreground">
+            Ce dépôt ne contient encore aucune playlist. Elles vivent dans{" "}
+            <span className="font-mono">_playlists/</span>, à la racine de
+            l'espace de travail — donc versionnées avec vos morceaux, et les
+            mêmes quel que soit le projet ouvert.
+          </p>
+        ) : open ? (
+          <PlaylistEditor
+            key={open}
+            path={open}
+            name={current?.title || current?.name || open}
+            vimMode={vimMode}
+            panel
+            onSaved={() => void refresh()}
+            onRun={onRun}
+          />
+        ) : null}
+      </div>
+
+      {menu && rows ? (
+        <TreePicker<PlaylistInfo>
+          x={menu.x}
+          y={menu.y}
+          tree={tree}
+          search={(q) => searchPlaylists(rows, q)}
+          searchLimit={SEARCH_LIMIT}
+          placeholder="chercher une playlist"
+          emptyLabel="aucune playlist"
+          onPick={(p) => setOpen(p.path)}
+          onClose={() => setMenu(null)}
+        />
+      ) : null}
+    </aside>
+  );
+}

@@ -150,7 +150,14 @@ engine without the pass having run is a state the module has to survive.
 `io: file` playback remains the other half of the gap this page recorded (this package's
 `docs/fileInput.md`).
 
-**The producing pass** is further along: `@studio/commands`' `coldPass.ts` decides which steps
-are offline and refuses early, and `@studio/file-service` runs the model. What is left is the
-call site — `mediatekChain` is where an offline module must be diverted rather than pushed onto
-the plugin list.
+~~**The producing pass.**~~ It is wired too: `mediatekChain` diverts an offline step instead of
+resolving it to a plugin, `coldPass.ts` says which model and whether this machine has it, and
+`processWithChain` runs the pass **in place of** the bounce — no render, nothing repointed, the
+files beside the source. So `clip process <clip> <chaîne>` over a chain holding `stemsplit` is
+how a separation is asked for.
+
+Two rules came with it, and both are about what a chain can SAY rather than what the pass can do:
+a chain separates or treats and never both (flattened for a render it is a list of names with no
+ports, so a step after a separator has four inputs and no way to name one), and the running is
+handed in through `CommandHost.runColdStep` — a host without one refuses by name. See
+`@studio/commands`' `docs/processChain.md` and `@studio/file-service`'s `docs/stemSplit.md`.

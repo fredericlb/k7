@@ -1,18 +1,21 @@
-// SurfaceTab.tsx — one surface: its DOCUMENT, always; its SCREEN, only while open. st0's half of
+// SurfaceTab.tsx — one `split` surface, drawn in the pane the shell gives it. st0's half of
 // `surfaces/`. It turns the declaration into the component that draws it and hands that
 // component the engine, the decks and the mapping. The desk itself is @studio/ui-turntables.
 //
-// The split between the two halves is the load-bearing part: see the header on `open` below,
-// and packages/song/docs/surfaces.md.
+// See packages/song/docs/surfaces.md.
+//
+// It used to own a second job: mounting the DOCUMENT while the screen was closed, behind an
+// `open` prop, because the desk was a `view` that came and went over the layout. A pane is
+// mounted once and hidden with CSS, so the shell's own invariant now covers what that prop
+// protected — the crossfader and the six EQ knobs survive a trip to the graph because nothing
+// unmounts. See packages/ui-turntables/docs/deckSet.md.
 
-import { Button } from "@frediverse/ui/button";
 import type { WebGraph } from "@studio/graph-model";
 import { cfg } from "@studio/project-shell/fileApi";
 import type { ProjectSurface } from "@studio/song/yaml/surfaceFile";
 import { useDeckSet } from "@studio/ui-turntables/deck-set";
 import type { Deck } from "@studio/ui-turntables/engine";
 import { Turntables } from "@studio/ui-turntables/surface";
-import { Disc3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";
@@ -21,28 +24,11 @@ export function SurfaceTab({
   surface,
   deck,
   project,
-  open,
-  onClose,
 }: {
   surface: ProjectSurface;
   deck: Deck;
   /** Workspace-relative, as every file route here takes it. */
   project: string;
-  /**
-   * Whether its screen is showing. The component is MOUNTED either way, which is the whole
-   * point of this prop.
-   *
-   * A desk's document — what is loaded, where the crossfader is, what each deck plays at — is
-   * not the screen's, and a set does not stop existing when you go and look at the graph. Hold
-   * the hooks below behind `openSurface &&` and a trip to the chains view re-centres the
-   * crossfader and flattens the EQ while the SOUND stays where you put it, while the graph has
-   * no engine to ask and shows the number the file declares.
-   *
-   * So: the document is mounted for as long as the project declares the surface, and only the
-   * drawing is conditional. See packages/ui-turntables/docs/deckSet.md.
-   */
-  open: boolean;
-  onClose: () => void;
 }) {
   /**
    * The compiled chains, fetched here rather than taken from the shell.
@@ -94,31 +80,18 @@ export function SurfaceTab({
    *  memo of its own; `useDeckSet` takes it as an effect dependency. */
   const playlist = surface.surface.playlist;
 
+  /** …and the chain that SEPARATES a record, which the desk uses to catch up on one put on
+   *  unprepared. A plain string too, and read by nothing here — see MixView's `stems`. */
+  const stems = surface.surface.stems;
+
   const set = useDeckSet(deck, project, graph, rev ?? "", mapping, playlist);
 
-  // Everything above this line runs whether or not the screen is showing; everything below it
-  // is the screen. Nothing may be added above that belongs to the drawing, and nothing below
-  // that the set would lose.
-  if (!open) return null;
-
+  // No `open` branch and no chrome of its own: the pane wrapper in `App` carries the border, the
+  // ring and the `hidden` that takes it off screen, exactly as it does for the arrangement and
+  // the frame. A header here would be a second title bar inside a pane that already has one.
   return (
-    // Over the layout, the same treatment the help page gets and for the same reason: it is a
-    // screen of its own, not a pane, and what is underneath is untouched — the timeline keeps
-    // its caret and the graph its camera while a desk is up.
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-1.5">
-        <Disc3 className="h-4 w-4 text-muted-foreground" />
-        <span className="truncate text-sm">{surface.id}</span>
-        <Button
-          size="xs"
-          variant="secondary"
-          className="ml-auto"
-          onClick={onClose}
-        >
-          Fermer
-        </Button>
-      </div>
-      {drawn(surface, engine, deck, set, mapping, playlist)}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {drawn(surface, engine, deck, set, mapping, playlist, stems)}
     </div>
   );
 }
@@ -131,6 +104,7 @@ function drawn(
   set: ReturnType<typeof useDeckSet>,
   mapping: ProjectSurface["surface"]["mapping"],
   playlist: ProjectSurface["surface"]["playlist"],
+  stems: ProjectSurface["surface"]["stems"],
 ) {
   switch (surface.surface.type) {
     case "turntables":
@@ -141,22 +115,24 @@ function drawn(
           set={set}
           mapping={mapping}
           playlist={playlist}
+          stems={stems}
           file={surface.file}
         />
       );
-    // A `split` surface is drawn in the LAYOUT, by the shell, and never reaches this screen —
-    // `App` only resolves the `view` ones here. The arms exist so the switch covers every type
-    // and says which of the two roads a kind takes, rather than falling off the end.
+    // The other two `split` surfaces are drawn by the SHELL, in their own panes — the timeline is
+    // `TimelineTab` and the frame `ViewportTab`, both of which need far more of `App` than a
+    // surface declaration. Only the desk comes through here. The arms exist so the switch covers
+    // every type and says which road a kind takes, rather than falling off the end.
     case "timeline":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-          Une surface « timeline » se dessine dans la vue, pas en plein écran.
+          Une surface « timeline » est dessinée par le shell, pas ici.
         </div>
       );
     case "viewport":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-          Une surface « viewport » se dessine dans la vue, pas en plein écran.
+          Une surface « viewport » est dessinée par le shell, pas ici.
         </div>
       );
   }

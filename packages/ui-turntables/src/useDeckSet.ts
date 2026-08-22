@@ -6,12 +6,9 @@ import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 import { projectApi as api } from "@studio/project-shell/project";
+import { STEMS, type Stem, stemControl } from "@studio/song/stems";
+import { cueMarkers, parseMix, withMarkers } from "@studio/song/yaml/mixFile";
 import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
-import {
-  parseSongs,
-  songMarkers,
-  withMarkers,
-} from "@studio/song/yaml/songsFile";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DECKS,
@@ -24,11 +21,12 @@ import {
   metronomeDeck,
   NO_LOADS,
   nudgedTempos,
+  playFrom,
   pushCrossfade,
   sendDecks,
   sourceAt,
   syncedTempos,
-  TIMELINE_BASE,
+  TEMPO_SOURCE_PARAM,
   transportAt,
 } from "./deck";
 import type { Deck } from "./engine";
@@ -38,18 +36,19 @@ import {
   engineAgrees,
   enginePluginIds,
   hasPlugin,
+  offlinePublish,
   resolveBindings,
   shownValue,
   stretchTargets,
   valueFor,
 } from "./mixBindings";
 import {
+  MIX_FILE,
   MIX_VIEW_FILE,
+  readMixText,
   readMixView,
   readPlaylistText,
-  readSongsText,
-  SONGS_FILE,
-  writeSongsText,
+  writeMixText,
 } from "./mixView";
 
 /**
@@ -118,6 +117,33 @@ export interface DeckSet {
   /** Where this deck's filter sits, −100..+100. Undefined until anything says. */
   filterOf: (deck: DeckId) => number | undefined;
   filterLive: (deck: DeckId) => boolean;
+  /** How much of each stem this deck is REMOVING, 0..1 by stem. Absent is none of it. */
+  stemsOf: (deck: DeckId) => Partial<Record<Stem, number>>;
+  /**
+   * Does this deck have stem cuts the engine has actually loaded?
+   *
+   * False on a set that predates the feature — its mapping wires none, so the column is not
+   * drawn at all rather than drawn dead. Whether the SONG has been separated is a different
+   * question and a different grey: see `stemsReady`.
+   */
+  stemLive: (deck: DeckId) => boolean;
+  /** …and whether the record on it has stems to subtract. Wired but not prepared is the
+   *  ordinary state of a deck the night before a set. */
+  stemsReady: (deck: DeckId) => boolean;
+  /**
+   * The separation of what is on this deck has landed — fill its four stem lanes.
+   *
+   * A re-send of the document with `stems: true`, and nothing else: the song, the tempo and the
+   * transport are exactly where they were, so a deck that is playing goes on playing. What
+   * changes is that `withDecks` now finds four more clips to put on it.
+   *
+   * It is a deck-level verb rather than a second `putOn` because that is what it is about — the
+   * record has not changed, only what this machine knows about it.
+   *
+   * `id` is the song it was started for, and it is checked here rather than trusted: a separation
+   * runs for minutes, and the deck may be holding something else by the time it lands.
+   */
+  stemsArrived: (deck: DeckId, id: string) => void;
   /** Can sync do its second half — put the two decks' beats together? */
   canAlign: boolean;
 
@@ -133,8 +159,8 @@ export interface DeckSet {
   clicking: boolean;
   toggleMetronome: () => void;
 
-  /** songs.yaml as it stands on disk — the CUE sheet, and what a cue is written back into. */
-  songsText: string;
+  /** mix.yaml as it stands on disk — the CUE sheet, and what a cue is written back into. */
+  mixText: string;
   /**
    * The playlist the surface names, as text — the set list the browser draws.
    *
@@ -155,6 +181,15 @@ export interface DeckSet {
   /** Send the transport to one. Nothing happens on an empty slot. */
   jumpCue: (deck: DeckId, slot: number) => void;
 
+  /**
+   * Start both decks, or stop them — the desk's Play button.
+   *
+   * Here rather than on the button because it is a transport RULE and not a click handler: play
+   * starts where the music is (`playFrom`), and a bare `transport("play")` from a shell that
+   * did not know about `TIMELINE_BASE` is exactly how Play came to do nothing at all.
+   */
+  toggleTransport: () => void;
+
   /** Put a song on a deck and send it. */
   putOn: (deck: DeckId, load: NonNullable<DeckLoads[DeckId]>) => void;
   /** Forget a deck's tempo — a new record starts at its OWN. */
@@ -168,6 +203,8 @@ export interface DeckSet {
   crossfade: (value: number) => void;
   turnEq: (deck: DeckId, band: string, dB: number) => void;
   turnFilter: (deck: DeckId, value: number) => void;
+  /** Take one instrument out of this deck's record — 0 leaves it in, 1 removes it. */
+  turnStem: (deck: DeckId, stem: Stem, cut: number) => void;
   /**
    * A knob turned in the GRAPH, on a module the engine holds no plugin for.
    *
@@ -214,14 +251,14 @@ export function useDeckSet(
   const [compiled, setCompiled] = useState<ProjectDoc | null>(null);
   const [deskError, setDeskError] = useState<string | null>(null);
   /**
-   * songs.yaml, held as TEXT rather than as a parsed object.
+   * mix.yaml, held as TEXT rather than as a parsed object.
    *
    * Because writing a cue edits it in place: the file's comments are the one worked example a
-   * reader of an m9 set gets, and a desk that reprinted the file from a parse tree would eat
+   * reader of a set gets, and a desk that reprinted the file from a parse tree would eat
    * them the first time somebody dropped a cue. The text is the thing; the markers below are a
    * reading of it.
    */
-  const [songsText, setSongsText] = useState("");
+  const [mixText, setMixText] = useState("");
   /** `undefined` until the read lands, and again for a surface naming no playlist — which is
    *  why the effect below sets it explicitly rather than leaving it at its initial value. */
   const [playlistText, setPlaylistText] = useState<string | null | undefined>(
@@ -238,14 +275,14 @@ export function useDeckSet(
       // The host's own map wins, and skips the read entirely: there is no `views/mix.yaml` in
       // an st0 song, and asking for one would be a 404 on every reload of a surface.
       const v = mapping ?? (await readMixView(project));
-      const songs = await readSongsText(project);
+      const cues = await readMixText(project);
       // Not read at all when the surface names none: there is no path to ask for, and a 404
       // per reload would say "missing" about a file nobody claimed existed.
       const list = playlist ? await readPlaylistText(playlist) : undefined;
       const doc = await api.engineDoc().catch(() => null);
       if (stop) return;
       setView(v);
-      setSongsText(songs);
+      setMixText(cues);
       setPlaylistText(list);
       setCompiled(doc);
     })();
@@ -268,10 +305,7 @@ export function useDeckSet(
   const mix = shownValue(bindingFor("crossfade"), held, live) ?? MIX_CENTRE;
   // Every song's cues, by ref. Re-read rather than kept beside the text, so the file stays the
   // one place a cue lives and the two can never disagree.
-  const cues = useMemo(
-    () => songMarkers(parseSongs(songsText).value),
-    [songsText],
-  );
+  const cues = useMemo(() => cueMarkers(parseMix(mixText).value), [mixText]);
   const canAlign = DECKS.every((d) => tempos[d]?.phase !== undefined);
   /**
    * Asked for, not necessarily happening. The desk can lose the right to a click under the
@@ -311,8 +345,8 @@ export function useDeckSet(
   derived.current = { wiring, plugins, master };
   // A cue is written a second after the press, and the write is asynchronous — so the text it
   // edits has to be the one on disk NOW, not the one from the render the finger landed in.
-  const songsRef = useRef(songsText);
-  songsRef.current = songsText;
+  const mixRef = useRef(mixText);
+  mixRef.current = mixText;
   const temposRef = useRef(tempos);
   temposRef.current = tempos;
   const dragging = useRef(false);
@@ -394,18 +428,28 @@ export function useDeckSet(
   }, [live, bindingFor]);
 
   /**
-   * Lend the graph what each tempo module is set to.
+   * Lend the graph what each tempo module is set to — BOTH of its numbers.
    *
    * The engine cannot answer this one: an `offline` module compiles to no plugin, so there is
    * nothing to watch and no id to watch it by. This hook is where the value exists — it is
    * what turns it into a clip warp — so it publishes, and the graph reads it off the Deck.
+   *
+   * A tempo node draws two: `Target BPM`, the fader, and `Source BPM`, which is a METER because
+   * it is MEASURED — the song's own tempo, as the envelope reports it. Only the first is BOUND
+   * (`views/mix.yaml` names one param per control), so the second is published by name here.
+   * Nothing else in the repo ever wrote it, and the meter sat on 0 for every song.
+   *
+   * Unconditional, including when the deck has NO tempo: putting a record on clears the fader
+   * (`clearTempo`) and the measurement arrives a moment later, so a publish skipped in between
+   * left the graph showing the OUTGOING song's numbers — the one moment somebody is looking at
+   * the node to see what they just loaded.
+   *
+   * Both rules live in `offlinePublish`, beside the other readings of the same file, where a
+   * test can hold them. See ../docs/bpm.md.
    */
   useEffect(() => {
-    for (const b of wiring.bindings) {
-      if (b.pluginId) continue; // a real plugin — the engine reports that one itself
-      const t = tempos[b.control.id.split(".")[0] as DeckId];
-      if (t) deck.setModuleParam(b.module, b.param, t.target);
-    }
+    for (const p of offlinePublish(wiring.bindings, tempos, TEMPO_SOURCE_PARAM))
+      deck.setModuleParam(p.module, p.param, p.value);
   }, [wiring, tempos, deck.setModuleParam]);
 
   /** Move a control bound to a REAL plugin param. One message, per pixel. */
@@ -497,7 +541,26 @@ export function useDeckSet(
       return !!x && hasPlugin(x, plugins);
     },
 
-    songsText,
+    // The stem cuts ride the same two rails as the EQ — an optimistic value over the engine's —
+    // because they are the same kind of thing: a real plugin param, sent per pixel. Each names
+    // its OWN module, where the EQ's three share one, so `stemLive` asks about any of the four.
+    stemsOf: (deckId) =>
+      Object.fromEntries(
+        STEMS.map((s) => {
+          const id = stemControl(deckId, s);
+          return [s, shownValue(bindingFor(id), eq[id], live)];
+        }).filter(([, v]) => v !== undefined),
+      ),
+    stemLive: (deckId) =>
+      STEMS.some((s) => {
+        const x = bindingFor(stemControl(deckId, s));
+        return !!x && hasPlugin(x, plugins);
+      }),
+    // The FILE's half of the same question, and a different sentence for the person: the knobs
+    // are wired, but this record has never been separated, so there is nothing to take out of it.
+    stemsReady: (deckId) => !!loads[deckId]?.stems,
+
+    mixText,
     playlistText,
 
     cuesOf: (deckId) => {
@@ -518,13 +581,13 @@ export function useDeckSet(
 
       // The text on disk is edited, never reprinted from a parse — the file's comments are the
       // worked example, and losing them to a cue would be a poor trade.
-      const text = withMarkers(songsRef.current, ref, next);
-      setSongsText(text);
-      void writeSongsText(project, text).catch((e: Error) =>
+      const text = withMarkers(mixRef.current, ref, next);
+      setMixText(text);
+      void writeMixText(project, text).catch((e: Error) =>
         // Said out loud: the button has already gone coloured, so a silent failure would leave
         // a cue that is there until the next reload and then is not.
         setDeskError(
-          `le repère n'a pas pu être écrit dans ${SONGS_FILE} : ${e.message}`,
+          `le repère n'a pas pu être écrit dans ${MIX_FILE} : ${e.message}`,
         ),
       );
     },
@@ -538,18 +601,50 @@ export function useDeckSet(
       deck.engine.seek(transportAt(at, temposRef.current[deckId]));
     },
 
+    toggleTransport: () => {
+      const e = deck.engine;
+      if (!e) return;
+      if (deck.playing) return e.transport("stop");
+      // The RAW anchor, not `drawNow`: this decides whether to move the transport, and the
+      // steered reader is allowed to be up to 10% out for the sake of drawing smoothly.
+      const from = playFrom(deck.playhead.current.seconds);
+      if (from !== null) e.seek(from);
+      e.transport("play");
+    },
+
     putOn: (deckId, load) => {
       setDeskError(null);
-      const empty = !loadsRef.current.deckA && !loadsRef.current.deckB;
       const next: DeckLoads = { ...loadsRef.current, [deckId]: load };
       setLoads(next);
       commitRef.current(latest.current, next);
-      // The FIRST song moves the transport to where the music is. A deck's clip does not start
-      // at zero — it starts a `TIMELINE_BASE` in, so that slowing it down has somewhere earlier
-      // to go — and a transport left at zero would play ten minutes of nothing. Only when both
-      // decks were empty: doing it on the second load would yank the deck already playing back
-      // to its top.
-      if (empty && deck.engine) deck.engine.seek(TIMELINE_BASE);
+      /**
+       * …and put the transport where the music is, if it is not already.
+       *
+       * This asked `empty` — "were both decks unloaded before this one?" — which answers a
+       * question about THIS TAB's history rather than about where the transport is. Reload the
+       * page and the decks come back empty while the engine still holds their clips, so the
+       * second song of the evening finds `empty` false, nothing seeks, and Play rolls silently
+       * through the ten minutes of nothing before `TIMELINE_BASE`.
+       *
+       * Asking the transport instead is both simpler and safer: it seeks exactly when the
+       * position is in that dead zone, and it can never yank a playing deck back to its top —
+       * a deck that is playing is already past `TIMELINE_BASE`, so `playFrom` answers null.
+       */
+      const from = playFrom(deck.playhead.current.seconds);
+      if (from !== null && deck.engine) deck.engine.seek(from);
+    },
+    stemsArrived: (deckId, id) => {
+      const load = loadsRef.current[deckId];
+      // Off the REF and against the id it was started for: a separation runs for minutes, so the
+      // record may have been taken off and another put on. Filling the lanes then would put four
+      // clips of the wrong song's bass under the one playing, silently.
+      if (!load || load.stems || load.id !== id) return;
+      const next: DeckLoads = {
+        ...loadsRef.current,
+        [deckId]: { ...load, stems: true },
+      };
+      setLoads(next);
+      commitRef.current(latest.current, next);
     },
     clearTempo: (deckId) => setFaders((f) => ({ ...f, [deckId]: undefined })),
     measured: (deckId, tempo) => {
@@ -607,6 +702,11 @@ export function useDeckSet(
       const id = `${deckId}.filter`;
       setEq((e) => ({ ...e, [id]: value }));
       pushParam(id, value);
+    },
+    turnStem: (deckId, stem, cut) => {
+      const id = stemControl(deckId, stem);
+      setEq((e) => ({ ...e, [id]: cut }));
+      pushParam(id, cut);
     },
 
     fromGraph: (module, name, value) => {

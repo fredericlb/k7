@@ -1,0 +1,21 @@
+{
+  "params": [
+    {
+      "name": "Cut",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    }
+  ],
+  "nodes": [
+    {
+      "type": "sub",
+      "in": [0, "Cut"],
+      "out": "n0"
+    },
+    {
+      "type": "gain",
+      "in": ["n0"]
+    }
+  ]
+}

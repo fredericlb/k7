@@ -1,6 +1,6 @@
 // separateAudio.ts — the arithmetic a stem separation needs, with no model and no disk in it:
 // how a long file is cut into the fixed-size windows the model accepts, how the overlapping
-// results are folded back into one signal, and what a float WAV looks like on disk.
+// results are folded back into one signal, and what a 24-bit WAV looks like on disk.
 // Kept apart from separate.ts so all of it is testable without ONNX Runtime installed.
 // See docs/stemSplit.md.
 
@@ -19,11 +19,13 @@ export const OVERLAP = 0.25;
 /** …so a window starts this far after the previous one. */
 export const HOP = Math.round(SEGMENT * (1 - OVERLAP));
 
-/** The four sources the model returns, IN THE ORDER it returns them. The output tensor is
- *  `[1, 4, 2, N]` and nothing in it says which index is which — this list is that knowledge,
- *  and getting it wrong silently swaps two stems. */
-export const STEMS = ["drums", "bass", "other", "vocals"] as const;
-export type Stem = (typeof STEMS)[number];
+// The four sources the model returns, IN THE ORDER it returns them. `@studio/song`'s now: a set's
+// graph declares a lane per stem and the desk loads a clip per lane, and neither of those can
+// import this file. Imported AND re-exported — every caller here already looks for the word in
+// this module, and the code below counts on it too.
+import { STEMS, type Stem } from "@studio/song/stems";
+
+export { STEMS, type Stem };
 
 /**
  * Where each window starts.
@@ -120,39 +122,87 @@ export function deinterleave(
   return out;
 }
 
+/** Bytes a 24-bit sample takes, spelled once — every size below is a multiple of it. */
+const BYTES = 3;
+
+/** The largest magnitude a 24-bit sample can carry, and what ±1.0 maps onto. */
+const FULL_SCALE = 0x7fffff;
+
+/** One sample, three bytes, little-endian two's complement — Buffer has no writeInt24LE. */
+function write24(buf: Buffer, at: number, sample: number): void {
+  const n = Math.max(
+    -0x800000,
+    Math.min(FULL_SCALE, Math.round(sample * FULL_SCALE)),
+  );
+  const u = n < 0 ? n + 0x1000000 : n;
+  buf[at] = u & 0xff;
+  buf[at + 1] = (u >> 8) & 0xff;
+  buf[at + 2] = (u >> 16) & 0xff;
+}
+
 /**
- * A 32-bit float WAV, header and all.
+ * The loudest sample across every channel. What tells the caller a stem had to be CLAMPED.
  *
- * Float rather than 16-bit because a stem is not a deliverable: it goes back through a chain,
- * and rounding the model's output on the way out would be a loss taken for no one's benefit.
+ * The model is under no obligation to stay inside ±1 — it is not reconstructing the mix, it is
+ * guessing at one instrument — and a float file carried an overshoot where an integer one cannot.
+ * So the overshoot is measured and said out loud rather than discovered as a click.
+ */
+export function peakOf(channels: Float32Array[]): number {
+  let peak = 0;
+  for (const ch of channels)
+    for (const v of ch) {
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+    }
+  return peak;
+}
+
+/**
+ * A 24-bit PCM WAV, header and all.
+ *
+ * **24-bit integer rather than float, because a stem's consumer is a DECK.** Tracktion reads
+ * WAV, AIFF and its own float format straight off the disk and decodes everything else into a
+ * cached proxy first (`needsCachedProxy`, `tracktion_AudioFile.cpp`) — so a compressed stem
+ * would trade a quarter of the volume for five decodes at the moment somebody puts a record on,
+ * which is the worst moment there is. Among the formats that avoid that, 24 bits is the small
+ * one: a quarter off what float32 wrote, against a quantisation floor at −144 dBFS that reaches
+ * the mix only in proportion to how much of the stem is being subtracted.
+ *
+ * The old comment here said float was right because "a stem is not a deliverable: it goes back
+ * through a chain". That was true when a chain was the only thing downstream, and stopped being
+ * true when the desk grew its four knobs (packages/ui-turntables/docs/stems.md).
+ *
+ * Not dithered. Truncation distortion at 24 bits sits below the noise of every converter this
+ * will ever come out of, and dither would put a floor there deliberately instead.
+ *
  * Written by hand because a 44-byte header is smaller than the argument for a dependency.
  */
-export function wavFloat32(
+export function wavPcm24(
   channels: Float32Array[],
   sampleRate = SAMPLE_RATE,
 ): Buffer {
   const frames = channels[0]?.length ?? 0;
   const n = channels.length;
-  const dataBytes = frames * n * 4;
+  const dataBytes = frames * n * BYTES;
   const buf = Buffer.alloc(44 + dataBytes);
   buf.write("RIFF", 0, "ascii");
   buf.writeUInt32LE(36 + dataBytes, 4);
   buf.write("WAVE", 8, "ascii");
   buf.write("fmt ", 12, "ascii");
   buf.writeUInt32LE(16, 16); // PCM-style fmt chunk length
-  buf.writeUInt16LE(3, 20); // WAVE_FORMAT_IEEE_FLOAT
+  buf.writeUInt16LE(1, 20); // WAVE_FORMAT_PCM
   buf.writeUInt16LE(n, 22);
   buf.writeUInt32LE(sampleRate, 24);
-  buf.writeUInt32LE(sampleRate * n * 4, 28); // byte rate
-  buf.writeUInt16LE(n * 4, 32); // block align
-  buf.writeUInt16LE(32, 34); // bits per sample
+  buf.writeUInt32LE(sampleRate * n * BYTES, 28); // byte rate
+  buf.writeUInt16LE(n * BYTES, 32); // block align
+  buf.writeUInt16LE(24, 34); // bits per sample
   buf.write("data", 36, "ascii");
   buf.writeUInt32LE(dataBytes, 40);
   let at = 44;
   for (let i = 0; i < frames; i++)
     for (let c = 0; c < n; c++) {
-      buf.writeFloatLE(channels[c][i], at);
-      at += 4;
+      write24(buf, at, channels[c][i]);
+      at += BYTES;
     }
   return buf;
 }

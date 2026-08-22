@@ -17,6 +17,7 @@ import type {
   ProjectDoc,
   TrackDoc,
 } from "@studio/engine-protocol/project";
+import { STEMS_DIR, type Stem, stemFile, stemLaneOf } from "@studio/song/stems";
 import { alignDelay, BEATS_PER_BAR } from "./beats";
 import type { DeckModule } from "./graph";
 
@@ -39,6 +40,18 @@ export interface DeckLoad {
   artist: string | null;
   /** The médiathèque id, so a surface can tell which set-list row is on which deck. */
   id: string;
+  /**
+   * Whether this song has been SEPARATED — whether `stems/` holds its four files.
+   *
+   * A fact about the machine's disk, so it cannot be derived here: the catalogue does not
+   * descend into `stems/` (`scanSongs` takes the first audio file in a folder and stops), and a
+   * browser cannot look. Whoever resolves the load asks, and answers here.
+   *
+   * False leaves the deck's four stem lanes EMPTY, which is exactly right: an empty lane
+   * subtracts nothing, so a record nobody prepared plays as itself and its stem knobs are the
+   * ones that do nothing rather than the record being the thing that fails to arrive.
+   */
+  stems?: boolean;
 }
 
 export type DeckLoads = Record<DeckId, DeckLoad | null>;
@@ -78,6 +91,33 @@ export const PITCH_RANGE = 0.16;
  * transport's.
  */
 export const TIMELINE_BASE = 600;
+
+/**
+ * Where PLAY should start the transport, or null to roll from where it already is.
+ *
+ * The cost named above, made harmless. A deck's clip begins at `TIMELINE_BASE`, so the first ten
+ * minutes of this timeline are guaranteed silence — and a transport left anywhere in them turns
+ * Play into a button that visibly does nothing: the playhead advances, the meters stay dead, and
+ * nothing on screen says why. Measured on a real set: master at -100 dB from 0, -11.8 dB from
+ * `TIMELINE_BASE`, same document and same graph.
+ *
+ * `putOn` already seeks here on the FIRST song, and that is not enough on its own, because it
+ * fires on a browser's idea of what is loaded. Reload the tab and the decks come back empty
+ * while the engine still holds the clips (the file service re-sends the document it kept); load
+ * a second song into that, and `empty` is false, so nothing seeks. The desk then plays from
+ * wherever the transport was left — which after a reload is usually zero.
+ *
+ * So the rule lives on PLAY, where it is a fact about the timeline rather than about a sequence
+ * of gestures: below the music, start at the music.
+ *
+ * Deliberately only the BEFORE case. Past the end of both songs is also silence, and is left
+ * alone: it is a state a DJ can see on the waveform and fix with a cue, where being before the
+ * start shows an empty strip that looks the same as a broken engine. Rewinding somebody to the
+ * top of the set because they ran off the end of one record would be the worse surprise.
+ */
+export function playFrom(playheadSeconds: number): number | null {
+  return playheadSeconds < TIMELINE_BASE ? TIMELINE_BASE : null;
+}
 
 /**
  * The module a deck's tempo BELONGS to, and the param the fader is.
@@ -367,6 +407,19 @@ export function gainToDb(gain: number): number {
 export const levelId = (deck: DeckId): string => `${deck}:level`;
 
 /**
+ * One stem's file, beside the record it was separated out of: `…/stems/bass.wav`.
+ *
+ * String work rather than a path join, because this runs in a BROWSER and the path it is given
+ * is the engine machine's — which may be a Windows one. Both separators are accepted on the far
+ * side, so the last segment is replaced and the rest passes through untouched.
+ */
+export function stemSource(master: string, stem: Stem): string {
+  const cut = Math.max(master.lastIndexOf("/"), master.lastIndexOf("\\"));
+  const folder = cut < 0 ? "" : master.slice(0, cut + 1);
+  return `${folder}${STEMS_DIR}/${stemFile(stem)}`;
+}
+
+/**
  * The document that plays both decks.
  *
  * Both tracks are ALWAYS present, loaded or not. The engine diffs what it is sent, so keeping
@@ -405,9 +458,19 @@ export function withDecks(
       ...compiled.tracks,
       metronomeTrack(click ? tempos[click] : undefined, !!click),
     ].map((track) => {
-      const load = loads[track.id as DeckId];
+      // A deck's own lane plays the record; a stem lane plays one of the files the separation
+      // wrote beside it. Both are filled from the SAME load, and everything that decides where
+      // a clip sits is computed once below — a stem that drifted by one sample against the
+      // record would turn the subtraction into a comb filter.
+      const stem = stemLaneOf(track.id, DECKS);
+      const deck = (stem?.deck ?? track.id) as DeckId;
+      const load = loads[deck];
       if (!load) return track;
-      const tempo = tempos[track.id as DeckId];
+      // A song nobody has separated leaves its stem lanes EMPTY, and an empty lane subtracts
+      // nothing: the deck plays the record exactly as it would have. Which is what makes the
+      // preparation optional rather than a gate in front of putting a record on.
+      if (stem && !load.stems) return track;
+      const tempo = tempos[deck];
       const warp = tempo && warpFor(tempo);
       return {
         ...track,
@@ -416,7 +479,7 @@ export function withDecks(
             id: `${track.id}-clip`,
             type: "audio",
             name: load.title,
-            source: load.path,
+            source: stem ? stemSource(load.path, stem.stem) : load.path,
             // The headroom, sync's beat alignment and the fader's slip, in one number — see
             // `startSeconds`. Always present now: the base is never zero.
             start: clipStartBeats(tempo),

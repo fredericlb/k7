@@ -2,22 +2,24 @@
 // the project's own and the ones inherited from a workspace's shared `_modules/io`, each
 // with a meter.
 //
-// A dialog rather than a settings PAGE, unlike its neighbours in the cog menu: it is a
-// thing you look at while plugging something in, and it has to be dismissable in one key.
+// A TAB of the settings panel (SettingsPanel.tsx), which supplies the column, the title and
+// the ✕. It was a dialog over the shell — the one cog entry that was not a page — because it
+// is a thing you look at while plugging something in and want gone in one key. A docked panel
+// keeps that: Escape still closes it, and now it does not cover what you are metering.
 //
 // The levels do not ride the state frame. Metering an interface input ENABLES its device
 // engine-side (see EngineHost::channelLevelsDb), so it is polled by request, only while
 // this is on screen — the panel asks, the engine answers, and nothing pays for it after
 // the dialog closes.
 
-import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineClient } from "@studio/engine-browser";
 import { INPUT_VU_MAX_DB, INPUT_VU_MIN_DB } from "@studio/engine-browser/store";
-import { ArrowDownToLine, ArrowUpFromLine, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import type { IoPort } from "../types";
+import { StemsSetting } from "./StemsSetting";
 
 const POLL_MS = 100; // ~10 Hz: a meter reads as live, and each frame enables devices engine-side
 
@@ -190,11 +192,12 @@ function PortRow({
 
 export function IoPanel({
   engine,
-  onClose,
+  onRun,
 }: {
   /** Null when the engine is not connected: the list still shows, the meters stay dark. */
   engine: EngineClient | null;
-  onClose: () => void;
+  /** For the stem section at the bottom, which writes its preference through a command. */
+  onRun: (line: string) => Promise<void>;
 }) {
   const [ports, setPorts] = useState<IoPort[] | null>(null);
   const [levels, setLevels] = useState<{
@@ -215,11 +218,9 @@ export function IoPanel({
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Escape belongs to the PANEL now, which closes whichever tab is showing — see SettingsPanel.
+  // Two listeners for one key would have closed it twice, which is the same as once until
+  // something else wants the key.
 
   const inputs = useMemo(
     () => (ports ?? []).filter((p) => p.dir === "in"),
@@ -283,54 +284,41 @@ export function IoPanel({
   );
 
   return (
-    // The backdrop closes it, like every other dismissable surface here.
-    <div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onPointerDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="flex max-h-full w-[28rem] max-w-full flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-xl">
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <span className="flex-1 text-sm font-medium">I/O</span>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onClose}
-            aria-label="close"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-          {ports === null ? (
-            <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-              …
-            </div>
-          ) : (
-            <>
-              {section(
-                "inputs",
-                <ArrowDownToLine className="h-3 w-3" />,
-                inputs,
-                (_p, i) => norm(levels.inputs[i] ?? -100),
-                true, // …and their tuners
-              )}
-              {/* Every out sink shares one meter: what leaves is the master mix, and
-                  Tracktion gives an output DEVICE no measurer to tell them apart. */}
-              {section(
-                "outputs",
-                <ArrowUpFromLine className="h-3 w-3" />,
-                outputs,
-                () => norm(levels.master),
-              )}
-            </>
-          )}
-        </div>
-        {!engine && (
-          <div className="border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-            engine not connected — levels are idle
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+        {ports === null ? (
+          <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+            …
           </div>
+        ) : (
+          <>
+            {section(
+              "inputs",
+              <ArrowDownToLine className="h-3 w-3" />,
+              inputs,
+              (_p, i) => norm(levels.inputs[i] ?? -100),
+              true, // …and their tuners
+            )}
+            {/* Every out sink shares one meter: what leaves is the master mix, and
+                Tracktion gives an output DEVICE no measurer to tell them apart. */}
+            {section(
+              "outputs",
+              <ArrowUpFromLine className="h-3 w-3" />,
+              outputs,
+              () => norm(levels.master),
+            )}
+            {/* Not a port, and it earns its place here anyway: this tab is what this MACHINE
+                does with audio, and which chain it separates a record with is the same kind of
+                standing answer as which interface it opens. */}
+            <StemsSetting onRun={onRun} />
+          </>
         )}
       </div>
+      {!engine && (
+        <div className="shrink-0 border-t border-border px-3 py-1.5 text-[10px] text-muted-foreground">
+          engine not connected — levels are idle
+        </div>
+      )}
     </div>
   );
 }

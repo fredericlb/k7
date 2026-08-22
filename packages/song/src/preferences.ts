@@ -41,6 +41,20 @@ export interface Preferences {
    */
   inputPairs: number[];
   editor: EditorPref;
+  /**
+   * The chain that SEPARATES a record into stems — `@st0/stems`.
+   *
+   * Here rather than in a project, and asked for ONCE rather than at each use. Which module
+   * separates and which model it wants is a fact about the library and the machine — the same
+   * answer for every playlist, every set and every clip — so a screen that asked for it would be
+   * asking the same question of the same person every time. A set still says WHETHER its desk
+   * catches up on an unprepared record (`stems: true` on its surface); it no longer says which
+   * chain, because that was never its business.
+   *
+   * Optional: a machine that separates nothing has no chain, and every caller says so with the
+   * command that sets one rather than failing halfway through a set list.
+   */
+  stemsChain?: string;
 }
 
 // The defaults, in ONE place — every other module builds on this rather than its own literal.
@@ -92,6 +106,10 @@ export function normalizePreferences(v: any): Preferences {
         ),
       ].sort((a: number, b: number) => a - b);
     if (typeof v.editor?.vim === "boolean") p.editor.vim = v.editor.vim; // an explicit boolean only — undefined must stay "unset", not read as off
+    // Trimmed, because it is typed by hand as often as it is picked, and a trailing space in a
+    // chain ref resolves to nothing with no hint as to why.
+    if (typeof v.stemsChain === "string" && v.stemsChain.trim())
+      p.stemsChain = v.stemsChain.trim();
   }
   return p;
 }
@@ -130,6 +148,15 @@ export function setInputPair(channel: number, stereo: boolean): Preferences {
   const first = channel % 2 === 1 ? channel : channel - 1;
   const rest = p.inputPairs.filter((n) => n !== first);
   p.inputPairs = stereo ? [...rest, first].sort((a, b) => a - b) : rest;
+  savePreferences(p);
+  return p;
+}
+
+/** Remember which chain separates. An empty ref clears it — "this machine separates nothing". */
+export function setStemsChain(ref: string): Preferences {
+  const p = loadPreferences();
+  const want = ref.trim();
+  p.stemsChain = want || undefined;
   savePreferences(p);
   return p;
 }

@@ -29,6 +29,8 @@ export function Turntables({
   /** Which playlist the surface names — the songs its browser lists. Carried through rather
    *  than read here: `useDeckSet` has already read the file, and this only names it. */
   playlist,
+  /** Whether this desk separates a record handed to it unprepared — see MixView's `stems`. */
+  stems,
   /** The surface's own file, so the message can name what to edit. */
   file,
 }: {
@@ -37,6 +39,7 @@ export function Turntables({
   set: DeckSet;
   mapping: Mapping | undefined;
   playlist?: string;
+  stems?: boolean;
   file: string;
 }) {
   const missing = unmappedControls(mapping);
@@ -69,6 +72,7 @@ export function Turntables({
       deck={deck}
       set={set}
       playlist={playlist}
+      stems={stems}
       file={file}
     />
   );

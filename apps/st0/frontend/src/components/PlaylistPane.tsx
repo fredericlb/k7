@@ -27,11 +27,13 @@ import {
   Play,
   Plus,
   Search,
+  Split,
+  Square,
   Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mediatek } from "../api";
+import { api, mediatek } from "../api";
 
 /**
  * How many search hits are drawn at once.
@@ -42,12 +44,39 @@ import { mediatek } from "../api";
  */
 const MAX_HITS = 40;
 
+/** How often a running separation is asked how it is getting on. It reports per WINDOW — a few
+ *  seconds apart on a CPU — so anything faster asks the same number twice. */
+const PREP_POLL_MS = 2000;
+
+/**
+ * Separating the whole set list, as it is going.
+ *
+ * One object rather than five pieces of state, because every tick moves several of them at once
+ * and a half-updated bar is a bar that lies about where it is.
+ */
+interface Run {
+  /** Lines with audio to separate, and how many are behind us. */
+  total: number;
+  done: number;
+  /** What is being worked on now, and how far its job says it is. */
+  label: string;
+  percent: number | null;
+  /** Already prepared, so nothing was spent on them. Counted apart from `done` because that
+   *  distinction is the whole of what makes re-running this cheap. */
+  skipped: number;
+  /** One line per song that could not be done — never a reason to stop the other eleven. */
+  notes: string[];
+  /** Set when the loop has left, whether it finished, was stopped or gave up. */
+  over: boolean;
+}
+
 export function PlaylistPane({
   items,
   songs,
   onAdd,
   onFiled,
   addRefusal,
+  onRun,
 }: {
   /** The lines, as the text on the left currently parses. */
   items: PlaylistItem[];
@@ -68,6 +97,9 @@ export function PlaylistPane({
   /** Why `onAdd` would not work right now — the file's `items:` is in a shape the text-level
    *  append cannot extend. Empty when it can. */
   addRefusal?: string;
+  /** Dispatch a command line — the stem bar sends you to the settings with one. Absent drops
+   *  the button and keeps the sentence, which is still the thing to act on. */
+  onRun?: (line: string) => Promise<void>;
 }) {
   const rows = useMemo(() => resolveItems(items, songs), [items, songs]);
 
@@ -216,6 +248,124 @@ export function PlaylistPane({
   const cannotAdd =
     addRefusal || (songs === null ? "morceaux pas encore chargés" : "");
 
+  // --- separating the whole set list --------------------------------------------------
+  //
+  // The same work as `playlist stems <playlist> <chaîne>`, driven from here so it can be
+  // WATCHED. That verb reports its lines when it is done, which for thirty songs is an hour of
+  // nothing on screen; this is one `POST /stems` per line with the job polled between, so the
+  // bar says which song and how far into it.
+  //
+  // SEQUENTIAL, and that is not a simplification: two separations at once on one machine are two
+  // hours of arithmetic competing for the same cores and finishing no sooner — the rule
+  // `runColdPasses` already states for the command.
+  const [separating, setSeparating] = useState(false);
+  /**
+   * The chain THIS MACHINE separates with, or null when it has never been told.
+   *
+   * Read and never asked for: which module separates and which model it wants is one answer for
+   * the machine, set once with `system stems` and kept in `~/.studio/preferences.yaml`. This
+   * screen used to put a picker here, which asked the same question of the same person every time
+   * they prepared a set list. `undefined` is "not read yet", which is a third state and reads
+   * differently on the button.
+   */
+  const [chain, setChain] = useState<string | null | undefined>(undefined);
+  const [run, setRun] = useState<Run | null>(null);
+  /** Read by the loop between two songs and between two polls — the Stop button sets it. A ref
+   *  and not state: the loop is closed over the render it started in and would never see one. */
+  const stopRef = useRef(false);
+  // The loop outlives this component being closed (the panel is a toggle), so leaving is the
+  // same event as pressing Stop. What it does not outlive is worth being explicit about: nothing
+  // here cancels the SEPARATION, which is a job on the machine and goes on to the end.
+  useEffect(
+    () => () => {
+      stopRef.current = true;
+    },
+    [],
+  );
+
+  // Asked for when the bar opens rather than on mount: this is the one call on this screen that
+  // is of no use to somebody who never presses the button. Re-asked on every opening, because the
+  // settings panel is one click away and a stale "separates nothing" would send you back to it.
+  useEffect(() => {
+    if (!separating) return;
+    api
+      .preferences()
+      .then((p) => setChain(p.stemsChain))
+      // A file service that will not answer is not a machine with no chain, but the button can do
+      // nothing either way — and the run itself says which it was, in the server's own words.
+      .catch(() => setChain(null));
+  }, [separating]);
+
+  /**
+   * Separate every line that has audio, one after another.
+   *
+   * Two kinds of failure, told apart by the status and treated differently on purpose:
+   *
+   * - **the song** (404 — this machine has not pulled it) is a note and the loop goes on. One
+   *   song missing must not cost the other eleven their preparation.
+   * - **the run** (400 or 409 — the chain does not separate, no model, no project open) stops
+   *   everything at once. It is the same answer for every line, so carrying on would be twelve
+   *   identical refusals and no work done.
+   */
+  const separateAll = useCallback(async () => {
+    const targets = rows
+      .map((r) => ({ path: fileOf(r), label: itemLabel(r) }))
+      .filter((t): t is { path: string; label: string } => !!t.path);
+    stopRef.current = false;
+    const notes: string[] = [];
+    let done = 0;
+    let skipped = 0;
+    const say = (label: string, percent: number | null, over = false) =>
+      setRun({
+        total: targets.length,
+        done,
+        label,
+        percent,
+        skipped,
+        notes: [...notes],
+        over,
+      });
+    if (!targets.length) return say("", null, true);
+
+    for (const t of targets) {
+      if (stopRef.current) break;
+      say(t.label, null);
+      try {
+        const first = await api.prepareStems(t.path);
+        if (first.ready) {
+          skipped += 1;
+          done += 1;
+          continue;
+        }
+        let job = first.job;
+        while (job && !job.done) {
+          say(t.label, job.percent);
+          await new Promise((r) => setTimeout(r, PREP_POLL_MS));
+          if (stopRef.current) break;
+          try {
+            job = await api.separation(job.id);
+          } catch {
+            // The registry sweeps a finished job after five minutes, so a poll that 404s is
+            // usually a run that landed. The question underneath — are the stems on disk — is
+            // the other route's, so one trip back through it answers it properly.
+            const again = await api.prepareStems(t.path);
+            if (again.ready) break;
+            job = again.job;
+          }
+        }
+        if (job?.failed) notes.push(`${t.label} : ${job.error ?? "échec"}`);
+        done += 1;
+      } catch (e) {
+        const err = e as Error & { status?: number };
+        notes.push(`${t.label} : ${err.message}`);
+        // Not this song's problem but the run's — see the docblock.
+        if (err.status === 400 || err.status === 409) break;
+        done += 1;
+      }
+    }
+    say("", null, true);
+  }, [rows, fileOf]);
+
   return (
     <section className="flex h-full min-h-0 flex-col">
       {/* Off screen and never controlled by React: `src` and `play()` are imperative, and a
@@ -280,11 +430,43 @@ export function PlaylistPane({
         >
           <Search className="mr-1 h-4 w-4" /> Chercher un morceau
         </Button>
+        {/* The night-before job. Here rather than on the desk because it is about the SET LIST
+            and not about a record: the desk catches up on the one song you just put on, this
+            prepares the twelve you are going to. */}
+        <Button
+          size="sm"
+          variant={separating ? "default" : "secondary"}
+          disabled={!playable}
+          title={
+            playable
+              ? "Séparer chaque morceau en batterie / basse / reste / voix, pour pouvoir en retirer un sur le pupitre"
+              : "aucune ligne de cette playlist n'a d'audio à séparer"
+          }
+          onClick={() => setSeparating((s) => !s)}
+        >
+          <Split className="mr-1 h-4 w-4" /> Séparer les stems
+        </Button>
         <span className="text-xs text-muted-foreground">
           {rows.length} ligne{rows.length > 1 ? "s" : ""}
           {playable === rows.length ? "" : ` · ${playable} jouable(s)`}
         </span>
       </header>
+
+      {/* The separation bar. Above the list like the search, and for the same reason: what it is
+          working through stays visible under it. */}
+      {separating ? (
+        <StemsBar
+          chain={chain}
+          playable={playable}
+          run={run}
+          onStart={() => void separateAll()}
+          onStop={() => {
+            stopRef.current = true;
+          }}
+          onSettings={onRun && (() => void onRun("ui settings io"))}
+          onClose={() => setSeparating(false)}
+        />
+      ) : null}
 
       {uploading ? (
         <p className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">
@@ -502,5 +684,144 @@ export function PlaylistPane({
         </span>
       </footer>
     </section>
+  );
+}
+
+/**
+ * Preparing the whole set list: which chain, and how far it has got.
+ *
+ * A bar rather than a dialogue, for the reason the search above it is one too — what it is
+ * working through has to stay visible under it, and this runs for an hour. Its own component
+ * because the arithmetic of a two-level progress (song i of n, and how far into song i) is worth
+ * reading in one place rather than inlined among the set list's own rows.
+ */
+function StemsBar({
+  chain,
+  playable,
+  run,
+  onStart,
+  onStop,
+  onSettings,
+  onClose,
+}: {
+  /** The chain this MACHINE separates with: a ref, `null` for "never told", `undefined` while
+   *  the preference is being read. Shown and never chosen — see the state it comes from. */
+  chain: string | null | undefined;
+  /** How many lines have audio — what the run will actually go through. */
+  playable: number;
+  run: Run | null;
+  onStart: () => void;
+  onStop: () => void;
+  /** Open the settings, where the chain is set. Absent in a host with no command bar. */
+  onSettings?: () => void;
+  onClose: () => void;
+}) {
+  const busy = !!run && !run.over;
+  /**
+   * The bar's fill, 0..1 — songs finished PLUS how far into the one in hand.
+   *
+   * Both halves matter and neither alone is honest: a bar that only counted songs would sit
+   * still for the four minutes of each one, and a bar that only showed the current job's percent
+   * would go back to zero twelve times.
+   */
+  const at = run
+    ? Math.min(1, (run.done + (run.percent ?? 0) / 100) / (run.total || 1))
+    : 0;
+
+  return (
+    <div className="flex shrink-0 flex-col gap-2 border-b bg-muted/30 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <Split className="h-4 w-4 shrink-0 text-muted-foreground" />
+        {/* WHICH chain separates is not asked here, and that is the point: it is one answer for
+            the machine, set once (`system stems`) and shown so you can see which one is about to
+            run. A picker here asked the same question of the same person at every set list. */}
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+          {chain === undefined ? "…" : (chain ?? "aucune chaîne")}
+        </span>
+        {busy ? (
+          <Button size="sm" variant="secondary" onClick={onStop}>
+            <Square className="mr-1 h-3.5 w-3.5" /> Arrêter
+          </Button>
+        ) : (
+          <Button size="sm" disabled={!chain || !playable} onClick={onStart}>
+            Lancer ({playable})
+          </Button>
+        )}
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 shrink-0"
+          aria-label="Fermer"
+          onClick={onClose}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {/* Told nothing yet: the one sentence that unblocks it, and the way there. Not a picker —
+          the machine is asked this once, not once per set list. */}
+      {chain === null ? (
+        <p className="text-xs text-muted-foreground">
+          Cette machine ne sait pas encore séparer. Choisissez la chaîne une
+          fois dans les réglages, sous I/O — ou{" "}
+          <span className="font-mono">system stems @st0/stems</span>.
+          {onSettings ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="ml-2 h-6"
+              onClick={onSettings}
+            >
+              Réglages
+            </Button>
+          ) : null}
+        </p>
+      ) : null}
+
+      {/* Before anything has been asked for: what this costs, said up front. A person who
+          presses Lancer on twelve songs without knowing that should not have to find out by
+          watching. */}
+      {run || chain === null ? null : (
+        <p className="text-xs text-muted-foreground">
+          Chaque morceau prend plusieurs minutes, un à la fois. Ceux qui sont
+          déjà séparés sont sautés, et une séparation interrompue reprend là où
+          elle en était — relancer ne coûte rien.
+        </p>
+      )}
+
+      {run ? (
+        <>
+          {/* A div with the role rather than a <progress>: the native element cannot be drawn
+              as the flat rule this shell uses everywhere else, and the role plus its three
+              values is exactly what a screen reader wants from either. */}
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={run.total}
+            aria-valuenow={run.done}
+            className="h-1 w-full overflow-hidden rounded bg-border"
+          >
+            <div
+              className="h-full bg-foreground transition-[width] duration-300"
+              style={{ width: `${Math.round(at * 100)}%` }}
+            />
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {run.over
+              ? `terminé : ${run.done}/${run.total}` +
+                (run.skipped ? ` · ${run.skipped} déjà séparé(s)` : "")
+              : `${run.done + 1}/${run.total} · ${run.label}` +
+                (run.percent == null ? " …" : ` · ${run.percent}%`)}
+          </p>
+          {/* Never swallowed: a song the machine has not pulled, or one the model choked on,
+              is exactly what somebody needs to see after leaving this running overnight. */}
+          {run.notes.map((n) => (
+            <p key={n} className="truncate text-xs text-destructive" title={n}>
+              {n}
+            </p>
+          ))}
+        </>
+      ) : null}
+    </div>
   );
 }

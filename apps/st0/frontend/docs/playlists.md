@@ -5,26 +5,73 @@ dans [`packages/song/docs/playlists.md`](../../../../packages/song/docs/playlist
 page-ci est l'écran.
 
 ```
-cog ▸ Playlists          la liste des .yaml de _playlists/
-   └─ une playlist       ┌──────────────────┬────────────────────┐
-                         │ le texte YAML    │ les lignes,        │
-                         │ (YamlPane)       │ résolues et jouables│
-                         └──────────────────┴────────────────────┘
+                                        ┌─ panneau, à DROITE ──┐
+cog ▸ Playlists   (ou le bouton du set) │ ▾ été 2026     + ⤢ ✕ │  ← liste déroulante
+                                        ├──────────────────────┤     avec recherche
+                                        │ les morceaux,        │
+                                        │ résolus et jouables  │
+                                        └──────────────────────┘
+        ⤢ ─────────────────────────────▸ la PAGE : le texte YAML | les morceaux
 ```
 
-## Sous le cog, et pas dans les panes
+## Un panneau ancré à droite, pas une page
+
+C'était une page plein écran : la liste des `.yaml`, puis un écran par playlist. Ce n'était pas
+la bonne forme — on ouvre une set list **pendant** qu'on travaille, et une page oblige à quitter
+le morceau pour aller la regarder. C'est donc un panneau **collé à droite**, dans la même rangée
+que les panes : il pousse les panes au lieu de les couvrir, et on peut le laisser ouvert.
+
+La playlist se choisit dans une **liste déroulante avec recherche** — le `TreePicker`, exactement
+celui du sélecteur de modules. Pour la même raison qu'ailleurs : la liste est aussi longue que le
+dépôt est vieux, et taper trois lettres est le geste que ce shell a partout. La recherche score
+le titre ET le chemin, parce qu'on cherche une set list par l'un ou par l'autre (`live/repet`).
+
+Les morceaux sont **en dessous**, résolus contre la médiathèque et jouables — c'est
+`PlaylistPane`, la moitié droite de l'ancienne page, inchangée.
+
+## Le texte reste, à un clic
+
+Le panneau fait 24rem : il n'y a pas la place pour le YAML à côté des morceaux, et le texte est
+toujours le seul moyen d'**enlever** une ligne ou d'en changer l'ordre — `PlaylistPane` sait
+ajouter et rien d'autre. La page n'est donc pas supprimée, elle est rétrogradée : le bouton ⤢
+l'ouvre en plein écran sur la playlist courante, et c'est la sortie de secours pour ce que le
+panneau ne sait pas faire.
+
+C'est le même composant des deux côtés. `PlaylistEditor` prend un `panel`, qui retire son
+en-tête et la moitié YAML ; en dessous tout est identique — même chargement, même tampon, même
+autosave, même liste résolue. Deux composants auraient été deux documents à garder en phase,
+ce qui est précisément le bug contre lequel l'en-tête de ce fichier met en garde.
+
+## Son propre panneau, pas un onglet des réglages, pas un pane
 
 Les panes de ce shell sont le **morceau ouvert** — l'éditeur, la timeline, le graphe, le
 viewport — et ce qu'ils dessinent, c'est ce que le projet DÉCLARE (`docs/shell.md`,
 `packages/song/docs/surfaces.md`). Une playlist n'est déclarée par aucun projet et n'appartient
 à aucun : elle est à la racine du dépôt et c'est la même quelle que soit la chanson qu'on
-travaille. Elle est donc là où sont les autres écrans qui ne parlent pas du projet — sous le
-cog, avec les réglages, en overlay au-dessus du shell.
+travaille. Elle n'est donc pas un pane, même maintenant qu'elle a une colonne — et elle n'est
+pas non plus dans l'URL.
 
-Comme ses voisines, l'entrée du menu **dispatche une ligne de commande** (`ui settings
-playlists`) plutôt que d'appeler une fonction à elle : tout ce qui est sur cet écran est
-atteignable depuis la palette, et une implémentation unique est ce qui empêche les deux de
-diverger (`docs/shell.md`).
+Elle a eu, le temps d'une itération, un **onglet sous le cog**. C'était classer par l'endroit
+d'où elle venait : des réglages sont ce qu'on règle et qu'on laisse, une set list est ce à
+partir de quoi on travaille. Elle partage donc la colonne de droite avec les réglages et le
+partage (`rightPanel` dans `App`, `docs/shell.md`) sans être rangée dedans.
+
+Comme tout le reste de ce shell, ce qui l'ouvre **dispatche une ligne de commande** —
+`ui playlists`, qui bascule le panneau — plutôt que d'appeler une fonction à elle : tout ce qui
+est sur cet écran est atteignable depuis la palette, et une implémentation unique est ce qui
+empêche les deux de diverger (`docs/shell.md`).
+
+## Un bouton dans la barre, sur un SET seulement
+
+Un projet qui déclare une surface `turntables` porte un bouton **Playlists** dans la barre, à
+côté de Partager et de Réglages. Sur un pupitre la playlist EST la set list : c'est l'écran
+qu'on ouvre en plein set, et le chercher dans la palette est la mauvaise forme pour la seule
+chose qu'on cherche pendant la soirée.
+
+Sur une chanson il n'y a pas de bouton — la barre est de la largeur, et les set lists ne sont
+pas ce pour quoi on est venu. `ui playlists` les ouvre quand même : c'est la même ligne, donc un
+seul comportement et une seule entrée dans le journal. Jamais sur un instantané partagé — un
+partage n'a pas de dépôt, donc pas de `_playlists/`.
 
 ## Trois serveurs, dont un nouveau
 
@@ -63,6 +110,38 @@ dans ses URL serait deux façons d'écrire un même fichier — et l'autosave su
 Le listing est une route à part pour la raison que `/module-libraries` l'est : `/tree` est
 enraciné sur le projet actif, exprès, donc le dossier lui est invisible.
 
+Il y a eu un `POST /playlists` pour en créer une, et il est parti par le même raisonnement, un cran
+plus loin : créer une playlist est une **commande** (ci-dessous), donc l'écriture passe par
+`/command` avec tout le reste. `Workspace.createPlaylist` est parti avec la route ; ses règles —
+le gabarit plutôt qu'un fichier vide, l'extension ajoutée, une playlist déjà là refusée — sont
+maintenant celles du verbe, avec ses tests.
+
+## Créer et ajouter sont des verbes
+
+| ce qu'on fait | la commande |
+|---|---|
+| « Nouvelle playlist » | `playlist new <nom>` — sous-dossiers compris (`live/repet`) |
+| ajouter un morceau, par son nom | `playlist song add <playlist> <morceau> [variante]` |
+
+Les deux agissent sur le **dépôt** (`repoDir`) et non sur le projet : ce sont les seuls verbes du
+catalogue qui marchent sans projet ouvert, ce qui est exactement ce qu'est une playlist. Le morceau
+est **tout le reste de la ligne**, espaces compris, parce qu'une référence est un chemin dans les
+dossiers de la médiathèque (`AC-DC/Back in Black/Hells Bells`) ; **entre guillemets**, une variante
+peut le suivre. Une règle, et la seule qui distingue « un morceau avec des espaces » de « un
+morceau et une version ».
+
+**Le bouton « Ajouter un morceau » du volet de droite ne dispatche pas la seconde**, et c'est
+délibéré. Ce bouton écrit dans le **tampon ouvert** à côté — le YamlPane montre le fichier, et
+l'ajout est une modification comme une frappe, enregistrée par l'autosave quand le texte se lit
+comme une playlist. Une commande qui écrirait le FICHIER pendant qu'un tampon modifié le tient
+courrait contre cet enregistrement. Les deux chemins partagent la seule chose qui doit être
+partagée, `appendPlaylistItem` — même relation que le préréglage du gate de `event trim` avec
+`trimWindow` (`docs/shell.md`) : une implémentation, deux appelants, à deux niveaux différents.
+
+Le verbe est donc ce qu'on utilise **depuis la palette, une touche ou le CLI**, c'est-à-dire quand
+l'écran n'est pas ouvert — et c'est là qu'il rend le plus service : monter une setlist sans quitter
+la timeline.
+
 ## Le volet de droite suit les touches, pas les enregistrements
 
 `items` est recalculé à chaque frappe, mais n'est **remplacé que par quelque chose de lisible** :
@@ -96,7 +175,7 @@ qu'on ne peut pas voir. Une rangée qui dit « introuvable » est une faute qu'o
 | `ce morceau n'a pas de master` | dossier catalogué sans audio — le scan l'autorise |
 | `introuvable` (sur la rangée) | le sidecar déclare un fichier que le dossier n'a pas |
 
-## Deux boutons, parce que ce sont deux gestes
+## Trois boutons, parce que ce sont trois gestes
 
 **« Chercher un morceau »** ouvre un champ au-dessus de la liste — au-dessus et non par-dessus :
 ce qu'on remplit reste visible, et le voir s'allonger est la seule confirmation qu'il y ait. La
@@ -132,6 +211,55 @@ Un 409 (« ce morceau y est déjà ») est **rapporté et pas rattrapé** : la m
 sauf qu'on ne sait pas OÙ sans la réponse, et deviner le dossier ici est exactement la seconde
 orthographe que le paragraphe au-dessus refuse.
 
+### « Séparer les stems » — préparer toute la set list
+
+Le troisième bouton, et le seul qui coûte des heures. Chaque morceau est découpé en batterie /
+basse / reste / voix, pour qu'on puisse en **retirer** un sur le pupitre pendant le set
+([ui-turntables/docs/stems.md](../../../../packages/ui-turntables/docs/stems.md)).
+
+C'est ici et pas sur le pupitre parce que c'est une question de **set list** et pas de disque : le
+pupitre rattrape le morceau qu'on vient de poser, cet écran-ci prépare les douze qu'on va poser.
+
+Le bouton ouvre une barre au-dessus de la liste — au même endroit que la recherche, et pour la
+même raison : ce sur quoi elle travaille reste visible en dessous.
+
+- **La chaîne n'est pas demandée ici.** Elle est AFFICHÉE — la barre montre celle qui va tourner et
+  rien de plus. Quel module sépare et quel modèle il veut est une réponse unique pour la machine :
+  elle se donne une fois dans les réglages, sous I/O, et vit dans `~/.studio/preferences.yaml`
+  (`system stems`). Un sélecteur ici posait la même question à la même personne à chaque set list,
+  et trois écrans qui la posent, ce sont trois endroits où se tromper. La préférence est relue à
+  chaque ouverture de la barre, parce que les réglages sont à un clic.
+- **Un morceau à la fois.** Deux séparations en parallèle sur une machine, ce sont deux heures
+  d'arithmétique qui se disputent les mêmes cœurs et ne finissent pas plus tôt — la règle que
+  `runColdPasses` énonce déjà pour la commande.
+- **La barre compte deux choses.** Les morceaux finis PLUS l'avancement de celui en cours : une
+  barre qui ne compterait que les morceaux resterait immobile quatre minutes à chaque fois, et
+  une qui n'afficherait que le pourcentage du job reviendrait douze fois à zéro.
+- **Relancer ne coûte rien.** Un morceau déjà séparé est sauté — la route interroge le DOSSIER,
+  pas un drapeau — et l'identifiant du job hache le TRAVAIL, donc une passe interrompue rejoint le
+  calcul en vol au lieu d'en commencer un second.
+- **Fermer le panneau arrête la boucle, pas le calcul.** Une séparation est un job sur la machine
+  et va au bout ; ce que le bouton Arrêter interrompt, c'est l'enchaînement des morceaux suivants.
+
+Deux natures d'échec, distinguées par le statut HTTP et traitées différemment :
+
+| ce qui échoue | statut | ce que fait la boucle |
+|---|---|---|
+| le morceau — cette machine ne l'a pas tiré | 404 | une ligne rouge, et on passe au suivant |
+| la course — aucune chaîne réglée, la chaîne ne sépare pas, pas de modèle, pas de projet ouvert | 400 / 409 | tout s'arrête |
+
+Le second est la même réponse pour les douze lignes : continuer serait douze refus identiques et
+aucun travail fait. Le bouton **Lancer** est d'ailleurs éteint tant qu'aucune chaîne n'est réglée,
+avec la phrase qui dit où aller et un raccourci vers les réglages — trouver ça au premier morceau
+serait le trouver trop tard.
+
+**Ce bouton ne dispatche pas `playlist stems`**, et c'est la même exception que « Ajouter un
+morceau » avec une raison à elle. Le verbe existe et fait le même travail — c'est lui qu'on
+utilise depuis la palette ou le CLI. Mais une commande rend ses lignes **quand elle a fini**, et
+finir, pour trente morceaux, c'est une heure d'écran vide. Le bouton fait donc un `POST /stems`
+par ligne et sonde le job entre les deux, ce qui est la seule forme qui ait une barre. Ce que la
+règle exige reste vrai : l'ACTE est atteignable depuis la barre de commandes.
+
 ## Le transport est à nous, et il est minuscule
 
 Un `<audio>`, une ligne à la fois, sur une URL de même origine.
@@ -157,7 +285,7 @@ que son navigateur de morceaux liste :
 ```yaml
 # <projet>.st0/surfaces/desk.yaml
 type: turntables
-layout: view
+layout: split
 playlist: ete-2026
 ```
 

@@ -9,6 +9,7 @@
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song/playlist";
+import type { Stem } from "@studio/song/stems";
 import {
   AudioLines,
   Headphones,
@@ -17,7 +18,7 @@ import {
   RefreshCw,
   Square,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { beatPhase } from "../beats";
 import {
   type DeckId,
@@ -26,6 +27,7 @@ import {
   MIX_CENTRE,
   sourceAt,
 } from "../deck";
+import { type DeskLayout, deskLayout } from "../deskLayout";
 import type { Deck, Playhead } from "../engine";
 import { MIX_VIEW_FILE } from "../mixView";
 import {
@@ -41,10 +43,11 @@ import {
   type SetEntry,
   type SetList,
 } from "../setList";
+import { useContentHeight } from "../useContentHeight";
 import type { DeckSet } from "../useDeckSet";
 import type { Envelope } from "../waveform";
 import { BpmFader } from "./BpmFader";
-import { ChannelStrip } from "./ChannelStrip";
+import { ChannelStrip, type StemPrep, StemStrip } from "./ChannelStrip";
 import { CueButtons } from "./CueButtons";
 import { SongBrowser } from "./SongBrowser";
 import { Vinyl } from "./Vinyl";
@@ -62,11 +65,16 @@ type Wave =
   | { k: "ready"; env: Envelope }
   | { k: "none"; why: string };
 
+/** How often a running separation is asked how it is getting on. It reports per WINDOW — about
+ *  one every few seconds on a CPU — so anything faster asks the same number twice. */
+const PREP_POLL_MS = 2000;
+
 export function MixView({
   engine,
   deck,
   set: decks,
   playlist,
+  stems,
   file,
 }: {
   /**
@@ -84,6 +92,18 @@ export function MixView({
   /** The playlist this surface declares, by name — for the two messages that have to say
    *  WHICH file is wrong. The list itself comes off `set`, already read. */
   playlist?: string;
+  /**
+   * Does this desk SEPARATE a record it is handed unprepared? — the surface's `stems:`.
+   *
+   * True turns "this record has no stems" from a dead end into a job: putting an unprepared
+   * record on a deck starts the separation here and now. False and the knobs say so, with
+   * `playlist stems` as the way.
+   *
+   * A boolean and not a chain ref. WHICH chain separates is the machine's one answer
+   * (`system stems`, kept in preferences.yaml), so nothing on this side spells it — see
+   * `service.prepareStems` and ../../docs/stems.md.
+   */
+  stems?: boolean;
   /** The surface's own file, so "add a `playlist:` line" can name where. */
   file: string;
   /** The decks as a document — everything this view shows and every gesture it forwards. */
@@ -100,6 +120,22 @@ export function MixView({
   const [waves, setWaves] = useState<Partial<Record<DeckId, Wave>>>({});
   /** Which deck's song browser is open, if any — one dialog, told which deck it is for. */
   const [browsing, setBrowsing] = useState<DeckId | null>(null);
+  /** The catch-up per deck: a separation this view started because the record had none. */
+  const [preps, setPreps] = useState<Partial<Record<DeckId, StemPrep>>>({});
+  /**
+   * One token per deck, bumped by every load, and the way a poll loop learns it is obsolete.
+   *
+   * A separation runs for minutes and its loop is an async function that awaits a fetch — so
+   * there is no timer to clear and no effect to tear down. Comparing a captured token against
+   * this is what makes taking the record off stop the loop, and unmounting is the same event.
+   */
+  const prepFor = useRef<Partial<Record<DeckId, number>>>({});
+  useEffect(
+    () => () => {
+      prepFor.current = {};
+    },
+    [],
+  );
 
   const refresh = useCallback(
     async (s: FileLink) => {
@@ -140,6 +176,70 @@ export function MixView({
   }, [link, refresh]);
 
   /**
+   * Separate what has just been put on a deck, when the set says how and the record has none.
+   *
+   * The other half of `playlist stems`: that verb prepares a set list the night before, this
+   * catches up on the record somebody put on anyway. Same registry, same worker, same files —
+   * the id hashes the WORK, so putting the same record on twice, or on both decks, joins the run
+   * already in flight rather than starting a second hour of arithmetic.
+   *
+   * Started here rather than in the deck document for the same reason the waveform is: a job
+   * belongs to THIS machine and THIS tab, where what is on a deck outlives both.
+   *
+   * The deck plays throughout. Its stem lanes stay empty until the files exist, and an empty lane
+   * subtracts nothing — so the catch-up costs the record nothing but the knobs being grey while
+   * it runs (see ../../docs/stems.md).
+   */
+  const prepare = async (deckId: DeckId, s: SetEntry, at: FileLink) => {
+    const song = s.entry && cacheRelPath(s.entry, s.file);
+    if (!song || !stems) return;
+    const token = (prepFor.current[deckId] ?? 0) + 1;
+    prepFor.current[deckId] = token;
+    const mine = () => prepFor.current[deckId] === token;
+    const say = (p: StemPrep | undefined) =>
+      setPreps((all) => ({ ...all, [deckId]: p }));
+    const landed = () => {
+      say(undefined);
+      decks.stemsArrived(deckId, s.id);
+    };
+
+    try {
+      const first = await service.prepareStems(at, song);
+      if (!mine()) return;
+      // Already on disk. The flag this was decided from is a scan snapshot, so the machine gets
+      // asked again and a prepared record simply lights its knobs, with no job at all.
+      if (first.ready) return landed();
+
+      let job = first.job;
+      while (job && !job.done) {
+        say({ k: "running", phase: job.phase, percent: job.percent });
+        await new Promise((r) => setTimeout(r, PREP_POLL_MS));
+        if (!mine()) return;
+        try {
+          job = await service.separation(at, job.id);
+        } catch {
+          // Usually the registry having swept a job this tab was still watching — it keeps a
+          // finished one for five minutes. The question underneath is "are the stems on disk",
+          // which the other route answers directly, so one trip back through it turns that into
+          // `ready` rather than into a failure about a record that is prepared.
+          const again = await service.prepareStems(at, song);
+          if (!mine()) return;
+          if (again.ready) return landed();
+          job = again.job;
+        }
+      }
+      if (!mine()) return;
+      if (job?.failed)
+        say({ k: "failed", why: job.error ?? "raison inconnue" });
+      else landed();
+    } catch (e) {
+      // Said on the column rather than on the desk's error card: this is one deck's record, and
+      // the other one is unaffected and still playing.
+      if (mine()) say({ k: "failed", why: (e as Error).message });
+    }
+  };
+
+  /**
    * Put a song on a deck.
    *
    * The two halves land apart on purpose: the song goes on and PLAYS at once, and the
@@ -168,16 +268,37 @@ export function MixView({
       title: s.variant ? `${s.name} · ${s.variant}` : s.name,
       artist: s.artist,
       id: s.id,
+      // Whether this record has been SEPARATED — the scan reports it beside the master, off the
+      // folder's own dirents. It decides whether the four stem lanes are filled at all: a song
+      // nobody prepared plays as itself, with its stem knobs greyed and saying why.
+      stems: !!s.entry.meta?.stems,
     });
+
+    // Any catch-up watching the outgoing record is now obsolete — bumped whether or not a new
+    // one starts, so taking a prepared song off a deck mid-separation ends the loop too.
+    prepFor.current[deckId] = (prepFor.current[deckId] ?? 0) + 1;
+    setPreps((p) => ({ ...p, [deckId]: undefined }));
+    // …and the catch-up itself, for a record nobody prepared. Only when the set names a chain:
+    // a separation is minutes of arithmetic, so it happens because the project ASKED for it.
+    if (!s.entry.meta?.stems && stems) void prepare(deckId, s, link);
 
     setWaves((w) => ({ ...w, [deckId]: { k: "loading" } }));
     // A new record starts at ITS own tempo, whatever the outgoing one was doing. The fader
     // is cleared here rather than left showing the previous song's number.
     decks.clearTempo(deckId);
     void service
-      // The SAME master `playablePath` just resolved, cache-relative — the route wants a path
-      // inside the cache, not one on the engine's disk.
-      .envelope(link, cacheRelPath(s.entry) ?? "")
+      /**
+       * The SAME audio `playablePath` just resolved, cache-relative — the route wants a path
+       * inside the cache, not one on the engine's disk.
+       *
+       * `s.file` is what makes that true, and it was missing: this asked for the MASTER while
+       * the deck played whatever the playlist line named. A line naming a variant therefore
+       * drew the original's waveform, measured the original's tempo, and handed the fader the
+       * original's length — silently, and only for the lines that name one, which is why it
+       * survived. An instrumental is the same song at the same tempo often enough to look
+       * right and be wrong; an edit is not.
+       */
+      .envelope(link, cacheRelPath(s.entry, s.file) ?? "")
       .then((env) => {
         setWaves((w) => ({ ...w, [deckId]: { k: "ready", env } }));
         // The tempo arrives WITH the waveform — the sidecar carries both — so this is where
@@ -210,6 +331,21 @@ export function MixView({
 
   const anyLoaded = !!(loads.deckA || loads.deckB);
   const ready = deck.phase.k === "ready";
+
+  /**
+   * What each deck draws, decided by the room the decks row actually has.
+   *
+   * Measured rather than told. This surface is a PANE (`layout: split`), so its height is the
+   * layout's business and changes without this component being re-mounted or re-propped: half
+   * the column beside the graph, the whole window under `full`, a third of a phone in
+   * landscape. A `compact` boolean handed down from st0 would be st0 guessing at a number it
+   * does not have either.
+   *
+   * The row is the thing observed because it is the box the decks are given — `contentRect`
+   * takes its padding off, so `deskLayout` is handed exactly what a `DeckSide` can use.
+   */
+  const deckRow = useRef<HTMLDivElement>(null);
+  const layout = deskLayout(useContentHeight(deckRow));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -275,9 +411,10 @@ export function MixView({
       ) : null}
 
       {/* --- the two decks, facing each other -------------------------------------------- */}
-      <div className="flex min-h-0 flex-1 gap-4 p-4">
+      <div ref={deckRow} className="flex min-h-0 flex-1 gap-4 p-4">
         <DeckSide
           side="A"
+          layout={layout}
           load={loads.deckA}
           spinning={deck.playing}
           wave={waves.deckA}
@@ -295,6 +432,11 @@ export function MixView({
           filter={decks.filterOf("deckA")}
           filterLive={decks.filterLive("deckA")}
           onFilter={(v) => decks.turnFilter("deckA", v)}
+          stems={decks.stemsOf("deckA")}
+          stemLive={decks.stemLive("deckA")}
+          stemsReady={decks.stemsReady("deckA")}
+          stemPrep={preps.deckA}
+          onStem={(s, cut) => decks.turnStem("deckA", s, cut)}
           cues={decks.cuesOf("deckA")}
           onCueJump={(slot) => decks.jumpCue("deckA", slot)}
           onCueSet={(slot, at) => decks.setCue("deckA", slot, at)}
@@ -302,6 +444,7 @@ export function MixView({
 
         <DeckSide
           side="B"
+          layout={layout}
           load={loads.deckB}
           spinning={deck.playing}
           wave={waves.deckB}
@@ -319,6 +462,11 @@ export function MixView({
           filter={decks.filterOf("deckB")}
           filterLive={decks.filterLive("deckB")}
           onFilter={(v) => decks.turnFilter("deckB", v)}
+          stems={decks.stemsOf("deckB")}
+          stemLive={decks.stemLive("deckB")}
+          stemsReady={decks.stemsReady("deckB")}
+          stemPrep={preps.deckB}
+          onStem={(s, cut) => decks.turnStem("deckB", s, cut)}
           cues={decks.cuesOf("deckB")}
           onCueJump={(slot) => decks.jumpCue("deckB", slot)}
           onCueSet={(slot, at) => decks.setCue("deckB", slot, at)}
@@ -433,7 +581,9 @@ export function MixView({
                   ? "arrêter"
                   : "lancer les deux platines"
           }
-          onClick={() => deck.engine?.transport(deck.playing ? "stop" : "play")}
+          // `decks.toggleTransport`, not a bare `transport("play")`: play has to start where the
+          // music is, and a deck's clip begins ten minutes in. See `playFrom`.
+          onClick={decks.toggleTransport}
         >
           {deck.playing ? (
             <Square className="h-4 w-4" />
@@ -519,6 +669,7 @@ function SyncButton({
 /** One deck: its tempo fader, the record, its waveform, and what it is holding. */
 function DeckSide({
   side,
+  layout,
   load,
   spinning,
   wave,
@@ -536,11 +687,18 @@ function DeckSide({
   filter,
   filterLive,
   onFilter,
+  stems,
+  stemLive,
+  stemsReady,
+  stemPrep,
+  onStem,
   cues,
   onCueJump,
   onCueSet,
 }: {
   side: "A" | "B";
+  /** What fits in the height this deck has — the record's size, the waveform's, the title. */
+  layout: DeskLayout;
   load: DeckLoads[DeckId];
   spinning: boolean;
   wave: Wave | undefined;
@@ -564,6 +722,15 @@ function DeckSide({
   filter: number | undefined;
   filterLive: boolean;
   onFilter: (value: number) => void;
+  /** What this deck is REMOVING of each separated instrument, 0..1. Absent is none of it. */
+  stems: Partial<Record<Stem, number>>;
+  /** Whether the set wires stem cuts at all — false draws no column. */
+  stemLive: boolean;
+  /** …and whether the record on it has been separated, which is a different grey. */
+  stemsReady: boolean;
+  /** …and the separation running to make it so, when the set declared a chain. */
+  stemPrep: StemPrep | undefined;
+  onStem: (stem: Stem, cut: number) => void;
   /** This deck's eight cue slots, and the two gestures that move them. */
   cues: readonly (number | null)[];
   onCueJump: (slot: number) => void;
@@ -596,6 +763,9 @@ function DeckSide({
       eqLive={eqLive}
       filter={filter}
       filterLive={filterLive}
+      // The same measurement the column beside it uses: the strip is the deck's other half and
+      // has the same height to fit in — which it did not know, and the filter paid for it.
+      layout={layout.strip}
       onEq={onEq}
       onFilter={onFilter}
     />
@@ -603,37 +773,64 @@ function DeckSide({
 
   return (
     <section className="flex min-w-0 flex-1 gap-2">
+      {/* The STEMS, to the left of the deck — on both, unlike the mirrored pair below.
+          Deliberately not mirrored: what these four knobs remove is a property of the record
+          rather than of the desk's geometry, and a hand looking for "the bass of the deck on
+          the right" should not have to know which side of it the column is on today. */}
+      <StemStrip
+        stems={stems}
+        live={stemLive}
+        ready={stemsReady}
+        prep={stemPrep}
+        layout={layout.strip}
+        onStem={onStem}
+      />
       {/* The tempo on the OUTER edge, the shaping controls on the INNER one: the two decks
           face each other across the middle, so the desk reads as a mirror rather than a
           repeat and a hand knows which deck it is on without looking up. */}
       {side === "A" ? fader : strip}
       <div className="flex min-w-0 flex-1 flex-col items-center gap-3">
-        <Vinyl
-          side={side}
-          artist={load?.artist ?? null}
-          title={load?.title ?? null}
-          spinning={spinning && !!load}
-          onPick={onPick}
-          // The FILE's clock for both, so a stretched deck is not drawn further through its
-          // record than an unstretched one at the same bar — see `sourceAt`. DRAWN, so the
-          // steered reader: a wedge redrawn at 60 fps off the raw anchor carries the frames'
-          // arrival jitter straight into the record's progress.
-          at={() => sourceAt(drawNow(), tempo)}
-          length={tempo?.seconds ?? 0}
-          markers={cues}
-        />
-        {/* Under the record, as a deck has it. Only once something is loaded: an empty strip
-            under an empty deck is furniture. */}
-        {load ? (
-          <Waveform
-            envelope={wave?.k === "ready" ? wave.env : null}
-            drawNow={drawNow}
-            // The same conversion the record above uses — see `Waveform`'s `tempo`.
-            tempo={tempo}
-            analysing={wave?.k === "loading"}
-            problem={wave?.k === "none" ? wave.why : null}
+        {/* The record, when the deck is tall enough to be worth one. In a PANE it usually is
+            not, and its absence is the feature rather than a degradation: everything it says —
+            how far through, where the cues are, that it is moving — the waveform below says
+            too, and says what is COMING as well. See ../deskLayout.ts. */}
+        {layout.vinyl > 0 ? (
+          <Vinyl
+            side={side}
+            artist={load?.artist ?? null}
+            title={load?.title ?? null}
+            spinning={spinning && !!load}
+            onPick={onPick}
+            // The FILE's clock for both, so a stretched deck is not drawn further through its
+            // record than an unstretched one at the same bar — see `sourceAt`. DRAWN, so the
+            // steered reader: a wedge redrawn at 60 fps off the raw anchor carries the frames'
+            // arrival jitter straight into the record's progress.
+            at={() => sourceAt(drawNow(), tempo)}
+            length={tempo?.seconds ?? 0}
+            markers={cues}
+            size={layout.vinyl}
           />
         ) : null}
+        {/* Under the record, as a deck has it — and the deck's ONE control once the record is
+            gone, which is why it takes the height that was freed.
+
+            ALWAYS drawn, loaded or not. It was conditional on `load`, on the grounds that an
+            empty strip under an empty deck is furniture; that is the same argument `CueButtons`
+            below already refuses, and for the better reason. A desk whose controls appear and
+            vanish with what is loaded is a desk that moves under your hands: the strip would
+            push the cues and the title down the moment a song landed, and the place the eye has
+            learned to look would not be there to learn. Empty says "nothing yet"; absent says
+            "look somewhere else" — and this is also where "analyse du morceau…" and a failed
+            analysis get said, neither of which can be read on a strip that is not there. */}
+        <Waveform
+          envelope={wave?.k === "ready" ? wave.env : null}
+          drawNow={drawNow}
+          // The same conversion the record above uses — see `Waveform`'s `tempo`.
+          tempo={tempo}
+          analysing={wave?.k === "loading"}
+          problem={wave?.k === "none" ? wave.why : null}
+          height={layout.waveform}
+        />
         {/* The cues, under the waveform they refer to — and drawn on an empty deck too, so
             the desk does not reshuffle itself the moment a song lands. */}
         <CueButtons
@@ -644,9 +841,14 @@ function DeckSide({
           now={transportNow}
           disabled={!load}
         />
-        <div className="w-full truncate text-center text-xs text-muted-foreground">
-          {load ? load.title : "rien de chargé"}
-        </div>
+        {/* What is loaded, in words. Dropped on the shortest decks only — the record's label
+            says the same thing whenever there IS a record, so this earns its line precisely
+            when there is not. */}
+        {layout.title ? (
+          <div className="w-full truncate text-center text-xs text-muted-foreground">
+            {load ? load.title : "rien de chargé"}
+          </div>
+        ) : null}
       </div>
       {side === "B" ? fader : strip}
     </section>

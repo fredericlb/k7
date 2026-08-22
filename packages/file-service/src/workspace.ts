@@ -75,12 +75,7 @@ import {
 } from "@studio/song/moduleFork";
 import { ENGINE_NS, type ModuleNamespace } from "@studio/song/moduleTypes";
 import { isFrozenClipId, materialRefOf } from "@studio/song/nodeProject";
-import {
-  PLAYLIST_EXT,
-  PLAYLISTS_DIR,
-  parsePlaylist,
-  playlistStub,
-} from "@studio/song/playlist";
+import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song/playlist";
 import {
   formatAudioDevice,
   formatChannels,
@@ -458,6 +453,9 @@ function toWebClip(
     fadeOut: c.fadeOut || undefined,
     // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
     frozen: isFrozenClipId(c.id) ? true : undefined,
+    // The placement's own words, straight through — the one part of this object that is NOT the
+    // placement and its material resolved together, and so the only part a paste can write back.
+    event: c.event,
     notes: c.notes.map((n) => ({
       time: n.time,
       duration: n.duration,
@@ -466,6 +464,9 @@ function toWebClip(
       // would make every note look explicitly full — which is what a roll's velocity line has to
       // tell apart from a note that states nothing. See WebNote.
       ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
+      // The pad's effects, unexpanded — what the sequencer draws its icon from.
+      ...(n.repeat ? { repeat: n.repeat } : {}),
+      ...(n.skip ? { skip: n.skip } : {}),
     })),
   };
 }
@@ -519,12 +520,14 @@ export function preferences(): {
   audioDevice: string | null;
   channels: { in: string; out: string };
   vim: boolean;
+  stemsChain: string | null;
 } {
   const p = loadPreferences();
   return {
     audioDevice: p.audioDevice ? formatAudioDevice(p.audioDevice) : null,
     channels: formatChannels(p),
     vim: p.editor.vim,
+    stemsChain: p.stemsChain ?? null,
   };
 }
 
@@ -540,14 +543,13 @@ export function setAudioDevicePref(name: string, type?: string): string | null {
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
 
-// …and how that interface's inputs are grouped, forgotten by the engine for the same reason and
-// replayed on the same connect. Returns the whole set, since setting one pair is how the list is edited.
-export function setInputPairPref(channel: number, stereo: boolean): number[] {
-  return setInputPair(channel, stereo).inputPairs;
-}
+// `setInputPairPref` was here, under `PUT /preferences/input-pair`. The grouping is written by
+// `system channel type` now, which tells the engine in the same breath — see @studio/commands.
 
 // The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.
-const ACTIVE_MARKER = ".studio-active";
+// Exported for the listings in workspaces.ts, which read it WITHOUT opening a Workspace — a
+// listing that instantiated one per row would build every cache it has to answer one filename.
+export const ACTIVE_MARKER = ".studio-active";
 
 // Text files that differ between two snapshots — a null side means the file was absent then.
 function diffText(
@@ -1493,32 +1495,10 @@ export class Workspace {
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  /**
-   * Make a new playlist and answer where it landed.
-   *
-   * Writes the STUB rather than an empty file, for the reason the médiathèque's "Nouvelle
-   * playlist…" did: the screen draws its right-hand pane from the text, so an empty file would
-   * open on a parse failure for a playlist nobody has yet had a chance to get wrong.
-   *
-   * The extension is added when it is missing — it is what makes the file a playlist, there
-   * being no marker inside one — and an existing file is refused rather than opened, so a
-   * "create" never quietly hands back somebody else's set list.
-   */
-  createPlaylist(name: string): { path: string } {
-    const clean = name.trim().replace(/^\/+|\/+$/g, "");
-    if (!clean) throw new Error("a playlist needs a name");
-    const rel = `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(clean) ? clean : `${clean}${PLAYLIST_EXT}`}`;
-    // Through safePath, so a `..` in the name cannot leave the workspace.
-    const abs = this.safePath(rel);
-    if (existsSync(abs)) throw new Error(`${rel} is already there`);
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(
-      abs,
-      playlistStub(basename(abs).replace(/\.ya?ml$/i, "")),
-      "utf8",
-    );
-    return { path: this.toRel(abs) };
-  }
+  // `createPlaylist` was here, behind `POST /playlists`. Making a set list is `playlist new` now
+  // — a command, so it is in the palette, in the log and in the undo journal like every other act
+  // on that screen — and its handler holds the same three rules this had: the stub rather than an
+  // empty file, the extension added, an existing one refused. See @studio/commands.
 
   /**
    * Make an empty module in one of those libraries, and answer where its file landed.
@@ -2555,6 +2535,7 @@ export class Workspace {
         })),
         masterVolume: p.masterVolume,
         metronome: p.settings.metronome,
+        metronomeLevel: p.settings.metronomeLevel,
         countIn: p.settings.countIn,
         strudel: p.strudel,
         markers: p.markers.map((m) => ({

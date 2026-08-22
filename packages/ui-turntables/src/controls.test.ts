@@ -16,15 +16,46 @@ describe("the desk's controls", () => {
       "deckA.eqMid",
       "deckA.eqHigh",
       "deckA.filter",
+      "deckA.stemDrums",
+      "deckA.stemBass",
+      "deckA.stemOther",
+      "deckA.stemVocals",
       "deckB.tempo",
       "deckB.sync",
       "deckB.eqLow",
       "deckB.eqMid",
       "deckB.eqHigh",
       "deckB.filter",
+      "deckB.stemDrums",
+      "deckB.stemBass",
+      "deckB.stemOther",
+      "deckB.stemVocals",
       "transport",
       "listen",
     ]);
+  });
+
+  it("gives the stem cuts a PROPORTION, resting at nothing removed", () => {
+    // Not decibels, unlike everything else on this strip: what is asked for here is a part of
+    // an instrument, and removing it completely has to be a position on the travel — which
+    // −∞ dB is not. And `home` is 0 rather than the middle, because a stem knob at rest must
+    // leave the record exactly as it is: that is the whole promise of subtracting one stem
+    // instead of playing four (packages/dsp/docs/stemcut.md).
+    for (const deck of DECKS)
+      for (const stem of ["stemDrums", "stemBass", "stemOther", "stemVocals"]) {
+        const c = mixControl(`${deck}.${stem}`);
+        expect(c?.range, `${deck}.${stem}`).toEqual([0, 1]);
+        expect(c?.home, `${deck}.${stem}`).toBe(0);
+        expect(normalise(c!, 0)).toBe(0);
+      }
+  });
+
+  it("names its own module per stem, unlike the EQ's three", () => {
+    // The EQ's three bands share one module; a cut is a negative gain on the lane playing that
+    // stem, so each names a module of its own. `wants` is what the scaffold prints beside the
+    // line somebody has to fill in, and "stem" is what tells the two apart there.
+    for (const deck of DECKS)
+      expect(mixControl(`${deck}.stemBass`)?.wants).toBe("stem");
   });
 
   it("gives the FILTER the module's own signed range too", () => {

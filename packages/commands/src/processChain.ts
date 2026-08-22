@@ -34,6 +34,13 @@ import { retimeWarpMarkers, type WarpMarker } from "@studio/song/warpPoints";
 import { setFileValue } from "@studio/song/yaml/edit";
 import { entityFiles } from "@studio/song/yaml/moduleIO";
 import { parse as parseYaml } from "yaml";
+import {
+  type ColdStep,
+  coldStepOf,
+  isOfflineModule,
+  type RunColdStep,
+  runColdPasses,
+} from "./coldPass";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
 import { fileStamp } from "./recordTake";
 import { renderMixdown } from "./render";
@@ -67,6 +74,14 @@ export interface ResolvedChain {
   /** Filename-safe, appended to each render (`kick.wav` → `kick_vocal-strip.wav`). */
   slug: string;
   plugins: PluginDoc[];
+  /**
+   * The steps that produce FILES instead of processing a buffer — an `offline` module.
+   *
+   * Empty for almost every chain. When it is not, `plugins` is empty (see `resolveChain`), and
+   * the run is a cold pass rather than a bounce: no render, nothing repointed, N files written
+   * beside the source. See coldPass.ts and @studio/song's docs/coldModules.md.
+   */
+  cold: ColdStep[];
   /** The track this chain already runs on, when it is one of the project's. The caller says
    *  so out loud: baking it into the clips leaves it running on playback too. */
   ownTrack?: string;
@@ -188,10 +203,11 @@ function findChainFolder(
 function mediatekChain(
   dir: string,
   abs: string,
-): { plugins: PluginDoc[]; missing: string[] } {
+): { plugins: PluginDoc[]; cold: ColdStep[]; missing: string[] } {
   const steps = chainSteps(readFileSync(join(abs, CHAINS_FILE), "utf8"));
   const byRef = loadModuleRefs(dir);
   const plugins: PluginDoc[] = [];
+  const cold: ColdStep[] = [];
   const missing: string[] = [];
 
   for (const step of steps) {
@@ -205,6 +221,26 @@ function mediatekChain(
       continue;
     }
     const m = resolveModule(raw as unknown as LoadedModule, byRef);
+    /**
+     * An OFFLINE module is diverted here — the line stemSplit.md said was missing.
+     *
+     * It has no engine plugin by construction (a separator fans out, and a chain step compiles
+     * to a serial insert on one track), so pushing it onto `plugins` is impossible and letting
+     * it fall through to the check below would report it as a module this machine cannot load —
+     * which is the wrong sentence for a module that is right here and simply runs elsewhere.
+     *
+     * `coldStepOf` throws with what to do about it: authored with no model, or a model this
+     * machine has not got. Caught into `missing`, so the two kinds of "this chain cannot run
+     * here" are reported together and cost nothing.
+     */
+    if (isOfflineModule(m)) {
+      try {
+        cold.push(coldStepOf(step, m));
+      } catch (e) {
+        missing.push((e as Error).message);
+      }
+      continue;
+    }
     const { type, name } = enginePlugin(m.plugin, step);
     if (!type) {
       missing.push(
@@ -229,7 +265,7 @@ function mediatekChain(
       }),
     );
   }
-  return { plugins, missing };
+  return { plugins, cold, missing };
 }
 
 /**
@@ -278,7 +314,12 @@ export function resolveChain(
         throw new Error(
           `chain '${trimmed}' has no treatment to apply — only ${own.ownTrack}'s strip, which stays live`,
         );
-      return { ref: trimmed, slug, ownTrack: own.ownTrack, plugins };
+      // No cold steps: a PROJECT chain is read off the compiled document, and the compiler emits
+      // no plugin for an offline module (`nodeProject` skips the type by name). There is nothing
+      // here to divert — an offline step in a project's own chain is invisible from the doc, and
+      // seeing it would mean reading the graph a second time. A separation is asked for by naming
+      // the library chain that holds it, which is where `stemsplit` lives anyway.
+      return { ref: trimmed, slug, ownTrack: own.ownTrack, plugins, cold: [] };
     }
   }
 
@@ -292,14 +333,35 @@ export function resolveChain(
           : " (this machine has synced no médiathèque chains)"),
     );
   }
-  const { plugins, missing } = mediatekChain(dir, found.folder);
+  const { plugins, cold, missing } = mediatekChain(dir, found.folder);
   if (missing.length)
     throw new Error(
       `chain '${found.ref}' has steps this machine cannot load: ${missing.join(", ")}`,
     );
-  if (!plugins.length)
+  if (!plugins.length && !cold.length)
     throw new Error(`chain '${found.ref}' puts the signal through no module`);
-  return { ref: trimmed, slug, plugins };
+  /**
+   * A chain either BOUNCES or SEPARATES, and mixing the two is refused by name.
+   *
+   * Not a limitation of the pass — a limitation of what the chain can say. Flattened for a
+   * render (`chainSteps`), a chain is a list of module names with no ports on it: a step after
+   * a separator would have four inputs to choose from and no way to name one. The graph itself
+   * CAN say it — `stemsplit#vocals: [ reverb ]`, see @studio/song's docs/ports.md — so this is
+   * the sentence to revisit the day `chainSteps` carries the port along.
+   *
+   * Refused rather than run half-way, because both halves of the wrong guess are bad: treating
+   * the mix instead of the stem, or picking `vocals` for you.
+   */
+  if (cold.length && plugins.length)
+    throw new Error(
+      `chain '${found.ref}' both separates (${cold
+        .map((c) => c.step)
+        .join(
+          ", ",
+        )}) and processes (${plugins.length} module(s)) — a bounce cannot say which ` +
+        "of the stems the next step treats. Put the separation in a chain of its own.",
+    );
+  return { ref: trimmed, slug, plugins, cold };
 }
 
 /** What a target resolved to: the audio files to process, and how to name them in a message. */
@@ -526,7 +588,7 @@ export interface ProcessResult {
  * resolved before the first render, so a chain naming a module this machine has not got costs
  * no time and leaves no file behind.
  */
-export function processWithChain(
+export async function processWithChain(
   dir: string,
   project: ProjectDoc,
   target: string,
@@ -534,7 +596,14 @@ export function processWithChain(
   scope: Scope,
   // Called with each render's absolute path just before it is written, so a host can back it up.
   beforeWrite?: (absPath: string) => void,
-): ProcessResult {
+  /**
+   * How to run one COLD step, when the chain has any. The seam, and it is optional for the same
+   * reason `CommandHost.clipEnvelope` is: the thing that owns a 166 MB model is the file service,
+   * which depends on this package — so the running is handed in rather than imported. A host
+   * without one refuses the chain by name instead of pretending the pass ran.
+   */
+  runCold?: RunColdStep,
+): Promise<ProcessResult> {
   // Every message names the command that produced it, both of them being one implementation.
   const verb = `${scope} process`;
   let chain: ResolvedChain;
@@ -557,6 +626,52 @@ export function processWithChain(
       changed: false,
     };
 
+  const show = (s: string) => relative(dir, s).split("\\").join("/");
+
+  /**
+   * A chain of COLD steps: a pass over each file, producing files. No engine, no render, no
+   * repoint.
+   *
+   * Before the engine check on purpose — a separation needs ffmpeg and a model, not the
+   * moteur binary — and before the loop below, which it does not share: there is no single
+   * output to point a clip at. Four stems land under `stems/` beside the source, which is where
+   * the médiathèque already looks for them (apps/k7's docs/audio.md).
+   *
+   * Sequential, and a failure stops the rest: `runColdPasses` says why.
+   */
+  if (chain.cold.length) {
+    if (!runCold)
+      return {
+        lines: [
+          `${verb}: '${chain.ref}' runs offline (${chain.cold
+            .map((c) => c.step)
+            .join(", ")}), and this host cannot run an offline step`,
+        ],
+        changed: false,
+      };
+    try {
+      const done = await runColdPasses(targets.sources, chain.cold, runCold);
+      const wrote = done.reduce((n, d) => n + d.files.length, 0);
+      return {
+        lines: [
+          `${targets.label} through '${chain.ref}' — ${wrote} file(s):`,
+          ...done.map(
+            (d) =>
+              `${show(d.source)} → ${d.files.map(show).join(", ") || "nothing"}`,
+          ),
+        ],
+        // The project's files are untouched, but the workspace's are not: the tree has four new
+        // files in it, and the host's reload is what puts them on screen.
+        changed: wrote > 0,
+      };
+    } catch (e) {
+      return {
+        lines: [`${verb} failed: ${(e as Error).message}`],
+        changed: false,
+      };
+    }
+  }
+
   const engine = findEngineBinary();
   if (!engine)
     return {
@@ -566,7 +681,6 @@ export function processWithChain(
       changed: false,
     };
 
-  const show = (s: string) => relative(dir, s).split("\\").join("/");
   const lines: string[] = [];
   // A chain with a MEASURING cold step in it — a normaliser — needs its number before it can be
   // rendered, and the number is a fact about THIS file. So the measurement sits inside the loop,

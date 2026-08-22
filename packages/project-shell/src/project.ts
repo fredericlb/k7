@@ -28,6 +28,8 @@ import type {
   ModuleUiFile,
   ProjectErrors,
   ProjectInfo,
+  SeparateJob,
+  StemsReply,
   UndoResult,
   WebPreferences,
   WebProject,
@@ -105,6 +107,25 @@ export const projectApi = {
   open: (path: string, libraries?: string) =>
     fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
+
+  /**
+   * Separate ONE song of the médiathèque's cache, so a deck's stem knobs have something to
+   * subtract. `song` is the cache-relative audio (`songs/<artiste>/<album>/<titre>/<fichier>`),
+   * and it is the whole request.
+   *
+   * No chain travels: which module separates and which model it wants is one answer for the
+   * machine, kept in its preferences by `system stems`. A caller that named one would be a second
+   * place to spell it — and the browser cannot resolve it anyway.
+   *
+   * Cheap on a song already prepared — the reply says `ready` and nothing starts — and cheap
+   * twice over, because the job id hashes the WORK: a second caller joins the run in flight
+   * rather than starting another hour of arithmetic. See the file service's docs/stemSplit.md.
+   */
+  prepareStems: (song: string) => fsend<StemsReply>("POST", "/stems", { song }),
+  /** How one is getting on. 404s once the machine has swept a finished job, which the caller
+   *  reads as "ask the disk" rather than as a failure. */
+  separation: (id: string) =>
+    fget<SeparateJob>(`/separate/${encodeURIComponent(id)}`),
   /**
    * Play a document this browser built — the turntables surface's decks, filled into the
    * project's own compile.
@@ -239,14 +260,10 @@ export const projectApi = {
   preferences: () => fget<WebPreferences>("/preferences"),
   setVim: (vim: boolean) =>
     fsend<{ vim: boolean }>("PUT", "/preferences/vim", { vim }),
-  // Remember that two interface inputs are grouped into one stereo device. The ENGINE was told
-  // separately and immediately — this is what makes it still true after the next restart, exactly
-  // as the audio-device pick is (see engine/moteur/docs/audioDevice.md).
-  setInputPair: (channel: number, stereo: boolean) =>
-    fsend<{ inputPairs: number[] }>("PUT", "/preferences/input-pair", {
-      channel,
-      stereo,
-    }),
+  // `setInputPair` was here — remembering that two interface inputs are grouped into one stereo
+  // device, while the ENGINE was told separately over the caller's own socket. One act, two doors
+  // and no name: `system channel type <channel> <mono|stereo>` is both halves now, so the write
+  // goes down `/command` with every other act (packages/ui-module-builder/docs/inputChannels.md).
   logs: (offset?: number, tail = 300) =>
     fget<{ offset: number; lines: string[] }>(
       offset != null ? `/logs?offset=${offset}` : `/logs?tail=${tail}`,

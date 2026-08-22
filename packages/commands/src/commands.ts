@@ -6,16 +6,18 @@
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type {
   AudioDeviceInfo,
   PluginInfo,
 } from "@studio/engine-client/engineClient";
+import { METRONOME_MIN } from "@studio/engine-protocol/build";
 import { builtinParamsFor } from "@studio/song/builtinParams";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import {
@@ -56,12 +58,22 @@ import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
 import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
 import {
+  appendPlaylistItem,
+  PLAYLISTS_DIR,
+  type PlaylistItem,
+  parsePlaylist,
+  playlistPathOf,
+  playlistStub,
+} from "@studio/song/playlist";
+import {
   clearChannelLabel,
   formatAudioDevice,
   formatChannels,
   loadPreferences,
   parseChannels,
   setChannelLabel,
+  setInputPair,
+  setStemsChain,
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { loadAudioClipDoc, trackMixer } from "@studio/song/project";
@@ -122,6 +134,34 @@ import {
   trackTakes,
 } from "@studio/song/trackMix";
 import {
+  type Placement,
+  PlacementSchema,
+} from "@studio/song/yaml/placementSchema";
+
+/**
+ * Everything a placement may say beyond WHERE it goes — what `events add` forwards to
+ * `PlacementSchema`, and so what a paste can reproduce.
+ *
+ * `ref` and `start` are handled apart: every event has those two, and `start` is the one field a
+ * paste re-spells. Listed rather than spread from the payload so a key nobody meant to accept
+ * cannot ride in — the schema is `.strict()` and would refuse it, but refusing a MISSPELLED field
+ * loudly is only useful if the right ones are named somewhere a reader can find them.
+ */
+const EVENT_FIELDS = [
+  "from",
+  "to",
+  "fadeIn",
+  "fadeOut",
+  "loop",
+  "disabled",
+  "warp",
+] as const;
+
+// The MACHINE's copy of the médiathèque — where a set's songs are, and therefore where their
+// stems go. A deck opens file paths, so what matters is this disk and not the hosted volume.
+import { familyDir } from "@studio/mediatek/layout";
+import { isAudio } from "@studio/mediatek/media";
+import {
   removeWarpPoint,
   seedWarp,
   setWarpPoint,
@@ -144,12 +184,15 @@ import {
   appendNotes,
   isPlayableNote,
   moveNote,
+  type PadEffect,
   removeNote,
+  setNoteEffect,
   setNoteTimeRange,
   setNoteVelocity,
   splitNote,
 } from "@studio/song/yaml/sequenceFile";
 import { isSurfaceType } from "@studio/song/yaml/surfaceSchema";
+import { coldOutDir, type RunColdStep, runColdPasses } from "./coldPass";
 import {
   applyAlternative,
   cancelAlternative,
@@ -160,7 +203,12 @@ import {
   switchAlternative,
 } from "./git";
 import { consolidateAudioMaterial, splitAudioMaterial } from "./materialRender";
-import { processWithChain, type Scope } from "./processChain";
+import {
+  processWithChain,
+  type ResolvedChain,
+  resolveChain,
+  type Scope,
+} from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
 import { wavSeconds } from "./wavLength";
@@ -170,6 +218,12 @@ import { wavSeconds } from "./wavLength";
 // and a module from a catalogue has a folder shared by every song. A render belongs to THIS
 // project, so it lives where the project can see all of them at once.
 const FROZEN_DIR = "renders";
+
+// What the playlist verbs say with no workspace under them. They act on `repoDir` and never fall
+// back to `songPath` the way the git verbs do: `_playlists/` at the project root would be a
+// second, invisible set of set lists — one per song, which is the shape they exist to avoid.
+const NO_WORKSPACE =
+  "no workspace here — a playlist lives in the repository's _playlists/";
 
 export type TransportAction = "play" | "stop" | "toggle" | "rewind";
 
@@ -212,6 +266,12 @@ export interface CommandHost {
   // node per input of the one in use. Optional: a host with no engine link simply
   // populates the plugin modules and says the inputs were skipped.
   getAudioDevices?(): Promise<AudioDeviceInfo[]>;
+  // Group two interface inputs into one stereo device, or take them apart — `system channel type`.
+  // Answers whether an ENGINE heard it. Optional, and false is not a failure: the PREFERENCE is
+  // what makes the grouping stick (engineLink replays it on every connect), so a host with no
+  // engine records it and says the rig will hear it on the next one, rather than refusing an act
+  // that is already half done.
+  setInputStereo?(channel: number, stereo: boolean): boolean;
   // A clip's source envelope — per-bucket peaks over the file's whole duration, for `event trim`,
   // which has to know where the sound is before it can cut what is not. Optional for the reason
   // above: building it needs the engine (it decodes and downsamples into the `.cache` sidecar), so
@@ -219,6 +279,25 @@ export interface CommandHost {
   clipEnvelope?(
     clip: string,
   ): Promise<{ peak: number[]; seconds: number } | null>;
+  /**
+   * Run ONE offline step over one file — the stem separator, today.
+   *
+   * Optional for the same reason as the two above, and one more: the model is 166 MB and the
+   * inference lives in `@studio/file-service`, which depends on THIS package — so it is handed
+   * in rather than imported (see coldPass.ts's `RunColdStep`). A host without one has
+   * `clip process` refuse a chain that separates, by name, rather than bounce it unseparated.
+   */
+  runColdStep?: RunColdStep;
+  /**
+   * The chain this MACHINE separates with — `~/.studio/preferences.yaml`'s `stemsChain`, as
+   * `system stems` wrote it.
+   *
+   * Handed in rather than read, although the file is one import away and other `system` verbs do
+   * read it. What that buys is a test that does not depend on the developer's own preferences: a
+   * suite exercising "no chain named" would otherwise pass or fail by whether whoever runs it has
+   * set one. The verb that WRITES it still writes it directly — that is its whole job.
+   */
+  stemsChain?: string;
   // Transport config for git, merged over the env: the web host pins GIT_SSH_COMMAND to the user's deploy key,
   // the CLI leaves it to the machine's own config.
   gitEnv?: GitEnv;
@@ -296,6 +375,12 @@ function writeMarkers(songPath: string, map: Record<string, string>): void {
 // That file is the source of truth — the engine reads it off the compiled doc, so the caller re-sends.
 function writeMetronomeSetting(songPath: string, on: boolean): void {
   setFileValue(join(songPath, "settings.yaml"), ["metronome"], on);
+}
+
+// …and its LEVEL, in the same flat file. A separate value from the flag on purpose: turning the
+// click off and back on has to bring back the level you had, which one field could not do.
+function writeMetronomeLevel(songPath: string, level: number): void {
+  setFileValue(join(songPath, "settings.yaml"), ["metronome_level"], level);
 }
 
 /**
@@ -386,6 +471,40 @@ function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   if (!m) return null;
   parts.pop();
   return { x: Number(m[1]), y: Number(m[2]) };
+}
+
+/**
+ * A playlist NAME as the file it is, or null with the refusal already said.
+ *
+ * Both playlist verbs go through this, so "where does `live/repet` live" is answered once. Two
+ * things have to be true and each is refused by name: there is a workspace to hold it, and the
+ * name stays INSIDE `_playlists/`.
+ *
+ * That second check is not `playlistPathOf`'s job done twice. It rejects a `..` SEGMENT, splitting
+ * on `/` — which is the whole of the rule on a machine whose separator is `/`, and half of it on
+ * Windows, where `..\..\x` is one segment to that function and three to `join`. The file service's
+ * `safePath` says the same thing for every path a browser sends; this is the same sentence for a
+ * path a command line supplies.
+ */
+function playlistFile(
+  name: string,
+  h: CommandHost,
+): { rel: string; abs: string } | null {
+  const root = h.repoDir;
+  if (!root) {
+    h.refuse([NO_WORKSPACE]);
+    return null;
+  }
+  const rel = playlistPathOf(name);
+  const dir = resolve(root, PLAYLISTS_DIR);
+  const abs = rel ? resolve(root, rel) : "";
+  if (!rel || !(abs.startsWith(dir + sep) || abs === dir)) {
+    h.refuse([
+      `'${name}' is not a playlist name — it would leave ${PLAYLISTS_DIR}/`,
+    ]);
+    return null;
+  }
+  return { rel, abs };
 }
 
 // `splitOptionals` was here — it told an `[extends-ref]` from a `[node-name]` by SHAPE, because
@@ -550,6 +669,71 @@ async function newTrack(arg: string, h: CommandHost): Promise<void> {
   } catch (e) {
     h.refuse([`track new: ${(e as Error).message}`]);
   }
+}
+
+/**
+ * `sequence note repeat|skip <sequence> <note> <start> <n|off>` — a PAD's two effects.
+ *
+ * ONE implementation for both, taking the word it writes, because they are the same act on the same
+ * note: two handlers would be two places to keep the addressing, the `off` spelling and the
+ * refusals identical, and the second one would drift. A factory rather than a SID lookup inside,
+ * since a `SidHandler` is only ever handed its arguments and its host.
+ *
+ * `off` rather than `0` or `1`: those are values, and the file has no way to say them. A pad that
+ * plays once on every pass is a pad with neither key, so turning an effect off is a DELETION — the
+ * same rule the velocity drag follows going back to full. See @studio/song docs/padEffects.md.
+ */
+function padEffectCommand(effect: PadEffect): SidHandler {
+  return async (arg, h) => {
+    const [seqId, noteStr, startStr, nStr] = arg.trim().split(/\s+/);
+    if (!seqId || !noteStr || startStr === undefined || nStr === undefined) {
+      h.refuse([
+        `usage: sequence note ${effect} <sequence> <note> <start> <n|off>`,
+      ]);
+      return;
+    }
+    const k = parseMidiNote(noteStr);
+    if (k === null) {
+      h.refuse([
+        `bad note "${noteStr}" — use a name (C4, F#3) or a number 0..127`,
+      ]);
+      return;
+    }
+    const t = Number(startStr);
+    if (!Number.isFinite(t)) {
+      h.refuse(["start must be a number of beats"]);
+      return;
+    }
+    const off = nStr === "off";
+    const n = off ? undefined : Number(nStr);
+    if (n !== undefined && (!Number.isInteger(n) || n < 2)) {
+      h.refuse([
+        `${effect} takes a whole number of 2 or more, or "off" — not "${nStr}"`,
+      ]);
+      return;
+    }
+    const file = join(h.songPath, "sequences", `${seqId}.yaml`);
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
+      return;
+    }
+    try {
+      writeFileSync(file, setNoteEffect(text, k, t, effect, n), "utf8");
+    } catch (e) {
+      h.refuse([`sequence note ${effect}: ${(e as Error).message}`]);
+      return;
+    }
+    const said = off
+      ? `${effect} off`
+      : effect === "repeat"
+        ? `repeated ×${n}`
+        : `silent every ${n} passes`;
+    h.log([`${seqId}: ${noteStr} (k${k}) at ${fmtBeat(t)} → ${said}`]);
+    await h.reload();
+  };
 }
 
 // `sequence new [name]` — four empty bars to write into. Place it on a lane with `event new`.
@@ -1297,7 +1481,7 @@ async function processCommand(
     ]);
     return;
   }
-  const { lines, changed } = processWithChain(
+  const { lines, changed } = await processWithChain(
     h.songPath,
     h.project(),
     target,
@@ -1305,6 +1489,8 @@ async function processCommand(
     scope,
     // Back up each render before it's overwritten, so the web host's journal can undo the bounce.
     (abs) => h.snapshot?.(abs),
+    // …and how to run an offline step, for a chain that separates rather than treats.
+    h.runColdStep,
   );
   h.log(lines);
   // Only when something landed: the clip files changed under the compiler, and nothing else
@@ -2342,6 +2528,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    *
    * Grouped by lane so each file is rewritten ONCE (`addTrackPlacements`), whatever the rectangle
    * spanned.
+   *
+   * It takes the WHOLE placement vocabulary, not just where the event goes: a paste that carried
+   * only `ref` and `start` put down an untrimmed, unfaded, single pass of the material wherever
+   * the copied event had been trimmed, faded, silenced or repeated.
    */
   /**
    * `graph pin <JSON {node: {x,y}}>` — record where the graph drew itself.
@@ -2403,7 +2593,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     const payload = a.trim();
     if (!payload) {
       h.refuse([
-        'usage: events add <JSON [{track,ref,start,loop?}]>  (e.g. events add [{"track":"gtr","ref":"riff","start":"3:1"}])',
+        'usage: events add <JSON [{track,ref,start,from?,to?,fadeIn?,fadeOut?,loop?,disabled?,warp?}]>  (e.g. events add [{"track":"gtr","ref":"riff","start":"3:1"}])',
       ]);
       return;
     }
@@ -2420,35 +2610,28 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       ]);
       return;
     }
-    const items = raw as {
-      track?: unknown;
-      ref?: unknown;
-      start?: unknown;
-      loop?: unknown;
-    }[];
+    const items = raw as Record<string, unknown>[];
     const p = h.project();
     const num = p.timeSigNumerator;
     const den = p.timeSigDenominator;
     // Lane id -> its placements, collected while everything is still checkable.
-    const byTrack = new Map<
-      string,
-      { ref: string; start: string; loop?: number }[]
-    >();
+    const byTrack = new Map<string, Placement[]>();
     for (const [i, it] of items.entries()) {
       const where = `events add [${i}]`;
+      const lane = it.track;
+      const ref = it.ref;
+      const start = it.start;
       if (
-        typeof it.track !== "string" ||
-        typeof it.ref !== "string" ||
-        typeof it.start !== "string"
+        typeof lane !== "string" ||
+        typeof ref !== "string" ||
+        typeof start !== "string"
       ) {
         h.refuse([`${where}: needs a string track, ref and start`]);
         return;
       }
-      const track = p.tracks.find(
-        (t) => t.id === it.track || t.name === it.track,
-      );
+      const track = p.tracks.find((t) => t.id === lane || t.name === lane);
       if (!track) {
-        h.refuse([`${where}: no track "${it.track}"`]);
+        h.refuse([`${where}: no track "${lane}"`]);
         return;
       }
       if (track.generated) {
@@ -2459,7 +2642,7 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       }
       // A timecode this cannot read would be written verbatim and break the next load.
       try {
-        parsePosition(it.start, num, den);
+        parsePosition(start, num, den);
       } catch (e) {
         h.refuse([`${where}: bad timecode — ${(e as Error).message}`]);
         return;
@@ -2467,22 +2650,52 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       // The same refusal `event add` makes, and for the same reason: a placement naming a clip
       // the compiler cannot resolve fails the WHOLE song, so this never writes one.
       if (
-        !existsSync(join(h.songPath, "clips", `${it.ref}.yaml`)) &&
-        !existsSync(join(h.songPath, "sequences", `${it.ref}.yaml`))
+        !existsSync(join(h.songPath, "clips", `${ref}.yaml`)) &&
+        !existsSync(join(h.songPath, "sequences", `${ref}.yaml`))
       ) {
         h.refuse([
-          `${where}: no clip or sequence "${it.ref}" — a placement naming neither stops the project loading`,
+          `${where}: no clip or sequence "${ref}" — a placement naming neither stops the project loading`,
         ]);
         return;
       }
-      const list = byTrack.get(track.id) ?? [];
-      list.push({
-        ref: it.ref,
-        start: it.start,
-        ...(typeof it.loop === "number" && it.loop > 1
-          ? { loop: it.loop }
-          : {}),
+      /**
+       * The rest of the placement's vocabulary, carried through so a PASTE puts down the event
+       * that was copied and not a bare reference at a new position (see clipboard.ts). Checked
+       * against `PlacementSchema` rather than field by field: that schema is `.strict()`, so a key
+       * this verb has no business writing is refused by name instead of landing in the file, and
+       * the window's `to > from` rule is enforced in the one place it is stated.
+       */
+      const parsed = PlacementSchema.safeParse({
+        ref,
+        start,
+        ...Object.fromEntries(
+          EVENT_FIELDS.filter((k) => it[k] !== undefined).map((k) => [
+            k,
+            it[k],
+          ]),
+        ),
       });
+      if (!parsed.success) {
+        const first = parsed.error.issues[0];
+        h.refuse([
+          `${where}: ${first.path.join(".") || "placement"} — ${first.message}`,
+        ]);
+        return;
+      }
+      // The two timecodes the schema can only check the SHAPE of: `1:0` matches the pattern and
+      // is not a position, and a fade written verbatim would break the next load.
+      for (const k of ["fadeIn", "fadeOut"] as const) {
+        const v = parsed.data[k];
+        if (v === undefined) continue;
+        try {
+          parsePosition(v, num, den);
+        } catch (e) {
+          h.refuse([`${where}: bad ${k} — ${(e as Error).message}`]);
+          return;
+        }
+      }
+      const list = byTrack.get(track.id) ?? [];
+      list.push(parsed.data);
       byTrack.set(track.id, list);
     }
     try {
@@ -2806,6 +3019,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
+  "sequence.noteRepeat": padEffectCommand("repeat"),
+  "sequence.noteSkip": padEffectCommand("skip"),
+
   "sequence.noteVelocity": async (arg, h) => {
     const [seqId, noteStr, startStr, velStr] = arg.trim().split(/\s+/);
     if (!seqId || !noteStr || startStr === undefined || velStr === undefined) {
@@ -2872,7 +3088,14 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse(["notes payload must be a JSON array of {t,d,k,v?}"]);
       return;
     }
-    const notes = raw as { t?: number; d?: number; k?: number; v?: number }[];
+    const notes = raw as {
+      t?: number;
+      d?: number;
+      k?: number;
+      v?: number;
+      repeat?: number;
+      skip?: number;
+    }[];
     const file = join(h.songPath, "sequences", `${seqId}.yaml`);
     let text: string;
     try {
@@ -2881,11 +3104,18 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`no sequence file: sequences/${seqId}.yaml`]);
       return;
     }
+    // A pad's effects come through a PASTE, so they are checked here rather than trusted: the
+    // schema takes whole numbers from 2 up, and writing anything else would produce a file that
+    // no longer loads — a worse outcome than dropping the field. See docs/padEffects.md.
+    const effect = (v: unknown): number | undefined =>
+      typeof v === "number" && Number.isInteger(v) && v >= 2 ? v : undefined;
     const playable = notes.filter(isPlayableNote).map((n) => ({
       ...n,
       t: Math.max(0, n.t),
       // A velocity of 1 is what the engine applies anyway, so writing it says nothing.
       v: typeof n.v === "number" && n.v >= 0 && n.v < 1 ? n.v : undefined,
+      repeat: effect(n.repeat),
+      skip: effect(n.skip),
     }));
     if (!playable.length) {
       h.refuse(["no valid notes to record"]);
@@ -3038,6 +3268,289 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     if (!ch.length) return h.refuse([`bad channels '${m[2]}'`]);
     clearChannelLabel(dir, ch);
     h.log([`cleared ${dir} ${ch.join("+")}`]);
+  },
+  /**
+   * `system channel type <channel> <mono|stereo>` — two inputs heard as one device, or not.
+   *
+   * TWO writes for one act, and both are needed: the preference is what makes it survive (the
+   * engine forgets its grouping across a restart as surely as it forgets which interface to open,
+   * and `engineLink` replays this file on every connect), the engine message is what makes it true
+   * now. Written first, so a rig that answers slowly still remembers what was asked of it.
+   *
+   * Either half of the pair names it — `setInputPair` stores the odd one — because the interface
+   * pairs even/odd hardware channels and there is no pair 2+3 to describe. Which is also why
+   * there is no `in|out` here: an output pair is what a mix already is.
+   */
+  "system.channel.type": (a, h) => {
+    const [chArg, modeArg] = splitWords(a);
+    const mode = (modeArg ?? "").toLowerCase();
+    if (!chArg || (mode !== "mono" && mode !== "stereo"))
+      return h.refuse([
+        "usage: system channel type <channel> <mono|stereo>   e.g. system channel type 3 stereo",
+      ]);
+    const channel = Number(chArg);
+    if (!Number.isInteger(channel) || channel < 1)
+      return h.refuse([
+        `'${chArg}' is not a channel — they count from 1, and either half names the pair`,
+      ]);
+    const stereo = mode === "stereo";
+    const first = channel % 2 === 1 ? channel : channel - 1;
+    setInputPair(channel, stereo);
+    const heard = h.setInputStereo?.(channel, stereo) ?? false;
+    h.log([
+      `in ${first}+${first + 1} is ${stereo ? "one stereo device" : "two mono devices"}` +
+        // No engine has still done the durable half, and saying so is the difference between
+        // "it did nothing" and "it will be there when the engine is".
+        (heard ? "" : " — remembered; the engine hears it on its next connect"),
+    ]);
+  },
+
+  /**
+   * `system stems <chaîne>` — which chain separates a record, remembered once.
+   *
+   * The ONE place that answer lives. It was asked for at each use — by `playlist stems`, by a
+   * desk's surface, by the playlist panel's button — and it is the same answer every time: which
+   * module separates and which model it wants is a fact about the library and about this
+   * machine's `~/.studio/models`, not about the set list in front of you.
+   *
+   * Checked while it is set, which is the cheap moment: a chain that does not separate is refused
+   * here rather than thirty songs into a set list. A machine with no project open stores it
+   * unchecked and says so — a `@st0/…` ref has nothing to resolve against without one.
+   */
+  "system.stems": (a, h) => {
+    const ref = a.trim();
+    if (!ref)
+      return h.refuse([
+        "usage: system stems <chaîne>   e.g. system stems @st0/stems",
+        h.stemsChain
+          ? `currently: ${h.stemsChain} — pass "" to clear it`
+          : "nothing is set, so nothing on this machine will separate a record",
+      ]);
+    // `""` on the line, quotes and all: the way to say "separate nothing" without a second verb.
+    if (ref === '""' || ref === "''") {
+      setStemsChain("");
+      return h.log(["the separating chain is cleared"]);
+    }
+
+    let checked = "";
+    if (h.songPath) {
+      try {
+        const chain = resolveChain(h.songPath, h.project(), ref);
+        if (!chain.cold.length)
+          return h.refuse([
+            `'${ref}' does not separate — this wants a chain whose step is an offline module`,
+          ]);
+        checked = ` — separates with ${chain.cold.map((c) => c.step).join(", ")}`;
+      } catch (e) {
+        return h.refuse([`system stems: ${(e as Error).message}`]);
+      }
+    } else {
+      // Not a failure: `system` verbs work with no project, and this one is worth setting from a
+      // shell that has not opened one. What it cannot do is prove the chain is there.
+      checked = " — not checked: no project is open to resolve it against";
+    }
+    setStemsChain(ref);
+    h.log([`stems are separated with ${ref}${checked}`]);
+  },
+
+  // --- the workspace's set lists ---------------------------------------------
+  //
+  // `_playlists/` sits at the workspace ROOT, beside `_modules`, so these two act on `repoDir`
+  // and not on `songPath`: a playlist belongs to the repository and is the same one whichever
+  // project is open. They are therefore the only verbs here that work with none.
+  "playlist.new": (a, h) => {
+    const name = a.trim();
+    if (!name) return h.refuse(["usage: playlist new <name>"]);
+    const found = playlistFile(name, h);
+    if (!found) return;
+    // Refused rather than opened: a "create" that quietly hands back somebody else's set list is
+    // how you edit the wrong one.
+    if (existsSync(found.abs))
+      return h.refuse([`${found.rel} is already there`]);
+    try {
+      mkdirSync(dirname(found.abs), { recursive: true });
+      // The STUB rather than an empty file: the screen draws its right-hand pane from the text,
+      // so an empty one would open on a parse failure for a playlist nobody has got wrong yet.
+      writeFileSync(
+        found.abs,
+        playlistStub(basename(found.rel).replace(/\.ya?ml$/i, "")),
+        "utf8",
+      );
+    } catch (e) {
+      return h.refuse([`playlist new: ${(e as Error).message}`]);
+    }
+    h.log([`+ playlist ${found.rel}`]);
+  },
+  /**
+   * `playlist stems <playlist> [chain]` — separate every song of a set list, before the evening.
+   *
+   * The preparation half of cutting a stem live: a deck subtracts a stem from the mix it came out
+   * of (packages/dsp/docs/stemcut.md), and it can only do that over files that already exist.
+   * Minutes per song, so this is a command you run the night before rather than mid-set.
+   *
+   * The chain is OPTIONAL and defaults to the machine's — `system stems`. Which module separates
+   * and which model it wants is the same answer every time, so it is asked once and kept in
+   * preferences.yaml; naming one here is the override, for the run that wants a different model.
+   * A chain that treats rather than separates is refused either way, rather than quietly bouncing
+   * thirty songs.
+   *
+   * The songs are the MACHINE's copies, under the médiathèque cache: a deck opens file paths, so
+   * what matters is what is on this disk. Writing into that cache is safe — `syncFamily` drops
+   * what it once fetched (`heldManifest`), never what it finds beside it.
+   *
+   * Sequential and resumable: a song whose `stems/` already holds something is skipped, and the
+   * separation registry hashes the WORK, so even a re-run of an interrupted pass costs nothing
+   * twice. Both halves matter for thirty songs on one machine.
+   */
+  "playlist.stems": async (a, h) => {
+    const [first, ...rest] = splitWords(a);
+    // Named on the line, else the machine's standing answer. One question, asked once.
+    const chainRef = rest.join(" ") || h.stemsChain || "";
+    if (!first)
+      return h.refuse([
+        "usage: playlist stems <playlist> [chain]",
+        "       (e.g. playlist stems ete-2026 @st0/stems)",
+      ]);
+    if (!chainRef)
+      return h.refuse([
+        "no separating chain: name one, or set this machine's with `system stems <chaîne>`",
+      ]);
+    const found = playlistFile(first.replace(/^"(.*)"$/s, "$1"), h);
+    if (!found) return;
+    let items: PlaylistItem[];
+    try {
+      items = parsePlaylist(readFileSync(found.abs, "utf8"))?.items ?? [];
+    } catch {
+      return h.refuse([
+        `no playlist ${found.rel} — make one with: playlist new <name>`,
+      ]);
+    }
+    if (!items.length) return h.refuse([`${found.rel} names no song`]);
+
+    // Resolved against the OPEN PROJECT's module vocabulary, like every other cold step: that is
+    // where a `@st0/…` ref becomes a module and a model becomes a path on this machine. The one
+    // playlist verb that needs a project, and it says so rather than throwing NO_PROJECT.
+    let chain: ResolvedChain;
+    try {
+      chain = resolveChain(h.songPath, h.project(), chainRef);
+    } catch (e) {
+      return h.refuse([`playlist stems: ${(e as Error).message}`]);
+    }
+    if (!chain.cold.length)
+      return h.refuse([
+        `'${chainRef}' does not separate — this verb runs a chain whose step is an offline module`,
+      ]);
+    if (!h.runColdStep)
+      return h.refuse(["this host cannot run an offline step"]);
+
+    const songs = familyDir("songs");
+    const lines: string[] = [];
+    let done = 0;
+    let skipped = 0;
+    for (const item of items) {
+      const folder = join(songs, ...item.song.split("/"));
+      // The master is the FIRST audio file in the folder and the scan does not descend — the
+      // médiathèque's own rule (`scanSongs`), restated here because this reads the cache directly
+      // rather than through a scan of every song on the disk.
+      let master: string | undefined;
+      try {
+        master = readdirSync(folder, { withFileTypes: true }).find(
+          (e) => e.isFile() && isAudio(e.name),
+        )?.name;
+      } catch {
+        lines.push(`${item.song}: not on this machine`);
+        continue;
+      }
+      if (!master) {
+        lines.push(`${item.song}: no audio in its folder`);
+        continue;
+      }
+      // Already done is a question about the FOLDER, not a flag anybody keeps — the same rule
+      // every "is this fresh" question in this repo asks. A half-finished pass costs nothing to
+      // redo: the registry hashes the work and hands back the run already in flight.
+      const out = coldOutDir(join(folder, master));
+      const held = existsSync(out) ? readdirSync(out).filter(isAudio) : [];
+      if (held.length) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        const wrote = await runColdPasses(
+          [join(folder, master)],
+          chain.cold,
+          h.runColdStep,
+        );
+        done += 1;
+        lines.push(
+          `${item.song}: ${wrote.reduce((n, d) => n + d.files.length, 0)} stem(s)`,
+        );
+      } catch (e) {
+        // Per song, and the loop goes on: one unreadable file must not cost the other twenty
+        // nine their preparation, and the line says which one it was.
+        lines.push(`${item.song}: ${(e as Error).message.split("\n")[0]}`);
+      }
+    }
+    h.log([
+      `${found.rel} through '${chain.ref}': ${done} separated` +
+        (skipped ? `, ${skipped} already done` : ""),
+      ...lines,
+    ]);
+  },
+  /**
+   * `playlist song add <playlist> <song> [variant]` — one more line at the end of a set list.
+   *
+   * The song is the REST of the line, spaces included, because a song's ref is a path through
+   * the médiathèque's folders (`AC-DC/Back in Black/Hells Bells`) and asking for quotes around
+   * the common case would be asking for them every time. QUOTE it and a variant may follow —
+   * one rule, and the only one that can tell "a song with spaces" from "a song and a version".
+   *
+   * The ref is kept verbatim and nothing checks it: the catalogue is another service's, and a
+   * playlist that refused a song you are about to upload would be a playlist you cannot write
+   * ahead of a gig. The screen says "morceau introuvable" against the same line, which is where
+   * the two listings meet (apps/st0/frontend/docs/playlists.md).
+   */
+  "playlist.song.add": (a, h) => {
+    const m = /^("[^"]*"|\S+)\s+(.+)$/.exec(a.trim());
+    if (!m)
+      return h.refuse([
+        "usage: playlist song add <playlist> <song> [variant]  (quote the song to name a variant)",
+      ]);
+    const found = playlistFile(m[1].replace(/^"(.*)"$/s, "$1"), h);
+    if (!found) return;
+    const { rel, abs } = found;
+    let text: string;
+    try {
+      text = readFileSync(abs, "utf8");
+    } catch {
+      return h.refuse([
+        `no playlist ${rel} — make one with: playlist new <name>`,
+      ]);
+    }
+    const quoted = /^"([^"]*)"\s*(.*)$/.exec(m[2].trim());
+    const song = quoted ? quoted[1] : m[2].trim();
+    const variant = quoted ? quoted[2].trim() : "";
+    if (!song) return h.refuse(["a playlist line names a song"]);
+    const next = appendPlaylistItem(text, {
+      song,
+      ...(variant ? { variant } : {}),
+    });
+    // Null is the file's shape refusing the append — a flow `items: [` spread over lines, say.
+    // The same refusal the screen's button wears, and for the same reason: inventing a second
+    // `items:` key lower down would write a file whose two halves disagree.
+    if (next === null)
+      return h.refuse([
+        `${rel}: the way \`items:\` is written there is not a shape this can extend — add the line by hand`,
+      ]);
+    try {
+      h.snapshot?.(abs);
+      writeFileSync(abs, next, "utf8");
+    } catch (e) {
+      return h.refuse([`playlist song add: ${(e as Error).message}`]);
+    }
+    const count = parsePlaylist(next)?.items.length;
+    h.log([
+      `${rel}: + ${song}${variant ? ` (${variant})` : ""}${count ? ` — ${count} song${count > 1 ? "s" : ""}` : ""}`,
+    ]);
   },
   // The external UI of ONE INSTANCE: the plugin's own window, drawn by the plugin on the
   // engine's machine. The argument names a node in this project's chains, which is what a
@@ -4082,6 +4595,48 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.log([`metronome ${on ? "on" : "off"}`]);
     } catch (e) {
       h.refuse([`metronome failed: ${(e as Error).message}`]);
+    }
+  },
+  /**
+   * `transport metronome volume <0.2..1>` — how loud the click is.
+   *
+   * A PROJECT setting like the flag beside it, so it rewrites settings.yaml and re-sends; the
+   * engine reads it off the compiled document and never off a live control.
+   *
+   * The floor is 0.2 and it is not this command's invention: Tracktion clamps its click gain to
+   * 0.2..1, so a smaller number would be accepted here, written to the file, and then played at
+   * 0.2 — a project stating a level nobody hears. Refused by name instead, and the message says
+   * where silence actually lives.
+   */
+  "transport.metronomeVolume": async (a, h) => {
+    const arg = a.trim();
+    const v = Number(arg);
+    if (!arg || !Number.isFinite(v)) {
+      h.refuse(["usage: transport metronome volume <0.2..1>"]);
+      return;
+    }
+    if (v < METRONOME_MIN || v > 1) {
+      h.refuse([
+        `the click's level runs ${METRONOME_MIN} to 1 — ${arg} is outside it` +
+          (v < METRONOME_MIN
+            ? "; to silence it use `transport metronome`, which is the switch"
+            : ""),
+      ]);
+      return;
+    }
+    // Two decimals: a slider reads a pixel, and a file full of 0.6333333 is noise in a diff.
+    const level = Math.round(v * 100) / 100;
+    const p = h.project();
+    const np: ProjectDoc = {
+      ...p,
+      settings: { ...p.settings, metronomeLevel: level },
+    };
+    try {
+      writeMetronomeLevel(h.songPath, level);
+      await h.applyProject(np);
+      h.log([`metronome level ${level}`]);
+    } catch (e) {
+      h.refuse([`metronome volume failed: ${(e as Error).message}`]);
     }
   },
   "project.reload": async (_a, h) => {

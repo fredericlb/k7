@@ -1,8 +1,8 @@
 # Splitting a mix into stems
 
-`POST /separate` runs HT-Demucs over an audio file on this machine and writes four WAVs —
-drums, bass, other, vocals — into `stems/` beside it. It answers with a **job to poll**,
-not with audio.
+`POST /separate` runs HT-Demucs over an audio file on this machine and writes four 24-bit
+WAVs — drums, bass, other, vocals — into `stems/` beside it. It answers with a **job to
+poll**, not with audio.
 
 ## Why it is a module, and why it cannot be a plugin
 
@@ -50,6 +50,71 @@ progress worth reporting.
 - **The job carries `files`.** A clone's product is a directory named by `workspace`, so
   there is nothing to list. Four stems are the thing the caller came for, and their names
   come from the model rather than from the request.
+
+## Why 24-bit WAV, and not float or FLAC
+
+The format is decided by the **consumer**, and the consumer changed. While a stem's only
+destination was another chain, float32 was the obvious answer: nothing downstream would ever
+be worse than the model's own output, so rounding on the way out was a loss taken for nobody.
+The desk's four knobs made a stem something a PLATTER opens
+([ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md)), and that reopens the
+question.
+
+Tracktion reads WAV, AIFF and its own `FloatAudioFormat` **directly**, and decodes everything
+else into a cached proxy first:
+
+```cpp
+// tracktion_AudioFile.cpp
+needsCachedProxy = dynamic_cast<juce::WavAudioFormat*> (format) == nullptr
+                      && dynamic_cast<juce::AiffAudioFormat*> (format) == nullptr
+                      && dynamic_cast<FloatAudioFormat*> (format) == nullptr;
+```
+
+FLAC therefore reads, and costs a full decode into a second copy the first time a record goes
+on — five of them per deck, since the mix and its four stems all land together. A quarter of
+the volume saved, paid for at the one moment nobody has time. So the choice is among the
+formats that need no proxy, and there 24 bits is simply the small one:
+
+| | one stem, 4 min stereo | the four | thirty songs |
+|---|---|---|---|
+| float32 (what this wrote) | 85 Mo | 339 Mo | ~10 Go |
+| **24-bit** | 64 Mo | 254 Mo | ~7,5 Go |
+| FLAC | ~20 Mo | ~85 Mo | ~2,5 Go — behind a proxy |
+
+What 24 bits costs is a quantisation floor at −144 dBFS, and even that is not paid in full: a
+cut is `mix − k·stem`, so the stem's own noise enters in proportion to `k` and disappears
+entirely with the knob at rest ([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md)). It is not
+dithered, for the same order of magnitude — truncation at 24 bits is under the noise of any
+converter this will come out of, and dither would put a floor there on purpose instead.
+
+The one thing an integer file cannot do is carry an **overshoot**. The model is not
+reconstructing the mix, so nothing holds its output inside ±1; `peakOf` measures each stem
+before it is written and the job's `lines` say when one was clamped. Silence would be worse:
+the alternative way to learn about it is a click at the loudest moment of the record.
+
+## `POST /stems` — and why it takes no chain
+
+There are two doors, and the second one is what a browser uses. `POST /separate` is per MACHINE
+and takes absolute paths, including the model's: a caller that already knows both. `POST /stems`
+is workspace-scoped, takes one cache-relative song, and **nothing else**.
+
+The chain it runs is `~/.studio/preferences.yaml`'s `stemsChain`, written once by
+`system stems <chaîne>`. That is the shape rather than a shortcut. Which module separates and which
+model it wants is one answer for the machine — it does not vary by set list, by project or by
+record — so a caller that named one would be asking the same question of the same person at each
+use, and the three callers there are (the playlist panel's button, a desk catching up, the verb)
+would be three places to get it wrong. A browser cannot resolve it in any case: it has no idea
+which `.onnx` this machine holds or where.
+
+The ORDER inside the route is deliberate and testable:
+
+1. confine the path (`safePath`), 404 a song this machine has not pulled;
+2. **ask the disk** — a song whose `stems/` already holds audio answers `ready` and starts nothing;
+3. *then* read the preference (409 naming `system stems` when there is none);
+4. *then* resolve the chain against the open project.
+
+Step 2 before steps 3 and 4 is what lets a machine that has never been told how to separate still
+light the knobs on the songs somebody prepared with `playlist stems`.
 
 ## Why a worker thread
 
@@ -117,10 +182,29 @@ resolution finds it. See `engine/capot/scripts/docs/buildEngine.md`.
 **macOS is not covered.** Nothing in this repo signs a third-party `.dylib`, so a notarised
 `.app` carrying `libonnxruntime.dylib` is unsolved. Windows and Linux bundles carry it.
 
-## What is not wired yet
+## The call site
 
-The **call site**. `coldPass.ts` in `@studio/commands` decides which steps are offline and
-refuses early; `mediatekChain` is where an offline module must be diverted rather than
-pushed onto the plugin list, and that diversion is the remaining line. The running arrives
-as a function on purpose — the inference is here, in a package that depends on
-`@studio/commands`, so importing it back would be a cycle.
+~~What is not wired yet.~~ It is: `clip process <clip> <chain>` over a chain whose step is an
+offline module runs this. `mediatekChain` diverts the step instead of resolving it to a plugin,
+`coldPass.ts` says which model and whether this machine has it, and `processWithChain` runs the
+pass in place of the bounce — no render, no repoint, four files under `stems/`. The rules that
+follow (a chain separates or treats, never both; the pass runs before the engine check) are in
+`@studio/commands`' [processChain.md](../../commands/docs/processChain.md).
+
+The running still arrives **as a function** for the reason it always did — the inference is here,
+in a package that depends on `@studio/commands`, so importing it back would be a cycle. The seam
+is `CommandHost.runColdStep`, and this service's implementation is the one place that knows what
+"run it" means here: `startSeparate` + poll, so a `clip process` gets the registry's two
+properties for free — the id hashes the WORK, so a retry or a second tab joins the run in flight,
+and the hour of arithmetic stays on a worker thread while the service answers everything else.
+
+The cost, said out loud: one `/command` request stays open for the length of a separation. The
+job registry exists precisely so that a *browser* need not — `POST /separate` is still there and
+still start-then-poll — but a command reports what it wrote, and a verb that returned a job id
+would be a different verb.
+
+**And a whole set at once** is `playlist stems <playlist> <chain>`, which runs this over every
+song a set list names, on this machine's médiathèque cache. It is the preparation half of cutting
+a stem live on a deck (`packages/dsp/docs/stemcut.md`): the deck subtracts a stem from the mix it
+came out of, so the files have to be there before the record goes on. Sequential, skipping what is
+already done, and leaning on the id hashing the work so an interrupted evening resumes for free.

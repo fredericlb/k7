@@ -174,6 +174,77 @@ the waveform sidecar — see `docs/peakPass.md` for why that distinction is not 
 `Peak: 0` remains the default, still attenuating rather than boosting, for a chain that reaches the
 engine some other way.
 
+## A chain that SEPARATES rather than treats
+
+`cold` covers two shapes, and only one of them is still a plugin. The normaliser above needs a
+**number** before it can run and is otherwise an ordinary insert — one buffer in, the same buffer
+out. A stem separator needs the whole file to produce **files**, and fans out one input into four:
+there is no serial insert that can be, so it declares `plugin: { type: offline }` and has no engine
+plugin at all (`@studio/song`'s [coldModules.md](../../song/docs/coldModules.md)).
+
+`mediatekChain` diverts those steps instead of resolving them to a plugin — the line
+`@studio/file-service`'s `docs/stemSplit.md` recorded as missing. What follows from it:
+
+- **The chain either separates or treats, never both.** Flattened for a render (`chainSteps`) a
+  chain is a list of module names with no ports on it, so a step *after* a separator would have
+  four inputs and no way to name one. Refused by name rather than guessed at — the graph itself can
+  say it (`stemsplit#vocals: [ reverb ]`, `docs/ports.md`), so this is the sentence to revisit the
+  day `chainSteps` carries the port.
+- **A cold run writes files and repoints nothing.** There is no single output for a clip to point
+  at; the four stems land in `stems/` beside the source, where the médiathèque already looks for
+  them (`apps/k7/docs/audio.md`). What changes is the workspace, not the project — the run still
+  reports `changed`, because the tree has four new files in it.
+- **It runs before the engine check**, and needs no `studio-moteur`: a separation is ffmpeg and a
+  model, not a bounce.
+- **The running is handed in**, `CommandHost.runColdStep` (`coldPass.ts`'s `RunColdStep`). The
+  166 MB model lives in `@studio/file-service`, which depends on this package, so importing it
+  back would be a cycle. A host without one refuses the chain by name rather than bouncing the mix
+  unseparated under a name promising stems.
+- **Which model, and whether this machine has it**, is answered while the chain is resolved
+  (`coldStepOf`), so a machine that has not downloaded it costs no time and leaves no file — and
+  the two failures are told apart: a module authored with no `onnx:` is a bug, a model missing
+  from `~/.studio/models` is a download.
+
+**Nothing puts either of these in your library.** There is no seed any more — the account's
+libraries repository is the reference — so `stemsplit` the MODULE and a chain naming it are both
+things to put there. The module as it is authored is
+`packages/dsp/modules/audio/separation/stemsplit/` (`@studio/dsp`'s `docs/catalogue.md`), and the
+chain is two files:
+
+```yaml
+# _libraries/chains/stems/graph.yaml
+modules:
+  "@in": [ stemsplit ]
+  stemsplit: [ "@out" ]
+# _libraries/chains/stems/nodes/stemsplit.yaml
+extends: "@st0/audio/separation/stemsplit"
+```
+
+…and then `clip process riff @st0/stems`.
+
+**Name it once with `system stems @st0/stems`.** Which chain separates is a standing answer — the
+same for every playlist, every set and every clip — so it lives in `~/.studio/preferences.yaml`
+beside the rig's other ones, and `playlist stems` and `POST /stems` read it rather than asking. The
+verb checks, when it is set, that the chain really separates: the cheap moment to find that out is
+before thirty songs, not during them.
+
+**For a SET it is `playlist stems <playlist> [chain]`** — the same work over every song a set list
+names, and over the MACHINE's copies (`~/.studio/mediatek/songs/…`), since that is the disk a deck
+opens. Three properties make it a command you run the night before rather than once: a song whose
+`stems/` already holds something is skipped, the registry's id hashes the WORK (so even an
+interrupted pass costs nothing twice), and an unreadable song costs its own line rather than the
+other twenty-nine. Writing into that cache is safe — `syncFamily` drops what it once fetched
+(`heldManifest`), never what it finds beside it.
+
+What a deck then DOES with the four files — subtract one from the mix, and why that rather than
+summing the stems — is `packages/dsp/docs/stemcut.md`.
+
+The file service's implementation awaits the **job registry** rather than calling the worker: the
+id hashes the work, so a retry or a second tab joins the run in flight instead of starting another
+hour of arithmetic, and the inference stays on a worker thread while the service goes on answering.
+One `/command` request therefore stays open for the length of a separation — minutes — which is
+the shape this verb has.
+
 ## Re-running
 
 Every run is its OWN file: the render carries a wall-clock stamp,

@@ -538,6 +538,44 @@
       { name: velocity, type: number, hint: "0..1 — 1 clears the field" },
     ]
 
+# A PAD's two effects, in the step sequencer. Both address a note the way every other note verb
+# does — by key and by where it starts — and both take `off` to remove the effect rather than a 0
+# or a 1: the file has no way to write "plays once, every pass", because that is a pad with neither
+# key. The ENGINE is what realises them; the compiled document carries them unexpanded so the
+# sequencer keeps drawing one pattern rather than its expansion. See @studio/song docs/padEffects.md.
+#
+# The context menu offers 2 and 4 for each; the schema accepts any whole number from 2 up, so a
+# triplet feel can be typed even though no menu row offers it.
+- command: "sequence note repeat"
+  sid: sequence.noteRepeat
+  readable:
+    en: "Retrigger a pad inside its own step"
+    fr: "Répéter un pad dans son propre pas"
+  help: "retrigger one pad n times inside its step (e.g. sequence note repeat drums C1 4 2)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats from the start of the sequence" },
+      { name: n, hint: "2 or more — how many hits fit the step; off removes it" },
+    ]
+
+- command: "sequence note skip"
+  sid: sequence.noteSkip
+  readable:
+    en: "Silence a pad on every nth pass"
+    fr: "Rendre un pad muet une passe sur n"
+  help: "silence one pad every nth pass of the pattern (e.g. sequence note skip drums C1 4 2)"
+  surfaces: [cli]
+  args:
+    [
+      { name: sequence, complete: sequenceFiles },
+      { name: note, type: note },
+      { name: start, type: number, hint: "beats from the start of the sequence" },
+      { name: n, hint: "2 plays one pass in two, 4 plays three in four; off removes it" },
+    ]
+
 # Move a note and/or change its length, addressing it the way the roll does: by key and by where
 # it starts NOW. One verb for both, because on the roll they are one gesture with two grips —
 # dragging the body moves it, dragging an edge stretches it — and two verbs would be two answers
@@ -813,6 +851,118 @@
       { name: dir, values: [in, out] },
       { name: chans, hint: "one channel or a pair — 3, or 3+4 for a stereo pair" },
       { name: label, hint: "what to call them — the rest of the line" },
+    ]
+# Two inputs heard as ONE device, or taken apart again. A fact about the rig like the labels
+# above, stored beside them (`inputPairs` in preferences.yaml) and replayed to the engine on
+# every connect — so the engine is told NOW as well, and the two cannot disagree.
+#
+# No `in|out`, unlike its neighbours: only inputs are paired. An output pair is what a mix
+# already is, and the engine has no verb for one.
+- command: "system channel type"
+  sid: system.channel.type
+  readable:
+    en: "Pair two inputs into one, or split them"
+    fr: "Apparier deux entrées, ou les séparer"
+  help: "make an input pair stereo or mono (e.g. system channel type 3 stereo) — either half names the pair"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: channel,
+        type: number,
+        hint: "either half of the pair — 3 and 4 both name 3+4",
+      },
+      { name: mode, values: [mono, stereo] },
+    ]
+
+# WHICH CHAIN SEPARATES a record into stems, asked once and kept in preferences.yaml beside the
+# rig's other standing answers.
+#
+# It is a `system` verb rather than a project one because the answer does not vary by project:
+# which module separates and which model it wants is a fact about the library and about this
+# machine's ~/.studio/models. Every surface that could start a separation reads it — the playlist
+# panel's button, a desk catching up on an unprepared record — which is precisely why none of them
+# asks for a chain. Naming one in three places would be three places to get it wrong.
+#
+# The chain is CHECKED here, against the open project, and refused if it does not separate: this is
+# the cheap moment to find that out, rather than thirty songs into a set list. With no project open
+# it is stored unchecked and says so — a `@st0/…` ref has nothing to resolve against.
+- command: "system stems"
+  sid: system.stems
+  readable:
+    en: "Set the chain that separates a record into stems"
+    fr: "Choisir la chaîne qui sépare un morceau en stems"
+  help: "remember which chain separates (e.g. system stems @st0/stems) — an empty ref clears it"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: chain,
+        complete: chains,
+        hint: "a chain that SEPARATES — one offline step and nothing else",
+      },
+    ]
+
+# --- the workspace's set lists (see @studio/song's docs/playlists.md) ---
+# A playlist belongs to the REPOSITORY rather than to a song: it lives in `_playlists/` at the
+# workspace root, so these two are the only verbs here that need no project open. The songs
+# they name are the médiathèque's and are kept verbatim — nothing checks them from here.
+- command: "playlist new"
+  sid: playlist.new
+  readable:
+    en: "Create a set list in this repository"
+    fr: "Créer une playlist dans ce dépôt"
+  help: "create an empty playlist (e.g. playlist new ete-2026) — it lands in _playlists/"
+  surfaces: [cli]
+  args:
+    [
+      {
+        name: name,
+        hint: "what to call it — subfolders count (live/repet), .yaml is added",
+      },
+    ]
+# Prepare a whole set at once: separate every song the playlist names, so a deck can subtract a
+# stem live. Minutes per song — this is the command you run the night before, not during.
+# The chain DEFAULTS to the machine's — `system stems` — and naming one here is the override, for
+# the run that wants a different model. It used to be required, which asked the same question of
+# the same person at every use: which module separates and which model it wants does not vary by
+# set list.
+- command: "playlist stems"
+  sid: playlist.stems
+  readable:
+    en: "Separate every song of a set list into stems"
+    fr: "Séparer en stems tous les morceaux d'une playlist"
+  help: "prepare a set: separate every song of a playlist (e.g. playlist stems ete-2026) — the chain is this machine's unless named, and songs already done are skipped"
+  surfaces: [cli]
+  args:
+    [
+      { name: playlist, complete: playlists },
+      {
+        name: chain,
+        complete: chains,
+        optional: true,
+        hint: "a chain that SEPARATES — omitted, the one `system stems` remembers",
+      },
+    ]
+- command: "playlist song add"
+  sid: playlist.song.add
+  readable:
+    en: "Add a song to the end of a set list"
+    fr: "Ajouter un morceau à la fin d'une playlist"
+  help: 'append a song (e.g. playlist song add ete-2026 "AC-DC/Back in Black/Hells Bells" live) — quote the song to name a variant after it'
+  surfaces: [cli]
+  args:
+    [
+      { name: playlist, complete: playlists },
+      {
+        name: song,
+        hint: "its path under songs/ or just its name — the rest of the line, unless quoted",
+      },
+      {
+        name: variant,
+        optional: true,
+        hint: "one of that song's versions — only readable after a QUOTED song",
+      },
     ]
 
 # --- modules / graph ---
@@ -1122,6 +1272,11 @@
 # Programmatic: the payload is built by whatever COPIED (the shell's clipboard, a script), so it
 # carries positions rather than a range to derive them from. One entry per event, each naming its
 # own lane, so a rectangle spanning several lanes is still one command.
+#
+# It takes the WHOLE placement vocabulary, not just where the event goes, because a paste has to
+# put down the event that was copied: one carrying only `ref` and `start` wrote an untrimmed,
+# unfaded, single pass of the material wherever the original had been trimmed, faded, silenced or
+# repeated. Every entry is checked against PlacementSchema before anything is written.
 - command: "events add"
   sid: events.add
   readable:
@@ -1133,7 +1288,7 @@
     [
       {
         name: events,
-        hint: 'JSON [{track,ref,start,loop?}] — start is a timecode',
+        hint: 'JSON [{track,ref,start,from?,to?,fadeIn?,fadeOut?,loop?,disabled?,warp?}] — start is a timecode',
       },
     ]
 - command: "event move"
@@ -1565,6 +1720,21 @@
   readable:
     en: "Turn the metronome on or off"
     fr: "Activer ou désactiver le métronome"
+# …and how loud it is, kept apart from the switch: turning the click off and back on has to bring
+# back the level you had, which one field could not do. A PROJECT setting like the flag, written to
+# settings.yaml as `metronome_level` and read by the engine off the compiled document.
+#
+# The floor is 0.2 rather than 0, and it is Tracktion's rather than ours — `Edit::setClickTrackVolume`
+# clamps there, so a smaller number would be written down and then played at 0.2. Silence is the
+# switch above, which is a different question.
+- command: "transport metronome volume"
+  sid: transport.metronomeVolume
+  help: "set the metronome's level, 0.2..1 (e.g. transport metronome volume 0.4)"
+  surfaces: [cli]
+  readable:
+    en: "Set the metronome's volume"
+    fr: "Régler le volume du métronome"
+  args: [{ name: level, type: number, hint: "0.2 … 1 — off is `transport metronome`" }]
 # Arming lives HERE and not under `track`, where it was `track rec`. It reads like a track's
 # property and is not one: nothing is written to any file, and a reload does not restore it.
 # It is a message to the ENGINE, which holds the armed set and reports it back on every state

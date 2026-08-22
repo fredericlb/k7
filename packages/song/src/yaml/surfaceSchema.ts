@@ -35,6 +35,12 @@ export const isSurfaceType = (s: string): s is SurfaceType =>
  * the arrangement, and that is a layout rather than a kind. What each TYPE can actually be drawn
  * in is `SURFACE_LAYOUTS_BY_TYPE` below: the axes stay independent, and which pairs the editor
  * has a component for is a separate, checkable fact.
+ *
+ * **Nothing draws in `view` today** — the desk was the last one and became a pane. The word stays
+ * in the enum on purpose rather than being deleted: it is what lets the pair check below answer a
+ * file that still says `layout: view` with "a 'turntables' surface draws in 'split', not in
+ * 'view'", which names the fix. Dropped from the enum, the same file would get zod's own "invalid
+ * enum value", which names the field and not the remedy.
  */
 export const SURFACE_LAYOUTS = ["view", "split"] as const;
 export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
@@ -55,12 +61,18 @@ export type SurfaceLayout = (typeof SURFACE_LAYOUTS)[number];
  * `<video>` element per layer. As a `view` it would tear both down whenever you looked at
  * something else and rebuild them — with a decoder flush and a visible hitch — whenever you came
  * back. `full` is how the picture gets big, which is the pane ring doing its job.
+ *
+ * `turntables` was the one `view` — a screen off the header, over the whole window. It is `split`
+ * now, for the plainest of the reasons above: a desk is something you work THE GRAPH against, and
+ * a screen that covered the graph made "which module is this fader on" a round trip. As a pane it
+ * sits over the chains the way the arrangement does, joins the ring, and `full` is how it gets the
+ * window when you do want it whole — the same answer the frame already had.
  */
 export const SURFACE_LAYOUTS_BY_TYPE: Record<
   SurfaceType,
   readonly SurfaceLayout[]
 > = {
-  turntables: ["view"],
+  turntables: ["split"],
   timeline: ["split"],
   viewport: ["split"],
 };
@@ -103,6 +115,24 @@ export const SURFACE_MAPPING_SKELETON: Record<
           [
             `deck${d}.filter`,
             `un module filter — le filtre de la platine ${d}`,
+          ],
+          // The four stem cuts. OFFERED but not REQUIRED, which is the one place these two
+          // lists differ: a desk with no stem cut is a complete desk — it was yesterday's —
+          // so a set that does not wire them must not be told it is missing something. What a
+          // scaffold offers and what a surface must have are two questions, and this is where
+          // they stopped having the same answer.
+          [
+            `deck${d}.stemDrums`,
+            `un module stem — la batterie de la platine ${d}`,
+          ],
+          [`deck${d}.stemBass`, `un module stem — la basse de la platine ${d}`],
+          [
+            `deck${d}.stemOther`,
+            `un module stem — le reste de la platine ${d}`,
+          ],
+          [
+            `deck${d}.stemVocals`,
+            `un module stem — la voix de la platine ${d}`,
           ],
         ] as const,
     ),
@@ -148,6 +178,21 @@ export const SurfaceSchema = z
      * which is a sentence you can act on; refusing the file would refuse to open the project.
      */
     playlist: z.string().min(1).optional(),
+    /**
+     * Does this desk SEPARATE a record it is handed unprepared?
+     *
+     * A `turntables` surface only, and a boolean rather than a chain ref. It named the chain for
+     * one afternoon, which asked the project a question that has nothing to do with it: which
+     * module separates and which model it wants is one answer for the whole machine, and it lives
+     * in `~/.studio/preferences.yaml` where `system stems` puts it. What a SET decides is whether
+     * an hour of arithmetic may start because somebody put a record on — and that is worth
+     * deciding per set, because a rehearsal rig and a stage rig answer it differently.
+     *
+     * Absent is false, and false is a state rather than a fault: the desk draws, plays, and says
+     * on its greyed knobs that this record was never separated. See
+     * packages/ui-turntables/docs/stems.md.
+     */
+    stems: z.boolean().optional(),
     // `MixViewSchema` itself, not a record built the same way. It was the latter, and the two
     // drifted the first time one of them grew: `null` — a component named and not wired, which
     // is what a scaffolded desk is made of — became legal in one and stayed refused in the other,
@@ -175,6 +220,14 @@ export const SurfaceSchema = z
         code: "custom",
         path: ["playlist"],
         message: `only a 'turntables' surface reads a playlist — a '${s.type}' draws no song browser`,
+      });
+    // Same rule, same reason: the separating chain is read when a record goes ON A DECK, and
+    // nothing else in this project has one.
+    if (s.stems !== undefined && s.type !== "turntables")
+      ctx.addIssue({
+        code: "custom",
+        path: ["stems"],
+        message: `only a 'turntables' surface separates a record — a '${s.type}' loads none`,
       });
   });
 

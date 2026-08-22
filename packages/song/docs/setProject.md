@@ -12,7 +12,7 @@ dialect: the node project you already know, with one entity fewer and two files 
 | file | what it holds |
 |---|---|
 | `project.yaml` | the set's settings, and nothing about shape — there is no arrangement because none is declared |
-| `songs.yaml` | this set's CUE points, song by song — see [songsFile.md](songsFile.md) |
+| `mix.yaml` | this set's CUE points, song by song — see [mixFile.md](mixFile.md) |
 | `graph.yaml` | the routing segments, exactly as in a song |
 | `nodes/<name>.yaml` | its USES of the médiathèque's modules — one line each — and the DECKS, which are lanes and so nodes too ([trackModules.md](trackModules.md)) |
 | `surfaces/desk.yaml` | that it draws a desk, and what each control drives — see [surfaces.md](surfaces.md) |
@@ -26,15 +26,22 @@ a timeline or a viewport from theirs.
 ```yaml
 # surfaces/desk.yaml
 type: turntables
-layout: view
+layout: split
 playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
+stems: true               # separate a record put on unprepared (the CHAIN is the machine's)
 ```
+
+`split` is a PANE: the desk sits over the chains, half the column each, and a set — declaring no
+timeline — is those two and nothing else. That pairing is why it is a pane rather than a screen
+of its own, which is what it was: a fader on the desk is a param on a module in the graph.
 
 **The songs are not in the project.** A playlist lives at the root of the REPOSITORY, beside
 `_modules`, so one set list serves every project in the workspace and is committed with the
 work it was written for ([playlists.md](playlists.md)). `songs.yaml` said which songs the set
 drew on and no longer does: two files answered one question, and the playlist is the better of
 the two — it has a screen, it is shareable, and it is the thing somebody had already written.
+What was left of that file is the CUE sheet, and it is `mix.yaml` now — a file called `songs`
+holding no song list was a name describing what it used to be ([mixFile.md](mixFile.md)).
 
 The surface carries its own `mapping:` ([surfaces.md](surfaces.md)), so the declaration and the
 wiring are one file. The desk itself is `@studio/ui-turntables`, and st0 has an engine before it
@@ -121,15 +128,19 @@ signal**:
 
 ```yaml
 modules:
-  deckA: [ tempoA ]         # each deck through its OWN tempo first…
-  deckB: [ tempoB ]
-  tempoA: [ crossfade ]     # …then the FLOW into the crossfade's first input
-  tempoB: [ crossfade#b ]   # a side input — lands on the port called `b`
+  deckA: [ tempoA ]         # the record, through its OWN tempo…
+  tempoA: [ eqA ]           # …into the deck's bus
+  stemBassA: [ cutBassA ]   # …and one lane per separated instrument
+  cutBassA: [ eqA ]         #    through the cut that SUBTRACTS it, into the same bus
+  # …drums, other, vocals alike, ×2 decks
+  eqA: [ filterA ]          # the bus carries the strip
+  filterA: [ crossfade ]    # …and flows into the crossfade's first input
+  filterB: [ crossfade#b ]  # deck B's bus lands on the port called `b`
   crossfade: [ OUT ]
-bypassed: [ deckB ]         # deck B is heard through the crossfade only
+bypassed: [ deckA, deckB, stemBassA, … ]   # every source is heard through its bus only
 ```
 
-`#b` is what makes the second deck expressible; without it `tempoB` would claim the module
+`#b` is what makes the second deck expressible; without it `filterB` would claim the module
 as its own next step and its real input would go unnoticed. The full rule is
 [ports.md](ports.md). The crossfade declares its own two inputs with `mandatory: false` on
 the second, because one deck loaded and the other silent is the normal state of a set, not
@@ -137,6 +148,50 @@ a half-built chain.
 
 **The tempo comes before the fade**, and the order is the signal path: a deck whose tempo
 were applied after the crossfade would be stretched post-mix, along with the other deck.
+
+### Each deck is FIVE lanes, meeting at a bus
+
+The record, and one per separated stem. A stem you can fade on its own has to be a track of its
+own — there is no fan-out in the document and no plugin with four inputs (again
+[ports.md](ports.md)) — and each runs through a `stemcut`, whose gain is **negative**. So the five
+summing at the EQ produce a SUBTRACTION: turn one up and that instrument leaves the mix, leave
+them all at zero and what you hear is the record, sample for sample.
+
+Five feeders is also what makes `eqA` a **bus**: a run breaks where two signals meet, so the EQ,
+the filter and the crossfade become a chain with no `from`, which `nodeProject` materialises as a
+return track fed by five sends.
+
+**The meeting has to happen before the EQ**, and that is the whole reason the strip moved onto a
+bus. Subtracting a raw stem from an already equalised mix leaves a residue shaped like the EQ, so
+the cancellation would stop cancelling the moment somebody touched a knob.
+
+And `bypassed:` now lists all ten sources rather than deck B alone. `out` is a parallel path, so
+any lane feeding the bus is also heard raw beside it — which for a stem lane is worse than a
+duplicate: it would add its inverted copy straight to the master. Muting still feeds sends and
+sidechains, which is what makes this work.
+
+The four files come from `playlist stems` (`@studio/commands`) — or, for a record put on
+unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What
+the desk does with them either way is `packages/ui-turntables/docs/stems.md`.
+
+**A set written before this has one lane a deck**, so its desk draws no stem column at all — which
+is the designed answer to an unwired mapping, not a fault. `scripts/migrateSetStems.ts` gives it
+the eight lanes, the sixteen nodes, the eight bypasses and the eight mapping lines, through the
+YAML Document API so every comment in the files comes back as it was. Dry by default:
+
+```bash
+npx tsx packages/song/scripts/migrateSetStems.ts <projet>.st0 --write
+```
+
+The part it is easy to get wrong by hand is the DECK's own lane. Before the stems it fed a run —
+one feeder, so the EQ was a step the signal went through — and five feeders make that EQ a meeting
+point, so every lane now reaches it as a send. `out` is parallel, so an unmuted deck A would be
+heard twice over. The script adds it to `bypassed:` for that reason; deck B was already there,
+having always ended on a port.
+
+It deliberately does NOT write the `stems: true` line. A separation is minutes a song, so it
+happens because a set asked for it. (And it never writes a chain: `system stems` holds that, once,
+for the machine.)
 
 ### The tempo module is COLD
 

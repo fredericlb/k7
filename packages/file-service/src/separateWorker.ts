@@ -1,5 +1,5 @@
 // separateWorker.ts — the half of a separation that burns a core for minutes: decode the input
-// with ffmpeg, run the model window by window, fold the results, write four WAVs. Runs in a
+// with ffmpeg, run the model window by window, fold the results, write four 24-bit WAVs. Runs in a
 // worker_thread and talks to separate.ts by postMessage; nothing here touches Express.
 // See docs/stemSplit.md.
 
@@ -11,10 +11,11 @@ import {
   CHANNELS,
   deinterleave,
   OverlapAdd,
+  peakOf,
   SAMPLE_RATE,
   SEGMENT,
   STEMS,
-  wavFloat32,
+  wavPcm24,
   windowStarts,
 } from "./separateAudio";
 
@@ -220,7 +221,17 @@ export async function separate({
   mkdirSync(outDir, { recursive: true });
   return STEMS.map((name, s) => {
     const path = join(outDir, `${name}.wav`);
-    writeFileSync(path, wavFloat32(oa.finish(s)));
+    const chans = oa.finish(s);
+    // An integer file cannot hold what a float one did, so an overshoot is CLAMPED — and said,
+    // because the only other way to find out is a click at the loudest moment of the record.
+    const peak = peakOf(chans);
+    if (peak > 1)
+      say({
+        phase: "writing",
+        percent: 100,
+        line: `${name}: peak ${peak.toFixed(3)} — clamped to full scale`,
+      });
+    writeFileSync(path, wavPcm24(chans));
     return path;
   });
 }

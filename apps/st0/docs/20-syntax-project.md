@@ -70,7 +70,7 @@ markers:
 
 **Optional, and most projects have none.** A surface is a special view the project asks the
 editor to draw — a desk of controls wired to the modules in your chains. One file per surface;
-the filename names it, and it gets a button at the top right of the screen.
+the filename names it, and it becomes a pane in the layout with a button at the top right.
 
 ```yaml schema=Surface
 # What draws it. `turntables` is the DJ desk: two decks meeting at a crossfade,
@@ -79,10 +79,12 @@ the filename names it, and it gets a button at the top right of the screen.
 # refused rather than opening onto a blank screen.
 type: turntables
 
-# Where it goes. `view` means a screen of its own, reached from the header —
-# the only layout so far. It is a separate line from `type` because the same
-# desk could one day be a panel instead.
-layout: view
+# Where it goes. `split` means a PANE — a slot in the layout, stacked with the
+# others, so the desk sits over your chains rather than covering them. Press its
+# number key, or fullscreen it, exactly as you would the timeline. It is a
+# separate line from `type` because where a surface goes and what it is are two
+# questions.
+layout: split
 
 # Which songs its browser lists — the PLAYLIST this set draws on. A name under
 # `_playlists/` at the root of the repository, not a path: the folder is fixed.
@@ -96,6 +98,22 @@ layout: view
 # something you choose, not something a project cannot open without.
 playlist: ete-2026
 
+# Whether this desk SÉPARE a record it is handed unprepared, so its stem knobs
+# have something to subtract.
+#
+# Put a record on that nobody has prepared and the separation starts there and
+# then, with its progress over the four greyed knobs. It plays the whole time —
+# an empty stem lane subtracts nothing — and the knobs light up when the files
+# land.
+#
+# WHICH chain separates is not asked here. That is one answer for the whole
+# machine, set once under the cog, in I/O — or `system stems @st0/stems`.
+#
+# Leave this out and nothing starts, which is deliberate: a separation is
+# minutes of arithmetic per song. Prepare a whole set list the night before
+# instead, with `playlist stems <playlist>`.
+stems: true
+
 # What each of its components moves. Same shape as `views/mix.yaml`: the
 # control's id, then the module the CHAINS file names and the param as the
 # module's `ui.yaml` binds it.
@@ -106,6 +124,10 @@ playlist: ete-2026
 #
 # Required: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`, `eqHigh` and
 # `filter`. Not `transport`, `sync` or `listen` — those are actions, not params.
+#
+# Offered but not required, per deck: `stemDrums`, `stemBass`, `stemOther` and
+# `stemVocals` — the four instruments you can take out of a record. A desk that
+# wires none of them is a complete desk and draws no column at all.
 mapping:
   crossfade: { module: crossfade, param: Mix }
   deckA.tempo: { module: tempoA, param: Target BPM }
@@ -126,10 +148,16 @@ Session preferences that belong to the SONG rather than to the machine — what 
 
 ```yaml schema=Settings
 metronome: false
+metronome_level: 0.6   # how loud the click is, 0.2 … 1
 count_in: 1      # bars of click before a recording take starts
 ```
 
 `count_in` defaults to **1** when the file doesn't mention it; write `count_in: 0` to record immediately.
+
+`metronome_level` defaults to **0.6** and stops at **0.2** — it cannot reach silence, because that is
+what `metronome: false` is for. The floor is the audio engine's own, so a smaller number would be
+stored and then played at 0.2. The two are separate fields on purpose: switching the click off and
+back on brings back the level you had. Right-click the metronome button to set it.
 
 Note that the engine currently rolls **at most two bars**: Tracktion's count-in has three settings — none, one
 bar, two bars — so a larger number is accepted and stored, but plays as two.

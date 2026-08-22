@@ -1,6 +1,7 @@
-import { VOLUME_DB } from "@studio/engine-protocol/build";
+import { trackDoc, VOLUME_DB } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { STEMS, stemLane } from "@studio/song/stems";
 import { describe, expect, it } from "vitest";
 import {
   BPM_RANGE,
@@ -17,6 +18,7 @@ import {
   MIX_CENTRE,
   NO_LOADS,
   PITCH_RANGE,
+  stemSource,
   syncedTempos,
   TEMPO_MODULE,
   TEMPO_PARAM,
@@ -26,6 +28,21 @@ import {
   withDecks,
 } from "./deck";
 import { playablePath } from "./service";
+
+describe("where a stem's file is", () => {
+  it("is `stems/` beside the record, whichever separator the machine uses", () => {
+    // The path is the ENGINE machine's and this runs in a browser, so it is string work: a
+    // Windows root normalised to POSIX here would be this app deciding something it does not own.
+    expect(stemSource("/m/song/master.wav", "bass")).toBe(
+      "/m/song/stems/bass.wav",
+    );
+    expect(stemSource("C:\\m\\song\\master.wav", "drums")).toBe(
+      "C:\\m\\song\\stems/drums.wav",
+    );
+    // A bare file name has no folder to keep, and must not grow one.
+    expect(stemSource("master.wav", "vocals")).toBe("stems/vocals.wav");
+  });
+});
 
 const entry = (over: Partial<MediatekEntry> = {}): MediatekEntry => ({
   family: "songs",
@@ -308,6 +325,82 @@ describe("filling the decks into the COMPILED project", () => {
     const doc = withDecks(compiled(), loaded());
     expect(doc.tracks[0].clips[0].source).toBe("/m/a.wav");
     expect(doc.tracks[1].clips[0].source).toBe("/m/b.wav");
+  });
+
+  /** The compiled set as it is scaffolded now: each deck's lane, plus a lane per stem. */
+  const withStemLanes = (): ProjectDoc => {
+    const base = compiled();
+    return {
+      ...base,
+      tracks: [
+        ...base.tracks,
+        ...DECKS.flatMap((d) =>
+          STEMS.map((s) => trackDoc(stemLane(d, s), { mute: true })),
+        ),
+      ],
+    };
+  };
+
+  it("fills a stem lane from the file BESIDE the record", () => {
+    const doc = withDecks(
+      withStemLanes(),
+      loaded({
+        deckA: {
+          path: "/m/song/master.wav",
+          title: "A",
+          artist: null,
+          id: "songs/a",
+          stems: true,
+        },
+      }),
+    );
+    const at = (id: string) => doc.tracks.find((t) => t.id === id);
+    expect(at(stemLane("deckA", "bass"))?.clips[0].source).toBe(
+      "/m/song/stems/bass.wav",
+    );
+    expect(at(stemLane("deckA", "vocals"))?.clips[0].source).toBe(
+      "/m/song/stems/vocals.wav",
+    );
+    // The record itself is untouched: it is what the stems are subtracted FROM.
+    expect(at("deckA")?.clips[0].source).toBe("/m/song/master.wav");
+  });
+
+  it("gives the record and its stems the SAME start and the same warp", () => {
+    // The one thing that cannot be got wrong. A stem a sample off the record it is subtracted
+    // from is not a quiet instrument, it is a comb filter — and nothing in the picture would
+    // say so, because both clips are there and both play.
+    const doc = withDecks(
+      withStemLanes(),
+      loaded({
+        deckA: {
+          path: "/m/song/master.wav",
+          title: "A",
+          artist: null,
+          id: "songs/a",
+          stems: true,
+        },
+      }),
+      { deckA: { natural: 120, seconds: 60, target: 126 } },
+    );
+    const clips = ["deckA", ...STEMS.map((s) => stemLane("deckA", s))].map(
+      (id) => doc.tracks.find((t) => t.id === id)?.clips[0],
+    );
+    for (const c of clips) {
+      expect(c?.start).toBe(clips[0]?.start);
+      expect(c?.length).toBe(clips[0]?.length);
+      expect(c?.warp).toEqual(clips[0]?.warp);
+    }
+  });
+
+  it("leaves the stem lanes EMPTY for a song nobody has separated", () => {
+    // An empty lane subtracts nothing, so a record that was never prepared plays as itself.
+    // The alternative — pointing four clips at files that are not there — would make putting
+    // a record on depend on an hour of arithmetic nobody asked for.
+    const doc = withDecks(withStemLanes(), loaded());
+    for (const s of STEMS)
+      expect(
+        doc.tracks.find((t) => t.id === stemLane("deckA", s))?.clips,
+      ).toEqual([]);
   });
 
   it("leaves an empty deck's clips alone rather than emptying them", () => {

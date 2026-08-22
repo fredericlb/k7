@@ -11,7 +11,11 @@ import {
   scannedPlugins,
 } from "@studio/engine-client/pluginCache";
 import { ensureLayout } from "@studio/mediatek/layout";
-import type { MachineWorkspaceList, WorkspaceList } from "@studio/web-protocol";
+import type {
+  MachineWorkspaceList,
+  SurfacedProjectList,
+  WorkspaceList,
+} from "@studio/web-protocol";
 import { benchChainPath } from "@studio/web-protocol/projects";
 import cors from "cors";
 import express from "express";
@@ -42,12 +46,14 @@ import { mediatekRouter } from "./routes/mediatek.ts";
 import { playerRouter } from "./routes/player.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
+import { stemsRouter } from "./routes/stems.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import {
   assertSshGitUri,
   createWorkspace,
   getWorkspace,
   listMachineWorkspaces,
+  listSurfacedProjects,
   listWorkspaces,
   UnknownWorkspaceError,
   workspaceForRepo,
@@ -189,6 +195,24 @@ app.get(
   wrap(async (req, res) => {
     const reply: MachineWorkspaceList = {
       workspaces: await listMachineWorkspaces(req.userEmail!),
+    };
+    res.json(reply);
+  }),
+);
+
+/**
+ * …and the same list narrowed to what a SECOND DEVICE could open: every project that declares a
+ * surface, flat, with those surfaces and which one the workspace has open.
+ *
+ * st0's `/external` page, in one call, for the same reason as the route above — that page is a
+ * menu on a tablet and a round trip per project would be a menu that fills in row by row. Beside
+ * `/workspaces` too: the user is the whole question, and no workspace is open when it is asked.
+ */
+app.get(
+  "/workspaces/surfaces",
+  wrap(async (req, res) => {
+    const reply: SurfacedProjectList = {
+      projects: await listSurfacedProjects(req.userEmail!),
     };
     res.json(reply);
   }),
@@ -424,6 +448,11 @@ app.get(
 // There is no /ssh-key here any more. pl8 owns the studio's git identity — it generates the
 // one deploy key and shows it to you — and this machine fetches a copy when it first needs to
 // clone (sshKeys.ts). See packages/git-repos/docs/keys.md.
+
+// Preparing ONE record for the desk's stem knobs. Workspace-scoped, unlike /separate above,
+// because what it takes is a CHAIN ref and that only means something against an open project —
+// the separation itself is the same registry and the same worker. See docs/stemSplit.md.
+app.use(resolveWorkspace, stemsRouter);
 
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);

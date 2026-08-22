@@ -37,6 +37,7 @@ import {
 import chokidar from "chokidar";
 import { guard } from "./background.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
+import { separateJob, startSeparate } from "./separateJobs.ts";
 import { rootDir } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import { skip, type Workspace } from "./workspace.ts";
@@ -45,6 +46,10 @@ const SURFACE = "cli" as const; // the one surface the shared registry defines
 const NO_PROJECT =
   "no active project — select a project in the workspace first";
 const NO_ENGINE = "engine offline — is the C++ engine running on this machine?";
+
+/** How often a waiting `clip process` asks the separation registry. Slow on purpose: the job
+ *  reports in phases of tens of seconds, and nobody is watching this number. */
+const COLD_POLL_MS = 1000;
 
 /** One socket per SESSION, all to the same engine. Keyed by session id. */
 interface Link {
@@ -1191,6 +1196,55 @@ function makeHost(
         return null; // no envelope yet, or a clip nothing can decode — the command says so
       }
     },
+    // Which chain this machine separates with — read here, per request, so a `system stems` in one
+    // tab is in force in the next command without anything being told.
+    get stemsChain(): string | undefined {
+      return loadPreferences().stemsChain;
+    },
+    /**
+     * `clip process` over a chain that SEPARATES: the model, on this machine, on one file.
+     *
+     * Through the job registry rather than calling the worker directly, for the two properties
+     * that registry has and a bare call has not: the id hashes the WORK, so a retry or a second
+     * tab joins the run in flight instead of starting another hour of arithmetic; and the
+     * inference sits in a worker thread, so the service goes on answering `revision()` and
+     * serving files while it runs (docs/stemSplit.md).
+     *
+     * Awaited, which keeps the command's promise — a `clip process` reports what it wrote — at
+     * the price of one HTTP request staying open for minutes. That is the shape the verb has;
+     * a person watching a separation has nothing else to do with the tab.
+     */
+    runColdStep: async ({ step, source, outDir }) => {
+      const started = startSeparate({
+        userEmail: userEmail ?? "unknown",
+        source,
+        model: step.model,
+        outDir,
+      });
+      for (;;) {
+        const job = separateJob(started.id);
+        // Forgotten between two polls: the registry keeps a finished job for five minutes, so
+        // this is the sweep having run under a caller that was still waiting. Said as itself
+        // rather than as a failed separation — the files may well be on disk.
+        if (!job)
+          throw new Error(
+            `the separation of ${source} was forgotten by this machine — look in ${outDir}`,
+          );
+        if (job.failed)
+          throw new Error(job.error || `separation of ${source} failed`);
+        if (job.done) return job.files;
+        await new Promise((r) => setTimeout(r, COLD_POLL_MS));
+      }
+    },
+    // `system channel type`: the engine makes the pair NOW — the command has already written the
+    // preference, which is what `wireEngine` replays on every connect. Answers WHETHER an engine
+    // heard it, so the command can say "remembered" rather than claiming the rig has changed.
+    setInputStereo: (channel, stereo) => {
+      const c = ensureEngine(ws);
+      if (!c || !isReady(ws)) return false;
+      c.setInputStereo(channel, stereo);
+      return true;
+    },
     getAudioDevices: () =>
       new Promise<AudioDeviceInfo[]>((res) => {
         const c = ensureEngine(ws);
@@ -1214,17 +1268,21 @@ function makeHost(
 }
 
 /**
- * Commands that need no active project: the rig preferences, and the whole-repo git ones.
+ * Commands that need no active project: the rig preferences, the workspace's set lists, and the
+ * whole-repo git ones.
  *
  * The git verbs are `project commit` and `project pull` — this listed a bare `commit|pull`,
  * which matches NEITHER, so both were refused with "no project" whenever none was open. It
  * went unnoticed because st0's command bar always has one; pl8 creating a project it never
  * opens is the first caller to arrive without.
  *
- * These are VERBS FROM `commands.yaml`, and this list has drifted from it once already —
- * check there before adding to it.
+ * These are VERBS FROM `commands.yaml`, and this list has drifted from it TWICE now: `channel`
+ * and `audio` were the old spellings of the rig verbs, which have been `system channel …` since
+ * the `system` head was introduced — so every one of them was refused with "no project" from a
+ * workspace with none open, which is the one place a rig setting is most likely to be changed.
+ * Check the catalogue before adding to it.
  */
-const GLOBAL_COMMAND = /^(channel|audio|project (commit|pull))\b/;
+const GLOBAL_COMMAND = /^(system channel|playlist|project (commit|pull))\b/;
 
 /**
  * The lines a command produced, plus whether it REFUSED.
