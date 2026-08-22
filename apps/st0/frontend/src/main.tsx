@@ -1,4 +1,9 @@
-import { parseLaunch, projectBasename } from "@studio/project-shell/launch";
+import {
+  isExternalIndex,
+  parseExternal,
+  parseLaunch,
+  projectBasename,
+} from "@studio/project-shell/launch";
 import { isShare, shareToken } from "@studio/web-protocol/projects";
 import { Profiler } from "react";
 import ReactDOM from "react-dom/client";
@@ -6,6 +11,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthGate } from "./components/AuthGate";
 import { EngineGate } from "./components/EngineGate";
+import { ExternalIndex } from "./components/ExternalIndex";
 import { SharedGate } from "./components/SharedGate";
 import { installFreezeWatchdog, reportCommit } from "./freezeWatchdog";
 import { LocaleProvider } from "./i18n";
@@ -53,6 +59,51 @@ const at = parseLaunch(
 );
 const sharedToken = at && isShare(at.repo) ? shareToken(at.project) : null;
 
+/**
+ * …and the MENU of surfaces, `/external`, read before any of it.
+ *
+ * Before, because a single segment is a legal project address — `/<dépôt>` opens a lone-project
+ * clone — so `parseLaunch` answers this one with a repository called `external` and would send it
+ * to the gates. The word is reserved for that reason, which is written down in
+ * @studio/web-protocol/projects beside the constant.
+ */
+const externalIndex = isExternalIndex(
+  window.location.pathname,
+  import.meta.env.BASE_URL,
+);
+
+/**
+ * …and when it IS that page, install as that page.
+ *
+ * A manifest's `start_url` is resolved against the MANIFEST's address, not the document's, so the
+ * relative `.` in the one index.html links means `/` wherever you install from — which is right
+ * for the editor and wrong here: a second device installed from this menu would come back to the
+ * home page every time. A second manifest, swapped before install can be offered, is the only
+ * thing that changes it; the browser reads whichever one the document points at.
+ *
+ * Here rather than in the page's own effect, beside the routing decision it follows from: which
+ * app this document IS is one question, answered once. See docs/external.md.
+ */
+if (externalIndex)
+  document
+    .querySelector<HTMLLinkElement>('link[rel="manifest"]')
+    ?.setAttribute("href", "/manifest-external.webmanifest");
+
+/**
+ * …and the fourth thing an address can be: ONE SURFACE, on another device.
+ *
+ * `<project>/@external/<name>`. Read here beside the other two, off the same pathname, so the
+ * three questions this file asks about a tab are asked in one place. It is not a fourth GATE —
+ * an external surface needs the account, an engine and a working copy exactly as the editor
+ * does — so it rides the same stack and only changes what `ProjectGate` renders at the end of
+ * it. See components/ExternalSurface.tsx.
+ */
+const external = parseExternal(
+  window.location.pathname,
+  "st0",
+  import.meta.env.BASE_URL,
+);
+
 // The gates before the editor, the router outside them (so a deep link survives sign-in), and NO React.StrictMode
 // — its double-mount thrashes the WebGL compositor's context and froze Firefox. See docs/shell.md.
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -93,14 +144,19 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               account and nothing else — no engine is required to LIST repositories, and the two
               buttons that do need one say so themselves. The Profiler is for the editor's commit
               storm and has nothing to bill here. */}
-          {!at ? (
+          {externalIndex ? (
+            // The second device's front door: every surface this account can drive, with no
+            // project chosen yet. Behind the account like the home page, and like it holding no
+            // engine — a menu that took a lease would evict the person playing.
+            <ExternalIndex />
+          ) : !at ? (
             <Home />
           ) : profiling ? (
             <Profiler id="app" onRender={reportCommit}>
-              <EngineGate />
+              <EngineGate external={external} />
             </Profiler>
           ) : (
-            <EngineGate />
+            <EngineGate external={external} />
           )}
         </AuthGate>
       )}

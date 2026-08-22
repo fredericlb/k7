@@ -35,7 +35,11 @@ loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
 
 `AuthGate` → `EngineGate` → `ProjectGate` → editor, when the address names a project.
 When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the projects page, which
-needs the account and neither an engine nor a project (`frontend/docs/projects.md`). The engine
+needs the account and neither an engine nor a project (`frontend/docs/projects.md`). One address
+short-circuits both: `/external`, the menu of surfaces a second device can drive, which is
+`AuthGate` → `ExternalIndex` and probes for a machine without claiming one
+(`frontend/docs/external.md`). It is read BEFORE `parseLaunch`, since a single segment is
+otherwise a repository — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
 
@@ -78,6 +82,7 @@ matches before changing it:
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
 | `shared.md` | the OTHER shared: `/@shares/<token>.st0` — this app opened on a frozen snapshot, with no account, no engine and no source |
+| `external.md` | `/@external/<surface>` — one surface alone on a second device, and `/external`, the menu it starts from |
 | `contextMenu.md` | the right-click menu, derived from the command catalogue |
 | `midi.md` | playing a module's params from a MIDI controller |
 | `docExamples.md` | how `docs.test.ts` keeps the shipped documentation honest |
@@ -115,26 +120,33 @@ default; the note button sits in the footer beside the mixer. Read
 that moves an old project's prose into comments.
 
 **A project declares its SURFACES.** A `surfaces/` folder, one file per special view — `type`,
-`layout`, and a `mapping` saying which module each of its components moves. Three types and two
-layouts, and the PAIR is validated:
+`layout`, and a `mapping` saying which module each of its components moves. Three types, and the
+PAIR is validated:
 
 | type | layout | what it is |
 |---|---|---|
 | `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
 | `viewport` | `split` | the frame: the song's video lanes composited by `@studio/ui-eyes` |
-| `turntables` | `view` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
+| `turntables` | `split` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
 
-A `view` surface gets a button at the top right and takes the screen like the help page: a
-`RouteState.surface`, **not** a `Pane`, because the list is the project's and a union could not
-name it. A `split` one is *in* the layout, in the pane ring — which for the viewport is
-load-bearing, since it owns a GL context and a `<video>` per layer.
+**Every surface is a PANE**, in the layout and in the pane ring. Which for the viewport is
+load-bearing (it owns a GL context and a `<video>` per layer), and for the desk is what puts it
+directly over the graph — a fader on the desk is a param on a module there, and a set, declaring
+no timeline, is those two panes and nothing else.
 
-**Both are MOUNTED for as long as the project declares them**; only the drawing is conditional.
-A desk's document — the loaded songs, the crossfader, the six EQ knobs — is not its screen, and
-a set does not stop existing because you went to look at the graph. `SurfaceTab` owns that
-split: hooks above a line, screen below it. Get it wrong and the crossfader re-centres on every
-round trip while the sound stays where you put it — see
-`packages/ui-turntables/docs/deckSet.md`.
+> The desk was the one `view`: a button at the top right and a screen over the whole window,
+> addressed `/surface/<id>` and held in a `RouteState.surface` that was **not** a `Pane`, because
+> the list was the project's and a union could not name it. It is `layout: split` now. `view` is
+> still a word in the enum and nothing draws in it — kept so a file that still says it is refused
+> by name rather than by "invalid enum value". A project on disk needs the one-word edit.
+
+**A surface is MOUNTED for as long as the project declares it**; only the drawing is conditional,
+which is the ordinary pane invariant (`hidden`, never unmounted). A desk's document — the loaded
+songs, the crossfader, the six EQ knobs — is not its screen, and a set does not stop existing
+because you went to look at the graph. `SurfaceTab` used to carry that split itself, hooks above a
+line and screen below it, because a `view` came and went; being a pane is what made the prop
+unnecessary. Get it wrong and the crossfader re-centres on every round trip while the sound stays
+where you put it — see `packages/ui-turntables/docs/deckSet.md`.
 
 A component with no mapping is reported on the surface itself, not by refusing the project.
 Read `packages/song/docs/surfaces.md`.
@@ -150,9 +162,9 @@ timeline, and the transport and the minimap go with it.
 > and could contradict. Read `packages/song/docs/surfaces.md` before touching any of it.
 
 The vocabulary is two words, and `src/routes.ts` is where they are declared —
-read it before changing layout. A **pane** is one of four (`editor | viewport | timeline |
-chains`) and is what `full` fullscreens; two of them, `timeline` and `viewport`, are mounted
-only when the project declares the matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
+read it before changing layout. A **pane** is one of five (`editor | viewport | timeline |
+turntables | chains`) and is what `full` fullscreens; three of them — `timeline`, `viewport` and
+`turntables` — are mounted only when the project declares the matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
 the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
 drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.
@@ -341,7 +353,22 @@ file:
 
 - `src/index.css`'s `@source` — Tailwind emits **nothing** for a path that doesn't
   exist, without warning. The app still builds and the design-system components render
-  unstyled.
+  unstyled. A path that is simply MISSING from the list fails the same way, and worse:
+  `packages/ui-turntables/src` was absent, so every class the DESK alone uses was dropped
+  while the layout classes it shares with the app (`flex`, `w-16`) were generated anyway. The
+  strip stood in the right place, correctly spaced, with `fill-muted` and `stroke-foreground`
+  undefined — SVG knobs with no fill and no stroke. Present, positioned and invisible, which
+  reads as "the control is gone" and sends you looking at the component. **Check the list
+  against every package that renders JSX, not one at a time**:
+
+  ```powershell
+  Get-ChildItem packages -Directory | Where-Object {
+    Get-ChildItem $_.FullName -Recurse -Filter *.tsx -ErrorAction SilentlyContinue
+  } | Select-Object Name   # …and compare with the @source lines in src/index.css
+  ```
+
+  The cheap proof either way is the built CSS: `npx vite build`, then grep
+  `dist/assets/*.css` for a class only that package uses.
 - `src/docs/pages.ts`'s `import.meta.glob` — an empty glob leaves `/docs` blank *and*
   makes `docs.test.ts` pass vacuously, because its `it()`s iterate an empty list. Check
   the test **count**, not the exit code.
