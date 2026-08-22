@@ -1,14 +1,14 @@
 # AGENTS.md — z0
 
 The **blind-test game**: a presenter runs a session on a screen, players buzz in from their
-phones, and an editor builds the rounds. Seven single-page apps and one backend, all behind one
+phones, and an editor builds the rounds. Six single-page apps and one backend, all behind one
 origin.
 
 It is the odd one out in this repo, and knowing why saves you looking for things that are not
 here. z0 is a **game**, not a studio tool: it has its own login, its own session cookie,
 its own database, and it touches `engine/moteur` at exactly one point — an offline render.
 
-## The seven SPAs and the backend
+## The six SPAs and the backend
 
 | workspace | port | served at | what it is |
 |---|---|---|---|
@@ -17,18 +17,29 @@ its own database, and it touches `engine/moteur` at exactly one point — an off
 | `monitor-web` | 3002 | `/z0/monitor` | the operator's view of a running session |
 | `buzzer` | 3004 | `/z0/buzzer` | the player's phone |
 | `remote` | 3005 | `/z0/remote` | the presenter's own remote |
-| `editor` | 3006 | `/z0/editor` | building rounds and questions, out of Grist |
-| `editor-v2` | 3007 | `/z0/editor-v2` | the same job over a `.z0` project — see [docs/editor-v2.md](docs/editor-v2.md) |
+| `editor` | 3006 | `/z0/editor` | building rounds over a `.z0` project — [docs/editor.md](docs/editor.md), and [docs/editing.md](docs/editing.md) for what it writes |
 | `backend` | 8080 | `/z0/api`, `/z0/auth`, `/z0/ws` | Express + WebSocket |
 
-`shared/` (`z0-shared`) holds what the six game frontends have in common — the
+> There were seven for a while: a Grist round-builder at `/z0/editor` and the `.z0` project
+> editor beside it at `/z0/editor-v2`, on 3007. The Grist one is **retired** and the survivor
+> took its name and its port. Two leftovers to know about — `backend/src/editor/` served the
+> retired screen and now has no client, while `backend/src/grist/` is still the game's round
+> loader and stays.
+
+`shared/` (`z0-shared`) holds what the five game frontends have in common — the
 presentational components and types, plus `account.ts`, which is where signing in and out
-lives now that the rule has two halves (see below). Source-only, compiled by each consumer,
-like `@frediverse/ui`.
+lives now that the rule has two halves (see below). The editor is not one of them: it is not a
+game surface at all. Source-only, compiled by each consumer, like `@frediverse/ui`.
 
 Each SPA's vite `base` is its full public path, so the LAN proxy does **not** strip the prefix
-for them; it does for the API. That asymmetry is explained at the top of the repo-root
-`proxy config` and is not a style choice.
+for them; it does for the API. That asymmetry is explained in [docs/origin.md](docs/origin.md)
+and is not a style choice.
+
+**The dev proxy's path table is not in this repo** — it is traefik on the LAN server. The
+repo-root Caddyfile that used to hold it is deleted; what stands in its place is the table in
+the root [docs/dev.md](../../docs/dev.md), which the other machine must mirror, and
+`apps/studio/docker/nginx.conf`, which is the same routing for production. Every SPA here needs
+its own rule, ordered so the `/z0` catch-all comes last, or an address lands on the game.
 
 ## What makes z0 different
 
@@ -47,11 +58,11 @@ cookie fails to verify anyway. [docs/auth.md](docs/auth.md).
 **Its own state, in Grist and SQLite.** `backend/src/db.ts` and `backend/src/grist/`. Nothing
 here is a song folder; do not reach for `@studio/song`.
 
-**…except `editor-v2`, which is not a game surface at all.** It opens a `.z0` project out of a
+**…except `editor`, which is not a game surface at all.** It opens a `.z0` project out of a
 git repository, so it asks pl8 which repositories exist and reads files through the machine's
 file service — the same three steps st0 and m9 take, through the same `@studio/project-shell`.
-It never talks to z0's backend at all, which is what still sets it apart now that the six
-others take their account login from pl8 too. [docs/editor-v2.md](docs/editor-v2.md).
+It never talks to z0's backend at all, which is what still sets it apart now that the five
+others take their account login from pl8 too. [docs/editor.md](docs/editor.md).
 
 **One engine, owned by the BACKEND.** `backend/src/render.ts` is the single exception to the
 per-account engine story the rest of the repo tells: z0 renders offline and never plays,
@@ -66,7 +77,7 @@ moteur-backed implementation exists behind that package's seam but the game does
 
 ## Verify
 
-`npm run dev --workspace z0` runs all seven by turbo. There are ~11 vitest suites under
+`npm run dev --workspace z0` runs all six by turbo. There are ~11 vitest suites under
 `backend/src/`, covering the game rules, config and middleware — `npm run test` from a
 workspace, and they are the cheapest proof for anything rule-shaped. The frontends have no
 component tests; exercise them in the browser.

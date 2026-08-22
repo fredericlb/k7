@@ -210,11 +210,16 @@ plusieurs pistes ouvre une liste. C'est la seule règle de forme à retenir.
 pour le mode normal — ce sont les valeurs que les joueurs lisent déjà, inchangées.
 
 **Morceau** — `song` **ou** `tracks`, plus `label`, `answer`, `status`
-(`valid` | `to_replace` | absent), `liveOnly`, `speed`.
+(`valid` | `to_replace` | absent), `liveOnly`, `speed`, `effects`.
 
-Les neuf colonnes `fx_*` de Grist ont disparu, et pas au profit d'un champ : **les
-traitements sont partis avec l'audio**, dans la médiathèque, sous forme de chaînes que le
-sidecar de chaque morceau nomme comme variantes. La catégorie dit le nom une fois
+`answer` est un **bloc littéral** (`answer: |`) dès qu'il y a plusieurs orthographes acceptées,
+une par ligne — c'est la forme qu'a écrite la migration dans les trente cas de la session 2304.
+
+Les neuf colonnes `fx_*` de Grist ont disparu **en tant que colonnes**. Ce qu'un morceau porte
+encore, c'est `effects: { … }` — la carte montrée plus haut dans l'exemple `multi`, et celle que
+`categories/deformees.yaml` écrit morceau par morceau. Ce qui est bien parti avec l'audio, c'est
+le cas où le traitement est **enregistré** : la médiathèque le tient alors comme une variante que
+le sidecar nomme, et la catégorie la demande d'un mot. La catégorie dit le nom une fois
 (`variant: deformees`) et chaque morceau le résout vers sa propre chaîne, avec ses propres
 valeurs. Reste ici `speed`, qui n'est pas un traitement mais une vitesse de lecture : aucune
 chaîne n'a d'horloge. Tout est détaillé dans [effects.md](effects.md).
@@ -272,9 +277,11 @@ des 304 adresses citées existe sur le volume avec un master**.
 2. **Treize `original.mp3` qui sont des reprises**, décrit plus haut. Poser le vrai original
    à côté et la reprise redevient une variante — c'est une opération par morceau, sans
    toucher au YAML.
-3. **`.z0` n'est pas encore un suffixe de projet.** `packages/web-protocol/projects.ts` dit
-   `st0` et `m9`, et écrit noir sur blanc que « k7 et z0 ne possèdent pas de projets ». Les
-   dossiers sont donc dans le dépôt et invisibles dans la liste de pl8 tant que z0 n'y est
-   pas ajouté — un `ProjectApp` de plus, et le routage vers `/z0` qui va avec.
+3. ~~**`.z0` n'est pas encore un suffixe de projet.**~~ **Réglé** par l'éditeur de projet :
+   `packages/web-protocol/projects.ts` connaît `z0` comme `ProjectApp`, `PROJECT_SUFFIXES`
+   dit `.z0`, et `PROJECT_MOUNTS` ajoute `/editor` — la page d'accueil de st0 liste donc
+   ces dossiers et les ouvre dans l'éditeur de z0. Voir [editor.md](editor.md).
+   `HAS_SCAFFOLD.z0` reste `false` : un `.z0` s'ouvre et se liste, il ne se CRÉE pas encore
+   depuis « Nouveau projet ».
 
 Le chargeur Grist (`backend/src/grist/`) est intact : rien ne lit encore ces YAML.

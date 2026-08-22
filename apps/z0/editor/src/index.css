@@ -1,10 +1,16 @@
-/* Tailwind v4 + the shared @frediverse/ui design tokens, then the editor's own
-   styling (ported verbatim; #app → #root patched). */
 @import "tailwindcss";
-@import "tw-animate-css";
 @import "@frediverse/ui/theme.css";
-@import "./extracted-styles.css";
 
-/* @frediverse/ui lives in the commons submodule; Tailwind ignores a missing
-   @source path without warning, and then emits no design-system classes. */
+/* @frediverse/ui is consumed as source OUTSIDE this app tree, so Tailwind v4 must be told to
+   scan it, or none of its component classes are generated. A @source path that doesn't exist
+   is ignored WITHOUT warning — note the `commons/` segment, which is the part everyone gets
+   wrong. The check that it is right: dist/assets/*.css is tens of kilobytes, not two. */
 @source "../../../../commons/packages/ui/src";
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+}

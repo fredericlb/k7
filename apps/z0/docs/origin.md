@@ -6,14 +6,18 @@ on its own reads like an arbitrary choice.
 
 ## Why the prefix is stripped for the API and not for the SPAs
 
-The repo-root `proxy config` handles z0 in three blocks, and the order matters because
-`handle` blocks are mutually exclusive and matched top to bottom.
+The proxy handles z0 in three blocks, and the order matters because the more specific rule
+has to win over the `/z0` catch-all. This was a repo-root Caddyfile of mutually exclusive
+`handle` blocks matched top to bottom; it is traefik on the LAN server now — see the root
+[docs/dev.md](../../../docs/dev.md) for the table it must hold, and
+`apps/studio/docker/nginx.conf` for the production twin, where nginx's longest-prefix rule
+does the ordering instead.
 
 - `/z0/api/*` — prefix **stripped**. The backend keeps seeing `/api/...` exactly as it
   would at a root, which is what the production edge does too.
 - `/z0/auth/*`, `/z0/audio/*`, `/z0/ws*` — stripped. Nothing else: this block used to add
   `X-Forwarded-Prefix: /z0`, and that header is gone. See below.
-- the seven SPAs — **not** stripped. Each vite `base` is the full public path, so the dev
+- the six SPAs — **not** stripped. Each vite `base` is the full public path, so the dev
   server must see the prefix; strip it and every asset request 404s against a server that is
   only listening under `/z0/<app>/`.
 

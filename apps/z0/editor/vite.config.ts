@@ -1,25 +1,53 @@
-import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
-import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
+import {
+  AUTH_BACKEND_PORT,
+  DEV_HOST,
+  LEGACY_DEV_HOSTS,
+} from "../../../scripts/dev-hosts.mjs";
 
-// Single-origin: served at st0.priv.frediver.se/z0/editor; the backend answers
-// /api (bare paths — stripApiPrefix), /auth, /audio and the /ws socket on the
-// same host. Port 3006 matches the LAN proxy. Direct localhost access during
-// dev is http://localhost:3006/editor/.
+// The project editor, at st0.priv.frediver.se/z0/editor. It is the odd SPA of the six: it does not
+// talk to z0's backend at all. What it opens is a git repository the médiathèque owns, on the
+// machine the account works from — so its `/api` and `/auth` are PL8's. `backendPort` therefore
+// names pl8 (8795), not z0's 8080.
+//
+// Behind the LAN proxy neither entry is what actually carries those calls: this SPA asks for
+// `/pl8/api/…` (SERVICE_PATHS) and for `/auth/…` at the origin root, and the proxy hands both
+// to the dev server that owns them. They are kept for the case this server is visited DIRECT
+// on :3006, which is the only way to work on it without the whole session up.
+//
+// Ports: 3001..3005 are the five game SPAs; 3006 is this one, inherited from the Grist editor it
+// replaced — which is what lets the LAN proxy keep its existing `/z0/editor` → 3006 rule.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/editor/",
   port: 3006,
-  backendPort: 8080,
+  backendPort: 8795,
+  // No `/auth` here: it is not this app's backend's, and not pl8's either — see the proxy in
+  // `extend` below. This SPA signs in with the studio session like every other app on the
+  // origin, not with the game's `bt_session`, which models a guest with no account.
   host: DEV_HOST,
-  stripApiPrefix: true,
-  proxyPaths: ["/auth", "/audio"],
-  wsPaths: ["/ws"],
-  // Compiles messages/{locale}.json into src/paraglide/. First app on
-  // Paraglide; the rest follow once this one has proven the setup.
   extend: {
-    plugins: [frediverseParaglide()],
-    // The old name still reaches these servers — see scripts/dev-hosts.mjs.
-    server: { allowedHosts: LEGACY_DEV_HOSTS },
+    server: {
+      // The old name still reaches these servers — see scripts/dev-hosts.mjs.
+      allowedHosts: LEGACY_DEV_HOSTS,
+      // `/auth` is the ONE path this dev server forwards to a backend that is not its own: the
+      // origin's OIDC flow is st0's, being the service with no path prefix. `proxyPaths` cannot
+      // say it — that helper points every path at `backendPort` — so it is spelled here.
+      // Only reached when this server is visited DIRECTLY on its port; behind the LAN proxy
+      // `/auth` never gets this far, because it is at the origin root. See
+      // packages/web-protocol/services.ts.
+      proxy: {
+        "/auth": {
+          target: `http://localhost:${AUTH_BACKEND_PORT}`,
+          changeOrigin: true,
+          // Same reason `defineAppConfig` sets it: changeOrigin overwrites Host, and the backend
+          // derives its own public origin — and so its redirect_uri — from the request. Without
+          // it the browser is handed a callback pointing straight at the backend's port.
+          xfwd: true,
+        },
+      },
+    },
   },
+  // Dev runs under WSL against /mnt/c, where inotify never fires (same as st0 and m9).
+  poll: true,
 });

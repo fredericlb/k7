@@ -1,21 +1,40 @@
-# editor-v2 — l'éditeur qui ouvre un projet
+# editor — l'éditeur qui ouvre un projet
 
-L'éditeur actuel édite **Grist** : il charge l'arbre d'une session par l'API du backend z0 et
-réécrit des lignes. Le v2 édite un **dossier `.z0`** dans un dépôt git — la forme décrite dans
-[projects.md](projects.md). Ce sont deux sources différentes, donc deux applications, et pas
-une bascule dans la même.
+Il édite un **dossier `.z0`** dans un dépôt git — la forme décrite dans
+[projects.md](projects.md).
 
-Aujourd'hui il **affiche**, et rien d'autre : la liste des fichiers du projet et le texte de
-celui qu'on choisit. C'est délibéré. Le format de session est jeune, et la première chose qui
-vaut la peine d'exister est de pouvoir regarder ce qu'il y a vraiment sur le disque, avant
-qu'un formulaire ne se pose par-dessus et ne commence à le cacher.
+Il s'est appelé `editor-v2` le temps de sa construction, à côté d'un éditeur **Grist** qui
+tenait `/z0/editor` : celui-là chargeait l'arbre d'une session par l'API du backend z0 et
+réécrivait des lignes. Deux sources différentes, donc deux applications, et pas une bascule
+dans la même. L'éditeur Grist est **retiré** et celui-ci a repris le nom, le port (3006) et
+l'adresse. Il ne reste donc qu'un éditeur, et `editor-v2` n'existe plus nulle part.
+
+> Reprendre le nom a supprimé un piège au passage : `/z0/editor` est un préfixe littéral de
+> `/z0/editor-v2`, donc un proxy qui compare des préfixes bruts envoyait le projet à l'éditeur
+> Grist, qui répondait par le message de vite sur son `base` — ce qui se lit comme un mauvais
+> lien alors que l'adresse était juste. Un seul nom, plus de recouvrement.
+
+Le chargeur Grist du **backend** (`backend/src/grist/`) n'est pas parti avec l'écran : c'est
+lui qui alimente encore les manches du jeu. Ce qui est orphelin, ce sont les routes qui ne
+servaient que l'écran retiré — voir « Ce qui vient ensuite ».
+
+Il a commencé par ne faire qu'**afficher** — la liste des fichiers et leur texte brut — le
+temps que le format se stabilise. Il ÉDITE maintenant : l'ordre des manches, les morceaux de
+chaque catégorie, et surtout le début et la fin de chaque extrait, à l'oreille et sur une forme
+d'onde. La règle qui commande tout ça — on modifie le document YAML, jamais les valeurs qu'on
+en a tirées, pour qu'un diff reste lisible — est dans [editing.md](editing.md), avec la liste
+de ce qui n'a pas été porté depuis l'écran Grist.
+
+Le texte brut n'a pas disparu pour autant : le bouton **YAML** montre le fichier tel qu'il sera
+écrit. Le format est jeune, et pouvoir regarder ce qui est vraiment sur le disque reste la
+première chose qui vaut la peine d'exister.
 
 ## Il n'est pas une surface de jeu
 
-C'est ce qu'il faut savoir en premier, parce que tout le reste en découle. Les six autres SPA
+C'est ce qu'il faut savoir en premier, parce que tout le reste en découle. Les cinq autres SPA
 de z0 parlent au backend z0 — invités sans compte sur `bt_session`, état en Grist et SQLite —
 même si, depuis [auth.md](auth.md), elles prennent leur connexion de **compte** chez pl8 comme
-tout le monde. Le v2, lui, ne parle **jamais** au backend du jeu.
+tout le monde. Celle-ci, elle, ne parle **jamais** au backend du jeu.
 
 | ce qu'il lui faut | d'où ça vient |
 |---|---|
@@ -50,9 +69,9 @@ partagé existe pour empêcher.
 
 ## L'adresse
 
-`st0.priv.frediver.se/z0/editor-v2/<dépôt>/<session.z0>` — le vocabulaire d'adresse de
+`st0.priv.frediver.se/z0/editor/<dépôt>/<session.z0>` — le vocabulaire d'adresse de
 `@studio/web-protocol/projects`, avec un segment de plus que st0 et m9. C'est ce que
-`PROJECT_MOUNTS` dit : st0 et m9 **sont** leur service, alors que z0 est sept SPA derrière un
+`PROJECT_MOUNTS` dit : st0 et m9 **sont** leur service, alors que z0 est six SPA derrière un
 préfixe et une seule d'entre elles ouvre un projet.
 
 Le `basename` du routeur est cette adresse entière, donc rien dans l'app ne peut réécrire le
@@ -75,7 +94,7 @@ Deux tables et une phrase, toutes dans `@studio/web-protocol` :
 Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 
 - ouvrir une session `.z0` depuis la page d'accueil de st0 → l'adresse est
-  `/z0/editor-v2/<dépôt>/<session.z0>` et ne bouge plus ;
+  `/z0/editor/<dépôt>/<session.z0>` et ne bouge plus ;
 - recharger → la même session, pas pl8 ;
 - ouvrir un dépôt que cette machine n'a jamais vu → la barre de progression de git, puis la
   liste des fichiers ; recommencer → aucun clone ;
@@ -85,5 +104,16 @@ Les suites ici ne montent rien, donc voici ce qu'un test vert ne dit pas :
 
 ## Ce qui vient ensuite
 
-Éditer. Puis remplacer l'éditeur Grist, qui gardera son `/z0/editor` jusque-là : basculer, ce
-sera changer `PROJECT_MOUNTS.z0` et les deux `handle` du proxy config.
+L'ordre des manches, les catégories (fichiers compris) et tous les champs du vocabulaire
+s'éditent désormais ; ce qui reste est listé à la fin de [editing.md](editing.md).
+
+Et ramasser ce que le retrait de l'écran Grist laisse derrière lui. Le SPA est parti ; le
+backend, lui, n'a pas été touché, donc `backend/src/editor/` (avec `editor.test.ts`) n'a plus
+de client : c'étaient les routes que cet écran-là appelait. À supprimer une fois vérifié que
+rien d'autre ne les appelle — `backend/src/grist/` **reste**, c'est le chargeur des manches du
+jeu et il n'a rien à voir avec l'écran retiré.
+
+Côté proxy il n'y a rien à ajouter : la règle `/z0/editor` → 3006 existait déjà pour Grist, et
+c'est pour ça que ce SPA a pris le port 3006 plutôt que de garder 3007. Ce qu'il faut, c'est
+**supprimer** l'éventuelle règle `/z0/editor-v2` de traefik sur la machine LAN — voir la table
+de [docs/dev.md](../../../docs/dev.md) à la racine.
