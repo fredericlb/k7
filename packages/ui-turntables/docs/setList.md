@@ -13,7 +13,7 @@ autres.
 ```yaml
 # surfaces/desk.yaml
 type: turntables
-layout: view
+layout: split
 playlist: ete-2026        # → <espace>/_playlists/ete-2026.yaml
 mapping: { … }
 ```
@@ -34,10 +34,14 @@ Il disait **quels** morceaux le set jouait. Il ne le dit plus : deux fichiers r�
 une question, et la playlist est la meilleure des deux — c'est un document qui a un écran (le
 cog de st0 l'ouvre), qui se partage entre plusieurs sets, et que quelqu'un avait déjà écrit.
 
-Ce qui reste dans `songs.yaml` est la moitié qu'une playlist n'a pas où mettre : les **repères**
-de ce set-là, huit par morceau. Un cue appartient au pupitre qui joue le morceau et non à une
-liste que d'autres lisent — deux groupes qui reprennent le même titre ne posent pas l'aiguille
-au même endroit, et une playlist qui porterait les marques de l'un les donnerait à l'autre.
+Ce qui en reste est la moitié qu'une playlist n'a pas où mettre : les **repères** de ce set-là,
+huit par morceau. Un cue appartient au pupitre qui joue le morceau et non à une liste que
+d'autres lisent — deux groupes qui reprennent le même titre ne posent pas l'aiguille au même
+endroit, et une playlist qui porterait les marques de l'un les donnerait à l'autre.
+
+Et le fichier a changé de nom avec son métier : c'est **`mix.yaml`**, à la racine, sous la clé
+`cues:` ([cues.md](cues.md)). Un fichier nommé `songs` ne portant plus de liste de morceaux
+nommait ce qu'il avait été.
 
 ## Deux sources, et c'est la playlist qui décide
 

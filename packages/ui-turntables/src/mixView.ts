@@ -7,6 +7,7 @@
 // would have been a seam over something that was already shared.
 import { projectApi as api } from "@studio/project-shell/project";
 import { playlistPathOf } from "@studio/song/playlist";
+import { MIX_BASE } from "@studio/song/yaml/mixFile";
 import {
   MIX_VIEW_BASE,
   parseMixView,
@@ -32,14 +33,20 @@ export async function readMixView(project: string): Promise<MixView> {
 }
 
 /**
- * The CUE SHEET's file, project-relative. Named once — the name is @studio/song's.
+ * The CUE SHEET's file, project-relative. Named once — the base is @studio/song's.
  *
- * It used to hold the set's songs as well, and no longer does: which songs a desk draws on is
- * the `playlist:` its surface names (`readPlaylistText` below). What is left here is the half a
+ * **Not `views/mix.yaml` above.** Same base, different file: that one is the desk's old
+ * bindings, in `views/`, and a surface carries its `mapping:` now. This one is at the root and
+ * holds where the needle drops.
+ *
+ * It was `songs.yaml`, and held the set's songs as well. Which songs a desk draws on is the
+ * `playlist:` its surface names (`readPlaylistText` below); what was left was the half a
  * playlist has no place for — this set's cue points on a song, eight per record, which belong
- * to the desk that plays them rather than to a list other sets read. See docs/setList.md.
+ * to the desk that plays them rather than to a list other sets read. A file called `songs`
+ * holding no song list was a name describing what it used to be, so it is `mix.yaml`: the
+ * desk's own document, beside the desk's own surface. See docs/setList.md.
  */
-export const SONGS_FILE = "songs.yaml";
+export const MIX_FILE = `${MIX_BASE}.yaml`;
 
 const inProject = (project: string, file: string) =>
   project === "." ? file : `${project}/${file}`;
@@ -69,24 +76,24 @@ export async function readPlaylistText(name: string): Promise<string | null> {
 }
 
 /**
- * songs.yaml as TEXT.
+ * mix.yaml as TEXT.
  *
  * Text and not a parse, because a cue is written back INTO it — comments and all. Absent reads
  * as empty rather than as an error: an st0 song can be opened here, and a set written before the
  * file existed still opens.
  */
-export async function readSongsText(project: string): Promise<string> {
+export async function readMixText(project: string): Promise<string> {
   try {
-    return (await api.read(inProject(project, SONGS_FILE))).content;
+    return (await api.read(inProject(project, MIX_FILE))).content;
   } catch {
     return "";
   }
 }
 
 /** …and back. The caller has already edited the text; this only puts it where it came from. */
-export async function writeSongsText(
+export async function writeMixText(
   project: string,
   content: string,
 ): Promise<void> {
-  await api.write(inProject(project, SONGS_FILE), content);
+  await api.write(inProject(project, MIX_FILE), content);
 }

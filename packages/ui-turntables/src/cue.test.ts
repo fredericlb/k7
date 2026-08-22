@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   CUE_COLOURS,
   type DeckTempo,
+  playFrom,
   sourceAt,
   TIMELINE_BASE,
   transportAt,
@@ -68,6 +69,30 @@ describe("where a cue lands on the transport", () => {
     // A deck aligned late can put the transport BEFORE its own clip. Negative is not a place
     // in a file, and `seek` would clamp it anyway — saying 0 is the honest version.
     expect(sourceAt(0, at(120, 120, 4))).toBe(0);
+  });
+
+  it("starts PLAY at the music, not at the top of the timeline", () => {
+    // The bug this is here for: the first ten minutes of this timeline are guaranteed silence
+    // (a deck's clip begins at TIMELINE_BASE), so a transport left anywhere in them turns Play
+    // into a button that visibly does nothing — the playhead advances and the meters stay dead.
+    // Measured on a real set: master -100 dB from 0, -11.8 dB from TIMELINE_BASE.
+    expect(playFrom(0)).toBe(TIMELINE_BASE);
+    expect(playFrom(15)).toBe(TIMELINE_BASE);
+    expect(playFrom(TIMELINE_BASE - 1)).toBe(TIMELINE_BASE);
+  });
+
+  it("leaves a transport that is already in the music alone", () => {
+    // Null is "roll from here". Anything else would restart the record under a DJ's hands —
+    // including, at the boundary, a deck that has just been seeked to its own top.
+    expect(playFrom(TIMELINE_BASE)).toBeNull();
+    expect(playFrom(TIMELINE_BASE + 90)).toBeNull();
+  });
+
+  it("does NOT rewind somebody who ran off the end", () => {
+    // Past both songs is silence too, and is deliberately left alone: it is a state you can see
+    // on the waveform and fix with a cue, where being before the start looks like a dead engine.
+    // Rewinding to the top of the set would be the worse surprise.
+    expect(playFrom(TIMELINE_BASE + 99_999)).toBeNull();
   });
 
   it("carries the SLIP too, so a fader that moved does not move the cues", () => {

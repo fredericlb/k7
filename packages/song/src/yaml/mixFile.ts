@@ -1,23 +1,27 @@
-// songsFile.ts — read songs.yaml: parse, validate, and hand back the set's refs deduplicated
-// and sorted. Browser-safe (no fs), because the app that DRAWS a set list is the one that
-// needs it. Full rationale: docs/songsFile.md.
+// mixFile.ts — read `mix.yaml`, the desk's cue sheet: parse, validate, and hand back where this
+// set drops the needle. Browser-safe (no fs), because the app that DRAWS a desk is the one that
+// needs it. Full rationale: docs/mixFile.md.
 
 import { isMap, isSeq, LineCounter, parseDocument } from "yaml";
 import { songIdOf } from "../songRef";
+import { MARKER_SLOTS, type MixFile, MixFileSchema } from "./mixSchema";
 import type { ModuleIssue } from "./moduleFile";
-import { MARKER_SLOTS, type SongsFile, SongsFileSchema } from "./songsSchema";
+
+/** The cue sheet's filename, at the root of the project. Named once — every reader takes it
+ *  from here rather than spelling it, which is what `views/mix.yaml` is NOT (see mixViewFile). */
+export const MIX_BASE = "mix";
 
 // YAML 1.2 for the reason every other file here pins it (moduleFile.ts): a scalar shaped like
 // `5:1:1` stays a string. A ref carries no colon today, and the day one does it must not
 // silently become a number.
 const OPTS = { version: "1.2" as const };
 
-export interface ParsedSongs {
-  value: SongsFile | null;
+export interface ParsedMix {
+  value: MixFile | null;
   issues: ModuleIssue[];
 }
 
-export function parseSongs(text: string): ParsedSongs {
+export function parseMix(text: string): ParsedMix {
   const lines = new LineCounter();
   const doc = parseDocument(text, { ...OPTS, lineCounter: lines });
   const issues: ModuleIssue[] = [];
@@ -28,9 +32,9 @@ export function parseSongs(text: string): ParsedSongs {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // A bare sequence at the root — `- "@st0/songs/…"` with no `songs:` key. Named
-  // precisely rather than reported as "expected object": it is the first thing anyone writes,
-  // and the fix is one line.
+  // A bare sequence at the root — `- "@st0/songs/…"` with no `cues:` key. Named precisely
+  // rather than reported as "expected object": it is the first thing anyone writes, and the
+  // fix is one line.
   if (Array.isArray(raw))
     return {
       value: null,
@@ -38,13 +42,13 @@ export function parseSongs(text: string): ParsedSongs {
         {
           path: "",
           message:
-            "songs.yaml is a mapping with a `songs:` key, not a bare list — indent the " +
-            "entries under `songs:`.",
+            "mix.yaml is a mapping with a `cues:` key, not a bare list — indent the " +
+            "entries under `cues:`.",
         },
       ],
     };
 
-  const result = SongsFileSchema.safeParse(raw);
+  const result = MixFileSchema.safeParse(raw);
   if (!result.success) {
     for (const issue of result.error.issues) {
       const keys = (issue as { keys?: string[] }).keys;
@@ -57,15 +61,14 @@ export function parseSongs(text: string): ParsedSongs {
 }
 
 /**
- * The set's songs: every ref it names, deduplicated and SORTED.
+ * Every song the sheet names, deduplicated and SORTED.
  *
- * Sorted because the list is unordered and something has to decide what a surface draws
- * first; doing it here rather than in each surface is what stops two screens showing the
- * same set in two orders. The file's own line order is therefore not meaningful, which is
- * the point — a set list's running order is decided at the desk, not in git.
+ * Sorted because the list is unordered and something has to decide what a reader sees first.
+ * The file's own line order is therefore not meaningful, which is the point — a set's running
+ * order is decided at the desk, not in git.
  */
-export function songRefs(file: SongsFile | null | undefined): string[] {
-  const refs = (file?.songs ?? []).map((s) =>
+export function cueRefs(file: MixFile | null | undefined): string[] {
+  const refs = (file?.cues ?? []).map((s) =>
     typeof s === "string" ? s : s.ref,
   );
   return [...new Set(refs)].sort();
@@ -77,11 +80,11 @@ export function songRefs(file: SongsFile | null | undefined): string[] {
  * Positional: index 0 is button 1, and a `null` is an empty slot. Trailing empties are absent
  * rather than null, so a caller reads a missing index as an empty button too.
  */
-export function songMarkers(
-  file: SongsFile | null | undefined,
+export function cueMarkers(
+  file: MixFile | null | undefined,
 ): Record<string, (number | null)[]> {
   const out: Record<string, (number | null)[]> = {};
-  for (const s of file?.songs ?? [])
+  for (const s of file?.cues ?? [])
     if (typeof s !== "string" && s.markers) out[s.ref] = s.markers;
   return out;
 }
@@ -90,16 +93,16 @@ export function songMarkers(
  * Set one song's cue points, IN the text — comments, order and every other entry untouched.
  *
  * A round trip through `toJS()` and a dump would rewrite the file: the scaffold's comments are
- * the one worked example a reader of an m9 set gets, and a desk that ate them the first time
+ * the one worked example a reader of a set gets, and a desk that ate them the first time
  * somebody dropped a cue would be a desk nobody forgives. So this edits the parsed document
  * and re-prints it, which is what the `yaml` package's Document exists for.
  *
  * A ref the file does not name is APPENDED. That is not a courtesy: a deck can be playing a
- * song somebody removed from the list a moment ago, and refusing the cue would lose a gesture
- * the DJ has already made.
+ * song somebody removed from the playlist a moment ago, and refusing the cue would lose a
+ * gesture the DJ has already made.
  *
  * Trailing empties are trimmed, and a song whose last cue is cleared goes back to a bare ref —
- * so a set list nobody has cued reads exactly as it did before any of this existed.
+ * so a sheet nobody has cued reads exactly as it did before any of this existed.
  */
 export function withMarkers(
   text: string,
@@ -110,14 +113,14 @@ export function withMarkers(
   const kept = [...markers].slice(0, MARKER_SLOTS);
   while (kept.length && kept[kept.length - 1] == null) kept.pop();
 
-  let songs = doc.get("songs", true);
-  if (!isSeq(songs)) {
-    doc.set("songs", doc.createNode([]));
-    songs = doc.get("songs", true);
+  let cues = doc.get("cues", true);
+  if (!isSeq(cues)) {
+    doc.set("cues", doc.createNode([]));
+    cues = doc.get("cues", true);
   }
-  if (!isSeq(songs)) return text; // unreachable; the set above just made one
+  if (!isSeq(cues)) return text; // unreachable; the set above just made one
 
-  const at = songs.items.findIndex((item) => {
+  const at = cues.items.findIndex((item) => {
     if (isMap(item)) return item.get("ref") === ref;
     // A scalar node, or the plain string a permissive parse may have left.
     const v = (item as { value?: unknown })?.value ?? item;
@@ -132,14 +135,14 @@ export function withMarkers(
     const m = node.get("markers", true);
     if (isSeq(m)) m.flow = true;
   }
-  if (at >= 0) songs.items[at] = node;
-  else songs.add(node);
+  if (at >= 0) cues.items[at] = node;
+  else cues.add(node);
   return String(doc);
 }
 
-/** The médiathèque ids a set names — the refs with their `@st0/` taken off. */
-export function songIds(file: SongsFile | null | undefined): string[] {
-  return songRefs(file)
+/** The médiathèque ids the sheet names — the refs with their `@st0/` taken off. */
+export function cueIds(file: MixFile | null | undefined): string[] {
+  return cueRefs(file)
     .map(songIdOf)
     .filter((id): id is string => !!id);
 }

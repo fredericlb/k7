@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { songIdOf, songPathPrefix, songRefOf } from "../songRef";
-import { parseSongs, songIds, songRefs } from "./songsFile";
+import { cueIds, cueRefs, parseMix } from "./mixFile";
 
-// songs.yaml is the only file an m9 set has that st0 has no counterpart for, and the only
-// place the médiathèque is named from a project. What is pinned here is the REF — the shape,
-// and that it survives a round trip to a cache path — because everything downstream (the
-// sync's scope, the set list on screen) is a string comparison against it.
+// mix.yaml is the only file a SET has that an arranged song has no counterpart for, and one of
+// the two places the médiathèque is named from a project (the playlist is the other). What is
+// pinned here is the REF — the shape, and that it survives a round trip to a cache path —
+// because everything downstream is a string comparison against it.
 
 describe("a song ref", () => {
   it("is `@st0/` plus the médiathèque id, verbatim", () => {
@@ -57,56 +57,58 @@ describe("a song ref", () => {
   });
 });
 
-describe("songs.yaml", () => {
-  const parse = (text: string) => parseSongs(text);
+describe("mix.yaml", () => {
+  const parse = (text: string) => parseMix(text);
 
-  it("reads a set list", () => {
+  it("reads the songs it has cues for", () => {
     const { value, issues } = parse(
-      'songs:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/d/e/f"\n',
+      'cues:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/d/e/f"\n',
     );
     expect(issues).toEqual([]);
-    expect(songRefs(value)).toEqual(["@st0/songs/a/b/c", "@st0/songs/d/e/f"]);
-    expect(songIds(value)).toEqual(["songs/a/b/c", "songs/d/e/f"]);
+    expect(cueRefs(value)).toEqual(["@st0/songs/a/b/c", "@st0/songs/d/e/f"]);
+    expect(cueIds(value)).toEqual(["songs/a/b/c", "songs/d/e/f"]);
   });
 
   it("is UNORDERED: the file's line order is not the running order", () => {
     const { value } = parse(
-      'songs:\n  - "@st0/songs/z/z/z"\n  - "@st0/songs/a/a/a"\n',
+      'cues:\n  - "@st0/songs/z/z/z"\n  - "@st0/songs/a/a/a"\n',
     );
     // Sorted here rather than in each surface, so two screens cannot draw one set two ways.
-    expect(songRefs(value)).toEqual(["@st0/songs/a/a/a", "@st0/songs/z/z/z"]);
+    expect(cueRefs(value)).toEqual(["@st0/songs/a/a/a", "@st0/songs/z/z/z"]);
   });
 
   it("drops a duplicate instead of refusing the file", () => {
-    // Two people merging their halves of a set list should not have to resolve that by hand.
+    // Two people merging their halves of a set should not have to resolve that by hand.
     const { value, issues } = parse(
-      'songs:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/a/b/c"\n',
+      'cues:\n  - "@st0/songs/a/b/c"\n  - "@st0/songs/a/b/c"\n',
     );
     expect(issues).toEqual([]);
-    expect(songRefs(value)).toEqual(["@st0/songs/a/b/c"]);
+    expect(cueRefs(value)).toEqual(["@st0/songs/a/b/c"]);
   });
 
-  it("is empty, not broken, when the set has no songs yet", () => {
-    expect(songRefs(parse("songs: []\n").value)).toEqual([]);
-    expect(songRefs(parse("").value)).toEqual([]);
+  it("is empty, not broken, when nothing has been cued yet", () => {
+    expect(cueRefs(parse("cues: []\n").value)).toEqual([]);
+    expect(cueRefs(parse("").value)).toEqual([]);
   });
 
   it("names a bare list as the mistake it is", () => {
     const { value, issues } = parse('- "@st0/songs/a/b/c"\n');
     expect(value).toBe(null);
-    expect(issues[0].message).toContain("`songs:` key");
+    expect(issues[0].message).toContain("`cues:` key");
   });
 
   it("refuses a path where a ref belongs", () => {
     // The médiathèque's own layout is not a project's vocabulary: a path would break on the
     // next machine, which is the whole reason refs exist.
-    const { value, issues } = parse("songs:\n  - songs/a/b/c\n");
+    const { value, issues } = parse("cues:\n  - songs/a/b/c\n");
     expect(value).toBe(null);
     expect(issues[0].message).toContain("@st0/songs");
   });
 
   it("refuses an unknown key rather than ignoring it", () => {
-    const { value, issues } = parse("songs: []\nplaylists: []\n");
+    // `songs:` in particular — the key this file used to have. A set carried over by hand
+    // gets told, rather than opening with every cue silently gone.
+    const { value, issues } = parse("cues: []\nsongs: []\n");
     expect(value).toBe(null);
     expect(issues.length).toBe(1);
   });

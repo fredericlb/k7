@@ -37,25 +37,31 @@ de tempo, silencieusement et seulement sur les platines qui avaient été étir�
 `transportAt` sont cette conversion, et elle emporte aussi le décalage d'alignement du sync —
 ce qui garde une platine repérée après qu'on l'a calée.
 
-## Dans songs.yaml, à côté du morceau
+## Dans mix.yaml, à côté du morceau
 
 ```yaml
-songs:
+cues:
   - "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens"
   - ref: "@st0/songs/Daft Punk/Album inconnu/Around the world"
     markers: [ 12.5, null, 48.25 ]
 ```
 
-**Et c'est tout ce que ce fichier fait désormais.** Il disait aussi quels morceaux le set
-jouait ; c'est la playlist que la surface nomme qui le dit ([setList.md](setList.md)). Un cue
-reste ici parce qu'il appartient au PUPITRE qui joue le morceau et non à une liste que d'autres
-sets lisent : deux groupes qui reprennent le même titre ne posent pas l'aiguille au même
-endroit. Une entrée apparaît donc quand on pose un repère, pas quand on ajoute un morceau.
+**Et c'est tout ce que ce fichier fait.** Il s'appelait `songs.yaml` et disait aussi quels
+morceaux le set jouait ; c'est la playlist que la surface nomme qui le dit
+([setList.md](setList.md)), et un fichier nommé `songs` qui ne portait plus de liste de
+morceaux nommait ce qu'il avait été. Un cue reste ici parce qu'il appartient au PUPITRE qui
+joue le morceau et non à une liste que d'autres sets lisent : deux groupes qui reprennent le
+même titre ne posent pas l'aiguille au même endroit. Une entrée apparaît donc quand on pose un
+repère, pas quand on ajoute un morceau.
+
+À ne pas confondre avec `views/mix.yaml`, qui est un autre fichier : les anciennes liaisons du
+pupitre, dans `views/`, qu'une surface porte désormais dans son `mapping:`. Celui-ci est à la
+racine du projet.
 
 Une entrée est **soit** une référence nue **soit** une référence qui porte des réglages. Les
 deux, exprès : un morceau qui n'a rien à dire tient sur **une ligne** — c'est-à-dire tous les
-morceaux tant que personne n'y a posé de repère — et toute liste écrite avant l'existence des
-repères se lit encore. Transformer `songs:` en table de références vers presque-rien aurait
+morceaux tant que personne n'y a posé de repère — et toute feuille écrite avant l'existence des
+repères se lit encore. Transformer `cues:` en table de références vers presque-rien aurait
 donné à chaque entrée l'air qu'il lui manque quelque chose.
 
 `markers` est **positionnel** : l'index 0 est le bouton 1, et `null` est un emplacement vide.

@@ -1,7 +1,7 @@
-# songs.yaml — a set's CUE SHEET
+# mix.yaml — a set's CUE SHEET
 
 ```yaml
-songs:
+cues:
   - ref: "@st0/songs/lemo/mante/danse"
     markers: [ 12.5, null, 48.25 ]
 ```
@@ -9,11 +9,30 @@ songs:
 The only file a set has that a song has no counterpart for, and the only place a project names
 the médiathèque's **songs** rather than its modules.
 
-## It was the set list, and is not any more
+## It is not `views/mix.yaml`
 
-It said which songs the set drew on. That question is answered by the **playlist the desk's
-surface names** now — `playlist:` in `surfaces/<desk>.yaml`, a file in the workspace's
-`_playlists/` ([playlists.md](playlists.md)).
+Same base, different file, and the two have never had anything to do with each other. That one
+is in `views/` and held the desk's *bindings* — which module each fader moves — back when m9
+drew the desk; a surface carries its `mapping:` now, so it is gone from a scaffolded set. This
+one is at the **root** of the project and holds where the needle drops.
+
+`validate.ts` tells them apart by folder, and the order of its two branches is what does it:
+the `views/` test comes first, so a root `mix.yaml` falls through to this schema.
+
+## It was `songs.yaml`, and it was the set list
+
+The name went when the job did. It said which songs the set drew on, and that question is
+answered by the **playlist the desk's surface names** now — `playlist:` in
+`surfaces/<desk>.yaml`, a file in the workspace's `_playlists/`
+([playlists.md](playlists.md)). What was left was a file called `songs` that no longer held a
+list of songs, which is a name describing what something used to be.
+
+So it is `mix.yaml`: the desk's own document, at the root beside the desk's own surface, with
+the key to match. A set that carries the old file by hand is TOLD — the schema is `.strict()`,
+so a stray `songs:` is refused by name rather than read as an empty sheet with every cue
+silently gone.
+
+## What the playlist took, and what stayed
 
 Nothing was wrong with this file; there were simply two of them. And of the two, the playlist
 is the better answer: it is a document with a SCREEN (st0's cog opens it), it can be shared
@@ -127,11 +146,11 @@ set that never had them, on the one screen where that difference matters most.
 
 ## Une entrée peut porter des réglages — et c'est tout ce qui reste
 
-Le jour annoncé plus haut est arrivé, et il n'a pas fallu transformer `songs:` en table. Une
+Le jour annoncé plus haut est arrivé, et il n'a pas fallu transformer `cues:` en table. Une
 entrée est **soit** une référence nue **soit** une référence qui porte quelque chose :
 
 ```yaml
-songs:
+cues:
   - "@st0/songs/artiste/album/titre"
   - ref: "@st0/songs/artiste/album/autre"
     markers: [ 12.5, null, 48.25 ]
