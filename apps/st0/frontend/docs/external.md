@@ -278,6 +278,23 @@ remède : renommer, ou adresser un projet dedans — `/external/hiver.st0` se li
 dépôt `external`. Le sentinelle `@external` aurait évité l'ombre ; le mot nu est l'adresse
 demandée, et un mot réservé se lit dans la barre d'adresse.
 
+### Comment on y arrive
+
+Le menu était joignable par son adresse tapée à la main, et par `ui external <surface>` depuis un
+projet ouvert — qui donne le lien d'UNE surface. Ni l'un ni l'autre ne se découvre depuis la
+tablette qu'on vient de poser sur l'ampli. L'en-tête de l'accueil porte donc un bouton
+**Surfaces**, à côté du lien pl8 (`projects/Home.tsx`).
+
+Sur l'ACCUEIL et pas dans l'éditeur, pour la raison qui met déjà le lien pl8 là : ouvert sur un
+projet, st0 dessine l'en-tête de l'éditeur, où un lien qui vous ferait quitter la session n'a rien
+à faire. Et c'est la bonne page de toute façon — c'est celle qu'on a sous les yeux quand on
+installe l'appareil.
+
+Un `<a>` et pas une route, et ça compte : `/external` est lu par `main.tsx` **avant** le routeur,
+donc y arriver par navigation cliente laisserait le document sur le manifeste de l'éditeur, et
+l'appareil s'installerait sur la mauvaise application. Une vraie navigation relit le document, et
+le `<link rel="manifest">` avec.
+
 ### Deux manifestes
 
 `start_url` se résout par rapport à l'adresse du **manifeste**, pas à celle du document : le `.`

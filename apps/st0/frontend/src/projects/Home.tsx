@@ -11,7 +11,8 @@ import type {
   RepoSummary,
   ShareSummary,
 } from "@studio/web-protocol";
-import { Library, RefreshCw, Server, ServerOff } from "lucide-react";
+import { EXTERNAL_INDEX } from "@studio/web-protocol/projects";
+import { Library, RefreshCw, Server, ServerOff, Tablet } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, engines } from "../api";
@@ -357,6 +358,27 @@ export function Home() {
                 médiathèque joue quelque chose et partir l'arrêterait (apps/pl8/docs/miniPlayer.md),
                 ici rien ne tourne — cette page est une liste, et on y revient par « précédent »
                 avec l'arbre replié pour tout dommage. */}
+            {/* Surfaces — `/external`, le menu des surfaces qu'un SECOND appareil pilote.
+                Il était joignable par son adresse seule et par `ui external <surface>` dans un
+                projet ouvert ; ni l'un ni l'autre ne se découvre depuis une tablette qu'on vient
+                de poser sur l'ampli. Ici parce que c'est la page qu'on a sous les yeux quand on
+                installe cet appareil-là : le menu porte son propre manifeste
+                (`manifest-external.webmanifest`), donc l'installer DEPUIS lui démarre sur les
+                surfaces plutôt que sur cette liste (../../docs/external.md).
+
+                Un `<a>` et pas une route : `/external` est lu par `main.tsx` AVANT le routeur, et
+                y arriver par navigation cliente laisserait le document sur le manifeste de
+                l'éditeur — l'appareil s'installerait sur la mauvaise application. Dans le même
+                onglet, comme le lien pl8 à côté et pour la même raison : rien ne tourne sur cette
+                page, et « précédent » y ramène. */}
+            <Button variant="ghost" size="sm" asChild>
+              <a
+                href={`${import.meta.env.BASE_URL}${EXTERNAL_INDEX}`}
+                title="Surfaces — le menu qu'un second appareil ouvre, et installe"
+              >
+                <Tablet className="h-4 w-4" /> Surfaces
+              </a>
+            </Button>
             <Button variant="secondary" size="sm" asChild>
               <a
                 href={pl8Url()}

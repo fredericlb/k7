@@ -90,6 +90,32 @@ if (externalIndex)
     ?.setAttribute("href", "/manifest-external.webmanifest");
 
 /**
+ * …and the worker that makes either of them an installable app.
+ *
+ * What it buys is a SECOND opening: the shell and its assets are precached, so st0 starts from
+ * disk instead of re-fetching a large bundle over the LAN. It buys nothing offline, and that is
+ * not an omission — the editor reads its project from the file service and its sound from the
+ * engine, both on the musician's machine, so a cached shell with no machine behind it can only
+ * draw the "aucune machine" it already draws.
+ *
+ * Registered HERE, beside the manifest swap, because both answer the same question — what app
+ * this document IS — and because a `<script>` injected by the plugin would sit outside the file
+ * that decides it. `immediate` so it registers on this load rather than waiting for `load`,
+ * which never fires on a page that is already interactive by the time this runs.
+ *
+ * The worker's scope is `/`, the whole origin, and it cannot be narrower: st0's own routes ARE
+ * the root. The four other apps are kept out of its navigation fallback in vite.config.ts, and
+ * that list is the thing to check first if `/pl8` ever serves the editor's shell.
+ *
+ * No update prompt on purpose — see `registerType: "prompt"` there for why a DAW must not swap
+ * its own bundle out from under an open edit.
+ */
+if ("serviceWorker" in navigator)
+  void import("virtual:pwa-register").then(({ registerSW }) =>
+    registerSW({ immediate: true }),
+  );
+
+/**
  * …and the fourth thing an address can be: ONE SURFACE, on another device.
  *
  * `<project>/@external/<name>`. Read here beside the other two, off the same pathname, so the

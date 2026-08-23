@@ -158,7 +158,28 @@ interface Candidate {
  */
 function candidatesFor(e: ProbeTarget, relayBase: string): Candidate[] {
   const { loopback, lanIps, port, filePort } = e.addresses;
-  const direct = [loopback, ...lanIps].map(
+  /**
+   * The addresses this page may actually dial in the clear.
+   *
+   * A page served over HTTPS opens `ws://` to the LOOPBACK and to nothing else: loopback is
+   * "potentially trustworthy" by definition, a LAN address is not. That was already true and
+   * already written down — the paragraph on `PROBE_TIMEOUT_MS` says the direct candidates are
+   * refused by the browser on any machine other than the engine's — but they were offered
+   * anyway and left for the browser to turn down.
+   *
+   * Which worked, and cost what being turned down costs: the browser counts every attempt as
+   * MIXED CONTENT and says so in the padlock. On the workstation that is invisible, because
+   * loopback answers first and nobody reads the padlock. On a tablet it is the whole story —
+   * "cette page inclut des ressources qui ne sont pas sécurisées" is also what makes the page
+   * uninstallable, so the surfaces menu could not be added to a home screen.
+   *
+   * So an address that cannot answer is not offered. Nothing that ever worked is lost: over
+   * plain HTTP — a dev server visited directly on its port — the LAN addresses are dialable and
+   * still listed.
+   */
+  const dialable =
+    location.protocol === "https:" ? [loopback] : [loopback, ...lanIps];
+  const direct = dialable.map(
     (host): Candidate => ({
       url: `ws://${host}:${port}`,
       fileBase: `http://${host}:${filePort}`,

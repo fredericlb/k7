@@ -11,6 +11,10 @@ storybook-static/
 # `turbo prune` output (the Docker deps stage generates this inside the image)
 out/
 
+# vite-plugin-pwa's DEV service worker, written beside the app it serves. Generated on
+# every dev start; the built one lives in dist/ and is covered above.
+dev-dist/
+
 # Per-build-machine Docker revision counters written by build-images.sh
 .docker-revision*
 

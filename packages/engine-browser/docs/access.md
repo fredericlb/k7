@@ -92,6 +92,24 @@ refusés par le navigateur (une page HTTPS n'ouvre pas de `ws://`) : la seule vo
 le relais, et le juger au budget d'un aller-retour en loopback déclarait injoignable ce qui
 n'était que plus long.
 
+### …et depuis, on ne les propose plus du tout
+
+Ce paragraphe décrivait un fait — les adresses du LAN sont refusées — dont on se contentait :
+elles étaient listées quand même, et le navigateur les écartait. Ça marchait, et ça coûtait ce
+que coûte un refus. Le navigateur compte chaque tentative comme du **contenu mixte** et
+l'annonce dans le cadenas.
+
+Sur le poste c'est invisible : le loopback répond en premier et personne ne lit le cadenas. Sur
+une tablette c'est toute l'histoire — « cette page inclut des ressources qui ne sont pas
+sécurisées » est aussi ce qui rend la page **non installable**, donc le menu des surfaces ne
+pouvait pas être ajouté à un écran d'accueil, alors que c'est précisément l'appareil pour lequel
+il existe (`apps/st0/frontend/docs/external.md`).
+
+`candidatesFor` ne propose donc que ce qui peut aboutir : le loopback — « potentiellement digne
+de confiance » par définition, donc dialable même depuis HTTPS — et le relais. Les adresses du
+LAN restent listées en HTTP nu, où elles fonctionnent : un serveur de dev visité directement sur
+son port.
+
 ## Ce qui reste au dehors
 
 - **`EngineClient`** : ouvrir le socket, avec la session du service

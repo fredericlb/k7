@@ -1400,6 +1400,53 @@ no more — and it is why the bottom tab bar became menu rows rather than stayin
 The one control that could not simply move is the command bar's opener: a phone has no
 double-Shift, so the menu carries it.
 
+## The service worker, and the scope it cannot avoid
+
+`vite-plugin-pwa` generates `dist/sw.js` at build; `main.tsx` registers it, beside the manifest
+swap, because both answer the same question — what app this document IS.
+
+**`devOptions.enabled` is ON, and it has to be.** It was off first, on the argument that a dev
+server serving yesterday's asset is a bug rather than a feature. That argument is fine and the
+consequence was not: with no worker in dev there is no worker at all, and **the browser never
+offers to install** — while the manifest, the icons and HTTPS are all in place, so everything
+looks ready and the affordance simply never appears. The one thing this plugin is for was
+testable nowhere but a production build. The dev worker precaches nothing (there are no hashed
+assets before a build) and Workbox scopes its navigation fallback to `/` alone there, so Vite's
+own module URLs are fetched straight past it.
+
+**`clientsClaim` is on in dev and off in a build**, which is the same asymmetry seen from the
+other end. A browser offers to install only once a worker CONTROLS the page, and without
+`clients.claim()` the first visit registers one that controls nothing — so the affordance appears
+on the SECOND navigation and not before. That reads exactly like "it doesn't work", especially on
+the tablet this feature exists for, where reloading twice to check is not a thing anybody does.
+In a build it stays off for the reason above: claiming an open tab leaves a shell from build A
+running against build B's precache. `IS_BUILD` in `vite.config.ts` is read off the CLI, because
+`defineAppConfig` returns a plain object and there is no `({ command })` to close over.
+
+**What it buys is a second opening, not offline.** The shell and its assets are precached, so
+st0 starts from disk instead of re-fetching a large bundle over the LAN. It buys nothing
+offline, and that is not an omission: the editor reads its project from the file service and its
+sound from the engine, both on the musician's machine, so a cached shell with no machine behind
+it can only draw the "aucune machine" it already draws.
+
+**The scope is `/`, the whole origin, and it cannot be narrower.** A worker's scope is a prefix
+and st0's own routes ARE the root — `/<dépôt>/<projet>`. So this worker also controls `/pl8`,
+`/k7`, `/z0`, `/api` and `/auth`. The only thing keeping it honest is the
+`navigateFallbackDenylist` in `vite.config.ts`: without it, a navigation to `/pl8` is answered
+with st0's `index.html` and the médiathèque becomes a white page with the editor's router
+refusing an address it cannot parse. That list is the same table as
+`apps/studio/docker/nginx.conf`'s locations — three copies of one fact, and this is the one a
+browser enforces. **Check it first if another app on this origin ever serves the editor's
+shell.**
+
+**`registerType: "prompt"`, and nothing prompts.** `autoUpdate` sets `skipWaiting` +
+`clientsClaim`, so a new worker takes over a tab that is already open — which in a DAW means the
+page can reload out from under an edit, and worse: a shell from build A keeps running while the
+precache is build B, so the next lazily-imported chunk is a hashed file that no longer exists.
+`prompt` leaves the new worker waiting until every tab of this origin closes. There is
+deliberately no "reload now" affordance, because the honest one would have to say "close every
+studio tab"; the update lands next session.
+
 ## The PWA manifest uses RELATIVE urls, deliberately
 
 `public/manifest.webmanifest` has `"start_url": "."` and unprefixed icon `src`s, and neither
