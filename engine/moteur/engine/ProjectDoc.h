@@ -171,6 +171,16 @@ struct ProjectDoc {
     // `exp((dB - 6) / 20)` clamped to 1, so anything above +6 sets the same position. The brain's
     // schema refuses it rather than letting it be quietly clamped here.
     float masterVolume = 0.0f;
+    // The MASTER CHAIN: plugins over the summed mix, in order, before it leaves for the interface.
+    //
+    // The song's graph has two built-in outputs — MIX, where every lane's chain ends, and OUT, the
+    // device — and a chain wired between them arrives here. Empty is the ordinary case and means the
+    // two are one wire.
+    //
+    // They go on the master plugin list BEFORE the meter and the broadcast tap, and therefore before
+    // MasterGainPlugin: these process the mix, that trims the delivery. See the brain's
+    // packages/song/docs/masterChain.md.
+    std::vector<PluginDoc> masterPlugins;
     // The absolute directory a live recording writes into — the brain's <project>/clips, where an audio clip's file
     // lives. The engine still parses no project files: this is the one location it is told, because a take has to
     // land somewhere before the brain can declare it. Empty means the project cannot record, and arming is refused.

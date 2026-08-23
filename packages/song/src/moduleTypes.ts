@@ -24,6 +24,63 @@ export const isIoSource = (io: unknown): io is IoSource =>
   (IO_SOURCES as readonly unknown[]).includes(io);
 
 /**
+ * The two BUILT-IN outputs, and the space between them.
+ *
+ * `MIX` is where the mixer sums — every lane's chain ends here, and it is what the header meter
+ * answers for. `OUT` is the interface. A chain wired `from: MIX` to `OUT` is the MASTER CHAIN,
+ * and its steps process the whole mix on the way out; with no such chain the two are one wire
+ * and the song sounds exactly as it did before they were told apart.
+ *
+ * Built-in NAMES rather than modules on disk: `isSink` takes them literally, so no project needs
+ * a `modules/io/` folder for either, and every demo song relies on that. See docs/masterChain.md.
+ */
+export const MIX_NODE = "MIX";
+export const OUT_NODE = "OUT";
+
+/**
+ * The same two, for PICTURE — and they only exist on a project that declares a viewport.
+ *
+ * `RENDER` is where the compositor sums: every video lane arrives there, the way every audio lane
+ * arrives at `MIX`, and it carries no parameter for the same reason. `VIDEO_OUT` is the frame that
+ * leaves. A chain wired `from: RENDER` to `VIDEO_OUT` is the VIDEO MASTER CHAIN, the place a
+ * `video_effects` or `video_transitions` module processes the whole composited frame.
+ *
+ * The name `VIDEO_OUT` is not new: the model has called the picture's sink that since video chains
+ * were first typed (`sourceType`'s note in graph.ts), in comments and in a ui-chains test. It was
+ * never a constant, so nothing could route to it. This is that name, made real.
+ *
+ * Notation TODAY, exactly as `MIX`/`OUT` were at first: `VideoPluginDoc` is modelled and nothing
+ * compiles it, so a module on this run is drawn and validated but changes no frame. Said out loud
+ * here rather than discovered — see docs/videoOutputs.md.
+ *
+ * Unlike the audio pair, these are added AUTOMATICALLY: a project with a viewport surface and no
+ * such run gets one written into its graph.yaml (videoOutputs.ts). A song with no picture never
+ * sees either name.
+ */
+export const RENDER_NODE = "RENDER";
+export const VIDEO_OUT_NODE = "VIDEO_OUT";
+
+/** The four built-in outputs — the two sums, and the two devices they leave by. */
+export const BUILTIN_OUTPUTS = [
+  MIX_NODE,
+  OUT_NODE,
+  RENDER_NODE,
+  VIDEO_OUT_NODE,
+] as const;
+/** Is this name one of them? Neither has a folder on disk, so every "is it a module" test asks. */
+export const isBuiltinOutput = (id: string): boolean =>
+  (BUILTIN_OUTPUTS as readonly string[]).includes(id);
+
+/**
+ * The owner a master chain's plugins are filed under while the document is being built.
+ *
+ * A reserved name rather than a flag, so the master run goes through exactly the same
+ * step-to-plugin code as every track and cannot drift from it. `@` cannot begin a lane name —
+ * the sentinel `@shares` and `@external` already rely on — so it can never collide with one.
+ */
+export const MASTER_OWNER = "@master";
+
+/**
  * The type folder a LANE belongs to — the arrangement's own modules (see docs/trackModules.md).
  *
  * Up here with the rest of the vocabulary rather than beside the `@studio/…` refs at the foot of
@@ -44,7 +101,51 @@ export const MODULE_EMITS: Record<
   midi: "midi", // the legacy alias of transformers
   video_effects: "video",
   video_transitions: "video",
+  shaders: "video", // a shader takes picture and gives picture; its audio input is a side input
 };
+
+/**
+ * A shader module's own vocabulary — the folder it keeps its GLSL in, and the two files a shader IS.
+ *
+ * A folder rather than one file, because a shader is a PAIR: swap the fragment and keep the vertex
+ * and you have a different effect on the same geometry. Naming the pair after the folder is what
+ * lets the panel offer "ripple" instead of two half-choices that can be mismatched.
+ *
+ * `shaders/` beside the module file rather than inside `assets/`, following `base/`: `assets/` is
+ * flat files a param NAMES, and a picker over it filters by extension (`assetExtFor`). A shader is
+ * a directory, so it would have been the one entry in that folder that is not a file.
+ */
+export const SHADERS_DIR = "shaders";
+export const SHADER_VERTEX = "vertex.glsl";
+export const SHADER_FRAGMENT = "fragment.glsl";
+
+/**
+ * The TYPE FOLDER a shader module lives in — `modules/shaders/<name>/`.
+ *
+ * The same word as `SHADERS_DIR` and a different fact, which is exactly why both are named: one
+ * is where shader MODULES are filed in a project, the other is where one such module keeps its
+ * GLSL. `modules/shaders/glow/shaders/ripple/fragment.glsl` reads the coincidence out loud. A
+ * single constant would have made every use ambiguous, and the day one moves it would move both.
+ */
+export const SHADER_CATEGORY = "shaders";
+
+/**
+ * The four knobs every shader gets, whatever it does with them.
+ *
+ * Numbered rather than named, and that is the design: the module cannot know what a shader will
+ * call its controls, and a shader author cannot rename a knob on a panel they never see. Four is
+ * what fits a row of the grid, and 0..1 is the range a GLSL uniform wants — no shader has to
+ * normalise, and no panel has to ask what the units are.
+ *
+ * They reach the fragment as `uP1`..`uP4`, beside `uAudio`. See docs/shaders.md.
+ */
+export const SHADER_PARAMS = ["P1", "P2", "P3", "P4"] as const;
+export type ShaderParam = (typeof SHADER_PARAMS)[number];
+export const isShaderParam = (name: string): name is ShaderParam =>
+  (SHADER_PARAMS as readonly string[]).includes(name);
+
+/** The uniform each of them lands on — one rule, so a panel and a shader cannot disagree. */
+export const shaderUniformFor = (param: string): string => `u${param}`;
 
 // The signal leaving a module, from its type folder + its own io role — or, for a lane, its port.
 export function moduleEmits(
@@ -150,6 +251,27 @@ export const MODULE_TYPES: Record<
   video_transitions: {
     kind: "plugin",
     inputs: [{ name: "in", type: "video" }],
+    outputs: [{ name: "out", type: "video" }],
+  },
+  /**
+   * A SHADER: picture in, picture out, and an audio input that is allowed to be empty.
+   *
+   * The only module type in the repo whose ports are of two different signals, and the reason is
+   * what a shader is for — a visual that MOVES with the sound. The audio port carries no picture
+   * and is never in the flow; it is a side input (`gtr: [ glow#audio ]`), so the positional check
+   * fills `in` from the flow and this one from `step.in`, exactly as a crossfade's second input is
+   * filled. See docs/shaders.md.
+   *
+   * `mandatory: false` on it, and that is load-bearing rather than lenient: a shader that only
+   * uses `uP1`..`uP4` is an ordinary video effect, and requiring a cable to audio would mean
+   * wiring a lane to a shader that ignores it.
+   */
+  shaders: {
+    kind: "plugin",
+    inputs: [
+      { name: "in", type: "video" },
+      { name: "audio", type: "audio", mandatory: false },
+    ],
     outputs: [{ name: "out", type: "video" }],
   },
   midi: {

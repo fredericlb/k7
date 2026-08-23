@@ -6,6 +6,10 @@
 # `bypassed` lists the modules the signal passes through untouched, and on a lane that is
 # its mute.
 
+# `MIX` is the mixer's sum and `OUT` is the interface; the run between them is the MASTER
+# CHAIN, and `OUT` carries the song's output level as its `Volume`.
+
 modules:
   beat: [ kit ]
-  kit: [ OUT ]
+  kit: [ MIX ]
+  MIX: [ OUT ]

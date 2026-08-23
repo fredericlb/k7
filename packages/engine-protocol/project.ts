@@ -251,6 +251,20 @@ export interface ProjectDoc {
    * (see @studio/song's docs/masterVolume.md).
    */
   masterVolume: number;
+  /**
+   * The MASTER CHAIN — plugins over the summed mix, in order, before it reaches the interface.
+   *
+   * The song's graph has two built-in outputs: `MIX`, where every lane's chain ends, and `OUT`,
+   * the device. A chain wired between them compiles to this list; a song with no such chain
+   * sends an empty one and sounds exactly as it did when the two were one node.
+   *
+   * They sit BEFORE the master meter and the broadcast tap, and therefore before
+   * `masterVolume` — these process the mix, that trims the delivery. Always sent, defaulted
+   * rather than optional, because the engine DIFFS documents: an absent list would read as
+   * "unchanged" and a deleted master chain would never come off the bus.
+   * See @studio/song's docs/masterChain.md.
+   */
+  masterPlugins: PluginDoc[];
   // Where a live take lands ('' for a single-file song, which the engine refuses to arm) — the ONE path it is told.
   recordDir: string;
   tracks: TrackDoc[];

@@ -15,8 +15,13 @@
 # until the transport rolls, so nothing but this line can say its events are notes for the
 # synth. See packages/song/docs/trackModules.md.
 
+# `MIX` is the mixer's sum and `OUT` is the interface; the run between them is the MASTER
+# CHAIN, and `OUT` carries the song's output level as its `Volume`. Name a module on that
+# line and it processes both lanes together on the way out.
+
 modules:
   melody: [ lead ]
   pad#midi: [ synth-pad ]
-  lead: [ OUT ]
-  synth-pad: [ OUT ]
+  lead: [ MIX ]
+  synth-pad: [ MIX ]
+  MIX: [ OUT ]

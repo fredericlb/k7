@@ -8,6 +8,7 @@
 // The pair has to be exactly reversible or saving damages the chain, so both directions live here,
 // beside each other, under one set of round-trip tests. See apps/pl8/docs/banc.md.
 
+import { MIX_NODE, OUT_NODE } from "./moduleTypes";
 import { formatChains, parseGraph } from "./yaml/graphFile";
 import type { GraphFile } from "./yaml/graphSchema";
 
@@ -115,6 +116,11 @@ export function chainToBench(text: string, edges: BenchEdges): string {
     );
     if (reaches) moved.modules = { ...moved.modules, [strip]: [edges.out] };
   }
+  // …and the run out of the sum, which every project carries: it is what gives the graph an OUT
+  // node to draw the output level on. Unconditional — a bench with nothing routed anywhere still
+  // has an output — and taken straight back off by `chainFromBench`, since it is the PROJECT's
+  // furniture and not part of the chain being edited.
+  moved.modules = { ...moved.modules, [MIX_NODE]: [OUT_NODE] };
   return formatChains(moved, header);
 }
 
@@ -125,6 +131,9 @@ export function chainFromBench(text: string, edges: BenchEdges): string {
   if (!value) return text;
 
   const back = mapFile(value, (node, dests) => {
+    // The MASTER RUN is the project's furniture too, and goes the same way as the strip: a chain
+    // describes a treatment, and where the mix leaves for the interface is not part of one.
+    if (node === MIX_NODE) return null;
     // The strip is the bench's, not the chain's: dropped as a node, and anything that pointed at
     // it now points where it pointed — the sink, which is `@out` on the other side.
     if (edges.strip && node === edges.strip) return null;

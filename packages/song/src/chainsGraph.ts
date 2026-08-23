@@ -3,7 +3,7 @@
 // and where two signals meet. Full rationale: docs/graphFile.md.
 
 import type { Chain, Out, Step } from "./graph";
-import { splitPort } from "./moduleTypes";
+import { MIX_NODE, RENDER_NODE, splitPort } from "./moduleTypes";
 import { parseGraph } from "./yaml/graphFile";
 import { type GraphFile, GraphFileSchema } from "./yaml/graphSchema";
 
@@ -82,9 +82,24 @@ export function chainsOf(
   // `@in` is a lane wherever it appears: a template has no project to ask, and it is the one name
   // that means "the signal starts here" with nothing behind it. Asked of a ref that may name a
   // port, since a lane's outputs are addressable (below).
+  //
+  // `MIX` is one for the same reason and by the same rule: the mixer's sum is where the MASTER
+  // run begins, it is fed by every lane rather than by one, and a run headed by it must carry
+  // `from: MIX` or the compiler cannot tell it from an ordinary bus. Being a "lane" here also
+  // keeps it from being ABSORBED — every lane feeds it, so without that the last chain to
+  // arrive would swallow the whole master run as its own next steps.
+  //
+  // `RENDER` is the third, and every word above holds for it unchanged: it is the compositor's
+  // sum, every video lane arrives there, and the run out of it is the picture's master chain.
+  // See docs/videoOutputs.md.
   const lane = (n: string): boolean => {
     const node = splitPort(n).node;
-    return node === CHAIN_IN || isLane(node);
+    return (
+      node === CHAIN_IN ||
+      node === MIX_NODE ||
+      node === RENDER_NODE ||
+      isLane(node)
+    );
   };
 
   // Everything below reasons about the NODE, never the port: `crossfade` fed twice is one

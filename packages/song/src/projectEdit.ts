@@ -11,15 +11,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { extname, join, relative, sep } from "node:path";
+import { parseDocument, parse as parseYaml } from "yaml";
+import { currentAlternative } from "./alternatives";
 import {
   baseModuleRefs,
   loadModuleRefs,
   loadModules,
   projectModules,
   splitModuleKey,
-} from "@studio/song/loader";
-import { parseDocument, parse as parseYaml } from "yaml";
-import { currentAlternative } from "./alternatives";
+} from "./loader";
 import { chainsUsing, sharedRoots } from "./moduleFork";
 import { resolveModule } from "./moduleResolve";
 import type { OnsetEdits } from "./onsets";
@@ -259,6 +259,31 @@ export function setModuleMonitor(
   value: "off" | "auto" | "on",
 ): string {
   return editModuleValue(dir, module, ["monitor"], value);
+}
+
+/**
+ * Choose which SHADER this node runs — a folder under the module's `shaders/`, or its ancestor's.
+ * Empty clears it, back to passing the picture through untouched.
+ *
+ * A field rather than a param, and the same reason `base` is one: the four knobs steer a program
+ * that is already running, and this decides which program gets compiled. The renderer learns it
+ * by rebuilding the pass, exactly as the engine learns a base by rebuilding the plugin.
+ *
+ * NOT checked against the folder here, deliberately — the same posture `base` takes. Which
+ * shaders exist is a fact about a disk this may not be on; the dropdown offers only what
+ * `moduleShaderChoices` listed, and a name whose folder is missing is already handled where it
+ * matters, by `readShader` returning null and the pass falling through. Refusing here would mean
+ * a name could not be typed before the folder it names is synced.
+ */
+export function setModuleShader(
+  dir: string,
+  module: string,
+  name: string,
+): string {
+  // Empty REMOVES the key rather than writing `shader: ""` — the schema's own `min(1)` would
+  // refuse that anyway, and a node running no shader is one with no line about it.
+  const clean = name.trim();
+  return editModuleValue(dir, module, ["shader"], clean || null);
 }
 
 /**

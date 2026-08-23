@@ -26,7 +26,8 @@ describe("the module bench", () => {
     // A warning here means the bench references something it did not write — which, for a
     // project every user is handed identically, is the failure that reaches everyone at once.
     expect(g.warnings).toEqual([]);
-    expect(Object.keys(g.chains).length).toBe(1);
+    // The lane's run, plus the empty `MIX -> OUT` every project carries.
+    expect(Object.keys(g.chains).length).toBe(2);
   });
 
   it("declares no node but its LANE", () => {
@@ -84,12 +85,14 @@ describe("the module bench", () => {
     // rewritten chain back to the médiathèque, which nothing else would catch.
     const files = benchFiles("banc");
     expect(files[`nodes/${BENCH_EDGES.track}.yaml`]).toBeDefined();
-    expect(files[`modules/io/${BENCH_EDGES.out}/module.yaml`]).toBeDefined();
     expect(
       files[`modules/audio/${BENCH_EDGES.strip}/module.yaml`],
     ).toBeDefined();
     expect(files["graph.yaml"]).toContain(
       `${BENCH_EDGES.strip}: [ ${BENCH_EDGES.out} ]`,
     );
+    // …and out of the sum to the interface, the line every project carries. `chainToBench`
+    // writes it too, so a chain opened here does not lose the project's own output.
+    expect(files["graph.yaml"]).toContain("MIX: [ OUT ]");
   });
 });

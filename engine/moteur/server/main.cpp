@@ -127,6 +127,39 @@ std::string encodeStreamFrame(const studio::EngineHost::BroadcastChunk& chunk,
 // document does — the two must not drift, and the delta is by construction a piece of a document.
 studio::TrackDoc trackFromJson(const json& t);
 
+// One plugin off the wire. Shared by a TRACK's list and the MASTER chain's, so the two cannot
+// drift — a master plugin is an ordinary plugin that happens to sit on the mix.
+studio::PluginDoc pluginFromJson(const json& p) {
+    studio::PluginDoc pl;
+    pl.id = p.value("id", std::string{});
+    pl.type = p.value("type", std::string{});
+    pl.name = p.value("name", std::string{});
+    pl.path = p.value("path", std::string{});
+    pl.presetSave = p.value("presetSave", std::string{});
+    pl.role = p.value("role", std::string{});
+    pl.enabled = p.value("enabled", true);
+    pl.namFile = p.value("namFile", std::string{});
+    pl.dspGraph = p.value("dspGraph", std::string{});
+    pl.faustDsp = p.value("faustDsp", std::string{});
+    pl.sidechainFrom = p.value("sidechainFrom", std::string{});
+    if (p.contains("params"))
+        for (const auto& [k, v] : p.at("params").items())
+            pl.params[k] = v.get<double>();
+    // A rack instrument carries its sounds here: {symbol, note, clip} already resolved to absolute paths, turned
+    // into SamplerPlugin sounds in EditBuilder::addPlugin.
+    if (p.contains("rack") && p.at("rack").is_array())
+        for (const auto& e : p.at("rack")) {
+            studio::RackEntry re;
+            re.symbol = e.value("symbol", std::string{});
+            re.note = e.value("note", 0);
+            re.clip = e.value("clip", std::string{});
+            re.start = e.value("start", 0.0);
+            re.length = e.value("length", 0.0);
+            pl.rack.push_back(std::move(re));
+        }
+    return pl;
+}
+
 studio::ProjectDoc docFromJson(const json& j) {
     studio::ProjectDoc doc;
     doc.name = j.value("name", std::string{"untitled"});
@@ -136,6 +169,11 @@ studio::ProjectDoc docFromJson(const json& j) {
     doc.timeSigDenominator = j.value("timeSigDenominator", 4);
     // Unity for a doc that predates the field — the same thing an absent one has always meant.
     doc.masterVolume = j.value("masterVolume", 0.0f);
+    // The master chain. Absent for a doc that predates the field, which means the mixer's sum
+    // reaches the interface unprocessed — exactly what it did before there were two nodes.
+    if (j.contains("masterPlugins") && j.at("masterPlugins").is_array())
+        for (const auto& p : j.at("masterPlugins"))
+            doc.masterPlugins.push_back(pluginFromJson(p));
     doc.recordDir = j.value("recordDir", std::string{});
     // Project settings ride in a nested `settings` object; the engine reads only what it plays — the metronome flag
     // and the count-in bars. Absent settings mean the defaults.
@@ -216,36 +254,7 @@ studio::TrackDoc trackFromJson(const json& t) {
         }
 
     if (t.contains("plugins"))
-        for (const auto& p : t.at("plugins")) {
-            studio::PluginDoc pl;
-            pl.id = p.value("id", std::string{});
-            pl.type = p.value("type", std::string{});
-            pl.name = p.value("name", std::string{});
-            pl.path = p.value("path", std::string{});
-            pl.presetSave = p.value("presetSave", std::string{});
-            pl.role = p.value("role", std::string{});
-            pl.enabled = p.value("enabled", true);
-            pl.namFile = p.value("namFile", std::string{});
-            pl.dspGraph = p.value("dspGraph", std::string{});
-            pl.faustDsp = p.value("faustDsp", std::string{});
-            pl.sidechainFrom = p.value("sidechainFrom", std::string{});
-            if (p.contains("params"))
-                for (const auto& [k, v] : p.at("params").items())
-                    pl.params[k] = v.get<double>();
-            // A rack instrument carries its sounds here: {symbol, note, clip} already resolved to absolute paths, turned
-            // into SamplerPlugin sounds in EditBuilder::addPlugin.
-            if (p.contains("rack") && p.at("rack").is_array())
-                for (const auto& e : p.at("rack")) {
-                    studio::RackEntry re;
-                    re.symbol = e.value("symbol", std::string{});
-                    re.note = e.value("note", 0);
-                    re.clip = e.value("clip", std::string{});
-                    re.start = e.value("start", 0.0);
-                    re.length = e.value("length", 0.0);
-                    pl.rack.push_back(std::move(re));
-                }
-            tr.plugins.push_back(std::move(pl));
-        }
+        for (const auto& p : t.at("plugins")) tr.plugins.push_back(pluginFromJson(p));
 
     if (t.contains("sends"))
         for (const auto& s : t.at("sends")) {

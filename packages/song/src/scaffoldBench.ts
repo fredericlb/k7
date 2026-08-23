@@ -3,6 +3,7 @@
 // else is the catalogue, which is not in the folder. Rationale: apps/pl8/docs/banc.md.
 
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
+import { MIX_NODE } from "./moduleTypes";
 import { DEFAULT_COUNT_IN } from "./project";
 import { writeProjectFiles } from "./scaffold";
 import { GRAPH_FILE } from "./yaml/graphSchema";
@@ -26,7 +27,10 @@ export const BENCH_MARKER = "mediatekBench";
  */
 export const BENCH_EDGES = {
   track: "banc",
-  out: "OUT",
+  // The mixer's SUM, not the interface. A chain's `@out` is where its treated signal leaves, and
+  // that is what every lane in every project reaches; `MIX -> OUT` past it is the master chain,
+  // which `chainToBench` writes and `chainFromBench` takes back off. See docs/masterChain.md.
+  out: MIX_NODE,
   strip: "mixer",
 } as const;
 
@@ -99,15 +103,19 @@ export function benchFiles(name: string): Record<string, string> {
       `#     modules:\n` +
       `#       banc: [ amps/neural-amp-modeler ]\n` +
       `#       amps/neural-amp-modeler: [ mixer ]\n` +
-      `#       mixer: [ OUT ]\n` +
+      `#       mixer: [ MIX ]\n` +
       `#\n` +
       `# Pas de nœud à créer : un nœud sert à avoir DEUX exemplaires d'un module réglés\n` +
       `# différemment, et un banc n'en a pas besoin. C'est aussi ce nom de dossier que le\n` +
       `# constructeur cherche pour retrouver le greffon chargé et vous donner ses vrais\n` +
       `# paramètres — voir apps/st0/frontend/docs/moduleBuilder.md.\n` +
+      `#\n` +
+      `# \`MIX\` est la somme du mixeur, \`OUT\` l'interface : le trajet entre les deux est la\n` +
+      `# CHAÎNE MASTER, et \`OUT\` porte le niveau de sortie du morceau (son \`Volume\`).\n` +
       `modules:\n` +
       `  banc: [ mixer ]\n` +
-      `  mixer: [ OUT ]\n`,
+      `  mixer: [ MIX ]\n` +
+      `  MIX: [ OUT ]\n`,
 
     // One lane, with nothing on it. A bench is a place to plug something in, not a song.
     "nodes/banc.yaml":

@@ -1,13 +1,13 @@
-// The Fix button's arithmetic. Two things here would be wrong silently and are the reason this
-// is a pure file at all: a trim that comes out the wrong SIGN — a button that makes a mix that
-// clipped louder — and a shared bus strip written twice, which is a race rather than a no-op.
+// The Fix button's arithmetic. Two things here would be wrong silently and are the reason this is
+// a pure file at all: a trim that comes out the wrong SIGN — a button that makes a mix that
+// clipped louder — and a new output level computed ABSOLUTELY, which would forget the fader
+// setting that helped cause the clip and undo it in the same click.
 
+import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
 import { describe, expect, it } from "vitest";
-import { MAX_DB, MIN_DB, TARGET_DB, trimFor, trimmedStrips } from "./gainTrim";
+import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 
-const strip = (mixer: string, volume: number) => ({ mixer, volume });
-
-describe("how far everything comes down", () => {
+describe("how far the output comes down", () => {
   it("brings the peak to the target", () => {
     expect(trimFor(0)).toBe(TARGET_DB); // hit full scale → down 6
     expect(trimFor(3)).toBe(-9);
@@ -32,54 +32,34 @@ describe("how far everything comes down", () => {
   });
 });
 
-describe("which strips get it", () => {
-  it("puts the SAME trim on every one, so the mix does not change", () => {
-    const out = trimmedStrips(
-      [strip("mixer:vo", -3), strip("mixer:gtr", -12), strip("mixer:bs", 0)],
-      6,
-    );
-    // -12 off each: the balances between them are exactly what they were.
-    expect(out).toEqual([
-      { node: "mixer:vo", db: -15 },
-      { node: "mixer:gtr", db: -24 },
-      { node: "mixer:bs", db: -12 },
-    ]);
+describe("where the OUT node's Volume lands", () => {
+  it("moves RELATIVE to what the fader already reads", () => {
+    // The meter is downstream of this gain, so a pass played at +3 peaked at +6 BECAUSE of the
+    // +3. Writing trimFor(peak) absolutely would land on -12 and throw that setting away.
+    expect(fixedMaster(3, 6)).toBe(-9);
+    expect(fixedMaster(-4, 0)).toBe(-10);
   });
 
-  it("writes a shared bus strip ONCE, in the order the first lane reached it", () => {
-    // Two lanes ending on one strip. Twice is a wasted round trip at best, and — if the two
-    // disagreed about its current level — a race between two absolute writes.
-    const out = trimmedStrips(
-      [strip("mixer:bus", -6), strip("mixer:vo", 0), strip("mixer:bus", -6)],
-      0,
-    );
-    expect(out.map((s) => s.node)).toEqual(["mixer:bus", "mixer:vo"]);
+  it("leaves a mix that was already at unity exactly one trim below it", () => {
+    expect(fixedMaster(0, 0)).toBe(TARGET_DB);
   });
 
-  it("skips a lane with no strip rather than inventing one", () => {
-    // Not "at unity": a lane with nowhere to put a level has nothing here to lower.
-    expect(trimmedStrips([strip("", 0), strip("mixer:vo", 0)], 0)).toEqual([
-      { node: "mixer:vo", db: TARGET_DB },
-    ]);
+  it("clamps to the field, rather than writing a value that would be refused", () => {
+    // The command refuses anything outside the range, so an unclamped value would make the button
+    // fail silently on the quietest mixes instead of doing what it could.
+    expect(fixedMaster(MASTER_MIN_DB + 2, 0)).toBe(MASTER_MIN_DB);
+    expect(fixedMaster(MASTER_MAX_DB, 0)).toBeLessThan(MASTER_MAX_DB);
   });
 
-  it("clamps to the fader's own range", () => {
-    const out = trimmedStrips([strip("mixer:quiet", -57)], 0);
-    // -63 does not exist: the write would be refused, and -60 is silence either way.
-    expect(out).toEqual([{ node: "mixer:quiet", db: MIN_DB }]);
-    expect(MAX_DB).toBe(6);
+  it("never comes back higher than it started, whatever the meter read", () => {
+    // The same sign guard as `trimFor`, at the level the button actually writes.
+    for (const peak of [-60, -6, 0, 12])
+      expect(fixedMaster(-3, peak)).toBeLessThanOrEqual(-3);
   });
 
-  it("says nothing about a strip already at the value it would be written", () => {
-    // Already on the floor: no command, rather than a round trip that changes nothing.
-    expect(trimmedStrips([strip("mixer:off", MIN_DB)], 0)).toEqual([]);
-  });
-
-  it("still trims a pass whose meter never read loud, because it clipped", () => {
+  it("still moves a pass whose meter never read loud, because it clipped", () => {
     // The button is only offered on a pass that CLIPPED, so the peak is floored at full scale and
-    // the trim is never nothing — even here, where the level read is already at the target.
-    expect(trimmedStrips([strip("mixer:vo", 0)], TARGET_DB)).toEqual([
-      { node: "mixer:vo", db: TARGET_DB },
-    ]);
+    // the write is never a no-op — even here, where the level read is already at the target.
+    expect(fixedMaster(0, TARGET_DB)).toBe(TARGET_DB);
   });
 });

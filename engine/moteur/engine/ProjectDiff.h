@@ -22,6 +22,7 @@ enum class ChangeKind {
     TempoChanged,
     TimeSignatureChanged,
     MasterVolumeChanged,      // the song's output fader — applied in place, no rebuild
+    MasterChainChanged,       // the MIX -> OUT run — forces full rebuild (see needsFullRebuild)
     SampleRateChanged,        // forces full rebuild: the device must reopen
 
     // Structural

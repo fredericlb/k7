@@ -12,10 +12,15 @@
 # There is no chain called `crossfade`: it has one flow feeder, so it is a step inside deckA's
 # run rather than a meeting point. See packages/song/docs/ports.md.
 
+# `MIX` is the mixer's sum and `OUT` is the interface; the run between them is the MASTER
+# CHAIN, and `OUT` carries the song's output level as its `Volume`. Name a module on that
+# line and it processes the blend rather than either deck.
+
 modules:
   deckA: [ crossfade ]
   deckB: [ crossfade#b ]
-  crossfade: [ OUT ]
+  crossfade: [ MIX ]
+  MIX: [ OUT ]
 
 # deckB's mute. See nodes/deckB.yaml for why it is not optional.
 bypassed: [ deckB ]

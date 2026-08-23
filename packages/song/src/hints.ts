@@ -22,7 +22,15 @@ import {
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
-import { completionOrder, isEngineRef, moduleStatusOf } from "./moduleTypes";
+import {
+  completionOrder,
+  isEngineRef,
+  MIX_NODE,
+  moduleStatusOf,
+  OUT_NODE,
+  RENDER_NODE,
+  VIDEO_OUT_NODE,
+} from "./moduleTypes";
 import { loadPreferences } from "./preferences";
 
 export interface Hints {
@@ -171,10 +179,25 @@ function projectHintsIn(dir: string): Hints {
   // Sinks only: an io module is one unless it declares itself a source (io: "in", a
   // live interface input). A source is not somewhere a chain can route TO, so leaving
   // it in here would offer `out: ["IN"]` as a valid target.
-  const ioSinks = Object.entries(moduleRefs)
-    .filter(([, b]) => (b as any)?.kind === "io" && (b as any)?.io !== "in")
-    .map(([k]) => k)
-    .sort();
+  // The two BUILT-IN outputs come first and always: neither is a module on disk, so neither
+  // appears in `moduleRefs` — and a completion list that offered every declared sink but not
+  // `MIX`, where every lane actually ends, would be a vocabulary missing its commonest word.
+  // MIX is the mixer's sum, OUT the device; the run between them is the master chain
+  // (docs/masterChain.md).
+  // The picture's pair follows them, and ONLY on a project that has picture: they are written
+  // onto a project with a viewport and onto no other, so offering `VIDEO_OUT` to a song with no
+  // frame would complete a name that would then fail to resolve. See docs/videoOutputs.md.
+  const ioSinks = [
+    MIX_NODE,
+    OUT_NODE,
+    ...(Object.keys(videoTracks ?? {}).length
+      ? [RENDER_NODE, VIDEO_OUT_NODE]
+      : []),
+    ...Object.entries(moduleRefs)
+      .filter(([, b]) => (b as any)?.kind === "io" && (b as any)?.io !== "in")
+      .map(([k]) => k)
+      .sort(),
+  ];
   const ioSources = Object.entries(moduleRefs)
     .filter(([, b]) => (b as any)?.kind === "io" && (b as any)?.io === "in")
     .map(([k]) => k)

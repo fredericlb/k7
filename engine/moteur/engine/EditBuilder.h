@@ -32,6 +32,18 @@ void insertMidiClip(te::Edit& edit, te::AudioTrack& track, const ClipDoc& c);
 // scan cache). Null on failure.
 te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc& p, int index);
 
+// …the same, onto any plugin list — the master list is the other one. See populateMasterChain.
+te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index);
+
+// The song's MIX -> OUT run onto the edit's master list, first, and then the OUT node's own
+// `Volume` as a MasterGainPlugin — so the meter and the broadcast tap that buildLevelMeters
+// appends sit AFTER both and answer for what actually leaves.
+void populateMasterChain(te::Edit& edit, const ProjectDoc& doc);
+
+// That gain, found again on the master list — how the live path takes hold of the one
+// populateMasterChain made rather than making a second. Null if there is none.
+te::Plugin::Ptr masterGainOf(te::Edit& edit);
+
 // Load one rack sound into `sampler`: the window [start, start+length) seconds of `file`, pinned to `note` and
 // open-ended so a short note still plays the whole hit; length <= 0 means the natural length. Shared by the
 // rack builder and the editor's sample preview.

@@ -254,6 +254,10 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
 
   return {
     uuid: proj.uuid ? String(proj.uuid) : undefined,
+    // A FLAT project has no graph, so it has no master chain either — the mixer's sum reaches
+    // the interface unprocessed. Sent as an empty list rather than left out, so a doc from here
+    // diffs against one from the node compiler without reading as "unchanged".
+    masterPlugins: [],
     name: String(proj.name ?? "untitled"),
     tempo: Number(proj.tempo ?? 120),
     sampleRate: Number(proj.sampleRate ?? 48000),

@@ -262,7 +262,9 @@ describe("a scaffolded set", () => {
     // A chain per SOURCE lane — the record and its four stems, twice — plus one per deck's
     // EQ. That last pair is the whole shape: a run breaks where two signals meet, and five
     // lanes naming `eqA` make it a meeting point rather than a step inside deck A's run.
+    // …and `MIX`, the empty master run every project carries out to the interface.
     expect(Object.keys(g.chains).sort()).toEqual([
+      "MIX",
       "deckA",
       "deckB",
       "eqA",
@@ -285,16 +287,18 @@ describe("a scaffolded set", () => {
     // equalised mix would leave a residue shaped like the EQ.
     expect(g.chains.stemBassA.use.map((s) => s.module)).toEqual(["cutBassA"]);
     expect(g.chains.stemBassA.out.map((o) => o.to)).toEqual(["eqA"]);
-    // …and the bus carries the strip: EQ, filter, crossfade, out. No `from` at all — that is
-    // what makes it a bus rather than a lane's run, and what `nodeProject` reads to give it a
-    // return track of its own.
+    // …and the bus carries the strip: EQ, filter, crossfade, and out to the mixer's sum. No
+    // `from` at all — that is what makes it a bus rather than a lane's run, and what
+    // `nodeProject` reads to give it a return track of its own.
     expect(g.chains.eqA.from).toBeUndefined();
     expect(g.chains.eqA.use.map((s) => s.module)).toEqual([
       "eqA",
       "filterA",
       "crossfade",
     ]);
-    expect(g.chains.eqA.out.map((o) => o.to)).toEqual(["OUT"]);
+    expect(g.chains.eqA.out.map((o) => o.to)).toEqual(["MIX"]);
+    // The blend then leaves by the master run, which is what a limiter on a set would go on.
+    expect(g.chains.MIX.out.map((o) => o.to)).toEqual(["OUT"]);
   });
 
   it("lands deck B's BUS on the crossfade's second port", () => {

@@ -105,10 +105,16 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# it has to happen BEFORE the EQ: taking a raw stem out of an already equalised mix would\n` +
       `# leave a residue shaped like the EQ, and the cancellation would stop cancelling the\n` +
       `# moment somebody touched a knob.\n` +
+      `#\n` +
+      `# The crossfade lands on \`MIX\`, the mixer's sum, and \`MIX -> OUT\` is the run out to the\n` +
+      `# interface — the MASTER CHAIN. A module named on that line processes the whole blend,\n` +
+      `# which on a set is where a limiter belongs. \`OUT\` carries the output level itself, as\n` +
+      `# its \`Volume\`.\n` +
       `\n` +
       `modules:\n` +
       DECKS.map((deck) => graphForDeck(deck)).join("") +
-      `  ${CROSSFADE}: [ OUT ]\n` +
+      `  ${CROSSFADE}: [ MIX ]\n` +
+      `  MIX: [ OUT ]\n` +
       `\n` +
       // Every source lane's mute lives HERE, not on the deck: a lane's mute is its module's
       // bypass, and there is one place a bypass is written.

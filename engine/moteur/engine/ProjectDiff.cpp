@@ -83,6 +83,25 @@ bool clipMoved(const ClipDoc& a, const ClipDoc& b) {
         || a.notes != b.notes;
 }
 
+/**
+ * Is the master chain the same run, in the same order, set the same way?
+ *
+ * Order is part of it — unlike a track's plugin diff, which indexes by key — because the master
+ * list IS a signal order: swapping the compressor and the EQ changes the sound while leaving both
+ * keys present, and an unordered comparison would call that unchanged.
+ *
+ * `keyOf` carries type, name, preset and sidechain, so this adds only what identity leaves out:
+ * the bypass and the parameter values.
+ */
+bool sameMasterChain(const std::vector<PluginDoc>& a, const std::vector<PluginDoc>& b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i)
+        if (keyOf(a[i]) != keyOf(b[i]) || a[i].enabled != b[i].enabled ||
+            a[i].params != b[i].params)
+            return false;
+    return true;
+}
+
 // Diff the contents of one track (that exists in both docs).
 void diffTrackContents(const TrackDoc& from, const TrackDoc& to, ProjectDiff& out) {
     // --- clips ---
@@ -176,6 +195,20 @@ ProjectDiff diff(const ProjectDoc& from, const ProjectDoc& to) {
         ch.doubleValue = to.masterVolume;
         out.push_back(std::move(ch));
     }
+    /**
+     * The MASTER CHAIN, compared whole — any difference at all is one change and a full rebuild.
+     *
+     * Deliberately coarser than a track's plugin diff, which adds and removes in place to keep
+     * the transport alive. Two reasons it does not pay here: the master list is not addressed by
+     * the incremental path (which walks tracks), and editing the mix bus is a mixing decision
+     * taken between passes, not a knob turned while the song runs — where a track's plugin list
+     * is exactly the opposite.
+     *
+     * So a rebuild is the honest fallback the plugin cases already document, and the cost is that
+     * changing the master chain stops playback. See the brain's docs/masterChain.md.
+     */
+    if (!sameMasterChain(from.masterPlugins, to.masterPlugins))
+        out.push_back(Change{ChangeKind::MasterChainChanged});
     if (from.timeSigNumerator != to.timeSigNumerator ||
         from.timeSigDenominator != to.timeSigDenominator) {
         Change ch{ChangeKind::TimeSignatureChanged};
@@ -269,6 +302,10 @@ bool needsFullRebuild(const ProjectDiff& d) {
         switch (c.kind) {
             case ChangeKind::SampleRateChanged:
                 return true;
+            // The master list is not on the incremental path — that one walks TRACKS — so the
+            // chain is rebuilt whole. See sameMasterChain for why that is the right trade here.
+            case ChangeKind::MasterChainChanged:
+                return true;
             case ChangeKind::PluginAdded:
                 if (tracksMoved) return true;
                 if (c.plugin && !c.plugin->sidechainFrom.empty()) return true;
@@ -284,6 +321,7 @@ std::string describe(const Change& c) {
     switch (c.kind) {
         case ChangeKind::TempoChanged:         s << "tempo -> " << c.doubleValue << " bpm"; break;
         case ChangeKind::MasterVolumeChanged:  s << "master -> " << c.doubleValue << " dB"; break;
+        case ChangeKind::MasterChainChanged:   s << "~ master chain (full rebuild)"; break;
         case ChangeKind::TimeSignatureChanged: s << "time sig -> " << c.intA << "/" << c.intB; break;
         case ChangeKind::SampleRateChanged:    s << "sample rate -> " << c.intA << " (full rebuild)"; break;
         case ChangeKind::TrackAdded:           s << "+ track " << c.trackId; break;

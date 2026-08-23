@@ -96,9 +96,11 @@ describe("a chain step naming an inherited module by ref", () => {
   });
 
   // The chain's LAST node is its sink, parsed out of the steps — a different lookup, so
-  // it needs its own proof that a ref reaches it.
+  // it needs its own proof that a ref reaches it. The lane ends at MIX, the mixer's sum:
+  // `OUT` is the device now, and the run between the two is the master chain
+  // (docs/masterChain.md).
   it("works in the sink position too, not only as a step", () => {
-    replaceChainStep(dir, "OUT", { module: "@workspace/io/desk" });
+    replaceChainStep(dir, "MIX", { module: "@workspace/io/desk" });
     const g = loadGraph(dir);
     expect(g.warnings.filter((w) => w.includes("desk"))).toEqual([]);
     expect(Object.values(g.chains)[0].out[0].to).toBe("@workspace/io/desk");

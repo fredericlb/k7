@@ -30,6 +30,12 @@ import {
 } from "./loader";
 import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
+import {
+  isBuiltinOutput,
+  MASTER_OWNER,
+  MIX_NODE,
+  OUT_NODE,
+} from "./moduleTypes";
 import { materialRefOf, placementId } from "./placementId";
 import {
   defaultPreferences,
@@ -579,9 +585,31 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
 
   // A track-fed chain processes its track; another used as a send target becomes a bus return. See docs/nodeProject.md.
   const outTargets = (c: Chain): { to: string; gain: number }[] => c.out;
+  // The four built-in outputs end a run by NAME — none has a folder under modules/io/ — and the
+  // picture's two are here for the same reason the audio pair is: without them a run ending at
+  // VIDEO_OUT is looked up as a module, misses, and is taken for a bus to route into.
   const isSink = (to: string) =>
-    !to || to === "OUT" || modulesMap[to]?.kind === "io";
+    !to || isBuiltinOutput(to) || modulesMap[to]?.kind === "io";
   const isTrackFed = (c: Chain) => !!c.from && !!lanesMap[c.from];
+
+  /**
+   * The MASTER chain: the run between the mixer's sum and the device.
+   *
+   * A chain reading `from: MIX` is not track-fed — there is no lane called MIX — so before this
+   * it had no owner and its plugins were dropped on the floor. Here it earns a reserved owner,
+   * which is what routes its steps onto the master bus instead of onto a track.
+   *
+   * `@master` cannot collide with a lane: a lane is a file under `lanes/`, and `@` cannot begin
+   * one — the same sentinel `@shares` and `@external` use. See docs/masterChain.md.
+   *
+   * The PICTURE's equivalent has no branch here and that is deliberate, not an omission: this
+   * function builds the audio `ProjectDoc` the C++ engine reads, and no frame ever reaches it
+   * (packages/song/docs/picture.md). A `RENDER -> VIDEO_OUT` run gets no owner, so its steps drop
+   * exactly as any unowned chain's do — which is the honest compilation of a video chain today,
+   * since `VideoPluginDoc` is modelled and nothing bakes it. See docs/videoOutputs.md.
+   */
+  const isMasterChain = (c: Chain): boolean =>
+    c.from === MIX_NODE && outTargets(c).some(({ to }) => to === OUT_NODE);
 
   // Non-sink targets naming a chain that isn't track-fed: routing into a track's input is inexpressible, so they drop.
   const busChains = new Set<string>();
@@ -595,7 +623,11 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   // port when the lane was wired on both (`melody#midi`), which is exactly the engine track its
   // plugins belong on. See halvesOf.
   const ownerOf = (name: string, c: Chain): string =>
-    isTrackFed(c) || busChains.has(name) ? name : "";
+    isMasterChain(c)
+      ? MASTER_OWNER
+      : isTrackFed(c) || busChains.has(name)
+        ? name
+        : "";
 
   // --- FROZEN points (see docs/freeze.md) --------------------------------------
   //
@@ -1171,6 +1203,10 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
     // diffs documents, so a missing field would read as "unchanged" and a master put back to
     // unity would never come back down. See docs/masterVolume.md.
     masterVolume: Number(proj.masterVolume ?? 0),
+    // The master chain's steps, in chain order. Always sent, and for the same reason
+    // `masterVolume` is: the engine diffs documents, so an absent list would read as
+    // "unchanged" and a master chain that was deleted would never come off the bus.
+    masterPlugins: trackPlugins[MASTER_OWNER] ?? [],
     recordDir: "", // set by loadProject, which is what knows this is a folder project
     tracks,
     groups,

@@ -3,6 +3,7 @@
 #include "EditBuilder.h"
 
 #include "Warnings.h"  // warn() — reaches the client, not just stderr
+#include "MasterGainPlugin.h" // the OUT node's Volume, behind the master chain
 #include "NamPlugin.h" // a .nam model is loaded onto the plugin as the Edit is built
 
 #include "PluginParams.h"    // applyPluginParams (via addPlugin)
@@ -435,7 +436,10 @@ std::string resolveBuiltInType(const std::string& ptype) {
 // Instantiate a plugin from a PluginDoc and insert it at `index` (0 == front, before the built-in volume/pan);
 // callers pass an increasing index so a chain keeps its order. A built-in comes from its xmlTypeName, an
 // external from the scan cache. A resolved .vstpreset loads first, then text params override it.
-te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc& p, int index) {
+// The whole of plugin creation, against whichever LIST it is going on: a track's, or the edit's
+// master list for the mix chain. `track` was never used for anything but the insertion, so this
+// is the same function with its one track-shaped line widened. See addPlugin below.
+te::Plugin::Ptr addPluginTo(te::Edit& edit, te::PluginList& list, const PluginDoc& p, int index) {
     if (p.type.empty())
         return {};
     // A built-in is created from a STATE tree rather than a type name whenever the module carries something the
@@ -462,7 +466,7 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
              p.id);
         return {};
     }
-    track.pluginList.insertPlugin(plugin, index, nullptr);
+    list.insertPlugin(plugin, index, nullptr);
     // Bypass. A step written `enabled: false` always reached the engine in the PluginDoc and was silently dropped
     // here, so a bypassed module went on processing. Tracktion's `enabled` is exactly this: the plugin stays in the
     // chain and passes its input through. Set BEFORE the preset and params, so flipping bypass off restores the
@@ -513,6 +517,50 @@ te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc
         }
     }
     return plugin;
+}
+
+te::Plugin::Ptr addPlugin(te::Edit& edit, te::AudioTrack& track, const PluginDoc& p, int index) {
+    return addPluginTo(edit, track.pluginList, p, index);
+}
+
+/**
+ * The MASTER CHAIN — the song's `MIX -> OUT` run — onto the edit's master plugin list.
+ *
+ * FIRST on that list, and everything the engine adds itself comes after, in the order the graph
+ * reads: MasterGainPlugin — the OUT node's `Volume` — then the mix meter and the broadcast tap
+ * (buildLevelMeters). So the two readers answer for the whole run, chain and output level alike,
+ * which is what lets the Fix button write the output and see the clip light clear.
+ *
+ * The cost is stated rather than hidden: a limiter here is upstream of the meter, so the clip
+ * light stops seeing the raw sum it was built to catch. See the brain's docs/masterChain.md.
+ */
+void populateMasterChain(te::Edit& edit, const ProjectDoc& doc) {
+    int index = 0;
+    for (const auto& p : doc.masterPlugins)
+        if (addPluginTo(edit, edit.getMasterPluginList(), p, index) != nullptr) ++index;
+
+    /**
+     * …and the OUT node's `Volume` behind them — the last thing in the song.
+     *
+     * HERE rather than in EngineHost::buildLevelMeters, where it used to be created, because that
+     * runs only on the live path: an offline render calls populateEdit and nothing else, so for as
+     * long as the gain was the meter code's, `--render`, a freeze and `clip process` all bounced at
+     * unity however the song's output level read. A bounce that comes back at a different level
+     * from playback is audible the moment you freeze a track, and `clip process` — which writes a
+     * render back onto the material — drifted a little further every pass.
+     *
+     * The live path takes hold of THIS one through `masterGainOf`. Two would multiply.
+     */
+    if (auto gain = edit.getPluginCache().createNewPlugin(MasterGainPlugin::xmlTypeName, {})) {
+        edit.getMasterPluginList().insertPlugin(gain, -1, nullptr);
+        if (auto* mg = dynamic_cast<MasterGainPlugin*>(gain.get())) mg->setGainDb(doc.masterVolume);
+    }
+}
+
+te::Plugin::Ptr masterGainOf(te::Edit& edit) {
+    for (auto p : edit.getMasterPluginList())
+        if (dynamic_cast<MasterGainPlugin*>(p) != nullptr) return p;
+    return {};
 }
 
 // Load one rack sound: honour the requested window clamped to the file, falling back to the whole file when no
@@ -599,9 +647,12 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
     //
     // It stays a hard 0. The song's own output level does NOT go here: this fader stops at +6 dB
     // and a master trim is exactly where that ceiling bites, so `masterVolume` is applied by a
-    // gain the engine owns, first on the master plugin list (MasterGainPlugin.h). Pinning this one
-    // is what keeps the two from multiplying. See packages/song/docs/masterVolume.md.
+    // gain the engine owns, on the master plugin list just after this chain (MasterGainPlugin.h).
+    // Pinning this one is what keeps the two from multiplying. See packages/song/docs/masterVolume.md.
     if (auto master = edit.getMasterVolumePlugin()) master->setVolumeDb(0.0f);
+
+    // …and the song's own master chain onto that same bus, before anything the engine appends.
+    populateMasterChain(edit, doc);
 
     edit.tempoSequence.getTempo(0)->setBpm(doc.tempo);
     if (auto* ts = edit.tempoSequence.getTimeSig(0)) {

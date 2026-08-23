@@ -29,7 +29,15 @@ import {
   resolveModule,
   resolveModuleMap,
 } from "./moduleResolve";
-import { isIoSource, type ModuleKind, portRef, splitPort } from "./moduleTypes";
+import {
+  isBuiltinOutput,
+  isIoSource,
+  MIX_NODE,
+  type ModuleKind,
+  portRef,
+  RENDER_NODE,
+  splitPort,
+} from "./moduleTypes";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 import type {
   LoadedModule,
@@ -219,6 +227,11 @@ export interface Module {
   // loaded when the plugin is BUILT; the params above are applied over it and still win.
   // See docs/userPresets.md.
   base?: string;
+  // Which SHADER a shader node runs — a folder under its own `shaders/` or an ancestor's. A field
+  // rather than a param for the reason `base` is one: the four knobs steer a program, this picks
+  // which program is compiled. Absent on every module that is not one, and on a shader node with
+  // nothing chosen — which passes its picture through. See docs/shaders.md.
+  shader?: string;
   ui?: ModuleUI;
   // What this module LOADS, when it is a rack: its symbols, their notes and their material, with
   // the `extends` base already merged in. Absent for a plugin. Beside `ui` and `cc` because it is
@@ -607,6 +620,10 @@ export function buildGraph(
     params: b?.params ?? {},
     // Inherited like `plugin`, so a use of a cold module is cold and nothing has to restate it.
     cold: b?.cold === true ? true : undefined,
+    // Which SHADER a shader node runs. Inherited too, and that is what a node of a shader module
+    // is FOR: the module carries the folder of programs and each node picks one. See
+    // docs/shaders.md.
+    shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
     ui: resolvedUI(b),
     // Stamped on by the loader from the folder's file; re-validated here because a map read off a
     // module map (a cached doc) has not been through the schema.
@@ -736,8 +753,14 @@ export function buildGraph(
   //
   // The derivation is told which nodes are lanes: with one `modules:` map, `melody` and `reverb`
   // are spelled alike and only what they extend tells them apart.
+  //
+  // A VIDEO lane counts, and has to: it lives in `video_tracks/` rather than in `modules`, so it
+  // matched neither test and a `main: [ glow ]` was read as a run whose first STEP was a module
+  // called `main` — which reported the lane as "not a module or module node", about a file
+  // sitting right there. One map, one name space, both kinds of lane. See docs/shaders.md.
   const chains: Record<string, Chain> = {};
-  const isLane = (n: string) => modules[n]?.kind === "track";
+  const isLane = (n: string) =>
+    modules[n]?.kind === "track" || !!videoTracks[n];
   for (const [name, chain] of Object.entries(parseChains(chainsMap, isLane))) {
     if (chain.from && disabledTracks.has(chain.from)) continue;
     chains[name] = chain;
@@ -788,7 +811,13 @@ const isSink = (g: GraphDoc, id: string): boolean => {
   // so a project needs no modules/io/OUT folder for it to work — and every demo song
   // relies on that. Requiring the folder here made all four of them warn that the OUT
   // ending each of their chains "is not a chain or io sink".
-  if (id === "OUT") return true;
+  // …and MIX beside it, the mixer's own sum. Both are built-in names with no folder behind
+  // them, and a chain may end at either: at MIX like every lane's, or at OUT for the master
+  // run that carries the whole mix out. See packages/song/docs/masterChain.md.
+  // RENDER and VIDEO_OUT are the picture's pair and are asked the same way, by the same rule —
+  // a video lane's run ends at the compositor's sum, the video master run at the frame that
+  // leaves. See packages/song/docs/videoOutputs.md.
+  if (isBuiltinOutput(id)) return true;
   const m = g.modules[id];
   if (!m) return false;
   // A NOTE ends a run too, and legitimately: a doc module takes one input and gives nothing
@@ -951,8 +980,16 @@ export function validate(g: GraphDoc): string[] {
     // dangling source would look perfectly resolved.
     // A VIDEO track is a legitimate source too — that is what a video chain is sourced
     // from (through video_effects, out to VIDEO_OUT). Leaving it out read as a typo.
+    // …and so is MIX, which is what the MASTER CHAIN is sourced from: the mixer's sum is not a
+    // track and not a chain, it is where every one of them arrives. Every project written by a
+    // scaffold now declares `MIX: [ OUT ]`, so leaving this out warned on all of them at once —
+    // and, worse, warned about the one line that is always right. See docs/masterChain.md.
+    // RENDER is the same exemption for the picture, and it is written automatically onto every
+    // project with a viewport — so leaving IT out would warn on all of those at once in turn.
     if (
       c.from &&
+      c.from !== MIX_NODE &&
+      c.from !== RENDER_NODE &&
       !g.tracks[c.from] &&
       !g.videoTracks[c.from] &&
       !(c.from !== name && g.chains[c.from])

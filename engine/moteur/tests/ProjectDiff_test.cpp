@@ -380,10 +380,103 @@ void diff_duplicate_id_is_reported() {
     setWarningSink(nullptr);
 }
 
+// --- the master chain (the song's MIX -> OUT run) -----------------------------
+
+// A doc with no master chain is the ordinary case, and must diff clean against itself.
+void diff_master_chain_absent_is_empty() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    const ProjectDoc b = a;
+    const auto d = diff(a, b);
+    CHECK(!hasKind(d, ChangeKind::MasterChainChanged));
+    CHECK(!needsFullRebuild(d));
+}
+
+// Adding one forces a rebuild: the master list is not on the incremental path.
+void diff_master_chain_added_rebuilds() {
+    ProjectDoc a;
+    a.tracks.push_back(mkTrack("t1", "Drums"));
+    ProjectDoc b = a;
+    b.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::MasterChainChanged));
+    CHECK(needsFullRebuild(d));
+}
+
+// …and removing one, which is the case that must not be missed: a chain deleted from the song
+// has to come OFF the bus, and an empty list is what says so.
+void diff_master_chain_removed_rebuilds() {
+    ProjectDoc a;
+    a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
+    ProjectDoc b = a;
+    b.masterPlugins.clear();
+
+    const auto d = diff(a, b);
+    CHECK(hasKind(d, ChangeKind::MasterChainChanged));
+    CHECK(needsFullRebuild(d));
+}
+
+// An unchanged chain is silent — otherwise every apply would rebuild and stop playback.
+void diff_master_chain_unchanged_is_silent() {
+    ProjectDoc a;
+    auto p = mkPlugin("m1", "4osc", "Comp");
+    p.params["Threshold"] = -12.0;
+    a.masterPlugins.push_back(p);
+
+    const ProjectDoc b = a;
+    const auto d = diff(a, b);
+    CHECK(!hasKind(d, ChangeKind::MasterChainChanged));
+}
+
+// A parameter on a master plugin is part of the comparison — identity alone would miss it.
+void diff_master_chain_param_change_is_seen() {
+    ProjectDoc a;
+    auto p = mkPlugin("m1", "4osc", "Comp");
+    p.params["Threshold"] = -12.0;
+    a.masterPlugins.push_back(p);
+
+    ProjectDoc b = a;
+    b.masterPlugins[0].params["Threshold"] = -6.0;
+
+    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
+}
+
+// ORDER is the sound. Both plugins are still there, so anything comparing by key alone would
+// call this unchanged — and an EQ before a compressor is not an EQ after one.
+void diff_master_chain_reorder_is_seen() {
+    ProjectDoc a;
+    a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
+    a.masterPlugins.push_back(mkPlugin("m2", "4osc", "EQ"));
+
+    ProjectDoc b;
+    b.masterPlugins.push_back(mkPlugin("m2", "4osc", "EQ"));
+    b.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
+
+    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
+}
+
+// Bypassing one is a change you can hear, and it is not part of the identity key.
+void diff_master_chain_bypass_is_seen() {
+    ProjectDoc a;
+    a.masterPlugins.push_back(mkPlugin("m1", "4osc", "Comp"));
+    ProjectDoc b = a;
+    b.masterPlugins[0].enabled = false;
+
+    CHECK(hasKind(diff(a, b), ChangeKind::MasterChainChanged));
+}
+
 }  // namespace
 
 int main() {
     RUN(diff_identical_is_empty);
+    RUN(diff_master_chain_absent_is_empty);
+    RUN(diff_master_chain_added_rebuilds);
+    RUN(diff_master_chain_removed_rebuilds);
+    RUN(diff_master_chain_unchanged_is_silent);
+    RUN(diff_master_chain_param_change_is_seen);
+    RUN(diff_master_chain_reorder_is_seen);
+    RUN(diff_master_chain_bypass_is_seen);
     RUN(diff_tempo_change);
     RUN(diff_samplerate_forces_rebuild);
     RUN(diff_track_rename_is_not_readd);

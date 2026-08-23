@@ -3,12 +3,22 @@
 exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\` to update after an intended change) 1`] = `
 {
   "chains": {
+    "MIX": {
+      "from": "MIX",
+      "out": [
+        {
+          "gain": 1,
+          "to": "OUT",
+        },
+      ],
+      "use": [],
+    },
     "beat": {
       "from": "beat",
       "out": [
         {
           "gain": 1,
-          "to": "OUT",
+          "to": "MIX",
         },
       ],
       "use": [
@@ -71,12 +81,22 @@ exports[`golden WebGraph: rack-demo > builds a stable WebGraph (run \`vitest -u\
 exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u\` to update after an intended change) 1`] = `
 {
   "chains": {
+    "MIX": {
+      "from": "MIX",
+      "out": [
+        {
+          "gain": 1,
+          "to": "OUT",
+        },
+      ],
+      "use": [],
+    },
     "melody": {
       "from": "melody",
       "out": [
         {
           "gain": 1,
-          "to": "OUT",
+          "to": "MIX",
         },
       ],
       "use": [
@@ -153,7 +173,7 @@ exports[`golden WebGraph: synth-demo > builds a stable WebGraph (run \`vitest -u
       "out": [
         {
           "gain": 1,
-          "to": "OUT",
+          "to": "MIX",
         },
       ],
       "use": [

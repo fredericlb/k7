@@ -32,18 +32,24 @@ silence. The pass's peak only exists where somebody kept it.
 
 ## What the button does
 
-One number off **every** strip. That is the whole promise: a single trim applied to all of them
-moves the sum by exactly that number and leaves every balance in the song where the person put it.
-Anything cleverer — lowering the loudest lane, riding what peaked — would be mixing on their
-behalf, and this button is not qualified to do that.
+**It lowers the OUT node's `Volume`** — the song's output level, and the very number the fader an
+inch below it shows. One write, on the node the whole mix ends at, which is the one edit that
+cannot change a balance anywhere in the song.
 
-It writes `node param "<strip>" Volume <dB>`, the same line a fader drag commits
-(`useTrackControls`), so the trim goes through the undo journal like any other edit. Serially,
-because each is a read-modify-write of one file through a single-threaded service, and with **one**
-reload at the end — thirty lanes is thirty writes, and bumping the doc on each would refetch the
-project thirty times to show a change that is not finished yet.
+It writes `node param "OUT" Volume <dB>`, the same line the fader's own release commits, so the
+button and the fader are two views of one param rather than two controls with a coincidence between
+them. Then one reload, so the fader catches up with the number just written under it.
 
-`gainTrim.ts` is the arithmetic, pure and tested. Four decisions live in it:
+> **It went to every mixer STRIP instead**, one shared trim across all of them, on the argument that
+> the strips are where a mix's headroom actually lives. That argument still holds — it is just not
+> something a button is qualified to do on your behalf. What it cost: thirty lanes was thirty
+> read-modify-writes and thirty undo entries, a shared bus strip needed deduplicating to avoid a
+> race between two absolute writes, and a strip already near the floor could not take the full trim
+> — so the balance the trim promised to preserve shifted anyway. The output has none of those
+> shapes. See `@studio/song`'s [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)
+> for why the level moved onto the node.
+
+`gainTrim.ts` is the arithmetic, pure and tested. Three decisions live in it:
 
 - **The trim is never positive.** `masterClipped` is the engine's latched "one sample went over
   full scale"; `master` is a level read at 20 Hz. They can disagree — a single sample over the line
@@ -52,16 +58,14 @@ project thirty times to show a change that is not finished yet.
 - **The peak is floored at 0 dB first**, for the other half of that same disagreement. The pass
   clipped, so it reached full scale whatever the meter averaged out to, and 0 dB is the least it
   can honestly be called. That makes the trim at least -6 dB rather than a button that does nothing.
-- **Strips are deduplicated by node.** Two lanes may end on one shared bus strip. Writing it twice
-  is a wasted round trip at best and, if the two disagreed about its current level, a race between
-  two absolute writes.
-- **Values are clamped to the fader's range**, and this is the one place the promise bends: a strip
-  already near the floor cannot come down the full trim, so its balance against the others shifts.
-  Accepted rather than worked around, because -60 dB is silence — a lane that quiet contributes
-  nothing to the peak being fixed, so what shifts is inaudible.
+- **The new level is RELATIVE to the current one**, and that is the one that would be wrong
+  silently. The meter reads the bus *downstream* of this gain, so a pass played at +3 peaked where
+  it did partly because of the +3 — `trimFor(peak)` is how much further down to go, not where to
+  land. Writing it absolutely would throw the setting away and undo it in the same click.
 
-A lane with **no strip** contributes nothing. It is not "at unity" — it has nowhere to put a level,
-so there is nothing to lower and inventing a node for it would be a lie.
+Clamped to the field, which is where the button bends: an output already near the floor cannot come
+down the full trim. -100 dB is silence, so a mix that quiet has nothing left to clip and the
+shortfall is inaudible.
 
 ## Why -6, and why the button comes and goes
 
@@ -79,19 +83,19 @@ pass**. The light stays through the first of those, and that asymmetry is the po
 says what HAPPENED, and fixing the mix does not change what the last pass did. Only playing again
 can answer that, which is exactly what clears both.
 
-The button goes on the **click**, not when the writes land. The click is the decision, and a
-button that lingers through a round trip of thirty writes is precisely the one that gets pressed
-twice — taking another 6 dB off a mix already brought down.
+The button goes on the **click**, not when the write lands. The click is the decision, and a button
+that lingers through a round trip is precisely the one that gets pressed twice — taking another
+6 dB off a mix already brought down.
 
-It is a callback (`onFix`), not an act the meter performs. Which faders exist and how a level is
-written is the host's business; the meter's contribution is the one thing only it saw — the peak.
-A host that passes no `onFix` draws no button.
+It is a callback (`onFix`), not an act the meter performs. Where a level is written is the host's
+business; the meter's contribution is the one thing only it saw — the peak. A host that passes no
+`onFix` draws no button.
 
 ## …and the button runs a COMMAND, like every other button here
 
 `project master fix` is the verb (`docs/shell.md`, *every action on screen is a command*), so the
 mix can be brought down from the bar, from a key, from the right-click menu — and the transcript
-says a trim happened rather than showing thirty `node param` lines with nothing above them.
+says a trim happened rather than showing a bare `node param` line with nothing above it.
 
 It is **web-local** (`palette.ts`'s `LOCAL_COMMANDS`) although every write it makes is a backend
 verb, and the reason is the measurement rather than the act: the pass's peak exists nowhere but in
@@ -145,17 +149,28 @@ reaching, not for completeness.
 It is drawn only when the host passes both `master` and `onMaster`, so a share — no project to
 write to — gets the meter and no fader.
 
-## What the meter does NOT include
+**It is not the only fader on this number.** The chains graph draws an `OUT` card with the same
+param on it (`@studio/ui-chains`'s `MAIN_OUT_UI`), because the output is a node like any other and
+that is where a node's controls belong. This one is in the header for the reason the meter is: it
+answers a question you ask while the transport is running, and the graph may not be the pane you
+are looking at.
 
-The **output trim is downstream of it** (`@studio/song`'s
+## What the meter DOES include
+
+The **output level is upstream of it** (`@studio/song`'s
 [`docs/masterVolume.md`](../../../../packages/song/docs/masterVolume.md)). The bar, the clip light
-and the peak the Fix button spends all read the mix *before* the fader under them.
+and the peak the Fix button spends all read the mix *with* the fader under them applied.
 
-That is what keeps the two halves of this component honest. Metered post-trim, raising the fader
-would report itself back as if the mix had got louder — and the Fix button, which lowers the
-**strips**, would rewrite every lane in the song to compensate for one number you had just set on
-the fader an inch below it.
+That is what makes the two halves of this component one thing. The button writes the fader's own
+param, so if the meter could not see it, a Fix would leave the clip light lit, offer itself again
+on the next pass, and take another 6 dB every time — a button that appears to do nothing while
+quietly walking the mix to silence.
 
-The cost is real and worth knowing: **clipping caused by the trim itself will not light the clip
-light.** The meter answers "is my mix too hot"; whether the output overruns what the interface can
-take is a different question, and nothing asks it yet.
+It reads the other way round too, and is worth knowing: **raising the fader raises the bar.** The
+meter answers "how loud is what leaves", not "how loud is my mix". Push the output and the light
+will tell you when it stops fitting — which is the question the old arrangement could not ask at
+all, at the price of no longer separating the two.
+
+The master **chain** is upstream of all of it (`@studio/song`'s
+[`docs/masterChain.md`](../../../../packages/song/docs/masterChain.md)), so a limiter there is
+something the clip light cannot see past.

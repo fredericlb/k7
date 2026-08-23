@@ -108,12 +108,13 @@ export function MasterMeter({
 }: {
   className?: string;
   /**
-   * Bring the mix down until the last pass's peak would have sat at -6 dB.
+   * Bring the OUTPUT down until the last pass's peak would have sat at -6 dB — the same param the
+   * fader below writes, which is why the two rows are one component.
    *
    * A CALLBACK and not the act itself: this component is a leaf that subscribes to the engine
-   * store twenty times a second and knows nothing of the project. Which faders exist and how a
-   * level is written is App's (`gainTrim.ts` is the arithmetic between them). Absent — a host
-   * with nothing to lower — and the button is not drawn at all.
+   * store twenty times a second and knows nothing of the project. Where a level is written is
+   * App's (`gainTrim.ts` is the arithmetic between them). Absent — a host with nothing to lower —
+   * and the button is not drawn at all.
    *
    * It takes no argument any more: what it runs is `project master fix`, and a command reads the
    * pass off the handle below rather than being handed it — the bar can run the same line, and a
@@ -257,7 +258,7 @@ export function MasterMeter({
               setFixed(true);
               onFix();
             }}
-            title={`baisser toutes les tranches d'un même gain, pour un pic à ${TARGET_DB} dB`}
+            title={`baisser la sortie du morceau, pour un pic à ${TARGET_DB} dB`}
             className="shrink-0 rounded border border-red-500/40 px-1 py-px font-medium text-[10px] text-red-500 leading-none hover:bg-red-500/10"
           >
             fix

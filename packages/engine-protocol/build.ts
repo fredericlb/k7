@@ -59,6 +59,7 @@ export function emptyDoc(over: Partial<ProjectDoc> = {}): ProjectDoc {
     timeSigNumerator: 4,
     timeSigDenominator: 4,
     masterVolume: 0, // unity — the fader after everything else
+    masterPlugins: [], // no master chain: MIX reaches OUT as one wire
     recordDir: "",
     tracks: [],
     groups: [],

@@ -1,8 +1,8 @@
-# `masterVolume` — the song's output level
+# `masterVolume` — the song's output level, which is the OUT node's `Volume`
 
-The one gain after everything else. Until it existed there was **no global output control in the
-app at all**: `EditBuilder` pinned Tracktion's master fader to 0 dB and nothing could reach it —
-no command mentioned the master, and `@engine/OUT` carries no level of its own.
+The last gain in the song. Until it existed there was **no global output control in the app at
+all**: `EditBuilder` pinned Tracktion's master fader to 0 dB and nothing could reach it — no
+command mentioned the master, and the output carried no level of its own.
 
 ```yaml
 # project.yaml
@@ -12,20 +12,50 @@ project:
   masterVolume: -3      # dB, -100..+12 — 0 is unity
 ```
 
-Set it with the **fader under the header meter**, or with `project master <dB>`. **Absent means
-unity, and unity is never written**: `project master 0` removes the line rather than writing a
-zero, the rule `type:` and a module's `status:` already follow.
+Set it with the **fader under the header meter**, with `node param "OUT" Volume <dB>`, or with
+`project master <dB>`. **Absent means unity, and unity is never written**: 0 removes the line
+rather than writing a zero, the rule `type:` and a module's `status:` already follow.
+
+## It is a NODE's param, stored in `project.yaml`
+
+`OUT` is one of the two built-in outputs ([masterChain.md](masterChain.md)) — a NAME rather than a
+module on disk, so it has no `module.yaml` for a param to land in, and this field is where its one
+param lives instead.
+
+That is a storage detail, and everything above it treats the level as what it is: a param on a node
+in the graph. `node param "OUT" Volume` is the spelling, the same one a mixer strip's fader commits
+on its own node, and `project master <dB>` is that write under the name a person types. There is one
+implementation (`writeMasterVolume` in `@studio/commands`), so the two cannot drift apart about the
+range, the unity rule, or how the engine learns it.
+
+`MIX` carries no level and refuses one by name. The mixer's sum is a place the signal passes
+through; a level belongs to what LEAVES.
+
+> It was `project.masterVolume` and nothing else — a field beside the tempo, with a fader in the
+> header and no presence in the graph at all. What moved it was the Fix button: that button and this
+> fader are the same act on the same number, and while one wrote thirty mixer strips and the other
+> wrote a project field, nothing said so. See [masterMeter.md](../../../apps/st0/frontend/docs/masterMeter.md).
 
 ## It belongs to the SONG, not to the machine
 
-It moves playback, `--render` and a freeze **together**, and it travels in a share. That is why it
-sits in `project.yaml` beside the tempo rather than in `settings.yaml` beside the metronome: a
-level that only changed what you hear in this room would be a monitoring preference, which is a
-different field in a different file and does not exist yet.
+It is part of the document and travels in a share. That is why it sits in `project.yaml` beside the
+tempo rather than in `settings.yaml` beside the metronome: a level that only changed what you hear
+in this room would be a monitoring preference, which is a different field in a different file and
+does not exist yet.
 
-The engine already insisted on this pairing for the pin it replaces — a bounce that came back at
-one level and played at another is audible the moment you freeze a track, and `clip process`,
-which writes a render back onto the material, would drift a little further every pass.
+It moves playback, `--render` and a freeze **together**, and the engine already insisted on that
+pairing for the pin this field replaces (`EditBuilder`'s hard 0 on Tracktion's fader): a bounce that
+comes back at one level and plays at another is audible the moment you freeze a track, and `clip
+process`, which writes a render back onto the material, would drift a little further every pass.
+
+> **It did not, for a while, and the gap is worth knowing about because nothing reported it.** The
+> gain was created by `EngineHost::buildLevelMeters`, which only the LIVE path runs — an offline
+> render calls `populateEdit` and nothing else — so `--render`, a freeze and `clip process` all
+> bounced at unity however this field read. It is created by `populateMasterChain` now, which both
+> paths run, and the live path takes hold of that one through `masterGainOf` rather than making a
+> second. `engine/moteur/scripts/master-chain.ts` is what measures it: a render at `-20` comes back
+> 20 dB below the same render at unity, which is the only proof there is — no C++ test builds an
+> Edit, and no TypeScript test renders.
 
 ## The ceiling is +12, and the engine owns it
 
@@ -48,16 +78,28 @@ unity, which is what keeps the two from multiplying.
 
 Three consequences worth knowing:
 
-- **It sits LAST on the master bus — AFTER the meter and after the broadcast tap.** The meter and
-  the Fix button answer for the MIX; this trim is a delivery decision taken on top of it. Metered
-  post-gain, a person who raised the output would see their own trim reported back as if the mix
-  had got louder, and the Fix button — which lowers the *strips* — would rewrite every lane in the
-  song to compensate for one number they had just set. The broadcast tap sits before it for the
-  same reason: a listener hears the mix, not the level this room monitors at.
+- **It sits on the master bus right after the song's own master chain — BEFORE the meter and
+  before the broadcast tap.** The bus reads
 
-  **The cost, stated rather than hidden:** clipping caused *by* the trim is downstream of the
-  meter, so the clip light will not see it. The meter answers "is my mix too hot", and pushing the
-  output past what the interface can take is a separate question nothing currently asks.
+  ```
+  pistes -> [ chaîne master ] -> masterVolume -> vumètre -> tap de diffusion -> interface
+  ```
+
+  which is the order the graph reads: `MIX -> [chain] -> OUT`, and this gain is what `OUT` carries.
+  Everything after it is the engine observing the signal that actually leaves, which is the point
+  of observing it.
+
+  **It sat LAST, after both, and moving it was the price of one control instead of two.** While the
+  fader and the Fix button were separate acts — one writing this field, the other rewriting every
+  mixer strip — metering *before* the trim was right: raising the output would otherwise have
+  reported itself back as if the mix had got louder. Now that Fix writes this very param, a Fix the
+  meter could not see would leave the clip light lit, offer itself again on the next pass, and take
+  another 6 dB every time. So the meter reads the trim.
+
+  **The two costs, stated rather than hidden:** raising the fader raises the bar above it — the
+  meter answers "how loud is what leaves" rather than "how loud is my mix" — and a listener on the
+  broadcast hears the level this room is set to. The second is the one to weigh if you monitor
+  quietly while somebody listens remotely.
 - **It RAMPS across a block when it moves.** A master trim is one number for the whole mix, so
   stepping it between two buffers would click on everything at once — the one artefact that cannot
   be mistaken for a track's own. It starts *on* the current value when playback begins, or every
@@ -73,9 +115,10 @@ than one that says no, and a file that disagreed with the sound would disagree f
 
 Worth saying plainly, because this control invites the wrong expectation. If a song's strips sit
 around -20 dB — which is ordinary for a mix built with headroom — then the master gives back
-**twelve of those twenty**, and only by pushing the whole sum toward the ceiling it was left below. The rest of the headroom is in the strips, and the balance-preserving way to
-reclaim it is to move them all by the same amount, which is what the header meter's Fix button
-does in the other direction (`apps/st0/frontend/docs/masterMeter.md`).
+**twelve of those twenty**, and only by pushing the whole sum toward the ceiling it was left below.
+The rest of the headroom is in the strips, and reclaiming it means moving them — which this fader
+cannot do for you and the Fix button no longer tries to
+(`apps/st0/frontend/docs/masterMeter.md`).
 
 And some of the gap is not headroom at all. A raw mix without mastering sits near -20 LUFS where
 streaming services normalise to about -14, so it will read quieter than they do no matter where
@@ -97,10 +140,11 @@ master put back to unity would never come back down.
 
 | | |
 |---|---|
+| the node | `OUT` — `moduleTypes.ts`'s `OUT_NODE`, the interface end of the master chain |
 | authored | `project.yaml`'s `project.masterVolume` — `ProjectSettingsSchema` |
 | compiled | `ProjectDoc.masterVolume` — `nodeProject.ts`, `project.ts`, defaulted to 0 |
 | the wire | `@studio/engine-protocol`'s `ProjectDoc` |
 | decoded | `docFromJson` in `engine/moteur/server/main.cpp` |
-| applied | `MasterGainPlugin`, first on the master list — set in `EngineHost.cpp` on build and on diff |
-| drawn | the fader under the header meter (`apps/st0/frontend/docs/masterMeter.md`) |
-| written | `project master <dB>` |
+| applied | `MasterGainPlugin`, put on the master list by `populateMasterChain` after the song's chain and before the meter — so playback and an offline render both get it — and re-set in `EngineHost.cpp` on diff |
+| drawn | the fader under the header meter, the Fix button beside it (`apps/st0/frontend/docs/masterMeter.md`), and the OUT card's own fader in the chains graph (`MAIN_OUT_UI`) |
+| written | `node param "OUT" Volume <dB>`, or `project master <dB>` — one implementation, `writeMasterVolume` |

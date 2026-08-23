@@ -4,8 +4,8 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { loadModules, MODULE_TYPES } from "@studio/song/loader";
 import { parse as parseYaml } from "yaml";
+import { loadModules, MODULE_TYPES } from "./loader";
 import { setModuleParam } from "./projectEdit";
 import { moduleFileFor, PRESETS_BASE } from "./yaml/moduleIO";
 import { type PresetsFile, PresetsFileSchema } from "./yaml/moduleSchema";
