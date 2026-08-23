@@ -45,6 +45,8 @@ engine/                 library — the audio host (JUCE/Tracktion state lives h
 
   built-in plugins — created by the built-in factory, not the plugin cache:
   MixerPlugin.{h,cpp}       a track's level; what a track volume BECAME
+  QuickMasterPlugin.{h,cpp} a master bus in one module: 3-band compressor, spreader, limiter
+                            (docs/quickMaster.md) — what st0's `mastering` surface is a picture of
   NamPlugin.{h,cpp}         Neural Amp Modeler (docs/namPlugin.md)
   DspGraph.{h,cpp}          the DSP graph model @studio/dsp emits
   GraphDspPlugin.{h,cpp}     that graph as an audio plugin
@@ -74,6 +76,11 @@ scripts/               Node harnesses that drive a running engine, not build ste
                          since this is timing no TypeScript test can see (docs/warp.md)
   pad-effects.ts         a sequencer pad's `repeat` and `skip` reach the sound — same kind of
                          proof, counting hits per pass (@studio/song docs/padEffects.md)
+  quick-master.ts        what QuickMasterPlugin claims about a SOUND, rendered and measured:
+                         the ceiling really is a ceiling, width 0 really is mono, and the
+                         three bands really sum back flat. The only coverage that plugin has —
+                         it needs a live te::Edit, which the four C++ suites build none of
+                         (docs/quickMaster.md)
   send-one.ts            compile a project folder and push it at a running engine, once. The
                          smallest repro of "the file service sent a document", for when the
                          browser is not the thing under test
@@ -88,7 +95,10 @@ lock protects, when a session is reaped) with its TypeScript half in
 `packages/engine-protocol/docs/sessions.md`, `multiEdit.md`, `broadcast.md`, `cliModes.md`,
 `audit-stabilite.md` (the standing audit of this engine's own stability and speed — read it
 before touching the audio callback, `applyFull`, or the build flags),
-`builtinParams.md`, `namPlugin.md`, `faust.md` (what `FaustPlugin` does NOT do yet, and the
+`builtinParams.md`, `namPlugin.md`,
+`quickMaster.md` (why that one is compiled rather than a `jsdsp` graph, the allpass the three-way
+split needs, and what its ceiling really guarantees),
+`faust.md` (what `FaustPlugin` does NOT do yet, and the
 three ways to fill it in — read it before assuming a Faust module makes a sound),
 `sidechain.md` (a module's second input),
 `warp.md` (a clip's stretch map: which half is auto-tempo and which is the warp map, and why loop

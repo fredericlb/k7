@@ -28,6 +28,7 @@ add_library(studio_engine STATIC
     FaustPlugin.cpp
     MasterGainPlugin.cpp
     MixerPlugin.cpp
+    QuickMasterPlugin.cpp
     MidiGraphPlugin.cpp
     FilePeak.cpp
     ParamDump.cpp

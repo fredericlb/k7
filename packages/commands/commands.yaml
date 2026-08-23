@@ -683,16 +683,18 @@
   args: [{ name: name, hint: "the curve's id — it is the filename, so letters, digits, '_' and '-'" }]
 
 # --- surfaces (the special views a project asks for) ---
-# A project draws nothing it has not declared: the arrangement, the frame and the desk are all
-# files in surfaces/. Under `project` with the markers and the alternatives, because a surface is
-# a property of the PROJECT rather than of anything in it. There is no layout argument — every
-# type is drawn in exactly one, and the schema refuses the other, so it is derived.
-# See packages/song/docs/surfaces.md.
+# A project draws nothing it has not declared: the arrangement, the frame, the desk and the
+# mastering strip are all files in surfaces/. Under `project` with the markers and the
+# alternatives, because a surface is a property of the PROJECT rather than of anything in it.
+# There is no layout argument — every type is drawn in exactly one, and the schema refuses the
+# other, so it is derived. See packages/song/docs/surfaces.md.
 - command: "project surface new"
   sid: project.surface.create
   readable:
-    en: "Add a surface — the arrangement, the frame or the desk"
-    fr: "Ajouter une surface — l'arrangement, l'image ou les platines"
+    # Kept under 60 characters in both languages: the palette draws this beside the command's
+    # name on one row (commandSpec.test.ts). A fourth type is what dropped the articles.
+    en: "Add a surface — arrangement, frame, desk or master"
+    fr: "Ajouter une surface — arrangement, image, platines, master"
   help: "declare a special view (e.g. project surface new timeline, or project surface new turntables desk)"
   surfaces: [cli]
   args:
@@ -728,12 +730,16 @@
       },
     ]
 
-# The song's OUTPUT level, on the master fader — the one gain after everything else, and until
-# this verb the only global level in the app was a 0 dB the engine pinned and nothing could reach.
+# The song's OUTPUT level — the `Volume` on the OUT node, and until this verb the only global level
+# in the app was a 0 dB the engine pinned and nothing could reach.
 #
-# It is the SONG's, not the machine's: it moves playback, `--render` and a freeze together, and it
-# travels in a share. A level that only changed what you hear in this room would be a preference
-# in a different file.
+# `node param "OUT" Volume <dB>` is the SAME write (one implementation, `writeMasterVolume`), and is
+# what the header's fader and its Fix button both send. This verb stays because it is the line a
+# person types, and because a node whose param lives in `project.yaml` deserves a name that says so.
+#
+# It is the SONG's, not the machine's: it travels in a share, and it is metered — the header bar
+# reads the mix with this applied, which is what lets Fix write it and see the clip light clear.
+# A level that only changed what you hear in this room would be a preference in a different file.
 #
 # It runs -100..+12 dB, and the top is real rather than borrowed. Tracktion's own master fader stops
 # at +6 — its curve is `exp((dB - 6) / 20)` clamped to 1, so everything above set the same position,

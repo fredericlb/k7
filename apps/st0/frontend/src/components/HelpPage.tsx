@@ -26,6 +26,10 @@ const VIEW_COMMANDS: { command: string; help: string }[] = [
   { command: "ui timeline", help: "fullscreen the timeline pane" },
   { command: "ui chains", help: "fullscreen the chains (routing) pane" },
   {
+    command: "ui mastering",
+    help: "fullscreen the master strip (projects declaring a mastering surface)",
+  },
+  {
     command: "ui viewport",
     help: "fullscreen the video viewport (video songs only)",
   },

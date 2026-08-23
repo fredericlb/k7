@@ -96,10 +96,10 @@ export const LOCAL_COMMANDS = [
   "project undo",
   "project redo",
   /**
-   * The header meter's Fix button, as a verb: every strip down by one gain, until the last pass
+   * The header meter's Fix button, as a verb: the OUT node's Volume down, until the last pass
    * would have peaked at -6 dB.
    *
-   * WEB-LOCAL although it only runs `node param` lines, and the reason is the measurement. The
+   * WEB-LOCAL although it only runs a `node param` line, and the reason is the measurement. The
    * pass's peak exists nowhere but in the browser that watched it go by — the engine reports a
    * level per frame and keeps no maximum, and by the time anything is clicked the transport has
    * stopped and the meter reads silence. So the shell holds it (`MasterMeter`'s fold) and this
@@ -155,6 +155,10 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui turntables": {
     en: "Fullscreen the DJ desk",
     fr: "Passer le pupitre DJ en plein écran",
+  },
+  "ui mastering": {
+    en: "Fullscreen the master strip",
+    fr: "Passer le pupitre de mastering en plein écran",
   },
   "ui chains": {
     en: "Fullscreen the chains graph",

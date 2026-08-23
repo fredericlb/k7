@@ -7,7 +7,8 @@ import { z } from "zod";
 import { MixViewSchema } from "./mixViewSchema";
 
 /**
- * The kinds of surface there are: m9's desk, the ARRANGEMENT — the timeline — and the FRAME.
+ * The kinds of surface there are: m9's desk, the ARRANGEMENT — the timeline — the FRAME, and the
+ * MASTER — one node's three parts, drawn as the three appliances they are.
  *
  * An ENUM rather than free text, unlike the control ids in the mapping below, and the two are
  * not inconsistent. A control id is the app's vocabulary and grows whenever a panel gains a
@@ -19,7 +20,12 @@ import { MixViewSchema } from "./mixViewSchema";
  * it wants a desk, or a song with picture says it wants a frame. Nothing is implicit, so a
  * project that draws none of them opens on its graph and is told why. See docs/surfaces.md.
  */
-export const SURFACE_TYPES = ["turntables", "timeline", "viewport"] as const;
+export const SURFACE_TYPES = [
+  "turntables",
+  "timeline",
+  "viewport",
+  "mastering",
+] as const;
 export type SurfaceType = (typeof SURFACE_TYPES)[number];
 
 /** Is this word one of them? For the places a TYPED string arrives — a command line, a query —
@@ -75,6 +81,10 @@ export const SURFACE_LAYOUTS_BY_TYPE: Record<
   turntables: ["split"],
   timeline: ["split"],
   viewport: ["split"],
+  // `split` for the plainest of the reasons above, and one of its own: this desk is a picture of
+  // ONE node, so the graph beside it is where you check that the node it names is the node in
+  // the master chain. A screen that covered the graph would make that a round trip.
+  mastering: ["split"],
 };
 
 /**
@@ -84,6 +94,11 @@ export const SURFACE_LAYOUTS_BY_TYPE: Record<
  * `timeline` and `viewport` have none, and that is not an omission: a mapping says which module a
  * component MOVES, and neither has a component that moves one. The arrangement draws the
  * project's own lanes and the frame composites its own layers.
+ *
+ * `mastering`'s ten are the same copy under the same rule as the desk's: st0's
+ * `mastering/controls.ts` owns the real list and this is the scaffold's, held to it by a test
+ * over there. Which is why the vocabulary here is `comp.low`, not `Low Amount` — a control id is
+ * the surface's word for a knob, and the PARAM it happens to name today is what the mapping says.
  *
  * **The desk's vocabulary, written out here, and held to the original by a test.** The two notes
  * above say `@studio/song` does not know what a `crossfade` is, and that is still the rule — what
@@ -100,6 +115,33 @@ export const SURFACE_MAPPING_SKELETON: Record<
 > = {
   timeline: [],
   viewport: [],
+  // Ten components, and every one of them names the SAME module — which is what makes this
+  // surface different in kind from the desk. A desk is a room of appliances and its map says
+  // which is which; this is one appliance, and its map says which one. So the notes below spell
+  // the param rather than the module: the module is the same word ten times over, and the thing
+  // a person actually has to get right is that they are wiring the quick-master they meant.
+  //
+  // The ORDER is the signal's, not the panel's: the three bands are compressed, then the image is
+  // widened, then the whole thing meets the ceiling. A scaffolded file you read top to bottom
+  // therefore reads as the chain inside the node.
+  mastering: [
+    [
+      "comp.low",
+      "le module quick-master — sa quantité de compression sur le grave",
+    ],
+    ["comp.mid", "le MÊME module — sa quantité sur le médium"],
+    ["comp.high", "le MÊME module — sa quantité sur l'aigu"],
+    ["comp.lowFreq", "le MÊME module — la coupure entre grave et médium"],
+    ["comp.highFreq", "le MÊME module — la coupure entre médium et aigu"],
+    ["spread.width", "le MÊME module — la largeur stéréo"],
+    [
+      "spread.bassMono",
+      "le MÊME module — la fréquence sous laquelle le grave est ramené au centre",
+    ],
+    ["limiter.drive", "le MÊME module — le gain d'entrée du limiteur"],
+    ["limiter.ceiling", "le MÊME module — son plafond"],
+    ["limiter.release", "le MÊME module — son temps de retour"],
+  ],
   turntables: [
     ["crossfade", "un module crossfade — son param de mélange"],
     ...["A", "B"].flatMap(

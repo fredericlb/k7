@@ -74,9 +74,10 @@ the filename names it, and it becomes a pane in the layout with a button at the 
 
 ```yaml schema=Surface
 # What draws it. `turntables` is the DJ desk: two decks meeting at a crossfade,
-# with a channel strip each. The others are `timeline` (the arrangement) and
-# `viewport` (the frame your video lanes composite onto). An unknown one is
-# refused rather than opening onto a blank screen.
+# with a channel strip each. The others are `timeline` (the arrangement),
+# `viewport` (the frame your video lanes composite onto) and `mastering` (the
+# master strip — see below). An unknown one is refused rather than opening onto
+# a blank screen.
 type: turntables
 
 # Where it goes. `split` means a PANE — a slot in the layout, stacked with the
@@ -141,6 +142,47 @@ one, and no other app that opens it.
 
 The songs themselves stay in the médiathèque. A playlist only names them, which is why the same
 one can serve two projects and why fixing a song fixes every set that plays it.
+
+### The mastering strip
+
+A `mastering` surface is a picture of **one module**: a `quick-master` node, drawn as the three
+appliances inside it — a three-band compressor, a stereo spreader and a limiter — in the order
+the signal goes through them.
+
+```yaml schema=Surface
+type: mastering
+layout: split
+
+# Ten controls, and every one of them names the SAME module: this surface draws
+# one node. Which node is the only thing it cannot work out for itself, since
+# you chose that name — so all ten lines are required, and the strip says which
+# are missing rather than drawing knobs that do nothing.
+#
+# The three groups are the three parts: `comp.*` the bands, `spread.*` the
+# image, `limiter.*` the ceiling.
+#
+# The numbers are the module's own — dB, hertz, milliseconds, percent. What the
+# slider reads is what the module is set to, so it can be checked against the
+# meter in the header.
+mapping:
+  comp.low: { module: master_qm_1, param: Low Amount }
+  comp.mid: { module: master_qm_1, param: Mid Amount }
+  comp.high: { module: master_qm_1, param: High Amount }
+  comp.lowFreq: { module: master_qm_1, param: Low Freq }
+  comp.highFreq: { module: master_qm_1, param: High Freq }
+  spread.width: { module: master_qm_1, param: Width }
+  spread.bassMono: { module: master_qm_1, param: Bass Mono }
+  limiter.drive: { module: master_qm_1, param: Drive }
+  limiter.ceiling: { module: master_qm_1, param: Ceiling }
+  limiter.release: { module: master_qm_1, param: Release }
+```
+
+Make the node first — `node new audio/dynamics/quick-master master_qm_1` against a module that
+extends `@engine/quick-master` — put it on the master chain, then
+`project surface new mastering master` and fill the ten lines in.
+
+You do not need the surface to use the node: its panel is on the graph like every other module's.
+The strip is for when you are working ON the master and want the three parts side by side.
 
 ## settings.yaml
 

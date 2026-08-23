@@ -3,7 +3,13 @@
 // parameter. There is one LAYOUT and it is not addressable: which panes it holds is what the
 // project declares. See docs/shellRouting.md.
 
-export type Pane = "editor" | "viewport" | "timeline" | "turntables" | "chains";
+export type Pane =
+  | "editor"
+  | "viewport"
+  | "timeline"
+  | "turntables"
+  | "mastering"
+  | "chains";
 // `View` was here: `global` (the timeline over the graph) or `live` (the graph alone), derived
 // from `project.yaml`'s `project_type`. Both are gone. There is ONE layout now, and which panes
 // it holds is what the project DECLARES in `surfaces/` -- so the layout list collapsed into
@@ -44,6 +50,7 @@ const PANES: Pane[] = [
   "viewport",
   "timeline",
   "turntables",
+  "mastering",
   "chains",
 ];
 const PANELS: Panel[] = ["graph", "logs"];
@@ -68,6 +75,8 @@ export interface Declared {
   viewport?: boolean;
   /** A `split` surface of type `turntables` — the desk. */
   turntables?: boolean;
+  /** A `split` surface of type `mastering` — the master strip over one quick-master node. */
+  mastering?: boolean;
   /** A shared SNAPSHOT: no source behind it, so no editor. Not about the project. */
   frozen?: boolean;
 }
@@ -75,12 +84,12 @@ export interface Declared {
 /**
  * What the layout does with the panes, given what the PROJECT declares.
  *
- * A FUNCTION rather than a table, because three of the five panes are not the shell's to assume:
- * the timeline, the viewport and the turntables are all `split` surfaces (`surfaces/`,
- * `type: timeline` / `type: viewport` / `type: turntables`), so a project that declares none has
- * no arrangement, no frame and no desk to show, and a list naming one would name a pane that will
- * not be mounted. Every flag comes down from the one place that has the surface list. See
- * packages/song/docs/surfaces.md.
+ * A FUNCTION rather than a table, because four of the six panes are not the shell's to assume:
+ * the timeline, the viewport, the turntables and the mastering strip are all `split` surfaces
+ * (`surfaces/`, `type: timeline` / `viewport` / `turntables` / `mastering`), so a project that
+ * declares none has no arrangement, no frame, no desk and no master to show, and a list naming
+ * one would name a pane that will not be mounted. Every flag comes down from the one place that
+ * has the surface list. See packages/song/docs/surfaces.md.
  *
  * Here rather than in `shellMeta` beside the icons because `fromLocation` below reads it — an
  * address naming a pane the layout hasn't got must not parse into a screen that cannot be drawn.
@@ -110,12 +119,23 @@ export function viewPanes({
   timeline = false,
   viewport = false,
   turntables = false,
+  mastering = false,
   frozen = false,
 }: Declared): Layout {
   const picture: Pane[] = viewport ? ["viewport"] : [];
   const arrangement: Pane[] = timeline ? ["timeline"] : [];
   const desk: Pane[] = turntables ? ["turntables"] : [];
-  const ring: Pane[] = [...picture, ...arrangement, ...desk, "chains"];
+  // Directly over the graph, and below everything else: the master strip is the LAST thing the
+  // signal meets, so the column reads in signal order from the top down. It shares the desk's
+  // reason for being next to the chains — every knob on it is a param on one module there.
+  const master: Pane[] = mastering ? ["mastering"] : [];
+  const ring: Pane[] = [
+    ...picture,
+    ...arrangement,
+    ...desk,
+    ...master,
+    "chains",
+  ];
   return { ring, fullscreen: frozen ? ring : ["editor", ...ring] };
 }
 

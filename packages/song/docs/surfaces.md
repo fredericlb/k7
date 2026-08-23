@@ -25,6 +25,18 @@ mapping:
   # …
 ```
 
+```yaml
+# surfaces/master.yaml — the mastering strip, over ONE quick-master node
+type: mastering
+layout: split
+mapping:
+  comp.low:        { module: master_qm_1, param: Low Amount }
+  comp.mid:        { module: master_qm_1, param: Mid Amount }
+  spread.width:    { module: master_qm_1, param: Width }
+  limiter.ceiling: { module: master_qm_1, param: Ceiling }
+  # …ten in all, every one of them the same module
+```
+
 The id is the **filename**, as in every flat entity folder here.
 
 ## Adding one
@@ -33,6 +45,7 @@ The id is the **filename**, as in every flat entity folder here.
 project surface new timeline           → surfaces/timeline.yaml
 project surface new viewport           → surfaces/viewport.yaml
 project surface new turntables desk    → surfaces/desk.yaml
+project surface new mastering master   → surfaces/master.yaml
 ```
 
 Under `project`, with the markers and the alternatives: a surface is a property of the **project**
@@ -77,6 +90,19 @@ ids even are. `MixViewSchema` takes `ViewBindingSchema.nullable()` for exactly t
 says which module a component MOVES, and neither has a component that moves one. The arrangement
 draws the project's own lanes; the frame composites its own layers.
 
+A `mastering` surface scaffolds ten lines that all want the **same** module, which is what makes
+it a different shape of declaration from the desk's. A desk is a room of appliances and its map
+says which is which; this one is a picture of a single appliance, and its map says which one:
+
+```yaml
+type: mastering
+layout: split
+mapping:
+  comp.low: null # le module quick-master — sa quantité de compression sur le grave
+  comp.mid: null # le MÊME module — sa quantité sur le médium
+  …
+```
+
 **The list is duplicated, and a test is what keeps it true.** The rule below still holds —
 `@studio/song` does not know what a `crossfade` is — but the two packages cannot import each other
 in either direction: `@studio/ui-turntables`' `controls.ts` reaches `deck.ts` reaches
@@ -92,7 +118,7 @@ expectation that changes takes the scaffold's sentence with it.
 
 | field | what it says | validated |
 |---|---|---|
-| `type` | which component draws it — `timeline`, `viewport`, `turntables` | **yes**, an enum |
+| `type` | which component draws it — `timeline`, `viewport`, `turntables`, `mastering` | **yes**, an enum |
 | `layout` | where it goes — `split` (a slot in the layout). `view` (its own screen) is still a word and nothing draws in it | **yes**, an enum, **and the pair** |
 | `mapping` | which module each of its components moves | shape only |
 
@@ -105,6 +131,7 @@ expectation that changes takes the scaffold's sentence with it.
 | `timeline` | `split` |
 | `viewport` | `split` |
 | `turntables` | `split` |
+| `mastering` | `split` |
 
 The pair is checked for the same reason `type` is an enum at all. Both halves can be valid on
 their own and still name something no component draws, and the result is the blank screen this
@@ -161,6 +188,12 @@ It gets the **same warning from the other side**: a folder holding `video_tracks
 no viewport compiles its lanes, draws them on the timeline, and composites them nowhere. That
 one is worth saying precisely because the lanes are visible — the project looks like it is
 working. A song with no `video_tracks/` is silent, the way a rig is about its timeline.
+
+Et c'est la seule surface qui **écrit dans le graphe** : déclarer un viewport ajoute à
+`graph.yaml` le run `RENDER: [ VIDEO_OUT ]`, les deux sorties de l'image, que
+`createSurfaceFile` pose dans la foulée et que l'ouverture d'un projet rattrape s'il ne l'a pas.
+Une surface qui compose une image sans que l'image ait par où sortir serait une déclaration à
+moitié faite. Voir [videoOutputs.md](videoOutputs.md).
 
 ### Why `viewport` is `split`-only
 
@@ -240,6 +273,12 @@ crossfade is not a desk with one feature off. `unmappedControls` in
 `@studio/ui-turntables/mapping` owns the list, because which components a type needs is the
 surface's own business and `@studio/song` does not know what a `crossfade` is.
 
+The mastering strip has its own `unmappedControls`, in `apps/st0/frontend/src/mastering/`, and it
+requires **all ten**. That is not a stricter mood; it is what the surface is. A desk with no stem
+cuts is a complete desk, so those are offered and not required — there is no smaller mastering
+strip, because every control on it names one node, and a missing line is the same strip with a
+dead knob.
+
 ### Which components are required
 
 Those that drive a module **param**: `crossfade`, and per deck `tempo`, `eqLow`, `eqMid`,
@@ -271,10 +310,17 @@ surfaces/<id>.yaml
   → GET /surfaces          a derived view, like /graph beside it
   → useSurfaces            apps/st0/frontend/src/hooks/useSurfaces.ts
   → the layout             App.tsx: `timelineSurface` / `viewportSurface` /
-                           `turntablesSurface` decide the panes, `viewPanes({…})` the ring
-  → the component          TimelineTab and ViewportTab are the shell's own; the desk goes
-                           through SurfaceTab, which picks the component for `type`
+                           `turntablesSurface` / `masteringSurface` decide the panes,
+                           `viewPanes({…})` the ring
+  → the component          TimelineTab, ViewportTab and MasteringTab are the shell's own; the
+                           desk goes through SurfaceTab, which picks the component for `type`
 ```
+
+Three of the four are the shell's because of what they need beyond the declaration: the first two
+need most of `App`, and the mastering strip needs the **engine link** — `setPluginParam`,
+`watchPluginParams` and the params store — which `SurfaceTab` has not got and should not grow.
+Its switch keeps an arm for each of them all the same, so the file says which road every type
+takes rather than falling off the end.
 
 Malformed files are reported through the same array as `projectTypeIssues` and the dead-field
 warnings, so a surface that will not parse is a squiggle in the editor rather than a blank
@@ -282,9 +328,9 @@ screen. One bad surface does not take the good ones down with it.
 
 ## In st0's shell: every surface is a pane
 
-Each `split` surface is a member of `Pane` — `timeline`, `viewport`, `turntables` — beside the
-`editor` and `chains` the shell owns outright. So a surface is reached the way any pane is: its
-number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`.
+Each `split` surface is a member of `Pane` — `timeline`, `viewport`, `turntables`, `mastering` —
+beside the `editor` and `chains` the shell owns outright. So a surface is reached the way any pane
+is: its number key, `ui <pane>`, `full`, the mobile tabs, `/<pane>`.
 
 `RouteState.surface` was a field of its own beside `help`, holding the open `view` surface by
 FILENAME, because the list was the project's and a union could not name it. That reasoning was
@@ -293,10 +339,10 @@ per type, so the type IS the name.
 
 ### The layout table is a function
 
-`viewPanes({ timeline, viewport, turntables, frozen })`, not a constant, because three of the
-panes are the project's to declare: one that declares no timeline surface has no arrangement, and
-a list naming one would name a pane that will not be mounted. An object rather than positional
-flags — there are four now and they are all booleans, so `viewPanes(true, false, true)` said
+`viewPanes({ timeline, viewport, turntables, mastering, frozen })`, not a constant, because four of
+the panes are the project's to declare: one that declares no timeline surface has no arrangement,
+and a list naming one would name a pane that will not be mounted. An object rather than positional
+flags — there are five now and they are all booleans, so `viewPanes(true, false, true)` said
 nothing about which pane was which.
 
 The same flags reach `fromLocation`, so `/timeline` typed at such a project falls through to the
@@ -304,17 +350,53 @@ layout instead of parsing into a screen that cannot be drawn.
 
 `timeline` defaults **true** there and false in `viewPanes`, and that asymmetry is deliberate: the
 surface list lands a moment after the shell, so there is one frame in which the address has to be
-read against a guess, and almost every project has an arrangement. `viewport` and `turntables` get
-no such optimism — both are the exception, so the same default would make `/viewport` and
-`/turntables` briefly parse for every ordinary song.
+read against a guess, and almost every project has an arrangement. The other three get no such
+optimism — each is the exception, so the same default would make `/viewport`, `/turntables` and
+`/mastering` briefly parse for every ordinary song.
 
 ### Where the desk goes in the column
 
 Directly over the graph: the ring is built top-down as the panes are stacked — frame, arrangement,
-desk, chains. A set declares no timeline, so in practice the desk and the graph *are* its column,
-each taking half, which is the point of the desk being a pane at all. A fader on the desk is a
-param on a module in the graph, and the two are now readable at once; `full` is how either gets
-the whole window.
+desk, master, chains. A set declares no timeline, so in practice the desk and the graph *are* its
+column, each taking half, which is the point of the desk being a pane at all. A fader on the desk
+is a param on a module in the graph, and the two are now readable at once; `full` is how either
+gets the whole window.
+
+The **master strip is last** in that column for two reasons that happen to agree: it is the last
+thing the signal meets, so the stack reads in signal order from the top down; and like the desk it
+is a picture of modules in the graph, so it wants to be next to them. It is shorter than the desk
+— ten sliders rather than two decks — and takes a third of the height instead of a half.
+
+## `mastering`
+
+A picture of ONE node: the three appliances inside a `quick-master` — a three-band compressor, a
+stereo spreader and a limiter — drawn as three boxes in the order the signal meets them.
+
+That is what makes it different in kind from every other surface here. The others draw something
+the PROJECT is: its lanes, its picture, its decks. This one draws a single module's parameters,
+and needs a mapping for the same reason the desk does — the node's *name* is the project's to
+choose, so nothing but the file can say which of them this is.
+
+The vocabulary is `apps/st0/frontend/src/mastering/controls.ts`, ten ids in three groups
+(`comp.*`, `spread.*`, `limiter.*`), and `SURFACE_MAPPING_SKELETON.mastering` is the scaffold's
+copy of it under the same duplication rule as the desk's — held to it by
+`mastering/controls.test.ts` over there.
+
+**Nothing normalises on this surface**, and that is where it parts company with
+[viewBindings.md](viewBindings.md). A desk control declares a range of its own and the widget's
+expands it, because a crossfader is a gesture that could drive anything. Here the control IS the
+param: the slider's ends are the module's own widget's when it draws one, and the number under
+the slider is the number sent. A ceiling reading −0.3 dB sends −0.3 dB. A mastering value that had
+been through two scales could not be checked against a meter, and a meter is the only way anybody
+knows whether a master is right.
+
+There is **no `surfaceIssues` warning** for a project that has a quick-master node and no
+mastering surface, unlike the timeline's and the viewport's. Those two exist because material on
+disk is drawn nowhere without them; a node with no surface is drawn perfectly well — its panel is
+on the graph, where every other module's is. The strip is a convenience, not a missing half.
+
+See `apps/st0/frontend/docs/mastering.md` for the screen, and
+`engine/moteur/docs/quickMaster.md` for what the node actually does to the sound.
 
 ## `turntables`
 

@@ -5,7 +5,7 @@
 // times there) and no static reading of the source can be trusted to keep up. Re-run the script
 // after bumping Tracktion or adding a built-in. See engine/moteur/docs/builtinParams.md.
 //
-// 212 plugins, 957 parameters.
+// 214 plugins, 967 parameters.
 
 import type { BuiltinPluginInfo } from "./builtinParams";
 
@@ -450,6 +450,11 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
       },
     ],
   },
+  studio_faust: {
+    name: "Faust",
+    role: "audioEffect",
+    params: [],
+  },
   studio_midigraph: {
     name: "MIDI Graph",
     role: "midiEffect",
@@ -464,6 +469,22 @@ export const BUILTIN_PLUGINS: Record<string, BuiltinPluginInfo> = {
       { name: "Low", min: -18, max: 18, def: 0 },
       { name: "Mid", min: -18, max: 18, def: 0 },
       { name: "High", min: -18, max: 18, def: 0 },
+    ],
+  },
+  studio_quickmaster: {
+    name: "Quick Master",
+    role: "audioEffect",
+    params: [
+      { name: "Low Freq", min: 40, max: 500, def: 180 },
+      { name: "High Freq", min: 800, max: 8000, def: 3000 },
+      { name: "Low Amount", min: 0, max: 100, def: 0 },
+      { name: "Mid Amount", min: 0, max: 100, def: 0 },
+      { name: "High Amount", min: 0, max: 100, def: 0 },
+      { name: "Width", min: 0, max: 200, def: 100 },
+      { name: "Bass Mono", min: 0, max: 300, def: 0 },
+      { name: "Drive", min: 0, max: 12, def: 0 },
+      { name: "Ceiling", min: -12, max: 0, def: 0 },
+      { name: "Release", min: 10, max: 500, def: 120 },
     ],
   },
   airwindows_adclip7: {

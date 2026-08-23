@@ -5,7 +5,12 @@
 import type { Diagnostic } from "@studio/web-protocol";
 import { LineCounter, parseDocument } from "yaml";
 import type { ModuleIssue } from "./moduleFile";
-import { type Surface, SurfaceSchema } from "./surfaceSchema";
+import {
+  SURFACE_LAYOUTS,
+  SURFACE_TYPES,
+  type Surface,
+  SurfaceSchema,
+} from "./surfaceSchema";
 
 // YAML 1.2, as every other file here pins it: a scalar shaped like `5:1:1` stays a string. A
 // param name is arbitrary text and must not be reinterpreted on the way in.
@@ -64,8 +69,10 @@ export function parseSurface(text: string): ParsedSurface {
       issues: [
         {
           path: "",
-          message:
-            "a surface file says what it is: `type:` (timeline, turntables) and `layout:` (split, view). This one is empty.",
+          // Both lists spelled from the enums rather than by hand: this one said "timeline,
+          // turntables" for as long as it took two more kinds to arrive, which is a message
+          // telling somebody the word they just wrote does not exist.
+          message: `a surface file says what it is: \`type:\` (${SURFACE_TYPES.join(", ")}) and \`layout:\` (${SURFACE_LAYOUTS.join(", ")}). This one is empty.`,
         },
       ],
     };

@@ -11,6 +11,7 @@
 #include "MixerPlugin.h"
 #include "MidiGraphPlugin.h"
 #include "NamPlugin.h"
+#include "QuickMasterPlugin.h"
 #include "BroadcastTapPlugin.h"     // likewise, for the network broadcast tap
 #include "WaveformTapPlugin.h"      // its xmlTypeName, listed among the built-ins below
 #include "PluginScan.h"     // cachedPluginInfos / invalidatePluginInfoMemo
@@ -236,6 +237,9 @@ std::vector<PluginInfo> builtInPlugins() {
         // The channel strip: level, pan and a three-knob tone stack. A track carries none of these itself, so
         // this is where a mix is made — one instance per track, at the end of its chain.
         e("Mixer", studio::MixerPlugin::xmlTypeName, "audioEffect", "utility"),
+        // A master bus in one module: three bands compressed, a spreader, a limiter. Filed under
+        // dynamics because that is what its knobs mostly do and where somebody would look for it.
+        e("Quick Master", studio::QuickMasterPlugin::xmlTypeName, "audioEffect", "dynamics"),
     };
 }
 
@@ -265,6 +269,7 @@ void registerBuiltInPlugins(te::Engine& engine) {
     pm.createBuiltInType<studio::FaustPlugin>();
     pm.createBuiltInType<studio::MidiGraphPlugin>();
     pm.createBuiltInType<studio::MixerPlugin>();
+    pm.createBuiltInType<studio::QuickMasterPlugin>();
     // Registered so the plugin cache can create one, and deliberately ABSENT from the catalogue
     // above: nobody places this in a chain. The engine puts exactly one on the master bus, which
     // is the only place a gain with no fader curve belongs. See MasterGainPlugin.h.

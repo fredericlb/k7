@@ -8,8 +8,16 @@ packages/dsp/modules/
   audio/filter/{eq3,sweep,moogladder}/
   audio/utility/{crossfade,tempo,normalize}/
   audio/separation/{stemsplit,stemcut}/
+  audio/dynamics/quick-master/
   instruments/synth/wurlitzer/
 ```
+
+`quick-master` est le seul de la liste qui **ne fait pas son son ici** : ni `jsdsp.ts` ni
+`dsp.dsp`, seulement un `extends: "@engine/quick-master"` et des défauts par-dessus, comme
+`eq3` en pose sur l'égaliseur du moteur. Ce qu'il nomme est un built-in compilé, et
+`engine/moteur/docs/quickMaster.md` dit pourquoi ce ne pouvait pas être un graphe : les
+primitives de `DspGraph` ne savent ni séparer des bandes ni atteindre la différence entre les
+deux canaux.
 
 Les deux de `separation/` vont ensemble et se lisent dans cet ordre : `stemsplit` sépare, hors
 ligne, en quatre fichiers ; `stemcut` en retire un du mix d'origine, en direct, par un gain

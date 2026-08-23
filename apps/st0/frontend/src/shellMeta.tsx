@@ -8,6 +8,7 @@ import {
   AudioWaveform,
   Disc3,
   FileCode,
+  Gauge,
   Loader2,
   type LucideIcon,
   MonitorPlay,
@@ -25,12 +26,13 @@ import type { Pane, Panel } from "./routes";
 // FULLSCREENED and toggled from the header — it just has no slot in either layout (see App's
 // ringPanes). `viewport` and `turntables` are here for the same reason `timeline` is: all three are
 // `split` SURFACES the project declares, and which of them a given project actually mounts is
-// `viewPanes` in routes.ts, not this table.
+// `viewPanes` in routes.ts, not this table. `mastering` is a fourth of those.
 export const PANES: Pane[] = [
   "editor",
   "viewport",
   "timeline",
   "turntables",
+  "mastering",
   "chains",
 ];
 
@@ -42,6 +44,7 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   viewport: { icon: MonitorPlay, label: "Viewport" },
   timeline: { icon: AudioWaveform, label: "Timeline" },
   turntables: { icon: Disc3, label: "Turntables" },
+  mastering: { icon: Gauge, label: "Mastering" },
   chains: { icon: Workflow, label: "Chains" },
 };
 
