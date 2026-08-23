@@ -1,15 +1,11 @@
 // What the graph's `+` runs, and what the shell runs after it.
 //
-// It is TWO lines, and the reason is the vocabulary rather than the plumbing: a `node …` verb
-// acts on a node, so `node insert` stopped creating modules (packages/song/docs/nodes.md) and
-// the picker's gesture split back into "make it" and "wire it".
+// TWO lines, for a vocabulary reason rather than a plumbing one: a `node …` verb acts on a node,
+// so `node insert` stopped creating modules and the gesture split into "make it" and "wire it".
 //
-// Neither reaches the command bar any more. The node's NAME was the one thing a person had to
-// supply and it is derived now — `<lane>_<module>_<n>`, off the arrow that was clicked — so the
-// first line is completed here and the second is built from it, read back by
-// `chainRefFromCreate`. The trailing space `createForGraphCommand` leaves is still load-bearing:
-// it is the join between the two halves, and the bar still opens on it when there is no
-// catalogue to pick from.
+// Neither reaches the command bar now — the name is derived from the arrow clicked. The trailing
+// space `createForGraphCommand` leaves is load-bearing: it joins the two halves, and the bar
+// opens on it when there is no catalogue to pick from. See packages/song/docs/nodes.md.
 
 import type { WebGraph } from "@studio/graph-model";
 import { describe, expect, it } from "vitest";

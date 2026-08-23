@@ -1,16 +1,11 @@
 // A module's INTRINSICS — `node param <node> @channel|@monitor|@gain <value>`.
 //
-// A module FIELD, not a plugin's parameter: an io module runs no plugin, so there is nothing to
-// send a value to. They share the verb because from the outside they are one act — set this
-// control on this module — and the `@` is the difference: a param reaches a running plugin, a
-// field is written into the file and read when the module is next BUILT.
+// A module FIELD, not a plugin parameter: an io module runs no plugin. The `@` is the whole
+// difference — a param reaches a running plugin, a field is written and read at the next BUILD.
 //
-// Three things are worth pinning. The file may be the workspace's SHARED one, which nothing else
-// here writes on a click — so the command has to find it and say so. `on`/`off` are YAML 1.1
-// booleans: written bare, `monitor: on` reads as `true` to anything that doesn't parse 1.2, and
-// the value stops being a word. And an unknown `@field` must SAY so rather than write nothing —
-// a widget bound to one nobody implemented used to reach a verb that did not exist, and the
-// answer was "unknown command".
+// Three things pinned here: the file may be the workspace's SHARED one, `on`/`off` are YAML 1.1
+// booleans that must not be written bare, and an unknown `@field` must SAY so rather than write
+// nothing — a widget bound to one nobody implemented answered "unknown command".
 
 import {
   mkdirSync,

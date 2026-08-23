@@ -1,30 +1,16 @@
-// idle.ts — quand une session est INACTIVE : un horodatage que les gestes de la personne
-// remettent à zéro, relu à intervalle grossier. Une date plutôt qu'un `setTimeout` relancé, parce
-// qu'une machine qui s'est endormie doit rendre la vérité au réveil. Voir docs/idle.md.
+// idle.ts — when a session is IDLE: a timestamp the person's gestures reset, read back on a
+// coarse interval. A date rather than a restarted `setTimeout`, because a machine that went to
+// sleep has to tell the truth when it wakes. See docs/idle.md.
 
 import { useEffect, useRef } from "react";
 
-/** Vingt minutes. Le seul chiffre de cette page, et il est ici pour n'être écrit qu'une fois. */
+/** Twenty minutes. The only number on this page, written once. */
 export const IDLE_TIMEOUT_MS = 20 * 60 * 1000;
 
-/**
- * Tous les quarts de minute, et pas plus fin.
- *
- * On mesure une absence de vingt minutes : une précision à la seconde ne dirait rien de plus, et
- * un onglet en arrière-plan voit de toute façon ses minuteurs bridés à une minute par les
- * navigateurs. Le retard maximal est donc d'environ une minute, ce qui est du bruit à cette
- * échelle.
- */
+/** A quarter-minute, no finer: browsers throttle a background tab's timers to a minute anyway. */
 const CHECK_MS = 15_000;
 
-/**
- * Les gestes qui comptent, sur `window` et en capture.
- *
- * `pointermove` est là exprès : promener la souris sur une forme d'onde en écoutant est de
- * l'activité, et l'exclure déconnecterait quelqu'un qui regarde son morceau. Chacun ne fait
- * qu'une affectation, donc la fréquence de `pointermove` ne coûte rien — c'est précisément
- * pourquoi l'horodatage bat un minuteur qu'il faudrait annuler et reposer à chaque événement.
- */
+/** `pointermove` is in here on purpose: hovering a waveform while listening is activity. */
 const EVENTS = [
   "pointerdown",
   "pointermove",
@@ -33,43 +19,26 @@ const EVENTS = [
   "touchstart",
 ] as const;
 
-/**
- * La dernière activité, au niveau du MODULE et non du hook.
- *
- * Un onglet est une session ; il n'y a donc qu'une horloge, et `markActive()` permet à ce qui
- * n'est pas un geste de la déclarer — un morceau qui joue est une session active, même si
- * personne ne touche rien pendant tout un set. C'est le seul point d'entrée pour ça, et il est
- * volontairement bête : aucun état React à faire remonter depuis le fond de l'application.
- */
+/** One tab is one session, so the clock is the MODULE's — see markActive for the other writer. */
 let lastActive = Date.now();
 
-/** « Il se passe quelque chose » — pour ce qu'aucun événement d'entrée ne signale. */
+/** "Something is happening" — for what no input event reports, such as a track playing. */
 export function markActive(): void {
   lastActive = Date.now();
 }
 
-/** Depuis combien de temps rien ne s'est passé. Exporté pour les tests et la barre d'état. */
+/** How long nothing has happened. Exported for tests and the status bar. */
 export const idleForMs = (): number => Date.now() - lastActive;
 
-/**
- * Appelle `onIdle` une fois passé `timeoutMs` sans rien.
- *
- * Une seule fois : le hook se démonte avec l'écran qu'il gardait, donc il n'y a pas de second
- * déclenchement à empêcher — mais un `setInterval` qui continue de tourner sur un état déjà
- * inactif en produirait un par tick, alors le garde reste.
- *
- * `timeoutMs <= 0` désactive tout, y compris les écouteurs : c'est ce que passe une application
- * qui ne veut pas de cette règle, et elle ne doit alors rien payer.
- */
+/** Call `onIdle` once after `timeoutMs` of nothing; `<= 0` disables it, listeners included. */
 export function useIdleTimeout(timeoutMs: number, onIdle: () => void): void {
-  // Par référence : `onIdle` est une closure recréée à chaque rendu, et la mettre en dépendance
-  // réabonnerait cinq écouteurs et remettrait l'horloge à zéro à chaque frame de vumètre.
+  // By ref: `onIdle` is rebuilt each render, and depending on it would resubscribe every frame.
   const fire = useRef(onIdle);
   fire.current = onIdle;
 
   useEffect(() => {
     if (timeoutMs <= 0) return;
-    markActive(); // le montage EST le début de la session
+    markActive(); // mounting IS the start of the session
     let done = false;
     const stamp = () => markActive();
     for (const e of EVENTS)

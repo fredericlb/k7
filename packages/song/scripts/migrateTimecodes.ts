@@ -1,16 +1,12 @@
-/**
- * Rewrite a project's timecodes as MESURE:NOIRE:CROCHE:DOUBLECROCHE, with anything finer as ticks.
- *
- * Two reasons, and the second is the pressing one. A file full of `to: "5:3:3:4:1:2:3:3"` is a
- * place value nobody can read; and a SHORT deep chain is legal in the new notation while meaning
- * something else in it, so until a song is converted, three of its times are read half a beat from
- * where they were written. This reads with the old rule and writes with the new one.
- *
- *   npx tsx packages/song/scripts/migrateTimecodes.ts <project.st0> [--write]
- *
- * Dry by default: without `--write` it prints what it would do and touches nothing. The rewriting
- * itself is src/timecodeMigrate.ts, which is where the rules and their tests live.
- */
+// migrateTimecodes.ts — rewrite a project's timecodes as bar:beat:eighth:sixteenth, anything
+// finer as ticks.
+//
+//   npx tsx packages/song/scripts/migrateTimecodes.ts <project.st0> [--write]
+//
+// The pressing reason: a SHORT deep chain is legal in both notations and means different things,
+// so until a song is converted three of its times are read half a beat from where they were
+// written. This reads with the old rule and writes with the new one. Dry by default; the rules
+// and their tests are src/timecodeMigrate.ts.
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {

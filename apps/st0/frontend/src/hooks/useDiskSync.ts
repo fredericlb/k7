@@ -1,20 +1,10 @@
 // useDiskSync — keep the open file in step with what is actually on disk.
 //
-// Every command in st0 rewrites YAML: `node param`, `track gain`, a clip drag, a bypass click. The editor
-// read its file once and never again, so the moment you touched anything the buffer was a snapshot of the past —
-// and the next Save wrote it back over whatever had happened since. Silently. That is the bug this exists for,
-// and it is a data-loss one, not a cosmetic one.
+// A clean buffer adopts the new text silently; a dirty one asks and does nothing until told.
+// Gated on `/revision`, which moves for our own writes AND for edits made outside the app.
 //
-// Two cases, and they deserve different treatment:
-//
-//   the buffer is CLEAN   — nothing to lose, so adopt the new text without asking. Anything else would make the
-//                           editor lie about a file the user has not touched.
-//   the buffer is DIRTY   — two versions of the same file now exist and only the person knows which one matters.
-//                           So it asks, and does nothing until told.
-//
-// Gated on /revision, the same ~2 ms change token the diagnostics poll uses, rather than re-reading the file on a
-// timer: the token moves for OUR writes and for edits made outside the app (a git pull, another editor), which
-// is exactly the set of events worth reacting to. The token is polled ONCE for the whole app — see useRevision.
+// This guards a data-loss bug: the editor used to read its file once, so a save wrote a stale
+// buffer over everything that had happened since. See ../docs/shell.md.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";

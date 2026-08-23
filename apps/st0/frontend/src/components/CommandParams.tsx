@@ -1,16 +1,11 @@
 // CommandParams.tsx — the parameter form, as a small panel in the bottom-right corner.
 //
-// Picking a command asks WHAT you want done; this asks the questions that command has. It is
-// deliberately a panel and not a step in the bar: every question is on screen at once, Tab
-// walks between them, and an answer given three fields ago can be changed without unwinding the
-// ones after it. See docs/commandBar.md.
+// A panel and not a step in the bar, so every question is on screen at once and an answer given
+// three fields ago can be changed without unwinding the ones after it. The corner is the one
+// place it can sit while a gesture elsewhere answers one of its fields.
 //
-// Bottom-right, small, and over nothing that is being pointed at: the bar itself is the bottom
-// strip, the timeline and the graph fill the middle, and the corner is the one place a panel
-// can sit while a gesture elsewhere answers one of its fields.
-//
-// It holds NO state. Everything lives in CommandBar, which owns the command, the answers and
-// the gesture inlets — two components with two copies of that would be two commands.
+// It holds NO state: CommandBar owns the command, the answers and the gesture inlets, and two
+// copies of that would be two commands. See docs/commandBar.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { createPortal } from "react-dom";

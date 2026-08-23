@@ -1,19 +1,12 @@
-/**
- * Move every material's `from`/`to` DOWN onto the placements that play it.
- *
- * After this, `clips/*.yaml` and `sequences/*.yaml` describe the MATERIAL — `source`, `warp`,
- * `onsets`, `notes` — and a placement describes the USE: `start`, `from`, `to`, `loop`, the fades.
- * One level instead of two, which is what `VideoClipSchema` has always been.
- *
- *   npx tsx packages/song-edit/scripts/migrateClipWindows.ts <project.st0> [--write]
- *
- * Dry by default: without `--write` it prints what it would do and touches nothing. The rules and
- * their tests are src/windowDescend.ts.
- *
- * A material NO PLACEMENT references loses its window — a take set aside is not in the song, and
- * re-placing it means gating it again. Every one is named in the report rather than dropped in
- * silence, so nothing goes without being read.
- */
+// migrateClipWindows.ts — move every material's `from`/`to` DOWN onto the placements that play it,
+// so a material describes itself and a placement describes its use.
+//
+//   npx tsx packages/song-edit/scripts/migrateClipWindows.ts <project.st0> [--write]
+//
+// Dry by default. The rules and their tests are src/windowDescend.ts.
+//
+// A material NO placement references loses its window — every one is named in the report rather
+// than dropped in silence.
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import {

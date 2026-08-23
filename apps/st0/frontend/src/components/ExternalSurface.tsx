@@ -1,14 +1,12 @@
-// ExternalSurface.tsx — ONE surface, on its own, at `<project>/@external/<name>`. What another
-// device opens: a tablet by the decks driving the same engine as the laptop behind them.
+// ExternalSurface.tsx — ONE surface alone, at `<project>/@external/<name>`: what a tablet by the
+// decks opens, driving the same engine as the laptop behind it.
 //
-// Not the shell with things hidden — the shell with nothing else in it would still be the shell,
-// and every pane, panel and key belongs to a screen this device is not showing. So this mounts the
-// engine link and hands it to whichever of the four surface components the declaration names. All
-// four draw here: what the shell adds around a surface is a LAYOUT — the ring, the header, the
-// panels — and none of that is what a surface is made of.
+// Not the shell with things hidden. It mounts the engine link and hands it to whichever of the
+// four surface components the declaration names — what the shell adds around a surface is a
+// LAYOUT, and none of that is what a surface is made of.
 //
-// What it DOES add is a footer: the transport, one command line, and the way back. See
-// ../docs/external.md.
+// What it DOES add is a footer: the transport, one command line, and the way back.
+// See ../docs/external.md.
 
 import type { EngineClient, EngineUrl } from "@studio/engine-browser";
 import { PluginParamsStore } from "@studio/engine-browser/params";

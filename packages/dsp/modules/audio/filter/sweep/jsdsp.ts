@@ -1,18 +1,12 @@
 // The DJ filter's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at
-// runtime — a song folder has no node_modules and should never need one (the `import type` is
-// erased; see @studio/song's dspRunner.mjs).
+// runtime — a song folder has no node_modules and never should.
 //
-// This is @studio/dsp's `sweepFilter()` graph, written out here: a module is a FOLDER you can
-// copy, so it carries its own source rather than pointing at a shared library.
-// packages/dsp/src/sweep.test.ts holds the two to the same shape.
+// @studio/dsp's `sweepFilter()` graph written out here, because a module is a FOLDER you can
+// copy: it carries its own source. src/sweep.test.ts holds the two to the same shape.
 //
-// ONE knob, because a desk control drives at most one param — so "low-pass or high-pass"
-// cannot be a second setting somebody flips. Both filters are therefore always in the chain,
-// and what moves is where each one sits.
-//
-// What makes this a DJ filter rather than a filter is the RESONANCE. A flat corner sliding
-// across a track only muffles it, progressively and dully; the swoosh everyone knows is a PEAK
-// travelling with the corner, lifting a narrow band as it goes. That peak is the effect.
+// ONE knob, so "low-pass or high-pass" cannot become a second setting: both filters are always
+// in the chain and what moves is where each sits. The RESONANCE is what makes it a DJ filter
+// rather than a filter — a peak travelling with the corner, not a corner sliding alone.
 
 import type { GraphBuilder } from "@studio/dsp";
 

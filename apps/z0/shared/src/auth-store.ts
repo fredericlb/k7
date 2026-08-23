@@ -1,14 +1,12 @@
 // auth-store.ts — the account store four of z0's SPAs share: `/api/auth/me` once at boot, held in
-// a module-level store, read through `useSyncExternalStore`. No polling and no guest login — that
-// half is the backend's cookie, and signing in/out is `account.ts`. See apps/z0/docs/auth.md.
+// a module-level store, read through `useSyncExternalStore`. No polling, no guest login — signing
+// in and out is `account.ts`. See apps/z0/docs/auth.md.
 //
-// It was four BYTE-IDENTICAL copies (editor, monitor-web, presenter, remote), each ~100 lines,
-// with the file's own comment saying the rule "lives in z0-shared/account rather than in six
-// copies here" — printed directly under its own ninety lines of copy. Only the fetch differed,
-// and it differed by import rather than by behaviour, which is what a parameter is for.
+// It was four BYTE-IDENTICAL copies of ~100 lines, each carrying a comment about the rule living
+// in one place. Only the fetch differed, and by import rather than behaviour — which is what a
+// parameter is for.
 //
-// `buzzer` and `online` keep their own: theirs really do differ (a guest login, and a comment at
-// `online/src/components/AuthBadge.tsx` explaining its own case).
+// `buzzer` and `online` keep their own: theirs genuinely differ.
 
 import { useSyncExternalStore } from "react";
 import {

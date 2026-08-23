@@ -1,8 +1,7 @@
-// Home.tsx — ce que st0 dessine quand son adresse ne nomme AUCUN projet : les espaces de travail
-// de la machine et les projets dedans, les bibliothèques, les partages, la clé. Détient
-// l'asynchrone — l'identité, la machine, et les deux polls — pour le corps présentationnel à
-// côté. La liste des projets vient de la MACHINE et exige donc qu'il y en ait une ; le reste de
-// l'écran se lit sans. Voir ../../docs/projects.md.
+// Home.tsx — what st0 draws when its address names NO project: the machine's workspaces and the
+// projects in them, the libraries, the shares, the key. It holds the async — identity, machine,
+// and the two polls — for the presentational body beside it. The project list comes from the
+// MACHINE and so needs one; the rest of the screen reads without. See ../../docs/projects.md.
 
 import { AppHeader } from "@frediverse/ui/app-header";
 import { Button } from "@frediverse/ui/button";
@@ -30,22 +29,19 @@ import {
 import type { Machine } from "./machine";
 import { ProjectsPane } from "./ProjectsPane";
 
-/** Le même que celui de la médiathèque : assez vif pour qu'un `git fetch` qui se termine se
- *  voie, assez lent pour n'être rien du tout sur une liste de dix lignes. */
+/** The médiathèque's own: brisk enough that a finishing `git fetch` shows, slow enough to cost
+ *  nothing on a ten-row list. */
 const POLL_MS = 3000;
 
 /**
- * L'espace de travail ouvert voyage dans la QUERY, pas dans le chemin.
+ * The open workspace travels in the QUERY, not in the path.
  *
- * Le chemin appartient au lancement : `/<dépôt>/<projet>` est lu par `parseLaunch` avant que
- * quoi que ce soit ne soit monté, et il n'y a pas de segment qu'on pourrait ajouter ici sans
- * qu'il se lise comme le nom d'un dépôt à ouvrir. La query, elle, est exactement ce qu'un
- * routeur de SPA possède — c'est l'argument de packages/project-shell/docs/launch.md, pris dans
- * l'autre sens. Et elle se met en signet, se recopie et répond au bouton « précédent ».
+ * The path belongs to launching — `parseLaunch` reads `/<repo>/<project>` before anything mounts,
+ * and no segment could be added here without reading as a repository to open. A query is exactly
+ * what an SPA router owns, and it bookmarks, copies and answers the back button.
  *
- * C'était `?repo=<id>`, un identifiant de dépôt chez pl8. Ce qu'on déplie est un dossier sur la
- * MACHINE désormais, et son nom est ce qui le désigne — lisible, en plus, ce que le hachage
- * n'était pas.
+ * It was `?repo=<id>`, a pl8 repository id. What unfolds is a folder on the MACHINE now, and its
+ * name is what designates it — legible, which the hash was not.
  */
 const WS_PARAM = "ws";
 
@@ -54,30 +50,25 @@ export function Home() {
   const openWs = params.get(WS_PARAM);
 
   const [workspaces, setWorkspaces] = useState<MachineWorkspace[]>([]);
-  // Le registre de pl8 — pas une liste à dessiner, mais ce qui décide si l'adresse portable
-  // d'un espace de travail se résout. Voir `projectHref` dans ./api.
+  // pl8's register — not a list to draw, but what decides whether a portable address resolves.
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [shares, setShares] = useState<ShareSummary[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // La machine choisie, ou null. `undefined` tant qu'on n'a pas encore sondé : la différence
-  // compte, parce que « pas de machine » est un refus qu'on affiche et « on cherche » ne l'est pas.
+  // The chosen machine, or null; `undefined` until probed — "none" is a refusal we draw, "looking" is not.
   const [machine, setMachine] = useState<Machine | null | undefined>(undefined);
   const [probing, setProbing] = useState(false);
 
   /**
-   * L'identité, puis la machine.
+   * Identity, then the machine — in that order and not in parallel.
    *
-   * Dans cet ordre et pas en parallèle : le service de fichiers fait confiance à l'en-tête
-   * `USER_HEADER` (confiance locale, phase 2), donc une machine sans personne à nommer est une
-   * machine avec laquelle on ne peut rien faire — autant ne pas la retenir.
+   * The file service trusts the `USER_HEADER`, so a machine with nobody to name is a machine
+   * nothing can be done with; there is no point keeping it.
    *
-   * `find()` et RIEN d'autre : surtout pas `hold()`. Une revendication est un bail SUR UN
-   * PROJET, et cette page n'en a aucun — la prendre déloge l'onglet de quelqu'un qui joue son
-   * morceau sur ce moteur, depuis un écran qui ne fait que lister des dépôts. C'est exactement
-   * ce que le commentaire de `EngineGate` sur `claimProject` interdisait quand `/` n'était
-   * qu'une redirection ; maintenant que c'est un écran, c'est ici que ça se tient.
+   * `find()` and NOTHING else — never `hold()`. A claim is a lease ON A PROJECT and this page has
+   * none, so taking one would evict somebody playing their track on that engine, from a screen
+   * that only lists repositories.
    */
   const probe = useCallback(async () => {
     setProbing(true);
@@ -91,8 +82,7 @@ export function Home() {
           : null,
       );
     } catch {
-      // Une sonde ratée n'est pas une panne de cette page : elle en garde juste les deux
-      // boutons gris, ce qui est déjà dit à l'endroit où on cliquerait.
+      // A failed probe is not this page failing: it just leaves the two buttons grey.
       setMachine(null);
     } finally {
       setProbing(false);
@@ -103,8 +93,7 @@ export function Home() {
     void probe();
   }, [probe]);
 
-  // Ce qui a été chargé au dernier passage, par service. Un jeton dit « à jour », pas « en
-  // main » — c'est pourquoi il n'est posé qu'après que la liste l'est. Voir ../../docs/projects.md.
+  // What was loaded last pass, per service. A token says "current", not "in hand" — hence it is set only after the list is.
   const seen = useRef<{ repos: string; shares: string }>({
     repos: "",
     shares: "",
@@ -116,7 +105,7 @@ export function Home() {
       seen.current.shares = rev;
       setShares(r.shares);
     } catch {
-      /* la carte reste sur ce qu'elle tenait, et le dit elle-même */
+      /* the card keeps what it held, and says so itself */
     }
   }, []);
 
@@ -126,35 +115,31 @@ export function Home() {
       seen.current.repos = rev;
       setRepos(list);
     } catch {
-      /* le registre n'est plus le sujet de l'écran : son absence se lit sur les rangées */
+      /* the register is no longer the screen's subject: its absence reads on the rows */
     }
   }, []);
 
-  /** Tout relire au prochain tick, sans attendre qu'une révision bouge : après une écriture
-   *  d'ici, on sait déjà que la liste a changé. */
+  /** Reload everything next tick without waiting for a revision: a write from here already knows. */
   const changed = useCallback(() => {
     seen.current = { repos: "", shares: "" };
   }, []);
 
   /**
-   * La liste des projets vient de la MACHINE, et d'elle seule.
+   * The project list comes from the MACHINE, and from nowhere else.
    *
-   * Pas de jeton de révision devant, contrairement aux partages : le service de fichiers répond
-   * la liste elle-même, derrière une fenêtre de cinq secondes de son côté, et demander d'abord
-   * si elle a bougé serait un aller-retour de plus pour économiser un readdir déjà mémoïsé.
+   * No revision token in front, unlike the shares: the file service answers the list itself behind
+   * a five-second window of its own, so asking first whether it moved would be one more round trip
+   * to save an already-memoised readdir.
    *
-   * Sans machine, il n'y a rien à demander — et rien à afficher non plus. C'est le prix de ce
-   * déménagement, dit ici parce que c'est ici qu'il se paie : les projets sont des dossiers sur
-   * cette machine, donc c'est elle qui sait lesquels existent. Le reste de l'écran — la clé, les
-   * partages, les bibliothèques — se lit toujours sans elle.
+   * With no machine there is nothing to ask and nothing to show. That is the price of the move,
+   * said here because here is where it is paid — the rest of the screen still reads without one.
    */
   const loadWorkspaces = useCallback(async (m: Machine) => {
     try {
       setWorkspaces(await engineMachine.workspaces(m));
       setError(null);
     } catch (e) {
-      // La machine est le sujet de l'écran maintenant : sa panne se dit, plutôt que de laisser
-      // une liste vide qui ressemble à un compte neuf.
+      // The machine is the screen's subject now: say it failed rather than draw an empty list.
       setError((e as Error).message);
     } finally {
       setBusy(false);
@@ -162,7 +147,7 @@ export function Home() {
   }, []);
 
   useEffect(() => {
-    if (machine === undefined) return; // on sonde encore : ni liste ni refus
+    if (machine === undefined) return; // still probing: neither a list nor a refusal
     if (machine === null) {
       setWorkspaces([]);
       setBusy(false);
@@ -181,16 +166,13 @@ export function Home() {
   }, [machine, loadWorkspaces]);
 
   /**
-   * Ce que pl8 tient encore, et pourquoi cet écran le demande toujours : le REGISTRE des dépôts
-   * et les partages.
+   * What pl8 still holds, and why this screen still asks: the REGISTER of repositories, and the
+   * shares.
    *
-   * Le registre n'est plus une liste à dessiner — c'est la machine qui dit ce qui existe — mais
-   * il reste ce qui rend une adresse `/<dépôt>/<projet>` résoluble : `by-name` est demandé chez
-   * pl8 un clic plus tard. Une copie que la machine a et que ce registre ignore s'ouvre donc par
-   * `@local` et pas autrement, et c'est en croisant les deux que la rangée le sait.
-   *
-   * Les partages, eux, sont ses octets, servis à des gens sans compte : rien de tout ça n'est
-   * sur une machine. Un seul minuteur pour les deux — même service, même écran.
+   * The register is no longer a list to draw — the machine says what exists — but it is what makes
+   * `/<repo>/<project>` resolvable, since `by-name` is asked of pl8 one click later. A copy the
+   * machine has and the register does not opens as `@local`, and crossing the two is how a row
+   * knows. The shares are pl8's own bytes, served to people with no account.
    */
   useEffect(() => {
     let stop = false;
@@ -199,7 +181,7 @@ export function Home() {
         const { revision } = await projects.revision();
         if (!stop && seen.current.repos !== revision) await loadRepos(revision);
       } catch {
-        /* la rangée le dit elle-même */
+        /* the row says so itself */
       }
       if (stop) return;
       try {
@@ -218,25 +200,20 @@ export function Home() {
     };
   }, [loadRepos, loadShares]);
 
-  /**
-   * La barre de commande de cet écran, et sa ligne d'état.
-   *
-   * Elle a son propre vocabulaire (`homeCommands.ts`) et pas celui de l'éditeur : ici il n'y a ni
-   * projet ouvert, ni session moteur, ni fichier — `LOCAL_COMMANDS` serait un catalogue de choses
-   * qu'on ne peut pas faire. Six verbes, ceux des boutons de la page.
-   */
+  /** This screen's command bar and status line. Its own vocabulary (`homeCommands.ts`), not the
+   *  editor's: with no project, engine or file, `LOCAL_COMMANDS` would list what cannot be done. */
   const cmdRef = useRef<CommandBarHandle>(null);
   const { locale } = useLocale();
   const palette = useMemo(() => buildHomePalette(locale), [locale]);
   const [said, setSaid] = useState<{ text: string; refused: boolean } | null>(
     null,
   );
-  /** Le projet qu'un `project delete init` a désigné, en attente de son confirm. Une ref : elle
-   *  est lue par la commande suivante et jamais dessinée. */
+  /** The project a `project delete init` named, awaiting its confirm. A ref: read by the next
+   *  command and never drawn. */
   const armed = useRef<ArmedDelete | null>(null);
 
-  /** Tout relire MAINTENANT après une écriture d'ici : la liste de la machine ne bouge sinon
-   *  qu'au prochain tick, et un projet qu'on vient de créer se ferait attendre trois secondes. */
+  /** Reload NOW after a write from here: otherwise the machine's list waits for the next tick,
+   *  and a just-created project would take three seconds to appear. */
   const reread = useCallback(() => {
     changed();
     if (machine) void loadWorkspaces(machine);
@@ -256,8 +233,7 @@ export function Home() {
         changed: reread,
         armed,
       });
-      // Une ligne que cet écran ne connaît pas est refusée ICI : il n'y a pas de service derrière
-      // à qui la passer, contrairement à l'éditeur, dont la barre finit chez `/command`.
+      // A line this screen does not know is refused HERE: no service behind it to pass it to.
       if (!known)
         setSaid({
           text: `« ${line.trim()} » n'est pas une commande de cet écran`,
@@ -267,14 +243,8 @@ export function Home() {
     [machine, workspaces, repos, openWs, reread],
   );
 
-  /**
-   * Deux Shift seuls pour lui donner le clavier — le même geste que dans l'éditeur.
-   *
-   * Le seul raccourci de cet écran, et il ne peut pas être autre chose : la barre ne prend jamais
-   * le clavier d'elle-même, donc sans lui on ne l'atteindrait qu'à la souris. `e.repeat` écarte un
-   * Shift maintenu, et la branche est inatteignable depuis la barre elle-même, qui est un champ
-   * de saisie.
-   */
+  /** Two bare Shifts give it the keyboard, the editor's own gesture. The bar never takes focus by
+   *  itself, so without this it could only be reached by mouse; `e.repeat` drops a held Shift. */
   const lastShiftAt = useRef(0);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -292,9 +262,8 @@ export function Home() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  /** Déplier un espace de travail, ou revenir à la liste. `replace` : en parcourir trois pour
-   *  voir ce qu'il y a dedans n'est pas une navigation dont on veut trois entrées dans
-   *  l'historique du bouton « retour ». */
+  /** Unfold a workspace, or go back to the list. `replace`, because browsing three of them to see
+   *  what is inside is not navigation worth three back-button entries. */
   const open = useCallback(
     (name: string | null) => {
       setParams(
@@ -428,9 +397,7 @@ export function Home() {
           <CommandBar
             ref={cmdRef}
             commands={palette}
-            // Tout ce qu'un champ peut proposer est déjà sur cet écran — il interroge les deux
-            // services en boucle — donc la réponse est immédiate là où celle de l'éditeur est un
-            // aller-retour. La promesse est la même : le vocabulaire complet, une fois par champ.
+            // Everything a field can offer is already on screen, so the answer is immediate.
             listArg={async (command, prior) =>
               homeArgValues(command, prior.length, {
                 machine: machine ?? null,

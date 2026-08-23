@@ -1,16 +1,11 @@
-// IoPanel.tsx — what this song can take in and put out: every module under an io/ folder,
-// the project's own and the ones inherited from a workspace's shared `_modules/io`, each
-// with a meter.
+// IoPanel.tsx — what this song can take in and put out: every module under an io/ folder, the
+// project's own and those inherited from a workspace's `_modules/io`, each with a meter.
 //
-// A TAB of the settings panel (SettingsPanel.tsx), which supplies the column, the title and
-// the ✕. It was a dialog over the shell — the one cog entry that was not a page — because it
-// is a thing you look at while plugging something in and want gone in one key. A docked panel
-// keeps that: Escape still closes it, and now it does not cover what you are metering.
+// A TAB of SettingsPanel.tsx, which supplies the column, the title and the ✕.
 //
-// The levels do not ride the state frame. Metering an interface input ENABLES its device
-// engine-side (see EngineHost::channelLevelsDb), so it is polled by request, only while
-// this is on screen — the panel asks, the engine answers, and nothing pays for it after
-// the dialog closes.
+// The levels do NOT ride the state frame: metering an interface input enables its device
+// engine-side (EngineHost::channelLevelsDb), so it is polled by request and only while this is
+// on screen. Nothing pays for it once the panel closes.
 
 import { cn } from "@frediverse/ui/lib/utils";
 import type { EngineClient } from "@studio/engine-browser";

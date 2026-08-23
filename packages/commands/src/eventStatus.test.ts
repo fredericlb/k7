@@ -1,15 +1,11 @@
 // `event status mute|warp` — the POLARITY, through the dispatcher and asserted on the file.
 //
-// The writers (setTrackPlacementDisabled, setTrackPlacementWarp) each had a test and were right.
-// What had none was the command's translation between the two — and that is where the one `!`
-// lived: `event disable warp on` wrote "does not warp", which was correct under that head and
-// backwards under `status`. It is the same shape as the bug bypass.test.ts exists for, and a test
-// on the writer alone could never see it.
+// Both writers had tests and were right; the command's translation between them had none, and
+// that is where the stray `!` lived. A test on the writer alone could never see it.
 //
-// The FILE is deliberately the opposite way round from the command, and that is the whole reason
-// this can go wrong quietly: `warp: false` is what a declining placement carries, because an
-// absent field there has to mean "it warps, because the clip does". So `warp on` must leave
-// NOTHING behind, and `warp off` must write `false`.
+// The FILE is deliberately the opposite way round from the command, which is why this goes wrong
+// quietly: an absent `warp` means "it warps, because the clip does", so `warp on` must leave
+// NOTHING behind and `warp off` must write `false`.
 
 import {
   mkdirSync,

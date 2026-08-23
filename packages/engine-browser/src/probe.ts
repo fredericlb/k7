@@ -1,14 +1,12 @@
-// probe.ts — MEASURE each registered engine by reaching it, direct or through the web
-// origin's relay: the whoami round trip is the
-// network half, the buffer size it reports is the audio half, and their sum is the latency
-// every surface then bands into Q1/Q2/Q3 (see @studio/web-protocol/quality). The probe sends
-// {type:"whoami"} and MATCHES THE ID, so a lookalike listener can't pass as this engine; the
-// reply's token goes to the backend.
+// probe.ts — MEASURE each registered engine by reaching it, direct or through the origin's relay.
 //
-// This replaced a locality TIER — loopback answered, or a LAN address did, or neither. That
-// ranked a gigabit LAN below a laptop whose interface sat at 2048 frames, which is backwards:
-// what a musician can and cannot do on an engine is decided by the milliseconds, not by which
-// cable they arrive over. Unreachable stays its own state, because it is not a slow link.
+// The whoami round trip is the network half and the buffer size it reports is the audio half;
+// their sum is the latency every surface bands into Q1/Q2/Q3. The probe MATCHES THE ID, so a
+// lookalike listener cannot pass as this engine.
+//
+// It replaced a locality tier, which ranked a gigabit LAN below a laptop sitting at 2048 frames
+// — what a musician can do is decided by milliseconds, not by which cable they arrive over.
+// Unreachable stays its own state, because it is not a slow link. See docs/access.md.
 
 import {
   type EngineLatency,

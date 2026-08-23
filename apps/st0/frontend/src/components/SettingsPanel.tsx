@@ -1,22 +1,12 @@
-// SettingsPanel.tsx — the cog, as a PANEL anchored at the right rather than a dropdown: one tab
-// per screen it used to open, docked beside the panes so it does not cover what it is about.
+// SettingsPanel.tsx — the cog, as a PANEL docked at the right: one tab per screen it used to
+// open, beside the panes rather than covering what it configures.
 //
-// It was a menu whose entries opened a full-screen page or a dialog — several surfaces, several
-// ways out, and every one of them hid the thing you were configuring. The tabs are those
-// surfaces, unchanged underneath; what went is the chrome each carried to be a page.
+// Each tab is a COMMAND the shell dispatches (`ui settings io`, …), not a callback — that is
+// what keeps the palette and the panel from drifting. COMMANDS stays a full page, reached by a
+// button here: a sixty-row catalogue does not fit 24rem.
 //
-// It is one of THREE panels sharing the right column (the others are the playlists and the
-// share), and they are three rather than one set of tabs on purpose: what is here is what you
-// SET and leave. A set list is something you work from and a share is something you do, and
-// filing either under a cog would be filing it by where it used to live.
-//
-// COMMANDS is the exception and stays a page, reached by a button here: it is a table of the
-// whole catalogue, sixty rows wide with a field per language, and 24rem is not a width you can
-// order a catalogue in. See ../docs/shell.md.
-//
-// Each tab is still a COMMAND LINE the shell dispatches (`ui settings io`, …), not a callback:
-// every one is reachable from the palette, and one implementation is what stops the two
-// drifting.
+// Why three panels rather than one set of tabs, and why none of them is a pane:
+// ../docs/shell.md, "The right column".
 
 import { Button } from "@frediverse/ui/button";
 import type { EngineClient } from "@studio/engine-browser";

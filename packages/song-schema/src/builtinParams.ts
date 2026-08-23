@@ -1,17 +1,12 @@
 // What a built-in plugin's parameters are, known WITHOUT a running engine.
 //
-// Everywhere else, a base module's parameter names are learned: `paramsByBase` collects what modules extending it
-// happen to have authored, and the module builder tops that up with the live engine's report for a plugin that is
-// currently loaded. Both fail the same way for a plugin nobody has authored a param on yet — the bind list comes
-// up empty, and the module cannot be given a panel at all, which is the one thing the builder exists to do.
+// Every other source is LEARNED — from what modules happen to have authored, or from a plugin
+// that is currently loaded — and both come up empty for a plugin nobody has touched yet, which
+// leaves the builder unable to draw a panel at all. This table is the only complete one, and the
+// only one carrying ranges: a knob drawn 0..1 for want of meta writes the wrong number.
 //
-// That is the whole reason this table exists: it is the only source that is COMPLETE before anything is loaded.
-// It carries ranges too, which the learned names never have — a Volume drawn 0..1 because no meta arrived is not
-// a smaller problem than a missing name, it is a knob that writes the wrong number.
-//
-// The table itself is GENERATED (`builtinParams.generated.ts`), from a real instance of every built-in the
-// engine can create. This file is the half a human writes: the shape, and how a module's `plugin:` block finds
-// its entry. See engine/moteur/docs/builtinParams.md.
+// The table is GENERATED (`builtinParams.generated.ts`); this file is the shape around it.
+// See engine/moteur/docs/builtinParams.md.
 
 import { BUILTIN_PLUGINS } from "./builtinParams.generated";
 import { ENGINE_NS, slugifyPluginName } from "./moduleTypes";

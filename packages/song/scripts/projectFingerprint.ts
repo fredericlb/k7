@@ -2,14 +2,10 @@
 //
 //   npx tsx packages/song/scripts/projectFingerprint.ts "<project>" [> before.txt]
 //
-// The goldens cover the two shipped demos; those are small and one level deep. This is
-// for a real song: run it before a change and after, and diff. It records what the ENGINE
-// would be handed (plugin ids, their type/name, which params and library files each
-// carries, the live-input wiring, the sends, the rack sizes) plus every warning the graph
-// reports — deliberately not the whole ProjectDoc, so a clip's start time or a colour
-// cannot drown the signal.
-//
-// Absolute paths are blanked: they move between machines and say nothing about the model.
+// The goldens cover the two shipped demos, which are small and one level deep; this is for a real
+// song — run it before a change and after, then diff. It records what the ENGINE would be handed
+// plus every graph warning, deliberately NOT the whole ProjectDoc, so a clip's start time cannot
+// drown the signal. Absolute paths are blanked: they move between machines.
 
 import { relative } from "node:path";
 import { loadGraph } from "../src/graph";

@@ -1,12 +1,10 @@
-// MobileChrome.tsx — the ONE piece of shell a phone gets: a hamburger holding everything the
-// header's right side would show, plus every screen there is to go to. There is no global view
-// on a phone — `full` is never null — so the menu is what drives it.
+// MobileChrome.tsx — the ONE piece of shell a phone gets: a hamburger holding the header's right
+// side and every screen to go to. There is no global view on a phone (`full` is never null), so
+// the menu is what drives it.
 //
-// There was a bottom tab bar here too, one tab per pane. It went: it spent a row of a screen
-// that is ~400px tall in landscape on a control used a few times a session, it could hold only
-// the panes (the project's own `view` surfaces were in a second hamburger next to the first),
-// and it never worked — it dispatched the bare pane name, which the local dispatcher refuses,
-// so a tap only ever printed "that is a ui command". One menu, one place to go somewhere.
+// A bottom tab bar lived here too. It spent a row of a ~400px-tall landscape screen on a control
+// used a few times a session, held only the panes, and never worked — it dispatched the bare
+// pane name, which the local dispatcher refuses. One menu, one place to go somewhere.
 //
 // A plain popover, not a DropdownMenu, since what it holds is itself menus.
 

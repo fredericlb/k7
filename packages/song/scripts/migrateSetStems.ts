@@ -1,22 +1,13 @@
-// migrateSetStems.ts — give a SET written before the stems the four lanes per deck it is missing.
-//
-// A set scaffolded today has five lanes a deck: the record, and one per separated instrument,
-// each through a `stemcut` whose gain is negative so the five summing at the EQ SUBTRACT
-// (packages/dsp/docs/stemcut.md). A set written before that has one lane a deck, so its desk
-// draws no stem column at all — deliberately, since four dead knobs are worse than none.
-//
-// This adds what is missing and nothing else: eight lanes, sixteen nodes, eight bypasses and
-// eight mapping lines. Idempotent — a set that already has them is reported and left alone.
-//
-// Through the yaml Document API rather than by rewriting text, like migrateDocFields beside it:
-// every comment, the key order and the inline flow maps come back byte-identical. Dry by default;
-// pass --write to actually save.
+// migrateSetStems.ts — give a SET written before the stems the four lanes per deck it lacks.
 //
 //   npx tsx packages/song/scripts/migrateSetStems.ts <projet.st0> [more…] [--write]
 //
-// It does NOT write the surface's `stems:` line. That one names the chain that separates, and a
-// separation is minutes of arithmetic per song — so it happens because a set ASKED for it, never
-// because a migration decided. The script says the line to add.
+// Adds eight lanes, sixteen nodes, eight bypasses and eight mapping lines, and nothing else.
+// Idempotent, dry by default, and through the yaml Document API so comments and key order come
+// back byte-identical.
+//
+// It does NOT write the surface's `stems:` line: separating is minutes per song, so it happens
+// because a set asked for it. See packages/dsp/docs/stemcut.md for what the lanes are.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

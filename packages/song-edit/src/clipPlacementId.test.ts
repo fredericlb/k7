@@ -1,14 +1,11 @@
 // A clip's own file, addressed by the id a SURFACE holds.
 //
-// Every surface that draws a clip holds a PLACEMENT id — `bass_2_0@16`, what the compiler put on
-// it and what `/waveform` is asked with — while `clips/<ref>.yaml` is keyed by the material. The
-// two were never joined on this side, so `clip warp` and `clip onset …` were reachable only by
-// typing a material name by hand: from the waveform they raised
-// `no clip "sy.chrpan2_260821T105129@106" in this project`, which is the file-service half of the
-// rule (waveformOps.ts, workspace.ts) missing from the song half.
+// A surface holds a PLACEMENT id (`bass_2_0@16`) while `clips/<ref>.yaml` is keyed by the
+// material. The two were never joined on this side, so `clip warp` and `clip onset` were
+// reachable only by typing a material name by hand — from the waveform they raised
+// `no clip "…" in this project`.
 //
-// Pinned on the FILE functions rather than through a command, because that is where the join now
-// is and where a later reader will look for it.
+// Pinned on the FILE functions rather than through a command, because that is where the join is.
 
 import {
   mkdirSync,

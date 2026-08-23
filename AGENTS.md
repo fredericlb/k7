@@ -1,12 +1,16 @@
 # General rules on development
 
-- Prioritize using existing libraries whenever possible. When you found one, show its strengths and weaknesses and ask if you should include it. 
-- Comments at the top of a file should summarize what the file is doing in less than 5 lines. If it is not possible to explain this clearly in <=5 lines, add a md file explaining it fully in docs/[topic].md
-- Inline comments should be one-liners
+- Prioritize using existing libraries whenever possible. When you found one, show its strengths and weaknesses and ask if you should include it.
+- **A source file over 500 lines is suspect.** Split it unless there is a reason not to, and say the reason.
+- **Comments are in English**, everywhere, whatever the language of the surrounding docs.
+- **A file header is at most 10 lines.** What the file does, and the one thing a reader would get wrong.
+- **A comment inside the body is exactly one line.** No exceptions, no wrapped sentences, no JSDoc paragraphs.
+- Long rationale goes to the zone's `docs/` page, and the code points at it.
 
-Those two rules hold in every language here — TypeScript, Rust, C++ — and they are
-about *where* the prose lives, not about having less of it. This codebase writes down
-the **why**. Long rationale belongs in the zone's `docs/` directory:
+These rules hold in every language here — TypeScript, Rust, C++. They are about *where* the
+prose lives and *how much* of it sits in the code: this codebase still writes down the **why**,
+but a reader scrolling past forty lines of justification to reach a function is paying for it.
+The zone's `docs/` directory is where that justification belongs:
 
 | zone | pages live in |
 |---|---|
@@ -30,6 +34,10 @@ user-facing documentation the app ships and renders at `/docs`.)
 produces an unreadable 500-character line and can swallow a `biome-ignore` directive,
 which silently stops working unless it starts its own comment. Condense to a single
 sentence and move the rest to a doc page.
+
+`npm run lint:comments` enforces the three limits above — header length, body one-liners, and
+no accented prose where English is expected. It is **non-blocking**, like `lint:dead`: it reports
+a debt that predates the rule and shrinks as files are touched. New code has no excuse.
 
 # This repo
 

@@ -1,15 +1,13 @@
 // `node replace` and `graph unlink` — the two verbs that change a chain without deleting
 // anything, and what they must never leave behind.
 //
-// `replace` touches one `extends:` line, and then — only when the node's name was AUTO-MADE —
-// renames it to follow the new module, chains and preset with it. Both halves are asserted, and
-// the sharper half is the refusal: a name somebody chose must not move an inch. `unlink` is the
-// opposite shape: it rewrites the chains and must leave every FILE alone.
+// `replace` touches one `extends:` line and renames the node ONLY when its name was auto-made;
+// the sharper assertion is the refusal, since a name somebody chose must not move. `unlink` is
+// the opposite shape: it rewrites chains and must leave every FILE alone.
 //
-// `module delete` was tested here too, and its one failure mode was the sharpest of the three —
-// a chain naming a module that no longer exists is not a cosmetic dangling reference, it is a
-// project the compiler refuses to load, so the command that would repair it cannot run either.
-// The verb is gone; the shape of that failure is why `unlink` still asserts the files.
+// `module delete` was tested here until it went. A chain naming a missing module is a project
+// the compiler refuses to load, so the repairing command cannot run either — which is why
+// `unlink` still asserts the files.
 
 import {
   existsSync,

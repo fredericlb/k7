@@ -1,15 +1,12 @@
 // `POST /command` builds the graph only when the caller will draw it.
 //
-// The field is one line in the route, and the whole reason it exists is a cost that does not
-// show up in any answer: st0 runs mute, solo and every fader through a path that never refetches
-// `/graph`, so the picture built inside those requests — 62 ms on the reference song, on the one
-// thread the service has — was built and dropped. A test that only read the reply would pass
-// either way, so this COUNTS the build instead, which is the method docs/audit-perf-web.md asks
-// for: an integer does not fluctuate.
+// The cost never shows up in an answer: st0 runs mute, solo and every fader through a path that
+// never refetches `/graph`, so that picture — 62 ms on the reference song, on the service's one
+// thread — was built and dropped. A test reading only the reply passes either way, so this COUNTS
+// the builds instead; an integer does not fluctuate (docs/audit-perf-web.md).
 //
-// It mounts the router rather than the whole server — the first test here to do so. `req.ws` and
-// `req.userEmail` are what `resolveWorkspace` would have put there, and nothing else in this
-// route needs the gates.
+// It mounts the router rather than the server: `req.ws` and `req.userEmail` are what
+// `resolveWorkspace` would have set, and this route needs no other gate.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";

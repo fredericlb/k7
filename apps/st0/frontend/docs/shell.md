@@ -616,6 +616,25 @@ None of them is a **pane**. A pane is what the project DECLARES ([shellRouting.m
 `packages/song/docs/surfaces.md`); none of this is the project's, which is why none of it is in
 the URL either.
 
+## The open file follows the disk (`hooks/useDiskSync.ts`)
+
+Every command in st0 rewrites YAML — `node param`, `track gain`, a clip drag, a bypass click.
+The editor read its file once and never again, so the moment you touched anything the buffer was
+a snapshot of the past, and the next save wrote it back over whatever had happened since.
+Silently. **That is a data-loss bug, not a cosmetic one**, and it is what this hook exists for.
+
+Two cases, and they get different answers:
+
+| the buffer is | what happens | why |
+|---|---|---|
+| **clean** | adopt the new text without asking | nothing to lose, and anything else makes the editor lie about a file nobody touched |
+| **dirty** | ask, and do nothing until told | two versions of one file exist and only the person knows which matters |
+
+Gated on `/revision`, the same ~2 ms change token the diagnostics poll reads, rather than
+re-reading the file on a timer. The token moves for OUR writes **and** for edits made outside the
+app — a `git pull`, another editor — which is exactly the set of events worth reacting to. It is
+polled once for the whole app; see `hooks/useRevision.ts`.
+
 ### Space is the transport, wherever the last click landed
 
 The same listener decides this, and it draws a line the old one did not. It used to stand aside

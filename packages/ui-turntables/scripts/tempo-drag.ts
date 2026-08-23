@@ -1,17 +1,13 @@
 // tempo-drag.ts — does moving the BPM fader move the MUSIC? Point it at a running engine.
 //
-// The one question a unit test cannot answer, because the answer is a sound. It drives the real
-// `nudgedTempos` and `deckDoc` — the same functions the desk calls — against a source whose
-// frequency encodes its own position, so the tone coming back says which source second is
-// playing. Music that skips shows up as a step in that number. See ../docs/bpm.md.
+//   npx tsx packages/ui-turntables/scripts/tempo-drag.ts [ws://127.0.0.1:8765] [--raw] [--down]
 //
-// Usage:  npx tsx packages/ui-turntables/scripts/tempo-drag.ts [ws://127.0.0.1:8765] [--raw]
-//   --raw   drop the slip correction, to measure what the fader used to do
-//   --down  drag the fader DOWN — the direction that needs the timeline's headroom
+// The one question a unit test cannot answer, because the answer is a sound: it drives the real
+// `nudgedTempos` and `deckDoc` against a source whose frequency encodes its own position, so a
+// skip shows up as a step. Flags and the whole method: ../docs/bpm.md.
 //
-// STUDIO_SCRATCH names a directory BOTH sides can reach, for the Windows dev machine where the
-// script runs under WSL and the engine does not: the engine opens file paths, so a Linux tmpdir
-// is a file it cannot see. Unset, an ordinary tmpdir is right and nothing below applies.
+// STUDIO_SCRATCH names a directory both sides can reach — needed where the script runs under WSL
+// and the engine does not, since the engine opens file paths.
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -1,6 +1,6 @@
-// machine.ts — créer et supprimer un projet passent par la MACHINE : c'est là que vit la copie
-// de travail qu'on committe, et pl8 n'a jamais tenu que le registre des dépôts. `ensureWorkspace`
-// est ce qui clone, et sert désormais à l'AJOUT d'un dépôt. Voir ../../docs/projects.md.
+// machine.ts — creating and deleting a project go through the MACHINE: that is where the working
+// copy being committed lives, and pl8 has only ever held the register of repositories.
+// `ensureWorkspace` is what clones, and now also serves ADDING one. See ../../docs/projects.md.
 
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { engineMachine, type Machine } from "./api";
@@ -8,25 +8,21 @@ import { commitOutcome } from "./commitOutcome";
 
 export type { Machine };
 
-/** Assez souvent pour que la progression de git bouge à l'écran, assez rare pour ne pas
- *  marteler une machine qui, elle, travaille. */
+/** Often enough that git's progress moves on screen, rarely enough not to hammer the machine. */
 const CLONE_POLL_MS = 800;
 
-/** Un clone qui n'a pas fini au bout de ça n'est plus une attente, c'est une panne. */
+/** A clone still running after this is not a wait any more, it is a failure. */
 const CLONE_CAP_MS = 10 * 60_000;
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
 /**
- * L'espace de travail de ce dépôt sur cette machine, cloné s'il n'y est pas encore.
+ * This repository's workspace on this machine, cloned if it is not there yet.
  *
- * Le clonage est ici et pas ailleurs parce que c'est le seul moyen de créer un projet dans un
- * dépôt **vide** : sans lui il faudrait déjà avoir un projet pour pouvoir en ouvrir un, donc
- * pour pouvoir en créer un — un œuf sans poule.
- *
- * `onStep` reçoit les mots de git, pas les nôtres : « Receiving objects », « Resolving
- * deltas ». Une attente de trente secondes qui ne dit rien ressemble à un écran figé.
+ * Cloning lives here because it is the only way to create a project in an EMPTY repository —
+ * otherwise you would need a project to open one in order to create one. `onStep` relays git's
+ * own words, not ours: a thirty-second wait that says nothing reads as a frozen screen.
  */
 export async function ensureWorkspace(
   m: Machine,
@@ -46,8 +42,7 @@ export async function ensureWorkspace(
       );
     await sleep(CLONE_POLL_MS);
     const next = await engineMachine.cloneJob(m, job.id);
-    // Oublié par la machine : elle ne tient les jobs terminés que quelques minutes. On ne peut
-    // plus dire comment il s'est fini, et prétendre qu'il a réussi serait pire que d'échouer.
+    // Forgotten by the machine: claiming it succeeded would be worse than failing here.
     if (!next) throw new Error("la machine a oublié ce clonage — réessayez");
     job = next;
     onStep(
@@ -57,18 +52,13 @@ export async function ensureWorkspace(
     );
   }
   if (job.failed)
-    // Les mots de git, tels quels : « Permission denied (publickey) » est la réponse entière.
+    // git's words verbatim: "Permission denied (publickey)" is the whole answer.
     throw new Error(job.error || job.lines.slice(-1)[0] || "clonage échoué");
   return job.workspace;
 }
 
-/**
- * Committer et pousser ce qui vient d'être fait, en rendant la plainte s'il y en a une.
- *
- * Le verbe est **`project commit`** et non `commit` — c'est ce que déclare
- * `packages/commands/commands.yaml`, et une ligne qui ne correspond à aucune commande ne lève
- * pas : elle répond « unknown command ».
- */
+/** Commit and push what was just done, returning the gripe if there is one. The verb is
+ *  `project commit`, not `commit`: a line matching no command answers "unknown command". */
 export async function commitAndPush(
   m: Machine,
   workspace: string,
@@ -77,29 +67,22 @@ export async function commitAndPush(
   const out = await engineMachine.command(
     m,
     workspace,
-    // Le message est le reste de la ligne, sans guillemets ; un retour à la ligne en ferait
-    // deux commandes.
+    // The message is the rest of the line, unquoted; a newline would make it two commands.
     `project commit ${message.replace(/[\r\n]+/g, " ")}`,
   );
   return commitOutcome(out);
 }
 
-/**
- * Créer un projet : cloner si besoin, échafauder, committer.
- *
- * L'ordre compte. Le commit vient APRÈS, et son échec n'annule pas la création : le dossier est
- * là, sur la machine, et le dire vaut mieux que de le supprimer pour faire propre — ce serait
- * jeter le travail de quelqu'un pour une panne de réseau.
- */
+/** Create a project: clone if needed, scaffold, commit. The commit comes AFTER and its failure
+ *  does not undo the creation — deleting the folder to look tidy would throw work away. */
 export async function createProjectOnMachine(
   m: Machine,
-  /** Le dossier d'espace de travail sur CETTE machine. La page le tient déjà : c'est la machine
-   *  qui a listé la rangée d'où part ce clic, donc il n'y a plus ni URI à résoudre ni clone à
-   *  s'assurer ici. `ensureWorkspace` sert encore, mais à l'AJOUT d'un dépôt. */
+  /** The workspace folder on THIS machine — the page already holds it, so nothing resolves a
+   *  URI or ensures a clone here. `ensureWorkspace` still serves, but for ADDING a repository. */
   workspace: string,
   folder: string,
   onStep: (s: string) => void,
-  /** Quel gabarit écrire : `arrangement`, `mix` ou `video`. */
+  /** Which template to write: `arrangement`, `mix` or `video`. */
   shape: ProjectShape,
 ): Promise<{ project: string; gripe: string | null }> {
   onStep(`création de ${folder}…`);
@@ -116,8 +99,8 @@ export async function createProjectOnMachine(
   };
 }
 
-/** …et le supprimer. Le service le recycle (corbeille) ; c'est le commit qui le retire du
- *  dépôt, donc des autres machines. */
+/** …and delete one. The service recycles it; the COMMIT is what removes it from the repository,
+ *  and so from every other machine. */
 export async function deleteProjectOnMachine(
   m: Machine,
   workspace: string,

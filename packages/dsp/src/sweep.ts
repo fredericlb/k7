@@ -1,14 +1,13 @@
-// The DJ filter — ONE knob that runs a RESONANT corner down on the way left and up on the way
+// The DJ filter — ONE knob running a RESONANT corner down on the way left and up on the way
 // right, silent in the middle.
 //
-// One knob is the whole constraint, and it is not cosmetic: a desk control drives at most one
-// param (packages/song/docs/viewBindings.md), so "low-pass or high-pass" cannot be a second
-// setting somebody flips. The two filters are therefore always BOTH in the chain, and what
-// moves is where each sits — which is also how the hardware this imitates works.
+// One knob is the constraint, not a style: a desk control drives at most one param
+// (packages/song/docs/viewBindings.md), so "low-pass or high-pass" cannot be a second setting.
+// Both filters are therefore always in the chain and what moves is where each sits — which is
+// how the hardware this imitates works too.
 //
-// What makes it a DJ filter rather than a filter is the RESONANCE. A flat corner sliding
-// across a track only muffles it, progressively and dully; the swoosh everyone knows is a
-// PEAK travelling with the corner, lifting a narrow band as it goes. That peak is the effect.
+// The RESONANCE is what makes it a DJ filter: a peak travelling with the corner, not a flat
+// corner sliding across and dully muffling.
 
 import { type GraphJson, graph } from "./index";
 

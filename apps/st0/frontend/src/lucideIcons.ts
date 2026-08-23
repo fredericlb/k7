@@ -1,19 +1,10 @@
-// lucideIcons.ts — resolve a lucide icon by NAME, at runtime.
+// lucideIcons.ts — resolve a lucide icon by NAME at runtime, for the ones a person picks.
 //
-// Naming one costs the whole set: everywhere else in this app picks its icons by import and is
-// tree-shaken down to those, while "whatever the person chose" cannot be known at build time. The
-// set is loaded through a dynamic import and cached, so a surface asking for an icon awaits once
-// and every surface after it is synchronous.
-//
-// THE SPLIT DOES NOT HAPPEN, and the build says so: `INEFFECTIVE_DYNAMIC_IMPORT — lucide-react is
-// dynamically imported by src/lucideIcons.ts but also statically imported by src/App.tsx, …`.
-// Thirty components import their icons by name from the same module, so the bundler cannot move it
-// into a chunk of its own; the `import()` buys deferred EXECUTION and no deferred download. Worse,
-// naming the namespace retains all ~1500 exports where tree-shaking used to keep the forty this app
-// draws. Measured: the IconPicker chunk is 1 KB and the main chunk is 2.4 MB.
-//
-// Left as it is because the ask was a complete library, and the alternative — a curated subset,
-// statically imported — is a different product decision, not a refactor. See docs/shell.md.
+// The dynamic import buys deferred EXECUTION, not a smaller bundle: thirty components import
+// lucide statically, so the bundler cannot split it out, and naming the namespace retains all
+// ~1500 exports where tree-shaking kept forty. The build says so, every time
+// (`INEFFECTIVE_DYNAMIC_IMPORT`). Left that way on purpose — a curated subset is a product
+// decision, not a refactor. Measured numbers and the whole argument: docs/shell.md.
 
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";

@@ -1,14 +1,12 @@
-// playlistItems.ts — a playlist's lines against the songs this library actually holds: which
-// morceau each one names, which of its versions, and why a line cannot play. Pure, so the
-// resolution is testable without a screen.
+// playlistItems.ts — a playlist's lines against the songs this library holds: which morceau each
+// names, which version, and why a line cannot play. Pure, so it is testable without a screen.
 //
-// HERE and not in either surface, because there are two now and they must agree: st0's playlist
-// screen draws the lines to edit them, and the DJ desk draws the same lines to load one onto a
-// deck (`@studio/ui-turntables/docs/songBrowser.md`). Two copies of "path first, then name"
-// would disagree the first time one learned a case. The direction of the import is the reason
-// it landed on this side: the listing, the entry and `takesOf` are all this package's, and only
-// the `PlaylistItem` type comes the other way — from a file in @studio/song that opens nothing.
-// See @studio/song/docs/playlists.md.
+// HERE because TWO surfaces must agree — st0's playlist screen edits the lines, the DJ desk
+// loads one onto a deck — and two copies of "path first, then name" would diverge the first time
+// one learned a case. The import direction settled the side: everything but the `PlaylistItem`
+// type is already this package's.
+//
+// See @studio/song/docs/playlists.md and @studio/ui-turntables/docs/songBrowser.md.
 
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { type Take, takesOf } from "./takes.ts";

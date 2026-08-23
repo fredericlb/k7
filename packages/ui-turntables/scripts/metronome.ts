@@ -1,15 +1,12 @@
 // metronome.ts — is the click ON the deck's beat? Point it at a running engine.
 //
-// The engine's own metronome clicks on the DOCUMENT's grid, which on a deck has nothing to do
-// with where the music's beat is (see ../docs/bpm.md), so the desk writes the click track
-// itself. Whether that lands is a question about a sound, and this is how it gets answered:
-// the deck plays a SILENT file, so everything the broadcast tap hears is the click, and each
-// onset is compared against where that deck's grid says a beat belongs.
+//   npx tsx packages/ui-turntables/scripts/metronome.ts [ws://127.0.0.1:8765]
 //
-// It then moves the tempo the way a drag does and asks the same question again, because the
-// click clip is rebuilt every time and the second placement is the one that can be wrong.
+// The desk writes its own click track, because the engine's metronome follows the DOCUMENT's
+// grid (../docs/bpm.md). The deck plays a SILENT file, so everything the tap hears is the click,
+// and each onset is checked against where the deck's grid puts a beat. Then it drags the tempo
+// and asks again: the clip is rebuilt every time, and the second placement is the fragile one.
 //
-// Usage:  npx tsx packages/ui-turntables/scripts/metronome.ts [ws://127.0.0.1:8765]
 // STUDIO_SCRATCH: a directory both sides can reach — see tempo-drag.ts.
 
 import { mkdtempSync, writeFileSync } from "node:fs";

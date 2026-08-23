@@ -1,15 +1,12 @@
 // The normaliser's DSP. The builder arrives as an ARGUMENT, so this file imports nothing at
-// runtime — a song folder has no node_modules and should never need one (the `import type` is
-// erased; see @studio/song's dspRunner.mjs).
+// runtime — a song folder has no node_modules and never should.
 //
-// This is @studio/dsp's `normalize()` graph, written out here: a module is a FOLDER you can
-// copy, so it carries its own source rather than pointing at a shared library.
-// packages/dsp/src/normalize.test.ts holds the two to the same shape.
+// @studio/dsp's `normalize()` graph written out here, because a module is a FOLDER you can copy.
+// src/normalize.test.ts holds the two to the same shape.
 //
-// The graph is four nodes, and that is the point. Applying the gain is trivial; knowing WHICH
-// gain cannot be done here at all — a streaming node sees the samples it has, and the loudest
-// may be the last. So `Peak` is an input, filled in by the pass that reads the file end to end.
-// That is what makes this module cold rather than merely expensive.
+// `Peak` is an INPUT, and that is what makes this module cold rather than merely expensive: a
+// streaming node sees only the samples it has, and the loudest may be the last — so the gain is
+// filled in by the pass that reads the file end to end.
 
 import type { GraphBuilder } from "@studio/dsp";
 

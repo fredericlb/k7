@@ -1,14 +1,12 @@
-// SurfaceTab.tsx — one `split` surface, drawn in the pane the shell gives it. st0's half of
-// `surfaces/`. It turns the declaration into the component that draws it and hands that
-// component the engine, the decks and the mapping. The desk itself is @studio/ui-turntables.
+// SurfaceTab.tsx — one `split` surface, drawn in the pane the shell gives it: st0's half of
+// `surfaces/`. It turns the declaration into a component and hands it the engine, the decks and
+// the mapping. The desk itself is @studio/ui-turntables.
 //
-// See packages/song/docs/surfaces.md.
+// It used to also mount the DOCUMENT while the screen was closed, behind an `open` prop, because
+// the desk was a `view` that came and went. A pane is mounted once and hidden with CSS, so the
+// shell's invariant now covers what that prop protected.
 //
-// It used to own a second job: mounting the DOCUMENT while the screen was closed, behind an
-// `open` prop, because the desk was a `view` that came and went over the layout. A pane is
-// mounted once and hidden with CSS, so the shell's own invariant now covers what that prop
-// protected — the crossfader and the six EQ knobs survive a trip to the graph because nothing
-// unmounts. See packages/ui-turntables/docs/deckSet.md.
+// See packages/song/docs/surfaces.md and packages/ui-turntables/docs/deckSet.md.
 
 import type { WebGraph } from "@studio/graph-model";
 import { cfg } from "@studio/project-shell/fileApi";

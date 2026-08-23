@@ -1,17 +1,10 @@
 // moduleMigrate.ts — move a project off the generated plugin catalogue.
 //
-// Before: a project module was a folder whose `module.yaml` said `extends:
-// "@engine/audio/reverb/reverb"`, pointing at one of 254 wrappers `module populate` had
-// written into the workspace's `_modules` — each carrying exactly `plugin.type` and
-// `plugin.name`, two facts the engine's own scan already knew.
+// Before, a module extended one of 254 `@engine/…` wrappers holding two facts the engine's scan
+// already knew. After, a use of an engine plugin is a NODE naming the plugin itself (loader.ts);
+// only what someone AUTHORED still points at the library, under `@library`.
 //
-// After: the wrappers are gone. A use of an engine plugin is a NODE that names the
-// plugin itself, in a folder with no generic (see loader.ts). A use of something someone
-// AUTHORED — a jsdsp source, a rack's sample map — still points at the library, under its
-// own namespace `@library`.
-//
-// One-shot and re-runnable: a project with no `@engine/…` extends left is already
-// migrated and is reported as such.
+// One-shot and re-runnable: a project with no `@engine/…` left is reported as already migrated.
 
 import {
   existsSync,

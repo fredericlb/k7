@@ -49,6 +49,7 @@
     "lint:fix": "biome check --write .",
     "lint:bytes": "node scripts/check-source-bytes.mjs",
     "lint:docs": "node scripts/check-doc-links.mjs",
+    "lint:comments": "node scripts/check-comments.mjs",
     "lint:dead": "knip"
   },
   "devDependencies": {

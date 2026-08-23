@@ -1,16 +1,12 @@
-// testHost.ts — un `CommandHost` COMPLET pour un test, dont on ne renseigne que ce qui compte.
+// testHost.ts — a COMPLETE `CommandHost` for a test, of which a caller states only what matters.
 //
-// Les suites de ce paquet fabriquaient chacune leur hôte et le finissaient par `as never` : 128
-// occurrences dans l'arbre, et chacune éteint le typeur sur l'objet qu'elle vient d'écrire. Deux
-// conséquences, vues toutes les deux :
+// Suites used to build their own and finish it with `as never` — 128 of them, each switching the
+// typer off on the object it had just written. Two things followed, both seen: a host missing a
+// field the verb calls compiled and broke at runtime inside a test about something else, and an
+// optional field set to `undefined` took the parameter default, so a "without this capability"
+// test exercised a host that had it. That cost two false greens.
 //
-//   • un hôte à qui il manque un champ que le verbe appelle passe la compilation et casse à
-//     l'exécution, dans un test qui ne parle pas de ça ;
-//   • un champ OPTIONNEL renseigné à `undefined` prend la valeur par défaut du paramètre, donc le
-//     test « sans cette capacité » exerce en fait un hôte qui l'a. Ça a coûté deux faux verts.
-//
-// Ici l'objet est complet par construction et l'appelant ne dit que ce qu'il veut changer. Il n'y
-// a plus de cast, donc oublier un champ que le verbe appelle est une erreur de compilation.
+// Complete by construction here, so forgetting a field is a compile error rather than a surprise.
 
 import type {
   AudioDeviceInfo,

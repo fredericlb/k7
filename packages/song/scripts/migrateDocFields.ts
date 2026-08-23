@@ -1,14 +1,11 @@
 // migrateDocFields.ts — turn every `docs:`/`todos:` a project still carries into a `#` comment.
 //
-// Both fields are gone from the schemas (docs/docModules.md) and both schemas are `.strict()`,
-// so a file still carrying one refuses to load. Their prose is worth keeping, and a comment is
-// where this repo puts a file's prose — so it is MOVED rather than deleted.
-//
-// Through the yaml Document API, never by rewriting text: every other comment, the key order
-// and the inline flow maps come back byte-identical, which a regex over the file would not
-// promise. Dry by default; pass --write to actually save.
-//
 //   npx tsx packages/song/scripts/migrateDocFields.ts <dir> [more dirs…] [--write]
+//
+// Both fields are gone from the `.strict()` schemas (docs/docModules.md), so a file carrying one
+// refuses to load — the prose is MOVED rather than deleted. Through the yaml Document API and
+// never by rewriting text, so every other comment and the key order come back byte-identical.
+// Dry by default.
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
