@@ -41,9 +41,7 @@ describe("gainToDb / dbToGain", () => {
     expect(dbToGain(-Infinity)).toBe(0);
   });
 
-  // The ceiling is the ENGINE's, not a taste call: Tracktion's volume plugin turns dB
-  // into a fader position that hits its 1.0 limit at exactly +6 dB and is clamped there.
-  // Asking for more used to store a bigger number and still play +6.
+  // The ceiling is the ENGINE's: Tracktion's fader position saturates at exactly +6 dB.
   it("clamps the top of the fader to +6 dB (~gain 1.9953)", () => {
     expect(MAX_GAIN_DB).toBe(6);
     expect(MAX_GAIN).toBeCloseTo(1.9953, 4);
@@ -63,14 +61,7 @@ describe("panToLabel", () => {
   });
 });
 
-// removeTrackPlacement drops one placement from a track's `events:` list, addressed by its
-// start POSITION (the key `move event` uses too).
-//
-// Three of these cases used to be about the TEXT: no hole where the element was, no comma
-// dangling in front of the closing bracket, no orphaned indent. On a document the list is a
-// sequence node, so none of those are reachable — what is left worth pinning is that the
-// right one goes, the others come back byte-identical, and nothing is written when there is
-// nothing there.
+// removeTrackPlacement drops one placement, addressed by its start POSITION as `move event` is.
 describe("removeTrackPlacement", () => {
   let dir: string;
   const track = (body: string) => {
@@ -97,8 +88,7 @@ events:
     expect(removeTrackPlacement(dir, "drums", 4, 4, 4)).toBe(true); // bar 2 == beat 4
     const out = read();
     expect(out).not.toContain("snare");
-    // Everything else — the comment, the header fields, the two surviving placements —
-    // comes back exactly as authored.
+    // Everything else — the comment, the header, the survivors — comes back exactly as authored.
     expect(out).toBe(
       THREE.split("\n")
         .filter((l) => !l.includes("snare"))
@@ -131,10 +121,7 @@ events:
   });
 });
 
-// Dragging an event onto ANOTHER lane. It wrote a YAMLMap's own fields into the file —
-// `{ items: […], flow: true, range: […] }` — because `placementAt` handed back the document node
-// and the move spreads what it gets. The lane then failed to compile and took the timeline with
-// it. What is pinned here is the shape that reaches the destination file, not just that it moved.
+// Dragging an event onto ANOTHER lane: it used to write a YAMLMap's own fields into the file.
 describe("moving a placement onto another lane", () => {
   let dir: string;
   beforeEach(() => {
@@ -165,8 +152,7 @@ describe("moving a placement onto another lane", () => {
   });
 
   it("keeps everything the placement carried except its start", () => {
-    // `loop` is the one that proves it: a rebuild from {ref, start} would have dropped it, and
-    // the event would have played once instead of twice with nothing on screen to say why.
+    // `loop` proves it: a rebuild from {ref, start} would have played it once instead of twice.
     movePlacementToTrack(dir, "bs", "gtr", 96, "30:1", 4, 4);
     expect(gtr()).toContain("loop: 2");
     expect(gtr()).not.toContain('"25:1"'); // …and the old start did not travel

@@ -27,19 +27,15 @@ import {
 } from "@studio/engine-browser/store";
 import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
 import { markActive } from "@studio/project-shell/idle";
-// The address of ONE surface, for another device to open — see `ui external` below and
-// docs/external.md. Read and written through the same module the launch is, so the two spell a
-// project the same way by construction.
+// The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import { externalUrl, parseLaunch } from "@studio/project-shell/launch";
 import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
-// The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
-// loader in behind it.
+// The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the loader in.
 import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
-// The desk's rule about where PLAY starts, imported rather than restated here — see
-// `transportForSet`. st0 is a host of that package, so this is the ordinary direction.
+// The desk's rule about where PLAY starts, imported rather than restated here — see `transportForSet`.
 import { playFrom, TIMELINE_BASE } from "@studio/ui-turntables/deck";
 import {
   type EngineLatency,
@@ -215,32 +211,17 @@ export default function App({
   snapshot,
 }: {
   engineUrl: EngineUrl;
-  /** What the link to that engine measured — the footer's Q badge. Null when the gate
-   *  could not measure it, which the badge says rather than guessing a band. */
+  /** What the link measured — the footer's Q badge; null when the gate could not, which the badge says. */
   engineLatency: EngineLatency | null;
-  /** Who is logged in. Feeds the SESSION id, so two people on one engine hold two
-   *  projects rather than overwriting each other's. */
+  /** Who is logged in — feeds the SESSION id, so two people on one engine hold two projects. */
   userEmail: string;
   onQuitWorkspace: () => void;
   /** Back to the engine picker — the settings panel's Compte tab. */
   onChangeEngine: () => void;
-  /**
-   * The FROZEN snapshot this shell is drawing, when it was opened through a share link.
-   *
-   * Undefined is the ordinary case and everything below reads it that way. Present, it means
-   * there is no engine, no working copy and no account behind this screen — so the panes that
-   * edit a file are not offered and the transport is a browser clock over rendered audio. The
-   * refusal itself is NOT here: it is `fsend`, one level down, which is what makes this prop a
-   * matter of what to draw rather than of what to prevent. See docs/shared.md.
-   *
-   * `snapshot` and not `share`, because `share` is already this shell's word for the ACT of
-   * publishing one (`useShare`, the Partager menu) — and the two would have sat six lines apart.
-   */
+  /** The FROZEN snapshot this shell draws when it was opened through a share link — see docs/shared.md. */
   snapshot?: OpenShare;
 }) {
-  // Read once and passed around as a boolean: almost everywhere the question is "is this
-  // editable", not "which snapshot is it", and a truthy object at those call sites invites
-  // reaching into it from places that have no business knowing there is a manifest.
+  // Read once as a boolean: nearly every call site asks 'is this editable', not 'which snapshot is it'.
   const frozen = !!snapshot;
   // The layout: null is the global view, a pane name is that pane expanded; `focus` is which pane owns the keys.
   const [full, setFull] = useState<Pane | null>(null);
@@ -250,61 +231,25 @@ export default function App({
   // The timeline, because it is what the default view opens on — see ringPanes.
   const [focusPane, setFocusPane] = useState<Pane>("timeline");
   const [panel, setPanel] = useState<Panel | null>(null);
-  // `openSurface` was here: which `view` surface had the screen, by its filename. The desk was the
-  // only one and is a PANE now, so `full` names it like any other and there is no second kind of
-  // screen to track. See packages/song/docs/surfaces.md.
-  /**
-   * The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed.
-   *
-   * A screen over the layout rather than a pane, because it edits a document that is not the open
-   * project at all: a chain template in `_libraries`. What makes that possible without a second
-   * editor is that a chain IS a graph, so the same verbs reach it once they are pointed at its
-   * folder. See docs/chainsBuilder.md.
-   */
+  // The CHAINS BUILDER: a library chain being edited by its ref, `""` for the list, null closed — docs/chainsBuilder.md.
   const [openBuilder, setOpenBuilder] = useState<string | null>(null);
-  /** The NODE of that chain to land on, when the tree row was one — its file name, or null for
-   *  the chain itself. Not in the URL: it is where a click put you, not what the address names. */
+  /** The NODE of that chain to land on — its file name, or null for the chain itself. Not in the URL. */
   const [builderNode, setBuilderNode] = useState<string | null>(null);
-  // The module the shared builder is open on, or null. An OVERLAY and not a pane: the builder is a
-  // full screen of its own (a code pane, a params list and a widget grid), and the shell's panes are
-  // already three. Nothing under it unmounts, so closing it puts the editor back exactly as it was.
+  // The module the shared builder is open on, or null — an overlay, not a pane, so nothing under it unmounts.
   const [builder, setBuilder] = useState<{
     path: string;
     pane: BuilderPane;
-    /**
-     * Whether this shared module has been unlocked for editing. Only the dialog below sets it.
-     *
-     * Whether it IS shared is not held here: it is read off the path (`isLibraryPath`), so a
-     * module opened by the `ui builder` command locks exactly as one clicked in the Libraries
-     * tab does. A flag set at click time would have been a second answer to a question the
-     * path already settles.
-     */
+    /** Whether this shared module has been unlocked for editing; whether it IS shared is read off the path. */
     unlocked?: boolean;
   } | null>(null);
-  // The shared module the "Edit" button is asking about. Held rather than derived from `builder`
-  // so the dialog closes on its own without touching what is behind it.
+  // The shared module the Edit button asks about, held so the dialog closes without touching what is behind it.
   const [editShared, setEditShared] = useState<string | null>(null);
-  /**
-   * The LIVE plugin behind the module the builder is open on, when the open project has one.
-   *
-   * This is what makes the builder more than a text editor: a plugin's parameter names, their
-   * ranges and its factory presets are facts about a LOADED plugin, and the only loaded plugins
-   * are the ones this project instantiates. The médiathèque used to answer by sending the engine
-   * a one-module throwaway project; that only ever worked because it had an engine session with
-   * nothing in it, and it is gone with its builder.
-   *
-   * Matched on the chain step's NAME. A node named after the module it extends is therefore
-   * the one that lights this up — which is the rule the bench is built around
-   * (apps/pl8/docs/banc.md). No match is an ordinary state: the grid still edits, the bindings
-   * are just typed rather than picked.
-   */
+  /** The LIVE plugin behind the builder's module, matched on the chain step's NAME — see docs/moduleBuilder.md. */
   const [builderPlugin, setBuilderPlugin] = useState<{
     module: string;
     pluginId: string;
   } | null>(null);
-  // The documentation: an OVERLAY with its own route (/docs), so Back and typing `help` both close it.
-  // Read RAW, before the router mounts, so the prefix the router would strip is
-  // still on it — hence slicing BASE_URL off by hand here and nowhere else.
+  // The documentation overlay (/docs), read RAW before the router mounts — hence slicing BASE_URL off by hand here.
   const [showHelp, setShowHelp] = useState(() =>
     ["docs", "help"].includes(
       window.location.pathname
@@ -317,9 +262,7 @@ export default function App({
 
   // What the editor has open (a clip/track), for the minimap's highlight ring.
   const [openItem, setOpenItem] = useState<MinimapItem | null>(null);
-  // The timeline caret: the minimap needs its row, m/s need its id (commands address a track by
-  // name), and the two timecodes are what let a command act on what you are looking at without
-  // asking for it back — see commandFill.ts' `caretAnswers`.
+  // The timeline caret: its row for the minimap, its id for m/s, its timecodes for `caretAnswers` in commandFill.ts.
   const [caret, setCaret] = useState<{
     row: RowKey;
     beat: number;
@@ -328,14 +271,7 @@ export default function App({
     eventTc: string | null;
     selection: { tracks: string; from: string; to: string } | null;
   } | null>(null);
-  /**
-   * The caret as the COMMAND BAR reads it — a track, a moment, and the event it is over.
-   *
-   * A separate shape from the state above because the two are about different things: that one is
-   * the timeline's own cursor (a row and a beat, which the minimap draws), this one is what a
-   * command line can name. Narrowing here keeps `commandFill` free of the timeline's vocabulary,
-   * which is what lets it be tested — nothing in this app mounts a component.
-   */
+  /** The caret as the COMMAND BAR reads it — narrowed here to keep commandFill.ts free of the timeline's vocabulary. */
   const caretAim = useMemo(
     () =>
       caret
@@ -352,24 +288,11 @@ export default function App({
   );
   const [project, setProject] = useState<ProjectInfo | null>(null);
   const [ws, setWs] = useState<WorkspaceInfo | null>(null);
-  // The take this tab has already dismissed. The server keeps naming the last one for ever — "the
-  // last take" stays true until there is another — so what makes the review appear ONCE is this, and
-  // a genuinely new take has a different id and shows up on its own.
+  // The take this tab has dismissed: the server names the last one for ever, so this is what shows the review ONCE.
   const [reviewedTake, setReviewedTake] = useState<string | null>(null);
-  /**
-   * Where the take now rolling STARTED, in beats. One source, because two surfaces draw from it —
-   * the clip panel's counter and the growing clip on the lane — and two captures would drift the
-   * moment they mounted at different times.
-   *
-   * Read off the store at the `rolling` edge rather than subscribed to: this changes once per take,
-   * and a subscription here would re-render the whole shell 20 times a second for a number that
-   * does not move. (That is not hypothetical — it is what `Playhead` exists to avoid; see
-   * docs/timeline.md.)
-   */
+  /** Where the take now rolling STARTED, in beats — one source for two surfaces, read at the `rolling` edge rather than subscribed. */
   const [takeStart, setTakeStart] = useState(0);
-  // …and the one ASKED for by name (`ui review <clip>`), which outranks it. The automatic review is
-  // a moment that passes — the service forgets `lastTake` when it restarts, and the ✓ ends it for
-  // good — so this is how a take is reopened afterwards, including one nothing is naming any more.
+  // …and the one ASKED for by name (`ui review <clip>`), which outranks it — how a take is reopened afterwards.
   const [reviewOn, setReviewOn] = useState<{
     clip: string;
     track: string;
@@ -386,14 +309,7 @@ export default function App({
     refused: boolean;
   }>({ text: "", refused: false });
   const status = statusLine.text;
-  /**
-   * Say something on the status line — and, by saying it this way, say it is NOT a refusal.
-   *
-   * Wrapping the setter rather than threading a second argument through the forty call sites:
-   * every one of them means "here is what happened", and the one place that can mean "here is why
-   * I would not" is `runCommand`, below. So the flag clears itself everywhere else, and cannot be
-   * left stale by a message that came after a refusal.
-   */
+  /** Say something on the status line — and, by saying it this way, say it is NOT a refusal; only `runCommand` refuses. */
   const setStatus = useCallback(
     (text: string) => setStatusLine({ text, refused: false }),
     [],
@@ -403,19 +319,10 @@ export default function App({
     (text: string) => setStatusLine({ text, refused: true }),
     [],
   );
-  /**
-   * "Something changed — re-read what you draw", and now WHAT changed with it.
-   *
-   * The counter is unchanged and every consumer still keys off it. What is new is `files`: the
-   * list a writing command answers with, so a consumer whose route depends on files or on names
-   * can decide whether it is one of them. `null` means nobody said, and every predicate in
-   * `reloadScope.ts` reads that as "re-ask" — which is what makes the bump below, the open, the
-   * undo and the poll all keep behaving exactly as they did.
-   */
+  /** 'Something changed — re-read what you draw', plus WHAT changed: `files`, which reloadScope.ts reads (null = re-ask). */
   const [reload, setReload] = useState<Reload>(UNKNOWN_RELOAD);
   const reloadKey = reload.key;
-  // Bumped when `graph organize` runs: the graph hosts hold every drawn node in place across
-  // ordinary edits, and this is the one signal that lets dagre re-lay out everything.
+  // Bumped when `graph organize` runs: the one signal that lets dagre re-lay out every drawn node.
   const [organizeKey, setOrganizeKey] = useState(0);
   // The unscoped bump: whatever the caller did, it is not saying what moved.
   const bumpReload = useCallback(
@@ -430,19 +337,11 @@ export default function App({
     loop: false,
     expanded: false,
   });
-  /**
-   * Which panel has the RIGHT COLUMN, or null for none.
-   *
-   * One state and not three, because there is one column: two panels open at once would be two
-   * columns, and the panes have already given up the width for one. Opening any of them closes
-   * whichever was there, which is what a single value says and three booleans would only
-   * promise. Each is docked (`SettingsPanel`, `PlaylistsPanel`, `SharePanel`).
-   */
+  /** Which panel has the RIGHT COLUMN, or null — one state because there is one column (docs/shell.md). */
   const [rightPanel, setRightPanel] = useState<
     "settings" | "playlists" | "share" | null
   >(null);
-  /** Which tab the settings panel shows. Kept while it is closed, so the cog reopens where you
-   *  left it — and it is state rather than a ref because the panel renders from it. */
+  /** Which tab the settings panel shows, kept while closed so the cog reopens where you left it. */
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(SETTINGS_TABS[0]);
   /** The command catalogue, the one settings screen still drawn as a full PAGE. */
   const [commandsPage, setCommandsPage] = useState(false);
@@ -461,32 +360,16 @@ export default function App({
       .catch(() => {});
   }, []);
   const cmdRef = useRef<CommandBarHandle>(null);
-  // On a wide screen the bar is DOCKED under the minimap and always on screen, so there is
-  // nothing to open: `paletteOpen` governs the PHONE's popin alone (no minimap there, and the
-  // band a permanent prompt costs is what a phone has least of). See docs/commandBar.md.
+  // On a wide screen the bar is DOCKED and always there; `paletteOpen` governs the PHONE's popin alone (docs/commandBar.md).
   const docked = !isMobile;
   const [paletteOpen, setPaletteOpen] = useState(false);
-  // Which field the command bar is waiting on, or null. The shell reads it to decide whether a
-  // gesture in a pane should ACT or feed the bar — see docs/commandBar.md.
+  // Which field the command bar is waiting on, or null — it decides whether a gesture ACTS or feeds the bar (docs/commandBar.md).
   const [barPending, setBarPending] = useState<CommandPending | null>(null);
-  // …and read LIVE by the phone's dismiss timer below, which fires after the state that would
-  // have told it not to.
+  // …and read LIVE by the phone's dismiss timer below, which fires after the state that would have told it not to.
   const barPendingRef = useRef<CommandPending | null>(null);
   barPendingRef.current = barPending;
 
-  /**
-   * The PHONE's bar goes away when it loses the keyboard. The desktop's is docked and stays.
-   *
-   * A popin over a phone screen is most of the screen: leaving it up after you have tapped past
-   * it costs the pane you tapped INTO, and there is no minimap row for it to live under.
-   *
-   * Two guards, and both are load-bearing. It waits a moment rather than closing on the blur
-   * itself, because picking a command takes the keyboard from this field and gives it to the
-   * parameter form one render later — closing in between would dismiss the bar at the exact
-   * moment it was about to ask you something. And it re-reads `barPending` when the timer
-   * fires: while the parameter popin is open the bar is not idle, whatever the command field's
-   * focus says.
-   */
+  /** The PHONE's bar goes away when it loses the keyboard — two guards, both load-bearing; see docs/commandBar.md. */
   const dismiss = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onBarFocusChange = useCallback(
     (focused: boolean) => {
@@ -503,78 +386,38 @@ export default function App({
     [docked],
   );
   useEffect(() => () => clearTimeout(dismiss.current ?? undefined), []);
-  // The editor as a POPIN: a command sent it to a file while its pane was off screen. It is the
-  // SAME instance, restyled onto the surface — see docs/shell.md.
+  // The editor as a POPIN: the SAME instance, restyled onto the surface — see docs/shell.md.
   const [editorPopin, setEditorPopin] = useState(false);
-  // It is a popin in the registry's sense too, so Esc closes it and stops there. Its own vim
-  // keeps Escape while you are TYPING in it — the listener stands aside for a code editor — so
-  // the key still leaves insert mode and only reaches here from outside the text.
+  // A popin in the registry's sense too, so Esc closes it; its own vim keeps Escape while you are typing in it.
   usePopin(editorPopin, () => setEditorPopin(false));
-  // The rack builder popin — a 4×4 pad grid that ends in modules/instruments/<name> on disk.
-  // Opened by the `module create rack` palette command; Esc and the backdrop close it.
+  // The rack builder popin — a 4×4 pad grid ending in modules/instruments/<name>; Esc and the backdrop close it.
   const [rackBuilder, setRackBuilder] = useState(false);
   usePopin(rackBuilder, () => setRackBuilder(false));
   // Whether ANY overlay is up, this shell's or a component's own. Drives the `popin` condition.
   const anyPopin = useAnyPopin();
-  /**
-   * What the chains slot is showing INSTEAD of the graph, or null for the graph itself.
-   *
-   * Three occupants, one state, because they cannot be there together: a sequence's note grid
-   * (`sequence edit roll|tracker`), a clicked clip's content, and the take being recorded.
-   * Separate flags would have had to agree about which wins, and the × would have had to work
-   * out which one it was closing.
-   *
-   * NOT route state: `routes.ts` carries the LAYOUT, and these name a file or a moment — the
-   * same reason the editor's open file is not in the URL either. See docs/shell.md.
-   */
+  /** What the chains slot shows INSTEAD of the graph, or null — three occupants, one state (docs/shell.md). */
   const [graphSlot, setGraphSlot] = useState<
     | { kind: "grid"; path: string; view: SeqView }
     | { kind: "clip"; target: EditTarget }
     | { kind: "recording" }
-    // One track's modules, side by side — its whole signal path read left to right, opened by a
-    // double-click on the lane's header. See docs/shell.md.
+    // One track's modules side by side, opened by a double-click on the lane's header — see docs/shell.md.
     | { kind: "trackModules"; trackId: string }
     | null
   >(null);
-  /**
-   * The mixer view: the SAME graph, with every strip pulled onto one rank.
-   *
-   * A boolean and not a slot, because nothing takes the graph's place — only its ranks move
-   * (`alignModuleRank`). Which modules are strips is the project's answer, read below; this just
-   * says whether to ask for it.
-   */
+  /** The mixer view: the SAME graph, with every strip pulled onto one rank (`alignModuleRank`). */
   const [mixerView, setMixerView] = useState(false);
 
-  /**
-   * Whether the graph draws the project's NOTES — its doc modules.
-   *
-   * Off by default and not remembered, exactly like `mixerView` beside it: both are ways of
-   * looking at the one graph rather than places to be, and a shell that reopened holding
-   * somebody's last glance would be deciding what you came to look at.
-   *
-   * `docCount` is reported UP by the pane that has the graph — the button lives in the footer
-   * and the graph is fetched in `ChainsTab`, so the count has to travel. It is what makes the
-   * button honest on a project with no notes, which is nearly all of them.
-   */
+  /** Whether the graph draws the project's NOTES — off by default and not remembered; `docCount` is reported up by the pane holding the graph. */
   const [showDocs, setShowDocs] = useState(false);
   const [docCount, setDocCount] = useState(0);
-  /**
-   * What the graph knows about each lane's node: its other attribute sets, and its freeze.
-   *
-   * It travels the same way `docCount` does, and for the same reason — the graph is fetched by
-   * the chains pane, and this is wanted in the timeline's gutter. Both halves are empty for
-   * nearly every project, and the whole thing is empty until that pane has a graph.
-   */
+  /** What the graph knows about each lane's node — its other attribute sets and its freeze, travelling up like `docCount`. */
   const [laneNodes, setLaneNodes] = useState<{
     alternatives: WebGraph["trackAlternatives"];
     frozen: WebGraph["frozen"];
     automation: Record<string, WebAutomationLane[]>;
   }>({ alternatives: undefined, frozen: undefined, automation: {} });
 
-  // A take starts rolling (record enabled AND the transport playing): show it. It is deliberately
-  // one-way — the pane STAYS when the take ends, because what you just played is exactly what you
-  // want to look at, and only the × puts the graph back. Whatever the slot held is evicted: while
-  // a take rolls, the take is the thing.
+  // A take rolling (record enabled AND playing) shows it, one-way: the pane STAYS when the take ends, only the × puts the graph back.
   const rolling = recordEnabled && playing;
   useEffect(() => {
     if (rolling)
@@ -583,30 +426,14 @@ export default function App({
       );
   }, [rolling]);
   const timelineRef = useRef<TimelineHandle>(null);
-  /**
-   * The clip pane's caret, when one is open. The same three verbs the timeline's handle answers
-   * (`v`, `t`, ⇧L), on whichever grid the pane is drawing — see gridCaret.ts's ClipGridHandle.
-   *
-   * `clipSel` mirrors "is a rectangle live" into a condition, because a ref cannot be read from
-   * a memo: `L` is a conditional binding and has to go quiet with nothing to loop, exactly as it
-   * does for the timeline.
-   */
+  /** The clip pane's caret — the timeline handle's three verbs on whichever grid the pane draws (gridCaret.ts). */
   const clipGridRef = useRef<ClipGridHandle>(null);
   const [clipSel, setClipSel] = useState(false);
-  /**
-   * The shell's ONE clipboard — `selection copy` fills it, `selection paste` puts it down.
-   *
-   * One slot for both kinds rather than one per surface: copying is a single gesture with a
-   * single memory, and two clipboards would make "what does paste put down" a question about
-   * which pane you copied from three minutes ago. It carries its KIND, which is what lets one
-   * paste verb name the surface without asking (and a paste of the wrong kind is refused by name
-   * — see clipboard.ts). A ref beside it, so the command handler reads it without re-binding.
-   */
+  /** The shell's ONE clipboard, carrying its KIND so one paste verb names the surface — see clipboard.ts. */
   const [clipboard, setClipboard] = useState<MaybeClipboard>(null);
   const clipboardRef = useRef<MaybeClipboard>(null);
   clipboardRef.current = clipboard;
-  // The chains pane owns the MIDI runtime (it is the one place that always holds the graph, and
-  // the map is part of the graph) — the shell only reaches in to arm a learn. See docs/midi.md.
+  // The chains pane owns the MIDI runtime; the shell only reaches in to arm a learn — see docs/midi.md.
   const chainsMidiRef = useRef<MidiControlApi | null>(null);
   const editorRef = useRef<EditorHandle>(null);
 
@@ -616,8 +443,7 @@ export default function App({
     label: string;
     resolve: (ok: boolean) => void;
   } | null>(null);
-  // Registered like the other dialogs: Radix dismisses it on Escape without swallowing the key.
-  // Refusing IS an answer here, so the closer resolves the promise rather than dropping it.
+  // Registered like the other dialogs; refusing IS an answer here, so the closer resolves the promise.
   usePopin(!!undoConfirm, () => {
     if (!undoConfirm) return;
     undoConfirm.resolve(false);
@@ -644,14 +470,7 @@ export default function App({
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
   // The backend command catalogue (canonical name + trailing param names), for the step-by-step palette. Fetched once.
   const [backendCmds, setBackendCmds] = useState<CommandInfo[]>([]);
-  /**
-   * What this person has made of the command catalogue — names, icons, order (commandPrefs.ts).
-   *
-   * In the ACCOUNT's preferences, not the rig's: what you call a command follows you to another
-   * browser, where which audio interface to open belongs to the machine. `patchPrefs` merges, so
-   * writing this cannot wipe the engine id sitting beside it — the trap that document's own
-   * comment records.
-   */
+  /** What this person has made of the command catalogue — names, icons, order, in the ACCOUNT's preferences (commandPrefs.ts). */
   const [commandPrefs, setCommandPrefs] = useState<CommandPrefs>({});
   useEffect(() => {
     void engines
@@ -661,15 +480,12 @@ export default function App({
       )
       .catch(() => {}); // never saved any: the defaults are the catalogue's own
   }, []);
-  // Optimistic, and the write is not awaited — the button that calls it has already gone quiet.
-  // ONE call per Save: the settings page holds its edits in a draft, because this state is the
-  // app's root and a setState per keystroke re-renders the whole shell behind the overlay.
+  // Optimistic and not awaited; ONE call per Save, because this state is the app's root.
   const saveCommandPrefs = useCallback((next: CommandPrefs) => {
     setCommandPrefs(next);
     void engines.patchPrefs({ commands: next }).catch(() => {});
   }, []);
-  // The keymap as this person has it: the app's simple bindings with their `key:` prefs applied.
-  // Computed once per prefs change — the key listener reads it on every press.
+  // The keymap as this person has it, computed once per prefs change — the key listener reads it on every press.
   const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
   const lastActive = useRef<string | null>(null);
   const pendingPrewrite = useRef<string | null>(null);
@@ -683,8 +499,7 @@ export default function App({
     connected,
     engineReady,
     engineBusy,
-    // …and the same flag as a REF, for the one caller that must read it without being rebuilt
-    // when it changes: the local command dispatcher (see the bare transport verbs).
+    // …and the same flag as a REF, for the local command dispatcher, which must not be rebuilt when it changes.
     engineBusyRef,
     engineWarnings,
     watchWaveform,
@@ -706,28 +521,16 @@ export default function App({
     pushLog,
   );
 
-  /**
-   * On a snapshot, the transport is a browser clock over rendered audio instead of an engine.
-   *
-   * Substituted HERE, at the two verbs, and nowhere else: everything downstream — the bar, the
-   * keys, `transport play`, the playhead, `replayAtRef` just below — reads the same `store`
-   * frames whichever side is filling them, so none of it learns that there is no engine.
-   */
+  /** On a snapshot the transport is a browser clock over rendered audio, substituted at the two verbs and nowhere else. */
   const player = useSnapshotPlayer(snapshot, store);
   const transport = snapshot ? player.transport : engineTransport;
   const seek = snapshot ? player.seek : engineSeek;
-  // Into the status line rather than a dialog: a browser refusing to autoplay, or one codec it
-  // will not take, is something to READ — the rest of the screen still works and is worth
-  // keeping. Same place the engine's own trouble goes.
+  // Into the status line rather than a dialog: a refused autoplay is something to READ, the rest of the screen still works.
   useEffect(() => {
     if (player.fault) setStatus(player.fault);
   }, [player.fault]);
 
-  // Where playback LAST STARTED, in seconds — what `transport replay` returns to. Read off the
-  // store's frames rather than recorded when this shell presses play, so a start from anywhere
-  // (a key, the bar, another tab, the CLI) counts: while stopped, the playhead sits where a play
-  // would begin, and the rising edge freezes that value. A raw subscription, not useEngineState —
-  // frames arrive at 20 Hz and this must remember, not re-render.
+  // Where playback LAST STARTED, in seconds — read off the store's frames, so a start from anywhere counts.
   const replayAtRef = useRef(0);
   useEffect(() => {
     let wasPlaying = store.getSnapshot().playing;
@@ -740,16 +543,7 @@ export default function App({
     });
   }, [store]);
 
-  /**
-   * A playing song is an ACTIVE session, even with nobody touching anything.
-   *
-   * Without this, the idle timer would cut a forty-minute set at the twentieth — mid-set, and by
-   * unloading the project from the engine, so cutting the sound. Listening is precisely what one
-   * does with this app without moving the mouse.
-   *
-   * A heartbeat rather than a flag: `markActive` is one assignment in a module, and a minute is
-   * far under the twenty being measured. See @studio/project-shell/docs/idle.md.
-   */
+  /** A playing song is an ACTIVE session: without this the idle timer would cut a set mid-way — @studio/project-shell/docs/idle.md. */
   useEffect(() => {
     if (!playing) return;
     markActive();
@@ -757,20 +551,9 @@ export default function App({
     return () => clearInterval(t);
   }, [playing]);
 
-  // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it.
-  // Both are cheap and unconditional: a project with no surfaces gets an empty list, and the
-  // adapter is a memo over the link that is already there.
+  // The special views this PROJECT declares (`surfaces/`), and the engine as a desk sees it — both cheap and unconditional.
   const { surfaces } = useSurfaces(reloadKey);
-  /**
-   * The project's ARRANGEMENT, if it declares one: a `split` surface of type `timeline`.
-   *
-   * This is what puts the timeline on screen. A project that declares none opens on its graph,
-   * and `surfaceIssues` says so beside its other diagnostics rather than leaving the absence to
-   * be guessed at.
-   *
-   * The list arrives a moment after the shell, so this is false for a frame or two on open.
-   * Paid here rather than by holding the whole shell back on a fetch.
-   */
+  /** The project's ARRANGEMENT, if it declares one: a `split` surface of type `timeline`, false for a frame or two on open. */
   const timelineSurface = useMemo(
     () =>
       surfaces.find(
@@ -779,14 +562,7 @@ export default function App({
     [surfaces],
   );
   const hasTimeline = !!timelineSurface;
-  /**
-   * The project's FRAME, if it declares one: a `split` surface of type `viewport`.
-   *
-   * The declaration and not the document is what mounts it, exactly as for the timeline — a
-   * song whose picture has not been written yet still says it draws picture, and the pane says
-   * which file to add rather than showing a black rectangle. The opposite case, lanes with no
-   * viewport declared, is `surfaceIssues`' warning.
-   */
+  /** The project's FRAME, if it declares one: the DECLARATION mounts it, not the document. */
   const viewportSurface = useMemo(
     () =>
       surfaces.find(
@@ -795,38 +571,25 @@ export default function App({
     [surfaces],
   );
   const hasViewport = !!viewportSurface;
-  // The song's picture — asked of every project, empty for most. The timeline draws its lanes
-  // and the viewport composites them, so it is fetched ONCE here rather than by each.
+  // The song's picture — fetched ONCE here, since the timeline draws its lanes and the viewport composites them.
   const { doc: videoDoc, error: videoError } = useVideoDoc(reloadKey);
   const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
-  // When each of those lanes is showing a frame, which is how a picture cable knows to ripple:
-  // the engine meters sound only, so the graph is handed the shots and reads the playhead itself.
-  // Memoised because it is a subscription's input over there — see videoSpans.ts.
+  // When each lane is showing a frame, so a picture cable knows to ripple — memoised, being a subscription's input (videoSpans.ts).
   const videoLaneSpans = useMemo(() => videoSpans(videoDoc), [videoDoc]);
-  // Each picture clip ref → the media file it names, for the editor's readers strip. Flattened
-  // here because only the COMPILER knows it: the ref names `clips/<ref>.yaml`, and reading that
-  // to find the source is exactly what the picture compile did.
+  // Each picture clip ref → the media file it names; flattened here because only the COMPILER knows it.
   const videoSources = useMemo(() => {
     const out: Record<string, string> = {};
     for (const t of videoTracks) for (const c of t.clips) out[c.id] = c.src;
     return out;
   }, [videoTracks]);
 
-  // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the timeline surface a
-  // second device draws, which drags the same clips into the same files.
+  // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the surface a second device draws.
   const applyVideoEdit = useVideoEdits(
     ws?.activeProject ?? ".",
     bumpReload,
     setStatus,
   );
-  /**
-   * The project's DESK, if it declares one: a `split` surface of type `turntables`.
-   *
-   * Found the same way the arrangement and the frame are, and drawn the same way — a pane in the
-   * column. It was the one `view` surface, a screen over the whole window reached from the
-   * header; the graph it is played against was underneath it, which is the wrong side of the
-   * screen for "which module is this fader on". See packages/song/docs/surfaces.md.
-   */
+  /** The project's DESK, if it declares one: a `split` surface of type `turntables`, a pane in the column. */
   const turntablesSurface = useMemo(
     () =>
       surfaces.find(
@@ -836,13 +599,7 @@ export default function App({
   );
   const hasTurntables = !!turntablesSurface;
 
-  /**
-   * …and its MASTER STRIP, if it declares one: a `split` surface of type `mastering`.
-   *
-   * Found and drawn exactly as the desk is, and for the same reason it sits beside the graph:
-   * every knob on it is a param on ONE module down there, and a project that wants to check
-   * which module wants both on screen at once. See apps/st0/frontend/docs/mastering.md.
-   */
+  /** …and its MASTER STRIP, if it declares one — beside the graph, since every knob on it is a param on ONE module there (docs/mastering.md). */
   const masteringSurface = useMemo(
     () =>
       surfaces.find(
@@ -852,18 +609,7 @@ export default function App({
   );
   const hasMastering = !!masteringSurface;
 
-  /**
-   * The addresses this project's surfaces answer on, for the share panel to hand out.
-   *
-   * Built here rather than in the panel because both halves are here: `surfaces` is the polled
-   * list, and the launch parameters come off the address this tab is on. `window.location.href`
-   * for the origin, as `shareUrl` does — a local checkout, the LAN proxy and the public host are
-   * three answers, and the tablet is on the LAN one.
-   *
-   * EVERY surface the project declares. It was only the desks for as long as a desk was the only
-   * type a second device could hold; all four draw there now, so a filter here would be hiding
-   * addresses that work. See docs/external.md.
-   */
+  /** The addresses this project's surfaces answer on, for the share panel — EVERY surface, since all four draw there (docs/external.md). */
   const externals = useMemo(() => {
     const at = parseLaunch(
       window.location.pathname,
@@ -887,42 +633,15 @@ export default function App({
     engineUrl,
   });
 
-  /**
-   * What the modules with NO plugin are set to, for the three screens that draw a graph.
-   *
-   * A `cold`/`offline` module compiles to nothing the engine holds — the deck's tempo node is the
-   * one this project has — so there is no plugin to watch and no id to watch it by. Its value
-   * lives on the surface that REALISES it, and the desk publishes it here through
-   * `deck.setModuleParam`. Without this the node draws the number `project.yaml` declares and
-   * never moves, which is a knob apparently stuck on its default.
-   *
-   * `undefined` when no surface realises anything, and that is the whole point of the prop being
-   * optional: passing an empty record would switch those widgets ON in an ordinary song, where
-   * nothing is behind them. See @studio/ui-chains-react's `moduleParams`.
-   */
+  /** What the modules with NO plugin are set to, for the three screens that draw a graph — undefined when no surface realises one (docs/shell.md). */
   const offlineParams = hasTurntables ? turntableDeck.moduleParams : undefined;
 
-  /**
-   * The transport, with a SET's one rule folded in: play starts where the music is.
-   *
-   * A deck's clip begins ten minutes into the timeline (`TIMELINE_BASE`, and its own note says
-   * why), so the first ten minutes of a set's timeline are guaranteed silence. Rolling from a
-   * transport left in there makes Play a button that visibly does nothing — the playhead
-   * advances and every meter stays dead.
-   *
-   * Wrapped HERE, over `transport`, rather than on the header button: Space, `transport play`,
-   * `transport replay` and the button are four roads to the same verb, and the desk's own Play
-   * is a fifth (`useDeckSet.toggleTransport`). Four of the five come through this one function.
-   *
-   * `playFrom` is the desk's rule, imported rather than restated — st0 is a HOST of that
-   * package, and a second copy of the number would be a second thing to keep in step.
-   */
+  /** The transport, with a SET's one rule folded in: play starts where the music is (`playFrom`) — docs/shell.md. */
   const transportForSet = useCallback(
     (action: TransportAction) => {
       const starting = action === "play" || (action === "toggle" && !playing);
       if (hasTurntables && starting) {
-        // The RAW anchor, not `drawNow`: this decides whether to MOVE the transport, and the
-        // steered reader is allowed to be up to 10% out for the sake of drawing smoothly.
+        // The RAW anchor, not `drawNow`: this decides whether to MOVE the transport, and the steered reader may be 10% out.
         const from = playFrom(turntableDeck.playhead.current.seconds);
         if (from !== null) seek(from);
       }
@@ -955,8 +674,8 @@ export default function App({
   const openHelp = useCallback(() => setShowHelp(true), []);
   const closeHelp = useCallback(() => setShowHelp(false), []);
 
-  // Any change of layout puts the popin away: it is a detour to one file, not a place to be —
-  // and leaving it hanging over a view you deliberately switched to would be the worse surprise.
+  // Any change of layout puts the popin away: it is a detour to one file, not a place to be.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: the layout changing IS the signal.
   useEffect(() => {
     setEditorPopin(false);
@@ -976,16 +695,7 @@ export default function App({
     }
   }, [vimMode]);
 
-  // The second pane of the current view, and the ring `tab` walks.
-  //
-  // The EDITOR is not in it. The default view is the timeline over the graph, full width; the
-  // editor is reached deliberately (`ui editor`) or arrives as a popin when a command sends it
-  // to a file. That is what `visible("editor")` reads to decide between the two — see
-  // docs/shell.md.
-  // The layout's own list, not "the timeline plus one": a project may declare no timeline, and
-  // a ring that still named it would hand the keys to a pane that is not drawn. It replaces
-  // `thirdPane`, which could only ever name the pane UNDER the timeline and so had nothing to
-  // say about a layout with no timeline in it. See `viewPanes` in routes.ts.
+  // The second pane of the current view and the ring `tab` walks — the layout's own list, the editor excluded (`viewPanes` in routes.ts).
   const layout = useMemo(
     () =>
       viewPanes({
@@ -999,83 +709,35 @@ export default function App({
   );
   const ringPanes = layout.ring;
 
-  // Whether there is an arrangement on screen, which is the SURFACE's answer and now the only
-  // one: everything that goes with a timeline -- the transport, the minimap, the pane it sits
-  // in -- reads this. `view === "live"` was the other half of it, and there is no view left to
-  // ask: a project that declares no timeline draws none, whatever it used to call itself.
+  // Whether there is an arrangement on screen — the SURFACE's answer, and now the only one.
   const noArrangement = !hasTimeline;
 
-  // The popin IS the active pane while it is up: it is what the keys are for, and the pane
-  // underneath must not also answer them.
+  // The popin IS the active pane while it is up: the pane underneath must not also answer the keys.
   const activePane = editorPopin ? "editor" : (full ?? focusPane);
   const visible = useCallback(
     (p: Pane) => (full === null ? ringPanes.includes(p) : full === p),
     [full, ringPanes],
   );
 
-  /**
-   * Where the minimap goes — docked at the bottom of the shell, floating over a popin, or
-   * nowhere at all. See docs/shell.md.
-   *
-   * It is a SECOND VIEW of the timeline, so while the timeline itself is on screen it shows
-   * what is already there, in less detail, for a band of height the arrangement could have had.
-   * It earns its place exactly when the timeline is hidden.
-   *
-   * The popin is the case the docked strip cannot serve: it covers the layout, so the minimap
-   * has to come OVER it or not at all — and there it stops being a convenience, because a
-   * screen with no visible timeline is one where you have lost the song. Which is why the
-   * floating one carries a transport and the docked one does not.
-   *
-   * Only the editor popin, not the builder, the docs or the settings: those are PAGES that take
-   * the whole window and are about something other than this song — the builder's own overlay
-   * holds no engine link at all, so a transport over it would be a set of dead buttons.
-   */
-  /**
-   * Is the chains pane off screen? ONE answer, read by the class that hides it and by the
-   * `active` it is handed.
-   *
-   * They were two, and they disagreed the day expanded lanes started hiding the pane: the CSS
-   * hid it while `active` still said yes, so ChainsTab went on believing it was on screen and
-   * framed its camera against a canvas of zero size — a frame that silently does nothing.
-   * Anything that takes this pane away has to say so in one place.
-   */
+  /** Is the chains pane off screen? ONE answer, read by the class that hides it and by the `active` it is handed. */
   const chainsOffScreen =
     full === "timeline" ||
     // The desk fullscreened takes the column exactly as the arrangement does.
     full === "turntables" ||
     (full === null && !ringPanes.includes("chains")) ||
-    // Expanded lanes give the timeline the whole column — which can only happen in a layout that
-    // HAS a timeline. Without one the graph is the only pane, and nothing may take it away.
+    // Expanded lanes give the timeline the whole column — only possible in a layout that HAS a timeline.
     (full === null && ringPanes.includes("timeline") && tlView.expanded);
 
-  /**
-   * Is the graph the ONLY pane in the column? What decides whether it takes the height outright
-   * and whether ChainsTab draws its sidebar.
-   *
-   * `noArrangement` answered both until a set grew a desk pane: with no timeline it was true, so
-   * the graph claimed `flex-1` and the fullscreen chrome while the desk sat above it holding half
-   * the column. The question was never "is there an arrangement" — it was "has the graph got the
-   * window", and the ring is what knows.
-   */
+  /** Is the graph the ONLY pane in the column? What decides `flex-1` and whether ChainsTab draws its sidebar. */
   const chainsAlone = ringPanes.length === 1;
 
   const timelineVisible = visible("timeline");
-  // Never without an ARRANGEMENT, in either place. The minimap is a second view of one — it earns
-  // its band precisely when the timeline is off screen and you would otherwise have lost the
-  // song. A project with no arrangement has nothing for it to be a view of, and the rule above
-  // ("the timeline is not visible") is exactly the condition that is permanently true there, so
-  // without this it would be the one piece of the timeline that never left.
+  // Never without an ARRANGEMENT: the minimap is a second view of one, and floats over the popin the docked strip cannot serve (docs/shell.md).
   const minimapFloating = docked && !noArrangement && editorPopin;
   const minimapDocked =
     docked && !noArrangement && !timelineVisible && !editorPopin;
 
-  /**
-   * How tall the floating strip is, so the popin can stop ABOVE it instead of over it.
-   *
-   * Measured rather than guessed: the minimap sizes itself to the track count (up to `MAX_H`),
-   * so any constant here would be wrong for most songs — too small and the popin covers the
-   * transport, too large and it floats over a gap.
-   */
+  /** How tall the floating strip is, so the popin can stop ABOVE it — measured, since the minimap sizes itself to the track count. */
   const stripRef = useRef<HTMLDivElement | null>(null);
   const [stripH, setStripH] = useState(0);
   useEffect(() => {
@@ -1099,14 +761,7 @@ export default function App({
     [focusPane],
   );
 
-  /**
-   * Give one pane the whole screen — the ONE road there, taken by the header buttons, the number
-   * keys, `ui <pane>` and the mobile tabs alike.
-   *
-   * A layout that cannot fullscreen a pane it hasn't got refuses instead: the roads are all
-   * closed at this one point rather than at four. Refused out loud, because a key that does
-   * nothing reads as a broken key.
-   */
+  /** Give one pane the whole screen — the ONE road there, and the point where a layout without that pane refuses out loud. */
   const fullscreen = useCallback(
     (p: Pane) => {
       if (!layout.fullscreen.includes(p)) {
@@ -1125,9 +780,7 @@ export default function App({
     onPointerDown: () => focusOn(p),
   });
 
-  // Focus can be left on a pane the layout no longer shows — leaving `ui editor` returns to a
-  // view the editor is not in, and `activePane` would then hand the keys to something off
-  // screen while the timeline answered nothing. Snap it back to the ring.
+  // Focus can be left on a pane the layout no longer shows — snap it back to the ring.
   useEffect(() => {
     if (full === null && !ringPanes.includes(focusPane))
       setFocusPane(ringPanes[0]);
@@ -1199,18 +852,7 @@ export default function App({
       setMidiArmed((cur) => (cur && !seqs[cur] ? null : cur)),
   });
 
-  // Two things stood here, and both were the mode's: an effect that snapped the layout to
-  // `live` or `global` on every doc load, and a `baseViewRef` holding which of the two this
-  // project was entitled to. There is one layout now, so there is nothing to snap to and
-  // nothing to remember -- the call sites that read the ref just clear `full`.
-
-  // Mixer / graph edits run the same backend commands but must NOT bump reloadKey.
-  //
-  // …which is exactly why they ask for no graph. Not bumping the key means nothing here ever
-  // refetches `/graph`, so the picture the service used to build inside every one of these
-  // requests — 62 ms on the reference song, per mute, per solo, per knob turn, on the single
-  // thread everything else queues behind — was built and dropped. `want: []` says so out loud.
-  // See `projectApi.command`, and `runCommand` below for the caller that DOES draw it.
+  // Mixer / graph edits run the same backend commands but must NOT bump reloadKey, and ask for no graph (`want: []`) — docs/shell.md.
   const quietCommand = useCallback(
     async (line: string) => {
       pushLog("cmd", `› ${line}`);
@@ -1226,60 +868,21 @@ export default function App({
     [pushLog],
   );
 
-  /**
-   * The header fader: the song's OUTPUT level, which is the OUT node's `Volume`.
-   *
-   * `node param "OUT" Volume`, the same line a mixer knob's release commits on its own node —
-   * the output is a node in the graph like any other, and the fader under the meter is one view
-   * of that param rather than a control of its own. `project master <dB>` is the same write under
-   * the name a person types (@studio/song's docs/masterVolume.md).
-   *
-   * Quietly and with no reload bump, exactly like a mixer knob's release — the doc it would
-   * refetch is the one that answers this fader, and refetching it mid-drag is what fights the
-   * next drag. The next edit reconciles it, and until then the fader shows what you set.
-   */
+  /** The header fader: the song's OUTPUT level, which is the OUT node's `Volume`, written quietly (docs/masterMeter.md). */
   const setMaster = useCallback(
     (db: number) =>
       void quietCommand(`node param "OUT" Volume ${db.toFixed(1)}`),
     [quietCommand],
   );
 
-  // The interface's inputs, and the one act that changes their grouping. Nothing else in st0 needs
-  // the list: the IO panel meters the ports the project already declares, where this is the list
-  // you pick a new one from.
-  //
-  // Asked once per connection rather than while a particular screen is open: TWO surfaces want it
-  // — the builder and the editor's channel strip — and an input is most often a node you open in
-  // the editor. `connected` is the trigger and not just a guard: `engineRef` is a ref, so a link
-  // coming up later re-renders nothing on its own and the ask would never be sent.
-  //
-  // Below `quietCommand` rather than beside the other engine hooks, because the regrouping is a
-  // COMMAND now (`system channel type`) and this is where the shell's command runners exist.
+  // The interface's inputs and the one act that regroups them, asked once per connection — two surfaces want the list.
   const { devices: inputDevices, regroup: regroupInputs } = useInputDevices(
     engineRef.current ?? null,
     connected,
     quietCommand,
   );
 
-  /**
-   * The header meter's Fix button: the OUT node's Volume down, until the pass would have peaked
-   * at -6 dB.
-   *
-   * The MEASUREMENT is the meter's — it is the only thing that watched the pass — and where a
-   * level is written is App's, so the button is a callback and the arithmetic between them is
-   * `gainTrim.ts`, pure and tested.
-   *
-   * ONE write, on the same node the fader an inch below it moves: the output IS a node, and
-   * lowering it is the one edit that cannot change a balance anywhere in the song. It went to
-   * every mixer STRIP instead until the output became a param — thirty lanes was thirty
-   * read-modify-writes and thirty undo entries, and a strip already near the floor could not take
-   * the full trim, so the mix it promised to preserve shifted anyway.
-   *
-   * RELATIVE to what the fader already reads, because the meter is downstream of this gain — see
-   * `fixedMaster`. Then ONE reload, so the fader catches up with the number just written under it.
-   */
-  // The meter holds the pass — its peak, and whether it clipped — because it is the only thing
-  // that watched it go by. `project master fix` asks it through this.
+  // The meter holds the pass — its peak, and whether it clipped; `project master fix` asks it through this (docs/masterMeter.md).
   const masterMeterRef = useRef<MasterMeterHandle | null>(null);
   const fixClipping = useCallback(
     async (peakDb: number) => {
@@ -1298,8 +901,7 @@ export default function App({
     [projectDoc?.masterVolume, quietCommand, bumpReload],
   );
 
-  // A ref because runCommand reads it and is itself a dependency of half the app: making it re-bind on every
-  // reload would ripple through every key handler and every menu that names a command.
+  // A ref because `runCommand` reads it and is itself a dependency of half the app.
   const docTracksRef = useRef(docTracks);
   docTracksRef.current = docTracks;
 
@@ -1316,19 +918,7 @@ export default function App({
     local: frozen,
   });
 
-  /**
-   * …and on a snapshot, that is what reaches the audio: mute and solo resolved to one gain per
-   * lane, handed to the player.
-   *
-   * The resolution itself is `laneGains`, pure and tested: solo is a fact about the WHOLE set —
-   * one soloed lane silences every other — so no lane's answer follows from its own two flags,
-   * and that is exactly the kind of rule that should not live inside an effect.
-   *
-   * Run TWICE, and the second run is what tells the player whether anything actually changed:
-   * the mixdown was rendered from the document, so a lane the document mutes is already absent
-   * from it. Only a difference between the two is the visitor asking for something the render
-   * does not already say.
-   */
+  /** …and on a snapshot that is what reaches the audio: mute and solo resolved to one gain per lane by `laneGains` (docs/shared.md). */
   const setLaneGains = player.setLaneGains;
   useEffect(() => {
     if (!frozen) return;
@@ -1385,8 +975,7 @@ export default function App({
         bumpReload();
         setStatus(`opened ${path === "." ? w.root : path} — engine starting…`);
         setFull(null);
-        // The layout the project that was open had — the doc effect above corrects it a moment
-        // later, once THIS project's doc says which shape it is.
+        // The layout the project that was open had — the doc effect above corrects it a moment later.
       } catch (e) {
         setStatus(`open error: ${(e as Error).message}`);
       }
@@ -1394,26 +983,14 @@ export default function App({
     [bumpReload],
   );
 
-  // The import (.dawproject) and delete-project dialog flows. Both are Radix dialogs, which
-  // answer Escape themselves but let it go on propagating — so they register here too, or the
-  // key that dismissed the dialog would also close the graph slot behind it. Not while BUSY:
-  // an import in flight has nothing to cancel, and its dialog is a progress report.
+  // The import and delete dialogs register Escape here too, or the key that dismissed one would also close the graph slot behind it.
   const imp = useProjectImport({ openProject, onStatus: setStatus });
   usePopin(!!imp.importPath && !imp.importing, imp.cancelImport);
 
   // Follow what happened under us: a project switch (another tab, the CLI), and a TAKE.
   useActiveProjectFollow({
     lastActiveRef: lastActive,
-    /**
-     * A recording landed. Two halves, and the bug was that neither happened on its own:
-     * `setWs` carries the clip's name, which is what opens the review panel on it, and the
-     * reload is what puts the clip on its lane — the placement was written by the file
-     * service, so nothing in this tab knew the document had changed.
-     *
-     * It used to work by accident, and only one way: stopping with SPACE went through the
-     * file service, whose reply bumped the reload for its own reasons. Stopping with the
-     * header's button never showed the take at all.
-     */
+    /** A recording landed: `setWs` carries the clip's name and the reload puts it on its lane — neither happened on its own. */
     onTake: (w) => {
       setWs(w);
       bumpReload();
@@ -1428,28 +1005,7 @@ export default function App({
     },
   });
 
-  // The caret's track used to follow into the Docs panel's context tab. Both are gone: a note
-  // is a doc module in the graph, wired from what it is about, so there is no selection to
-  // track and nothing for it to point at. See packages/song/docs/docModules.md.
-
-  /**
-   * Open a file in the editor pane, by path or by name.
-   *
-   * An exact project path opens as-is, anything else takes the best fuzzy match — which is
-   * what lets `ui file <track>` be typed with a bare id. Returns the path it settled on, or null
-   * when there was nothing to settle on.
-   *
-   * `reveal` brings the pane up and puts the keyboard in it: right for a typed command, whose
-   * whole point was to go and read the file, and wrong for the timeline pointing the panes at
-   * a track — there the hands are still on the arrangement.
-   *
-   * **The reveal FOLLOWS the read**, and neither of the two ways this can fail is silent any more.
-   * It used to open the pane first and then try, through an `editorRef.current?.` that swallowed a
-   * handle not yet attached and a `?? arg` that fell back to opening whatever had been typed. Both
-   * land on the same screen: an editor popped open over your work with no file in it and nothing
-   * said — which is a command that ran, reported success and did nothing, the one failure this
-   * shell says everywhere else it will not have.
-   */
+  /** Open a file in the editor pane, by path or by fuzzy name — returns what it settled on, and the reveal FOLLOWS the read (docs/shell.md). */
   const openInEditor = useCallback(
     (arg: string, reveal = true): string | null => {
       if (!arg) return null;
@@ -1466,9 +1022,7 @@ export default function App({
       }
       void ed.open(path).then((opened) => {
         if (!opened || !reveal) return;
-        // Off screen: bring it up as a POPIN rather than fullscreening the pane. A command that
-        // sends the editor to a file asked for the FILE, not for the view to be rearranged — and
-        // fullscreening it threw away the timeline or graph you were reading it against.
+        // Off screen: bring it up as a POPIN rather than fullscreening the pane — the command asked for the FILE.
         if (!visible("editor")) setEditorPopin(true);
         else focusOn("editor");
       });
@@ -1477,37 +1031,24 @@ export default function App({
     [visible, focusOn],
   );
 
-  // `runCommand` is defined below and calls THIS, so a local command that needs to run a real one
-  // reaches it through a ref rather than closing over it.
+  // `runCommand` is defined below and calls THIS, so a local command reaches it through a ref rather than a closure.
   const runCommandRef = useRef<(line: string) => Promise<void>>(async () => {});
-  // The palette's catalogue, for the one thing `runCommand` needs from it: which command a line
-  // runs, so it can be remembered. A ref because the catalogue is built further down.
+  // The palette's catalogue, for the one thing `runCommand` needs: which command a line runs, so it can be remembered.
   const paletteRef = useRef<PaletteCommand[]>([]);
 
-  /**
-   * Which language the shell speaks. Taken HERE, above `runLocalCommand`, because `ui language`
-   * is one of its lines — the palette reads the same value further down (the descriptions are
-   * the only translated part of a command, its name being an identifier; see commandI18n.ts).
-   */
+  /** Which language the shell speaks — taken here because `ui language` is one of runLocalCommand's lines (commandI18n.ts). */
   const { locale, locales, setLocale } = useLocale();
   // The two share entries that are not CLI verbs: the mixdown render and the k7 publish.
   const share = useShare(setStatus);
 
-  /**
-   * The footer's two graph toggles, each as ONE callback.
-   *
-   * The button and the command name the same thing, so they run the same function: a second
-   * copy of "turn the mixer on, and clear whatever had taken the graph's place" is a copy that
-   * will one day forget the second half.
-   */
+  /** The footer's two graph toggles, each as ONE callback the button and the command share. */
   const toggleMixer = useCallback(() => {
     if (mixerView) return setMixerView(false);
     if (mixerStrips.length === 0)
       return setStatus(
         "no strip in this song — a strip is a Mixer module at the end of a track",
       );
-    // Turning it ON also clears whatever had taken the graph's place, or the rearranged graph
-    // would be laid out behind a clip nobody asked to keep.
+    // Turning it ON also clears whatever had taken the graph's place.
     setGraphSlot(null);
     setFull(null);
     setMixerView(true);
@@ -1526,15 +1067,7 @@ export default function App({
     setShowDocs((on) => !on);
   }, [docCount]);
 
-  /**
-   * Arm MIDI learn on one param: the next control change from any attached controller binds to it.
-   *
-   * The capture is the browser's, the binding is a command — so what lands on disk goes through
-   * `module cc` like every other edit, and a learn is exactly a `module cc` you did not have to
-   * count the CC number for.
-   *
-   * A param may contain spaces ("Filter Freq"), so it is taken quoted or as the whole rest.
-   */
+  /** Arm MIDI learn on one param: the capture is the browser's, the binding is a `module cc` — see docs/midi.md. */
   const armMidiLearn = useCallback((rest: string) => {
     const m = /^(\S+)\s+(?:"([^"]*)"|(.+))$/.exec(rest.trim());
     if (!m) {
@@ -1564,9 +1097,7 @@ export default function App({
       void runCommandRef
         .current(`module cc ${module} ${arg} ${learned.ch} ${learned.cc}`)
         .then(() => {
-          // "bidirectional when possible": possible means the device that just spoke also has an
-          // output port to answer on. Said at bind time, because that is when you can still
-          // choose a different control.
+          // Bidirectional when possible: possible means the device that just spoke also has an output port to answer on.
           const both = midi.hasFeedback(module, param);
           setStatus(
             `${module} ${param} ← ${learned.device} ch${learned.ch} cc${learned.cc} — ` +
@@ -1585,9 +1116,7 @@ export default function App({
       const prefixed = /^ui\s+/i.test(s);
       if (prefixed) s = s.replace(/^ui\s+/i, "");
       const line = s.toLowerCase();
-      // WHICH lines are `ui`'s is a table of its own (localCommands.ts), so a test can hold it
-      // against the palette's catalogue — a row that lists and then does nothing is the one
-      // failure neither half can notice alone.
+      // WHICH lines are `ui`'s is a table of its own (localCommands.ts), so a test can hold it against the palette's catalogue.
       const isUi = isUiLine(line);
       if (isUi !== prefixed) {
         // Handled (true) rather than passed down: the backend has no such command either, and would say less.
@@ -1599,16 +1128,12 @@ export default function App({
         return true;
       }
       if (line === "global") {
-        // Back to the layout: with one of them, that is exactly "leave the fullscreen". The
-        // refusal that used to live here was the mode's -- `ui global` in a `live` project
-        // named a screen it had not got. Every project has this one.
+        // Back to the layout: with one of them, that is exactly 'leave the fullscreen'.
         setFull(null);
         return true;
       }
       if ((PANES as string[]).includes(line)) {
-        // …and likewise for a pane this layout cannot fullscreen: with no timeline surface the
-        // graph already has the window, so `ui timeline` names a pane that is not drawn.
-        // decide, since it is what the header buttons and the number keys go through too.
+        // …and likewise for a pane this layout cannot fullscreen — `fullscreen` decides, as it does for the buttons and the number keys.
         fullscreen(line as Pane);
         return true;
       }
@@ -1621,9 +1146,7 @@ export default function App({
         setPanel(null);
         return true;
       }
-      // Close the topmost overlay — whoever registered it, this shell or a component of its
-      // own. Handled either way: Esc only names this while one IS up, and a command typed at
-      // the bar with nothing open has simply asked for something that is already true.
+      // Close the topmost overlay, whoever registered it; with nothing open the line asks for what is already true.
       if (line === "popin close") {
         closeTopPopin();
         return true;
@@ -1633,16 +1156,12 @@ export default function App({
         setGraphSlot(null);
         return true;
       }
-      // The rack builder popin — the building is the browser's (drops, audition), so the
-      // command only OPENS it; its create writes through the file routes like the tree's verbs.
+      // The rack builder popin — the building is the browser's, so the command only OPENS it.
       if (line === "module create rack") {
         setRackBuilder(true);
         return true;
       }
-      // `project new` and `project delete` were answered here. Both are gone with the
-      // workspace this app stopped showing: it is opened ON one project and lists no others,
-      // so neither verb had anything left to name. pl8 owns the repositories — see
-      // packages/project-shell/docs/launch.md.
+      // `project new` and `project delete` went with the workspace this app stopped showing — packages/project-shell/docs/launch.md.
       if (line.startsWith("file ")) {
         openInEditor(s.slice(5).trim());
         return true;
@@ -1652,24 +1171,12 @@ export default function App({
         else openHelp();
         return true;
       }
-      // The chains builder. `""` is the LIST — the screen open on no chain yet, which is a real
-      // state and the address `/chains-builder` parses to. Toggles, like `help` above: typing it
-      // again closes rather than reopening the screen you are looking at.
+      // The chains builder. `""` is the LIST — the state `/chains-builder` parses to; typing it again closes.
       if (line === "chains builder") {
         setOpenBuilder((cur) => (cur === null ? "" : null));
         return true;
       }
-      /**
-       * The selection, the loop and `t` belong to whichever grid is ON SCREEN.
-       *
-       * The clip pane wins while it is open, because it is the thing you are looking at and it
-       * sits over the timeline. Both surfaces expose the same three, so the shell dispatches
-       * rather than deciding — the caret's rules are the pane's (TimelineHandle, ClipGridHandle).
-       * Zoom stays the timeline's alone: the roll zooms with the wheel and keeps no stack.
-       *
-       * `selection copy` is the exception and says why at its own branch: it ASKS rather than
-       * acts, so a pane in front with no answer must not be the end of the question.
-       */
+      /** The selection, the loop and `t` belong to whichever grid is ON SCREEN — `selection copy` excepted, at its own branch. */
       const clipGrid = graphSlot?.kind === "clip" ? clipGridRef.current : null;
       if (line === "select") {
         if (clipGrid) clipGrid.toggleSelect();
@@ -1698,35 +1205,12 @@ export default function App({
         else timelineRef.current?.toggleLoop();
         return true;
       }
-      /**
-       * `selection copy` / `selection paste` — the rectangle put aside, and put down at the caret.
-       *
-       * One pair of verbs covers events and notes without either naming the other's material.
-       * They are routed, but not like the three above — see the branch below. The head is what
-       * they have in common — a REGION a gesture aimed at — and it is the same one
-       * `selection consolidate` carries; see localCommands.ts for what the pair was before.
-       *
-       * The pane hands back a command LINE rather than writing: the paste then travels the same
-       * journalled path a typed command takes, so one paste is one Ctrl+Z whatever it contained.
-       */
+      /** `selection copy` / `selection paste` — one pair of verbs over events and notes, routed by what the clipboard holds (docs/clipEditors.md). */
       if (line === "selection copy") {
-        /**
-         * The clip pane first, and the timeline WHEN IT HAS NOTHING — the one verb of the four
-         * that falls through instead of stopping at the pane in front.
-         *
-         * The other three ACT on that pane, so "whichever grid is on screen" is the whole answer.
-         * This one asks it a question — what have you got selected? — and the pane in front is
-         * routinely the one with no answer: clicking an event in the timeline is what OPENS the
-         * clip pane, and the roll it opens starts with its caret at key 127, where no note has
-         * ever been. So copy went to the roll, found nothing, and the event you had just clicked
-         * — with the timeline's caret sitting on it — was never asked about. The paste then
-         * reported an empty clipboard, which was true and told you nothing.
-         */
+        /** The clip pane first, and the timeline WHEN IT HAS NOTHING — the one verb of the four that falls through (docs/clipEditors.md). */
         const got = clipGrid?.copy() ?? timelineRef.current?.copy() ?? null;
         if (!got) {
-          // The caret is a rectangle too now, so reaching here means it was parked on nothing —
-          // an empty cell, a bare stretch of lane, a row label. Both ways of pointing are named:
-          // the message is what the key USED to say by going silent, which said nothing at all.
+          // The caret is a rectangle too, so reaching here means it was parked on nothing — and both ways of pointing are named.
           setStatus(
             "nothing to copy — put the caret on a clip or a note, or draw a rectangle with v",
           );
@@ -1740,17 +1224,7 @@ export default function App({
         );
         return true;
       }
-      /**
-       * `selection paste` — the clipboard put down at a caret.
-       *
-       * ONE verb, and the surface is not guessed: the CLIPBOARD says which. It was copied as
-       * events or as notes and carries its kind, so notes land in the open roll or sequencer and
-       * events on the TIMELINE's caret whatever else is on screen — a clip pane holds notes and
-       * could not place a placement. `events paste` and `sequence notes paste` stood here for
-       * that routing, each naming its material to name its surface; naming the SELECTION says it
-       * once, for the copy and the paste alike, and a fact read off the held rectangle is not the
-       * guess a bare `paste` would have made.
-       */
+      /** `selection paste` — the CLIPBOARD says which surface, having been copied as events or as notes (clipboard.ts). */
       if (line === "selection paste") {
         const held = clipboardRef.current;
         if (!held) {
@@ -1779,42 +1253,16 @@ export default function App({
         engineRef.current?.setRecordEnabled(!store.getSnapshot().recordEnabled);
         return true;
       }
-      // Replay: the playhead returns to where playback last started, and rolls again — the
-      // retrigger every DAW keeps under a shifted play. The memory is this shell's (see
-      // replayAtRef): live transport state routes through the engine WebSocket, never a server.
-      // Pressed mid-playback it jumps back and keeps rolling; `play` is not a toggle.
+      // Replay: back to where playback last started (`replayAtRef`), then rolls again — `play` is not a toggle.
       if (line === "transport replay") {
         seek(replayAtRef.current);
-        // Deliberately the BARE verb: the seek above has already chosen a position, and letting
-        // the set rule move it would make replay return somewhere other than where it started.
+        // Deliberately the BARE verb: the seek above has already chosen a position.
         transport("play");
         return true;
       }
-      /**
-       * …and so do the four bare verbs, for the same reason and one more: LATENCY.
-       *
-       * They went to the file service, which sends the very message this socket sends — after an
-       * HTTP round trip, after the undo journal walks the whole project twice (measured at 62 ms
-       * warm and 215 ms cold on a real song), and behind whatever that single-threaded service was
-       * already doing. A project compile is 1.5 s there, so a Space pressed while one was in
-       * flight waited for it. That is the "sometimes a second" nobody could reproduce on demand:
-       * the delay belonged to the queue, not to the transport.
-       *
-       * Nothing is lost by keeping them here. The verbs write no file, so there is nothing to
-       * journal and nothing to reload — and the header's play button has always driven this same
-       * socket directly, so this is the two paths agreeing rather than a new one.
-       *
-       * It FALLS THROUGH to the service in the two cases the socket cannot answer for: no
-       * connection of our own, and an engine mid-apply — which this path DROPS rather than
-       * queues (`useEngineLink`, and the reason is that a queue turned one press into three
-       * plays and a rewind). Dropping is right for a button you can see is disabled and wrong
-       * for a key whose whole promise is that it always works, so the key keeps the slow path
-       * for exactly that window. Fast when it can be, honest when it cannot.
-       */
+      /** …and so do the four bare verbs, for LATENCY — falling through to the service only when the socket cannot answer (docs/shell.md). */
       if (BARE_TRANSPORT.includes(line)) {
-        // On a snapshot there IS no slow path: falling through would post the verb to a file
-        // service that is not there, and Space would do nothing. `transport` is already the
-        // browser player here, so it is always the one that can answer.
+        // On a snapshot there IS no slow path: `transport` is already the browser player, so it always answers.
         if (!frozen && (!connected || engineBusyRef.current)) return false;
         transportForSet(line.slice("transport ".length) as TransportAction);
         return true;
@@ -1833,9 +1281,7 @@ export default function App({
         timelineRef.current?.startMove();
         return true;
       }
-      // `sequence edit roll|tracker <sequence>` — its notes where the graph is. Bare-named, not
-      // under `ui`: that namespace promises a command touches no file, and these open an editor
-      // that writes to the sequence they name, the way `event move` does to a placement.
+      // `sequence edit roll|tracker <sequence>` — bare-named, not under `ui`, since it writes to the sequence it names.
       const seq = parseSeqEdit(s);
       if (seq) {
         const path = resolveSequence(
@@ -1845,9 +1291,7 @@ export default function App({
         if (!seq.name) setStatus(`usage: sequence edit ${seq.view} <sequence>`);
         else if (!path) setStatus(`no sequence "${seq.name}" in this project`);
         else {
-          // The chains slot is where it goes, so make sure the slot is on screen: a grid drawn
-          // behind a fullscreened timeline is a command that reported success and did nothing.
-          // The project's own layout, not `global` — in `live` the slot is already the screen.
+          // The chains slot is where it goes, so make sure the slot is on screen.
           setFull(null);
           setGraphSlot({ kind: "grid", path, view: seq.view });
         }
@@ -1862,19 +1306,7 @@ export default function App({
         openInEditor(s.slice("edit clip ".length).trim());
         return true;
       }
-      /**
-       * ui review <clip> — reopen the take review on a clip: its waveform under the project's ruler,
-       * its onsets as marks you add and refuse, and the chains it can be bounced through.
-       *
-       * A `ui` command because it opens a VIEW and writes nothing; what the view then does is the
-       * brain's (`clip process`, `clip trim`, `clip onset …`). It exists because the automatic review is a
-       * moment that passes — `lastTake` is the file service's memory and dies with the process, and
-       * the ✓ ends it for good — so a take could become unreachable while its file sat on disk.
-       *
-       * The lane is looked up rather than asked for: a placement names the clip, so the project
-       * already knows. A clip nothing places (an orphan take, which is exactly the case this is for)
-       * reviews just the same, with no lane to show.
-       */
+      /** `ui review <clip>` — reopen the take review on a clip; the lane is looked up rather than asked for (docs/clipEditors.md). */
       if (line.startsWith("review ")) {
         const clip = s.slice("review ".length).trim();
         if (!clip) {
@@ -1882,13 +1314,11 @@ export default function App({
           return true;
         }
         setReviewOn({ clip, track: trackPlacing(projectDoc, clip) });
-        // …and put the clip panel on screen. It is the ONE place a clip is drawn now, so naming a
-        // clip has to open it rather than hope it is already up.
+        // …and put the clip panel on screen: it is the ONE place a clip is drawn now.
         setGraphSlot({ kind: "recording" });
         return true;
       }
-      // ui midi learn <module> <param> — arm the browser's Web MIDI on one param. The BINDING is
-      // written by `module cc`, which is the brain's; what is local here is the listening.
+      // `ui midi learn <module> <param>` — arm the browser's Web MIDI; the BINDING is written by `module cc`.
       if (line.startsWith("midi learn ")) {
         armMidiLearn(s.slice("midi learn ".length).trim());
         return true;
@@ -1915,8 +1345,7 @@ export default function App({
         timelineRef.current?.toggleLanes();
         return true;
       }
-      // `ui panel <graph|logs>`: the footer buttons' own toggle. Naming the panel already up
-      // closes it — which is why `ui close` stays a command of its own and not a spelling of this.
+      // `ui panel <graph|logs>`: the footer buttons' own toggle — naming the panel already up closes it.
       if (line.startsWith("panel ")) {
         const want = line.slice("panel ".length).trim();
         const names = Object.keys(PANEL_META) as Panel[];
@@ -1925,28 +1354,14 @@ export default function App({
         else togglePanel(want as Panel);
         return true;
       }
-      // `ui surface <id>` was here: the screens a project declared with `layout: view`, looked up
-      // by filename because the list could not be a fixed one. Every surface is a PANE now, so
-      // `ui turntables` reaches the desk through the same branch as `ui timeline` — and the arm
-      // stays only to say so, since the verb was in the docs and in people's fingers.
+      // `ui surface <id>` was here; every surface is a PANE now, and the arm stays only because the verb was in the docs.
       if (line.startsWith("surface ")) {
         setStatus(
           "a surface is a pane now — use `ui turntables` (or its number key). See surfaces/.",
         );
         return true;
       }
-      /**
-       * `ui external <surface>` — the link that opens ONE surface on another device.
-       *
-       * It COPIES rather than navigating: the whole point is to get the address onto a second
-       * device, and following it here would replace the editor you are standing in front of with
-       * the tablet's screen. The address goes in the status line as well as the clipboard, so a
-       * browser that refuses the write still leaves something to read off and type.
-       *
-       * Built from `window.location.href` — the origin this tab is on — because a checkout, the
-       * LAN proxy and the public host are three different answers and the tablet is on the LAN
-       * one. See @studio/web-protocol/projects.
-       */
+      /** `ui external <surface>` — the link that opens ONE surface on another device; it COPIES rather than navigating (docs/external.md). */
       if (line.startsWith("external ")) {
         const want = s.slice("external ".length).trim();
         const hit = surfaces.find((x) => x.id === want);
@@ -1969,8 +1384,7 @@ export default function App({
         setStatus(url);
         return true;
       }
-      // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio
-      // — the same screen a module row in the tree opens.
+      // `ui builder <module>`: the shared builder over the shell, on the MODULE file of the trio.
       if (line.startsWith("builder ")) {
         const arg = s.slice("builder ".length).trim();
         const path = resolveModuleFile(arg, editorRef.current?.files() ?? []);
@@ -1980,9 +1394,8 @@ export default function App({
       }
 
       // --- the three right-hand panels, and the one page left --------------------
-      // The bare lines TOGGLE, which is what their buttons do. Naming a settings TAB always
-      // opens, never closes: you asked for that screen, and a second press of the palette is
-      // not a request to go away.
+
+      // The bare lines TOGGLE, as their buttons do; naming a settings TAB always opens, never closes.
       if (line === "settings") {
         toggleRight("settings");
         return true;
@@ -2007,8 +1420,7 @@ export default function App({
           return true;
         }
       }
-      // The one control ON the editor settings screen. A global user preference, so it outlives
-      // the project — which is why it is `ui` and not a project verb.
+      // The one control ON the editor settings screen — a global preference, which is why it is `ui` and not a project verb.
       if (line === "vim") {
         void toggleVim();
         return true;
@@ -2021,8 +1433,7 @@ export default function App({
         onQuitWorkspace();
         return true;
       }
-      // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in (and
-      // pagehide frees the engine).
+      // Reload after logout: AuthGate is outermost, so a fresh load lands on sign-in.
       if (line === "logout") {
         void api.logout().then(() => window.location.reload());
         return true;
@@ -2034,8 +1445,7 @@ export default function App({
         else setLocale(want as typeof locale);
         return true;
       }
-      // `ui copy path <path>` — the tree's own entry, and the only one that leaves the app: what
-      // it puts on the clipboard is the workspace-relative path every route and command takes.
+      // `ui copy path <path>` — the tree's own entry: what it copies is the workspace-relative path every route takes.
       if (line.startsWith("copy path ")) {
         const arg = s.slice("copy path ".length).trim();
         const path = resolveEntry(arg, editorRef.current?.entries() ?? []);
@@ -2059,8 +1469,8 @@ export default function App({
       }
 
       // --- the file tree's right-click menu, as commands ------------------------
-      // Each of these calls the SAME callback the menu item runs (see EditorHandle), so the two
-      // ways in cannot come to mean different things — including the confirm a delete asks for.
+
+      // Each of these calls the SAME callback the menu item runs (see EditorHandle), including the confirm a delete asks for.
       if (namesLine(line, "fs file new") || namesLine(line, "fs folder new")) {
         const folder = line.startsWith("folder ");
         const head = folder ? "fs folder new" : "fs file new";
@@ -2110,8 +1520,7 @@ export default function App({
         else editorRef.current?.remove(path, editorRef.current.isDir(path));
         return true;
       }
-      // Opens the OS picker. `folder` asks for a whole directory, which a browser draws as a
-      // different dialog and so needs a different input — see FileTree.
+      // Opens the OS picker; `folder` asks for a whole directory, which a browser draws differently — see FileTree.
       if (namesLine(line, "fs file upload")) {
         const [dirArg, what] = headTokens(s.slice("fs file upload".length), 2);
         const dir = dirArg
@@ -2130,27 +1539,15 @@ export default function App({
       }
 
       // --- the project ---------------------------------------------------------
-      // Ctrl+Z / Ctrl+Y as commands: the project-wide journal, which wraps every command that
-      // wrote (@studio/project-shell/undo). The EDITOR's own buffer history stays with the keys —
-      // a command bar is not where a keystroke is taken back.
+
+      // Ctrl+Z / Ctrl+Y as commands: the project-wide journal (@studio/project-shell/undo), the editor's own buffer history staying with the keys.
       if (line === "project undo" || line === "project redo") {
         void (line === "project redo"
           ? runRedo(historyDeps)
           : runUndo(historyDeps));
         return true;
       }
-      /**
-       * `project master fix [peak-db]` — the header meter's Fix button as a verb.
-       *
-       * Local although every write it makes is a `node param` the backend owns: the TRIM is
-       * computed from the last pass's peak, and that number exists only in the browser that
-       * watched it (see palette.ts). So the meter is asked for it, and told the offer is spent.
-       *
-       * A dB may be given instead, and then the meter is not consulted at all — that is the line
-       * a person can run without having played anything, and the one a second surface could send.
-       * Without one, a pass that did not clip is REFUSED rather than trimmed by 6 dB for nothing:
-       * `trimFor` floors the peak at full scale, so this verb never has a no-op to fall back on.
-       */
+      /** `project master fix [peak-db]` — the Fix button as a verb; local, because the trim comes from a peak only this browser saw (docs/masterMeter.md). */
       if (namesLine(line, "project master fix")) {
         const arg = s.slice("project master fix".length).trim();
         const given = arg ? Number(arg) : null;
@@ -2218,9 +1615,7 @@ export default function App({
       seek,
       transport,
       engineBusyRef,
-      // …and whether that socket is up, which decides whether the bare transport verbs are
-      // answered here or handed to the service. Stale, this would send Space to the server for
-      // ever — the flag is false on the first render of every session.
+      // …and whether that socket is up, which decides whether the bare transport verbs are answered here or handed to the service.
       connected,
       frozen,
       setFull,
@@ -2239,20 +1634,9 @@ export default function App({
     ],
   );
 
-  // A `freezing` state and its modal overlay were here. Freezing is gone with the field it wrote
-  // — see packages/song/docs/trackModules.md.
-  // The arrow a module is being created on, while the command RUNS — not while the user is still typing the
-  // name into the bar. pendingInsert.current is set at pick time and lives until the splice; this is the
-  // narrower window the canvas should draw a placeholder for.
+  // The arrow a module is being created on while the command RUNS — the narrower window the canvas draws a placeholder for.
   const [insertingAt, setInsertingAt] = useState<PendingInsert | null>(null);
-  // The graph a writing command handed back. The canvas draws it instead of fetching, which takes
-  // a round trip and a ~400 ms re-parse of what the service just parsed — see the `/command` route
-  // and ChainsTab's `seedGraph`.
-  //
-  // Carries an id rather than a reload key: half a dozen things bump that key (a poll, a save, the
-  // undo journal), so pairing them would mean keeping a counter in step with all of them. An id the
-  // consumer takes ONCE says the only thing that matters — this graph is newer than what you have,
-  // and nobody has drawn it yet.
+  // The graph a writing command handed back, drawn instead of fetched; it carries an id the consumer takes ONCE (ChainsTab's `seedGraph`).
   const seedId = useRef(0);
   const [seedGraph, setSeedGraph] = useState<{
     id: number;
@@ -2264,107 +1648,59 @@ export default function App({
       if (!line.trim()) return;
       const typed = line.trim();
       const s = canonicalizeCommand(line);
-      // What was typed, and — when the catalogue rewrote it — what actually ran. A translated
-      // or aliased name is the one case where the transcript would otherwise show a line you
-      // could not retype.
+      // What was typed, and — when the catalogue rewrote it — what actually ran, so the transcript shows a line you could retype.
       pushLog("cmd", typed === s ? `› ${typed}` : `› ${typed}   ⇒ ${s}`);
-      // Here rather than in the bar, because this is where EVERY command passes: the palette,
-      // a key binding, a context menu. What you reach for by shortcut is still what you reach
-      // for, and the palette should offer it first when you do come looking. Through a ref, so
-      // this callback does not have to be rebuilt every time the catalogue is.
+      // Here rather than in the bar, because EVERY command passes here; through a ref, so a rebuilt catalogue does not rebuild this.
       rememberCommand(commandNameOf(s, paletteRef.current));
       if (runLocalCommand(s)) return;
-      // CONSUMED, not just read: the pick arms this and only the command that follows it is an
-      // insert. Left armed — which it was — every later command drew a pending node on that same
-      // stale arrow, so the spinner people saw belonged to the transport key they pressed
-      // afterwards rather than to the module they had added.
+      // CONSUMED, not just read: only the command that follows the pick is an insert, or a later one draws on that stale arrow.
       const willInsert = pendingInsert.current;
       pendingInsert.current = null;
       if (willInsert) setInsertingAt(willInsert);
-      // …and where the node that line is about to create should GO. Consumed the same way and
-      // for the same reason: it belongs to THIS line and to no later one.
+      // …and where the node that line creates should GO, consumed the same way: it belongs to THIS line and no later one.
       const wire = pendingWire.current;
       pendingWire.current = null;
       const madeRef = wire ? chainRefFromCreate(s) : null;
-      // …and the module that line's node needs, when the pick came from a catalogue. Ahead of
-      // it rather than after, since `node new` refuses a module that is not there yet.
+      // …and the module that line's node needs, ahead of it rather than after, since `node new` refuses a module that is not there.
       const ensure = madeRef ? pendingModule.current : null;
       pendingModule.current = null;
       try {
-        // Logged like anything else that RUNS. It is the picker's first half — the module the
-        // typed `node new` needs — and it used to go through unrecorded, so a transcript showed
-        // a node appearing with no module ever created. What the log promises is every command,
-        // not every command somebody typed.
-        // No graph for this one whatever the pane is doing: it is the picker's FIRST half, and
-        // the only picture that matters is the one the line below leaves behind.
+        // Logged like anything else that RUNS, and asking for no graph: it is the picker's FIRST half.
         if (ensure) {
           pushLog("cmd", `› ${ensure}`);
           await api.command(ensure, { want: [] });
         }
-        // This one DOES want the graph, and unconditionally — even with the pane off screen.
-        // ChainsTab stays MOUNTED when it is hidden (it holds the shell's MIDI runtime) and
-        // refetches `/graph` on every reloadKey, so asking for none here would not save the
-        // build: it would move it into a second request and add a round trip to it.
+        // This one DOES want the graph, unconditionally: ChainsTab stays mounted when hidden and would refetch it anyway.
         const { output, refused, graph, rev, changed } = await api.command(s, {
           want: ["graph"],
         });
-        // A refusal is neither a success nor a failure, and until it had its own channel it was
-        // recorded as the first: `event join` declining a pair of different materials reached this
-        // line in the same colour as "3 events consolidated", and the journal filed both as
-        // `info`. Which is how a verb that said no, out loud, got reported as doing nothing.
+        // A refusal is neither a success nor a failure, and until it had its own channel it was recorded as the first.
         const said = output.length ? output.join("  ·  ") : `ran: ${s}`;
         if (refused) setRefusal(said);
         else setStatus(said);
         for (const o of output) pushLog(refused ? "refused" : "info", o);
-        // The graph the service built while we waited, present only when the command changed
-        // something. Handed to the canvas so it draws this instead of fetching and re-parsing what
-        // the service has just parsed — see ChainsTab's `seedGraph`.
+        // The graph the service built while we waited, present only when the command changed something — see ChainsTab's `seedGraph`.
         if (graph) {
           seedId.current += 1;
           setSeedGraph({ id: seedId.current, graph });
         }
-        // The token this command produced, adopted BEFORE the reload it pairs with.
-        //
-        // The reload below is what re-asks every derived question — the errors, the file the
-        // editor holds — so the `/revision` tick that noticed the same change 0 to 2 s later was
-        // running all of them a second time for an answer already on screen: `/project-errors`
-        // is 45 ms on the reference song, and the disk-sync re-reads the open file with it.
-        // Only here, and only because the reload is on the next line: `quietCommand` writes
-        // WITHOUT reloading, and must let the tick do its work. See `RevisionPoller.note`.
+        // The token this command produced, adopted BEFORE the reload it pairs with, so the `/revision` tick does not redo it — see `RevisionPoller.note`.
         if (rev) noteRevision(rev);
-        /**
-         * …and the reload, carrying the files this command wrote.
-         *
-         * Measured on `01.danse.st0`: the bump alone costs ≈335 ms of routes queued on a
-         * single-threaded service, and two of them — `/tree` (27 ms) and `/hints` (65 ms,
-         * 108 KB) — answer about files and about names. A stretch point placed, a note drawn, a
-         * curve point moved changes neither, and there was no way to say so: a counter means
-         * "everything". The list is what the consumers read (`reloadScope.ts`); `undefined`,
-         * from a service that could not diff, still means everything.
-         */
+        /** …and the reload, carrying the files this command wrote — `undefined`, from a service that could not diff, still means everything. */
         setReload((r) => ({ key: r.key + 1, files: changed ?? null }));
-        // The picker's second half: the module exists now, so put the node it made where the
-        // click was. Its own command — journalled, undoable and typeable like any other — which
-        // is the price of verbs that do one thing each.
-        // …and null when there is nothing left to do: on the bare canvas `node new` has
-        // already placed it, and with no click point the layout decides.
+        // The picker's second half, as its own journalled command — and null when there is nothing left to do.
         const after =
           madeRef && wire ? wireCommand(madeRef, wire.at, wire.spawn) : null;
         if (after) await runCommandRef.current(after);
         // The repo verbs move the badge, the view AND the workspace — a pull can add projects.
-        // Here rather than in the share menu, because the palette and a key run them too.
         if (/^project (commit|pull|alternative)\b/.test(s)) onRepoChanged();
-        // The one reorganizing verb: the graph hosts drop their held positions with the
-        // same reload that drops the pins, or "reorganize" would visibly do nothing.
+        // The one reorganizing verb: the graph hosts drop their held positions with the same reload that drops the pins.
         if (s === "graph organize") setOrganizeKey((k) => k + 1);
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);
         pushLog("error", (e as Error).message);
       } finally {
-        // The placeholder comes down in the same update that carries the new graph, so the two
-        // swap in one frame. That is what changed: the reply used to be the START of the wait —
-        // the canvas then spent a fetch and a 400 ms parse still showing the old picture, with
-        // the spinner already gone — and now it is the end of it.
+        // The placeholder comes down in the same update that carries the new graph, so the two swap in one frame.
         if (willInsert) setInsertingAt(null);
       }
     },
@@ -2373,28 +1709,18 @@ export default function App({
   runCommandRef.current = runCommand;
 
   // --- following a track across the panes ------------------------------------------
-  //
-  // A double-click on a timeline header says "this one" to the whole shell: the editor opens
-  // the row's file and the chains canvas frames what it feeds. Selecting the row is the
-  // timeline's own business — the caret — and happens on the single click that precedes this.
-  //
-  // The nonce is what makes the SAME track twice re-frame: the chains canvas applies a focus
-  // once, and without a changing value a second double-click would be indistinguishable from
-  // the first and do nothing after the camera had been panned away.
+
+  // A double-click on a timeline header says 'this one' to the whole shell; the nonce is what makes the SAME track re-frame.
   const [graphFocus, setGraphFocus] = useState<{
     id: string;
     nonce: number;
   } | null>(null);
   const focusNonce = useRef(0);
-  // What the status line said about the file, so the canvas's answer can be added to it rather
-  // than replace it: the two halves of one action arrive a render apart.
+  // What the status line said about the file, so the canvas's answer is added to it rather than replacing it.
   const focusLine = useRef("");
   const focusRowInPanes = useCallback(
     (target: RowTarget) => {
-      // Named, not fuzzy-matched: a row knows which folder its file is in, and the score a
-      // bare id would win is the one `clips/<id>.yaml` wins too. See projectPaths.
-      // `nodes/`, because that is where a lane lives: it is a node of a
-      // `@studio/…-track` module (packages/song/docs/trackModules.md).
+      // Named, not fuzzy-matched, and under `nodes/`, because that is where a lane lives (packages/song/docs/trackModules.md).
       const file = entityFile(
         editorRef.current?.files() ?? [],
         "nodes",
@@ -2405,16 +1731,13 @@ export default function App({
       setStatus(focusLine.current);
       focusNonce.current += 1;
       setGraphFocus({ id: target.id, nonce: focusNonce.current });
-      // …and the lane's modules, side by side, OVER the graph. The framing above still happens:
-      // closing this row leaves the graph already framed on the track it was about, which is
-      // where you would have wanted to be anyway.
+      // …and the lane's modules, side by side, OVER the graph; the framing above still happens.
       if (target.kind === "track")
         setGraphSlot({ kind: "trackModules", trackId: target.id });
     },
     [openInEditor],
   );
-  // The canvas reports what the framing found; a track wired to nothing has to say so, or the
-  // graph merely looking unchanged reads as the double-click having missed.
+  // The canvas reports what the framing found: a track wired to nothing has to say so, or the double-click reads as a miss.
   const reportFramed = useCallback((chains: number) => {
     setStatus(
       chains
@@ -2429,15 +1752,11 @@ export default function App({
     x: number;
     y: number;
   } | null>(null);
-  // What the entry under the pointer DOES, borrowing the status line for as long as the menu is
-  // open. Its own state and not `setStatus`: the status line carries what the app last DID, and a
-  // sentence read on the way past must not survive the menu it was read in, nor bury what was
-  // there before it. See ContextMenu.tsx's `onHint`.
+  // What the entry under the pointer DOES, borrowing the status line while the menu is open — see ContextMenu.tsx's `onHint`.
   const [menuHint, setMenuHint] = useState("");
   const prewriteCommand = useCallback(
     (text: string) => {
-      // Docked, the bar is already mounted: write into it. The deferral below exists only for
-      // the popin, which cannot be prewritten before it has rendered.
+      // Docked, the bar is already mounted: write into it; the deferral below exists only for the popin.
       if (docked || paletteOpen) cmdRef.current?.prewrite(text);
       else {
         pendingPrewrite.current = text;
@@ -2452,17 +1771,7 @@ export default function App({
       pendingPrewrite.current = null;
     }
   }, [paletteOpen]);
-  /**
-   * A pick from the right-click menu.
-   *
-   * The bar is a form for COLLECTING arguments. An entry the click already answered in full has
-   * none left to collect, so opening the bar over it would ask a question with no blanks in it
-   * and wait for an Enter that could only mean yes. Those run.
-   *
-   * It is not a confirm step, and was never doing that job: nothing here asks twice, and what a
-   * command changed is undone by Ctrl+Z like any other (the journal wraps every command). What
-   * still opens the bar is exactly what still needs typing.
-   */
+  /** A pick from the right-click menu: the bar is a form for COLLECTING arguments, so an entry with nothing left to collect just runs. */
   const pickMenuItem = useCallback(
     (item: MenuItem) => {
       if (item.complete) void runCommandRef.current(item.command);
@@ -2470,16 +1779,13 @@ export default function App({
     },
     [prewriteCommand],
   );
-  // The catalogue in a ref: the menu reads it at open time, and threading it as a dependency
-  // would rebuild every pane's onContextMenu the moment the commands land.
+  // The catalogue in a ref: the menu reads it at open time, and a dependency would rebuild every pane's onContextMenu.
   const cmdCatalogue = useRef<CommandInfo[]>([]);
   cmdCatalogue.current = backendCmds;
-  // …and the prefs beside it, for the same reason: the handler below has empty deps, so reading
-  // the state directly would pin whatever it was on the first render.
+  // …and the prefs beside it: the handler below has empty deps, so reading the state directly would pin the first render's.
   const cmdPrefs = useRef<CommandPrefs>({});
   cmdPrefs.current = commandPrefs;
-  // …and the language, for the third time: the entries' descriptions are resolved when the menu
-  // opens, so the one it reads has to be the one on screen at that moment.
+  // …and the language, for the third time: the entries' descriptions are resolved when the menu opens.
   const cmdLocale = useRef(locale);
   cmdLocale.current = locale;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
@@ -2491,16 +1797,7 @@ export default function App({
     );
     if (items.length) setMenu({ items, x, y });
   }, []);
-  /**
-   * The ⋮ bubble on a node — the same ContextMenu the right-click uses, and the same `MenuItem`
-   * shape, so switching runs on the spot while the two that need a name arrive in the command bar
-   * half-typed. That split is what `complete` already means, and reusing it means this menu
-   * inherits the outside-click close, the positioning and the undo journal for nothing.
-   *
-   * The ROWS are `nodeMenu`'s, in contextMenu.ts, and not this component's: a timeline surface
-   * alone on a second device opens this same bubble on these same lanes, and two derivations of
-   * one menu is how they come to offer different alternatives for the same node.
-   */
+  /** The ⋮ bubble on a node — the same ContextMenu the right-click uses, over the same rows (`nodeMenu` in contextMenu.ts). */
   const openNodeMenu = useCallback(
     (n: NodeMenuTarget, at: { x: number; y: number }) => {
       const items = nodeMenu(n);
@@ -2510,17 +1807,14 @@ export default function App({
   );
   // A `+` click asks WHICH module before writing anything; picking pre-writes a command. See docs/shell.md.
   const pendingInsert = useRef<PendingInsert | null>(null);
-  // Where the node a CREATING line is about to make should be wired: an arrow, or nowhere (the
-  // bare canvas), plus the world point the click happened at. See onModulePick.
+  // Where the node a CREATING line is about to make should be wired: an arrow or nowhere, plus the world point clicked (see onModulePick).
   const pendingWire = useRef<{
     at: PendingInsert | null;
     spawn: { x: number; y: number } | null;
   } | null>(null);
-  // …and the `module new` that has to run BEFORE that line, for a pick with no local folder yet.
-  // Null for a module of this project, which is the common case and stays one command.
+  // …and the `module new` that has to run BEFORE that line — null for a module of this project, which stays one command.
   const pendingModule = useRef<string | null>(null);
-  // "which file?" — a filepicker widget's asset browser. The popup is viewport-positioned,
-  // so the shell renders it, exactly as it does the `+`'s module picker below.
+  // 'Which file?' — a filepicker widget's asset browser, rendered by the shell because the popup is viewport-positioned.
   const [assetPicker, setAssetPicker] = useState<{
     module: string;
     param: string;
@@ -2528,26 +1822,10 @@ export default function App({
     y: number;
     files: string[];
   } | null>(null);
-  /**
-   * Find the open project's node of the module the builder just opened, and watch its plugin.
-   *
-   * Read from the compiled graph rather than kept in state, the same way `browseAssets` reads its
-   * choices: the chains can have changed since the last look, and this runs once per builder open.
-   * `watchPluginParams` is what makes the values LIVE — without it the engine reports a plugin's
-   * set once and never again, so a knob turned in the graph would leave the builder showing the
-   * number it happened to see first.
-   */
+  /** Find the open project's node of the builder's module and watch its plugin — `watchPluginParams` is what makes the values LIVE. */
   useEffect(() => {
     if (!builder) return void setBuilderPlugin(null);
-    // The key a chain would write, which is everything between the type folder and the file —
-    // `amps/neural-amp-modeler`, not `neural-amp-modeler`. Shared with the loader that files it
-    // (`@studio/song/moduleTypes`), because a lookup that spelled it differently would report
-    // "this project has no such module" about a module plainly in the tree.
-    //
-    // A LIBRARY module is named with its namespace instead — `@st0/audio/amps/nam` — since
-    // that is what a chain writes for a module the project inherits rather than holds. Same
-    // lookup, one spelling apart, and getting it wrong here is what would make the Libraries tab
-    // a text editor: no ref, no plugin, no real parameters.
+    // The key a chain would write — `amps/neural-amp-modeler`, or `@st0/audio/amps/nam` for a library module (@studio/song/moduleTypes).
     const module =
       libraryModuleRef(builder.path) ?? moduleKeyFromPath(builder.path);
     if (!module) return void setBuilderPlugin(null);
@@ -2571,9 +1849,7 @@ export default function App({
     };
   }, [builder]);
 
-  // …and once one is found, ask for it and keep it coming. Its own effect so the unwatch is
-  // paired with the watch: leaving the builder open on a module for an hour must not leave a
-  // subscription behind on a plugin nothing is drawing.
+  // …and once one is found, ask for it and keep it coming — its own effect, so the unwatch is paired with the watch.
   useEffect(() => {
     if (!builderPlugin) return;
     const { module, pluginId } = builderPlugin;
@@ -2585,10 +1861,7 @@ export default function App({
 
   const browseAssets = useCallback(
     (module: string, param: string, x: number, y: number) => {
-      // The choices are the MODULE's own assets/ and its ancestors', carried on its node — a
-      // thin local module extending a médiathèque amp offers that amp's profiles. Re-read from
-      // the graph rather than kept in state, so a file dropped on the module since the last look
-      // is offered. Filtering to the param's extension is the picker's own job.
+      // The choices are the MODULE's own assets/ and its ancestors', re-read from the graph so a file dropped since the last look is offered.
       void api
         .graph()
         .then((g) => {
@@ -2607,45 +1880,30 @@ export default function App({
     },
     [],
   );
-  // `info` is the arrow the pick will splice into — NULL when the picker was opened on
-  // empty canvas, where there is no arrow and the module lands wired to nothing.
+  // `info` is the arrow the pick will splice into — NULL when the picker was opened on empty canvas.
   const [modulePicker, setModulePicker] = useState<{
     info: { before: string; after: string } | null;
     x: number;
     y: number;
-    // The click's WORLD point — where the picked module will be BORN (`at` on the create
-    // verbs), so a new node never asks the layout where to appear.
+    // The click's WORLD point — where the picked module will be BORN, so a new node never asks the layout where to appear.
     at?: { x: number; y: number };
-    /**
-     * What a node of the picked module lands CALLED — `<lane>_<module>_<n>`.
-     *
-     * The chains pane's, because only it holds the graph the lane is read off (ChainsTab's
-     * `nameFor`). It travels with the click rather than being asked for at pick time so the
-     * answer describes the arrow that was clicked, not whatever the graph has become since.
-     */
+    /** What a node of the picked module lands CALLED — `<lane>_<module>_<n>`, from the pane that holds the graph (ChainsTab's `nameFor`). */
     nameFor: (module: string) => string;
   } | null>(null);
-  // Offer the click into the pre-written line's `at` field — deferred a tick, because
-  // prewrite has only just SET the bar's command state and a same-tick offer reads the old.
+  // Offer the click into the pre-written line's `at` field, deferred a tick: a same-tick offer reads the bar's old state.
   const offerSpawnAt = useCallback((at?: { x: number; y: number }) => {
     if (!at) return;
     const v = `${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`;
     setTimeout(() => cmdRef.current?.offer({ at: v }, true), 0);
   }, []);
-  // The picker's vocabulary, PREFETCHED. It used to be fetched on the click, which put a full /hints — the
-  // tracks, the clips, the plugin scan, the path map — between pressing `+` and seeing a list of modules. The
-  // catalogue barely moves, so it is fetched once and refreshed when the project changes.
-  // The CATALOGUE, not a list of refs. An engine module's ref is flat (`@engine/adt`), so
-  // the only thing that says an ADT is an audio effect is the module itself — the picker
-  // groups by that, and a ref alone stopped being enough to file one.
+  // The picker's vocabulary, PREFETCHED once per project — the CATALOGUE and not a list of refs, since only the module says what kind it is.
   const [baseModules, setBaseModules] = useState<PickerModule[]>([]);
   useEffect(() => {
     let alive = true;
     void Promise.all([api.moduleCatalogue(), api.baseModules()])
       .then(([cat, refs]) => {
         if (!alive) return;
-        // The project's OWN modules come from the ref list — they are not catalogue
-        // entries, and the picker needs them to know one already exists to instantiate.
+        // The project's OWN modules come from the ref list: the picker needs them to know one already exists to instantiate.
         const known = new Set(cat.map((m) => m.ref));
         setBaseModules([
           ...cat.map((m) => ({ ref: m.ref, category: m.category })),
@@ -2658,8 +1916,7 @@ export default function App({
     };
   }, [reloadKey]);
 
-  // Opening the picker awaits nothing now. With no vocabulary yet — the very first frames, or a failed
-  // fetch — pre-write the command instead, which is what a picker with nothing to show was always worth.
+  // Opening the picker awaits nothing; with no vocabulary yet, the command is pre-written instead.
   const insertIntoChain = useCallback(
     (
       info: { before: string; after: string },
@@ -2686,8 +1943,7 @@ export default function App({
       nameFor: (module: string) => string,
     ) => {
       if (!baseModules.length) {
-        // No catalogue to pick from: the person names what to create, and `node new`
-        // puts it in the graph itself.
+        // No catalogue to pick from: the person names what to create, and `node new` puts it in the graph.
         prewriteCommand("node new ");
         offerSpawnAt(at);
         return;
@@ -2701,34 +1957,17 @@ export default function App({
       if (!modulePicker) return;
       setModulePicker(null);
       const { info, at, nameFor } = modulePicker;
-      // The picker's one non-module offer. A curve is a node like any other, so it is created
-      // from the same menu — but there is no catalogue to pick from and nothing to splice it
-      // into: only a person can name it, and it drives nothing until a param binds it. So the
-      // bar is prewritten, exactly as `node new` is when the module catalogue is empty. A curve
-      // is not an instance of anything, so there is no `<lane>_<module>_<n>` to propose either.
+      // The picker's one non-module offer: a curve has nothing to pick and nothing to splice into, so the bar is prewritten.
       if (pick.newCurve) {
         prewriteCommand("curve new ");
         offerSpawnAt(at);
         return;
       }
-      /**
-       * TWO lines, and the split is the vocabulary's: what the pick needs is a module (created,
-       * or noded if it is already there) and then that node WIRED — an arrow to splice into, or
-       * the bare canvas. `node insert` used to do both from a `<category>/<name>`, which is
-       * what made it indistinguishable from the verb that only spliced.
-       *
-       * Neither reaches the bar any more. The only thing missing from the first was the node's
-       * NAME, and it is `<lane>_<module>_<n>` now — derived from the arrow that was clicked,
-       * which is a better answer than the one a person would type at the speed they can type it.
-       * So the pick RUNS: one click, a node on the arrow. `runCommand` reads the name back off
-       * the line exactly as it did when somebody had typed it (`chainRefFromCreate`), and the
-       * second line follows from `pendingWire` — nothing else about that dance changed.
-       */
+      /** TWO lines, and the split is the vocabulary's: a module made or noded, then that node WIRED — see `chainRefFromCreate`. */
       pendingWire.current = { at: info, spawn: at ?? null };
       pendingInsert.current = info; // the ghost on the arrow, while the commands run
       const ref = pick.namespace === null ? undefined : pick.ref;
-      // A catalogue pick has no local folder, and `node new` instances a module that exists —
-      // so its `module new` runs ahead of the line below.
+      // A catalogue pick has no local folder, so its `module new` runs ahead of the line below.
       pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
       const spawn = at
         ? ` ${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`
@@ -2746,23 +1985,17 @@ export default function App({
   const conditions = useMemo<ConditionCtx>(() => {
     const cond: ConditionCtx = {};
     cond.focus_pane = focusPane;
-    // The two layers Esc backs out of before it touches the layout. `popin` counts every
-    // registered overlay, not just this shell's own: one that closes ITSELF still has to
-    // shadow the slot, or one Escape would close two things. See popins.ts.
+    // The two layers Esc backs out of before it touches the layout; `popin` counts every registered overlay — see popins.ts.
     if (anyPopin) cond.popin = "1";
     if (graphSlot) cond.graph_slot = "1";
     if (full) cond.fullscreen = "1";
     if (caret?.trackId) cond.caret_track = caret.trackId;
-    // A rectangle, on whichever grid drew it. `z` stays the timeline's (only it keeps a zoom
-    // stack), but ⇧L means "loop what is selected" wherever you are — see keys.ts.
+    // A rectangle, on whichever grid drew it: `z` stays the timeline's, but ⇧L means 'loop what is selected' anywhere (keys.ts).
     if (tlView.selecting) cond.timeline_selection = "1";
     if (tlView.zoomed) cond.timeline_zoomed = "1";
     if (tlView.loop) cond.timeline_loop = "1";
     if (clipSel && graphSlot?.kind === "clip") cond.clip_selection = "1";
-    // `clipboard_events` / `clipboard_notes` were reported here, for a `p` that named one of two
-    // verbs. There is one verb now and its binding is unconditional (keys.ts), so what the
-    // clipboard holds — and whether it holds anything — is the paste handler's question and no
-    // longer a key's: the command answers in every state rather than the key going quiet.
+    // `clipboard_events` / `clipboard_notes` were reported here; there is one paste verb now and its binding is unconditional (keys.ts).
     if (editTarget?.kind === "seq")
       cond.hover_midi_sequence = fileStem(editTarget.path);
     else if (editTarget?.kind === "clip") {
@@ -2782,10 +2015,7 @@ export default function App({
     full,
   ]);
 
-  /**
-   * The command entry a double-Shift opens. Docked, it FOCUSES the bar that is already there;
-   * on the phone it opens the popin palette.
-   */
+  /** The command entry a double-Shift opens: docked it FOCUSES the bar, on the phone it opens the popin palette. */
   const onDoubleShift = useCallback(() => {
     if (docked) cmdRef.current?.focus();
     else
@@ -2795,15 +2025,7 @@ export default function App({
       });
   }, [docked]);
 
-  /**
-   * Global keys. Every binding names a command and runs through runCommand — hooks/useCommandKeys.ts,
-   * shared with the surface a second device draws so one keyboard cannot become two.
-   *
-   * The two screens that switch it off own the surface outright: the panes these bindings act on
-   * are hidden behind a settings PAGE or the builder, and Esc must not reach past either to close
-   * the slot underneath. The settings PANEL is deliberately not one of them — a docked panel
-   * leaves the panes on screen, so the keys that drive them must keep working.
-   */
+  /** Global keys — every binding names a command and runs through runCommand (hooks/useCommandKeys.ts); the two screens that switch it off own the surface outright. */
   useCommandKeys({
     enabled: !commandsPage && !builder,
     effKeys,
@@ -2812,14 +2034,10 @@ export default function App({
     onDoubleShift,
   });
 
-  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
-  // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
-  // still has keystroke history to spend, that wins and we drive it directly; once it's spent
-  // (or focus is elsewhere) the same key walks the journal instead. See project-shell/undo.ts.
+  // Ctrl+Z / Ctrl+Y — the project journal, captured so it runs before CodeMirror's keymap and spends the buffer's history first (project-shell/undo.ts).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // The PAGE owns the surface; a docked panel does not, and Ctrl+Z belongs to the project
-      // underneath it either way. Not `undoConfirm` twice: don't stack a second confirm.
+      // The PAGE owns the surface; a docked panel does not, and Ctrl+Z belongs to the project underneath it either way.
       if (commandsPage || undoConfirm) return;
       if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
       const key = e.key.toLowerCase();
@@ -2827,8 +2045,7 @@ export default function App({
       const isRedo = key === "y" || (key === "z" && e.shiftKey);
       const h = editorRef.current;
       if (h?.editorFocused()) {
-        // Spend the buffer's own keystroke history first; once it's empty, fall through to
-        // the project journal (the arbitration the user chose).
+        // Spend the buffer's own keystroke history first; once it is empty, fall through to the project journal.
         const depth = isRedo ? h.localRedoDepth() : h.localUndoDepth();
         if (depth > 0) {
           e.preventDefault();
@@ -2856,41 +2073,22 @@ export default function App({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [commandsPage, historyDeps, undoConfirm]);
 
-  // The global view has no mobile form, so entering mobile lands on a pane — the timeline, being
-  // the one that says what a song is. A LIVE project is skipped entirely: it fullscreens nothing
-  // because its single pane already fills the phone, and forcing `full` there would put the
-  // layout in a state `viewPanes` says cannot exist.
+  // The layout has no mobile form, so entering mobile lands on a pane — the timeline; a project that fullscreens nothing is skipped.
   useEffect(() => {
     const [first] = layout.fullscreen;
     if (isMobile && full === null && first) setFull("timeline");
-    // The layout has no mobile form, so entering mobile lands on a pane -- the timeline, being the
-    // one that says what a song is. A project that fullscreens nothing is skipped: forcing `full`
-    // there would put the layout in a state `viewPanes` says cannot exist.
   }, [isMobile, full]);
 
-  // …and never on a snapshot: there is no engine coming, so this would be true for ever, and it
-  // is what greys the transport out. What plays here is the browser, and it is ready at once.
+  // …and never on a snapshot: there is no engine coming, and what plays here is the browser, ready at once.
   const waitingForEngine = !frozen && !!ws?.activeProject && !engineReady;
 
-  // The take's start, taken on the edge `rolling` goes true. `recInfo.tempo` converts the store's
-  // seconds; the snapshot is READ, never subscribed to — see where `takeStart` is declared.
+  // The take's start, taken on the edge `rolling` goes true; the snapshot is READ, never subscribed to.
   useEffect(() => {
     if (!rolling) return;
     setTakeStart((store.getSnapshot().playhead * recInfo.tempo) / 60);
   }, [rolling, store, recInfo.tempo]);
 
-  /**
-   * The take to review: the one ASKED for, else the newest the file service has written.
-   *
-   * The automatic half is the take you just played, until this tab dismisses it — and never while a
-   * take is ROLLING, since the band owns that slot and the clip being reviewed would be the previous
-   * one. But it is not enough on its own: `lastTake` lives in the file service's memory and is lost
-   * whenever that process restarts, and dismissing it is final. So `ui review <clip>` names one
-   * outright, which survives both and reaches a take from three days ago (see docs/shell.md).
-   *
-   * The named one wins, and it is not subject to the rolling guard: asking for a clip by name is a
-   * deliberate act, not something that appeared while you were playing.
-   */
+  /** The take to review: the one ASKED for, else the newest the file service has written — the named one wins (docs/shell.md). */
   const reviewTake =
     reviewOn ??
     (ws?.lastTake &&
@@ -2899,25 +2097,12 @@ export default function App({
       ? ws.lastTake
       : null);
 
-  /**
-   * The takes the reviewed lane holds — the panel's sidebar, when a recording left a choice.
-   *
-   * Recomputed off the project doc, so it follows every swap: `runCommand` bumps the reload key,
-   * the doc comes back, and the row marked "on the track" is the one that just moved there.
-   */
+  /** The takes the reviewed lane holds — recomputed off the project doc, so it follows every swap. */
   const reviewTakes = useMemo(
     () => takeOptions(projectDoc, reviewTake?.track ?? ""),
     [projectDoc, reviewTake?.track],
   );
-  /**
-   * Listen to another take: it goes ON the track, and what was there becomes that take.
-   *
-   * A swap rather than a preview, because the point is to hear the pass IN the song — with the
-   * rest of the band — and only what the lane plays reaches the engine. Nothing is lost by it
-   * (packages/song/docs/takes.md), so this is an audition that happens to be an edit, and one
-   * Ctrl+Z away like every other command. The playhead goes to where the take starts, so the
-   * sidebar's ▶ means "hear this one from its beginning".
-   */
+  /** Listen to another take: it goes ON the track — a swap rather than a preview, one Ctrl+Z away (packages/song/docs/takes.md). */
   const pickTake = useCallback(
     async (t: TakeOption) => {
       const track = reviewTake?.track;
@@ -2934,32 +2119,15 @@ export default function App({
     if (track) void runCommand(`track take keep ${track}`);
   }, [reviewTake?.track, runCommand]);
 
-  // Everything that makes the transport unable to answer, as one flag — because to whoever is reaching for Play
-  // the two causes are the same fact, and the button has to say so either way.
-  //
-  // `engineBusy` alone used to be enough, back when the browser's own apply was the one that built every plugin.
-  // The file service now PREWARMS the engine on /workspace, before the socket is even open, so that work (~1.3 s
-  // on a real song) finishes unwatched and the browser's apply is a diff — measured at 207 ms, a flash that reads
-  // as no spinner at all. What is left to wait for on a first load is the first state frame, which is exactly
-  // what `waitingForEngine` means.
+  // Everything that makes the transport unable to answer, as one flag: to whoever is reaching for Play the two causes are one fact.
   const transportWaiting = engineBusy || waitingForEngine;
 
-  // The step-by-step palette's command catalogue and per-argument completion. `locale` is taken
-  // once, above `runLocalCommand`, since `ui language` writes it.
-  // The locale is a dependency: each command's description is resolved once, when the
-  // catalogue is built, so switching language rebuilds the list the palette matches on.
+  // The step-by-step palette's catalogue and per-argument completion — `locale` is a dependency, each description being resolved as the list is built.
   const paletteCommands = useMemo(
     () => buildPaletteCommands(backendCmds, locale),
     [backendCmds, locale],
   );
-  /**
-   * The catalogue AS THIS PERSON ARRANGED IT — renamed and reordered (commandPrefs.ts).
-   *
-   * Applied here, once, over the palette's built list: the palette is the one surface that lists
-   * every command, so ordering it anywhere else would leave the settings page describing an order
-   * nothing obeyed. `label` replaces the sentence the palette matches on, which is deliberate —
-   * someone who renamed a command should find it by the name they gave it.
-   */
+  /** The catalogue AS THIS PERSON ARRANGED IT — renamed and reordered once, over the palette's built list (commandPrefs.ts). */
   const allCommands = useMemo(
     () =>
       orderCommands(paletteCommands, commandPrefs).map((c) => ({
@@ -2969,10 +2137,7 @@ export default function App({
     [paletteCommands, commandPrefs, locale],
   );
   paletteRef.current = allCommands;
-  // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds —
-  // what the editor can open, every path the tree draws, this project's surfaces, the languages.
-  // The surfaces answer `ui external <surface>`, which names one by its filename; they stopped
-  // being needed when `ui surface <id>` went and came back with the external link.
+  // Four getters, not one: the shell's own commands ask for vocabularies only the shell holds — files, paths, surfaces, languages.
   const listArg = useMemo(
     () =>
       makeListArg({
@@ -2984,34 +2149,7 @@ export default function App({
     [surfaces, locales],
   );
 
-  /**
-   * The bar's right side — what `AppHeader`'s `actions` slot holds.
-   *
-   * A JSX VALUE and not a nested component: a component declared inside this render would be a
-   * new type on every pass, and React would unmount the menus and the pane row each time. It is
-   * lifted out of the return only because it is ninety lines and a prop is no place to read them.
-   *
-   * These are controls, not pages, which is why they are here rather than in `items`: a pane
-   * button fullscreens something already mounted and Escape backs out of it, and each one carries
-   * its own key in its tooltip. The project's SCREEN surfaces are the pages, and they are `items`.
-   */
-  /**
-   * The three panel buttons at the end of the bar — or, on a frozen snapshot, the one thing a
-   * visitor may take away.
-   *
-   * All three go on a snapshot, and none is merely disabled: Partager publishes THIS project
-   * somewhere (there is no project here, only a copy of one), Playlists opens a repository this
-   * visitor has not got, and Réglages changes engine, workspace and account-wide preferences.
-   * A greyed-out control would be an invitation to sign in, which is exactly what a share
-   * exists to avoid needing.
-   *
-   * Each is a TOGGLE on its panel, so all three are `aria-pressed` and lit while theirs has the
-   * column — never `aria-expanded`, which is a menu's word for something that closes on the next
-   * click. They are mutually exclusive because the column is one; see `rightPanel`.
-   */
-  // Whatever key reaches each panel, for the tooltips below — this app advertises a shortcut
-  // wherever a control is drawn. Undefined when nothing is bound, and the tooltip then says
-  // only what the button does.
+  // Whatever key reaches each panel, for the tooltips below — undefined when nothing is bound, and the tooltip then says only what the button does.
   const playlistKey = keyForCommand("ui playlists", commandPrefs);
   const shareKey = keyForCommand("ui share", commandPrefs);
   const settingsKey = keyForCommand("ui settings", commandPrefs);
@@ -3021,12 +2159,7 @@ export default function App({
     <ShareDownload base={snapshot.base} />
   ) : (
     <>
-      {/* The PLAYLIST, for a SET only — first of the three, because on a desk it is the one you
-          reach for during the evening while the other two are things you do at the end of it.
-
-          Only there. Every project's playlists are reachable from the palette (`ui playlists`),
-          but a button in the bar is width, and on a song the set lists are not what you came
-          for. See frontend/docs/playlists.md. */}
+      {/* The PLAYLIST, for a SET only — every project's are reachable from the palette instead (docs/playlists.md). */}
       {hasTurntables && (
         <Button
           size="icon"
@@ -3040,8 +2173,7 @@ export default function App({
           <ListMusic className="h-4 w-4" />
         </Button>
       )}
-      {/* SHARE. It was a dropdown; the badge it wore is the one thing that has to stay on the
-          button, because it says the repository is behind BEFORE you open anything. */}
+      {/* SHARE. The badge stays on the button: it says the repository is behind BEFORE you open anything. */}
       <Button
         size="icon"
         variant={rightPanel === "share" ? "default" : "ghost"}
@@ -3070,8 +2202,7 @@ export default function App({
           </span>
         )}
       </Button>
-      {/* The COG was a dropdown of entries, each opening a page or a dialog. It opens the
-          settings panel instead — one surface with a tab per entry. */}
+      {/* The COG opens the settings panel — one surface with a tab per entry, where a dropdown used to be. */}
       <Button
         size="icon"
         variant={rightPanel === "settings" ? "default" : "ghost"}
@@ -3088,32 +2219,19 @@ export default function App({
 
   const headerActions = (
     <div className="flex min-w-0 items-center gap-1">
-      {/* The mix leaving for the interface, and whether it clipped on the last pass. Not on a
-          phone, where the whole right side already collapses into one button — a meter you
-          cannot fit is a meter nobody reads. Not on a snapshot either: a share has no engine,
-          so its meter could only ever draw silence. */}
+      {/* The mix leaving for the interface — absent on a phone, which cannot fit it, and on a snapshot, which has no engine. */}
       {!isMobile && !snapshot && (
         <MasterMeter
           className="mr-2"
           ref={masterMeterRef}
-          // The button dispatches the command rather than calling the handler, like every other
-          // button in this shell: one behaviour, one transcript line, one Ctrl+Z per strip.
+          // The button dispatches the command rather than calling the handler, like every other button in this shell.
           onFix={() => void runCommand("project master fix")}
-          // The song's own level, off the compiled doc — what the FILE says, so the fader reads
-          // right before a note has played and survives the transport stopping.
+          // The song's own level, off the compiled doc — what the FILE says, so the fader reads right before a note has played.
           master={projectDoc?.masterVolume}
           onMaster={setMaster}
         />
       )}
-      {/* On a phone the whole right side collapses into ONE button, and everywhere there is
-          to go is inside it: the panes and the command bar. There is no studio view to toggle
-          and no layout to go back to, so a pane is a destination here rather than a fullscreen
-          switch — always `ui <pane>`, never `ui global`.
-
-          The project's own surfaces used to be listed separately below the panes. They are panes
-          themselves now, so `layout.fullscreen` above already carries the desk with its icon and
-          its key. The metronome and the panel toggles stay out — they live in the footer, and a
-          second copy is one more thing to keep in step. */}
+      {/* On a phone ONE button holds everywhere there is to go, and a pane is a destination — always `ui <pane>` (docs/shell.md). */}
       {isMobile ? (
         <MobileMenu open={mobileMenu} onOpenChange={setMobileMenu}>
           <div className="flex flex-col">
@@ -3129,8 +2247,7 @@ export default function App({
                 }}
               />
             ))}
-            {/* The command bar has no keyboard opener on a phone — there is no double-Shift —
-                so it needs a control of its own, and this is now the only place for one. */}
+            {/* No double-Shift on a phone, so the command bar needs a control of its own and this is the only place left. */}
             <MobileMenuItem
               icon={Terminal}
               label="Commandes"
@@ -3145,15 +2262,7 @@ export default function App({
         </MobileMenu>
       ) : (
         <>
-          {/* Pane buttons, and no VIEW toggles beside them: there is one layout to
-              CHOOSE, and a toggle that is always on and cannot be turned off is a control
-              in name only. `live` is not one either — it is what the project IS, not a
-              layout you pick.
-
-              The row is drawn from the LAYOUT's fullscreenable set, not from PANES: in
-              `live` that set is empty and the nav disappears with it, because its one pane
-              already has the window and every button would either do nothing or hide the
-              only thing on screen. */}
+          {/* Pane buttons and no view toggles: the row is the LAYOUT's fullscreenable set, not PANES (docs/shell.md). */}
           <nav className="flex items-center gap-1">
             {layout.fullscreen.map((p) => {
               const Icon = PANE_META[p].icon;
@@ -3190,28 +2299,9 @@ export default function App({
   return (
     <EngineStoreProvider value={store}>
       <div className="relative flex h-full flex-col bg-background text-foreground">
-        {/* The shared bar (@frediverse/ui/app-header) with st0's own contents in it: the
-            title and the build stamp are its slots, everything between them is `children`,
-            and the right side is `actions`.
-
-            NOTHING GOES IN `items` any more. The doc's line is "a page goes in items, a control
-            goes in actions", and this bar has no pages left: the desk was the one, and a pane
-            button is a control — it fullscreens a pane that is already mounted and Escape backs
-            out of it (aria-pressed, not aria-current). So the desk moved into the icon-only pane
-            row with the rest, which is also where it gets a tooltip carrying its key, as this app
-            advertises a shortcut wherever a control is drawn.
-
-            The prop is left rather than dropped: it is the shared bar's slot for exactly that
-            kind of page, and the next one this app grows belongs in it. Note it folds itself into
-            a hamburger of its own below 640px, which next to `actions`' hamburger would be two
-            buttons a thumb has to choose between to answer one question — so anything put here
-            must be in `headerActions`' menu on a phone.
-
-            The padding is overridden through the inner box: the shared bar is px-5 py-3 and every
-            row of chrome is a row the panes don't get — a phone in landscape is ~400px tall. */}
+        {/* The shared bar (@frediverse/ui/app-header) with st0's contents; `items` is empty on purpose — docs/shell.md. */}
         <AppHeader
-          // No `variant`: the house look, the accent tinted over the page. It was `plain`
-          // when the alternative was a solid accent bar — see @frediverse/ui's docs/app-header.md.
+          // No `variant`: the house look, the accent tinted over the page (@frediverse/ui's docs/app-header.md).
           className={cn(
             "z-20",
             isMobile
@@ -3223,26 +2313,18 @@ export default function App({
           items={[]}
           actions={headerActions}
         >
-          {/* Between the two: what you are looking AT, and the transport over it. `mx-auto` on
-              the transport rather than a flex-1 either side — the shared bar owns the outer
-              layout now, and this is the closest thing to the true centre it leaves room for. */}
+          {/* Between the two: what you are looking AT, and the transport centred over it with `mx-auto`, the bar owning the outer layout. */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
               {snapshot?.manifest.name || project?.name || "…"}
             </span>
-            {/* Said once, where the version normally goes, and dressed as a state rather than
-                a warning: this is not a fault, it is the whole point of the link. The reason it
-                is HERE is that a visitor has no other way to learn it — every refusal below is a
-                thing that will not happen when you try, and telling someone up front beats
-                letting them find out by clicking. */}
+            {/* Said where the version goes and dressed as a state, not a warning: a visitor has no other way to learn it (docs/shared.md). */}
             {snapshot && (
               <span className="flex shrink-0 items-center gap-1 truncate rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" /> {m["share.readOnly"]()}
               </span>
             )}
-            {/* The alternatives of the workspace repo, right after the title: which
-                version of the song you are on is part of what you are looking at.
-                A snapshot has no repository at all — there is nothing to switch between. */}
+            {/* The workspace repo's alternatives, right after the title; a snapshot has no repository to switch between. */}
             {!frozen && (
               <AlternativePicker
                 reloadKey={reloadKey}
@@ -3257,22 +2339,7 @@ export default function App({
               </span>
             )}
 
-            {/* centre: transport — play/pause, stop, the clock, then record.
-              Each drops focus on click (blurOnClick): these are the buttons a mouse is
-              most likely to land on right before reaching for Space, and a focused one
-              eats the keypress. On play/pause the theft is invisible (the button does
-              what Space would); on stop and record it is not.
-
-              A SET gets the two that mean something and not the other two, in the SAME place —
-              this is the bar you reach for whichever project is open, so play and stop do not
-              move around. What it drops is the clock and record: a set declares no tempo and no
-              time signature (`project.yaml` says so outright), so the clock would count bars
-              nothing is written against, and record would arm a lane with nowhere to put a take.
-
-              Absent altogether only where there is NEITHER — a project with no timeline and no
-              desk. Every control here addresses a position in something, and that project has
-              nothing to address. Sound still reaches the engine, played by what is wired in the
-              graph. See docs/surfaces.md. */}
+            {/* centre: transport — play/pause, stop, the clock, then record, each dropping focus on click (docs/shell.md). */}
             {(!noArrangement || hasTurntables) && (
               <div className="mx-auto flex shrink-0 items-center gap-1">
                 <Button
@@ -3313,10 +2380,7 @@ export default function App({
                   variant="secondary"
                   onClick={(e) => {
                     transport("stop");
-                    // "Back to the start" — and on a SET the start is not zero. `rewind` is
-                    // `setPosition(0)`, which on a desk's timeline lands ten minutes before the
-                    // music and leaves the next Play looking broken all over again. See
-                    // `playFrom`, which is the same rule read the other way round.
+                    // 'Back to the start' — and on a SET the start is not zero; see `playFrom`, the same rule read the other way round.
                     if (hasTurntables) seek(TIMELINE_BASE);
                     else transport("rewind");
                     blurOnClick(e);
@@ -3325,8 +2389,7 @@ export default function App({
                 >
                   <Square className="h-4 w-4" />
                 </Button>
-                {/* The clock and record are the ARRANGEMENT's half of this cluster — see the
-                    note above. A set has no bars to count and no lane to arm. */}
+                {/* The clock and record are the ARRANGEMENT's half: a set has no bars to count and no lane to arm. */}
                 {!noArrangement && (
                   <>
                     <TransportClock
@@ -3357,17 +2420,14 @@ export default function App({
         {/* main: the panes on top, an optional bottom split panel below */}
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
-            {/* The popin's backdrop. Dismisses on a click outside, which is the reliable way out:
-                Escape belongs to the editor (vim leaves insert mode with it) and must not also
-                close the thing you are typing in. */}
+            {/* The popin's backdrop: a click outside is the reliable way out, Escape belonging to the editor's vim. */}
             {editorPopin && (
               <div
                 className="fixed inset-0 z-40 bg-black/40"
                 onPointerDown={() => setEditorPopin(false)}
               />
             )}
-            {/* The rack builder — a popin of its own: a 4×4 pad grid that ends in a
-                modules/instruments/<name> on disk. Opened by `module create rack`. */}
+            {/* The rack builder popin: a 4×4 pad grid ending in modules/instruments/<name>, opened by `module create rack`. */}
             {rackBuilder && (
               <RackBuilder
                 activeProject={ws?.activeProject ?? null}
@@ -3383,10 +2443,7 @@ export default function App({
               {...paneProps("editor")}
               className={cn(
                 "flex min-h-0 min-w-0 flex-col",
-                // The SAME element in the same place in the tree, restyled — so the open file,
-                // its undo history and the CodeMirror node survive being popped out.
-                //
-                // It has no slot in either layout any more: fullscreened, popped in, or away.
+                // The SAME element in the same place in the tree, restyled — so the open file, its undo history and the CodeMirror node survive.
                 editorPopin
                   ? "fixed inset-4 z-50 overflow-hidden rounded-lg border border-border bg-background shadow-2xl sm:inset-x-[12%] sm:inset-y-[8%]"
                   : full === "editor"
@@ -3394,8 +2451,7 @@ export default function App({
                     : "hidden",
                 ringFor("editor"),
               )}
-              // Stop above the floating minimap rather than over it. Inline, because it is a
-              // measurement — see `stripH`; the class above sets the other three edges.
+              // Stop above the floating minimap rather than over it — inline, because it is a measurement (see `stripH`).
               style={editorPopin && stripH ? { bottom: stripH + 8 } : undefined}
             >
               {editorPopin && (
@@ -3411,12 +2467,10 @@ export default function App({
               <EditorTab
                 ref={editorRef}
                 active={activePane === "editor"}
-                // Only when it owns the screen. Not in the popin: that is one file, opened by a
-                // command that already named it.
+                // Only when it owns the screen, and not in the popin: that is one file, opened by a command that already named it.
                 showTree={full === "editor"}
                 popin={editorPopin}
-                // The whole token, not the counter: this pane holds the two routes that answer
-                // about files and about names, and the list is what lets it skip them.
+                // The whole token, not the counter: this pane holds the two routes that answer about files and about names.
                 reload={reload}
                 activeProject={ws?.activeProject ?? null}
                 projectName={project?.name ?? null}
@@ -3424,21 +2478,17 @@ export default function App({
                 onOpenProject={openProject}
                 onImportProject={imp.askImport}
                 onChanged={bumpReload}
-                // The clip file's Process menu runs `clip process` through here — the same path
-                // the palette takes, so it is journalled and one Ctrl+Z. Its reload is what
-                // brings the rewritten file back into the buffer.
+                // The clip file's Process menu runs `clip process` through here — journalled, one Ctrl+Z, and its reload brings the file back.
                 command={runCommand}
                 setStatus={setStatus}
                 onEditTarget={setEditTarget}
                 onOpenItem={setOpenItem}
                 onOpenBuilder={(path, pane) => setBuilder({ path, pane })}
-                // The same builder, over the médiathèque and locked. On the PANEL like a
-                // project module, and read-only until the dialog says otherwise.
+                // The same builder, over the médiathèque and locked — on the PANEL like a project module.
                 onOpenLibraryModule={(path) =>
                   setBuilder({ path, pane: "panel" })
                 }
-                // A chain row opens the builder ON that chain — the same promise the module row
-                // beside it makes, since both come out of the one library repository.
+                // A chain row opens the builder ON that chain, both coming out of the one library repository.
                 chainsBuilder={
                   openBuilder !== null ? (
                     <ChainsBuilder
@@ -3456,8 +2506,7 @@ export default function App({
                 }}
                 diagnostics={diagnostics}
                 videoSources={videoSources}
-                // The channel strip an `io: in` file gets under its text — the surface that
-                // actually opens when somebody clicks an IN node.
+                // The channel strip an `io: in` file gets under its text — what actually opens when somebody clicks an IN node.
                 inputDevices={inputDevices}
                 onRegroupInputs={connected ? regroupInputs : undefined}
               />
@@ -3469,12 +2518,7 @@ export default function App({
                 full === "editor" && "hidden",
               )}
             >
-              {/* The FRAME, on the same terms as the arrangement below it: a `split` surface the
-                  project declares (`surfaces/`, `type: viewport`), mounted for as long as it
-                  does. Mounted is the load-bearing word here — it owns a WebGL context and one
-                  <video> per layer, and a pane that unmounted when you looked elsewhere would
-                  flush a decoder every time. Hidden, never unmounted, exactly like the rest.
-                  See packages/song/docs/surfaces.md. */}
+              {/* The FRAME: a `split` surface the project declares, hidden and never unmounted since it owns a GL context (docs/picture.md). */}
               {hasViewport && (
                 <div
                   {...paneProps("viewport")}
@@ -3492,10 +2536,7 @@ export default function App({
                     ringFor("viewport"),
                   )}
                 >
-                  {/* `trackOrder` is what makes a shader's audio input mean anything: the
-                      engine's `levels` are an array indexed against the compiled track list and
-                      carry no names, so the lane a `#audio` cable came from can only be looked up
-                      by whoever holds both. See src/shaderAudio.ts. */}
+                  {/* `trackOrder` is what makes a shader's audio input mean anything: `levels` is indexed, not named — see src/shaderAudio.ts. */}
                   <ViewportTab
                     doc={videoDoc}
                     error={videoError}
@@ -3503,23 +2544,13 @@ export default function App({
                   />
                 </div>
               )}
-              {/* The ARRANGEMENT, and only when the project asks for one: it is a `split` surface
-                  now (`surfaces/`, `type: timeline`), not a pane the shell hands out. Absent
-                  means not mounted — there is no caret to keep for a screen the project has not
-                  declared, which is the one case the "no layout unmounts a pane" invariant was
-                  never about. See packages/song/docs/surfaces.md. */}
+              {/* The ARRANGEMENT, only when the project declares a `timeline` surface — absent means not mounted (docs/shell.md). */}
               {hasTimeline && (
                 <div
                   {...paneProps("timeline")}
                   className={cn(
                     "flex min-h-0 min-w-0",
-                    // Expanded lanes take the whole height, exactly as `full timeline` does: the
-                    // pane below has stood down for them — see where `tlView.expanded` is read.
-                    //
-                    // A `live ? "hidden"` branch opened this chain, for a project whose mode said
-                    // there was no arrangement while its surfaces said there was. That state could
-                    // not be resolved and no longer exists: the pane is mounted when the project
-                    // declares the surface, full stop.
+                    // Expanded lanes take the whole height, exactly as `full timeline` does: the pane below has stood down for them.
                     full === "timeline" || (full === null && tlView.expanded)
                       ? "flex-1"
                       : full === "chains"
@@ -3532,31 +2563,24 @@ export default function App({
                     ref={timelineRef}
                     active={activePane === "timeline"}
                     reloadKey={reloadKey}
-                    // …so an armed lane draws the take as it is played, instead of being the one
-                    // place that shows nothing while you record.
+                    // …so an armed lane draws the take as it is played, instead of showing nothing while you record.
                     rolling={rolling}
                     takeStartBeat={takeStart}
-                    // The pre-roll, in beats: the growing clip skips it, because those bars
-                    // record nothing and the placement that lands on Stop does not cover them.
+                    // The pre-roll, in beats: the growing clip skips it, since those bars record nothing.
                     takeCountInBeats={recInfo.countIn * recInfo.beatsPerBar}
                     orbit={orbit}
                     videoTracks={videoTracks}
-                    // The picture drag guards on this handler's own presence, so a snapshot
-                    // simply has none — one less flag to thread for the same effect.
+                    // The picture drag guards on this handler's own presence, so a snapshot simply has none.
                     onVideoEdit={frozen ? undefined : applyVideoEdit}
                     readOnly={frozen}
                     setStatus={setStatus}
                     onEditTarget={setEditTarget}
-                    // A clicked clip shows its content where the graph is — the waveform for
-                    // audio, the piano roll for a sequence. It also makes the slot visible, since
-                    // a view drawn behind a fullscreened timeline is a click that did nothing.
+                    // A clicked clip shows its content where the graph is, and makes the slot visible with it.
                     onOpenClip={(t) => {
                       setFull(null);
                       setGraphSlot({ kind: "clip", target: t });
                     }}
-                    // …and the bare lane puts the graph back. Symmetric on purpose: what a click
-                    // opened, a click on nothing closes, rather than leaving a clip parked in the
-                    // slot until you find its ✕.
+                    // …and the bare lane puts the graph back: what a click opened, a click on nothing closes.
                     onEmptyClick={() => setGraphSlot(null)}
                     onCaret={setCaret}
                     onView={setTlView}
@@ -3575,18 +2599,13 @@ export default function App({
                         `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
                       )
                     }
-                    // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see
-                    // `event fadein` in commands.yaml for why the pair cannot be swapped.
+                    // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
                     onFadeEvent={(trackId, fromTc, which, lenTc) =>
                       void runCommand(
                         `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
                       )
                     }
-                    // While the bar is filling `event move`, the drag ANSWERS it instead of
-                    // committing: same gesture, same numbers, but the line is yours to run. The
-                    // param names are the command's own — see commands.yaml.
-                    // Any command whose open field wants a timecode: the ruler is a timecode
-                    // picker, and it does not need to know which command asked.
+                    // While the bar is filling a command whose open field wants a timecode, the ruler ANSWERS it instead of committing.
                     feedTimecode={
                       barPending?.kind === "timecode"
                         ? (tc, live) =>
@@ -3607,8 +2626,7 @@ export default function App({
                             )
                         : undefined
                     }
-                    // …and the selection rectangle answers `events move` the same way: its
-                    // region fills tracks/from/to, leaving only the delta to type.
+                    // …and the selection rectangle answers `events move` the same way, leaving only the delta to type.
                     feedEventsMove={
                       barPending?.canonical === "events move"
                         ? (tracks, from, to) =>
@@ -3616,32 +2634,19 @@ export default function App({
                         : undefined
                     }
                     onFocusRow={focusRowInPanes}
-                    // The corner button over the name column. `track new` with no name, which is
-                    // what the command already does when given none — a lane called `track1`,
-                    // renamed from the gutter afterwards. Off on a frozen song, like every other
-                    // structural edit here.
+                    // The corner button over the name column: `track new` with no name, off on a frozen song like every structural edit.
                     onNewTrack={
                       frozen ? undefined : () => void runCommand("track new")
                     }
                     trackControls={trackControls}
                     onTrackToggle={onTrackToggle}
                     laneNodes={laneNodes}
-                    // The lane's ⋮ menu, opened from the gutter badge — the SAME one the chains
-                    // pane opens on a lane's node, since a lane IS that module.
+                    // The lane's ⋮ menu, from the gutter badge — the SAME one the chains pane opens on a lane's node.
                     onNodeMenu={openNodeMenu}
                   />
                 </div>
               )}
-              {/* The DESK, on the same terms as the two above it: a `split` surface the project
-                  declares (`surfaces/`, `type: turntables`), mounted for as long as it does.
-                  Directly over the graph, which is the point of it being a pane — a fader here is
-                  a param on a module there, and the two are readable at once. A set declares no
-                  timeline, so these two ARE its column.
-
-                  Mounted, never unmounted, like the rest: a desk holds a DOCUMENT — the loaded
-                  songs, the crossfader, the six EQ knobs — and a set does not stop existing
-                  because you went to look at the graph. That used to need a prop on `SurfaceTab`;
-                  the pane invariant covers it now. See packages/ui-turntables/docs/deckSet.md. */}
+              {/* The DESK: a `split` surface directly over the graph, mounted for as long as the project declares it (docs/shell.md). */}
               {turntablesSurface && (
                 <div
                   {...paneProps("turntables")}
@@ -3666,10 +2671,7 @@ export default function App({
                   />
                 </div>
               )}
-              {/* The MASTER STRIP, when the project declares one. Last in the column and directly
-                  over the graph, because it is the last thing the signal meets — and because
-                  every knob on it is a param on one module down there. Shorter than the desk:
-                  it is ten sliders, not two decks. */}
+              {/* The MASTER STRIP, when declared: last in the column, over the graph holding the module it drives (docs/mastering.md). */}
               {masteringSurface && (
                 <div
                   {...paneProps("mastering")}
@@ -3699,9 +2701,7 @@ export default function App({
                 {...paneProps("chains")}
                 className={cn(
                   "flex min-h-0 min-w-0",
-                  // Alone in the column it takes it outright — the same `flex-1` a fullscreened
-                  // graph gets, reached without `full` being set (a layout whose ring is one pane
-                  // fullscreens nothing; see `viewPanes`).
+                  // Alone in the column it takes it outright — the same `flex-1` a fullscreened graph gets (see `viewPanes`).
                   chainsAlone || full === "chains"
                     ? "flex-1"
                     : chainsOffScreen
@@ -3710,11 +2710,7 @@ export default function App({
                   ringFor("chains"),
                 )}
               >
-                {/* Whatever the slot holds takes the graph's PLACE, not its mount: ChainsTab is
-                    hidden beside it, exactly as it is when the pane is off screen. It holds the
-                    MIDI runtime the whole shell reaches for (`ui midi learn`, see docs/midi.md),
-                    and unmounting it here would take that away for as long as the slot was busy.
-                    `active` false is what already stops it drawing. */}
+                {/* The slot takes the graph's PLACE, not its mount: ChainsTab holds the MIDI runtime (docs/shell.md, docs/midi.md). */}
                 <div
                   className={cn(
                     "flex min-h-0 min-w-0 flex-1",
@@ -3725,16 +2721,9 @@ export default function App({
                     reloadKey={reloadKey}
                     organizeKey={organizeKey}
                     active={!chainsOffScreen && !graphSlot}
-                    // A SET's lanes are DECKS, and they wear the record the header wears rather
-                    // than the question mark a name with no instrument prefix earns. The choice
-                    // is the project's, so it is made here where the surfaces are. See
-                    // chainsIcons.tsx.
+                    // A SET's lanes are DECKS and wear the record the header wears; the choice is the project's — see chainsIcons.tsx.
                     icons={hasTurntables ? DECK_ICONS : STUDIO_ICONS}
-                    // The sidebar is fullscreen chrome (ChainsTab's own rule): it belongs wherever
-                    // the graph has the window rather than half of it. A project whose ring is the
-                    // graph alone is that case permanently, and it is also where the list matters
-                    // most — with nothing else in the column, picking a chain is the only
-                    // navigation there is. A set does NOT qualify: its desk holds the other half.
+                    // The sidebar is fullscreen chrome: it belongs wherever the graph has the whole window, which a set's desk denies it.
                     showList={chainsAlone || full === "chains"}
                     trackOrder={trackOrder}
                     videoSpans={videoLaneSpans}
@@ -3753,24 +2742,14 @@ export default function App({
                     onContextMenu={openContextMenu}
                     onEdgeInsert={frozen ? undefined : insertIntoChain}
                     onCanvasInsert={frozen ? undefined : placeInGraph}
-                    // The patch cable's landing runs the verb outright: both ends were
-                    // clicked, so there is nothing left for the bar to ask. Its two
-                    // siblings likewise — a lifted cable dropped on the canvas deletes its
-                    // arrow, landed on another jack it moves one end.
-                    //
-                    // All five are OPTIONAL props the renderer already guards on, so a
-                    // snapshot passes none and the grips are not offered at all — the same
-                    // bargain the timeline's edge handles take, without a flag of its own.
+                    // The patch cable's landing runs the verb outright, and all five are OPTIONAL props a snapshot simply passes none of.
                     onConnect={
                       frozen
                         ? undefined
                         : (from, to) =>
                             void runCommand(`graph chain connect ${from} ${to}`)
                     }
-                    // Both curve cables write one line of the same verb: the automation one
-                    // supplies module/param/curve, the event one adds the trigger. Quoted
-                    // param, because a plugin's names have spaces ("Filter Freq") and the bar
-                    // splits on them.
+                    // Both curve cables write one line of the same verb, with the param QUOTED, since a plugin's names have spaces.
                     onAutomate={
                       frozen
                         ? undefined
@@ -3806,9 +2785,7 @@ export default function App({
                     }
                     pendingInsert={insertingAt}
                     seedGraph={seedGraph}
-                    // The NOTES: whether the graph draws them, and how many it has to draw —
-                    // the count travels up because the button is in the footer and the graph
-                    // is fetched here. See where `showDocs` is declared.
+                    // The NOTES: whether the graph draws them, and how many — the count travels up because the button is in the footer.
                     showDocs={showDocs}
                     onDocCount={setDocCount}
                     onLaneNodes={setLaneNodes}
@@ -3826,8 +2803,7 @@ export default function App({
                     alignModules={mixerView ? mixerStrips : undefined}
                     // The sockets a live input can be on — the same list the editor's strip uses.
                     inputDevices={inputDevices}
-                    // …and the song's output level, for the fader on the OUT card. The same
-                    // number the header's fader shows, and the same param either one writes.
+                    // …and the song's output level, for the fader on the OUT card — the same param the header's fader writes.
                     masterVolume={projectDoc?.masterVolume}
                     midiRef={chainsMidiRef}
                     onMidiStatus={setStatus}
@@ -3842,48 +2818,37 @@ export default function App({
                     setStatus={setStatus}
                   />
                 )}
-                {/* A clicked clip's content. `ClipView` draws its own header and ✕ — the same
-                    component the Editor bottom panel shows, so audio and MIDI are told apart in
-                    one place and the two surfaces cannot come to disagree about a clip. */}
+                {/* A clicked clip's content: `ClipView` draws its own header and ✕, and tells audio from MIDI in one place. */}
                 {graphSlot?.kind === "clip" && (
                   <ClipView
                     target={graphSlot.target}
                     onClose={() => setGraphSlot(null)}
-                    // The slot's target is a snapshot from the click; this is what lets the
-                    // open clip re-read itself after every command's reload.
+                    // The slot's target is a snapshot from the click; this is what lets the open clip re-read itself after a reload.
                     reloadKey={reloadKey}
                     // A click on the editor's arrangement ruler is the timeline's seek.
                     onSeek={seek}
-                    // The TRACKER view writes its sequence file directly rather than through a
-                    // command, so the reload it needs is asked for here — the same pair
-                    // `SeqGridPane` takes for the same grid.
+                    // The TRACKER view writes its sequence file directly rather than through a command, so its reload is asked for here.
                     onChanged={bumpReload}
                     setStatus={setStatus}
-                    // The caret's three verbs, and the loop it sets — the timeline's own pair,
-                    // pointed at whichever grid this pane is drawing.
+                    // The caret's three verbs and the loop it sets, pointed at whichever grid this pane is drawing.
                     caretRef={clipGridRef}
                     onSelection={setClipSel}
                     onSetLoop={(start, end, enabled) =>
                       engineRef.current?.loop(start, end, enabled)
                     }
-                    // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are
-                    // command lines like everything else here.
+                    // An AUDIO clip opens the clip panel, whose onsets, trim and normalise are command lines like everything else.
                     command={runCommand}
-                    // …except the stretch points, whose edits change nothing outside the clip
-                    // file: those go the quiet way, and the panel re-reads its own picture.
+                    // …except the stretch points, whose edits change nothing outside the clip file, so they go the quiet way.
                     quietCommand={quietCommand}
                     // …and they get the same right-click every other entity has.
                     onContextMenu={openContextMenu}
-                    // The roll's velocity drag, committed the way the timeline's clip drag is: one
-                    // command on release, and the reload it ends in brings the new value back.
+                    // The roll's velocity drag, committed like the timeline's clip drag: one command on release.
                     onSetVelocity={(seqId, key, start, vel) =>
                       void runCommand(
                         `sequence note velocity ${seqId} ${key} ${start} ${vel}`,
                       )
                     }
-                    // …and the note drag, the same way: one command on release, exactly as the
-                    // timeline's clip drag runs `event move`. Move and stretch are one verb,
-                    // because on the roll they are one gesture with two grips.
+                    // …and the note drag the same way — move and stretch are one verb, being one gesture with two grips.
                     onSetNoteRange={(seqId, key, start, ns, ne) =>
                       void runCommand(
                         `sequence note timerange ${seqId} ${key} ${start} ${ns} ${ne}`,
@@ -3891,9 +2856,7 @@ export default function App({
                     }
                   />
                 )}
-                {/* One lane's whole signal path, read left to right. `moduleRow` lays it out —
-                    the same function the mixer row used before it became a rank of the graph
-                    itself, and the same cards the graph draws. */}
+                {/* One lane's whole signal path, read left to right; `moduleRow` lays out the graph's own cards (docs/shell.md). */}
                 {graphSlot?.kind === "trackModules" && (
                   <TrackModulesPane
                     trackId={graphSlot.trackId}
@@ -3911,11 +2874,7 @@ export default function App({
                     onClose={() => setGraphSlot(null)}
                   />
                 )}
-                {/* The clip. ONE panel for a take and for the file it becomes: while it rolls it
-                    draws the envelope the engine is pushing, and the moment the recorder closes
-                    the file it draws that file, with its onsets and its level. `rolling` chooses
-                    the picture rather than mounting the panel — it outlives the take, and closing
-                    is the ×, not the Stop. */}
+                {/* ONE panel for a take and for the file it becomes; `rolling` chooses the picture, not the mount (docs/shell.md). */}
                 {graphSlot?.kind === "recording" && (
                   <AudioClipPanel
                     clip={rolling ? null : (reviewTake?.clip ?? null)}
@@ -3925,10 +2884,7 @@ export default function App({
                     beatsPerBar={recInfo.beatsPerBar}
                     countIn={recInfo.countIn}
                     startBeat={takeStart}
-                    // Where the clip on screen actually SITS on its lane. The take that just
-                    // landed sits where the transport rolled — but one picked out of the sidebar
-                    // sits wherever it was recorded, so the ruler asks the document rather than
-                    // assuming the last take's start.
+                    // Where the clip on screen actually SITS on its lane, asked of the document: a take from the sidebar sits where it was recorded.
                     placedAt={
                       (reviewTake &&
                         placedBeat(
@@ -3960,19 +2916,7 @@ export default function App({
               </div>
             </div>
 
-            {/* THE RIGHT COLUMN — one of three panels, docked beside the panes rather than
-                covering them. Each is about something you are looking at: the inputs you are
-                plugging in, the set list you are playing from, the repository you are about to
-                push. A full-screen page for any of those meant leaving the thing to go and do
-                it, and a dropdown could not report back.
-
-                Three panels and not one set of tabs, because they are three different verbs —
-                what you SET, what you PLAY FROM, what you SEND. Filing the last two under a cog
-                would be filing them by where they used to live.
-
-                None of them is a pane, although they have a column: a pane is what the PROJECT
-                declares (routes.ts, packages/song/docs/surfaces.md), and none of this is the
-                project's. `rightPanel` is what makes them exclusive — see its note. */}
+            {/* THE RIGHT COLUMN — one of three panels, docked beside the panes; none is a pane and `rightPanel` makes them exclusive (docs/shell.md). */}
             {rightPanel === "settings" && (
               <SettingsPanel
                 tab={settingsTab}
@@ -4045,12 +2989,7 @@ export default function App({
           )}
         </div>
 
-        {/* The take, once it has stopped: the FILE this time — its waveform under the project's
-            ruler, the onsets you add or refuse, the threshold that finds them, and the button that
-            brings it up to level. Kept when the recording view became a pane: the pane is the live
-            monitor and outlives the take, this is the editing step on what landed on disk, and
-            neither does the other's work. They do both appear at once after a take — see
-            docs/shell.md. */}
+        {/* The take once it has stopped: the FILE, its onsets and its level — the editing step beside the live pane (docs/shell.md). */}
 
         <footer
           className={cn(
@@ -4069,24 +3008,17 @@ export default function App({
                 connected ? "engine connected" : "engine disconnected"
               }
             />
-            {/* The open menu speaks FIRST, and only while it is open: a right-click menu names its
-                commands and says no more, so this is where the sentence about the one you are
-                pointing at goes. It borrows the line rather than writing it — closing the menu
-                gives back whatever the app last said. */}
+            {/* The open menu speaks FIRST and borrows the line rather than writing it, so closing gives back what the app last said. */}
             <span
               className={cn(
                 "truncate",
-                // Only when the app's OWN last word was a refusal: a menu hint borrows this line
-                // and is nobody's verdict, so it must not inherit the colour of one.
+                // Only when the app's OWN last word was a refusal: a menu hint borrows this line and is nobody's verdict.
                 !menuHint && statusLine.refused && "text-amber-400",
               )}
             >
               {menuHint || status || project?.root}
             </span>
-            {/* The play button spins for this too — it is the control being blocked, and the one you are reaching
-                for when it matters. This line stays because it NAMES what is being waited for, which a spinner on
-                a button cannot. engineBusy gets no line of its own: same meaning, and it is usually too brief to
-                read. */}
+            {/* The play button spins for this too; the line stays because it NAMES what is awaited, which a spinner cannot. */}
             {waitingForEngine ? (
               <span
                 className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-amber-500"
@@ -4116,10 +3048,7 @@ export default function App({
             )}
           </div>
 
-          {/* How good this engine link is — Q1/Q2/Q3 off the measured latency. In the status
-              bar because it is a property of the SESSION, not of a screen: it decides what you
-              can do here (see @studio/web-protocol/quality), and it is the same line the
-              médiathèque shows. */}
+          {/* How good this engine link is — Q1/Q2/Q3 off the measured latency, a property of the SESSION (@studio/web-protocol/quality). */}
           <span
             className="ml-auto shrink-0 whitespace-nowrap font-mono tabular-nums"
             title={
@@ -4147,8 +3076,7 @@ export default function App({
               <span className="mx-1 text-border">·</span>
               {recInfo.beatsPerBar}/{recInfo.beatUnit}
             </span>
-            {/* Left click toggles the click; RIGHT click opens its level. Both are project
-                settings, so both are command lines — see MetronomeButton. */}
+            {/* Left click toggles the click, right click opens its level; both are project settings, so both are command lines. */}
             <MetronomeButton
               on={metronomeOn}
               level={metronomeLevel}
@@ -4159,15 +3087,7 @@ export default function App({
             />
             <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
             <nav className="flex items-center gap-1">
-              {/* The mixer, beside the panel buttons but not one of them: it REARRANGES the graph,
-                  pulling every strip onto one evenly spaced rank. Same place in the row, so the
-                  hand that knew where the Mixer button was still finds it.
-
-                  DEAD when the song has no strip, and saying so rather than answering a click with
-                  nothing: a strip is a module of plugin type `Mixer` at the end of a track, and a
-                  song can perfectly well have none — most of the examples here do. That silence is
-                  what the bottom panel used to break with a line of text, and dropping the panel
-                  dropped the only thing that explained an empty mixer. */}
+              {/* The mixer REARRANGES the graph rather than opening a panel, and is dead when the song has no strip (docs/shell.md). */}
               <Button
                 size="icon-xs"
                 variant={mixerView ? "default" : "ghost"}
@@ -4185,17 +3105,7 @@ export default function App({
               >
                 <MixerIcon className="h-3.5 w-3.5" />
               </Button>
-              {/* The notes, beside the mixer and for the same kind of reason: it changes what the
-                  GRAPH shows rather than opening a panel of its own.
-
-                  OFF by default. A note is wired into the chain it is about, so drawing every one
-                  of them all the time would put prose in the middle of the signal path you are
-                  trying to read — which is the failure the old bottom panel had from the other
-                  side, where the notes were somewhere you had to go and look. This is the
-                  in-between: they are in the graph, and you say when.
-
-                  DEAD when the project has none, like the mixer button above: a click that
-                  toggles nothing on a project with no notes explains nothing. */}
+              {/* The notes, off by default: they are IN the graph and you say when, and the button is dead on a project with none. */}
               <Button
                 size="icon-xs"
                 variant={showDocs ? "default" : "ghost"}
@@ -4232,27 +3142,14 @@ export default function App({
           </div>
         </footer>
 
-        {/* The bottom of the window: the minimap — the whole arrangement at a glance, click to
-            move the playhead — and the command bar under it, full width.
-
-            Desktop only, both for the same reason: they are a second view of the timeline and a
-            permanent prompt, and the vertical band they cost is the one thing a phone has least
-            of. The phone gets the bar as a popin, opened from the hamburger.
-
-            The bar is DOCKED rather than summoned: it is where you type, so it is always there,
-            the way a terminal's prompt is. It never autofocuses — a shell that opened with the
-            keyboard captured could not be typed into — so double-Shift focuses it and Escape
-            hands the keys back. See docs/commandBar.md.
-
-            The minimap comes and goes with `minimapDocked` — see where it is computed. */}
+        {/* The bottom of the window: the minimap, then the docked command bar, both desktop-only (docs/commandBar.md). */}
         {docked && (
           <>
             {minimapDocked && (
               <Minimap
                 reloadKey={reloadKey}
                 orbit={orbit}
-                // Same map the timeline builds its rows from — the minimap's rows have to line
-                // up with the timeline's, and one it skipped would put every lane below it out.
+                // Same map the timeline builds its rows from — a row it skipped would put every lane below it out.
                 automation={laneNodes.automation}
                 caret={caret}
                 highlight={openItem}
@@ -4273,21 +3170,7 @@ export default function App({
           </>
         )}
 
-        {/* The minimap again, over the popin that hid the timeline — the full width of the
-            window at its very bottom, with a mini transport above it.
-
-            FULL WIDTH and not a centred card, because the minimap maps the whole song to the
-            width it is given: narrow it and the arrangement is squeezed into a strip less
-            legible than the one it stands in for, and the two views of the same song no longer
-            agree about where a bar is.
-
-            It does not overlap the popin. The popin's bottom is pushed up by `stripH` above —
-            they share the bottom of the screen rather than fighting for it, which is why this
-            can be a plain bar with no shadow or rounding: nothing floats over anything.
-
-            Last in the tree on purpose: it shares the popin panel's z-50, so painting order is
-            what puts it in front. It sits outside the backdrop, so scrubbing it does not read as
-            the click-outside that dismisses the popin. */}
+        {/* The minimap again, full width over the popin that hid the timeline, last in the tree for painting order (docs/shell.md). */}
         {minimapFloating && (
           <div
             ref={stripRef}
@@ -4310,23 +3193,12 @@ export default function App({
           </div>
         )}
 
-        {/* A tab bar stood here, one tab per pane. It is in the hamburger now — see
-            `headerActions`. A row of chrome is a row the panes do not get, and a phone in
-            landscape is ~400px tall; the panes are what you came to look at. */}
+        {/* A tab bar stood here, one tab per pane; it is in the hamburger now — see `headerActions` and docs/shell.md. */}
 
-        {/* The PHONE's command bar, which has to be summoned — opened from the hamburger and by
-            the right-click menus, which prewrite a command into it. Its suggestion list
-            opens upward — see CommandBar.
-
-            Still not modal, and that is the whole point: no backdrop, and `pointer-events-none`
-            on the strip so only the bar itself takes clicks. What is behind stays visible and
-            live, because reaching into it is how a param gets filled — Escape is the way out,
-            not a click on the dimmer. See docs/commandBar.md. */}
+        {/* The PHONE's command bar, summoned rather than docked and deliberately not modal (docs/commandBar.md). */}
         {!docked && paletteOpen && (
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center pb-4">
-            {/* A click anywhere on the bar is a click on its field. Without this, landing on
-                the padding or the `❯` blurs the input — which now also takes the completion
-                list with it, for a gesture that was aimed at the bar. */}
+            {/* A click anywhere on the bar is a click on its field: landing on the padding would otherwise blur the input. */}
             <div
               className="pointer-events-auto mx-4 flex w-full max-w-2xl items-center rounded-lg border border-border bg-popover px-3 py-2.5 shadow-2xl"
               onPointerDown={() => cmdRef.current?.focus()}
@@ -4358,15 +3230,13 @@ export default function App({
             x={menu.x}
             y={menu.y}
             onPick={pickMenuItem}
-            // What the row under the pointer does, into the status line. Stable, because the menu
-            // also calls it from an unmount cleanup — see ContextMenu.tsx.
+            // What the row under the pointer does, into the status line — stable, because the menu also calls it from an unmount cleanup.
             onHint={setMenuHint}
             onClose={() => setMenu(null)}
           />
         )}
 
-        {/* "which file?" — a module widget's library browser: the same popup as the `+`,
-            because both are a nested catalogue you either browse or search. */}
+        {/* "which file?" — a module widget's library browser, the same popup as the `+`: both are a nested catalogue. */}
         {assetPicker && (
           <AssetPicker
             x={assetPicker.x}
@@ -4376,22 +3246,7 @@ export default function App({
             onPick={(file) => {
               const { module, param } = assetPicker;
               setAssetPicker(null);
-              // A file-valued param is a param: `node param <node> nam <file>`. It used to be a
-              // verb per param (`module nam …`), which this line built from the param's own name
-              // — so picking an `.onnx` sent a command nobody had written. "" is a real choice,
-              // clearing the asset; the command spells that `none`.
-              // QUOTED, all three — and the filename is the one that matters. A `.nam` routinely
-              // carries spaces and a subfolder: `two rocks/Two-Rock_Studio Overdrive_SM7b_All
-              // Flat_Clean.nam`. Unquoted, the splitter folded most of that path into the PARAM
-              // name (which may legitimately contain spaces — "Wet Level") and took the last
-              // token as the value, so picking an amp refused with
-              // `"Flat_Clean.nam" is not a number`, naming the tail of the file it had just cut.
-              //
-              // The fix was already written twenty lines up, for the node ref, and not applied
-              // here: "a node ref carries a `:` and may carry spaces, and `node param` splits on
-              // them". A filename does too, and more often.
-              //
-              // The sentinel stays BARE: `none` is a word the command understands, not a file.
+              // A file-valued param is a param — `node param <node> nam <file>`, all three QUOTED, with `none` left bare (docs/moduleBuilder.md).
               void runCommand(
                 file
                   ? `node param "${module}" "${param}" "${file}"`
@@ -4413,20 +3268,14 @@ export default function App({
           />
         )}
 
-        {/* The documentation, at #help. A PAGE, not a popin: it takes the whole window
-            (fixed, over the shell's chrome too) so the reference reads as a document —
-            its own table of contents, one scrollable body you can ctrl-F end to end. */}
+        {/* The documentation at #help — a PAGE, not a popin, so the reference reads as one ctrl-F-able document. */}
         {showHelp && (
           <div className="fixed inset-0 z-50 bg-background">
             <HelpPage onBack={closeHelp} prefs={commandPrefs} />
           </div>
         )}
 
-        {/* The SCREEN surfaces were mounted here, over the layout, each drawing only when its id
-            was in the address — and beside them a "no such surface" card for a deep link naming
-            one the project had not got. Both are gone with the `view` layout: the desk is a pane
-            in the column above, and an address naming a pane a project has not declared already
-            falls through to the layout in `fromLocation`. See packages/song/docs/surfaces.md. */}
+        {/* The SCREEN surfaces were mounted here; they are panes in the column above now — packages/song/docs/surfaces.md. */}
 
         {/* "import this .dawproject?" — clicking one in the tree lands here */}
         <ImportDialog
@@ -4439,15 +3288,11 @@ export default function App({
           onCancel={imp.cancelImport}
         />
 
-        {/* COMMANDS is the one settings screen still drawn as a page, and the only one: it is a
-            table of the whole catalogue — sixty rows, a field per language — and there is no
-            ordering a catalogue in a 24rem column. Its four neighbours are tabs of the panel in
-            the row above. See components/SettingsPanel.tsx. */}
+        {/* COMMANDS is the one settings screen still drawn as a page: a catalogue does not fit a 24rem column (docs/shell.md). */}
         {commandsPage && (
           <div className="absolute inset-0 z-40 bg-background">
             <CommandsSettings
-              // The whole catalogue, both halves: the shell's own `ui …` lines and the backend's.
-              // A page that arranged only one of them would order a menu it does not draw.
+              // The whole catalogue, both halves: a page that arranged only one would order a menu it does not draw.
               commands={allCommands}
               prefs={commandPrefs}
               onSave={saveCommandPrefs}
@@ -4456,15 +3301,11 @@ export default function App({
           </div>
         )}
 
-        {/* The shared module builder (@studio/ui-module-builder), over the whole shell. The module's OWN
-            presets come off its shelf through the store and work here; the plugin's FACTORY banks and its
-            live parameter list need an engine, and this overlay holds no engine link, so it offers neither. */}
+        {/* The shared module builder over the whole shell; it holds no engine link, so no factory banks and no live params (docs/moduleBuilder.md). */}
         {builder && (
           <div className="absolute inset-0 z-30 bg-background">
             <ModuleBuilder
-              // ONE store. The libraries are a submodule inside the workspace now, so a shared
-              // module is an ordinary workspace path the file service already serves — there is
-              // no second path space to keep apart, and no second client to keep in step.
+              // ONE store: the libraries are a submodule inside the workspace, so a shared module is an ordinary workspace path.
               store={moduleStore}
               path={builder.path}
               kind="module"
@@ -4472,9 +3313,7 @@ export default function App({
               paramRef={null}
               vimMode={vimMode}
               initialPane={builder.pane}
-              // A shared module opens LOCKED. Everyone's copy is this one — there is no fork
-              // here to absorb a mistake — so writing to it is a thing somebody decides, in the
-              // dialog below, rather than a thing that starts happening while they read.
+              // A shared module opens LOCKED: everyone's copy is this one, so writing to it is decided in the dialog below.
               readOnly={isLibraryPath(builder.path) && !builder.unlocked}
               onRequestEdit={
                 isLibraryPath(builder.path) && !builder.unlocked
@@ -4484,20 +3323,11 @@ export default function App({
               onBack={() => setBuilder(null)}
               onSaved={() => {
                 bumpReload();
-                // A save here PUBLISHES — a shared module's four files, committed and pushed onto
-                // the library repository. The editor stopped re-reading the libraries on every
-                // command (82 ms a command cannot have earned), so the acts that move them say so.
+                // A save here PUBLISHES — four files committed and pushed onto the library repository, so the act says so.
                 editorRef.current?.refreshLibraries();
               }}
               setStatus={setStatus}
-              // What the plugin calls its parameters, and what each spans — so a widget adopts the
-              // real range instead of the 0..1 a hand-typed binding falls back to.
-              //
-              // Both off `pluginParamMeta`, which is ordinary React state and therefore re-renders
-              // this when the engine answers. NOT off `pluginParamsStore`: that is an external
-              // store rewritten by the 20 Hz feed, and reading it during render would give whatever
-              // it held on the first frame — empty — and never update. The two carry the same names
-              // anyway; the meta is the half that also carries the ranges.
+              // What the plugin calls its parameters and what each spans, off `pluginParamMeta` — never the 20 Hz store, which render would read empty.
               pluginParamNames={
                 builderPlugin
                   ? Object.keys(pluginParamMeta[builderPlugin.pluginId] ?? {})
@@ -4508,24 +3338,13 @@ export default function App({
                   ? pluginParamMeta[builderPlugin.pluginId]
                   : undefined
               }
-              // Ask the MACHINE what this module's plugin has, by loading one on purpose. The
-              // props above are what the OPEN PROJECT happens to instantiate, which leaves a
-              // module the project does not wire with nothing to bind to; this is the way out,
-              // and it is the same plugin read the same way.
-              //
-              // The builder passes the `@engine/…` ref its module extends, and draws the button
-              // only when there is one — a jsdsp module or a rack has no binary to load. The
-              // machine resolves that ref against its own scan; see api.ts.
+              // Ask the MACHINE what this module's plugin has, by loading one on purpose — the way out for a module the project does not wire (api.ts).
               onScanParams={api.scanPluginParams}
-              // …and the same ref, opened rather than read. Only for a plugin this machine
-              // SCANNED — the builder drops the built-ins itself, since they draw no window —
-              // and on an instance in no project, so it can be opened while one is playing.
+              // …and the same ref, opened rather than read: only for a plugin this machine SCANNED, on an instance in no project.
               onShowNativeUI={api.showPluginNativeUI}
-              // The sockets an `io: in` module can listen on. Empty with no engine attached, which
-              // is the honest answer: which inputs exist is the sound card's to say.
+              // The sockets an `io: in` module can listen on — empty with no engine attached, which is the honest answer.
               inputDevices={inputDevices}
-              // …and the one act that changes that list: pair two inputs into a stereo device, or
-              // split them apart. Only offered with an engine attached, which is what does it.
+              // …and the one act that changes that list, offered only with an engine attached, which is what does it.
               onRegroupInputs={connected ? regroupInputs : undefined}
               presets={
                 (builderPlugin && presets[builderPlugin.module]) ||
@@ -4534,21 +3353,14 @@ export default function App({
               onListPresets={() =>
                 builderPlugin && listPresets(builderPlugin.module)
               }
-              // The builder passes its own module name; the engine resolves BOTH ends to the same
-              // live plugin, so which of the two is sent does not matter — take the builder's.
+              // The engine resolves both ends to the same live plugin, so which name is sent does not matter — take the builder's.
               onSetPreset={(module, sel) => setPreset(module, sel)}
               // A save into `_modules` forked: follow the copy, or the next save would fork again.
               onRelocated={(next) => {
                 setBuilder({ path: next, pane: "module" });
                 editorRef.current?.open(next);
               }}
-              // The module drawn as the card it will be in a chain, under the grid that shapes it.
-              // The builder owns the box; the graph needs OUR glyphs and OUR command line, which a
-              // shared package cannot invent — hence a slot rather than an import.
-              //
-              // Its knobs are LIVE when a plugin was found: the store and the setter go in
-              // together, because a knob that moves without changing anything is worse than one
-              // that does not move.
+              // The module drawn as the card it will be in a chain — a slot, since the graph needs OUR glyphs and OUR command line.
               renderPreview={({ ui, params, bases }) => (
                 <ModulePreview
                   icons={STUDIO_ICONS}

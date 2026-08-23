@@ -147,6 +147,44 @@ fichier ; il ne reste à choisir que qui l'enverra.
 partageant une discographie remplirait sinon les dix premières places à lui seul, et les dix
 changements retomberaient sur la même file immobile.
 
+À qualité et disponibilité égales, c'est le **nom du pair** qui départage, en dernier recours.
+Un tri instable rendrait deux recherches identiques différentes, donc un échec impossible à
+reproduire.
+
+### Comparer deux orthographes du même nom
+
+Un chemin Soulseek est ce que la personne qui partage a tapé — `AC-DC`, `AC_DC`, `ac dc` —
+pendant que MusicBrainz dit `AC/DC`. `normalise` les ramène tous à `ac dc` : accents décomposés
+puis jetés, minuscules, et tout ce qui n'est ni `a-z` ni `0-9` devenu une espace. C'est le seul
+niveau auquel les deux se comparent.
+
+Par-dessus, `tokens` retire les mots qui ne portent aucune identité (`the`, `a`, `le`, `los`…) :
+la moitié de Soulseek range les Beatles sous `Beatles` et l'autre moitié sous `The Beatles`. Un
+artiste **fait entièrement** de ces mots — « The The » — ne laisserait plus rien à tester, et
+`every` sur une liste vide est vrai : ce cas retombe donc sur une comparaison de sous-chaîne,
+qui accepte le groupe au lieu d'accepter le réseau entier.
+
+Le prix assumé de la comparaison par mots entiers : une orthographe collée (`acdc`) est manquée.
+C'est la moins chère des deux erreurs — une recherche qui ne trouve rien le dit, une recherche
+qui range le mauvais groupe non.
+
+### L'état d'un transfert est un jeu de drapeaux, pas une valeur
+
+Ce que slskd met sur le fil est un enum de drapeaux joint par des virgules :
+`"Completed, Succeeded"`, `"Queued, Remotely"`. `classify` cherche donc des **sous-chaînes** et
+jamais l'égalité : l'orthographe exacte appartient à Soulseek.NET, et un `switch` sur des
+littéraux classerait en silence un drapeau renommé comme « toujours en file » — soixante secondes
+d'attente pour rien.
+
+`Initializing` compte comme **commencé** : le pair a répondu et les deux négocient, ce qui est
+exactement ce que la règle des soixante secondes attend de voir.
+
+Même prudence sur la FORME : slskd imbrique les transferts sous des répertoires, et
+`flattenTransfers` parcourt ce qui revient en cherchant des objets qui portent un `filename` et un
+`state`, quelle que soit la profondeur. Un client qui aurait codé en dur un chemin dans cette
+imbrication répondrait « aucun transfert » le jour où elle change — ce qui se lit exactement comme
+un téléchargement qui n'a jamais démarré, et brûlerait les dix changements de pair.
+
 ## Soixante secondes, dix pairs
 
 Lecture exacte : le compteur monte d'un cran chaque fois qu'un pair est abandonné, et atteindre
@@ -202,7 +240,17 @@ l'essentiel est que le montage aurait demandé **deux** mécanismes à faire mar
 
 `localPathFor` reconstruit le rangement que slskd documente : `<downloads>/<dossier>/<fichier>`.
 Si le fichier n'y est pas — slskd est configurable — on le cherche par son nom sur trois niveaux,
-parce qu'un échec dû à *ça* serait indistinguable d'un morceau que personne ne partage.
+parce qu'un échec dû à *ça* serait indistinguable d'un morceau que personne ne partage. Trois
+niveaux et pas plus : au-delà, ce n'est plus un rattrapage, c'est un parcours de répertoires.
+
+`exists` **lève aussi volontiers qu'il répond `false`** — dossier absent, droits qui manquent —
+et les deux disent ici la même chose : pas à l'endroit attendu. Une connexion par récupération,
+jamais un pool : une chasse va chercher un fichier une fois, des minutes après la précédente, et
+la fermeture est dans un `finally` — sinon chaque chasse ratée laisserait une session ouverte
+sur l'autre machine jusqu'à son propre délai.
+
+Le plafond de 512 Mo est celui de la route d'envoi de la médiathèque elle-même : au-delà, ce
+serait une heure de transfert pour un fichier que `PUT /file` refuserait ensuite de ranger.
 
 ### Cette étape se raconte dans les journaux
 

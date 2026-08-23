@@ -18,20 +18,11 @@ export function ProjectGate({
   onResume,
 }: {
   engine: RankedEngine;
-  /**
-   * A surface's name, when this tab was opened on ONE surface rather than on the editor —
-   * `<project>/@external/<name>`, see @studio/web-protocol/projects.
-   *
-   * The gates above are the same either way, and deliberately: an external surface still needs
-   * the account, an engine, and the repository resolved to a working copy on that engine's
-   * machine. What differs is only what is rendered once all three are in hand.
-   */
+  /** A surface's name, when this tab was opened on ONE surface — the gates above are the same either way, only the rendering differs. */
   external?: string | null;
-  /** Passed straight through to the settings menu: the engine choice belongs to the gate
-   *  ABOVE this one, and a project has nothing to say about it. */
+  /** Passed straight through to the settings menu: the engine choice belongs to the gate ABOVE this one. */
   onChangeEngine: () => void;
-  /** The session went to sleep. The lease belongs to the gate ABOVE this one, so releasing it
-   *  is its business — this only forwards the news. See @studio/project-shell/docs/idle.md. */
+  /** The session went to sleep — the lease belongs to the gate ABOVE, so this only forwards the news (@studio/project-shell/docs/idle.md). */
   onIdle: () => void;
   /** …and taking it back. */
   onResume: () => void;
@@ -44,8 +35,7 @@ export function ProjectGate({
       idleTimeoutMs={IDLE_TIMEOUT_MS}
       onIdle={onIdle}
       onResume={onResume}
-      // The same two the router's basename is built from, in main.tsx — this reads the target
-      // out of the address rather than being handed it, so both sides agree by construction.
+      // The same two the router's basename is built from, read out of the address rather than handed over, so both sides agree.
       base={import.meta.env.BASE_URL}
       strings={{
         cloning: (workspace) => m["project.cloning"]({ workspace }),
@@ -63,8 +53,7 @@ export function ProjectGate({
         benchWorkspace: m["project.benchWorkspace"](),
         benchFetching: m["project.benchFetching"](),
         idleTitle: m["project.idleTitle"](),
-        // The number comes from the constant rather than from the wording: two places saying
-        // "twenty minutes" end up disagreeing with the timer.
+        // The number comes from the constant rather than from the wording: two places saying 'twenty minutes' end up disagreeing.
         idleBody: m["project.idleBody"]({
           minutes: Math.round(IDLE_TIMEOUT_MS / 60000),
         }),
@@ -84,15 +73,11 @@ export function ProjectGate({
           // key by workspace+project so moving between them remounts the editor cleanly.
           <App
             key={`${workspace}/${project}`}
-            // A function, not the address: the editor stays open for hours and the relayed URL
-            // measured above carries a one-minute ticket. See @studio/engine-browser's EngineUrl.
+            // A function, not the address: the editor stays open for hours and the relayed URL carries a one-minute ticket.
             engineUrl={engines.linkUrl(engine)}
-            // What this link measured, for the status bar. Passed down rather than re-probed:
-            // the gate already paid for the round trip, and a second one would report a
-            // different number for the same connection.
+            // What this link measured, passed down rather than re-probed: a second round trip would report a different number.
             engineLatency={engine.latency}
-            // The RAW email, not a slug: sessionFor does the slugging, so this half and the
-            // file service cannot drift on how it is spelled. See engine-protocol/sessions.
+            // The RAW email, not a slug: `sessionFor` does the slugging, so this half and the file service cannot drift.
             userEmail={userEmail}
             onQuitWorkspace={quit}
             onChangeEngine={onChangeEngine}

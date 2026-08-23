@@ -20,27 +20,19 @@ import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
 
-/** Twice a second: enough that a progress bar does not stutter, little enough not to hammer a
- *  machine whose only job this is. */
+/** Twice a second: smooth enough for a progress bar, slow enough not to hammer the machine. */
 const MACHINE_POLL_MS = 500;
 
 /** What is loaded, wherever it plays. */
 export interface NowPlaying {
   entry: MediatekEntry;
-  /** The médiathèque-relative path of the version that is loaded — the master, or whichever
-   *  one the player's strip points at. The identity of what is loaded, and the `<audio>`
-   *  source. Two songs can share a name; they cannot share this. */
+  /** The loaded version's médiathèque-relative path — the identity, since two songs share a name (../../docs/playback.md). */
   path: string;
-  /** The version's own name, when it is not the master — the sidecar's key, which is what the
-   *  player's tabs are labelled with. The engine's session is shared with everything else pl8
-   *  auditions, so three documents named after one song would be indistinguishable in its log.
-   *  Absent for the master, whose document is the song. */
+  /** The version's own name when it is not the master, which the engine's document is named after (../../docs/playback.md). */
   version?: string;
-  /** Where it is ACTUALLY playing — the caller resolves the fallback, since it is the caller
-   *  that knows whether an engine answered. */
+  /** Where it is ACTUALLY playing — the caller resolves the fallback, since it knows whether an engine answered. */
   target: PlaybackTarget;
-  /** The same master as a path on the engine's machine, when that is what is playing it.
-   *  Resolved by the caller, which is what knows about caches. Null in the browser. */
+  /** The same master as a path on the engine's machine, resolved by the caller. Null in the browser. */
   enginePath: string | null;
 }
 
@@ -55,30 +47,14 @@ export interface Playback {
   start: (what: NowPlaying, from?: number) => void;
   toggle: () => void;
   seek: (seconds: number) => void;
-  /** Why nothing is coming out, when the browser is the one playing and the master would not
-   *  load. Empty otherwise. The engine's own complaints are on `useEngine().warning`. */
+  /** Why nothing is coming out in the BROWSER; the engine's own complaints are on `useEngine().warning`. */
   error: string;
-  /**
-   * Bumped each time what was loaded reached its end BY ITSELF. A counter and not a boolean:
-   * what a reader wants is the event, and a flag would have to be cleared by whoever saw it.
-   *
-   * It exists for the playlist pane, which is the only thing here that has a next. Nothing
-   * else has to care — `now` is deliberately not cleared, since "what did I just listen to"
-   * outlives the last sample.
-   */
+  /** Bumped each time what was loaded reached its end BY ITSELF — a counter, not a flag (../../docs/playback.md). */
   ended: number;
-  /** Silence it and forget it. The bar's close button, and the only thing that clears `now`:
-   *  a song that ENDS stays, because "what did I just listen to" outlives the last sample. */
+  /** Silence it and forget it: the bar's close button, and the only thing that clears `now`. */
   close: () => void;
 
-  /**
-   * What plays next.
-   *
-   * Here beside the transport and for its reason: a queue must outlive the screen that filled it,
-   * since a song is added from the Morceaux tree and browsing continues. It lives in the tab and
-   * not on the server — it is what is being listened to, not a document. A playlist is a file in
-   * the repository, written in st0 (packages/song/docs/playlists.md).
-   */
+  /** What plays next, beside the transport because a queue outlives the screen that filled it (packages/song/docs/playlists.md). */
   queue: QueueItem[];
   /** Append, without duplicates. */
   enqueue: (entries: MediatekEntry[]) => void;
@@ -87,29 +63,17 @@ export interface Playback {
   /** Take the head of the queue and drop it, or `null`. What auto-advance does. */
   takeNext: () => QueueItem | null;
 
-  // `claimAdvance`/`advanceClaimed` were here: two things could advance — a playlist panel and
-  // this queue — both watching `ended`, neither seeing the other, so both started a track on the
-  // same event. Only one is left, playlists having moved to st0, and arbitration between one
-  // claimant arbitrates nothing while suggesting there are two.
+  // `claimAdvance`/`advanceClaimed` were here, arbitrating two advancers (../../docs/playback.md).
 }
 
-/** What the engine calls what we sent it. The version is IN the name because that session is
- *  shared: two versions of one song under one name are two lines nobody can tell apart. */
+/** What the engine calls what we sent it — the version is IN the name (../../docs/playback.md). */
 const docNameOf = (n: NowPlaying) =>
   n.version ? `${n.entry.name} · ${n.version}` : n.entry.name;
 
 const EngineContext = createContext<ModuleEngine | null>(null);
 const PlaybackContext = createContext<Playback | null>(null);
 
-/**
- * The engine this tab drives, and there is exactly ONE.
- *
- * It used to be opened per screen — the module editor's, the song editor's, the engine page's
- * — which was safe only because those screens replaced each other. A song that keeps playing
- * while you browse breaks that arrangement outright: its transport has to outlive the screen
- * that started it, and a second socket would then be a second client on the same session,
- * driving the same project. So it is held here, once, and handed out.
- */
+/** The engine this tab drives, and there is exactly ONE — see ../../docs/playback.md. */
 export function useEngine(): ModuleEngine {
   const engine = useContext(EngineContext);
   if (!engine) throw new Error("useEngine outside PlaybackProvider");
@@ -130,18 +94,15 @@ export function PlaybackProvider({
 }: {
   /** The account's chosen engine, from the header's picker. */
   engineId?: string;
-  /** The queue, held HIGHER UP: Library renders this provider, so it sits above the context and
-   *  carries the tree whose right-click fills it. See ./usePlayQueue.ts. */
+  /** The queue, held HIGHER UP: Library renders this provider and carries the tree that fills it. */
   playQueue: PlayQueue;
-  /** The chosen machine's file service, for the "machine" destination — it is what drives that
-   *  mpv. Comes from the picker, like `engineId`. */
+  /** The chosen machine's file service, for the "machine" destination — it is what drives that mpv. */
   machine: { fileBase: string | null; token: string | null };
   children: ReactNode;
 }) {
   const engine = useModuleEngine(engineId);
   const audioRef = useRef<HTMLAudioElement>(null);
-  // What `start` asked for, applied once the element is ready for it. Refs and not state: they
-  // are consumed by an event handler, and re-rendering for them would change nothing on screen.
+  // What `start` asked for, applied once the element is ready — refs, since re-rendering shows nothing.
   const pendingSeek = useRef(0);
   const wantPlay = useRef(false);
   const [now, setNow] = useState<NowPlaying | null>(null);
@@ -150,21 +111,12 @@ export function PlaybackProvider({
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState("");
   const [ended, setEnded] = useState(0);
-  /**
-   * That the transport is about to stop because WE asked it to.
-   *
-   * Only the engine branch needs it. The browser has `onEnded`, which fires for the end of a
-   * song and for nothing else; the engine has one bit — `playing` — which goes false when the
-   * machine reaches the end AND when it is told to stop, and a queue must only advance on the
-   * first. Set by every deliberate transition below, cleared by the effect that reads it.
-   */
+  // That the transport is about to stop because WE asked it to — see ../../docs/playback.md.
   const weStopped = useRef(false);
   const wasPlaying = useRef(false);
-  // The document the engine holds for US, so its playhead can be told apart from another
-  // surface's. Null means "the engine is not playing our song", whatever else it is doing.
+  // The document the engine holds for US; null means it is not playing our song, whatever else it does.
   const [loadedEnginePath, setLoadedEnginePath] = useState<string | null>(null);
-  // Where the engine was asked to be. The state frame is ~20 Hz, so between the ask and the
-  // first frame this is the only honest answer.
+  // Where the engine was ASKED to be, which is the only honest answer until its ~20 Hz frame lands.
   const [engineAt, setEngineAt] = useState(0);
 
   const viaEngine = now?.target === "engine";
@@ -175,8 +127,7 @@ export function PlaybackProvider({
     if (ours && engine.playing) setEngineAt(engine.playhead);
   }, [ours, engine.playing, engine.playhead]);
 
-  // Follow the browser's playhead smoothly — `timeupdate` fires ~4×/s, which reads as a
-  // stutter on a waveform. The engine's own frame arrives fast enough to need no such loop.
+  // Follow the browser's playhead smoothly: `timeupdate` fires ~4×/s, which reads as a stutter.
   useEffect(() => {
     if (viaEngine || !browserPlaying) return;
     let raf = 0;
@@ -188,8 +139,7 @@ export function PlaybackProvider({
     return () => cancelAnimationFrame(raf);
   }, [viaEngine, browserPlaying]);
 
-  /** The machine plays on its own, and the only way to know is to ask: mpv is elsewhere and has
-   *  no way to push its position here, so it is polled. */
+  /** mpv is elsewhere and cannot push its position here, so it is POLLED (../../docs/playback.md). */
   const viaMachine = now?.target === "machine";
   const [machineState, setMachineState] = useState<MachinePlayerState | null>(
     null,
@@ -227,8 +177,7 @@ export function PlaybackProvider({
       ? engineAt
       : browserAt;
 
-  /** The machine reaching the end: mpv goes `idle` when it has nothing left, which is a plain
-   *  signal unlike the engine's. `weStopped` stays, since a requested stop looks like an end. */
+  /** The machine reaching the end: mpv goes `idle`, but a requested stop looks the same (../../docs/playback.md). */
   const machineWasPlaying = useRef(false);
   useEffect(() => {
     if (!viaMachine) return;
@@ -239,8 +188,7 @@ export function PlaybackProvider({
     weStopped.current = false;
   }, [viaMachine, machineState?.playing]);
 
-  // The engine reaching the end of what it was given. Inferred, because the machine reports a
-  // transport and not an event — see `weStopped` for the one case that has to be told apart.
+  // The engine reaching the end, INFERRED: it reports a transport and not an event (../../docs/playback.md).
   useEffect(() => {
     if (!viaEngine) return;
     const playingNow = ours && engine.playing;
@@ -255,15 +203,13 @@ export function PlaybackProvider({
       setNow(what);
       setDuration(0);
       setError("");
-      // Whatever the transport does in the next moment, it does because of this call — so it
-      // is not the end of a song, even when it looks exactly like one.
+      // Whatever the transport does next, it does because of this call — not the end of a song.
       weStopped.current = true;
       if (what.target === "machine") {
         audioRef.current?.pause();
         if (ours) engine.stop();
         setLoadedEnginePath(null);
-        // `what.path` is ALREADY médiathèque-relative, and the machine resolves it against its
-        // own root — no `cacheRoot` or `playablePath` as the engine target needs.
+        // `what.path` is ALREADY médiathèque-relative and the machine resolves it against its own root.
         if (machine.fileBase && machine.token)
           void engineMachine.player
             .play(machine.fileBase, machine.token, what.path, from)
@@ -274,9 +220,7 @@ export function PlaybackProvider({
       if (what.target === "engine") {
         if (!what.enginePath) return;
         audioRef.current?.pause();
-        // A clean edit for a document this session has not held: an apply is a diff, and a
-        // diff cannot remove a plugin the engine's stored document never mentioned. See
-        // useModuleEngine's `reset`.
+        // A clean edit for a document this session has not held — see ../../docs/playback.md.
         if (loadedEnginePath !== what.enginePath) engine.reset();
         setLoadedEnginePath(what.enginePath);
         setEngineAt(from);
@@ -289,15 +233,12 @@ export function PlaybackProvider({
       setBrowserAt(from);
       const el = audioRef.current;
       if (el && now?.path === what.path) {
-        // The same master, already loaded: `src` will not change, so no metadata event is
-        // coming and waiting for one would be waiting forever. Replaying a song from the bar
-        // is exactly this case.
+        // The same master: `src` will not change, so no metadata event is coming to wait for.
         el.currentTime = from;
         void el.play().catch(() => {});
         return;
       }
-      // A different master. The element has not seen the new `src` at this point in the
-      // commit, so the position and the play are applied when its metadata lands.
+      // A different master: the element has not seen the new `src` yet, so both wait for its metadata.
       pendingSeek.current = from;
       wantPlay.current = true;
     },
@@ -342,8 +283,7 @@ export function PlaybackProvider({
     }
     const el = audioRef.current;
     if (!el) return;
-    // `play()` on an element sitting at the end rewinds by itself, which is the behaviour a
-    // bar that survives the end of a song needs.
+    // `play()` on an element sitting at the end rewinds by itself, which is what the bar needs.
     if (el.paused) void el.play().catch(() => {});
     else el.pause();
   }, [
@@ -365,8 +305,7 @@ export function PlaybackProvider({
     (seconds: number) => {
       const at = Math.max(0, seconds);
       if (viaMachine) {
-        // Optimistic: the handle follows the finger and the next poll tells the truth. Waiting
-        // for the round trip would snap the cursor backwards under the mouse.
+        // Optimistic: the handle follows the finger and the next poll tells the truth.
         setMachineState((s) => (s ? { ...s, position: at } : s));
         if (machine.fileBase && machine.token)
           void engineMachine.player
@@ -407,8 +346,7 @@ export function PlaybackProvider({
       now,
       playing,
       position,
-      // The `<audio>` gives the master's duration only once its metadata lands, which mpv has
-      // already read — so the machine's wins when present: it is the file actually playing.
+      // mpv has already read the file, so its duration wins when present (../../docs/playback.md).
       duration:
         viaMachine && machineState?.duration ? machineState.duration : duration,
       error,
@@ -439,9 +377,7 @@ export function PlaybackProvider({
   return (
     <EngineContext.Provider value={engine}>
       <PlaybackContext.Provider value={value}>
-        {/* Mounted for whatever is loaded, whichever destination plays it: it is what reports
-            the master's duration — the engine's state frame carries a playhead and no length —
-            and keeping it here is what lets a song outlive the screen that started it. */}
+        {/* Mounted whichever destination plays: it is what reports the duration (../../docs/playback.md). */}
         {now ? (
           // biome-ignore lint/a11y/useMediaCaption: a song master has no caption track
           <audio
@@ -450,8 +386,7 @@ export function PlaybackProvider({
             preload="metadata"
             onPlay={() => setBrowserPlaying(true)}
             onPause={() => setBrowserPlaying(false)}
-            // The exact signal, on this side: it fires for a song reaching its end and for
-            // nothing else, which is why only the engine branch has to infer one.
+            // The exact signal on this side: it fires for a song reaching its end and nothing else.
             onEnded={() => {
               setBrowserPlaying(false);
               setEnded((n) => n + 1);
@@ -471,8 +406,7 @@ export function PlaybackProvider({
             onTimeUpdate={(e) => {
               if (!browserPlaying) setBrowserAt(e.currentTarget.currentTime);
             }}
-            // A master that will not load is silence too, and the bar is the only thing on
-            // screen that can say so once the song's own pane has been left behind.
+            // A master that will not load is silence too, and the bar is the only thing left to say so.
             onError={() =>
               setError("lecture impossible : le master n'a pas pu être chargé")
             }

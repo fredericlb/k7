@@ -52,13 +52,7 @@ function song(): string {
 
 const logs: string[] = [];
 
-/**
- * The compiled project as the command reads it: one lane carrying one 4OSC.
- *
- * `type`/`name` are what `builtinParamsFor` matches on, and `params` is where the knob's CURRENT
- * value is read from — the flat curve is written at whatever it says, so this is the fixture's
- * load-bearing field.
- */
+/** One lane carrying one 4OSC; `params` is the load-bearing field — the flat curve lands on it. */
 const host = (params: Record<string, number> = { "Filter Freq": 50 }) =>
   ({
     songPath: dir,
@@ -109,8 +103,7 @@ describe("track automation add", () => {
   });
 
   it("creates a FLAT curve at wherever the knob currently sits", async () => {
-    // The whole point of flat: binding a curve overrides its param at once, so `add` has to be
-    // audibly a no-op until something is drawn.
+    // Binding a curve overrides its param at once, so `add` must be audibly a no-op.
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
     const text = curveText("gtr-Filter-Freq");
     expect(text).toContain("type: custom");
@@ -138,9 +131,7 @@ describe("track automation add", () => {
   });
 
   it("falls back to the plugin's published default when the module states no value", async () => {
-    // A module that overrides nothing is the ordinary case, and the knob is still SOMEWHERE: the
-    // plugin's own default. 4OSC's Filter Freq spans 0..135.08 and defaults to 69, so the flat
-    // curve lands at just over half.
+    // 4OSC's Filter Freq spans 0..135.08 and defaults to 69, so the flat curve lands just over half.
     await runCommand(
       "track automation add gtr Filter Freq",
       host({} as Record<string, number>),
@@ -154,8 +145,7 @@ describe("track automation add", () => {
   });
 
   it("writes the curve at the module's OWN value when it states one", async () => {
-    // …and that is the case the refusal exists for the far side of: get this wrong and binding a
-    // curve moves the sound, on a verb whose whole promise is that it does not.
+    // Get this wrong and binding a curve moves the sound, which is what the verb promises not to do.
     await runCommand(
       "track automation add gtr Filter Freq",
       host({ "Filter Freq": 100 }),
@@ -187,8 +177,7 @@ describe("track automation remove", () => {
   });
 
   it("LEAVES the curve file — an unbind is not a deletion", async () => {
-    // …and an unbound curve still draws as its own card on the graph, so nothing is orphaned
-    // invisibly and rebinding it is one verb away.
+    // An unbound curve still draws its own card on the graph, so nothing is orphaned invisibly.
     await runCommand("track automation add gtr Filter Freq", host(), "cli");
     await runCommand("track automation remove gtr Filter Freq", host(), "cli");
     expect(existsSync(join(dir, "curves", "gtr-Filter-Freq.yaml"))).toBe(true);

@@ -11,8 +11,7 @@ import {
   setServerPhase,
 } from "./phase.ts";
 
-// HTTP handlers for the live game (main.go). Wire shapes match the Go
-// implementations field-for-field — the SPAs consume these.
+// HTTP handlers for the live game; the wire shapes here are what every SPA consumes.
 
 /** Prefix bare song paths with /audio/ so the frontend fetches them directly. */
 const prefixAudioPath = (p: string | undefined): string | undefined => {
@@ -104,11 +103,7 @@ export function handleListGames(_req: Request, res: Response): void {
   });
 }
 
-/**
- * Swap the active game to gameId, pulling its snapshot (players, phase,
- * session ref, indices) back from Grist (main.go resumeGameFromGrist). A hard
- * swap — connected WS clients see the new game's state on the next broadcast.
- */
+/** A HARD swap to gameId's Grist snapshot: connected clients see it on the next broadcast. */
 export async function resumeGameFromGrist(gameId: string): Promise<void> {
   if (gameId === "") throw new Error("gameId required");
   const ps = await loadGameFromGrist(gameId);
@@ -287,9 +282,7 @@ export function handleSetRegistration(req: Request, res: Response): void {
   gameState.registrationComplete = locked;
   if (!locked) {
     gameState.registrationStarted = true;
-    // Reopening registration is a phase transition: buzzers must unlock so
-    // newly-joining players can confirm their device. Locking is followed by
-    // /next on the remote, which sets the phase from the next item.
+    // Reopening must unlock the buzzers, so a joining player can confirm their device.
     setServerPhase("registration");
   }
   console.log(
@@ -308,8 +301,7 @@ export function handleNext(_req: Request, res: Response): void {
     `[Session] Next -> type=${item.type}, category=${item.categoryName}, finished=${item.finished}`,
   );
 
-  // Broadcast phase BEFORE the item so clients that derive render state from
-  // "next" can override the coarse phase locally.
+  // Phase BEFORE the item, so a client deriving its render phase from "next" wins the tick.
   transitionForItem(item);
   gameState.hub?.broadcastMain({ type: "next", payload: item });
   res.json(item);
@@ -351,10 +343,7 @@ function transitionForItem(item: NextItem): void {
     setServerPhase(item.type);
 }
 
-/**
- * Increment the score of the player bound to deviceId (main.go bumpPlayer).
- * Returns [name, newScore].
- */
+/** Increment the score of the player bound to deviceId, returning [name, newScore]. */
 export function bumpPlayer(deviceId: string): [string, number] {
   const game = gameState.currentGame!;
   const player = game.players.find((p) => p.deviceId === deviceId);

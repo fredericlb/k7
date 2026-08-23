@@ -13,8 +13,7 @@ import { SESSIONS, sessionFor } from "@studio/engine-protocol/sessions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { rootDir, slugify } from "./slug.ts";
 
-// A stand-in engine: the prune is about the MAP and the reconnect, so a real socket would only
-// add a port to the test. Each instance records what was done to it.
+// A stand-in engine, recording what was done to it: the prune is about the MAP and the reconnect.
 const built: FakeClient[] = [];
 class FakeClient {
   closed = false;
@@ -78,8 +77,7 @@ const wsServing = (email: string, dir: string) => ({
 });
 
 describe("sessionOf", () => {
-  // THE agreement. This side reads the owner slug out of the workspace path; the browser
-  // slugs the logged-in email. Both must land on the same string.
+  // THE agreement: this side reads the owner slug out of the path, the browser slugs the email.
   it("matches what the browser half computes from the same email", () => {
     for (const email of [
       "fred@parapluie.org",
@@ -91,23 +89,20 @@ describe("sessionOf", () => {
 
   it("separates two people, and joins one person's workspaces", () => {
     expect(sessionOf(wsFor("a@x.org"))).not.toBe(sessionOf(wsFor("b@x.org")));
-    // Same person, two workspaces: ONE session. A person drives one project at a time, and
-    // splitting per workspace would leave a stopped project loaded in the engine forever.
+    // Same person, two workspaces: ONE session — see docs/activeProject.md.
     expect(sessionOf(wsFor("a@x.org", "one"))).toBe(
       sessionOf(wsFor("a@x.org", "two")),
     );
   });
 
-  // A bare folder opened directly (rootIsProject) has no owner in its path. One machine,
-  // one person — the case that shape exists for — so the bare service id is right.
+  // A bare folder opened directly has no owner in its path: one machine, one person.
   it("falls back to the bare service id outside the users root", () => {
     expect(sessionOf({ root: join("/tmp", "some-song") })).toBe(SESSIONS.st0);
     expect(sessionOf(null)).toBe(SESSIONS.st0);
   });
 });
 
-// Narrowing a watcher is the kind of change that fails SILENTLY — a pattern edit simply stops
-// reloading, and nothing says why. So the predicate is tested rather than trusted.
+// Narrowing a watcher fails SILENTLY, so the predicate is tested rather than trusted — docs/activeProject.md.
 describe("outsideTheWatch", () => {
   const dir = join("/tmp", "song.st0");
   const file = { isFile: () => true } as Stats;
@@ -146,21 +141,17 @@ describe("outsideTheWatch", () => {
     expect(outsideTheWatch(dir, join(dir, "algo"), folder)).toBe(false);
   });
 
-  // chokidar 3 asks once with the path alone. Answering "ignore" there would drop a file
-  // before its kind is known — including the patterns this watcher exists for.
+  // chokidar 3 asks once with the path alone, before a file's kind is known.
   it("commits to nothing before it has the stats", () => {
     expect(outsideTheWatch(dir, join(dir, "take-01.wav"))).toBe(false);
     expect(outsideTheWatch(dir, dir)).toBe(false);
   });
 });
 
-// One file service can serve several people, and until this existed `links` only ever grew: an
-// abandoned socket re-dialled once a second for the life of the process, and held its session
-// open on the engine with it.
+// Until this existed `links` only ever grew, into a permanent reconnect loop — docs/activeProject.md.
 describe("pruneIdleLinks", () => {
   const ws = (email: string) => wsFor(email) as never;
-  // The client ensureEngine just built. Throws rather than asserting non-null, so a test that
-  // silently built nothing fails here instead of three lines later.
+  // The client ensureEngine just built; throws, so a test that built nothing fails here.
   const last = (): FakeClient => {
     const c = built.at(-1);
     if (!c) throw new Error("no engine client was built");
@@ -181,15 +172,12 @@ describe("pruneIdleLinks", () => {
     const later = Date.now() + 10 * 60_000;
     expect(pruneIdleLinks(later)).toEqual([sessionOf(wsFor("gone@x.org"))]);
     expect(client.closed).toBe(true);
-    // THE point of deleting from the map before closing: the close handler re-dials unless the
-    // map has already let go, so a second connect here would be the reconnect loop coming back.
+    // A second connect here would be the reconnect loop coming back — dropLink deletes before it closes.
     expect(client.connects).toBe(1);
   });
 
   it("never drops a session that is holding a project", () => {
-    // The protected set is `served` — the sessions this service has actually sent a project to —
-    // not one "current" workspace. A player is idle between commands by nature; reaping their
-    // link would leave the engine holding a project nothing here could re-send to.
+    // The protected set is `served`, not one "current" workspace — see docs/activeProject.md.
     const dir = mkdtempSync(join(tmpdir(), "td-prune-"));
     try {
       // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsServing
@@ -203,8 +191,7 @@ describe("pruneIdleLinks", () => {
   });
 
   it("DOES drop an idle session that is holding nothing", () => {
-    // A link dialled for a preview alone. It used to be spared whenever it happened to be the
-    // bare session — which, before any /open, is exactly the one nothing is playing in.
+    // A link dialled for a preview alone; the bare session used to be spared for being bare.
     ensureEngine(null);
     const client = last();
     expect(pruneIdleLinks(Date.now() + 10 * 60_000)).toEqual([SESSIONS.st0]);
@@ -225,15 +212,7 @@ describe("pruneIdleLinks", () => {
   });
 });
 
-/**
- * A preview is addressed to the REQUEST's workspace session, never to a global "current" one.
- *
- * The global it used to default to was set only by /open, so after a service restart it was
- * null until somebody reopened a project — and a preview through it landed on the BARE session,
- * whose edit is empty. The engine's previewSample returns without a word on an empty session,
- * so the failure read as a ▶ that clicks and says nothing: sound-free, error-free, and
- * unfindable from either end. The route has the workspace in hand; it must say so.
- */
+/** A preview goes to the REQUEST's workspace session, never a global one — docs/activeProject.md. */
 describe("enginePreview", () => {
   beforeEach(() => {
     built.length = 0;
@@ -250,9 +229,7 @@ describe("enginePreview", () => {
   });
 });
 
-// Waiting for the engine's answer to an arm. `armed` is BROADCAST to every client in the
-// session, so the wait has to pick out its own answer — and it has to let go of its listeners
-// whichever way it ends.
+// `armed` is BROADCAST, so the wait picks out its own answer and lets go — docs/activeProject.md.
 describe("awaitArm", () => {
   // An emitter that records what is still attached: the leak is the point of half these tests.
   class ArmSpy {
@@ -296,8 +273,7 @@ describe("awaitArm", () => {
   });
 
   it("IGNORES the answer to another track's arm", async () => {
-    // The engine broadcasts every arm in the session. Taking a frame for `bass` as the answer
-    // for `gtr` reported the wrong state AND left the real answer with nobody waiting for it.
+    // A frame for `bass` taken as `gtr`'s answer left the real answer with nobody waiting.
     const c = spy();
     const out: string[] = [];
     const p = awaitArm(c, "gtr", out, () => true, 50);
@@ -334,8 +310,7 @@ describe("awaitArm", () => {
   });
 
   it("lets go of its listeners on a timeout, so the next error is not swallowed", async () => {
-    // They were `once`, which never fires when nothing arrives: the stale engineError listener
-    // outlived the request and ate the following command's message.
+    // They were `once`, which never fires on a timeout: the stale listener ate the next message.
     const c = spy();
     const out: string[] = [];
     await awaitArm(c, "gtr", out, () => true, 5);
@@ -345,15 +320,7 @@ describe("awaitArm", () => {
   });
 });
 
-/**
- * Waiting for one plugin's parameter list.
- *
- * The same shape as the arm above and the same hazard, one notch worse: `plugin-param-list` is
- * engine-GLOBAL — it carries no session, so it reaches every socket on the engine — and the
- * question takes seconds, which is exactly long enough for a second one to be asked. What is
- * built from the answer is a module's whole panel, so taking somebody else's reply would write
- * one plugin's knobs into another plugin's file, with nothing saying so.
- */
+/** The arm's shape, one notch worse: the reply is engine-GLOBAL and slow — docs/activeProject.md. */
 describe("awaitPluginParams", () => {
   class ListSpy {
     asked: [string, string][] = [];
@@ -400,8 +367,7 @@ describe("awaitPluginParams", () => {
   });
 
   it("reads a frame with no `found` as loaded", async () => {
-    // An engine too old to send the flag answered at all, which it could only do by loading
-    // something. Defaulting the other way would report every plugin on it as unloadable.
+    // An engine too old to send the flag could only answer by loading something.
     const c = spy();
     const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3");
     c.emit("pluginParamList", {
@@ -413,8 +379,7 @@ describe("awaitPluginParams", () => {
   });
 
   it("IGNORES another plugin's list", async () => {
-    // The reply is broadcast and the ask is slow, so two of these overlap routinely. Resolving
-    // on the first frame to arrive would draw Diva's panel into Serum's ui.yaml.
+    // Two of these overlap routinely, and the first frame would draw Diva's panel into Serum's ui.yaml.
     const c = spy();
     const p = awaitPluginParams(c, "VST3", "C:/vst/Serum.vst3", 200);
     c.emit("pluginParamList", {
@@ -432,14 +397,7 @@ describe("awaitPluginParams", () => {
     expect((await p)?.params).toEqual([knob]);
   });
 
-  /**
-   * THREE outcomes, told apart — and the MIDDLE one is why the flag exists at all.
-   *
-   * Measured on this machine: twenty-seven plugins refuse to load outright. They arrived as an
-   * empty parameter list, indistinguishable from a plugin that publishes none, and were reported
-   * as exactly that — so the answer to "why has this synth no parameters?" was made a fact about
-   * the plugin when it is a fact about the machine, and nobody was sent to look at the licence.
-   */
+  /** THREE outcomes, and the MIDDLE one is why the flag exists — see docs/activeProject.md. */
   it("tells silence, an unloadable plugin and an empty list apart", async () => {
     const c = spy();
 

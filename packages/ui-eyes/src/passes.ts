@@ -6,17 +6,7 @@
 
 import type { ScenePass } from "./scene";
 
-/**
- * The uniforms a shader may rely on being there, whatever it does with them.
- *
- * A CONTRACT rather than a convenience: a shader is authored against this list and nothing tells
- * its author they got a name wrong — GL silently returns a null location for an unknown uniform,
- * and for one that is merely UNUSED too, so the two are indistinguishable from here. Writing the
- * list down is the only place that difference can be documented.
- *
- * `uTex` is what the pass reads: the layer's frame for the first pass in a chain, and the previous
- * pass's output after that. That is the whole of what makes them chain.
- */
+/** The uniforms a shader may rely on — a CONTRACT, since GL cannot tell an unknown name from an unused one. See docs/passes.md. */
 export const PASS_UNIFORMS = [
   "uTex", // sampler2D — the picture coming in
   "uAudio", // float 0..1 — the live level of the lane wired to the audio port, 0 with none
@@ -28,8 +18,7 @@ export const PASS_UNIFORMS = [
   "uP4",
 ] as const;
 
-/** The unit quad every pass draws, in the attribute `aUnit` — the same two triangles the
- *  compositor's own program uses, because a pass covers its whole target. */
+/** The unit quad every pass draws, in the attribute `aUnit` — the same two triangles the compositor's own program uses. */
 export const PASS_ATTRIB = "aUnit";
 
 function compileStage(
@@ -49,9 +38,7 @@ function compileStage(
   return sh;
 }
 
-/** One compiled pass: its program and the uniform locations, looked up once. A location may be
- *  null and that is normal — a shader that ignores `uP3` has no `uP3`, and setting a null location
- *  is a no-op in WebGL rather than an error. */
+/** One compiled pass: its program and the uniform locations, looked up once; a null location is normal, and setting one a no-op. */
 export interface PassProgram {
   id: string;
   prog: WebGLProgram;
@@ -60,17 +47,7 @@ export interface PassProgram {
   >;
 }
 
-/**
- * Compile one pass, or null when its GLSL will not build.
- *
- * Null and a console line, rather than a throw: a shader is source somebody is EDITING, and a
- * half-typed fragment must not take the viewport down with it. The layer then draws as if the
- * pass were not there, which is the same posture the whole picture path takes to a missing shader
- * folder — you lose the effect and keep the frame.
- *
- * The message names the NODE (`glow`), not the file, because the node is what is on screen and
- * what you would click to fix it.
- */
+/** Compile one pass, or null and a console line naming the NODE when its GLSL will not build — see docs/passes.md. */
 export function compilePass(
   gl: WebGL2RenderingContext,
   pass: ScenePass,
@@ -93,9 +70,7 @@ export function compilePass(
     const prog = gl.createProgram()!;
     gl.attachShader(prog, vert);
     gl.attachShader(prog, frag);
-    // The attribute is bound BEFORE linking, to location 0, so every pass shares the one vertex
-    // buffer the compositor already set up. Without this a shader that declares its attributes in
-    // another order would read the quad off whichever slot the linker happened to pick.
+    // Bound to location 0 BEFORE linking, so every pass shares the compositor's one vertex buffer — see docs/passes.md.
     gl.bindAttribLocation(prog, 0, PASS_ATTRIB);
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
@@ -110,16 +85,13 @@ export function compilePass(
     console.warn((e as Error).message);
     return null;
   } finally {
-    // Deleted once attached (or once failed): the program keeps them alive until IT is deleted,
-    // which is what stops a scene rebuild leaking a shader object per pass per rebuild.
+    // Deleted once attached: the program keeps them alive, which stops a scene rebuild leaking a shader object per pass.
     if (vert) gl.deleteShader(vert);
     if (frag) gl.deleteShader(frag);
   }
 }
 
-/** Hand a compiled pass its uniforms and draw the quad. The texture must already be bound to
- *  TEXTURE0 — the caller owns which one, since that is the whole difference between the first
- *  pass in a chain and the rest. */
+/** Hand a compiled pass its uniforms and draw the quad; the caller owns which texture is bound to TEXTURE0. */
 export function drawPass(
   gl: WebGL2RenderingContext,
   p: PassProgram,
@@ -139,9 +111,7 @@ export function drawPass(
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 }
 
-/** Allocate an offscreen RGBA target at `w`×`h` with the sampling every pass wants. Shared by
- *  `RenderTarget` and `PingPong` so the two cannot end up with different filtering — which shows
- *  up as a frame shader softening the picture and a layer shader not. */
+/** Allocate an offscreen RGBA target at `w`×`h`, shared by `RenderTarget` and `PingPong` so their filtering cannot diverge. */
 function makeTarget(
   gl: WebGL2RenderingContext,
   w: number,
@@ -162,9 +132,7 @@ function makeTarget(
   );
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-  // CLAMP_TO_EDGE, and it matters more here than on a video texture: a shader sampling past the
-  // edge (every blur, every displacement) would otherwise wrap the far side of the frame into the
-  // near one, which reads as a bug in the shader rather than in its target.
+  // CLAMP_TO_EDGE matters more here than on a video texture: a shader sampling past the edge must not wrap — see docs/passes.md.
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   const fbo = gl.createFramebuffer()!;
@@ -180,15 +148,7 @@ function makeTarget(
   return [fbo, tex];
 }
 
-/**
- * One offscreen target: where the layers COMPOSITE when the frame itself is going to be shaded.
- *
- * Its own thing rather than half of the ping-pong, and the separation is the correction of a real
- * mistake: sharing the pair meant a layer's chain cleared the target the composite so far was
- * accumulating into, so every layer but the last vanished the moment any layer grew a shader.
- * The composite ACCUMULATES over a whole frame; a chain's scratch is cleared per pass. Two
- * lifetimes, two resources.
- */
+/** One offscreen target: where the layers COMPOSITE when the frame itself will be shaded — its own thing, see docs/passes.md. */
 export class RenderTarget {
   private gl: WebGL2RenderingContext;
   private fbo: WebGLFramebuffer;
@@ -205,15 +165,13 @@ export class RenderTarget {
     this.texture = tex;
   }
 
-  /** Point rendering here. `clear` is false for every draw after the first in one frame, which is
-   *  what makes this accumulate rather than keep only the topmost layer. */
+  /** Point rendering here. `clear` is false after the first draw of a frame, which is what makes this accumulate. */
   bind(clear: boolean): void {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
     gl.viewport(0, 0, this.width, this.height);
     if (!clear) return;
-    // Transparent black, not the scene's background: a frame shader must be handed PICTURE, and
-    // clearing to the background would have it shading the backdrop as though it were one.
+    // Transparent black, not the scene's background: a frame shader must be handed PICTURE — see docs/passes.md.
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
@@ -224,17 +182,7 @@ export class RenderTarget {
   }
 }
 
-/**
- * A pair of offscreen targets a chain of passes bounces between.
- *
- * Two and not one, because a shader cannot read the texture it is writing: sampling and rendering
- * the same attachment is undefined in GL and looks, in practice, like the effect working on one
- * machine and tearing on another. So pass N reads `a` and writes `b`, then they swap.
- *
- * Allocated at the VIEWPORT's size rather than the layer's rect: a pass may sample outside the
- * fragment it is writing (a blur does), and a target cropped to the layer would give it the edge
- * of the crop instead of the picture. Costs two full-frame RGBA textures per chain, once.
- */
+/** A pair of offscreen targets a chain bounces between, at the VIEWPORT's size — two, not one, see docs/passes.md. */
 export class PingPong {
   private gl: WebGL2RenderingContext;
   private fbo: [WebGLFramebuffer, WebGLFramebuffer];
@@ -253,9 +201,7 @@ export class PingPong {
     this.tex = [t0, t1];
   }
 
-  /** Point rendering at the back target and clear it. Transparent black, not the scene's
-   *  background: a layer's own passes run BEFORE compositing, so anything the shader does not
-   *  write must stay see-through or the layer would blot out everything under it. */
+  /** Point rendering at the back target and clear it to transparent black, never the scene's background. */
   bindBack(): void {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo[1 - this.front]);

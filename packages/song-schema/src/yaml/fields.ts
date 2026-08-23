@@ -62,14 +62,7 @@ export type FileKind =
   | "video_track"
   | "project";
 
-/**
- * Which kind a project-relative path is, or null when it is not a project file.
- *
- * By FOLDER, not by extension: `modules/audio/cab/module.yaml` is a module whatever it is
- * called, and so is `nodes/melody.yaml` — a node is an ordinary module that happens
- * to live in `nodes/`, LANES INCLUDED (docs/trackModules.md). There is no `tracks/` kind
- * any more, for exactly that reason; `validate.ts` has read the folder this way all along.
- */
+/** Which kind a project-relative path is, or null — by FOLDER and not by extension, see docs/fields.md. */
 export function fileKindFor(path?: string): FileKind | null {
   const p = (path ?? "").replace(/\\/g, "/");
   if (!p) return null;
@@ -84,12 +77,7 @@ export function fileKindFor(path?: string): FileKind | null {
   return null;
 }
 
-/**
- * The fields allowed in the mapping at `path`, for a file of `kind`.
- *
- * `path` is the editor's key path (see ui-editor keyPath.ts): [] at the top level,
- * ["ui", "widgets", "w1"] inside one widget.
- */
+/** The fields allowed in the mapping at `path` — the editor's key path, `[]` at the top level. */
 export function fieldsAt(kind: FileKind, path: string[]): string[] {
   if (kind === "module") return moduleFields(path);
   if (kind === "chains") return chainFields(path);
@@ -100,11 +88,7 @@ export function fieldsAt(kind: FileKind, path: string[]): string[] {
   return videoTrackFields(path);
 }
 
-/**
- * project.yaml has TWO tiers, and mixing them up is what put `libraries_from` at the top
- * level doing nothing: `project: {…}` holds the song's settings, `trackOrder` and `markers`
- * are its siblings.
- */
+/** project.yaml has TWO tiers, and mixing them up put `libraries_from` at the top level doing nothing (docs/fields.md). */
 function projectFields(path: string[]): string[] {
   if (path.length === 0) return keys(ProjectFileSchema);
   if (path[0] === "project" && path.length === 1)
@@ -164,18 +148,14 @@ function videoTrackFields(path: string[]): string[] {
 function moduleFields(path: string[]): string[] {
   if (path.length === 0) return keys(ModuleSchema);
   const [head, ...rest] = path;
-  // A lane's placements. `events:` is a module field now, so it is offered here rather than by a
-  // track vocabulary of its own — which is the whole of what the `track` kind used to be for.
+  // A lane's placements: `events:` is a module field now, so no track vocabulary of its own (docs/fields.md).
   if (head === "events") return keys(PlacementSchema);
-  // A lane's TAKES: a list of takes, each of which holds a list of placements. So the offer
-  // depends on how deep the path is — the take's own two fields, or a placement's.
+  // A lane's TAKES are a list of lists, so the offer depends on how deep the path is.
   if (head === "takes") {
     if (!rest.length) return [];
     return rest.includes("events") ? keys(PlacementSchema) : keys(TakeSchema);
   }
-  // One of the module's other attribute SETS: the same fields it has itself, plus a name. Derived
-  // like everything else here, so a field added to a module is offered inside an alternative too.
-  // See docs/alternatives.md.
+  // One of the module's other attribute SETS: the same fields it has itself, plus a name (docs/alternatives.md).
   if (head === "alternatives")
     return rest.length ? keys(AlternativeSchema) : [];
   if (head === "ui") {
@@ -203,8 +183,7 @@ function rackFields(): string[] {
 }
 
 function chainFields(path: string[]): string[] {
-  // The file has three sections and nothing else — inside one, the keys are node NAMES,
-  // which the schema has no vocabulary for (hints.ts supplies those).
+  // The file has three sections and nothing else; inside one the keys are node NAMES (hints.ts supplies those).
   if (path.length === 0) return keys(GraphFileSchema);
   return [];
 }

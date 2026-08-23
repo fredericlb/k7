@@ -62,8 +62,7 @@ import {
   workspaceNameFor,
 } from "./workspaces.ts";
 
-// First, and only here: this is ONE process holding the engine socket, the pattern clock and the
-// watcher beside every request — a fire-and-forget rejection must not cost all of it. background.ts.
+// First and only here: one process holds the socket, the clock and the watcher — see background.ts.
 installProcessNet();
 
 const FILE_PORT = Number(process.env.STUDIO_FILE_PORT || 8770);
@@ -71,8 +70,7 @@ const ENGINE_PORT = Number(process.env.STUDIO_ENGINE_PORT || 8765);
 
 const app = express();
 
-// The callback form is deliberate: `origin: true` would reflect ANY origin. A refusal is RECORDED so the tray can
-// offer it as a question — see docs/corsAndOrigins.md.
+// Never reflect an arbitrary origin, and record a refusal for the tray — see docs/corsAndOrigins.md.
 app.use(
   cors({
     origin: (o, cb) => {
@@ -95,8 +93,7 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "8mb" }));
 
-// Constant-time compare of a query token, mirroring requireEngineToken — including its three
-// states: absent identity allows, unreadable one refuses.
+// Constant-time compare of a query token, with requireEngineToken's three states — docs/corsAndOrigins.md.
 function mediaTokenOk(supplied: string): boolean {
   const state = engineTokenState();
   if (state.k === "unreadable") return false;
@@ -109,9 +106,7 @@ function mediaTokenOk(supplied: string): boolean {
 
 // --- Routes that can't send custom headers, mounted OUTSIDE the header gates ---
 
-// Media streaming for <video>: an element GET can't set headers, so user, workspace and token ride in the QUERY —
-// which is why this route sits outside the header gates. Read-only, with the traversal guard still applied.
-// Residual risk, deliberate: a token holder can read any user's media here. See docs/corsAndOrigins.md.
+// Media for <video>: identity rides in the QUERY, so this sits outside the gates — docs/corsAndOrigins.md.
 app.get(
   "/media",
   wrap((req, res) => {
@@ -143,9 +138,7 @@ app.get(
   }),
 );
 
-// Liveness, deliberately ungated and deliberately EMPTY: its one caller is a browser telling "my origin is refused"
-// apart from "nothing is listening", which fetch() reports identically. It must reveal nothing — the answer IS the
-// payload — and it sits after the cors middleware so a refused probe is still recorded for the tray.
+// Liveness, ungated and deliberately EMPTY — the answer IS the payload. See docs/corsAndOrigins.md.
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -154,10 +147,7 @@ app.get("/health", (_req, res) => {
 app.use(requireEngineToken);
 app.use(resolveUser);
 
-// The workspace picker needs only the user, so it is registered BEFORE resolveWorkspace.
-// Typed by the envelope `web-protocol` already declares for it: the type existed and described
-// this reply, and nothing was held to it — so the wire and its description could drift with
-// nobody the wiser. Naming it here is what makes the declaration true.
+// Registered BEFORE resolveWorkspace, and typed by the envelope web-protocol already declares for it.
 app.get(
   "/workspaces",
   wrap((req, res) => {
@@ -181,17 +171,7 @@ app.post(
   }),
 );
 
-/**
- * Every workspace on this machine and the projects in it — st0's home page, in one call.
- *
- * Registered beside `/workspaces` and for the same reason: it needs the user and no workspace.
- * A LIST route rather than one call per workspace, because the page draws them all and N round
- * trips over the LAN would be N waits for one screen.
- *
- * This is the machine answering "what projects exist", which is now the only answer there is.
- * pl8 held a bare blobless mirror of every repository to answer it from the hosted side; see
- * apps/st0/frontend/docs/projects.md for why that copy went.
- */
+/** Every workspace on this machine and the projects in it — st0's home page, in one call. See docs/activeProject.md. */
 app.get(
   "/workspaces/projects",
   wrap(async (req, res) => {
@@ -202,14 +182,7 @@ app.get(
   }),
 );
 
-/**
- * …and the same list narrowed to what a SECOND DEVICE could open: every project that declares a
- * surface, flat, with those surfaces and which one the workspace has open.
- *
- * st0's `/external` page, in one call, for the same reason as the route above — that page is a
- * menu on a tablet and a round trip per project would be a menu that fills in row by row. Beside
- * `/workspaces` too: the user is the whole question, and no workspace is open when it is asked.
- */
+/** …the same list narrowed to what a SECOND DEVICE could open — st0's `/external`, in one call. */
 app.get(
   "/workspaces/surfaces",
   wrap(async (req, res) => {
@@ -220,18 +193,7 @@ app.get(
   }),
 );
 
-/**
- * …and which ONE of those the engine is actually holding for this person.
- *
- * The menu above lists every project on the disk that declares a surface; this says which of them
- * a second device can reach without moving the engine off something. A session is per service and
- * per person, so the answer is one project for the whole account — not one per workspace, which is
- * what the `.studio-active` markers are and why they cannot answer this
- * (packages/engine-protocol/docs/sessions.md).
- *
- * Workspace-less like its two neighbours, and for the same reason: the caller is a tablet with no
- * project open, and the user is the whole question. See apps/st0/frontend/docs/external.md.
- */
+/** …and which ONE of those the engine is holding for this person — one per account, docs/activeProject.md. */
 app.get(
   "/engine/served",
   wrap(async (req, res) => {
@@ -242,11 +204,7 @@ app.get(
   }),
 );
 
-/**
- * Which workspace already holds a repository, if any. pl8 names a repo by its URI and knows
- * nothing about this machine's folders, so this is the question st0 asks before deciding
- * whether anything needs cloning at all.
- */
+/** Which workspace already holds a repository, if any — what st0 asks before cloning anything. */
 app.get(
   "/workspaces/by-repo",
   wrap(async (req, res) => {
@@ -260,35 +218,18 @@ app.get(
   }),
 );
 
-/**
- * The BENCH — made, or refreshed, and answered as a workspace + project.
- *
- * On ONE médiathèque chain (`chains/<path>.st0`), which is what the address's project part says.
- *
- * Its own route rather than a clone, because there is no repository: the bench is generated
- * from the médiathèque's catalogue and regenerated every time it is opened, so putting it under
- * version control would version a cache. `ProjectGate` calls this instead of the
- * by-name → by-repo → clone sequence when the address names `@banc`.
- *
- * A full sync of both families first, and that is the load-bearing line. `mediatekPull` fetches
- * only what the OPEN projects name (docs/mediatekPull.md), and a bench that has not been made
- * yet names nothing — so without this the folder it is about to mirror would be whatever
- * happened to be cached for other songs.
- */
+/** The BENCH on one library chain, made or refreshed — no repository, see docs/workspace.md. */
 app.post(
   "/workspaces/bench",
   wrap(async (req, res) => {
-    // Which chain the address named. `benchChainPath` is the one place either end spells that
-    // rule; anything else under `@banc` names nothing, which used to be the module bench.
+    // Which chain the address named — `benchChainPath` is the one place either end spells that rule.
     const chain = benchChainPath(String(req.body?.project ?? ""));
     if (!chain)
       return res.status(404).json({
         error:
           "@banc opens a library chain — `chains/<path>.st0`. A shared MODULE is edited from the Libraries tab of a project you already have open.",
       });
-    // The account's library repository, from the browser — the side that holds the session pl8
-    // answers to. The bench's workspace mounts it like any other, and the chain being opened is
-    // inside it. Without one there is nothing to open, which the gate already refuses on.
+    // The account's library repository, from the browser — the side that holds pl8's session.
     const libraries = String(req.body?.libraries ?? "");
     if (!libraries)
       return res.status(400).json({
@@ -298,16 +239,13 @@ app.post(
     try {
       res.json(await ensureChainBench(req.userEmail!, chain, libraries));
     } catch (e) {
-      // A chain that will not open is the USER's problem to read — no such chain, or a name that
-      // collides with the bench's own furniture — so it is a 409 and not a fault.
+      // A chain that will not open is the USER's problem to read, so it is a 409 and not a fault.
       res.status(409).json({ error: (e as Error).message });
     }
   }),
 );
 
-// Cloning runs HERE because this machine owns ~/.studio/root, and the deploy key is copied here.
-// It STARTS the clone and answers with a job to poll: a real repository takes tens of seconds,
-// which is longer than a request should be held open. See docs/cloneJobs.md.
+// Cloning runs HERE, and it STARTS a job to poll rather than holding the request — docs/cloneJobs.md.
 const cloneBody = z.object({
   uri: z.string().min(1),
   // Optional: the caller usually has a URI and no opinion about the folder's name.
@@ -339,41 +277,22 @@ app.get(
   }),
 );
 
-// The media library is per MACHINE, so it needs the user (for the gate) but no workspace —
-// registered here for the same reason /workspaces is.
+// The media library is per MACHINE: the user for the gate, and no workspace.
 app.use(mediatekRouter);
 
-// Play a song from the cache on THIS machine's outputs, without the engine. Per person and with no
-// workspace, like the médiathèque above: what one listens to belongs to no project, and that is
-// exactly what allows listening while the engine serves st0.
-// Voir docs/machinePlayer.md.
+// Play a song on THIS machine's outputs, without the engine and without a project — docs/machinePlayer.md.
 app.use(playerRouter);
 
-// An offline bounce, for a hosted backend that cannot exec anything itself. Per MACHINE
-// too — it is this machine's engine binary and this machine's plugins — and behind the same
-// engine-token gate everything above it is. See docs/render.md.
+// An offline bounce for a hosted backend that cannot exec anything itself — docs/render.md.
 app.use(renderRouter);
 
-// Stem separation, per machine for the same reasons and then some — it is this machine's model
-// and this machine's GPU. Unlike a render it is started and polled, because it takes minutes
-// and produces four files. See docs/stemSplit.md.
+// Stem separation, started and polled because it takes minutes and produces four files — docs/stemSplit.md.
 app.use(separateRouter);
 
-// …and the same work for a caller that holds the audio and no workspace: pl8 POSTs a master's
-// bytes, names a library chain, and collects the files. Beside `/separate` rather than under
-// `/stems` because it names no cache path — there is no médiathèque cache on this machine.
-// See docs/processChain.md.
+// …and the same work for a caller that holds the audio and no cache path — docs/processChain.md.
 app.use(processRouter);
 
-// What this machine's engine has SCANNED, grouped by format. Per machine like the two above and
-// for the same reason — the scan cache is `~/.studio/exts.json`, which belongs to no workspace and
-// no project. `/hints` has carried the same list for a long time, but only alongside a compiled
-// project, which is a thing the médiathèque does not have and will never have: it edits a library.
-//
-// Two shapes of the same answer, and both are used. `pluginNames` is what a name-matching
-// field needs; `plugins` carries the role and the plugin's own category, which is what decides
-// a module's PORTS and where it is filed — the médiathèque gives every scanned plugin a face
-// and cannot do either from a name (see @studio/song's engineFace.ts).
+// What this machine's engine has SCANNED, in the two shapes both used — see docs/activeProject.md.
 app.get(
   "/plugins",
   wrap((_req, res) =>
@@ -381,26 +300,7 @@ app.get(
   ),
 );
 
-/**
- * …and what ONE of them HAS — every parameter of an installed plugin type.
- *
- * Beside `/plugins` and per machine for the same reason, but it is not read off the cache: the
- * scan carries a plugin's name, format and path and no parameters, because a plugin registers
- * them in its constructor. So this loads one and asks, on an offline engine of the engine's own
- * making, and takes SECONDS. A built-in needs no engine at all and never gets here — its list is
- * in `@studio/song`'s generated table.
- *
- * `format` and `id` together, because `id` is the binary's path: a display name can belong to
- * two formats of one plugin, and the engine resolves the pair, not the name.
- *
- * A 503 rather than an empty list when the engine cannot be reached or does not answer. The
- * caller writes a panel from what comes back, and an empty one is a REAL answer — a plugin with
- * no automatable parameters — so the two must not arrive spelt the same way.
- *
- * `found` rides back for the same reason one notch down: a plugin this machine cannot LOAD and
- * one that loads and publishes nothing are both an empty list, and only the first is worth
- * telling somebody about — it is a licence or an installation, not a fact about the plugin.
- */
+/** …and what ONE of them HAS — a plugin LOADED and asked, which takes seconds. See docs/activeProject.md. */
 app.get(
   "/plugin-params",
   wrap(async (req, res) => {
@@ -425,26 +325,7 @@ app.get(
   }),
 );
 
-/**
- * …and what one of them LOOKS LIKE — the plugin's own window, opened on this machine.
- *
- * Beside `/plugin-params` and taking the same `ref`, because it answers the other half of the same
- * question. A module is authored against a plugin by NAME, and a list of parameter names does not
- * tell you what `Amount Mod2` does; the plugin's own UI does, and it is the thing the plugin author
- * actually designed.
- *
- * The instance is an ORPHAN — no track, no session, no project — and NOTHING IT IS TOLD IS SAVED.
- * That is what makes it safe to open while something is playing, and it is also the limit worth
- * saying out loud: it is somewhere to LOOK at a plugin, not somewhere to set one. Values still
- * belong in the module's text.
- *
- * The window opens on THIS machine's screen, which is the engine's — so a browser on another
- * machine will be told the request succeeded and see nothing. That is not a bug this can fix: a
- * native plugin UI is a native window, and it draws where the plugin is loaded.
- *
- * 202 rather than 200: everything past "an engine took it" happens out of band, and the engine's
- * warning channel is where a plugin that will not load or has no editor gets to say so.
- */
+/** …and what one LOOKS LIKE — an ORPHAN instance's own window, on this machine. See docs/activeProject.md. */
 app.get(
   "/plugin-native-ui",
   wrap(async (req, res) => {
@@ -475,27 +356,18 @@ app.get(
   }),
 );
 
-// There is no /ssh-key here any more. pl8 owns the studio's git identity — it generates the
-// one deploy key and shows it to you — and this machine fetches a copy when it first needs to
-// clone (sshKeys.ts). See packages/git-repos/docs/keys.md.
+// No /ssh-key here: pl8 owns the git identity and sshKeys.ts fetches a copy — packages/git-repos/docs/keys.md.
 
-// `/stems` stood here — workspace-scoped, resolving a cache-relative song path into this
-// machine's médiathèque mirror. It is GONE with the mirror: pl8 holds the masters, so pl8 drives
-// the cut and asks this machine for the arithmetic over `/process` above. See docs/processChain.md
-// and apps/pl8/docs/stems.md.
+// `/stems` stood here and went with the mirror: pl8 drives the cut now — see docs/processChain.md.
 
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);
 
 app.listen(FILE_PORT, "0.0.0.0", () => {
   mkdirSync(rootDir(), { recursive: true }); // ensure ~/.studio/root exists
-  // Let `@studio/song` skip its module-stamp walk while a watcher says nothing moved. HERE and
-  // nowhere else, deliberately: it is a property of being a long-lived process that holds file
-  // handles, which a CLI run, a test and a script are not. See moduleWatch.ts.
+  // Only a long-lived process may skip `@studio/song`'s module-stamp walk — see moduleWatch.ts.
   installModuleWatch();
-  // Same for the media library. Tolerated rather than required: the root is overridable
-  // and may point at a drive that isn't mounted, which must not stop the file service —
-  // the catalogue then simply reports no library.
+  // Same for the media library, tolerated rather than required: its root may be an unmounted drive.
   try {
     console.log(`   mediatek: ${ensureLayout()}`);
   } catch (e) {
@@ -507,8 +379,7 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   syncAllRepos();
   // Log the effective policy: a bad allowlist otherwise surfaces only as an unexplained browser failure.
   console.log(`   cors: ${originPolicySummary()}`);
-  // …and say it out loud when nothing gates the routes. This binds 0.0.0.0, so an open run is
-  // an open run on the whole LAN — worth a line rather than a state you have to infer.
+  // …and out loud when nothing gates the routes: this binds 0.0.0.0, so an open run is open on the LAN.
   const tok = engineTokenState();
   if (tok.k === "none")
     console.warn(
@@ -520,8 +391,7 @@ app.listen(FILE_PORT, "0.0.0.0", () => {
   setSelectedEngine(`ws://127.0.0.1:${ENGINE_PORT}`);
   // Keep the médiathèque cache in step with the hosted library, for what the open songs name.
   startMediatekPuller();
-  // Reap engine sockets nobody has used in minutes. One file service can serve several people,
-  // and an abandoned link re-dials once a second forever — see pruneIdleLinks.
+  // Reap engine sockets nobody has used in minutes — an abandoned link re-dials forever, see pruneIdleLinks.
   setInterval(() => {
     for (const s of pruneIdleLinks())
       console.log(`   engine link idle, dropped: ${s}`);

@@ -35,8 +35,7 @@ describe("a module filed under a category folder", () => {
       "amps/neural-amp-modeler",
       "reverb",
     ]);
-    // `file` is what `moduleRefOf` turns into a ref, so it carries the filing too — the ref of
-    // this module is `audio/amps/neural-amp-modeler`, which is what its key must resolve to.
+    // `file` is what `moduleRefOf` turns into a ref, so it carries the filing too.
     expect(mods["amps/neural-amp-modeler"].file).toBe(
       "amps/neural-amp-modeler",
     );
@@ -47,9 +46,7 @@ describe("a module filed under a category folder", () => {
     writeModule(dir, "audio", "amps/neural-amp-modeler", {
       plugin: { type: "vst3", name: "NAM" },
     });
-    // Named after the module's OWN folder. Joining the whole key would have looked for
-    // `amps/neural-amp-modeler.vstpreset` inside the module's folder — a path with a
-    // directory in it that does not exist, so the preset would simply never be found.
+    // The module's OWN folder: joining the whole key names a directory that does not exist.
     const preset = join(
       dir,
       "modules/audio/amps/neural-amp-modeler/neural-amp-modeler.vstpreset",
@@ -60,10 +57,7 @@ describe("a module filed under a category folder", () => {
   });
 
   it("is named the same way by a browser reading only the path", () => {
-    // st0's builder has no loader — it maps the open FILE to the key a chain writes, so that it
-    // can find the plugin the project loaded. Spelled differently from `loadModules`, it would
-    // look up `neural-amp-modeler`, find nothing, and report a module the project plainly has
-    // as one it does not. Same answer, from the two ends, is the contract.
+    // The builder maps the open FILE to a chain key, and a different spelling finds no plugin.
     writeModule(dir, "audio", "amps/neural-amp-modeler", {
       plugin: { type: "vst3", name: "NAM" },
     });
@@ -86,8 +80,7 @@ describe("a module filed under a category folder", () => {
   });
 
   it("still ignores a folder that is neither a module nor a filing of one", () => {
-    // Two levels down is not a module. The rule is ONE level of filing, as it is for a shared
-    // library — deeper is a folder somebody put there, not a vocabulary.
+    // ONE level of filing, as in a shared library: deeper is a folder, not a vocabulary.
     writeModule(dir, "audio", "a/b/too-deep", {
       plugin: { type: "vst3", name: "X" },
     });

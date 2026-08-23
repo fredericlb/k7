@@ -43,9 +43,7 @@ export type ForkedModule = {
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
-/** The shared roots this project inherits, absolute, each under the namespace its LOCATION gives it.
- *  Read through moduleLibraryDirs so the médiathèque is here too — a module the loader keys and the
- *  catalogue lists, but that this function did not see, was one the builder refused to open. */
+/** The shared roots this project inherits, each under the namespace its LOCATION gives it — docs/moduleFork.md. */
 export function sharedRoots(dir: string): { root: string; ns: string }[] {
   return moduleLibraryDirs(dir).map((root) => ({
     root,
@@ -53,13 +51,7 @@ export function sharedRoots(dir: string): { root: string; ns: string }[] {
   }));
 }
 
-/**
- * The ref a shared module file answers to, or null when the file isn't one.
- *
- * Mirrors readModuleTree's keying rather than guessing at it: `<type>/<leaf>` at the top level and
- * `<type>/<category>/<leaf>` one folder deeper (the loader's "a folder with no module file is a category"),
- * and nothing below that — so a path this returns a ref for is a path the loader will agree about.
- */
+/** The ref a shared module file answers to, keyed exactly as readModuleTree does — docs/moduleFork.md. */
 export function sharedModuleRef(
   dir: string,
   file: string,
@@ -83,16 +75,7 @@ export function sharedModuleRef(
   return null;
 }
 
-/**
- * Every chain that reaches `module`, by name — the tracks the edit is really about.
- *
- * `out` counts as well as `use`: a module several things feed is a chain of its own now, and a chain that only
- * ever names itself tells nobody anything. Its own chain is left out for exactly that reason.
- *
- * Exported because naming a fork after its track and naming a NODE after its lane are the same
- * question (instanceName.ts), and one question is entitled to one answer — the first chain this
- * returns is the owner in both.
- */
+/** Every chain that reaches `module`, `out` counting as well as `use` — see docs/moduleFork.md. */
 export function chainsUsing(text: string, module: string): string[] {
   const chains = deriveChains(parseGraph(text).value);
   return Object.entries(chains)
@@ -105,12 +88,7 @@ export function chainsUsing(text: string, module: string): string[] {
     .map(([name]) => name);
 }
 
-/**
- * Copy a shared module into this project, with `content` as its module file, and repoint the chains at it.
- *
- * Throws for anything that isn't a shared module's own module file — a sidecar forked on its own would land in
- * a folder no chain names, which is a silent no-op dressed up as a save.
- */
+/** Copy a shared module in with `content` as its module file, and repoint the chains — docs/moduleFork.md. */
 export function forkSharedModule(
   dir: string,
   file: string,
@@ -127,8 +105,7 @@ export function forkSharedModule(
       `${basename(file)}: the shared module library is read-only — edit ${leaf}'s module file to get a project copy of it`,
     );
 
-  // Named after the chain that plays it, so a copy says whose it is. A module the project doesn't play yet has
-  // no track to be named after — it still forks, or the edit would just be lost.
+  // Named after the chain that plays it; one the project doesn't play yet still forks, or the edit is lost.
   const graphFile = entityFileFor(dir, "", GRAPH_BASE);
   const graphText = graphFile ? readFileSync(graphFile.path, "utf8") : "";
   const track = graphText ? (chainsUsing(graphText, ref)[0] ?? null) : null;
@@ -142,9 +119,7 @@ export function forkSharedModule(
   const generic = moduleFileFor(dest, "", "module");
   writeFileSync(generic?.path ?? join(dest, "module.yaml"), content, "utf8");
 
-  // The panel came along in the folder copy — it is a file in it (see uiLibrary.ts). Rewritten anyway, so its
-  // header names the copy instead of the module it was drawn for: a `ui.yaml` whose comment still points at
-  // `@engine/…` reads as the fork having borrowed a face rather than been given one.
+  // The folder copy brought the panel; rewritten anyway so its header names the copy — docs/moduleFork.md.
   const panel = loadUiLibrary(dir).byRef[ref];
   const localRef = moduleRefOf(type, module); // the ref the LOADER will key the copy by, not the folder name
   if (panel)
@@ -160,8 +135,7 @@ export function forkSharedModule(
   if (graphFile) {
     const r = renameNode(graphText, ref, module);
     if (r.text !== graphText) writeFileSync(graphFile.path, r.text, "utf8");
-    // The chains as they now stand, so the report names what the copy plays in — not the
-    // nodes that were rewired, which is a file-level detail nobody asked about.
+    // The chains as they NOW stand, so the report names what the copy plays in.
     chains = chainsUsing(r.text, module);
   }
 
@@ -173,18 +147,7 @@ export function forkSharedModule(
   };
 }
 
-/**
- * Give a module the ENGINE provides a folder of its own, in this project.
- *
- * A scanned plugin is a module with no files anywhere: `engineCatalogue` synthesises it from the scan cache, and
- * a chain can name it as `@engine/<slug>` without anything on disk. That is fine until you want to give it a
- * face or a shelf of presets, because both are FILES in a module's folder — so this is the moment the module
- * stops being ambient and becomes something the project owns.
- *
- * The same shape as a fork, and deliberately: a folder appears, a `module.yaml` records which plugin to load
- * (the scan is a discovery aid, not the project's memory of what it uses), and the chains are repointed. What
- * differs is that nothing is copied — there was nothing to copy.
- */
+/** Give a module the ENGINE merely reports a folder of its own — the same shape as a fork, docs/moduleFork.md. */
 export function materialiseEngineModule(
   dir: string,
   ref: string,
@@ -199,10 +162,7 @@ export function materialiseEngineModule(
   if (!(type in MODULE_TYPES))
     throw new Error(`${ref}: unknown module category '${type}'`);
 
-  // Named after the slug the ref already carries, so the folder reads as the plugin it is. A name the project
-  // has taken gets a counter, exactly as a fork does — two engine modules can slug the same.
-  // Not `instanceName`: this one is named after a PLUGIN's own slug and wants it bare, so the
-  // folder reads as the plugin it is. The counter only appears when the name is already taken.
+  // Named after the ref's own slug, bare — not `instanceName`, see docs/moduleFork.md.
   const stem = namePart(String(found.file ?? ref.split("/").pop() ?? "module"));
   const typeDir = join(dir, "modules", type);
   let module = stem;

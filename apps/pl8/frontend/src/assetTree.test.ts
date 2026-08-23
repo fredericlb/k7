@@ -20,24 +20,21 @@ describe("assetNodes", () => {
   });
 
   it("addresses every row at the file that is actually there", () => {
-    // A drop, a move, a rename and a delete all go through the path, so a row naming anything
-    // but its real place on the server would act on the wrong file — or on none.
+    // Every gesture goes through the path, so a row naming the wrong place acts on the wrong file.
     const [pack] = assetNodes(["two rocks/clean.nam"], BASE);
     expect(pack?.path).toBe(`${BASE}/two rocks`);
     expect(pack?.children?.[0]?.path).toBe(`${BASE}/two rocks/clean.nam`);
   });
 
   it("does not draw the `assets` segment itself", () => {
-    // A module's children ARE its assets; a fixed row between them and it would be a level
-    // with nothing to choose in it. The segment stays in the path and off the screen.
+    // A module's children ARE its assets: the segment stays in the path and off the screen.
     const nodes = assetNodes(["loose.nam"], BASE);
     expect(nodes.map((n) => n.name)).toEqual(["loose.nam"]);
     expect(nodes[0]?.path).toBe(`${BASE}/loose.nam`);
   });
 
   it("makes a row for a folder holding nothing", () => {
-    // Somewhere to drop into before the first file — the whole reason the scan bothers to
-    // report it. A folder, so the shared tree treats it as a drop target at all.
+    // Somewhere to drop into before the first file, and a FOLDER so the tree makes it a target.
     const [empty] = assetNodes(["empty/"], BASE);
     expect(empty).toMatchObject({
       name: "empty",
@@ -59,8 +56,7 @@ describe("assetNodes", () => {
   });
 
   it("keeps a folder when a listing also names it as a leaf", () => {
-    // The scan never emits both, but a listing is what a server said: the folder wins, since
-    // replacing it with a leaf would hide its children.
+    // A listing is what a server said, so the folder wins: a leaf would hide its children.
     const nodes = assetNodes(["pack/x.nam", "pack"], BASE);
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.children?.map((n) => n.name)).toEqual(["x.nam"]);

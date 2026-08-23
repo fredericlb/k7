@@ -13,14 +13,7 @@ import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { DEFAULT_COUNT_IN } from "./project";
 import { addVideoRun } from "./videoOutputs";
 
-/**
- * The archetypes THIS module writes — the two that draw a timeline.
- *
- * `mix` is excluded rather than defaulted away, so `scaffold(dir, name, "mix")` does not
- * compile: it would otherwise write a song into a folder whose whole point is that it has no
- * arrangement. scaffoldSet.ts answers for that one, and projectLifecycle.ts is where the three
- * are dispatched.
- */
+/** The archetypes THIS module writes — `mix` is excluded rather than defaulted away, docs/scaffold.md. */
 export type TimelineShape = Exclude<ProjectShape, "mix">;
 
 const q = (s: string) => JSON.stringify(s);
@@ -34,14 +27,7 @@ const SAMPLE_VIDEO = resolve(
   "sample.mp4",
 ); // packages/song/samples/video/sample.mp4
 
-/**
- * The two lines a lane of picture needs, appended to the header by the `video` archetype alone.
- *
- * An `arrangement` gets neither, and that is what separates the two archetypes rather than
- * leaving one of them a folder short: `loadVideoProject` REQUIRES a viewport, so a header
- * carrying one is a promise that something composites into it. Writing it everywhere would put
- * a frame around nothing in every project with no shot to place.
- */
+/** The two header lines a lane of picture needs, written by the `video` archetype alone — docs/scaffold.md. */
 const PICTURE_HEADER =
   `\n` +
   `  # PICTURE. A song carries its own, and these two lines are what a lane of it needs.\n` +
@@ -69,8 +55,7 @@ function projectYaml(name: string, picture: boolean): string {
   );
 }
 
-/** The files of a minimal node project — the `arrangement` archetype, keyed by path relative to
- *  the project folder. `videoProjectFiles` is this map with a lane of picture added. */
+/** The `arrangement` archetype's files, keyed by project-relative path — see docs/scaffold.md. */
 export function projectFiles(name: string): Record<string, string> {
   const base: Record<string, string> = {
     "project.yaml": projectYaml(name, false),
@@ -101,9 +86,7 @@ export function projectFiles(name: string): Record<string, string> {
       `  type: internal\n` +
       `  name: 4osc\n`,
 
-    // Two USES of "synth", one per lane: each is its own 4OSC with its own state. They live in
-    // the project's FLAT nodes/ folder — the file names the node, and `extends` is the
-    // only place the module it uses is written down. A node overrides, it doesn't restate.
+    // Two USES of "synth", one per lane, in the FLAT nodes/ folder — a node overrides, it doesn't restate.
     "nodes/synth-melody.yaml":
       `# "synth-melody" — the melody lane's own 4OSC. Add \`params:\` to change this one\n` +
       `# alone; everything else comes from the module it extends.\n` +
@@ -113,8 +96,7 @@ export function projectFiles(name: string): Record<string, string> {
       `# sound leaves the other's alone.\n` +
       `extends: "@project/instruments/synth"\n`,
 
-    // The graph: who feeds whom. Both lanes run their own synth node into the mix, and the mix
-    // leaves by OUT — the run between the two being where a master chain would go.
+    // The graph: both lanes run their own synth into MIX, which leaves by OUT (the master chain's place).
     [GRAPH_FILE]:
       `# The signal graph, as SEGMENTS: each module says where its signal goes next. The\n` +
       `# chains are DERIVED by following the arrows — a run breaks where the signal splits,\n` +
@@ -141,9 +123,7 @@ export function projectFiles(name: string): Record<string, string> {
       `  synth-pad: [ MIX ]\n` +
       `  MIX: [ OUT ]\n`,
 
-    // The arrangement: one 2-bar MIDI sequence on a lane. A lane is a NODE of one of the three
-    // built-in track modules — what it extends says where its events come from, never what they
-    // ARE. The FILENAME names it; timecodes are QUOTED, or YAML reads them.
+    // One 2-bar sequence on a lane — a NODE of a built-in track module, see docs/trackModules.md.
     "nodes/melody.yaml":
       `# The melody lane. \`@studio/track\` holds events written down here — each one naming a\n` +
       `# sequence or a clip, and leaving by the lane's midi or audio output accordingly.\n` +
@@ -163,8 +143,7 @@ export function projectFiles(name: string): Record<string, string> {
       `extends: "@studio/strudel-track"\n` +
       `strudel: algo/pattern.strudel\n`,
 
-    // The pattern's "Kit" part: the SAME module on the same file. Which events sound as samples
-    // and which as notes is decided one event at a time, by whether the sound names a sample.
+    // The pattern's "Kit" part: the SAME module on the same file, sample or note decided per event.
     "nodes/kit.yaml":
       `# The other half of the same pattern. Nothing here says "audio": an event whose sound\n` +
       `# resolves to a sample plays as one, every other event plays as a note.\n` +
@@ -202,23 +181,14 @@ export function projectFiles(name: string): Record<string, string> {
       `  note("c e g c5").s("sawtooth").slow(2).label("Pad"),\n` +
       `  sound("bd hh sn hh").label("Kit"),\n` +
       `)\n`,
-    // curves/ exists from the start, and empty. Every other entity folder appears as a
-    // side effect of scaffolding a file into it, but a new song has no curve to write —
-    // and a folder that isn't there is one the editor can't offer and `curve new` has to
-    // invent. Git tracks files, not directories, so keeping it costs a file: this one,
-    // which deliberately ignores NOTHING. A pattern here would hide the curves.
-    //
-    // Unconditional: every song gets curves.
+    // curves/ exists from the start and empty, which costs this file — see docs/scaffold.md.
     "curves/.gitignore":
       `# Keeps curves/ in the repository while it is still empty.
 ` +
       `# Intentionally ignores nothing — a pattern here would hide the curves themselves.
 `,
 
-    // …and the ARRANGEMENT itself, which a song has to ASK for. The timeline is a surface now
-    // (docs/surfaces.md), so a folder that draws one says so here — the way a set says it wants
-    // a desk. Scaffolded because a new song is a song: the alternative was a first screen with
-    // no lanes on it and nothing to explain why.
+    // …and the ARRANGEMENT itself, which a song has to ASK for — see docs/scaffold.md.
     "surfaces/timeline.yaml":
       `# The ARRANGEMENT — the timeline, and the transport that rolls through it.\n` +
       `#\n` +
@@ -232,19 +202,7 @@ export function projectFiles(name: string): Record<string, string> {
   return base;
 }
 
-/**
- * The song's graph with the PICTURE's two outputs added — the `video` archetype's whole change
- * to it, and the reason the map is not restated for this shape.
- *
- * `addVideoRun` is the same splice the open path makes on a project that arrives without the run
- * (videoOutputs.ts), so the archetype and the repair cannot write the line two different ways —
- * which is exactly how `MIX: [ OUT ]` ended up spelled once in four scaffolds and once in a
- * migration script. The note above it is this file's job: the splice writes a line, not a reason.
- *
- * Throws if the base graph ever loses its `modules:` map. That cannot happen from outside — the
- * text is three lines up in this same file — and a `video` project silently scaffolded without a
- * frame's way out is worse than a failed scaffold.
- */
+/** The song's graph with the PICTURE's two outputs SPLICED in, by the open path's own edit — docs/scaffold.md. */
 function videoGraph(base: string): string {
   const noted = base.replace(
     /^modules\s*:/m,
@@ -262,17 +220,7 @@ function videoGraph(base: string): string {
   return out;
 }
 
-/**
- * The files of a `video` project: the arrangement above, plus the picture it composites.
- *
- * Built by ADDING to the song map rather than by restating it, so the graph, the synth and the
- * settings cannot drift between the two archetypes. Only the header is re-derived, because the
- * viewport is a line inside it rather than a file of its own.
- *
- * The split is what the two archetypes ARE. An `arrangement` is not a video project with its
- * picture deleted — it never had a frame to letterbox into, and `loadVideoProject` says so out
- * loud rather than composing nothing. See packages/song-video/docs/picture.md.
- */
+/** The `video` project's files: the arrangement ADDED to rather than restated — see docs/scaffold.md. */
 export function videoProjectFiles(name: string): Record<string, string> {
   const base = projectFiles(name);
   return {
@@ -281,9 +229,7 @@ export function videoProjectFiles(name: string): Record<string, string> {
 
     [GRAPH_FILE]: videoGraph(base[GRAPH_FILE]),
 
-    // The FRAME, declared the way the timeline is. A song's picture and a song's sound are one
-    // folder, so this archetype gets a lane of each: the alternative was a feature you could
-    // only discover by reading about it.
+    // The FRAME, declared the way the timeline is — see docs/scaffold.md.
     "surfaces/viewport.yaml":
       `# The FRAME — the video lanes composited with WebGL, drawn against the playhead.\n` +
       `#\n` +
@@ -319,16 +265,9 @@ export function videoProjectFiles(name: string): Record<string, string> {
   };
 }
 
-// `liveProjectFiles` was here, and wrote the third archetype: a rig, the signal path with the
-// arrangement taken out and no surface at all. It is gone with the archetype — an entry in a menu
-// of surfaces whose whole description is "none of them" is not a choice anyone makes on purpose.
-//
-// The MODE it wrote is untouched: `project_type: live` is still a legal header, st0 still opens
-// one, and `mix` still declares it (scaffoldSet.ts). What no longer exists is a way to ASK for
-// the bare rig — you start from a mix and throw the desk away. See docs/projectMode.md.
+// `liveProjectFiles` was here and wrote a fourth archetype, gone with it — see docs/scaffold.md.
 
-/** Write a project's file map under `dir`, making the folders it implies. Shared with the m9
- *  scaffold, which writes a different map the same way. */
+/** Write a project's file map under `dir`, making the folders it implies. */
 export function writeProjectFiles(
   dir: string,
   files: Record<string, string>,
@@ -341,17 +280,7 @@ export function writeProjectFiles(
   return Object.keys(files);
 }
 
-/**
- * Write a new st0 project. `shape` picks the map: an arrangement, or the same plus its picture.
- *
- * `video` also gets the bundled sample video COPIED into it, because its picture lane places it.
- * Copied rather than referenced where it sits: a project that pointed into the installed package
- * would stop opening the day the package moved, and a song is a folder you commit. An
- * `arrangement` gets none — it declares no viewport, so it has nothing to place a shot in.
- *
- * The default is `arrangement`, which is what every caller written before the archetypes were
- * named already meant by `scaffold(dir, name)`.
- */
+/** Write a new st0 project; `video` also gets the bundled sample COPIED in — see docs/scaffold.md. */
 export function scaffold(
   dir: string,
   name: string,
@@ -370,10 +299,7 @@ export function scaffold(
     copyFileSync(SAMPLE_VIDEO, join(dir, "clips/sample.mp4"));
   }
 
-  // Nothing to point at the shared folders any more: a project sees the workspace's own and
-  // the machine's media library because of WHERE they are (sharedFolders.ts). The three
-  // `ensure*` calls that used to write those lists into project.yaml wrote down facts the
-  // loader already knew, and left a project wrong whenever one of them moved.
+  // Nothing points at the shared folders: a project sees them because of WHERE they are (docs/scaffold.md).
   return picture
     ? [...Object.keys(files), "clips/sample.mp4"]
     : Object.keys(files);

@@ -75,6 +75,37 @@ for must not fork the module: that copy is exactly what nobody wanted, and it wa
 The consequence is real and worth stating: editing a panel from one project changes what every project sees.
 That is the same trade `module populate` already makes, and it is what "authored once for the plugin" means.
 
+### The path, and the two refs that are special
+
+`uiPathFor` drops the namespace, because it names the LIBRARY the caller has already picked:
+`@engine/audio/delay/tape-delay` and a project's own `audio/reverb` each land beside their module file. An io
+module's ref carries no type folder (`desk`), so it gets one back — without that rescue the panel would land at
+the library root instead of in `io/desk/`. The `ui/` tree is gone; that rescue is not, being about the REF's
+shape rather than about where the file lives.
+
+`moduleRootFor` throws rather than guessing, since a panel written under the wrong root draws a module that
+isn't there. Two refs need saying:
+
+- `@project/audio/reverb` is the same module as the bare `audio/reverb` — the explicit spelling of the level
+  the project owns. It names no library, so it would match no root and be refused.
+- `@engine/<slug>` deliberately has NO answer: an engine module is a scanned plugin with no folder in any
+  library, and a panel needs a folder to sit in. Better a refusal that says so than a file written under `io/`,
+  which is where the io rescue would put it.
+
+### The emitted YAML is hand-written
+
+Each widget goes on ONE flow line. `yaml`'s stringify would produce the block form, and a widget is read as a
+row — eight scalars describing one knob — so a 20-line panel becomes 200 lines nobody scans. This is the shape
+the existing module files already use. The panel is validated on the way OUT as well as in: one this cannot
+read back is a file the editor would refuse.
+
+`widgets: {}` and not a bare `widgets:`, which YAML reads back as NULL — and a null fails the schema, so a
+panel with no widgets yet read as MALFORMED and the editor greyed its own grid out. That is the scaffold every
+module without a panel gets, which is precisely when the grid is needed.
+
+The file's header is the only place the module is NAMED, and it is a comment: the folder is what actually says
+it, and two sources of truth is one too many.
+
 ## How it reaches the graph
 
 `applyUiLibrary` overlays the panels at the **source** — inside `loadModules` and `loadModuleRefs` — so the

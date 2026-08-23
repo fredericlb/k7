@@ -11,20 +11,7 @@ const REQUEST_TIMEOUT_MS = 6 * 60_000;
 
 export class NoRenderEngine extends Error {}
 
-/**
- * Which machine renders for this service.
- *
- * CONFIGURED, not chosen and not per user — the difference that makes z0 the exception.
- * Nobody here is sitting at an interface: a render has no audience, so "which of my
- * machines" is a deployment fact, and asking a player would be asking them about someone
- * else's hardware.
- *
- * `Z0_RENDER_ENGINE` is the file service's base URL on that machine
- * (`http://192.168.1.20:8770`), because that is the surface that can exec the binary — not
- * the engine's own WebSocket, which has no render verb and never will: an offline bounce is
- * a one-shot process, `studio-moteur --render`, and giving the live server a way to start
- * one would put a second engine inside the process holding the audio device.
- */
+/** Which machine renders: CONFIGURED, never chosen, and a file service URL — ../../docs/origin.md. */
 export function renderTarget(): string {
   if (!CONFIGURED)
     throw new NoRenderEngine(
@@ -38,14 +25,7 @@ export function canRender(): boolean {
   return CONFIGURED !== "";
 }
 
-/**
- * Bounce a compiled document to audio and return the wav bytes.
- *
- * The whole file in memory, deliberately: z0's clips are seconds long, and the
- * alternative — a temp file this container then has to clean up on every failure path — is
- * more machinery than the bytes are worth. A full-length master would need a stream, and
- * this is the line to revisit if one ever does.
- */
+/** Bounce a document to wav bytes, whole and in memory — see ../../docs/origin.md. */
 export async function renderProject(
   doc: unknown,
   engineToken?: string,
@@ -54,16 +34,14 @@ export async function renderProject(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      // The file service's light LAN gate. Server-to-server there is no Origin header, so
-      // CORS allows the call outright — the token is what makes it deliberate.
+      // The file service's LAN gate; server-to-server, this token is what makes the call deliberate.
       ...(engineToken ? { "x-studio-engine-token": engineToken } : {}),
     },
     body: JSON.stringify({ doc }),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!res.ok) {
-    // The machine says WHY (no binary, bad document, timeout) and that sentence is the
-    // whole value: from here every failure otherwise looks like "render failed".
+    // Carry the machine's own sentence: from here, every failure otherwise reads "render failed".
     const why = await res.text().catch(() => "");
     throw new Error(`render ${res.status}: ${why.slice(0, 500)}`);
   }

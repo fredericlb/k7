@@ -24,23 +24,7 @@ interface MappedParam {
   cc: number;
 }
 
-/**
- * Every mapped param in a graph, with the widget that gives it a range.
- *
- * The map is keyed by the widget's `bind`, which is exactly how a widget names its own target —
- * so this is a join on one string and never a guess. Two bindings are dropped rather than played:
- *
- * - one whose param has no WIDGET. Without min/max there is no way to turn 0..127 into a value,
- *   and inventing a range would make a knob sweep one nobody chose.
- * - one on a step with no PLUGIN ID — a stub, an unsupported plugin, an io module. There is
- *   nothing to send a value to.
- *
- * Both are silent: the map belongs to the module and travels with it, so a project that draws the
- * module differently (or cannot load its plugin) is a normal state, not a broken file.
- *
- * The same module in two chains yields TWO entries, and that is right: one control plays both,
- * because the map is the module's and each chain has its own instance of the plugin.
- */
+/** Every mapped param in a graph, joined on the widget's `bind` — one with no WIDGET or no PLUGIN ID is dropped, silently (docs/midi.md). */
 export function mappedParams(graph: WebGraph | null): MappedParam[] {
   if (!graph) return [];
   const out: MappedParam[] = [];
@@ -82,23 +66,11 @@ export interface MidiControlApi {
   cancelLearn: () => void;
   /** Would a value echoed to this binding reach the controller? See docs/midi.md. */
   hasFeedback: (module: string, param: string) => boolean;
-  /**
-   * Echo the engine's current values back to the controllers — the bidirectional half.
-   *
-   * Takes the whole live map and is called by whoever SUBSCRIBES to it, rather than subscribing
-   * here: those values tick per frame, and a hook used by the graph must not re-render the graph
-   * at that rate (see `MidiFeedback`).
-   */
+  /** Echo the engine's current values back to the controllers — called by whoever SUBSCRIBES, so the graph does not re-render per frame. */
   pushFeedback: (live: Record<string, Record<string, number>>) => void;
 }
 
-/**
- * Play the graph's mapped params from MIDI, and echo their values back when the device can take it.
- *
- * `setParam` is the same call a knob drag makes, so a value moved by hand and one moved by a
- * controller are indistinguishable downstream — the widget follows when the engine's param frame
- * comes back, exactly as it does for a drag.
- */
+/** Play the graph's mapped params from MIDI: `setParam` is the same call a knob drag makes, so the two are alike downstream. */
 export function useMidiControl({
   graph,
   setParam,
@@ -115,8 +87,7 @@ export function useMidiControl({
   const cancelRef = useRef<(() => void) | null>(null);
 
   const mapped = useMemo(() => mappedParams(graph), [graph]);
-  // Read by the message handler, which must not be rebound on every graph reload — a rebind
-  // between two turns of a knob would drop the message in between.
+  // Read by the message handler, which must not be rebound on every graph reload — a rebind between two turns would drop a message.
   const mappedRef = useRef(mapped);
   mappedRef.current = mapped;
   const setParamRef = useRef(setParam);
@@ -136,8 +107,7 @@ export function useMidiControl({
     return () => mc.dispose();
   }, []);
 
-  // The routes ARE the graph's map — replaced wholesale on every reload, because that is when a
-  // binding can have changed and there is no incremental state worth keeping in step.
+  // The routes ARE the graph's map, replaced wholesale on every reload: there is no incremental state worth keeping in step.
   useEffect(() => {
     midi.current?.setRoutes(
       mapped.map(
@@ -150,10 +120,7 @@ export function useMidiControl({
     );
   }, [mapped]);
 
-  // Feedback: each mapped param's current value, back to the controller that drives it. Driven by
-  // the engine's values rather than by a timer — a motorised fader should follow a preset load and
-  // an automation curve, not only its own knob. `feedback` no-ops when the device has no output,
-  // which is what makes a write-only controller cost nothing here.
+  // Feedback driven by the engine's values rather than a timer, so a motorised fader follows a preset load and an automation curve.
   const pushFeedback = useCallback(
     (live: Record<string, Record<string, number>>) => {
       const mc = midi.current;

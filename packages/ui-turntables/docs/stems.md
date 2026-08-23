@@ -94,7 +94,7 @@ Le pupitre n'envoie **aucune chaîne** : la requête est le morceau, et rien d'a
 sépare et quel `.onnx` cette machine détient est une question que le navigateur ne peut pas poser,
 et à laquelle la machine a déjà répondu une fois — d'où une route à part, la seule des trois à être
 liée à un espace de travail, voir
-[file-service/docs/stemSplit.md](../../file-service/docs/stemSplit.md).
+[stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
 
 Et l'ordre compte : la route interroge le DISQUE avant de lire la préférence et avant de résoudre
 la chaîne. Une machine à qui on n'a jamais dit comment séparer joue donc quand même, potards vifs,
@@ -115,4 +115,4 @@ les morceaux qu'on a préparés à la commande.
   directement et décode tout le reste dans un proxy avant de jouer, ce qui se paierait au moment
   précis où on pose un disque — cinq décodages, le mix et ses quatre stems. Le raisonnement
   complet et le tableau des tailles sont dans
-  [file-service/docs/stemSplit.md](../../file-service/docs/stemSplit.md).
+  [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).

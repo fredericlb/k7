@@ -6,8 +6,7 @@
 /** "LSTR" — so a binary frame from anything else is rejected instead of played as noise. */
 export const STREAM_MAGIC = 0x4c535452;
 export const STREAM_VERSION = 1;
-/** Header size, and therefore the payload's offset. A multiple of 4: the payload is read
- *  as a Float32Array view over the same buffer, which needs 4-byte alignment. */
+/** Header size, and therefore the payload's offset; a multiple of 4, since the payload is a Float32Array view over the same buffer. */
 export const STREAM_HEADER_BYTES = 32;
 
 /** The only codec the first cut speaks. Opus would be 1 — ../engine-browser/docs/streaming.md says why not yet. */
@@ -19,13 +18,10 @@ export interface StreamFrameHeader {
   sampleRate: number;
   /** Samples PER CHANNEL. The payload holds `frames * channels` values, interleaved. */
   frames: number;
-  /** Wraps at 2^32. A jump means the SENDER dropped frames under backpressure — the
-   *  transport is TCP, so nothing is lost in flight, and a gap is always a decision. */
+  /** Wraps at 2^32; the transport is TCP, so a gap is never a loss in flight but always the SENDER's decision under backpressure. */
   seq: number;
   codec: number;
-  /** The engine's steady clock, ms since its boot. Only differences are meaningful: the
-   *  two machines' epochs are unrelated, so this measures jitter and drift, not latency
-   *  on its own. See ../engine-browser/docs/streaming.md. */
+  /** The engine's steady clock, ms since its boot; only DIFFERENCES mean anything — see ../engine-browser/docs/streaming.md. */
   captureMs: number;
 }
 
@@ -33,13 +29,7 @@ export interface StreamFrame extends StreamFrameHeader {
   samples: Float32Array;
 }
 
-/**
- * The payload is read as a zero-copy `Float32Array` view, which uses the PLATFORM byte
- * order — so a big-endian consumer would play the stream as noise, silently. Every target
- * that exists is little-endian (x86, ARM in little-endian mode), so rather than pay a per-sample
- * DataView loop for a case that has never occurred, this asserts the assumption once and
- * fails loudly if it is ever wrong.
- */
+// A zero-copy Float32Array view uses the PLATFORM byte order, so the assumption is asserted once rather than paid per sample.
 const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
 
 function assertEndianness(): void {
@@ -74,15 +64,7 @@ export function encodeStreamFrame(frame: StreamFrame): ArrayBuffer {
   return buf;
 }
 
-/**
- * Read a frame, or `null` for anything that is not one.
- *
- * Null rather than a throw, and on every disagreement — wrong magic, wrong version,
- * unknown codec, a length that does not match the header. This runs on whatever arrives on
- * a socket that also carries JSON, so "not ours" is an ordinary event, not an error; and a
- * frame whose length disagrees with its header is corrupt in a way that would otherwise be
- * played as a burst of noise.
- */
+/** Read a frame, or `null` on every disagreement rather than a throw: this runs on whatever arrives on a socket that also carries JSON. */
 export function decodeStreamFrame(buf: ArrayBuffer): StreamFrame | null {
   assertEndianness();
   if (buf.byteLength < STREAM_HEADER_BYTES) return null;
@@ -96,8 +78,7 @@ export function decodeStreamFrame(buf: ArrayBuffer): StreamFrame | null {
   const seq = dv.getUint32(16, true);
   const codec = dv.getUint8(20);
   if (codec !== STREAM_CODEC_PCM_F32) return null;
-  // A channel count of 0, or one the browser cannot lay out, would make an empty or
-  // misaligned view rather than an obvious failure.
+  // A channel count of 0, or one the browser cannot lay out, would make an empty or misaligned view rather than an obvious failure.
   if (channels < 1 || channels > 2) return null;
   if (sampleRate < 8000 || sampleRate > 384000) return null;
   const count = frames * channels;

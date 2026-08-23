@@ -39,8 +39,7 @@ describe("takesOf", () => {
     });
   });
 
-  // A file variant names its bytes; a chain names a treatment, which is audio only once it has
-  // been rendered — and the render is not what the sidecar points at.
+  // A file variant names its bytes; anything else names something the folder has not got.
   it("gives a file variant its file and a chain variant none", () => {
     const [, file, chain] = takesOf(
       song("so-what.wav", [
@@ -52,8 +51,7 @@ describe("takesOf", () => {
     expect(chain.file).toBeNull();
   });
 
-  // A folder with a sidecar and no audio is allowed on purpose. Its tab is still drawn: that
-  // state is something the pane has to be able to say out loud.
+  // A folder with a sidecar and no audio is allowed, and its tab is drawn so the pane can say so.
   it("keeps the master's tab when there is no master", () => {
     const [only] = takesOf(song(null));
     expect(only).toEqual({ name: ORIGINAL, kind: "master", file: null });
@@ -63,5 +61,4 @@ describe("takesOf", () => {
     expect(takesOf(song("so-what.wav"))).toHaveLength(1);
   });
 });
-// `describe("renderNames")` stood here, over the two names a chain variant's bounce could
-// take. Nothing bounces any more — the chains that were bounced left the catalogue.
+// `describe("renderNames")` stood here; nothing bounces any more, so there is nothing to name.

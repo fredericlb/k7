@@ -22,12 +22,9 @@ import { fileURLToPath } from "node:url";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// `loop` = keep-alive: relaunch on exit with backoff.
-// `node:` scripts run under process.execPath.
-//
-// No edge here any more: the LAN server reverse-proxies to these ports, so nothing this
-// workstation starts terminates TLS. Caddy used to be the first entry, the dev session
-// under Tilt (`studio-tilt`) the second — that one is `npm run dev` now. See docs/dev.md.
+// `loop` = keep-alive (relaunch on exit with backoff); `node:` scripts run under process.execPath.
+
+// Nothing here terminates TLS any more: the LAN server reverse-proxies these ports (../docs/remote.md).
 const SERVICES = {
   vscode: { node: join("scripts", "vscode.mjs"), loop: true },
   console: { node: join("scripts", "console", "server.mjs"), loop: true },
@@ -138,9 +135,7 @@ async function startNow() {
 }
 
 function uninstall() {
-  // Kill only processes whose command line proves they are ours — a stale pidfile
-  // must never take an unrelated process down with a recycled pid. taskkill /T takes
-  // the whole tree: serve-web, the console PTY and whatever npm run dev spawned.
+  // Only what the command line proves is ours: a stale pidfile must not kill a recycled pid.
   const lines = ["$ErrorActionPreference = 'Continue'"];
   for (const name of Object.keys(SERVICES)) {
     lines.push(

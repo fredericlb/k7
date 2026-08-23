@@ -12,10 +12,7 @@ import { describe, expect, it } from "vitest";
 import { resizeToWindow } from "./clipResize";
 import { resizeTrackPlacement } from "./trackMix";
 
-// Dragging a clip's edge. A placement has NO length — the extent is `loop` × the effective
-// window — so a resize writes `from`/`to` on the EVENT itself, clamped inside the window the
-// material declares: the most restrictive pair wins, and the material and its other placements
-// are untouched. See docs/clipResize.md.
+// Dragging a clip's edge: a resize writes the EVENT's `from`/`to` — packages/song/docs/clipResize.md.
 
 const NUM = 4;
 const DEN = 4;
@@ -36,8 +33,7 @@ function song(
   );
   return dir;
 }
-// The `extends` is spelled out so the whole file stays schema-valid: several of these assert
-// the lane still LOADS afterwards, which is the regression being pinned.
+// The `extends` is spelled out so the file stays schema-valid: several of these assert it LOADS.
 const clipSong = (clips: string, body = "source: clips/kick.wav\n") =>
   song(`extends: "@studio/track"\n${clips}`, {
     dir: "clips",
@@ -89,8 +85,7 @@ describe("resizeToWindow — the rule", () => {
   });
 
   it("stops the in-point at the material's start", () => {
-    // There is nothing before the beginning of a file. `from` clamps and the placement is
-    // pulled along, so what is left stays under the same beat instead of sliding.
+    // Nothing precedes a file's beginning: `from` clamps and the placement is pulled along.
     const r = resizeToWindow(
       { ...base, from: 0.5, startBeats: 4 },
       { startBeats: 0, endBeats: 8, tempo: TEMPO },
@@ -100,8 +95,7 @@ describe("resizeToWindow — the rule", () => {
   });
 
   it("stops the in-point at the material's own `from`, when it states one", () => {
-    // The material plays 0.5s → …; the event's window may not reach before that — the most
-    // restrictive edge wins, so an edge written earlier would never play.
+    // The material plays 0.5s → …, and an event edge written earlier than that would never play.
     const r = resizeToWindow(
       { ...base, from: 1, startBeats: 4, bounds: { from: 0.5 } },
       { startBeats: 0, endBeats: 8, tempo: TEMPO },
@@ -111,8 +105,7 @@ describe("resizeToWindow — the rule", () => {
   });
 
   it("stops the out-point at the material's `to`", () => {
-    // The material ends at 1s; dragging the right edge to 4s of timeline asks for material
-    // that is not in the window — the event's edge stops where the sound does.
+    // The material ends at 1s, so the event's edge stops where the sound does.
     const r = resizeToWindow(
       { ...base, to: 1, bounds: { from: 0, to: 1 } },
       { startBeats: 0, endBeats: 8, tempo: TEMPO },
@@ -161,8 +154,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   });
 
   it("never writes `length` — the placement has no such field", () => {
-    // The regression this replaced: `start` + `length` on the placement, which PlacementSchema
-    // is strict about, so ONE edge drag left the track file unable to load at all.
+    // The regression this replaced: a `length` PlacementSchema is strict about, so the lane broke.
     const dir = clipSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
     expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("length");
@@ -190,8 +182,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   });
 
   it("leaves `from` off entirely when the event is not trimmed", () => {
-    // Absent means "no further restriction"; writing the material's own edge back would make
-    // "not trimmed" and "trimmed to where it already was" read alike.
+    // Absent means "no further restriction", which writing the material's own edge back would blur.
     const dir = seqSong('events:\n  - { ref: kick, start: "1:1:1" }\n');
     resizeTrackPlacement(dir, "drums", 0, NUM, DEN, 0, 4, TEMPO);
     expect(readAt(dir, "nodes", "drums.yaml")).not.toContain("from:");
@@ -199,8 +190,7 @@ describe("resizeTrackPlacement — what lands on disk", () => {
   });
 
   it("clears the event's `to` when the drag lands on the material's own", () => {
-    // The material plays to 1s (2 beats). Dragging the end out to 8 beats asks past it: the
-    // cage clamps to 1s, which only restates the material — so the event says nothing at all.
+    // The cage clamps to the material's own 1s, which only restates it — so the event says nothing.
     const dir = clipSong(
       'events:\n  - { ref: kick, start: "1:1:1" }\n',
       "source: clips/kick.wav\nto: 1\n",

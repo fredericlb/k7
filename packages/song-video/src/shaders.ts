@@ -11,8 +11,7 @@ import {
   SHADERS_DIR,
 } from "@studio/song-schema/moduleTypes";
 
-// A cycle in `extends` is refused upstream; this is the backstop moduleAssetChoices has, so a
-// bad file cannot hang a graph build.
+// A cycle in `extends` is refused upstream; this is the backstop, so a bad file cannot hang a build.
 const MAX_ANCESTRY = 16;
 
 /** Just enough of a module to find its folder and its parent — the resolved map and the ref map both fit. */
@@ -31,14 +30,7 @@ export interface ShaderSource {
   fragment: string;
 }
 
-/**
- * Is this folder a shader — does it hold both stages?
- *
- * Both, deliberately. A folder with only a fragment is half-authored, and offering it would
- * compile a program with no vertex stage and fail inside the compositor, where the message is
- * about GL rather than about a file somebody has not finished writing. It is simply not a shader
- * yet, so it is not offered.
- */
+/** Is this folder a shader — does it hold BOTH stages? A half-authored one is not offered. */
 function isShaderFolder(abs: string): boolean {
   return (
     existsSync(join(abs, SHADER_VERTEX)) &&
@@ -60,13 +52,7 @@ function shadersIn(folderAbs: string): string[] {
   return entries.filter((n) => isShaderFolder(join(root, n))).sort();
 }
 
-/**
- * The module folders to look in, nearest first — this module's, then everything it extends.
- *
- * Read off the ref map the caller already loaded (`folderAbs`, stamped by the loader), so this
- * costs no directory walk per ancestor. That was the mistake `moduleAssetChoices` records having
- * made, and it turned one graph build into a walk per node.
- */
+/** The module folders to look in, nearest first — off the ref map, so no walk per ancestor. */
 function ownerFolders(
   dir: string,
   module: ShaderOwner | undefined,
@@ -90,16 +76,7 @@ function ownerFolders(
   return out;
 }
 
-/**
- * Every shader `module` can be set to, by name, nearest owner first.
- *
- * This is the dropdown's list, and it is discovered rather than declared — which is the whole
- * difference from an ordinary `dropdown`, whose entries its panel's author wrote down. A module
- * gains a shader by someone dropping a folder into it, and no file has to be edited to say so.
- *
- * A nearer module's shader shadows an inherited one of the same name, matching the precedence
- * `moduleAssetChoices` gives assets: the list you pick from and the source you get must agree.
- */
+/** Every shader `module` can be set to, nearest owner first — DISCOVERED, not declared; docs/shaders.md. */
 export function moduleShaderChoices(
   dir: string,
   module: ShaderOwner | undefined,
@@ -116,26 +93,14 @@ export function moduleShaderChoices(
   return out;
 }
 
-/**
- * Read one shader's two stages, or null when `name` names nothing this module carries.
- *
- * Null rather than a throw, and that is what keeps a project OPENABLE while a shader is missing:
- * a song committed with `shader: ripple` whose folder has not synced yet still loads, still
- * draws, and passes its picture through — the same posture `presetFor` takes to a base that has
- * gone missing. What is lost is an effect, and losing it loudly would lose the song.
- *
- * Searched in the same order the choices are offered, so the source that comes back is the one
- * the name meant.
- */
+/** Read one shader's two stages, or null when the name carries nothing — never a throw, docs/shaders.md. */
 export function readShader(
   dir: string,
   module: ShaderOwner | undefined,
   refs: Readonly<Record<string, ShaderOwner>>,
   name: string,
 ): ShaderSource | null {
-  // Refused before any path is built, not resolved and then checked: the value comes out of a
-  // YAML file, and `../../` is exactly how a module's containment would be climbed out of. The
-  // schema makes the same check on the way in; this is the read side of one rule.
+  // Refused before any path is built, since `../../` is how a module's containment is climbed out of.
   if (!/^[A-Za-z0-9_-]+$/.test(name)) return null;
   for (const folder of ownerFolders(dir, module, refs)) {
     const abs = join(folder, SHADERS_DIR, name);

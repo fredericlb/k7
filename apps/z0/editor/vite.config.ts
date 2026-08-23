@@ -5,44 +5,25 @@ import {
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 
-// The project editor, at st0.priv.frediver.se/z0/editor. It is the odd SPA of the six: it does not
-// talk to z0's backend at all. What it opens is a git repository the médiathèque owns, on the
-// machine the account works from — so its `/api` and `/auth` are PL8's. `backendPort` therefore
-// names pl8 (8795), not z0's 8080.
-//
-// Behind the LAN proxy neither entry is what actually carries those calls: this SPA asks for
-// `/pl8/api/…` (SERVICE_PATHS) and for `/auth/…` at the origin root, and the proxy hands both
-// to the dev server that owns them. They are kept for the case this server is visited DIRECT
-// on :3006, which is the only way to work on it without the whole session up.
-//
-// Ports: 3001..3005 are the five game SPAs; 3006 is this one, inherited from the Grist editor it
-// replaced — which is what lets the LAN proxy keep its existing `/z0/editor` → 3006 rule.
+// The odd SPA of the six: it never talks to z0's backend, so what follows names PL8 throughout.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/editor/",
+  // 3006, inherited from the Grist editor it replaced, so the proxy keeps its /z0/editor rule.
   port: 3006,
+  // pl8's 8795, not z0's 8080: what this app opens is a repository the médiathèque owns.
   backendPort: 8795,
-  // No `/auth` here: it is not this app's backend's, and not pl8's either — see the proxy in
-  // `extend` below. This SPA signs in with the studio session like every other app on the
-  // origin, not with the game's `bt_session`, which models a guest with no account.
   host: DEV_HOST,
   extend: {
     server: {
       // The old name still reaches these servers — see scripts/dev-hosts.mjs.
       allowedHosts: LEGACY_DEV_HOSTS,
-      // `/auth` is the ONE path this dev server forwards to a backend that is not its own: the
-      // origin's OIDC flow is st0's, being the service with no path prefix. `proxyPaths` cannot
-      // say it — that helper points every path at `backendPort` — so it is spelled here.
-      // Only reached when this server is visited DIRECTLY on its port; behind the LAN proxy
-      // `/auth` never gets this far, because it is at the origin root. See
-      // packages/web-protocol/services.ts.
+      // The ONE path forwarded elsewhere: the origin's OIDC flow is st0's, having no prefix.
       proxy: {
         "/auth": {
           target: `http://localhost:${AUTH_BACKEND_PORT}`,
           changeOrigin: true,
-          // Same reason `defineAppConfig` sets it: changeOrigin overwrites Host, and the backend
-          // derives its own public origin — and so its redirect_uri — from the request. Without
-          // it the browser is handed a callback pointing straight at the backend's port.
+          // changeOrigin overwrites Host, and the backend derives its redirect_uri from it.
           xfwd: true,
         },
       },

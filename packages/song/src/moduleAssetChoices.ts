@@ -18,17 +18,7 @@ interface AssetOwner {
   folderAbs?: unknown;
 }
 
-/**
- * `assets/` listings, memoised for one request.
- *
- * The FOLDERS are not looked up here: the loader already stamps `folderAbs` on every module it
- * reads, so the ref map a caller has loaded anyway answers "where does this one live" for free.
- * Asking the libraries instead cost a full directory walk per ancestor per module — one graph
- * build became a walk per node, and on a médiathèque mounted over /mnt/c that is seconds.
- *
- * What is left is worth memoising because ancestors repeat: every module inheriting one shared
- * amp would otherwise re-read that amp's `assets/` once each.
- */
+/** `assets/` listings memoised for one request, since ancestors repeat — see docs/moduleAssets.md. */
 export interface AssetLookup {
   assetsIn: (folder: string) => string[];
 }
@@ -46,25 +36,7 @@ export function assetLookup(_dir?: string): AssetLookup {
   };
 }
 
-/**
- * Every asset `module` can name, as `assets/`-relative POSIX paths, nearest owner first.
- *
- * It walks the ANCESTRY, and that is the whole point. A module's assets used to be looked for at
- * `<project>/modules/<category>/<file>/assets` and nowhere else, which is right only for a module
- * this project both owns and stores the files in. It was wrong for the two shapes that actually
- * carry material:
- *
- * - a module living in a shared library — the médiathèque's `audio/amps/guitar` has the fourteen
- *   NAM profiles, and the project's `modules/audio/guitar` has none;
- * - a thin local module that exists only to override a param of one, which is what `extends`
- *   produces and is the normal way to point a song at a shared amp.
- *
- * Both listed nothing, so the panel's picker opened empty on the one module in the médiathèque
- * built to be picked from.
- *
- * A nearer module's assets come first and a duplicate path is dropped, so a local file shadows an
- * inherited one of the same name — the same precedence `resolveModuleAsset` gives the folders.
- */
+/** Every asset `module` can name, nearest owner first, walking the ANCESTRY — docs/moduleAssets.md. */
 export function moduleAssetChoices(
   dir: string,
   module: AssetOwner | undefined,
@@ -82,8 +54,7 @@ export function moduleAssetChoices(
       }
   };
 
-  // Its own folder. The loader's stamp when there is one; otherwise rebuilt from where a
-  // project files its modules, which is what a caller passing a hand-made module still has.
+  // Its own folder: the loader's stamp, else rebuilt for a caller passing a hand-made module.
   add(
     typeof module?.folderAbs === "string" && module.folderAbs
       ? module.folderAbs
@@ -92,8 +63,7 @@ export function moduleAssetChoices(
         : undefined,
   );
 
-  // …then everything it inherits from, in order, whichever library each one lives in — read
-  // off the ref map the caller already loaded, so this costs no directory walk.
+  // …then everything it inherits from, read off the ref map, so this costs no directory walk.
   let ref = module?.extends;
   for (let i = 0; i < MAX_ANCESTRY && typeof ref === "string" && ref; i++) {
     const parent = refs[ref];
@@ -103,5 +73,4 @@ export function moduleAssetChoices(
   return out;
 }
 
-// `assetExtFor` / `assetsForParam` live in moduleTypes.ts, the leaf with no `node:fs`: the picker
-// that filters by extension runs in a browser, and this file reads disk.
+// `assetExtFor` / `assetsForParam` live in moduleTypes.ts: the picker that filters by extension runs in a browser.

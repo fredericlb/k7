@@ -19,9 +19,7 @@ describe("the DJ filter graph", () => {
   const biquads = g.nodes.filter((n) => n.type === "biquad");
 
   it("takes ONE control, centred on neutral", () => {
-    // The brief and the constraint at once: a desk control drives at most one param, so
-    // "low-pass or high-pass" cannot be a second setting. Signed, so the neutral position is
-    // the middle of the travel rather than one end of it.
+    // A desk control drives at most one param, and it is signed so neutral is mid-travel.
     expect(g.params.map((p) => p.name)).toEqual(["Sweep"]);
     const p = g.params[0];
     expect(p.min).toBe(SWEEP_RANGE.min);
@@ -31,17 +29,10 @@ describe("the DJ filter graph", () => {
   });
 
   it("RESONATES, which is the whole difference from a tone control", () => {
-    // The bug this version exists for. A flat corner sliding across a track only muffles it,
-    // progressively and dully — "a normal filter". The swoosh is a PEAK travelling with the
-    // corner, and the peak is the effect.
-    //
-    // 6 is measured rather than chosen: white noise through the filter at half sweep gives
-    // +3.9 dB at the corner and −21 dB an octave and a half above it. At 4 the peak came to
-    // about +1 dB once the flat stage and the trim had taken theirs, which is audible and is
-    // not a filter sweep.
+    // 6 is measured, not chosen: at half sweep it gives +3.9 dB at the corner — ../docs/sweep.md.
     expect(Q_MAX).toBeGreaterThanOrEqual(6);
-    // …and it is EARNED, not permanent: at rest the response is Butterworth, so a filter doing
-    // nothing also colours nothing. A fixed high Q rings even parked out of the way.
+
+    // …and it is EARNED, not permanent: at rest the response is Butterworth, so it colours nothing.
     expect(Q_REST).toBeCloseTo(0.707, 3);
     expect(
       g.nodes.filter((n) => n.type === "lerp").length,
@@ -49,8 +40,7 @@ describe("the DJ filter graph", () => {
   });
 
   it("gives each half its OWN resonance", () => {
-    // Sharing one would leave the high-pass ringing at 20 Hz while somebody sweeps the
-    // low-pass down: a resonant peak parked on the sub, which is a boom nobody asked for.
+    // Sharing one would park a resonant peak on the sub while somebody sweeps the low-pass down.
     const lerps = g.nodes.filter((n) => n.type === "lerp");
     const qRamps = lerps.filter(
       (n) => n.in?.[0] === Q_REST && n.in?.[1] === Q_MAX,
@@ -60,9 +50,7 @@ describe("the DJ filter graph", () => {
   });
 
   it("stacks TWO stages a side, with only the second resonant", () => {
-    // 24 dB/octave rather than 12: one pole pair muffles, two is the wall a DJ filter puts up.
-    // Two RESONANT stages at one frequency would multiply their peaks — a filter that screams
-    // before it sweeps — so the first of each pair stays flat.
+    // 24 dB/octave, and only the second of each pair resonates — Q² screams; ../docs/sweep.md.
     expect(biquads.map((n) => n.mode)).toEqual([
       "lowpass",
       "lowpass",
@@ -79,10 +67,7 @@ describe("the DJ filter graph", () => {
   });
 
   it("takes back a LITTLE of the level the peak adds, and no more", () => {
-    // The first attempt took −6 dB here and ate the peak exactly where the peak is the point:
-    // +1.2 dB left at the corner, measured. And the clipping it guarded against was
-    // theoretical — the filter removes 14 dB from the whole signal at that setting. What is
-    // left keeps a Q of 6 sitting on a 30 Hz kick from costing somebody their master.
+    // The first attempt took −6 dB and ate the peak: +1.2 dB left at the corner, measured.
     expect(SWEEP_TRIM).toBeGreaterThanOrEqual(0.7);
     expect(SWEEP_TRIM).toBeLessThan(1);
     const trim = g.nodes.filter((n) => n.type === "gain");
@@ -92,9 +77,7 @@ describe("the DJ filter graph", () => {
   });
 
   it("puts both corners OUTSIDE the material at rest", () => {
-    // The centre has to be silent, and it is silent by geometry rather than by a bypass:
-    // 20 kHz is above anything in a song and 20 Hz below it. A module that had to be removed
-    // to be silent is one a chain could not automate from nothing.
+    // The centre is silent by GEOMETRY rather than by a bypass, which this vocabulary has none of.
     expect(LOW_SWEEP.open).toBeGreaterThanOrEqual(20000);
     expect(HIGH_SWEEP.open).toBeLessThanOrEqual(20);
     expect(LOW_SWEEP.closed).toBeLessThan(LOW_SWEEP.open);
@@ -102,17 +85,13 @@ describe("the DJ filter graph", () => {
   });
 
   it("closes far enough to take the track AWAY", () => {
-    // A filter that stopped a few hundred hertz down leaves a muddy thump. The last part of
-    // the sweep — where only the peak is left whistling — is the part people actually use.
+    // A filter that stopped a few hundred hertz down leaves a muddy thump instead of removing it.
     expect(LOW_SWEEP.closed).toBeLessThanOrEqual(40);
     expect(HIGH_SWEEP.closed).toBeGreaterThanOrEqual(8000);
   });
 
   it("writes the descending half as an ASCENDING pair with an inverted journey", () => {
-    // The engine sorts a geolerp's ends, so `geolerp(20000, 30, down)` reads as its own mirror
-    // — the filter sat at 30 Hz with the knob at neutral, which is silence. The builder refuses
-    // that spelling now; this pins the shape that replaced it, since a graph could be rewritten
-    // to pass the guard and still sweep backwards.
+    // A graph can pass the builder's guard and still sweep backwards, so pin the shape too.
     const geo = g.nodes.filter((n) => n.type === "geolerp");
     for (const n of geo) {
       const [lo, hi] = n.in as [number, number];
@@ -126,8 +105,7 @@ describe("the DJ filter graph", () => {
   });
 
   it("smooths both corners, because this is a knob people THROW", () => {
-    // A biquad recomputes its coefficients per block. Without this a fast sweep is a stream of
-    // coefficient jumps — a zipper, which reads as a broken filter rather than a quick one.
+    // A biquad recomputes per block, so without this a fast sweep is a stream of coefficient jumps.
     expect(g.nodes.filter((n) => n.type === "glide")).toHaveLength(2);
   });
 });

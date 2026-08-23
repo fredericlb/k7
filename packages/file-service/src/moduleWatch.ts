@@ -8,15 +8,7 @@ import { join } from "node:path";
 import { setFoldersStill } from "@studio/song/moduleCache";
 import { modulePanelRoots } from "@studio/song/sharedFolders";
 
-/**
- * How long the watcher may be believed before the disk is consulted anyway.
- *
- * A ceiling, not a cache interval: it is what makes a MISSED event a delay instead of a
- * permanent lie. `fs.watch` drops events under load, across network shares and on some Linux
- * filesystems, and a vocabulary that went stale for good is exactly the failure this whole file
- * has to not introduce. Ten seconds is far longer than a burst of saves and far shorter than
- * anyone's patience with a module that will not appear.
- */
+/** A ceiling, not a cache interval: it makes a MISSED event a delay — see docs/moduleWatch.md. */
 export const WALK_ANYWAY_MS = 10_000;
 
 /** The roots a project's module vocabulary is read from — the same list the stamp walks. */
@@ -36,15 +28,7 @@ interface Watch {
 
 const watches = new Map<string, Watch>();
 
-/**
- * Watch `dir`'s module folders. Idempotent, and silent when the platform will not have it.
- *
- * Recursive `fs.watch` rather than chokidar, for two reasons that both matter here. It is ONE
- * handle per root instead of one per directory, so a library of 150 modules costs four handles
- * — and, on Windows, a handle held on a root does not stop a folder INSIDE it being renamed,
- * which is what a module rename is. And this needs a single bit, not a description of what
- * changed: chokidar's whole job is telling you which file it was.
- */
+/** Watch `dir`'s module folders, idempotently; why `fs.watch` and not chokidar is in docs/moduleWatch.md. */
 export function watchModuleFolders(dir: string): void {
   if (watches.has(dir)) return;
   const w: Watch = { handles: [], gen: 0, seen: 0, at: 0 };
@@ -53,29 +37,19 @@ export function watchModuleFolders(dir: string): void {
       const h = watch(root, { recursive: true, persistent: false }, () => {
         w.gen++;
       });
-      // A root that goes away mid-flight must not take the process with it — and losing the
-      // watch is itself a change, so it counts as one.
+      // Losing the watch is itself a change, so it counts as one rather than taking the process down.
       h.on("error", () => {
         w.gen++;
       });
       w.handles.push(h);
     } catch {
-      // Not there (a project with no `modules/` yet), or recursive watching unsupported. Either
-      // way this root simply is not covered, and the ceiling below is what keeps that honest.
+      // Not there, or recursive watching unsupported: uncovered, and the ceiling keeps that honest.
     }
   }
   watches.set(dir, w);
 }
 
-/**
- * Stop watching, before anything renames the folder these roots sit in.
- *
- * On Windows an open handle on a directory is what makes its PARENT refuse to be renamed, and
- * recycling a project renames the project folder. Same discipline `closeStrudelWatcher` states;
- * `renameWithRetry` is the net under both. No await here — `fs.watch` closes synchronously.
- *
- * With no argument, everything: that is process shutdown, and a test tearing down.
- */
+/** Stop watching before anything renames the folder these roots sit in — see docs/moduleWatch.md. */
 export function closeModuleWatch(dir?: string): void {
   for (const [at, w] of watches)
     if (dir === undefined || at === dir) {
@@ -90,32 +64,12 @@ export function closeModuleWatch(dir?: string): void {
     }
 }
 
-/**
- * THIS process wrote something — treat every watch as moved, without waiting for an event.
- *
- * The one case a watcher cannot get right on its own. `fs.watch` delivers on a later tick, so a
- * command that writes a module file and then rebuilds the graph — one request, synchronously —
- * would ask before its own event arrived, be told nothing had moved, and build from a vocabulary
- * missing the node it had just created. The ceiling is no help there: the ten seconds it would be
- * wrong for are the ten that matter.
- *
- * Wired to `Workspace.invalidateProjectDoc`, which is this service's single "something changed"
- * choke point. Deliberately blunt — every write, not only a module's: knowing which is knowing
- * the answer, and one extra walk after a write is exactly what a write used to cost anyway. The
- * five reads that follow it are still free, which was the point.
- */
+/** THIS process wrote something, so treat every watch as moved — see docs/moduleWatch.md. */
 export function moduleFoldersMoved(): void {
   for (const w of watches.values()) w.gen++;
 }
 
-/**
- * Whether `dir`'s module folders are KNOWN not to have moved since the last walk.
- *
- * False is always a safe answer and is the answer whenever anything is uncertain: nobody is
- * watching this project, an event arrived, or the ceiling ran out. Saying false costs a walk;
- * saying true wrongly costs a module served under a name nobody wrote, so the three conditions
- * are all one-directional.
- */
+/** Whether `dir`'s module folders are KNOWN not to have moved; false is always safe (docs/moduleWatch.md). */
 export function moduleFoldersStill(dir: string): boolean {
   const w = watches.get(dir);
   if (!w) return false;
@@ -128,10 +82,7 @@ export function moduleFoldersStill(dir: string): boolean {
   return true;
 }
 
-/**
- * Let `@studio/song` ask. Called once by the process; nothing else installs it, which is why a
- * CLI run, a test and a script all keep walking exactly as before.
- */
+/** Let `@studio/song` ask; called once by the process, so a CLI run or a test keeps walking as before. */
 export function installModuleWatch(): void {
   setFoldersStill(moduleFoldersStill);
 }

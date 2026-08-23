@@ -5,11 +5,7 @@ const BEATS_PER_BAR = 4;
 const LOOKAHEAD_MS = 25; // how often the scheduler wakes up to queue clicks
 const SCHEDULE_AHEAD_SEC = 0.1; // how far ahead of "now" clicks get queued
 
-/**
- * A click track driven by the Web Audio clock (not setInterval) so beats
- * don't drift: each wake-up queues every click due in the next
- * SCHEDULE_AHEAD_SEC window at its exact AudioContext time.
- */
+/** A click on the Web Audio clock, not setInterval: each wake-up queues the next window. */
 export function useMetronome() {
   const [metronome, setMetronome] = useState<Metronome | null>(null);
   const ctxRef = useRef<AudioContext | null>(null);

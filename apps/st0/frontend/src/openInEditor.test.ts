@@ -43,16 +43,14 @@ describe("what ui file resolves", () => {
   });
 
   it("lets the written name win over the material", () => {
-    // Second and not first: a name that matches something is the answer, whatever an `@` in it
-    // might also have meant.
+    // Second and not first: a name that matches something is the answer, whatever an `@` in it might also have meant.
     expect(resolve("audio_14_1", FILES)).toBe(
       "01.danse.st0/clips/audio_14_1.yaml",
     );
   });
 
   it("answers null when nothing matches, rather than the text that was typed", () => {
-    // The fallback used to be `arg`, which opened a path nobody named and reported an "open
-    // error" about it — while the pane had already been popped open on nothing.
+    // The fallback used to be `arg`, which opened a path nobody named and reported an error about it over an already-popped pane.
     expect(resolve("zzz-nothing-like-this@4", FILES)).toBeNull();
   });
 

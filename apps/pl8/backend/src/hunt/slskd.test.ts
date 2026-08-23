@@ -28,9 +28,7 @@ afterEach(() => {
 
 describe("releaseSearch", () => {
   it("arrête la recherche AVANT de la supprimer", async () => {
-    // The original bug: deleting a search still running makes slskd throw
-    // DbUpdateConcurrencyException, since it updates the row as answers come in —
-    // "expected to affect 1 row(s), but actually affected 0 row(s)".
+    // The original bug: deleting a running search makes slskd throw — ../../docs/hunt.md.
     stub(() => true);
     await releaseSearch("abc");
     expect(calls).toEqual([
@@ -41,12 +39,9 @@ describe("releaseSearch", () => {
   });
 
   it("ne supprime rien tant que la recherche n'est pas terminée", async () => {
-    // A search outlives the interest taken in it: what arrived within a few seconds is filed while
-    // Soulseek is still answering. Leaving the row is the right call — one extra row on slskd
-    // costs nothing, a stack trace does.
+    // Leaving the row is the right call: one extra row on slskd costs nothing, a stack trace does.
     stub(() => false);
-    // The delay is passed in: in production it is ten seconds, and waiting for it here would check
-    // nothing but vitest's patience.
+    // The delay is passed in; waiting the production ten seconds would test vitest's patience.
     await releaseSearch("abc", 30);
     expect(calls).toContain("PUT /api/v0/searches/abc");
     expect(calls).not.toContain("DELETE /api/v0/searches/abc");

@@ -116,13 +116,27 @@ A chain that feeds no track and is nobody's bus compiles to no plugins at all �
 `ownerOf` in `@studio/song`'s `nodeProject.ts` — so it cannot be named here. That is the
 compiler's rule, not this command's.
 
+A chain that is ONLY a strip is refused for a related reason: the mixer is the one thing dropped
+on the way out, so there would be nothing left to bake in and the "bounce" would write a copy of
+the source under a name promising a treatment.
+
+A project chain also carries no cold steps, by construction. It is read off the compiled
+document and the compiler emits no plugin for an offline module (`nodeProject` skips the type by
+name), so there is nothing here to divert — seeing it would mean reading the graph a second
+time. A separation is asked for by naming the library chain that holds it, which is where
+`stemsplit` lives anyway.
+
 **The médiathèque's**, under its own token: `@st0/live/vocal-strip`, or `@st0/vocal-strip`
 by bare name. The project is asked first and the library only under the token, so a project
 chain can never be shadowed by a library one that happens to share its name.
 
 A library chain is a TEMPLATE — a `graph.yaml` with `@in` and `@out` for ends, and a `nodes/`
 folder beside it — read from the workspace's **library repository** (`_libraries/chains/…`, what
-`librariesDirFor` resolves), because that is the disk the engine can open. Same layout as a
+`librariesDirFor` resolves), because that is the disk the engine can open. `libraryChains` walks
+that repository rather than the machine's médiathèque cache, which is why it takes the project
+dir: a chain is a folder holding a `graph.yaml` at any depth, and nothing inside one is another
+— the médiathèque's own rule, restated here because `scanFamily` is bound to the cache root. A
+submodule that is not mounted is an empty list, never a throw. Same layout as a
 project, deliberately and to the filename: see `@studio/mediatek`'s `docs/chains.md`. Each node is
 resolved through the project's module vocabulary, so `extends: "@st0/audio/eq"` arrives with the
 eq's plugin, params and preset folded in.

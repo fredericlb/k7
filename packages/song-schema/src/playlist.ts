@@ -5,46 +5,13 @@
 
 import { parse as parseYaml } from "yaml";
 
-/**
- * The folder a workspace keeps its playlists in, at its root.
- *
- * Beside `_modules` and `_libraries` and named like them, because it is the same KIND of thing:
- * something every project in the workspace draws on, found by where it sits rather than by a
- * line declaring it. A playlist is not a project and does not belong inside one — you build a
- * set list once and open it against whichever project you happen to be working in.
- *
- * That is also why it is not in the médiathèque any more. A playlist is the one family there
- * whose content was pure REFERENCE: it holds no bytes, only names of things filed elsewhere, so
- * hosting it bought nothing and cost the account a document it could not version with its work.
- * `_playlists` is in the repository, so a set list is committed, branched and cloned with the
- * songs it was built for. See docs/playlists.md.
- */
+/** The folder a workspace keeps its playlists in, beside `_modules` and `_libraries` — see docs/playlistFile.md. */
 export const PLAYLISTS_DIR = "_playlists";
 
-/**
- * What a playlist file is called at its end.
- *
- * A playlist IS its file — unlike a song, a chain or a module, which are folders around one —
- * so there is no `playlist.yaml` marker to look for and the extension is the whole rule. See
- * docs/playlists.md for why that asymmetry is deliberate rather than an oversight.
- */
+/** What a playlist file is called at its end — a playlist IS its file, so the extension is the whole rule. */
 export const PLAYLIST_EXT = ".yaml";
 
-/**
- * A playlist NAME as the workspace path holding it — `ete-2026` → `_playlists/ete-2026.yaml`.
- *
- * The name is what a surface writes (`surfaces/desk.yaml`'s `playlist:`), and it is a name
- * rather than a path for the reason a module ref is: the folder is fixed, so spelling it into
- * every declaration would let a file be wrong about a location nothing can choose. Subfolders
- * are kept — `live/repet` is a playlist filed under `live/` — because `_playlists/` nests.
- *
- * The extension is added when it is missing and kept when it is there: it is what makes the
- * file a playlist, and somebody who writes it out has not made a mistake.
- *
- * Null for a name that would leave the folder. Not a throw: this runs on a value out of a YAML
- * file somebody typed, and the surface that asked reports it beside the control it breaks —
- * which is a screen you can read, unlike a project that refuses to open.
- */
+/** A playlist NAME as the workspace path holding it, null for one that would leave the folder (docs/playlistFile.md). */
 export function playlistPathOf(name: string): string | null {
   const clean = name.trim().replace(/^\/+|\/+$/g, "");
   if (!clean) return null;
@@ -54,12 +21,7 @@ export function playlistPathOf(name: string): string | null {
   return `${PLAYLISTS_DIR}/${/\.ya?ml$/i.test(rel) ? rel : `${rel}${PLAYLIST_EXT}`}`;
 }
 
-/**
- * One line of a playlist.
- *
- * `song` is kept VERBATIM: resolving it means holding the médiathèque listing, and this file
- * deliberately holds nothing. See `docs/playlists.md`, "the refs are not checked here".
- */
+/** One line of a playlist; `song` is kept VERBATIM, since resolving it needs the médiathèque listing. */
 export interface PlaylistItem {
   /** The song, as its path under `songs/` (`AC-DC/Back in Black/Hells Bells`) or just its name. */
   song: string;
@@ -76,19 +38,7 @@ export interface Playlist {
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() ? v.trim() : undefined;
 
-/**
- * Read a playlist, or `null` when the text is not one.
- *
- * Null and not an empty playlist, because the two are different facts and a surface says so
- * differently: a file that does not parse is one to go and fix, an empty `items:` is one to go
- * and fill. The same distinction `readSong` declines to make — a song is still a song with an
- * unreadable sidecar, because the AUDIO is the song — and a playlist has nothing but its text.
- *
- * An item may be a bare string, which is what anyone actually types for the common case, or a
- * mapping when it has to name a variant too. Anything else in the list is DROPPED rather than
- * coerced: `- [x]` is a malformed line, and inventing "[object Object]" as a ref would put a row
- * on screen that points at nothing anybody can go and look at.
- */
+/** Read a playlist, or `null` when the text is not one — an unreadable file is not an empty one (docs/playlistFile.md). */
 export function parsePlaylist(text: string): Playlist | null {
   let doc: unknown;
   try {
@@ -117,13 +67,7 @@ export function parsePlaylist(text: string): Playlist | null {
   return { ...(title ? { title } : {}), items };
 }
 
-/**
- * What a playlist file that does not exist yet says.
- *
- * A stub that PARSES, the way a module's jsdsp stub compiles: the first thing this screen does
- * with the text is draw the right-hand pane from it, and an empty file would open on a parse
- * failure for a playlist nobody has had a chance to get wrong yet.
- */
+/** What a playlist file that does not exist yet says — a stub that PARSES, see docs/playlistFile.md. */
 export function playlistStub(name: string): string {
   return `# ${name}\ntitle: ${name}\nitems: []\n`;
 }
@@ -134,20 +78,10 @@ const ITEMS_LINE = /^items:[ \t]*(.*)$/;
 /** Characters that make a plain scalar mean something else at the START of one. */
 const INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
 
-/** The words YAML would read as something other than a string. Quoted so a morceau called
- *  "No" stays a title rather than becoming `false` under a 1.1 reader. */
+/** The words YAML would read as something other than a string — a morceau called "No" is a title, not `false`. */
 const RESERVED = /^(true|false|null|yes|no|on|off|~)$/i;
 
-/**
- * A string as a YAML scalar — plain when it can be, single-quoted when it cannot.
- *
- * Not always quoted, deliberately. This file is written by hand as much as by this function,
- * the doc page shows bare paths, and `- 'AC-DC/Back in Black/Hells Bells'` beside a line
- * somebody typed without quotes reads as two different conventions in one file.
- *
- * Song folders are `segment()`ed from tags, so they legitimately carry spaces, `&` and
- * parentheses — all fine unquoted in the middle of a plain scalar, none fine at the start.
- */
+/** A string as a YAML scalar, plain when it can be — NOT always quoted, see docs/playlistFile.md. */
 export function yamlScalar(value: string): string {
   const safe =
     value !== "" &&
@@ -162,20 +96,7 @@ export function yamlScalar(value: string): string {
   return safe ? value : `'${value.replace(/'/g, "''")}'`;
 }
 
-/**
- * One more line on the end of a playlist's `items:`, or null when the file's shape cannot
- * take one.
- *
- * TEXT, never a re-serialisation. `yaml/edit.ts` takes the same care over a project's files and
- * for the same reason: these files carry comments and an order somebody chose, and parsing to an
- * object and dumping it back would quietly throw both away. Round-tripping a set list through a
- * serialiser is exactly the change nobody would notice until their notes were gone.
- *
- * Null rather than a guess when `items:` is a flow sequence spread over several lines, or is
- * missing its key in a file that does not parse at all. The surface disables the button and
- * says why; inventing a second `items:` key lower down would produce a file whose two halves
- * disagree, which is worse than being told to type the line yourself.
- */
+/** One more line on the end of a playlist's `items:` as TEXT, or null when the shape cannot take one (docs/playlistFile.md). */
 export function appendPlaylistItem(
   text: string,
   item: PlaylistItem,
@@ -184,9 +105,7 @@ export function appendPlaylistItem(
   const lines = text.split("\n");
   const key = lines.findIndex((l) => ITEMS_LINE.test(l));
 
-  /** The line(s) for the item, at a given indent. A variant needs a mapping, whose second key
-   *  aligns under the first — past the `- `, which is why it is two more spaces and not the
-   *  same indent. */
+  /** The line(s) for the item at a given indent; a variant's second key aligns past the `- `. */
   const entry = (indent: string): string[] =>
     item.variant
       ? [
@@ -195,9 +114,7 @@ export function appendPlaylistItem(
         ]
       : [`${indent}- ${song}`];
 
-  // No `items:` at all — a file with only a title, or one somebody started. The key goes on
-  // the end, which is where a reader looks for it and where it cannot land inside another
-  // block by accident.
+  // No `items:` at all: the key goes on the END, where it cannot land inside another block by accident.
   if (key < 0) {
     const body = text.endsWith("\n") || text === "" ? text : `${text}\n`;
     return `${body}items:\n${entry("  ").join("\n")}\n`;
@@ -205,15 +122,13 @@ export function appendPlaylistItem(
 
   const after = (ITEMS_LINE.exec(lines[key] as string)?.[1] ?? "").trim();
 
-  // `items: []` — what the stub writes. The empty flow becomes a block, since that is the
-  // shape every line after it will be in.
+  // `items: []` — what the stub writes; the empty flow becomes a block, the shape every line after it is in.
   if (after === "[]") {
     lines.splice(key, 1, "items:", ...entry("  "));
     return lines.join("\n");
   }
 
-  // A flow sequence with something in it, all on one line: extend it in its own notation
-  // rather than converting, which would rewrite a line nobody asked us to touch.
+  // A one-line flow sequence: extended in its own notation rather than converted (docs/playlistFile.md).
   if (after.startsWith("[")) {
     if (!after.endsWith("]")) return null; // spread over lines — not ours to reflow
     if (item.variant) return null; // a mapping inside a flow list is a shape too far
@@ -225,8 +140,7 @@ export function appendPlaylistItem(
   // Anything else on that line is not a sequence we can extend — `items: some-scalar`.
   if (after !== "") return null;
 
-  // The block below the key: every line indented past it, blanks included. The last one that
-  // is not blank is what the new entry follows, so a trailing blank line stays trailing.
+  // The block below the key: the last non-blank line is what the new entry follows (docs/playlistFile.md).
   let last = key;
   let indent = "  ";
   let seen = false;

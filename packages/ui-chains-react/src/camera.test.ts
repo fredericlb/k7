@@ -23,15 +23,13 @@ import {
 
 describe("isZoomWheel", () => {
   it("calls a PINCH a zoom — that is how a trackpad sends one", () => {
-    // The browser synthesises ctrlKey for a pinch on a Mac trackpad and on a Windows precision
-    // touchpad. It is the only signal there is.
+    // The browser synthesises ctrlKey for a pinch, and it is the only signal there is.
     expect(isZoomWheel({ ctrlKey: true, metaKey: false })).toBe(true);
     expect(isZoomWheel({ ctrlKey: false, metaKey: true })).toBe(true);
   });
 
   it("calls a plain wheel a PAN, which is the whole change", () => {
-    // Two fingers sliding arrive exactly like a mouse wheel. Zooming on that is what made every
-    // attempt to pan a Mac trackpad zoom instead — so the plain wheel gives up zoom.
+    // Two fingers sliding arrive exactly like a mouse wheel, so the plain wheel gives up zoom.
     expect(isZoomWheel({ ctrlKey: false, metaKey: false })).toBe(false);
   });
 });
@@ -51,8 +49,7 @@ describe("wheelPixels", () => {
 
 describe("wheelFactor", () => {
   it("reads a notch the same however the browser measured it", () => {
-    // Chrome sends pixels, Firefox sends the same gesture as lines. Within a hair of each other
-    // is the whole point: apart, the wheel reads as broken in one of them.
+    // Apart by more than a hair, the wheel reads as broken in one of the two browsers.
     const px = wheelFactor(100, 0, 800);
     const lines = wheelFactor(100 / 16, 1, 800);
     expect(lines).toBeCloseTo(px, 6);
@@ -84,8 +81,7 @@ describe("zoomAbout", () => {
   });
 
   it("holds it for EVERY step of a glide, not just the ends", () => {
-    // Applied frame by frame with each frame's own zoom — which is why the anchor is exact all
-    // the way through instead of drifting and snapping back at the end.
+    // Applied frame by frame with each frame's own zoom, so the anchor never drifts and snaps back.
     let cam: Cam = { x: 15, y: -60, k: 0.5 };
     const px = 420;
     const py = 90;
@@ -126,8 +122,7 @@ describe("clampZoom", () => {
 
 describe("lodFor", () => {
   it("says nothing changes through the range where a render costs most", () => {
-    // Above WIDGET_MIN_SCALE every node draws its whole panel — and zooming there moves none of
-    // the three, so it commits no React state at all.
+    // Above WIDGET_MIN_SCALE none of the three moves, so zooming commits no React state at all.
     expect(sameLod(lodFor(0.7), lodFor(3.9))).toBe(true);
   });
 
@@ -160,9 +155,7 @@ describe("applyCam", () => {
 });
 
 describe("frameOriginX", () => {
-  // The mixer row is the case this exists for: a rank of strips wider than the pane. Centred,
-  // its middle is on screen and BOTH ends are off — and the first channel is the one you look
-  // for to know where you are.
+  // The mixer row is the case this exists for: a rank of strips wider than the pane.
   const PAD = 0.9;
 
   it("centres a frame that fits across", () => {
@@ -174,18 +167,14 @@ describe("frameOriginX", () => {
   });
 
   it("would have hidden the first card had it centred", () => {
-    // Same numbers, centred: the content starts off the left edge, so everything before the
-    // middle of the row is outside the pane. That is the bug this rule exists for.
+    // Same numbers, centred: the content starts off the left edge — the bug this rule exists for.
     expect(frameOriginX(1000, 4000, PAD, false)).toBeLessThan(0);
     expect(frameOriginX(1000, 4000, PAD, true)).toBeGreaterThan(0);
   });
 });
 
 describe("isMouseWheel", () => {
-  // A wheel and a trackpad send the same event and mean opposite things: a detent wants to
-  // ZOOM the graph, a two-finger slide wants to push it about. Getting this wrong in the
-  // trackpad's direction is the worse failure — a trackpad that zooms when you try to pan —
-  // so an unrecognised device is read as a surface and keeps the old behaviour.
+  // A wheel and a trackpad send the same event and mean opposite things — docs/camera.md.
   const ev = (o: Partial<Parameters<typeof isMouseWheel>[0]>) => ({
     deltaX: 0,
     deltaY: 0,
@@ -199,8 +188,7 @@ describe("isMouseWheel", () => {
   });
 
   it("separates a Mac MOUSE from a Mac TRACKPAD by the legacy 120s", () => {
-    // Chrome/Safari still carry wheelDeltaY: a detent is a multiple of 120, a trackpad reports
-    // three times its pixel delta and lands there only by accident.
+    // Chrome/Safari still carry wheelDeltaY: a detent is a multiple of 120, a finger is not.
     expect(isMouseWheel(ev({ deltaY: 100, wheelDeltaY: -120 }))).toBe(true);
     expect(isMouseWheel(ev({ deltaY: 4, wheelDeltaY: -12 }))).toBe(false);
     expect(isMouseWheel(ev({ deltaY: 1.5, wheelDeltaY: -4.5 }))).toBe(false);

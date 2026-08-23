@@ -9,23 +9,10 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { ENGINE_TOKEN_HEADER, USER_HEADER } from "@studio/web-protocol";
 
-/** The track a preview lives on. One name, so the engine's diff sees a track it already has
- *  rather than a new one on every play. */
+/** The track a preview lives on — one name, so the engine's diff sees a track it already has. */
 export const PREVIEW_TRACK = "song-preview";
 
-/**
- * The headers the engine's file service gates on.
- *
- * Both of them, and the token is not optional in practice: everything past `requireEngineToken`
- * (context.ts) is refused without it as soon as one is configured — which the supervisor always
- * does on a real machine. These two routes used to send the user alone, so they worked on a bare
- * dev run and answered 401 everywhere else. `cacheRoot` swallows that into `null`, which the UI
- * words as "cette machine n'a pas de cache de la médiathèque" — true-sounding, and wrong, which
- * is how it stayed hidden.
- *
- * Omitted when there is no token to send, because a machine with none configured gates on
- * nothing and adding an empty header would fail a comparison that currently passes.
- */
+/** The headers the engine's file service gates on, the token included (../../docs/playback.md). */
 function engineHeaders(
   user: string,
   token?: string | null,
@@ -38,14 +25,7 @@ function engineHeaders(
   };
 }
 
-/**
- * The cache's absolute root on the engine's machine, and the song in it.
- *
- * Two different disks are in play and conflating them is the whole trap: the médiathèque this
- * browser is talking to is HOSTED, while the moteur opens paths on its own machine. What plays
- * is the copy in that machine's cache, reached through its file service — the same route m9
- * takes, for the same reason (see docs/playback.md).
- */
+/** The cache's absolute root on the engine's machine — two disks, and one trap (../../docs/playback.md). */
 export async function cacheRoot(
   fileBase: string,
   user: string,
@@ -62,25 +42,12 @@ export async function cacheRoot(
     };
     return present && root ? root : null;
   } catch {
-    // Cross-origin refusal, or no file service on that host. Either way there is no path to
-    // play, which the button says by staying disabled rather than by failing on click.
+    // Cross-origin refusal, or no file service there: either way the button stays disabled.
     return null;
   }
 }
 
-/**
- * Whether that machine's cache actually HOLDS a file, without downloading it.
- *
- * A cache root is not a copy. Only `modules` are pulled automatically (see
- * `packages/file-service/src/mediatekPull.ts`), so a song is on a given machine because
- * something put it there — a mirror, a k7 publish, an analysis — and on a fresh machine it
- * simply is not. The engine would then open nothing and play silence, which is the one
- * failure a transport cannot report: there is no error, just no sound.
- *
- * `Range: bytes=0-0` asks for a single byte, so this costs a request and not a master. A
- * refusal of any kind reads as ABSENT — the caller's next move is the same either way, and
- * treating an unreachable machine as "present" would put the silence back.
- */
+/** Whether that machine's cache HOLDS a file — one byte, and any refusal reads as absent (../../docs/playback.md). */
 export async function cachedOnMachine(
   fileBase: string,
   user: string,
@@ -98,17 +65,7 @@ export async function cachedOnMachine(
   }
 }
 
-/**
- * A catalogue entry as a file the engine can open, or null.
- *
- * Null is a real state and not an error to swallow: a song is a FOLDER, and one carrying a
- * sidecar but no audio — a mirror that stopped halfway, a folder made by hand — has nothing to
- * play. `meta.master` is the master's filename; its absence IS that state.
- *
- * `file` names another audio in that same folder — a file variant, or a chain variant's render.
- * The master is only the DEFAULT because it is the song's own recording; everything the player
- * puts on a tab lives beside it and is addressed the same way.
- */
+/** A catalogue entry as a file the engine can open, or null for a REAL state (../../docs/playback.md). */
 export function playablePath(
   root: string,
   entry: MediatekEntry,
@@ -116,37 +73,20 @@ export function playablePath(
 ): string | null {
   const master = file ?? entry.meta?.master;
   if (typeof master !== "string" || !master) return null;
-  // The service reports a native root ("C:\…" or "/home/…") while entry paths are POSIX, and
-  // the engine takes either — so they are joined with a separator picked from the root rather
-  // than normalised into a shape this app has no business choosing.
+  // Joined with a separator picked from the ROOT, which is native while entry paths are POSIX.
   const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
   return [root, entry.path, master].join(sep);
 }
 
-// `stepPlugin` was here — `readPluginBlock` under another name, reading a chain node's own
-// `plugin:` block. It is gone because that block is not where a node's plugin IS: a
-// node declares its overrides and `extends`, so the answer is a resolution and not a read.
-// See resolvePlugin.ts.
+// `stepPlugin` stood here, reading a chain node's own `plugin:` block — but that is a resolution.
 
-/** What a bounce came back as. `mp3` is false when the machine had no ffmpeg — the render still
- *  happened, in wav, and the caller has to file it under the extension it actually got. */
+/** What a bounce came back as; `mp3` is false when the machine had no ffmpeg (../../docs/playback.md). */
 export interface Bounced {
   bytes: Blob;
   mp3: boolean;
 }
 
-/**
- * Bounce a document to audio on the engine's machine.
- *
- * The OFFLINE render (`--render`), not the live transport: it opens no audio device, so it
- * cannot collide with an engine that is playing — which is what makes "process every variant"
- * something you can start while listening to one.
- *
- * `format: mp3` is a REQUEST and not a guarantee. The engine writes wav; the mp3 is an ffmpeg
- * transcode on that machine, best-effort by the same rule the CLI has always used. What comes
- * back says which happened, through its content type, because filing a wav under `.mp3` would
- * produce a library of files that lie about themselves.
- */
+/** Bounce a document to audio on the engine's machine, OFFLINE — see ../../docs/playback.md. */
 export async function bounce(
   fileBase: string,
   user: string,
@@ -161,8 +101,7 @@ export async function bounce(
     body: JSON.stringify({ doc, format: "mp3" }),
   });
   if (!res.ok) {
-    // The route answers `{error}` with a diagnosis — no binary, a bad document, a timeout —
-    // and dropping it would leave "render failed" as the only thing anyone ever sees.
+    // The route answers `{error}` with a diagnosis; dropping it leaves "render failed" and nothing else.
     const detail = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(detail.error ?? `render ${res.status}`);
   }
@@ -173,15 +112,7 @@ export async function bounce(
   };
 }
 
-/**
- * The document.
- *
- * No plugins at all: what is played is the file as it is. A `steps` argument put the chain's
- * modules on the track, and it went with the chains.
- *
- * `recordDir` stays empty (see emptyDoc): a preview plays and never records, and a made-up
- * directory is one the engine would eventually try to write into.
- */
+/** The document: no plugins, and an empty `recordDir` since a preview never records (../../docs/playback.md). */
 export function songPreviewDoc(absolutePath: string, name: string): ProjectDoc {
   return emptyDoc({
     name: `preview: ${name}`,

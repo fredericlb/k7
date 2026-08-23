@@ -61,9 +61,7 @@ describe("mediatekBase", () => {
   });
 
   it("falls back to the médiathèque's OWN advertised port, not a neighbour's", () => {
-    // The whole point: under `npm run dev` each backend advertises a port of its own, so
-    // deriving an origin from whichever registry answered first lands on st0's 8789, where
-    // none of the library's routes are.
+    // In dev each backend advertises its own port, so "whichever registry answered first" is st0's 8789.
     advertise("st0", "http://localhost:8789");
     advertise("pl8", "http://localhost:8795");
     expect(mediatekBase()).toBe("http://localhost:8795");

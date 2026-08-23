@@ -10,37 +10,17 @@ import type { YamlVocabulary } from "@studio/ui-editor/yaml/completions";
 const FILE_FIELDS = ["title", "items"];
 const ITEM_FIELDS = ["song", "variant"];
 
-/**
- * The library's songs as playlist refs — their path under `songs/`.
- *
- * The unambiguous form, and the same one the search writes (`songRef`): a pick from a list
- * means THAT morceau, not whatever shares its title. `findSong` reads the bare name too, so a
- * file stays hand-editable either way.
- */
+/** The library's songs as playlist refs — the unambiguous form, and the same one the search writes; `findSong` still reads a bare name. */
 const refsOf = (songs: MediatekEntry[]): string[] =>
   [...new Set(songs.map(songRef))].sort();
 
-/**
- * Every variant name in the library, deduplicated.
- *
- * Across all songs on purpose: a `variant:` belongs to the `song:` on the line above it, and a
- * vocabulary is asked about a POSITION, not about a document — it has never seen that line.
- * The union is still the right list to draw from, since these names repeat by convention
- * ("live", "acoustic") and a wrong one is reported by the pane on the right as soon as it is
- * typed. Narrowing it to the sibling's song would mean parsing the buffer on every keystroke
- * to save a scroll.
- */
+/** Every variant name in the library, deduplicated: a vocabulary is asked about a POSITION and has never seen the `song:` above it. */
 const variantsOf = (songs: MediatekEntry[]): string[] =>
   [
     ...new Set(songs.flatMap((s) => (s.variants ?? []).map((v) => v.name))),
   ].sort();
 
-/**
- * The vocabulary for a playlist, over a songs listing.
- *
- * `songs` may be null — the listing is polled beside the file and has not arrived on the first
- * frame. Offering nothing then is the honest answer, and one poll later the list is there.
- */
+/** The vocabulary for a playlist, over a songs listing — `songs` may be null on the first frame, and offering nothing then is honest. */
 export function playlistVocabulary(
   songs: MediatekEntry[] | null,
 ): YamlVocabulary {
@@ -49,9 +29,7 @@ export function playlistVocabulary(
   return {
     fieldsAt: (path) => {
       if (path.length === 0) return FILE_FIELDS;
-      // A `- ` under `items:` may be a mapping — `- song: x` with a `variant:` under it —
-      // and the completion offers these beside the refs below, because until the colon is
-      // typed the line is genuinely both.
+      // A `- ` under `items:` may be a mapping, so these are offered beside the refs: until the colon is typed the line is genuinely both.
       return path.length === 1 && path[0] === "items" ? ITEM_FIELDS : [];
     },
     valuesAt: (path, field) => {

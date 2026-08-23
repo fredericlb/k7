@@ -43,8 +43,7 @@ export interface Validity {
 /** Every parser here answers the same shape — that is what lets one router stand over them. */
 type Parse = (text: string) => { issues: ModuleIssue[] };
 
-// A located finding is the same thing whichever file it came from; re-exported so a caller
-// needs one import rather than one for the answer and one for its shape.
+// A located finding is the same whichever file it came from, so a caller needs one import.
 export type { ModuleIssue };
 
 const YAML_EXT = /\.ya?ml$/i;
@@ -73,14 +72,7 @@ const against =
     };
   };
 
-/**
- * The parser for a path, or null when no schema claims it.
- *
- * By FOLDER and BASENAME, the same way `fileKindFor` reads a path — plus the module folder's
- * own split, where the panel, the shelf and the MIDI map are each their own document and every
- * OTHER yaml beside them is a use of the module (moduleIO.ts's MODULE_OWN_BASES, pinned by this
- * file's test; it cannot be imported here because it reads the disk).
- */
+/** The parser for a path, or null — by FOLDER and BASENAME, the way `fileKindFor` reads one. */
 export function parserFor(path: string): Parse | null {
   const parts = segments(path);
   const base = (parts.at(-1) ?? "").replace(YAML_EXT, "").toLowerCase();
@@ -95,9 +87,7 @@ export function parserFor(path: string): Parse | null {
     if (base === "config") return against(ModuleConfigSchema);
     return parseModule; // module.yaml, and every <node>.yaml beside it
   }
-  // The project's flat nodes/ folder — LANES included, since a lane is a node of a
-  // `@studio/…-track` module and vets exactly like one. There is no `tracks/` branch: the folder
-  // is gone. See docs/trackModules.md.
+  // The project's flat nodes/ folder, LANES included; there is no `tracks/` branch (docs/trackModules.md).
   if (inFolder("nodes")) return parseModule;
   if (inFolder("clips")) return against(ClipSchema);
   if (inFolder("sequences")) return against(SequenceSchema);
@@ -106,9 +96,7 @@ export function parserFor(path: string): Parse | null {
   if (inFolder(VIEWS_DIR) && base === MIX_VIEW_BASE) return parseMixView;
   if (base === "chains") return parseGraph;
   if (base === "project") return against(ProjectFileSchema);
-  // The cue sheet, at the ROOT. `views/mix.yaml` has the same base and is a different file
-  // entirely — the desk's old bindings — which is why that branch is above this one and not
-  // below it. Ordering is the whole of what tells the two apart.
+  // The cue sheet, at the ROOT: `views/mix.yaml` shares its base, so ORDER is what tells them apart.
   if (base === MIX_BASE) return parseMix;
   return null;
 }
@@ -123,13 +111,7 @@ function syntaxIssues(text: string): ModuleIssue[] {
   });
 }
 
-/**
- * Is `text` a document the compiler could read as the file at `path`?
- *
- * Syntax is checked FIRST and separately — parsing the text twice, which costs nothing at these
- * sizes — because "does not parse" and "parses but says something the schema refuses" are
- * different answers to a caller deciding whether to write the file.
- */
+/** Is `text` a document the compiler could read at `path`? Syntax is checked FIRST and separately. */
 export function validateFile(path: string, text: string): Validity {
   if (!YAML_EXT.test(path))
     return { ok: true, issues: [], depth: "none", malformed: false };

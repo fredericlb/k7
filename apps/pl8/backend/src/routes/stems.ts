@@ -11,37 +11,24 @@ import { z } from "zod";
 import { CutError, cutStems, heldStems } from "../stems/cut.ts";
 import { jobIdFor, runningJob, startJob, stemsJob } from "../stems/jobs.ts";
 
-/** pl8 has no express type augmentation of its own; every route here reads the user this way —
- *  the same shape `routes/projects.ts` states, and for the same reason. */
+/** pl8 has no express type augmentation, so the user is read this way, as in `routes/projects.ts`. */
 function emailOf(req: Request): string | null {
   return (req as { user?: { email?: string } }).user?.email ?? null;
 }
 
 const body = z.object({
-  /** Volume-relative — `songs/<artiste>/<album>/<titre>/original.mp3`, the string every other
-   *  route here takes. Confined by `safePath` inside `cutStems`. */
+  /** Volume-relative, the string every other route here takes; `safePath` confines it. */
   song: z.string().min(1),
-  /** Which registered engine lends its model. Named by the caller because it is the one this
-   *  browser is already on — this service has no opinion about which machine is yours. */
+  /** Which registered engine lends its model — named by the caller, who is already on one. */
   engineId: z.string().min(1),
-  /** Optional: the engine's own `system stems` answer is used when this is absent, which is
-   *  where that choice has always lived (one answer per machine, not per request). */
+  /** Optional: absent, the engine's own `system stems` answers, one per machine. */
   chain: z.string().optional(),
 });
 
 export function stemsRouter(engines: EngineMount): Router {
   const router: Router = Router();
 
-  /**
-   * Start a cut, or say it is already done.
-   *
-   * The SAME two shapes the file service's `/stems` answered — `StemsReply` here, `SeparateJob`
-   * from the poll below — so the desk changed only where it points. That is deliberate: the work
-   * moved between services, and a browser watching a separation should not be able to tell.
-   *
-   * Already cut is not an error and not work: `heldStems` asks the FOLDER, and the folder is the
-   * truth about what has been produced.
-   */
+  /** Start a cut, or say it is already done — the shapes the file service's `/stems` answered. */
   router.post(
     "/",
     validate(body),
@@ -61,8 +48,7 @@ export function stemsRouter(engines: EngineMount): Router {
         return res.json({ ready: true, job: null } as StemsReply);
 
       const engine = engines.registry.get(engineId);
-      // A registry miss is a 409 rather than a 404: the engine existed when the browser picked
-      // it, and what to do about it — bring the machine back up — is not "this URL is wrong".
+      // A registry miss is a 409, not a 404: the engine existed when the browser picked it.
       if (!engine)
         return res.status(409).json({
           error: `no engine '${engineId}' is registered — is its machine running?`,
@@ -74,13 +60,7 @@ export function stemsRouter(engines: EngineMount): Router {
         return res.json({ ready: false, job: already } as StemsReply);
 
       const { progress, finish } = startJob(id, song);
-      /**
-       * Started and NOT awaited — the whole point of a job.
-       *
-       * The rejection is handled inside, so this is not a floating promise: `cutStems` throws
-       * only `CutError`s carrying a sentence, and the sentence belongs on the job where the
-       * poller will read it rather than in this service's log where nobody is looking.
-       */
+      // Started and NOT awaited; the rejection is caught below, onto the job the poller reads.
       void cutStems({
         engine,
         userEmail,
@@ -104,9 +84,7 @@ export function stemsRouter(engines: EngineMount): Router {
     }),
   );
 
-  /** How a cut is getting on. 404s once this service has forgotten a finished one, which the
-   *  caller reads as "look at the disk" rather than as a failure — the same contract
-   *  `/separate/:id` had, and the desk already handles it. */
+  /** How a cut is getting on. A 404 means "look at the disk", the contract `/separate/:id` had. */
   router.get(
     "/:id",
     wrap((req, res) => {

@@ -49,25 +49,16 @@ import {
 } from "./coldPass";
 import { measureFilePeakDb, needsPeak, withMeasuredPeak } from "./peakPass";
 
-/** What a chain of the médiathèque is named by, so the two vocabularies can't collide with the
- *  project's own chain names. The same token a module ref carries (see @studio/song's mediatekRoot). */
+/** The token a médiathèque chain is named by, so it cannot collide with a project's own chain names. */
 export const MEDIATEK_CHAIN = "@st0/";
 
 /** The one track a bounce document has. A name, so a doc read by hand says what it was for. */
 const BOUNCE_CHAIN = "process";
 
-/**
- * Which command is running, and therefore what its target may name.
- *
- * `track process` and `clip process` share every line below but this: the noun in the command IS
- * the promise about what the argument is, so a track name handed to `clip process` is refused
- * and pointed at the other one rather than quietly resolving. They were one command taking
- * either, and that made the first word decorative.
- */
+/** Which command is running, and therefore what its target may name — see docs/processChain.md. */
 export type Scope = "track" | "clip";
 
-// A module as `loadModuleRefs` hands it over. Taken off that function rather than imported:
-// `rawDoc` is not one of @studio/song's export subpaths, and this needs the shape, not the file.
+// A module as `loadModuleRefs` hands it over — taken off that function, since `rawDoc` is not an export subpath.
 type LoadedModule = ReturnType<typeof loadModuleRefs>[string];
 
 /** A chain resolved far enough to render: what to call the result, and the plugins in order. */
@@ -77,21 +68,13 @@ export interface ResolvedChain {
   /** Filename-safe, appended to each render (`kick.wav` → `kick_vocal-strip.wav`). */
   slug: string;
   plugins: PluginDoc[];
-  /**
-   * The steps that produce FILES instead of processing a buffer — an `offline` module.
-   *
-   * Empty for almost every chain. When it is not, `plugins` is empty (see `resolveChain`), and
-   * the run is a cold pass rather than a bounce: no render, nothing repointed, N files written
-   * beside the source. See coldPass.ts and @studio/song's docs/coldModules.md.
-   */
+  /** The steps that produce FILES instead of processing a buffer — an `offline` module, docs/processChain.md. */
   cold: ColdStep[];
-  /** The track this chain already runs on, when it is one of the project's. The caller says
-   *  so out loud: baking it into the clips leaves it running on playback too. */
+  /** The track this chain already runs on, when it is one of the project's — the caller says so out loud. */
   ownTrack?: string;
 }
 
-/** Only numbers reach the engine — `params` on the wire is numeric, and a file-valued one
- *  (a .nam model) travels as its own field. Mirrors nodeProject's numericParams. */
+/** Only numbers reach the engine — a file-valued param travels as its own field. Mirrors `numericParams`. */
 function numbers(params: unknown): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [k, v] of Object.entries(
@@ -101,8 +84,7 @@ function numbers(params: unknown): Record<string, number> {
   return out;
 }
 
-/** A jsdsp module's compiled graph, from the `.json` sibling of its source. The engine parses
- *  no files, so the graph has to travel inside the document. */
+/** A jsdsp module's compiled graph, from the `.json` sibling of its source — the engine parses no files. */
 function dspGraphOf(m: LoadedModule): string | undefined {
   if (!m.jsdsp) return undefined;
   const built = `${String(m.jsdsp).replace(/\.[tj]sx?$/, "")}.json`;
@@ -113,16 +95,7 @@ function dspGraphOf(m: LoadedModule): string | undefined {
   }
 }
 
-/**
- * The chains the account's LIBRARY holds, named as a variant names one: the path under
- * `chains/` (`live/vocal-strip`).
- *
- * Read out of the submodule mounted beside this project, not out of the machine's médiathèque
- * cache — which is why it takes the project dir where it used to take nothing. A chain is a
- * folder holding a `graph.yaml`, at any depth, and nothing inside one is another: the
- * médiathèque's own rule, restated here because `scanFamily` is bound to the cache root and
- * this no longer reads that. A missing submodule is an empty list, never a throw.
- */
+/** The chains the account's LIBRARY holds, named by their path under `chains/` — see docs/processChain.md. */
 function libraryChains(dir: string): { ref: string; folder: string }[] {
   const root = librariesDirFor(dir, "chains");
   const out: { ref: string; folder: string }[] = [];
@@ -157,18 +130,7 @@ export function chainNames(dir: string, project: ProjectDoc): string[] {
   ];
 }
 
-/**
- * A chain of the PROJECT, taken off the compiled document.
- *
- * The compiler has already resolved every step — its plugin format, its params, the preset it
- * loads, a jsdsp module's graph — and addressed each one `<chain>:<module>`, so the chain is
- * already in the document under that prefix. Rebuilding it here from the chain's own file would be a
- * second compiler, and the two would drift.
- *
- * A chain that feeds no track and is nobody's bus compiles to no plugins at all (see
- * nodeProject's `ownerOf`), so it is not findable this way — and `resolveChain` says that
- * rather than reporting it as a name nobody knows.
- */
+/** A chain of the PROJECT, taken off the compiled document under its `<chain>:` prefix — docs/processChain.md. */
 function projectChain(
   project: ProjectDoc,
   name: string,
@@ -180,8 +142,7 @@ function projectChain(
   return null;
 }
 
-/** The médiathèque chain a ref names, by path first and then by bare name — the same order
- *  the médiathèque itself resolves a song's variant in (see its docs/variants.md). */
+/** The médiathèque chain a ref names, by path first and then by bare name — a variant's own order. */
 function findChainFolder(
   dir: string,
   want: string,
@@ -194,15 +155,7 @@ function findChainFolder(
   );
 }
 
-/**
- * A chain of the MÉDIATHÈQUE: its `graph.yaml` for the order, its `nodes/` for what each
- * step runs.
- *
- * Each node is resolved through the project's module vocabulary, so a node that only
- * says `extends: "@st0/audio/eq"` arrives with the eq's plugin, params and preset folded
- * in. That vocabulary is this machine's cache: a step whose module was never synced resolves to
- * nothing, and the bounce is refused rather than writing a copy that quietly skipped a treatment.
- */
+/** A chain of the MÉDIATHÈQUE: its `graph.yaml` for the order, its `nodes/` for what each step runs. */
 function mediatekChain(
   dir: string,
   abs: string,
@@ -224,18 +177,7 @@ function mediatekChain(
       continue;
     }
     const m = resolveModule(raw as unknown as LoadedModule, byRef);
-    /**
-     * An OFFLINE module is diverted here — the line stemSplit.md said was missing.
-     *
-     * It has no engine plugin by construction (a separator fans out, and a chain step compiles
-     * to a serial insert on one track), so pushing it onto `plugins` is impossible and letting
-     * it fall through to the check below would report it as a module this machine cannot load —
-     * which is the wrong sentence for a module that is right here and simply runs elsewhere.
-     *
-     * `coldStepOf` throws with what to do about it: authored with no model, or a model this
-     * machine has not got. Caught into `missing`, so the two kinds of "this chain cannot run
-     * here" are reported together and cost nothing.
-     */
+    // An OFFLINE module is diverted here: it has no engine plugin by construction, docs/processChain.md.
     if (isOfflineModule(m)) {
       try {
         cold.push(coldStepOf(step, m));
@@ -271,17 +213,7 @@ function mediatekChain(
   return { plugins, cold, missing };
 }
 
-/**
- * The chain to run, from the project or from the médiathèque. Throws with what to do next.
- *
- * The project is asked FIRST and the médiathèque only under its own token, so a project chain
- * can never be shadowed by a library one that happens to share its name.
- *
- * Two things are dropped from a project chain on the way out, and both would otherwise be
- * applied twice: a MIXER module (a track's level is not a treatment — it stays live on the
- * strip, exactly as a freeze leaves it), and a `sidechainFrom`, whose feeding lane does not
- * exist in a document holding one track.
- */
+/** The chain to run, the project asked FIRST — throws with what to do next; see docs/processChain.md. */
 export function resolveChain(
   dir: string,
   project: ProjectDoc,
@@ -310,18 +242,12 @@ export function resolveChain(
           delete copy.sidechainFrom;
           return copy;
         });
-      // A chain that is only a strip is a level and nothing else, and the strip is the one thing
-      // this drops — so there would be nothing left to bake in, and the "bounce" would write a
-      // copy of the source under a name promising a treatment.
+      // A chain that is only a strip has nothing left to bake in once the mixer is dropped.
       if (!plugins.length)
         throw new Error(
           `chain '${trimmed}' has no treatment to apply — only ${own.ownTrack}'s strip, which stays live`,
         );
-      // No cold steps: a PROJECT chain is read off the compiled document, and the compiler emits
-      // no plugin for an offline module (`nodeProject` skips the type by name). There is nothing
-      // here to divert — an offline step in a project's own chain is invisible from the doc, and
-      // seeing it would mean reading the graph a second time. A separation is asked for by naming
-      // the library chain that holds it, which is where `stemsplit` lives anyway.
+      // No cold steps: the compiler emits no plugin for an offline module, docs/processChain.md.
       return { ref: trimmed, slug, ownTrack: own.ownTrack, plugins, cold: [] };
     }
   }
@@ -343,18 +269,7 @@ export function resolveChain(
     );
   if (!plugins.length && !cold.length)
     throw new Error(`chain '${found.ref}' puts the signal through no module`);
-  /**
-   * A chain either BOUNCES or SEPARATES, and mixing the two is refused by name.
-   *
-   * Not a limitation of the pass — a limitation of what the chain can say. Flattened for a
-   * render (`chainSteps`), a chain is a list of module names with no ports on it: a step after
-   * a separator would have four inputs to choose from and no way to name one. The graph itself
-   * CAN say it — `stemsplit#vocals: [ reverb ]`, see @studio/song's docs/ports.md — so this is
-   * the sentence to revisit the day `chainSteps` carries the port along.
-   *
-   * Refused rather than run half-way, because both halves of the wrong guess are bad: treating
-   * the mix instead of the stem, or picking `vocals` for you.
-   */
+  // A chain either BOUNCES or SEPARATES, and mixing the two is refused by name — docs/processChain.md.
   if (cold.length && plugins.length)
     throw new Error(
       `chain '${found.ref}' both separates (${cold
@@ -375,21 +290,7 @@ export interface Targets {
   track?: string;
 }
 
-/**
- * What to process, within what the command promised.
- *
- * `track process` takes a TRACK and nothing else: every audio file its clips play, deduplicated,
- * because two placements of one clip are one file and bouncing it twice would run the second
- * pass over the first one's output.
- *
- * `clip process` takes a CLIP by id — the file it plays goes through the chain, so every
- * placement of that clip is treated at once: a clip IS its material — or a project-relative
- * PATH, for audio no clip file has claimed yet.
- *
- * Each refuses the other's argument by name. A track handed to `clip process` used to resolve
- * anyway, which made the first word of the command decorative and the log line the only place
- * you could find out what had actually been bounced.
- */
+/** What to process, within what the command promised — each scope refuses the other's argument, docs/processChain.md. */
 export function resolveTargets(
   dir: string,
   project: ProjectDoc,
@@ -440,44 +341,19 @@ export function resolveTargets(
   return { label: rel, sources: [join(dir, rel)] };
 }
 
-/** Where a source's render lands: `<name>_<slug>.wav`, beside it. Re-running strips the
- *  previous suffix rather than stacking one, so processing twice overwrites rather than
- *  producing `kick_warm_warm.wav`. Always `.wav` — the engine writes nothing else. */
+/** Where a source's render lands — `<name>_<slug>_<stamp>.wav` beside it, always wav; see docs/processChain.md. */
 export function renderPath(
   source: string,
   slug: string,
   stamp = fileStamp(),
 ): string {
   const p = parsePath(source);
-  // A previous run of the SAME chain is stripped, stamp and all, so the names do not grow by a
-  // slug and a date every time. A run of a DIFFERENT chain is not: that one stacks on purpose —
-  // the clip now plays the warmed file, and treating that is a second treatment.
+  // A previous run of the SAME chain is stripped, stamp and all; a DIFFERENT chain stacks on purpose.
   const base = p.name.replace(new RegExp(`_${slug}_\\d{6}T\\d{6}$`), "");
   return join(p.dir, `${base}_${slug}_${stamp}.wav`);
 }
 
-/**
- * One source through the chain, offline.
- *
- * `--render` and not the transport: it opens no audio device, so a bounce runs while the live
- * engine is playing (see @studio/file-service's docs/render.md). The document is one track
- * holding the file at position 0 with its natural length, and the chain as the plugins on it —
- * the same shape the médiathèque auditions a variant through.
- *
- * Nothing is carried over from the song but its tempo and sample rate: automation is written
- * against SONG time and this clip starts at zero, so baking a curve in would apply it at the
- * wrong moment on every placement.
- */
-/**
- * The one-track document a bounce renders — the RAW file, and nothing else about the clip.
- *
- * Split out and exported because it carries a property the rest of this file depends on and
- * cannot check: **no warp, no window, no offset, at position zero.** The render is therefore
- * sample-for-sample aligned with the source, which is what lets `repointClips` leave every
- * placement's `from`/`to` exactly as it found them — the seconds they cut at still mean the same
- * moment of the same material. Carry the clip's warp in here and that stops being true for every
- * clip in the project at once, silently.
- */
+/** The one-track document a bounce renders — the RAW file at position zero, no warp and no window, docs/processChain.md. */
 export function bounceDoc(
   project: ProjectDoc,
   source: string,
@@ -522,28 +398,7 @@ export function bounceThroughChain(
   }
 }
 
-/**
- * Point every clip file that played `from` at `to`, and say which ones moved.
- *
- * This is the "in place" half. A placement holds a POSITION and names a clip; the clip names
- * the file — so rewriting that one line leaves every placement, window, fade and loop exactly
- * where it was, and only the material changes. The original file is untouched on disk, which
- * makes the whole edit one line to undo.
- *
- * The clip's `from`/`to` window stays valid because the render is the whole file, UNWARPED and
- * at position zero (see `bounceThroughChain`): same start, same rate, sample for sample, so the
- * seconds it cuts at still mean the same thing. That is a property of the bounce document and
- * `processChain.test.ts` pins it — a bounce that carried the clip's warp or its window would
- * move the material under every one of these files.
- *
- * The clip's WARP MAP does not survive on its own, though, and that is what this also fixes.
- * The engine reads the map's beat span as the length of the whole source (`applyClipWarp`), so
- * a render whose file is a different length changes the tempo the take is read at. `--render`
- * appends two seconds for reverb and release, which turned a 17.92 s take at 110 bpm into 98.9,
- * played it 11% slow, and — an unlooped clip being capped at its window in SOURCE seconds — cut
- * the phrase before its end. `retimeWarpMarkers` moves the map's end onto the new file's,
- * continuing at the map's own rate, and touches nothing else.
- */
+/** Point every clip file that played `from` at `to`, retiming its warp map — the "in place" half, docs/processChain.md. */
 export function repointClips(
   dir: string,
   from: string,
@@ -584,13 +439,7 @@ export interface ProcessResult {
   changed: boolean;
 }
 
-/**
- * The whole flow: resolve the chain and the material, bounce each file, repoint the clips.
- *
- * Every failure is reported with what to do about it and nothing half-written: the chain is
- * resolved before the first render, so a chain naming a module this machine has not got costs
- * no time and leaves no file behind.
- */
+/** The whole flow: resolve the chain and the material, bounce each file, repoint the clips. */
 export async function processWithChain(
   dir: string,
   project: ProjectDoc,
@@ -599,12 +448,7 @@ export async function processWithChain(
   scope: Scope,
   // Called with each render's absolute path just before it is written, so a host can back it up.
   beforeWrite?: (absPath: string) => void,
-  /**
-   * How to run one COLD step, when the chain has any. The seam, and it is optional for the same
-   * reason `CommandHost.clipEnvelope` is: the thing that owns a 166 MB model is the file service,
-   * which depends on this package — so the running is handed in rather than imported. A host
-   * without one refuses the chain by name instead of pretending the pass ran.
-   */
+  /** How to run one COLD step: handed in rather than imported, since the model lives downstream. */
   runCold?: RunColdStep,
 ): Promise<ProcessResult> {
   // Every message names the command that produced it, both of them being one implementation.
@@ -631,17 +475,7 @@ export async function processWithChain(
 
   const show = (s: string) => relative(dir, s).split("\\").join("/");
 
-  /**
-   * A chain of COLD steps: a pass over each file, producing files. No engine, no render, no
-   * repoint.
-   *
-   * Before the engine check on purpose — a separation needs ffmpeg and a model, not the
-   * moteur binary — and before the loop below, which it does not share: there is no single
-   * output to point a clip at. Four stems land under `stems/` beside the source, which is where
-   * the médiathèque already looks for them (apps/k7's docs/audio.md).
-   *
-   * Sequential, and a failure stops the rest: `runColdPasses` says why.
-   */
+  // A chain of COLD steps: files in, files out, before the engine check — docs/processChain.md.
   if (chain.cold.length) {
     if (!runCold)
       return {
@@ -663,8 +497,7 @@ export async function processWithChain(
               `${show(d.source)} → ${d.files.map(show).join(", ") || "nothing"}`,
           ),
         ],
-        // The project's files are untouched, but the workspace's are not: the tree has four new
-        // files in it, and the host's reload is what puts them on screen.
+        // The project's files are untouched, but the workspace's tree has new files in it.
         changed: wrote > 0,
       };
     } catch (e) {
@@ -685,18 +518,14 @@ export async function processWithChain(
     };
 
   const lines: string[] = [];
-  // A chain with a MEASURING cold step in it — a normaliser — needs its number before it can be
-  // rendered, and the number is a fact about THIS file. So the measurement sits inside the loop,
-  // which is what "offline, on a file, immediately before the render" means. Asked once, up front,
-  // so a chain with no such step pays no decode: most bounces are not normalisations.
+  // Asked once up front so a chain with no measuring step pays no decode — see docs/peakPass.md.
   const measuring = needsPeak(chain.plugins);
   let changed = false;
   for (const source of targets.sources) {
     const out = renderPath(source, chain.slug);
     try {
       beforeWrite?.(out); // let the host back up the prior render before we overwrite it
-      // Per source, and never written back into `chain`: the next file has its own peak, and a
-      // shared chain would hand it this one's gain.
+      // Per source and never written back into `chain`, whose next file has its own peak.
       const forThisFile = measuring
         ? {
             ...chain,
@@ -708,8 +537,7 @@ export async function processWithChain(
         : chain;
       bounceThroughChain(engine, project, source, forThisFile, out);
     } catch (e) {
-      // Per source, and the loop continues: one clip the engine could not decode must not cost
-      // the other three their bounce.
+      // Per source, and the loop continues: one undecodable clip must not cost the others theirs.
       lines.push(`${show(source)}: ${(e as Error).message.split("\n")[0]}`);
       continue;
     }
@@ -730,9 +558,7 @@ export async function processWithChain(
     lines.unshift(
       `${targets.label} through '${chain.ref}' — ${chain.plugins.length} module(s):`,
     );
-  // Baking a track's OWN chain in leaves that chain running on playback, so the treatment
-  // would be heard twice. Said here rather than refused: applying a chain to the material it
-  // already runs on is a legitimate thing to want, once you bypass it.
+  // Said rather than refused: baking a track's OWN chain in is legitimate once you bypass it.
   if (changed && chain.ownTrack && chain.ownTrack === targets.track)
     lines.push(
       `note: '${chain.ref}' is the track's own chain and still runs on playback, so the ` +

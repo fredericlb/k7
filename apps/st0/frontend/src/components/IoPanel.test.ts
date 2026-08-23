@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { noteOf } from "./IoPanel";
 
-// The engine reports a FREQUENCY and nothing else, so every wrong note a user could see is born here. The two
-// things worth pinning are the octave boundary (it turns over at C, not at A, which is the classic off-by-one)
-// and the sign of the detuning — a tuner that says "sharp" when you are flat is worse than no tuner.
+// The engine reports a FREQUENCY and nothing else: the octave turns over at C, not at A, and a tuner that says 'sharp' when you are flat is worse than none.
 
 describe("the nearest note to a frequency", () => {
   const name = (hz: number) => {
@@ -22,8 +20,7 @@ describe("the nearest note to a frequency", () => {
   });
 
   it("turns the octave over at C, not at A", () => {
-    // B3 -> C4 is where the number changes. Naming this off A4 (the reference) is the mistake
-    // that puts every note between C and A in the wrong octave.
+    // B3 → C4 is where the number changes: naming this off A4 is the mistake that puts every note between C and A in the wrong octave.
     expect(name(246.94)).toBe("B3");
     expect(name(261.63)).toBe("C4");
     expect(name(523.25)).toBe("C5");

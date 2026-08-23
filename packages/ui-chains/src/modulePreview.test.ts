@@ -70,8 +70,7 @@ describe("the base dropdown, which the panel cannot fill in itself", () => {
     ).nodes.find((n) => n.kind === "module");
 
   it("lists the module's bases, with `none` first so a choice can be undone", () => {
-    // What the author wrote is `bind: @base` and nothing else — the entries are the FOLDER's,
-    // and they reach the card through the step rather than through the panel.
+    // The author wrote `bind: @base` and nothing else; the entries are the FOLDER's, via the step.
     const w = withBaseWidget(["warm", "bright"])?.ui?.widgets.b;
     expect(w?.options?.map((o) => o.label)).toEqual(["none", "warm", "bright"]);
   });
@@ -85,8 +84,7 @@ describe("the base dropdown, which the panel cannot fill in itself", () => {
 
 describe("the grid the card draws", () => {
   it("drops hidden widgets", () => {
-    // A WebModuleUI has `hidden` resolved away by the compiler's merge; there is none in this
-    // path, so a hidden widget would otherwise appear on the card and nowhere else.
+    // `hidden` is resolved by the compiler's merge, and there is no merge on this path.
     const grid = visibleGrid(
       ui({
         widgets: {
@@ -99,15 +97,13 @@ describe("the grid the card draws", () => {
   });
 
   it("keeps the grid's own size, not the visible widgets' extent", () => {
-    // The card is sized from cols × rows. Shrinking it because a widget is hidden would make
-    // the preview lie about how big the module is.
+    // The card is sized from cols × rows, so a hidden widget must not shrink it.
     const grid = visibleGrid(ui({ cols: 4, rows: 3, widgets: {} }));
     expect([grid.cols, grid.rows]).toEqual([4, 3]);
   });
 });
 
-// The four path shapes the two hosts hand over. A fixed index was right for one of them and
-// silently wrong for the rest — a module drawn with the wrong glyph, or none.
+// The four path shapes the two hosts hand over, for which no fixed index is right. docs/graphBuild.md.
 describe("reading a module's type folder", () => {
   it("takes the segment after modules/", () => {
     expect(moduleCategoryOf("modules/instruments/synth")).toBe("instruments");
@@ -160,8 +156,7 @@ describe("through the shared pipeline", () => {
   });
 
   it("sizes the card from the grid rather than the default", () => {
-    // The reason the panel earns its 30%: the card is NOT the grid — a panel that reads fine as
-    // an editing surface can come out a different shape as a card.
+    // The card is NOT the grid: a panel that reads fine to edit can be another shape as a card.
     const card = (cols: number, rows: number) =>
       buildGraph(
         modulePreviewGraph(

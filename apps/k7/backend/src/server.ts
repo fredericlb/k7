@@ -19,9 +19,7 @@ const app = express();
 app.use(express.json());
 
 const { requireAuth } = await setupAuth(app, {
-  // The shared studio session: one origin, one cookie. The st0 backend owns
-  // /auth/* and mints it — it is the service with no path prefix, and the registered
-  // redirect_uri has none either. This one only verifies, so it mounts no auth routes.
+  // st0 mints the shared cookie and this only VERIFIES it — see ../../docs/routing.md.
   cookieName: "studio.sid",
   mountRoutes: [],
   service: "k7-backend",

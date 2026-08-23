@@ -133,3 +133,42 @@ opens something and is missing from `CARRIES` fails there, at the point where th
 directions stop being inverses.
 
 The router sits **outside** the auth gate in `main.tsx`, so a deep link survives signing in.
+
+## Percent-encoding, per segment
+
+Songs are the reason. A module was a slug and survived a raw path, but a song folder is
+`segment()`'d from tags and legitimately holds spaces, `&` and parentheses — "Back in Black". The
+browser encodes those on their way into the URL bar, so `location.pathname` comes back
+`Back%20in%20Black`, which matches no entry. Encode on the way out, decode on the way in, and the
+two directions stay inverses — which is the whole contract `routes.test.ts` asserts.
+
+Per SEGMENT and not over the whole string: `encodeURI` leaves `#` and `?` alone, and a title
+carrying either would cut the address in half. A hand-typed `%zz` throws rather than decoding; the
+raw segment is the best remaining guess, and it simply matches no entry, which is what a typo
+should do.
+
+## What the default section is, and why it moved back
+
+Morceaux again. It was Projets for as long as this app held the repositories — the argument being
+that the first thing you want at a front door is your own work — and that argument did not lose, it
+MOVED: the repositories are st0's home page now, so the front door for one's own work is over
+there. What is left here is the catalogue, and its first family is the songs.
+
+## The four sections that left, and the one backend that did not
+
+- **`modules` and `chains`** went with the AUTHORING: a module is written against a project where
+  the plugin it names is actually LOADED, and committed to the account's library repository.
+- **`projects`** went with the level above a project, which belongs to the editor that opens one —
+  the repositories, the libraries, the deploy key and the shares. It was this app's default section
+  at the time.
+- **`playlists`** left last and for a different reason: not authoring, but that a playlist holds no
+  bytes. It is a list of names of things that are still right here, so hosting it bought nothing
+  and kept a set list out of the repository it was written for. It is `_playlists/` in the
+  workspace now, and st0's cog opens it. The morceaux it names never moved, which is the point: st0
+  searches THIS catalogue and uploads into it.
+
+What did **not** move is the backend. `/api/projects`, `/api/shares` and the whole of
+`/api/mediatek` are still this service's, and st0 calls them across the origin. An address under
+any of the departed sections falls through to the default like any other unknown path. See
+[apps/st0/frontend/docs/projects.md](../../st0/frontend/docs/projects.md) and
+[apps/st0/frontend/docs/playlists.md](../../st0/frontend/docs/playlists.md).

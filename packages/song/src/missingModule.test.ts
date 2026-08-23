@@ -14,14 +14,7 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 
-// A chain step naming a module the project doesn't define used to be FATAL: the compiler's
-// ref-check threw. (A generated CUE overlay pinned the field too, which is why this was
-// fatal in two places at once; that overlay is gone.) One dangling name
-// — a module folder renamed, a song opened without the workspace it borrows from — took
-// the whole project down, timeline included.
-//
-// It is now a skipped step and a `?` node in the graph. These pin both halves: the file
-// still compiles, and the dangling name is reported as a warning rather than swallowed.
+// A dangling step used to be FATAL; it is a skipped step, a `?` node and a warning now.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -35,8 +28,7 @@ const SONG = join(
   "synth-demo.st0",
 );
 
-// Point the fixture's instrument step at a module that doesn't exist, keeping everything
-// else — so what changes in the result is only ever this.
+// Point the instrument step at a module that does not exist, and change nothing else.
 const useGhostStep = (dir: string): void =>
   replaceChainStep(dir, "lead", { module: "ghost" });
 
@@ -57,8 +49,7 @@ describe("a chain step naming a missing module", () => {
   });
 
   it("leaves the rest of the chain running", () => {
-    // The point of not failing: a dangling step costs you that one node, not the song.
-    // Here it sits BESIDE a real instrument, which must still compile into the track.
+    // A dangling step costs that one node: the real instrument beside it still compiles.
     insertChainStepAfter(dir, "lead", { module: "ghost" });
 
     const melody = compileNodeProject(dir).tracks.find(
@@ -72,8 +63,7 @@ describe("a chain step naming a missing module", () => {
     useGhostStep(dir);
     const g = loadGraph(dir);
     expect(g.warnings.some((w) => w.includes("ghost"))).toBe(true);
-    // Still a step of its chain — that is what the graph draws the `?` node from, and
-    // what `node bypass ghost` finds to write `enabled: false` on.
+    // Still a step of its chain, which is what the graph draws the `?` node from.
     expect(
       Object.values(g.chains).some((c) =>
         c.use.some((s) => s.module === "ghost"),

@@ -100,8 +100,7 @@ export function OrderEditor({
                 </>
               ) : (
                 <>
-                  {/* A plain select: the categories ARE the choices, and a round naming one
-                      that no longer exists must still be visible rather than silently reset. */}
+                  {/* A plain select: a round naming a departed category stays VISIBLE rather than reset. */}
                   <select
                     className="h-7 min-w-0 flex-1 rounded border bg-background px-1 text-xs"
                     value={e.cat ?? ""}

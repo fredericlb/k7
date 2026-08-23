@@ -30,7 +30,13 @@ is safe:
 - A pure hash would be safe and leave a directory nobody can read.
 
 The hash carries the uniqueness. Two subjects that slug identically get different files,
-which is the difference between "two users share a preference" and "they don't".
+which is the difference between "two users share a preference" and "they don't". The slug puts
+the recognisable part back without being what makes the name unique.
+
+**There is no dot in the allowed set**, and that is not fussiness. Allowing one lets
+`../../etc/passwd` slug to `.._.._etc_passwd`. That is harmless *here* — the separators are gone,
+so no traversal is left — but "harmless because of a second rule" is the shape of the bug that
+comes back the day the second rule moves. A subject reads perfectly well without dots.
 
 ## Two failure modes, both deliberate
 

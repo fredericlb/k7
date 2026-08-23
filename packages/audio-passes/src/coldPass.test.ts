@@ -32,8 +32,7 @@ describe("which steps are cold", () => {
   });
 
   it("leaves every ordinary module alone", () => {
-    // jsdsp is the one worth naming: it is also authored rather than scanned, and a gate that
-    // confused the two is exactly how every migrated module once vanished from a compile.
+    // jsdsp is the one worth naming: it is also authored rather than scanned.
     expect(isOfflineModule({ plugin: { type: "jsdsp" } })).toBe(false);
     expect(isOfflineModule({ plugin: { type: "vst3" } })).toBe(false);
     expect(isOfflineModule({})).toBe(false);
@@ -48,8 +47,7 @@ describe("what it refuses, before anything is rendered", () => {
   });
 
   it("names a model this machine has not got as a machine problem, and says where", () => {
-    // The distinction that matters: this one is fixed by downloading a file, the one above by
-    // editing a module.yaml. Same refusal would send the reader to the wrong place.
+    // This one is fixed by downloading a file, the one above by editing a module.yaml.
     expect(() => coldStepOf("sep", mod({ onnx: undefined }))).toThrow(
       /not on this machine.*\.studio[\\/]models|not on this machine/,
     );
@@ -68,8 +66,7 @@ describe("what it refuses, before anything is rendered", () => {
 
 describe("where the outputs go", () => {
   it("is stems/ under the song's folder, not beside the master", () => {
-    // scanSongs takes the first audio file in a folder as the master and does not descend, so
-    // a stem laid alongside could be played in place of the mixdown.
+    // scanSongs takes the first audio file in a folder as the master and does not descend.
     expect(
       coldOutDir(join("songs", "Artist", "Album", "Title", "original.wav")),
     ).toBe(join("songs", "Artist", "Album", "Title", STEMS_DIR));
@@ -92,8 +89,7 @@ describe("running them", () => {
   });
 
   it("stops at the first failure instead of collecting it", async () => {
-    // A render that followed a silently-skipped step would apply a chain missing its first
-    // treatment — the failure mediatekChain refuses a missing module to avoid.
+    // A render after a silently-skipped step would apply a chain missing its first treatment.
     const seen: string[] = [];
     await expect(
       runColdPasses(

@@ -43,8 +43,7 @@ export function GraphPanel({
   trackId: string | null;
   // The engine's track order; the live-signal set is derived off the store (see ChainsTab).
   trackOrder: string[];
-  /** …and when each video lane shows a picture, which nothing meters — straight through, for the
-   *  panel that happens to be looking at a subgraph holding one. See ../videoSpans.ts. */
+  /** …and when each video lane shows a picture, which nothing meters — straight through, for a subgraph holding one (../videoSpans.ts). */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
@@ -65,19 +64,10 @@ export function GraphPanel({
   engineWarnings?: Record<string, string>;
   // Right-click a node → the shell opens its context menu.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /**
-   * The live values, and the way back.
-   *
-   * This panel had NEITHER, and was the only host of DomChains in the repo without them. A
-   * widget with no store falls back to `n.params` — the number the project file declares,
-   * never the one the engine holds — and a widget with no setter is still draggable: it moves
-   * its optimistic override and sends nothing, with no frame arriving to correct it. It looked
-   * like it worked. See ../../docs/chainsGraph.md.
-   */
+  /** The live values, and the way back: without them a widget draws the FILE's number and a drag sends nothing (../../docs/chainsGraph.md). */
   pluginParamsStore: PluginParamsStore;
   setPluginParam: (id: string, name: string, value: number) => void;
-  /** …and the third source, for the modules the engine holds NOTHING of. Same prop, same
-   *  reason as ChainsTab's: without it a tempo node draws its file's number forever. */
+  /** …and the third source, for the modules the engine holds NOTHING of — without it a tempo node draws its file's number for ever. */
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
   onTrackToggle?: (trackId: string, control: "mute" | "solo" | "arm") => void;
@@ -87,19 +77,13 @@ export function GraphPanel({
     value: number,
   ) => void;
 }) {
-  // Parked HERE, because App mounts this panel conditionally: it is torn down every time the
-  // panel is closed, and a camera held inside it would be a fresh frame on every reopen. Same
-  // rule as ChainsTab's, and the reason DomChains takes the ref rather than owning it.
+  // Parked HERE, because App mounts this panel conditionally: a camera held inside it would be a fresh frame on every reopen.
   const camStore = useRef<Cam | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  // Re-asked when the project moves, and again on a backoff while the service is not answering —
-  // see useDocument. This pane is read far more than it is edited, so a failure with nothing to
-  // lift it would sit here until a command happened along.
+  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
   const { doc: graph, error } = useDocument(() => api.graph(), reloadKey);
 
-  // The session memory ChainsTab keeps, for the same reason: an edit must not reorganize
-  // the picture under the pointer. Per TRACK — another track is another picture — and
-  // emptied by `graph organize` (organizeKey), the one reorganizing operation.
+  // The session memory ChainsTab keeps, per TRACK — another track is another picture — and emptied by `graph organize`.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
   const prevScope = useRef<string | number>("");
   const laid = useMemo(() => {
@@ -112,9 +96,7 @@ export function GraphPanel({
       prevScope.current = scope;
       prevLaid.current = null;
     }
-    // The pins apply here too: the panel is a window onto the same graph, and a module the
-    // person placed must not sit somewhere else depending on which pane is looking. After an
-    // organize they are simply gone from the file, so nothing needs suppressing here.
+    // The pins apply here too: the panel is a window onto the same graph, and a placed module must not move with the pane.
     const out = layout(
       nodes,
       edges,
@@ -130,8 +112,7 @@ export function GraphPanel({
   // A chain selected on one track means nothing once the caret moves to another.
   useEffect(() => setSelected(null), [trackId]);
 
-  // The rack pads light here too: this panel draws the same nodes, so it owes them the same
-  // answer. The hook is the whole wiring — see rackLit.ts.
+  // The rack pads light here too: this panel draws the same nodes, so it owes them the same answer (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
 
   const body = () => {

@@ -41,11 +41,7 @@ export function MasteringTab({
   setPluginParam: (id: string, name: string, value: number) => void;
   watchPluginParams: (id: string, on: boolean) => void;
 }) {
-  /**
-   * The compiled chains, fetched here on the revision token — the same call `SurfaceTab` and
-   * `ChainsTab` make, and for the same reason: `App`'s `seedGraph` is the graph a writing command
-   * handed back, which is a different thing from "the project's current graph".
-   */
+  /** The compiled chains, fetched here on the revision token — `App`'s `seedGraph` is a command's answer, not the project's current graph. */
   const rev = useRevision();
   const [graph, setGraph] = useState<WebGraph | null>(null);
   useEffect(() => {
@@ -53,8 +49,7 @@ export function MasteringTab({
     let alive = true;
     api
       .graph()
-      // A project that will not compile still has a strip worth drawing: the bindings resolve to
-      // nothing and say so, which is the screen you fix it from.
+      // A project that will not compile still has a strip worth drawing: the bindings say so, and it is the screen you fix it from.
       .then((g) => alive && setGraph(g))
       .catch(() => alive && setGraph(null));
     return () => {
@@ -70,21 +65,7 @@ export function MasteringTab({
   const missing = useMemo(() => unmappedControls(mapping), [mapping]);
   const modules = useMemo(() => mappedModules(mapping), [mapping]);
 
-  /**
-   * Ask the engine to REPORT the plugins this strip draws.
-   *
-   * Nothing arrives otherwise: a plugin's values are pushed only while something is watching it,
-   * so without this every knob would sit on its `home` for as long as the project is open and
-   * look like a working control that the engine simply disagreed with.
-   *
-   * The effect is keyed by a SERIALISED list rather than by the array: `bindings` is a fresh array
-   * on every graph fetch, so an effect depending on it would unwatch and re-watch on each poll — a
-   * subscription that flickers twenty times a minute over a set of ids that has not changed.
-   *
-   * JSON rather than a joined string, so there is no separator to collide with: a plugin id is
-   * `chain:module`, and picking a character on the grounds that no name contains it today is how a
-   * watch quietly starts covering half a plugin.
-   */
+  /** Ask the engine to REPORT the plugins this strip draws — keyed by a SERIALISED list, so a fresh array per poll does not re-watch. */
   const watchKey = useMemo(
     () => JSON.stringify([...new Set(bindings.map((b) => b.pluginId))].sort()),
     [bindings],
@@ -97,9 +78,7 @@ export function MasteringTab({
     };
   }, [watchKey, watchPluginParams]);
 
-  // The GATE. A strip with an unwired control is the same strip with a knob that does nothing,
-  // and a knob that does nothing is the hardest thing on a screen to diagnose — so the surface
-  // says what it is missing instead of drawing itself. See ../mastering/controls.ts.
+  // The GATE: a knob that does nothing is the hardest thing on a screen to diagnose, so the surface says what it is missing instead.
   if (missing.length)
     return (
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-auto p-6 text-sm">
@@ -122,8 +101,7 @@ export function MasteringTab({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-auto p-4">
-      {/* Which node this is a picture of. One line, and it is the thing worth knowing first:
-          every knob below is on that module, and the graph underneath is where to check it. */}
+      {/* Which node this is a picture of, worth knowing first: every knob below is on that module (docs/mastering.md). */}
       <p className="shrink-0 text-xs text-muted-foreground">
         {modules.length === 1 ? (
           <>
@@ -159,9 +137,7 @@ export function MasteringTab({
         ))}
       </div>
 
-      {/* The lines that named something the project has not got. Reported rather than dropped:
-          this file names THIS project's own nodes, so a line that will not resolve is a typo
-          somebody made about their own project. */}
+      {/* Lines naming something the project has not got, reported rather than dropped: they are typos about the person's own project. */}
       {problems.length > 0 && (
         <ul className="shrink-0 list-inside list-disc text-xs text-destructive">
           {problems.map((p) => (
@@ -194,8 +170,7 @@ function Part({
       {has ? (
         <div className="flex flex-col gap-2">{children}</div>
       ) : (
-        // Every control is required, so this is only reachable while the graph has not arrived or
-        // will not compile — a box that says so beats three empty rectangles.
+        // Every control is required, so this is only reachable while the graph has not arrived or will not compile.
         <p className="text-xs text-muted-foreground">
           aucun de ses réglages ne se résout pour l'instant
         </p>
@@ -204,12 +179,7 @@ function Part({
   );
 }
 
-/**
- * One control: a slider in the param's own units, with the number it is about to send.
- *
- * Subscribed to ITS param and nothing else, so the ~20 frames a second the engine pushes for this
- * plugin end at `Object.is` for the nine knobs that did not move.
- */
+/** One control: a slider in the param's own units, subscribed to ITS param alone, so the nine knobs that did not move end at `Object.is`. */
 function Knob({
   binding,
   store,
@@ -220,8 +190,7 @@ function Knob({
   onSet: (id: string, name: string, value: number) => void;
 }) {
   const live = usePluginParamValue(store, binding.pluginId, binding.param);
-  /** The hand's value while a gesture is in flight. Optimistic, and dropped as soon as the engine
-   *  agrees — an override that never yields is a control that has stopped listening. */
+  /** The hand's value while a gesture is in flight — optimistic, and dropped as soon as the engine agrees. */
   const [held, setHeld] = useState<number | undefined>(undefined);
   useEffect(() => {
     if (held !== undefined && engineAgrees(binding, held, live))
@@ -231,8 +200,7 @@ function Knob({
   const { min, max, step } = masterRange(binding);
   const { label, unit, home } = binding.control;
   const value = shownValue(held, live) ?? Math.min(max, Math.max(min, home));
-  // A step of 1 or more is a whole number; anything finer keeps one decimal. Reading a crossover
-  // as "3000.0 Hz" is noise, and a ceiling as "0 dB" when it is at −0.3 is a lie.
+  // A step of 1 or more is a whole number, anything finer keeps one decimal: a ceiling shown as '0 dB' when it is at −0.3 is a lie.
   const shown = step >= 1 ? Math.round(value) : value.toFixed(1);
 
   return (

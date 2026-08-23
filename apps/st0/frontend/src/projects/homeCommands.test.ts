@@ -75,8 +75,7 @@ function harness(
   const refused: string[] = [];
   let changes = 0;
   const gripe = over.gripe ?? null;
-  // Annotated rather than cast: the fakes are then CHECKED against the real signatures, which is
-  // what makes "the dispatcher calls this with the open workspace" a claim about the real acts.
+  // Annotated rather than cast: the fakes are then CHECKED against the real signatures, which is what makes the claim about the real acts.
   const acts: HomeActs = {
     create: async (m, w, folder, _onStep, shape) => {
       seen.create.push([m, w, folder, shape]);
@@ -135,8 +134,7 @@ describe("the catalogue", () => {
         // A description that merely echoes the name teaches nothing and matches the same letters.
         expect(s.toLowerCase(), c.canonical).not.toBe(c.canonical);
         expect(s.length, `${c.canonical} (${lang})`).toBeGreaterThan(8);
-        // The row is the sentence with the name at the right of it: past 60 it is a truncated
-        // row, or a list that wraps into a wall.
+        // The row is the sentence with the name at the right of it: past 60 it is a truncated row, or a list that wraps into a wall.
         expect(s.length, `${c.canonical} (${lang})`).toBeLessThanOrEqual(60);
       }
     }
@@ -226,8 +224,7 @@ describe("what a field offers", () => {
   });
 
   it("offers SYNC what the machine holds, not what pl8 registers", () => {
-    // A clone added by hand is one you can still commit and push; it is the register that is
-    // missing a row, and offering only registered names would hide the workspace it is about.
+    // A clone added by hand is still one you can commit and push; offering only registered names would hide the workspace it is about.
     const local = { ...ctx, workspaces: [ws("local-only", [], null)] };
     expect(homeArgValues("system repo sync", 0, local)).toEqual(["local-only"]);
   });
@@ -313,8 +310,7 @@ describe("project delete, in two halves", () => {
   });
 
   it("is DISARMED by any command in between", async () => {
-    // The same rule the graph's pending insert follows: an armed destructive verb must not sit
-    // waiting behind three unrelated lines.
+    // The same rule the graph's pending insert follows: an armed destructive verb must not sit waiting behind three unrelated lines.
     const h = harness();
     await h.run("project delete init hiver");
     await h.run("system repo sync songs");

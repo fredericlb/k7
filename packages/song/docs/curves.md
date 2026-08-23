@@ -94,6 +94,42 @@ range, which the engine maps onto the param.
   sum. Coincident corners are nudged by 1e-6 beats rather than dropped, so a zero-length stage
   draws as the vertical step it is.
 
+### Details of the bake
+
+`adsrUnit` is written as a function of ELAPSED time rather than of song position, because that is
+what an envelope IS: the trigger decides where it starts, and the function decides nothing but its
+shape. All four ADSR stages are durations, sustain included (`AdsrCurveSchema` says why a baked
+envelope cannot hold until a note-off it will never be told about); `level` is where decay lands and
+sustain holds, and it is the only value that is not a time.
+
+`sampleCurve` answers **0** for an ADSR. It has no value at a song position, only at a time since a
+trigger, which that signature knows nothing about — untriggered is silent, and `bakeAdsr` is what
+places it against the events. `bakeCurve` likewise emits a flat 0 for one, which keeps it total over
+the union.
+
+`bakeAdsr` emits five points per trigger — the corners of the shape — because the engine
+interpolates between breakpoints and every stage is a straight line; sampling on a grid would be
+both coarser and larger. A trigger arriving before the last envelope has finished CUTS it: the
+running shape is held at the value it had reached, then the new one starts from 0 at its own
+instant. One automation lane is one parameter and one parameter has one value, so the two cannot
+sum. (A per-VOICE envelope, where overlapping notes each keep their own, is what the plugin's own
+matrix does and what this deliberately is not.) The cut is taken at the value the shape had actually
+reached, so the line into it is the envelope's own rather than a shortcut from the corner before,
+and a corner strictly past the next trigger is what triggers it — an envelope ENDING exactly where
+the next starts has nothing left to cut.
+
+**A coincident corner is NUDGED past the beat, never dropped.** Dropping was the first rule and it
+was wrong: a zero-length stage puts two corners on one beat, so an instant attack popped the point
+before it — which, where one envelope's release meets the next one's trigger, was the release's own
+landing. The ramp down vanished and the parameter simply stayed up. A vertical pair a microbeat
+apart IS what an instant stage looks like, and the engine interpolates it as the step it is.
+Coincident AND the same value is the one case still dropped: it says nothing the point before it did
+not — two zero-length stages in a row, or one envelope ending where the next begins.
+
+An ADSR's stages each default to 0 but the level: an envelope with no times written is an instant
+spike, which is a legible thing to see and fix. A missing LEVEL is not — it would mean a decay to
+silence and a sustain that holds nothing.
+
 ## What reaches the browser
 
 Two documents carry two different halves, and neither carries the bake:
@@ -111,6 +147,29 @@ arrow into the named param, the timeline draws the shape as a row under the lane
 points per bar would be thousands of numbers on a document the graph pane refetches on every
 reload — to draw a figure its own card already names in two words. A row for an LFO or an ADSR
 still appears, because the binding is real and worth seeing, and draws an empty line.
+
+## The two scaffolds
+
+`createCurveFile` writes an **LFO**, because it is the shape with useful defaults: a `custom` curve
+with no points is not a curve at all, and one invented for you would be a guess about the song. A
+sine at one cycle per bar is immediately audible once bound, which is what tells you the binding
+worked.
+
+`createFlatCurveFile` writes the **custom** one `track automation add` starts from — two points at
+the same value, at the song's start and at `endTc`, so the lane is a horizontal line you can grab
+rather than a single dot that says nothing about a slope. Custom rather than an LFO because this one
+is going to be EDITED: an LFO is a shape you parameterise, a custom curve is a shape you draw, and a
+lane on the timeline is the second. `value` is the param's CURRENT normalised position and it is the
+caller's business to know it — which is why there is no default to fall back on.
+
+Both REFUSE rather than overwrite: a curve someone is already using is not a thing to silently
+replace, and the caller wants to know the name is taken. The filename IS the id, so it has to be one
+a path and a reference can both carry.
+
+`editCurveFile` is the seam `curve point add|move|remove` acts through. A transform returning null
+means "nothing was there at that address", which the caller reports by name; returning the text
+unchanged writes nothing, so a no-op edit stays out of the journal exactly as a drag that ends where
+it started does.
 
 ## Editing the shape: `curve point add|move|remove`
 

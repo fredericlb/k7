@@ -28,14 +28,7 @@ export const EXTS_PATH = join(homedir(), ".studio", "exts.json");
 export interface ScannedPlugin {
   name: string;
   format: string;
-  /**
-   * The binary the scan found it in — JUCE's `fileOrIdentifier`, written by `PluginScan.cpp`.
-   *
-   * The one field here that ADDRESSES a plugin rather than describing it: asking the engine to
-   * load one and list its parameters resolves this and not the name, because two plugins can
-   * share a display name and only a path names one. Nothing that files or draws a module needs
-   * it, which is why it went unread for as long as it did.
-   */
+  /** JUCE's `fileOrIdentifier` — the one field that ADDRESSES a plugin, see docs/enginePlugin.md. */
   id?: string;
   manufacturer?: string;
   role?: string; // "instrument" | "audioEffect" | "midiEffect"
@@ -43,17 +36,10 @@ export interface ScannedPlugin {
   category?: string; // the plugin's own, e.g. "Fx|Delay" or "instrument|synth"
 }
 
-// Memoised per FILE: the machine's cache is read on the graph's hot path, and a test
-// points at a fixture instead — one cache would make the two evict each other.
+// Memoised per FILE, so the machine's cache and a test's fixture cannot evict each other.
 const memo = new Map<string, { stamp: string; plugins: ScannedPlugin[] }>();
 
-/**
- * Every scanned plugin, memoised on the cache file's mtime+size.
- *
- * EMPTY means "we cannot say", not "nothing is installed" — a machine that has never run
- * a scan, or a corrupt file, both land here, and a caller that read it as "installed:
- * none" would paint every plugin in every project as missing.
- */
+/** Every scanned plugin; EMPTY means "we cannot say", not "none installed" — docs/enginePlugin.md. */
 export function scannedPlugins(file = EXTS_PATH): ScannedPlugin[] {
   if (!existsSync(file)) return [];
   let stamp: string;
@@ -84,8 +70,7 @@ export function scannedPlugins(file = EXTS_PATH): ScannedPlugin[] {
   } catch {
     return []; // a corrupt cache reads as "unknown", not as "empty"
   }
-  // Sorted so a map built from this is stable across runs — the order the scan happened
-  // to write is not something a project's refs should depend on.
+  // Sorted so a map built from this is stable across runs, whatever order the scan wrote.
   plugins.sort(
     (a, b) => a.name.localeCompare(b.name) || a.format.localeCompare(b.format),
   );
@@ -102,11 +87,7 @@ export function scannedPluginKeys(file = EXTS_PATH): Set<string> {
   return new Set(scannedPlugins(file).map((p) => scanKey(p.format, p.name)));
 }
 
-/**
- * Does the engine know this external plugin? `format` is the authored plugin.type
- * ("vst3", "au", …) and `name` the plugin's real name. False only when the cache is
- * non-empty and the pair is absent, so a machine that has never scanned answers true.
- */
+/** Does the engine know this external plugin? False only against a NON-EMPTY cache — docs/enginePlugin.md. */
 export function isPluginScanned(
   format: string,
   name: string,
@@ -125,23 +106,10 @@ export function scannedPluginNames(file = EXTS_PATH): Record<string, string[]> {
   return names;
 }
 
-// The ref vocabulary moved to moduleTypes.ts — the leaf with no filesystem — so a BROWSER can name an
-// engine module without pulling this file's `node:fs` in behind it (see engineFace.ts, which does).
-// Re-exported because this is where every existing caller already looks for it. IO_MODULES moved
-// for the same reason and one more: the BUILDER has to recognise `extends: "@engine/IN"` to know it
-// is editing an input, and it runs in a browser (see ui-module-builder/docs/inputChannels.md).
+// The ref vocabulary lives in moduleTypes.ts so a BROWSER can name an engine module — docs/enginePlugin.md.
 export { ENGINE_NS, engineRef, IO_MODULES };
 
-/**
- * Every module the engine offers, keyed by ref — the scanned plugins plus IN and OUT.
- *
- * `plugin.type` is the scanned FORMAT, lowercased, and nothing else. `module populate`
- * wrote `internal` whenever the role was "instrument", which mislabelled all forty VST3
- * instruments on this machine — a wrapper for one claimed to be a built-in, and the engine
- * would have gone looking for a built-in by that name. Nothing hit it because the projects
- * that use those plugins declare them inline; the rule is simply wrong, and this is the
- * one place it is now stated.
- */
+/** Every module the engine offers, keyed by ref — the scanned plugins plus IN and OUT. */
 export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
   const out: Record<string, LoadedModule> = {};
   for (const [name, { io }] of Object.entries(IO_MODULES))
@@ -153,9 +121,7 @@ export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
       file: name,
     };
   for (const p of scannedPlugins(file)) {
-    // The ref and the plugin block come from moduleTypes, which is also what the médiathèque's
-    // browser applies to the scan reported over the socket — one rule, so the two cannot spell
-    // the same plugin differently.
+    // The ref and the plugin block come from moduleTypes, the one rule the browser applies too.
     const named = engineModuleOf(p);
     if (!named) continue;
     const { ref, plugin } = named;
@@ -165,8 +131,7 @@ export function engineModules(file = EXTS_PATH): Record<string, LoadedModule> {
     out[ref] = {
       plugin,
       kind: meta.kind,
-      // The type's defaults, and only those: a SCANNED plugin has no file to declare ports in.
-      // What it really offers is the plugin's business, and the engine is what would know.
+      // The type's defaults and only those: a SCANNED plugin has no file to declare ports in.
       inputs: meta.inputs,
       outputs: meta.outputs,
       category,

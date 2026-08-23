@@ -4,8 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { sortNodes } from "./tree";
 
-// The minimum the comparator reads — a folder row and a file row differ only by `children`,
-// which is what both trees hand it.
+// The minimum the comparator reads: a folder row and a file row differ only by `children`.
 interface Node {
   name: string;
   children?: Node[];
@@ -23,8 +22,7 @@ describe("sortNodes", () => {
     expect(names(sorted[1].children ?? [])).toEqual(["a", "b"]);
   });
 
-  // Folders and files mixed: a tree that grouped them would order by a thing you cannot see
-  // from the name you are looking for.
+  // Folders and files mixed: grouping them orders by a thing you cannot see from the name you want.
   it("mixes folders and files", () => {
     const sorted = sortNodes<Node>([
       { name: "solo.wav" },

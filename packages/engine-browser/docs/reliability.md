@@ -92,6 +92,31 @@ souscriptions et avant la file, puisque les unes et l'autre parlent d'un documen
 n'a pas encore. C'est bon marché : `EngineHost::apply` diffe contre une baseline qui survit à
 la coupure, donc un renvoi rend un diff correct plutôt qu'un rechargement complet.
 
+Le `hello` qui précède tout ça porte `role: "driver"`, et c'est un champ plutôt qu'un verbe à
+part exprès : le moteur compte ses pilotes par session et libère un projet dont le dernier est
+parti, donc une reconnexion qui ne se redéclarerait pas ferait lâcher au moteur le document
+même que la ligne suivante s'apprête à rejouer. En faire un champ de `hello`, c'est le rendre
+impossible à oublier — toute connexion en envoie un.
+
+### Qui appelle `sendProject`, et ce qui n'est pas plié
+
+st0 ne l'appelle jamais : ses documents sont **compilés** depuis un dossier de YAML, ce que fait
+le service de fichiers, donc son navigateur ne pilote que le transport. Une app qui construit
+elle-même son document (un aperçu de module, une platine) n'a rien à compiler et aucune raison
+de passer par un second processus pour atteindre une socket qu'elle tient déjà.
+
+Le document part **tel quel**. Le client Node, lui, replie les groupes sur leurs membres et
+retire la vidéo avant d'envoyer ; un document issu de `@studio/engine-protocol/build` n'a ni
+l'un ni l'autre, donc les deux replis y sont l'identité. Repliez avant d'appeler si le vôtre
+peut en avoir.
+
+## Le fil d'activité
+
+`BeginActivity` marque une tranche de travail et rend son callback de fin. Le moteur pousse son
+état à la cadence de l'image et les paramètres à 20 Hz : un gestionnaire devenu lent est donc
+invisible dans un profil pris après coup, et évident dans un rapport de blocage. Savoir si
+quelqu'un regarde est l'affaire de l'hôte, pas de ce client — d'où le défaut qui ne fait rien.
+
 ## Un seul budget pour joindre un moteur
 
 `ENGINE_REACH_BUDGET_MS` et `ENGINE_DIAL_TIMEOUT_MS` vivent dans `@studio/web-protocol` parce

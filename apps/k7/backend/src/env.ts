@@ -9,19 +9,9 @@ const raw = defineEnv(
     GRIST_API_URL: z.string().optional(),
     GRIST_DOC_ID: z.string().optional(),
     GRIST_API_KEY: z.string().optional(),
-    // Where a session's audio LIVES, since it stopped being a Grist attachment. Defaulted
-    // to the médiathèque's FIXED address — every studio service sits at a known path under
-    // one origin, so there is nothing to choose and a deployment sets nothing.
-    //
-    // A CHECKOUT is the exception, and `npm run tokens` writes it: everything is behind
-    // a private CA there, whose local CA node does not trust, so this
-    // server-to-server call takes the loopback port instead (verified: fetching
-    // https://st0.priv.frediver.se from node fails with UNABLE_TO_GET_ISSUER_CERT_LOCALLY, in the
-    // browser beside it works). See docs/tokens.md.
+    // Where a session's audio lives; a CHECKOUT is the exception — ../../docs/audio.md.
     MEDIATEK_URL: z.string().default(serviceUrl(STUDIO_ORIGIN, "pl8")),
-    // Written by `npm run tokens` too — signed with the médiathèque's own API_TOKEN_SECRET,
-    // which that script generates. Without it the library refuses the push: its routes are
-    // behind a session or a bearer, never open.
+    // Written by `npm run tokens`; without it the library refuses the push, never being open.
     MEDIATEK_TOKEN: z.string().optional(),
   },
   { service: "k7-backend" },

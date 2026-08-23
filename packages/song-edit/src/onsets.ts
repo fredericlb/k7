@@ -9,29 +9,13 @@ export interface OnsetEdits {
   removed?: number[];
 }
 
-/**
- * How close a removal has to be to a detected onset to be understood as "that one".
- *
- * A removal names a time, and the detector that produced that time will not reproduce it exactly at another
- * sensitivity: the same drum hit comes back a bucket earlier or later. Matching exactly would make every
- * removal fall off the moment the threshold moved — which is precisely the case this whole file exists for.
- *
- * 25 ms is a little under a 64th at 120 bpm, and comfortably wider than the bucket a detection lands in. Two
- * genuinely separate hits closer together than that are not two things a person is pointing at individually.
- */
+/** How close a removal must be to a detected onset to mean "that one" — a detection moves with the threshold. */
 export const ONSET_MATCH_S = 0.025;
 
 const near = (a: number, b: number): boolean =>
   Math.abs(a - b) <= ONSET_MATCH_S;
 
-/**
- * The onsets to draw and to slice on: `detected`, minus what was removed, plus what was added — sorted, and
- * with the near-duplicates a merge can produce collapsed.
- *
- * An addition that lands on a detected onset is dropped rather than doubled: it means the detector caught up
- * with the correction (raise the sensitivity and the hit you added by hand appears on its own), and two pins a
- * millisecond apart are one pin nobody can grab.
- */
+/** The onsets to draw: `detected` less what was removed, plus what was added, near-duplicates collapsed. */
 export function resolveOnsets(
   detected: readonly number[],
   edits: OnsetEdits | undefined,
@@ -45,13 +29,7 @@ export function resolveOnsets(
   return out.sort((x, y) => x - y);
 }
 
-/**
- * The edits after removing the onset at `atSec`.
- *
- * Removing something the user added is an UNDO of that addition, not a new removal on top of it — otherwise
- * the two lists grow against each other and the file fills with pairs that cancel out. Removing a DETECTED
- * onset is what `removed` is for.
- */
+/** The edits after removing the onset at `atSec` — removing an ADDED one undoes the addition. */
 export function removeOnset(
   edits: OnsetEdits | undefined,
   detected: readonly number[],
@@ -61,8 +39,7 @@ export function removeOnset(
   if (added.length !== (edits?.added ?? []).length)
     return tidy({ added, removed: edits?.removed });
 
-  // A detected one: name it by the DETECTED time rather than by wherever the pointer was, so the record says
-  // which onset was refused and keeps matching it after a re-detection.
+  // A detected one is named by the DETECTED time, so it keeps matching after a re-detection.
   const hit = detected.find((d) => near(d, atSec)) ?? atSec;
   return tidy({ added, removed: [...(edits?.removed ?? []), hit] });
 }

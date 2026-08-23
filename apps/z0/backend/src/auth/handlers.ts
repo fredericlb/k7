@@ -9,8 +9,7 @@ import {
   setSessionUser,
 } from "./session.ts";
 
-// POST /auth/logout — ours rather than @frediverse/oidc's, which answers
-// {ok:true}; the SPAs expect a bare 204.
+// POST /auth/logout — ours, not @frediverse/oidc's: the SPAs expect a bare 204, not {ok:true}.
 export function handleAuthLogout(req: Request, res: Response): void {
   clearSession(req);
   res.status(204).end();
@@ -22,9 +21,7 @@ const constantTimeEqual = (a: string, b: string): boolean => {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 };
 
-// POST /auth/guest — session-scoped guest login for the buzzer SPA (auth.go's
-// handleAuthGuest): validates the per-session password from Grist and issues a
-// kind="guest" cookie. Gated on registration being open.
+// POST /auth/guest — the buzzer's door: the session password, and only while registration is open.
 export function handleAuthGuest(req: Request, res: Response): void {
   const password = String(req.body?.password ?? "");
   const rawName = String(req.body?.name ?? "").trim();
@@ -52,8 +49,7 @@ export function handleAuthGuest(req: Request, res: Response): void {
   res.json({ ok: true, kind: "guest", name });
 }
 
-// GET /auth/me — session introspection plus the public flags the SPAs need to
-// render their login gates (auth.go's handleAuthMe).
+// GET /auth/me — the principal, plus the public flags a login gate needs to draw itself.
 export function handleAuthMe(req: Request, res: Response): void {
   const guestEnabled =
     gameState.sessionProgress !== null &&

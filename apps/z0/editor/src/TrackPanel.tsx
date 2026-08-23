@@ -184,9 +184,7 @@ export function TrackPanel({
         </label>
       </div>
 
-      {/* The escape hatches, and the reason they exist: eleven tracks of the migration have no
-          médiathèque entry at all — series themes with no artist — so a track may name a file
-          in the project or a video, and carry its own artist and title. */}
+      {/* The escape hatches: eleven migrated tracks have no médiathèque entry at all. */}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground">
           Adresse et dérogations
@@ -272,8 +270,7 @@ export function TrackPanel({
             </span>
           </div>
 
-          {/* Setting the bounds from where you are listening — the gesture the numbers above
-              exist for, and the reason the waveform is clickable rather than decorative. */}
+          {/* Setting the bounds from where you are LISTENING, which is why the waveform is clickable. */}
           <div className="flex gap-2">
             <Button
               size="sm"

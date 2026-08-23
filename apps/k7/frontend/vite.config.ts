@@ -3,9 +3,7 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-// Single-origin: the SPA is at /k7 and the backend at /k7/api on the same host.
-// /rtc is the WebRTC signalling socket. The prefix is shorter than the app's name
-// on purpose — `base` is what the dev proxy derives /k7/api and /k7/rtc from.
+// `base` is what the dev proxy derives /k7/api and /k7/rtc from — see ../docs/routing.md.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/k7/",
@@ -18,8 +16,7 @@ export default defineAppConfig({
     plugins: [frediverseParaglide()],
     // The old name still reaches these servers — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
-    // Plain node unit tests (parsers, utilities) — no browser needed. Component
-    // stories live in the single root Storybook (../../../.storybook).
+    // Plain node unit tests; component stories live in the single root Storybook.
     test: { environment: "node", include: ["src/**/*.test.ts"] },
   },
 });

@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { findNotesArray, type Note, parseNotes, renderNotes } from "./notes";
 
-// The seam the piano roll and the tracker both edit through. A grid drag replaces the
-// notes SPAN in the document, so the round-trip has to be exact and the span has to cover
-// the list and nothing else — a byte either side and the transaction eats a key or a
-// neighbouring field.
+// The seam both grids edit through: a drag replaces the notes SPAN, so a byte either side eats a neighbouring field.
 
 describe("parseNotes", () => {
   it("reads the {t,d,k,v} shape, in the block form files are written in", () => {
@@ -76,8 +73,7 @@ describe("findNotesArray", () => {
       { t: 0, d: 1, k: 60 },
       { t: 1, d: 1, k: 62 },
     ]);
-    // Splicing the same notes back in leaves the document as it was — which is what makes
-    // a no-op grid interaction produce no diff.
+    // Splicing the same notes back in leaves the document as it was, so a no-op interaction produces no diff.
     const same =
       doc.slice(0, span.from) +
       renderNotes(parseNotes(doc.slice(span.from, span.to)), span.indent) +
@@ -101,8 +97,7 @@ describe("findNotesArray", () => {
   });
 
   it("is null while the file doesn't parse, rather than guessing at a span", () => {
-    // Mid-keystroke. A guessed span would have the next transaction write into the wrong
-    // range — the one failure this must never produce.
+    // Mid-keystroke: a guessed span would have the next transaction write into the wrong range.
     expect(findNotesArray("notes:\n  - { t: 0, d:")).toBeNull();
   });
 });

@@ -44,13 +44,7 @@ export function listVideoPlacements(text: string): VideoPlacement[] {
   return out;
 }
 
-/**
- * Set one numeric field of the placement whose `ref` is `ref`. Returns the new text, or the
- * text unchanged when there is no such placement.
- *
- * By REF, not by index: the strip is keyed by ref, and a placement that moved in the file
- * between render and drag is still the one the user grabbed.
- */
+/** Set one numeric field of the placement whose `ref` is `ref` — by REF and not by index, since a drag grabbed a strip. */
 export function setVideoPlacementField(
   text: string,
   ref: string,
@@ -74,20 +68,7 @@ export function setVideoPlacementField(
   return doc.toString({ lineWidth: 0 });
 }
 
-/**
- * Insert or delete `lenSeconds` of time at `atSeconds` on a video lane.
- *
- * Picture is DECIMAL SECONDS — no tempo map ever reaches it — so the caller converts the song's
- * beats once and hands the result down. Exact, because there is one tempo.
- *
- * By INDEX, unlike `setVideoPlacementField` above, and that is the point: a ref may appear twice
- * on one lane (the same shot placed twice), and this has to move both. The by-ref address is
- * right for a drag, where the user grabbed a particular strip; it is wrong for an operation on
- * the whole timeline, which is about every placement there is.
- *
- * Same rule as the lanes: by the placement's own `start`. Deleting drops the placements that
- * start inside the span and shifts the rest back, so insert-then-delete is a round trip.
- */
+/** Insert or delete seconds on a video lane, by INDEX since a ref may be placed twice — the lanes' rule otherwise. */
 export function spliceVideoTime(
   text: string,
   atSeconds: number,
@@ -116,8 +97,7 @@ export function spliceVideoTime(
     const from = mode === "delete" ? end : atSeconds;
     if (start < from - 1e-6) continue;
     const next = start + (mode === "delete" ? -lenSeconds : lenSeconds);
-    // Milliseconds, the same rounding a drag writes — so a splice and a drag leave the file in
-    // the same shape and a round trip compares byte for byte.
+    // Milliseconds, the same rounding a drag writes, so a round trip compares byte for byte.
     doc.setIn(["events", i, "start"], Math.round(next * 1000) / 1000);
     moved++;
   }

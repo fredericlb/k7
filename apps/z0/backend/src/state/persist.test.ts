@@ -14,8 +14,7 @@ import {
   startStateWorker,
 } from "./persist.ts";
 
-// A mutable stub Grist doc: full records CRUD so the write-behind worker and
-// the hydrate path can round-trip against it.
+// A mutable stub Grist doc, so the write-behind worker and the hydrate path round-trip for real.
 
 let tables: Record<string, GristRecord[]>;
 let nextId: number;

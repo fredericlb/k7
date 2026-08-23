@@ -33,18 +33,12 @@ export interface CatalogueModule {
   hasUi: boolean;
 }
 
-/**
- * Every generic module of the shared catalogues this project inherits, in ref order.
- *
- * A module with no readable file is dropped rather than listed: the builder's one job is to
- * open it, and an entry that cannot be opened is a row that only ever reports an error.
- */
+/** Every generic module the project inherits, in ref order; an unopenable one is dropped, docs/moduleCatalogue.md. */
 export function moduleCatalogue(dir: string): CatalogueModule[] {
   const roots = sharedRoots(dir);
   const byNs = new Map(roots.map((r) => [r.ns, r.root]));
 
-  // The same roots `sharedRoots` just listed — both read `moduleLibraryDirs`, so the list and
-  // the map it is keyed against cannot disagree about what this project inherits.
+  // The same roots `sharedRoots` listed, both through `moduleLibraryDirs`, so they cannot disagree.
   const refs: Record<string, LoadedModule> = loadModuleRefs(dir);
 
   // The nodes are counted, not listed — they share their generic's panel and its ref.
@@ -57,17 +51,12 @@ export function moduleCatalogue(dir: string): CatalogueModule[] {
   const out: CatalogueModule[] = [];
   for (const [ref, m] of Object.entries(refs)) {
     if (!ref.startsWith("@") || splitModuleKey(ref).node) continue;
-    // `@project/…` is the explicit spelling of a module the project owns, keyed beside its bare
-    // name so both resolve. It is not a CATALOGUE though — this list is what the project inherits
-    // from elsewhere, and its own modules are already the thing doing the inheriting.
+    // `@project/…` is a module the project OWNS, so it is not something inherited from elsewhere.
     if (ref.startsWith("@project/")) continue;
     const [ns, ...rest] = ref.slice(1).split("/");
     const plugin = m.plugin as { name?: unknown } | undefined;
     const root = byNs.get(ns);
-    // A module the ENGINE provides has no folder to open — that is the whole point, and
-    // it is why `path` is optional. One from a shared LIBRARY does, and the builder edits
-    // it; an entry whose file cannot be found is dropped rather than listed as a row that
-    // only ever reports an error.
+    // A module the ENGINE provides has no folder to open, which is why `path` is optional.
     let path: string | undefined;
     if (root) {
       const file = moduleFileFor([root, ...rest].join("/"), "", "module");

@@ -15,8 +15,7 @@ import { useState } from "react";
 import { DomChains } from "./DomChains";
 import { ModuleIcon, moduleGlyph } from "./moduleIcons";
 
-// A track's glyph is the HOST's vocabulary (st0 draws the same one in its mixer), so the package ships none.
-// A coloured dot stands in — enough to see a lane apart from a module.
+// A track's glyph is the HOST's vocabulary, so the package ships none and a coloured dot stands in.
 const icons = {
   ModuleIcon,
   moduleGlyph,
@@ -64,13 +63,7 @@ function Graph({ graph }: { graph: WebGraph }) {
   );
 }
 
-/**
- * A free output and a free input, and a host that ANSWERS — which is what arms the sockets.
- *
- * The crossfade is what makes the bench work at all: every input in a fully wired graph is
- * occupied, so a cable in hand would find nowhere to land and the whole graph would go dark. Fed
- * on `a` only, it offers `b` — one free audio input for the loose end to seek.
- */
+/** A free output and a free input, and a host that ANSWERS — which is what arms the sockets. */
 function Bench() {
   const [wrote, setWrote] = useState<string[]>([]);
   const graph: WebGraph = {
@@ -212,14 +205,7 @@ export const SeveralOutputs: Story = {
   },
 };
 
-/**
- * The one cable that KEEPS its arrowhead.
- *
- * A signal cable ends in a plug and the plug is the socket it disappears into, so a head would be saying
- * something the socket already says. An automation cable does not plug into anything: it leaves the curve's
- * socket like any other, and then lands on a knob in the middle of a card — and a headless line pointing into
- * a widget grid says nothing about which knob it means.
- */
+/** The one cable that KEEPS its arrowhead: it lands on a knob in a widget grid, not in a socket. */
 export const Automation: Story = {
   args: {
     graph: {
@@ -255,14 +241,7 @@ export const Automation: Story = {
   },
 };
 
-/**
- * The one story with the patch gesture ARMED — the sockets are inert everywhere else, because
- * DomChains only arms them for a host that can answer `onConnect`.
- *
- * It is here to be dragged in: press the free output, pull, release on a free input. That is the
- * gesture the graph did not have (packages/ui-chains/docs/cable.md), and the only way to see it is
- * to do it. What it wrote is printed above the graph, so the result is readable without a console.
- */
+/** The one story with the patch gesture ARMED — drag a free output onto a free input, and read what it wrote. */
 export const PatchBench: StoryObj<typeof Bench> = {
   render: () => <Bench />,
 };

@@ -20,13 +20,7 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-/**
- * A real 48 kHz / 2ch / 24-bit header — the shape the engine renders — of about `seconds`.
- *
- * Answers the length it ACTUALLY wrote: a wav holds whole frames, so a duration in seconds is
- * rounded to one, and asserting against the request rather than the file would be testing the
- * fixture's arithmetic instead of the reader's.
- */
+/** A real 48 kHz / 2ch / 24-bit header, answering the length it ACTUALLY wrote in whole frames. */
 function wav(seconds: number): { path: string; seconds: number } {
   const dir = mkdtempSync(join(tmpdir(), "weblen-"));
   dirs.push(dir);

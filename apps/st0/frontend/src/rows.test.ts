@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isCellRow, projectRows, type Row, rowKey, rowTarget } from "./rows";
 import type { WebGroup, WebTrack, WebVideoTrack } from "./types";
 
-// The lane layout, and what each kind of row ADDRESSES — which is what a header click, a
-// mute key and a graph lookup all ask it.
+// The lane layout, and what each kind of row ADDRESSES — what a header click, a mute key and a graph lookup all ask it.
 
 const track = (over: Partial<WebTrack> & { id: string }): WebTrack => ({
   name: over.id,
@@ -54,8 +53,7 @@ describe("projectRows", () => {
   });
 
   it("draws a track whose group does not exist as a plain lane", () => {
-    // The surfaces show what the song HAS, not what it should: a dangling pointer is
-    // something to see, not something to hide behind a header that isn't there.
+    // The surfaces show what the song HAS, not what it should: a dangling pointer is something to see, not to hide.
     const rows = projectRows({ groups: [] }, [
       track({ id: "kick", group: "gone" }),
     ]);
@@ -82,8 +80,7 @@ describe("rowTarget", () => {
   });
 
   it("redirects a generated lane to its GROUP", () => {
-    // The lane is synthesized per tick: no file to open, no chain of its own to frame. Its
-    // group has both — the same redirect m/s make (docs/timeline.md).
+    // The lane is synthesized per tick: no file to open, no chain of its own — its group has both (docs/timeline.md).
     const row: Row = {
       kind: "track",
       track: track({ id: "algo1", group: "beats", generated: true }),
@@ -104,8 +101,7 @@ describe("rowTarget", () => {
   });
 
   it("keeps a video lane apart from an engine track", () => {
-    // It has a file, so a header click can still open it — but it is no track, and the
-    // callers that ask for a mixer command or a chain have to be able to tell.
+    // It has a file, so a header click can open it — but it is no track, and a caller asking for a mixer command must tell.
     expect(rowTarget({ kind: "video", track: videoTrack("cam1") })).toEqual({
       kind: "video",
       id: "cam1",
@@ -115,9 +111,7 @@ describe("rowTarget", () => {
 
 describe("a song that carries picture", () => {
   it("puts the video lanes last, in the order the picture compiled them", () => {
-    // `layers:` is the draw order, bottom first, and the compile has already applied it — the
-    // rows follow it rather than re-sorting, so what stacks on the frame and what stacks in the
-    // timeline cannot disagree.
+    // `layers:` is the draw order, already applied by the compile: the rows follow it, so the frame and the timeline cannot disagree.
     const rows = projectRows(
       { groups: [] },
       [track({ id: "bass" })],
@@ -127,8 +121,7 @@ describe("a song that carries picture", () => {
   });
 
   it("tells a video lane from an audio lane of the same name", () => {
-    // A song is one folder, so `main` can be both a track and a layer. The key is prefixed by
-    // kind for exactly this: an unprefixed one would put the caret on whichever came first.
+    // A song is one folder, so `main` can be both a track and a layer: the key is prefixed by kind for exactly this.
     const rows = projectRows(
       { groups: [] },
       [track({ id: "main" })],
@@ -188,8 +181,7 @@ describe("takes", () => {
   });
 
   it("ADDRESSES nothing — it is not a lane and cannot answer a lane's commands", () => {
-    // Everything downstream of rowTarget asks the engine something: a level, an arm, a chain.
-    // Answering with the lane would mute the LANE from a take's own header.
+    // Everything downstream of rowTarget asks the engine something, and answering with the lane would mute it from a take's header.
     const rows = projectRows({ groups: [] }, [withTakes("gtr", 1)]);
     expect(rowTarget(rows[1] as Row)).toBeNull();
   });
@@ -211,8 +203,7 @@ describe("an automation row", () => {
   });
 
   it("sits under its lane and BEFORE its takes", () => {
-    // A curve is part of what the lane is playing; a take is what it was. Reading down a lane
-    // you meet its sound before its history.
+    // A curve is part of what the lane is playing; a take is what it was. Reading down a lane you meet its sound before its history.
     const gtr = track({
       id: "gtr",
       takes: [{ clips: [] }, { clips: [] }],
@@ -240,8 +231,7 @@ describe("an automation row", () => {
   });
 
   it("ADDRESSES its track, unlike a take", () => {
-    // The knob it draws is part of that lane's sound, so muting or opening from its header means
-    // the lane — the only thing it could sensibly mean.
+    // The knob it draws is part of that lane's sound, so muting or opening from its header means the lane.
     const rows = projectRows({ groups: [] }, [track({ id: "gtr" })], [], {
       gtr: [lane("Level")],
     });

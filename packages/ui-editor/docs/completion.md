@@ -24,6 +24,29 @@ in the whole vocabulary that completed against nothing at all.
 It reads `hints.baseModules` now, which the protocol has carried the whole time and st0's
 backend has been filling from the same scan cache the engine writes.
 
+## The chains vocabulary is POSITIONAL
+
+`chains.yaml` is the one project file whose values are almost entirely names the project
+invented, and since it declares segments there are no field names left to key on: a key under
+`tracks:` or `modules:` is a NODE's own name, and what follows it is a list of destinations. So
+`projectValues` reads the key PATH rather than the field.
+
+Three rules fall out of that, and each is a thing deliberately *not* offered:
+
+- **a chain name is never a destination.** A bus is reached by naming the module it starts at,
+  so offering the derived chain name as well would be two spellings for one arrow, and only one
+  of them resolves.
+- **a segment leaving a MODULE may also land on a track**, which is how a live input is wired:
+  the input is the node the run starts at, and the track is where its signal arrives. Not
+  offered under `tracks:` — a track's signal never lands on another track.
+- **`bypassed` lists modules and nothing else.** A track cannot be switched out of its own
+  chain, and a sink has nothing to pass through.
+
+With no hints at all the answer is an empty list rather than a guess: the editor mounts before
+the first hints arrive, and empty means "free text", which is the honest answer then. A project
+value may also only ever fill a field a schema left OPEN — a `module.yaml` has its own `type`
+and `io` enums and keeps them, so the chain vocabulary cannot spill into another kind of file.
+
 ## The third layer, and why the path cannot always say
 
 `schemaVocabulary(path, hints)` is the adapter to a **studio project**: it maps a path to a
@@ -88,6 +111,31 @@ one — so `@engine/de-rez` and a band called `-M-` both arrive quoted, and `pla
 
 The **label** stays bare. The quotes are punctuation; showing them in the list would be showing
 YAML rather than names.
+
+## The parse budget, and why nothing here uses it
+
+CodeMirror builds a state by parsing only the first 3000 characters under a 20 ms budget, and
+keeps whatever it got. Reading that tree found a THIRD of an 8.5 kB `chains.yaml` and reported
+no error at all — every link and every gutter mark past the cut simply went dark, which reads as
+the editor having given up rather than as a truncated parse.
+
+So `parseTree.ts` forces the parse: through the caret for completion, and over the whole
+document for the walks that answer about all of it (`entityValues.ts`, `previewTriggers.ts`). It
+falls back to the budgeted tree if even that times out — a short answer beats no answer, and the
+caller has none better to give. The same budget is why a loaded CI runner once returned an empty
+tree for a two-line file: the first parse in a cold worker builds the parse tables, and 20 ms
+does not always cover that.
+
+## Links follow the same SECTION rule
+
+`entityLinks.ts` resolves a ctrl-clickable name the same way the vocabulary does. `chains.yaml`
+used to spell its references as fields — `{ track: vo.jo }, { module: eq_dj:vox }` — so "which
+fields link" was a table of field names. It declares segments now, the key above a value is
+itself an entity name, and no table can enumerate those; the section answers instead.
+
+**Keys link there and nowhere else.** A module wired to nothing appears ONLY as a key
+(`eq_dj:vox: [ ]`), so keys-are-never-links would leave it unreachable. Everywhere else a key is
+a field name, and linking it would open the wrong half of the line.
 
 ## What is still not covered
 

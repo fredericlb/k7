@@ -18,8 +18,8 @@ this machine's médiathèque cache**. That is the line this endpoint exists to d
 a scoped mirror of the hosted library kept in step by a 60-second sync, and on a machine where
 pl8's `STUDIO_MEDIATEK` pointed at the very directory the cache wrote into, that sync downloaded
 each file onto itself and rewrote three songs into 40 MB of zeros. The whole account of it is in
-`mediatekPull.ts`'s docblock; the short version is that a mirror has to have exactly one writer and
-this one had two.
+[mediatekPull.md](mediatekPull.md); the short version is that a mirror has to have exactly one
+writer and this one had two.
 
 So the audio no longer *lives* here. It **arrives**, per job, and leaves with the scratch
 directory.

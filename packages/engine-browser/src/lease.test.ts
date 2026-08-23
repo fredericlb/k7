@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { holdEngine } from "./lease";
 import { ClaimLost } from "./registry";
 
-// The loop listens for `pagehide`; node has no window, so a two-method stub is the whole DOM
-// this needs.
+// The loop listens for `pagehide`, and node has no window, so a two-method stub is the whole DOM this needs.
 const listeners: Record<string, () => void> = {};
 beforeEach(() => {
   vi.useFakeTimers();

@@ -62,8 +62,7 @@ for (const [type, info] of Object.entries(table)) {
   lines.push(`    name: ${str(info.name)},`);
   lines.push(`    role: ${str(info.role)},`);
   if (!info.params.length) {
-    // Kept rather than dropped: "this plugin has none" and "we have never asked" are different
-    // answers, and only the first one lets a panel say so instead of looking unfinished.
+    // Kept rather than dropped: "has none" and "never asked" are different answers.
     lines.push("    params: [],");
     lines.push("  },");
     continue;

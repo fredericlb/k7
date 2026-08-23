@@ -46,15 +46,7 @@ const demoCopyFilter = (s: string): boolean => {
   );
 };
 
-/**
- * Bring `examplesDir` on par with the bundled demos: each bundled demo folder is
- * REPLACED wholesale with the latest (re-creating a deleted one, overwriting an edited
- * one). Folders that are not bundled demos — the user's own projects — are left
- * untouched. `examplesDir` is created if missing.
- *
- * Best-effort by design: a missing demos dir or an unreadable file must not fail
- * whatever triggered this. Returns the demo names actually synced, for the log.
- */
+/** Replace each bundled demo folder wholesale, leaving the user's own projects alone; best-effort. */
 export function mirrorDemos(examplesDir: string): string[] {
   const src = demosDir();
   if (!src) return [];
@@ -83,13 +75,7 @@ export function mirrorDemos(examplesDir: string): string[] {
   return synced;
 }
 
-/**
- * Mirror the bundled demos into EVERY known user's Examples workspace. Run once at
- * file-service startup so a shipped demo change (a fix, a new demo) reaches every
- * repository on the machine without the user re-seeding by hand. A user root that
- * exists but has no Examples yet gets one; a user we've never seen is untouched (their
- * Examples is seeded on first contact — see listWorkspaces). Never throws.
- */
+/** Mirror the bundled demos into EVERY known user's Examples workspace, once at startup; never throws. */
 export function syncAllRepos(): void {
   let slugs: string[];
   try {

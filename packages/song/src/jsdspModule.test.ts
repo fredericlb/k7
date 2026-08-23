@@ -77,9 +77,7 @@ describe("a jsdsp module", () => {
   });
 
   it("still compiles when the graph has not been built yet", () => {
-    // Source but no compiled JSON beside it: the module is real, its parameters are simply not
-    // known yet. That must cost the parameters, not the node — otherwise a module would come
-    // and go from the song depending on whether its graph had been built.
+    // No compiled JSON costs the PARAMETERS, not the node, or the module comes and goes.
     asJsDsp(false);
     const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.type).toBe("DSP Graph");

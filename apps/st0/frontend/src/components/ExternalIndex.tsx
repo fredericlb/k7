@@ -37,15 +37,7 @@ export function ExternalIndex() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
 
-  /**
-   * The account, then the machine — in that order, as the home page does it and for its reason:
-   * the file service trusts `USER_HEADER`, so a machine with nobody to name is one nothing can be
-   * asked of.
-   *
-   * `find()` and never `hold()`. A lease is a claim ON A PROJECT and this page has none; taking
-   * one from a menu would evict whoever is playing on that engine. Following a row DOES claim,
-   * through the gate stack, which is where a claim belongs.
-   */
+  /** The account, then the machine, and `find()` and never `hold()` — a lease is a claim ON A PROJECT, which this menu has none of. */
   const probe = useCallback(async () => {
     try {
       const me = await api.getMe().catch(() => null);
@@ -65,13 +57,7 @@ export function ExternalIndex() {
     void probe();
   }, [probe]);
 
-  /**
-   * The two halves of one answer, together: what declares a surface, and what is loaded.
-   *
-   * Asked on the same tick rather than in two effects, because a row is drawn only when both
-   * agree — separate polls would leave the menu empty for a beat whenever one landed first, on a
-   * page whose whole content is that intersection.
-   */
+  /** The two halves of one answer together — a row is drawn only when both agree, so two polls would leave the menu empty for a beat. */
   const load = useCallback(async (m: Machine) => {
     try {
       const [surfaced, holding] = await Promise.all([
@@ -98,20 +84,12 @@ export function ExternalIndex() {
     return () => clearInterval(t);
   }, [machine, load]);
 
-  /**
-   * pl8's register, fetched for one reason: which of these workspaces can be named by their
-   * REPOSITORY rather than by `@local`. Not a list this page draws.
-   *
-   * It matters more here than on the home page. The engine identifies a project by its address
-   * (`projectClaimKey`), so a tablet arriving at `@local/…` while the editor holds `/<dépôt>/…`
-   * would be two claims on one song — and the second one evicts the first.
-   */
+  /** pl8's register, for one reason: which workspaces can be named by their REPOSITORY, so the tablet and the editor make one claim. */
   useEffect(() => {
     projects
       .list()
       .then((r) => setRepos(r.repos))
-      // No register is not a failure of this page: every row falls back to its `@local` address,
-      // which resolves on this machine and nowhere else. That is the honest answer.
+      // No register is not a failure of this page: every row falls back to its `@local` address, which resolves on this machine.
       .catch(() => setRepos([]));
   }, []);
   const registered = useMemo(() => new Set(repos.map((r) => r.name)), [repos]);
@@ -127,17 +105,7 @@ export function ExternalIndex() {
     [rows, served],
   );
 
-  /**
-   * One row per SURFACE rather than per project — the thing being chosen is a screen, and a
-   * project that declares a desk and a frame is two entries on a tablet's menu, not one to
-   * drill into. Every declared type is here: whatever the editor draws in a pane, this draws
-   * on its own (see ../docs/external.md).
-   *
-   * All of them belong to the project ABOVE, and that is the filter this page applies. A menu
-   * over the whole disk offered rows that each moved the engine off whatever was playing — one
-   * engine holds one project per session, so following any other row was a way to interrupt
-   * yourself from across the room.
-   */
+  /** One row per SURFACE rather than per project, and only for the project ABOVE — any other row would move the engine off what is playing. */
   const entries = useMemo(
     () =>
       open
@@ -160,11 +128,7 @@ export function ExternalIndex() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
         <Disc3 className="h-5 w-5 shrink-0 text-muted-foreground" />
-        {/* The PROJECT is the title, and "Surfaces" the line under it — the way round that
-            matches what the page is for. Every row below belongs to one song, so naming it once
-            up here is the difference between a menu of screens and a menu of screens OF SOMETHING;
-            repeating it per row would repeat the only thing they have in common. Until the engine
-            names one, the generic word is the title and there is nothing to put under it. */}
+        {/* The PROJECT is the title and "Surfaces" the line under it, since every row below belongs to one song (../docs/external.md). */}
         <span className="min-w-0 flex-1">
           <h1 className="truncate text-base font-medium">
             {open ? label(open) : "Surfaces"}
@@ -202,9 +166,7 @@ export function ExternalIndex() {
           <ul className="mx-auto flex w-full max-w-xl flex-col gap-2">
             {entries.map((e) => (
               <li key={e.key}>
-                {/* Same tab, deliberately: installed as a PWA there is no tab to open and no
-                    address bar to come back from, so a `_blank` would strand the surface in a
-                    window with no way out. The surface's own header links back here. */}
+                {/* Same tab deliberately: installed as a PWA a `_blank` would strand the surface in a window with no way out. */}
                 <a
                   href={e.href}
                   className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 hover:bg-accent"
@@ -214,9 +176,7 @@ export function ExternalIndex() {
                     <span className="block truncate text-sm font-medium">
                       {e.surface.id}
                     </span>
-                    {/* The TYPE, now that there are four of them: two decks and a frame are
-                        different screens to hand somebody, and the file's own name need not
-                        say which it is. */}
+                    {/* The TYPE, now that there are four: the file's own name need not say which screen it is. */}
                     <span className="block truncate text-xs text-muted-foreground">
                       {typeLabel(e.surface.type)}
                     </span>
@@ -234,9 +194,7 @@ export function ExternalIndex() {
             </p>
           </Empty>
         ) : (
-          /* The other empty, and a different fact: the disk may be full of surfaces, but nothing
-             is loaded, so every one of them would START a project from a tablet rather than join
-             one. Opening it is done at the editor, which is where the person is. */
+          /* The other empty, and a different fact: the disk may hold surfaces, but with nothing loaded each would START a project rather than join one. */
           <Empty icon={<Disc3 className="h-8 w-8" />}>
             <p className="text-sm">Aucun projet ouvert sur le moteur.</p>
             <p className="max-w-xs text-center text-xs opacity-70">
@@ -256,14 +214,7 @@ function label(p: SurfacedProject): string {
   return p.path === "." ? where : `${where} / ${p.path}`;
 }
 
-/**
- * A surface's type as a glyph and as a word, both out of the shell's own pane table.
- *
- * Every surface type IS a pane name — that is what `viewPanes` in routes.ts is built on — so
- * naming them a second time here would be a second table to keep in step with the header
- * buttons. A type the table has never heard of is drawn as itself rather than dropped: the
- * service reports what the project DECLARED, and a menu is the wrong place to argue with it.
- */
+/** A surface's type as a glyph and as a word, out of the shell's own pane table — an unknown type is drawn as itself, not dropped. */
 const paneMeta = (type: string) =>
   (PANE_META as Partial<Record<string, { icon: LucideIcon; label: string }>>)[
     type

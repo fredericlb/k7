@@ -51,6 +51,54 @@ day a second library host does: over a **workspace** the SERVER decides where a 
 since a shared module's panel does not land beside the copy that forked; over a **library**
 there is one place for every file — the module's own folder — so there is nothing to ask.
 
+## Absence is a state, not an error
+
+All of a module's files may be absent — a folder somebody just made is a module with nothing in it
+yet, and the médiathèque lists one on purpose so it can be dropped into. So `read` answers `null`
+rather than throwing: the builder opens on an empty buffer and the first save creates the file,
+exactly as it already did for the panel and the shelf. Throwing turned that into
+"couldn't open … — not found" over a folder that was plainly there.
+
+The two sidecars and the DSP source answer the same way — the existing file, or the path it WOULD
+take plus blank content.
+
+## The sidecars are ASKED FOR, never derived
+
+The builder never builds a path except by passing back one it was given. That is what lets the same
+component sit over a workspace and over a hosted library without knowing which it is, and it is why
+`moduleUi`, `presets` and `dspSource` are calls rather than a sibling derivation: such a rule would
+be right in both path spaces today and is exactly the kind of rule that rots.
+
+`dspSource` takes the source's NAME (`jsdsp.ts`, `dsp.dsp`) because a module's DSP can be written
+in more than one language and the builder is what read the type. The host resolves that name in its
+own path space and picks the stub it writes for an absent file from it — it is the one that knows
+what an empty file of that kind must contain to be loadable.
+
+## The three optional calls
+
+`dspSource`, `publish`, `snapshotBase` and `bases` are all optional, and a host that does not
+implement one simply shows no tab and no button — the honest answer for a host that cannot serve
+the file or has no engine.
+
+`snapshotBase` keeps the plugin's CURRENT state as a named base in the module's own `base/` folder.
+A base is an opaque `.vstpreset` blob, for the plugins whose sound is not in their automatable
+parameters — which `presets.yaml` cannot hold, being named numbers. Snapshotting reads the instance
+behind the Native UI window, so what is kept is what somebody dialled in by hand.
+
+It is on this interface rather than an `on…` prop, even though half of it is an engine call,
+because the other half writes a file in the module's folder — and this interface exists precisely
+so the builder never works out such a path itself. It passes back the `path` it was given and the
+ref it read out of the module's own text, and the host resolves where that lands. It rejects with
+something worth reading: "no window opened yet" is the common one, and it is the user's to fix.
+
+`bases` is asked for rather than derived from `snapshotBase`'s writes, because the interesting list
+is not what THIS session saved: a shared module carries the bases, and the thin local module that
+extends it is usually the one being edited. Only the host can walk that ancestry. What it feeds is
+one row in the params list, `@base`, so a dropdown can be bound to it; the ENTRIES are not the
+builder's business and are filled in by the graph at draw time, since they change every time a base
+is snapshotted. The panel only records that this widget shows bases. Empty means no row, which is
+what "modules that have bases" means here.
+
 ## Read-only, and who owns the warning
 
 `readOnly` shows the whole screen with the writing turned off: the code panes refuse keystrokes,

@@ -1,17 +1,7 @@
 import { f } from "../lib/api";
 import type { GamePhase, NextItem } from "../types/game";
 
-// Framework-free port of composables/useGameLogic.ts. The Vue refs became
-// plain mutable fields: the canvas draw loop reads them directly every frame,
-// so no reactivity is needed — except gamePhase, whose changes drive the React
-// overlays (loading / waiting-for-remote) and the answer-timer ticks, so it
-// notifies subscribers.
-//
-// The audio side is intentionally thin: playback is owned by monitor-web, and
-// the few remaining calls (pause/stop on buzz, resume_context, master gain)
-// are forwarded as audio_command WS messages by the component wiring. The old
-// local fusion-alternation machinery was already dead (never called, wired to
-// no-ops) and is not ported.
+// Mutable fields the draw loop reads; audio is monitor-web's — see ../../../docs/effects.md.
 
 export interface GameLogicDeps {
   stop: () => void;
@@ -39,8 +29,7 @@ export class GameLogic {
   masterGain = 0.8;
   categoryNotice: string | null = null;
   totalSongs = 0;
-  // Reveal/multi/politeness state machine lives in monitor-web. These are
-  // renderer-only — populated by `reveal_state`/`multi_state` broadcasts.
+  // Renderer-only, populated by the `reveal_state` and `multi_state` broadcasts.
   multiRemovedTracks = new Set<number>();
   multiLastRemoved: { trackIndex: number; playerName: string | null } | null =
     null;
@@ -102,12 +91,7 @@ export class GameLogic {
     }
   }
 
-  /**
-   * Process a `next` item received over WS (broadcast by the backend after
-   * any client POSTs /api/next). The presenter is purely a renderer here:
-   * monitor-web owns audio playback and reacts to the same `next` event
-   * independently.
-   */
+  /** Render a `next` item; monitor-web reacts to the same broadcast independently. */
   applyNextItem(item: NextItem): void {
     const prevMode = this.currentMode;
     this.currentItem = item;
@@ -132,10 +116,7 @@ export class GameLogic {
     }
   }
 
-  /**
-   * Trigger the backend to advance. The resulting "next" broadcast is what
-   * updates state via applyNextItem — this just kicks off the request.
-   */
+  /** Ask the backend to advance; the resulting "next" broadcast is what updates state. */
   private async doCallNext(): Promise<void> {
     if (this.callNextInFlight) return;
     this.callNextInFlight = true;
@@ -358,18 +339,10 @@ export class GameLogic {
     } else {
       this.deps.pause();
     }
-    // Phase ownership lives on the backend — flushBuzzes emits
-    // phase_change("answering") right after broadcasting player_buzz, and
-    // the phase_change WS listener applies it; setting gamePhase ourselves
-    // would just race with the broadcast.
+    // No setPhase here: flushBuzzes broadcasts phase_change("answering") right after this.
   };
 
-  /**
-   * Reveal/multi/badResponse handlers all live in monitor-web now. The
-   * presenter only renders state from `reveal_state`/`multi_state` broadcasts.
-   * Dismiss-reveal is just "advance the backend"; monitor-web clears the
-   * reveal state on the resulting `next` broadcast.
-   */
+  /** Just "advance the backend"; monitor-web clears the reveal state on the resulting `next`. */
   private dismissReveal(): void {
     this.answeringPlayer = null;
     this.callNext();

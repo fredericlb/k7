@@ -13,12 +13,7 @@ import type { EditorState } from "@codemirror/state";
 /** Long enough that a real file always finishes; it returns the moment the parse does, so it costs nothing. */
 const PARSE_MS = 5000;
 
-/**
- * The tree, parsed through `upto` (the whole document by default).
- *
- * Falls back to the budgeted tree if even this times out — a short answer beats no answer, and the caller has
- * no better one to give.
- */
+/** The tree parsed through `upto`, the whole document by default, falling back to the budgeted tree on a timeout. */
 export function parsedTree(
   state: EditorState,
   upto: number = state.doc.length,

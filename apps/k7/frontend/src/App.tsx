@@ -43,23 +43,19 @@ import { RemoteMicView } from "./views/RemoteMicView";
 import { SettingsView } from "./views/SettingsView";
 import { SongFormView } from "./views/SongFormView";
 
-// The in-progress recording, kept independent of the route so the user can
-// browse the app while it runs (collapsed to a bottom bar).
+// The in-progress recording, independent of the route so the app stays browsable while it runs.
 interface RecordingCtx {
   session: Session;
   stream: MediaStream;
-  // Seconds already recorded when resuming a saved session; absent for a
-  // brand-new session. Its presence means "append to the existing take".
+  // Seconds already recorded; its presence means "append to the existing take".
   resumeFrom?: number;
   // The saved recording's envelope, shown as history behind the new take.
   baseEnvelope?: Envelope;
-  // Present when the stream comes from a remote device — closing it tears down
-  // the WebRTC/signaling connection once the take is saved or discarded.
+  // Present for a remote stream: closing it tears down the WebRTC connection.
   rtc?: { close: () => void };
 }
 
-// The "songbook" nav tab lives at the `/songs` path (entity-plural naming); all
-// other nav keys map to their own name. These helpers keep the two in sync.
+// The `songbook` tab lives at `/songs`; every other nav key maps to its own name.
 const TAB_TO_PATH: Record<NavKey, string> = {
   sessions: "sessions",
   moments: "moments",
@@ -95,9 +91,8 @@ function navForPath(pathname: string): NavKey {
 }
 
 // --- Route wrappers -------------------------------------------------------
-// These read the URL params and forward them to the existing containers, which
-// already re-load when their id prop changes.
 
+// Each reads the URL params and forwards them to a container that reloads on an id change.
 function SessionRoute(props: {
   allTags: string[];
   onBack: () => void;
@@ -177,16 +172,13 @@ export default function App() {
   const refreshPages = () => api.listPages().then(setPages);
   const refreshSongs = () => api.listSongs().then(setSongs);
   const refreshMoments = () => api.listMoments().then(setMoments);
-  // Session edits (moments added/edited/deleted, or a session removed) affect the
-  // standalone moments list too, so refresh both together.
+  // A session edit moves the standalone moments list too, so both refresh together.
   const refreshSessions = () => {
     refresh();
     refreshMoments();
   };
 
-  // No sign-in screen of our own: anonymous means leave for pl8's /auth/login and
-  // come back by return_to. The card below is only what's left when that trip
-  // failed — see auth.ts.
+  // No sign-in screen of our own: anonymous leaves for pl8's /auth/login — see auth.ts.
   useEffect(() => {
     api
       .getMe()
@@ -207,8 +199,7 @@ export default function App() {
       });
   }, []);
 
-  // While the source chooser is open, keep checking whether a remote device is
-  // available so the option enables as soon as one connects (or reconnects).
+  // Keep probing while the chooser is open, so the option enables as soon as a device connects.
   useEffect(() => {
     if (!sourceOpen) return;
     let alive = true;
@@ -238,9 +229,7 @@ export default function App() {
   const logout = async () => {
     await api.logout();
     setRecording(null);
-    // Leave the origin's home rather than staying here: the session was the whole
-    // origin's, and an anonymous k7 now bounces straight back into signing in —
-    // which would make logging out impossible.
+    // Leave for the origin's home: staying here would bounce straight back into signing in.
     window.location.href = "/";
   };
 
@@ -250,8 +239,7 @@ export default function App() {
       navigate("/record");
       throw new Error("Finish the current recording first.");
     }
-    // Ask where the audio should come from; the effect above probes for a
-    // remote device (and keeps re-probing) while the chooser is open.
+    // Ask where the audio should come from; the effect above probes while this is open.
     setSourceError(null);
     setRemoteAvailable(null);
     setSourceOpen(true);
@@ -308,8 +296,7 @@ export default function App() {
       return;
     }
     const stream = await acquireMicrophone();
-    // Refetch so the offset reflects the latest saved duration, and grab the
-    // stored envelope to show the existing recording behind the new take.
+    // Refetch, so the offset is the latest saved duration and the envelope the stored one.
     const fresh = await api.getSession(session.id);
     const baseEnvelope = fresh.hasRecording
       ? await api.getEnvelope(session.id).catch(() => undefined)
@@ -369,8 +356,7 @@ export default function App() {
             result.duration,
             result.gain,
           );
-    // When appending, the take's annotations are relative to the new segment —
-    // shift them onto the existing timeline.
+    // An appended take's annotations are relative to it, so shift onto the whole timeline.
     const offset = resumeFrom ?? 0;
     for (const a of result.annotations) {
       await api.addAnnotation(session.id, {
@@ -414,16 +400,14 @@ export default function App() {
     );
   }
 
-  // Reached only when the automatic trip to pl8 did not bring a session back, so
-  // this is a recovery screen, not the way in.
+  // A recovery screen, not the way in: reached when the trip to pl8 brought no session back.
   if (!user) {
     return <LoginView loginUrl={api.loginUrl} />;
   }
 
   const activeNav = navForPath(location.pathname);
 
-  // The recorder collapses to a fixed bottom bar whenever the user is not on the
-  // full record view (but a take is still running).
+  // A running take collapses to a fixed bottom bar anywhere but the full record view.
   const recMinimized = recording != null && location.pathname !== "/record";
 
   return (
@@ -623,10 +607,7 @@ export default function App() {
               }
             />
 
-            {/* `/record` renders nothing here — the recorder is mounted below,
-                outside <Routes>, so it survives navigation. With no take in
-                progress there's nothing to show, so fall back to Sessions.
-                Unknown paths fall back to Sessions too. */}
+            {/* `/record` renders nothing here: the recorder is mounted below, outside the router. */}
             <Route
               path="/record"
               element={recording ? null : <Navigate to="/sessions" replace />}
@@ -634,9 +615,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/sessions" replace />} />
           </Routes>
 
-          {/* The active recorder is rendered once here — at a stable position so
-              it stays mounted (and keeps recording) as the user navigates. It
-              shows full while the path is /record, else as a bottom bar. */}
+          {/* The active recorder, rendered once at a STABLE position so it survives navigation. */}
           {recording && (
             <RecorderView
               key="active-recorder"

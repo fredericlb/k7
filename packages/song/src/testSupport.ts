@@ -11,22 +11,14 @@ import {
 } from "@studio/song-schema/yaml/graphFile";
 import { stringify } from "yaml";
 
-/**
- * The BENCH fixture, re-exported here rather than published as a subpath of its own.
- *
- * Same audience as everything else in this file — code that only tests and benches run — and
- * `docs/inventaire.md` §1 counts 41 published subpaths nobody outside their package imports, so
- * the reflex to publish every file is one worth not indulging. `benchProject.ts` stays its own
- * file because building a song from nothing is not fixture surgery; this is only its door.
- */
+/** The BENCH fixture, re-exported here rather than published as a subpath nobody outside imports. */
 export {
   BENCH_SIZES,
   type BenchSize,
   benchProjectFiles,
   writeBenchProject,
 } from "./benchProject";
-// The app's own writer — a test that used a second implementation would be testing that
-// one, not the one shipping.
+// The app's own writer: a second implementation would be the thing under test.
 export {
   deleteFileValue as deleteYaml,
   setFileValue as setYaml,
@@ -55,12 +47,7 @@ export function writeModule(
   return path;
 }
 
-/**
- * Write a LANE: a node extending one of the three built-in track modules.
- *
- * A thin wrapper over `writeNode`, because that is all a lane is now — but it spells the
- * `extends` so a fixture says "a lane" rather than repeating a ref. See docs/trackModules.md.
- */
+/** Write a LANE: `writeNode` with the `extends` spelled, so a fixture says "a lane". */
 export function writeLane(
   dir: string,
   name: string,
@@ -70,23 +57,14 @@ export function writeLane(
   return writeNode(dir, name, { extends: `@studio/${extend}`, ...value });
 }
 
-/**
- * Write one USE of a module: `nodes/<name>.yaml`, flat, whatever it is a use of.
- *
- * The file names it — `name` is the key a chain writes — and it takes the same fields a
- * module file does. Which module it uses is `extends`, in `value`, and nothing else.
- */
+/** Write one USE of a module, flat at `nodes/<name>.yaml`; what it uses is `extends`, in `value`. */
 export function writeNode(dir: string, name: string, value: unknown): string {
   const path = join(dir, "nodes", `${name}.yaml`);
   writeYaml(path, value);
   return path;
 }
 
-/**
- * The first node in graph.yaml whose name starts with `prefix` — a `modules:` key, else a destination (which is
- * how a sink like OUT is named). Throws when there is none, so a fixture edit aimed at a step that has moved
- * fails loudly rather than passing silently.
- */
+/** The first graph node starting with `prefix`, key or destination; throws so a moved step fails loudly. */
 export function chainNodeNamed(dir: string, prefix: string): string {
   const { value } = parseGraph(readFileSync(join(dir, "graph.yaml"), "utf8"));
   for (const key of Object.keys(value?.modules ?? {}))
@@ -96,8 +74,7 @@ export function chainNodeNamed(dir: string, prefix: string): string {
   throw new Error(`no chain node whose name starts with '${prefix}'`);
 }
 
-// Both edits go through the SHIPPING writers (graphFile.ts): a fixture helper with its own idea of the format
-// would drift from it, and then the tests would be measuring the helper.
+// Both edits go through the SHIPPING writers, or the tests end up measuring the helper.
 const editChains = (dir: string, f: (text: string) => string): void => {
   const file = join(dir, "graph.yaml");
   writeFileSync(file, f(readFileSync(file, "utf8")), "utf8");
@@ -125,14 +102,7 @@ export function insertChainStepAfter(
   editChains(dir, (text) => insertBetween(text, before, dests[0], step.module));
 }
 
-/**
- * A workspace's shared `_modules`, written out for a test that needs one to inherit from.
- *
- * Three tests used to build this by calling `module populate`'s writer. That command is
- * gone — the engine answers what plugins exist now — and leaning on a production writer
- * to make a fixture hid what the fixture actually WAS behind a plugin list and a
- * category-mapping rule. Here the files are the point, so they are spelled out.
- */
+/** A workspace's shared `_modules`, spelled out rather than built by a production writer. */
 export function writeLibrary(
   root: string,
   modules: Record<string, unknown> = {
@@ -148,17 +118,7 @@ export function writeLibrary(
     writeYaml(join(lib, path, "module.yaml"), value);
 }
 
-/**
- * The account's LIBRARY submodule, written into a workspace — the `@st0` level.
- *
- * A plain folder here, where the real thing is a git checkout: nothing in `@studio/song` asks
- * whether it is one. The level comes from the folder it sits in (`_libraries/modules`), which
- * is exactly what these fixtures are pinning down.
- *
- * It used to be `$STUDIO_MEDIATEK/modules` — one per machine, and therefore an ambient input
- * every test in this package had to defend against. Beside the project it is just another
- * folder in the temp workspace, so there is no environment to set and nothing to restore.
- */
+/** The account's LIBRARY submodule as a plain folder: the `@st0` level comes from `_libraries/modules`. */
 export function writeLibraries(
   root: string,
   modules: Record<string, unknown> = {

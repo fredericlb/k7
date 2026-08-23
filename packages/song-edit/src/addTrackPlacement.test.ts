@@ -1,9 +1,4 @@
-// Putting an existing clip on a lane — what `event add` writes.
-//
-// A placement is a REFERENCE: the clip is not moved, copied or altered, and the same material may
-// sit on two lanes at once. And it lands on the set the lane is PLAYING, like every other placement
-// edit — a lane running an alternative would otherwise receive it into a list nobody hears
-// (packages/song/docs/alternatives.md).
+// Putting an existing clip on a lane — a REFERENCE, on the set the lane is PLAYING; docs/trackMix.md.
 
 import {
   mkdirSync,
@@ -85,9 +80,7 @@ describe("putting a clip on a lane", () => {
   });
 });
 
-// The bulk form, which a PASTE lands through (`events add`). What it buys over a loop of the
-// singular is one rewrite of the lane's file: cheaper, and atomic — the file gains all of them
-// or none.
+// The bulk form a PASTE lands through: one rewrite of the lane's file, so it is atomic.
 describe("putting several on a lane at once", () => {
   it("writes every one, keeping what was there", () => {
     lane(
@@ -115,13 +108,7 @@ describe("putting several on a lane at once", () => {
     expect(text.match(/loop:/g)).toHaveLength(1);
   });
 
-  /**
-   * The WHOLE placement, because this is what a paste lands through.
-   *
-   * A copy carries the event's own words (`ClipDoc.event`), and they are worth nothing if the
-   * writer drops them on the floor — a trimmed, faded event pasted as an untrimmed one is the bug
-   * this pins from the far end.
-   */
+  /** The WHOLE placement: a trimmed, faded event pasted as an untrimmed one is the bug this pins. */
   it("writes the window, the fades and the flags a paste hands it", () => {
     lane('extends: "@studio/track"\n');
     addTrackPlacements(dir, "gtr", [
@@ -145,13 +132,7 @@ describe("putting several on a lane at once", () => {
     expect(text).toContain("warp: false");
   });
 
-  /**
-   * A timecode window comes out QUOTED, like every other timecode in these files.
-   *
-   * Written bare, `from: 2:1` is a YAML 1.1 sexagesimal and reads back as 121 — a window nobody
-   * wrote, on a file that still loads. `quoteTimecodes` covers `from`/`to` (TIMECODE_KEYS), and a
-   * paste is the first writer to put a timecode under either of them.
-   */
+  /** A timecode window comes out QUOTED: bare, `from: 2:1` reads back as 121 on a file that still loads. */
   it("quotes a window spelled as a timecode", () => {
     lane('extends: "@studio/track"\n');
     addTrackPlacements(dir, "gtr", [
@@ -163,9 +144,7 @@ describe("putting several on a lane at once", () => {
   });
 
   it("is ONE rewrite, so the same material may repeat at several positions", () => {
-    // The case a loop of the singular got wrong in spirit: each call re-reads the file, so the
-    // second placement is written against a document the first already changed. Folding the
-    // transforms means one read and one write whatever the count.
+    // Folding the transforms means one read and one write whatever the count.
     lane('extends: "@studio/track"\n');
     addTrackPlacements(
       dir,

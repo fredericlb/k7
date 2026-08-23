@@ -58,8 +58,7 @@ describe("planMotion", () => {
   });
 
   it("continues from the SCREEN when a layout lands mid-slide", () => {
-    // It was told to go to 100 and is still 30 short of it; now it is told 200 instead. The new
-    // offset is measured from 70 — where it is — not from 100, where it never got to.
+    // Told 100, still 30 short, now told 200: the offset is measured from 70 and not from 100.
     const flying = new Map<string, Motion>([
       ["a", { dx: -30, dy: 0, a: 1, at: 1 }],
     ]);
@@ -68,8 +67,7 @@ describe("planMotion", () => {
   });
 
   it("turns a half-gone node around instead of finishing its exit", () => {
-    // A replace that lands on the same id is one card, not two: it comes back up from where its
-    // fade got to. `at` is what changed — 0 on the way out, 1 now.
+    // A replace on the same id is one card: it comes back up from where its fade got to.
     const flying = new Map<string, Motion>([
       ["b", { dx: 0, dy: 0, a: 0.4, at: 0 }],
     ]);
@@ -79,8 +77,7 @@ describe("planMotion", () => {
   });
 
   it("fades a card up in place rather than flying it across the view", () => {
-    // The mixer view: the camera re-frames AND every strip is pulled onto one rank, so a card
-    // that was off screen would arrive from outside it. Past the cap it simply appears.
+    // The mixer view is the case: past the cap a card simply appears — docs/nodeMotion.md.
     const p = planMotion(drawn(at("a", 0, 0)), NONE, [at("a", 4000, 0)], 500);
     expect(p.motions.get("a")).toEqual({ dx: 0, dy: 0, a: 0, at: 1 });
     // …and just under it, it still travels.
@@ -101,8 +98,7 @@ describe("advanceMotion", () => {
   const one = (m: Motion) => new Map<string, Motion>([["a", { ...m }]]);
 
   it("is frame-rate independent: two 8 ms frames leave what one 16 ms frame leaves", () => {
-    // The same movement must not arrive sooner on a better screen — the rule the zoom glide
-    // already follows (camera.ts's `approach`).
+    // The same rule the zoom glide already follows, in camera.ts's `approach`.
     const fast = one({ dx: 100, dy: 0, a: 1, at: 1 });
     advanceMotion(fast, 8);
     advanceMotion(fast, 8);

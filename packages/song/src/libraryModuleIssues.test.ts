@@ -43,8 +43,7 @@ function sharedModule(rel: string, body: string): void {
 }
 
 const GOOD = "plugin:\n  type: internal\n  name: 4osc\n";
-// `jsdsp:` as a KEY is the real one: the field moved into the plugin type, and every module
-// still written the old way went quiet at once.
+// `jsdsp:` as a KEY is the real one: the field moved into the plugin type and every old module went quiet.
 const BAD = "plugin:\n  type: internal\n  name: 4osc\njsdsp: auto-wah.ts\n";
 
 beforeEach(() => {
@@ -64,8 +63,7 @@ describe("a library module that will not read", () => {
     sharedModule("audio/broken", BAD);
     const [issue, ...rest] = libraryModuleIssues(dir);
     expect(rest).toEqual([]);
-    // The REF, not a path: the file is outside the project, so a project-relative path would
-    // point at nothing — and the ref is the name everything else in the app says.
+    // The REF, not a path: the file is outside the project, so a relative path points at nothing.
     expect(issue.file).toBe("@workspace/audio/broken/module.yaml");
     expect(issue.severity).toBe("warning");
     expect(issue.message).toContain("did not load");
@@ -78,13 +76,11 @@ describe("a library module that will not read", () => {
   });
 
   it("costs that module and no other", () => {
-    // The point of a warning rather than a throw: a library is a bag of modules this project
-    // may never name, and one bad file must not take the others down with it.
+    // A warning and not a throw: this project may never name the module that is broken.
     sharedModule("audio/broken", BAD);
     sharedModule("audio/fine", GOOD);
     const refs = loadModuleRefs(dir, {});
-    // `@studio/…` is dropped for the same reason `{}` is passed as the catalogue: this asks
-    // what the FILES define, and the built-in doc module is there whatever is on disk.
+    // `@studio/…` is dropped like the catalogue: this asks what the FILES define.
     expect(Object.keys(refs).filter((r) => !r.startsWith("@studio/"))).toEqual([
       "@workspace/audio/fine",
     ]);
@@ -101,18 +97,12 @@ describe("a library module that will not read", () => {
 
 describe("…and when a module DOES name it", () => {
   it("says the ref failed to load, rather than that it is unknown", () => {
-    // The message that sends you looking for a module that is not missing. The file is right
-    // there; it is its CONTENT that is wrong, and only its own complaint says where.
-    //
-    // A real project, because this is the COMPILER's report: the fixture is one that already
-    // plays, with one node repointed at the broken library module.
+    // "unknown module" sends you looking for a file that is there with wrong CONTENT.
     const song = join(ws, "demo");
     cpSync(SONG, song, { recursive: true });
     writeFileSync(
       join(song, "project.yaml"),
-      // The fixture already declares an empty one — filled rather than added, or the file
-      // would carry the key twice and fail to parse for a reason that has nothing to do
-      // with what is being tested.
+      // Filled rather than added: a second key would fail to parse for an unrelated reason.
       readFileSync(join(song, "project.yaml"), "utf8").replace(
         /^(\s*)modules_from:.*$/m,
         "$1modules_from: [ ../_modules ]",

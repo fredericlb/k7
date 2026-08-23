@@ -77,13 +77,7 @@ function recorder(): CableCtx & {
   };
 }
 
-/**
- * The path calls an SVG `d` string stands for.
- *
- * Reading the reference back out of `smoothPath` is deliberate: it is the same authority the
- * old byte-identity test used, and a double survives `toString`/`parseFloat` exactly, so
- * comparing against it is as strict as comparing the strings was.
- */
+/** The path calls an SVG `d` string stands for — `smoothPath` is the authority, docs/wobble.md. */
 function callsOf(d: string): Call[] {
   const tok = d.split(/[\s,]+/).filter(Boolean);
   const out: Call[] = [];
@@ -239,8 +233,7 @@ describe("drawCables", () => {
     drawCables(ctx, frame(), newScratch());
     expect(ctx.calls[0]).toEqual(["setTransform", 1, 0, 0, 1, 0, 0]);
     expect(ctx.calls[1]).toEqual(["clearRect", 0, 0, 800, 600]);
-    // dpr * k for the scale, dpr * pan for the translate — the world coordinates below are then
-    // the same numbers the SVG carried inside `.dgx-world`.
+    // dpr * k for the scale and dpr * pan for the translate, so the numbers stay world coordinates.
     expect(ctx.calls[2]).toEqual(["setTransform", 6, 0, 0, 6, 30, -60]);
   });
 

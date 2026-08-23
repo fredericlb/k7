@@ -7,36 +7,20 @@
 
 // A live engine state frame — the ~20 Hz meter/transport push.
 export interface EngineState {
-  // WHICH project this frame describes. The engine emits one frame per session it holds, so an
-  // unlabelled one is a frame nobody can route; both clients filter on it before building this.
-  // Optional because an engine older than sessions stamps nothing — see sessions.ts's forSession.
+  // WHICH project this frame describes; optional because an engine older than sessions stamps nothing — see docs/sessions.md.
   session?: string;
   playing: boolean;
   playhead: number; // seconds
   levels: number[]; // per-track OUTPUT dB (post-fader), same index order as the tracks
-  // Per-track live INPUT level in dB, same index order as `levels`; -100 with no input assigned. Only meaningful
-  // for record-armed tracks, but sent for every track so a client can index it like `levels`.
+  // Per-track live INPUT level in dB, sent for every track so a client can index it like `levels`; -100 with no input assigned.
   inputLevels: number[];
   // The record-armed track ids: session state the engine owns, so it rides the state frame rather than the doc.
   armed: string[];
   // This session's record enable: its armed tracks record only while this is on AND rolling.
   recordEnabled: boolean;
-  /**
-   * The MASTER output in dB (-100 == silent) — the mix as it leaves for the interface, one number
-   * for the whole song where `levels` is one per lane. A header meter asks a different question
-   * from a mixer, and an output DEVICE carries no measurer in Tracktion, so the engine reads it
-   * off a level-meter plugin on the master list.
-   */
+  /** The MASTER output in dB (-100 == silent) — one number for the whole song, read off a level-meter plugin on the master list. */
   master: number;
-  /**
-   * Whether the master went over full scale at any point since the last frame.
-   *
-   * Answered by the engine rather than compared here against `master`, and that is the whole point:
-   * a clip is one sample over full scale, and a client that only saw `master` could not tell a peak
-   * that was reached from one that was merely passed through. The engine reads the meter's LATCHED
-   * peak — the loudest sample of the whole 50 ms window, not a 20 Hz sample of a waveform — so this
-   * says "it clipped at some moment you did not see", which is the only thing a clip light is for.
-   */
+  /** Whether the master went over full scale since the last frame, from the meter's LATCHED peak rather than this 20 Hz sample. */
   masterClipped: boolean;
   // Per-module waveform envelopes keyed "chain:module:side", sampled at the state-frame rate; empty with no taps.
   waveform: Record<string, WaveformEnvelope[]>;
@@ -51,15 +35,12 @@ export interface WaveformEnvelope {
 // The bare transport verbs both clients send. A positioned "seek" carries a field, so it goes as its own message.
 export type TransportAction = "play" | "stop" | "toggle" | "rewind";
 
-// A live plugin's parameters by display name. Two messages carry this shape and are NOT interchangeable:
-// plugin-params is the state to PERSIST, plugin-params-live the display feed for a watched plugin, pushed while
-// a value moves and never to be written. Separate types, so a persisting consumer can't get the live one.
+// A live plugin's parameters by display name; `plugin-params` is the state to PERSIST and `plugin-params-live` the display feed, never written.
 export interface ParamMeta {
   min: number;
   max: number;
   def?: number;
-  // A DISCRETE parameter's named settings, in order; absent when continuous, or when the states have no names.
-  // Each carries the value that selects it, which is NOT index/(n-1) in general — send it back as given.
+  // A DISCRETE parameter's named settings, each carrying the value that selects it — NOT index/(n-1), so send it back as given.
   states?: { label: string; value: number }[];
 }
 
@@ -70,8 +51,7 @@ export interface PluginParams {
   meta?: Record<string, ParamMeta>;
 }
 
-// A selectable module preset — found by the engine in the plugin (program/file), or authored by the user ("user").
-// The engine is what discovers these, so the shape is its; the file service's /presets route passes them through.
+// A selectable module preset, discovered by the ENGINE in the plugin or authored by the user, so the shape is the engine's.
 export interface PresetInfo {
   name: string;
   source: "program" | "file" | "user";

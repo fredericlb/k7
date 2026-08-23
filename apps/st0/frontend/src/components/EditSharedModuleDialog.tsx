@@ -24,8 +24,7 @@ export function EditSharedModuleDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  // The REF and not the path: it is what a chain writes, so it is the name somebody will
-  // recognise from the songs this change is about to reach.
+  // The REF and not the path: it is what a chain writes, so it is the name somebody will recognise from the songs this reaches.
   const ref = path ? (libraryModuleRef(path) ?? path) : "";
   return (
     <Dialog open={!!path} onOpenChange={(o) => !o && onCancel()}>
@@ -39,8 +38,7 @@ export function EditSharedModuleDialog({
             it is opened.
           </DialogDescription>
         </DialogHeader>
-        {/* What happens the moment you say yes, spelt out: this screen has no Save button, so
-            "confirm" is not "start editing and decide later". */}
+        {/* What happens the moment you say yes, spelt out: with no Save button, confirming is not deciding later. */}
         <p className="text-xs text-muted-foreground">
           There is no Save button here. From now on each file is written as soon
           as it reads as a document, exactly as the project's own files are.

@@ -1,8 +1,4 @@
-// A module carries the files it loads: an `assets/` folder inside the module, holding the amp
-// profile it names. What is pinned here is that the module is SELF-CONTAINED — it survives a
-// fork, an upload to the médiathèque and a sync onto a machine that has none of the song's
-// other files — and that the file is named in `params:`, like every other control the plugin
-// has. See docs/moduleAssets.md.
+// A module carries the files it loads, in its own `assets/`, named in `params:` — packages/song/docs/moduleAssets.md.
 
 import {
   cpSync,
@@ -86,9 +82,7 @@ describe("a file-valued param", () => {
   });
 
   it("refuses a ref that climbs out of the assets folder", () => {
-    // These come from files an editor writes into a workspace that may be shared, so a
-    // reference resolves INSIDE the module or not at all — without this it would be a way to
-    // read any file the service can see.
+    // A reference resolves INSIDE the module or not at all, or it reads any file the service can.
     file(
       "modules/audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "../../secret.nam"\n',
@@ -98,9 +92,7 @@ describe("a file-valued param", () => {
   });
 
   it("sits beside the numbers, and does not reach the engine as one", () => {
-    // The authored shape changed; the protocol did not. `params` on the wire is a float map
-    // mirrored in C++, so the model leaves as its own `namFile` field — which is what the
-    // engine already expected.
+    // `params` on the wire is a float map mirrored in C++, so the model leaves as `namFile`.
     const proj = join(ws, "demo");
     cpSync(SONG, proj, { recursive: true });
     writeModule(proj, "audio", "amp", {
@@ -129,8 +121,7 @@ describe("a file-valued param", () => {
   });
 
   it("warns about a file the module doesn't carry, instead of loading nothing", () => {
-    // Silence with no explanation is the failure mode worth spending a warning on: an amp
-    // whose model didn't load passes no sound at all.
+    // An amp whose model did not load passes no sound at all, silently.
     const proj = join(ws, "demo");
     cpSync(SONG, proj, { recursive: true });
     writeModule(proj, "audio", "amp", {
@@ -143,11 +134,7 @@ describe("a file-valued param", () => {
   });
 
   it("lets a node carry its own model, out of its OWN assets folder", () => {
-    // Two amps sharing one module, each with its own profile — and because it is a param, the
-    // override merges per key, so the node keeps the module's other settings.
-    //
-    // The node's model sits in `nodes/assets/`, not in the module's: what belongs to
-    // one use of a module lives beside that use, which is what lets `nodes/` stay flat.
+    // Two amps sharing one module: the override merges per key, out of the node's own `assets/`.
     file(
       "modules/audio/amp/module.yaml",
       'plugin: {type: internal}\nparams:\n  nam: "jcm800.nam"\n  Input: -5\n',
@@ -182,8 +169,7 @@ describe("a file-valued param", () => {
     expect(swapped).toContain("twin.nam");
     expect(swapped).not.toContain("jcm800");
 
-    // Clearing takes the key away — an amp with no model is a legitimate state, and `nam: ""`
-    // would be a value that means nothing.
+    // Clearing takes the key away: `nam: ""` would be a value that means nothing.
     setModuleAsset(dir, "amp", "nam", null);
     expect(loadModules(dir).amp.assets).toBeUndefined();
   });
@@ -210,8 +196,7 @@ describe("what the dropdown offers", () => {
 
 describe("a rack's samples", () => {
   it("come from assets/ too, without dropping the old layout", () => {
-    // A shelf's audio is resolved against the module folder already; `assets/` is where a
-    // dropped sample now lands, and a shelf laid out the old way must keep loading.
+    // `assets/` is where a dropped sample lands, and a shelf laid out the old way must still load.
     file(
       "modules/instruments/kit/module.yaml",
       "type: rack\nrack:\n  rack_type: samples\n  symbols:\n" +
@@ -226,9 +211,7 @@ describe("a rack's samples", () => {
   });
 });
 
-// A neural model is named exactly like an amp profile, and resolves the same way — except that
-// 166 MB does not travel through a fork, so the module DECLARES it and the machine holds the
-// bytes. See docs/moduleAssets.md's note on the model cache.
+// A neural model resolves like an amp profile, except the module DECLARES it and the machine holds it.
 describe("a model too big to carry", () => {
   let models: string;
 
@@ -270,8 +253,7 @@ describe("a model too big to carry", () => {
   });
 
   it("refuses a ref that climbs out, rather than redirecting it to the cache", () => {
-    // The cache must not become a way to launder an escaping ref: the containment check comes
-    // first and REFUSES, it does not fall through.
+    // The containment check comes FIRST and refuses; it does not fall through to the cache.
     file(
       "modules/audio/sep/module.yaml",
       "plugin: {type: offline}\nparams: {onnx: ../../../secret.onnx}\n",

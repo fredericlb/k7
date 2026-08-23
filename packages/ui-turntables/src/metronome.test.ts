@@ -36,8 +36,7 @@ describe("whether the desk can offer a click at all", () => {
   });
 
   it("refuses two free decks, because there is no single beat to be on", () => {
-    // Not a limitation to work around: two records at two tempos have two beats, and a click
-    // on one of them is a click against the other. The button goes dark rather than pick.
+    // Two records at two tempos have two beats, and a click on one is a click against the other.
     const loads: DeckLoads = { deckA: song("a"), deckB: song("b") };
     const tempos: DeckTempos = {
       deckA: tempo(),
@@ -64,9 +63,7 @@ describe("whether the desk can offer a click at all", () => {
   });
 
   it("refuses a deck whose BEAT was never measured", () => {
-    // A tempo says how often a beat happens, not which moment is one. `beats.ts` publishes no
-    // phase it cannot defend, and a click on the wrong half of the beat is not a degraded
-    // metronome — it is a wrong one, and you would beat-match to it.
+    // A click on the wrong half of a beat is not a degraded metronome, it is a wrong one.
     const loads: DeckLoads = { ...NO_LOADS, deckA: song("a") };
     expect(
       metronomeDeck(loads, { deckA: tempo({ phase: undefined }) }, null),
@@ -81,9 +78,7 @@ describe("whether the desk can offer a click at all", () => {
 
 describe("the click track itself", () => {
   it("is in the document even when silent, because a track cannot be taken back", () => {
-    // `ChangeKind::TrackRemoved` is a stub in the engine: a track dropped from the document
-    // stays in the edit. A metronome that could not be switched off would be a worse bug than
-    // the feature is a feature, so silence is an EMPTY CLIP LIST and clip removal is real.
+    // `ChangeKind::TrackRemoved` is a stub, so silence is an EMPTY CLIP LIST (../docs/metronome.md).
     const off = metronomeTrack(tempo(), false);
     expect(off.id).toBe(METRONOME_TRACK);
     expect(off.clips).toEqual([]);
@@ -91,9 +86,7 @@ describe("the click track itself", () => {
   });
 
   it("clicks on the deck's OWN beat, not the document's", () => {
-    // The whole reason this track exists. At 128 against a 120 document the two grids share no
-    // beat but the first, so a click placed in document beats would drift a whole beat in
-    // fifteen bars.
+    // At 128 against a 120 document, a click in document beats drifts a whole beat in fifteen bars.
     const t = tempo({ target: 128 });
     const clip = metronomeTrack(t, true).clips[0];
     const inSeconds = (beats: number) => (beats * 60) / DOC_TEMPO;
@@ -103,8 +96,7 @@ describe("the click track itself", () => {
   });
 
   it("starts on the song's own downbeat, wherever the fader has left it", () => {
-    // Through `transportAt`, so the stretch, sync's delay and the pitch fader's slip are all
-    // already in it — the click follows the record rather than the timeline.
+    // Through `transportAt`, which already carries the stretch, sync's delay and the fader's slip.
     const t = tempo({ target: 136, slip: -3.5, align: 0.8 });
     const clip = metronomeTrack(t, true).clips[0];
     expect((clip.start * 60) / DOC_TEMPO).toBeCloseTo(
@@ -114,8 +106,7 @@ describe("the click track itself", () => {
   });
 
   it("is one looping bar rather than a note per beat", () => {
-    // The clip is rebuilt on every step of a tempo drag, and a six-minute track is a thousand
-    // notes to re-send and re-diff for a sound that repeats every four.
+    // The clip is rebuilt on every step of a drag, and six minutes is a thousand notes to re-send.
     const clip = metronomeTrack(tempo(), true).clips[0];
     expect(clip.notes).toHaveLength(BEATS_PER_BAR);
     expect(clip.loopEnd - clip.loopStart).toBeCloseTo(
@@ -131,8 +122,7 @@ describe("the click track itself", () => {
   });
 
   it("stops when the record does", () => {
-    // Length to the end of the song and no further: a click that outlived the music would be
-    // the desk claiming a beat nothing is playing.
+    // A click that outlived the music would be the desk claiming a beat nothing is playing.
     const t = tempo({ target: 128 });
     const clip = metronomeTrack(t, true).clips[0];
     const endSeconds = ((clip.start + clip.length) * 60) / DOC_TEMPO;

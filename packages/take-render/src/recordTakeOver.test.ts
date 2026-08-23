@@ -121,8 +121,7 @@ describe("recording over what a lane is playing", () => {
 
 describe("recording round a loop", () => {
   it("makes ONE take per pass, each holding the pass before it", () => {
-    // Every pass records the same bars, so from the second one there is always something under it.
-    // The caller recompiles between takes, which is what this loop stands in for.
+    // Every pass records the same bars, and this loop stands in for the caller's recompile.
     bareLane();
     const ids = [
       addTakeToTrack(dir, doc(), take(4, 8)),

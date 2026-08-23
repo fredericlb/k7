@@ -27,15 +27,7 @@ export interface WsMessage {
 const asRecord = (v: unknown): Record<string, unknown> =>
   typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {};
 
-/**
- * Connection hub + message dispatch for the two WebSocket surfaces
- * (main.go's handleWebSocket / handleBuzzerWebSocket):
- *   /ws         — main-screen clients (presenter, monitor, remote)
- *   /ws/buzzer  — phone buzzers, each tagged with its deviceId
- *
- * `ws` serializes writes per connection internally, so Go's per-conn write
- * mutex (safeWriteJSON) collapses into plain send() calls.
- */
+/** Two surfaces: `/ws` for the main screens, `/ws/buzzer` for phones tagged with a deviceId. */
 export class WsHub {
   private main = new WebSocketServer({ noServer: true });
   private buzzer = new WebSocketServer({ noServer: true });
@@ -63,11 +55,7 @@ export class WsHub {
     this.heartbeat.unref?.();
   }
 
-  /**
-   * Route an HTTP upgrade to the right endpoint. Auth mirrors the Go stack:
-   * both endpoints sit behind the session cookie (the /ws paths are not
-   * public), and main-WS clients identifying as monitor/remote must be admin.
-   */
+  /** Both endpoints need the session cookie, and a monitor or remote role needs admin on top. */
   handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     const url = new URL(req.url ?? "/", "http://x");
     const path = url.pathname;
@@ -78,9 +66,7 @@ export class WsHub {
       socket.destroy();
       return;
     }
-    // An upgrade is a raw http event, so cookie-session's middleware never ran
-    // and there is no req.session — decode the cookies ourselves. Same order as
-    // currentUser(): the studio account first, the guest cookie second.
+    // An upgrade is raw http, so cookie-session never ran — see ../../docs/auth.md.
     const u =
       studioUser(req.headers.cookie) ??
       (sessionFromCookieHeader(req.headers.cookie, {
@@ -159,8 +145,7 @@ export class WsHub {
       case "lock_buzzers":
       case "unlock_buzzers":
       case "phase_change":
-        // Phase/lock ownership is server-side; clients emitting these are
-        // legacy or racy. Logged, ignored.
+        // The phase belongs to the server, so a client emitting one of these is legacy or racy.
         console.log(
           `[PhaseTrace] ignoring deprecated client emit type=${msg.type}`,
         );
@@ -185,8 +170,7 @@ export class WsHub {
         const action = typeof pm.action === "string" ? pm.action : "";
         if (action) console.log(`[PhaseTrace] remote_action action=${action}`);
         this.broadcastMain({ type: "remote_action", payload: msg.payload });
-        // Server-driven transitions for racy actions: validating against the
-        // current phase makes duplicate actions from concurrent remotes no-ops.
+        // Validated against the current phase, so a duplicate from a second remote is a no-op.
         const cur = gameState.currentPhase;
         switch (action) {
           case "score_and_reveal":
@@ -271,8 +255,7 @@ export class WsHub {
       },
     });
 
-    // On reconnect: re-send the player binding, or tell the phone its stale
-    // token doesn't match any player in the current game.
+    // Re-send the binding on reconnect, or say the token matches no player in this game.
     if (reconnected && hasGame) {
       const player = game!.players.find((p) => p.deviceId === deviceId);
       if (player) {
@@ -395,9 +378,7 @@ export class WsHub {
           });
           break;
         }
-        // A same-named player with no bound device re-binds instead of
-        // erroring — allowed even after registration locks, so a player whose
-        // buzzer died mid-game can move to a fresh device.
+        // Re-binding an unbound name works even after registration locks: a phone can die mid-game.
         const existingUnlinked = game.players.some(
           (p) =>
             p.name.toLowerCase() === name.toLowerCase() && p.deviceId === "",

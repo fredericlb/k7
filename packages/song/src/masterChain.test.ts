@@ -45,8 +45,7 @@ const PLAIN = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n";
 
 describe("a song with no master chain", () => {
   it("still sends the field, empty — an absent one would read as unchanged", () => {
-    // The engine diffs documents. Left out, a master chain that was DELETED would never come
-    // off the bus, which is the same trap masterVolume is defaulted for.
+    // The engine diffs documents, so a DELETED master chain left out never comes off the bus.
     project(PLAIN);
     expect(compile().masterPlugins).toEqual([]);
   });
@@ -75,8 +74,7 @@ describe("a chain from MIX to OUT", () => {
   });
 
   it("does NOT become a track of its own", () => {
-    // Before it had an owner, a chain fed by no lane was dropped; the failure to avoid now is
-    // the opposite one — a phantom lane called `master` appearing in the arrangement.
+    // The failure to avoid now is a phantom lane called `master` in the arrangement.
     project(withMaster);
     expect(compile().tracks.map((t) => t.id)).toEqual(["gtr"]);
   });
@@ -88,8 +86,7 @@ describe("a chain from MIX to OUT", () => {
   });
 
   it("carries the same plugin shape a track's steps do", () => {
-    // The whole reason a master chain is filed under a reserved OWNER rather than compiled by a
-    // second code path: one step-to-plugin conversion, so the two cannot drift.
+    // Filed under a reserved OWNER so there is one step-to-plugin conversion and no drift.
     project(withMaster);
     const p = compile().masterPlugins[0];
     expect(p).toMatchObject({ name: "squeeze", enabled: true });
@@ -98,15 +95,12 @@ describe("a chain from MIX to OUT", () => {
   });
 });
 
-// Every project written by a scaffold carries this line, and the migration adds it to the rest.
-// It declares the run without putting anything on it — which is what gives the graph an OUT node
-// to draw the output fader on, and a place to drop a master plugin into.
+// The line declares the run without putting anything on it, giving the graph an OUT node to draw.
 describe("the empty MIX -> OUT run every project now carries", () => {
   const BARE = "modules:\n  gtr: [ amp ]\n  amp: [ MIX ]\n  MIX: [ OUT ]\n";
 
   it("compiles, and changes NOTHING about the document", () => {
-    // The whole point of writing it into every scaffold: a line that costs no sound. If this ever
-    // stops matching, every project in existence changed the day it was added.
+    // A line that costs no sound: if this stops matching, every project changed when it was added.
     project(BARE);
     const bare = compile();
     project(PLAIN);
@@ -128,9 +122,7 @@ describe("the empty MIX -> OUT run every project now carries", () => {
 
 describe("what MIX and OUT mean", () => {
   it("accepts a lane's chain ending at either, so an old song still compiles", () => {
-    // `out: [OUT]` on a lane is what every song written before the split says. It still routes
-    // to the sum — but see docs/masterChain.md: with a master chain present it would BYPASS it,
-    // which is what the migration exists to fix.
+    // `out: [OUT]` still routes to the sum, but with a master chain present it would BYPASS it.
     project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     const doc = compile();
     expect(doc.tracks.find((t) => t.id === "gtr")?.plugins).toHaveLength(1);
@@ -138,8 +130,7 @@ describe("what MIX and OUT mean", () => {
   });
 
   it("needs no modules/io folder for either name", () => {
-    // Neither is a module on disk: `isSink` takes both literally. A project that had to declare
-    // them would break every demo song.
+    // `isSink` takes both literally; having to declare them would break every demo song.
     project(PLAIN);
     expect(() => compile()).not.toThrow();
   });

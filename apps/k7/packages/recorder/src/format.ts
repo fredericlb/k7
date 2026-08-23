@@ -19,10 +19,7 @@ function fmtStamp(d: Date = new Date()): string {
   )}`;
 }
 
-/**
- * A session's display title. Sessions have no user-given name — they're
- * identified by their recording date & time (their createdAt).
- */
+/** A session's title: it has no name, so its recording date and time. */
 export function sessionTitle(iso: string): string {
   return fmtStamp(new Date(iso));
 }

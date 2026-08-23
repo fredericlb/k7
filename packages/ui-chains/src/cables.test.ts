@@ -115,9 +115,7 @@ describe("computeLive", () => {
     expect(computeLive(edges, ["vox"])).toEqual(new Set(["in", "fwd", "back"]));
   });
 
-  // The master run is drawn standing on its own — nothing arrives at MIX, so nothing could ever
-  // flow into it, and the one cable carrying the whole song was the only still one on a playing
-  // graph. See computeLive's own note.
+  // Nothing arrives at MIX, so liveness has to be SEEDED there — see docs/graphBuild.md.
   describe("the master run", () => {
     const edges = [
       edge("lane", `${TRACK_NODE_PREFIX}melody`, "mod:reverb"),
@@ -143,8 +141,7 @@ describe("computeLive", () => {
     });
   });
 
-  // The picture's half: its lanes arrive on their own list, because they are arrived at their own
-  // way — nothing meters a frame. Past that, the same rule, including the sum's seed.
+  // The picture's half: its lanes arrive on their own list, nothing metering a frame.
   describe("the picture", () => {
     const edges = [
       edge("lane", `${TRACK_NODE_PREFIX}cam`, "mod:blur"),
@@ -211,9 +208,7 @@ describe("insertFor", () => {
   });
 
   it("offers one ACROSS chains too — an arrow is an arrow", () => {
-    // It used to refuse this, because the command took a chain name and an index into it.
-    // chains.yaml states its edges outright now, so a track feeding a bus (or a split's
-    // branch) is an ordinary arrow, and refusing it only hid a `+` that would have worked.
+    // It used to refuse this, when the command took a chain name and an index. docs/graphBuild.md.
     expect(
       insertFor(
         "a",

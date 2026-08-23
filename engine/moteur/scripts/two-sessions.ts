@@ -85,17 +85,7 @@ function watch(c: EngineClient): Seen {
   return seen;
 }
 
-/**
- * A raw socket, counting `state` frames BY the session they name.
- *
- * The clients above cannot show this: `forSession` drops another project's frames before the
- * event fires, so a client sees the same thing whether the engine addressed its frames or shouted
- * them at everyone. What the wire costs — a decode and a discard per frame, per tab, per session
- * on the machine — is only visible here.
- *
- * `hello` is what declares the session, exactly as the browser client does. A socket that sends
- * nothing declares nothing, which is the probe case the last count below covers.
- */
+/** A raw socket, counting `state` frames BY the session they name — see ../docs/sessions.md. */
 function wire(session?: string): Record<string, number> {
   const seen: Record<string, number> = {};
   const ws = new WebSocket(URL);
@@ -118,8 +108,7 @@ function wire(session?: string): Record<string, number> {
   return seen;
 }
 
-// Wrapped rather than top-level await: engine/moteur declares no `"type": "module"`, so tsx
-// transforms this to CJS and a bare await is a syntax error there.
+// Wrapped rather than top-level await: tsx transforms this to CJS (../docs/sessions.md).
 async function main() {
   const st0 = new EngineClient(URL, SESSIONS.st0);
   const pl8 = new EngineClient(URL, SESSIONS.pl8);
@@ -135,13 +124,11 @@ async function main() {
   pl8.sendProject(doc("depuis-pl8", 64));
   await wait(3000);
 
-  // Record-enable is SESSION state. It was a process-global for a while, so arming st0 lit pl8's
-  // record light and made rolling either one record into both.
+  // Record-enable is SESSION state, and was a process-global for a while (../docs/sessions.md).
   st0.setRecordEnabled(true);
   await wait(1000);
 
-  // ONE of them plays. Before sessions the second project tore the first down; before the
-  // client half, the silent one saw the playing one's state frames as its own.
+  // ONE of them plays, which was true of neither half once (../docs/sessions.md).
   st0.transport("play");
   await wait(4000);
 
@@ -155,10 +142,7 @@ async function main() {
   console.log("sur le fil (sonde):", onProbe);
 
   const problems: string[] = [];
-  // What was SENT, not what was kept. A state frame is a per-track level array plus whatever
-  // waveform envelopes are subscribed, at 20 Hz: shouted at every socket, each tab decoded every
-  // other project's meters to throw them away, and one session playing kept every other
-  // session's tabs awake past their own idle divider.
+  // What was SENT, not what was kept — the whole cost is on the wire (../docs/sessions.md).
   if (!onWire[SESSIONS.pl8])
     problems.push("le socket pl8 ne recoit aucune trame de sa propre session");
   for (const sid of Object.keys(onWire))

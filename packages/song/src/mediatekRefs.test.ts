@@ -45,16 +45,13 @@ describe("the médiathèque modules a project names", () => {
   });
 
   it("finds the ones a NODE extends — the ordinary way to use one", () => {
-    // A use of a library module is a file in `nodes/` now, and it reaches the library
-    // through `extends` like anything else. Missing it here would mean the machine never
-    // cached the module its own song plays.
+    // A node reaches the library through `extends`, and missing it leaves the module uncached.
     projectNode("gtr", 'extends: "@st0/audio/filter/auto-wah"\n');
     expect(mediatekRefs(dir)).toEqual(["@st0/audio/filter/auto-wah"]);
   });
 
   it("finds one a chain step names outright, node and all", () => {
-    // A chain may reach a library module directly; the folder to fetch is the module's, so
-    // the node suffix is dropped rather than turned into a path nothing answers to.
+    // The folder to fetch is the MODULE's, so the node suffix is dropped rather than pathed.
     writeFileSync(
       join(dir, "graph.yaml"),
       "modules:\n  gtr: [ '@st0/audio/modulation/flanger:warm' ]\n",
@@ -64,8 +61,7 @@ describe("the médiathèque modules a project names", () => {
   });
 
   it("ignores every other level", () => {
-    // `@workspace` and `@project` are folders this machine already has; fetching them from
-    // the hosted library would be asking someone else for our own files.
+    // `@workspace` and `@project` are folders this machine already has, so nothing is fetched.
     projectModule("audio/a", 'extends: "@workspace/audio/thing"\n');
     projectModule("audio/b", 'extends: "@engine/serum"\n');
     projectModule("audio/c", "plugin: {type: internal}\n");
@@ -73,9 +69,7 @@ describe("the médiathèque modules a project names", () => {
   });
 
   it("follows what a library module extends in turn", () => {
-    // Inheritance is how the library builds on itself, so fetching the child alone lands a
-    // module whose substance is in a parent nobody asked for.
-    // The library is the `_libraries/modules` submodule beside the project, in the workspace.
+    // Fetching a child alone lands a module whose substance is in a parent nobody asked for.
     const at = join(ws, "_libraries", "modules", "audio", "amp", "child");
     mkdirSync(at, { recursive: true });
     writeFileSync(

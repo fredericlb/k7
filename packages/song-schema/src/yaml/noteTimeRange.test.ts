@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { setNoteTimeRange } from "./sequenceFile";
 
-// Moving a note and stretching it are ONE writer, because on the roll they are one gesture with
-// two grips: the body slides it, the right edge stretches it. Two writers would be two answers to
-// "which note is this", and the second would eventually disagree with the first.
-//
-// A note is addressed by its key and its CURRENT start — a pitch and a place are what a roll can
-// point at, and a note has no id of its own.
+// Moving a note and stretching it are ONE writer, addressed by key and CURRENT start (docs/noteEdits.md).
 
 const SEQ = `notes:
   - { t: 0, d: 1, k: 60 }
@@ -21,8 +16,7 @@ describe("moving a note", () => {
   });
 
   it("leaves everything else the note carries", () => {
-    // Velocity is not this gesture's business, and a move that silently reset it would be a
-    // second edit nobody asked for.
+    // Velocity is not this gesture's business, so resetting it would be a second edit.
     expect(setNoteTimeRange(SEQ, 64, 4, 6, 2)).toContain("v: 0.7");
   });
 

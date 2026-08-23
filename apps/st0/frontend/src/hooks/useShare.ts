@@ -87,17 +87,7 @@ export function useShare(onStatus: (s: string) => void): Share {
     }
   }, [onStatus]);
 
-  /**
-   * Freeze this project and put its link on the clipboard.
-   *
-   * It ASKS first, and the question names what leaves rather than saying "are you sure": a
-   * snapshot carries every track's name, every marker's name, every module's name and the text of
-   * every note in the graph, to anyone the link reaches. That is the feature, and it is also the
-   * kind of thing that ships without anyone thinking about it.
-   *
-   * The address is built in the browser (`shareUrl`), because only the tab knows which origin it
-   * is on — the machine that rendered does not.
-   */
+  /** Freeze this project and put its link on the clipboard — it ASKS first, naming what leaves, and the address is built in the browser. */
   const shareLink = useCallback(async () => {
     if (
       !window.confirm(
@@ -119,8 +109,7 @@ export function useShare(onStatus: (s: string) => void): Share {
         await navigator.clipboard.writeText(url);
         onStatus(`lien copié — ${mb} Mo partagés : ${url}`);
       } catch {
-        // A refused clipboard must not lose the link: it is the whole point of the command, and
-        // it exists exactly once.
+        // A refused clipboard must not lose the link: it is the whole point of the command, and it exists exactly once.
         onStatus(`partagé (${mb} Mo) — ${url}`);
       }
     } catch (e) {

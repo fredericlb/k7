@@ -15,9 +15,7 @@ describe("asPlaybackTarget", () => {
     for (const t of PLAYBACK_TARGETS) expect(asPlaybackTarget(t.id)).toBe(t.id);
   });
 
-  // The whole reason the preference is stored as a plain string: a newer build, in another
-  // tab, can write a destination this one has never heard of. It must read as the default,
-  // not as a target nothing knows how to play.
+  // Why the preference is a plain string: a newer build can write an id this one has never seen.
   it("reads an unknown id as the default", () => {
     expect(asPlaybackTarget("hologramme")).toBe(DEFAULT_PLAYBACK_TARGET);
   });
@@ -29,8 +27,7 @@ describe("asPlaybackTarget", () => {
 });
 
 describe("the default", () => {
-  // A default that can fail to make a sound is a default that makes the app look broken to
-  // whoever has just signed in, so it must be the one destination that needs nothing.
+  // A default that can fail to make a sound makes the app look broken to a first visitor.
   it("needs no engine", () => {
     expect(playbackTargetInfo(DEFAULT_PLAYBACK_TARGET).needsEngine).toBe(false);
   });
@@ -41,8 +38,7 @@ describe("effectiveTarget", () => {
     expect(effectiveTarget("engine", true)).toBe("engine");
   });
 
-  // Not silence: the bytes are on the hosted library either way, so an engine that is off
-  // means "play it here", and the surfaces say so.
+  // Not silence: the bytes are on the hosted library, so an engine that is off means "play it here".
   it("falls back when the engine it needs is not there", () => {
     expect(effectiveTarget("engine", false)).toBe(DEFAULT_PLAYBACK_TARGET);
   });

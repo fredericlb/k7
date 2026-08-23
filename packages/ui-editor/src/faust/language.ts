@@ -46,13 +46,7 @@ const KEYWORDS = new Set([
   "outputs",
 ]);
 
-/**
- * The UI primitives — the ones that DECLARE a parameter.
- *
- * Coloured apart from the rest on purpose: in this repo they are the module's controls, the names
- * a `module.yaml` has to agree with and that nothing checks (packages/song/docs/faustModules.md).
- * Making them stand out is the cheapest help an editor can give on that.
- */
+/** The UI primitives — the ones that DECLARE a parameter, coloured apart since a `module.yaml` must agree with them. */
 const UI = new Set([
   "hslider",
   "vslider",
@@ -73,17 +67,7 @@ export interface FaustState {
 
 export const faustStartState = (): FaustState => ({ block: false });
 
-/**
- * One token, and the whole of the language.
- *
- * Exported so it can be TESTED: nothing in this repo mounts an editor, and driving this against a
- * `StringStream` is the only way to prove the tokens without one. It is also this file's real
- * content — everything below is wiring and colour.
- *
- * The names returned are `@lezer/highlight` tag names, and only real ones: `StreamLanguage` looks
- * each up and warns to the console for anything it does not know, which is a typo that costs the
- * colour and says so nowhere anybody is looking.
- */
+/** One token, and the whole of the language; exported so it can be TESTED, and returning real `@lezer/highlight` tags only. */
 export function faustToken(
   stream: StringStream,
   state: FaustState,
@@ -107,18 +91,14 @@ export function faustToken(
     }
     return "comment";
   }
-  // An unterminated string still colours to the end of the LINE and no further: a half-typed one
-  // must not turn the rest of the file green the moment you open a quote.
+  // An unterminated string colours to the end of the LINE and no further, or opening a quote greens the file.
   if (stream.match(/^"(?:[^"\\]|\\.)*("|$)/)) return "string";
   if (stream.match(/^\d+\.?\d*(?:[eE][-+]?\d+)?/)) return "number";
   if (stream.match(/^\.\d+(?:[eE][-+]?\d+)?/)) return "number";
-  // A library's short name, and only when a `.` and a name follow: `os.osc`, `ve.moog_vcf`. The
-  // member after the dot falls through to the identifier rule below, which is what we want — the
-  // interesting half is knowing you are looking at stdfaust rather than at a local definition.
+  // A library's short name, only when a `.` and a name follow, since the member after the dot is not the interesting half.
   if (stream.match(/^[a-z]{2,4}(?=\.[A-Za-z_])/)) return "namespace";
-  // `_` ALONE is the wire, and it has to be caught before the identifier rule below — which
-  // would otherwise swallow it, since `_` is also a legal first character of a name. `_foo` is
-  // a name and stays one; that is the whole of what the lookahead says.
+
+  // `_` ALONE is the wire, caught before the identifier rule that would otherwise swallow it; `_foo` stays a name.
   if (stream.match(/^_(?!\w)/)) return "operator";
   if (stream.match(/^[A-Za-z_]\w*/)) {
     const word = stream.current();
@@ -126,11 +106,10 @@ export function faustToken(
     if (UI.has(word)) return "macroName";
     return "variableName";
   }
-  // The composition operators FIRST, and longest first (`<:` and `:>` before `:`), because they
-  // ARE the language: a Faust program is a diagram, and these are its wires.
+  // The composition operators FIRST and longest first, because a Faust program is a diagram and these are its wires.
   if (stream.match(/^(<:|:>|:|~|,)/)) return "operator";
-  // …then the ones that act on a signal: delay, cut, and the one-sample-ago quote. (The wire,
-  // `_`, is caught above — it has to beat the identifier rule.)
+
+  // …then the ones that act on a signal: delay, cut, and the one-sample-ago quote.
   if (stream.match(/^[@!']/)) return "operator";
   if (stream.match(/^[-+*/%^<>=&|]+/)) return "operator";
   if (stream.match(/^[()[\]{}]/)) return "bracket";
@@ -148,8 +127,7 @@ const faust = StreamLanguage.define<FaustState>({
   },
 });
 
-// The same palette the YAML mode uses, so one editor does not change colour vocabulary with the
-// tab. The accent goes to the UI primitives here, for the reason stated on `UI` above.
+// The same palette the YAML mode uses, with the accent on the UI primitives for the reason stated on `UI` above.
 const faustHighlight = HighlightStyle.define([
   { tag: t.comment, color: "var(--sh-muted-foreground)", fontStyle: "italic" },
   { tag: t.string, color: "var(--sh-green)" },

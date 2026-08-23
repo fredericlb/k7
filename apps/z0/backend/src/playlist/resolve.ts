@@ -39,11 +39,7 @@ const SPOTIFY_URL =
   /open\.spotify\.com\/(?:intl-[a-z]{2}\/)?playlist\/([A-Za-z0-9]+)/i;
 const SPOTIFY_URI = /^spotify:playlist:([A-Za-z0-9]+)$/i;
 
-/**
- * Parse any of the shapes a user might paste. Bare digits are read as a Deezer
- * id (Spotify ids are base-62, never all-numeric), which keeps the field
- * forgiving without guessing wrong.
- */
+/** Bare digits read as a Deezer id, safely: a Spotify id is base-62 and never all-numeric. */
 export function parsePlaylistURL(raw: string): PlaylistRef {
   const s = raw.trim();
   if (s === "") throw new Error("empty playlist URL");
@@ -149,10 +145,7 @@ async function matchOnDeezer(
   return null;
 }
 
-/**
- * Keep Spotify's artist/title as the answer text — they're what the player is
- * most likely to type — but take the cover and id from the Deezer match.
- */
+/** Spotify's artist and title are what a player will type; the cover and id come from Deezer. */
 function toTrack(
   hit: deezer.DeezerTrack,
   item: spotify.SpotifyTrack,

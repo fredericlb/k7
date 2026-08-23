@@ -58,9 +58,8 @@ releasesRouter.post(
 );
 
 // --- CLI import (st0 export): create-or-version by song UUID -----------
-// A multitrack upload: one mixdown (the playable) + N stems. If a release with
-// this songUuid already exists (for this owner) a version is added; otherwise a
-// new release is created — which requires title + artist.
+
+// A known songUuid adds a version; an unknown one creates a release, needing title + artist.
 releasesRouter.get(
   "/by-song/:uuid",
   wrap(async (req, res) => {

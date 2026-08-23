@@ -48,8 +48,7 @@ export function ProjectShares({
   const [error, setError] = useState<string | null>(null);
 
   const live = liveCount(shares);
-  // What this weighs on the volume, in one number. Nothing here forbids anything: a share does not
-  // expire, so the only thing that can prompt withdrawing one is seeing what they cost together.
+  // What this weighs on the volume, in one number: a share does not expire, so seeing what they cost together is the only prompt.
   const total = shares
     .filter((s) => !s.revokedAt)
     .reduce((n, s) => n + s.bytes, 0);
@@ -60,15 +59,13 @@ export function ProjectShares({
         setCopied(s.key);
         setTimeout(() => setCopied(null), 1500);
       },
-      // A refused clipboard (insecure page, permission) must not lose the link: it is written
-      // beside it, on the row, and stays selectable by hand.
+      // A refused clipboard must not lose the link: it is written beside it, on the row, and stays selectable by hand.
       () => setError("le presse-papiers a refusé — le lien est sur la ligne"),
     );
   };
 
   const revoke = (s: ShareSummary) => {
-    // The sentence names what goes and what stays, because both surprise: the bytes vanish at
-    // once, and a link already sent cannot be unsent.
+    // The sentence names what goes and what stays, because both surprise: the bytes vanish at once, and a link sent cannot be unsent.
     if (
       !window.confirm(
         `Retirer « ${s.name || label} » ?\n\n` +
@@ -89,10 +86,7 @@ export function ProjectShares({
 
   return (
     <>
-      {/* Discret comme « Supprimer » à côté : le geste courant sur cette ligne est d'OUVRIR le
-          projet, et ce bouton-ci n'a pas à le concurrencer du regard. Le compte est dessus quand
-          il y en a, ce qui fait du bouton lui-même l'indicateur : sans lui il faudrait ouvrir
-          chaque popin pour savoir laquelle est vide. */}
+      {/* Discreet, like Supprimer beside it, and carrying the count so the button itself says which project has shares. */}
       <Button
         variant="ghost"
         size="xs"
@@ -154,9 +148,7 @@ export function ProjectShares({
                           </span>
                         )}
                       </div>
-                      {/* L'adresse est un LIEN, pas un bouton : c'est ce qu'on a envoyé aux
-                          autres, et la seule façon de vérifier ce qu'ils voient est de
-                          l'ouvrir. `noopener` parce que la page d'en face est publique. */}
+                      {/* The address is a LINK: opening it is the only way to check what the people you sent it to see; `noopener` because that page is public. */}
                       {url ? (
                         <a
                           href={url}

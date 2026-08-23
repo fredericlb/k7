@@ -70,8 +70,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("curve point add", () => {
   it("inserts IN TIME ORDER, not at the end", async () => {
-    // The bake sorts regardless, so this is not about correctness of sound — it is about the file
-    // staying readable. A drag that appended would scramble it within a minute.
+    // The bake sorts regardless: this is about the FILE staying readable under a drag.
     await runCommand("curve point add sweep 3:1:1 0.5", host(), "cli");
     expect(times()).toEqual(["1:1:1", "3:1", "5:1:1"]);
   });
@@ -138,8 +137,7 @@ describe("curve point remove", () => {
   });
 
   it("refuses the LAST one, and says what to use instead", async () => {
-    // A custom curve with no points does not parse, and a curve file the loader refuses takes the
-    // whole project with it — so this is the one deletion the family will not do.
+    // A pointless custom curve does not parse, and that takes the whole project with it.
     await runCommand("curve point remove sweep 5:1:1", host(), "cli");
     logs.length = 0;
     await runCommand("curve point remove sweep 1:1:1", host(), "cli");

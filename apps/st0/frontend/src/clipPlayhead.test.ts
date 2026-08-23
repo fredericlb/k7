@@ -7,8 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { clipPlayhead } from "./clipPlayhead";
 
-// 110 BPM: a beat is 60/110 s. The event opens at bar 24 (beat 92) and plays 52.36 → 69.82 s of
-// its file — `vox_3@92`, verbatim from the song.
+// 110 BPM: a beat is 60/110 s, and the event opens at bar 24 playing 52.36 → 69.82 s of its file — verbatim from the song.
 const T = 110;
 const AT = 92;
 const ACT = { from: 52.36363636363637, to: 69.81818181818181 };
@@ -21,8 +20,7 @@ describe("the transport on a clip's picture", () => {
   });
 
   it("advances through the file second for second", () => {
-    // Four beats into the event is four beats further into the file — the clip plays at its own
-    // rate, so one axis is the other plus an offset.
+    // Four beats into the event is four beats further into the file: the clip plays at its own rate, so one axis is the other plus an offset.
     const four = (4 * 60) / T;
     expect(clipPlayhead(songSec(AT + 4), AT, ACT, T)).toBeCloseTo(
       ACT.from + four,

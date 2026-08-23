@@ -35,33 +35,11 @@ export interface ClaimTaken {
 export interface HoldOptions {
   /** The launch address this tab opened — `<repo>/<projet>`. Null for a surface with no project. */
   project: string | null;
-  /**
-   * Somebody took the claim. `why` says which of the two, because "your project is open
-   * elsewhere" and "another project took this engine" are opposite advice on screen.
-   *
-   * Called at most once. The caller is expected to STOP DRIVING and say so — there is no retry,
-   * because retrying is how a takeover turns into two tabs trading a project every five seconds.
-   * A claim that merely LAPSED never reaches here: see the re-open below.
-   */
+  /** Somebody took the claim; called at most once, and the caller must STOP DRIVING rather than retry — see docs/lease.md. */
   onLost?: (heldBy: string, why: ClaimTaken) => void;
 }
 
-/**
- * Take the claim and keep it. Returns the goodbye, to call on unmount.
- *
- * "Assigned" is a LEASE, not a flag — the registry stores a timestamp precisely because the
- * holder is a browser tab and can only say goodbye best-effort. A single `select` therefore
- * lapses after ENGINE_ASSIGN_TTL_MS, and the engine reads FREE in everyone's picker while it
- * is still being driven. Both the médiathèque and m9 shipped that bug before this was shared.
- *
- * The claim carries a PROJECT now, and with it the rule that one project lives on one engine.
- * The first call has no secret, which the registry reads as an open and always grants — taking
- * the project from whoever had it. Every call after it carries the secret it was given, so the
- * tab that was displaced is refused rather than granted, and learns through `onLost`.
- *
- * A LAPSE is not a displacement and is not reported: the loop drops the dead secret and opens
- * again on the next tick. See docs/lease.md.
- */
+/** Take the claim and keep it, returning the goodbye: "assigned" is a LEASE and a single select would lapse — see docs/lease.md. */
 export function holdEngine(
   api: EngineLeaseApi,
   id: string,
@@ -80,17 +58,10 @@ export function holdEngine(
         secret = grant.secret;
       },
       (e) => {
-        // A miss is fine: the TTL grants grace, and a genuinely gone engine shows up on the
-        // socket. Losing the CLAIM is not a miss — it is the answer.
+        // A miss is fine — the TTL grants grace — but losing the CLAIM is not a miss, it is the answer.
         if (!(e instanceof ClaimLost)) return;
         if (e.reason === "lapsed") {
-          // Nobody took anything. The server says `lapsed` precisely when nothing holds this
-          // project AND nothing else holds this engine, so opening again takes it from no one —
-          // which is what the tab waking from a sleep or a network gap wants, rather than a
-          // dead end telling someone to go and click their own project a second time.
-          // Forget the dead secret; the next tick's select is an OPEN and is always granted.
-          // Not right now: a deregistered engine answers `lapsed` too, and re-opening on the
-          // spot would spin against it as fast as the network allows.
+          // Nobody took anything, so forget the dead secret and let the NEXT tick open again — see docs/lease.md.
           secret = undefined;
           return;
         }

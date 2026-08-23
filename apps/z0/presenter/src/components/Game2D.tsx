@@ -28,8 +28,7 @@ const SCENE_EXTEND = 0.52;
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-// UI snapshot — the only state React renders (overlays); everything else is
-// read by the canvas draw loop straight off the mutable game objects.
+// UI snapshot — the only state React renders; the draw loop reads the mutable game objects.
 interface UIState {
   phase: GamePhase;
   songsLoading: boolean;
@@ -64,16 +63,11 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
     get: () => ui,
   };
 
-  // ─── Audio (remote-controlled via monitor-web) ────────────────────────────
-  // The presenter no longer plays audio locally; the monitor-web app owns the
-  // AudioContext and song playback. We mirror playback state via WS broadcasts
-  // (preload_progress / preload_failed) and forward control intents as
-  // audio_command messages.
+  // ─── Audio — monitor-web owns the AudioContext, see ../../../docs/effects.md ──
   const sendAudio = (action: string, extra: Record<string, unknown> = {}) =>
     ws.send({ type: "audio_command", payload: { action, ...extra } });
 
-  // Bip sound effect + discreet tick for the last 3s of the answer timer.
-  // BASE_URL-relative so the assets resolve under /presenter/ in production.
+  // Bip and answer-timer tick, BASE_URL-relative so they resolve under /presenter/ in production.
   const bipAudio = new Audio(`${import.meta.env.BASE_URL}bip.wav`);
   bipAudio.volume = 0.7;
   const playBip = () => {
@@ -100,8 +94,7 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
     pause: () => sendAudio("pause"),
     setGain: (value) => sendAudio("set_gain", { value }),
     resumeContext: () => sendAudio("resume_context"),
-    // Playback + preload are owned by monitor-web off the same `next`
-    // broadcasts; the local preload becomes a no-op.
+    // monitor-web preloads off the same `next` broadcasts, so the local preload is a no-op.
     preloadCategory: () => Promise.resolve(),
     wsSend: ws.send,
     ensureCharState,
@@ -110,11 +103,7 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
   });
   logic.onPhaseChange((phase) => setUI({ phase }));
 
-  // ─── QR codes for the registration screen ────────────────────────────────
-  // Buzzer URL QR: the buzzer is /buzzer on this same origin, so the QR points
-  // at wherever the presenter itself is being served from — no configuration.
-  // Override with VITE_BUZZER_URL if buzzer is reached some other way (e.g. a
-  // LAN IP for offline play, where players can't resolve this host).
+  // ─── QR codes — /buzzer on this origin, VITE_BUZZER_URL to name a LAN IP instead ──
   const buzzerUrl =
     (import.meta.env.VITE_BUZZER_URL as string | undefined) ||
     `${window.location.origin}/buzzer`;
@@ -130,11 +119,7 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
     })
     .catch(() => {});
 
-  // WiFi credentials shown on the registration screen so players can join
-  // the LAN before scanning the buzzer QR. The Wi-Fi QR uses the standard
-  // "WIFI:" payload (T=auth, S=ssid, P=password, ;;) — iOS/Android scanners
-  // recognise it and offer one-tap join. Strings are escaped per the spec.
-  // SSID / password / auth type come from .env so each venue can swap them.
+  // Wi-Fi join QR in the standard `WIFI:T:…;S:…;P:…;;` payload, from .env so a venue swaps it.
   const wifiSSID = (import.meta.env.VITE_WIFI_SSID as string | undefined) || "";
   const wifiPassword =
     (import.meta.env.VITE_WIFI_PASSWORD as string | undefined) || "";
@@ -164,20 +149,14 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
   ws.on("bump", logic.handleBump);
   ws.on("score_set", logic.handleScoreSet);
 
-  // Authoritative phase comes from the backend (setServerPhase). Presenter-
-  // local render phases — scoreboard, pause, mystery-question — are still set
-  // by the next-handler below; the backend deliberately broadcasts
-  // phase_change BEFORE "next" so this listener's write happens first and the
-  // next-handler's specific render phase wins on the same tick.
+  // The backend broadcasts phase_change BEFORE "next", so the next-handler's render phase wins.
   ws.on("phase_change", (payload: { phase?: string }) => {
     if (typeof payload?.phase === "string") {
       logic.setPhase(payload.phase as GamePhase);
     }
   });
 
-  // The backend broadcasts "next" after any client (remote, presenter, …)
-  // POSTs /api/next. The presenter is a passive consumer here so the remote
-  // can drive game advance even when the presenter isn't running.
+  // A passive consumer of "next", so the remote can advance the game with no presenter running.
   ws.on("next", (payload: any) => {
     logic.applyNextItem(payload);
   });
@@ -200,8 +179,7 @@ function createPresenterSystem(getCanvas: () => HTMLCanvasElement | null) {
     },
   );
 
-  // The presenter is purely a renderer for these flows now; monitor-web
-  // owns the score/reveal/multi/politeness state machine.
+  // A renderer only here: monitor-web owns the score/reveal/multi state machine.
   ws.on(
     "remote_action",
     (payload: { action: string; playerIndex?: string }) => {
@@ -268,8 +246,7 @@ export function Game2D() {
   );
   const ui = useSyncExternalStore(sys.uiStore.subscribe, sys.uiStore.get);
 
-  // Answer-timer ticks: a discreet bip at each of the last 3 seconds of the
-  // 12 s answering window (t=9s, 10s, 11s after the buzz).
+  // A discreet tick at t=9s, 10s and 11s of the 12 s answering window.
   useEffect(() => {
     if (ui.phase !== "answering") return;
     const timers = [9000, 10000, 11000].map((delay) =>
@@ -425,8 +402,7 @@ export function Game2D() {
           );
         }
 
-        // WiFi-join QR (bottom-left corner) plus the SSID / password readable
-        // for anyone whose phone can't auto-join from the QR.
+        // Wi-Fi QR bottom-left, with SSID and password readable for a phone that can't join.
         const wifiQRImage = sys.getWifiQRImage();
         if (wifiQRImage?.complete) {
           const qrSize = Math.min(180, H * 0.28);
@@ -834,8 +810,7 @@ export function Game2D() {
         logic.setSkipHoldStart(-1);
       }
 
-      // Song timecode (bottom-left). Local audio time is unavailable now that
-      // playback runs on monitor-web — kept at 0:00 like the Vue version.
+      // Song timecode, pinned at 0:00: playback runs on monitor-web, so local audio time is gone.
       if (["song", "answering", "judging", "reveal"].includes(gamePhase)) {
         const tc = 0;
         const mins = Math.floor(tc / 60);
@@ -1061,8 +1036,7 @@ export function Game2D() {
         );
       }
 
-      // Category notice (top of screen, persistent during category songs —
-      // drawn last so it's on top of overlays)
+      // Category notice, drawn last so it sits on top of the overlays.
       if (
         ["song", "answering", "judging", "reveal"].includes(gamePhase) &&
         logic.categoryNotice
@@ -1089,9 +1063,7 @@ export function Game2D() {
       initParticles(canvas.width, canvas.height * (1 + SCENE_EXTEND));
     };
 
-    // Audio is owned by monitor-web, so the presenter never needs a user
-    // gesture — auto-resume into whatever phase the backend reports, or
-    // open registration directly.
+    // No AudioContext here, so no user gesture is needed: auto-resume, or open registration.
     void (async () => {
       const info = await logic.checkResumable();
       if (info && logic.showResumeOption && info.phase) {

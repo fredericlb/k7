@@ -12,13 +12,7 @@ export interface MotionNode {
   y: number;
 }
 
-/**
- * One node's remaining distance and its presence.
- *
- * `dx`/`dy` are an OFFSET from where the node is drawn, not a position: React owns the position
- * and this owns the difference, which is what lets a re-layout land mid-flight without the two
- * disagreeing about where anything is.
- */
+/** One node's remaining distance and its presence — `dx`/`dy` are an OFFSET, not a position. */
 export interface Motion {
   dx: number;
   dy: number;
@@ -52,31 +46,12 @@ export const MOVE_EPSILON = 0.5;
 /** How small a node is when it is not there yet. Not 0: a card scaling from nothing reads as a zoom. */
 export const ENTER_SCALE = 0.84;
 
-/**
- * The motion a new layout implies, given where the old one had got to.
- *
- * `before` is the previous layout's positions and `flying` what was still in flight, because the
- * two together are where a node actually IS: a re-layout arriving mid-slide has to continue from
- * the screen rather than from the position the last layout never reached.
- *
- * Identity is the node id, which `buildGraph` mints from names — so a renamed module reads as one
- * leaving and one arriving, which is what it is, and a re-ordered chain keeps its ids and only
- * moves. That is the whole discriminator; nothing here compares labels.
- */
+/** The motion a new layout implies, given where the old one had got to — docs/nodeMotion.md. */
 export function planMotion<N extends MotionNode>(
   before: Map<string, Ghost<N>>,
   flying: Map<string, Motion>,
   next: readonly N[],
-  /**
-   * How far a card may travel, in world px, before it stops being worth drawing as a move.
-   *
-   * Past a screen or so, a slide is not read as one thing going somewhere — it is read as
-   * something shooting across the view, and half a dozen of them at once is flicker rather than
-   * motion. The mixer view is where this bites: turning it on re-frames the camera AND pulls
-   * every strip onto one rank, so cards that were off screen would come flying in from outside
-   * it. Those fade up where they belong instead, which is what "it was not on screen a moment
-   * ago" honestly looks like. The caller sets it from the camera; omitted, nothing is capped.
-   */
+  /** How far a card may travel in world px before it fades up in place instead — docs/nodeMotion.md. */
   maxTravel = Number.POSITIVE_INFINITY,
 ): Plan<N> {
   const motions = new Map<string, Motion>();
@@ -86,8 +61,7 @@ export function planMotion<N extends MotionNode>(
   for (const n of next) {
     const was = before.get(n.id);
     if (!was) {
-      // New: it is drawn where it belongs and fades up into it. No slide — there is no
-      // "from" that means anything, and inventing one would claim it came from somewhere.
+      // New: drawn where it belongs and fading up into it, since no "from" would mean anything.
       motions.set(n.id, { dx: 0, dy: 0, a: 0, at: 1 });
       moving = true;
       continue;
@@ -96,16 +70,13 @@ export function planMotion<N extends MotionNode>(
     let dx = was.x + (f?.dx ?? 0) - n.x;
     let dy = was.y + (f?.dy ?? 0) - n.y;
     let a = f?.a ?? 1;
-    // Too far to read as a movement: ARRIVE instead, at the place it is going. There is no
-    // deception in that — a card that has to cross more than a screenful was not where the eye
-    // could follow it from, so fading up where it belongs is the honest picture.
+    // Too far to read as a movement: ARRIVE instead, at the place it is going — docs/nodeMotion.md.
     if (Math.hypot(dx, dy) > maxTravel) {
       dx = 0;
       dy = 0;
       a = 0;
     }
-    // A node that was on its way OUT and is back in the layout turns around rather than
-    // finishing its exit — a replace that lands on the same id is one card, not two.
+    // A node on its way OUT and back in the layout turns around rather than finishing its exit.
     if (Math.abs(dx) < MOVE_EPSILON && Math.abs(dy) < MOVE_EPSILON && a === 1)
       continue;
     motions.set(n.id, { dx, dy, a, at: 1 });
@@ -129,14 +100,7 @@ export function planMotion<N extends MotionNode>(
   return { motions, ghosts, moving };
 }
 
-/**
- * Advance every motion by `dt` ms. Answers whether anything is still moving.
- *
- * Exponential, like the camera's zoom glide and for the same reason: two 8 ms frames on a 120 Hz
- * screen must leave what one 16 ms frame leaves at 60, or the same movement arrives sooner on the
- * better screen. Settled entries are DELETED, so the caller can clear that node's inline style
- * once and then leave it alone.
- */
+/** Advance every motion by `dt` ms, exponentially; settled entries are DELETED — docs/nodeMotion.md. */
 export function advanceMotion(
   motions: Map<string, Motion>,
   dt: number,

@@ -20,12 +20,7 @@ export type SpawnResult =
   /** No runtime to spawn and nothing answering. The red-icon case. */
   | { kind: "unavailable" };
 
-/**
- * Ensure a file service is serving `filePort`, spawning one if we can.
- *
- * Every start path goes through here — owned engine, adopted engine, or the manual
- * restart — so the probe is never skipped.
- */
+/** Ensure a file service is serving `filePort`, spawning one if we can; every start path goes through here, so the probe is never skipped. */
 export async function ensure(
   identity: EngineIdentity,
   enginePort: number,
@@ -60,11 +55,9 @@ export async function ensure(
       STUDIO_REGISTRY_URL: registryUrl,
       // A packaged app has no useful PATH: point the file service at the staged demo songs, or a new workspace opens empty.
       ...(bundle.demos() ? { STUDIO_DEMOS: bundle.demos() as string } : {}),
-      // Only when set: unset means the file service falls back to ~/.studio/mediatek itself,
-      // and passing an empty string here would read as "the current directory".
+      // Only when set: unset falls back to ~/.studio/mediatek, while an empty string would read as "the current directory".
       ...(mediatekDir ? { STUDIO_MEDIATEK: mediatekDir } : {}),
-      // Only when configured: with no URL the local folder is simply not a cache of
-      // anything, which is a working state and not a broken one.
+      // Only when configured: with no URL the local folder is simply not a cache of anything, which is a working state.
       ...(mediatek.url ? { MEDIATEK_URL: mediatek.url } : {}),
       ...(mediatek.token ? { MEDIATEK_TOKEN: mediatek.token } : {}),
     },
@@ -75,8 +68,7 @@ export async function ensure(
   return { kind: "spawned", child };
 }
 
-/** Stop a file service WE spawned, tree and all. A no-op for a foreign one — we have no
- *  child, and killing someone else's dev watcher is not ours to do. */
+/** Stop a file service WE spawned, tree and all; a no-op for a foreign one, since killing someone else's dev watcher is not ours to do. */
 export function stop(child: ChildProcess | null): void {
   if (!child?.pid) return;
   killTree(child.pid);

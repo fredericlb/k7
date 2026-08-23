@@ -1,7 +1,6 @@
 import type { Preview } from "@storybook/react-vite";
 import "./preview.css";
-// k7's legacy global stylesheet is plain CSS (no Tailwind directives) and
-// styles its app-specific component stories (ChordDiagram, MetronomeWidget, …).
+// k7's legacy global stylesheet: plain CSS, and what its own component stories are styled by.
 import "../apps/k7/frontend/src/styles.css";
 
 const preview: Preview = {

@@ -10,11 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
-// clearWaveformCache deletes files, so its blast radius is worth pinning down. The
-// sidecars live NEXT TO their audio ({source}.cache, see waveformCache.ts) rather than
-// in one cache folder, so the sweep walks the workspace — and must respect the same
-// exclusions the file tree uses, or it would reach into node_modules and the recycle
-// bin (where a "deleted" project still waits to be restored).
+// The sidecars sit NEXT TO their audio, so the sweep walks the workspace under the tree's own exclusions.
 
 let root: string;
 let ws: Workspace;

@@ -13,9 +13,7 @@ import {
 } from "./stepGrid";
 import type { WebNote } from "./types";
 
-// The step sequencer's decisions: which panel a MIDI clip opens in (rackFor), and the grid its
-// window divides into (stepGrid). Pinned here because nothing in this app mounts a component —
-// the buttons are a table drawn around these numbers.
+// The step sequencer's decisions — which panel a MIDI clip opens in, and the grid its window divides into; the buttons are a table around these.
 
 const note = (time: number, key: number, duration = 0.5): WebNote => ({
   time,
@@ -57,8 +55,7 @@ describe("what lights a cell", () => {
   });
 
   it("claims a note drawn OFF the grid lines, so a played take still shows", () => {
-    // 1.25 is not a 1/8 line's start, but it is inside the cell at 1 — and toggling that cell
-    // off must address the note where it really is.
+    // 1.25 is not a 1/8 line's start but it is inside the cell at 1, and toggling that cell off must address the note where it really is.
     expect(noteInCell(notes, 36, 1, 0.5)).toBe(notes[1]);
     expect(noteInCell(notes, 36, 1.5, 0.5)).toBeNull(); // …and only that cell claims it
   });
@@ -138,9 +135,7 @@ describe("rackFor — which panel a clip opens in", () => {
   });
 });
 
-// Editing has to feel instant, and the document takes ~half a second to agree (a `sequence
-// note` command recompiles the project). So the grid paints the press at once and reconciles
-// when the reload lands — and it must not rescan every note per cell while doing it.
+// Editing has to feel instant while the document takes ~half a second to agree, and the grid must not rescan every note per cell meanwhile.
 describe("notesByCell", () => {
   const notes = [note(0, 36), note(1.25, 36), note(2, 38)];
 
@@ -195,8 +190,7 @@ describe("settledEdits", () => {
     expect(settledEdits(new Map([["36@0", on(1)]]), full)).toEqual(["36@0"]);
   });
 
-  // …and for the NUDGE, which is where the note sits inside its step. A ghost dropped before the
-  // move landed would snap the pad back to the step for the length of a round trip.
+  // …and for the NUDGE: a ghost dropped before the move landed would snap the pad back to the step for the length of a round trip.
   it("waits for the nudge, and cannot read one without the step", () => {
     const at = (t: number) => new Map([["36@0", note(t, 36)]]);
     const cell = () => 0;
@@ -233,8 +227,7 @@ describe("nudgeOf / nudgedTime", () => {
       expect(nudgeOf(nudgedTime(4, 0.25, n), 4, 0.25)).toBe(n);
   });
 
-  // A beat that goes in a FILE, and is then used to find the note again. `4.092500000000001`
-  // would be noise in a diff and a different string to match on.
+  // A beat that goes in a FILE and is then used to find the note again: `4.092500000000001` is noise in a diff and a different string.
   it("writes a beat a file can hold and an edit can address", () => {
     expect(nudgedTime(4, 0.25, 37)).toBe(4.0925);
     expect(nudgedTime(2, 0.5, 33)).toBe(2.165);

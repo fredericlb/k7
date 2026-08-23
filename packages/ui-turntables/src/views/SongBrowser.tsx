@@ -36,8 +36,7 @@ export function SongBrowser({
     if (!playable(s)) return;
     onPick(s);
     onOpenChange(false);
-    // Cleared on the way out, not on the way in: reopening for the OTHER deck should start
-    // fresh, and a search left behind would hide the set behind somebody's last word.
+    // Cleared on the way OUT, so reopening for the other deck starts on the whole set.
     setQuery("");
   };
 
@@ -56,9 +55,7 @@ export function SongBrowser({
           value={query}
           placeholder="Chercher un artiste, un titre…"
           onChange={(e) => setQuery(e.target.value)}
-          // Type, Enter, done — the whole point of a search at a desk. It picks the first
-          // PLAYABLE row rather than the first row, so a song still syncing cannot be loaded
-          // by a keystroke aimed at the one under it.
+          // Type, Enter, done — and the first PLAYABLE row, so a syncing song cannot be loaded by mistake.
           onKeyDown={(e) => {
             if (e.key !== "Enter") return;
             const first = shown.find(playable);
@@ -96,8 +93,7 @@ export function SongBrowser({
                       <CloudDownload className="h-4 w-4 shrink-0 text-muted-foreground opacity-60" />
                     )}
                     <span className="flex min-w-0 flex-col">
-                      {/* The ARTIST first and smaller, the title below: the list is sorted by
-                          artist, so that is the column a scanning eye follows down. */}
+                      {/* The ARTIST first and smaller, since the list is sorted by artist. */}
                       {s.artist ? (
                         <span className="truncate text-xs text-muted-foreground">
                           {s.artist}

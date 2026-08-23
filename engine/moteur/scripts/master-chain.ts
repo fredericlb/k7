@@ -55,8 +55,7 @@ async function main() {
   if (!bin) throw new Error("no studio-moteur binary on this machine");
 
   const bare = await renderProject({ ...base, masterPlugins: [] });
-  // Tracktion's own volume plugin, pinned to the bottom of its fader. Silence is the one
-  // outcome that cannot be a coincidence: nothing else in this document touches the level.
+  // Tracktion's own volume plugin, pinned to the BOTTOM of its fader (../docs/renderHarnesses.md).
   const withChain = await renderProject({
     ...base,
     masterPlugins: [
@@ -65,16 +64,13 @@ async function main() {
         type: "volume",
         name: "trim",
         role: "audioFX",
-        // `Volume`, capitalised — the name the plugin publishes (builtinParams.generated.ts).
-        // 0 is the bottom of the fader; a lowercase key matches nothing and changes nothing,
-        // which is exactly what a first run of this script measured.
+        // `Volume`, capitalised: a lowercase key matches nothing (../docs/renderHarnesses.md).
         params: { Volume: 0 },
       },
     ],
   });
 
-  // …and the OUT node's own Volume, with no chain at all. A plain -20 dB, which a peak can be
-  // checked against by arithmetic rather than by margin: this is a gain, not a fader curve.
+  // …and the OUT node's own Volume with no chain: a gain, not a fader curve, so arithmetic holds.
   const TRIM_DB = -20;
   const trimmed = await renderProject({
     ...base,
@@ -91,12 +87,9 @@ async function main() {
 
   // The bare render has to make a sound, or the comparison proves nothing about the chain.
   const audible = a > -40;
-  // …and the chained one has to be far below it. A margin rather than exact silence: the
-  // fader's own curve is what decides the floor, and this asks whether the plugin RAN.
+  // …and the chained one far below it — a MARGIN, since the question is whether the plugin ran.
   const silenced = b < a - 40;
-  // The trimmed one lands exactly TRIM_DB below the bare one. Within half a dB, which is
-  // rounding rather than slack: MasterGainPlugin takes dB straight to a linear factor with no
-  // curve, so anything looser would also pass on a render that ignored the field and clipped.
+  // Exactly TRIM_DB below the bare one, to half a dB of ROUNDING (../docs/renderHarnesses.md).
   const trimApplied = Math.abs(c - (a + TRIM_DB)) < 0.5;
   const ok = audible && silenced && trimApplied;
   console.log(

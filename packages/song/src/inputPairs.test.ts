@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultPreferences, normalizePreferences } from "./preferences";
 
-// `inputPairs` is the rig's input GROUPING — which interface channels the engine merges into one
-// stereo device. It lives beside the audio device and is replayed on the same connect, because the
-// engine remembers this no better than it remembers which interface to open, and Tracktion's own
-// copy of it is only readable through the call that reopens the remembered device — the one thing
-// engine/moteur/AGENTS.md forbids. Full account in engine/moteur/docs/audioDevice.md.
-//
-// Only the FIRST channel of a pair is stored, and it is always the odd one: the interface pairs
-// even/odd hardware channels, so 2 names the same pair as 1 and there is no pair 2+3 to describe.
-// This is the coercion every hand-edit of preferences.yaml passes through.
+// Only the FIRST, odd channel of a pair is stored, since the interface pairs even/odd channels.
 
 const pairs = (v: unknown): number[] => normalizePreferences(v).inputPairs;
 
@@ -43,8 +35,7 @@ describe("the rig's input pairing", () => {
   });
 
   it("leaves the rest of the preferences alone", () => {
-    // The whole file passes through this on every read AND every write; a coercion that dropped a
-    // neighbouring field would erase it the next time anything saved.
+    // Every read AND write passes through here, so a dropped field is erased on the next save.
     const p = normalizePreferences({
       audioDevice: { name: "Focusrite USB ASIO", type: "ASIO" },
       inputPairs: [3],

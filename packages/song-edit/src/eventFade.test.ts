@@ -1,13 +1,4 @@
-// An event's FADES — `event fadein` / `event fadeout`, and the file they write.
-//
-// Two things are easy to get wrong here and neither is visible in a diff. A fade is a DURATION, so
-// it is spelled with `beatsToDuration` and read back with `parseDuration`: one beat is `0:1`,
-// where the same number as a POSITION is `1:2`. Write it as a position and the fade reads back as
-// five beats instead of one — silently, on a field no schema can catch, since both spellings are
-// legal timecodes.
-//
-// And a fade of nothing is the ABSENCE of a fade, like `disabled: false` before it: dragging a
-// fade open and closed again has to leave the file exactly as it was.
+// An event's FADES: a DURATION, and a fade of nothing is its absence — see docs/trackMix.md.
 
 import {
   cpSync,
@@ -82,9 +73,7 @@ describe("setTrackPlacementFade", () => {
     const dir = trackDir(LANE);
     setTrackPlacementFade(dir, "drums", at("1:1"), NUM, DEN, "fadeIn", 1);
     const written = /fadeIn:\s*"([^"]+)"/.exec(laneText(dir))?.[1] ?? "";
-    // `beatsToDuration` drops a trailing zero tick, so one beat is "0:1" rather than "0:1:0".
-    // Pinning the ROUND TRIP rather than the spelling: what matters is that the compiler reads
-    // back the number we meant, and the same beats as a POSITION would be "1:2" — five beats.
+    // The ROUND TRIP rather than the spelling: the same beats as a POSITION would be "1:2".
     expect(parseDuration(written, NUM, DEN)).toBeCloseTo(1, 6);
     expect(written).not.toBe(beatsToPosition(1, NUM, DEN));
   });
@@ -132,10 +121,7 @@ describe("setTrackPlacementFade", () => {
 });
 
 describe("a fade through the compiler", () => {
-  // The writer and the reader are two halves of one agreement, and a test on either alone cannot
-  // see them disagree. `setTrackPlacementFade` spells beats with `beatsToDuration`;
-  // `placementToClip` reads them back with `parseDuration`. If either ever moved to the POSITION
-  // spelling, a one-beat fade would compile as five and nothing would say so.
+  // Writer and reader are two halves of one agreement, and neither alone can see them disagree.
   it("compiles back to the beats it was written with", () => {
     const dir = mkdtempSync(join(tmpdir(), "td-fadec-"));
     dirs.push(dir);

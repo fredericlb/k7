@@ -2,6 +2,101 @@
 
 Background for the one-line headers in `engine-host/src`. Each section names its file.
 
+## `supervisor.ts` — the loops, and the pace each one runs at
+
+Nothing here is pushed: the engine has no callback for an interface being unplugged or a song
+being loaded, so the supervisor asks. Every poll therefore costs something forever, and the
+interval is the whole of the design.
+
+| constant | why that pace |
+|---|---|
+| `WATCH_MS` (2 s) | both process watches. Fast enough that a crash is noticed before the user is, slow enough to be free — each tick is a pidfile stat or a socket connect. |
+| `DEVICES_POLL_MS` (2 s) | this is what notices an interface being plugged in or pulled out. A menu listing a device you unplugged a minute ago is worse than useless, and the recovery in `audioPolicy.ts` can only be as prompt as this tick. |
+| `SESSIONS_POLL_MS` (2 s) | an app connecting or a song loading is a human-speed event, and the submenu redraws only when the signature moves anyway. |
+| `EDIT_PLUGINS_POLL_MS` (3 s) | a user swaps songs at human speed, not interface-unplug speed. |
+| `PLUGINS_POLL_MS` (60 s) | the plugin scan is expensive and the answer barely moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` (2 s) instead, to keep the spinner honest — that poll reschedules itself rather than sitting on one interval. |
+| `BACKOFF_MAX_S` (30 s) | the relaunch backoff for a crashing engine, doubling from 1 s. One that dies on startup — a bad audio device, a missing DLL — would otherwise be relaunched forever at one per second, and the log would be nothing but that. |
+| `DEREGISTER_TIMEOUT_MS` (1.5 s) | a hung registry must not hold the quit open. The tray gives the supervisor about 3 s in total before it kills it. |
+
+### Signatures, not arrays
+
+The tray rebuilds a submenu whenever the snapshot it draws from changes, so what the polls
+compare is a **signature** rather than the data.
+
+- The audio menu compares `menuSignature`, so a device list that came back identical redraws
+  nothing.
+- The edit-plugin signature is built from the OPENABLE ids and is **session-qualified**: the same
+  module id in two projects is two rows, and the signature has to change when one of them goes.
+- The session signature includes `playing` and `listeners` because those are on the label — they
+  are the two facts that answer "who is using my interface right now". The **playhead is not in
+  it**, and that is the point of having a signature at all: it moves 20 times a second and would
+  put the whole snapshot on the wire with it.
+
+### Bringing the file service up, including the adopted case
+
+`ensureFileService` is called from every start path, and the ADOPT case is why. A force-killed
+tray leaves its engine and its pidfile behind but **not** its file service, so a launch that
+adopted the orphan and skipped this would come up with no file service at all — the "no answer on
+:8770" the web UI shows.
+
+It is handed **all** the registry URLs, comma-joined: the file service builds its CORS allowlist
+from them, and every service holding a registry is a browser that will call it. Passing the first
+alone would refuse the médiathèque with nothing logged anywhere.
+
+The watch over it, unlike the engine's crash watch, **never relaunches**. A file service that
+keeps falling over is something the user should see and act on rather than have papered over, and
+the restart is one menu click away. It reports **both ways**, because it is a live reading rather
+than a failure record: restart `npm run dev` and the icon should go green again on its own.
+
+### The registries are re-resolved on every heartbeat
+
+The ambient tiers can move under the supervisor. Under `npm run dev` the tray and the backends
+start together, so a supervisor that wins the race resolves before any of them has advertised —
+and would then announce to the hosted studio forever while three local registries sat empty.
+
+So each tick re-derives the list, unless the user pinned one: an explicit choice must not be
+re-derived. It is cheap, a readdir of four small files (`registryClient.ts`).
+
+`resolveRegistryUrls` reads four tiers, most explicit first, and the **first tier that yields
+anything wins outright** — they are alternatives, not a union:
+
+1. what the user pinned with "Add web UI…" — a deliberate, persisted choice beats an ambient one,
+   which is why it sits above the environment variable;
+2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one;
+3. what the local backends advertised — `~/.studio/web-endpoints/*.json`, one file per service,
+   plus the legacy single `web-endpoint.json` — so a local dev setup beats the hosted default;
+4. the hosted studio.
+
+It answers a **list**, because each hosted service holds its own registry and an engine must be
+listed in st0 *and* in the médiathèque to be pickable in both. Deduped, since the same URL twice
+would mean two heartbeats a tick to one server for nothing. The legacy single file is still read
+because an older st0 backend writes only that one and a tray shipped before the directory reads
+only that one; the union is what stops a version skew from silently costing an app its engine.
+
+The heartbeat is **all-or-nothing**: the tray shows one light, so "ok" has to mean every service
+can offer this engine. A registry that is down is simply absent from that service's picker, which
+is correct — that service genuinely cannot be driven right now.
+
+The médiathèque this machine caches is **derived** from those URLs rather than configured: every
+service sits on one origin at a fixed path, so only the origin varies, and asking for the
+library's URL separately made a second hand-typed copy of a fact already on disk — which is how a
+machine ends up heartbeating to one studio and syncing from another. Only the origin is kept and
+the path comes back from the service table. The first resolvable registry wins, and an
+unparseable one yields nothing rather than an empty string the file service would read as
+configured.
+
+`addRegistryUrl` is an **add** and no longer a replace. Each hosted service holds its own
+registry, so "Add web UI…" for the médiathèque must not evict st0 — that would silently take the
+engine out of one picker to put it in another, and the two are not alternatives. It is idempotent
+beyond re-announcing, and it persists the result as the explicit list so the next boot takes it
+rather than the ambient environment variable.
+
+### Shutdown order
+
+Deregister **first**, while the entry still means something, but bounded by
+`DEREGISTER_TIMEOUT_MS`. Then tear down — and unlike Stop, this does **not** spare an adopted
+engine: one left listening holds the audio device and both ports for whatever launches next.
+
 ## `webOrigins.ts` — the web UIs this engine trusts
 
 A st0 web UI reached over a real hostname (`https://daw.test` behind the proxy, a

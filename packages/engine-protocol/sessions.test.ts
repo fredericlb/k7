@@ -43,22 +43,19 @@ describe("forSession", () => {
     expect(forSession({ session: "st0:b" }, "st0:a")).toBe(false);
   });
 
-  // DISAGREEMENT, not absence: engine-global replies carry no session, and an engine older
-  // than sessions stamps nothing — requiring the field would make a new client deaf.
+  // DISAGREEMENT, not absence: an engine older than sessions stamps nothing, so requiring the field would make a new client deaf.
   it("lets an unstamped frame through", () => {
     expect(forSession({}, "st0:a")).toBe(true);
     expect(forSession({ session: undefined }, DEFAULT_SESSION)).toBe(true);
   });
 
-  // An old client sends no session, so the engine stamps its replies "" — and "" is what that
-  // client drives. The two must still agree, or sessions would break every client that predates them.
+  // An old client sends no session and the engine stamps its replies "", which is what that client drives; the two must still agree.
   it("keeps the default session's own frames", () => {
     expect(forSession({ session: "" }, DEFAULT_SESSION)).toBe(true);
   });
 });
 
-// The two tables ARE the contract: "unstamped" is a closed set, not a tendency, and this is the
-// one place both clients read it. A reply that moves between them has to move here first.
+// The two tables ARE the contract: "unstamped" is a closed set, and a reply that moves between them has to move here first.
 describe("the stamped/unstamped sets", () => {
   it("does not put a reply in both", () => {
     const global = new Set<string>(ENGINE_GLOBAL_REPLIES);
@@ -66,9 +63,7 @@ describe("the stamped/unstamped sets", () => {
       expect(global.has(type)).toBe(false);
   });
 
-  // Frames are built as VARIABLES, not literals: `forSession` reads `session` and declares only
-  // that, so a literal carrying `type` too trips excess-property checking — while a real caller,
-  // handing over a whole decoded frame, never does.
+  // Frames are built as VARIABLES, not literals: a literal carrying `type` too would trip excess-property checking, where a real caller does not.
   const frame = (
     type: string,
     session?: string,

@@ -28,8 +28,7 @@ describe("which family a name suggests", () => {
   });
 
   it("sends what nothing claims to a page rather than to the floor", () => {
-    // Best effort means some names have nothing to go on. `String Tension` is a real Piano V3
-    // parameter and belongs to no family any word here names — it still gets a widget.
+    // `String Tension` is a real Piano V3 parameter belonging to no family here — it still gets a widget.
     expect(familyOf("String Tension")).toBe("Other");
     expect(familyOf("Hammer Hardness")).toBe("Other");
   });
@@ -39,8 +38,7 @@ describe("which family a name suggests", () => {
     expect(familyOf("Pitch Bend")).toBe("MIDI");
   });
 
-  // Every one of these is a word two families want. The table's ORDER is the answer, so each
-  // pair is pinned: reordering the table to fix one of them silently rehomes the others.
+  // Each is a word two families want, pinned because reordering the table to fix one rehomes the others.
   it.each([
     ["Comp Make Up gain", "Dynamics", "a make-up gain is not a level"],
     ["Comp Attack", "Dynamics", "a compressor's attack is not an envelope"],
@@ -64,11 +62,9 @@ describe("which family a name suggests", () => {
     expect(familyOf(name)).toBe(page);
   });
 
-  // `familyOf` still NAMES these; `groupParams` is where they are left out. The two are
-  // separate on purpose: a name that fell into `Other` would be plumbing nobody recognised.
+  // `familyOf` still NAMES these and `groupParams` leaves them out: falling into `Other` is not the same.
   it("keeps the plugin's plumbing away from the knobs", () => {
-    // Piano V3 publishes sixteen of each of these. Left among the sound controls they are
-    // sixteen knobs nobody will ever turn, in the space sixteen real ones could have had.
+    // Piano V3 publishes sixteen of each: sixteen knobs nobody will turn, in a real one's place.
     for (const n of [
       "VST_ProgramChange_7",
       "VST3_PitchBend",
@@ -82,8 +78,7 @@ describe("which family a name suggests", () => {
 
 describe("the pages", () => {
   it("keeps the table's order, and puts the leftovers last", () => {
-    // `Other` is where the guess gave up: a page of leftovers ahead of a page of reverb
-    // controls would say the opposite of what the layout is for.
+    // `Other` is where the guess gave up, so it cannot come before a page of reverb controls.
     const groups = groupParams([
       p("String Tension"),
       p("Master Volume"),
@@ -93,9 +88,7 @@ describe("the pages", () => {
   });
 
   it("leaves the plumbing out — no Preset page, no MIDI page", () => {
-    // Matched so they can be recognised, then skipped: a proposal that spends two of its pages
-    // on program changes and browser navigation has answered the wrong question. Nothing is
-    // lost — the params list still offers every one of them, one drag from a widget.
+    // Matched so they can be recognised, then skipped; nothing is lost, the params list still has them.
     expect(isPlumbing("Select Preset")).toBe(true);
     expect(isPlumbing("MPE_PitchBend_3")).toBe(true);
     expect(isPlumbing("Filter Cutoff")).toBe(false);
@@ -116,9 +109,7 @@ describe("the pages", () => {
   });
 
   it("claims the lane's own names early — to drop them, `@base` apart", () => {
-    // `@volume` reads as a level to every word test there is, so the `@` namespace has to ask
-    // before `Mix`. What it does with them is DROP them: a mixer strip already draws every one,
-    // and a proposal repeating them puts a second fader on screen wired to the first.
+    // `@volume` reads as a level, so `@` asks before `Mix` — and DROPS them, the strip drawing every one.
     expect(isPlumbing("@volume")).toBe(true);
     expect(isPlumbing("@monitor")).toBe(true);
     expect(isPlumbing("@mute")).toBe(true);
@@ -136,16 +127,14 @@ describe("the pages", () => {
   });
 
   it("tells the module's OWN blend from an effect's, and moves neither", () => {
-    // The test is the family, not the word: the effect families ask before `Mix` does, so a
-    // blend word still sitting in `Mix` at the end is one no effect claimed.
+    // The test is the FAMILY, not the word: a blend word left in `Mix` is one no effect claimed.
     expect(isBlend("Mix")).toBe(true);
     expect(isBlend("Dry/Wet")).toBe(true);
     expect(isBlend("Reverb Dry/Wet")).toBe(false);
     expect(isBlend("Delay Mix")).toBe(false);
     // …and a level is not a blend, though it lives on the same page.
     expect(isBlend("Master Volume")).toBe(false);
-    // It decides a POSITION and no longer a page: the module's blend stays in `Mix`, where its
-    // own family put it. It was pulled onto `General`, which is `@base` alone now.
+    // It decides a POSITION and no longer a page: the blend stays in `Mix`, where its family put it.
     const groups = groupParams([p("Mix"), p("Reverb Dry/Wet"), p("@volume")]);
     expect(groups.map((g) => g.page)).toEqual(["Reverb", "Mix"]);
     expect(groups[1].params.map((x) => x.name)).toEqual(["Mix"]);
@@ -183,8 +172,7 @@ describe("the panel it proposes", () => {
   });
 
   it("leaves row 0 to the tab bar", () => {
-    // A page's col/row are the PANEL's grid, not an offset inside the tabs widget's box
-    // (docs/pages.md) — so content placed on row 0 would be drawn over the bar.
+    // A page's col/row are the PANEL's grid (docs/pages.md), so row 0 would draw over the bar.
     const rows = Object.values(ui.widgets.tabs.pages ?? {}).flatMap((page) =>
       Object.values(page).map((w) => w.row),
     );
@@ -201,16 +189,14 @@ describe("the panel it proposes", () => {
   });
 
   it("lays its knobs out 2×2, six to a row — the one gesture that sizes them", () => {
-    // The panel is twelve cells wide because a slot is two — so `Filter Resonance`, the second
-    // parameter of its page, starts at column 2 rather than column 1.
+    // A slot is two cells, so the page's second parameter starts at column 2 rather than column 1.
     expect(ui.cols).toBe(12);
     const filter = ui.widgets.tabs.pages?.Filter ?? {};
     const res = Object.values(filter).find(
       (w) => w.bind === "Filter Resonance",
     );
     expect(res).toMatchObject({ col: 2, row: 1, colSpan: 2, rowSpan: 2 });
-    // A dropdown takes the slot's width and not its height: it is one row of text with
-    // nothing to put under it, and a two-row-tall select would just be a tall select.
+    // A dropdown takes the slot's width and not its height: it is one row of text.
     const lid = Object.values(ui.widgets.tabs.pages?.Other ?? {}).find(
       (w) => w.bind === "Lid Position",
     );
@@ -219,8 +205,7 @@ describe("the panel it proposes", () => {
   });
 
   it("draws a parameter with named settings as a dropdown, like a dropped one", () => {
-    // The same three answers `createBound` gives a DRAGGED parameter, so a panel you
-    // auto-organise and one you drag by hand are made of the same widgets.
+    // The same answers `createBound` gives a DRAGGED parameter, so both gestures make the same widgets.
     const other = ui.widgets.tabs.pages?.Other ?? {};
     const lid = Object.values(other).find((w) => w.bind === "Lid Position");
     expect(lid?.type).toBe("dropdown");
@@ -245,16 +230,13 @@ describe("the panel it proposes", () => {
   });
 
   it("has no General page at all on a module with no base", () => {
-    // A page holds only what got something, and `@base` is the only thing that lands here now.
-    // So a plain effect opens on its own first family rather than on an empty front page.
+    // A page holds only what got something, so a plain effect opens on its own first family.
     const ui = autoOrganize([p("Reverb Room Size"), p("@volume"), p("@pan")]);
     expect(Object.keys(ui.widgets.tabs.pages ?? {})).toEqual(["Reverb"]);
   });
 
   it("gives `@base` the front page to itself, and drops the other intrinsics", () => {
-    // It is not a control like the others: it decides which preset the plugin is BUILT from, so
-    // every parameter on every other page is describing that base. The lane's own controls used
-    // to sit under it here; the mixer strip draws all of those, so they are left out.
+    // Not a control like the others: it decides which preset the plugin is BUILT from.
     const ui = autoOrganize([
       p("@base", {
         min: 0,
@@ -278,8 +260,7 @@ describe("the panel it proposes", () => {
   });
 
   it("puts the blend in the bottom-right corner, the pair of them together", () => {
-    // Where an output stage sits on a real panel, and the far end from `@base`. A `dry` and a
-    // `wet` are two halves of one control, so they travel together and end at the panel's edge.
+    // Where an output stage sits on a real panel: a `dry` and a `wet` travel together to the edge.
     const ui = autoOrganize([
       p("Dry"),
       p("Wet"),
@@ -289,17 +270,14 @@ describe("the panel it proposes", () => {
     ]);
     const page = Object.values(ui.widgets.tabs.pages?.Mix ?? {});
     const at = (bind: string) => page.find((w) => w.bind === bind);
-    // The Filter page is one row of CONTENT, and the panel is that plus the empty row every
-    // proposal ends on — and the blend goes on the content row of its OWN page, right-aligned:
-    // slots 4 and 5 of six, which are columns 8 and 10 of twelve. The air is BELOW it.
+    // One row of CONTENT plus the trailing empty one, the blend right-aligned in slots 4 and 5 of six.
     expect(ui.rows).toBe(1 + 2 * 2);
     expect(at("Dry")).toMatchObject({ col: 8, row: 1 });
     expect(at("Wet")).toMatchObject({ col: 10, row: 1 });
   });
 
   it("grows a row rather than dropping the blend on a knob", () => {
-    // Six parameters fill the bottom row to its right-hand edge, which is where the blend goes.
-    // They have to be the blend's OWN page's now, so they are levels rather than intrinsics.
+    // Six parameters fill the bottom row to the edge the blend wants, so they must be levels.
     const ui = autoOrganize([
       ...Array.from({ length: 6 }, (_, i) => p(`Level ${i}`)),
       p("Mix"),
@@ -326,11 +304,9 @@ describe("the panel it proposes", () => {
     const many = autoOrganize(
       Array.from({ length: 13 }, (_, i) => p(`Filter ${i}`)),
     );
-    // 13 knobs six to a row is three rows of them, two cells tall each, plus the bar's one and
-    // the empty one every proposal ends on.
+    // 13 knobs six to a row is three rows two cells tall, plus the bar's and the trailing empty one.
     expect(many.rows).toBe(1 + 4 * 2);
-    // …and a panel whose only page is the base is two rows: its one, and the empty one. The
-    // lane control beside it is dropped, so it adds nothing to the height either.
+    // …and a panel whose only page is the base is two rows, the lane control beside it being dropped.
     const withBase = autoOrganize([
       p("@base", { min: 0, max: 1, states: [{ label: "none", value: 0 }] }),
       p("@volume"),
@@ -339,8 +315,7 @@ describe("the panel it proposes", () => {
   });
 
   it("always ends on an empty row, whatever the tallest page holds", () => {
-    // Somewhere to DROP the next parameter, and a bottom edge that does not read as cropped.
-    // A SLOT row rather than a cell one: what has to fit there is a control.
+    // Somewhere to DROP the next parameter, and a SLOT row, since what must fit there is a control.
     const bottomOf = (u: ReturnType<typeof autoOrganize>) =>
       Math.max(
         ...Object.values(u.widgets.tabs.pages ?? {}).flatMap((pg) =>
@@ -363,14 +338,12 @@ describe("the panel it proposes", () => {
   });
 
   it("still proposes a grid for an empty list, with nothing to leave room under", () => {
-    // The one case with no controls to sit above: it stays the single empty row it always was,
-    // because `autoOrganize` returns before any of the placement above runs.
+    // The one case with no controls above: `autoOrganize` returns before any of the placement runs.
     expect(autoOrganize([]).rows).toBe(1);
   });
 
   it("proposes something the schema accepts, empty list included", () => {
-    // It must never hand back a document that fails to load: a `tabs` widget with no pages
-    // is refused by the schema and takes the graph node with it.
+    // A `tabs` widget with no pages is refused by the schema and takes the graph node with it.
     expect(UISchema.safeParse(ui).success).toBe(true);
     const none = autoOrganize([]);
     expect(UISchema.safeParse(none).success).toBe(true);

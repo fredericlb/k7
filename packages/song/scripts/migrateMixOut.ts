@@ -21,13 +21,7 @@ if (args.length === 0) {
   process.exit(2);
 }
 
-/**
- * Rewrite the DESTINATIONS only, and only where they are the bare word.
- *
- * A textual pass rather than a parse-and-dump, for the reason every writer in this repo gives:
- * a graph.yaml is commented and hand-edited, and re-emitting it would reformat the whole file
- * to change one word. The word boundary is what keeps `OUTRO` and `layout` out of it.
- */
+/** Rewrite the DESTINATIONS only, textually: re-emitting would reformat a hand-edited file. */
 function migrate(text: string): { out: string; hits: number } {
   let hits = 0;
   const out = text.replace(
@@ -48,17 +42,7 @@ const renamed = (text: string): boolean => /\bMIX\b/.test(text);
 /** …and does it declare the run itself — a `MIX:` KEY, not just a destination naming it? */
 const hasRun = (text: string): boolean => /^\s*MIX\s*:/m.test(text);
 
-/**
- * Append `MIX: [ OUT ]` to the `modules:` map, after its last entry.
- *
- * Textual for the same reason as above, and placed at the END of the map rather than the top
- * because that is where the signal arrives: a reader following the arrows down the file reaches
- * the sum last. The map's extent is "the indented lines under the key", which is what YAML means
- * by a block mapping — a comment line indented with it belongs to it and is stepped over.
- *
- * Null when there is no `modules:` key at all. That is a graph with no segments, and inventing
- * the map to hold one line would be writing a file the project never had.
- */
+/** Append `MIX: [ OUT ]` at the END of the `modules:` map, or null when there is no such key. */
 function addRun(text: string): string | null {
   const lines = text.split(/\r?\n/);
   const start = lines.findIndex((l) => /^modules\s*:/.test(l));
@@ -109,8 +93,7 @@ for (const project of args) {
     }
     const said: string[] = [];
 
-    // Step one: the destinations. Skipped on a file that already names MIX — it was migrated, or
-    // was written after the split.
+    // Step one: the destinations, skipped on a file that already names MIX.
     if (!renamed(text)) {
       const { out, hits } = migrate(text);
       if (hits > 0) {
@@ -119,8 +102,7 @@ for (const project of args) {
       }
     }
 
-    // Step two: the run out of the sum. Independent of step one, deliberately — a project
-    // migrated before this line existed passes the guard above and would otherwise never get it.
+    // Step two, independent of step one: a project migrated earlier would otherwise never get it.
     if (!hasRun(text)) {
       const withRun = addRun(text);
       if (withRun === null) said.push("no `modules:` map — left alone");

@@ -1,15 +1,6 @@
 import type { DetectedEvent, Envelope } from "./types";
 
-// Client-side port of the backend detector (backend/src/detect.js), used to
-// surface highlight moments live while recording.
-//
-// Model:
-//   - `threshold` is the MINIMUM volume the algorithm cares about — a silence
-//     floor, not a "loudness" bar.
-//   - A NON-highlight is any stretch of `minSilenceSec` seconds or more spent
-//     continuously below that floor.
-//   - Everything else is a highlight; a quiet dip shorter than `minSilenceSec`
-//     does not break the surrounding highlight.
+// The backend detector, ported to run live during a take — ../../../docs/audio.md.
 
 // Detected moments shorter than this are ignored — a brief blip isn't a moment.
 const MIN_EVENT_SEC = 4;

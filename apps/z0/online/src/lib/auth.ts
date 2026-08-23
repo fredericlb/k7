@@ -6,9 +6,7 @@ import {
 } from "z0-shared/account";
 import { f } from "./api";
 
-// React port of shared/composables/useAuth.ts: one module-level auth state,
-// bootstrapped from /api/auth/me, exposed to components via
-// useSyncExternalStore so every consumer re-renders on changes.
+// ONE module-level auth state off /api/auth/me, so every consumer sees the same answer.
 
 export interface AuthUser {
   name: string;
@@ -60,9 +58,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
     if (res.status === 401) {
-      // Not always an invitation to log in. If we JUST came back from pl8 and
-      // are still anonymous, the button would only bounce off it again — say
-      // so instead of looping. See apps/z0/docs/auth.md.
+      // Back from pl8 and still anonymous means the button would only bounce again: say so.
       const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
       setState({
         status: why ? "error" : "unauthenticated",
@@ -85,9 +81,7 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-// Signing in and out is the same rule for all six SPAs, and a subtle one — the
-// account belongs to pl8, the guest cookie to z0. It lives in z0-shared/account
-// rather than in six copies here.
+// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
 export { login } from "z0-shared/account";
 
 export async function logout(): Promise<void> {

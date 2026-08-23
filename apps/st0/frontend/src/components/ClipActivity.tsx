@@ -10,10 +10,7 @@ import type { EnvelopeProject } from "../clipEnvelope";
 import type { WebClip } from "../types";
 import { useClipWaveform } from "./ClipContent";
 
-/**
- * Memoised for the reason ClipContent is: one per clip, re-rendered by everything the
- * timeline does, while its own inputs only change when the doc or the envelope arrives.
- */
+/** Memoised for the reason ClipContent is: one per clip, re-rendered by everything the timeline does, while its inputs barely move. */
 export const ClipActivity = memo(function ClipActivity({
   clip,
   spanBeats,
@@ -26,8 +23,7 @@ export const ClipActivity = memo(function ClipActivity({
   color?: string; // the track's authored colour; absent, the type default classes stand
   project: EnvelopeProject; // part of the envelope's identity — see src/clipEnvelope.ts
 }) {
-  // Audio reads the event's envelope — already windowed to its from/to, and the peaks are
-  // normalised against that window's own loudest point, not the song's.
+  // Audio reads the event's envelope, already windowed to its from/to and normalised against that window's own loudest point.
   const wf = useClipWaveform(clip.type === "audio" ? clip : null, project);
   const mask = useMemo(() => {
     const alphas =

@@ -39,8 +39,7 @@ const run = promisify(execFile);
 // Memoized so a workspace's caches (compiled doc, waveforms) persist across requests.
 const live = new Map<string, Workspace>();
 
-/** Thrown when a request names a workspace that isn't there. Carried as a type so the
- * HTTP layer can answer 404 rather than lumping it in with a malformed name (400). */
+/** Thrown when a request names a workspace that isn't there, as a type so the HTTP layer can answer 404. */
 export class UnknownWorkspaceError extends Error {
   constructor(name: string) {
     super(`unknown workspace: ${name}`);
@@ -48,16 +47,7 @@ export class UnknownWorkspaceError extends Error {
   }
 }
 
-/**
- * The Workspace for an EXISTING folder. Opening does NOT create.
- *
- * It used to mkdir on first touch, which made any request that merely named a workspace
- * conjure one: a browser tab still retrying with a remembered name would silently
- * recreate a workspace you had just deleted, empty. Creation now happens only in
- * `createWorkspace` (from `POST /workspaces`), `cloneWorkspace` (from
- * `POST /workspaces/clone`) and the one-off Examples bootstrap below, so what is on
- * disk changes because someone asked for it.
- */
+/** The Workspace for an EXISTING folder — opening does NOT create, see docs/workspaces.md. */
 export function getWorkspace(userEmail: string, workspace: string): Workspace {
   const slug = slugify(userEmail);
   const key = `${slug}/${workspace}`;
@@ -76,8 +66,7 @@ export function getWorkspace(userEmail: string, workspace: string): Workspace {
   return ws;
 }
 
-/** Every workspace currently open, for the machine-wide jobs that have no request to hang off —
- *  the médiathèque puller, which needs both the songs in use and their compiled-doc caches. */
+/** Every workspace currently open, for the machine-wide jobs that have no request to hang off. */
 export function liveWorkspaces(): Workspace[] {
   return [...live.values()];
 }
@@ -92,8 +81,7 @@ export function createWorkspace(userEmail: string, workspace: string): boolean {
   return true;
 }
 
-// Re-exported: the rule moved to @studio/git-repos when pl8 started needing it too, and
-// callers here should not have to know that.
+// Re-exported: the rule moved to @studio/git-repos when pl8 needed it too, and callers here need not know.
 export { assertSshGitUri };
 
 function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
@@ -101,7 +89,7 @@ function gitEnvFor(userEmail: string): NodeJS.ProcessEnv {
     ...process.env,
     GIT_SSH_COMMAND: sshCommand(userEmail),
     GIT_TERMINAL_PROMPT: "0", // fail rather than prompt (no terminal to answer)
-    // Load-bearing, not hygiene: a personal `insteadOf` rewrite turns the SSH URI back to https, privilege and all.
+    // Load-bearing, not hygiene: a personal `insteadOf` rewrite turns the SSH URI back to https.
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_NOSYSTEM: "1",
   };
@@ -114,14 +102,7 @@ export interface CloneProgress {
   line: string;
 }
 
-/**
- * Clone an SSH git repository as a new workspace. The other place (besides
- * `createWorkspace`) a workspace comes into existence on request.
- * Throws with git's stderr on failure — that text ("Permission denied (publickey)",
- * "Host key verification failed") is exactly what the user needs to see.
- *
- * `onProgress` is what makes the wait visible; see docs/cloneJobs.md.
- */
+/** Clone an SSH git repository as a new workspace, throwing git's own stderr — see docs/cloneJobs.md. */
 export async function cloneWorkspace(
   userEmail: string,
   workspace: string,
@@ -206,8 +187,7 @@ function parse(line: string): CloneProgress {
   };
 }
 
-// A workspace's remote, by name. Filled lazily and dropped whole when a clone adds one —
-// `git config` per workspace on every lookup would be a subprocess per poll.
+// A workspace's remote, by name: `git config` per workspace on every lookup would be a subprocess per poll.
 const remotes = new Map<string, string | null>();
 const forgetRemotes = (slug: string) => {
   for (const k of [...remotes.keys()])
@@ -234,13 +214,7 @@ async function remoteOf(slug: string, name: string): Promise<string | null> {
   return value;
 }
 
-/**
- * The workspace already holding this repository, or null.
- *
- * This is what stops st0 re-cloning something that is already on disk, and it compares
- * NORMALIZED uris because the two sides learn the address by different routes: pl8 has what
- * was pasted, this has whatever `git` wrote into `remote.origin.url`.
- */
+/** The workspace already holding this repository, compared on NORMALIZED uris — see docs/workspaces.md. */
 export async function workspaceForRepo(
   userEmail: string,
   uri: string,
@@ -305,24 +279,7 @@ function workspaceNames(dir: string): string[] {
   }
 }
 
-/**
- * Every workspace on this machine, with the projects it holds and the repository it came from.
- *
- * This is what st0's home page draws, and the machine is the only thing that can answer it: the
- * projects are folders on this disk. It replaces `GET /api/projects` on pl8, which answered the
- * same question out of a bare blobless mirror — a second copy, a fetch behind, and unable to see
- * a project that is committed here but not yet pushed.
- *
- * The counted cost is `remoteOf` per workspace, which is a `git config` subprocess. It is
- * memoized for the process' life and dropped only when a clone adds one, so the poll behind this
- * pays it once. The walk beside it is the same one `workspaceInfo` runs, without its cache —
- * measured at 5.3 ms on a real workspace, and this asks it of a handful.
- *
- * A short name shared by two clones is reported as NOT unique rather than resolved: pl8 answers
- * 409 for such a name, and picking a winner here would send somebody to the other one. Whether
- * pl8 knows the repository at all is the OTHER half of that question and is not asked here — see
- * MachineWorkspace.
- */
+/** Every workspace on this machine, with its projects and origin — what st0's home page draws (docs/workspaces.md). */
 export async function listMachineWorkspaces(
   userEmail: string,
 ): Promise<MachineWorkspace[]> {
@@ -331,11 +288,9 @@ export async function listMachineWorkspaces(
   if (hit && Date.now() - hit.at < LISTING_RESCAN_MS) return hit.rows;
   const dir = userRoot(slug);
   const names = workspaceNames(dir);
-  // The origins first and on their own, because addressability is a fact about the SET: a short
-  // name only identifies a workspace when no other workspace answers to it.
+  // The origins first and on their own: a short name only identifies a workspace when no other answers to it.
   const origins = await Promise.all(names.map((n) => remoteOf(slug, n)));
-  // , not : these origins are already normalized keys, and the
-  // validating door refuses its own output. See packages/git-repos/src/uri.ts.
+  // `repoNameOfKey` and not `repoName`: these origins are already normalized keys (docs/workspaces.md).
   const shortNames = origins.map((o) => (o ? repoNameOfKey(o) || null : null));
   const times = new Map<string, number>();
   for (const n of shortNames) if (n) times.set(n, (times.get(n) ?? 0) + 1);
@@ -351,8 +306,7 @@ export async function listMachineWorkspaces(
       uniqueName: short !== null && times.get(short) === 1,
       isSingleProject: single,
       projects: (single ? ["."] : projectDirsUnder(abs)).flatMap((path) => {
-        // `.` names the workspace folder itself; every other path ends in the folder that
-        // claims the app. Either way the NAME decides, which is the one rule both ends use.
+        // `.` names the workspace folder itself; either way the NAME decides, the one rule both ends use.
         const app = projectApp(path === "." ? name : path.split("/").pop()!);
         return app ? [{ path, app }] : [];
       }),
@@ -362,45 +316,16 @@ export async function listMachineWorkspaces(
   return rows;
 }
 
-/**
- * The window under the listing above, and the same one `Workspace.workspaceInfo` puts under its
- * own project scan, for the same reason.
- *
- * A page polls this every few seconds and the answer changes when somebody creates a project.
- * Without a floor, every tab on the home page walks every workspace's directory tree on every
- * tick — a `readdir` per folder, and a real workspace has hundreds. A list five seconds behind
- * is a row that has not appeared yet, which is a wait; the compiled-document cache refused this
- * trade and had to, because a stale COMPILE is confidently wrong about a song.
- *
- * Dropped whole when a clone or a new workspace lands, which is the one change this service
- * makes that the window would otherwise hide for the length of it.
- */
+/** The window under the listing above, so a polling home page does not walk every tree per tick (docs/workspaces.md). */
 const LISTING_RESCAN_MS = 5_000;
 const listings = new Map<string, { at: number; rows: MachineWorkspace[] }>();
-// Both listings, since the second is built on the first: a clone that adds a workspace adds any
-// surfaces it holds, and one window dropped without the other would show the projects and not
-// their screens.
+// Both listings, since the second is built on the first — see docs/workspaces.md.
 const forgetListing = (slug: string) => {
   listings.delete(slug);
   surfaced.delete(slug);
 };
 
-/**
- * Every project on this machine that DECLARES a surface, flat, with those surfaces.
- *
- * What st0's `/external` page draws: the list of screens this account could put on a second
- * device. Built on the listing above rather than beside it, so "which projects are there" is
- * asked once and answered the same way for both pages, and only the surface scan is new.
- *
- * That scan is a `readdir` of `surfaces/` plus a small YAML parse per file, and it is asked of
- * every project rather than of one — hence a window of its own, the same length and for the same
- * reason. It is deliberately NOT folded into `listMachineWorkspaces`: the home page is the front
- * door and does not draw surfaces, and making it pay for them would be a cost with no reader.
- *
- * No policy here about which surfaces are worth a second device. The service reports what the
- * project declares; whether a `timeline` can be driven from a phone is the APP's question, and
- * st0 answers it in one place (see apps/st0/frontend/docs/external.md).
- */
+/** Every project that DECLARES a surface, flat — what st0's `/external` page draws (docs/workspaces.md). */
 export async function listSurfacedProjects(
   userEmail: string,
 ): Promise<SurfacedProject[]> {
@@ -415,9 +340,7 @@ export async function listSurfacedProjects(
     const active = activeOf(abs);
     for (const p of w.projects) {
       const at = p.path === "." ? abs : join(abs, p.path);
-      // Diagnostics are dropped on purpose: a surface file that will not parse is not a row this
-      // page can offer, and the place that says WHY is the editor, which shows them beside the
-      // project's other faults.
+      // Diagnostics are dropped on purpose: the place that says WHY a surface will not parse is the editor.
       const { surfaces } = projectSurfaces(at);
       if (!surfaces.length) continue;
       rows.push({
@@ -437,8 +360,7 @@ export async function listSurfacedProjects(
 
 const surfaced = new Map<string, { at: number; rows: SurfacedProject[] }>();
 
-/** The workspace's open project, absolute, straight off the marker file — without opening a
- *  Workspace, which would build its caches to read one line. Null when nothing is open. */
+/** The workspace's open project, absolute, straight off the marker file; null when nothing is open. */
 function activeOf(workspaceRootDir: string): string | null {
   try {
     const rel = readFileSync(

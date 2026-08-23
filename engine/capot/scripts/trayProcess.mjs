@@ -66,11 +66,7 @@ function processesNamed(exe) {
     .flatMap((l) => (l.trim() ? [{ pid: Number(l.trim()), path: exe }] : []));
 }
 
-/**
- * Every tray process, whatever build it came from — `out/dev`, `target/`, an installed
- * bundle. Deliberately not just ours: they share one identifier, so single-instance would
- * turn our launch into a silent no-op while a stranger keeps the menu bar.
- */
+/** Every tray process and not just ours, since they share one identifier (docs/restartTray.md). */
 export function running() {
   return processesNamed(EXE_NAME);
 }
@@ -88,34 +84,12 @@ async function until(ok, ms, what) {
   throw new StepError(what);
 }
 
-/**
- * Stop every running tray AND every engine, and wait for both to be gone. Returns how many
- * trays there were.
- *
- * The engine half is not belt-and-braces, and this used to be tray-only. Two ways an engine
- * outlives the tray that is supposed to take it down:
- *
- *  1. **The job object teardown is asynchronous.** Killing the tray returns as soon as the
- *     tray is gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray
- *     let a build start while the engine was still up.
- *  2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so
- *     an engine started by an earlier tray and adopted by this one (`engineProcess.ts`:
- *     *"It is NOT ours — Stop must leave it alone"*) belongs to the DEAD tray's job. Nothing
- *     takes it down. `devReload.ts` makes that routine in dev: every edit under
- *     `packages/engine-host/src` restarts the supervisor and has the engine adopted.
- *
- * Either way the survivor keeps `studio-moteur.exe` open for execute, and the next relink
- * cannot replace the image — silently, which is what makes it expensive. See docs/dev.md.
- *
- * Every engine, whoever started it, for the same reason `running()` lists every tray: a
- * survivor silently wins, and here it wins by making your build a no-op.
- */
+/** Stop every tray AND every engine, waiting for both, and return how many trays there were (docs/restartTray.md). */
 export async function stopAll() {
   const found = running();
   for (const { pid, path } of found)
     console.log(`▸ stopping tray (pid ${pid}) ${path}`);
-  // A hard terminate on Windows: the tray is windowless, so there is no close to send it. The job object
-  // created in main.rs is what takes the supervisor and the file service with it.
+  // A hard terminate on Windows, since the tray is windowless (docs/restartTray.md).
   for (const { pid } of found) {
     try {
       process.kill(pid);
@@ -165,11 +139,7 @@ const tail = (path, n = 20) =>
     ? readFileSync(path, "utf8").trimEnd().split("\n").slice(-n).join("\n")
     : "(empty)";
 
-/**
- * Start the dev app and wait until the merged log says the supervisor came up. Returns
- * that log's tail on success; throws with it on failure, because a tray that supervises
- * nothing looks exactly like a healthy one from the outside.
- */
+/** Start the dev app and WAIT for the merged log to say the supervisor came up (docs/restartTray.md). */
 export async function launch() {
   const since = Date.now();
   node("start-engine.mjs");
@@ -179,8 +149,7 @@ export async function launch() {
     "the tray exited as soon as it started",
   );
 
-  // The tray's own stdout stays empty when all is well, so the merged log is the signal: host.rs writes
-  // "supervisor up" there, and writes just as loudly when there is nothing to supervise.
+  // The tray's own stdout stays empty when all is well, so the merged log is the signal.
   let text = null;
   for (let waited = 0; waited < 20_000; waited += 250) {
     text = freshLog(since) ?? text;

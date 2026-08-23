@@ -8,12 +8,10 @@ import { installProcessNet } from "./background.ts";
 import { armDevReload, RELOAD_EXIT_CODE } from "./devReload.ts";
 import { startSupervisor } from "./supervisor.ts";
 
-// First, and only here: a rejected poll must not take the supervisor down with the engine
-// orphaned behind it. docs/background.md.
+// First, and only here: a rejected poll must not take the supervisor down with the engine behind it — see docs/background.md.
 installProcessNet();
 
-// Dev only: exit when this package's source changes and let the tray relaunch us. The engine survives on its
-// pidfile and the fresh supervisor adopts it, so editing supervisor code costs no audio dropout.
+// Dev only: exit on a source change and let the tray relaunch us; the engine survives on its pidfile, so this costs no audio dropout.
 if (
   armDevReload(() => {
     process.stderr.write("[host] source changed — reloading\n");

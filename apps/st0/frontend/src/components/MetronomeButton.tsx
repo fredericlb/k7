@@ -27,18 +27,10 @@ export function MetronomeButton({
   onLevel: (level: number) => void;
 }) {
   const [open, setOpen] = useState(false);
-  /**
-   * What the slider shows while it is being dragged.
-   *
-   * Local because the command behind it rewrites settings.yaml and re-sends the whole document:
-   * firing that per pointer frame would be forty writes for one gesture, and forty entries in the
-   * journal to undo it. The handle follows the finger from here and the command goes on RELEASE —
-   * the rule the clip panel's velocity drag and the sequencer's nudge already follow.
-   */
+  /** What the slider shows while it is being dragged — the command rewrites settings.yaml, so it goes on RELEASE. */
   const [dragging, setDragging] = useState<number | null>(null);
   const shown = dragging ?? level;
-  // A reload that changes the level while the menu sits open should be seen, not overwritten by a
-  // ghost nobody is holding any more.
+  // A reload that changes the level while the menu sits open should be seen, not overwritten by a ghost nobody is holding.
   useEffect(() => {
     if (!open) setDragging(null);
   }, [open]);
@@ -53,10 +45,7 @@ export function MetronomeButton({
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      {/* The trigger is the button itself, but it is NOT what opens the menu: a left click
-          toggles the click, as it always has. `asChild` keeps the menu anchored to it while
-          `onContextMenu` is what opens it — two gestures, one control, and the primary one
-          unchanged. */}
+      {/* The trigger is the button but does not OPEN the menu: `asChild` anchors it while `onContextMenu` opens it, leaving left click alone. */}
       <DropdownMenuTrigger asChild>
         <Button
           size="icon-xs"
@@ -84,8 +73,7 @@ export function MetronomeButton({
             value={shown}
             onChange={(e) => setDragging(Number(e.target.value))}
             onPointerUp={commit}
-            // The keyboard moves it too, and a key press is its own release: without this the
-            // arrows would paint the handle and never write anything.
+            // The keyboard moves it too, and a key press is its own release: without this the arrows would paint and write nothing.
             onKeyUp={commit}
             onBlur={commit}
             className="flex-1"
@@ -95,8 +83,7 @@ export function MetronomeButton({
             {Math.round(shown * 100)}%
           </span>
         </label>
-        {/* Said out loud, because the slider stopping short of zero looks like a bug otherwise —
-            and because the way to silence it is the control your hand is already on. */}
+        {/* Said out loud, because a slider stopping short of zero otherwise looks like a bug. */}
         <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
           le plus bas est {Math.round(METRONOME_MIN * 100)}% — pour le silence,
           cliquez le métronome

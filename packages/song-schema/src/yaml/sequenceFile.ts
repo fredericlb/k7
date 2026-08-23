@@ -51,16 +51,7 @@ export function appendNotes(text: string, notes: NoteIn[]): string {
 /** Two beat positions that are the same one. The times are decimals a surface computed. */
 const EPS = 1e-6;
 
-/**
- * The index of the note on key `k` starting at `t`, or -1.
- *
- * (key, start) is how a surface addresses a note, for the reason a placement is addressed by its
- * `start`: it is what the thing on screen knows about itself, and two notes cannot share the pair
- * without being the same note twice.
- *
- * Read off the DOCUMENT rather than a validated sequence, as trackFile's `findPlacement` is: a file
- * with one bad field elsewhere still has notes you can point at.
- */
+/** The index of the note on key `k` starting at `t`, or -1 — how every surface addresses one (docs/noteEdits.md). */
 export function findNote(text: string, k: number, t: number): number {
   const doc = parseDocument(text, OPTS);
   const list = doc.getIn(["notes"]);
@@ -72,20 +63,7 @@ export function findNote(text: string, k: number, t: number): number {
   );
 }
 
-/**
- * Move one note and/or change its length — what the roll's note drag writes.
- *
- * ONE writer for both, because on the roll they are one gesture with two grips: dragging the body
- * moves `t` and keeps `d`, dragging an edge keeps `t` and changes `d`. A `noteMove` and a
- * `noteResize` would be two verbs that must agree about how a note is addressed, and the second
- * one would eventually disagree.
- *
- * The note is found by its key and its CURRENT start, exactly as the velocity drag finds it — a
- * pitch and a place are what a roll can point at, and a note has no id of its own.
- *
- * `d` is a LENGTH, not an end: the file states it that way and the caller does the subtraction,
- * so nothing here has to know whether the end moved because the note grew or because it slid.
- */
+/** Move one note and/or change its length — ONE writer for the roll's two grips (docs/noteEdits.md). */
 export function setNoteTimeRange(
   text: string,
   k: number,
@@ -103,13 +81,7 @@ export function setNoteTimeRange(
   return doc.toString({ lineWidth: 0 });
 }
 
-/**
- * Remove one note — what the step sequencer's button-off writes.
- *
- * Addressed as every note edit addresses one, by key and start; throwing on a miss for the
- * same reason the others do — a surface that points at a note that is not there is out of
- * date, and silently removing nothing would hide that.
- */
+/** Remove one note, throwing on a miss like every note edit — see docs/noteEdits.md. */
 export function removeNote(text: string, k: number, t: number): string {
   const at = findNote(text, k, t);
   if (at < 0) throw new Error(`no note k${k} at beat ${t}`);
@@ -118,17 +90,7 @@ export function removeNote(text: string, k: number, t: number): string {
   return doc.toString({ lineWidth: 0 });
 }
 
-/**
- * Move one note to another key and/or start — what the sequencer's ctrl-drag writes.
- *
- * The note is MOVED, not rebuilt: only `k` and `t` are rewritten, so its length and its
- * velocity ride along untouched. Remove-then-add would have lost both — `sequence note new`
- * takes no velocity at all — and it would have been two journal steps for one act.
- *
- * The destination is refused when it already holds a note: (key, start) is how every surface
- * addresses one, so two notes sharing the pair would be the same note twice and the next edit
- * could not say which it meant.
- */
+/** Move one note to another key and/or start — MOVED and not rebuilt, see docs/noteEdits.md. */
 export function moveNote(
   text: string,
   k: number,
@@ -148,23 +110,7 @@ export function moveNote(
   return doc.toString({ lineWidth: 0 });
 }
 
-/**
- * Cut one note in two at beat `at` — what the roll's split runs.
- *
- * The note keeps its identity and its head: `d` is shortened to `at - t`, and a SECOND note is
- * appended from `at` for the rest. Rewriting the first rather than removing and adding two is what
- * keeps the file's order and its velocity: the pair is one note that was made into two, not two
- * notes that replaced one.
- *
- * The velocity rides onto both halves, deliberately. What a note is worth is a property of the
- * sound, and cutting it in half does not make the second half quieter — a split that dropped the
- * field would silently return the tail to full.
- *
- * `at` has to be strictly INSIDE the note. On either edge there is nothing to cut: one of the two
- * halves would have no length, and a "split" that produced the note you started with plus nothing
- * is a command that did not do what it says. Refused by name rather than nudged to the nearest
- * grid line, because where to cut is the caller's decision and this one only carries it out.
- */
+/** Cut one note in two at beat `at`, which must be strictly INSIDE it — see docs/noteEdits.md. */
 export function splitNote(
   text: string,
   k: number,
@@ -188,13 +134,7 @@ export function splitNote(
   ]);
 }
 
-/**
- * Set one note's velocity — what the roll's velocity drag writes.
- *
- * `undefined` CLEARS the key rather than writing `v: 1`, so a note dragged back to full loses the
- * field it never had: the schema's default is 1, and a file that never mentions velocity stays
- * byte-identical. Same rule as `alternative:` going back to the first set.
- */
+/** Set one note's velocity; `undefined` CLEARS the key rather than writing `v: 1` (docs/noteEdits.md). */
 export function setNoteVelocity(
   text: string,
   k: number,
@@ -212,18 +152,7 @@ export function setNoteVelocity(
 /** The two effects a PAD can carry — see @studio/song docs/padEffects.md. */
 export type PadEffect = "repeat" | "skip";
 
-/**
- * Turn one of a pad's effects on, or off with `undefined` — what the sequencer's context menu writes.
- *
- * ONE writer for both, like `setNoteTimeRange`'s two grips: they are the same act on the same note,
- * differing only in which word is written, and two functions would be two places to keep the
- * addressing and the clearing rule identical.
- *
- * Off DELETES the key rather than writing a 1 or a 0. A pad with `repeat: 1` would be a pad
- * declaring it plays once, which is what every pad with no `repeat` already says — and the schema
- * refuses anything under 2 precisely so that state cannot be written down. Same rule as the
- * velocity above, and as `alternative:` going back to the first set.
- */
+/** Turn one of a pad's effects on, or off with `undefined`, which DELETES the key (docs/noteEdits.md). */
 export function setNoteEffect(
   text: string,
   k: number,

@@ -26,14 +26,7 @@ export interface ChainsMigration {
   /** False when the file was already segments — nothing was rewritten. */
   changed: boolean;
   split: SplitModule[];
-  /**
-   * The nodes that were the old file's TRACKS — the lanes of the migrated graph.
-   *
-   * Reported because the new file no longer says: one `modules:` map, and only what a name
-   * EXTENDS tells a lane from a reverb (docs/trackModules.md). The old format spelled it out in
-   * every `{ track: … }` head, so this is the one moment that knowledge exists — throwing it
-   * away would leave the caller unable to derive the chains it just wrote.
-   */
+  /** The old file's TRACKS — the one moment that knowledge exists, see docs/trackModules.md. */
   tracks: string[];
   notes: string[];
 }
@@ -92,15 +85,7 @@ function readOld(raw: unknown): OldChain[] | null {
   return out;
 }
 
-/**
- * Rewrite one graph.yaml's text.
- *
- * A module the old file used in SEVERAL chains is split into one node per chain. That is not cosmetic: the
- * old format compiled such a module to one plugin per chain (the ids were `<chain>:<module>`), while a segment
- * file names each module once, so a shared name would collapse into a single node fed by everything — one
- * instrument summing two tracks instead of two instruments. Splitting keeps the song sounding the same; the
- * node files it needs are written by migrateChains().
- */
+/** Rewrite one graph.yaml's text; a module used in SEVERAL chains splits into one node per chain, or they sum. */
 export function migrateChainsText(text: string): ChainsMigration {
   const raw = parse(text, { version: "1.2" }) ?? {};
   const old = readOld(raw);
@@ -165,8 +150,7 @@ export function migrateChainsText(text: string): ChainsMigration {
     for (const m of c.bypassed) bypassed.push(rename(m, c.name));
   }
 
-  // ONE map, lanes first: a lane is a module too (docs/trackModules.md), and putting the runs'
-  // sources at the top is what makes the file read top-down the way the signal flows.
+  // ONE map, lanes first, so the file reads top-down the way the signal flows (docs/trackModules.md).
   const file: GraphFile = { modules: { ...tracks, ...modules } };
   if (bypassed.length) file.bypassed = bypassed;
   return {
@@ -184,12 +168,7 @@ export interface ChainsMigrationResult extends ChainsMigration {
   errors: string[];
 }
 
-/**
- * Migrate the project at `dir`, writing graph.yaml and any node file a split needs.
- *
- * A node is an empty file beside its generic — everything it plays, it inherits. Writing one is the whole
- * cost of keeping a shared module's two lives apart, and it is what `module new … <node>` writes too.
- */
+/** Migrate the project at `dir`, writing graph.yaml and the empty node file each split needs. */
 export function migrateChains(dir: string): ChainsMigrationResult {
   const path = join(dir, GRAPH_FILE);
   const out: ChainsMigrationResult = {
@@ -209,13 +188,11 @@ export function migrateChains(dir: string): ChainsMigrationResult {
   const r = migrateChainsText(before);
   Object.assign(out, r);
   if (!r.changed) return out;
-  // The old file, kept beside the new one. A migration reshapes the one file that says
-  // what the song IS wired like, and it is the only file here nothing else can rebuild.
+  // The old file, kept beside the new: nothing else can rebuild how the song is wired.
   if (!existsSync(`${path}.bak`)) copyFileSync(path, `${path}.bak`);
 
   for (const s of r.split) {
-    // Only a project-local module has a folder here to write into; a shared one (`@ns/…`)
-    // belongs to the library, and splitting it there would change every song that uses it.
+    // Only a project-local module has a folder here; splitting a shared one changes every song using it.
     if (s.module.startsWith("@")) {
       out.errors.push(
         `'${s.module}' is a shared module used by ${s.nodes.length} chains — ` +

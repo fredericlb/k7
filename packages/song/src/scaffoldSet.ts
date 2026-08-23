@@ -5,8 +5,7 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
-// The stem vocabulary — which four, what they are called on a lane, and the control that moves
-// each — is `./stems`, because the DESK needs the same names and cannot import a scaffold.
+// The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import {
   STEMS,
   type Stem,
@@ -20,12 +19,10 @@ import { writeProjectFiles } from "./scaffold";
 
 const q = (s: string) => JSON.stringify(s);
 
-/** The DECKS a scaffolded set has. Two, because two is what a crossfade takes; the file
- *  format holds any number, and nothing below this line is special-cased on these names. */
+/** The DECKS a scaffolded set has — nothing is special-cased on these names, docs/setProject.md. */
 export const DECKS = ["deckA", "deckB"] as const;
 
-/** Deck A's letter from `deckA` — the node names below are built from it, so a third deck is a
- *  third entry above and nothing else. */
+/** Deck A's letter from `deckA`; the node names are built from it, so a third deck is one entry above. */
 const letterOf = (deck: string) => deck.replace(/^deck/, "");
 
 /** The files of a minimal set, keyed by path relative to the project folder. */
@@ -116,8 +113,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  ${CROSSFADE}: [ MIX ]\n` +
       `  MIX: [ OUT ]\n` +
       `\n` +
-      // Every source lane's mute lives HERE, not on the deck: a lane's mute is its module's
-      // bypass, and there is one place a bypass is written.
+      // Every source lane's mute lives HERE, since a lane's mute is its module's bypass.
       mutedLanes(),
 
     "nodes/deckA.yaml": deckTrack(
@@ -153,9 +149,7 @@ export function setProjectFiles(name: string): Record<string, string> {
     [`nodes/${FILTER_A}.yaml`]: filterNode("A"),
     [`nodes/${FILTER_B}.yaml`]: filterNode("B"),
 
-    // Five lanes a deck, and eight more nodes: the stems the separation wrote, and the cut that
-    // takes each one out of the record. Generated rather than written out, because sixteen files
-    // spelled by hand is sixteen chances to swap `bass` and `drums`.
+    // The stems' lanes and cuts, GENERATED rather than spelled out — see docs/setProject.md.
     ...stemNodeFiles(),
 
     "surfaces/desk.yaml":
@@ -212,8 +206,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `  deckB.eqHigh: { module: ${EQ_B}, param: High-shelf gain }\n` +
       `  deckA.filter: { module: ${FILTER_A}, param: Sweep }\n` +
       `  deckB.filter: { module: ${FILTER_B}, param: Sweep }\n` +
-      // One control per stem per deck, beside the EQ's three: same shape, same file, and the
-      // desk draws them in the same column. 0 leaves the instrument in, 1 takes it out.
+      // One control per stem per deck, beside the EQ's three — 0 leaves the instrument in, 1 takes it out.
       DECKS.map((deck) =>
         STEMS.map(
           (s) =>
@@ -223,14 +216,7 @@ export function setProjectFiles(name: string): Record<string, string> {
   };
 }
 
-/**
- * The lane and the cut for every stem of every deck — sixteen files, all of one shape.
- *
- * EXPORTED, and parameterised by the decks, for one caller beyond this file:
- * `scripts/migrateSetStems.ts`, which gives a set written before the stems the same sixteen files
- * a new one is scaffolded with. Two spellings of these nodes would be two sets that behave
- * differently for no reason anybody could see.
- */
+/** The lane and cut for every stem of every deck; exported for migrateSetStems — docs/setProject.md. */
 export function stemNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
@@ -275,15 +261,7 @@ function stemCutNode(deck: string, stem: Stem): string {
   );
 }
 
-/**
- * One deck's wiring: the record into its tempo, the four stems into their cuts, and all five
- * into the EQ — which is therefore a bus, not a step.
- *
- * The tempo stays on the RECORD's lane alone, and that is deliberate. It is an `offline` module
- * realised by warping the clip, and the desk applies that same warp to all five clips of a deck
- * (`withDecks`), so a tempo node per stem lane would be four more nodes describing one fact. The
- * binding resolves by TRACK for an offline module, and the track it names is the deck's.
- */
+/** One deck's wiring: five lanes into the EQ, which is therefore a bus — see docs/setProject.md. */
 function graphForDeck(deck: string): string {
   const l = letterOf(deck);
   const eq = `eq${l}`;
@@ -301,25 +279,7 @@ function graphForDeck(deck: string): string {
   );
 }
 
-/**
- * Why every SOURCE lane is muted, which is the one part of this scaffold worth reading twice.
- *
- * `out` compiles as a PARALLEL path: the dry signal carries on to the master beside the module
- * it feeds, which is what makes a send a send. So a lane feeding the bus is also heard raw, and
- * unmuted you would get the record twice — once through the EQ and the crossfade, once straight
- * out — with the crossfader unable to take either away. That was already true of deck B, which
- * ends on the crossfade's second port; it is now true of all ten lanes, because all ten feed a
- * bus.
- *
- * For the stems it is worse than a duplicate: an unmuted stem lane would add its inverted copy
- * to the master, which is the subtraction happening in the wrong place — you would hear the
- * instrument disappear from a mix that was never summed with it.
- *
- * Mute says "this lane is not heard on its own", and it works because Tracktion's muting node
- * deliberately still passes clips to aux-sends and sidechains: the bus keeps its five signals,
- * the master stops getting duplicates. `engine/capot/songs/crossfade-demo.st0` measured it, and
- * engine/moteur/docs/sidechain.md says why.
- */
+/** Every SOURCE lane is muted because `out` is a PARALLEL path — see docs/setProject.md. */
 function mutedLanes(): string {
   const lanes = DECKS.flatMap((d) => [d, ...STEMS.map((s) => stemLane(d, s))]);
   return (
@@ -331,12 +291,9 @@ function mutedLanes(): string {
 const MEDIATEK_UTILITY = "@st0/audio/utility";
 /** The EQ lives under `filter/`, not `utility/`: a type folder is what draws its icon. */
 const MEDIATEK_FILTER = "@st0/audio/filter";
-/** …and the two stem modules under `separation/`, beside each other. `stemsplit` produces the
- *  four files and `stemcut` takes one back out; they are read in that order and are no use apart,
- *  which is what earns them a folder rather than a place among the utilities. */
+/** …and the two stem modules under `separation/`: `stemsplit` writes the four files, `stemcut` removes one. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";
-/** The node names the chains file wires. Short on purpose — a chains file reads better
- *  with `tempoA` in it than with the whole ref, and the ref is one line away in nodes/. */
+/** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
 const CROSSFADE = "crossfade";
 const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
@@ -415,9 +372,7 @@ function deckTrack(letter: string, wiring: string): string {
     `# file IS its arrangement; on a deck the material is whichever song the browser put on\n` +
     `# ten seconds ago, so what is committed is the deck's SETTINGS and its place in\n` +
     `# the graph. ${wiring}\n` +
-    // `docs:` used to close this file, restating in a field what the comment above already says.
-    // The field is gone (a note is a doc module now) and the comment is the better half anyway:
-    // it is where a reader of the FILE looks, and it survives the round trip through the editor.
+    // `docs:` used to close this file, restating the comment above; the field is gone (a note is a doc module).
     `extends: "@studio/track"\n`
   );
 }

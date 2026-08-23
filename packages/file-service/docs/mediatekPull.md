@@ -66,3 +66,48 @@ did not land are retried on the next tick.
 
 With no `MEDIATEK_URL` the loop never starts. The local folder is then simply not a cache of
 anything, which is a working state: `@st0/…` still resolves against whatever is in it.
+
+## The two vocabularies `scope()` keeps apart
+
+A MODULE ref omits its family (`@st0/audio/x` → `modules/audio/x/`) and a SONG ref carries one
+(`@st0/songs/a/b/c` → `songs/a/b/c/`), so each is mapped by its own function and only the results
+are merged. The songs are a set's PLAYLIST, and they are the reason this loop matters at all off
+the desk: the machine that plays them opens file paths, so every song in the set has to be on its
+disk before the gig. Samples are fetched per clip, not by this loop.
+
+The workspace ROOT goes down with the project directory, which it did not have to before: a
+playlist lives beside `_modules` at the top of the repository rather than inside the project
+(`packages/song/docs/playlists.md`), so answering "what does this set name" needs both halves.
+`mediatekSongRefs` is where the two meet, and the only place they do.
+
+Nothing open naming the library means no fetch AND no token recorded — otherwise the first song
+that did name one would be told everything was already in step.
+
+## `syncMediatekFamily` — a WHOLE family, ignoring the scope
+
+What the module bench needs and nothing else does. `pullOnce` fetches only what the open projects
+name, which is the right default and the reason this cache stays small. The bench names nothing:
+its whole content is the catalogue, so the scoped pull would leave it holding whatever happened
+to be cached for other songs.
+
+It deliberately does NOT record a revision — `markSynced`'s claim is "this cache is in step with
+the owner", and that is not true for the songs the scoped loop pulls. It drops the scoped loop's
+memo entry instead, because that memo records a SCOPE alongside the revision and this pass had
+none; dropping it makes the next tick re-decide rather than skip. Never throws, same as
+`pullOnce`: an unreachable library must cost the refresh, not the open.
+
+## The loop is STOPPED, and why
+
+`startMediatekPuller` returns immediately. This guard is a stopgap rather than the design: the
+médiathèque cache is being removed (the stem cut moves to pl8, which already holds the bytes),
+and until it goes this loop must not run.
+
+What it did on this machine, measured 2026-08-22: `STUDIO_MEDIATEK` for pl8's backend is
+`~/.studio/mediatek` — the very directory this cache writes into (`env.yaml`) — so every tick
+downloaded each scoped file ONTO ITSELF and renamed the copy over the original while the server
+was still serving it. Three songs came back as pure zeros, 3.4 MB and 37 MB of `0x00`, and no
+other copy of them existed on the machine.
+
+It could not settle, either: `syncFamily` records the manifest entry's mtime, and its own rename
+gives the file a NEW one, so the next diff always mismatched. Nine files rewritten every sixty
+seconds, indefinitely.

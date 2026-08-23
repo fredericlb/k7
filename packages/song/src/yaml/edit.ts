@@ -31,18 +31,7 @@ export function deleteFileValue(file: string, path: (string | number)[]): void {
   save(file, doc);
 }
 
-/**
- * Set a MAP whose keys must be written quoted — the markers, and nothing else so far.
- *
- * `setFileValue` cannot do this: it takes a plain object and `createNode` gives every key the
- * plain style, which under YAML 1.2 is correct and under 1.1 is a disaster. `2:1:1` unquoted is a
- * sexagesimal integer there, and a marker map is the one place in the model where a TIMECODE is a
- * key rather than a value — so `quoteTimecodes`, which walks values under known keys, cannot see
- * it either.
- *
- * `writeMarkers` has carried the comment "Keys are QUOTED" since it was written, and did not
- * quote them. This is that comment, implemented.
- */
+/** Set a MAP whose keys must be QUOTED — the markers, where a timecode is a key (docs/timecode.md). */
 export function setQuotedKeyMap(
   file: string,
   path: (string | number)[],

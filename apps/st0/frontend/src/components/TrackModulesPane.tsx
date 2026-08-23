@@ -15,8 +15,7 @@ import { m } from "../paraglide/messages.js";
 import type { WebGraph } from "../types";
 import { GraphSlotPane } from "./GraphSlotPane";
 
-/** Cards are drawn 1.5× the width their grid asks for — read side by side, a card sized exactly
- *  to its controls reads as cramped. Elbow room, not bigger controls: see moduleRow. */
+/** Cards are drawn 1.5× the width their grid asks for — elbow room, not bigger controls: see moduleRow. */
 const CARD_WIDTH_SCALE = 1.5;
 
 export function TrackModulesPane({
@@ -43,9 +42,7 @@ export function TrackModulesPane({
   requestPluginParams: (id: string) => void;
   watchPluginParams: (id: string, on: boolean) => void;
   setPluginParam: (id: string, name: string, value: number) => void;
-  /** What the modules with NO plugin are set to. A deck's tempo node hangs off a track, so it
-   *  can land in this row too — and drawing it stale here would be the same bug in a smaller
-   *  frame. Same prop as ChainsTab's. */
+  /** What the modules with NO plugin are set to — a deck's tempo node hangs off a track, so it can land in this row too. */
   moduleParams?: Record<string, Record<string, number>>;
   trackControls?: Record<string, TrackControlValues>;
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
@@ -67,9 +64,7 @@ export function TrackModulesPane({
       .catch((e) => setError((e as Error).message));
   }, [reloadKey]);
 
-  // The graph alone answers both halves here — which modules the lane reaches, and what each
-  // one looks like. Unlike the mixer row, no compiled project is needed: a chain's `use` list
-  // is the order, and it is in the graph doc.
+  // The graph alone answers both halves here: a chain's `use` list is the order, and it is in the graph doc.
   const modules = useMemo(
     () => (graph ? trackModules(graph, trackId) : []),
     [graph, trackId],
@@ -79,17 +74,14 @@ export function TrackModulesPane({
       graph
         ? moduleRow(graph, modules, {
             widthScale: CARD_WIDTH_SCALE,
-            // The cables ARE the subject here: this is one lane's signal path, and what feeds
-            // what is the whole point of reading it. They meet the cards on the SIDES, because
-            // the row is read across — see `flow` in @studio/ui-chains.
+            // The cables ARE the subject here: one lane's signal path, met on the SIDES because the row is read across.
             links: true,
           })
         : null,
     [graph, modules],
   );
 
-  // The plugins these cards draw, so their knobs show what the engine holds rather than what the
-  // file last said. Asked once per row, then followed — the same pair ChainsTab runs.
+  // The plugins these cards draw, so their knobs show what the engine holds — asked once per row, then followed.
   const pluginIds = useMemo(
     () =>
       (laid?.nodes ?? [])
@@ -107,8 +99,7 @@ export function TrackModulesPane({
     };
   }, [pluginIds, watchPluginParams]);
 
-  // Every state keeps the frame, so the ✕ is reachable even when there is nothing to draw — a
-  // view you cannot close is worse than a view that is empty.
+  // Every state keeps the frame, so the ✕ is reachable even with nothing to draw — a view you cannot close is worse than an empty one.
   const frame = (note: React.ReactNode, body: React.ReactNode = null) => (
     <GraphSlotPane title={trackId} note={note} onClose={onClose}>
       {body}
@@ -131,11 +122,9 @@ export function TrackModulesPane({
       selected={selected}
       onSelect={setSelected}
       trackOrder={trackOrder}
-      // Re-frame when the ROW changes, not on every refetch: a param landing must not take the
-      // camera back from wherever it was panned.
+      // Re-frame when the ROW changes, not on every refetch: a param landing must not take the camera back.
       fitKey={modules.join("|")}
-      // Fill the HEIGHT and let the row run off the right, which pans. Fitting both axes would
-      // shrink every card as the lane gains modules — see docs/shell.md's measurements.
+      // Fill the HEIGHT and let the row run off the right, which pans: fitting both axes would shrink every card as the lane grows.
       fitAxis="height"
       // A row is read across: the wheel walks along it and nothing pans vertically.
       row

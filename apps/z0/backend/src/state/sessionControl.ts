@@ -8,14 +8,9 @@ import {
 import { SessionProgress } from "../session/progress.ts";
 import { savePersistedState } from "./persist.ts";
 
-// Active Grist session state (session_control.go). Node's single thread
-// replaces activeSessionMu; the id lives on gameState.activeSessionId.
+// The active Grist session; its id lives on gameState.activeSessionId and nowhere else.
 
-/**
- * Fetch a session from Grist and replace the global sessionProgress with a
- * fresh tracker. No broadcast, no persistence write — used at boot before
- * persisted positions are restored. Runtime callers use activateGristSession.
- */
+/** The BOOT path: no broadcast and no write, since persisted positions land right after. */
 export async function loadAndSwapGristSession(
   id: number,
   progress?: LoadProgressFn,
@@ -27,12 +22,7 @@ export async function loadAndSwapGristSession(
   gameState.activeSessionId = id;
 }
 
-/**
- * Load a session, swap it in at position zero, persist the new active id and
- * broadcast "session_selected" so connected clients refresh. Phase,
- * registration, players and game id are left untouched — the operator chose
- * a new track list for the same game, not a new game.
- */
+/** The RUNTIME path; phase, players and game id survive — this is a new track list, not a new game. */
 export async function activateGristSession(
   id: number,
   source: string,

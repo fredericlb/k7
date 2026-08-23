@@ -25,23 +25,11 @@ export interface GridCaret {
   clearSelect: () => void;
   /** Put the caret somewhere (a click). Drops any rectangle: two selections cannot both be live. */
   placeCaret: (c: GridCell) => void;
-  /**
-   * Start a shift+drag at `c`. Anchors on the existing rectangle if there is one, else on the
-   * caret, exactly as the timeline's does — so shift-clicking EXTENDS rather than restarting.
-   * The caller feeds it cells as the pointer moves and calls the returned end on release.
-   */
+  /** Start a shift+drag at `c`, anchoring on the existing rectangle if there is one — so shift-clicking EXTENDS rather than restarting. */
   beginDrag: (c: GridCell) => (next: GridCell | null) => void;
 }
 
-/**
- * The caret over a grid of `bounds`.
- *
- * `active` gates the key listener the way `TimelineTab`'s does: two surfaces both answering the
- * arrows would move two carets on one press. It is the pane's own "am I the one on screen".
- *
- * `resetKey` puts the caret home and drops the rectangle — a different clip, a different view of
- * it. The caret is about what you are looking at, so it does not survive being pointed elsewhere.
- */
+/** The caret over a grid of `bounds`: `active` gates the keys so two surfaces cannot move two carets, and `resetKey` puts it home. */
 export function useGridCaret({
   active,
   rows,
@@ -50,9 +38,7 @@ export function useGridCaret({
   onStatus,
 }: {
   active: boolean;
-  /** How many rows and columns the surface draws. Two NUMBERS, not a bounds object: an object
-   *  built inline is a new identity every render, which would fire the settle effect below on
-   *  each one — and settling calls setState, so that is a render loop rather than a slow pane. */
+  /** How many rows and columns the surface draws — two NUMBERS, since an inline object would fire the settle effect every render. */
   rows: number;
   cols: number;
   resetKey: string;
@@ -62,8 +48,7 @@ export function useGridCaret({
   const [caret, setCaret] = useState<GridCell>({ row: 0, col: 0 });
   const [sel, setSel] = useState<GridSelection | null>(null);
 
-  // Read by the key listener and the drag, so neither rebinds on every head move — the timeline
-  // holds its selection in a ref for exactly this reason.
+  // Read by the key listener and the drag, so neither rebinds on every head move — the timeline holds its selection in a ref too.
   const selRef = useRef<GridSelection | null>(sel);
   selRef.current = sel;
   const caretRef = useRef<GridCell>(caret);
@@ -77,16 +62,7 @@ export function useGridCaret({
     setSel(null);
   }, [resetKey]);
 
-  /**
-   * The grid changed shape under it — a rack lost a sound, the precision halved the steps, the
-   * roll's zoom re-picked its unit. Settle rather than draw a caret outside the pane, which is
-   * the timeline's `clampCaret` on a row-list change.
-   *
-   * Every branch returns the SAME object when nothing moved, and that is not tidiness: the roll's
-   * column count follows the zoom, so this effect fires on every wheel notch. Returning a fresh
-   * `{row, col}` each time would re-render the whole roll on each one, to write the numbers it
-   * already had.
-   */
+  /** The grid changed shape under it: settle rather than draw a caret outside the pane, returning the SAME object when nothing moved. */
   useEffect(() => {
     const same = (a: GridCell, b: GridCell) =>
       a.row === b.row && a.col === b.col;
@@ -137,12 +113,7 @@ export function useGridCaret({
     };
   }, []);
 
-  /**
-   * The keys, and ONLY the continuous ones — every discrete action is a command in `keys.ts`, the
-   * line that file draws and this one keeps. Capture phase and a hard swallow for Escape, both
-   * copied from the timeline for the same reason: bubbling, Escape would drop the rectangle AND
-   * be read by the shell as "close the pane", so one press would do two things.
-   */
+  /** The keys, and ONLY the continuous ones — every discrete action is a command; Escape is swallowed hard, or one press would do two things. */
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {

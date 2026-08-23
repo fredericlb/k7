@@ -32,8 +32,7 @@ const BUS: Record<string, Chain> = {
 
 describe("what is upstream", () => {
   it("includes the module ITSELF — the render is taken at its output", () => {
-    // Freezing the amp gives you the amped sound, not the sound going into it. The whole
-    // definition of the feature is in this one assertion.
+    // Freezing the amp gives the amped sound, not the sound going into it.
     expect([...upstreamOf(RUN, "amp")].sort()).toEqual(["amp", "gtr"]);
   });
 
@@ -93,8 +92,7 @@ describe("what is upstream", () => {
 
 describe("when it is refused", () => {
   it("refuses when something upstream ALSO feeds outside the set", () => {
-    // `gtr` goes to the amp and, dry, to the master. Its signal would be in the render and still
-    // playing — heard twice, at a level nothing on screen explains.
+    // A dry send would put `gtr` in the render and still playing: heard twice, unexplainably.
     const g: Record<string, Chain> = {
       gtr: chain("gtr", [], ["amp", "OUT"]),
       amp: chain(undefined, ["amp"]),
@@ -161,8 +159,7 @@ describe("the plan the compiler follows", () => {
   });
 
   it("counts a freeze only once its render is on disk", () => {
-    // The compiler and the graph both come through here, so "is this baked?" has ONE answer.
-    // A project cloned without its renders plays live rather than failing to open.
+    // One answer to "is this baked?", so a project cloned without its renders plays live.
     const modules = { amp: { frozen: "renders/amp.wav" }, cab: {} };
     const plans = (there: boolean) =>
       activeFreezePlans(RUN, modules, isLane, () => there);

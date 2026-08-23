@@ -29,9 +29,7 @@ const keys = (a: WebClip, b: WebClip, buckets = 160): [string, string] => [
 
 describe("what makes the envelope a different one", () => {
   it("a TRIM — the reported bug, and the id cannot see it", () => {
-    // `clip trim` rewrites the clip file's from/to and nothing else: same id, same start, same
-    // length. Keyed on the id, the trimmed block was answered with the untrimmed envelope for
-    // the rest of the session, because nothing ever evicted it.
+    // `clip trim` rewrites the clip file's from/to and nothing else, so a key on the id answered the trimmed block with the old envelope.
     const [before, after] = keys(clip(), clip({ sourceFrom: 1.5 }));
     expect(after).not.toBe(before);
   });
@@ -42,8 +40,7 @@ describe("what makes the envelope a different one", () => {
   });
 
   it("a BOUNCE — `clip process` repoints the clip at a new file", () => {
-    // The other way the material changes while the placement stays put. Every run is its own
-    // file now (a wall-clock stamp), so the name is what says the block is playing something else.
+    // The other way the material changes while the placement stays put: every run is its own file, so the name says it is playing something else.
     const [before, after] = keys(
       clip(),
       clip({ sourceName: "riff_normalize_260816T101500.wav" }),
@@ -79,8 +76,7 @@ describe("what makes the envelope a different one", () => {
 
 describe("what leaves it alone", () => {
   it("the things that only change how the block LOOKS", () => {
-    // A rename, a mute, a freeze flag: none of them touch which audio is under the block, and a
-    // key that moved on them would throw the envelope away on every one of these edits.
+    // A rename, a mute, a freeze flag: none touch which audio is under the block, and a key that moved on them would throw the envelope away.
     const base = clip();
     for (const over of [
       { name: "riff (take 2)" },
@@ -93,17 +89,13 @@ describe("what leaves it alone", () => {
   });
 
   it("two placements of one clip share an envelope — until one is moved", () => {
-    // Same id and same window: the second placement costs no second decode, which is the whole
-    // reason there is a cache. `start` is in the key, so placing it elsewhere does split them.
+    // Same id and same window: the second placement costs no second decode, which is the whole reason there is a cache.
     const [a, b] = keys(clip(), clip());
     expect(b).toBe(a);
   });
 
   it("…and an absent window is not spelt like a zero one", () => {
-    // The two draw the SAME picture, so this costs one redundant refetch when a trim writes a
-    // `from` of 0. Kept anyway: `?? ""` is what keeps `sourceFrom: 1` and `sourceTo: 1` from
-    // colliding once the fields are joined into one string, and a key that is loose about
-    // absence in one place is loose about it everywhere.
+    // The two draw the SAME picture, so this costs one redundant refetch — kept, since `?? ""` is what keeps `1` and `1` from colliding.
     const [absent, zero] = keys(clip(), clip({ sourceFrom: 0 }));
     expect(zero).not.toBe(absent);
   });

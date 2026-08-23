@@ -7,8 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { settingsPath, webEndpointsDir } from "@studio/engine-client/paths";
 
-/** One JSON file's `.url`, or null for anything that is not one — absent, unparseable, or
- *  half-written by a backend booting right now. */
+/** One JSON file's `.url`, or null when it is absent, unparseable, or half-written. */
 function urlIn(path: string): string | null {
   try {
     const v = JSON.parse(readFileSync(path, "utf8")) as { url?: unknown };
@@ -18,25 +17,12 @@ function urlIn(path: string): string | null {
   }
 }
 
-/**
- * The hosted library, or null when this machine caches nothing — a working state, not a fault.
- *
- * The advertised file is read **by name**, not derived from whichever registry answered first.
- * Hosted, every service shares one origin at a fixed path, so either would do. In a checkout
- * they do not: each backend advertises its own loopback PORT, so "the origin of some registry"
- * is st0's 8789 as often as pl8's 8795, and the médiathèque's routes are not there.
- */
+/** The hosted library, read BY NAME rather than off any registry — see docs/mediatekLink.md. */
 export function mediatekBase(): string | null {
   return process.env.MEDIATEK_URL || urlIn(join(webEndpointsDir(), "pl8.json"));
 }
 
-/**
- * The token this machine calls the médiathèque with, or null when it has none.
- *
- * `npm run tokens` writes it to the supervisor's settings and nowhere else, deliberately: the
- * credential belongs to a machine rather than to a deployment. The supervisor passes it down
- * when it spawns us; read from the same file, we do not need it to have.
- */
+/** The token this machine calls the médiathèque with, read from the supervisor's own settings file. */
 export function mediatekToken(): string | null {
   if (process.env.MEDIATEK_TOKEN) return process.env.MEDIATEK_TOKEN;
   try {

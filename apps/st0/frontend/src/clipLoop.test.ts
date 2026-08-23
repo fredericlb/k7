@@ -37,16 +37,14 @@ describe("clipLoop", () => {
   });
 
   it("keeps a MIDI window where the notes put it", () => {
-    // The roll draws note times, and loopStart/loopEnd are positions in those same notes — so a
-    // window opening at bar 3 is drawn at bar 3, and the notes before it visibly do not play.
+    // The roll draws note times, and loopStart/loopEnd are positions in those same notes — so the notes before the window visibly do not play.
     const l = clipLoop(clip({ length: 8, loopStart: 8, loopEnd: 12 }));
     expect(l).toMatchObject({ from: 8, to: 12, win: 4, passes: 2 });
     expect(l?.repeats).toEqual([12]);
   });
 
   it("opens an AUDIO region at 0, whatever beats into the source the loop says", () => {
-    // The waveform is drawn from the clip's in-point, and that in-point IS the window's start.
-    // Reading loopStart as an x position here would push the marks off the right of the pane.
+    // The waveform is drawn from the clip's in-point, and that in-point IS the window's start; loopStart as an x would push the marks off.
     const l = clipLoop(
       clip({ type: "audio", length: 12, loopStart: 40, loopEnd: 44 }),
     );
@@ -90,8 +88,7 @@ describe("visibleRepeats", () => {
 
 describe("placedRepeats", () => {
   it("counts from the EVENT's start, not from the material's", () => {
-    // The case the two axes disagree on: a MIDI window that opens at bar 5. On the roll the
-    // first repeat is at 8 + 4; on a lane the event's left edge IS the first pass, so it is at 4.
+    // The case the two axes disagree on: on the roll the first repeat is at 8 + 4, on a lane the event's left edge IS the first pass.
     const l = clipLoop(
       clip({ type: "midi", length: 12, loopStart: 8, loopEnd: 12 }),
     );
@@ -130,15 +127,12 @@ describe("playedZone", () => {
   });
 
   it("is the PLACEMENT's extent when it states none", () => {
-    // The case `selection consolidate` produces: its window equals its content, so the compiler
-    // drops the range as saying nothing (`statedTo`) — and the roll was left with no band on an
-    // event that plainly has an extent. A note past `length` sounds nowhere.
+    // The case `selection consolidate` produces: its window equals its content, so the compiler drops the range and the roll had no band.
     expect(playedZone(clip({ length: 4 }))).toEqual({ from: 0, to: 4 });
   });
 
   it("is NOTHING for an unplaced clip — a sequence file being written", () => {
-    // No placement, so there is no "what this plays": the whole file is the material, and an
-    // edit anywhere in it is legitimate.
+    // No placement, so there is no 'what this plays': the whole file is the material, and an edit anywhere in it is legitimate.
     expect(playedZone(clip({ length: 0 }))).toBeNull();
   });
 });

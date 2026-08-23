@@ -3,19 +3,7 @@
 // Stdout IS the protocol, frames are snapshots not deltas, and the tray computes no
 // policy of its own. Full rationale: docs/hostProtocol.md.
 
-/**
- * Which of the STAGED subsystems the host owns yet.
- *
- * This is the refactor's staging mechanism made explicit on the wire: each stage flips
- * one more flag and deletes the Rust that used to do that job. The tray merges only
- * the parts of a snapshot whose flag is set, so a half-migrated build has exactly one
- * owner per subsystem instead of two writers racing. When all three are permanently
- * true this collapses to "the tray replaces its state wholesale" and the type can go.
- *
- * Identity, settings, the registry and the web-origins allowlist are NOT here: they
- * moved to the host in one step and have no half-owned state. Their snapshot fields
- * are always authoritative.
- */
+/** Which of the STAGED subsystems the host owns yet — see docs/hostProtocol.md. */
 export interface HostOwnership {
   /** Spawning, adopting, stopping and crash-watching the C++ engine. */
   engine: boolean;
@@ -37,13 +25,7 @@ export interface HostAudioDevice {
   current: boolean;
 }
 
-/**
- * What separates the two halves of `plugin.showUI`'s argument, `<session><id>`.
- *
- * A wire value shared with the tray (engine/capot/src-tauri/src/tray.rs), so it is declared here
- * rather than in the supervisor: U+001F is the one byte neither a session id (a service name and
- * a slugged email) nor a plugin id ("chain:module") can contain.
- */
+/** What separates `plugin.showUI`'s two halves: U+001F, the one byte neither a session id nor a plugin id can contain (mirrored in tray.rs). */
 export const SHOW_UI_SEP = "";
 
 /** One plugin instance in a loaded edit, for the "Native plugin UI ▸" submenu. */
@@ -55,14 +37,7 @@ export interface HostEditPlugin {
   hasNativePluginUI: boolean;
 }
 
-/**
- * One project the engine is holding, for the "Sessions ▸" submenu.
- *
- * This is what makes ONE engine serving several apps legible from the outside. Before it,
- * the tray's status line said "Running · :8833" whether that engine held nothing, held
- * st0' song, or held a deck and a module preview at once — and the apps had no way to
- * see each other either.
- */
+/** One project the engine is holding, for the "Sessions ▸" submenu — what makes ONE engine serving several apps legible from outside. */
 export interface HostSession {
   id: string;
   /** The loaded project's name; "" when the session holds nothing. */
@@ -74,23 +49,14 @@ export interface HostSession {
   listeners: number;
 }
 
-/** The paths the tray still opens directly (Show logs, Open workspaces root, and the
- *  origins file it falls back to when there is no native prompt). Sent rather than
- *  recomputed so `~/.studio`'s layout has exactly one definition. */
+/** The paths the tray still opens directly, sent rather than recomputed so `~/.studio`'s layout has exactly one definition. */
 export interface HostPaths {
   root: string;
   mergedLog: string;
   webOrigins: string;
 }
 
-/**
- * The whole of what the tray draws, in one object.
- *
- * Every field here is read by `refresh()` or one of the three submenu builders. The
- * host emits this only when its serialisation CHANGES — the arrays are re-serialised
- * on every emit, so a field that flapped at loop cadence would put the whole snapshot
- * on the wire several times a second to redraw nothing.
- */
+/** The whole of what the tray draws, in one object, emitted only when its serialisation CHANGES — see docs/hostProtocol.md. */
 export interface HostSnapshot {
   owns: HostOwnership;
 
@@ -98,22 +64,19 @@ export interface HostSnapshot {
   status: EngineRunState;
   /** Set when `status` is "error" — shown verbatim on the status line. */
   error?: string;
-  /** True only when the supervisor spawned the running engine. A foreign/adopted one
-   *  must never be stopped from here, which is what greys out Stop/Restart. */
+  /** True only when the supervisor spawned the running engine; a foreign one must never be stopped, which greys out Stop/Restart. */
   ownsEngine: boolean;
   /** The user pressed Stop — the crash-watch must not undo that. */
   userStopped: boolean;
   engineId: string;
-  /** The engine's auth token. Present ONLY while `owns.engine` is false, because the
-   *  tray still spawns the engine itself at that stage and has to pass it down. It
-   *  disappears from the wire the moment the host owns the process. */
+  /** The engine's auth token, present ONLY while `owns.engine` is false, because the tray still spawns the engine at that stage. */
   engineToken?: string;
   enginePort: number;
   filePort: number;
 
   // --- file service ---------------------------------------------------------
-  /** Nothing is answering the file port while we expect it to be. Drives the red icon
-   *  and the "⚠ file service down" suffix. */
+
+  /** Nothing is answering the file port while we expect it to be — the red icon and the "⚠ file service down" suffix. */
   fileServiceFailed: boolean;
 
   // --- registry -------------------------------------------------------------
@@ -121,13 +84,14 @@ export interface HostSnapshot {
   lastHeartbeatOk: boolean;
 
   // --- sessions -------------------------------------------------------------
+
   /** The projects the engine holds. Empty when nothing has connected to it yet. */
   sessions: HostSession[];
-  /** What the sessions submenu DRAWS, so a playhead moving does not rebuild it. Same
-   *  device as `audioMenuSig` / `editPluginsSig`; see the note on this interface. */
+  /** What the sessions submenu DRAWS, so a playhead moving does not rebuild it — see docs/hostProtocol.md. */
   sessionsSig: string;
 
   // --- plugins & audio ------------------------------------------------------
+
   /** null means "the engine hasn't answered yet" — the spinner, not "none found". */
   pluginCount: number | null;
   audioDevices: HostAudioDevice[];
@@ -135,8 +99,7 @@ export interface HostSnapshot {
   audioPreferred: string | null;
   /** Where to go when the preferred one isn't there. */
   audioFallback: string | null;
-  /** Changes exactly when the audio submenu's CONTENT would change. The tray rebuilds
-   *  only when this differs from what it last drew — see audioPolicy.menuSignature. */
+  /** Changes exactly when the audio submenu's CONTENT would — the tray rebuilds only when it differs from what it last drew. */
   audioMenuSig: string;
   editPlugins: HostEditPlugin[];
   /** The same trick for "Native plugin UI ▸": the ids of the openable plugins. */
@@ -152,9 +115,7 @@ export interface HostSnapshot {
   paths: HostPaths;
 }
 
-/** A passive OS notification (banner/toast) or a modal the user must dismiss.
- *  Passive for anything the app raises on its own — a blocked browser can be refused
- *  dozens of times a second, and a modal per refusal makes the machine unusable. */
+/** A passive banner or a modal; passive for anything the app raises on its own, a modal per refusal making the machine unusable. */
 export type NotifyKind = "passive" | "modal";
 
 /** Host → tray. One per line on stdout. */
@@ -163,14 +124,7 @@ export type HostEvent =
   | { t: "notify"; kind: NotifyKind; title: string; body: string }
   | { t: "result"; id: number; ok: boolean; message?: string };
 
-/**
- * Tray → host. One per line on stdin.
- *
- * `registry.deregister` is not merely "stop heartbeating": the Stop menu item drops the
- * engine from the registry IMMEDIATELY rather than letting the entry age out, so it
- * vanishes from the picker at once. Letting the TTL expire instead would be a visible
- * regression.
- */
+/** Tray → host, one per line on stdin; `registry.deregister` drops the engine from the picker AT ONCE rather than aging out. */
 export type HostCommandName =
   | "engine.start"
   | "engine.stop"
@@ -195,8 +149,6 @@ export interface HostCommand {
   /** Correlates the `result`. The tray allocates these; the host only echoes them. */
   id: number;
   cmd: HostCommandName;
-  /** The command's single argument, when it takes one (an origin, a device name, a
-   *  plugin id, a URL). Empty string is meaningful for `audio.fallback` — it means
-   *  "no fallback". */
+  /** The command's single argument, when it takes one; an empty string is meaningful for `audio.fallback`, where it means "none". */
   arg?: string;
 }

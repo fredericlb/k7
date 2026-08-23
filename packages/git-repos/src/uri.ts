@@ -3,8 +3,7 @@
 // folds the two spellings of one repository into a single comparison key. Pure — no Node
 // imports — so a browser can validate a paste with the same rule the servers apply.
 
-// SSH ONLY: the per-user key carries the privilege, and an https URI would sidestep it and hang on a prompt.
-// Both shapes anchor on an alphanumeric first char, so a URI can never reach git looking like an option.
+// SSH ONLY, anchored on an alphanumeric first char so a URI never reaches git looking like an option — see docs/keys.md.
 const SCP_URI = /^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:[A-Za-z0-9._~/-]+$/; // git@host:path
 const SSH_URL =
   /^ssh:\/\/([A-Za-z0-9._-]+@)?[A-Za-z0-9._-]+(:\d+)?\/[A-Za-z0-9._~/-]+$/;
@@ -21,18 +20,7 @@ export function isSshGitUri(uri: string): boolean {
   return SCP_URI.test(uri) || SSH_URL.test(uri);
 }
 
-/**
- * One repository's identity, as `host[:port]/path` with no `.git` and no SSH user.
- *
- * The point is that `git@host:me/repo.git` and `ssh://git@host/me/repo` are the SAME
- * repository, and the two sides of this feature learn about it by different routes — pl8
- * from what a person pasted, the file service from a checkout's `remote.origin.url`, which
- * git may have rewritten. Comparing the raw strings would clone a repo that is already
- * there. See apps/st0/frontend/docs/projects.md.
- *
- * Throws on anything `assertSshGitUri` refuses: a key derived from an unvalidated string
- * would be a key for something that must never be fetched.
- */
+/** One repository's identity as `host[:port]/path`, so the two spellings of one repo meet — docs/keys.md. */
 export function normalizeGitUri(uri: string): string {
   assertSshGitUri(uri);
   const trimmed = uri.trim();
@@ -64,15 +52,7 @@ export function repoName(uri: string): string {
   return repoNameOfKey(normalizeGitUri(uri));
 }
 
-/**
- * The same short name, out of a key `normalizeGitUri` already produced.
- *
- * Its own function because that key is `host/path` and **not an SSH URI any more**: handing it
- * back to `repoName` throws, since `assertSshGitUri` refuses a string with no user and no
- * scheme. Which is correct of it — a validator that accepted its own output would accept a
- * hostname as a repository — and is why callers holding a normalized origin (the file service
- * reads one off every checkout) need this door rather than that one.
- */
+/** The same short name out of a KEY, which is no longer an SSH URI and would throw in `repoName`. */
 export function repoNameOfKey(key: string): string {
   return key.split("/").filter(Boolean).pop() ?? "";
 }

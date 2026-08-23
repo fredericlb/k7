@@ -49,12 +49,7 @@ export function vendoredNode(): string | null {
   return file(join(exeDir(), exe("node")));
 }
 
-/**
- * The (node, file-service.mjs) pair, if this is a packaged app.
- *
- * Null in dev, which is load-bearing: `npm run dev` owns port 8770 with a hot-reloading
- * tsx watcher, and a supervisor that spawned its own would fight it for the port.
- */
+/** The (node, file-service.mjs) pair if this is a packaged app; null in dev, which is load-bearing — the watcher owns that port. */
 export function fileServiceRuntime(): { node: string; script: string } | null {
   const node = vendoredNode();
   if (!node) return null;
@@ -62,8 +57,7 @@ export function fileServiceRuntime(): { node: string; script: string } | null {
   return script ? { node, script } : null;
 }
 
-/** The demo songs staged into the bundle. Without these a double-clicked app has no
- *  repo to copy demos from, so every new workspace would open empty. */
+/** The demo songs staged into the bundle; without them a double-clicked app has no repo to copy from and every new workspace opens empty. */
 export function demos(): string | null {
   const d = exeDir();
   return dir(

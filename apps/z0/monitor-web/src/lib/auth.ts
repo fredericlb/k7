@@ -5,8 +5,7 @@
 import { createAuthStore } from "z0-shared/auth-store";
 import { f } from "./api";
 
-// Signing in and out is the same rule for all six SPAs, and a subtle one — the account belongs to
-// pl8, the guest cookie to z0.
+// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
 export { login } from "z0-shared/account";
 export type { AuthState, AuthStatus, AuthUser } from "z0-shared/auth-store";
 

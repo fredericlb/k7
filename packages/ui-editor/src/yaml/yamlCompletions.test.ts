@@ -8,12 +8,7 @@ import { describe, expect, it } from "vitest";
 import { yamlCompletions } from "./completions";
 import { cursorContext } from "./keyPath";
 
-// The last unknown of the spike: can a syntax tree replace `analyze()` — the 88-line
-// character scanner the CUE completions use to work out where the cursor is, and which
-// entityLinks.ts and previewGutter.ts each re-implement?
-//
-// Tested headlessly: EditorState + syntaxTree need no DOM, so the real grammar and the
-// real completion source run here exactly as they would in the browser.
+// Headless: EditorState and syntaxTree need no DOM, so the real grammar and completion source run as in the browser.
 
 /** A state with the cursor where `marker` ends. */
 function at(doc: string, marker: string): { state: EditorState; pos: number } {
@@ -50,8 +45,7 @@ describe("the cursor's key path, from the tree", () => {
   });
 
   it("knows a nested block mapping", () => {
-    // A fresh indented line inside `plugin:` — the case the tree alone gets wrong, and
-    // the reason keyPosition() exists: the innermost pair is still plugin's.
+    // A fresh indented line inside `plugin:` — the case the tree alone gets wrong, and why keyPosition() exists.
     expect(ctx(MODULE, "plugin:\n  ")).toMatchObject({
       path: ["plugin"],
       inKey: true,
@@ -92,8 +86,7 @@ describe("the cursor's key path, from the tree", () => {
   });
 
   it("names `extends` at the very top of a module file", () => {
-    // The headline case, and the one that completed against nothing: the field sits at the
-    // root, so the path is empty and there is no enclosing mapping to walk up to.
+    // The field sits at the root, so the path is empty and there is no enclosing mapping to walk up to.
     expect(ctx('extends: "@engine/de', 'extends: "@engine/de')).toMatchObject({
       path: [],
       inKey: false,
@@ -102,9 +95,7 @@ describe("the cursor's key path, from the tree", () => {
   });
 
   it("reports a `- ` item as BOTH a key and a sequence item", () => {
-    // Undecided by construction: `- song: x` is a mapping and `- x` is a scalar, and the
-    // colon that tells them apart has not been typed. Saying "key" alone is what left a
-    // playlist's `items:` with no completion at all.
+    // Undecided by construction until the colon is typed — see docs/completion.md.
     expect(ctx("items:\n  - AC", "  - AC")).toMatchObject({
       path: ["items"],
       inKey: true,
@@ -121,7 +112,6 @@ describe("the cursor's key path, from the tree", () => {
 
   it("survives a document being typed — an incomplete one", () => {
     // Completion runs on every keystroke, so the tree is usually of a broken document.
-    // This is where a hand-rolled scanner earns its bugs.
     expect(ctx("ui:\n  widgets:\n    w1: { ty", "w1: { ty")).toMatchObject({
       path: ["ui", "widgets", "w1"],
       inKey: true,
@@ -134,9 +124,7 @@ describe("the cursor's key path, from the tree", () => {
 });
 
 describe("the completion source", () => {
-  // A stand-in for the app's vocabulary (which is derived from the Zod schemas — see
-  // @studio/song yaml/fields.ts). The editor knows none of these names; that is the
-  // design, and the reason the tables can be deleted rather than ported.
+  // A stand-in for the app's vocabulary, which the editor knows none of by design — see docs/completion.md.
   const vocab = {
     fieldsAt: (path: string[]) => {
       if (path.length === 0) return ["plugin", "ui", "params", "ir", "nam"];
@@ -189,8 +177,7 @@ describe("the completion source", () => {
   });
 
   it("offers a nested struct's OWN fields, not the file's", () => {
-    // The CUE bug this replaces: `structFields` returned [] for anything it had no branch
-    // for, so `project: {}` offered nothing while the top level offered its fields.
+    // The bug this replaces: a struct with no branch offered nothing while the top level offered its fields.
     expect(labels(complete(MODULE, "plugin:\n  "))).toEqual(["type", "name"]);
     expect(labels(complete(MODULE, "  cols: 4\n  "))).toEqual([
       "cols",
@@ -216,14 +203,11 @@ describe("the completion source", () => {
   });
 
   it("offers nothing where the value is free text", () => {
-    // `name:` takes any string. Offering the field list there is worse than offering
-    // nothing — it reads as though those were the allowed values.
+    // `name:` takes any string, and a field list there reads as though those were the allowed values.
     expect(complete(MODULE, "  name: ")).toBeNull();
   });
 
-  // A chain step names a module, and an inherited one is named by its ref. The token has
-  // to run from the `@` through every `/`, or accepting the completion appends the full
-  // ref to the half-typed one.
+  // The token has to run from the `@` through every `/`, or accepting appends the full ref to the half-typed one.
   it("completes a namespaced ref as ONE token", () => {
     const doc = `chains:
   melody:
@@ -263,8 +247,7 @@ describe("the completion source", () => {
     );
   });
 
-  // A playlist's shape: the list holds bare song refs, and each item may instead be a
-  // mapping naming a variant. Both vocabularies belong on a `- ` line.
+  // A playlist's shape: bare song refs, or a mapping naming a variant, so both vocabularies belong on a `- ` line.
   const PLAYLIST = {
     fieldsAt: (p: string[]) => (p[0] === "items" ? ["song", "variant"] : []),
     valuesAt: (p: string[], f: string) =>
@@ -305,9 +288,7 @@ describe("the completion source", () => {
   });
 
   it("replaces the WHOLE value when one may hold spaces", () => {
-    // A song folder is made from its tags, so it legitimately carries spaces. The word
-    // token stops at the last one, and accepting the pick there would splice the ref into
-    // the middle of itself: `- AC-DC/Back in AC-DC/Back in Black/Hells Bells`.
+    // A song folder carries spaces, and the word token stopping at the last one splices the ref into itself.
     const doc = "items:\n  - AC-DC/Back in Bl";
     const r = completeWith(PLAYLIST, doc, "  - AC-DC/Back in Bl") as {
       from: number;
@@ -352,8 +333,7 @@ describe("the completion source", () => {
     const r = complete(MODULE, "plugin:\n  ty") as { from: number } | null;
     const doc = MODULE;
     const pos = doc.indexOf("plugin:\n  ty") + "plugin:\n  ty".length;
-    // `from` must sit at the start of the word, or accepting a completion would leave
-    // the typed characters behind it.
+    // `from` must sit at the start of the word, or accepting would leave the typed characters behind it.
     expect(r?.from).toBe(pos - 2);
   });
 });

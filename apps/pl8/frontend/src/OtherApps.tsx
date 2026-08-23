@@ -26,12 +26,7 @@ const OTHER_APPS: {
   hint: string;
   icon: LucideIcon;
 }[] = [
-  // st0 FIRST, and it is now the ORIGIN ITSELF: `SERVICE_PATHS.st0` is the empty string, so this
-  // href is `/`. It was absent from this menu for a long time — an editor opened on one project
-  // is not a place you visit, and a bare `/st0` landed on an app with nothing to open. Then it
-  // gained a home page (the repositories, which used to be a section HERE), and that page is
-  // what the studio opens on now. This entry is the way BACK to it; the way here is the pl8
-  // button in that page's header. See ../../docs/otherApps.md.
+  // st0 FIRST, and it IS the origin — `SERVICE_PATHS.st0` is empty (../docs/otherApps.md).
   {
     href: `${SERVICE_PATHS.st0}/`,
     label: "st0",
@@ -44,8 +39,7 @@ const OTHER_APPS: {
     hint: "l'enregistreur de répétitions — sessions, prises, tablature",
     icon: Mic,
   },
-  // z0 runs its own login on its own /z0/auth/callback, so it is not one of the services that
-  // share pl8's session — but its PATH is as fixed as the others', which is what the table says.
+  // z0 runs its own login, but its PATH is as fixed as the others' — which is all this table says.
   {
     href: `${SERVICE_PATHS.z0}/`,
     label: "z0",
@@ -72,15 +66,13 @@ export function OtherApps() {
         {OTHER_APPS.map((app) => {
           const Icon = app.icon;
           return (
-            // asChild so the row IS the anchor: ctrl-click, middle-click and "copy link
-            // address" all mean what they say, and `target` is then the only thing to set.
+            // asChild so the row IS the anchor, and ctrl-click and middle-click mean what they say.
             <DropdownMenuItem
               key={app.href}
               asChild
               className="items-start gap-2"
             >
-              {/* Another APPLICATION, not another page of this one: the médiathèque is what
-                  you were doing before and after, and leaving would stop what it is playing. */}
+              {/* Another APPLICATION: leaving this one would stop what it is playing. */}
               <a href={app.href} target="_blank" rel="noopener">
                 <Icon className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1">

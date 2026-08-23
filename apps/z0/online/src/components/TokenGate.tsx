@@ -12,9 +12,7 @@ import {
 } from "../lib/guest";
 import { m } from "../paraglide/messages.js";
 
-// Entry gate for unauthenticated /t/<token> visitors: LOGIN bounces through
-// OIDC; GUEST claims a unique username without an account (pre-filled from
-// the last localStorage UUID when known).
+// The /t/<token> door: LOGIN goes through OIDC, GUEST claims a unique name with no account.
 export function TokenGate({
   sessionName,
   onClaimed,

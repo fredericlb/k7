@@ -2,9 +2,7 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-// Single-origin: served at st0.priv.frediver.se/z0/remote; the backend answers
-// /api (bare paths — stripApiPrefix), /auth, /audio and the /ws socket on the
-// same host. Port 3005 matches the LAN proxy.
+// Served at /z0/remote on port 3005, which is the LAN proxy's rule; the backend sees bare paths.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/remote/",
@@ -14,9 +12,7 @@ export default defineAppConfig({
   stripApiPrefix: true,
   proxyPaths: ["/auth", "/audio"],
   wsPaths: ["/ws"],
-  // French-only game surface (see z0's docs): a single locale, and the
-  // strategy pinned to baseLocale so a stored language choice from the editor
-  // or online — same origin, same localStorage — can't leak in.
+  // A French-only surface, pinned to baseLocale so another app's stored choice cannot leak in.
   extend: {
     plugins: [frediverseParaglide({ strategy: ["baseLocale"] })],
     // The old name still reaches these servers — see scripts/dev-hosts.mjs.

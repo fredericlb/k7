@@ -56,9 +56,7 @@ describe("the manifest", () => {
 });
 
 describe("diffing a cache against the owner", () => {
-  // Both sides are the OWNER's description. A downloaded file has its own mtime, so
-  // comparing a fresh local stat would report every file as changed, every time — which
-  // is precisely why the cache remembers what the server said instead.
+  // Both sides are the OWNER's description, never a local stat — see docs/sync.md.
   const owner = [
     { path: "samples/a.yaml", bytes: 10, mtime: 1000 },
     { path: "samples/b.yaml", bytes: 20, mtime: 2000 },
@@ -94,8 +92,7 @@ describe("diffing a cache against the owner", () => {
 });
 
 describe("the path guard", () => {
-  // The local library never needed one: the file service's own safePath confined to the
-  // workspace, putting the mediatek out of reach. A hosted one has no such wall.
+  // The local library never needed one; a hosted one has no wall around it (docs/index.md).
   it("resolves a path inside the library", () => {
     expect(safePath("samples/a.yaml")).toBe(join(root, "samples", "a.yaml"));
   });
@@ -107,18 +104,14 @@ describe("the path guard", () => {
   });
 
   it("leaves a sibling folder whose name merely starts the same alone", () => {
-    // The check is on the separator, so `<root>-other` is outside even though the string
-    // starts with the root.
+    // The check is on the separator, so `<root>-other` is outside despite the shared prefix.
     expect(() => safePath(join("..", `${join(root, "x")}-other`))).toThrow(
       PathEscapesError,
     );
   });
 
   it("does not care how the ROOT was spelled", () => {
-    // THE bug this test exists for. `env.yaml` is hand-written, and a Windows path is as
-    // readily typed with forward slashes; the guard compared the root against a resolved
-    // path as TEXT, so `samples/audio` was reported as escaping a library it was inside.
-    // Creating a folder in `samples` was impossible and the message blamed the caller.
+    // THE bug this test exists for: `startsWith` compared SPELLINGS — see docs/index.md.
     process.env.STUDIO_MEDIATEK = root.split(sep).join("/");
     expect(safePath("samples/audio")).toBe(join(root, "samples", "audio"));
     // …and a real escape is still refused, whatever the spelling.

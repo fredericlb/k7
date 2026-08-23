@@ -21,12 +21,10 @@ function subOf(req: Request): string | null {
 /** Longer than a title, short enough that nobody is pasting a document into it. */
 const MAX_QUERY = 200;
 
-/** How many can be in flight at once for one person. A hunt holds a peer's queue slot for up
- *  to ten minutes, and forty of them at once would be a way to get the account banned. */
+/** In flight at once, per person: forty queue slots held for ten minutes gets an account banned. */
 const MAX_RUNNING = 4;
 
-/** What is missing, in the words of the thing to go and set. Said rather than 500ing on the
- *  first click: an unconfigured deployment is the ordinary state of a new one. */
+/** What is missing, in the words of the thing to set — a new deployment is normally unconfigured. */
 function missing(): string | null {
   const gaps: string[] = [];
   if (!slskdConfigured()) gaps.push("SLSKD_URL et SLSKD_API_KEY");
@@ -43,33 +41,21 @@ huntRouter.use((req, res, next) => {
   next();
 });
 
-/**
- * The history, newest first, with the rows a restart orphaned already told the truth about.
- *
- * `configured` rides along so the screen can draw its own absence — a button that opened a
- * search field and then failed on every query would be worse than one that says why it is off.
- */
+/** The history, newest first; `configured` rides along so the screen can draw its own absence. */
 huntRouter.get(
   "/",
   wrap(async (req, res) => {
     res.json({
       configured: missing() === null,
       reason: missing(),
-      // Whether the fallback is even possible, so a failed row can offer the button or say
-      // why it cannot. Probed once and cached — it is a binary in the image.
+      // Whether the fallback is even possible, so a failed row can grey its button and say why.
       youtube: await youtubeAvailable(),
       hunts: reconcile(subOf(req) as string, runningIds()),
     });
   }),
 );
 
-/**
- * The fallback: fetch a failed row's song from YouTube instead.
- *
- * Deliberately NOT automatic. It is a different bargain — a lossy stream off a video rather
- * than somebody's file — and which songs are worth it is a judgement about the song, not one a
- * server should make on its own. Hence a button, on the rows that came back empty-handed.
- */
+/** The fallback, deliberately NOT automatic: a button and never a retreat — ../../docs/hunt.md. */
 huntRouter.post(
   "/:id/youtube",
   wrap(async (req, res) => {
@@ -82,8 +68,7 @@ huntRouter.post(
       (h) => h.id === req.params.id,
     );
     if (!row) return res.status(404).json({ error: "recherche inconnue" });
-    // The SAME rule that shows the button, taken from the shared contract: a visible button the
-    // route would refuse is a dead end, and the reverse is a back door.
+    // The SAME rule that shows the button: a visible one the route refuses is a dead end.
     if (!canFallBackToYoutube(row))
       return res.status(409).json({
         error:

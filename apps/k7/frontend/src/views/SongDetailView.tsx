@@ -18,8 +18,7 @@ const TABS: { key: SongTab; label: string }[] = [
   { key: "sheet", label: "Sheet" },
 ];
 
-// Whether a tab has anything in it. Lyrics/tablature are text; the sheet is a
-// list of files.
+// Whether a tab holds anything: lyrics and tablature are text, the sheet is a file list.
 const hasContent = (song: Song, key: SongTab): boolean =>
   key === "sheet" ? song.sheets.length > 0 : song[key] !== "";
 
@@ -44,20 +43,16 @@ export function SongDetailView({
   onToggleFavorite,
   onDelete,
 }: Props) {
-  // Without an explicit tab (e.g. from a `?tab=` link), open the first tab that
-  // has content — so a song with only a tablature lands there, not on empty
-  // Lyrics. Falls back to Lyrics when the song is entirely empty.
+  // Unasked, open the first tab with content: a song that is only a tablature lands there.
   const [tab, setTab] = useState<SongTab>(
     () =>
       initialTab ??
       TABS.find(({ key }) => hasContent(song, key))?.key ??
       "lyrics",
   );
-  // The sheet tab is file-based, not text; keep `content` a string for the
-  // lyrics/tablature editor and let the sheet tab render its own panel.
+  // `content` stays a string for the text editor; the sheet tab draws its own panel.
   const content = tab === "sheet" ? "" : song[tab];
-  // Empty tabs open straight in the editor; filled ones show read-only until
-  // the user clicks Edit.
+  // An empty tab opens in the editor; a filled one stays read-only until Edit.
   const [editing, setEditing] = useState(content === "");
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
@@ -88,8 +83,7 @@ export function SongDetailView({
     setSaving(true);
     try {
       await onSave(tab, draft);
-      // The reloaded song flows back through the effect above, which drops us
-      // back to the read-only view.
+      // The reloaded song comes back through the effect above, into the read-only view.
     } finally {
       setSaving(false);
     }

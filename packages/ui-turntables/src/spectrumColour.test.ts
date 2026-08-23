@@ -29,8 +29,7 @@ describe("what colour a column is", () => {
   });
 
   it("BLENDS, which is the whole point of doing it additively", () => {
-    // Bass over mids reads yellow-orange, bass over highs reads purple, and all three read
-    // white — ordinary light, rather than a table of special cases somebody has to maintain.
+    // Ordinary light — yellow-orange, purple, white — rather than a table of special cases.
     const [r1, g1, b1] = rgb(columnColour({ low: 0.8, mid: 0.8, high: 0.02 }));
     expect(r1).toBeGreaterThan(150);
     expect(g1).toBeGreaterThan(150);
@@ -46,16 +45,14 @@ describe("what colour a column is", () => {
   });
 
   it("says the same thing quietly as it does loudly", () => {
-    // What a coloured waveform reports is which band DOMINATES, and a quiet bassline is as
-    // much bass as a loud one. Normalising by the strongest band is what holds that.
+    // It reports which band DOMINATES, so a quiet bassline is as much bass as a loud one.
     expect(columnColour({ low: 0.9, mid: 0.3, high: 0.1 })).toBe(
       columnColour({ low: 0.09, mid: 0.03, high: 0.01 }),
     );
   });
 
   it("keeps a pure band PURE rather than a third of the way there", () => {
-    // The reason it divides by the loudest rather than by the total: with a sum, a column of
-    // nothing but bass would come out at a third strength and read as muddy brown.
+    // Why it divides by the LOUDEST and not the total: a sum would read pure bass as muddy brown.
     expect(rgb(columnColour({ low: 0.5, mid: 0, high: 0 }))).toEqual([
       ...BAND_COLOURS.low,
     ]);
@@ -77,8 +74,7 @@ describe("reading a column's bands", () => {
   });
 
   it("says NOTHING for a file analysed before the bands existed", () => {
-    // A sidecar written at v3 has none. Null so the caller draws its plain envelope; zeroes
-    // would read as a silent column and paint the whole track one fallback colour.
+    // A v3 sidecar has none: null draws the plain envelope, where zeroes would read as silence.
     expect(bandsAt({}, 0)).toBeNull();
     expect(bandsAt({ low: [0.5], mid: [0.2] }, 0)).toBeNull();
   });

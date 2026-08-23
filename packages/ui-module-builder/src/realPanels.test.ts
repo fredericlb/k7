@@ -53,8 +53,7 @@ describe("the panels this repo ships", () => {
   ] as const)
     it(`parses ${name}'s, so the grid stays live on it`, () => {
       expect(hasMalformedUiFile(text)).toBe(false);
-      // …and reads as something. `readUiFile` answers an EMPTY grid for anything it cannot use,
-      // which would pass the check above while drawing nothing at all.
+      // …and reads as something: `readUiFile` answers an EMPTY grid for anything it cannot use.
       expect(Object.keys(readUiFile(text).widgets).length).toBeGreaterThan(0);
     });
 });
@@ -67,8 +66,7 @@ describe("what MALFORMED actually means", () => {
   });
 
   it("is NOT an absent or empty panel — the grid creates one", () => {
-    // The first save writes it. Calling this malformed would put an amber warning on every
-    // module nobody has given a face yet, which is most of them.
+    // The first save writes it; calling this malformed warns about every module with no face yet.
     expect(hasMalformedUiFile("")).toBe(false);
     expect(hasMalformedUiFile("# just a comment\n")).toBe(false);
   });
@@ -79,15 +77,7 @@ describe("what MALFORMED actually means", () => {
   });
 });
 
-/**
- * A panel BUILT rather than parsed, read back by the parser the builder greys itself out on.
- *
- * There was a generator here that turned a plugin's parameter list into one of these, and these
- * tests pinned its round trip. It is gone — it could only ever emit knobs and dropdowns, so run
- * over a library it flattened a mixer's channel strip into five knobs in a row. What is worth
- * keeping is the property underneath, which is about `writeUiFile` and not about where the
- * widgets came from: whatever this editor writes, it must be able to read back.
- */
+/** A panel BUILT rather than parsed: whatever this editor writes, it must be able to read back. */
 describe("a panel written by the grid rather than by hand", () => {
   it("round-trips every widget's bind through YAML", () => {
     // A panel that parsed but had lost its binds would be a grid of knobs that move nothing.
@@ -129,8 +119,7 @@ describe("a panel written by the grid rather than by hand", () => {
   });
 
   it("writes the terse one-line-per-widget shape these files have by hand", () => {
-    // The same `writeUiFile` the grid saves through, so a file it wrote does not read as
-    // machine output sitting in a folder of hand-written ones.
+    // The same `writeUiFile` the grid saves through, so its output sits among hand-written files.
     const text = writeUiFile("", {
       cols: 4,
       rows: 1,

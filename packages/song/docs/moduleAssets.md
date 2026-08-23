@@ -25,6 +25,30 @@ answer to "what may this param be set to" — the panel's picker, the graph and 
 all ask it. See [filePicker.md](filePicker.md), which is also where the widget that offers them
 is described.
 
+### Why the walk is up the ANCESTRY
+
+`moduleAssetChoices` returns every asset a module can name, nearest owner first, walking what it
+`extends`. A module's assets used to be looked for at `<project>/modules/<category>/<file>/assets`
+and nowhere else, which is right only for a module this project both owns and stores the files in.
+It was wrong for the two shapes that actually carry material:
+
+- a module living in a shared library — the médiathèque's `audio/amps/guitar` has the fourteen NAM
+  profiles, and the project's `modules/audio/guitar` has none;
+- a thin local module that exists only to override a param of one, which is what `extends` produces
+  and is the normal way to point a song at a shared amp.
+
+Both listed nothing, so the panel's picker opened empty on the one module in the médiathèque built
+to be picked from. A nearer module's assets come first and a duplicate path is dropped, so a local
+file shadows an inherited one of the same name — the same precedence `resolveModuleAsset` gives the
+folders.
+
+The FOLDERS are not looked up during that walk: the loader stamps `folderAbs` on every module it
+reads, so the ref map a caller has loaded anyway answers "where does this one live" for free.
+Asking the libraries instead cost a full directory walk per ancestor per module — one graph build
+became a walk per node, and on a médiathèque mounted over `/mnt/c` that is seconds. What is left is
+memoised per request because ancestors repeat: every module inheriting one shared amp would
+otherwise re-read that amp's `assets/` once each.
+
 ## A file is a param
 
 The file a plugin loads is named in `params:`, beside the numbers:

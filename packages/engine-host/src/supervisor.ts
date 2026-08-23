@@ -48,29 +48,20 @@ import {
 
 const HEARTBEAT_MS = 5000;
 const PENDING_POLL_MS = 2000;
-/** Both process watches. Fast enough that a crash is noticed before the user is, slow
- *  enough to be free — each tick is a pidfile stat or a socket connect. */
+/** Both process watches — every pace on this page is argued in docs/supervisorPolicy.md. */
 const WATCH_MS = 2000;
-/** Relaunch backoff for a crashing engine: 1s doubling to 30s. An engine that dies on
- *  startup (a bad audio device, a missing DLL) would otherwise be relaunched forever at
- *  one per second, and the log would be nothing but that. */
+/** Relaunch backoff for a crashing engine: 1s doubling to 30s. */
 const BACKOFF_MAX_S = 30;
-/** The audio poll. Fast, because this is what notices an interface being plugged in or
- *  pulled out — a menu listing a device you unplugged a minute ago is worse than
- *  useless, and the recovery in `desiredSwitch` can only be as prompt as this tick. */
+/** The audio poll — this is what notices an interface being plugged in or pulled out. */
 const DEVICES_POLL_MS = 2000;
-/** The loaded project's plugin instances. A user swaps songs at human speed, not
- *  interface-unplug speed. */
+/** The loaded project's plugin instances; a user swaps songs at human speed. */
 const EDIT_PLUGINS_POLL_MS = 3000;
-/** Which projects the engine holds. An app connecting or a song loading is a human-speed
- *  event, and the submenu redraws only when the SIGNATURE moves anyway. */
+/** Which projects the engine holds; the submenu redraws only when the SIGNATURE moves. */
 const SESSIONS_POLL_MS = 2000;
-/** The plugin count once it is known: the scan is expensive and the answer barely
- *  moves. Until it lands we ask at `PLUGINS_POLL_FAST_MS` to keep the spinner honest. */
+/** The plugin count once it is known: the scan is expensive and the answer barely moves. */
 const PLUGINS_POLL_MS = 60_000;
 const PLUGINS_POLL_FAST_MS = 2000;
-/** Bound on the deregister we do while shutting down: a hung registry must not hold the
- *  quit open. The tray gives us ~3s in total before it kills us. */
+/** Bound on the deregister done while shutting down: a hung registry must not hold the quit open. */
 const DEREGISTER_TIMEOUT_MS = 1500;
 
 export interface SupervisorOptions {
@@ -97,17 +88,15 @@ interface State {
   sessionsSig: string;
   webOrigins: string[];
   webPending: string[];
-  /** mtime+size of pending-origins.json when we last parsed it, so the poll can skip
-   *  the read entirely on a quiet tick. */
+  /** mtime+size of pending-origins.json when last parsed, so a quiet tick skips the read entirely. */
   pendingStamp: string;
-  /** Origins we have already raised a banner for. One per origin, EVER — a blocked
-   *  browser retries endlessly, and this is what stops a notification storm. */
+  /** Origins already banner'd. One per origin, EVER — a blocked browser retries endlessly. */
   notified: Set<string>;
   shuttingDown: boolean;
 
   // --- owned processes ------------------------------------------------------
-  /** The engine we spawned. Null when adopted (or stopped) — and `ownsEngine` is the
-   *  flag that says which, because a foreign engine must never be killed from here. */
+
+  /** The engine we spawned, null when adopted or stopped; `ownsEngine` says which, since a foreign engine is never killed from here. */
   engineChild: ChildProcess | null;
   /** The file service we spawned. Null when the dev watcher owns the port. */
   fileChild: ChildProcess | null;
@@ -115,9 +104,8 @@ interface State {
   backoff: number;
 
   // --- audio policy ---------------------------------------------------------
-  /** The last automatic switch we asked for, as {target, sig}. Guards the reconcile
-   *  loop against retrying a failing switch every two seconds: the same target is only
-   *  re-attempted once the set of visible devices changes. */
+
+  /** The last automatic switch asked for; a failing one is re-attempted only once the visible device set changes. */
   lastAttempt: { target: string; sig: string } | null;
 }
 
@@ -134,8 +122,7 @@ function snapshot(s: State): HostSnapshot {
     enginePort: s.settings.port,
     filePort: s.settings.filePort,
     fileServiceFailed: s.fileServiceFailed,
-    // Joined for display: the tray draws ONE registry line, and every service the engine
-    // announces to belongs on it — a hidden second registry is a picker you cannot explain.
+    // Joined for display: the tray draws ONE registry line, and a hidden second registry is a picker you cannot explain.
     registryUrl: s.registryUrls.join(", "),
     lastHeartbeatOk: s.lastHeartbeatOk,
     pluginCount: s.pluginCount,
@@ -222,21 +209,14 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
 
   // --- the engine and the file service --------------------------------------
 
-  /** Bring the file service up for whatever engine is running, owned or adopted.
-   *
-   *  The ADOPT case is why this is called from every start path: a force-killed tray
-   *  leaves its engine and pidfile behind but NOT its file service, so a launch that
-   *  adopted the orphan and skipped this would come up with no file service at all —
-   *  the "no answer on :8770" the web UI shows. */
+  /** Bring the file service up for whatever engine is running, owned or adopted — see docs/supervisorPolicy.md. */
   const ensureFileService = async (): Promise<void> => {
     if (state.fileChild) return;
     const r = await fileService.ensure(
       state.identity,
       state.settings.port,
       state.settings.filePort,
-      // ALL of them, comma-joined: the file service builds its CORS allowlist from this,
-      // and every service with a registry is a browser that will call it. Passing the
-      // first alone would refuse the médiathèque with nothing logged anywhere.
+      // ALL of them, comma-joined: the file service builds its CORS allowlist from this — see docs/supervisorPolicy.md.
       state.registryUrls.join(","),
       state.settings.mediatekDir,
       {
@@ -319,12 +299,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     publish();
   };
 
-  /**
-   * Relaunch the engine if it died and the user didn't stop it.
-   *
-   * A dead process is nobody's any more, so taking over an ADOPTED engine that died is
-   * fine — that is why this doesn't check `ownsEngine`.
-   */
+  /** Relaunch the engine if it died and the user didn't stop it; a dead process is nobody's, so `ownsEngine` is not checked. */
   let backoffUntil = 0;
   const crashWatch = async (): Promise<void> => {
     if (state.shuttingDown || state.userStopped) {
@@ -350,16 +325,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     }
   };
 
-  /**
-   * Watch the file service and flag it when it isn't there.
-   *
-   * Unlike the engine's crash-watch this NEVER relaunches: a file service that keeps
-   * falling over is something the user should see and act on, not have papered over —
-   * and the restart is one menu click away.
-   *
-   * Reports BOTH ways, because it is a live reading rather than a failure record:
-   * restart `npm run dev` and the icon should go green again on its own.
-   */
+  /** Watch the file service and flag it when it isn't there; it never relaunches — see docs/supervisorPolicy.md. */
   const fileServiceWatch = async (): Promise<void> => {
     if (state.shuttingDown || state.userStopped) return;
     if (state.status !== "running") return;
@@ -374,16 +340,10 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   };
 
   // --- engine queries -------------------------------------------------------
-  // Three polls, because the engine pushes none of this — no callback for an unplugged interface or a new song.
-  // They share ONE connection (see engineQueries) and are serialised through it.
 
-  /**
-   * Poll the audio interfaces and keep the engine on the right one.
-   *
-   * The policy — preferred if present, else fallback, else leave it alone — is in
-   * audioPolicy.ts. What lives here is the part that needs the world: asking, switching,
-   * and not asking again pointlessly.
-   */
+  // Three polls, because the engine pushes none of this; they share ONE connection (engineQueries) and are serialised through it.
+
+  /** Poll the audio interfaces and keep the engine on the right one; the policy itself is in audioPolicy.ts. */
   const pollDevices = async (): Promise<void> => {
     if (state.status !== "running") return;
     const devices = await engine.listAudioDevices();
@@ -432,9 +392,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     if (state.status !== "running") return;
     const plugins = await engine.listEditPlugins();
     if (!plugins) return;
-    // Signature from the OPENABLE plugin ids, so only an add or a remove churns the submenu.
-    // Session-qualified: the same module id in two projects is two rows, and the signature has to
-    // change when one of them goes.
+    // Signature from the OPENABLE plugin ids, session-qualified — see docs/supervisorPolicy.md.
     const sig = plugins
       .filter((p) => p.hasNativePluginUI)
       .map((p) => `${p.session}\u0000${p.id}`)
@@ -449,10 +407,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     if (state.status !== "running") return;
     const sessions = await engine.listSessions();
     if (!sessions) return;
-    // Signature from what the menu SHOWS, and playing/listeners are on the label, so those
-    // do churn it — which is right: they are the two facts that answer "who is using my
-    // interface right now". The playhead is not here, and that is the whole point of a
-    // signature: it moves 20 times a second and would put the snapshot on the wire with it.
+    // Signature from what the menu SHOWS, playhead excluded — see docs/supervisorPolicy.md.
     const sig = sessions
       .map(
         (s) =>
@@ -466,19 +421,15 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   };
 
   // --- registry -------------------------------------------------------------
-  // Gated on the engine being up — announcing a dead one puts a stale entry in every picker for the TTL. The
-  // pidfile is the gate rather than our own status, being ground truth across a crash we haven't noticed.
+
+  // Gated on the PIDFILE rather than our own status: it is ground truth across a crash we haven't noticed yet.
   const beat = async (): Promise<void> => {
     if (!engineRunning()) {
       state.lastHeartbeatOk = false;
       publish();
       return;
     }
-    // Re-resolve every tick, because the ambient tiers can MOVE under us: under `npm run dev` the
-    // tray and the three backends start together, so a supervisor that wins the race resolves
-    // before any of them has advertised — and would then announce to the hosted studio forever
-    // while three local registries sat empty. Skipped when the user pinned a list, which is a
-    // deliberate choice and must not be re-derived. Cheap: a readdir of four small files.
+    // Re-resolved every tick because the ambient tiers can MOVE under us — see docs/supervisorPolicy.md.
     if (!state.settings.registryUrls?.length) {
       const found = resolveRegistryUrls(null);
       if (found.join() !== state.registryUrls.join()) {
@@ -496,8 +447,8 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   };
 
   // --- the refused-origin poll ----------------------------------------------
-  // Poll the origins CORS turned away: that list changes while the user stares at the menu bar, so it can't wait
-  // for a click. Cheap — a stat, and a parse only when it moved.
+
+  // Poll the origins CORS turned away: the list changes while the user stares at the menu bar, so it can't wait for a click.
   const pollPending = (): void => {
     const stamp = pendingStamp();
     if (stamp === state.pendingStamp) return;
@@ -531,23 +482,13 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
     emit({ t: "result", id, ok, ...(message ? { message } : {}) });
   };
 
-  /**
-   * ADD a registry: persist it, adopt it live, and announce so the engine appears in that
-   * backend without waiting for the next tick.
-   *
-   * An add and no longer a replace, which is the whole shape of this change. Each hosted
-   * service holds its own registry, so "Add web UI…" for the médiathèque must not evict
-   * st0 — that would silently take the engine out of one picker to put it in another,
-   * and the two are not alternatives. Idempotent: adding a URL already listed is a no-op
-   * beyond re-announcing.
-   */
+  /** ADD a registry — persist, adopt live, announce; an add and never a replace, see docs/supervisorPolicy.md. */
   const addRegistryUrl = async (url: string): Promise<void> => {
     if (!url) return;
     const known = state.registryUrls.includes(url);
     if (!known) {
       state.registryUrls = [...state.registryUrls, url];
-      // Persisted as the explicit list, so the next boot takes tier 1 and not the ambient
-      // env var — the same "a deliberate choice beats an ambient one" resolveRegistryUrls has.
+      // Persisted as the explicit list, so the next boot takes tier 1 rather than the ambient env var.
       state.settings.registryUrls = state.registryUrls;
       saveSettings(state.settings);
     }
@@ -638,15 +579,13 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         }
         clearPending(origin);
         refreshOrigins();
-        // A st0 web UI is single-origin, so adding one also points this engine at it — which is what puts the
-        // engine in that UI's picker.
+        // A st0 web UI is single-origin, so adding one also points this engine at it — which is what fills that UI's picker.
         await addRegistryUrl(origin);
         reply(cmd.id, true, origin);
         return;
       }
       case "weburi.allow": {
-        // Unlike "add", this does NOT repoint the registry: the blocked browser already found this engine, so moving it
-        // could only break what works. Approval widens one thing — which origins the file service will talk to.
+        // Unlike "add", this does NOT repoint the registry: approval widens one thing, which origins the file service talks to.
         const origin = addOrigin(arg);
         if (!origin) {
           reply(cmd.id, false, "not a valid web UI address");
@@ -679,8 +618,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         reply(cmd.id, true);
         return;
       case "audio.select": {
-        // Two independent effects: REMEMBER the pick (so reconcile can restore it after a replug) and switch now.
-        // A refused switch must not lose the preference.
+        // Two independent effects — REMEMBER the pick, so a refused switch does not lose it, and switch now.
         state.settings.audioDevice = arg || null;
         state.lastAttempt = null; // a deliberate pick deserves a fresh attempt
         saveSettings(state.settings);
@@ -721,8 +659,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
         reply(cmd.id, true);
         return;
       case "plugin.showUI": {
-        // `<session>${SHOW_UI_SEP}<id>`: a plugin id alone names one row PER SESSION now. A bare id
-        // (an older tray) still works and opens it in the default session, as it always did.
+        // `<session>${SHOW_UI_SEP}<id>`, since an id alone names one row PER SESSION; a bare id still opens the default one.
         const sep = arg.indexOf(SHOW_UI_SEP);
         const [session, id] =
           sep === -1
@@ -734,8 +671,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       }
       case "session.drop":
         await engine.dropSession(arg);
-        // Poll immediately rather than wait out the interval: the user just clicked the
-        // row, and a menu that still lists it for two seconds reads as a click that missed.
+        // Poll at once: a menu that still lists the row for two seconds reads as a click that missed.
         await pollSessions();
         reply(cmd.id, true);
         return;
@@ -768,8 +704,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
       deregister(state.registryUrls, state.identity),
       new Promise((r) => setTimeout(r, DEREGISTER_TIMEOUT_MS)),
     ]);
-    // Then tear down, and unlike Stop this does NOT spare an adopted engine: one left listening holds the audio
-    // device and both ports for whatever launches next.
+    // Then tear down, and unlike Stop this does NOT spare an adopted engine — see docs/supervisorPolicy.md.
     fileService.stop(state.fileChild);
     engineProcess.stop();
     process.exit(0);
@@ -793,8 +728,7 @@ export async function startSupervisor(opts: SupervisorOptions): Promise<void> {
   if (opts.own.engine) await startEngine();
 
   await beat();
-  // Every timer below reaches the network or the disk, and `void` catches nothing: one rejected
-  // poll used to kill the supervisor and orphan the engine behind it. docs/background.md.
+  // Every timer below reaches the network or the disk, and `void` catches nothing — see docs/background.md.
   beatTimer = setInterval(() => guard("heartbeat", beat()), HEARTBEAT_MS);
   pendingTimer = setInterval(pollPending, PENDING_POLL_MS);
   if (opts.own.engine)

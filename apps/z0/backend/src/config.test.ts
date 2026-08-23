@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { loadAppConfig } from "./config.ts";
 
-// What this file used to assert — that redirectUri, cookieDomain, cookieSecure
-// and allowedReturnOrigins are all derived from a DOMAIN var — is gone on
-// purpose. The app is single-origin, so nothing host-shaped is configured any
-// more; it's derived per request instead. Those cases now live in
-// auth/oidc.test.ts (publicOrigin / redirectUriFor / safeReturnTarget).
+// The old DOMAIN-derived cases moved to auth/oidc.test.ts: nothing host-shaped is configured now.
 
 describe("loadAppConfig", () => {
   const keys = [
@@ -20,8 +16,7 @@ describe("loadAppConfig", () => {
   });
 
   it("carries no frontend/backend URL", () => {
-    // The single-origin rule: no config field may hold a host or origin. If a
-    // future change reintroduces one, this fails.
+    // The single-origin rule: no config field may hold a host, and this fails if one returns.
     const cfg = loadAppConfig();
     expect(cfg.auth).not.toHaveProperty("redirectUri");
     expect(cfg.auth).not.toHaveProperty("cookieDomain");
@@ -30,17 +25,13 @@ describe("loadAppConfig", () => {
   });
 
   it("asks the IdP for nothing — pl8 runs the flow now", () => {
-    // `scopes` used to live here and be handed to setupAuth. This backend
-    // mounts no login, so a scope list here would be config nothing reads.
+    // This backend mounts no login, so a scope list here would be config nothing reads.
     process.env.OIDC_SCOPES = "openid, email , groups";
     expect(loadAppConfig().auth).not.toHaveProperty("scopes");
   });
 
   it("carries ONE session secret, used for both cookies", () => {
-    // It signs bt_session and verifies pl8's studio.sid. A second key would buy
-    // nothing — the cookie's name is inside the signature, see
-    // auth/session.test.ts — and this one must be `common`'s or the account
-    // login silently stops working.
+    // It must be `common`'s, and a second key would buy nothing — ../../docs/auth.md.
     process.env.SESSION_SECRET = "shared";
     const cfg = loadAppConfig();
     expect(cfg.auth.sessionSecret).toBe("shared");
@@ -53,8 +44,7 @@ describe("loadAppConfig", () => {
   });
 
   it("reads it lazily, so tests can set process.env first", () => {
-    // loadAppConfig() re-reads on every call — loadEnv() is deliberately a
-    // function, not a module-level const.
+    // loadEnv() is deliberately a function, not a module-level const, so this re-reads.
     expect(loadAppConfig().auth.adminGroups).toEqual([]);
     process.env.AUTH_ADMIN_GROUPS = "later";
     expect(loadAppConfig().auth.adminGroups).toEqual(["later"]);

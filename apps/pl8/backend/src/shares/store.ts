@@ -15,10 +15,7 @@ import { mediatekDir } from "@studio/mediatek/layout";
 import { fileFor } from "@studio/user-prefs";
 import type { ShareSummary } from "@studio/web-protocol";
 
-/**
- * What the author sees, and what the public routes never serve. The shape is the WIRE's, since
- * a row is handed to the browser verbatim — one declaration, so the two cannot drift.
- */
+/** The WIRE's shape, since a row goes to the browser verbatim — one declaration, no drift. */
 export type ShareRecord = ShareSummary;
 
 /** A dot-directory, so `writablePath` refuses it and no family scan ever walks it. */
@@ -31,15 +28,7 @@ function listPath(sub: string): string {
   return join(sharesDir(), "index", fileFor(sub));
 }
 
-/**
- * Where one snapshot's bytes live.
- *
- * Keyed by the HASH of the token and never by the token itself: the key is a path segment and a
- * path segment reaches every access log, every `Referer` and every error message. `isKey` below
- * is what stands between a request and this join — `safePath` confines to the médiathèque root,
- * so `../../songs/private.wav` from in here passes it happily. It is the second wall, not the
- * first.
- */
+/** Keyed by the HASH of the token, never the token: a path segment reaches every access log. */
 export function blobDir(key: string): string {
   return join(sharesDir(), "blobs", key);
 }
@@ -71,11 +60,7 @@ export function listShares(sub: string): ShareRecord[] {
   }
 }
 
-/**
- * Writes THROW, as the repositories' do and for a sharper version of the same reason: a 200 for a
- * share that was not filed is a link its author is about to hand out and this service cannot
- * revoke — the bytes are public and the only record of them just failed to be written.
- */
+/** Writes THROW: a 200 for an unfiled share is a public link this service cannot revoke. */
 function save(sub: string, shares: ShareRecord[]): void {
   mkdirSync(join(sharesDir(), "index"), { recursive: true });
   writeFileSync(
@@ -94,14 +79,7 @@ export function findShare(sub: string, key: string): ShareRecord | null {
   return listShares(sub).find((s) => s.key === key) ?? null;
 }
 
-/**
- * Revoke: the bytes go first, then the record is marked.
- *
- * That order is the whole of it — deleting the directory is what makes a leaked link dead, and
- * it must not depend on the index write that follows. The row SURVIVES, dated: a share that
- * vanished from the list would leave its author wondering whether it was ever there, and the
- * sizes stay readable. Idempotent, because a second click is not an error.
- */
+/** Revoke: the BYTES go first, then the row is dated rather than removed — ../../docs/shares.md. */
 export function revokeShare(sub: string, key: string): boolean {
   const shares = listShares(sub);
   const at = shares.findIndex((s) => s.key === key);

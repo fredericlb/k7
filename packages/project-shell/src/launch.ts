@@ -22,24 +22,7 @@ export {
   projectClaimKey,
 } from "@studio/web-protocol/projects";
 
-/**
- * Where projects are chosen: **st0's home page** — the address that names no project.
- *
- * It was pl8's `/projects` for as long as the médiathèque owned the level above a project. It
- * does not any more: the repositories, the libraries, the deploy key and the shares are all
- * drawn by st0 now, and pl8 is the catalogue a project draws ON. What did NOT move is who
- * stores any of it — every route this screen calls is still pl8's, and every working copy is
- * still the engine machine's. See apps/st0/frontend/docs/projects.md.
- *
- * Still ONE address for both apps. z0's editor comes back here too: this is the list that holds
- * `.z0` folders as well, and a second picker of its own is the second thing to keep in step
- * that this package exists to prevent.
- *
- * The trailing slash is `BASE_URL`'s own spelling, so the tab lands on the app's mount rather
- * than on a redirect to it. That mount is the ORIGIN ROOT now — st0 became the studio's front
- * door and pl8 moved to `/pl8` — so this is `<origin>/`, and `serviceUrl` is what keeps that a
- * fact read from one table rather than a slash somebody has to remember.
- */
+/** Where projects are chosen: st0's home page, ONE address for every app — see docs/launch.md. */
 export function projectsUrl(origin: string): string {
   return `${serviceUrl(origin, "st0")}/`;
 }

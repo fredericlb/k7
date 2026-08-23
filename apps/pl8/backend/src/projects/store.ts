@@ -37,8 +37,7 @@ function listPath(sub: string): string {
   return join(projectsDir(), "repos", fileFor(sub));
 }
 
-/** The id for a uri. Throws on anything `assertSshGitUri` refuses — an id for a repository
- *  that must never be fetched would be an id for nothing. */
+/** The id for a uri. Throws on anything `assertSshGitUri` refuses — an id for nothing. */
 export function repoIdFor(uri: string): string {
   return createHash("sha256")
     .update(normalizeGitUri(uri))
@@ -46,8 +45,7 @@ export function repoIdFor(uri: string): string {
     .slice(0, 12);
 }
 
-/** Bumped on every write, because two writes inside one filesystem timestamp tick are
- *  otherwise invisible to the revision below — the same trick `@studio/mediatek` plays. */
+/** Bumped on every write: two inside one timestamp tick are invisible to the revision below. */
 let mutations = 0;
 
 /** What one person's file holds: their project repositories, and the one library repository. */
@@ -72,18 +70,7 @@ export function listRepos(sub: string): RepoRecord[] {
   return Array.isArray(raw) ? raw : [];
 }
 
-/**
- * The LIBRARY repository — the modules and chains every project of this account inherits.
- *
- * One, or none. Not a list: the libraries are mounted into every workspace at one fixed path
- * (see `@studio/song`'s docs/sharedFolders.md), and two repositories claiming that path is a
- * question with no answer. A second library is a folder inside this repository, not a second
- * repository.
- *
- * Stored in the same file as the project repositories, and deliberately: it is registered the
- * same way, fetched with the same deploy key, and identified by the same normalised URI. A
- * second file would be a second thing to keep in step with `revision()`.
- */
+/** The LIBRARY repository: one or none, in the same file as the rest — ../../docs/projects.md. */
 export function librariesRepo(sub: string): RepoRecord | null {
   return read(sub).libraries ?? null;
 }
@@ -95,28 +82,16 @@ export function findRepo(sub: string, id: string): RepoRecord | null {
 /** The short name in a project's address — the last path segment, no `.git`. See RepoSummary. */
 export const nameOf = (r: RepoRecord): string => repoName(r.uri);
 
-/**
- * Every repository answering to a short name — plural on purpose.
- *
- * Two hosts can both carry a `songs.git`, and the name is all the address has. Resolving to
- * the first match would silently open the wrong repository, so the caller is handed the tie
- * and refuses it. Nothing prevents the collision; this makes it visible.
- */
+/** Every repository answering to a short name — PLURAL, so a tie is refused rather than picked. */
 export function findReposByName(sub: string, name: string): RepoRecord[] {
   return listRepos(sub).filter((r) => nameOf(r) === name);
 }
 
-/**
- * Writes THROW, unlike the preferences store this borrows its naming from. Losing a
- * preference costs you a setting you can set again; losing a repository you just added is a
- * 200 for something that did not happen, and the list you are looking at is the only record
- * it ever had.
- */
+/** Writes THROW, unlike the preferences store: this list is the only record a repository has. */
 function save(sub: string, next: RepoFile): void {
   const path = listPath(sub);
   mkdirSync(join(projectsDir(), "repos"), { recursive: true });
-  // Merged over what is there, so writing one half cannot drop the other: the two are edited
-  // from two different screens and nothing serialises them.
+  // Merged over what is there, so writing one half from one screen cannot drop the other.
   const merged: RepoFile = { ...read(sub), ...next };
   writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
   mutations++;
@@ -151,13 +126,7 @@ export function removeRepo(sub: string, id: string): boolean {
   return true;
 }
 
-/**
- * Point this account's libraries at a repository — or at a different one.
- *
- * REPLACES rather than appending, which is the whole difference from `addRepo`. Changing it is
- * a real act with a consequence the caller has to say out loud: every workspace already on a
- * machine carries the old one as a submodule, and nothing here reaches those machines.
- */
+/** REPLACES rather than appends — every workspace already carries the old one as a submodule. */
 export function setLibrariesRepo(sub: string, uri: string): RepoRecord {
   const existing = librariesRepo(sub);
   const id = repoIdFor(uri);

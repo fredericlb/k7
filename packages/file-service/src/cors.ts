@@ -22,6 +22,7 @@ function originsFromEnv(): string[] | null {
 }
 
 // --- the user's own web UIs, added from the tray (see docs/corsAndOrigins.md) ---
+
 // Read on EVERY call, memoised by mtime/size, so a tray addition takes effect next request.
 const ORIGINS_PATH = webOriginsPath();
 let cached: { key: string; origins: string[] } = { key: "", origins: [] };
@@ -42,8 +43,7 @@ function originsFromFile(): string[] {
   try {
     const raw = JSON.parse(readFileSync(ORIGINS_PATH, "utf8"));
     const list = Array.isArray(raw?.origins) ? raw.origins : [];
-    // Through the SAME function the writer uses: a bare `new URL().origin` accepts `*` and drops credentials, so a
-    // hand-edited entry could read back as one nobody approved.
+    // Through the SAME function the writer uses; a bare `new URL().origin` accepts `*` and drops credentials.
     origins = list
       .filter((o: unknown): o is string => typeof o === "string" && !!o)
       .map((o: string) => normaliseBrowserOrigin(o) ?? "")
@@ -56,10 +56,7 @@ function originsFromFile(): string[] {
   return origins;
 }
 
-// The hosted backends' origins — behind a proxy each frontend shares its backend's, covering
-// the deployed case unconfigured. PLURAL and comma-separated: every service holding its own
-// engine registry means every one of them is a browser that reaches this file service, and
-// reading only the first would CORS-refuse the médiathèque with no diagnosis anywhere.
+// The hosted backends' origins, PLURAL and comma-separated — see docs/corsAndOrigins.md.
 function registryOrigins(): string[] {
   const raw = process.env.STUDIO_REGISTRY_URL;
   if (!raw) return [];
@@ -74,12 +71,7 @@ function registryOrigins(): string[] {
   return out;
 }
 
-/**
- * Decide whether `origin` may call this service: `STUDIO_WEB_ORIGIN` alone when set
- * (a total escape hatch that outranks the tray's list), else the registry's origin +
- * the tray's allowlist + any loopback/private http origin. No Origin header at all is
- * allowed — CORS is browser-only, and refusing curl buys nothing.
- */
+/** Decide whether `origin` may call this service — the whole policy is in docs/corsAndOrigins.md. */
 export function allowedOrigin(origin: string | undefined): boolean {
   if (!origin) return true; // not a browser — nothing to protect against here
 
@@ -91,9 +83,7 @@ export function allowedOrigin(origin: string | undefined): boolean {
   // Web UIs the user added from the tray. Re-read per call, so one takes effect without restarting this service.
   if (originsFromFile().includes(origin)) return true;
 
-  // The dev frontend and Tier 2 (an engine driven from the LAN, whose origin can't be listed ahead of time), under
-  // one rule: any http origin on a loopback or private address, any port. It is the HOST that carries the trust,
-  // and a page served from a public hostname always presents that public origin — it can never claim 192.168.x.y.
+  // The dev frontend and Tier 2 under one rule: any http origin on a loopback or private address, any port.
   try {
     const u = new URL(origin);
     return u.protocol === "http:" && PRIVATE_HOST.test(u.hostname);
@@ -108,8 +98,7 @@ export function originPolicySummary(): string {
   if (explicit) return `STUDIO_WEB_ORIGIN=${explicit.join(", ")}`;
   const added = originsFromFile();
   const parts = [
-    // All of them: the whole point of this line is that a refused origin is diagnosable
-    // from the boot log, and hiding the second registry would hide the likeliest refusal.
+    // All of them: hiding the second registry would hide the likeliest refusal from the boot log.
     ...registryOrigins(),
     ...added,
     "loopback + private-network http origins",

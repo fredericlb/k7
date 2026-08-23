@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { anchorBars, barWindow, frameWindow, zoomBars } from "./barWindow";
 
-// The clip panel shows twelve bars of the interval the clip PLAYS: a minute of take drawn across
-// a pane is a solid block, and what you came to look at is where the attacks are. The rest of the
-// interval is reached by zooming, anchored under the cursor; what is outside `from`/`to` is not
-// reachable at all.
-//
-// 120 bpm, 4/4 → a bar is two seconds. Every number below reads off that.
+// The clip panel shows twelve bars of the interval the clip PLAYS, the rest reached by zooming; at 120 bpm in 4/4 a bar is two seconds.
 
 const WHOLE = { from: 0, to: 60 }; // a 60 s take, no from/to — 30 bars
 
@@ -29,8 +24,7 @@ describe("the window", () => {
   });
 
   it("is caged by the clip's from/to — bars count from `from`, nothing shows past `to`", () => {
-    // A clip playing 10 s → 30 s of its take is a 10-bar interval; the first twelve bars of THAT
-    // are all of it.
+    // A clip playing 10 s → 30 s of its take is a 10-bar interval; the first twelve bars of THAT are all of it.
     expect(barWindow({ from: 10, to: 30 }, 12, 120, 4)).toEqual({
       shown: 10,
       allBars: 10,
@@ -72,14 +66,7 @@ describe("the window", () => {
     expect(w.view.end).toBe(5);
   });
 
-  /**
-   * What the panel OPENS on, once the two spans stopped being one.
-   *
-   * The pane may roam the whole file — a window can only be judged against what lies outside it —
-   * while the EVENT's own window is what it acts on. Opening on the file put a two-second phrase
-   * somewhere in a minute of take; opening on the event alone framed it with nothing to judge it
-   * against, and hid the material a trim would be giving back.
-   */
+  /** What the panel OPENS on, once the two spans stopped being one: the event framed, with the rest of the file around it to judge by. */
   describe("framing the event", () => {
     it("takes the event's bars plus a bar of context either side", () => {
       // 20 s → 30 s is five bars; framed, seven, starting one bar before it.
@@ -125,8 +112,7 @@ describe("the window", () => {
   });
 
   it("survives a project whose tempo has not arrived", () => {
-    // Both come from the compiled doc, absent for the first frames after a project opens. A bar of
-    // zero seconds would make every take infinitely many bars long.
+    // Both come from the compiled doc, absent for the first frames: a bar of zero seconds makes every take infinitely many bars long.
     expect(() => barWindow(WHOLE, 12, 0, 0)).not.toThrow();
     expect(barWindow(WHOLE, 12, 0, 0).allBars).toBeGreaterThan(0);
   });
@@ -158,8 +144,7 @@ describe("the wheel", () => {
 
 describe("the anchor", () => {
   it("keeps the moment under the cursor where it is", () => {
-    // Twelve bars from bar 10 (20 s → 44 s), cursor halfway across → the anchor is 32 s, bar 16.
-    // Zoomed in to six bars, that bar must still sit halfway: the window becomes [13, 19].
+    // Twelve bars from bar 10, cursor halfway → the anchor is bar 16; zoomed to six bars it must still sit halfway.
     const w = barWindow(WHOLE, 12, 120, 4, 10);
     const start = anchorBars(w.view, 0.5, 6, w.barSec);
     expect(start).toBeCloseTo(13);
@@ -170,9 +155,7 @@ describe("the anchor", () => {
   });
 
   it("counts its start from the interval's `from`, not from the file", () => {
-    // Interval 10 s → 30 s, three bars shown from bar 2 (14 s → 20 s), cursor halfway → 17 s.
-    // At one bar wide that second must still sit halfway: the window becomes [16, 18] — which is
-    // bar 3 of the INTERVAL, and what barWindow is handed must say so.
+    // Interval 10 s → 30 s, three bars from bar 2, cursor halfway → 17 s must still sit halfway at one bar wide.
     const w = barWindow({ from: 10, to: 30 }, 3, 120, 4, 2);
     const start = anchorBars(w.view, 0.5, 1, w.barSec, 10);
     expect(start).toBeCloseTo(3);
@@ -188,8 +171,7 @@ describe("the anchor", () => {
   });
 
   it("hands back an out-of-range start for the window to clamp", () => {
-    // Cursor at the right edge of the last bars, zooming out: the raw start goes negative and
-    // barWindow is the one that pulls it back — the division of labour the two are built on.
+    // Cursor at the right edge, zooming out: the raw start goes negative and barWindow is what pulls it back.
     const w = barWindow(WHOLE, 6, 120, 4, 0);
     const start = anchorBars(w.view, 1, 30, w.barSec);
     expect(start).toBeLessThan(0);

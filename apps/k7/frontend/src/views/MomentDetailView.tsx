@@ -30,8 +30,7 @@ export function MomentDetailView({
 }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
-  // Default to the moment's span; refined from the clip's real duration once it
-  // loads (loudnorm re-encoding can nudge it slightly).
+  // The moment's span, refined by the clip's real duration, which loudnorm can nudge.
   const [clipDuration, setClipDuration] = useState(
     Math.max(0.1, moment.endSec - moment.startSec),
   );

@@ -30,8 +30,7 @@ function splitLines(s: string): string[] {
   return lines;
 }
 
-// With `offset`, only the NEW complete lines since it — a half-written final line is held back, not split.
-// Without one, or past the end after a truncate, the last `tail` lines and the current end offset.
+// With `offset`, the NEW complete lines since it; without one, the last `tail` lines and the end offset.
 export function readLog(opts: { offset?: number; tail?: number }): LogChunk {
   const p = logFile();
   if (!p) return { offset: 0, lines: [] };

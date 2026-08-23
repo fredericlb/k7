@@ -1,18 +1,9 @@
 import { gameState, serverRelativeNow } from "../gameState.ts";
 import { savePersistedState } from "../state/persist.ts";
 
-// The authoritative phase machine (main.go). The backend owns the phase: it
-// derives the buzzer lock state from the new phase, persists the change, and
-// fans phase_change out to every client. All callers — flushBuzzes,
-// remote_action dispatch, handleNext, registration toggle — go through
-// setServerPhase so the phase/lock invariants hold no matter how many
-// remotes or buzzers are racing.
+// The authoritative phase machine — see ../../../docs/effects.md.
 
-/**
- * The two phases where buzzers are unlocked. Anything else (answering,
- * reveal, category, end, …) means locked. Single source of truth used by
- * setServerPhase to derive lock state.
- */
+/** The ONE definition of when a buzzer is open; setServerPhase derives the lock from it. */
 export function phaseAcceptsBuzzes(phase: string): boolean {
   return phase === "song" || phase === "registration";
 }
@@ -29,10 +20,7 @@ const BUZZ_COLLECT_WINDOW_MS = 150;
 let pendingBuzzes: PendingBuzz[] = [];
 let buzzCollectTimer: NodeJS.Timeout | null = null;
 
-/**
- * Flip the lock flag, drop any in-flight buzz collection window, notify every
- * buzzer client. Server-internal: callers go through setServerPhase.
- */
+/** Lock, dropping any in-flight collection window; server-internal, go through setServerPhase. */
 function lockBuzzersInternal(): void {
   gameState.buzzersLocked = true;
   const cleared = pendingBuzzes.length;
@@ -49,12 +37,7 @@ function lockBuzzersInternal(): void {
   });
 }
 
-/**
- * Flip the lock flag, record the question-start timestamp (validates buzz
- * timestamps), notify every buzzer client. Per-device cooldowns from prior
- * wrong-answer punishments are preserved by re-emitting a device-specific
- * locked=true with the remaining duration.
- */
+/** Unlock, but re-emit a targeted lock to devices still in cooldown — ../../../docs/effects.md. */
 function unlockBuzzersInternal(): void {
   gameState.buzzersLocked = false;
   gameState.questionStartedAt = serverRelativeNow();
@@ -100,10 +83,7 @@ export function setServerPhase(newPhase: string): void {
   gameState.hub?.broadcastBuzzers({ type: "phase_change", payload });
 }
 
-/**
- * Add a buzz to the collection window. The first buzz starts a 150ms timer;
- * when it fires the earliest-timestamped buzz wins.
- */
+/** Add a buzz to the window; the first one starts the 150 ms timer. */
 export function enqueueBuzz(
   playerName: string,
   deviceId: string,
@@ -118,10 +98,7 @@ export function enqueueBuzz(
   }
 }
 
-/**
- * Pick the earliest-timestamped buzz, broadcast it, and transition
- * song→answering (which auto-locks buzzers via setServerPhase).
- */
+/** The earliest timestamp wins, is broadcast, and takes song → answering. */
 export function flushBuzzes(): void {
   const buzzes = pendingBuzzes;
   pendingBuzzes = [];
@@ -146,8 +123,7 @@ export function flushBuzzes(): void {
     `[PhaseTrace] flushBuzzes winner=${winner.playerName} ts=${winner.timestamp} candidates=${buzzes.length} losers=[${losers.join(",")}]`,
   );
   broadcastPlayerBuzz(winner.playerName, winner.deviceId);
-  // Single point of truth for the song→answering transition — multiple
-  // buzzers may have raced into the 150ms window.
+  // The ONLY song→answering transition, however many buzzers raced into the window.
   if (gameState.currentPhase === "song") setServerPhase("answering");
 }
 

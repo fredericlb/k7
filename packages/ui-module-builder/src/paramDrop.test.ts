@@ -23,8 +23,7 @@ function fakeTransfer(): DataTransfer {
 }
 
 describe("which widget takes a dropped parameter", () => {
-  // A dropdown is the one that matters for `@base`: the intrinsic is discrete, so binding it by
-  // hand means dropping it on a dropdown that is already there.
+  // A dropdown matters for `@base`: the intrinsic is discrete, so binding it by hand needs one.
   it.each([
     "knob",
     "slider",
@@ -42,16 +41,14 @@ describe("which widget takes a dropped parameter", () => {
   it.each(["label", "tabs", "waveform"] as const)(
     "refuses it on a %s",
     (type) => {
-      // These carry no `bind`, so a drop would write a field they don't read. It is the ONLY
-      // reason the grid ever bounces a parameter — anything else that bounces is a bug.
+      // These carry no `bind`, and it is the ONLY reason the grid ever bounces a parameter.
       expect(bindable({ type })).toBe(false);
     },
   );
 });
 
 describe("the payload, for the intrinsic with the most in it", () => {
-  // `@base`'s range is a LIST of names rather than two numbers, which is the shape most likely
-  // to be lost between the two panes — and losing it silently binds a dropdown with no entries.
+  // `@base`'s range is a LIST of names, and losing it silently binds a dropdown with no entries.
   const base = {
     name: "@base",
     meta: {

@@ -17,8 +17,7 @@ describe("snapTo", () => {
     expect(snapTo(-1.4, 1)).toBe(-1);
   });
 
-  // A step of 0 IS the free case — that is what lets every caller write `free ? 0 : unit`
-  // instead of branching around this function.
+  // A step of 0 IS the free case — what lets every caller write `free ? 0 : unit` instead of branching around this function.
   it("leaves the value alone when there is no step", () => {
     expect(snapTo(1.4, 0)).toBe(1.4);
     expect(snapTo(-0.37, 0)).toBe(-0.37);
@@ -33,8 +32,7 @@ describe("dragOffset", () => {
     expect(dragOffset(25, PPB, 0.5, 8)).toBe(1.5);
   });
 
-  // The phase of a hand-placed event survives a snapped move: the OFFSET is what lands on the
-  // grid, never the resulting position.
+  // The phase of a hand-placed event survives a snapped move: the OFFSET is what lands on the grid, never the resulting position.
   it("keeps an off-grid clip off the grid", () => {
     const start = 4.43;
     expect(start + dragOffset(4 * PPB, PPB, 1, start)).toBeCloseTo(8.43, 9);
@@ -45,8 +43,7 @@ describe("dragOffset", () => {
     expect(dragOffset(7, PPB, 0, 8)).toBeCloseTo(0.35, 9);
   });
 
-  // Dragged hard left, a clip stops at the song's start — and, when snapped, ON the grid it was
-  // walking rather than at a beat 0 it could never have landed on otherwise.
+  // Dragged hard left a clip stops at the song's start — and, snapped, ON the grid it was walking rather than at a beat 0.
   it("stops at the start, on the step", () => {
     expect(3 + dragOffset(-500, PPB, 1, 3)).toBe(0);
     expect(3.4 + dragOffset(-500, PPB, 1, 3.4)).toBeCloseTo(0.4, 9);

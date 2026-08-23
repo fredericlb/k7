@@ -39,32 +39,15 @@ export type {
   WaveformEnvelope,
 } from "@studio/engine-protocol";
 
-/**
- * Marks a stretch of work for a host that watches for stalls, returning its end callback.
- * The engine pushes state at frame rate and params at 20 Hz, so a handler that got slow
- * is invisible in a profile taken afterwards but obvious in a stall report — and whether
- * anyone is watching is the host's business, not this client's. Defaults to doing nothing.
- */
+/** Marks a stretch of work for a host that watches for stalls, returning its end callback — see docs/reliability.md. */
 export type BeginActivity = (name: string) => () => void;
 const noActivity: BeginActivity = () => () => {};
 
-/**
- * Where to connect, asked again before every attempt.
- *
- * A constant string is accepted and was all this took for a long time. It is wrong for the
- * path that matters: away from the engine's own machine the only route is the relay, whose
- * URL carries a ticket good for one minute (packages/engine-registry/proxy.ts). Frozen at
- * construction, every reconnect after that minute replays a dead ticket and collects a 401,
- * for ever. A function is the caller's chance to fetch a fresh one — in practice, to re-probe.
- *
- * Returning null means "no engine to reach right now": the client backs off and asks again
- * rather than treating it as a failure to connect.
- */
+/** Where to connect, asked again before every attempt; null means "none right now" — see docs/reliability.md. */
 export type EngineUrl = string | (() => string | null | Promise<string | null>);
 
-// The control-query shapes, mirroring engineControl.ts in @studio/engine-client — which a
-// browser cannot import (it opens `ws`). Both restate the same wire, which engine-protocol
-// does not carry yet; if a third copy ever appears, move them there instead.
+// The control-query shapes, mirroring engineControl.ts in @studio/engine-client, which a browser cannot import (it opens `ws`).
+
 /** One session the engine holds — a project, not a connection. Engine-global. */
 export interface EngineSessionInfo {
   id: string;
@@ -105,12 +88,7 @@ type BusyCb = (busy: boolean) => void;
 type SessionsCb = (sessions: EngineSessionInfo[]) => void;
 type DevicesCb = (devices: EngineAudioDevice[]) => void;
 type PluginListCb = (plugins: EnginePluginInfo[]) => void;
-/**
- * One parameter of an installed plugin TYPE — what it is called, what it spans, its settings.
- *
- * The same three facts `@studio/song`'s `BuiltinParam` carries, and deliberately the same shape:
- * a panel is generated from either, and a second spelling would mean two generators.
- */
+/** One parameter of an installed plugin TYPE, in `@studio/song`'s `BuiltinParam` shape so one panel generator serves both. */
 export interface EnginePluginParam {
   name: string;
   min: number;
@@ -130,13 +108,7 @@ export interface EngineWarning {
   message: string;
 }
 type WarningCb = (w: EngineWarning) => void;
-/**
- * One wave input the engine can route a track FROM — how the interface groups its channels.
- *
- * `channels` is 1-based and is the set `findWaveInput` matches EXACTLY: a rig that pairs its
- * inputs has no device for channel 2 alone, so asking for it resolves to nothing and reads as
- * silence. Anything offering a choice of input has to offer these sets and not raw numbers.
- */
+/** One wave input the engine can route a track FROM; `channels` is 1-based and matched EXACTLY — see docs/meters.md. */
 export interface EngineInputDevice {
   name: string;
   channels: number[];
@@ -150,34 +122,28 @@ export interface IoLevels {
   pitches: number[];
   /** How periodic each window was, 0..1 — an uncertain note is shown faded rather than hidden. */
   clarity: number[];
-  /** The interface's own grouping. The engine has ridden it along all this time and the browser
-   *  was dropping it — it is the one thing that explains a channel that exists and meters nothing. */
+  /** The interface's own grouping — the one thing that explains a channel that exists and meters nothing. */
   devices: EngineInputDevice[];
 }
 type IoLevelsCb = (l: IoLevels) => void;
 /** One binary audio frame, exactly as it arrived. See @studio/engine-protocol/stream. */
 type StreamCb = (frame: ArrayBuffer) => void;
 
-// Every field any engine push carries. One shape rather than a union: the dispatch reads `type` first and the
-// rest is optional anyway, and naming it is what lets the dispatch be a method the freeze watchdog can time.
+// Every field any engine push carries, as one shape rather than a union: the dispatch reads `type` first and the rest is optional.
 interface EngineMessage {
   type?: string;
   session?: string; // which project the engine is talking about; absent = engine-global
   playing?: boolean;
   playhead?: number;
   levels?: number[];
-  // Carried by `state` AND by `io-levels`, and it is the same number in both — the level leaving
-  // the master. Declared once, at the bottom with io-levels' own fields, the same arrangement
-  // `params` and `devices` are in: told apart by `type`, which the dispatch has already read.
+  // `master` is the same number on `state` and on `io-levels`, so it is declared once, below, with io-levels' own fields.
   masterClipped?: boolean; // …`state` only: did it overload since the last frame
   inputLevels?: number[];
   armed?: string[];
   recordEnabled?: boolean;
   waveform?: Record<string, WaveformEnvelope[]>;
   id?: string;
-  // Two replies carry `params`, and they are different things — the same arrangement `devices`
-  // below is in, and told apart the same way, by `type` which the dispatch has already read.
-  // `plugin-param-list` (a plugin TYPE's list) is an array; the live feeds are name -> value.
+  // Two replies carry `params`, told apart by `type`: `plugin-param-list` (a TYPE's list) is an array, the live feeds are name -> value.
   params?: Record<string, number> | EnginePluginParam[];
   module?: string;
   presets?: PresetInfo[];
@@ -190,21 +156,16 @@ interface EngineMessage {
   pitches?: number[]; // …the tuner's Hz per input (0 = no confident note)
   clarity?: number[]; // …and how periodic each window was
   sessions?: EngineSessionInfo[]; // the 'sessions' reply
-  // Two replies carry `devices`, and they are different things: the INTERFACES this machine
-  // could open, and — on io-levels — how the open one groups its inputs. Told apart by `type`,
-  // which the dispatch reads first, so one field is enough and a union would be ceremony.
+  // Two replies carry `devices`, told apart by `type`: the INTERFACES this machine could open, and how the open one groups its inputs.
   devices?: EngineAudioDevice[] | EngineInputDevice[];
   plugins?: unknown[]; // 'plugins' (catalogue) AND 'edit-plugins' (instances) both use this field
-  // 'plugin-params': which plugin was asked about, echoed back beside the `id` above. The ask
-  // takes seconds — a plugin binary has to load — so a caller may have moved on, and this is
-  // what a late reply is matched against rather than being trusted to be the one still wanted.
+  // 'plugin-params': which plugin was asked about, echoed back beside the `id` above so a late reply can be matched.
   format?: string;
 }
 
 export class EngineClient {
   private ws?: WebSocket;
-  // Held with the time it was queued: what covers a blink is worth replaying, what has been
-  // waiting half a minute is a transport verb nobody is waiting for any more.
+  // Held with the time it was queued, so a stale transport verb is dropped rather than replayed — see docs/reliability.md.
   private outbox: { at: number; s: string }[] = [];
   private stateCbs = new Set<StateCb>();
   private connCbs = new Set<ConnCb>();
@@ -219,8 +180,7 @@ export class EngineClient {
   private pluginListCbs = new Set<PluginListCb>();
   private pluginParamListCbs = new Set<PluginParamListCb>();
   private editPluginsCbs = new Set<EditPluginsCb>();
-  // Raw audio frames, handed on undecoded: this client's job is to route bytes, and
-  // @studio/engine-browser/stream is what knows how to read them.
+  // Raw audio frames, handed on undecoded — @studio/engine-browser/stream is what knows how to read them.
   private streamCbs = new Set<StreamCb>();
   private broadcasting = false;
   // Plugins we asked to follow. The subscription lives in the ENGINE, so it is replayed on every open.
@@ -229,15 +189,7 @@ export class EngineClient {
   private waveformSubs = new Map<string, { id: string; side: string }>();
   private closed = false;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
-  /**
-   * Which attempt owns the client right now.
-   *
-   * Bumped by every `connect()`. A socket's handlers capture the value they were born under
-   * and do nothing once it has moved on — because a socket the watchdog gave up on can still
-   * fire `close` afterwards, and that late event would otherwise schedule a SECOND reconnect
-   * beside the one already running. Two ladders, both doubling, is how a quiet retry becomes
-   * a flood.
-   */
+  /** Which attempt owns the client, bumped by every `connect()` so a late event schedules no second ladder — see docs/reliability.md. */
   private gen = 0;
   /** Consecutive failures, for the backoff. Reset by a socket that actually opened. */
   private attempt = 0;
@@ -246,22 +198,10 @@ export class EngineClient {
   /** When the idle `whoami` went out, or 0 when none is outstanding. */
   private pingSentAt = 0;
   private keepaliveTimer?: ReturnType<typeof setInterval>;
-  /**
-   * The document last handed to the engine, replayed on every open.
-   *
-   * The engine diffs against a baseline that survives a dropped socket, so re-sending is
-   * cheap and correct. Without it, an engine that RESTARTED comes back empty and the surface
-   * goes on driving it — the symptom being that Play does nothing, with nothing in any log to
-   * connect it to a connection that blinked.
-   */
+  /** The document last handed to the engine, replayed on every open — see docs/reliability.md. */
   private lastProject?: ProjectDoc;
 
-  /**
-   * @param session which project on that engine this client drives. One engine hosts
-   * several, so leaving it default puts this client in the same one as every other
-   * client that did — which is the collision sessions exist to end. See
-   * `@studio/engine-protocol/sessions`.
-   */
+  /** @param session which project on that engine this client drives — see `@studio/engine-protocol/docs/sessions.md`. */
   constructor(
     private readonly url: EngineUrl,
     private readonly beginActivity: BeginActivity = noActivity,
@@ -300,8 +240,7 @@ export class EngineClient {
       this.retryLater(myGen);
       return;
     }
-    // Audio frames arrive as binary on this same socket. Without this they would surface
-    // as Blobs, which stringify to "[object Blob]" and die silently in the JSON parse.
+    // Audio frames arrive as binary here; without this they surface as Blobs and die silently in the JSON parse.
     ws.binaryType = "arraybuffer";
     this.ws = ws;
     ws.onopen = () => {
@@ -310,14 +249,9 @@ export class EngineClient {
       this.lastInbound = Date.now();
       this.pingSentAt = 0;
       this.startKeepalive();
-      // Say we DRIVE this session, before anything else. The engine counts drivers per session
-      // and frees a project whose last one left — so a reconnect that did not re-declare would
-      // have the engine let go of the very document the lines below are about to replay. It is a
-      // field on hello rather than a verb of its own precisely so it cannot be forgotten: every
-      // connection sends one, including this one. See engine/moteur/docs/sessions.md.
+      // Say we DRIVE this session first: the engine frees a project whose last driver left — see engine/moteur/docs/sessions.md.
       this.sendNow({ type: "hello", role: "driver" });
-      // The project FIRST: the subscriptions and the queue below are about a document, and a
-      // restarted engine has none until this lands. Ordering is the whole of the fix.
+      // The project FIRST: the subscriptions and the queue below are about a document a restarted engine does not have yet.
       if (this.lastProject)
         this.sendNow({ type: "project", doc: this.lastProject });
       for (const id of this.watched)
@@ -337,20 +271,16 @@ export class EngineClient {
       if (this.gen !== myGen) return;
       this.down(myGen);
     };
-    // Empty on purpose — `onclose` always follows and owns the retry — but not silent: this is
-    // the only place a refused dial says anything at all, and "engine off" and "engine wedged"
-    // read identically from the console without it.
+    // `onclose` owns the retry, but this logs: it is the only place a refused dial says anything at all.
     ws.onerror = () => {
       if (this.gen === myGen) console.warn(`engine socket error: ${url}`);
     };
     ws.onmessage = (ev) => {
       if (this.gen !== myGen) return;
-      // Anything at all proves the link carries. The engine's own 20 Hz state frame is what
-      // usually does it, so a busy client never pings.
+      // Anything at all proves the link carries, and the engine's own 20 Hz state frame usually does it.
       this.lastInbound = Date.now();
       this.pingSentAt = 0;
-      // Binary is audio, and never goes near the JSON path — it arrives at ~100 Hz and a
-      // parse attempt per frame would be pure waste even though it would fail harmlessly.
+      // Binary is audio and never goes near the JSON path — it arrives at ~100 Hz.
       if (ev.data instanceof ArrayBuffer) {
         for (const cb of this.streamCbs) cb(ev.data);
         return;
@@ -371,12 +301,7 @@ export class EngineClient {
     };
   }
 
-  /**
-   * The link went down — once per attempt, whoever noticed first.
-   *
-   * `close` and the watchdog can both arrive for the same socket; the generation bump is what
-   * makes the second one a no-op instead of a second reconnect ladder.
-   */
+  /** The link went down — once per attempt, whoever noticed first; the generation bump makes the second notice a no-op. */
   private down(myGen: number): void {
     if (this.gen !== myGen) return;
     this.gen++; // this attempt is over; late events from its socket are now ignored
@@ -385,15 +310,7 @@ export class EngineClient {
     if (!this.closed) this.retryLater(this.gen);
   }
 
-  /**
-   * Wait, then try again — doubling, jittered, capped.
-   *
-   * It used to be a flat second, for ever. A forgotten background tab on a machine whose
-   * engine is off then knocks once a second for as long as the tab lives, and each knock
-   * costs the backend a full sequential dial of every address the engine ever advertised.
-   * The jitter is for the other half: several tabs dropped by one relay restart would
-   * otherwise come back in lockstep.
-   */
+  /** Wait, then try again — doubling, jittered, capped. See docs/reliability.md. */
   private retryLater(myGen: number): void {
     if (this.closed || this.gen !== myGen) return;
     const step = Math.min(
@@ -407,22 +324,14 @@ export class EngineClient {
     }, wait);
   }
 
-  /**
-   * Ask, when nothing has been said for a while.
-   *
-   * There is no ping in this protocol and none under it: the engine's server ships with
-   * heartbeats disabled, so a wedged relay or a lapsed NAT leaves a socket that reports OPEN
-   * and carries nothing. `whoami` is the probe — the one verb the engine answers whatever
-   * state it is in, engine-global so it comes back even to a client driving no session.
-   */
+  /** Ask `whoami` when nothing has been said for a while — this protocol has no ping. See docs/reliability.md. */
   private startKeepalive(): void {
     this.stopKeepalive();
     this.keepaliveTimer = setInterval(() => {
       const quiet = Date.now() - this.lastInbound;
       if (this.pingSentAt) {
         if (Date.now() - this.pingSentAt > ENGINE_PONG_TIMEOUT_MS) {
-          // Open by its own account, and deaf. Drop it ourselves: waiting for a `close` that
-          // is not coming is exactly the state this exists to end.
+          // Open by its own account, and deaf: drop it ourselves rather than wait for a `close` that is not coming.
           const gen = this.gen;
           this.ws?.close();
           this.down(gen);
@@ -453,8 +362,7 @@ export class EngineClient {
   }
 
   private dispatch(m: EngineMessage): void {
-    // Another project's news, on the socket we share with it. Dropped here rather than per
-    // handler so a frame type that grows a session later is covered by construction.
+    // Another project's news, dropped here rather than per handler so a frame type that grows a session later is covered.
     if (!forSession(m, this.session)) return;
     if (m.type === "state")
       this.emitState({
@@ -481,9 +389,7 @@ export class EngineClient {
     else if (m.type === "presets" && m.module)
       for (const cb of this.presetsCbs) cb(m.module, m.presets ?? []);
     else if (m.type === "busy") for (const cb of this.busyCbs) cb(!!m.busy);
-    // Both kinds of engine-side trouble. `error` was being DROPPED here: the engine has
-    // broadcast it all along and nothing in the browser listened, so a refused command
-    // or an unknown message vanished without trace.
+    // `error` is handled at the bottom beside `engine-warning`; it used to be dropped, so a refused command vanished without trace.
     else if (m.type === "io-levels")
       for (const cb of this.ioLevelsCbs)
         cb({
@@ -496,22 +402,14 @@ export class EngineClient {
     else if (m.type === "sessions")
       for (const cb of this.sessionsCbs) cb(m.sessions ?? []);
     else if (m.type === "audio-devices")
-      // `devices` is shared with io-levels, which sends a different shape; `type` is what tells
-      // them apart, and this branch has already read it.
+      // `devices` is shared with io-levels, which sends a different shape; this branch has already read `type`.
       for (const cb of this.devicesCbs)
         cb((m.devices ?? []) as EngineAudioDevice[]);
     else if (m.type === "plugins")
       for (const cb of this.pluginListCbs)
         cb((m.plugins ?? []) as EnginePluginInfo[]);
     else if (m.type === "plugin-param-list")
-      // `plugin-param-LIST`, not `plugin-params`: that name was already taken, by the reply
-      // carrying a loaded INSTANCE's current values (just below). The two are different
-      // questions — what a plugin type HAS versus what this one is set to — and sharing a name
-      // would have fed a type's list into the live-value path, which reads it as a map.
-      //
-      // The format and the id ride back with the answer, because the ask is slow — loading a
-      // plugin binary takes seconds — and a caller may have moved on or asked about another.
-      // Matching on them is what stops a late reply from filling in the wrong panel.
+      // `plugin-param-LIST`, not `plugin-params`: a TYPE's list rather than an instance's values, and it rides its format and id back — see docs/params.md.
       for (const cb of this.pluginParamListCbs)
         cb({
           format: m.format ?? "",
@@ -559,9 +457,7 @@ export class EngineClient {
       enabled,
     });
   }
-  // `session` overrides this client's own — a status surface opening a window in a project
-  // it does not drive, the same override the Node client and dropSession take. The spread
-  // wins over the stamp in send() because it comes after it.
+  // `session` overrides this client's own — a status surface opening a window in a project it does not drive.
   showNativePluginUI(id: string, session?: string): void {
     this.send({
       type: "show-native-plugin-ui",
@@ -569,46 +465,19 @@ export class EngineClient {
       ...(session === undefined ? {} : { session }),
     });
   }
-  // Ask a plugin's current values: the project records only OVERRIDDEN params, and defaults live in the engine.
-  /**
-   * Apply a project.
-   *
-   * st0 never calls this — its documents are COMPILED from a folder of YAML, which the
-   * file service does, so the browser only ever drives transport. An app that builds a
-   * document itself (a module preview, a deck) has nothing to compile and no reason to go
-   * through a second process to reach a socket it already holds.
-   *
-   * Sent as given. The Node client folds groups onto members and strips video first; a
-   * document from `@studio/engine-protocol/build` has neither, so both folds are identity
-   * — fold before calling if yours might.
-   */
+  /** Apply a project, sent as given and remembered for replay — see docs/reliability.md. */
   sendProject(doc: ProjectDoc): void {
-    // Remembered, not just sent: an engine that restarted has no document, and the surface
-    // has no reason to send this again — see `lastProject`.
+    // Remembered, not just sent: an engine that restarted has no document — see `lastProject`.
     this.lastProject = doc;
     this.send({ type: "project", doc });
   }
 
-  /**
-   * Forget the loaded project entirely — plugins, edit and diff baseline — so the next one
-   * is built from scratch rather than diffed against it.
-   *
-   * A real protocol verb the engine has always had, missing from this client until a
-   * surface wanted to put a song DOWN: st0 switches projects and re-sends, which happens
-   * to work, but z0's player ends a round and must leave nothing loaded.
-   */
+  /** Forget the loaded project entirely — plugins, edit and diff baseline — so the next one is built from scratch. */
   flush(): void {
     this.send({ type: "flush" });
   }
 
-  /**
-   * Forget a whole SESSION — its edit, plugins, meters and broadcast tap — not just its project.
-   *
-   * `flush` above empties a session and leaves it behind; this removes it. The difference matters
-   * because a session's key space is now (service × person), so an engine on a shared machine
-   * accumulates one entry per person who has ever pointed at it and frees them only when the
-   * process dies. Defaults to this client's own.
-   */
+  /** Forget a whole SESSION, not just its project; defaults to this client's own — see @studio/engine-protocol/docs/sessions.md. */
   dropSession(session: string = this.session): void {
     this.send({ type: "drop-session", session });
   }
@@ -621,8 +490,7 @@ export class EngineClient {
   listAudioDevices(): void {
     this.send({ type: "list-audio-devices" });
   }
-  // Open a specific interface. Without `type` the engine takes the first backend offering
-  // that name — a coin toss. The engine answers a set with the same audio-devices frame.
+  // Open a specific interface; without `type` the engine takes the first backend offering that name — a coin toss.
   setAudioDevice(name: string, type?: string): void {
     this.send({
       type: "set-audio-device",
@@ -634,39 +502,15 @@ export class EngineClient {
   listPlugins(): void {
     this.send({ type: "list-plugins" });
   }
-  /**
-   * Every parameter of one INSTALLED plugin, by `format` and the `id` the catalogue reports —
-   * for it, the id is the file. Reply arrives on `onPluginParamList`.
-   *
-   * SLOW, and the reason is the answer: the engine has to load the plugin binary to ask what it
-   * registered, which for a big instrument is seconds. It does that on a thread of its own and
-   * on an engine that opens no device, so nothing playing is disturbed — but a caller should
-   * expect a wait and say so on screen rather than looking broken.
-   *
-   * Only for EXTERNALS. What the engine ships is answered from `@studio/song`'s generated table
-   * with nothing running at all, which is both faster and available with no engine at hand.
-   */
+  /** Every parameter of one INSTALLED plugin, by `format` and catalogue `id`; SLOW, and externals only — see docs/params.md. */
   listPluginParams(format: string, id: string): void {
     this.send({ type: "list-plugin-params", format, id });
   }
-  /**
-   * …and that same installed plugin's OWN WINDOW, on an instance in no project at all.
-   *
-   * The companion to `listPluginParams` above and slow for the same reason — it loads the same
-   * binary — but where that one answers with a list of names, this opens what the plugin itself
-   * draws. It is for the module being authored against a plugin the open project does not load,
-   * where a list of names is not enough to know what a knob does.
-   *
-   * ORPHAN, and nothing it is told is saved: the engine holds the instance on its offline edit,
-   * on no track and no session, so turning a knob in that window changes no module, no project
-   * and no file. There is no reply — the window opens on the ENGINE's screen, which is the
-   * musician's machine, and this browser may not be on it.
-   */
+  /** …and that same installed plugin's OWN WINDOW, on an ORPHAN instance whose knobs save nowhere — see docs/params.md. */
   showNativePluginUIOf(format: string, id: string): void {
     this.send({ type: "show-native-plugin-ui-of", format, id });
   }
-  // An INCREMENTAL rescan — the engine's exts.json cache is on its machine, so the full
-  // rescan (cache deleted first) stays with the supervisor. See engine-host/engineQueries.
+  // An INCREMENTAL rescan; the full one deletes the engine's own exts.json cache first, so it stays with the supervisor.
   rescanPlugins(): void {
     this.send({ type: "rescan-plugins", force: true });
   }
@@ -678,8 +522,7 @@ export class EngineClient {
   getPluginParams(id: string): void {
     this.send({ type: "get-plugin-params", id });
   }
-  // Follow a plugin's values live, so a knob turned in its own native window moves the widget here too.
-  // Idempotent and replayed across reconnects; unwatch what scrolls away — each watch costs a read per frame.
+  // Follow a plugin's values live, idempotent and replayed; unwatch what scrolls away, since each watch costs a read per frame.
   watchPluginParams(id: string, on = true): void {
     if (on === this.watched.has(id)) return;
     if (on) this.watched.add(id);
@@ -704,10 +547,7 @@ export class EngineClient {
     });
   }
 
-  // Subscribe to a module's waveform: the engine taps the chain and broadcasts envelope points at 20 Hz.
-  // No track index: the engine finds the plugin by id and the track from the plugin. One used to be required,
-  // and since the graph has none to give, this sent 0 — which an engine older than that change still honours,
-  // metering the song's FIRST track. Omitting it makes such an engine refuse the subscription instead.
+  // Subscribe to a module's waveform: the engine taps the chain and broadcasts envelope points at 20 Hz — see docs/meters.md.
   subscribeWaveform(id: string, side: "input" | "output"): void {
     const key = `${id}:${side}`;
     if (this.waveformSubs.has(key)) return;
@@ -721,13 +561,7 @@ export class EngineClient {
     this.send({ type: "unsubscribe-waveform", id, side });
   }
 
-  /**
-   * Turn the master audio broadcast on or off for THIS connection.
-   *
-   * Idempotent and replayed across reconnects, like the waveform subscriptions. The engine
-   * taps its master plugin list and pushes binary frames; nothing is sent to a connection
-   * that never asked, because the stream is ~3 Mbit/s and a tray poll must not pay it.
-   */
+  /** Turn the master audio broadcast on or off for THIS connection; nothing is sent to a connection that never asked. */
   broadcast(on: boolean): void {
     if (on === this.broadcasting) return;
     this.broadcasting = on;
@@ -744,24 +578,19 @@ export class EngineClient {
     this.stateCbs.add(cb);
     return () => this.stateCbs.delete(cb);
   }
-  // The engine is applying a project and answers nothing meanwhile, so a surface must refuse to queue a Play.
-  // A disconnect leaves this stuck true — the caller clears it on the connection callback.
+  // The engine is applying a project and answers nothing meanwhile; a disconnect leaves this stuck true, so the caller clears it.
   onBusy(cb: BusyCb): () => void {
     this.busyCbs.add(cb);
     return () => this.busyCbs.delete(cb);
   }
 
-  // Problems the engine hit — a plugin it could not create, a model it refused. These
-  // used to exist only on its stderr, which nothing reads when the tray ADOPTS an engine
-  // rather than spawning it; a plugin silently doing nothing looked exactly like one that
-  // worked. Surfaces should show these.
+  // Problems the engine hit — a plugin it could not create, a model it refused; surfaces should show these, since stderr is nobody's.
   onWarning(cb: WarningCb): () => void {
     this.warningCbs.add(cb);
     return () => this.warningCbs.delete(cb);
   }
 
-  // Meter the INTERFACE — one peak per channel set, plus the master out. Request/reply rather than a state-frame
-  // field: it enables the input devices it measures, so it is asked for only while the I/O panel is on screen.
+  // Meter the INTERFACE — one peak per channel set, plus the master out; it enables the devices it measures, so ask only while on screen.
   ioLevels(channels: number[][]): void {
     this.send({ type: "io-levels", channels });
   }
@@ -769,19 +598,7 @@ export class EngineClient {
     this.ioLevelsCbs.add(cb);
     return () => this.ioLevelsCbs.delete(cb);
   }
-  /**
-   * Group two interface inputs into one stereo device, or split them apart again.
-   *
-   * `channel` is 1-based and names its PAIR, not one side: the interface pairs even/odd hardware
-   * channels and nothing else, so 1 and 2 name the same pair, and 2 can never be paired with 3.
-   *
-   * Nothing comes back — the device layout rides on `ioLevels`, the one message that carries it.
-   * Ask for that again to see the result; the engine forces the rebuild through before it answers.
-   *
-   * This DESTROYS the two mono devices it merges. A module still asking for one of those channels
-   * on its own matches no device and reads as silence, which is the same rule that made a stereo
-   * request fail before there was a pair to match it.
-   */
+  /** Group two interface inputs into one stereo device, or split them apart; `channel` is 1-based and names its PAIR — see docs/meters.md. */
   setInputStereo(channel: number, stereo: boolean): void {
     this.send({ type: "set-input-stereo", channel, stereo });
   }
@@ -832,8 +649,7 @@ export class EngineClient {
       return;
     }
     this.outbox.push({ at: Date.now(), s });
-    // Bounded, and the oldest goes: what is queued is a command, and the newest command is
-    // the one that still describes what the person wants.
+    // Bounded, and the oldest goes: the newest command is the one that still describes what the person wants.
     if (this.outbox.length > ENGINE_OUTBOX_MAX) this.outbox.shift();
   }
 
@@ -843,9 +659,7 @@ export class EngineClient {
   }
 
   private frame(o: object): string {
-    // Stamped at the ONE choke point every command already goes through: a verb added later
-    // is addressed by construction, and forgetting it would silently drive someone else's
-    // project. Omitted when default, so the bytes an old client sends stay byte-identical.
+    // Stamped at the ONE choke point every command goes through, and omitted when default so an old client's bytes stay identical.
     return JSON.stringify(this.session ? { session: this.session, ...o } : o);
   }
   private emitState(s: EngineState): void {

@@ -16,15 +16,13 @@ function clock(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** The album, which no field carries: a song lives at `songs/<artiste>/<album>/<titre>`, so the
- *  second-to-last segment IS the album. Empty when the path is shorter than that shape. */
+/** The album, which no field carries: the path's second-to-last segment IS it. */
 function albumOf(path: string): string {
   const parts = path.split("/");
   return parts.length >= 4 ? parts[parts.length - 2] : "";
 }
 
-/** The bar cut down to what it has to say when nothing plays but the queue waits: what is in it,
- *  and a way to open it. */
+/** The bar cut down to what it says when nothing plays but the queue waits. */
 function QueueOnly() {
   const { queue } = usePlayback();
   return (
@@ -55,13 +53,7 @@ export function MiniPlayer() {
     queue,
   } = usePlayback();
 
-  /**
-   * The bar also appears for a NON-EMPTY queue, not only for a loaded song.
-   *
-   * Otherwise the button that shows the queue would live in a bar the queue itself cannot bring
-   * up: a song would be added with nowhere to see it. That happens when nothing has played yet,
-   * or when the bar was closed.
-   */
+  /** The bar appears for a NON-EMPTY queue too, or the queue could not bring up its own button. */
   if (!now) return queue.length ? <QueueOnly /> : null;
 
   const { entry, target, version } = now;
@@ -95,15 +87,13 @@ export function MiniPlayer() {
           <span className="min-w-0 truncate text-sm font-medium">
             {entry.name}
           </span>
-          {/* Which version, when it is not the master — the bar sits under a screen whose
-              strip may point somewhere else entirely, and "the song" is then two files. */}
+          {/* Which version, when not the master: the strip above may point elsewhere entirely. */}
           {version ? (
             <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
               {version}
             </span>
           ) : null}
-          {/* Artist and album on one line, each only when there is one — a placeholder dash
-              for an unfiled song is noise where the title already says everything known. */}
+          {/* Artist and album, each only when there is one: a placeholder dash is noise. */}
           {artist ? (
             <span className="min-w-0 truncate text-xs text-muted-foreground">
               {artist}
@@ -130,9 +120,7 @@ export function MiniPlayer() {
           <span className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
             {clock(position)}
           </span>
-          {/* A range rather than a div with a click handler: dragging, the keyboard and the
-              accessible name all come with it, and a progress bar you cannot scrub is a
-              progress bar people try to scrub anyway. */}
+          {/* A range and not a div: dragging, the keyboard and the accessible name come with it. */}
           <input
             type="range"
             min={0}
@@ -153,8 +141,7 @@ export function MiniPlayer() {
         </div>
       </div>
 
-      {/* Where the sound is. The header's picker changes it; this only reports, and only for
-          what is playing — which may not be what the destination says any more. */}
+      {/* Where the sound is, reported for what is PLAYING rather than for the destination. */}
       <span
         className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex"
         title={where.hint}
@@ -163,12 +150,10 @@ export function MiniPlayer() {
         {where.label}
       </span>
 
-      {/* Ce qui passera ensuite. À droite, avant la fermeture : c'est une commande de lecture,
-          pas une commande de la barre. */}
+      {/* What plays next — right of the row and before the close, being a playback control. */}
       <QueueButton />
 
-      {/* Top right, and it is the ONLY thing that clears the bar: a song that ends stays, so
-          that "what was that" survives the last sample. */}
+      {/* Top right, and the ONLY thing that clears the bar: a song that ends stays. */}
       <Button
         size="icon"
         variant="ghost"

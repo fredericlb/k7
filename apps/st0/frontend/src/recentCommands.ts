@@ -7,17 +7,10 @@
 
 const KEY = "st0.recentCommands";
 
-/** How many are remembered. Past a dozen the bonus is smaller than the noise, and a list that
- *  never forgets keeps promoting a command you used once, last month. */
+/** How many are remembered: past a dozen the bonus is smaller than the noise, and a list that never forgets keeps promoting last month. */
 export const MAX_RECENT = 12;
 
-/**
- * Most recent first. Silent about a storage that refuses to answer.
- *
- * A browser can have localStorage disabled outright, and Safari throws on READING it in some
- * private modes rather than returning null — so the whole access is guarded. The palette then
- * behaves exactly as it did before this existed, which is the right failure.
- */
+/** Most recent first, and silent about a storage that refuses to answer — Safari throws on READING it in some private modes. */
 export function recentCommands(): string[] {
   try {
     const raw = localStorage.getItem(KEY);

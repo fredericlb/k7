@@ -111,6 +111,17 @@ There was a second row, `ws/_library/`, holding the assets a module could name. 
 a module carries the files it loads, in its own `assets/`, so the module travels whole. See
 `docs/moduleAssets.md`.
 
+### …or you are standing INSIDE it
+
+`librariesModulesRoot` has a second arm: `dir` may already be inside the library repository — a
+chain template, whose nodes name `@st0/…` modules living two folders up in the same repo.
+`../_libraries` resolves to nothing from there, so a chain loaded on its own saw NO catalogue at
+all and drew every node as a missing plugin.
+
+Still a fixed location, which is the rule this file exists to keep: `_libraries` is a folder NAME,
+not a declaration, and finding the one you are standing in is the same layout read from within.
+Nothing there is a search — the segment either is on the path or it is not.
+
 ## Why nothing declares them any more
 
 `project.yaml` used to carry `modules_from` and `libraries_from`, and `scaffold` wrote them.
@@ -134,6 +145,46 @@ these functions can fail any more: there is no header to read first, and nothing
 refusing the key would turn a working project into one that will not open. `deadProjectFields`
 reports them as a warning naming the lines to delete — because "accepted and silently ignored"
 is the failure mode this codebase keeps paying for.
+
+## Which `@st0/…` a project actually names — mediatekRefs.ts
+
+The machine caches what its songs reach for rather than mirroring a whole catalogue, so something
+has to answer "which ones are those" — and it has to answer from the FILES, before the loader can
+resolve them, since **a ref that resolves to nothing is exactly the one worth fetching**.
+
+Two ways a project reaches a library module, and both count: a module of its own that `extends` it,
+and a chain step naming it outright. `graph.yaml` declares SEGMENTS, so a library module may be a
+`modules:` KEY (a node that exists before anything is wired to it), a destination, or a name in
+`bypassed:` — read as the file is shaped rather than through the derived chains, which would need
+the whole graph model to answer a question about names. A chain may name a NODE of a library module
+(`@st0/audio/x:warm`); the folder to fetch is the module's, and the node travels inside it.
+
+Then what those modules extend in turn, since inheritance is how the library builds on itself —
+only as far as what is already on disk can say. A module fetched this round reveals its own parent
+to the next one, which is one round late and never wrong.
+
+`mediatekSongRefs` is the other half, and lives here because this is where "what does this project
+reach for" is answered: a cache sync has exactly one question to ask. **This is what the file is
+FOR** — a set names forty songs, the machine that plays them opens file paths, so all forty must be
+on its disk before the gig and the venue has no wifi.
+
+The two halves stay SEPARATE functions returning separate vocabularies (`modules/…` against
+`songs/…`): a module ref omits its family and a song ref carries one, so a single merged list would
+have to be taken apart again by whoever fetches it.
+
+It takes **two arguments, because the answer is in two places**. It used to read the project's own
+`songs.yaml` and needed nothing else; the list is now the PLAYLIST the desk's surface names, and a
+playlist lives at the WORKSPACE root beside `_modules`. That is the cost of a set list being a
+document other projects can open, and it is paid once, here.
+
+Read off the YAML before anything resolves it, for the same reason the modules are. A line naming a
+song by its bare TITLE is therefore skipped — resolving that needs the catalogue, which is the thing
+being synced — so it arrives on the desk as a song the cache has not got, which it is. The
+unambiguous path form is what a click writes and what the desk's own listing offers.
+
+`mediatekPathPrefix` answers a folder PREFIX rather than a file list, because a module IS its
+folder: the jsdsp source, the presets and the panel are as much part of it as `module.yaml`, and a
+sync that fetched only the file named would land a module that loads nothing.
 
 ## Where a panel lives — and why there is no list for it
 
@@ -162,3 +213,23 @@ of root: the médiathèque's modules key as `@st0/…`, anything else as `@works
 a project's own `modules/` keys bare. Everything that turns a folder into a ref, or a ref back
 into a folder, turns on that — and it asks the PATH, never a declaration. See
 docs/moduleNamespaces.md.
+
+It used to be declared per root, in that root's `config.yaml`, which made the level a free string
+an author chose. Two consequences worth stating: a workspace library could call itself `engine` and
+collide head-on with the synthesised catalogue (a dozen fixtures in this repo did exactly that),
+and nothing tied the name to how deep the folder actually sat. The levels are structural now —
+inheritance is what expresses "the same module, adjusted here" — so the declaration had nothing
+left to decide. Anything that is not the library repository is the workspace's own `_modules`:
+those are the only two shared roots there are.
+
+Recognised by the folder it SITS IN (`_libraries/modules`) rather than by an absolute path, which
+is what it used to be: the médiathèque's modules lived at one place per machine, and the test was
+an exact string equality against it. There is one per workspace now, so there is no single path to
+compare with — and the structural test is the same kind of answer `@workspace` has always given.
+
+**Why the level is spelled `@st0`.** It is named after the app that registered it when the level
+was named — the MÉDIATHÈQUE, which was called `st0` then; it was `@mediatek` before that, while
+that app was `apps/mediatek` (see `packages/song/scripts/migrateNamespace.ts`). The médiathèque is
+**pl8** today and `apps/st0` is the editor, so this level names neither of the things its spelling
+suggests. It stayed on purpose: a level is written into user files, and moving it a second time
+would cost every repository a rewrite for a name nobody types.

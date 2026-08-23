@@ -15,8 +15,7 @@ import type { ScenePass } from "./scene";
 /** Every call that matters, in order, as `name(arg…)` strings. */
 type Log = string[];
 
-/** A WebGL2 context that records instead of drawing. `failCompile` makes every shader stage fail,
- *  which is how the "a broken shader must not take the viewport down" path is reached. */
+/** A WebGL2 context that records instead of drawing; `failCompile` fails every stage, which reaches the broken-shader path. */
 function fakeGl(opts: { failCompile?: boolean } = {}) {
   const log: Log = [];
   let ids = 0;
@@ -102,16 +101,14 @@ const pass = (over: Partial<ScenePass> = {}): ScenePass => ({
 
 describe("compilePass", () => {
   it("binds the quad attribute to location 0 BEFORE linking", () => {
-    // Without this a shader declaring its attributes in another order reads the quad off whatever
-    // slot the linker picked, and the pass draws nothing on some machines and not others.
+    // Without this a shader declaring its attributes in another order reads the quad off whatever slot the linker picked.
     const { gl, log } = fakeGl();
     expect(compilePass(gl, pass())).not.toBeNull();
     expect(log).toContain("bindAttribLocation(0,aUnit)");
   });
 
   it("returns null on a shader that will not build, and deletes both stages", () => {
-    // A shader is source somebody is EDITING. A half-typed fragment must not take the viewport
-    // down — the layer draws as if the pass were not there.
+    // A shader is source somebody is EDITING: a half-typed fragment must not take the viewport down.
     const { gl, log } = fakeGl({ failCompile: true });
     expect(compilePass(gl, pass())).toBeNull();
     expect(log.filter((l) => l === "deleteProgram")).toHaveLength(0);
@@ -148,8 +145,7 @@ describe("drawPass", () => {
 
 describe("PingPong", () => {
   it("hands the next pass what the last one WROTE", () => {
-    // The whole of what makes passes chain, and the reason there are two targets: a shader may
-    // not sample the attachment it is writing.
+    // The reason there are two targets: a shader may not sample the attachment it is writing.
     const { gl } = fakeGl();
     const pp = new PingPong(gl, 8, 8);
     const first = pp.frontTexture();
@@ -160,8 +156,7 @@ describe("PingPong", () => {
   });
 
   it("clears the back target TRANSPARENT, never to a background", () => {
-    // A layer's passes run BEFORE compositing, so anything the shader does not write has to stay
-    // see-through or the layer blots out everything under it.
+    // A layer's passes run BEFORE compositing, so what the shader does not write has to stay see-through.
     const { gl, log } = fakeGl();
     new PingPong(gl, 8, 8).bindBack();
     expect(log).toContain("clearColor(0,0,0,0)");
@@ -170,17 +165,14 @@ describe("PingPong", () => {
 
 describe("RenderTarget", () => {
   it("clears only when asked — which is what makes the composite ACCUMULATE", () => {
-    // The bug this pins: sharing the ping-pong meant a layer's chain cleared the target the
-    // composite was accumulating into, so every layer but the last vanished the moment any one
-    // of them grew a shader.
+    // The bug this pins: a shared ping-pong let a layer's chain clear the composite, so every layer but the last vanished.
     const { gl, log } = fakeGl();
     const t = new RenderTarget(gl, 8, 8);
     t.bind(true);
     t.bind(false);
     t.bind(false);
     expect(log.filter((l) => l === "clear")).toHaveLength(1);
-    // …and it is still the same framebuffer each time, so the second and third draws land on
-    // what the first one wrote.
+    // …and it is still the same framebuffer each time, so the later draws land on what the first one wrote.
     const binds = log.filter((l) => l.startsWith("bindFramebuffer"));
     expect(new Set(binds.slice(-3)).size).toBe(1);
   });

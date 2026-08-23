@@ -14,17 +14,7 @@ import type { PreloaderState, SongEntry } from "./songPreloader";
 const DECKS = ["deck-a", "deck-b"] as const;
 
 export interface MoteurPlayerOptions {
-  /**
-   * z0's song path as an ABSOLUTE FILE PATH on the engine's machine.
-   *
-   * Required, and not defaulted, because there is no honest guess: z0's paths are URLs
-   * its own backend serves, and the engine opens files. In practice this resolves through
-   * the médiathèque's local cache — which is exactly why the plan put this last, needing
-   * "un moteur local sur une machine qui n'a aujourd'hui besoin que d'un navigateur".
-   *
-   * Returning null means "this machine does not have that song", which the player reports
-   * rather than sending the engine a path it will warn about and then play silence for.
-   */
+  /** z0's song path as an ABSOLUTE path on the engine's machine, with no default (../docs/moteurPlayer.md). */
   resolvePath: (path: string) => string | null;
 }
 
@@ -38,23 +28,14 @@ const EMPTY: PreloaderState = {
   failedPaths: [],
 };
 
-/**
- * Playback on the engine, behind the same interface SongPreloader satisfies.
- *
- * The shape is deliberately unlike the Web Audio one: there is no decode, no buffer cache
- * and no preload worth the name, because applying a ProjectDoc IS the load — the engine
- * opens the file and instantiates the plugin chain when it receives the document. So
- * `preloadSong` sends a document and waits for the engine to say it applied it, and `play`
- * is a transport verb on a document that is already there.
- */
+/** Playback on the engine, with no decode and no preload — applying a doc IS the load (../docs/moteurPlayer.md). */
 export class MoteurPlayer implements Player {
   private engine: EngineClient;
   private resolvePath: MoteurPlayerOptions["resolvePath"];
   private state: PreloaderState = { ...EMPTY };
   private listeners = new Set<() => void>();
   private effects: Record<string, number> = {};
-  /** What is loaded on each deck, so a transport verb can rebuild the document without the
-   *  caller re-supplying it. Empty string == that deck carries nothing. */
+  /** What is loaded on each deck, so a verb rebuilds the doc; an empty string is a deck carrying nothing. */
   private loaded: string[] = ["", ""];
   private gains: number[] = [1, 1];
   private muted = new Set<number>();
@@ -64,9 +45,7 @@ export class MoteurPlayer implements Player {
   constructor(engine: EngineClient, opts: MoteurPlayerOptions) {
     this.engine = engine;
     this.resolvePath = opts.resolvePath;
-    // The engine's transport is the truth about whether sound is happening — not a flag
-    // this class sets hopefully when it sends a play. A document that failed to load
-    // leaves the transport stopped, and the UI must show that rather than a spinner.
+    // The engine's transport is the truth about whether sound is happening (../docs/moteurPlayer.md).
     this.offState = engine.onState((s) => {
       this.patch({ isPlaying: s.playing, isPaused: false });
     });
@@ -85,8 +64,7 @@ export class MoteurPlayer implements Player {
   getState = (): PreloaderState => this.state;
 
   private patch(next: Partial<PreloaderState>): void {
-    // A NEW object every time: useSyncExternalStore compares by identity, and mutating in
-    // place is the classic way to make a store that never re-renders.
+    // A NEW object every time: useSyncExternalStore compares by identity.
     this.state = { ...this.state, ...next };
     for (const cb of this.listeners) cb();
   }
@@ -107,8 +85,7 @@ export class MoteurPlayer implements Player {
         ? (paths.length - missing.length) / paths.length
         : 1,
       loading: false,
-      // The engine cannot fetch what this machine has not cached, and a round that starts
-      // on a song nobody can play is worse than one that refuses to start.
+      // Reported BEFORE the round starts: the engine cannot fetch what this machine has not cached.
       failedPaths: missing,
     });
   }
@@ -145,8 +122,7 @@ export class MoteurPlayer implements Player {
               type: "audio",
               name: chain,
               source: abs,
-              // The song's window, in SECONDS into the file — which is what sourceFrom/To
-              // measure, unlike everything else in the document, which is beats.
+              // The song's window in SECONDS, unlike everything else in the document, which is beats.
               ...(d.from !== undefined ? { sourceFrom: d.from } : {}),
               ...(d.to !== undefined ? { sourceTo: d.to } : {}),
             }),
@@ -179,9 +155,7 @@ export class MoteurPlayer implements Player {
   }
 
   playMulti(tracks: { path: string; from?: number }[]): Promise<void> {
-    // The game's multi mode is several stems of ONE song, muted individually. Two decks is
-    // what the document shape here allows, so more than that is refused rather than
-    // silently truncated to the first two — a stem that never sounds is a wrong answer.
+    // Refused rather than truncated: a stem that never sounds is a wrong answer (../docs/moteurPlayer.md).
     if (tracks.length > DECKS.length)
       return Promise.reject(
         new Error(
@@ -204,16 +178,7 @@ export class MoteurPlayer implements Player {
     ]);
   }
 
-  /**
-   * Refused, loudly.
-   *
-   * The engine has no reverse: `ClipDoc` carries no such flag, and there is nothing in the
-   * protocol to add one from here. The Web Audio player does it by building a reversed
-   * AudioBuffer, which has no analogue in a document the engine reads from a file.
-   *
-   * Rejecting rather than playing forwards is the whole point. A reversed round played
-   * forwards is one every player answers instantly, and nothing in the game would show why.
-   */
+  /** Refused LOUDLY: the engine has no reverse, and playing forwards would give the round away. */
   playReversed(): Promise<void> {
     return Promise.reject(
       new Error(
@@ -233,8 +198,7 @@ export class MoteurPlayer implements Player {
     this.effects = { ...effects };
     const { unsupported } = planEffects(DECKS[0], this.effects);
     this.patch({ unsupported });
-    // Re-apply live: the engine diffs the document, so a slider move rebuilds only the
-    // chain that changed rather than reloading the song.
+    // Re-applied live: the engine diffs, so a slider move rebuilds the chain and not the song.
     if (this.loaded[0]) {
       const built = this.doc(
         this.loaded.filter(Boolean).map((path) => ({ path })),
@@ -259,8 +223,7 @@ export class MoteurPlayer implements Player {
     this.setEffects(this.effects);
   }
 
-  /** Nothing to resume: the audio context is the engine's, and it was open before the page
-   *  was. Kept because the interface has it and the browser player genuinely needs it. */
+  /** Nothing to resume: the audio context is the engine's, and it was open before the page was. */
   resumeContext(): void {}
 
   dispose(): void {

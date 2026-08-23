@@ -6,11 +6,7 @@ import {
   sliceColor,
 } from "./sliceSymbols";
 
-// Dragging a slice handle on the docked waveform rewrites the `from`/`to` NUMBER in the
-// document, by position. So the property worth pinning is not "it found a symbol" but "the
-// range it reports actually addresses that number" — a range off by one silently eats a comma
-// or a brace and leaves the author with a file that no longer parses. The symbol NAME's range
-// matters the same way: it is what the colour is painted over.
+// Dragging a slice handle rewrites a NUMBER by position, so what is pinned is that the range addresses that number — one off eats a brace.
 
 /** Cut the doc at a reported range: what a drag would replace, or a colour would cover. */
 const at = (doc: string, r: [number, number]) => doc.slice(r[0], r[1]);
@@ -48,8 +44,7 @@ describe("scanSlices", () => {
   });
 
   it("survives a `to` that is followed by more fields on the same line", () => {
-    // The CUE reader's hazard: a field's value span ran to the closing brace, so `to`
-    // would have grabbed "0.5, note: 36" whole. Here the parser bounds it.
+    // The CUE reader's hazard: a field's value span ran to the closing brace, where here the parser bounds it.
     const doc =
       "rack:\n  rack_type: slice\n  source: b.wav\n  symbols:\n    BD: { from: 0, to: 0.5, note: 36 }\n";
     const out = scanSlices(doc)!;

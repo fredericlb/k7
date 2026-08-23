@@ -67,9 +67,7 @@ const trackText = () => readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");
 
 describe("a finished take", () => {
   it("declares its window in full — `from` included, at the file's start", () => {
-    // "1:1" is what an absent `from` already means, so this line adds no behaviour. It is written because THIS
-    // is the file you open to trim the take, and the two numbers you came to change should be sitting in it at
-    // their real values rather than having to be conjured from a blank one.
+    // "1:1" is what an absent `from` already means — see docs/rendering.md for why it is written.
     const id = addTakeToTrack(dir, doc(), take());
     const text = clipText(id);
     expect(text).toContain('from: "1:1"');
@@ -77,8 +75,7 @@ describe("a finished take", () => {
   });
 
   it("writes those as POSITIONS in the file, not durations", () => {
-    // The trap this pins: read as a duration, "5:1" would be five bars and a beat and the take would keep a
-    // second of whatever followed it. `to` is where the window closes, measured from `from`'s own "1:1".
+    // The trap this pins: read as a duration, "5:1" would keep a second of whatever followed.
     const id = addTakeToTrack(dir, doc(), take(0, 2)); // two seconds == four beats == one bar
     expect(clipText(id)).toContain('to: "2:1"');
   });
@@ -89,8 +86,7 @@ describe("a finished take", () => {
   });
 
   it("places it with a start and nothing else", () => {
-    // No length on the placement: the clip's window says how long it sounds, and a second answer here could
-    // only ever disagree with it.
+    // No length on the placement: the clip's window says how long it sounds.
     addTakeToTrack(dir, doc(), take());
     expect(trackText()).toContain('start: "3:1"');
     expect(trackText()).not.toContain("length");
@@ -101,8 +97,7 @@ describe("a finished take", () => {
     // The two halves agreeing: the files above, read back through the compiler the engine is fed from.
     const id = addTakeToTrack(dir, doc(), take());
     const clip = loadProject(dir).tracks.find((t) => t.id === "gtr")!.clips[0];
-    // The MATERIAL the take wrote. `id` identifies the PLACEMENT now (`<ref>@<start>`), so a
-    // take's own name is what `name` carries — see @studio/song's placementId.
+    // The MATERIAL the take wrote: `id` identifies the PLACEMENT now, so `name` carries the take's.
     expect(clip.name).toBe(id);
     expect(clip.start).toBe(8); // bar 3 == 8 beats in
     expect(clip.sourceTo).toBeCloseTo(8, 6); // eight seconds of source
@@ -116,8 +111,7 @@ describe("a finished take", () => {
   });
 
   it("refuses a take whose file isn't there", () => {
-    // A clip whose wav is missing fails the whole compile — better to refuse the edit than to write a song that
-    // no longer loads.
+    // A clip whose wav is missing fails the whole compile, so refusing the edit is the lesser harm.
     const t = { ...take(), file: join(dir, "clips", "gone.wav") };
     expect(() => addTakeToTrack(dir, doc(), t)).toThrow(/missing/);
   });

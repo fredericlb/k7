@@ -29,36 +29,21 @@ export function Vinyl({
   title: string | null;
   /** Turning: the transport is running AND this deck is holding something. */
   spinning: boolean;
-  /** Open the song browser for this deck. The LABEL is the target — the middle of a record
-   *  is where its name is, so it is where you press to change it. */
+  /** Open the song browser for this deck — the LABEL is the target, being where a record's name is. */
   onPick: () => void;
-  /**
-   * How far into the FILE the deck is, RIGHT NOW, in seconds.
-   *
-   * A function and not a number: the transport moves many times a second, and a prop would
-   * re-render this whole component — two records, their labels and their cues — to move one
-   * edge. The wedge below is written straight into the DOM from an animation frame instead,
-   * which is the same arrangement the waveform uses and for the same reason.
-   */
+  /** How far into the FILE the deck is RIGHT NOW — a FUNCTION, so the wedge moves without a re-render. */
   at: () => number;
   /** The song's length in its own seconds. 0 until the analysis lands — see `progressOf`. */
   length: number;
   /** The cues, positional by button. Drawn as circles around the dial at their own moment. */
   markers: readonly (number | null)[];
-  /**
-   * How big the record may be, in pixels — the deck's own answer from `deskLayout`.
-   *
-   * A cap on the WIDTH, not a fixed size: the disc is `aspect-square w-full`, so bounding the
-   * width is what bounds the height, and `w-full` still shrinks it on a narrow deck. Capping
-   * the height instead would let a wide column draw a record taller than its own column.
-   */
+  /** How big the record may be, from `deskLayout` — a cap on the WIDTH, which is what bounds the height. */
   size: number;
 }) {
   const loaded = !!title;
   const wedge = useRef<SVGPathElement>(null);
 
-  // The progress, redrawn per frame and never through React. `length` is a dependency because
-  // a song swapped underneath changes what a position MEANS; `at` is read, never subscribed.
+  // The progress, redrawn per frame and never through React — `length` changes what a position MEANS.
   useEffect(() => {
     let frame = 0;
     const tick = () => {
@@ -76,13 +61,9 @@ export function Vinyl({
     >
       <svg
         viewBox="0 0 100 100"
-        // 1.8 s a turn — 33⅓ rpm, a twelve-inch. `m9-spin` was here and was defined NOWHERE:
-        // a class m9 owned, left behind when that app went, so the record has not actually
-        // turned since. Tailwind's own `spin` keyframes at the right rate instead, which the
-        // scanner can see now that `packages/ui-turntables/src` is a `@source` (st0's index.css).
+        // 1.8 s a turn — 33⅓ rpm, on Tailwind's own `spin`; the `m9-spin` it replaced was defined NOWHERE.
         className={`h-full w-full ${spinning ? "animate-[spin_1.8s_linear_infinite]" : ""}`}
-        // The record turns; the LABEL below does not. On a real deck it would, but a title
-        // you have to tilt your head to read is a worse trade than the lost realism.
+        // The record turns; the LABEL below does not — a title you tilt your head to read is worse.
         aria-hidden="true"
       >
         <title>{loaded ? `${artist ?? ""} ${title}` : `platine ${side}`}</title>
@@ -107,8 +88,7 @@ export function Vinyl({
             strokeWidth={0.35}
           />
         ))}
-        {/* One bright groove, off-centre in the stack: it is what makes the rotation VISIBLE.
-            A perfectly uniform disc spinning looks completely still. */}
+        {/* One bright groove, off-centre: a perfectly uniform disc spinning looks completely still. */}
         <circle
           cx="50"
           cy="50"
@@ -121,27 +101,19 @@ export function Vinyl({
         />
       </svg>
 
-      {/* The progress and the cues, on a layer that does NOT turn. Inside the spinning svg
-          they would ride the record — a wedge that rotated would say nothing about how far
-          through the song you are, and a cue would be somewhere different every moment. */}
+      {/* The progress and the cues, on a layer that does NOT turn — ../../docs/vinyl.md. */}
       <svg
         viewBox="0 0 100 100"
         className="pointer-events-none absolute inset-0 h-full w-full"
         aria-hidden="true"
       >
-        {/* Empty at 0, the whole disc at 1. Translucent, because what it covers is the part
-            of the record that has GONE BY — the grooves stay legible under it. */}
+        {/* Empty at 0 and the whole disc at 1, translucent so the grooves stay legible under it. */}
         <path ref={wedge} d="" fill="#ffffff" fillOpacity={0.12} />
-        {/* A cue is a RADIUS, centre to rim, not a dot on a ring. A dot has to be found; a
-            line crosses the whole face, so the edge of the wedge arriving at one is visible
-            without looking for it — and two cues a second apart stay two lines rather than
-            merging into one blob. The label covers the inner third, which is where a record
-            keeps its own centre anyway. */}
+        {/* A cue is a RADIUS, centre to rim, not a dot on a ring — ../../docs/vinyl.md. */}
         {markers.map((m, i) =>
           m == null || !(length > 0) ? null : (
             <line
-              // biome-ignore lint/suspicious/noArrayIndexKey: the slot IS the identity — a cue
-              // is a fixed button, not a row that can reorder.
+              // biome-ignore lint/suspicious/noArrayIndexKey: the slot IS the identity — a cue is a fixed button, never a row that reorders.
               key={i}
               x1={CENTRE}
               y1={CENTRE}
@@ -155,9 +127,7 @@ export function Vinyl({
         )}
       </svg>
 
-      {/* The label, centred over the disc and held still. The disc itself stays
-          `pointer-events-none` so only the label takes the click — a record's middle is
-          where its name is, and grabbing the outer groove will one day mean scratching. */}
+      {/* The label, centred and held still, and the only thing that takes the click. */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <button
           type="button"

@@ -62,6 +62,20 @@ Car c'est bien pour cela qu'il existe : sur une tranche courte (un pupitre en pa
 chiffre était un confort, l'arc est ce qui reste pour dire combien, et il ne coûte pas un pixel
 de hauteur.
 
+### Comment il est tracé
+
+Deux chemins, tous deux produits par `arcPath` dans `../src/views/ChannelStrip.tsx` : la
+**course entière**, pâle, puis l'arc par-dessus. L'arc se lit ainsi contre ce qu'il aurait pu
+être plutôt que contre rien.
+
+Les deux passent **en dehors** de la face du cadran — rayon 18 contre les 15 du cercle — pour ne
+jamais disputer les mêmes pixels à l'aiguille. Et les extrémités sont `butt` et non `round` :
+avec des bouts arrondis, une petite valeur devient une pastille de deux pixels au lieu d'une
+petite marque.
+
+Le chiffre, lui, ne s'affiche **que hors du repos** : une colonne de potards affichant tous
+« 0 » est du bruit, alors qu'un coup d'œil cherche lequel a été touché.
+
 ## Après le tempo, avant le crossfade
 
 ```

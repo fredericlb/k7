@@ -4,10 +4,7 @@
 
 /** What a deck's column draws, given its height. All measurements in CSS pixels. */
 export interface DeskLayout {
-  /**
-   * The record's size — it is square, so this is both its width and its height. `0` means it is
-   * not drawn at all, which is a real state and the common one in a pane.
-   */
+  /** The record's size — it is square. `0` is not drawn at all, the common state in a pane. */
   vinyl: number;
   /** The waveform's height. Never 0: it is the last thing to go, and it never goes. */
   waveform: number;
@@ -17,20 +14,7 @@ export interface DeskLayout {
   strip: StripLayout;
 }
 
-/**
- * The channel strip's sizes: three EQ knobs, the filter under them, and whether each shows its
- * value.
- *
- * The strip is the deck's other column and it never shed anything, which is how the FILTER came
- * to disappear: the knobs are `justify-center` in a box the row's height, so a strip taller than
- * the row overflows equally at both ends and the two things at the ends — the top EQ knob and
- * the filter — are the two you stop being able to see. It needs ~317 px at full size, and a
- * half-height pane on a 768-tall window gives the row about 206.
- *
- * Nothing is DROPPED here, unlike the record: three bands and a filter are what a channel strip
- * IS, and a strip missing its treble is not a smaller strip. They shrink instead, and the
- * readouts — the one part that is a convenience — go first.
- */
+/** The channel strip's sizes — nothing is DROPPED here, it SHRINKS. See ../docs/deskLayout.md. */
 export interface StripLayout {
   /** One EQ knob's diameter. */
   knob: number;
@@ -44,28 +28,14 @@ export interface StripLayout {
 
 /** The waveform at the size it has always been, when there is room for the record above it. */
 export const WAVE_BASE = 80;
-/**
- * How far the waveform may grow once the record is gone.
- *
- * Capped rather than allowed to fill, and this is the one number here that is a judgement rather
- * than a measurement: a waveform is read for its SHAPE — where the drop is, where the beats
- * are — and past a point more pixels of amplitude tell you nothing you could not already see.
- * The space left over goes to the cues and the title staying put.
- */
+/** How far the waveform may grow once the record is gone — capped, because it is read for its SHAPE. */
 export const WAVE_MAX = 180;
 /** Below this it is a line with a playhead on it, not something you can mix against. */
 export const WAVE_MIN = 44;
 
 /** The record at its full size — `max-w-[22rem]`, which is where it was pinned before this. */
 export const VINYL_MAX = 352;
-/**
- * The smallest record worth drawing.
- *
- * A deck that shrinks its record indefinitely ends with a coin: the label is unreadable, the
- * cue radii merge, and the rotation — the whole reason a record is drawn rather than a bar — is
- * no longer visible. Under this it is furniture taking the height the waveform wants, so it goes
- * entirely and the waveform gets the space. That is what a pane-height desk is.
- */
+/** The smallest record worth drawing — below it, a coin: unreadable label, merged cue radii, no rotation. */
 export const VINYL_MIN = 176;
 
 /** The cue row, and the title line under it. Both fixed; both from their own components. */
@@ -74,14 +44,7 @@ const TITLE = 16;
 /** `gap-3` between the stacked pieces. */
 const GAP = 12;
 
-/**
- * The strip's sizes, largest first — the first that FITS is the one used, and the last is used
- * when none does.
- *
- * A ladder rather than a formula because a knob is a drawn thing: 36 and 32 are sizes somebody
- * chose, and interpolating between them would produce a 33 nobody did. The first row is what the
- * strip has always been.
- */
+/** The strip's sizes, largest first — a ladder and not a formula, since a knob is a DRAWN thing. */
 const STRIP_STEPS: readonly StripLayout[] = [
   { knob: 36, filter: 44, readout: true, gap: 12 },
   { knob: 32, filter: 40, readout: true, gap: 8 },
@@ -102,15 +65,7 @@ export const stripHeight = (s: StripLayout): number =>
   1 +
   knobBlock(s.filter, s.readout);
 
-/**
- * …and what the STEM column needs at the same step: four knobs, three gaps, `py-2`.
- *
- * It has no ladder of its own, deliberately — it takes the strip's, because the two columns
- * flank the same deck and knobs of two sizes across one desk would read as a mistake. That is
- * safe only because it is SHORTER at every step: four EQ-sized knobs against three plus the
- * bigger filter and its rule. The test says so, and it is what stops the column overflowing the
- * way the filter once did.
- */
+/** …and the STEM column at the same step — it takes the strip's ladder, being SHORTER at every rung. */
 export const stemStripHeight = (s: StripLayout): number =>
   16 + 4 * knobBlock(s.knob, s.readout) + 3 * s.gap;
 
@@ -123,25 +78,10 @@ export function stripLayout(height: number): StripLayout {
   );
 }
 
-/**
- * What to draw in a deck column `height` pixels tall.
- *
- * The order things are shed in is the order they are worth least, and it is deliberate:
- *
- * 1. the RECORD goes first. It is the biggest thing on the deck and the least load-bearing —
- *    what it says (how far through, where the cues are, that it is moving) the waveform says
- *    too, and says better, because the waveform also says what is coming.
- * 2. the TITLE goes second, and only when the waveform would otherwise stop being one. The
- *    record's label carries the same words while the record is there, and the browser is one
- *    click away either way.
- * 3. the CUES never go. Eight fixed positions a hand learns are worth nothing if they are
- *    sometimes absent — the same argument `CueButtons` makes for drawing them on an empty deck.
- * 4. the WAVEFORM never goes. It is what a deck is FOR.
- */
+/** What to draw in a deck column `height` tall — the record goes first, the waveform never. See ../docs/deskLayout.md. */
 export function deskLayout(height: number): DeskLayout {
   const h = Math.max(0, height);
-  // The strip is the same height's problem, decided on its own ladder — the two columns share a
-  // box and nothing else, so neither's arithmetic belongs in the other's.
+  // The strip is the same height's problem on its own ladder — the two columns share a box only.
   const strip = stripLayout(h);
 
   // With the record: everything under it at its usual size — waveform, cues, title, three gaps.
@@ -155,8 +95,7 @@ export function deskLayout(height: number): DeskLayout {
       strip,
     };
 
-  // Without it, the waveform takes the space the record gave up — which is the whole point of
-  // dropping it, rather than leaving a short strip and a lot of nothing.
+  // Without it, the waveform takes the space the record gave up — the whole point of dropping it.
   const withTitle = h - (CUES + TITLE + GAP * 2);
   if (withTitle >= WAVE_MIN)
     return {
@@ -166,9 +105,7 @@ export function deskLayout(height: number): DeskLayout {
       strip,
     };
 
-  // Tighter than that, the title goes too. The waveform is floored rather than allowed to
-  // vanish: a deck drawn at 30 pixels is wrong either way, and one that is still a waveform is
-  // the more honest of the two wrongs.
+  // Tighter than that the title goes, and the waveform is FLOORED rather than allowed to vanish.
   const bare = h - (CUES + GAP);
   return {
     vinyl: 0,

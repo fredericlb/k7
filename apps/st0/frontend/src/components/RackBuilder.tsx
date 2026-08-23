@@ -32,8 +32,7 @@ export function RackBuilder({
   onClose,
   onCreated,
 }: {
-  /** The active project's folder, "." for a lone one — the api speaks WORKSPACE-relative, so
-   *  every write must carry this prefix or it lands beside the project instead of in it. */
+  /** The active project's folder, '.' for a lone one — the api speaks WORKSPACE-relative, so every write must carry this prefix. */
   activeProject: string | null;
   onClose: () => void;
   /** The module landed — `instruments/<name>` — so the shell can reload and say so. */
@@ -76,17 +75,7 @@ export function RackBuilder({
     void audio.current.play().catch(() => {});
   };
 
-  /**
-   * Empty one pad.
-   *
-   * The object URL goes with it, exactly as a drop over an occupied pad revokes the one it
-   * replaces: these are blobs held by the document, and a builder you filled and cleared a few
-   * times would otherwise leak every sample it had ever seen until the popin closed.
-   *
-   * The audition is stopped as well when it is THIS pad that is playing — a sound outliving the
-   * pad it came from is a small thing that reads as a bug. `pause()` alone, without clearing the
-   * ref: the element is replaced by the next `play`, and a revoked URL cannot be replayed anyway.
-   */
+  /** Empty one pad: the object URL goes with it, or a builder filled and cleared a few times leaks every sample it has seen. */
   const clearPad = (row: number, col: number) => {
     setPads((prev) => {
       const at = row * GRID + col;
@@ -100,11 +89,7 @@ export function RackBuilder({
     });
   };
 
-  /**
-   * Drop N files on a cell: the first lands THERE, the rest fill onward in NOTE order — the
-   * order the rack will play, so a handful of samples dropped on the bottom-left pad lays a
-   * kit out the way a drum machine reads one.
-   */
+  /** Drop N files on a cell: the first lands THERE and the rest fill onward in NOTE order — the order the rack will play. */
   const drop = (row: number, col: number, files: FileList) => {
     const order = cellsInNoteOrder();
     const from = order.findIndex((c) => c.row === row && c.col === col);
@@ -150,14 +135,12 @@ export function RackBuilder({
   const create = async () => {
     if (busy || issues.length) return;
     setBusy(true);
-    // WORKSPACE-relative, project prefix included — the path space every api call speaks.
-    // Without it the module lands BESIDE the project, where nothing ever lists it.
+    // WORKSPACE-relative, project prefix included: without it the module lands BESIDE the project, where nothing ever lists it.
     const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
     const prefix = ap && ap !== "." ? `${ap}/` : "";
     const dir = `${prefix}modules/instruments/${name.trim()}`;
     try {
-      // The samples first, then the module that names them — a reload landing between the two
-      // finds files nothing reads yet, never a module whose clips are missing.
+      // The samples first, then the module that names them: a reload between the two finds files nothing reads, never a module with no clips.
       for (const p of rackPads)
         await api.upload(dir, p.fileName, await p.pad.file.arrayBuffer());
       await api.write(
@@ -214,8 +197,7 @@ export function RackBuilder({
           </span>
         </label>
 
-        {/* The grid, rendered top row first — the NOTES read the other way (36 bottom-left),
-            which is why each pad says its own. */}
+        {/* The grid, rendered top row first, while the NOTES read the other way (36 bottom-left) — hence each pad saying its own. */}
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: GRID }).flatMap((_, row) =>
             Array.from({ length: GRID }).map((_, col) => {
@@ -247,11 +229,7 @@ export function RackBuilder({
                         >
                           <Play className="h-3 w-3" />
                         </button>
-                        {/* Emptying a pad, beside the button that plays it — a drop can REPLACE a
-                            sample but nothing could take one back off, so a pad filled by a
-                            multi-file drop landing one cell over could only be fixed by starting
-                            the rack again. Red on hover only: the grid is the picture here, and
-                            sixteen red crosses would read as sixteen warnings. */}
+                        {/* Emptying a pad, beside the button that plays it, red on hover only (docs/shell.md). */}
                         <button
                           type="button"
                           title={`enlever ${pad.file.name} du pad`}

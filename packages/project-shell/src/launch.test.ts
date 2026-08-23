@@ -5,9 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { launchUrl, parseLaunch, projectBasename, projectsUrl } from "./launch";
 
-// st0's mount: the ORIGIN ROOT, since the editor became the studio's front door and the
-// médiathèque moved to `/pl8`. A project is therefore `/<dépôt>/<projet>` with no prefix at all,
-// which is what most of this suite is about.
+// st0's mount is the ORIGIN ROOT, so a project is `/<repo>/<project>` with no prefix at all.
 const ST0 = "/";
 
 describe("parseLaunch", () => {
@@ -17,19 +15,12 @@ describe("parseLaunch", () => {
   });
 
   it("is null for an address outside this app's mount", () => {
-    // An app mounted under a prefix has addresses that are not its own; st0's mount is the
-    // origin itself, so the only address outside it is the empty one above. What keeps
-    // `/pl8/…`, `/k7/…` and `/z0/…` away from this reader is the EDGE, which never sends them
-    // here — see apps/studio/docker/nginx.conf. z0's editor still has a prefix and is the case
-    // this branch is exercised by.
+    // The EDGE keeps other prefixes away from this reader; z0's editor still has one of its own.
     expect(parseLaunch("/k7/sessions", "z0", "/z0/editor/")).toBe(null);
   });
 
   it("reads a path the edge claims as a repository name, which is exactly right", () => {
-    // The consequence of st0 answering the root, stated so nobody 'fixes' it: the first segment
-    // IS the repository, so a stale `/st0/band/winter.st0` bookmark now names a repository called
-    // `st0`. That resolves to nothing and the gate says so by name — a legible failure, and the
-    // reason the edge's prefix list doubles as a list of unusable repository names.
+    // Stated so nobody 'fixes' it: a stale `/st0/…` bookmark names a repository called `st0`.
     expect(parseLaunch("/st0/band/winter.st0", "st0", ST0)).toEqual({
       repo: "st0",
       project: "band/winter.st0",
@@ -111,8 +102,7 @@ describe("projectBasename", () => {
   });
 
   it("falls back to the mount when the address names no project", () => {
-    // The app still mounts — for st0 that address IS the home page, and for anything else the
-    // gate redirects there. Either way the router needs a basename, and it is the mount.
+    // The app still mounts either way, and the router needs a basename: it is the mount.
     expect(projectBasename("/", "st0", ST0)).toBe(ST0);
   });
 
@@ -129,16 +119,13 @@ describe("launchUrl", () => {
   });
 
   it("sends a SET to st0, like every other shape of project", () => {
-    // A set had a suffix and an app of its own once. It is an `.st0` with no arrangement, a
-    // `songs.yaml` and a `turntables` surface — so there is one link to build, not two.
+    // A set had a suffix and an app of its own once; it is an `.st0`, so there is one link.
     expect(
       launchUrl("https://st0.priv.frediver.se", "band", "live.st0", "st0"),
     ).toBe("https://st0.priv.frediver.se/band/live.st0");
   });
 
-  // z0 is six SPAs behind one prefix, and only one of them opens a project — so its address
-  // carries the SPA too (PROJECT_MOUNTS). This is the pair that would silently 404 if the two
-  // ends ever disagreed about that segment.
+  // z0's address carries the SPA too (PROJECT_MOUNTS), and this pair would 404 if the ends drifted.
   it("sends a z0 session to the editor, not to the game's apex", () => {
     expect(
       launchUrl(
@@ -211,8 +198,7 @@ describe("projectsUrl", () => {
     );
   });
 
-  // The whole point of the address it answers: `parseLaunch` must read it back as "no project",
-  // or the home would resolve its own first segment as a repository and clone something.
+  // `parseLaunch` must read it back as "no project", or the home would clone its own first segment.
   it("names no project, which is what makes it the home", () => {
     const home = new URL(
       projectsUrl("https://st0.priv.frediver.se/band/a.st0"),

@@ -11,8 +11,7 @@ import {
 import { ChevronDown, ChevronUp, ListVideo, X } from "lucide-react";
 import { usePlayback } from "./PlaybackProvider";
 
-/** The artist and album, which the path carries: `songs/<artist>/<album>/<title>`. Empty when the
- *  path is shorter than that shape — a song nobody filed. */
+/** The artist and album, which the path carries; empty for a song nobody filed. */
 function under(path: string): string {
   const parts = path.split("/");
   return parts.length >= 4 ? `${parts[1]} · ${parts[2]}` : "";
@@ -32,8 +31,7 @@ export function QueueButton() {
           title="Liste de lecture"
         >
           <ListVideo className="h-4 w-4" />
-          {/* Le compte sur la pastille : c'est la seule chose qu'on veut savoir sans ouvrir,
-              et une file vide n'en porte pas — un « 0 » serait du bruit permanent. */}
+          {/* The count on the badge, and none on an empty queue: a « 0 » would be permanent noise. */}
           {queue.length > 0 && (
             <span className="absolute -right-0.5 -top-0.5 rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
               {queue.length}
@@ -42,10 +40,7 @@ export function QueueButton() {
         </Button>
       </DropdownMenuTrigger>
 
-      {/* Aligné à la fin et vers le haut : la barre est en bas de l'écran.
-          La largeur est plafonnée par la FENÊTRE : 384 px déborde d'un écran de téléphone,
-          et une liste de lecture qu'on ne peut pas atteindre par la droite est une liste
-          dont on ne peut retirer aucune ligne. */}
+      {/* Aligned to the end and upwards, and capped by the WINDOW (../docs/responsive.md). */}
       <DropdownMenuContent
         align="end"
         side="top"
@@ -61,8 +56,7 @@ export function QueueButton() {
             la liste de lecture ».
           </p>
         ) : (
-          // A list rather than DropdownMenuItems: an item closes on click, and moving a row takes
-          // several clicks in a row on the same panel.
+          // A list and not DropdownMenuItems: an item closes on click, and moving a row takes several.
           <ul className="max-h-80 overflow-auto">
             {queue.map((item, i) => (
               <li

@@ -9,14 +9,11 @@ import { renderProject } from "../../../packages/file-service/src/render.ts";
 
 const RATE = 48000;
 const TEMPO = 120; // 2 beats per second — a beat is 0.5s, and a 1/4-note pad's step is one beat
-// C5, not a kick-range C2: the envelope below is measured over 5ms windows, and a 65 Hz tone's
-// period is longer than that — the measurement, not the music, chooses this.
+// C5, not a kick-range C2: the measurement chooses the pitch (../docs/renderHarnesses.md).
 const KEY = 72;
 const PASSES = 4;
 const WIN = 4; // beats per pass: one 4/4 bar, with a pad on each of its four beats
-// A pad's own length, and so what `repeat` divides. A whole beat, which puts a ×4 ratchet's hits
-// 125ms apart — far enough that the refractory window below can be long enough to swallow the
-// second reading of one attack without swallowing a real hit.
+// A pad's own length, and so what `repeat` divides — a whole beat (../docs/renderHarnesses.md).
 const PAD_DUR = 1;
 
 interface Wav {
@@ -62,26 +59,12 @@ function readWav(path: string): Wav {
   return { rate, mono };
 }
 
-/**
- * Where each note ATTACKS, in seconds — found by the RISE, not by a gate.
- *
- * A gate on the envelope only finds a hit that was preceded by silence, and a synth's release runs
- * into the next note: the first version of this counted 2 attacks in a bar of 16 and read as a
- * broken engine. What every hit does have is a sharp front, so an attack is a frame several times
- * louder than the one before it, with a refractory window so one onset is not counted twice.
- *
- * Counting attacks rather than measuring an envelope, because what both effects change is HOW MANY
- * there are and WHEN: a ratchet is four hits where there was one, a skip is three passes of four.
- */
+/** Where each note ATTACKS, in seconds — what both effects change is how many and when. */
 const HOP_MS = 5;
 
 function attacks(w: Wav): number[] {
   const hop = Math.round((w.rate * HOP_MS) / 1000);
-  // RMS per hop, not peak: a PEAK envelope tracks the waveform itself, so a sustained tone makes
-  // it wobble once per period — at 65 Hz that is a rise every 15ms, and the flux below counted 28
-  // attacks in a bar of 4. RMS over a window longer than the period is flat while a note holds,
-  // which is the whole property this measurement rests on. (The pitch is high for the same
-  // reason: see KEY.)
+  // RMS per hop and never PEAK, which wobbles once per period (../docs/renderHarnesses.md).
   const env: number[] = [];
   for (let n = 0; n + hop <= w.mono.length; n += hop) {
     let sum = 0;
@@ -89,14 +72,7 @@ function attacks(w: Wav): number[] {
     env.push(Math.sqrt(sum / hop));
   }
   const loudest = Math.max(...env);
-  /**
-   * Each ISLAND of energy is one hit — a Schmitt trigger, not an onset heuristic.
-   *
-   * The synth is given a 30ms percussive envelope above precisely so this can be the measurement:
-   * every hit is loud, then silent, and counting them needs no judgement about what an "attack"
-   * looks like. The two thresholds are far apart so a decay tail crossing back and forth cannot
-   * ring the trigger twice.
-   */
+  // Each ISLAND of energy is one hit — a Schmitt trigger (../docs/renderHarnesses.md).
   const HIGH = loudest * 0.3;
   const LOW = loudest * 0.05;
   const out: number[] = [];
@@ -140,8 +116,7 @@ function docFor(note: Record<string, unknown>): unknown {
             type: "midi",
             name: "pat",
             start: 0,
-            // The shape a looped sequence compiles to: the window as the loop range, and the
-            // length as that window times the passes.
+            // The shape a looped sequence compiles to: the window as loop range, times the passes.
             length: WIN * PASSES,
             offset: 0,
             fadeIn: 0,
@@ -157,15 +132,7 @@ function docFor(note: Record<string, unknown>): unknown {
             type: "4osc",
             name: "synth",
             role: "instrument",
-            /**
-             * A PERCUSSIVE amp envelope, and it is the measurement that asks for it.
-             *
-             * On the default patch a note rings for ~350ms and its release runs into the next hit,
-             * so there is no silence between the four hits of a ratchet and no reliable way to
-             * count them: every onset heuristic tried against that tail either missed hits or
-             * doubled them. A 30ms blip that decays to nothing makes each hit an ISLAND of energy
-             * with real silence around it, and counting islands needs no heuristic at all.
-             */
+            // A PERCUSSIVE amp envelope, asked for by the measurement (../docs/renderHarnesses.md).
             params: {
               "Amp Attack": 0.001,
               "Amp Decay": 0.03,
@@ -208,16 +175,11 @@ async function main(): Promise<void> {
   const base = await run("sans effet", {});
   check("16 frappes, 4 par passe", base.perPass.every((n) => n === 4));
 
-  /**
-   * A ratchet on the FIRST pad only: it should become four hits inside its own step, so a pass
-   * gains three. The other three pads must be untouched — an effect that leaked onto its
-   * neighbours would still raise the total and would still look right in a count alone.
-   */
+  // A ratchet on the FIRST pad only, so a pass gains three and the others are untouched.
   const rep = await run("repeat x4", { repeat: 4 });
   check("7 frappes par passe (4 + 3)", rep.perPass.every((n) => n === 7));
   {
-    // The four hits divide the PAD's own length, which is what "in the available time for the
-    // pad" means: they must not run past it into the next step.
+    // The four hits divide the PAD's own length: they must not run into the next step.
     const want = ((PAD_DUR / 4) * 60) / TEMPO;
     const first4 = rep.hits.slice(0, 4);
     const spacing = first4.slice(1).map((t, i) => t - first4[i]);
@@ -235,8 +197,7 @@ async function main(): Promise<void> {
   const s4 = await run("skip 4", { skip: 4 });
   check("passes [4, 4, 4, 3]", JSON.stringify(s4.perPass) === "[4,4,4,3]");
 
-  // Both at once, on one pad: the ratchet plays where the pad is not skipped, and nothing at all
-  // where it is. This is the case a naive expansion gets wrong by skipping single hits.
+  // Both at once, which a naive expansion gets wrong by skipping single hits rather than passes.
   const both = await run("repeat x4 + skip 2", { repeat: 4, skip: 2 });
   check("passes [7, 3, 7, 3]", JSON.stringify(both.perPass) === "[7,3,7,3]");
 

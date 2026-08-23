@@ -16,9 +16,7 @@ import {
 
 export const playerRouter: Router = Router();
 
-/** The state, and enough to know whether the destination is possible at all. Polled while playing:
- *  it is what gives the bottom bar its position, mpv being on another machine with no way to push
- *  it to the browser. */
+/** The state, polled while playing: mpv is on another machine and cannot push its position. */
 playerRouter.get(
   "/player",
   wrap(async (req, res) => {
@@ -30,8 +28,7 @@ playerRouter.get(
   }),
 );
 
-// The path is RELATIVE to the médiathèque, never absolute: that is what keeps a client naming only
-// what this machine caches. See `resolveInMediatek`.
+// The path is RELATIVE to the médiathèque, so a client can name only what this machine caches.
 const playBody = z.object({
   path: z.string().min(1),
   from: z.number().min(0).optional(),
@@ -45,8 +42,7 @@ playerRouter.post(
       await play(req.userEmail!, path, from ?? 0);
       res.json(await state(req.userEmail!));
     } catch (e) {
-      // Refused path, missing file, missing mpv: all fixable by the caller or by whoever sets the
-      // machine up, so 400 and the sentence as it is.
+      // Refused path, missing file, missing mpv: all fixable, so 400 and the sentence as it is.
       res.status(400).json({ error: (e as Error).message });
     }
   }),
@@ -75,8 +71,7 @@ playerRouter.post(
   }),
 );
 
-/** Silence it. mpv stays idle — restarting it for every song would cost a process launch for
- *  nothing. */
+/** Silence it; mpv stays idle, since restarting it per song would cost a process launch for nothing. */
 playerRouter.post(
   "/player/stop",
   wrap(async (req, res) => {

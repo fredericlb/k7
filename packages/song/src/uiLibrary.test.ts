@@ -16,12 +16,7 @@ import { writeLibraries, writeLibrary, writeYaml } from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
 
-// A module's panel is the `ui.yaml` in its own folder, beside `module.yaml`: the plugin scan can rewrite what a
-// module IS without touching how it is DRAWN, and one panel serves every project that inherits the module.
-//
-// The FOLDER is the key — there is no `ref:` in the file to disagree with it — and every library the project can
-// see is read, nearest first. That is what these tests pin down, plus the migration, which has to move a panel
-// without disturbing the rest of a module file people hand-edit and keep in git.
+// A panel is the `ui.yaml` in the module's own FOLDER, which is the key: no `ref:` can disagree with it.
 
 const PANEL = {
   cols: 2,
@@ -55,10 +50,7 @@ const writeLocalModule = (body: string) =>
   );
 
 describe("panels across more than one library", () => {
-  // A SECOND module library beside the workspace's own `_modules`: the account's library
-  // submodule, mounted at `_libraries/modules`. It answers to `@st0` because of the folder it
-  // sits in — no config, no declaration — and reaching its panels through that is what these
-  // pin down.
+  // A SECOND library at `_libraries/modules`, answering to `@st0` by its folder and no config.
   let media: string;
   beforeEach(() => {
     media = join(root, "_libraries");
@@ -66,8 +58,7 @@ describe("panels across more than one library", () => {
   });
 
   it("loads a module OUT of the media library, through the @st0 token", () => {
-    // The end of the chain this step exists for: the project reaches a library it does not
-    // contain, and the module resolves — with no path anywhere in project.yaml.
+    // The project reaches a library it does not contain, with no path anywhere in project.yaml.
     const refs = loadModuleRefs(dir);
     expect(refs["@st0/audio/reverb"]).toBeTruthy();
     expect(refs["@workspace/audio/delay/tape-delay"]).toBeTruthy();
@@ -82,24 +73,21 @@ describe("panels across more than one library", () => {
   });
 
   it("writes a shared module's panel into the shared module's own folder", () => {
-    // The rule that changed: a panel is drawn for the plugin, so it lands where the plugin is
-    // rather than being copied into every project that plays it.
+    // A panel is drawn for the plugin, so it lands where the plugin is, not in every project.
     const written = writeUiFile(dir, "@st0/audio/reverb", PANEL);
     expect(written).toBe(join(media, "modules", "audio", "reverb", "ui.yaml"));
     expect(loadUiLibrary(dir).byRef["@st0/audio/reverb"]?.ui).toEqual(PANEL);
   });
 
   it("refuses a namespace no library this project can see declares", () => {
-    // Guessing a root would file the panel under a module that isn't there — a save that
-    // reports success and draws nothing.
+    // Guessing a root files the panel under a module that is not there: a save that draws nothing.
     expect(() => writeUiFile(dir, "@nowhere/audio/reverb", PANEL)).toThrow(
       /@nowhere/,
     );
   });
 
   it("lets the project's own panel win, without calling it a mistake", () => {
-    // The same NAME in two libraries is precedence, not a collision: it is what a fork looks
-    // like. The refs differ, so both are keyed — what matters is which one a local module draws.
+    // One NAME in two libraries is a fork, so both are keyed and the local module picks.
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     writeUiFile(dir, "@st0/audio/reverb", { ...PANEL, cols: 9 });
     writeUiFile(dir, "audio/reverb", PANEL);
@@ -117,8 +105,7 @@ describe("where a panel files itself", () => {
       "audio/delay/tape-delay/ui.yaml",
     );
     expect(uiPathFor("audio/reverb")).toBe("audio/reverb/ui.yaml");
-    // An io ref carries no type folder, so it still gets one back — that rescue is about the
-    // REF's shape, not about the tree the file used to live in.
+    // An io ref carries no type folder, so it gets one back from the REF's shape.
     expect(uiPathFor("desk")).toBe("io/desk/ui.yaml");
   });
 
@@ -158,8 +145,7 @@ describe("where a panel files itself", () => {
   });
 
   it("is not read as a node of the module it sits beside", () => {
-    // THE hazard of the move: every `<name>.yaml` in a module folder is one use of the module,
-    // so an unguarded `ui.yaml` would come back as a module called "reverb:ui".
+    // Every `<name>.yaml` in a module folder is a use, so an unguarded one reads as "reverb:ui".
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     writeUiFile(dir, "audio/reverb", PANEL);
     expect(Object.keys(loadModules(dir))).toEqual(["reverb"]);
@@ -180,11 +166,7 @@ describe("the loader overlays the panels", () => {
   });
 
   it("shows a shared generic's panel on its INHERITED nodes", () => {
-    // `module populate` files one io/IN node per interface input, and a chain names
-    // one of them — so this is the path a live input actually takes. The ref map keys an
-    // inherited node "@workspace/io/IN:in-2", which no panel answers to, and the lookup
-    // used that key verbatim: the generic's grid reached the generic and nothing else, so
-    // every input in the graph drew "No Options" over a panel that was right there.
+    // A verbatim lookup of "@workspace/io/IN:in-2" found no panel, so every input drew "No Options".
     writeFileSync(
       join(root, "_modules", "io", "IN", "in-2.yaml"),
       "channel: [2]\n",
@@ -218,8 +200,7 @@ describe("the loader overlays the panels", () => {
   });
 
   it("shows a module's panel on the nodes that use it", () => {
-    // A panel is drawn for the MODULE, and every use of it gets that panel — a node has
-    // no ref of its own to be filed under, so it is looked up by what it extends.
+    // A node has no ref of its own to be filed under, so it is looked up by what it extends.
     writeLocalModule("plugin:\n  name: Reverb\n  type: vst3\n");
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
@@ -265,8 +246,7 @@ describe("migrating the panels that are still inline", () => {
     );
     expect(after).not.toMatch(/^ui:/m);
     expect(after).toContain("# A reverb."); // comments survive
-    // As do trailing keys and theirs — though `yaml`'s round-trip moves an end-of-line comment onto its own
-    // line, which is setModuleValue's long-standing behaviour and not something this migration introduces.
+    // As do trailing keys, though the round-trip moves an end-of-line comment onto its own line.
     expect(after).toContain("# kept");
     expect(after).toMatch(/Mix: 0\.4/);
     expect(loadModules(dir).reverb.ui).toEqual(PANEL); // and the panel still reaches the module
@@ -327,10 +307,7 @@ describe("migrating the panels that are still inline", () => {
   });
 });
 
-// A panel is written by one half of the editor and read back by the other, so what matters is not that each
-// half works but that the text survives the trip. The empty grid is the case that didn't: a bare `widgets:`
-// reads back as NULL, the schema refuses null, and the editor reported the file it had just written as
-// malformed — on exactly the modules that have no panel yet, which is when the grid is wanted.
+// A bare `widgets:` read back as NULL, so the editor called the file it had just written malformed.
 describe("a panel file reads back as what was written", () => {
   const roundTrips = (ui: Parameters<typeof uiFileText>[0]) =>
     UISchema.safeParse(parseYaml(uiFileText(ui), { version: "1.2" })).success;

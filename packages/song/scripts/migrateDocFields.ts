@@ -82,11 +82,7 @@ for (const root of roots)
     const prose = proseOf(doc);
     doc.delete("docs");
     doc.delete("todos");
-    // TRAILING, which is where `docs:` sat in every file that has one — so the prose does not
-    // jump above a header comment it was written under. A file's own header is usually attached
-    // to its first ITEM rather than to the document, so prepending would have interleaved the
-    // two: the description first, then the header explaining the file. An empty result (a
-    // `docs: ""` nobody wrote) simply drops the keys.
+    // TRAILING, or the prose jumps above the header comment it was written under.
     if (prose)
       doc.comment = doc.comment
         ? `${doc.comment}\n${prose.replace(/^/gm, " ")}`

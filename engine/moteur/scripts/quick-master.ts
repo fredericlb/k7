@@ -11,8 +11,7 @@ import { renderProject } from "../../../packages/file-service/src/render.ts";
 /** The knobs a run overrides, on top of the plugin's own neutral defaults. */
 type Knobs = Record<string, number>;
 
-// A loud sustained note, hard-panned by a second track, so there is something to limit and
-// something to narrow. 4osc because it is the one instrument that needs no file on disk.
+// A loud sustained note, hard-panned by a second track; 4osc needs no file on disk.
 function doc(params: Knobs | null) {
   const note = (key: number) => ({
     id: `c${key}`,
@@ -28,11 +27,7 @@ function doc(params: Knobs | null) {
     clips: [note(key)],
     plugins: [
       { id: `${id}:synth`, type: "4osc", name: "synth", role: "instrument" },
-      // Panned hard apart, which is what gives the render a SIDE signal to widen or collapse,
-      // and turned DOWN 12 dB. The headroom is the whole point: the bounce is 24-bit PCM, so a
-      // hot render clips at the format and every measurement below would then be comparing two
-      // clipped waveforms. At −12 the plugin's default ceiling never engages, which is what
-      // makes "neutral leaves the mix alone" a real claim rather than an artefact.
+      // Panned hard apart for a SIDE signal, and down 12 dB for headroom (../docs/renderHarnesses.md).
       {
         id: `${id}:mix`,
         type: "studio_mixer",
@@ -52,8 +47,7 @@ function doc(params: Knobs | null) {
     settings: { metronome: false, countIn: 0 },
     groups: [],
     tracks: [track("t1", 45, -1), track("t2", 52, 1)],
-    // `internal` + the DISPLAY name is how a doc names a built-in: enginePlugin() turns it into
-    // `{ type: "Quick Master" }` and resolveBuiltInType matches it to studio_quickmaster.
+    // The DISPLAY name is how a doc names a built-in — see ../docs/renderHarnesses.md.
     masterPlugins: params
       ? [
           {
@@ -71,8 +65,7 @@ function doc(params: Knobs | null) {
 /** Peak and mid/side energy of a rendered stereo float wav. */
 function measure(file: string): { peak: number; side: number; mid: number } {
   const buf = readFileSync(file);
-  // Walk the RIFF chunks rather than assuming a 44-byte header: a float wav carries `fmt ` with
-  // an extension and often a `fact` chunk, so the fixed offset lands mid-sample.
+  // Walk the RIFF chunks rather than assuming a 44-byte header (../docs/renderHarnesses.md).
   let at = 12;
   let dataAt = -1;
   let dataLen = 0;
@@ -95,9 +88,7 @@ function measure(file: string): { peak: number; side: number; mid: number } {
   }
   if (dataAt < 0) throw new Error(`${file}: no data chunk`);
 
-  // The bounce is 24-bit PCM today and was float while this was being written, so the reader
-  // takes both rather than pinning one — a harness that fails on the render's own format tells
-  // you nothing about the plugin.
+  // Both formats rather than one: a harness failing on the render's own format says nothing.
   const bytes = bits / 8;
   const full = 2 ** (bits - 1);
   const sample = (i: number): number => {
@@ -139,31 +130,21 @@ async function run(label: string, params: Knobs | null) {
 const db = (x: number) => 20 * Math.log10(Math.max(x, 1e-9));
 
 async function main() {
-  // 1. NEUTRAL. The plugin's own defaults do nothing audible, which is what lets a module drop
-  //    one into a chain without changing the mix until somebody turns a knob.
+  // 1. NEUTRAL — the defaults do nothing audible, so a module may drop one into a chain.
   const bare = await run("no plugin", null);
   const neutral = await run("neutral", {});
 
-  // 2. THE CEILING. −12 dB with 12 dB of drive — 18 dB of limiting, far more than a one-pole
-  //    attack can take off a transient, so this is the safety clipper's claim as much as the
-  //    limiter's. A peak above the ceiling here means the ceiling is an intention.
-  //
-  //    −12 is the FLOOR of the parameter's own range, and asking for less is how this line
-  //    lied for one run: an out-of-range value is clamped by the AutomatableParameter, so
-  //    `Ceiling: -18` measured −12 dBFS and read as a limiter 6 dB out.
+  // 2. THE CEILING, at the FLOOR of its own range with 12 dB of drive (../docs/renderHarnesses.md).
   const ceiling = await run("ceiling −12 dB", { Ceiling: -12, Drive: 12 });
 
-  // 3. THE IMAGE, measured as the side/mid RATIO rather than as the side alone. The limiter
-  //    sits after the spreader, so widening can push into it and pull the whole render down —
-  //    an absolute side level would then read a wider image as a narrower one.
+  // 3. THE IMAGE, as the side/mid RATIO rather than the side alone (../docs/renderHarnesses.md).
   const mono = await run("width 0", { Width: 0 });
-  //    …and the other way, which is the half that is easy to get backwards.
+
+  // …and the other way, which is the half that is easy to get backwards.
   const wide = await run("width 180", { Width: 180 });
   const ratio = (m: { mid: number; side: number }) => m.side / Math.max(m.mid, 1e-9);
 
-  // 4. THE BANDS SUM. Three amounts at zero and the split still runs — this is the LR4 allpass
-  //    correction in splitBands. Without it there is a several-dB notch around the low corner,
-  //    which shows up here as a neutral render quieter than the bare one.
+  // 4. THE BANDS SUM — the LR4 allpass correction in splitBands (../docs/renderHarnesses.md).
   const neutralDb = db(neutral.peak) - db(bare.peak);
 
   const checks: [string, boolean, string][] = [

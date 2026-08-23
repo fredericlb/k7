@@ -7,36 +7,21 @@ import type { EditorState } from "@codemirror/state";
 import { parsedTree } from "./parseTree";
 
 export interface CursorContext {
-  /**
-   * The keys enclosing the cursor's own mapping, outermost first. Inside w1's fields this
-   * is ["ui", "widgets", "w1"]; while typing `w1` itself it is ["ui", "widgets"], because
-   * the cursor is still in the mapping that HOLDS w1.
-   */
+  /** The keys enclosing the cursor's own mapping, outermost first — while typing `w1` it is the mapping that HOLDS w1. */
   path: string[];
   /** Is the cursor where a field NAME goes, rather than a value? */
   inKey: boolean;
   /** The field whose value the cursor is filling, when it is filling one. */
   valueOf: string | null;
-  /**
-   * Is the cursor on the `- ` item of a block sequence, with nothing yet deciding what it is?
-   *
-   * Such a line is genuinely BOTH: `- song: x` is a mapping and `- x` is a scalar, and only
-   * the colon tells them apart. It is reported as a key position AND as a sequence item, so a
-   * caller can offer the two vocabularies together rather than guessing which was meant.
-   */
+  /** Is the cursor on the `- ` item of a block sequence, which is genuinely BOTH? See docs/completion.md. */
   inSeqItem: boolean;
 }
 
 const MAPPINGS = new Set(["BlockMapping", "FlowMapping"]);
 
-/**
- * Resolve the cursor's position in key terms.
- *
- * `pos` is a document offset — normally the head of the selection.
- */
+/** Resolve the cursor's position in key terms; `pos` is a document offset, normally the head of the selection. */
 export function cursorContext(state: EditorState, pos: number): CursorContext {
-  // Parsed through the caret, not just the first 3000 characters — otherwise completion stops
-  // being offered partway down a long file, which reads as the editor having given up. See parseTree.ts.
+  // Parsed through the caret, or completion stops being offered partway down a long file (see parseTree.ts).
   const tree = parsedTree(state, pos);
   // -1 biases to the node ENDING at pos: after `type:` we want that pair, not whatever begins next.
   const node = tree.resolveInner(pos, -1);
@@ -64,9 +49,7 @@ export function cursorContext(state: EditorState, pos: number): CursorContext {
       ? state.sliceDoc(keyNode.from, keyNode.to).trim()
       : null;
     if (!insideMapping) {
-      // A Pair reached before any mapping names the field being filled — UNLESS the cursor is indented past that key.
-      // `plugin:` with a half-typed word beneath is genuinely ambiguous YAML, and indentation is what disambiguates.
-      // It has to be right: this fires on every keystroke.
+      // A Pair reached before any mapping names the field being filled, unless the cursor is indented past that key.
       if (nestedUnder(state, pos, n.from)) {
         if (key !== null) path.push(key);
         insideMapping = true;
@@ -98,15 +81,7 @@ function nestedUnder(
   return here.number > key.number && indentOf(pos) > indentOf(keyFrom);
 }
 
-/**
- * What the cursor's own LINE says about it: a field name or a value, and whether it sits on a
- * sequence item.
- *
- * A mapping entry is a key until its colon. The fragment examined is the current line
- * from its last structural break — a `- ` sequence marker, or the `{`/`,` of a flow
- * mapping — so `{ type: knob, ` is asking for a key while `{ type: kn` is asking for a
- * value.
- */
+/** What the cursor's own LINE says: a mapping entry is a key until its colon, read from the last structural break. */
 function linePosition(
   state: EditorState,
   pos: number,

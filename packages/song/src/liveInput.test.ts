@@ -14,14 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 
-// An io "in" module used to name the track it fed, with a `track:` field. That could not
-// survive the module living in a workspace's shared _modules: `module populate` files one
-// io/IN node per physical input there, and which TRACK an input lands on is a
-// per-project answer — the shared file had nowhere to put it.
-//
-// So the wiring moved to the chain: an input is a step, and the chain it sits in already
-// names the track. These pin the new relation from both ends — what the engine gets, and
-// what the graph says when the chain can't answer the question.
+// An input's track moved from a `track:` field to the CHAIN: a shared io/IN node cannot name one.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -39,8 +32,7 @@ const IN = "@workspace/io/IN:in-1";
 describe("a live input, wired by its chain", () => {
   let ws: string;
   let dir: string;
-  // Wire nodes into graph.yaml's segments — each call merges, so a test states only its
-  // own edges. The shipping writer emits, so the fixture cannot drift from the format.
+  // Merge edges into graph.yaml through the shipping writer, so the fixture cannot drift.
   const wire = (seg: { modules?: Record<string, string[]> }): void => {
     const p = join(dir, "graph.yaml");
     const cur = parseGraph(readFileSync(p, "utf8")).value ?? {};
@@ -57,8 +49,7 @@ describe("a live input, wired by its chain", () => {
     ws = mkdtempSync(join(tmpdir(), "td-livein-"));
     dir = join(ws, "song");
     cpSync(SONG, dir, { recursive: true });
-    // The shared catalogue as `module populate` leaves it: a generic IN, and one
-    // node per interface input carrying nothing but its channel.
+    // The shared catalogue as `module populate` leaves it: a generic IN and one node per input.
     mkdirSync(join(ws, "_modules", "io", "IN"), { recursive: true });
     writeFileSync(join(ws, "_modules", "io", "IN", "module.yaml"), "io: in\n");
     writeFileSync(
@@ -73,10 +64,7 @@ describe("a live input, wired by its chain", () => {
         "modules_from: [ ../_modules ]",
       ),
     );
-    // An interface input carries audio, and every lane the fixture ships plays
-    // sequences — so the input gets an audio lane of its own. Called `mic` rather than
-    // `live`: the fixture already has a group by that name, and one flat name space
-    // means one name, one node.
+    // An audio lane of its own, called `mic`: the fixture already has a group called `live`.
     writeFileSync(join(dir, "nodes", "mic.yaml"), 'extends: "@studio/track"\n');
     wire({ modules: { mic: [IN], [IN]: ["OUT"] } });
   });
@@ -99,8 +87,7 @@ describe("a live input, wired by its chain", () => {
   });
 
   it("says so when its run reaches no track", () => {
-    // Nothing feeds the input and it feeds nothing but OUT, so no lane owns it — there is
-    // no track for the signal to land on. The case the old `track:` field could not express.
+    // No lane owns the input, so the signal has nowhere to land — and it must say so.
     wire({ modules: { mic: [] } });
     const w = loadGraph(dir).warnings;
     expect(
@@ -108,9 +95,7 @@ describe("a live input, wired by its chain", () => {
     ).toBe(true);
   });
 
-  // The direction that reads correctly, and the one the graph draws: signal comes FROM an
-  // input, INTO a lane. The old chain-list format could not say it — a chain named its
-  // track up front and the input was a node inside it, so the arrow pointed backwards.
+  // Signal comes FROM an input INTO a lane, which the old chain-list format drew backwards.
   describe("an input that FEEDS a track", () => {
     beforeEach(() => wire({ modules: { mic: [], [IN]: ["mic"] } }));
 
@@ -119,14 +104,12 @@ describe("a live input, wired by its chain", () => {
         [],
       );
       const live = compileNodeProject(dir).tracks.find((t) => t.id === "mic");
-      // The whole point: without this the lane compiles with no input, and arming it says
-      // "has no input — nothing to record" about a rig that is plainly wired.
+      // Without this the lane compiles with no input and refuses to arm on a wired rig.
       expect(live?.inputChannels).toEqual([1]);
     });
 
     it("does not read the track as a dangling destination", () => {
-      // A track is not a chain and not a sink, so the ordinary out-check would call it
-      // neither. It is the one destination that is a LANE.
+      // A track is neither a chain nor a sink: it is the one destination that is a LANE.
       expect(
         loadGraph(dir).warnings.filter((w) =>
           w.includes("not a chain or io sink"),
@@ -135,8 +118,7 @@ describe("a live input, wired by its chain", () => {
     });
 
     it("refuses the same arrow from a module that is not an input", () => {
-      // A track's material is its clips, so an ordinary module aimed at one is silently
-      // discarded — which is exactly what a warning is for.
+      // A track's material is its clips, so an ordinary module aimed at one is discarded.
       wire({ modules: { [IN]: ["OUT"], lead: ["mic"] } });
       expect(
         loadGraph(dir).warnings.some((x) =>
@@ -147,9 +129,7 @@ describe("a live input, wired by its chain", () => {
   });
 
   it("lands on the AUDIO half of a split lane", () => {
-    // A lane wired on both its outputs compiles to two engine tracks. An interface input
-    // carries audio, so it belongs on the one that takes audio — put on the midi half it would
-    // arm a track whose chain is an instrument, and the recording would go through the synth.
+    // On the midi half it would arm a track whose chain is an instrument, recording through it.
     writeFileSync(
       join(dir, "nodes", "mic.yaml"),
       [
@@ -170,11 +150,7 @@ describe("a live input, wired by its chain", () => {
   });
 
   it("no longer refuses a lane holding sequences — every lane has an audio output", () => {
-    // This used to warn: the lane was `contentType: sequences`, and an interface input carries
-    // audio. A detyped lane offers both outputs whatever it holds, so there is nothing left to
-    // refuse — the recording lands on the half that takes audio, beside the sequences already
-    // there. Which is the point: overdubbing a guitar onto the lane you wrote the line on no
-    // longer needs a second lane.
+    // A detyped lane offers both outputs whatever it holds, so overdubbing needs no second lane.
     wire({ modules: { mic: [], melody: [IN], [IN]: ["lead"] } });
     expect(
       loadGraph(dir).warnings.some((x) =>
@@ -183,9 +159,7 @@ describe("a live input, wired by its chain", () => {
     ).toBe(false);
   });
 
-  // An input at the END of a run is read as somewhere to route TO — which is exactly what
-  // it isn't. Worth its own case: it is the shape you reach for first, and the diagnosis
-  // has to point at the sink rather than stay silent.
+  // An input at the END of a run reads as somewhere to route TO, which is what it is not.
   it("is not mistaken for a sink when it ends the run", () => {
     wire({ modules: { [IN]: [] } }); // `mic` still feeds it, and it feeds nothing
     expect(
@@ -196,9 +170,7 @@ describe("a live input, wired by its chain", () => {
   });
 });
 
-// The two things an input carries besides WHICH channel it is: whether you hear it, and how much trim it gets.
-// Both are properties of the interface device engine-side, so they ride the track the input landed on — there
-// is nowhere else for them to go, and a value that never reaches the engine is a field that does nothing.
+// Monitoring and trim are device properties engine-side, so they ride the track the input landed on.
 describe("an input's monitoring and gain", () => {
   let ws: string;
   let dir: string;
@@ -251,8 +223,7 @@ describe("an input's monitoring and gain", () => {
   });
 
   it("still takes the tri-state — only it can say 'auto'", () => {
-    // "auto" is audible once ARMED, which is neither on nor off: dropping the enum for a
-    // boolean would have removed the default rather than added a spelling.
+    // "auto" is audible once ARMED, so a boolean-only spelling would drop the default.
     expect(node("channel: [1]\nmonitor: auto\n")?.monitor).toBe("auto");
     expect(node("channel: [1]\nmonitor: on\n")?.monitor).toBe("on");
   });

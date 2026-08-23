@@ -41,8 +41,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("the three built-in track modules", () => {
   it("resolve with no file anywhere", () => {
-    // Like `@studio/doc` before them: a lane must cost one file — its own node — so there is
-    // nothing to scaffold and nothing for an old project to be missing.
+    // A lane must cost ONE file, its own node, so there is nothing an old project can be missing.
     const refs = loadModuleRefs(project([["gtr", "@studio/track"]]));
     for (const ref of TRACK_REFS) {
       expect(refs[ref], ref).toBeDefined();
@@ -51,8 +50,7 @@ describe("the three built-in track modules", () => {
   });
 
   it("offer BOTH outputs — a lane is not typed by what it carries", () => {
-    // The whole of detyping, in one assertion. Drop either port and a lane can hold only one
-    // kind of material again, which is the state this replaced.
+    // Detyping in one assertion: drop either port and a lane holds one kind of material again.
     const m = trackModules();
     for (const ref of ["@studio/track", "@studio/strudel-track"])
       expect(m[ref].outputs, ref).toEqual([
@@ -69,9 +67,7 @@ describe("the three built-in track modules", () => {
   });
 
   it("take NO input — what arrives on a lane is its clips", () => {
-    // A live interface channel is the one thing routed into a lane, and the compiler LANDS it
-    // there rather than feeding a port: the flat model the engine plays cannot express routing
-    // into a lane's input. An input port here would promise something the engine cannot do.
+    // A live input LANDS on a lane rather than feeding a port, which the engine cannot express.
     for (const m of Object.values(trackModules())) expect(m.inputs).toEqual([]);
     expect(MODULE_TYPES[TRACK_CATEGORY].kind).toBe("track");
   });
@@ -79,8 +75,7 @@ describe("the three built-in track modules", () => {
 
 describe("a lane, read off what it extends", () => {
   it("says nothing about what it carries — the EVENTS do", () => {
-    // A lane holding a clip and a sequence, which used to be unsayable: it took two lanes, one
-    // typed `audio` and one typed `sequences`. The compiled doc reads both off the material.
+    // One lane holding a clip and a sequence, which used to take two typed lanes.
     const p = project(
       [
         [
@@ -105,15 +100,13 @@ describe("a lane, read off what it extends", () => {
     expect(loadLanes(p).gtr.type).toBe("single");
     const doc = compileNodeProject(p);
     const gtr = doc.tracks.find((t) => t.id === "gtr");
-    // Wired bare, so one engine track carries both — the third value TrackDoc.contentType has
-    // documented all along and never had a way to hold.
+    // Wired bare, so one engine track carries both: contentType's third value, finally reachable.
     expect(gtr?.contentType).toBe("audio notes");
     expect(gtr?.clips.map((c) => c.type)).toEqual(["audio", "midi"]);
   });
 
   it("splits into two engine tracks when both outputs are wired", () => {
-    // The engine holds one plugin chain per track, so a lane running its clips through one and
-    // its sequences through another is two tracks THERE. The lane stays one thing here.
+    // One plugin chain per engine track, so two wired outputs are two tracks there and one lane here.
     const p = project(
       [
         [
@@ -149,8 +142,7 @@ describe("a lane, read off what it extends", () => {
   });
 
   it("refuses an event whose output is not wired, and says which key to add", () => {
-    // A lane wired only to its midi output, holding an audio clip. Dropping it silently is the
-    // one outcome worth refusing: the graph looks right and the clip is simply not heard.
+    // Dropping the clip silently is what must be refused: the graph looks right and it is not heard.
     const p = project(
       [
         [
@@ -184,8 +176,7 @@ describe("a lane, read off what it extends", () => {
   });
 
   it("is a chain's SOURCE, not a step in it", () => {
-    // A run is named after the lane that starts it, and `from` is what says so. Read wrong, the
-    // lane would compile as a plugin on somebody else's track.
+    // `from` says the lane STARTS the run; read wrong, it compiles as a plugin on another track.
     const g = loadGraph(project([["gtr", "@studio/track"]]));
     expect(g.chains.gtr.from).toBe("gtr");
     expect(g.chains.gtr.use).toEqual([]);
@@ -228,8 +219,7 @@ describe("a lane's mute is its module's bypass", () => {
 
 describe("what a lane may not be called", () => {
   it("refuses a name a module already has — one flat name space", () => {
-    // The practical cost of merging the two: a lane and the instrument it feeds cannot share a
-    // name. Said out loud at load time rather than discovered as a self-loop in the chains.
+    // Said at load time rather than discovered as a self-loop in the chains.
     const p = project([["amp", "@studio/track"]]);
     mkdirSync(join(p, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
@@ -242,9 +232,7 @@ describe("what a lane may not be called", () => {
 
 describe("a mixed lane wired bare", () => {
   it("warns when everything it holds goes through one typed module", () => {
-    // Bare means "everything this lane emits, down here" — right until the lane holds both
-    // kinds and the first module takes one of them. The synth is then handed the guitar clips
-    // too, which is not a crash and not what anyone meant, so it warns and names the two keys.
+    // A typed first module is handed the other kind too, which is not a crash and not meant.
     const p = project(
       [
         [

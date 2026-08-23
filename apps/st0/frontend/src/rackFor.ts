@@ -5,16 +5,7 @@
 
 import type { WebGraph, WebRackSound } from "@studio/graph-model";
 
-/**
- * The sounds of the first rack downstream of `trackId`, or null when its signal never meets one.
- *
- * Walked in signal order — the track's own chain first, then whatever its outs feed — and the
- * FIRST rack wins: it is the one the track's notes land on, and a second rack further down hears
- * that one's audio, not the notes. Bypassed steps still count, deliberately: a bypassed rack
- * still defines the vocabulary the sequence is written in, and editing while muted is normal.
- *
- * Cycle-safe, because a chains file can legally route back to itself through a send.
- */
+/** The sounds of the first rack downstream of `trackId`, or null — walked in signal order, bypassed steps counting, and cycle-safe. */
 export function rackFor(
   graph: WebGraph | null | undefined,
   trackId: string,

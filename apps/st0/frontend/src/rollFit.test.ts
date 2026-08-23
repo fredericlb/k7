@@ -28,9 +28,7 @@ const fitFor = (c: WebClip, barBeats = 4) =>
 
 describe("the time axis, windowed", () => {
   it("FRAMES the window, with a margin, and lets the canvas span the sequence", () => {
-    // LEMO - DANSE, da.dub/drums_2_0: 7.135 beats of notes, 80 beats placed, an 8-beat loop.
-    // The view opens on the 8-beat window plus a margin either side; the canvas runs over the
-    // sequence, so the wheel reaches what the window leaves out.
+    // A real clip: 7.135 beats of notes, 80 beats placed, an 8-beat loop — the view opens on the window plus a margin either side.
     const c = clip({
       length: 80,
       loopStart: 0,
@@ -53,8 +51,7 @@ describe("the time axis, windowed", () => {
   });
 
   it("keeps the ORIGIN at the sequence's zero, so what is before the window is reachable", () => {
-    // It used to be the window's `from`, which put the canvas's left edge at the window and made
-    // everything before it unreachable — the cage this replaced.
+    // It used to be the window's `from`, which put the canvas's left edge at the window and made everything before it unreachable.
     const f = fitFor(
       clip({
         length: 4,
@@ -70,8 +67,7 @@ describe("the time axis, windowed", () => {
   });
 
   it("does not let a note before the window stretch the PITCH fit", () => {
-    // The note at beat 0 sounds in no pass, so it must not drag the pitch axis down to meet it —
-    // it is drawn, dimmed, as context. The time axis frames the window either way.
+    // The note at beat 0 sounds in no pass, so it must not drag the pitch axis down to meet it — it is drawn dimmed, as context.
     const f = fitFor(
       clip({
         length: 4,
@@ -85,8 +81,7 @@ describe("the time axis, windowed", () => {
   });
 
   it("gives a LONG window a proportional margin, not a fixed one", () => {
-    // A fifth of the window either side: what you want around a two-beat window is a beat, and
-    // around a sixteen-bar one rather more than that.
+    // A fifth of the window either side: around a two-beat window you want a beat, and around a sixteen-bar one rather more.
     const f = fitFor(
       clip({ length: 16, loopStart: 0, loopEnd: 16, notes: [note(0, 1)] }),
     );
@@ -117,8 +112,7 @@ describe("the time axis, windowed", () => {
 
 describe("the time axis, unwindowed", () => {
   it("frames an UNLOOPED clip on its content with a margin, as it always did", () => {
-    // bs.verse/bass_2_0: 19.96 beats of notes in a 20-beat clip — already ~83% full, and the
-    // margin is the whole difference. Nothing here may move.
+    // 19.96 beats of notes in a 20-beat clip — already ~83% full, and the margin is the whole difference. Nothing here may move.
     const c = clip({ length: 20, notes: [note(0), note(18.96, 1)] });
     const f = fitFor(c);
     const end = c.notes.reduce((m, n) => Math.max(m, n.time + n.duration), 0);
@@ -134,9 +128,7 @@ describe("the time axis, unwindowed", () => {
   });
 
   it("stops AT the clip, with nothing beyond to write in", () => {
-    // Reported from the app on a consolidated clip: the roll drew the bar after it. The canvas
-    // used to add eight bars of room past the end, so a four-beat clip got a forty-beat canvas —
-    // nine bars you could roam into and drop a note the placement would never play.
+    // Reported from the app: the canvas added eight bars past the end, so a four-beat clip got nine bars nothing would play.
     const f = fitFor(
       clip({
         length: 4,
@@ -147,8 +139,7 @@ describe("the time axis, unwindowed", () => {
   });
 
   it("still reaches a LONG clip's own end", () => {
-    // The bound is the clip, not the notes: one note at beat 0 in a twenty-bar placement still
-    // gets all twenty to look at, because that is what the placement plays.
+    // The bound is the clip, not the notes: one note in a twenty-bar placement still gets all twenty, because that is what plays.
     expect(fitFor(clip({ length: 80, notes: [note(0)] })).canvasBeats).toBe(80);
   });
 

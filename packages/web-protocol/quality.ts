@@ -16,18 +16,7 @@ export function qualityOf(latencyMs: number): EngineQuality {
   return "Q3";
 }
 
-/**
- * What the audio interface adds, in ms: a buffer in and a buffer out.
- *
- * TWICE the buffer period, because the figure that matters is the one a player feels — a
- * note goes in, gets a block late, comes back a block later. One period would describe
- * playback alone and quietly halve the number that decides whether you can perform on this
- * engine at all. It is still a floor, not the truth: converters and drivers add their own,
- * and the engine reports the only part it knows.
- *
- * Zero when the device has not opened yet (or reported nothing) — an unknown is not a fast
- * one, so callers treat it as "not measured" rather than adding 0 to the round trip.
- */
+/** TWICE the buffer period — a floor, and 0 means "not measured" rather than fast; see docs/quality.md. */
 export function audioLatencyMs(
   bufferFrames: number,
   sampleRate: number,

@@ -40,27 +40,17 @@ function describe(ref: string): { name: string; namespace: string } {
   return { name: path || ref, namespace: ns };
 }
 
-/**
- * Every io module the project can reach, inputs first, each in ref order.
- *
- * `prefs` is injected so this is testable without the machine's preferences file — the
- * labels are a property of the RIG, and a test has no rig.
- */
+/** Every io module the project can reach, inputs first; `prefs` is injected because a test has no rig. */
 export function ioPorts(dir: string, prefs?: Preferences): IoPort[] {
   return withModuleStamp(dir, () => ioPortsIn(dir, prefs));
 }
 
-// Reads twice — the refs, then the project's own modules — so one stamp walk covers the pair,
-// exactly as compileNodeProject and loadGraph do. See moduleCache.ts.
+// Reads twice, so one stamp walk covers the pair as compileNodeProject does (docs/moduleCache.md).
 function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
   type Io = { kind?: string; io?: string; channel?: unknown };
-  // No try/catch left: the shared roots are found by location now, so a folder that is not
-  // there is simply not a root — where a declaration naming a missing one used to throw.
+  // No try/catch left: a shared root is found by location, so a missing folder is simply not one.
   const refs: Record<string, Io> = loadModuleRefs(dir);
-  // …plus the project's OWN io modules, which the ref map deliberately leaves out: it
-  // skips local nodes, and an input IS a node now. `IN:in-2` — the thing that
-  // carries the channel, the monitoring and the trim — lives in the song that records
-  // through it, so the panel that meters it has to look there.
+  // …plus the project's OWN io modules, which the ref map leaves out because an input IS a node now.
   let local: Record<string, Io> = {};
   try {
     local = loadModules(dir) as Record<string, Io>;
@@ -74,9 +64,7 @@ function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
   const ports: IoPort[] = [];
   for (const [ref, m] of Object.entries(refs)) {
     if (m?.kind !== "io") continue;
-    // A FILE source is an io module but not a PORT: this panel is the rig — channels, levels,
-    // monitoring — and audio read off disk has none of that. Left in, it would have been
-    // filed as an output (everything that is not `in` is), and drawn with no channels at all.
+    // A FILE source is an io module but not a PORT: audio read off disk has no channel to meter.
     if (m.io === "file") continue;
     const dirn = m.io === "in" ? "in" : "out";
     const authored = m.channel as string | number[] | undefined;
@@ -92,8 +80,7 @@ function ioPortsIn(dir: string, prefs?: Preferences): IoPort[] {
       generic: !splitModuleKey(ref).node,
     });
   }
-  // Inputs first (that is the order the panel reads in), then by ref so the list is stable
-  // across reloads — a node list that reshuffles is unreadable while it moves.
+  // Inputs first, then by ref, so the panel's list does not reshuffle across reloads.
   return ports.sort((a, b) =>
     a.dir === b.dir ? a.ref.localeCompare(b.ref) : a.dir === "in" ? -1 : 1,
   );

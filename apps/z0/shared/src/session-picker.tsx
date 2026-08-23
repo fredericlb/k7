@@ -1,7 +1,6 @@
 import type { LoadProgress, SessionRow } from "./types";
 
-// Presentational session picker (port of shared/components/SessionPicker.vue).
-// The host owns the data; this emits select(id)/refresh().
+// Presentational: the host owns the data, and this only emits select(id) and refresh().
 export function SessionPicker({
   sessions,
   activeId = 0,

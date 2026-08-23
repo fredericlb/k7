@@ -7,14 +7,7 @@ import {
   PitchWobble,
 } from "./audioEffects";
 
-// Framework-free port of shared/composables/useSongPreloader.ts: category preload,
-// pause/resume, mic ducking, playback-rate override, fusion dual-source, reversed
-// buffers, multi-track, trim scheduling. The Vue refs became a snapshot object +
-// subscribe so React consumes it via useSyncExternalStore.
-//
-// There were two copies. online's was a solo-game trim of monitor-web's — the same
-// engine minus the methods it never called, with the state fields for them still
-// declared. This is monitor-web's, which was the superset; nothing was arbitrated away.
+// Framework-free port of the Vue composable — monitor-web's copy, which was online's superset.
 
 export interface SongEntry {
   artist?: string;
@@ -34,15 +27,7 @@ export interface PreloaderState {
   isPlaying: boolean;
   isPaused: boolean;
   failedPaths: string[];
-  /**
-   * Effects the CURRENT engine cannot apply, which the round is being played without.
-   *
-   * Optional, so this preloader — which can do all of them — never sets it and still
-   * satisfies the type. It exists for the moteur-backed player, where two of z0's nine
-   * sliders have no equivalent. Surfacing it here rather than throwing is deliberate: a
-   * game must not crash mid-round, and a difficulty effect that silently did nothing would
-   * mean the players heard an easier song than the round claimed, with nothing to show it.
-   */
+  /** Effects this engine cannot apply, optional so only the moteur one sets it (../docs/moteurPlayer.md). */
   unsupported?: string[];
 }
 
@@ -63,8 +48,7 @@ export class SongPreloader {
   private audioCtx: AudioContext | null = null;
   private currentSource: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
-  // Master duck node: sits between all output and destination so the mic
-  // passthrough can reduce main audio volume when voice is detected.
+  // Master duck node, between all output and destination, so the mic passthrough can lower it.
   private duckGain: GainNode | null = null;
   private secondSource: AudioBufferSourceNode | null = null;
   private secondGainNode: GainNode | null = null;
@@ -215,10 +199,7 @@ export class SongPreloader {
     }
   }
 
-  /**
-   * Preload one song's paths. Idempotent — cached paths are skipped, so the
-   * progressive-load scheme can call it repeatedly.
-   */
+  /** Preload one song's paths, idempotently: cached paths are skipped, so it may be called repeatedly. */
   async preloadSong(song: SongEntry): Promise<void> {
     this.ensureContext();
     const todo = this.collectPaths(song).filter((p) => !this.cache.has(p));
@@ -236,10 +217,7 @@ export class SongPreloader {
     }
   }
 
-  /**
-   * Preload songs for a single category. Unloads previous buffers first,
-   * then fetches and decodes all paths.
-   */
+  /** Preload one category, unloading the previous buffers before fetching and decoding. */
   async preloadCategory(songs: SongEntry[]): Promise<void> {
     this.ensureContext();
     this.unload();
@@ -248,9 +226,7 @@ export class SongPreloader {
       return;
     }
     await Promise.all(songs.map((s) => this.preloadSong(s)));
-    // Give every decoded AudioBuffer time to fully settle on the audio
-    // thread before the next play() call — without this, the first song
-    // after preload can drop out or start mid-sample.
+    // Every decoded AudioBuffer settles on the audio thread first, or the next song starts mid-sample.
     await new Promise<void>((r) => setTimeout(r, 2000));
   }
 
@@ -358,11 +334,7 @@ export class SongPreloader {
     if (this.gainNode) this.gainNode.gain.value = value;
   }
 
-  /**
-   * Audio ducking driven by the mic level: factor 1 = no duck, 0.5 = max
-   * attenuation (−6 dB). Smoothed via setTargetAtTime so rapid level
-   * changes don't pop.
-   */
+  /** Ducking on the mic level — 1 is none, 0.5 is −6 dB — smoothed so a rapid change does not pop. */
   setDuck(factor: number): void {
     if (!this.duckGain || !this.audioCtx) return;
     const clamped = Math.max(0.5, Math.min(1, factor));

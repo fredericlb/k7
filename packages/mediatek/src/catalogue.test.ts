@@ -21,8 +21,7 @@ import { ensureLayout, exists, mediatekDir, schemaVersion } from "./layout.ts";
 import { familyRevision } from "./revision.ts";
 import { scanFamily, scanUnlisted } from "./scan.ts";
 
-// The root is env-driven ($STUDIO_MEDIATEK), which is what makes it testable at all: each
-// test gets its own library rather than a shared one under the real ~/.studio.
+// The root is env-driven ($STUDIO_MEDIATEK), so each test gets its own library, not ~/.studio.
 let root: string;
 
 beforeEach(() => {
@@ -120,9 +119,7 @@ describe("a song's variants", () => {
   };
 
   it("tells a sibling file from one that is not there, by looking in the folder", () => {
-    // A name that is not a file in the song's folder reads as MISSING. It used to read as a
-    // chain the médiathèque held; that family is gone, so a sidecar naming one now says, exactly
-    // and correctly, that it names something the folder has not got.
+    // A name that is not a file in the song's folder reads as MISSING — see docs/variants.md.
     write("songs/2026/song/instrumental.wav", "RIFF");
     const e = withVariants(
       "variants:\n  instru: instrumental.wav\n  sans-voix: vocal-strip\n",
@@ -163,9 +160,7 @@ describe("scanning samples", () => {
     ).toHaveLength(1);
   });
 
-  // Every module and chain test that stood here went with the two scanners. Both families
-  // left the catalogue: they are authored in st0 and committed to the account's library
-  // repository, so this volume no longer has a `modules/` or a `chains/` to walk.
+  // Every module and chain test that stood here went with the two scanners (docs/index.md).
 });
 
 describe("the revision token", () => {
@@ -178,9 +173,7 @@ describe("the revision token", () => {
   });
 
   it("does NOT move when another family changes", () => {
-    // The reason the token is per family: importing a song must not invalidate the samples.
-    // Each token is only ever compared with its OWN previous value — two families holding
-    // one file each produce the same string, and that means nothing.
+    // Why the token is per family: importing a song must not invalidate the samples.
     write("samples/audio/kicks/bd01.wav");
     const samplesBefore = familyRevision("samples");
     const songsBefore = familyRevision("songs");
@@ -213,8 +206,7 @@ describe("listing and search", () => {
   it("rescans once the family moves", () => {
     const first = listFamily("samples");
     const f = write("samples/audio/kicks/hh01.wav");
-    // mtime granularity is coarse enough that a fresh file can land in the same tick as
-    // the last one; the file COUNT is what carries this case, and it changed.
+    // A fresh file can land in the same mtime tick, so the file COUNT is what carries this case.
     utimesSync(f, new Date(), new Date());
     const second = listFamily("samples");
     expect(second).not.toBe(first);
@@ -241,14 +233,9 @@ describe("listing and search", () => {
   });
 });
 
-// A tree draws itself from the entry paths. That works until the thing on disk is not an
-// entry: the folder `POST /folder` just made, or a file dropped where no catalogue reaches.
-// Both answered 200 and appeared nowhere, which reads as the call having done nothing.
+// A tree draws itself from the entry paths, and what is not an entry appeared nowhere — docs/index.md.
 describe("what the entries cannot stand for", () => {
-  // Seven cases stood here, all shaped around `modules/`: an empty type folder, a loose
-  // file beside one, a category filed as a module, a module's own files on the entry. They
-  // went with the family. What they proved about the MECHANISM -- that a folder no entry
-  // accounts for is reported so a tree can draw it -- is what the sample case below proves.
+  // Seven cases stood here, all shaped around `modules/`; they went with the family.
 
   it("reports a nested empty folder and the one above it", () => {
     mkdirSync(join(root, "samples", "audio", "packs", "kicks"), {
@@ -262,10 +249,7 @@ describe("what the entries cannot stand for", () => {
   });
 });
 
-// The index is a warm start, never a source of truth — but it survived a code change, and
-// the revision token cannot notice one: it tracks the FILES. So a listing written by an
-// older build matched a token computed by a newer one, and the cache answered yesterday's
-// question. That is how a category kept coming back as a module after the scan was fixed.
+// The index survived a code change once, which the revision token cannot notice — docs/index.md.
 describe("the persisted index", () => {
   beforeEach(() => ensureLayout());
 
@@ -304,8 +288,7 @@ describe("the persisted index", () => {
   });
 
   it("still warm-starts from one this build wrote", () => {
-    // The gate must not cost the feature. Persist, then make the DISK disagree without
-    // moving the token: the cached answer coming back is what proves no walk happened.
+    // Make the DISK disagree without moving the token: the cached answer proves no walk happened.
     write("samples/audio/kicks/bd01.wav");
     listFamily("samples"); // persists
     reset();
@@ -320,8 +303,7 @@ describe("the persisted index", () => {
   });
 });
 
-// parseQuery — the two HTTP shells' shared reading of an untrusted query string. It had no test at
-// all while it was duplicated in both of them, clamp included.
+// parseQuery — the two HTTP shells' shared reading of an untrusted query string, untested while duplicated.
 describe("parseQuery", () => {
   it("keeps a sane limit", () => {
     expect(parseQuery({ limit: "5" }).limit).toBe(5);

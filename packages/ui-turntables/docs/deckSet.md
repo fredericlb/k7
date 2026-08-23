@@ -57,6 +57,33 @@ Le graphe n'annonce pas la fin d'un geste à son hôte, contrairement à un fade
 tomber en plein glissement, assez court pour que la valeur exacte où le potard a été lâché
 arrive vite.
 
+## Ce que l'HÔTE passe plutôt que ce que le hook lit
+
+Deux paramètres optionnels, `mapping` et `playlist`, et la même raison pour les deux : la
+DÉCLARATION est dans le fichier de l'hôte, et seul l'hôte sait lequel. Une surface st0 porte ses
+liaisons dans `surfaces/<id>.yaml` et n'a aucun `views/mix.yaml` à trouver — le lire donnerait un
+404 à chaque rechargement. m9 ne passe rien et la lecture reste exactement ce qu'elle était.
+
+`mapping` doit avoir une **identité stable** : c'est une dépendance d'effet, donc un objet neuf à
+chaque rendu referait le compile à chaque rendu. Les deux appelants le tiennent en état, ce qui
+rend la chose gratuite ; un appelant qui en construirait un en ligne doit le `useMemo`.
+
+`playlist` est un NOM, et une surface qui n'en nomme aucune passe `undefined` : rien n'est lu du
+tout — il n'y a pas de chemin à demander — et le sélecteur le dit, plutôt que de montrer une liste
+vide qui ressemble à une médiathèque vide.
+
+## Poser un disque met le transport où la musique est
+
+`putOn` interroge le TRANSPORT, pas l'historique de l'onglet. La question a longtemps été
+`empty` — « les deux platines étaient-elles vides avant celle-ci ? » — ce qui répond à autre
+chose : rechargez la page et les platines reviennent vides pendant que le moteur tient encore
+leurs clips, donc le deuxième morceau de la soirée trouve `empty` faux, rien ne saute, et Play
+déroule en silence les dix minutes de rien qui précèdent `TIMELINE_BASE` ([bpm.md](bpm.md)).
+
+Demander au transport est à la fois plus simple et plus sûr : ça saute exactement quand la
+position est dans cette zone morte, et ça ne peut jamais ramener une platine qui joue à son
+sommet — une platine qui joue est déjà passé `TIMELINE_BASE`, donc `playFrom` répond `null`.
+
 ## Ce qu'un appelant PÉRIMÉ doit quand même lire juste
 
 Les fonctions rendues sont capturées par les vues et appelées plus tard. `measured` s'exécute

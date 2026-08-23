@@ -20,8 +20,7 @@ describe("enqueue", () => {
   });
 
   it("ne remet pas un morceau déjà en attente", () => {
-    // Two adds are almost always a second click on the same row, and a queue playing the same
-    // title twice in a row is a fault nobody blames on the click.
+    // Two adds are almost always a second click on one row, and nobody blames the queue on it.
     expect(ids(enqueue(q("a", "b"), [song("b")]))).toEqual(["a", "b"]);
   });
 
@@ -51,8 +50,7 @@ describe("moveTo", () => {
   });
 
   it("descend une ligne — l'indice VOULU dans la liste finale", () => {
-    // The trap: removing first shifts everything after, so inserting at `to` in the starting list
-    // would move one notch short, and the button would look dead.
+    // The trap: removing first shifts everything after, so `to` is an index in the FINAL list.
     expect(ids(moveTo(q("a", "b", "c"), 0, 1))).toEqual(["b", "a", "c"]);
     expect(ids(moveTo(q("a", "b", "c"), 0, 2))).toEqual(["b", "c", "a"]);
   });

@@ -31,9 +31,7 @@ export function ModulePreview({
 }: {
   /** The host's glyphs — the graph's own requirement, and this only passes them along. */
   icons: ChainsIcons;
-  /** The host's command line. A preview writes nothing of its own (`rehearsal` below), so this is
-   *  only ever reached by a node's own menu; a host with no command bar passes one that says so
-   *  out loud. */
+  /** The host's command line, only ever reached by a node's own menu — docs/hosting.md. */
   command: (line: string) => void | Promise<void>;
   /** The module's name — the card's label, and half its engine address. */
   name: string;
@@ -42,50 +40,20 @@ export function ModulePreview({
   /** The grid AS EDITED, not as saved: the point is to see a widget land before saving it. */
   ui: Parameters<typeof visibleGrid>[0];
   params: Record<string, number>;
-  /**
-   * The named bases the module may be set to — its own `base/` folder plus its ancestors'.
-   *
-   * A widget bound to `@base` says nothing about its own entries: the folder's contents change
-   * every time a base is snapshotted, so the graph fills them at draw time and this is where
-   * they come in. Without it that dropdown draws "none" alone, and the one thing you cannot
-   * check by reading the panel you just wrote is the one thing the preview would not show.
-   */
+  /** The named bases the module may be set to — the graph fills that dropdown, docs/hosting.md. */
   bases?: readonly string[];
-  /**
-   * What the source node is fed from, as its chip reads — an interface input, so the module
-   * can be HEARD treating something you play rather than only inspected.
-   *
-   * The source is a placeholder in this graph ("whatever will feed this"), and this is what
-   * makes it a real one. Both props or neither: the chip is a control, and one you cannot
-   * click is worse than none.
-   */
+  /** What the source node is fed from, as its chip reads — both props or neither, docs/hosting.md. */
   sourceInput?: string;
   onPickSourceInput?: (x: number, y: number) => void;
-  /**
-   * Is the source node ARMED — the `A` button its mixer strip has always drawn.
-   *
-   * That button is the one every track node wears, and in a preview it was inert: the strip is
-   * part of `TRACK_UI` and gets drawn whether or not a host wired the callbacks. So it read as
-   * a graph you cannot touch, which is exactly what it was. Here it means "let this input
-   * through", which is the only thing a preview's source can do.
-   */
+  /** Is the source node ARMED — here that means "let this input through", docs/hosting.md. */
   sourceArmed?: boolean;
   onToggleSourceArm?: () => void;
-  /**
-   * The loaded plugin's live values, and how to change one — what makes the module's own widgets
-   * SOUND rather than merely move.
-   *
-   * Both or neither. They are no longer what decides whether a widget answers the mouse: under
-   * `rehearsal` every widget turns and holds its position locally, because a panel is authored
-   * long before any plugin is loaded and "is this dropdown the right way round" is a question
-   * about the panel, not about the plugin. What these two add is the sound.
-   */
+  /** The loaded plugin's live values and how to change one — both or neither, docs/hosting.md. */
   paramsStore?: PluginParamsStore;
   onSetParam?: (id: string, name: string, value: number) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  // The camera lives OUTSIDE the graph: the panel unmounts whenever the editor closes, and a
-  // camera that reset on every remount would fight the person using it.
+  // The camera lives OUTSIDE the graph, since the panel unmounts whenever the editor closes.
   const cam = useRef<Cam | null>(null);
 
   const laid = useMemo(() => {
@@ -103,12 +71,10 @@ export function ModulePreview({
         selected={selected}
         onSelect={setSelected}
         camStore={cam}
-        // Re-frame when the card's SHAPE changes — the grid decides how big it is, so adding a
-        // row should fit the new picture. Renaming a label should not move the camera.
+        // Re-frame when the card's SHAPE changes, not when a label is renamed.
         fitKey={`${ui.cols}x${ui.rows}`}
         command={command}
-        // Keyed by the source node's id, which is the graph's own name for "whatever will
-        // feed this" — see @studio/ui-chains' PREVIEW_SOURCE.
+        // Keyed by the source node's id, the graph's own name for "whatever will feed this".
         trackInputs={
           sourceInput === undefined
             ? undefined
@@ -117,9 +83,7 @@ export function ModulePreview({
         onPickTrackInput={
           onPickSourceInput && ((_id, x, y) => onPickSourceInput(x, y))
         }
-        // The source's mixer strip. Only `arm` is real here — a preview's source has no volume
-        // to ride and nothing to be muted against — so the other four are left at rest rather
-        // than wired to commands this graph has no way to carry out.
+        // The source's mixer strip: only `arm` is real here, the other four rest — docs/hosting.md.
         trackControls={
           sourceArmed === undefined
             ? undefined
@@ -139,9 +103,7 @@ export function ModulePreview({
         }
         pluginParamsStore={paramsStore}
         setPluginParam={onSetParam}
-        // Always: this card is the panel being WRITTEN, tried out. A module field is committed by
-        // a command that edits a file, and the builder has no project node for one to reach — so
-        // a base dropdown here shows the entry you picked and leaves the module alone.
+        // Always: this card is the panel being WRITTEN, tried out — docs/hosting.md.
         rehearsal
       />
     </div>

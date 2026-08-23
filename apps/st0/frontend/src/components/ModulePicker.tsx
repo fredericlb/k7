@@ -6,15 +6,7 @@
 import { fuzzyScore } from "../fuzzy";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
-/**
- * What the picker BROWSES: a module's ref plus the type folder it belongs to.
- *
- * The category is carried, not parsed. A ref used to spell out its own filing —
- * `@engine/audio/delay/adt` — because the catalogue was a folder tree. The engine's
- * modules are not files and their refs are flat (`@engine/adt`), so the only thing that
- * knows an ADT is an audio effect is the module itself. Reading it out of the string
- * stopped working the day the string stopped saying it.
- */
+/** What the picker BROWSES: a module's ref plus its type folder — the category is CARRIED, engine refs being flat (`@engine/adt`). */
 export interface PickerModule {
   ref: string;
   /** Its type folder — the level the tree groups by. */
@@ -23,28 +15,16 @@ export interface PickerModule {
 
 /** What the picker hands back. */
 export interface ModulePick {
-  /** Not a module at all: the picker's one other offer, "new curve…". The canvas menu creates
-   *  nodes, and a curve is a node — so it belongs here rather than in a second menu nobody
-   *  would look in. The caller prewrites `curve new`, because only a person can name it. */
+  /** Not a module at all: the picker's one other offer, 'new curve…' — a curve is a node, so it belongs on this menu. */
   newCurve?: true;
   ref: string; // "instruments/synth" (this project) or "@engine/audio/delay/adt"
-  /** null ⇒ a base module this project already defines. The caller needs to know: one
-   *  already exists to instantiate, the other has to be created first. */
+  /** null ⇒ a base module this project already defines: one exists to instantiate, the other has to be created first. */
   namespace: string | null;
   type: string; // "audio" — the module type folder
   name: string; // "adt" — the module's own name
 }
 
-/**
- * Split a base ref into its levels.
- *
- * `@engine/audio/delay/adt` → ns "engine", type "audio", category "delay", name "adt"
- * `@engine/instruments/4osc` → ns "engine", type "instruments", no category
- * `audio/delay/tape`         → local (no ns), type "audio", category "delay"
- *
- * Anything that doesn't fit is returned with a null type and lands in a flat fallback
- * group, because dropping refs the parser doesn't recognise would hide real modules.
- */
+/** Split a base ref into its levels — anything that does not fit keeps a null type and lands in a flat fallback group. */
 export function parseBaseRef(ref: string): {
   namespace: string | null;
   type: string | null;
@@ -68,27 +48,10 @@ export function parseBaseRef(ref: string): {
   return { namespace, type: null, category: null, name: segs.join("/") || ref };
 }
 
-/** The first level's label for a namespace. Local base modules — the ones this project
- *  defines itself — group under "current"; everything else keeps its `@ns`. */
+/** The first level's label for a namespace: local base modules group under 'current', everything else keeps its `@ns`. */
 const CURRENT = "current";
 
-/**
- * Group base modules into namespace → type → category → module. Exported for the test.
- *
- * The first level is the source: "current" for what this project defines, then one entry
- * per `modules_from` namespace (`@engine` is there by default). Everything below is the
- * catalogue's own shape — see the file header.
- *
- * `baseModules` is already node-free: `loadModuleRefs` keys by module FOLDER, so a
- * node never becomes a ref of its own. That matters here, because instantiating is
- * what picking one of these leads to.
- */
-/**
- * The picker's one non-module branch.
- *
- * A curve that already exists is already ON the graph — an unbound one draws as a free card
- * now — so there is nothing to "add" for it and the only useful offer is a new one.
- */
+/** The picker's one non-module branch: a curve that already exists is already ON the graph, so the only useful offer is a new one. */
 const CURVE_BRANCH: TreeNode<ModulePick> = {
   key: "curves",
   label: "curves",
@@ -114,8 +77,7 @@ export function buildTree(
     const ref = typeof m === "string" ? m : m.ref;
     const parsed = parseBaseRef(ref);
     const { namespace, category, name } = parsed;
-    // The ref's own filing first — a local `audio/delay/tape` still says it — else what
-    // the module declares. Only a ref that says neither is dropped.
+    // The ref's own filing first — a local `audio/delay/tape` still says it — else what the module declares.
     const type =
       parsed.type ?? (typeof m === "string" ? undefined : m.category);
     if (!type) continue;
@@ -171,15 +133,7 @@ export function buildTree(
 /** How many matches the search shows before it stops listing (see searchModules). */
 export const SEARCH_LIMIT = 40;
 
-/**
- * Score a query that carries a SLASH against a ref, segment by segment: each part must
- * hit a different segment of the ref, in order. "engine/dist" then reads as "the engine
- * namespace, then something distortion-ish", which is what it looks like it means —
- * plain subsequence matching spreads it across 40 refs of a 273-module catalogue because
- * the levels it skips are free to match anywhere.
- *
- * -1 when the query has no slash (nothing to narrow) or a part matches no segment.
- */
+/** Score a query that carries a SLASH segment by segment, in order: plain subsequence matching spreads 'engine/dist' across 40 refs. */
 function pathScore(q: string, ref: string): number {
   const parts = q.toLowerCase().split("/").filter(Boolean);
   if (parts.length < 2) return -1;
@@ -196,21 +150,7 @@ function pathScore(q: string, ref: string): number {
   return score;
 }
 
-/**
- * Every module matching `query`, best first — the flat answer to "where is X?".
- *
- * Scored twice and kept at its best: once against the module's NAME, once against its
- * whole ref. The name is worth more, so typing "adt" puts `adt` above the delays whose
- * path merely contains an a-d-t subsequence; the ref still matches, so "delay" finds a
- * whole category and "engine/dist" narrows by namespace and type at once.
- *
- * A LITERAL substring outranks any fuzzy hit, and a slashed query is also scored as a
- * PATH (see pathScore) — the two together are what make a typed-out query behave. In a
- * real 273-module catalogue "engine/dist" fuzzily matches 40 refs, and on fuzzy score
- * alone the distortions were not even in the first three.
- *
- * Exported for the test.
- */
+/** Every module matching `query`, best first: scored against the NAME and the whole ref, a LITERAL substring outranking any fuzzy hit. */
 export function searchModules(
   baseModules: (PickerModule | string)[],
   query: string,

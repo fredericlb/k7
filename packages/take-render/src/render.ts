@@ -52,24 +52,10 @@ export function renderMixdown(
   }
 }
 
-/** The module a compiled plugin belongs to. Its id is `<chain>:<module>`, and a module name may
- *  itself hold a colon (`synth:lead`), so the split is on the FIRST one. */
+/** The module a compiled plugin belongs to — `<chain>:<module>`, split on the FIRST colon. */
 const pluginModule = (id: string): string => id.slice(id.indexOf(":") + 1);
 
-/**
- * Bounce everything a freeze covers to `outWav` — the upstream closure of one module, at that
- * module's output.
- *
- * A MIXDOWN of the closure, not a per-track bounce: a freeze point may be a bus several lanes meet
- * at, and `--freeze --track` renders one track. So the doc is cut down to exactly the plan — those
- * lanes, those plugins, the sends between them — and rendered whole. What comes out is precisely
- * what that part of the song was contributing, which is what the render has to stand in for.
- *
- * Nothing is neutralised, unlike the per-track freeze this replaces. Gain and pan are a `Mixer`
- * MODULE now: if it is upstream of the point it belongs in the render, and if it is downstream it
- * is not in the doc at all. The one thing the old code had to flatten by hand is the one thing the
- * plan already answers. See packages/song/docs/freeze.md.
- */
+/** Bounce a freeze's upstream closure to `outWav` — a MIXDOWN of the plan, see docs/rendering.md. */
 export function freezeUpstreamRender(
   engineBin: string,
   doc: ProjectDoc,
@@ -88,8 +74,7 @@ export function freezeUpstreamRender(
       ...t,
       solo: false, // nothing outside the plan is in the doc, so a solo could only silence the render
       plugins: t.plugins.filter((p) => plan.modules.has(pluginModule(p.id))),
-      // A send leaving the plan has nowhere to land — its bus is not in this doc — and one
-      // INSIDE it is how the lanes reach the point they are being frozen at.
+      // A send leaving the plan has nowhere to land; one inside it is how the lanes meet.
       sends: t.sends.filter((s) => ids.has(s.to)),
     })),
   };
@@ -140,13 +125,7 @@ export interface K7Config {
   token: string;
 }
 
-/**
- * Read `{ k7: { url, token } }` (flat `k7Url`/`k7Token` too) from a JSON file, or {} when absent or malformed.
- *
- * `radiok7` is still read, and is the one thing the rename could not simply break: this file is the USER's, at
- * their workspace root, and a key nobody reads any more fails by silently having no credentials — which reads
- * as "sharing stopped working" rather than "rename your key". The new spelling wins where both are written.
- */
+/** Read `{ k7: { url, token } }` from a JSON file — `radiok7` is still read, see docs/rendering.md. */
 function readK7File(path: string): { url?: string; token?: string } {
   if (!existsSync(path)) return {};
   type Pair = { url?: string; token?: string };
@@ -171,8 +150,7 @@ function readK7File(path: string): { url?: string; token?: string } {
 // The name of the per-workspace settings file that holds the k7 credentials.
 export const WORKSPACE_SETTINGS = ".settings.json";
 
-// k7 endpoint + token, resolved from .settings.json at the workspace root, then the env, then the legacy
-// host-wide config. Returns an error message when either is still missing.
+// k7 endpoint + token, from .settings.json, then the env, then the legacy host-wide config.
 export function readK7Config(
   workspaceRoot?: string,
 ): K7Config | { error: string } {
@@ -200,8 +178,7 @@ export function readK7Config(
 function ensureSongUuid(songDir: string, existing?: string): string {
   if (existing) return existing;
   const uuid = randomUUID();
-  // The field is created whether or not `project:` exists, so the old "is its `project: { … }` present?" failure
-  // — raised when a regex didn't match — has nothing left to report.
+  // The field is created whether or not `project:` exists, so there is no missing-block failure.
   setFileValue(join(songDir, "project.yaml"), ["project", "uuid"], uuid);
   return uuid;
 }
@@ -213,8 +190,7 @@ export interface K7Result {
   stems: number;
 }
 
-// Publish to k7: render, transcode and upload as a release version. An unknown song throws NEEDS_META so the
-// caller can prompt for artist/title. Needs the built engine; ffmpeg only improves the formats.
+// Publish to k7; an unknown song throws NEEDS_META so the caller can prompt for artist/title.
 export const NEEDS_META = "NEEDS_META";
 
 export async function shareToK7(

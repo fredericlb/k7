@@ -83,8 +83,7 @@ describe("filing a capture", () => {
   });
 
   it("keeps both when two land on the same second", () => {
-    // Two microphones stopping together is an afternoon, not a conflict — unlike a song,
-    // where two uploads deducing one folder mean the same song twice.
+    // Two microphones stopping together is an afternoon, not a conflict (docs/recordings.md).
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     const second = addRecording({
       filename: "b.mp3",
@@ -109,8 +108,7 @@ describe("filing a capture", () => {
   });
 
   it("files a MOMENT in the same day folder, named as an extract", () => {
-    // Same folder as the captures on purpose: a moment IS one, a shorter one, and
-    // splitting it off would make "what did we play that evening" two places.
+    // Same folder as the captures on purpose: a moment IS one, only shorter.
     const r = addRecording({
       filename: "moment.webm",
       bytes: Buffer.from("clip"),
@@ -170,8 +168,7 @@ describe("listing the zone", () => {
 
 describe("what the zone is NOT", () => {
   it("produces no catalogue entry", () => {
-    // The whole point of the choice: a firehose of untitled captures would drown the
-    // songs listing. The scan visits families, and this is not in one.
+    // A firehose of untitled captures would drown the songs listing; the scan visits families only.
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     expect(scanFamily("songs")).toEqual([]);
   });
@@ -185,8 +182,7 @@ describe("what the zone is NOT", () => {
   });
 
   it("moves its OWN token and leaves the families' alone", () => {
-    // It used to ride on the songs token, which cost that family a refetch per capture. A zone at
-    // the root answers for itself, and the poll reads both from the same map.
+    // It used to ride on the songs token, which cost that family a refetch per capture.
     const before = revisions();
     addRecording({ filename: "a.mp3", bytes: Buffer.from("a"), at: evening });
     const after = revisions();

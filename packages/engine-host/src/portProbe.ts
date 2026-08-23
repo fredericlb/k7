@@ -6,15 +6,7 @@ import { createConnection } from "node:net";
 
 const PROBE_TIMEOUT_MS = 300;
 
-/**
- * Is something serving on this loopback port?
- *
- * Non-blocking, unlike the tray's old `connect_timeout` under `spawn_blocking` — this is a
- * socket and a timer, so a dead port costs nothing but the wait.
- *
- * It answers "is something there", never "is it OURS": a port is not an identity. The engine's
- * own `whoami` is what settles that, and the callers here only need the cheaper question.
- */
+/** Is something serving on this loopback port? Never "is it OURS" — a port is not an identity, and `whoami` is what settles that. */
 export function isServing(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     let done = false;

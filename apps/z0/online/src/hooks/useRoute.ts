@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-// Minimal pushState router (React port of composables/useRoute.ts). Three
-// routes (/, /s/:slug, /t/:token) don't earn a router dependency. nginx's
-// SPA fallback + Vite's historyApiFallback keep deep links refreshable.
+// Three routes do not earn a router dependency, and the SPA fallback keeps deep links refreshable.
 export function useRoute() {
   const [path, setPath] = useState<string>(window.location.pathname || "/");
 

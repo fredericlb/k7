@@ -71,9 +71,7 @@ export function Session({
   const [pick, setPick] = useState<Pick>({ k: "session" });
   const [songIndex, setSongIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
-  // The file behind the panel, shown on demand. From the live Document rather than re-read from
-  // disk, so it includes edits that have not been saved yet — which is what makes it a check on
-  // what this editor is about to write, rather than a second view of the same thing.
+  // From the live Document, unsaved edits and all — see ../../docs/editing.md.
   const [showRaw, setShowRaw] = useState(false);
   // Which picker is open, if any: adding a SONG to the category, or a TRACK to the open song.
   const [adding, setAdding] = useState(false);
@@ -277,8 +275,7 @@ export function Session({
                 />
               )}
               {songs.map((s, i) => {
-                // Greyed rather than hidden: a category is often sliced across several rounds,
-                // and seeing the whole file is what makes the slice legible.
+                // Greyed, not hidden: a category is sliced across rounds, and the slice reads better whole.
                 const played = !inRange || inRange.has(s);
                 const edit = (fn: (d: Parameters<typeof addSong>[0]) => void) =>
                   store.editCategory(cat.slug, fn);
@@ -393,8 +390,7 @@ export function Session({
                 song={song}
                 songIndex={songIndex}
               />
-              {/* The track bar is always there, even for a one-track song: adding a second is
-                  what turns a plain song into a `fusion`, and it must be reachable. */}
+              {/* Always there, since adding a second track is what turns a song into a `fusion`. */}
               <div className="flex flex-wrap items-center gap-1 border-b px-3 py-2">
                 {song.tracks.map((t, i) => (
                   <span key={i} className="flex items-center">
@@ -563,8 +559,7 @@ function SessionPanel({ store }: { store: Store }) {
         value={s.notice}
         onChange={set("notice")}
       />
-      {/* The password rides in the repository in clear — changing it is a commit, and saying so
-          here is cheaper than the surprise. apps/z0/docs/projects.md says why it is not hashed. */}
+      {/* The password rides in the repository in clear, and changing it is a commit (../../docs/projects.md). */}
       <p className="text-xs text-muted-foreground">
         Le mot de passe voyage en clair avec la session : le changer est un
         commit.
@@ -708,8 +703,7 @@ function SongFields({
         </label>
       </div>
 
-      {/* A textarea, not an input: `answer:` is a literal block in every migrated file and
-          carries several accepted spellings, one per line. */}
+      {/* A textarea and not an input: `answer:` is a literal block, one accepted spelling per line. */}
       <label className="mt-3 block">
         <span className="text-xs text-muted-foreground">
           Réponses acceptées — une par ligne

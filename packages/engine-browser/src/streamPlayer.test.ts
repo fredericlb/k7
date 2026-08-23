@@ -19,8 +19,7 @@ class FakeSink implements StreamSink {
   }
 }
 
-// A clock the test drives, so jitter and drift are computed from numbers we chose rather
-// than from however fast the machine running the suite happened to be.
+// A clock the test drives, so jitter and drift come from numbers we chose rather than from how fast the suite's machine is.
 class FakeClock {
   t = 0;
   now = () => this.t;
@@ -76,9 +75,7 @@ describe("reading the stream", () => {
   });
 });
 
-// The sender drops under backpressure; TCP loses nothing. So a sequence jump is always a
-// decision someone made, and the samples on either side of it are unrelated — butt-joining
-// them clicks, which is why the cushion is rebuilt instead.
+// TCP loses nothing, so a sequence jump is always a decision, and the samples on either side are unrelated.
 describe("a gap the sender caused", () => {
   it("is counted and re-cushioned", () => {
     const sink = new FakeSink();
@@ -109,8 +106,7 @@ describe("a gap the sender caused", () => {
   });
 });
 
-// A rate or channel change is a pitch shift or a scrambled interleave, not a glitch: it has
-// to surface so the host can rebuild its context, never be smoothed over.
+// A rate or channel change is a pitch shift or a scrambled interleave, so it has to surface rather than be smoothed over.
 describe("a format change", () => {
   it("is counted and flushes what was buffered", () => {
     const sink = new FakeSink();
@@ -137,8 +133,7 @@ describe("a format change", () => {
   });
 });
 
-// The measurements are the POINT of this whole step — the plan says measure before
-// designing. What matters is that they mean what they claim: the spread, not the mean.
+// The measurements are the POINT of this step, and what matters is that they mean what they claim: the spread, not the mean.
 describe("what the measurements say", () => {
   it("reports a spread of zero for perfectly paced arrivals", () => {
     const clock = new FakeClock();
@@ -152,8 +147,7 @@ describe("what the measurements say", () => {
   });
 
   it("cancels the offset between two unrelated machine clocks", () => {
-    // The engine's steady clock starts at its boot, the browser's at page load. A player
-    // that reported the raw difference would call that constant offset "latency".
+    // The two clocks start at unrelated moments, so a player reporting the raw difference would call that constant offset "latency".
     const clock = new FakeClock();
     const p = new StreamPlayer(new FakeSink(), clock.now);
     clock.at(50);
@@ -181,8 +175,7 @@ describe("what the measurements say", () => {
     p.handle(bytes({ seq: 0, captureMs: 0 }));
     clock.at(500);
     p.handle(bytes({ seq: 1, captureMs: 490 }));
-    // Ten ms over half a second is jitter. Extrapolated it would read as 1.2 s/min, and
-    // null is the honest answer rather than a number nobody should act on.
+    // Ten ms over half a second is jitter, and extrapolated it would read as 1.2 s/min — null is the honest answer.
     expect(p.snapshot().driftMsPerMin).toBeNull();
   });
 

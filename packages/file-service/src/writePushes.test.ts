@@ -129,20 +129,14 @@ it("pushes again for a second, different edit", async () => {
 });
 
 it("does NOT push for a write OUTSIDE the active project", async () => {
-  // The reason there are two gates and not one. This write DOES move the revision token — the
-  // journal's walk is not the narrow `sourcesOnly` one — so a token-only gate recompiled and
-  // re-sent the whole song every time a playlist or a library module was saved. Measured here
-  // rather than reasoned about: the first draft of this test asserted the opposite and failed.
+  // Why there are two gates: this write DOES move the token, so a token-only gate re-sent the whole song.
   const settled = sentCount();
   await write("_playlists/set.yaml", "title: set\nitems: []\n");
   expect(sentCount()).toBe(settled);
 });
 
 it("pushes a same-bytes rewrite too, because the token counts the mtime", async () => {
-  // Stated rather than fixed. The token is this repo's definition of "the project changed", and
-  // `POST /command` gates on the very same comparison — a write path that judged it differently
-  // would be a second answer to one question. The cost of the extra push is a compile the engine
-  // diffs to nothing; the cost of diverging is the class of bug this whole test file is about.
+  // Stated rather than fixed: `POST /command` gates on the very same comparison (docs/fileRoutes.md).
   const text = 'extends: "@studio/track"\nevents: []\n# same\n';
   await write("song.st0/nodes/gtr.yaml", text);
   const settled = sentCount();

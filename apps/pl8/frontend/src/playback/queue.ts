@@ -4,26 +4,14 @@
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 
-/**
- * Un morceau en attente.
- *
- * The ENTRY and not a resolved path: where the file plays depends on the chosen machine and its
- * cache, two things that can change between queueing and playing. So keep what is stable and
- * resolve at the last moment.
- */
+/** Un morceau en attente: the ENTRY and not a path, since the machine can change before it plays. */
 export interface QueueItem {
   /** The row's identity, and what prevents a duplicate: the song's path. */
   id: string;
   entry: MediatekEntry;
 }
 
-/**
- * Queue up next, without duplicates.
- *
- * A song already waiting is not queued again: adding twice is almost always a second click on the
- * same row, and a queue playing the same title twice in a row is a fault nobody blames on the
- * click.
- */
+/** Queue up next without duplicates: adding twice is almost always a second click on one row. */
 export function enqueue(
   queue: QueueItem[],
   entries: MediatekEntry[],
@@ -35,21 +23,13 @@ export function enqueue(
   return added.length ? [...queue, ...added] : queue;
 }
 
-/** Remove the row at index `i`. Out of bounds returns the same queue — a stale id is not a fault,
- *  it is a click on what has just played. */
+/** Remove the row at `i`; out of bounds returns the same queue, a stale id being a late click. */
 export function removeAt(queue: QueueItem[], i: number): QueueItem[] {
   if (i < 0 || i >= queue.length) return queue;
   return [...queue.slice(0, i), ...queue.slice(i + 1)];
 }
 
-/**
- * Déplacer la ligne `from` à la position `to`.
- *
- * `to` is the WANTED index in the final list, not in the starting one. That difference is what
- * makes a downward move look like a no-op when it is missed: removing first shifts everything
- * after it, so the insert must happen in the already-shortened list. Tested both ways for that
- * reason.
- */
+/** Déplacer `from` à `to`, where `to` is the index in the FINAL list — hence tests both ways. */
 export function moveTo(
   queue: QueueItem[],
   from: number,

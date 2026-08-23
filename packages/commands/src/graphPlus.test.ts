@@ -35,8 +35,7 @@ const host = () =>
   }) as never;
 
 const chains = () => readFileSync(join(dir, "graph.yaml"), "utf8");
-/** The picker's two lines: the module, then a node of it — which also puts it in the graph.
- *  `module new` stopped making nodes, so this is two commands and not one. */
+/** The picker's two lines: `module new` stopped making nodes, so this is two commands. */
 const make = async (target: string, node: string) => {
   await runCommand(`module new ${target}`, host(), "cli");
   await runCommand(`node new ${target} ${node}`, host(), "cli");
@@ -83,8 +82,7 @@ describe("module new — the creating half", () => {
   });
 
   it("says so when the module is already there, rather than refusing", async () => {
-    // The second time the same module is picked, there is nothing to write — and that is the
-    // ordinary case, not an error. The picker cannot know which it is.
+    // Picking the same module twice writes nothing, and that is ordinary rather than an error.
     await runCommand("module new audio/amp", host(), "cli");
     expect(logs.join(" ")).not.toMatch(/failed/);
     expect(logs.join(" ")).toMatch(/already here/);
@@ -143,10 +141,7 @@ describe("node insert", () => {
   });
 });
 
-// A COLD module only works on audio already on disk, so WHERE it is wired is the question —
-// and the refusal is the wiring verb's. It used to have to come before the module was created,
-// since one command did both; the two are separate acts now, so a refused splice leaves a
-// module and a node that somebody asked for, and no half-written graph.
+// A COLD module works on audio already on disk, so the refusal belongs to the WIRING verb.
 describe("a cold node", () => {
   const cold = async () => {
     mkdirSync(join(dir, "modules", "audio", "squash"), { recursive: true });

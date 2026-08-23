@@ -32,13 +32,7 @@ export interface CustomCurve {
   points: CurvePoint[]; // at least one; kept in time order (sorted defensively)
 }
 
-/**
- * An envelope in MILLISECONDS, restarted by an event instead of read off song time.
- *
- * All four stages are durations, sustain included — see AdsrCurveSchema for why a baked
- * envelope cannot hold until a note-off it will never be told about. `level` is where decay
- * lands and sustain holds; it is the only value here that is not a time.
- */
+/** An envelope in MILLISECONDS, restarted by an event instead of read off song time — docs/curves.md. */
 export interface AdsrCurve {
   type: "adsr";
   polarity: Polarity;
@@ -58,12 +52,7 @@ export const ADSR_DEFAULT_LEVEL = 0.5;
 export const adsrMs = (c: AdsrCurve): number =>
   c.attack + c.decay + c.sustain + c.release;
 
-/**
- * The envelope's unit value `ms` after its trigger, 0..1. Flat 0 once it is over.
- *
- * Written as a function of elapsed time rather than of song position, because that is what an
- * envelope IS — the trigger decides where it starts, and this decides nothing but its shape.
- */
+/** The envelope's unit value `ms` after its trigger, 0..1, flat 0 once over — see docs/curves.md. */
 export function adsrUnit(c: AdsrCurve, ms: number): number {
   if (ms <= 0) return 0;
   if (ms < c.attack) return ms / c.attack;
@@ -111,9 +100,7 @@ export function parseCurve(id: string, raw: any): Curve {
     return { type: "custom", polarity, points };
   }
   if (type === "adsr") {
-    // Every stage defaults to 0 but the level: an envelope with no times written is an instant
-    // spike, which is a legible thing to see and fix. A missing LEVEL is not — it would mean a
-    // decay to silence and a sustain that holds nothing.
+    // Every stage defaults to 0 but the level, which would otherwise decay to silence — docs/curves.md.
     const ms = (v: any, what: string) => {
       const n = Number(v ?? 0);
       if (!(n >= 0) || !Number.isFinite(n))
@@ -137,16 +124,7 @@ export function parseCurve(id: string, raw: any): Curve {
   );
 }
 
-// Every curve in curves/, keyed by id; {} when the folder is absent.
-// Scaffold curves/<id>.yaml and return its project-relative path.
-//
-// An LFO, because it is the shape with useful defaults: a `custom` curve with no points
-// is not a curve at all, and one invented for you would be a guess about the song. A sine
-// at one cycle per bar is immediately audible once bound, which is what tells you the
-// binding worked.
-//
-// Refuses rather than overwrites: a curve someone is already using is not a thing to
-// silently replace, and the caller wants to know the name is taken.
+// Scaffold curves/<id>.yaml as an LFO, refusing to overwrite, and return its path — see docs/curves.md.
 export function createCurveFile(dir: string, id: string): string {
   // The filename IS the id, so it has to be one a path and a reference can both carry.
   if (!/^[A-Za-z0-9_-]+$/.test(id))
@@ -175,23 +153,7 @@ export function createCurveFile(dir: string, id: string): string {
   return rel;
 }
 
-/**
- * Scaffold `curves/<id>.yaml` as a FLAT custom curve, and return its project-relative path.
- *
- * The other half of `createCurveFile`, and the shape a drawn automation lane starts from: two
- * points at the same value, one at the song's start and one at `endTc`, so the lane is a
- * horizontal line you can grab rather than a single dot that says nothing about a slope.
- *
- * `value` is the param's CURRENT normalised position, and it is the caller's business to know it.
- * A curve overrides its param the moment it is bound, so a flat curve at the wrong height is an
- * audible jump on a verb whose whole promise is to change nothing yet — which is why there is no
- * default here to fall back on.
- *
- * Custom rather than an LFO because this one is going to be EDITED: an LFO is a shape you
- * parameterise, a custom curve is a shape you draw, and a lane on the timeline is the second.
- *
- * Refuses rather than overwrites, for the same reason its sibling does.
- */
+/** Scaffold `curves/<id>.yaml` as a FLAT custom curve at the param's current value — docs/curves.md. */
 export function createFlatCurveFile(
   dir: string,
   id: string,
@@ -238,9 +200,7 @@ export function sampleCurve(
   den: number,
 ): number {
   const barBeats = num * (4 / den); // quarter notes per bar
-  // An ADSR has no value at a song position — only at a time SINCE A TRIGGER, which this
-  // signature knows nothing about. Untriggered it is silent, which is what 0 says. Its real
-  // reading is `adsrUnit`, and `bakeAdsr` is what places it against the events.
+  // An ADSR has no value at a song position, only since a TRIGGER — 0 is untriggered (docs/curves.md).
   const unit =
     curve.type === "adsr"
       ? 0
@@ -284,19 +244,7 @@ export interface BakedCurve {
 /** ms -> quarter-note beats at `tempo` BPM. */
 const msToBeats = (ms: number, tempo: number) => (ms / 1000) * (tempo / 60);
 
-/**
- * An envelope laid down at each of `triggers` (song beats), as engine breakpoints.
- *
- * Five points per trigger — the corners of the shape — because the engine interpolates between
- * breakpoints and every stage here is a straight line. Sampling on a grid would be both coarser
- * and larger.
- *
- * A trigger arriving before the last envelope has finished CUTS it: the running shape is held at
- * the value it had reached, then the new one starts from 0 at its own instant. One automation
- * lane is one parameter, and one parameter has one value — the two cannot sum. (A per-VOICE
- * envelope, where overlapping notes each keep their own, is what the plugin's own matrix does
- * and what this deliberately is not.)
- */
+/** An envelope at each of `triggers`, five corners apiece, an early trigger CUTTING it — docs/curves.md. */
 export function bakeAdsr(
   curve: AdsrCurve,
   triggers: readonly number[],
@@ -314,18 +262,10 @@ export function bakeAdsr(
   const put = (beat: number, unit: number) => {
     const v = bipolar ? unit * 2 - 1 : unit;
     const last = out[out.length - 1];
-    // A corner on the beat one already sits at is NUDGED past it, never dropped.
-    //
-    // Dropping was the first rule and it was wrong: a zero-length stage puts two corners on one
-    // beat, so an instant attack popped the point before it — which, where one envelope's
-    // release meets the next one's trigger, was the release's own landing. The ramp down
-    // vanished and the parameter simply stayed up. A vertical pair a microbeat apart IS what an
-    // instant stage looks like, and the engine interpolates it as the step it is.
+    // A corner on the beat one already sits at is NUDGED past it, never dropped — see docs/curves.md.
     const v6 = round6(v);
     const coincident = !!last && beat <= last[0] + EPS / 2;
-    // Coincident AND the same value says nothing the point before it did not — two zero-length
-    // stages in a row, or one envelope ending where the next begins. Only a coincident CHANGE
-    // is worth a pair.
+    // …unless it repeats the value, which says nothing the point before it did not.
     if (coincident && last[1] === v6) return;
     out.push([round6(coincident ? last[0] + EPS : beat), v6]);
   };
@@ -340,11 +280,9 @@ export function bakeAdsr(
       [t + A + D + S + R, 0],
     ];
     for (const [b, u] of corners) {
-      // Strictly past, not at: an envelope that ENDS exactly where the next one starts has
-      // nothing left to cut, and nudging it a microbeat earlier would only add a point.
+      // Strictly past, not at: one ENDING where the next starts has nothing left to cut.
       if (b > next) {
-        // Cut short: the value the shape had actually reached when the next trigger landed, so
-        // the line into it is the envelope's own and not a shortcut from the corner before.
+        // Cut short at the value the shape had actually reached, so the line into it is its own.
         put(next - 1e-6, adsrUnit(curve, beatsToMs(next - t)));
         break;
       }
@@ -363,8 +301,7 @@ export function bakeCurve(
   const bipolar = curve.polarity === "bipolar";
   let beats: number[];
   if (curve.type === "adsr") {
-    // No triggers here — bakeAdsr is the entry point that has them. Flat 0 is what an envelope
-    // nothing fires is worth, and it keeps this function total over the union.
+    // No triggers here — bakeAdsr is the entry point that has them, and flat 0 keeps this total.
     return { bipolar, points: [[0, bipolar ? -1 : 0]] };
   }
   if (curve.type === "custom") {
@@ -412,15 +349,7 @@ function customUnit(
   return last.value; // unreachable given the guards above
 }
 
-/**
- * Read, transform, write one curve file — the seam `curve point add|move|remove` acts through.
- *
- * A transform returning null means "nothing was there at that address", which the caller reports
- * by name; returning the text unchanged writes nothing, so a no-op edit stays out of the journal
- * exactly as a drag that ends where it started does.
- *
- * Returns the project-relative path, like every other writer here.
- */
+/** Read, transform, write one curve file — the `curve point` seam, see docs/curves.md. */
 export function editCurveFile(
   dir: string,
   id: string,

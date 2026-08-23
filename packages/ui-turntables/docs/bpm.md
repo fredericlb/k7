@@ -141,6 +141,26 @@ partent toujours ensemble. Le prix est que le transport ne commence plus où la 
 `sourceAt` au lieu du transport brut (elle dessinait le mauvais endroit du morceau dès qu'une
 platine était étirée, silencieusement).
 
+Le slip est borné : jamais avant le début de la timeline. `TIMELINE_BASE` est dimensionné pour
+que cette borne soit hors d'atteinte en pratique ; elle est là parce qu'un fader qui descend à
+10 BPM peut demander n'importe quoi.
+
+### Et donc, où PLAY démarre
+
+Les dix premières minutes de cette timeline sont du silence garanti, et un transport laissé
+dedans transforme Play en bouton qui ne fait visiblement rien : la tête de lecture avance, les
+vumètres restent morts, et rien à l'écran ne dit pourquoi. Mesuré sur un vrai set : master à
+−100 dB depuis 0, −11,8 dB depuis `TIMELINE_BASE`, même document et même graphe.
+
+`putOn` saute déjà là sur le PREMIER morceau, et ça ne suffit pas tout seul — voir
+[deckSet.md](deckSet.md). La règle vit donc aussi sur PLAY (`playFrom`), où elle est un fait
+sur la timeline plutôt que sur une suite de gestes : sous la musique, on démarre à la musique.
+
+Délibérément le cas AVANT seulement. Après la fin des deux morceaux c'est aussi du silence, et
+on le laisse tranquille : c'est un état qu'un DJ voit sur la waveform et corrige avec un repère,
+là où être avant le début montre une bande vide qui ressemble à un moteur en panne. Ramener
+quelqu'un en haut du set parce qu'il a débordé d'un disque serait la pire surprise.
+
 ### Le sync est concerné aussi
 
 Le retard que le sync impose à l'esclave est **fonction du tempo**. Tirer le fader du maître le

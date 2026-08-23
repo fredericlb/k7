@@ -1,13 +1,4 @@
-// Inserting and deleting song time — `project add` / `project remove`.
-//
-// The load-bearing test in the file is the ROUND TRIP: insert a bar, delete it again, and the
-// project has to be byte-for-byte what it was. It catches in one assertion everything a
-// per-field test would need a case each for — a shift applied twice, a spelling that drifts
-// (position vs duration), a key that gains quotes on the way out, and a kind of thing that moves
-// one way and not back.
-//
-// The other half is the INVENTORY: a fixture holding one of every positioned thing, so that a
-// field added to the model later and forgotten here shows up as a thing that did not move.
+// Inserting and deleting song time — the ROUND TRIP and an INVENTORY of every positioned thing.
 
 import {
   mkdirSync,
@@ -34,8 +25,7 @@ markers:
   "1:1:1": start
   "5:1:1": chorus
 `,
-  // A lane with all three lists a lane can hold: what it plays, a take of it, and an
-  // alternative with its own two.
+  // A lane with all three lists: what it plays, a take of it, and an alternative's own two.
   "nodes/gtr.yaml": `extends: "@studio/track"
 events:
   - { ref: riff, start: "1:1:1" }
@@ -90,8 +80,7 @@ describe("inserting time", () => {
     const r = spliceProjectTime(dir, BAR, BAR, "insert"); // one bar, at bar 2
     // The lane's three lists, all of them.
     const lane = read("nodes/gtr.yaml");
-    // Written in the canonical short form — `beatsToPosition` drops a trailing zero tick, so a
-    // bar-6 downbeat is "6:1". The untouched one keeps the spelling the fixture wrote.
+    // Canonical short form: `beatsToPosition` drops a trailing zero tick, so bar 6 is "6:1".
     expect(lane).toContain('start: "1:1:1"'); // before the point: stays, verbatim
     expect(lane.match(/start: "6:1"/g)).toHaveLength(3); // playing, take, alternative
     expect(lane).toContain('start: "10:1"'); // the alternative's own take
@@ -106,8 +95,7 @@ describe("inserting time", () => {
 
   it("leaves alone everything that is NOT a position", () => {
     spliceProjectTime(dir, BAR, BAR, "insert");
-    // A fade is a DURATION that happens to be spelled as a timecode — the single easiest field
-    // in the model to shift by mistake.
+    // A fade is a DURATION spelled as a timecode — the easiest field to shift by mistake.
     expect(read("nodes/gtr.yaml")).toContain('fadeIn: "0:1"');
     // A video placement's `length` is a duration too, and its `start` before the point holds.
     expect(read("video_tracks/cam.yaml")).toContain("length: 4");
@@ -117,8 +105,7 @@ describe("inserting time", () => {
   });
 
   it("decides a straddling event by its START, the house rule", () => {
-    // The riff at 1:1:1 runs across bar 2 — and stays, because its start is before the point.
-    // Cutting it instead would make inserting time a verb that writes material and renders audio.
+    // The riff at 1:1:1 runs across bar 2 and stays, because its start is before the point.
     spliceProjectTime(dir, BAR, BAR, "insert");
     expect(read("nodes/gtr.yaml")).toContain('start: "1:1:1"');
   });
@@ -136,19 +123,7 @@ describe("deleting time", () => {
 });
 
 describe("the round trip", () => {
-  /**
-   * One splice first, to settle the SPELLING.
-   *
-   * `beatsToPosition` writes the canonical short form, so a hand-written `"5:1:1"` comes back as
-   * `"5:1"` — the same beat, spelled the way every writer in the repo spells it. That is a
-   * normalisation, not a drift, and it happens once: the fixture below is what a project looks
-   * like after anything has touched it.
-   *
-   * Which is why the round trip is asserted from THERE. Demanding byte-equality against
-   * hand-written text would be asserting that the writers preserve input spelling, which they do
-   * not and should not; demanding it against written text asserts what actually matters — that
-   * the shift is exactly reversible.
-   */
+  /** One splice first, to settle the SPELLING — the round trip is asserted from THERE. */
   const settled = () => {
     spliceProjectTime(dir, BAR, BAR, "insert");
     spliceProjectTime(dir, BAR, BAR, "delete");
@@ -156,9 +131,7 @@ describe("the round trip", () => {
   };
 
   it("insert then delete of the same span returns the project byte for byte", () => {
-    // The assertion the whole feature rests on. A shift that is not exactly reversible — a
-    // duration written where a position belongs, a value that gains or loses quotes, a rounding
-    // that accumulates — shows up here and nowhere else.
+    // The assertion the whole feature rests on: a shift that is not exactly reversible shows here.
     const before = settled();
     spliceProjectTime(dir, BAR * 2, BAR, "insert");
     expect(snapshot()).not.toEqual(before); // it really did something
@@ -167,8 +140,7 @@ describe("the round trip", () => {
   });
 
   it("round-trips at a point with material exactly on it", () => {
-    // Bar 5 is where three of the fixture's placements sit, so the inclusive/exclusive edges of
-    // both directions meet on real data rather than in a gap.
+    // Bar 5 holds three of the fixture's placements, so both directions' edges meet real data.
     const before = settled();
     spliceProjectTime(dir, BAR * 4, BAR * 2, "insert");
     spliceProjectTime(dir, BAR * 4, BAR * 2, "delete");
@@ -176,9 +148,7 @@ describe("the round trip", () => {
   });
 
   it("writes marker keys QUOTED — unquoted, `2:1:1` is a YAML 1.1 number", () => {
-    // The trap `writeMarkers` has carried a comment about since it was written, and did not
-    // implement: `setFileValue` gives every key the plain style, and the timecode quoter walks
-    // VALUES under known keys, so neither could see a timecode used as a KEY.
+    // Neither `setFileValue` nor the timecode quoter could see a timecode used as a KEY.
     spliceProjectTime(dir, BAR, BAR, "insert");
     expect(read("project.yaml")).toMatch(/"\d+:\d+(:\d+)?":/);
   });

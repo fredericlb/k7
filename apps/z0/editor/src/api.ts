@@ -13,8 +13,7 @@ import { projectApi } from "@studio/project-shell/project";
 import type { PublicEngine } from "@studio/web-protocol";
 import { SERVICE_PATHS } from "@studio/web-protocol/services";
 
-/** Where pl8 answers. Read from the table rather than spelled: it was the empty string while
- *  the médiathèque served the origin root, and is `/pl8` since st0 took it. */
+/** Where pl8 answers; read from the table, because this prefix moved once already. */
 const PL8 = SERVICE_PATHS.pl8;
 
 async function json<T>(res: Response, what: string): Promise<T> {
@@ -29,13 +28,7 @@ export interface AuthUser {
 }
 
 export const auth = {
-  // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
-  // the module, so every later click returned you there instead of where you were.
-  //
-  // BARE `/auth/*`, and NOT under `PL8`: the flow is st0's backend's, at the ORIGIN ROOT,
-  // because the IdP has one registered redirect_uri and it carries no prefix.
-  // `${PL8}/auth/login` would 404 into what reads like a broken login. See
-  // packages/web-protocol/services.ts.
+  // A GETTER, and BARE `/auth/*`: a constant froze the return page, and the flow is prefixless.
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;

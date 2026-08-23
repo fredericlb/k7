@@ -31,8 +31,7 @@ export interface ParsedModule {
 // YAML 1.2, forced: a file may declare 1.1, whose sexagesimals and true-like scalars are this app's vocabulary.
 const PARSE_OPTIONS = { version: "1.2" as const, strict: false };
 
-/** Where `path` sits in the document, for an error that points at the line. Exported for
- *  validate.ts, which asks the same question of the kinds that have no parser of their own. */
+/** Where `path` sits in the document, for an error that points at the line — validate.ts asks it too. */
 export function locate(
   doc: Document.Parsed,
   lines: LineCounter,
@@ -91,9 +90,7 @@ export const formatIssue = (rel: string, i: ModuleIssue): string =>
   `${rel}${i.line ? `:${i.line}${i.col ? `:${i.col}` : ""}` : ""}: ` +
   `${i.path ? `${i.path}: ` : ""}${i.message}`;
 
-// YAML 1.1 reads these as booleans. We parse 1.2, where they are plain strings — but the file is read by
-// people and by other tools, and `monitor: on` meaning `true` somewhere else is the kind of thing nobody
-// finds twice. So a value that LOOKS like a keyword is written quoted, exactly as the scaffold writes it.
+// YAML 1.1 reads these as booleans, so a value that LOOKS like a keyword is written quoted (docs/moduleFile.md).
 const YAML11_BOOLEANS = new Set([
   "on",
   "off",
@@ -115,20 +112,11 @@ const quoteIfKeyword = (
   return node;
 };
 
-/**
- * Quote every timecode in the document, wherever it sits — applied after every write rather than
- * at each call site, so nothing can forget.
- *
- * It guards MODULE files now, not just lanes, because a lane IS a module: `nodes/melody.yaml`
- * carries `events:` with a `start: "25:1"` in it, and unquoted that is a valid YAML 1.1 sexagesimal
- * — bar 25 reads back as beat 1501, silently, in a file nothing else would complain about.
- */
+/** Quote every timecode in the document, after every write so nothing can forget — see docs/moduleFile.md. */
 export function quoteTimecodes(doc: ReturnType<typeof parseDocument>): void {
   visit(doc, {
     Pair(_, pair) {
-      // A key set through the document API arrives as a bare string, not a Scalar — reading only `.value` there
-      // skipped the pair entirely and let a freshly written `to: 3:1` out unquoted, which is the one bug this
-      // function exists to prevent.
+      // A key set through the document API arrives as a bare string, not a Scalar (docs/moduleFile.md).
       const raw = pair.key as Scalar | string;
       const key = typeof raw === "string" ? raw : raw?.value;
       if (typeof key !== "string" || !TIMECODE_KEYS.has(key)) return;
@@ -153,15 +141,7 @@ export function quoteTimecodes(doc: ReturnType<typeof parseDocument>): void {
   });
 }
 
-/** Set one value in the file, leaving every other byte alone (comments, key order, layout survive) — a knob drag is a one-line diff. `null` removes the key. */
-/**
- * Set a list of numbers in the file, written INLINE — `channel: [ 1, 2 ]`.
- *
- * Its own function rather than a branch in `setModuleValue`, because the difference is only how it
- * LOOKS and that one takes `unknown`: teaching it to reflow every array would restyle lists written
- * by callers that never asked. A two-element block sequence costs three lines to say one thing, and
- * these are files people edit as text first.
- */
+/** Set a list of numbers in the file, written INLINE — its own function, see docs/moduleFile.md. */
 export function setModuleList(
   text: string,
   path: (string | number)[],
@@ -170,23 +150,13 @@ export function setModuleList(
   if (!path.length) throw new Error("setModuleList: empty path");
   const doc = parseDocument(text, PARSE_OPTIONS);
   const node = doc.createNode(values);
-  // On the NODE, not at stringify time: only this sequence should be inline, and a document-wide
-  // setting would reflow every other list in the file.
+  // On the NODE, not at stringify time: only this sequence should be inline.
   (node as { flow?: boolean }).flow = true;
   doc.setIn(path, node);
   return String(doc);
 }
 
-/**
- * Bind a curve to one of a module's params, or take the binding away (`curve` null).
- *
- * Keyed by PARAM: one parameter is driven by one curve, so binding a second replaces the first
- * rather than stacking two lanes onto one knob. That is the model's rule, not this writer's —
- * the compiler bakes one automation lane per (plugin, param) and a second would silently win.
- *
- * Surgical, like every writer here: the entry is edited in place, so the rest of the file —
- * comments, order, the params above it — comes back untouched.
- */
+/** Bind a curve to one of a module's params, or take it away — keyed by PARAM (docs/moduleFile.md). */
 export function setModuleAutomation(
   text: string,
   param: string,
@@ -204,18 +174,15 @@ export function setModuleAutomation(
   });
   if (curve === null) {
     if (at < 0) return text; // nothing bound to that param — nothing to take off
-    // Counted BEFORE the delete: `items` is the document's own array, not a copy, so removing
-    // the entry shortens it under us and "was this the last one" would always read false.
+    // Counted BEFORE the delete: `items` is the document's own array, not a copy (docs/moduleFile.md).
     const wasOnly = items.length === 1;
     doc.deleteIn(["automations", at]);
-    // …and the empty list goes with the last entry: `automations: []` says something was
-    // authored and then emptied, which is not what taking a binding off means.
+    // …and the empty list goes with the last entry: `automations: []` says something was emptied.
     if (wasOnly) doc.deleteIn(["automations"]);
     return String(doc);
   }
   const entry: Record<string, string> = { param, curve };
-  // Only when it is not the default. The compiler reads an absent trigger as the module being
-  // automated, so writing that would be noise that goes stale the day the binding moves.
+  // Only when it is not the default: an absent trigger already means the module being automated.
   if (trigger) entry.trigger = trigger;
   if (at >= 0) doc.setIn(["automations", at], entry);
   else doc.setIn(["automations", items.length], entry);
@@ -223,6 +190,7 @@ export function setModuleAutomation(
   return String(doc);
 }
 
+/** Set one value in the file, leaving every other byte alone; `null` removes the key. */
 export function setModuleValue(
   text: string,
   path: (string | number)[],

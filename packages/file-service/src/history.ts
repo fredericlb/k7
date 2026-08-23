@@ -64,13 +64,7 @@ const peek = (e: HistoryEntry): HistoryPeek => ({
   files: filesOf(e),
 });
 
-/**
- * The undo/redo journal for one project folder. Lazy — nothing on disk until the first push.
- *
- * `storeDir` is where the journal lives (the project folder). `baseDir` is what recorded
- * paths resolve against — the workspace root, because the editor and the file API speak
- * root-relative paths, and undo must write the file the client navigated to.
- */
+/** The undo/redo journal for one project folder, lazy until the first push — see docs/history.md. */
 export class ProjectHistory {
   private loaded = false;
   private j: Journal = { nextId: 1, cursor: 0, entries: [] };

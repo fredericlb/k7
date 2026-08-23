@@ -23,10 +23,7 @@ export function localizeCommand(canonical: string): string {
   return canonical;
 }
 
-/**
- * The command's name(s) for the bar and completion — English only, so a single entry.
- * Kept as an array because callers match a typed partial against the list.
- */
+/** The command's name(s) for the bar and completion — English only, kept as an array because callers match a typed partial against it. */
 export function commandTranslations(canonical: string): string[] {
   return [canonical];
 }
@@ -54,11 +51,7 @@ function mapPrefix(
   return s;
 }
 
-/**
- * A typed line → the canonical line the dispatchers (runLocalCommand, api.command,
- * api.complete) understand. Command names are English, so this is effectively identity
- * on the command name; arguments after it pass through untouched.
- */
+/** A typed line → the canonical line the dispatchers understand: names are English, so this is identity on the name, arguments untouched. */
 export function canonicalizeCommand(line: string): string {
   const table: { from: string; to: string }[] = [];
   for (const c of CANONICALS)

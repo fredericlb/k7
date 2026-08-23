@@ -55,13 +55,7 @@ describe("an envelope reaches the engine placed at the notes", () => {
     const lane = loadProject(dir).tracks.find((t) => t.id === "synth")!;
     const a = lane.automation.find((x) => x.param === "Filter Freq");
     expect(a).toBeDefined();
-    // 120bpm: 250ms is half a beat. The notes are at beat 0 and beat 1, so each envelope holds
-    // for half a beat and then releases for half a beat — the second firing exactly where the
-    // first lands.
-    //
-    // The microbeat pairs are the INSTANT stages: this envelope has a zero attack, so its rise
-    // is a vertical step rather than a ramp, and a step needs two points. Losing them was a
-    // real bug — the release into the second note went flat, holding the parameter up.
+    // The microbeat pairs are the INSTANT stages: a zero attack is a step, and a step needs two points.
     expect(a!.points).toEqual([
       [0, 0],
       [0.000001, 1], // straight up: attack 0
@@ -83,8 +77,7 @@ describe("an envelope reaches the engine placed at the notes", () => {
   });
 
   it("still bakes a curve of song TIME over the whole song, notes or not", () => {
-    // The other half of the same branch: an LFO is not triggered by anything, and removing the
-    // notes must not silence it.
+    // An LFO is triggered by nothing, so removing the notes must not silence it.
     song(
       "automations:\n  - { param: Filter Freq, curve: env1 }\n",
       "type: lfo\nfrequency: 1\n",

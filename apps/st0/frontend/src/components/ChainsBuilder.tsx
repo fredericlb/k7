@@ -21,18 +21,7 @@ interface LibraryChain {
   nodes: string[];
 }
 
-/**
- * The builder.
- *
- * `open` is the chain's ref, or `""` for the list with nothing chosen — a real state, and the
- * address `/chains-builder` parses to.
- *
- * It talks to the file service directly rather than through the shell's `runCommand`, and that is
- * the point of the whole screen: every verb carries the chain's PATH, so `graph chain connect`
- * writes the template's `chains.yaml` and never the open song's `graph.yaml`. What makes that
- * work with no second editor is that the two are the same document under two names — see
- * @studio/song's `graphFileOf`.
- */
+/** The builder — `open` is the chain's ref, `""` the list; every verb carries the chain's PATH, so it writes the template and never the song. */
 export function ChainsBuilder({
   open,
   onClose,
@@ -41,13 +30,11 @@ export function ChainsBuilder({
   focusNode,
 }: {
   open: string;
-  /** A node file of that chain to land on — the tree row that was clicked. The editor opens on
-   *  it and the graph selects it, so one click answers "show me this node" in both halves. */
+  /** A node file of that chain to land on — the editor opens on it and the graph selects it, so one click answers both halves. */
   focusNode?: string | null;
   /** The shell's editing mode, passed through so this pane behaves like every other one. */
   vimMode: boolean;
-  /** Report a command (or its failure) into the shell's log — the same sink App's own commands
-   *  use, so one transcript holds everything that ran whatever it was aimed at. */
+  /** Report a command (or its failure) into the shell's log — the same sink App's own commands use. */
   onLog?: (kind: "cmd" | "error", text: string) => void;
   onClose: () => void;
 }) {
@@ -73,8 +60,7 @@ export function ChainsBuilder({
     [chains, open],
   );
 
-  // The chain's own graph, asked for by path. Null while it loads and when nothing is chosen —
-  // the drawing is what waits, not the list beside it.
+  // The chain's own graph, asked for by path; null while it loads and when nothing is chosen — the drawing waits, not the list.
   useEffect(() => {
     if (!chosen) {
       setGraph(null);
@@ -91,21 +77,14 @@ export function ChainsBuilder({
     };
   }, [chosen, rev]);
 
-  /**
-   * Run a verb ON THE CHAIN. Every gesture below goes through this and nothing else, so there is
-   * one place that knows the edit is aimed somewhere other than the song.
-   */
+  /** Run a verb ON THE CHAIN — every gesture goes through this, so one place knows the edit is aimed somewhere other than the song. */
   const command = useCallback(
     async (line: string) => {
       if (!chosen) return;
-      // Reported to the shell's transcript, WITH where it was aimed. These verbs run against a
-      // library chain and not the open song, so a bare line in the log would claim an edit to
-      // the project that never happened — and the log's promise is every command, not every
-      // command that touched the song.
+      // Reported to the shell's transcript WITH where it was aimed: a bare line would claim an edit to the project that never happened.
       onLog?.("cmd", `› [${chosen.ref}] ${line}`);
       try {
-        // `want: []` because the graph this pane draws is the CHAIN's, fetched by `graphAt` on
-        // the `rev` below — never the open song's, which is the only one the route would build.
+        // `want: []` because the graph this pane draws is the CHAIN's, fetched by `graphAt` on the `rev` below.
         await projectApi.command(line, { at: chosen.path, want: [] });
         setRev((r) => r + 1);
       } catch (e) {
@@ -129,9 +108,8 @@ export function ChainsBuilder({
   }, [graph]);
 
   // --- the text half -----------------------------------------------------------------
-  // A chain is two things on disk — the graph file and the nodes it names — and the gestures
-  // above reach only the first. Params, `extends`, everything a node IS, is text; without it the
-  // screen draws a chain nobody can change.
+
+  // A chain is two things on disk, and the gestures above reach only the first: params and `extends` are text.
   const files = useMemo(
     () =>
       chosen
@@ -146,8 +124,7 @@ export function ChainsBuilder({
     [chosen],
   );
   const [openFile, setOpenFile] = useState<string | null>(null);
-  // The tree asked for a node: open its tab. An effect and not an initial value, because the
-  // screen stays mounted — clicking a second node must move the pane, not be ignored.
+  // The tree asked for a node: open its tab — an effect, since the screen stays mounted and a second click must move the pane.
   useEffect(() => {
     if (chosen && focusNode) setOpenFile(`${chosen.path}/nodes/${focusNode}`);
   }, [chosen, focusNode]);
@@ -155,8 +132,7 @@ export function ChainsBuilder({
   // What was last read or saved, so the pane knows whether it is dirty without a second state.
   const [saved, setSaved] = useState("");
 
-  // The chosen file, re-read whenever a verb changed the chain — a `graph move` rewrites the
-  // graph file under the pane showing it.
+  // The chosen file, re-read whenever a verb changed the chain — a `graph move` rewrites the file under the pane showing it.
   useEffect(() => {
     const path = openFile ?? files[0]?.path;
     if (!path) {
@@ -189,15 +165,12 @@ export function ChainsBuilder({
     },
     [path],
   );
-  // The same autosave every text pane in this repo runs — no Save button, written as soon as it
-  // is a file the compiler could read. See @studio/ui-editor's docs/autosave.md.
+  // The same autosave every text pane in this repo runs — see @studio/ui-editor's docs/autosave.md.
   const autosave = useAutosave({ path, text, saved, write });
 
   return (
     <div className="absolute inset-0 z-10 flex bg-background">
-      {/* No chain LIST here: the Libraries tab of the file tree is the navigation, and a
-          second list of the same rows would be two places to look for one thing. What stays is
-          the name of what is open and the way out. */}
+      {/* No chain LIST here: the file tree's Libraries tab is the navigation, and a second list would be two places to look. */}
       <header className="absolute right-2 top-2 z-20 flex items-center gap-2 rounded border bg-background px-2 py-1">
         <Workflow className="size-3.5" />
         <span className="text-xs font-medium">{open || "—"}</span>
@@ -210,9 +183,7 @@ export function ChainsBuilder({
         </button>
       </header>
 
-      {/* The text half, LEFT of the drawing: what you type is what the graph is made of, so it
-          reads first. The two are one chain seen twice, and a change in either shows in the other
-          on the next read. */}
+      {/* The text half, LEFT of the drawing: what you type is what the graph is made of, and the two are one chain seen twice. */}
       {open && chosen ? (
         <aside className="flex min-w-0 flex-1 basis-0 flex-col border-r">
           <div className="flex shrink-0 flex-wrap items-center gap-1 border-b px-2 py-1.5">
@@ -232,8 +203,7 @@ export function ChainsBuilder({
             ))}
             <button
               type="button"
-              // `node new` writes into the chain's own `nodes/`, because the verb resolves that
-              // folder from the graph file it was pointed at — the same `at` every gesture uses.
+              // `node new` writes into the chain's own `nodes/`, the verb resolving that folder from the graph file it was pointed at.
               onClick={() => {
                 const name = window.prompt(
                   "Nouveau nœud — <type>/<module> <nom>",
@@ -279,14 +249,11 @@ export function ChainsBuilder({
           <DomChains
             icons={STUDIO_ICONS}
             graph={drawn}
-            // The node the tree asked for, selected in the drawing — the same click answers in
-            // both halves. The graph names a node by its FILE's basename, which is what a chain
-            // graph writes in its segments.
+            // The node the tree asked for, selected in the drawing — the graph names a node by its FILE's basename.
             selected={selectedNode}
             onSelect={() => {}}
             command={command}
-            // The patch cable, the splice and the pin — the same three the project's graph wires,
-            // pointed at the template. A chain with no gestures would be a picture of one.
+            // The patch cable, the splice and the pin — the same three the project's graph wires, pointed at the template.
             onConnect={(from, to) =>
               void command(`graph chain connect ${from} ${to}`)
             }

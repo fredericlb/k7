@@ -1,8 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-// Framework-free port of composables/useVirtualBuzzers.ts: each virtual
-// buzzer is its own /ws/buzzer connection with a persisted token, so the
-// backend rebinds it to the same player across reloads (token → deviceId).
+// Each virtual buzzer is its own /ws/buzzer connection with a persisted token, rebound on reload.
 
 export interface VirtualBuzzer {
   name: string;
@@ -65,8 +63,7 @@ export class VirtualBuzzers {
   getState = (): VirtualBuzzersState => this.state;
 
   private emit(): void {
-    // Buzzer objects are mutated in place by socket handlers; refresh both
-    // array and snapshot identity so useSyncExternalStore re-renders.
+    // Socket handlers mutate in place, so both identities are refreshed for useSyncExternalStore.
     this.state = { buzzers: this.buzzers.map((b) => ({ ...b })) };
     for (const l of this.listeners) l();
   }
@@ -114,8 +111,7 @@ export class VirtualBuzzers {
           break;
         case "unregistered":
           b.registered = false;
-          // Token was preserved but the device is no longer bound to a
-          // player in the current game — re-register under the same name.
+          // The token survived but binds no player in this game, so register the name again.
           this.sendRegister(b);
           break;
         case "register_error":
@@ -134,13 +130,7 @@ export class VirtualBuzzers {
     };
   }
 
-  /**
-   * Restore persisted buzzers: reopen each token; the backend rebinds by
-   * token → deviceId, so the player reattaches automatically. If the device
-   * no longer maps to a player (new game), the `unregistered` handler
-   * re-sends register. Deferred out of the constructor so a StrictMode
-   * double-mount doesn't open sockets twice.
-   */
+  /** Reopen every stored token; OUT of the constructor, so StrictMode cannot double the sockets. */
   start(): void {
     if (this.started) return;
     this.started = true;

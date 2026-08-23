@@ -9,25 +9,13 @@ import { unmappedControls } from "../mapping";
 import type { DeckSet } from "../useDeckSet";
 import { MixView } from "./MixView";
 
-/**
- * The desk, or the reason it cannot be drawn.
- *
- * A surface declares which module each of its components moves. A component with no line is not
- * a knob that does nothing — it is a knob that CANNOT do anything, and drawing it would be a
- * desk that looks wired and is not. So the unwired components are listed instead, by name, with
- * the file to add them to.
- *
- * The check is a GATE rather than a per-knob badge because the components required here are the
- * ones that make a desk a desk: a crossfade, three EQ bands and a filter per deck. A desk
- * missing its crossfade is not a desk with one feature off.
- */
+/** The desk, or the reason it cannot be drawn — a GATE, since these components make a desk a desk. */
 export function Turntables({
   engine,
   deck,
   set,
   mapping,
-  /** Which playlist the surface names — the songs its browser lists. Carried through rather
-   *  than read here: `useDeckSet` has already read the file, and this only names it. */
+  /** Which playlist the surface names — carried through, `useDeckSet` has already read the file. */
   playlist,
   /** Whether this desk separates a record handed to it unprepared — see MixView's `stems`. */
   stems,
@@ -36,8 +24,7 @@ export function Turntables({
   library,
 }: {
   engine: { fileBase: string | null; id: string };
-  /** pl8's API base, for the one thing the library owns — separating a record. Passed straight
-   *  through; see MixView's `library`. */
+  /** pl8's API base, for the one thing the library owns — separating a record. See MixView's `library`. */
   library?: { base: string };
   deck: Deck;
   set: DeckSet;

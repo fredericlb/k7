@@ -47,9 +47,7 @@ import {
 import { type IconSet, useIcons } from "../lucideIcons";
 import type { PaletteCommand } from "./CommandBar";
 
-// The whole lucide set is ~1500 components; importing it as a namespace defeats the tree-shaking
-// every other icon import here relies on. Lazy, so that cost is paid when this screen opens and
-// never on the app's first paint. See IconPicker's header.
+// The whole lucide set is ~1500 components, so it is LAZY: that cost is paid when this screen opens (see IconPicker's header).
 const IconPicker = lazy(() => import("./IconPicker"));
 
 /** One command's patch, as the row hands it up — the same shape `setCommandPref` takes. */
@@ -71,34 +69,23 @@ export function CommandsSettings({
 }) {
   const [entity, setEntity] = useState<string>("");
   const [q, setQ] = useState("");
-  // Every language the app is built with, so a language added to the catalogue grows a field here
-  // the same day — and the CURRENT one, only to mark which field is the one you are reading in.
+  // Every language the app is built with, so a new one grows a field here — and the CURRENT one, to mark which you are reading in.
   const { locale, locales } = useLocale();
-  // Shared with the context menus, so this page and they resolve a name the same way — and the
-  // set is fetched once for both. Null for the first frames, which shows an empty icon button.
+  // Shared with the context menus, so this page and they resolve a name the same way; null for the first frames.
   const icons = useIcons();
   const entities = useMemo(() => entitiesOf(commands), [commands]);
   // Every head the catalogue uses, so a PLURAL verb lists under its singular — see entityGroup.
   const heads = useMemo(() => commandHeads(commands), [commands]);
 
-  /**
-   * The edits, held HERE until the Save button.
-   *
-   * This screen used to write through on every keystroke, and it was the wrong shape twice over:
-   * a PATCH per character down the wire, and — because the document lives at the root of the app —
-   * a re-render of the whole shell behind the overlay for each one. Renaming a command was
-   * unusable. Read docs/shell.md for why this is the one settings page with a button.
-   */
+  /** The edits, held HERE until the Save button — a write-through was a PATCH and a whole-shell re-render per character (docs/shell.md). */
   const [draft, setDraft] = useState<CommandPrefs>(prefs);
   const dirty = draft !== prefs;
-  // The saved document changed under us: the first fetch landing, or our own save coming back.
-  // After a save the two are the same object, so this costs a bail-out and not a render.
+  // The saved document changed under us: the first fetch landing, or our own save coming back, which costs a bail-out.
   useEffect(() => {
     setDraft(prefs);
   }, [prefs]);
 
-  // Stable, all three: the rows are memoised on them, and the key-capture effect below depends
-  // on the first. Functional updates are what makes that possible — none of them reads `draft`.
+  // Stable, all three: the rows are memoised on them, which functional updates are what make possible.
   const patch = useCallback(
     (canonical: string, p: Patch) =>
       setDraft((d) => setCommandPref(d, canonical, p)),
@@ -115,10 +102,7 @@ export function CommandsSettings({
     [commands],
   );
 
-  // Ordered FIRST, then filtered — so the arrows move a command against the whole arrangement and
-  // not against whatever the filter happens to show. Moving "up" inside a filtered view otherwise
-  // means something different from what the menu will do, which is the one thing this page must
-  // not get wrong.
+  // Ordered FIRST, then filtered — so the arrows move a command against the whole arrangement, not against what the filter shows.
   const ordered = useMemo(
     () => orderCommands(commands, draft),
     [commands, draft],
@@ -132,14 +116,7 @@ export function CommandsSettings({
         labelOf(c, draft, locale).toLowerCase().includes(needle)),
   );
 
-  /**
-   * The shortcut each row shows, resolved ONCE for the whole page.
-   *
-   * A row cannot answer this on its own — a key can be stolen, and the losing row's cell has to go
-   * blank — so it used to call `keyForCommand(canonical, prefs)` per row, and that call rebuilds
-   * the entire effective map. Two hundred rebuilds per keystroke, which is most of what made this
-   * page slow to type in. First token wins, as `keyForCommand`'s `find` did.
-   */
+  /** The shortcut each row shows, resolved ONCE for the whole page: per row it rebuilt the entire effective map, two hundred times a keystroke. */
   const keyByCommand = useMemo(() => {
     const out: Record<string, string> = {};
     for (const [token, canonical] of Object.entries(effectiveKeys(draft)))
@@ -149,16 +126,7 @@ export function CommandsSettings({
 
   // The row whose shortcut cell is waiting for a key, by canonical. One at a time, obviously.
   const [capturing, setCapturing] = useState<string | null>(null);
-  /**
-   * The capture itself. Window + capture phase, so the press reaches nothing else — the
-   * shell's own key listener already stands down while a settings screen is open, but the
-   * browser's focused-button semantics (Space clicks what you last clicked) do not.
-   *
-   * Escape renounces. Backspace/Delete takes the shortcut away: as KEY_NONE when the command
-   * has a default (deleting the pref would resurrect it), by dropping the field when it never
-   * had one. Choosing the default again is not an override, so the field comes off instead —
-   * a person putting a key back should leave no entry behind.
-   */
+  /** The capture itself, on the window and in the capture phase; Escape renounces, and Backspace takes the shortcut away as KEY_NONE. */
   useEffect(() => {
     if (!capturing) return;
     const onKey = (e: KeyboardEvent) => {
@@ -177,9 +145,7 @@ export function CommandsSettings({
         return;
       }
       const token = keyToken(e);
-      // A ⌘/⌃/⌥ chord: those stay the browser's and cannot be bound. ⌃C and ⌃V are the two
-      // exceptions and DO capture here — they are the shell's keys (keys.ts's CHORDS), so a
-      // person may move them onto another command exactly as they may move `c` or `p`.
+      // A modifier chord stays the browser's — ⌃C and ⌃V are the two exceptions, being the shell's own keys (keys.ts's CHORDS).
       if (!token) return;
       patch(capturing, {
         key: token === keyForCommand(capturing) ? undefined : token,
@@ -190,9 +156,7 @@ export function CommandsSettings({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [capturing, patch]);
 
-  // Ctrl+S means the button, as it does in the module builder — the shell's own key listener
-  // stands down while a settings screen is open, so without this the browser would offer to save
-  // the page. Not while capturing: that effect owns the keyboard, and its ⌃ chords are refused.
+  // Ctrl+S means the button, as in the module builder; not while capturing, since that effect owns the keyboard.
   useEffect(() => {
     if (capturing) return;
     const onKey = (e: KeyboardEvent) => {
@@ -204,8 +168,7 @@ export function CommandsSettings({
     return () => window.removeEventListener("keydown", onKey);
   }, [capturing, dirty, draft, onSave]);
 
-  // Leaving with edits nobody asked to keep is the one thing a Save button makes possible, so it
-  // is the one thing this has to stop.
+  // Leaving with edits nobody asked to keep is the one thing a Save button makes possible, so it is the one thing this stops.
   const leave = () => {
     if (
       dirty &&
@@ -234,8 +197,7 @@ export function CommandsSettings({
           placeholder="filtrer…"
           className="ml-auto h-7 w-48 text-xs"
         />
-        {/* The button, and beside it what it would write. A shortcut assigned here does not run
-            until it is saved — the app reads the SAVED document — which is what the marker says. */}
+        {/* The button, and beside it what it would write: a shortcut assigned here does not run until it is saved. */}
         <span
           className={cn(
             "shrink-0 text-xs",
@@ -307,14 +269,7 @@ export function CommandsSettings({
   );
 }
 
-/**
- * One command's row — memoised, and that is the second half of what made this page usable.
- *
- * Two hundred rows re-rendering for a keystroke in one of them is two hundred radix dropdowns and
- * four hundred inputs reconciled per character. `setCommandPref` copies the document shallowly, so
- * every untouched command's `pref` keeps its identity and every prop below is a primitive or a
- * stable callback: only the row being typed in comes back.
- */
+/** One command's row — memoised, which is the second half of what made this page usable: a keystroke reconciled two hundred rows. */
 const CommandRow = memo(function CommandRow({
   c,
   pref,
@@ -375,11 +330,7 @@ const CommandRow = memo(function CommandRow({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* The name, one field per language. Each placeholder is the catalogue's own
-          sentence IN THAT language, so an empty field reads as "unchanged" rather than as
-          "nameless" — and so the two fields show what they would each leave standing. The
-          tag is the locale code: two letters cost less width than a legend would, and this
-          row already carries five controls. */}
+      {/* The name, one field per language, each placeholder the catalogue's own sentence IN THAT language (docs/shell.md). */}
       {locales.map((l) => (
         <label
           key={l}
@@ -402,10 +353,7 @@ const CommandRow = memo(function CommandRow({
           />
         </label>
       ))}
-      {/* The line, and — on the one that acts on SEVERAL — a mark saying so. A plural
-          verb lists under its singular (`events move` among the `event` ones), which is
-          where anyone would look for it; the badge is what keeps the two tellable apart
-          once they are side by side. */}
+      {/* The line, with a mark on the one that acts on SEVERAL: a plural verb lists under its singular, where anyone would look. */}
       <code className="flex w-56 shrink-0 items-center gap-1 truncate text-[11px] text-muted-foreground">
         {plural && (
           <Layers
@@ -416,10 +364,7 @@ const CommandRow = memo(function CommandRow({
         <span className="truncate">{c.canonical}</span>
       </code>
 
-      {/* On the right-click, or not. Only ever a way to take one AWAY: the menu is
-          DERIVED — what you clicked decides which verbs fit it — so ticking this cannot
-          put a command somewhere it does not belong. Unticking is for the verb that
-          fits and is still clutter, which the catalogue cannot say for you. */}
+      {/* On the right-click, or not — only ever a way to take one AWAY, the menu being DERIVED from what you clicked. */}
       <label
         className="flex w-7 shrink-0 items-center justify-center"
         title="proposer cette commande au clic droit"
@@ -428,17 +373,14 @@ const CommandRow = memo(function CommandRow({
           type="checkbox"
           checked={pref?.menu !== false}
           onChange={(e) =>
-            // `undefined` rather than `true`, so an untouched command keeps no entry at
-            // all — the same rule the label and the icon follow.
+            // `undefined` rather than `true`, so an untouched command keeps no entry at all — the rule the label and the icon follow.
             onPatch(c.canonical, { menu: e.target.checked ? undefined : false })
           }
           aria-label="au clic droit"
         />
       </label>
 
-      {/* The shortcut. Click, press a key — Échap annule, ⌫ retire. A stolen key is
-          visible without ceremony: the row that held it reads the same effective map
-          and its cell goes blank. */}
+      {/* The shortcut: click, press a key, and a stolen one goes blank in the row that held it, both reading one effective map. */}
       <Button
         size="sm"
         variant={capturing ? "default" : "outline"}

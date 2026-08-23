@@ -8,9 +8,7 @@ import {
 import { Globe } from "lucide-react";
 import { useLocale } from "../lib/i18n";
 
-// Language names stay in their own language and are deliberately NOT in the
-// catalogue: someone who has landed in a language they can't read needs to
-// recognise their own in the list.
+// NOT in the catalogue: someone stuck in a language they cannot read must recognise their own.
 const NATIVE_NAMES: Record<string, string> = {
   en: "English",
   fr: "Français",

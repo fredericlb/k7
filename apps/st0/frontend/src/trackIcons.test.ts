@@ -2,9 +2,7 @@ import { TRACK_PREFIXES } from "@studio/song-schema/trackKind";
 import { describe, expect, it } from "vitest";
 import { trackIcon } from "./trackIcons";
 
-// The prefix table and the ordering it drives are tested in @studio/song
-// (trackKind.test.ts). What's left here is the half this file owns: that every prefix
-// has a drawing behind it.
+// The prefix table and its ordering are tested in @studio/song; what is left here is that every prefix has a drawing behind it.
 
 describe("trackIcon", () => {
   it("resolves a glyph and its human label", () => {
@@ -15,8 +13,7 @@ describe("trackIcon", () => {
   });
 
   it("has a real glyph behind every prefix the song model defines", () => {
-    // A prefix added to trackKind without a glyph here would render an empty <svg>
-    // and nothing would say so — this is the join between the two files.
+    // A prefix added to trackKind without a glyph here would render an empty <svg> and nothing would say so.
     for (const prefix of Object.keys(TRACK_PREFIXES)) {
       const hit = trackIcon(`${prefix}.x`);
       expect(hit, prefix).toBeTruthy();
@@ -29,8 +26,7 @@ describe("trackIcon", () => {
   });
 
   it("reports no instrument for a name that declares none", () => {
-    // The COMPONENT still draws (a question mark); this is the question "what did the
-    // track say it was", which callers ask to build a tooltip.
+    // The COMPONENT still draws a question mark; this is the question 'what did the track say it was', which a tooltip asks.
     expect(trackIcon("bass_3")).toBeNull();
     expect(trackIcon("zz.what")).toBeNull();
   });

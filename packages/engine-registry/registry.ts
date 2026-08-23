@@ -16,23 +16,9 @@ import {
 /** No heartbeat for this long ⇒ the engine is presumed gone. (Beats every ~5s.) */
 export const REGISTRY_TTL_MS = 15000;
 
-/**
- * One tab holding one engine.
- *
- * `secret` is what makes takeover work rather than ping-pong. Every renewal carries it; a
- * renewal whose secret is no longer registered is REFUSED instead of granted, which is how a
- * displaced tab finds out it lost the project. Without it, "the newcomer wins" would mean the
- * loser wins it straight back on its next five-second tick, for ever.
- */
+/** One tab holding one engine; its `secret` is what makes takeover work rather than ping-pong — see docs/claim.md. */
 export interface EngineHolder {
-  /**
-   * The launch address — `<repo>/<projet>` — or **null** for a surface that opens on no project.
-   *
-   * The null case is not a detail. pl8 drives an engine without ever opening a project: it
-   * auditions modules and plays songs out of the médiathèque. A null holder conflicts with
-   * nothing and nothing conflicts with it, so looking at the catalogue cannot take a song away
-   * from the st0 tab beside it.
-   */
+  /** The launch address — `<repo>/<projet>` — or **null** for a surface that opens on no project, which conflicts with nothing. */
   project: string | null;
   /** The account holding it, for the screen shown to whoever is turned away. */
   holder: string;
@@ -47,8 +33,7 @@ export interface EngineEntry {
   machineFingerprint: string;
   addresses: EngineAddresses;
   publicIpHint?: string; // the source IP the heartbeat arrived from
-  // Live holders by their secret. Expires on its own, because a holder is a browser tab: it can
-  // only say goodbye best-effort, so "in use" must not depend on a goodbye arriving.
+  // Live holders by their secret, expiring on their own because a holder is a browser tab that may never say goodbye.
   holders: Map<string, EngineHolder>;
   seen: number; // epoch ms of the last heartbeat
 }
@@ -78,22 +63,10 @@ export type ClaimResult =
       /** Set when this claim displaced somebody — the caller may want to say so. */
       tookOver?: { holder: string; project: string | null };
     }
-  /**
-   * The caller renewed a claim that is no longer theirs. There is no retry — the holder lets
-   * go and says so.
-   *
-   * WHY it went is part of the answer, because the three read completely differently to the
-   * person looking at the screen and only one of them is "your project is open elsewhere".
-   * They were one `heldBy` for a while, and a tab displaced by a DIFFERENT project was told
-   * its own had been reopened — which was not true, and left nothing to act on.
-   */
+  /** The caller renewed a claim that is no longer theirs; there is no retry, and WHY it went is part of the answer — see docs/claim.md. */
   | {
       ok: false;
-      /**
-       * `project` — somebody ELSE opened the same project, or we did on another machine.
-       * `engine`  — another project took this engine. `tookFor` names it.
-       * `lapsed`  — nobody took anything; this claim simply aged out (a sleep, a gap).
-       */
+      /** `project` — somebody ELSE has it; `engine` — another project took this machine (`tookFor`); `lapsed` — it simply aged out. */
       lost: "project" | "engine" | "lapsed";
       /** Who holds it now. Empty when there is nobody to name — always so for `lapsed`. */
       heldBy: string;
@@ -113,14 +86,7 @@ export interface EngineRegistry {
   list(requesterIp?: string): PublicEngine[];
 }
 
-/**
- * A registry instance.
- *
- * A FACTORY rather than the module-level Map this was as st0' own file. One process still
- * holds exactly one, so nothing behaves differently today — but module state in a shared
- * package is one instance for every importer that ever appears, and this file now has two
- * services and a test suite ahead of it.
- */
+/** A registry instance — a FACTORY rather than a module-level Map, since module state in a shared package is one instance per importer. */
 export function createRegistry(): EngineRegistry {
   const engines = new Map<string, EngineEntry>();
 
@@ -149,14 +115,7 @@ export function createRegistry(): EngineRegistry {
     return e;
   };
 
-  /**
-   * A holder on this engine that has a project OTHER than this one, if any.
-   *
-   * At most one, by construction — that is rule 2, and it is what this predicate is for. It used
-   * to be "any holder with a project", which read the same because rule 1 had always cleared the
-   * matching ones first. It no longer does: one account's several screens on one engine share a
-   * session and coexist on one project, so the difference has to be spelled out.
-   */
+  /** A holder on this engine whose project is not this one; at most one, by rule 2 — see docs/claim.md. */
   const otherProjectOn = (
     e: EngineEntry,
     project: string,
@@ -164,23 +123,12 @@ export function createRegistry(): EngineRegistry {
   ): EngineHolder | undefined =>
     holdersOf(e, now).find((h) => h.project !== null && h.project !== project);
 
-  /**
-   * Every live engine, scanned rather than indexed by project.
-   *
-   * A second Map keyed by project would have to be kept in step with every expiry, every
-   * takeover and every heartbeat that drops an engine — three places to forget. There are a
-   * handful of engines, and this runs on a five-second tick.
-   */
+  /** Every live engine, scanned rather than indexed by project: a second Map would be three places to forget, over a handful of engines. */
   const liveEngines = (now: number): EngineEntry[] =>
     [...engines.values()].filter((e) => now - e.seen < REGISTRY_TTL_MS);
 
   return {
-    /**
-     * Record a heartbeat (also the first-time registration). An id's token is pinned on
-     * first sight: a later heartbeat for the same id with a different token is rejected,
-     * so a second process can't hijack an existing engine's entry. Returns false on that
-     * mismatch, true otherwise.
-     */
+    /** Record a heartbeat, pinning an id's token on first sight so a second process cannot hijack the entry; false on a mismatch. */
     upsert(input) {
       const existing = engines.get(input.id);
       if (existing && existing.token !== input.token) return false;
@@ -213,27 +161,7 @@ export function createRegistry(): EngineRegistry {
       return true;
     },
 
-    /**
-     * Take this engine, for a project or for nothing, or renew a hold already taken.
-     *
-     * Two shapes, told apart by `secret`:
-     *
-     * - **no secret — an OPEN.** The newcomer always wins. Whoever held this project ELSEWHERE,
-     *   and whoever held a *different* project on this engine, is displaced.
-     * - **a secret — a RENEWAL.** Granted only while that secret is still registered. A renewal
-     *   must never take over, or a displaced tab wins the project back five seconds later, for
-     *   ever.
-     *
-     * Three rules, and each earns its place:
-     *
-     * 1. **One engine per project.** Two people on one project is what the whole change is for —
-     *    two SESSIONS, which is why one account's several screens on one engine are exempt.
-     * 2. **One project per engine.** Not tidiness: the file service on that machine holds a
-     *    SINGLE active project (`engineLink.ts` — "several browser tabs share it, last write
-     *    wins"), so a second project there does not coexist, it clobbers.
-     * 3. **A null project conflicts with nothing.** pl8 drives an engine and opens no project;
-     *    it must be able to sit beside the st0 tab on the same machine.
-     */
+    /** Take this engine, or renew a hold already taken — an OPEN and a RENEWAL, told apart by `secret`, under the three rules in docs/claim.md. */
     claim(id, req) {
       const e = get(id);
       // The engine itself is gone from the registry — nobody took anything from us.
@@ -241,28 +169,14 @@ export function createRegistry(): EngineRegistry {
       const now = Date.now();
       holdersOf(e, now); // prune first, so what follows sees only live holders
 
-      /**
-       * Is this holder, on this engine, the SAME instance we are asking about?
-       *
-       * Same account and same machine means one engine session — `sessionFor(<service>, email)`,
-       * one project loaded in it (packages/engine-protocol/docs/sessions.md). So the two are not
-       * two drivers of one project: they are one driver with two screens, which is what an
-       * external surface beside its editor is, and what two tabs of one song have always been.
-       * Rule 1 has nothing to protect there, and enforcing it evicted a person from their own
-       * project the moment they opened a surface on a tablet.
-       */
+      /** Is this holder, on this engine, the SAME instance we are asking about — one account on one machine being one session. */
       const sameInstance = (entry: EngineEntry, h: EngineHolder): boolean =>
         entry === e && h.holder === req.holder;
 
       if (req.secret !== undefined) {
         const mine = e.holders.get(req.secret);
         if (!mine) {
-          // Gone — and the three ways that happens are three different things to be told.
-          // Asked in this order because the first is the one that is about YOUR project.
-          //
-          // Our own other screen is not an answer to any of them: it holds what we hold and took
-          // nothing, so a claim that lapsed beside it reads as `lapsed` — which the hold loop
-          // retries, and which the exemption below then grants without displacing it.
+          // Gone, and the three ways that happens are three different things to be told, asked YOUR-project first — see docs/claim.md.
           const onMyProject = req.project
             ? liveEngines(now)
                 .flatMap((x) => holdersOf(x, now).map((h) => ({ x, h })))
@@ -273,9 +187,7 @@ export function createRegistry(): EngineRegistry {
             : undefined;
           if (onMyProject)
             return { ok: false, lost: "project", heldBy: onMyProject.holder };
-          // Nobody has our project, but somebody has our engine: a DIFFERENT project took it.
-          // Only if we HAD a project: a project-less holder is never displaced (the rules below
-          // leave it alone), so it can only have lapsed — however busy the engine looks now.
+          // Nobody has our project but a DIFFERENT one has our engine; asked only if we HAD a project, a null holder never being displaced.
           const sitting = req.project
             ? otherProjectOn(e, req.project, now)
             : undefined;
@@ -303,8 +215,7 @@ export function createRegistry(): EngineRegistry {
       };
 
       if (req.project !== null) {
-        // Rule 1: the same project, wherever it is open — but not our own other screen on this
-        // very engine, which is the same session driving the same loaded project. See above.
+        // Rule 1: the same project wherever it is open, except our own other screen on this very engine.
         for (const other of liveEngines(now))
           for (const h of holdersOf(other, now))
             if (h.project === req.project && !sameInstance(other, h))
@@ -323,11 +234,7 @@ export function createRegistry(): EngineRegistry {
       return { ok: true, secret, tookOver };
     },
 
-    /**
-     * Let go. Carries the SECRET, not the engine token: a goodbye may only drop the hold it
-     * actually has, or a tab leaving would drop whoever took the project from it a moment ago.
-     * Silent either way — this arrives by sendBeacon from a page already gone.
-     */
+    /** Let go, carrying the SECRET rather than the engine token, so a goodbye drops only the hold it actually has. */
     release(id, secret) {
       get(id)?.holders.delete(secret);
     },
@@ -344,8 +251,7 @@ export function createRegistry(): EngineRegistry {
       const now = Date.now();
       return live().map((e) => {
         const holders = holdersOf(e, now);
-        // Whoever has a PROJECT on it is the interesting one to name — a null holder is pl8
-        // looking at its catalogue, which nobody needs to be warned about.
+        // Whoever has a PROJECT on it is the interesting one to name; a null holder is pl8 looking at its catalogue.
         const owner = holders.find((h) => h.project !== null) ?? holders[0];
         return {
           id: e.id,

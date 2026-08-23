@@ -31,8 +31,7 @@ import { playablePath } from "./service";
 
 describe("where a stem's file is", () => {
   it("is `stems/` beside the record, whichever separator the machine uses", () => {
-    // The path is the ENGINE machine's and this runs in a browser, so it is string work: a
-    // Windows root normalised to POSIX here would be this app deciding something it does not own.
+    // The path is the ENGINE machine's and this runs in a browser, so it is string work.
     expect(stemSource("/m/song/master.wav", "bass")).toBe(
       "/m/song/stems/bass.wav",
     );
@@ -69,16 +68,14 @@ describe("turning a catalogue entry into something the engine can open", () => {
   });
 
   it("keeps a Windows root's separator instead of normalising it", () => {
-    // The service reports a NATIVE root while entry paths are POSIX, and the engine takes
-    // either. Picking one shape here would be this app deciding something it does not own.
+    // The service reports a NATIVE root while entry paths are POSIX, and the engine takes either.
     expect(playablePath("C:\\Users\\flb\\.studio\\mediatek", entry())).toBe(
       "C:\\Users\\flb\\.studio\\mediatek\\songs/K7/rel/song\\master.wav",
     );
   });
 
   it("answers null for a folder catalogued with no audio", () => {
-    // A real state, not a malformed entry: a mirror that failed halfway, or a folder made
-    // by hand. The UI disables the deck buttons and says which of the two problems it is.
+    // A real state, not a malformed entry: a mirror that failed halfway, or a folder made by hand.
     expect(
       playablePath("/root", entry({ meta: { catalogued: true } })),
     ).toBeNull();
@@ -91,9 +88,7 @@ describe("turning a catalogue entry into something the engine can open", () => {
 
 describe("the crossfade's law", () => {
   it("is the SAME line the crossfade module's jsdsp writes", () => {
-    // `a*(1-mix) + b*mix`. The two are not connected by code — one is a graph in the engine's
-    // DSP host, the other a level on a track — so this test is the only thing holding them
-    // together until playback goes through the compiler.
+    // `a*(1-mix) + b*mix` — nothing connects the two by code, so this test is what holds them together.
     for (const mix of [0, 0.25, 0.5, 0.75, 1]) {
       expect(deckGain("deckA", mix)).toBeCloseTo(1 - mix);
       expect(deckGain("deckB", mix)).toBeCloseTo(mix);
@@ -108,8 +103,7 @@ describe("the crossfade's law", () => {
   });
 
   it("clamps a value from outside the fader rather than inverting it", () => {
-    // A range input cannot send these, but a future keyboard nudge or a stored value can,
-    // and `1 - 1.5` is a NEGATIVE gain — which is a phase flip, not silence.
+    // `1 - 1.5` is a NEGATIVE gain — a phase flip, not silence — and a stored value can reach it.
     expect(deckGain("deckA", 1.5)).toBe(0);
     expect(deckGain("deckB", -0.5)).toBe(0);
   });
@@ -117,8 +111,7 @@ describe("the crossfade's law", () => {
 
 describe("a gain as the strip's decibels", () => {
   it("puts unity at 0 dB, not at 1", () => {
-    // The one mistake this conversion exists to prevent: a strip's Volume is -60..+6 dB, so
-    // a surface sending 0..1 would look like it worked and be 6 dB of range wide.
+    // The mistake this prevents: a strip's Volume is -60..+6 dB, so 0..1 would look like it worked.
     expect(gainToDb(1)).toBe(VOLUME_DB.unity);
   });
 
@@ -134,9 +127,7 @@ describe("a gain as the strip's decibels", () => {
 
 describe("the deck's tempo is a MODULE, and the warp stands in for it", () => {
   it("names the médiathèque module the project actually puts on a deck", () => {
-    // `example.m9`'s nodes extend exactly this. If the médiathèque renames the module,
-    // this is the line that has to move with it — and the scaffold's own test pins the other
-    // end, so the two cannot drift apart silently.
+    // `example.m9`'s nodes extend exactly this, and the scaffold's own test pins the other end.
     expect(TEMPO_MODULE).toBe("@st0/audio/utility/tempo");
     expect(TEMPO_PARAM).toBe("Target BPM");
     expect(TEMPO_SOURCE_PARAM).toBe("Source BPM");
@@ -152,8 +143,7 @@ describe("stretching a deck to a tempo", () => {
   });
 
   it("does NOTHING when the target is the song's own tempo", () => {
-    // An identity warp would put the stretch engine in the path to change nothing — CPU and
-    // quality spent on a no-op.
+    // An identity warp would put the stretch engine in the path to change nothing.
     expect(warpFor(tempo())).toBeUndefined();
     expect(warpFor(tempo({ target: 120.0000001 }))).toBeUndefined();
   });
@@ -168,21 +158,18 @@ describe("stretching a deck to a tempo", () => {
     const w = warpFor(tempo({ target: 60 }));
     expect(w?.algorithm).toBe("elastique");
     expect(w?.markers[0]).toEqual([0, 0]);
-    // The second marker's source time is the file's length, always — a linear stretch maps
-    // the whole thing, and only the BEAT it lands on changes.
+    // The second marker's source time is the file's length, always — only the BEAT it lands on changes.
     expect(w?.markers[1][1]).toBe(60);
   });
 
   it("takes twice the beats at half the speed", () => {
-    // 60 s at 120 bpm natural, played at 60 bpm: it lasts twice as long, so on a 120 bpm
-    // timeline it occupies twice the beats.
+    // 60 s of 120 bpm played at 60 lasts twice as long, so it occupies twice the doc beats.
     expect(warpFor(tempo({ target: 60 }))?.beats).toBeCloseTo(240);
     expect(warpFor(tempo({ target: 240 }))?.beats).toBeCloseTo(60);
   });
 
   it("lands a song on the beats the DOC tempo counts, not its own", () => {
-    // The timeline is fixed at DOC_TEMPO and each deck reaches its target through its own
-    // warp — that is what lets one document play two songs at two BPMs.
+    // The timeline is fixed at DOC_TEMPO and each deck reaches its target through its own warp.
     const w = warpFor({ natural: 90, seconds: 60, target: DOC_TEMPO });
     // 60 s of 90 bpm played at 120 lasts 45 s, which is 90 beats at 120 bpm.
     expect(w?.beats).toBeCloseTo(90);
@@ -191,15 +178,12 @@ describe("stretching a deck to a tempo", () => {
 
 describe("the BPM fader's ends", () => {
   it("is the MODULE's knob, 10 to 300", () => {
-    // Not a range m9 invented: `@st0/audio/utility/tempo`'s ui.yaml declares a BPM knob
-    // from 10 to 300, and the fader in Mix is that knob. A surface offering less would
-    // quietly refuse values the module accepts.
+    // Not a range m9 invented: `@st0/audio/utility/tempo`'s ui.yaml declares this knob.
     expect(BPM_RANGE).toEqual([10, 300]);
   });
 
   it("reaches any tempo a sync can ask for, so nothing has to be clamped", () => {
-    // The old fader was ±16 % of the song and had to widen when a master drove it past its
-    // own end. The module's range covers every real tempo, so that whole problem is gone.
+    // The old fader was ±16 % of the song and had to widen; the module's range covers every real tempo.
     const [lo, hi] = BPM_RANGE;
     for (const natural of [60, 90, 123.31, 174]) {
       expect(natural * (1 + PITCH_RANGE)).toBeLessThan(hi);
@@ -221,17 +205,14 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 
   it("works the other way round, which is the second button", () => {
-    // The button says WHO LEADS. Pressing the right one makes B the master, so it keeps its
-    // own 90 and A is driven to it — the mirror of the case above, not a repeat of it.
+    // The button says WHO LEADS: pressing the right one keeps B's own 90 and drives A to it.
     const out = syncedTempos(both(), "deckB");
     expect(out.deckB?.target).toBe(90);
     expect(out.deckA?.target).toBe(90);
   });
 
   it("hands over the exact number, past what a real deck would bend", () => {
-    // "Synced" means the same tempo. 90 -> 126 is a +40 % stretch, well past the ±16 % a
-    // turntable offers — the readout warns in amber and the tempo still matches, because a
-    // clamp would leave the two decks apart while the button claimed otherwise.
+    // "Synced" means the same tempo: 90 -> 126 is a +40 % stretch, and a clamp would leave them apart.
     const out = syncedTempos(both(), "deckA");
     expect(out.deckB?.target).toBe(126);
     expect(Math.abs(126 - 90)).toBeGreaterThan(90 * PITCH_RANGE);
@@ -242,8 +223,7 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 
   it("drives nothing from a master with no tempo of its own", () => {
-    // The engine found none. There is no number to sync to, and inventing one is the
-    // confident lie this avoids.
+    // The engine found none: there is no number to sync to, and inventing one is a confident lie.
     const t: DeckTempos = {
       deckA: { natural: 0, seconds: 60, target: 0 },
       deckB: { natural: 90, seconds: 60, target: 90 },
@@ -260,9 +240,7 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 
   it("ALIGNS the beats too, not just the tempos", () => {
-    // Sync is two facts. Two decks at the same BPM whose downbeats sit apart are not synced,
-    // they are flamming — so the slave also gets the delay that closes the gap, and the
-    // master gets none because it is what the other one is meeting.
+    // Sync is two facts: the slave also gets the delay that closes the gap, and the master gets none.
     const t: DeckTempos = {
       deckA: { natural: 120, seconds: 60, target: 120, phase: 0.2 },
       deckB: { natural: 120, seconds: 60, target: 120, phase: 0.3 },
@@ -282,9 +260,7 @@ describe("sync hands one deck's tempo to the other", () => {
   });
 
   it("aligns nothing it was told nothing about", () => {
-    // A song with no onsets has no grid. It still gets the TEMPO — matching the speed is
-    // worth having on its own — and a phase invented from nothing would move the record for
-    // no reason. Both phases absent means both read as zero, which agree.
+    // A song with no onsets has no grid: it still gets the TEMPO, and no invented phase moves it.
     const out = syncedTempos(both(), "deckA");
     expect(out.deckB?.target).toBe(126);
     expect(out.deckB?.align).toBeCloseTo(0, 6);
@@ -292,8 +268,7 @@ describe("sync hands one deck's tempo to the other", () => {
 });
 
 describe("filling the decks into the COMPILED project", () => {
-  /** A stand-in for what the compiler hands back: two decks, the crossfade on deck A with its
-   *  baked graph and its side input, and deck A's tempo already applied by the chains. */
+  /** A stand-in for what the compiler hands back: two decks, and the crossfade on deck A. */
   const compiled = (): ProjectDoc =>
     deckDoc(NO_LOADS, MIX_CENTRE, {
       deckA: [
@@ -307,12 +282,10 @@ describe("filling the decks into the COMPILED project", () => {
     });
 
   it("keeps everything the project declared", () => {
-    // The whole point of playing the compiled document: the chains, the plugins and the DSP
-    // are the project's. m9 fills in the one thing the project cannot say — which song.
+    // The whole point of the compiled document: m9 fills in the one thing the project cannot say.
     const before = compiled();
     const after = withDecks(before, loaded());
-    // Everything the project declared, in its order — plus the one track m9 appends, which is
-    // a desk control and not part of the set. See `metronomeTrack`.
+    // Everything the project declared, in its order — plus the one track m9 appends for the click.
     expect(after.tracks.map((t) => t.id)).toEqual([
       ...before.tracks.map((t) => t.id),
       METRONOME_TRACK,
@@ -366,9 +339,7 @@ describe("filling the decks into the COMPILED project", () => {
   });
 
   it("gives the record and its stems the SAME start and the same warp", () => {
-    // The one thing that cannot be got wrong. A stem a sample off the record it is subtracted
-    // from is not a quiet instrument, it is a comb filter — and nothing in the picture would
-    // say so, because both clips are there and both play.
+    // A stem a sample off the record it is subtracted from is a comb filter, and nothing would say so.
     const doc = withDecks(
       withStemLanes(),
       loaded({
@@ -394,8 +365,6 @@ describe("filling the decks into the COMPILED project", () => {
 
   it("leaves the stem lanes EMPTY for a song nobody has separated", () => {
     // An empty lane subtracts nothing, so a record that was never prepared plays as itself.
-    // The alternative — pointing four clips at files that are not there — would make putting
-    // a record on depend on an hour of arithmetic nobody asked for.
     const doc = withDecks(withStemLanes(), loaded());
     for (const s of STEMS)
       expect(
@@ -411,8 +380,7 @@ describe("filling the decks into the COMPILED project", () => {
   });
 
   it("carries the tempo stretch onto the clip it fills in", () => {
-    // The tempo module is `offline` and compiles to no plugin, so the stretch cannot be a
-    // param — it stays a warp on the clip, which is the one thing that plays live.
+    // The tempo module is `offline` and compiles to no plugin, so the stretch stays a warp on the clip.
     const doc = withDecks(compiled(), loaded(), {
       deckA: { natural: 120, seconds: 60, target: 60 },
     });
@@ -421,8 +389,7 @@ describe("filling the decks into the COMPILED project", () => {
   });
 
   it("delays a clip by sync's alignment, and only when there is one", () => {
-    // Where beat alignment actually lands: `start`, in document beats — on top of the headroom
-    // every deck gets. Under one beat, so it costs the top of a deck nothing you would notice.
+    // Where beat alignment lands: `start`, in document beats, on top of the headroom every deck gets.
     const base = (TIMELINE_BASE * DOC_TEMPO) / 60;
     const doc = withDecks(compiled(), loaded(), {
       deckB: { natural: 120, seconds: 60, target: 120, align: 0.8 },
@@ -433,9 +400,7 @@ describe("filling the decks into the COMPILED project", () => {
   });
 
   it("starts every clip a HEADROOM in, so a slowed deck can slide earlier", () => {
-    // The one reason the timeline does not begin where the music does. Slowing a deck means
-    // its clip must start sooner than it does; from zero there is no sooner, and the engine
-    // would take a negative start but then clamp every cue near the top of the song to it.
+    // The one reason the timeline does not begin where the music does — see docs/bpm.md.
     const doc = withDecks(compiled(), loaded(), {
       deckA: { natural: 120, seconds: 60, target: 120, slip: -30 },
     });
@@ -450,8 +415,7 @@ describe("the decks' document", () => {
   it("carries BOTH decks, loaded or not, so a load is a diff and not a new track", () => {
     const empty = deckDoc(NO_LOADS);
     expect(empty.tracks.map((t) => t.id)).toEqual([...DECKS, METRONOME_TRACK]);
-    // The ids are stable across every state — that is what lets the engine keep playing one
-    // deck while the other is loaded underneath it.
+    // The ids are stable across every state, so the engine keeps playing one deck while the other loads.
     expect(deckDoc(loaded()).tracks.map((t) => t.id)).toEqual([
       ...DECKS,
       METRONOME_TRACK,
@@ -459,10 +423,7 @@ describe("the decks' document", () => {
   });
 
   it("keeps the metronome's track even when nothing is clicking", () => {
-    // Not tidiness: `ChangeKind::TrackRemoved` is a stub in the engine, so a track dropped from
-    // the document stays in the edit. A metronome that could not be switched off would be a
-    // worse bug than the feature is a feature — so silence is an empty clip list, and clip
-    // removal, which the engine really does implement, is what carries it.
+    // Not tidiness: `ChangeKind::TrackRemoved` is a stub, so silence is an empty clip list (docs/metronome.md).
     const off = deckDoc(loaded()).tracks.at(-1);
     expect(off?.id).toBe(METRONOME_TRACK);
     expect(off?.clips).toEqual([]);
@@ -470,8 +431,7 @@ describe("the decks' document", () => {
   });
 
   it("names the tracks as the PROJECT's chains.yaml names them", () => {
-    // Not cosmetic: when playback moves to the compiled project these ids stop being built
-    // here and start coming from the file, and everything addressed by them has to survive.
+    // Not cosmetic: these ids come from the file once playback is the compiled project (docs/mix.md).
     expect([...DECKS]).toEqual(["deckA", "deckB"]);
   });
 
@@ -499,8 +459,7 @@ describe("the decks' document", () => {
   });
 
   it("puts the level LAST, after the deck's own effects", () => {
-    // A strip is the end of a chain: a module added to a deck has to be heard before the
-    // crossfader touches it, or the fade would apply in the middle of the signal path.
+    // A strip is the end of a chain: a deck's own module is heard before the crossfader touches it.
     const doc = deckDoc(loaded(), MIX_CENTRE, {
       deckA: [
         {
@@ -525,14 +484,12 @@ describe("the decks' document", () => {
   });
 
   it("refuses to arm, by carrying no record directory", () => {
-    // A deck plays and never records; a made-up path is one the engine would eventually
-    // try to write into. See emptyDoc.
+    // A deck plays and never records, and a made-up path is one the engine would write into.
     expect(deckDoc(loaded()).recordDir).toBe("");
   });
 
   it("carries no groups, so it can be sent unfolded", () => {
-    // There is no PICTURE field to assert on: a ProjectDoc carries none, so the fold this
-    // document skips is `withGroupMix` and nothing else.
+    // No PICTURE field to assert on: the fold this document skips is `withGroupMix` and nothing else.
     const doc = deckDoc(loaded());
     expect(doc.groups).toEqual([]);
   });

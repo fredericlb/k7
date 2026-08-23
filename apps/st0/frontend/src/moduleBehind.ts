@@ -11,13 +11,7 @@ export interface PathHints {
   projectRoot: string;
 }
 
-/**
- * The file behind `content`'s `extends:`, joined the way entityLinks joins one — or null: no
- * `extends`, a base with no file to edit (`@engine/…`, the `@studio/…` track bases — the paths
- * map simply has no entry), a ref the project cannot resolve, or the file itself. `base:` is
- * tried first because that is what an extends names; `module:` covers a node extending another
- * local module by its chain ref.
- */
+/** The file behind `content`'s `extends:`, or null — `base:` first, since that is what an extends names, then `module:` for a local ref. */
 export function moduleBehind(
   content: string,
   hints: PathHints,
@@ -28,7 +22,6 @@ export function moduleBehind(
   const rel = hints.paths[`base:${ref}`] ?? hints.paths[`module:${ref}`];
   if (!rel) return null;
   const abs = [hints.projectRoot, ...rel.split("/")].filter(Boolean).join("/");
-  // The instance and its module can be one file (a module extending a base that resolves back
-  // to it through an alias): the same buffer twice is not a comparison, it is a mirror.
+  // The instance and its module can be one file, and the same buffer twice is not a comparison but a mirror.
   return ownPath === abs || ownPath === rel ? null : abs;
 }

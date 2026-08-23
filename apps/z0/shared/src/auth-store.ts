@@ -40,12 +40,7 @@ export interface AuthState {
 /** The one thing that differed between the copies: each SPA's own fetch, which carries its base path. */
 export type AuthFetch = (path: string) => Promise<Response>;
 
-/**
- * One store for one SPA. Call it ONCE, at module scope, and export what it returns.
- *
- * Module-level rather than a hook's state, deliberately: every consumer of a page has to see the
- * same answer, and the boot fetch must happen once however many components ask.
- */
+/** One store per SPA: call it ONCE at module scope, so the boot fetch happens once. */
 export function createAuthStore(f: AuthFetch): {
   useAuth: () => AuthState;
   logout: () => Promise<void>;
@@ -79,8 +74,7 @@ export function createAuthStore(f: AuthFetch): {
         return;
       }
       if (res.status === 401) {
-        // Not always an invitation to log in. If we JUST came back from pl8 and are still
-        // anonymous, the button would only bounce off it again — say so instead of looping.
+        // Back from pl8 and still anonymous means the button would only bounce again: say so.
         const why = cameBackStillAnonymous() ? SIGN_IN_DID_NOT_STICK : null;
         setState({
           status: why ? "error" : "unauthenticated",

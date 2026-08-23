@@ -15,14 +15,7 @@ export function BpmFader({
   natural: number;
   /** What it is playing at. */
   target: number;
-  /**
-   * Driven by the other deck — greyed, and still grabbable.
-   *
-   * Greyed says "this is not yours right now", not "you may not". Taking hold of a synced
-   * deck's tempo is how a DJ leaves sync, on every piece of hardware that has the button, and
-   * a knob that refused the hand would make the only way out a second trip to the SYNC light.
-   * The parent turns the gesture into `master: null` — see MixView's `nudge`.
-   */
+  /** Driven by the other deck — greyed and still GRABBABLE, which is how a DJ leaves sync (../../docs/bpm.md). */
   driven: boolean;
   /** Every step of the drag — for the number, which must keep up with the finger. */
   onChange: (bpm: number) => void;
@@ -45,8 +38,7 @@ export function BpmFader({
       </span>
 
       <div className="relative flex min-h-0 flex-1 items-center justify-center">
-        {/* The track, and the notch at the song's own tempo. Without it the fader says how
-            fast, never how far from the record — which is the thing you actually want. */}
+        {/* The track and the notch at the song's own tempo: without it the fader never says how far. */}
         <div className="pointer-events-none absolute inset-y-0 w-1 rounded bg-muted" />
         {has ? (
           <div
@@ -62,21 +54,16 @@ export function BpmFader({
           step={0.1}
           value={has ? target : 0}
           disabled={!has}
-          // `writingMode: vertical-lr` + `direction: rtl` is the portable way to stand a
-          // range input up: `appearance: slider-vertical` is gone from Chrome and never
-          // existed in Safari. rtl is what puts the LOW end at the bottom.
+          // The portable way to stand a range input up — `slider-vertical` is gone; rtl puts LOW at the bottom.
           style={{ writingMode: "vertical-lr", direction: "rtl" }}
           className={`h-full cursor-pointer accent-foreground ${
             driven ? "opacity-60" : ""
           }`}
           onChange={(e) => onChange(Number(e.target.value))}
-          // Wrapped, NOT passed straight through: React hands a handler the event, and a
-          // caller whose `onCommit` takes an optional argument would receive a PointerEvent
-          // where it expected its own default. Typechecks, breaks at runtime.
+          // Wrapped, NOT passed through: an `onCommit` with an optional argument would get a PointerEvent.
           onPointerUp={() => onCommit()}
           onKeyUp={() => onCommit()}
-          // Double-click returns the record to its own tempo — the one position worth a
-          // shortcut, and the one a drag never lands on exactly.
+          // Double-click returns the record to its own tempo, the one position a drag never lands on.
           onDoubleClick={() => {
             if (has) {
               onChange(natural);
@@ -94,11 +81,7 @@ export function BpmFader({
         />
       </div>
 
-      {/* How far from the record, which is what a DJ reads mid-set — and AMBER past ±16 %,
-          a real deck's range. The fader itself goes to the module's 10..300, so this is now
-          reachable by hand as well as by a sync: matching a 90 bpm track to a 123 bpm one is
-          a +37 % stretch, legitimate, audible as artefacts, and worth seeing rather than
-          discovering through the speakers. */}
+      {/* How far from the record, AMBER past a real deck's ±16 % — ../../docs/bpm.md. */}
       <span
         className={`font-mono text-[10px] tabular-nums ${
           has && Math.abs(target - natural) > natural * PITCH_RANGE

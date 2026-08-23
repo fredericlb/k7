@@ -55,8 +55,7 @@ export function ClipViewModes({
   sequencer: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  // Registered while open so the shell's Esc stops at this menu rather than closing the pane
-  // behind it as well. Closing twice is closing once — see popins.ts.
+  // Registered while open so the shell's Esc stops at this menu rather than closing the pane behind it too (popins.ts).
   usePopin(open, () => setOpen(false));
 
   const modes = MODES.filter((m) => m.id !== "sequencer" || sequencer);

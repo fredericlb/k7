@@ -60,14 +60,9 @@ import {
 } from "./state/sessionControl.ts";
 import { dataDir } from "./state.ts";
 
-// Every route the Go server exposes (main.go's mux registrations), in the same
-// order and with the same auth gates.
+// Every route, in order and with its auth gate.
 export function registerRoutes(app: Express): void {
-  // Auth endpoints (always public — the middleware lets /auth/* through).
-  // ALL of them are ours now: there is no /auth/login or /auth/callback here
-  // any more, because the account login is pl8's (docs/auth.md). What is left
-  // is the guest flows, plus /me and /logout — and /logout expires only
-  // bt_session, since z0 does not sign studio.sid.
+  // Public, and guest-only: there is no /auth/login here — see ../../docs/auth.md.
   app.post("/auth/logout", handleAuthLogout);
   app.get("/auth/me", handleAuthMe);
   app.post("/auth/guest", handleAuthGuest);
@@ -95,17 +90,14 @@ export function registerRoutes(app: Express): void {
   app.get("/sessions", adminOnly(handleListGristSessions));
   app.post("/sessions/select", adminOnly(handleSelectGristSession));
 
-  // Solo mode: any authenticated user — the global authMiddleware is the only
-  // gate, matching the Go server.
+  // Solo mode: any authenticated user, the global authMiddleware being the only gate.
   app.get("/solo/sessions", handleSoloListSessions);
   app.get("/solo/sessions/:id", handleSoloLoadSession);
   app.post("/solo/sessions/:id/score", handleSoloSaveScore);
   app.post("/solo/sessions/:id/progress", handleSoloSaveProgress);
   app.get("/solo/sessions/:id/leaderboard", handleSoloLeaderboard);
 
-  // Playlist mode: same gate as solo (any authenticated user). The preview
-  // redirect is the exception — it's public, because <audio> elements fetch
-  // without credentials, and it leaks nothing beyond a public Deezer URL.
+  // Solo's gate, except the preview redirect: <audio> fetches without credentials.
   app.get("/playlists/preview/:deezerId", handlePlaylistPreview);
   app.get("/playlists", handleListPlaylists);
   app.post("/playlists", handleAddPlaylist);
@@ -121,8 +113,7 @@ export function registerRoutes(app: Express): void {
   app.post("/next-category", adminOnly(handleNextCategory));
   app.get("/peek", adminOnly(handlePeek));
 
-  // Grist-backed editor, admin-only. The attachment upload takes a multipart
-  // body ("file" field, 32 MiB ceiling) parsed by multer into req.file.
+  // The retired Grist editor, admin-only; its upload is a multipart "file" field, 32 MiB max.
   const upload = memoryUpload(32 << 20);
   app.get("/editor/sessions", adminOnly(handleEditorListSessions));
   app.post("/editor/sessions", adminOnly(handleEditorCreateSession));
@@ -140,7 +131,6 @@ export function registerRoutes(app: Express): void {
     adminOnly(handleEditorUploadAttachment),
   );
 
-  // Cached audio files — public by design (the buzzer/web SPAs stream without
-  // credentials), streamed straight off the audio cache dir.
+  // The audio cache, public by design: the SPAs stream from it without credentials.
   app.use("/audio", express.static(join(dataDir(), "audio")));
 }

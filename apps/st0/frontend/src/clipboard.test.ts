@@ -36,8 +36,7 @@ describe("copying notes", () => {
   });
 
   it("carries a note's LENGTH whole, uncut by the edge", () => {
-    // A copy is of the material: a note trimmed to the rectangle would come back shorter than
-    // the one that was selected.
+    // A copy is of the material: a note trimmed to the rectangle would come back shorter than the one that was selected.
     const c = copyNotes(notes, "riff", 60, 67, 0, 4);
     if (c?.kind !== "notes") return;
     expect(c.notes.find((n) => n.t === 3.9)?.d).toBe(4);
@@ -91,8 +90,7 @@ describe("pasting notes", () => {
   });
 
   it("DROPS what falls off the keyboard rather than clamping it", () => {
-    // A chord squashed onto key 0 is not the chord you copied. The rectangle was topped at 67,
-    // so its notes sit 7 and 5 rows down; a caret on key 6 leaves room for the upper one only.
+    // A chord squashed onto key 0 is not the chord you copied — the rectangle was topped at 67, so a caret on key 6 leaves room for one.
     const out = pasteNotes(clip, 6, 0);
     expect(out).toEqual([{ k: 1, t: 1.5, d: 2, v: 0.4 }]);
     expect(droppedCount(out.length, clip)).toBe(1);
@@ -133,15 +131,7 @@ describe("copying events", () => {
     expect(c.rows).toBe(2);
   });
 
-  /**
-   * The whole placement, not just where it sat.
-   *
-   * A compiled clip is a placement and its material already merged — `sourceFrom`/`sourceTo` are
-   * the intersection of two windows, a sequence's window went into the loop range, the passes were
-   * multiplied into `length` — so `ref` and `start` were the only fields a copy could read back
-   * off one. A trimmed, faded, four-pass, warp-declining event came back as a plain single pass of
-   * the whole material, and nothing said so.
-   */
+  /** The whole placement, not just where it sat: a compiled clip has its material merged in, so `ref` and `start` were all a copy read back. */
   it("carries every attribute the placement stated", () => {
     const c = copyEvents(
       [
@@ -181,8 +171,7 @@ describe("copying events", () => {
     });
   });
 
-  // A timecode window survives as the STRING it was written as. Re-spelling it in seconds would
-  // need the tempo, and a copy has no business baking today's tempo into a sequence's window.
+  // A timecode window survives as the STRING it was written as: re-spelling it in seconds would bake today's tempo into it.
   it("keeps a window spelled as a timecode spelled that way", () => {
     const c = copyEvents(
       [{ events: [{ ref: "s", start: 0, event: { from: "2:1", to: "4:1" } }] }],
@@ -194,11 +183,7 @@ describe("copying events", () => {
     expect(c.events[0].to).toBe("4:1");
   });
 
-  /**
-   * Only what the file SAID. A default written out is a default the paste would then write into
-   * the new lane's file — `loop: 1` and `warp: true` on every duplicated event, restating what
-   * their absence already says.
-   */
+  /** Only what the file SAID: a default written out is one the paste would then write into the new lane's file. */
   it("leaves out the defaults", () => {
     const c = copyEvents(
       [{ events: [{ ref: "a", start: 0, event: { loop: 1, warp: true } }] }],
@@ -209,20 +194,16 @@ describe("copying events", () => {
     expect(c.events[0]).toEqual({ row: 0, ref: "a", start: 0 });
   });
 
-  // An event that stated nothing copies as the three fields it has, with no empty attributes
-  // hanging off it — which is also what keeps the payload of a big paste small.
+  // An event that stated nothing copies as the three fields it has, which is also what keeps the payload of a big paste small.
   it("adds nothing to an event that said nothing", () => {
     const c = copyEvents([{ events: [{ ref: "a", start: 0 }] }], 0, 4);
     if (c?.kind !== "events") return;
     expect(c.events[0]).toEqual({ row: 0, ref: "a", start: 0 });
   });
 
-  // The shape the CARET's copy takes when no rectangle is drawn: one lane, and the clicked
-  // clip's own span. ⌃C over a placement has to come back holding that placement and nothing
-  // else — copying only what a `v` rectangle held is the bug this pins (TimelineTab's `copy`).
+  // The shape the CARET's copy takes with no rectangle drawn: one lane, and the clicked clip's own span (TimelineTab's `copy`).
   it("one lane and one clip's span copies that clip alone", () => {
-    // The caret parked on the SECOND kick, which starts at 8 and runs four beats. Its lane holds
-    // another placement at 0, and that one must not come along: the span is the clip's own.
+    // The caret parked on the SECOND kick; the placement at 0 on the same lane must not come along.
     const c = copyEvents([rows[0]], 8, 12);
     if (c?.kind !== "events") return;
     expect(c.events).toEqual([{ row: 0, ref: "kick", start: 0 }]);
@@ -230,8 +211,7 @@ describe("copying events", () => {
     expect(c.beats).toBe(4);
   });
 
-  // …and parked on bare lane it answers null, which is what makes the shell say "nothing to
-  // copy" rather than putting an empty rectangle on the clipboard for a paste to find.
+  // …and parked on bare lane it answers null, which is what makes the shell say 'nothing to copy'.
   it("answers null where the caret is on nothing", () => {
     expect(copyEvents([rows[0]], 100, 104)).toBeNull();
   });
@@ -265,14 +245,7 @@ describe("pasting events", () => {
     expect(pasteEvents(notes, ["gtr"], 0)).toEqual([]);
   });
 
-  /**
-   * `start` moves; the window and the fades do NOT.
-   *
-   * They measure into the MATERIAL — seconds into a file, positions in a sequence's notes — while
-   * `start` is a position in the arrangement. Offsetting them by the paste distance would play a
-   * different slice of the file the further along you pasted, which is the one way this could go
-   * wrong while still looking plausible on screen.
-   */
+  /** `start` moves; the window and the fades do NOT — they measure into the MATERIAL, where `start` is a position in the arrangement. */
   it("moves the start and leaves the material's coordinates alone", () => {
     const c = copyEvents(
       [

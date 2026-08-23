@@ -41,8 +41,7 @@ describe("withMeasuredPeak", () => {
   });
 
   it("does NOT mutate the chain it was given — the next file has its own peak", () => {
-    // The whole reason this returns a copy. `track process` resolves one chain and renders it over
-    // every file a lane's clips play; writing back would hand file two file one's gain.
+    // The whole reason this returns a copy: writing back would hand file two file one's gain.
     const chain = [normalizer()];
     withMeasuredPeak(chain, -12.5);
     expect(chain[0].params[PEAK_PARAM]).toBe(0);

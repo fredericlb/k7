@@ -32,12 +32,7 @@ export interface ControllerLibrary {
   issues: string[];
 }
 
-/**
- * Read every MIDI map the project can see, keyed by the ref of the module whose folder each sits in.
- *
- * Nearest library wins, exactly as a panel does: a project that forked a shared module plays its own
- * copy rather than the one it was copied from.
- */
+/** Every MIDI map the project can see, keyed by its module's ref — nearest library wins, as a panel does. */
 export function loadControllerLibrary(dir: string): ControllerLibrary {
   const out: ControllerLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, CONTROLLER_BASE, ({ ref, path, rel }, label) => {
@@ -52,8 +47,7 @@ export function loadControllerLibrary(dir: string): ControllerLibrary {
   return out;
 }
 
-/** Parse one map. A file the schema refuses reads as an ISSUE, never a throw — one malformed map
- *  must not stop a module loading, exactly like a malformed panel. */
+/** Parse one map; a file the schema refuses reads as an ISSUE, never a throw, exactly like a panel. */
 export function parseController(text: string): {
   value: ControllerFile | null;
   issue: string;
@@ -75,13 +69,7 @@ export function parseController(text: string): {
   return { value: r.data, issue: "" };
 }
 
-/**
- * The folder a module's own files live in, wherever that library is, or null.
- *
- * Found by looking for the `module.yaml` the ref answers to — the same walk the panels use, so a
- * folder this names is one the loader agrees about. A module the ENGINE merely reports has no folder
- * at all (see moduleFork's `module own`), and gets null.
- */
+/** The folder a module's own files live in, or null — an ENGINE module has none (docs/moduleFork.md). */
 export function moduleFolderForRef(dir: string, ref: string): string | null {
   let hit: string | null = null;
   eachLibrarySibling(dir, "module", (found) => {
@@ -106,17 +94,7 @@ export function readModuleController(dir: string, ref: string): ControllerFile {
   return parseController(readFileSync(found.path, "utf8")).value ?? {};
 }
 
-/**
- * Bind `param` to a CC, or unbind it with `null`. Returns the path written, project-relative.
- *
- * `param` is the widget's `bind` string VERBATIM — `Cutoff`, or `@monitor` for a module field — so the
- * map and the panel line up key for key and can be read side by side.
- *
- * Writes into the module's own folder, wherever it lives, which is the point of the location: the map
- * belongs to the module the way its panel does, and follows it into every project that names it. The
- * flip side, and it is worth knowing: every NODE of the module shares one map, exactly as they
- * share one preset shelf (presets.ts) and one panel.
- */
+/** Bind `param` to a CC, or unbind with `null`, into the MODULE's own folder — see docs/controller.md. */
 export function setCcBinding(
   dir: string,
   ref: string,
@@ -144,20 +122,14 @@ export function setCcBinding(
   return relative(dir, path);
 }
 
-// A key as YAML, quoted only when it has to be — the same rule the panel and preset writers apply. A
-// param name is a plugin's own ("Filter Type", "Dry/Wet"), so it needs the escape hatch.
+// A key as YAML, quoted only when it must be: a param name is a plugin's own ("Dry/Wet").
 const key = (k: string): string =>
   /^[A-Za-z0-9_@][A-Za-z0-9 _.\-+@]*$/.test(k) &&
   !/^(y|n|yes|no|on|off|true|false|null)$/i.test(k)
     ? k
     : JSON.stringify(k);
 
-/**
- * Serialise the map: one FLOW mapping per param, hand-written rather than through `stringify`.
- *
- * A binding is read as a row — a param and the two numbers that play it — and the block form turns six
- * bindings into eighteen lines nobody scans. Same argument, same shape, as the panel and preset writers.
- */
+/** Serialise the map: one FLOW mapping per param, hand-written, as the panel and preset writers are. */
 function controllerFileText(ref: string, map: ControllerFile): string {
   ControllerFileSchema.parse(map);
   const lines = [

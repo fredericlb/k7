@@ -4,13 +4,7 @@
 
 import { X } from "lucide-react";
 
-/**
- * The close button, written once.
- *
- * It was written four times, and the four had drifted: three sat in a title bar and the
- * fourth was buried in `PianoRoll`, which is not a slot occupant at all but the thing one of
- * them draws. A ✕ that lives in the leaf cannot be relied on by the frame.
- */
+/** The close button, written once — it was written four times and the four had drifted; a ✕ living in the leaf cannot be relied on by the frame. */
 function CloseSlot({
   onClose,
   className,
@@ -31,25 +25,7 @@ function CloseSlot({
   );
 }
 
-/**
- * One frame for everything that takes the graph's place.
- *
- * The SHELL is the point. There were four, all different — `relative flex h-full min-h-0
- * flex-1`, `flex min-h-0 min-w-0 flex-1 flex-col`, the same plus a background, and a fourth
- * with `w-full` — and two of the four needed a compensating `<div>` around them at the mount
- * site because their root did not fill the pane on its own. That is drift patched at the call
- * site rather than fixed, and every new occupant paid it again.
- *
- * Three ways to wear it, because the occupants genuinely differ:
- *
- * - `title` (+ optional `note`) — the plain case. A name, a detail, the ✕.
- * - `bar` — a strip of your own, for an occupant whose header carries CONTROLS rather than a
- *   label: the recording pane counts beats and offers Stop. The ✕ is still the frame's, added
- *   last with `ml-auto`, which reproduces both of that pane's layouts (with Stop present it
- *   absorbs the space first and the ✕ follows it; without, the ✕ takes it).
- * - neither — no bar at all, and the ✕ floats over the top-right corner. A clip's contents draw
- *   their own header already, and a second row above it would say the same thing twice.
- */
+/** One frame for everything that takes the graph's place — the SHELL is the point, worn three ways: `title`, `bar`, or no bar at all. */
 export function GraphSlotPane({
   title,
   note,

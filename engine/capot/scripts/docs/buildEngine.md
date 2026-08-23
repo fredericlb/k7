@@ -41,6 +41,38 @@ machine. A Homebrew `node` is a small shim that links Homebrew dylibs under
 `/opt/homebrew/opt/...`, so it breaks the moment it leaves that machine; official builds
 are self-contained. It stays on the repo's Node 22 line (`.nvmrc`).
 
+The archive is **checksummed before it is trusted**. This binary is what runs
+`engine-host.mjs` and `file-service.mjs` inside the signed app, so a substituted archive is
+arbitrary code shipped under our signature — and until `verifyNodeArchive` existed the download
+was a bare `curl` with nothing compared afterwards. The C++ side already pins its ASIO SDK by
+digest (`engine/moteur/CMakeLists.txt`); this is the same rule for the other downloaded
+dependency.
+
+It is checked against the release's own `SHASUMS256.txt` rather than a digest pinned in the
+script, because a table would need an entry per platform and arch and would go stale at every Node
+bump — the failure mode being a build that silently stops verifying. It catches a truncated,
+corrupted or swapped archive; it does not, on its own, defend against nodejs.org itself being
+compromised. A failing archive is **deleted**, not merely refused: leaving it means the next run
+finds it "cached" and trusts it.
+
+### The Faust standard libraries
+
+`import("stdfaust.lib")` is resolved when the ENGINE compiles a module — at runtime, on the
+musician's machine — so `libraries/` has to travel with the app. Its only other copy is
+`_deps/faust-src`, which is a build directory and does not ship.
+
+`stageFaustLibs` finds it by walking the build presets rather than naming one: which preset was
+used is the caller's business, and `findEngineBinary` already answers the same question the same
+way. The NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
+builds any more would ship a different Faust than the engine beside it. Only the `.lib` files are
+copied; the submodule also carries its own docs, tests and CI config, none of which the compiler
+reads.
+
+Missing is **fatal**, following `vendorNode`. Without it every Faust module fails to compile in the
+installed app, one warning at a time, from a build that reported nothing wrong — the failure mode
+this repo goes out of its way to avoid, and one `cmake --build` away from being impossible to
+reproduce on the machine that made the bundle.
+
 ### Bundling the two Node processes
 
 Each is bundled with esbuild into a single `.mjs` the vendored Node runs directly — no

@@ -53,8 +53,7 @@ describe("decideAutosave", () => {
   });
 
   it("writes a schema-invalid buffer when the FILE was already invalid", () => {
-    // Otherwise the file is uneditable forever: nothing you type can make it valid, and there
-    // is no Save button left to overrule the check with.
+    // Otherwise the file is uneditable forever, since nothing typed can make it valid — see docs/autosave.md.
     const d = decideAutosave({
       dirty: true,
       validity: at(MODULE, "paramz: 1\ncontent: hello\n"),

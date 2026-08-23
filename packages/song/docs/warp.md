@@ -112,6 +112,14 @@ Two consequences worth knowing:
   independent: one says which slice of the file plays, the other how that slice is stretched onto
   the grid. Switching the map off does not un-quote the window.
 
+## The UNPLACED clip carries the map too
+
+`loadAudioClipDoc` builds the clip on its own — what the clip editor asks for when it wants the
+whole file — and it carried no map at all, so the warp view drew no stretch marks and `warpStretch`
+priced a warped clip at 1. It reads through the same `readClipWarp` the node compiler uses now.
+There is no placement here to decline one, which is the only half of the rule above this side does
+not have.
+
 ## `algorithm` is documentation
 
 The engine ignores it. A warp is realised through Tracktion's auto-tempo, with the intermediate

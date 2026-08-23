@@ -27,23 +27,7 @@ function put(
 /** The module's own arrangement — attribute set "1", and where a lane with no sets keeps its events. */
 const OWN_EVENTS: (string | number)[] = ["events"];
 
-/**
- * WHERE this file's events are, and it is a CHOICE again.
- *
- * A lane is a module node, so its takes are that module's attribute sets: `events:` can exist at
- * the top of the file (set "1") and once more inside each entry under `alternatives:`. Which one
- * an edit means is whichever set is ON — and reading and writing do not always agree, which is
- * why there are two of these:
- *
- * - `eventsIn` is what an edit ADDRESSES. A set that states no `events:` of its own inherits the
- *   module's, so that is what is on screen and what a clip is picked out of.
- * - `eventsToEdit` is where the edit LANDS: always the selected set, forking the inherited list
- *   into it on the first write.
- *
- * That fork is the whole fix. Every edit here used to write `["events"]` flat, so dragging a clip
- * while on take 2 rewrote take 1 — the arrangement you were not looking at — and the two takes
- * were never separate documents at all. See ../docs/alternatives.md.
- */
+/** Which attribute set is ON — what `eventsIn` addresses and `eventsToEdit` forks into, see docs/laneEdits.md. */
 function selectedSet(doc: ReturnType<typeof parseDocument>): number {
   return currentAlternative((doc.toJS() ?? {}) as Record<string, unknown>);
 }
@@ -66,14 +50,10 @@ function eventsToEdit(
   if (at === 0) return OWN_EVENTS;
   const mine = setEvents(at);
   if (isSeq(doc.getIn(mine))) return mine;
-  // First edit on a set that was inheriting: fork what it was PLAYING into it, so the edit
-  // changes what you see and set 1 keeps what it had. `clone()` rather than a rebuild from plain
-  // values, because it is a deep copy that brings each placement's own comments with it.
+  // First edit on a set that was inheriting: fork what it was PLAYING into it — see docs/laneEdits.md.
   const inherited = doc.getIn(OWN_EVENTS);
   doc.setIn(mine, isSeq(inherited) ? inherited.clone() : doc.createNode([]));
-  // An empty set was written `- {}`, and a flow map keeps everything inside it on its own line —
-  // so a forked arrangement would arrive as one 400-character row. These files are hand-edited
-  // and they are in git: the set opens out, and its placements stay one per line as everywhere.
+  // An empty set was written `- {}`, whose flow map would arrive as one 400-character row.
   const entry = doc.getIn(["alternatives", at - 1]);
   if (isMap(entry)) entry.flow = false;
   const forked = doc.getIn(mine);
@@ -82,13 +62,7 @@ function eventsToEdit(
   return mine;
 }
 
-/**
- * Set one field on the lane — what a colour picker writes.
- *
- * The module's OWN field, whichever set is on, and that is deliberate: `TrackFields` is `color`
- * and `disabled`, which describe the lane rather than the take. A set may still override either
- * by hand; nothing here writes one there.
- */
+/** Set one field on the lane — the module's OWN, whichever set is on, see docs/laneEdits.md. */
 export function setTrackField(
   text: string,
   field: string,
@@ -113,17 +87,12 @@ function flowPlacements(
     if (p && typeof p === "object") (p as { flow?: boolean }).flow = true;
 }
 
-// --- takes: the OTHER lists of placements this lane keeps (docs/takes.md) --------------
-//
-// A take is the same thing `events:` is — a list of placements — put aside. So all three writers
-// below are moves between two seqs, never a rebuild: a placement carries its own comments and
-// its own spelling, and it should read the same after being set aside as it did before.
+// --- takes: the OTHER lists of placements this lane keeps, MOVED never rebuilt (docs/laneEdits.md) ---
 
 /** The module's own takes — set "1"'s, and where a lane with no alternatives keeps them. */
 const OWN_TAKES: (string | number)[] = ["takes"];
 
-/** Where this file's takes are, on the same rule `eventsToEdit` follows: the SELECTED set's, so
- *  an alternative's takes are its own. Created empty on first use. */
+/** Where this file's takes are, on `eventsToEdit`'s rule: the SELECTED set's, created empty on first use. */
 function takesToEdit(
   doc: ReturnType<typeof parseDocument>,
 ): (string | number)[] {
@@ -157,13 +126,7 @@ function takesPathFor(
   return isSeq(doc.getIn(mine)) ? mine : OWN_TAKES;
 }
 
-/**
- * Move what the lane is playing into a NEW take, leaving it empty.
- *
- * What recording over an event does before the new one is placed. The events are MOVED — the
- * same nodes, appended to `takes:` — so a take reads exactly like the arrangement it was.
- * A lane holding nothing makes no take: an empty one would be a row that says nothing.
- */
+/** Move what the lane is playing into a NEW take, leaving it empty — see docs/laneEdits.md. */
 export function pushEventsToTake(text: string, name?: string): string {
   const doc = parseDocument(text, OPTS);
   const eventsPath = eventsToEdit(doc);
@@ -180,13 +143,7 @@ export function pushEventsToTake(text: string, name?: string): string {
   return doc.toString(OUT);
 }
 
-/**
- * Swap take `n` (1-based) with what the lane is playing — one exchange, both ways at once.
- *
- * The lane's arrangement becomes take `n` and take `n` becomes the arrangement, which is what
- * makes this reversible by running it again: nothing is lost by looking at another take. An `n`
- * nothing answers to throws rather than writing, so a stale menu cannot empty a lane.
- */
+/** Swap take `n` (1-based) with what the lane is playing — one exchange, reversible by re-running it. */
 export function selectTake(text: string, n: number): string {
   const doc = parseDocument(text, OPTS);
   const takesPath = takesToEdit(doc);
@@ -219,14 +176,7 @@ export function removeTake(text: string, n: number): string {
   return doc.toString(OUT);
 }
 
-/**
- * Drop every take, keeping what the lane is playing. The end of choosing between them.
- *
- * The events inside go with them, exactly as `removeTake` takes one take's: a take is where
- * those placements live. Deliberately one act rather than a loop of `removeTake` at the call
- * site — "keep this one" is a decision about the whole list, and half of it applied is a state
- * nobody asked for.
- */
+/** Drop every take, keeping what the lane is playing — one act rather than a loop (docs/laneEdits.md). */
 export function removeAllTakes(text: string): string {
   const doc = parseDocument(text, OPTS);
   const path = takesPathFor(doc);
@@ -236,13 +186,7 @@ export function removeAllTakes(text: string): string {
   return doc.toString(OUT);
 }
 
-/**
- * The index of the placement starting at `start`, or -1. How the app addresses one.
- *
- * Reads the DOCUMENT rather than a validated lane, for the same reason `placementValues` does: a
- * file with one bad field elsewhere still has events you can point at, and refusing a drag because
- * something unrelated is wrong would be a worse failure than the one being reported.
- */
+/** The index of the placement starting at `start`, or -1 — read off the DOCUMENT, see docs/laneEdits.md. */
 export function findPlacement(text: string, start: string): number {
   const doc = parseDocument(text, OPTS);
   const path = eventsIn(doc);
@@ -258,8 +202,7 @@ export function movePlacement(text: string, start: string, to: string): string {
   const at = findPlacement(text, start);
   if (at < 0) throw new Error(`no placement at ${start}`);
   const doc = parseDocument(text, OPTS);
-  // The index came from the list that is PLAYING; forking copies it in order, so it still points
-  // at the same placement. Every index-taking edit below rests on that.
+  // The index came from the list that is PLAYING, and forking copies it in order (docs/laneEdits.md).
   doc.setIn([...eventsToEdit(doc), at, "start"], to);
   quoteTimecodes(doc);
   return doc.toString(OUT);
@@ -278,10 +221,7 @@ export function removePlacement(text: string, start: string): string {
 /** Append a placement — the receiving half of a cross-lane clip move. */
 export function addPlacement(
   text: string,
-  // No `length`: how long a placement sounds is the material's window times `loop` (see
-  // PlacementSchema). Everything else that schema allows IS written — a paste puts down the event
-  // it copied, window and fades included — and `quoteTimecodes` below is what keeps `from: "2:1"`
-  // from being written bare and read back as a sexagesimal.
+  // No `length`: how long a placement sounds is the material's window times `loop` (docs/laneEdits.md).
   placement: Placement,
 ): string {
   const doc = parseDocument(text, OPTS);
@@ -321,19 +261,7 @@ export function findPlacementAt(
   });
 }
 
-/**
- * The placement at `index`, as PLAIN VALUES — for carrying one to another lane.
- *
- * `toJSON()` and not the document node, and the difference is not cosmetic: this used to return
- * the node (`getIn(…, false)`), which its own summary and its return type both denied. Its one
- * caller — `movePlacementToTrack` — spreads what it gets, and spreading a YAMLMap copies the
- * MAP's fields rather than the placement's, so dragging an event onto another lane wrote
- * `{ items: […], flow: true, range: […] }` into the file. The lane then failed to compile and
- * took the whole timeline with it, which is a long way from a drag.
- *
- * A node cannot cross documents anyway — it carries a `range` into offsets of the file it was
- * parsed from — so there was never a reader that wanted one.
- */
+/** The placement at `index` as PLAIN VALUES — a node cannot cross documents, see docs/laneEdits.md. */
 export function placementAt(
   text: string,
   index: number,
@@ -348,13 +276,7 @@ export function placementAt(
   return (node?.toJSON?.() as Record<string, unknown> | undefined) ?? null;
 }
 
-/**
- * Every placement in `text`, as PLAIN VALUES.
- *
- * The list to `placementAt`'s one, and both hand back plain values now: a document node cannot
- * cross into another file (its `range` points at offsets of the one it was parsed from), and the
- * one caller that tried spread it into the shape of a YAMLMap instead — see `placementAt`.
- */
+/** Every placement in `text`, as PLAIN VALUES — the list to `placementAt`'s one. */
 export function placementValues(text: string): Record<string, unknown>[] {
   const doc = parseDocument(text, OPTS);
   const events = doc.getIn(eventsIn(doc));
@@ -376,10 +298,7 @@ export function removePlacementAt(text: string, index: number): string {
   return doc.toString(OUT);
 }
 
-/** Set (or, with `undefined`, clear) one field of the placement at `index`. The generic
- *  form movePlacementAt is the `start` case of — used for `disabled` and for `loop`.
- *  quoteTimecodes then re-quotes whatever timecode was written, so a caller never has to
- *  remember the rule. */
+/** Set (or, with `undefined`, clear) one field of the placement at `index` — the generic form of movePlacementAt. */
 export function setPlacementField(
   text: string,
   index: number,
@@ -394,19 +313,7 @@ export function setPlacementField(
   return doc.toString(OUT);
 }
 
-/**
- * Copy the placement at `index`, apply `patch` to the copy, and append it — what a SPLIT writes
- * for the second half.
- *
- * A copy rather than a fresh `{ ref, start }`, because everything else the placement carries is
- * still true of the half that was cut off: its `warp: false`, its `disabled`, its `to`, and
- * whatever a later schema adds. Rebuilding it from the two fields this knows about would quietly
- * drop the rest, and the loss would only show when the tail played differently from the head.
- *
- * `undefined` in the patch CLEARS a field, the same rule `setPlacementField` follows. The copy is
- * built from the placement's VALUES, so a comment written beside the original stays with the
- * original — which is right: it was written about that event, and the second half is new.
- */
+/** Copy the placement at `index`, patch the copy and append it — what a SPLIT writes (docs/laneEdits.md). */
 export function copyPlacementAt(
   text: string,
   index: number,
@@ -444,19 +351,7 @@ export function movePlacementAt(
   return doc.toString(OUT);
 }
 
-/**
- * Every list of placements this file holds, wherever it keeps them.
- *
- * Not `eventsToEdit`'s question, which is "where does an edit to what is PLAYING go" and answers
- * with the selected set alone. Inserting time is not an edit to the arrangement — it is a change
- * to the song's clock — so it has to reach what is playing, every take of it, and every
- * alternative's own events and takes. An alternative you switch to next week has to still line up
- * with the markers.
- *
- * Exported for the other operation with the same reach: moving a material's window down onto every
- * placement of it (src/windowDescend.ts). A migration that missed a take would leave that take
- * playing the whole file the day you swapped it back onto the lane.
- */
+/** Every list of placements this file holds — what a change to the song's CLOCK must reach, docs/laneEdits.md. */
 export function everyEventList(
   doc: ReturnType<typeof parseDocument>,
 ): (string | number)[][] {
@@ -482,20 +377,7 @@ export interface TimeSplice {
   removed: number;
 }
 
-/**
- * Insert or delete `lenBeats` of time at `atBeats`, across every placement list in the file.
- *
- * The rule for an event straddling the cut is the house one: **by its `start`**. An event whose
- * start is at or after the point moves; one already playing across it stays where it is and plays
- * over the inserted silence. That is what `moveTrackPlacementsInRange` and `selection consolidate`
- * both already do — they select by where a placement starts — and the alternative, cutting at the
- * point, would make inserting time a verb that writes new material and renders audio (see
- * docs/materialCut.md on why there is no free, reversible cut any more).
- *
- * Deleting removes the events that START inside the span and shifts the rest back, so
- * insert-then-delete of the same span returns the file to what it was, byte for byte. That round
- * trip is the property worth having and the one the test asserts.
- */
+/** Insert or delete time across every placement list, an event straddling the cut going by its `start` — docs/laneEdits.md. */
 export function spliceTime(
   text: string,
   atBeats: number,

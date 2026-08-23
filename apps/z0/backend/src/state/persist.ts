@@ -2,17 +2,10 @@ import { gameState } from "../gameState.ts";
 import type { GristFields } from "../grist/client.ts";
 import { asBool, asFloat, asInt, asString } from "../grist/values.ts";
 
-// Async write-behind persistence (state.go + state_grist.go). In-memory state
-// is the source of truth; every mutation enqueues a dirty key and the worker
-// flushes the freshest snapshot to Grist after a short debounce. Dirty keys
-// dedup (game:<id>, buzzers, …), so a burst of score changes collapses into
-// one row update. If Grist is slow or down the set is bounded and the next
-// mutation re-enqueues with the freshest state — the game never blocks.
+// Write-behind: memory is the truth, and a deduplicated dirty key flushes to Grist on a debounce.
 
 const STATE_SET_CAPACITY = 256;
-// Debounce window after the last enqueue: long enough to coalesce a burst
-// (a song advance touches players, phase, indices in quick succession),
-// short enough that the operator's Grist UI feels live.
+// Long enough to coalesce a song advance's burst, short enough that the Grist UI feels live.
 const DEFAULT_FLUSH_DEBOUNCE_MS = 200;
 
 export interface PersistedPlayer {
@@ -47,8 +40,7 @@ let started = false;
 let debounceMs = DEFAULT_FLUSH_DEBOUNCE_MS;
 let flushing: Promise<void> = Promise.resolve();
 
-// Row-id caches so we don't listRecords on every flush. Populated on first
-// lookup or by hydrate-on-boot; survive until restart.
+// Row-id caches so a flush never listRecords; filled on first lookup, kept until restart.
 const gameRowIdById = new Map<string, number>();
 const playerRowIdByKey = new Map<string, number>(); // gameId|deviceId
 const buzzerRowIdByTok = new Map<string, number>();
@@ -143,9 +135,7 @@ async function flushKey(key: string): Promise<void> {
 
 // ─── Game flush ─────────────────────────────────────────────────────────────
 
-// Snapshot the in-memory state for gameId and upsert the Games row + its
-// GamePlayers rows. Players removed from memory are NOT deleted in Grist
-// (avoids racing hydrate; operator can prune manually).
+// A player removed from memory is NOT deleted in Grist: that would race hydrate-on-boot.
 async function flushGame(gameId: string): Promise<void> {
   const g = gameState.gristClient;
   const db = gameState.db;
@@ -157,8 +147,7 @@ async function flushGame(gameId: string): Promise<void> {
     return; // evicted from memory; nothing to flush
   }
 
-  // Live phase/progress/session-id only apply to the currently-active game;
-  // historical games keep whatever fields their last flush wrote.
+  // Only the active game gets live phase and progress; an old one keeps its last flush.
   let phase = "";
   let orderIdx = 0;
   let songIdx = 0;
@@ -234,8 +223,7 @@ async function flushGame(gameId: string): Promise<void> {
   if (gameRowId === 0) {
     [gameRowId] = await g.addRecords("Games", [gameFields]);
     gameRowIdById.set(gameId, gameRowId);
-    // Backfill GamePlayers.game — the players were inserted before this Games
-    // row existed, so they carry game=0.
+    // Backfill GamePlayers.game: those rows went in before this one existed, so they carry 0.
     if (playerIds.length > 0) {
       const updates = new Map<number, GristFields>();
       for (const pid of playerIds) updates.set(pid, { game: gameRowId });
@@ -412,11 +400,7 @@ export function parsePhoneId(id: string): number | null {
   return n;
 }
 
-/**
- * Restore buzzerTokens + phoneCounter from Grist, bumping the counter above
- * the highest P<n> device id seen across tokens and the current game's
- * players so fresh ids never collide (state.go loadBuzzerState).
- */
+/** Restore the tokens, bumping the counter past every P<n> seen so a fresh id never collides. */
 export async function loadBuzzerState(): Promise<void> {
   let bs: BuzzerState | null;
   try {

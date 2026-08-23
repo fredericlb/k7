@@ -79,6 +79,28 @@ Panning moves the camera **with the fingers, 1:1, with no glide** — the same r
 cancels a zoom still in flight, exactly as a pointer-down does. The deltas are screen pixels and
 so is the translation, which is why no zoom enters that arithmetic.
 
+## A pinch, where there is no wheel at all
+
+The touchscreen gesture uses **touch events** rather than the pointer flow the rest of the file
+runs on: that flow drives node drags, widget drags and cable draws, and a second finger arriving
+mid-gesture would be read as a second drag. Here the rule is simply "two fingers means zoom", and
+the pan in progress is dropped.
+
+It is measured from the camera the gesture STARTED on rather than frame to frame, because a ratio
+of ratios accumulates rounding — pinch out and back in, and you would not land where you began.
+`zoomAbout` reads the camera it is given, so handing it the gesture's own start is what makes the
+whole pinch absolute. It is written straight onto `cam` with no glide: the fingers are the
+animation.
+
+## A ROW is navigated differently
+
+When the graph is arranged as a row (st0's mixer view), the wheel walks ALONG it and nothing moves
+vertically — there is only one line of cards, and a view that drifts off it is a view of nothing.
+The same holds for a drag: both axes normally, but a row drops the vertical, since a gesture with
+only one useful direction out of two is worse than one with a single honest direction. The wheel
+takes whichever axis the device reports, because a mouse has no `deltaX` to offer and its notch
+has to drive x here.
+
 ## `deltaMode` is not optional
 
 A wheel is measured in pixels almost everywhere, in **lines** by Firefox, and in pages in the
@@ -89,6 +111,62 @@ broken. `wheelPixels` normalises all three, and `wheelFactor` is that in an expo
 The listener is native and `passive: false` — it must `preventDefault` the page scroll anyway,
 and being the handler itself avoids a React synthetic event per notch, of which a trackpad
 sends a great many.
+
+The RATE is a separate question from the units, and it does not live here: `wheelFactor`
+normalises with `wheelPixels` and then defers to `zoomGesture` in `@studio/ui-chains`, because
+that is the half of the graph with tests and because the arrangement panes settle the same
+question the same way. A trackpad pinch cannot share a notch's coefficient — a notch is one
+event with a large delta, a pinch is dozens of small ones a second, so one coefficient for both
+makes the pinch crawl.
+
+## Telling a mouse wheel from a trackpad
+
+`isMouseWheel` exists because the two arrive as the same event and mean opposite things: a wheel
+is a **detent**, discrete, and the natural thing for it to do on a graph is zoom; a trackpad
+slide is a hand pushing the view about, and zooming there is what made every attempt to pan a
+Mac trackpad zoom instead. So the two are told apart rather than legislated over.
+
+Three signals, most reliable first:
+
+1. **`deltaMode` other than pixels** — lines or pages. Only a real wheel is ever reported that
+   way (Firefox does it for mice), so it settles the question on its own.
+2. **`wheelDeltaY`**, the legacy field Chrome and Safari still carry. A mouse reports it in
+   multiples of 120 — the detent, from the Windows API that named it — while a trackpad reports
+   three times its pixel delta, which lands on 120 only by accident. This is what separates a
+   Mac trackpad from a Mac mouse, and nothing standard does.
+3. Failing both (Firefox in pixel mode), **the shape of the delta**: a notch is integral, has no
+   horizontal component, and is large, where a finger's is small and often fractional.
+
+It is wrong in one direction only, by design: an unrecognised device is treated as a surface, so
+it keeps the behaviour that was there before. A trackpad that zooms is a broken trackpad; a mouse
+that pans is merely a mouse that does not zoom yet.
+
+## Framing a set — `fitTo`, and the camera a host borrows
+
+`fitTo` answers whether it actually FRAMED. A host with no size yet — a pane still hidden, a
+canvas one render early — frames nothing, and a caller that recorded that as done would never try
+again. So it is asked, and retried on the next render.
+
+`axis: "height"` fills the height and lets the set run off the right, where it pans. That is for a
+ROW: fitting both axes divides the pane between however many members it has and the scale falls
+with each one, and below `WIDGET_MIN_SCALE` the widget grid is dropped altogether — so a wide
+enough row would frame to a rank of bare name cards. `zoom` multiplies the fitted zoom, and below
+1 it pulls BACK from a perfect fit, which is what a view wants when the set it framed is the
+subject and not the whole story: the mixer row asks for 0.8, so the cards that feed the strips
+stay in the frame around them.
+
+`ChainsCamApi`'s `get`/`set` are for a view that TAKES the camera and owes it afterwards — the
+mixer arrangement borrows it to show the row and hands it back when it closes. It reads the LIVE
+camera rather than the parked one (`camStore`, written only when a glide settles), which is the
+difference between restoring where you were and where you last stopped.
+
+## A frame that spills is left-aligned
+
+`frameOriginX` centres a fitted set across the pane, except when the content is wider than the
+pane. Centring a spilling set puts its middle on screen and hides both ends — and for a rank of
+channel strips the first one is precisely what you look for to know where you are. So a spilling
+set is left-aligned inside the same margin the pad allows, and its tail runs off the right where
+it pans.
 
 ## The same rule, elsewhere
 

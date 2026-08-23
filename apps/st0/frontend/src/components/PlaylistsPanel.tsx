@@ -25,12 +25,10 @@ import type { PlaylistInfo } from "../types";
 import { PlaylistEditor } from "./PlaylistEditor";
 import { type TreeNode, TreePicker } from "./TreePicker";
 
-/** How many playlists the dropdown's search lists before it stops. The same cap the module
- *  picker uses, and for the same reason: a list you scroll past is one you gave up on. */
+/** How many playlists the dropdown's search lists before it stops — the same cap the module picker uses, and for the same reason. */
 const SEARCH_LIMIT = 40;
 
-/** What a playlist reads as in the dropdown — its title if the file states one, else the
- *  filename, with the path muted beside it so two `repet.yaml` in two folders are told apart. */
+/** What a playlist reads as in the dropdown — its title if the file states one, else the filename, with the path muted beside it. */
 const nodeOf = (p: PlaylistInfo): TreeNode<PlaylistInfo> => ({
   key: p.path,
   label: p.title || p.name,
@@ -38,13 +36,7 @@ const nodeOf = (p: PlaylistInfo): TreeNode<PlaylistInfo> => ({
   entry: p,
 });
 
-/**
- * The dropdown's search: fuzzy over the name AND the path, best first.
- *
- * Both, because a set list is looked for by either — the title somebody typed, or the folder
- * they filed it under (`live/repet`). Scored with the shell's one matcher, so "typing a few
- * letters" behaves here exactly as it does in the module picker and the file picker.
- */
+/** The dropdown's search: fuzzy over the name AND the path, best first, with the shell's one matcher. */
 export function searchPlaylists(
   rows: PlaylistInfo[],
   query: string,
@@ -68,26 +60,17 @@ export function PlaylistsPanel({
   onClose,
 }: {
   vimMode: boolean;
-  /** Run a command line through the shell — what « Nouvelle playlist » dispatches, so the
-   *  palette can reach it and the log records it (../docs/shell.md). */
+  /** Run a command line through the shell — what « Nouvelle playlist » dispatches, so the palette reaches it (../docs/shell.md). */
   onRun: (line: string) => Promise<void>;
   onClose: () => void;
 }) {
   const [rows, setRows] = useState<PlaylistInfo[] | null>(null);
   const [error, setError] = useState("");
-  /** Which one the panel is showing, by PATH — the listing is re-read on every save, so holding
-   *  the row object would reopen the songs on a fresh identity three times a minute. */
+  /** Which one the panel is showing, by PATH — the listing is re-read on every save, so a row object would be a fresh identity. */
   const [open, setOpen] = useState<string | null>(null);
   /** Where to put the dropdown, in viewport coords, or null when it is closed. */
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  /**
-   * The FULL editor, over the shell.
-   *
-   * The panel is too narrow for the YAML text beside the songs, and the text is still the only
-   * way to remove a line or reorder one — `PlaylistPane` can add and nothing else. So the page
-   * is not gone, it is demoted: the panel is what you keep open, and this is the escape hatch
-   * for the edits it cannot make. See ../docs/playlists.md.
-   */
+  /** The FULL editor, over the shell: the panel is too narrow for the YAML, and the page is the escape hatch for what it cannot edit (../docs/playlists.md). */
   const [expanded, setExpanded] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -97,9 +80,7 @@ export function PlaylistsPanel({
     if (creating) nameRef.current?.focus();
   }, [creating]);
 
-  // Answers the listing as well as storing it: `create` has to know whether the playlist it just
-  // asked for is really there before opening it, and reading it back off `rows` would be reading
-  // state this very call is setting.
+  // Answers the listing as well as storing it: `create` has to know the playlist is really there before opening it.
   const refresh = useCallback(
     (): Promise<PlaylistInfo[] | null> =>
       api
@@ -119,13 +100,7 @@ export function PlaylistsPanel({
     void refresh();
   }, [refresh]);
 
-  /**
-   * Land on one as soon as there is one to land on.
-   *
-   * A dropdown over an empty body is a panel that asks a question before it has said anything.
-   * Only while nothing is chosen, so a re-read after a save never moves you off the set list you
-   * are working on — and never when the listing is empty, which is its own screen below.
-   */
+  /** Land on one as soon as there is one to land on — only while nothing is chosen, so a re-read never moves you off. */
   useEffect(() => {
     if (open === null && rows?.length) setOpen(rows[0].path);
   }, [rows, open]);
@@ -133,13 +108,7 @@ export function PlaylistsPanel({
   const tree = useMemo(() => (rows ?? []).map(nodeOf), [rows]);
   const current = rows?.find((p) => p.path === open) ?? null;
 
-  /**
-   * `playlist new <name>` — the button dispatches the command rather than calling the route.
-   *
-   * Where the file LANDS is not read back from a reply, because a command answers in prose:
-   * `playlistPathOf` derives it from the name, which is the same function the handler writes
-   * through. A refusal shows in the shell's status line and the listing simply does not grow.
-   */
+  /** `playlist new <name>` — the button dispatches the command, and `playlistPathOf` derives where it lands, a command answering in prose. */
   const create = useCallback(() => {
     const want = name.trim();
     if (!want) return;
@@ -149,8 +118,7 @@ export function PlaylistsPanel({
       .then((list) => {
         setCreating(false);
         setName("");
-        // Straight into it — but only if it is really there: a refused create must not show a
-        // panel for a file nobody wrote.
+        // Straight into it — but only if it is really there: a refused create must not show a panel for a file nobody wrote.
         if (rel && list?.some((p) => p.path === rel)) setOpen(rel);
       })
       .catch((e: Error) => setError(e.message));
@@ -178,9 +146,7 @@ export function PlaylistsPanel({
       <header className="flex shrink-0 items-center gap-1 border-b border-border px-2 py-1.5">
         <ListMusic className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-        {/* The dropdown. A BUTTON that opens the same searchable popup the module picker uses,
-            rather than a <select>: the list is as long as the repository is old, and picking
-            from it by typing three letters is the gesture this shell has everywhere else. */}
+        {/* The dropdown is a BUTTON opening the module picker's searchable popup, not a <select>: the list is as long as the repository is old. */}
         <button
           ref={pickRef}
           type="button"
@@ -227,8 +193,7 @@ export function PlaylistsPanel({
 
       {creating ? (
         <div className="flex shrink-0 items-center gap-2 border-b bg-muted/30 px-2 py-1.5">
-          {/* Focused through a ref rather than `autoFocus`: the attribute steals focus on MOUNT,
-              which is not the same event as "the button that opens this was just pressed". */}
+          {/* Focused through a ref rather than `autoFocus`, which steals focus on MOUNT — not the same event as the opening press. */}
           <input
             ref={nameRef}
             value={name}
@@ -260,8 +225,7 @@ export function PlaylistsPanel({
         </p>
       ) : null}
 
-      {/* The songs, under the dropdown. `PlaylistEditor` in panel mode: the same document, the
-          same autosave, the same resolved list — only the YAML half is left out. */}
+      {/* The songs, under the dropdown: `PlaylistEditor` in panel mode, the same document and autosave with the YAML half left out. */}
       <div className="min-h-0 flex-1">
         {rows === null ? (
           <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">

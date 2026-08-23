@@ -42,10 +42,7 @@ describe("withModuleStamp", () => {
     expect(Object.keys(loadModules(dir))).toContain("reverb");
   });
 
-  // The contract, stated as a test: inside a scope, the module folders are held to be still.
-  // The nested call must honour the SAME promise rather than quietly re-checking — which is the
-  // whole of what makes one walk cover a derivation. A caller that writes may not open a scope;
-  // that is the rule this depends on, and it is why the write below is the test and not a bug.
+  // Inside a scope the module folders are held still, and a nested call may not re-check.
   it("keeps ONE stamp across a scope nested for the same project", () => {
     const seen = withModuleStamp(dir, () => {
       const before = Object.keys(loadModules(dir));
@@ -57,8 +54,7 @@ describe("withModuleStamp", () => {
     expect(seen.after).not.toContain("delay");
   });
 
-  // …and the scope is per PROJECT, so an inner one for another folder gets its own stamp. The
-  // graph of a library chain built while a project is open is exactly that shape.
+  // …and per PROJECT: a library chain built while a project is open is exactly that shape.
   it("gives a scope for another project its own stamp", () => {
     const other = project("two.st0");
     module_(other, "chorus");

@@ -3,8 +3,7 @@ import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 import { previewTriggers } from "./previewTriggers";
 
-// The ▶ gutter: which lines can be auditioned. The CUE version is a 230-line scanner with a
-// brace-depth stack and a second pass; these are the cases it had to get right.
+// The ▶ gutter: which lines can be auditioned, and the cases a hand-rolled scanner had to get right.
 
 const triggers = (doc: string) => {
   const state = EditorState.create({ doc, extensions: [yaml()] });
@@ -32,8 +31,7 @@ describe("what earns a play button", () => {
   });
 
   it("a slice rack's symbols, against the source declared AFTER them", () => {
-    // The reason the CUE scanner needs a second pass, and this one too: a slice symbol
-    // carries no source, and the rack's may sit below the symbols that slice it.
+    // Why a second pass is needed: a slice symbol carries no source, and the rack's may sit below it.
     expect(
       triggers(
         "rack:\n  rack_type: slice\n  symbols:\n    BD: { note: 36, from: 0, to: 0.5 }\n  source: break.wav\n",

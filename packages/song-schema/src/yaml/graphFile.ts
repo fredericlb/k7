@@ -14,8 +14,7 @@ import {
 import { type GraphFile, GraphFileSchema } from "./graphSchema";
 import type { ModuleIssue } from "./moduleFile";
 
-// YAML 1.2 (so `5:1:1` stays a string) and no wrapping, keeping a node's destinations on
-// ONE line — see docs/graphFile.md.
+// YAML 1.2 (so `5:1:1` stays a string) and no wrapping, keeping destinations on ONE line (docs/graphEdits.md).
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 // `toString` takes only the rendering half of those (the version is a parse concern).
 const OUT = { lineWidth: 0 };
@@ -36,8 +35,7 @@ export function parseGraph(text: string): ParsedChains {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // The old format, named precisely rather than reported as an unknown key: someone
-  // opening a project written last month needs the migration, not a schema error.
+  // The old format, named precisely rather than reported as an unknown key — see docs/graphEdits.md.
   if (raw && typeof raw === "object" && Array.isArray(raw.chains))
     return {
       value: null,
@@ -75,13 +73,7 @@ function read(text: string): { doc: Document; file: GraphFile } {
   return { doc: parseDocument(text, OPTS), file: value };
 }
 
-/**
- * Does the file name this node at all?
- *
- * This was `sectionOf`, and it answered "`tracks:` or `modules:`" — a question every edit below
- * had to carry through, because writing a lane's destinations into the wrong half unwired it
- * silently. There is one map now (docs/trackModules.md), so the question is a yes/no.
- */
+/** Does the file name this node at all? One map now, so this was `sectionOf` and is a yes/no — docs/graphEdits.md. */
 const hasNode = (file: GraphFile, node: string): boolean =>
   !!file.modules && node in file.modules;
 
@@ -112,14 +104,7 @@ function setDests(doc: Document, node: string, dests: string[]): void {
   doc.setIn(["modules", node], destsNode(doc, dests));
 }
 
-/**
- * Put `module` in the graph, wired to nothing: `modules: { <module>: [] }`.
- *
- * An empty destination list is not a placeholder — it is what a PLACED module looks like. The old list format
- * had no way to say it (a chain was a path, and a module outside one simply wasn't written down), so a module
- * had to be wired at the moment it was created. Here it can exist first and be connected after, which is how a
- * graph editor is used. Already-known nodes are left alone, so this cannot unwire one by re-adding it.
- */
+/** Put `module` in the graph wired to nothing — an empty list is what a PLACED module looks like (docs/graphEdits.md). */
 export function addNode(text: string, module: string): string {
   const { doc, file } = read(text);
   if (hasNode(file, module)) return text;
@@ -127,10 +112,7 @@ export function addNode(text: string, module: string): string {
   return doc.toString(OUT);
 }
 
-/**
- * Bypass (or re-enable) one module. The name joins or leaves the root `bypassed` list, and the list disappears
- * when it empties — so bypassing and un-bypassing returns the file to what it was.
- */
+/** Bypass (or re-enable) one module; the list disappears when it empties, so the round trip is a no-op. */
 export function setModuleEnabled(
   text: string,
   module: string,
@@ -152,13 +134,7 @@ export function setModuleEnabled(
   return doc.toString(OUT);
 }
 
-/**
- * Insert `module` into the arrow from `before` to `after`: `before` now feeds the new module, and the new module
- * feeds `after`. With no `after`, it is appended to a node that feeds nothing yet.
- *
- * One arrow, one rewire — which is the whole reason the file declares segments. In the list format this had to
- * find a chain, find a position in it, and clamp the index so the module stayed ahead of the sink.
- */
+/** Insert `module` into the arrow from `before` to `after` — one arrow, one rewire (docs/graphEdits.md). */
 export function insertBetween(
   text: string,
   before: string,
@@ -188,14 +164,7 @@ export function insertBetween(
   return doc.toString(OUT);
 }
 
-/**
- * Pin (or, with null, release) where `node` sits on the graph:
- * `positions: { <node>: { x: …, y: … } }`.
- *
- * Rounded to whole px — a hand-editable file has no business carrying thirteen decimals of a
- * pointer position — and written as a one-line flow map, the destination lists' own style.
- * Releasing the last pin drops the section, so a fully auto graph leaves no trace behind.
- */
+/** Pin (or, with null, release) where `node` sits — whole px, one-line flow map, see docs/graphEdits.md. */
 export function setNodePosition(
   text: string,
   node: string,
@@ -214,16 +183,7 @@ export function setNodePosition(
   return doc.toString(OUT);
 }
 
-/**
- * Draw a NEW arrow from `from` to `to` — the graph editor's patch cable. Either end may carry
- * a `#port` suffix, exactly as the file spells them (docs/ports.md): the KEY carries the
- * source's port, the destination string the target's.
- *
- * `from` gains `to` in its destinations, created as a key if the file never listed it — a node
- * can appear only as somebody's destination until now. Nothing else moves: unlike
- * insertBetween, no existing arrow is required or touched, which is the difference between
- * plugging a cable and splicing into one.
- */
+/** Draw a NEW arrow from `from` to `to` — a patch cable rather than a splice, see docs/graphEdits.md. */
 export function connectNodes(text: string, from: string, to: string): string {
   const { doc, file } = read(text);
   const dests = [...(file.modules?.[from] ?? [])];
@@ -233,13 +193,7 @@ export function connectNodes(text: string, from: string, to: string): string {
   return doc.toString(OUT);
 }
 
-/**
- * Take ONE arrow out: `from` stops feeding `to` — the patch cable pulled and dropped.
- *
- * The mirror of connectNodes, and nothing else moves: a source left with no destinations
- * keeps its key as `[]`, because an unwired node is still a PLACED node (see addNode) —
- * deleting a cable must not also delete the module it fed from the graph.
- */
+/** Take ONE arrow out; a source left feeding nothing keeps its key as `[]` (docs/graphEdits.md). */
 export function disconnectNodes(
   text: string,
   from: string,
@@ -259,23 +213,13 @@ export function disconnectNodes(
   return doc.toString(OUT);
 }
 
-/**
- * Rejoin what fed `module` to what it fed, and hand back the nodes that were repointed.
- *
- * Splicing rather than merely dropping the key is the point: a module in the middle of a run has an upstream and
- * a downstream, and cutting it out without reconnecting them would silently cut the signal — the file would still
- * parse, and the track would go quiet with nothing to point at.
- *
- * Shared by the two verbs that take a node out of the signal path, which differ only in what
- * becomes of its OWN entry afterwards. See `unlinkNode` and `removeNode`.
- */
+/** Rejoin what fed `module` to what it fed, handing back the nodes repointed — see docs/graphEdits.md. */
 function spliceOut(doc: Document, file: GraphFile, module: string): string[] {
   const onward = file.modules?.[module] ?? [];
   const rewired: string[] = [];
   for (const [node, dests] of Object.entries(file.modules ?? {})) {
     if (node === module || !dests.includes(module)) continue;
-    // The module's own destinations take its place, deduped: two branches that both
-    // rejoined through it must not leave the survivor listed twice.
+    // The module's own destinations take its place, deduped — two branches must not list the survivor twice.
     const next: string[] = [];
     for (const d of dests)
       for (const r of d === module ? onward : [d])
@@ -286,15 +230,7 @@ function spliceOut(doc: Document, file: GraphFile, module: string): string[] {
   return rewired;
 }
 
-/**
- * Take `module` out of the signal path and LEAVE IT IN THE GRAPH, wired to nothing.
- *
- * Every node is in the graph (docs/nodes.md): a node with no entry in this file is loaded and
- * drawn nowhere, so unlinking used to make one vanish from the canvas — which reads as a delete,
- * and is not one. Its cables go, its entry stays as `modules: { <node>: [] }`, and so does its
- * pin: a node that jumped to wherever the layout put it would have moved for a reason nobody
- * asked for. Its `bypassed:` flag stays too — it is still a node, and still silenced or not.
- */
+/** Take `module` out of the signal path and LEAVE IT IN THE GRAPH, wired to nothing — docs/graphEdits.md. */
 export function unlinkNode(
   text: string,
   module: string,
@@ -306,12 +242,7 @@ export function unlinkNode(
   return { text: doc.toString(OUT), rewired };
 }
 
-/**
- * Take `module` out of the graph ENTIRELY — the entry, its bypass and its pin.
- *
- * What `node delete` writes once the node's files are gone. Nothing may name a node with no
- * file: that is precisely what stops the project loading.
- */
+/** Take `module` out ENTIRELY — the entry, its bypass and its pin; what `node delete` writes (docs/graphEdits.md). */
 export function removeNode(
   text: string,
   module: string,
@@ -325,19 +256,7 @@ export function removeNode(
   return { text: doc.toString(OUT), rewired };
 }
 
-/** Drop the whole `positions:` section — `graph organize`'s write: every node handed back
- *  to the layout at once, and the file left as if nobody had ever dragged a card. */
-/**
- * Pin MANY nodes in one write — what a freshly drawn graph records about itself.
- *
- * A batch rather than a loop over `setNodePosition`, and not for speed: a graph draws sixty-odd
- * nodes, and sixty writes would be sixty entries in the undo journal for one picture that was
- * never rearranged by hand. One write is one thing that happened.
- *
- * Existing pins are LEFT ALONE. The caller sends the nodes the layout had to place itself — a
- * node already carrying a pin was not placed by the layout, and overwriting it would move a card
- * somebody had put somewhere on purpose.
- */
+/** Pin MANY nodes in ONE write, leaving existing pins alone — see docs/graphEdits.md. */
 export function setNodePositions(
   text: string,
   at: Record<string, { x: number; y: number }>,
@@ -361,6 +280,7 @@ export function setNodePositions(
   return wrote ? doc.toString(OUT) : text;
 }
 
+/** Drop the whole `positions:` section — `graph organize`'s write, every node handed back to the layout. */
 export function clearNodePositions(text: string): string {
   const { doc } = read(text);
   if (!isMap(doc.get("positions"))) return text;
@@ -368,8 +288,7 @@ export function clearNodePositions(text: string): string {
   return doc.toString(OUT);
 }
 
-/** Take one node's pin out of `positions:`, dropping the section once it empties — guarded,
- *  because `deleteIn` THROWS on a path through a section the file never had. */
+/** Take one node's pin out, dropping the section once it empties — guarded, since `deleteIn` THROWS on a missing path. */
 function dropPosition(doc: Document, node: string): void {
   const map = doc.get("positions");
   if (!isMap(map)) return;
@@ -377,12 +296,7 @@ function dropPosition(doc: Document, node: string): void {
   if (!map.items.length) doc.delete("positions");
 }
 
-/**
- * Rename `from` to `to` everywhere — its own entry, every list that feeds it, and its bypass.
- *
- * In place, keeping its position: a module has a place in the signal path, and removing then re-adding it loses
- * that. Only the name changes; what feeds it and what it feeds are the slot, not what fills it.
- */
+/** Rename `from` to `to` everywhere, IN PLACE so the module keeps its place in the file (docs/graphEdits.md). */
 export function renameNode(
   text: string,
   from: string,
@@ -401,16 +315,13 @@ export function renameNode(
     rewired.push(node);
   }
 
-  // The key itself, renamed IN PLACE — the scalar's value is swapped rather than the
-  // entry re-added, so the module keeps its line, its position and any comment on it.
+  // The key itself, renamed IN PLACE: the scalar's value is swapped rather than the entry re-added.
   const map = doc.get("modules");
   if (isMap(map))
     for (const item of map.items)
       if (isScalar(item.key) && item.key.value === from) {
         item.key.value = to;
-        // …and drop the quoting style with it. A ref like `@engine/…` HAD to be quoted (`@`
-        // is reserved); a plain name does not, and keeping the old style would leave every
-        // renamed module wearing the quotes of the one it replaced.
+        // …and drop the quoting style with it, or a renamed module wears the quotes of the one it replaced.
         item.key.type = undefined;
       }
 

@@ -24,13 +24,11 @@ export function PlaybackPicker({
   onChoose,
 }: {
   target: PlaybackTarget;
-  /** Whether the account's engine answered. A destination that needs one says so rather than
-   *  being hidden: "the machine is off" is a different fact from "this is not possible". */
+  /** Whether the account's engine answered: "off" is a different fact from "not possible". */
   engineReady: boolean;
   onChoose: (t: PlaybackTarget) => void;
 }) {
-  // The TRIGGER shows what will actually play, not what was asked for — the button is the
-  // only thing on screen when the menu is shut, so it has to be the honest one.
+  // The TRIGGER shows what will ACTUALLY play: it is all there is when the menu is shut.
   const actual = effectiveTarget(target, engineReady);
   const { icon: Icon, label } = playbackTargetInfo(actual);
   const fellBack = actual !== target;
@@ -53,8 +51,7 @@ export function PlaybackPicker({
         <DropdownMenuLabel>Lecture</DropdownMenuLabel>
         {PLAYBACK_TARGETS.map((t) => {
           const RowIcon = t.icon;
-          // Not disabled: the choice is remembered for when that machine comes back, and a
-          // row you cannot click is a row that cannot explain itself either.
+          // Not disabled: the choice is remembered, and an unclickable row explains nothing.
           const unreachable = t.needsEngine && !engineReady;
           return (
             <DropdownMenuItem

@@ -24,8 +24,7 @@ function project(name: string, event: Record<string, unknown>): string {
   writeLane(p, "gtr", "track", {
     events: [{ ref: "riff", start: "1:1:1", ...event }],
   });
-  // The material's own window. It has to state a `to`, or a placement asking for `loop` is
-  // refused before this gets anywhere: a repeat needs an end to come round from.
+  // The material must state a `to`, since a repeat needs an end to come round from.
   writeYaml(join(p, "clips", "riff.yaml"), {
     source: "clips/riff.wav",
     to: 8,
@@ -67,32 +66,21 @@ describe("a placement's own words", () => {
     });
   });
 
-  /**
-   * As AUTHORED, not as resolved. A timecode window stays the string it was written as: turning it
-   * into seconds needs the tempo, and whatever reads this writes it straight back into a file that
-   * must still mean the same thing after the tempo changes.
-   */
+  /** As AUTHORED: resolved to seconds, the value written back would move when the tempo does. */
   it("keeps a timecode window spelled as a timecode", () => {
     const c = clipOf(project("tc", { from: "2:1", to: "4:1" }));
     expect(c.event?.from).toBe("2:1");
     expect(c.event?.to).toBe("4:1");
   });
 
-  // …and it is NOT the merged pair beside it. The compiler resolves `from` into `sourceFrom` in
-  // seconds; both are on the document, saying different things, and only one can be written back.
+  // …and NOT the resolved `sourceFrom` beside it: only one of the two can be written back.
   it("sits beside the resolved window rather than replacing it", () => {
     const c = clipOf(project("both", { from: "2:1" }));
     expect(c.event?.from).toBe("2:1"); // as written
     expect(c.sourceFrom).toBeCloseTo(2, 6); // one bar at 120bpm, in seconds
   });
 
-  /**
-   * Absent where the event said nothing, rather than an object full of defaults.
-   *
-   * This rides on a document polled every two seconds, and whatever copies it writes what it finds:
-   * a `loop: 1` here would become a `loop: 1` in the file of every pasted event, restating what its
-   * absence already says.
-   */
+  /** Absent rather than defaulted: a `loop: 1` here lands in the file of every pasted event. */
   it("is absent on an event that stated nothing", () => {
     expect(clipOf(project("bare", {})).event).toBeUndefined();
   });

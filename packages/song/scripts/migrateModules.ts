@@ -32,9 +32,7 @@ if (!root) {
 const lib = join(root, "_modules");
 const catalogue = engineModules();
 
-// The shared io nodes, read before the folder goes. Each is `channel:` (+ maybe
-// `monitor`/`gain`) and belongs to the song that records through it, not to a library
-// every song shares.
+// The shared io nodes, read before the folder goes: each belongs to the song that records through it.
 const sharedIo = new Map<string, string>();
 for (const kind of ["IN", "OUT"]) {
   const dir = join(lib, "io", kind);
@@ -75,8 +73,7 @@ for (const name of projects) {
       for (const s of r.steps) lines.push(`    chain: ${s}`);
     }
   }
-  // The io nodes this project actually names, copied in beside its own modules. A
-  // rig had twenty shared inputs; a song uses the one or two it records through.
+  // Only the io nodes this project NAMES: a rig had twenty, a song records through one or two.
   const chains = join(dir, "chains.yaml");
   if (existsSync(chains)) {
     let text = readFileSync(chains, "utf8");
@@ -89,9 +86,7 @@ for (const name of projects) {
       const folder = join(dir, "modules", "io", kind);
       mkdirSync(folder, { recursive: true });
       const path = join(folder, `${node}.yaml`);
-      // `io: in` came from the shared generic, which is not coming with it. Without that
-      // line the node is not an input at all: its `channel:` is ignored, the lane
-      // compiles with nothing to record, and arming it says "has no input".
+      // Without `io: in` from the gone generic the node is not an input and its channel is ignored.
       const io = kind === "IN" ? "in" : "out";
       if (!existsSync(path))
         writeFileSync(
@@ -113,9 +108,7 @@ for (const name of projects) {
   );
 }
 
-// The library goes last, and only after a copy of it exists. 255 folders are about to be
-// deleted, and the command that used to regenerate them (`module populate`) is itself on
-// the way out — so "regenerable" is not a safety net here.
+// Last, and only after a copy exists: 255 folders go and nothing can regenerate them.
 const libBak = `${lib}.bak`;
 if (existsSync(lib) && !existsSync(libBak)) {
   cpSync(lib, libBak, { recursive: true });

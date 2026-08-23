@@ -8,8 +8,7 @@ import {
 } from "@frediverse/ui/dialog";
 import { BASE } from "../api";
 
-// What to TYPE on the phone, so it carries the service prefix — a bare /remote
-// is the médiathèque's, not ours.
+// What to TYPE on the phone: a bare /remote is the médiathèque's — ../../../docs/routing.md.
 const REMOTE_PATH = `${BASE}/remote`;
 
 interface Props {
@@ -23,8 +22,7 @@ interface Props {
   onClose: () => void;
 }
 
-// Asked when starting a new session: record from this device's microphone, or
-// from the device connected at the remote-mic page.
+// Asked when a session starts: this device's microphone, or the one at the remote page.
 export function SessionSourceDialog({
   open,
   remoteAvailable,

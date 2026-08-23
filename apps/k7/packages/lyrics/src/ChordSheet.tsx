@@ -38,8 +38,7 @@ function ChordToken({
   return <span className="cs-chord">{symbol}</span>;
 }
 
-// Render a "chords above lyrics" line, coloring the chord tokens while keeping
-// the original spacing (the container uses `white-space: pre`).
+// A "chords above lyrics" line: the tokens coloured, the spacing kept by `white-space: pre`.
 function ChordLine({
   text,
   transpose,
@@ -64,8 +63,7 @@ function ChordLine({
   );
 }
 
-// Render a lyric line. Segments carrying a chord are stacked (chord above the
-// word); plain segments render as inline lyric text.
+// A lyric line: a segment with a chord stacks it above the word, a plain one stays inline.
 function LyricLine({
   line,
   transpose,

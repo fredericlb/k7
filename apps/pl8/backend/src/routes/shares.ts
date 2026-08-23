@@ -68,12 +68,7 @@ export function sharesRouter(): RouterT {
     }),
   );
 
-  /**
-   * WHOSE shares. An ACCOUNT token or a session answers by itself; a SERVICE token — which is
-   * what the machine holding the project actually carries — has no person of its own and must
-   * NAME one. The same trade `/ssh-key/private` documents: whoever holds a machine's token can
-   * act for anyone on it. See ../../docs/sshKeyForService.md.
-   */
+  /** WHOSE shares: a SERVICE token has no person and must NAME one — ../../docs/sshKeyForService.md. */
   function owner(req: Request): string {
     const sub = subOf(req);
     const asked = typeof req.query.user === "string" ? req.query.user : "";
@@ -91,16 +86,7 @@ export function sharesRouter(): RouterT {
     }),
   );
 
-  /**
-   * Open a draft: mint the secret, make its directory, and say what is expected.
-   *
-   * The body is the manifest `@studio/commands/share-bundle` just wrote — small JSON, well
-   * inside the 8 MB `express.json` limit this service mounts globally. The AUDIO does not come
-   * this way; it comes one raw PUT at a time below, because pl8 does not do multipart and a
-   * 400 MB file must never be a field in a form parse (see library.ts).
-   *
-   * Nothing is reachable yet: `pending.json` is what the public routes read as "not live".
-   */
+  /** Open a draft: the manifest only, and nothing is reachable while `pending.json` is there. */
   router.post(
     "/",
     wrap((req, res) => {
@@ -154,8 +140,7 @@ export function sharesRouter(): RouterT {
       if (pending.owner !== owner(req))
         return res.status(403).json({ error: "not your share" });
       const path = String(req.query.path ?? "");
-      // MATCHED, never sanitised: the draft said what it would send, and anything else is not
-      // part of this snapshot. That is what keeps a request from ever reaching a path here.
+      // MATCHED, never sanitised: the draft said what it would send, so nothing reaches a path.
       if (!expected(pending, path))
         return res
           .status(400)
@@ -165,13 +150,7 @@ export function sharesRouter(): RouterT {
     }),
   );
 
-  /**
-   * Go live.
-   *
-   * The moment `snapshot.json` exists and `pending.json` does not, the link answers — so this is
-   * the one place the whole upload becomes visible, and a crashed one never does. Sizes are
-   * re-measured HERE rather than trusted from the draft: what the link serves is what landed.
-   */
+  /** Go live, in one step, and the sizes are re-MEASURED: what the link serves is what landed. */
   router.post(
     "/:key/finish",
     wrap((req, res) => {

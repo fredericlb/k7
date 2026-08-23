@@ -48,14 +48,12 @@ export function CommandParams({
 
   return createPortal(
     <section
-      // Portalled and fixed: the bar it belongs to is a flex row in the shell's bottom strip,
-      // and a panel this size inside it would either be clipped or push the input around.
+      // Portalled and fixed: the bar it belongs to is a flex row, and a panel this size inside it would be clipped or push the input around.
       className="fixed bottom-14 right-4 z-40 flex w-80 flex-col rounded-md border border-border bg-popover/95 shadow-lg backdrop-blur"
       aria-label="command parameters"
     >
       <header className="border-b border-border px-3 py-2">
-        {/* The sentence, not the command name: it is what was chosen, and reading it back is
-            how you know the right row was taken. The name sits under it for the CLI-minded. */}
+        {/* The sentence, not the command name: reading back what was chosen is how you know the right row was taken. */}
         <div className="text-xs font-medium text-foreground">
           {command.readable}
         </div>
@@ -75,8 +73,7 @@ export function CommandParams({
                 )}
               >
                 {a.name}
-                {/* A trailing optional says so, because leaving it blank is an ANSWER and the
-                    form would otherwise look unfinished for ever. */}
+                {/* A trailing optional says so: leaving it blank is an ANSWER, and the form would otherwise look unfinished for ever. */}
                 {a.optional && (
                   <span className="ml-1 opacity-60">· optional</span>
                 )}
@@ -108,8 +105,7 @@ export function CommandParams({
             <li key={v}>
               <button
                 type="button"
-                // mousedown, and preventDefault: the blur that would close this list must never
-                // be the one that was about to pick from it.
+                // mousedown, and preventDefault: the blur that would close this list must never be the one that was about to pick from it.
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onPick(v);
@@ -128,11 +124,7 @@ export function CommandParams({
         </ul>
       )}
 
-      {/* What the two keys do, said rather than remembered — this panel is where a person meets
-          the rule that Tab is "next question" and Enter is "that is my line". It names what
-          Enter will do THIS press, which is not always "run": a highlighted suggestion the
-          field does not hold yet is taken first, and saying "run" there would be a promise the
-          key does not keep (see `enterAction`). */}
+      {/* What the two keys do, naming what Enter will do THIS press, which is not always "run" (see `enterAction`). */}
       <footer className="flex items-center justify-between gap-2 border-t border-border px-3 py-1 text-[10px] text-muted-foreground">
         <span>Tab · next</span>
         <span className={cn(enterDoes === "run" && "text-foreground")}>

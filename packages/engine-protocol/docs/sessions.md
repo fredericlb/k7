@@ -83,6 +83,16 @@ client that has never heard of sessions and one passing the default are the same
 byte for byte. Do not give the default a name: every such client would move to a different
 project on the same engine, in silence.
 
+## Putting one down: `flush` versus `dropSession`
+
+`flush` empties a session — plugins, edit and diff baseline — and leaves the session itself
+behind, so the next document is built from scratch rather than diffed against the old one.
+`dropSession` **removes** it: its edit, its plugins, its meters and its broadcast tap.
+
+The difference matters because the key space is (service × person), so an engine on a shared
+machine accumulates one entry per person who has ever pointed at it and frees them only when the
+process dies. A surface that is done with a project should say so.
+
 **A session is created by driving it, and asking about one never creates it.** That is the
 engine's rule rather than this package's, but it is what makes the supervisor's polling safe —
 it holds a `DEFAULT_SESSION` client and would otherwise have conjured `""` on every tick. See

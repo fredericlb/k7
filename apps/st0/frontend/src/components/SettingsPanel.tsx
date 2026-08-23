@@ -28,13 +28,7 @@ import { EditorSettingsPage } from "./EditorSettingsPage";
 import { IoPanel } from "./IoPanel";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
-/**
- * The tabs, in the order they are drawn.
- *
- * `commands` is not among them — it is the one settings screen still drawn as a PAGE, reached
- * by the button in the header. Nor is `playlists`, which had a tab here briefly and has its own
- * panel: settings are things you set and leave, a set list is a thing you work FROM.
- */
+/** The tabs, in the order they are drawn — `commands` is a PAGE and `playlists` its own panel: settings are set and left, a set list is worked from. */
 export const SETTINGS_TABS = ["editor", "io", "account"] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -57,8 +51,7 @@ const TAB_META: Record<
     label: m["settings.io"](),
     command: "ui settings io",
   },
-  // Not translated through paraglide like its neighbours: the message catalogue is generated,
-  // and a key that is not in it yet fails the build.
+  // Not translated through paraglide like its neighbours: the message catalogue is generated, and a key not in it yet fails the build.
   account: {
     icon: UserCircle2,
     label: "Compte",
@@ -81,9 +74,7 @@ export function SettingsPanel({
   onRun: (line: string) => Promise<void>;
   onClose: () => void;
 }) {
-  // Escape closes it, which is the contract the I/O dialog had and the one thing a docked panel
-  // must not lose: it is opened mid-gesture — plugging something in, checking a level — and a
-  // surface you have to aim at to dismiss is one you leave open.
+  // Escape closes it, which a docked panel must not lose: it is opened mid-gesture, and a surface you have to aim at is one you leave open.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -114,8 +105,7 @@ export function SettingsPanel({
         </Button>
       </header>
 
-      {/* The tabs. Each dispatches its own `ui settings <tab>` rather than setting state here,
-          so the panel and the palette are one road — see the file header. */}
+      {/* The tabs each dispatch their own `ui settings <tab>` rather than setting state here, so the panel and the palette are one road. */}
       <nav className="flex shrink-0 border-b border-border">
         {SETTINGS_TABS.map((t) => {
           const { icon: Icon, label, command } = TAB_META[t];
@@ -154,13 +144,7 @@ export function SettingsPanel({
   );
 }
 
-/**
- * Who you are, and the three ways out of here.
- *
- * These were the menu's top and bottom — the account block, the engine picker, leaving the
- * workspace, the language. They are ACTIONS rather than a screen, which is why they were never
- * a `ui settings <x>`; a tab is where they go now that the menu they lived in is gone.
- */
+/** Who you are, and the three ways out of here — the old menu's top and bottom, ACTIONS rather than a screen, given a tab now the menu is gone. */
 function AccountTab({ onRun }: { onRun: (line: string) => Promise<void> }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   useEffect(() => {
@@ -198,10 +182,8 @@ function AccountTab({ onRun }: { onRun: (line: string) => Promise<void> }) {
         </Button>
       </div>
       <div className="my-1 border-t border-border" />
-      {/* The SSH key is NOT here. It belongs to pl8, which owns the repositories and generates
-          the one deploy key — see packages/git-repos/docs/keys.md. */}
-      {/* The engine is remembered on the ACCOUNT, so this is the one way back to the picker —
-          without it a choice made once could never be undone. */}
+      {/* The SSH key is NOT here: it belongs to pl8, which generates the one deploy key (packages/git-repos/docs/keys.md). */}
+      {/* The engine is remembered on the ACCOUNT, so this is the one way back to the picker. */}
       <button
         type="button"
         className={row}

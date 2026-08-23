@@ -18,8 +18,7 @@ describe("settings.yaml's metronome_level", () => {
     expect(parseSettings({ metronome_level: 0.4 }).metronomeLevel).toBe(0.4);
   });
 
-  // A project that never mentions it clicks at Tracktion's own default, so adding the field
-  // changed nothing for every song already on disk.
+  // A project that never mentions it clicks at Tracktion's own default, so nothing on disk moved.
   it("defaults where the file says nothing", () => {
     expect(parseSettings({}).metronomeLevel).toBe(DEFAULT_METRONOME_LEVEL);
     expect(parseSettings(undefined).metronomeLevel).toBe(
@@ -27,11 +26,7 @@ describe("settings.yaml's metronome_level", () => {
     );
   });
 
-  /**
-   * CLAMPED on the way in, not trusted. The schema refuses an out-of-range value when a file is
-   * validated, but `parseSettings` also feeds the engine from files that were hand-edited, and the
-   * engine would clamp silently — better to land on the same number both sides agree on.
-   */
+  /** CLAMPED on the way in, so a hand-edited file lands on the number both sides agree on. */
   it("clamps a hand-edited value into the range the engine honours", () => {
     expect(parseSettings({ metronome_level: 0 }).metronomeLevel).toBe(
       METRONOME_MIN,
@@ -42,8 +37,7 @@ describe("settings.yaml's metronome_level", () => {
     );
   });
 
-  // …and the SCHEMA refuses rather than clamps, which is the other half of the same rule: a value
-  // that means something other than what it says is worse than an error naming the range.
+  // …and the SCHEMA refuses rather than clamps: a value meaning something else is worse than an error.
   it("is refused outright by the schema when out of range", () => {
     expect(SettingsSchema.safeParse({ metronome_level: 0.5 }).success).toBe(
       true,
@@ -56,8 +50,7 @@ describe("settings.yaml's metronome_level", () => {
     );
   });
 
-  // The two are independent on purpose: turning the click off and back on has to bring back the
-  // level you had, which one field could not do.
+  // Independent on purpose: one field could not bring back the level after the click goes off.
   it("is kept apart from the on/off flag", () => {
     const s = parseSettings({ metronome: false, metronome_level: 0.9 });
     expect(s.metronome).toBe(false);

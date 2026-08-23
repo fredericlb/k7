@@ -4,9 +4,7 @@ import { GristClient, type GristRecord, gristIdList } from "./client.ts";
 import { listGristSessions, loadSessionFromGrist } from "./load.ts";
 import { ensureGristSchema } from "./schema.ts";
 
-// A stub Grist instance: serves fixture rows from the records API (honouring
-// the {"id":[…]} filter), answers /tables and /columns for the schema
-// bootstrap, and records every /apply payload for assertions.
+// A stub Grist: fixture rows, /tables and /columns for the bootstrap, every /apply recorded.
 
 const fixtures: Record<string, GristRecord[]> = {
   Sessions: [
@@ -221,8 +219,7 @@ describe("ensureGristSchema", () => {
       ]),
     );
 
-    // The existing lower-case "tracks" table gets its missing youtubeId column,
-    // addressed by its stored casing.
+    // The lower-case "tracks" table gets youtubeId, addressed by its STORED casing.
     const addCols = applied.filter((a) => a[0] === "AddVisibleColumn");
     expect(addCols).toContainEqual([
       "AddVisibleColumn",

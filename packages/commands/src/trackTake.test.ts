@@ -102,8 +102,7 @@ describe("track take select", () => {
   it("says which mistake it was: the track, the number, or the missing argument", async () => {
     await runCommand("track take select nope 1", host(), "cli");
     expect(logs.join(" ")).toContain('no track "nope"');
-    // A non-number never reaches the handler: the catalogue declares the argument's type, so
-    // the dispatcher answers that one.
+    // A non-number never reaches the handler: the catalogue types the argument, so dispatch answers.
     await runCommand("track take select gtr x", host(), "cli");
     expect(logs.join(" ")).toContain("expects a number");
     // …but 0 IS a number, and takes count from 1.
@@ -134,8 +133,7 @@ describe("track take delete", () => {
 
 describe("track take keep", () => {
   it("keeps what the lane plays and deletes every take", async () => {
-    // The end of choosing: you listened round the takes — each listen a `select`, which leaves
-    // the one you liked ON the lane — and this says that one.
+    // The end of choosing: each listen was a `select`, which left that take on the lane.
     await runCommand("track take select gtr 1", host(), "cli");
     await runCommand("track take keep gtr", host(), "cli");
     const text = readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8");

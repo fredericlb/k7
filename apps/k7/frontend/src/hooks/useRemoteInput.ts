@@ -1,8 +1,7 @@
 import { describeMicError } from "@k7/recorder";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// "mix" downmixes every channel to mono; a number selects a single 0-based input
-// channel of a multi-channel device (e.g. one input of an audio interface).
+// "mix" sums every channel to mono; a number picks one 0-based input channel.
 export type ChannelSel = "mix" | number;
 
 export interface RemoteInput {
@@ -20,9 +19,7 @@ export interface RemoteInput {
   setChannel: (ch: ChannelSel) => void;
 }
 
-// Capture a device raw (no processing, ask for many channels) so individual
-// input channels survive; fall back progressively for devices/browsers that
-// reject the richer constraints.
+// Capture RAW and many-channelled so single channels survive, then fall back progressively.
 async function acquireInput(deviceId?: string): Promise<MediaStream> {
   const id = deviceId ? { deviceId: { exact: deviceId } } : {};
   const raw = {
@@ -46,13 +43,7 @@ async function acquireInput(deviceId?: string): Promise<MediaStream> {
   throw lastErr;
 }
 
-/**
- * Owns the remote device's audio input: which device, which channel, and a
- * stable mono `outputStream` built with the Web Audio API. Device/channel
- * changes rewire the graph *upstream* of a fixed destination node, so the
- * output MediaStream track never changes — the WebRTC sender feeding the
- * recorder keeps streaming seamlessly across switches.
- */
+/** The remote device's input — device, channel, and a STABLE stream (../../../docs/audio.md). */
 export function useRemoteInput(): RemoteInput {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -70,9 +61,7 @@ export function useRemoteInput(): RemoteInput {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef(0);
 
-  // Connect the raw source (optionally through a splitter) into the fixed gain
-  // bus for the chosen channel. Leaves the gain→destination→analyser tail — and
-  // therefore the output track — untouched.
+  // Rewire UPSTREAM of the fixed gain bus, leaving the gain→destination→analyser tail alone.
   const route = useCallback((ch: ChannelSel, count: number) => {
     const ctx = ctxRef.current;
     const raw = rawRef.current;

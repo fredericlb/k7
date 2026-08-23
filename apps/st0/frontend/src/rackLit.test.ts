@@ -80,15 +80,7 @@ describe("rackHits", () => {
   });
 
   it("sorts a module reached from TWO chains as one list, not two runs", () => {
-    /**
-     * The bug this pins. Each chain's hits were sorted before being concatenated, so a module
-     * heard by two lanes ended up with two sorted runs back to back — and `litAt` stops at the
-     * first note that has not begun, which is the end of the FIRST run. Everything the second
-     * lane played was invisible.
-     *
-     * `late` plays first in the file and starts at beat 8; `early` starts at beat 0. Before the
-     * fix the merged list read [8, 0] and a look at beat 0 walked off the end immediately.
-     */
+    /** The bug this pins: two sorted runs back to back, and `litAt` stops at the first note that has not begun — the end of the FIRST. */
     const twoLanes = {
       tempo: 120,
       tracks: [
@@ -177,8 +169,7 @@ describe("litAt", () => {
   });
 
   it("gives the same answer bounded as unbounded — the bound only limits the WALK", () => {
-    // The span here is 2 (the two-beat notes). Passing it must change the cost and nothing
-    // else; a bound that changed an answer would be an optimisation that lies.
+    // The span here is 2: passing it must change the cost and nothing else — a bound that changed an answer would be an optimisation that lies.
     for (const beat of [-1, 0, 0.99, 1, 2, 2.5, 3, 3.99, 4, 99])
       expect([...litAt(hits, beat, 2)].sort()).toEqual(
         [...litAt(hits, beat)].sort(),
@@ -186,9 +177,7 @@ describe("litAt", () => {
   });
 
   it("does not walk back past the longest note", () => {
-    // A note far in the past cannot still be ringing, and this is what stops the scan growing
-    // with the playhead's position. `far` starts at 0 and the bound is 2, so a look at beat 50
-    // must not reach it — and must not report it either, since it stopped at beat 1.
+    // A note far in the past cannot still be ringing, and this is what stops the scan growing with the playhead's position.
     const far = [
       { from: 0, to: 1, key: 36 },
       { from: 49, to: 51, key: 38 },
@@ -207,8 +196,7 @@ describe("LiveRackLit", () => {
 
     store.set({ kit: new Set([36]) });
     expect([kit, other]).toEqual([1, 0]);
-    // The same picture again: nobody is woken. This is what keeps a playhead moving through
-    // silence from re-rendering pads twenty times a second.
+    // The same picture again: nobody is woken, which is what keeps a playhead moving through silence from re-rendering pads.
     store.set({ kit: new Set([36]) });
     expect([kit, other]).toEqual([1, 0]);
     store.set({ kit: new Set([36, 38]) });

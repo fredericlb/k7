@@ -31,16 +31,14 @@ describe("Workspace.baseSnapshotPath", () => {
   it("puts it in the module's own base/ folder, and creates that folder", () => {
     const { path } = ws.baseSnapshotPath(MODULE, "warm");
     expect(path).toBe("song.st0/modules/audio/wurli/base/warm.vstpreset");
-    // Created here rather than by the engine: the engine writes where it is told, and being told
-    // a path whose parent does not exist is not something it should have to recover from.
+    // Created here rather than by the engine, which writes where it is told and recovers from nothing.
     expect(existsSync(join(root, "song.st0/modules/audio/wurli/base"))).toBe(
       true,
     );
   });
 
   it("spells the extension once, whether or not it was typed", () => {
-    // Two files for one base is the surprise this avoids — `warm` and `warm.vstpreset` name the
-    // same thing to anybody typing either.
+    // `warm` and `warm.vstpreset` name the same thing to anybody typing either.
     expect(ws.baseSnapshotPath(MODULE, "warm.vstpreset").path).toBe(
       ws.baseSnapshotPath(MODULE, "warm").path,
     );
@@ -54,10 +52,7 @@ describe("Workspace.baseSnapshotPath", () => {
   });
 
   it("cannot climb out of the module, however the name is spelt", () => {
-    // The property is CONTAINMENT, not a pretty name. A separator-laden name is flattened rather
-    // than refused — `renameEntry` has the same rule, and for the same reason: the name only ever
-    // names a file in one folder, so a separator in it is a typo, not an instruction. What it must
-    // never do is produce a second path segment, which is what would let it leave `base/`.
+    // The property is CONTAINMENT: a separator-laden name is flattened, never turned into a second segment.
     for (const evil of [
       "../../../../etc/passwd",
       "....windowssystem32cfg",

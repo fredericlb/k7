@@ -1,10 +1,6 @@
 import type { GristClient } from "./client.ts";
 
-// The blindtest Grist schema (grist_schema.go's schemaTables). Parents own
-// ordered children via RefList columns: Session → Order → Categories → Songs
-// → Tracks. RefList preserves order, so no `position` columns. Table creation
-// order is leaves → roots so RefList targets exist when the owner is created.
-// See the Go source for the full per-column rationale comments.
+// Session → Order → Categories → Songs → Tracks, owned by RefLists; declared leaves-first.
 
 interface GristTableDef {
   id: string;
@@ -18,11 +14,9 @@ export const schemaTables: GristTableDef[] = [
       { id: "artist", type: "Text" },
       { id: "title", type: "Text" },
       { id: "audio", type: "Attachments" },
-      // Variant marker ("" = original, "stems" = stems mix, …); the category's
-      // trackType picks the matching track at play time.
+      // Variant marker ("" is the original); a category's trackType picks its match at play time.
       { id: "type", type: "Text" },
-      // start/end, not from/to: "from" is a Python keyword and Grist silently
-      // renames such column ids.
+      // start/end, not from/to: "from" is a Python keyword and Grist silently renames those.
       { id: "start", type: "Numeric" },
       { id: "end", type: "Numeric" },
       { id: "youtubeId", type: "Text" },
@@ -132,9 +126,7 @@ export const schemaTables: GristTableDef[] = [
       { id: "createdAt", type: "DateTime" },
     ],
   },
-  // Playlist mode: a saved Deezer/Spotify playlist link, deduplicated on
-  // (provider, playlistId) and visible to everyone, like Sessions. No track or
-  // audio data is stored — only the pointer.
+  // A saved playlist LINK, deduplicated on (provider, playlistId); no track or audio data.
   {
     id: "Playlists",
     columns: [
@@ -172,14 +164,7 @@ export const schemaTables: GristTableDef[] = [
   },
 ];
 
-/**
- * Reconcile the live Grist doc with schemaTables: create missing tables, add
- * missing columns to existing ones. Idempotent — safe on every boot. Type
- * changes on existing columns are NOT handled (data-loss risk). Matching is
- * case-insensitive so a manual Grist rename doesn't cause re-creation.
- * AddTable/AddVisibleColumn failures are logged and swallowed — in practice
- * every failure is "already exists" and shouldn't block boot.
- */
+/** Add what is missing, on every boot; a type CHANGE is never applied, since it would lose data. */
 export async function ensureGristSchema(g: GristClient): Promise<void> {
   const existing = await g.listTables();
   const have = new Map<string, string>(); // lower-case id → actual stored id
@@ -202,8 +187,7 @@ export async function ensureGristSchema(g: GristClient): Promise<void> {
         created++;
         continue;
       } catch (err) {
-        // Most likely the table exists but ListTables didn't surface it. Fall
-        // through to column reconciliation under the schema id.
+        // Most likely the table exists and ListTables missed it, so reconcile its columns anyway.
         console.log(
           `[Grist] AddTable ${t.id} failed (${err}) — falling through to column reconciliation`,
         );
@@ -228,9 +212,7 @@ export async function ensureGristSchema(g: GristClient): Promise<void> {
       `[Grist] ${actualId} columns: live=[${liveCols.join(",")}] schema=[${t.columns.map((c) => c.id).join(",")}] missing=[${missing.map((c) => c.id).join(",")}]`,
     );
     for (const c of missing) {
-      // AddVisibleColumn (vs plain AddColumn) also attaches the column to the
-      // raw view section so it's visible in the Grist UI. isFormula:false
-      // keeps Grist from treating it as a formula stub.
+      // AddVisibleColumn, not AddColumn: it also attaches the column to the raw view section.
       try {
         await g.apply([
           [

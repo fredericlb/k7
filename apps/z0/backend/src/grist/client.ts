@@ -25,8 +25,7 @@ export class GristClient {
       docId: cfg.docId,
       apiKey: cfg.apiKey,
       timeoutMs: TIMEOUT_MS,
-      // grist.go never required a key: a keyless Grist is a supported setup
-      // here (and what the tests' stub server runs as).
+      // A keyless Grist is supported here, and is what the tests' stub server runs as.
       allowAnonymous: true,
     });
   }
@@ -81,11 +80,7 @@ export class GristClient {
     return this.g.runSql(sql, args);
   }
 
-  /**
-   * Map attachment row id → fileIdent (Grist's content-addressed
-   * "<sha256>.<ext>") for the requested ids. Chunked to stay under SQLite's
-   * parameter cap.
-   */
+  /** Row id → fileIdent, chunked at 500 to stay under SQLite's parameter cap. */
   async attachmentFileIdents(ids: number[]): Promise<Map<number, string>> {
     const out = new Map<number, string>();
     const CHUNK = 500;
@@ -105,11 +100,7 @@ export class GristClient {
     return out;
   }
 
-  /**
-   * Remove rows by id. Goes through BulkRemoveRecord rather than the shared
-   * client's /data/delete — the doc's own audited action path, matching what
-   * grist.go did. No-op for empty ids.
-   */
+  /** Remove rows through BulkRemoveRecord — the doc's own audited action path. */
   async deleteRecords(table: string, ids: number[]): Promise<void> {
     if (ids.length === 0) return;
     await this.apply([["BulkRemoveRecord", table, ids]]);
@@ -121,10 +112,7 @@ export class GristClient {
   }
 }
 
-/**
- * Encode a list of row ids as Grist's RefList wire format — a leading "L"
- * sentinel followed by the ids (grist.go's gristIDList).
- */
+/** Grist's RefList wire format: a leading "L" sentinel, then the ids. */
 export function gristIdList(...ids: number[]): unknown[] {
   return ["L", ...ids];
 }

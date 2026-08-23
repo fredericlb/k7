@@ -9,33 +9,13 @@ import { type StudioService, serviceUrl } from "./services.ts";
 /** The apps a project folder can belong to. A subset of the services: k7 owns no projects. */
 export type ProjectApp = Extract<StudioService, "st0" | "z0">;
 
-/**
- * The suffix each app claims.
- *
- * Two of them, because two apps open a project. Everything an st0 project can BE is a shape
- * inside `.st0` rather than a folder kind of its own: a song carries `video_tracks/` and a
- * `viewport` surface, and a set carries `songs.yaml` and a `turntables` surface
- * (`PROJECT_SHAPES` in `@studio/song`). See packages/song/docs/picture.md and setProject.md.
- */
+/** The suffix each app claims — two, because everything an st0 project can BE is a shape INSIDE `.st0`. */
 export const PROJECT_SUFFIXES: Record<ProjectApp, string> = {
   st0: ".st0",
   z0: ".z0",
 };
 
-/**
- * The apps a project can be CREATED for, which is not the same set as the apps that own one.
- *
- * Owning a folder kind is a naming rule; creating one needs a **scaffold** — a file map the
- * file service can write (`createProjectIn`, and `@studio/song`'s three `scaffold*` modules).
- * z0 owns `.z0` and has none, so offering it in pl8's "Nouveau projet" menu produced a folder
- * with an st0 song inside it: the suffix said z0, the contents said otherwise, and nothing
- * complained until the app that opened it found nothing it could read.
- *
- * Stated HERE, beside the suffixes, because it is the same kind of fact and the same contract
- * between the side that OFFERS a kind and the side that writes it. A `Record<ProjectApp,
- * boolean>` rather than a list, so adding an app to `ProjectApp` fails to compile until
- * someone answers the question for it.
- */
+/** The apps a project can be CREATED for, which owning a suffix does not make it — see docs/addresses.md. */
 export const HAS_SCAFFOLD: Record<ProjectApp, boolean> = {
   st0: true,
   z0: false,
@@ -46,39 +26,13 @@ export const SCAFFOLDED_APPS: ProjectApp[] = (
   Object.keys(PROJECT_SUFFIXES) as ProjectApp[]
 ).filter((a) => HAS_SCAFFOLD[a]);
 
-/**
- * Where inside its service the app that opens a project is mounted.
- *
- * Empty for st0, which IS its service: `st0.priv.frediver.se/<repo>/<project>`. z0 is six
- * SPAs behind one prefix and only one of them opens a project, so its address has to name the
- * SPA too — `st0.priv.frediver.se/z0/editor/<repo>/<project.z0>`.
- *
- * It belongs here rather than in pl8's link builder for the reason the suffixes do: the
- * address is a contract between the side that WRITES it and the side that parses it back, and
- * a mount known to only one of them is a 404 nobody can attribute.
- *
- * It read `/editor-v2` while the Grist editor still held `/z0/editor`. That editor is retired
- * and this one took the name — which also removed a trap, since `/z0/editor` is a literal
- * prefix of `/z0/editor-v2` and a proxy comparing raw prefixes sent the project to the wrong
- * SPA. One name, no overlap. See apps/z0/docs/editor.md.
- */
+/** Where inside its service each app is mounted — empty for st0, which IS its service; see docs/addresses.md. */
 export const PROJECT_MOUNTS: Record<ProjectApp, string> = {
   st0: "",
   z0: "/editor",
 };
 
-/**
- * The app that opens a folder with this name, or null when the name claims none.
- *
- * The NAME, not the contents, and the two are different questions: "who opens this" and "can
- * the engine be given it". Only the second needs a file opened.
- *
- * That separation was what let pl8 answer the first from a bare blobless mirror it had never
- * checked out — every path, no file bodies. The mirror is gone (the machine's own clone answers
- * now, see apps/st0/frontend/docs/projects.md), and the rule stays, because it was never the
- * mirror that justified it: a `project.yaml` is what makes a project COMPILE, and
- * `@studio/song` still asks that question its own way, on a real checkout.
- */
+/** The app that opens a folder with this NAME, which is not the question of whether it compiles — docs/addresses.md. */
 export function projectApp(name: string): ProjectApp | null {
   for (const [app, suffix] of Object.entries(PROJECT_SUFFIXES))
     if (name.length > suffix.length && name.endsWith(suffix))
@@ -105,29 +59,7 @@ export interface Launch {
 /** Split a path into segments, tolerating any number of slashes at either end. */
 const segments = (p: string): string[] => p.split("/").filter(Boolean);
 
-/**
- * Read `/<repo>/<project…>[/<view…>]` into a target, or null.
- *
- * st0 is mounted at the ORIGIN ROOT, so its `base` is `/` and the repository is the FIRST path
- * segment. Which makes every prefix the origin claims above st0 — `/pl8`, `/k7`, `/z0`, `/api`,
- * `/auth`, and in dev `/dev`, `/console`, `/dev-status` — a repository short name that can never
- * be opened: the request never reaches this app. Nothing here can detect that, and nothing
- * should try; it is the edge's routing table, and `apps/studio/docker/nginx.conf` is where it is
- * written down. z0's editor keeps a prefix (`/z0/editor`) and is unaffected.
- *
- * **Where the project ends** is decided by the folder's own name — the same rule as
- * `projectApp` above: the project is everything up to and including the LAST segment claiming
- * THIS app. That is what lets a project sit at a depth (`songs/winter.st0`), lets the app's own
- * route follow it (`…/winter.st0/timeline`), and lets a `.m9` set nested inside a `.st0` song be
- * addressed by m9 without st0's suffix winning.
- *
- * With no such segment the repository itself is the project (`"."`) and everything after the
- * repo is the app's route — a view segment never ends in `.st0` or `.m9`, so the two cannot be
- * confused.
- *
- * `base` is where the app is mounted, as vite's `BASE_URL` spells it — `/` for st0, `/z0/editor/`
- * for z0's. An address outside it names something else: null.
- */
+/** Read `/<repo>/<project…>[/<view…>]` into a target, or null — the rules are in docs/addresses.md. */
 export function parseLaunch(
   pathname: string,
   app: ProjectApp,
@@ -164,14 +96,7 @@ export function parseLaunch(
   };
 }
 
-/**
- * Percent-encode one path segment, leaving `@` alone.
- *
- * `encodeURIComponent` escapes it, and RFC 3986 does not: `@` is a `pchar`, legal literally in a
- * path segment, and a browser keeps it that way in the address bar. So encoding it produced an
- * address that did not match the one the person was looking at — which is how the sentinels
- * this file mints (`@shares`, `@banc`, `@local`) were the only names it could get wrong.
- */
+/** Percent-encode one path segment, leaving `@` alone: RFC 3986 allows it literally — see docs/addresses.md. */
 const encodeSegment = (s: string): string =>
   encodeURIComponent(s).replace(/%40/g, "@");
 
@@ -185,25 +110,7 @@ function launchPath(l: Launch, base: string): string {
   return `/${parts.join("/")}`;
 }
 
-/**
- * The router `basename` for this address: everything up to and including the project.
- *
- * This is what replaces the tab-local storage the launch used to need. React Router only ever
- * writes BELOW its basename, so the repo and project can no longer be rewritten away by an
- * app's own `routes.ts` — which is the single reason the memory existed. A reload re-reads the
- * same path, a bookmark works, and a wrong project is fixed by editing the address instead of
- * by clearing storage nobody can see.
- *
- * Falls back to `base` when the address names no project, which leaves the app mounted where
- * it has always been and lets its gate send you to pl8.
- *
- * **A SLICE of the given path, never a rebuild of it.** React Router compares this string against
- * `window.location.pathname` verbatim and renders NOTHING when it does not prefix it — so any
- * re-encoding here is a chance to disagree with the address the browser actually holds, over a
- * character that has two legal spellings. `%40shares` and `@shares` are the same address and this
- * function must answer with whichever one it was handed, which slicing does by construction and
- * spelling it out again cannot.
- */
+/** The router `basename`: a SLICE of the given path, never a rebuild of it — see docs/addresses.md. */
 export function projectBasename(
   pathname: string,
   app: ProjectApp,
@@ -219,57 +126,18 @@ export function projectBasename(
   return `/${segments(pathname).slice(0, depth).join("/")}`;
 }
 
-/**
- * The bench's reserved repository name — the first half of `/@banc/chains/<path>.st0`.
- *
- * A reserved REPOSITORY name, and that is the whole trick. Every other project resolves through
- * pl8 (`GET /api/projects/by-name/:name` → a git URI → a clone on the machine); the bench has no
- * repository and wants none — it is generated from the médiathèque's catalogue and regenerated
- * whenever it is opened, so putting it under version control would version a cache.
- *
- * `@` cannot begin a git short name, which is the last path segment of an SSH URI without
- * `.git`, so this can never collide with a real repository. `ProjectGate` sees the sentinel and
- * takes the other road: no lookup, no clone, one call to the machine that makes the folder.
- *
- * Here rather than in pl8 because BOTH ends need it spelled the same — pl8 writes the link and
- * the gate reads it — which is the same argument that put the rest of this vocabulary here.
- *
- * There was a second bench under this name, `@banc/modules.st0`: the whole catalogue mirrored
- * into one generated project, which was where a shared module was edited. A shared module is
- * edited from the Libraries tab of whatever project you already have open now
- * (apps/st0/frontend/docs/sharedModules.md), so only the CHAIN bench is left — the address below
- * is what says which chain.
- */
+/** The bench's reserved repository name, which resolves through no pl8 lookup at all — docs/addresses.md. */
 export const BENCH_REPO = "@banc";
 /** Whether an address names the bench rather than a repository. */
 export function isBench(repo: string): boolean {
   return repo === BENCH_REPO;
 }
 
-/**
- * A CHAIN on the bench: `/@banc/chains/blindtest/assourdissant/…​.st0`.
- *
- * The only thing the bench opens on now, and the address's project part is what says which. The
- * catalogue path IS the project path with `.st0` on the end,
- * which is why there is no lookup table and no marker file: pl8 writes the link from the chain
- * it is showing, the file service reads the chain back out of it, and neither can drift from
- * the other. Same argument that put `@banc` itself here.
- *
- * `chains/` is the family folder in the médiathèque, so a chain's path always begins with it and
- * nothing else can be mistaken for one.
- */
+/** The médiathèque's family folder for chains, so a bench chain's path always begins with it. */
 const CHAIN_FAMILY = "chains/";
 const ST0 = PROJECT_SUFFIXES.st0;
 
-/**
- * Which médiathèque chain a bench project is a view of — null when it names no chain, which
- * under `@banc` is now an address that opens nothing.
- *
- * The path comes off an ADDRESS anyone can type, and it is then joined onto two roots — the
- * médiathèque and the workspace. So it is checked here rather than trusted and checked later:
- * every segment must be an ordinary name, which is what stops `chains/../../…` from naming a
- * folder outside either. Null, not an exception — it is the same answer as "this is not a chain".
- */
+/** Which médiathèque chain a bench project views, CHECKED not trusted since it is joined onto two roots. */
 export function benchChainPath(project: string): string | null {
   if (!project.startsWith(CHAIN_FAMILY) || !project.endsWith(ST0)) return null;
   const path = project.slice(0, -ST0.length);
@@ -285,23 +153,7 @@ export function benchProjectForChain(chainPath: string): string {
   return `${chainPath}${ST0}`;
 }
 
-/**
- * A SHARED project: `/@shares/<token>.st0`.
- *
- * The bench's sentinel again, for the bench's reason — `@` cannot begin a git short name, so this
- * can never collide with a real repository, and the gate sees it and takes another road: no pl8
- * lookup, no clone, no engine, no account. What it opens is a frozen snapshot pl8 holds.
- *
- * The `.st0` on the end is not decoration. `parseLaunch` ends a project at the last segment
- * claiming the app's suffix, so spelling the token this way makes it the PROJECT part of an
- * ordinary address — which means `parseLaunch`, `projectBasename` and every route below them
- * need no change at all, the token lands inside the router's basename, and a reload or a pasted
- * link simply re-reads it. The three other shapes considered all cost a special case somewhere.
- *
- * Here rather than in pl8 for the same reason as everything else in this file: pl8 writes the
- * link and st0 reads it back, and an address only one of them understands is a 404 nobody can
- * attribute.
- */
+/** A SHARED project, `/@shares/<token>.st0` — the `.st0` is what makes it parse ordinarily; docs/addresses.md. */
 export const SHARE_REPO = "@shares";
 
 /** Whether an address names a shared snapshot rather than a repository. */
@@ -309,47 +161,20 @@ export function isShare(repo: string): boolean {
   return repo === SHARE_REPO;
 }
 
-/**
- * The secret out of a share address, or null when the project part is not one.
- *
- * Checked rather than trusted, exactly as `benchChainPath` is: this comes off an address anyone
- * can type and is then put into a URL. One segment, base64url and nothing else — which is what
- * `randomBytes(32).toString("base64url")` produces and what a traversal is not.
- */
+/** The secret out of a share address: one segment, base64url and nothing else, checked not trusted. */
 export function shareToken(project: string): string | null {
   if (!project.endsWith(ST0)) return null;
   const token = project.slice(0, -ST0.length);
   return /^[A-Za-z0-9_-]{22,}$/.test(token) ? token : null;
 }
 
-/**
- * The link itself, from the origin the browser is on and the secret pl8 answered with.
- *
- * Built HERE and not on the machine that rendered: that machine has no idea which origin you are
- * reading this on, and a checkout, the LAN proxy and the public host are three different answers.
- * Only the tab knows which one it is.
- */
+/** The link itself, built from the origin the TAB is on because no other side knows which it is. */
 export function shareUrl(origin: string, token: string): string {
-  // Through `launchUrl`, not spelled out beside it: this address is read back by `parseLaunch`
-  // and by `projectBasename`, and a second builder is a second place for the encoding to differ.
+  // Through `launchUrl`: a second builder is a second place for the encoding to differ.
   return launchUrl(origin, SHARE_REPO, `${token}${ST0}`, "st0");
 }
 
-/**
- * The KEY a token addresses — `sha256(token)`, in hex, computed by whoever holds the link.
- *
- * pl8 stores the hash and names the directory with it, so the SECRET is never a path segment:
- * a path segment reaches every access log, every `Referer` and every proxy's error page, and the
- * link is the whole of the protection. The price is that the page has to do the hashing, and
- * `crypto.subtle` exists only in a SECURE CONTEXT — over plain http on something that is not
- * localhost there is no digest at all. That refusal is thrown with a sentence rather than left to
- * surface as `undefined is not a function`, because it is a real deployment and not a bug: the
- * fix is to serve the page over https, and nothing about the share is wrong.
- *
- * Here beside `shareUrl` because the two are one round trip — pl8 mints the token from the key
- * and the viewer gets back to the key from the token — and a hash spelled two ways is a 404
- * nobody can attribute.
- */
+/** `sha256(token)` in hex, so the SECRET is never a path segment — and why https is required; docs/addresses.md. */
 export async function shareKey(token: string): Promise<string> {
   const subtle = globalThis.crypto?.subtle;
   if (!subtle)
@@ -365,53 +190,14 @@ export async function shareKey(token: string): Promise<string> {
   ).join("");
 }
 
-/**
- * Where a snapshot answers: pl8's ONE unauthenticated prefix, on the origin the page is on.
- *
- * `serviceUrl` and not the bare origin: pl8 sits under `/pl8` since st0 took the root, and this
- * route is its backend's like every other `/api/*` of its. It WAS the bare origin, and the
- * difference is invisible until a share is opened — which is exactly the kind of route that
- * gets tried last.
- *
- * `public` is IN the path on purpose: it is a comment that survives a refactor, and one nobody
- * confuses with `/api/shares`, which is the author's half and is behind the guard.
- */
+/** Where a snapshot answers: pl8's ONE unauthenticated prefix, through `serviceUrl` — see docs/addresses.md. */
 export function shareApiBase(origin: string, key: string): string {
   return `${serviceUrl(origin, "pl8")}/api/public/share/${key}`;
 }
 
 // --- a project that belongs to no repository ------------------------------------------------
 
-/**
- * A project in a workspace with no repository: `/@local/<workspace>/<projet>.st0`.
- *
- * The third sentinel, and the same trick as `@banc` and `@shares`: `@` cannot begin a git short
- * name, so this can never collide with a real repository, and the gate sees it and skips the
- * whole road that turns a name into a URI into a clone. There is nothing to clone — the folder
- * is already on the machine and came from nowhere else.
- *
- * Two kinds of workspace need it. `Examples`, seeded with the demos the first time a person is
- * seen, which is what a new account has on the day it has nothing else; and a folder somebody
- * made by hand. Neither has an origin, so neither has a `<repo>` to put in an address — they had
- * no address at all, and so no row on the home page, for as long as pl8's mirror was what listed
- * projects.
- *
- * It is also the way OUT of an ambiguity: two clones whose origins end in the same short name
- * make `/<name>/…` name two repositories, which pl8 refuses (409) rather than resolving. Their
- * rows link through here instead, because a workspace name is unique on a machine by construction
- * — it is a folder name.
- *
- * **`parseLaunch` needs nothing added.** `/@local/Examples/synth-demo.st0` already reads as
- * repo `@local`, project `Examples/synth-demo.st0`: the project part ends at the last segment
- * claiming the app, exactly as everywhere else. `localTarget` below is what splits the workspace
- * off the front of it, and is the only new rule.
- *
- * The price, stated where it is paid: this address names a machine's folder, so it is **not
- * portable**. A repository's address opens the same song on any machine — that is what
- * `projectClaimKey` identifies a project by — while this one means nothing on the next one. A
- * workspace that has a repository must therefore keep its `/<repo>/…` address, and this is for
- * the ones that cannot have it.
- */
+/** A project in a workspace with no repository — and therefore NOT portable; see docs/addresses.md. */
 export const LOCAL_REPO = "@local";
 
 /** Whether an address names a workspace on the machine rather than a repository. */
@@ -419,18 +205,7 @@ export function isLocal(repo: string): boolean {
   return repo === LOCAL_REPO;
 }
 
-/**
- * Split `<workspace>/<projet…>` — a `@local` address's project part — into the two.
- *
- * A workspace that IS a project (`/@local/hiver.st0`) has nothing after its name, and the project
- * is `"."`: the same answer `parseLaunch` gives when a repository is the project, so everything
- * downstream is unchanged.
- *
- * Null for an empty workspace name. Checked and not trusted, like `benchChainPath` and
- * `shareToken` above: this comes off an address anyone can type and is then joined onto a root,
- * so the name must be an ordinary one — which is what stops `../..` from naming a folder outside
- * the user's own.
- */
+/** Split a `@local` project part into workspace and project, checked not trusted — see docs/addresses.md. */
 export function localTarget(
   project: string,
 ): { workspace: string; project: string } | null {
@@ -446,22 +221,14 @@ export function localTarget(
   return { workspace, project: segs.length ? segs.join("/") : "." };
 }
 
-/**
- * …and the address itself, for the row that links to it.
- *
- * `app` for the reason every other row on that page takes one: a `.z0` folder in the same
- * workspace opens in z0's editor, under its own mount, and the one link on the screen that
- * guessed would be this one.
- */
+/** …and the address itself; it takes an `app` because a `.z0` folder here opens under z0's own mount. */
 export function localProjectUrl(
   origin: string,
   workspace: string,
   project: string,
   app: ProjectApp,
 ): string {
-  // Through `launchUrl`, not spelled out beside it, for the reason `shareUrl` is: this address
-  // is read back by `parseLaunch` and `projectBasename`, and a second builder is a second place
-  // for the encoding to differ.
+  // Through `launchUrl`, for the reason `shareUrl` is: one builder, one encoding.
   return launchUrl(
     origin,
     LOCAL_REPO,
@@ -470,28 +237,12 @@ export function localProjectUrl(
   );
 }
 
-/**
- * How a project is NAMED in an engine claim — `<repo>/<projet>`.
- *
- * Here rather than in each gate, and beside the address it is derived from, for the same reason
- * the address itself is here: two surfaces that spell one project differently would each believe
- * they had it, and the rule "one engine per project" would hold for neither. The repository's
- * short name and the folder path inside it are exactly what identifies a project across machines
- * — a workspace path would not, since the same repository is cloned somewhere different on each.
- *
- * No app prefix: which app opens a folder is decided by its SUFFIX, so `winter.st0` and
- * `winter.st0/live.m9` are already two different strings and cannot collide.
- */
+/** How a project is NAMED in an engine claim — the one spelling "one engine per project" rests on; docs/addresses.md. */
 export function projectClaimKey(l: Launch): string {
   return `${l.repo}/${l.project}`;
 }
 
-/**
- * Where a project opens — whichever app its folder name claims. This is the link pl8 writes.
- *
- * `origin` may be any URL on the studio origin; only its origin is kept, so a caller can pass
- * `window.location.href` without stripping anything first.
- */
+/** Where a project opens — the link pl8 writes; only the ORIGIN of `origin` is kept, so pass anything. */
 export function launchUrl(
   origin: string,
   repo: string,
@@ -507,33 +258,10 @@ export function launchUrl(
 
 // --- a surface, opened on its own -----------------------------------------------------------
 
-/**
- * The segment that turns a project address into ONE SURFACE, addressed on its own:
- * `<project>/@external/<surface>`.
- *
- * A surface is a screen the project declares, and some of them are things you stand away from
- * the computer to use — a desk you want on a tablet by the decks, not on the laptop behind
- * them. So every surface has an address of its own, and opening it on another device gives that
- * surface and nothing else, driving the same engine as the tab that has the project open.
- *
- * BELOW the project, not beside it, and that is what makes it cost nothing: `parseLaunch` ends a
- * project at the last segment claiming the app's suffix, so everything after is already the
- * app's own route. The repo and the project parse exactly as they always did, the router's
- * basename is unchanged, and a reload or a pasted link re-reads the address.
- *
- * `@` for the same reason `@shares` and `@banc` use it — it cannot begin a git short name, and
- * here it cannot be a surface id either (`createSurfaceFile` allows letters, digits, `_` and `-`
- * and nothing else). So the sentinel can never collide with the thing it sits next to.
- */
+/** `<project>/@external/<surface>` — BELOW the project, which is what makes it cost nothing; docs/addresses.md. */
 export const EXTERNAL_SEGMENT = "@external";
 
-/**
- * Which surface this address opens on its own, or null when it opens the editor.
- *
- * Read the same way `parseLaunch` reads the project — off the address and nothing else — so the
- * two cannot disagree about what a tab is on. Returns null for a bare `@external` with no name:
- * that is not "some surface", it is an address somebody truncated.
- */
+/** Which surface this address opens on its own, off the address alone; null for a bare `@external`. */
 export function parseExternal(
   pathname: string,
   app: ProjectApp,
@@ -543,8 +271,7 @@ export function parseExternal(
   if (!at) return null;
   const segs = segments(pathname);
   const i = segs.indexOf(EXTERNAL_SEGMENT);
-  // The LAST segment before it must be the project's, or this `@external` belongs to something
-  // else entirely — a folder called that, inside a repository.
+  // The LAST segment before it must be the project's, or this `@external` is a folder in a repository.
   if (i < 0 || i + 1 >= segs.length) return null;
   const name = segs[i + 1];
   try {
@@ -554,16 +281,7 @@ export function parseExternal(
   }
 }
 
-/**
- * The link to hand another device — the whole URL, origin included.
- *
- * Built from the ORIGIN the browser is on, like `shareUrl` and for the same reason: a checkout,
- * the LAN proxy and the public host are three different answers and only the tab knows which one
- * it is reading. A tablet by the decks is on the LAN one.
- *
- * Through `launchUrl`, not spelled out beside it: this is read back by `parseLaunch` and
- * `projectBasename`, and a second builder is a second place for the encoding to differ.
- */
+/** The link to hand another device, from the origin the TAB is on — a tablet by the decks is on the LAN one. */
 export function externalUrl(
   origin: string,
   l: Launch,
@@ -573,34 +291,12 @@ export function externalUrl(
   return externalOf(launchUrl(origin, l.repo, l.project, app), surface);
 }
 
-/**
- * …and the same segment hung off a project URL somebody else built.
- *
- * For the caller that did not CHOOSE the address: a workspace is named by its repository when
- * that works and by `@local` when it does not (`projectHref`), and a lister has already made
- * that decision by the time it wants the surface's link. One encoder either way, which is the
- * point of it being here rather than a template string at the call site.
- */
+/** …and the same segment hung off a project URL somebody else built — one encoder either way. */
 export function externalOf(projectUrl: string, surface: string): string {
   return `${projectUrl}/${EXTERNAL_SEGMENT}/${encodeSegment(surface)}`;
 }
 
-/**
- * The MENU of those addresses, above every project: `/external`.
- *
- * The page a second device opens first and, installed as a PWA, the one it starts on — every
- * surface this account can drive, across every project on the machine. It needs no project in
- * the address, which is why it sits at the app's mount rather than under one.
- *
- * **It is a reserved short name.** A single segment is a legal project address — `/<repo>` is
- * how a lone-project clone is opened — so claiming `external` there means a repository of that
- * exact name can no longer be opened at its root. It joins the list the origin already keeps
- * (`/pl8`, `/k7`, `/z0`, `/api`, `/auth`), with the same remedy: rename the repository, or
- * address a project inside it, which is unaffected — `/external/song.st0` still parses as the
- * repo `external`. The sentinel spelling `@external` would have avoided the shadow outright and
- * is what `@shares` does; the plain word is the address that was asked for, and one reserved
- * word is a cost that can be read in the URL bar.
- */
+/** The MENU of those addresses, `/external` — a RESERVED repository short name; see docs/addresses.md. */
 export const EXTERNAL_INDEX = "external";
 
 /** Is this address that menu? Exactly one segment below the mount, and that word. */
@@ -612,8 +308,7 @@ export function isExternalIndex(pathname: string, base: string): boolean {
   return rest.length === 1 && rest[0] === EXTERNAL_INDEX;
 }
 
-/** …and the whole URL of it, for a link back from a surface — which cannot use the router,
- *  being mounted under a basename that ends at the project. */
+/** …and the whole URL of it: a surface cannot use the router, its basename ending at the project. */
 export function externalIndexUrl(origin: string, app: ProjectApp): string {
   return `${serviceUrl(origin, app)}${PROJECT_MOUNTS[app]}/${EXTERNAL_INDEX}`;
 }

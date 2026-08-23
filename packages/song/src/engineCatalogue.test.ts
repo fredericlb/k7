@@ -10,13 +10,7 @@ import {
   scannedPlugins,
 } from "./engineCatalogue";
 
-// The engine's plugin scan, read as a catalogue of modules — what replaces the folder of
-// generated wrappers `module populate` used to write into `_modules`.
-//
-// The interesting part is not the parsing, it is the two DERIVATIONS a wrapper used to
-// encode in its file and its path: which plugin to load (format + name), and which type
-// folder it belongs in (which decides its ports). Getting either wrong is silent — the
-// engine looks for a plugin that isn't there, or a synth is wired as an audio effect.
+// The scan read as a catalogue: what to LOAD and which type FOLDER, both silent when wrong.
 
 let dir: string;
 let file: string;
@@ -56,8 +50,7 @@ describe("reading the scan", () => {
   });
 
   it("reads an EMPTY cache as 'cannot say', not as 'nothing installed'", () => {
-    // The distinction is load-bearing: a machine that has never scanned would otherwise
-    // paint every plugin in every project as missing.
+    // Otherwise a machine that has never scanned paints every plugin in every project missing.
     expect(isPluginScanned("vst3", "Serum", join(dir, "nope.json"))).toBe(true);
     writeFileSync(file, "{ not json", "utf8");
     expect(scannedPlugins(file)).toEqual([]);
@@ -95,9 +88,7 @@ describe("the catalogue of modules", () => {
   });
 
   it("does NOT call a VST3 instrument a built-in", () => {
-    // `module populate` wrote `type: internal` whenever the role was "instrument", which
-    // mislabelled every VST3 synth: the engine would look for a built-in by that name.
-    // Nothing hit it because the projects using those plugins declare them inline.
+    // `module populate` wrote `type: internal` for every instrument, mislabelling VST3 synths.
     scan({
       name: "Mini V3",
       format: "VST3",
@@ -111,10 +102,7 @@ describe("the catalogue of modules", () => {
   });
 
   it("names a plugin the same way a browser does", () => {
-    // `engineModuleOf` is the shared rule, and this is what it exists to pin: the médiathèque
-    // resolves `extends: "@engine/…"` in a BROWSER, against the scan reported over the socket,
-    // having no filesystem to read this cache with. A different spelling there would preview a
-    // plugin the compiled document never loads — silence, with a panel drawn over it.
+    // The browser resolves `@engine/…` off the socket, and a different spelling previews silence.
     const p = { name: "Mini V3", format: "VST3" };
     scan({ ...p, role: "instrument", instrument: true });
     const named = engineModuleOf(p);
@@ -132,9 +120,7 @@ describe("the catalogue of modules", () => {
       { name: "Arp", format: "internal", role: "midiEffect" },
     );
     const m = engineModules(file);
-    // An instrument takes midi and gives audio; an audio effect takes audio; a midi
-    // effect takes midi and gives midi back. Wire one as the other and the chain's port
-    // check passes on a lie.
+    // Wire an instrument as an effect and the chain's port check passes on a lie.
     expect(m["@engine/mini-v3"].category).toBe("instruments");
     expect(m["@engine/mini-v3"].inputs).toEqual([
       { name: "midi", type: "midi" },
@@ -145,8 +131,7 @@ describe("the catalogue of modules", () => {
   });
 
   it("offers the io modules even with no scan at all", () => {
-    // They are not plugins — the engine provides them, and a project that has never
-    // scanned still has to be able to route to its output.
+    // The engine provides them, and an unscanned project still has to reach its output.
     const m = engineModules(join(dir, "nope.json"));
     expect(Object.keys(m)).toEqual([
       "@engine/IN",
@@ -159,8 +144,7 @@ describe("the catalogue of modules", () => {
       category: "io",
     });
     expect(m["@engine/OUT"]).toMatchObject({ io: "out", kind: "io" });
-    // The file source: audio off disk, and a SOURCE like IN rather than a sink. Which file it
-    // reads is a node's business, and a chain template's node names none.
+    // The file source: audio off disk, and a SOURCE like IN rather than a sink.
     expect(m["@engine/FILE"]).toMatchObject({
       io: "file",
       kind: "io",

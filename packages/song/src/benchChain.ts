@@ -17,7 +17,6 @@ export const CHAIN_IN = "@in";
 export const CHAIN_OUT = "@out";
 
 /** The file this translates, named once — a chain folder and an st0 project both hold one. */
-// The bench writes the project's graph file, same name as any project's.
 export { GRAPH_FILE as CHAIN_FILE } from "@studio/song-schema/yaml/graphSchema";
 
 /** What the bench scaffold calls its own furniture — see scaffoldBench. */
@@ -30,14 +29,7 @@ export interface BenchEdges {
   strip?: string;
 }
 
-/**
- * The leading comment block, kept apart so a translation does not silently eat it.
- *
- * `formatChains` emits a canonical document from the parsed structure, which is what makes the
- * round trip provable — and would drop every comment in the file. Only the header is recoverable
- * that way, and it is the one that carries what the chain IS: the médiathèque's own chains open
- * with a paragraph naming the effect and pointing at the doc page it came from.
- */
+/** The leading comment block, kept apart: `formatChains` is canonical and would drop every comment. */
 function splitHeader(text: string): { header: string; body: string } {
   const lines = text.split(/\r?\n/);
   let i = 0;
@@ -70,13 +62,7 @@ function mapFile(
   return out;
 }
 
-/**
- * Whether the bench's furniture would collide with the chain's own nodes.
- *
- * A chain naming a module `mixer` cannot be opened on a bench whose strip is also `mixer`: the
- * save would take the strip out and remove the chain's module with it. Refused rather than
- * guessed at — renaming somebody's module to make room would change the chain being edited.
- */
+/** Whether the bench's furniture collides with the chain's nodes, which a save would then delete. */
 export function benchChainCollision(
   text: string,
   edges: BenchEdges,
@@ -107,8 +93,7 @@ export function chainToBench(text: string, edges: BenchEdges): string {
     node === CHAIN_IN ? edges.track : node,
     rename(dests, CHAIN_OUT, sink),
   ]);
-  // The strip is spliced only when something reaches it, so a chain that was `@in → @out` does not
-  // grow furniture it never routed through.
+  // Spliced only when something reaches it, so `@in → @out` grows no furniture.
   if (edges.strip) {
     const strip = edges.strip;
     const reaches = Object.values(moved.modules ?? {}).some((d) =>
@@ -116,10 +101,7 @@ export function chainToBench(text: string, edges: BenchEdges): string {
     );
     if (reaches) moved.modules = { ...moved.modules, [strip]: [edges.out] };
   }
-  // …and the run out of the sum, which every project carries: it is what gives the graph an OUT
-  // node to draw the output level on. Unconditional — a bench with nothing routed anywhere still
-  // has an output — and taken straight back off by `chainFromBench`, since it is the PROJECT's
-  // furniture and not part of the chain being edited.
+  // …and the master run, unconditional, which `chainFromBench` takes straight back off.
   moved.modules = { ...moved.modules, [MIX_NODE]: [OUT_NODE] };
   return formatChains(moved, header);
 }
@@ -131,11 +113,9 @@ export function chainFromBench(text: string, edges: BenchEdges): string {
   if (!value) return text;
 
   const back = mapFile(value, (node, dests) => {
-    // The MASTER RUN is the project's furniture too, and goes the same way as the strip: a chain
-    // describes a treatment, and where the mix leaves for the interface is not part of one.
+    // The MASTER RUN is the project's furniture too: a chain describes a treatment, not an output.
     if (node === MIX_NODE) return null;
-    // The strip is the bench's, not the chain's: dropped as a node, and anything that pointed at
-    // it now points where it pointed — the sink, which is `@out` on the other side.
+    // The strip is the bench's: dropped, and whatever pointed at it now points at `@out`.
     if (edges.strip && node === edges.strip) return null;
     const to = node === edges.track ? CHAIN_IN : node;
     let next = rename(dests, edges.out, CHAIN_OUT);

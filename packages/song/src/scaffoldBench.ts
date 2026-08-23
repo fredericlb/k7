@@ -13,44 +13,20 @@ const q = (s: string) => JSON.stringify(s);
 /** The marker that makes this project the one allowed to save at `@st0` level. */
 export const BENCH_MARKER = "mediatekBench";
 
-// `BENCH_MODE_LINE` was here — `project_type: live`, plus a migration in the file service that
-// wrote it into benches made before the mode existed. Both are gone with the mode: a bench draws
-// no timeline because it declares no `surfaces/timeline.yaml`, which is what it never had.
+// `BENCH_MODE_LINE` went with `project_type: live`: a bench draws no timeline by declaring none.
 
-/**
- * The bench's own furniture, named once.
- *
- * The map below writes these names, and `benchChain` translates a shared chain's `@in`/`@out`
- * into them and back. Exported so the second reader is not a COPY: a bench whose track were
- * renamed here while the translation still said "banc" would rewrite every chain it saved.
- * `scaffoldBench.test.ts` holds the two ends together.
- */
+/** The bench's own furniture, named once: a COPY in `benchChain` would rewrite every chain saved. */
 export const BENCH_EDGES = {
   track: "banc",
-  // The mixer's SUM, not the interface. A chain's `@out` is where its treated signal leaves, and
-  // that is what every lane in every project reaches; `MIX -> OUT` past it is the master chain,
-  // which `chainToBench` writes and `chainFromBench` takes back off. See docs/masterChain.md.
+  // The mixer's SUM, not the interface: `MIX -> OUT` past it is the master chain.
   out: MIX_NODE,
   strip: "mixer",
 } as const;
 
-/**
- * The bench's files, keyed by path relative to the project folder.
- *
- * Deliberately almost empty. The catalogue is mirrored INTO `modules/` afterwards, by the file
- * service (`packages/file-service/src/bench.ts`), which is what makes every médiathèque module a
- * `@project` module here — and therefore what makes editing one edit the real thing rather than
- * a fork. What this map holds is somewhere to plug one in: a track, a strip, an output.
- *
- * Nothing is WIRED beyond that, and nothing is instantiated. A bench that arrived with the
- * catalogue already in its chains would instantiate every plugin in the médiathèque on open,
- * which is precisely the load this engine was just hardened against.
- */
+/** The bench's files: a track, a strip and an output, with the catalogue mirrored in afterwards. */
 export function benchFiles(name: string): Record<string, string> {
   return {
-    // The marker is a project FIELD rather than a file of its own so it travels with the
-    // document the compiler already reads, and so `project.yaml` remains the one place that
-    // says what a project IS. The file service reads it to decide where a module save lands.
+    // A project FIELD rather than a file, so `project.yaml` stays the one place saying what this is.
     "project.yaml":
       `# Le banc d'essai des modules. Généré, et régénéré à chaque ouverture depuis la\n` +
       `# médiathèque — ce que vous écrivez ICI dans un module est écrit dans le catalogue,\n` +
@@ -83,8 +59,7 @@ export function benchFiles(name: string): Record<string, string> {
       `#\n` +
       `# C'est ainsi qu'on fait passer une guitare DEVANT le module qu'on essaie.\n`,
 
-    // The strip. A mixer is what a track's level became, so the bench has one from the start:
-    // it is the thing you set to hear a module at a sane level rather than a knob to find.
+    // The strip: a mixer is what a track's level became, so the bench has one from the start.
     "modules/audio/mixer/module.yaml":
       `# La tranche de console : volume, panoramique et trois bandes. Interne au moteur.\n` +
       `plugin:\n` +
@@ -123,8 +98,7 @@ export function benchFiles(name: string): Record<string, string> {
       `# une entrée live (voir modules/io/OUT/module.yaml), ou un clip déposé ici.\n` +
       `extends: "@studio/track"\n`,
 
-    // Same reason as the ordinary scaffold's: git tracks files, not directories, and a folder
-    // that is not there is one the editor cannot offer.
+    // Git tracks files and not directories, and a missing folder is one the editor cannot offer.
     "curves/.gitignore":
       `# Garde curves/ dans le dépôt tant qu'il est vide.\n` +
       `# N'ignore rien volontairement — un motif ici cacherait les courbes elles-mêmes.\n`,

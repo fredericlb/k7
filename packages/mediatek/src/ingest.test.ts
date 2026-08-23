@@ -5,8 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { uploadWorkspace } from "./ingest.ts";
 import type { LibrarySink } from "./remote.ts";
 
-// A sink with no server. The push is written against the port, so what a test checks is
-// what was SENT — which is the whole contract; where it lands is the owner's business.
+// A sink with no server: what a test checks is what was SENT, where it lands being the owner's business.
 function fakeSink(opts: { failOn?: string } = {}) {
   const put = new Map<string, string>();
   const removed: string[] = [];
@@ -21,8 +20,7 @@ function fakeSink(opts: { failOn?: string } = {}) {
     remove: async (path) => {
       removed.push(path);
     },
-    // Never used by an upload — a workspace push writes files and takes files out, it
-    // does not remove folders. Present because the port says so.
+    // Never used by an upload; present because the port says so.
     removeTree: async (path) => {
       removed.push(path);
     },
@@ -42,9 +40,7 @@ const w = (rel: string, body = "x"): void => {
   writeFileSync(abs, body, "utf8");
 };
 
-// `describe("what the library keeps for itself")` stood here: three cases around
-// `_modules/config.yaml`, the namespace declaration a contributor must not overwrite. The
-// file, the folder and the rule are all gone with the `modules` family.
+// `describe("what the library keeps for itself")` stood here; its three cases went with the `modules` family.
 
 describe("pushing a workspace's shared folder up", () => {
   it("maps the workspace folder onto its library name", () => {

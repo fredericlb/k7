@@ -13,13 +13,10 @@ import { isSeq, parseDocument } from "yaml";
 import type { ClipOut, PluginOut, Song, TrackOut } from "./model.js";
 
 // --- YAML emitters -----------------------------------------------------------
-// The `yaml` package prints; here live the SHAPE decisions, matching what st0 itself writes: a placement,
-// chain node or note stays on ONE line, and every timecode is QUOTED — bare, `25:1` is a YAML 1.1 sexagesimal.
 
-/**
- * A YAML document from a plain value, with `flow` set on the nodes at `flowPaths` — a LIST's items, so a list of
- * placements comes out one per line, and `selfPaths`' own node, so a node's destinations stay on ONE line.
- */
+// The SHAPE decisions, matching what st0 itself writes — see docs/import.md.
+
+/** A YAML document with `flow` set on `flowPaths`' items and on `selfPaths`' own node. */
 function yamlDoc(
   value: unknown,
   flowPaths: (string | number)[][] = [],
@@ -130,8 +127,7 @@ interface ChainDef {
   enabled?: boolean; // undefined => on
   out: OutDef[];
 }
-// A self-contained module: its plugin inline plus concrete params, one module per PLUGIN and one insert per use.
-// A plugin used several times becomes nodes rather than the "reverb_2, reverb_3" pile imports used to make.
+// A self-contained module: one per PLUGIN, one insert per use — see docs/import.md.
 interface ModuleDef {
   name: string;
   folder: string;
@@ -153,14 +149,7 @@ function dedupeOuts(outs: OutDef[]): OutDef[] {
   return outs.filter((o) => (seen.has(o.to) ? false : (seen.add(o.to), true)));
 }
 
-/**
- * The chains as SEGMENTS — who feeds whom, which is what graph.yaml holds.
- *
- * This is where the imported sends survive. The list format gave a chain ONE sink, so a track that was dry to
- * master AND feeding a bus had to lose one of the two; a node here simply lists both destinations. `to` naming
- * another chain resolves to the module that chain starts at, since a chain is no longer something to route to
- * by name.
- */
+/** The chains as SEGMENTS — who feeds whom, which is how the imported sends survive; docs/import.md. */
 function chainSegments(chains: Record<string, ChainDef>): {
   tracks: Record<string, string[]>;
   modules: Record<string, string[]>;
@@ -219,8 +208,7 @@ function placementOf(
     ref: p.ref,
     start: beatsToPosition(p.start, num, den),
   };
-  // The clip's extent is NOT written here: it belongs to the material, as a `from`/`to` window in the clip's or
-  // sequence's own file (see materialWindow). All the placement adds is how many times that window is played.
+  // The clip's extent is NOT written here: it belongs to the material — see docs/import.md.
   if (p.loops > 1) out.loop = p.loops;
   const opt = (k: string, v?: number) => {
     if (v) out[k] = beatsToDuration(v, num, den);
@@ -230,8 +218,7 @@ function placementOf(
   return out;
 }
 
-// The window a clip/sequence file declares, as the two quoted POSITION timecodes the schemas take. A window that
-// starts at the material's own beginning says so by omission, which is how a hand would write it.
+// The window a clip/sequence declares, as two quoted POSITION timecodes; a window at the start says so by omission.
 function windowFields(
   w: { from: number; to: number },
   num: number,
@@ -244,18 +231,11 @@ function windowFields(
 }
 
 function trackText(t: TrackOut, placements: Record<string, unknown>[]): string {
-  // No `name` field: the FILE names the lane, and `t.name` drives the slug, so the display name is that slug.
-  //
-  // A lane is a NODE of `@studio/track`, and there is nothing to decide: a lane is not typed, so
-  // an imported track's clips carry their own kind and one holding both — which used to have no
-  // shape here at all, and was counted and reported as `mixedTracks` — is now the ordinary case.
-  // Its mute is its module's bypass and goes to graph.yaml, not here.
-  // See packages/song/docs/trackModules.md.
+  // No `name` field, and the mute is the module's bypass rather than anything here — see docs/import.md.
   const value: Record<string, unknown> = {};
   if (t.color) value.color = t.color;
   value.extends = "@studio/track";
-  // The lane file's own key — `events:`, not `clips:`. A clip is the material in
-  // clips/<id>.yaml; these are placements of it. See song/yaml/moduleSchema.
+  // The lane file's own key is `events:`, not `clips:`: these are placements of the material.
   value.events = placements;
   return yamlText(value, [["events"]]);
 }
@@ -288,8 +268,7 @@ export function emitFolder(
     yamlText({ io: "out" }),
   );
 
-  // Plugin state is written as a .vstpreset beside whichever file owns it — the node's, or the
-  // module's when the single use folded back into module.yaml. Audio is relocated separately.
+  // Plugin state rides as a .vstpreset beside whichever file owns it — see docs/import.md.
 
   // Unique name-slug per track (used as track id, chain entry name, send target).
   const usedTrackSlugs = new Set<string>();
@@ -297,13 +276,10 @@ export function emitFolder(
   for (const t of song.tracks)
     slugOf.set(t.id, uniquify(slugify(t.name), usedTrackSlugs));
 
-  // A node is FLAT now — `nodes/<name>.yaml`, named by its file alone
-  // (packages/song/docs/nodes.md). So a node shares ONE namespace with the lanes and the
-  // modules a chain step may equally name, and uniqueness has to hold across all three.
+  // A flat node shares ONE namespace with the lanes and the modules — packages/song/docs/nodes.md.
   const usedNodeNames = new Set<string>(usedTrackSlugs);
 
-  // A plugin's type folder from its role. `transformers`, not the legacy alias `midi`: an import creates fresh
-  // folders, so writing the old name gave every imported song a legacy layout on day one.
+  // A plugin's type folder from its role, writing `transformers` rather than the legacy `midi`.
   const typeFolderOf = (role?: string): string =>
     role === "instrument"
       ? "instruments"
@@ -311,8 +287,7 @@ export function emitFolder(
         ? "transformers"
         : "audio";
 
-  // Modules keyed by the PLUGIN, not its settings: every use adds an insert, and the single-use case folds back
-  // into module.yaml at the end — so an import only pays for nodes where settings really differ.
+  // Modules keyed by the PLUGIN and not its settings, so nodes are only paid for where they differ.
   const usedModuleNames = new Set<string>();
   const moduleOf = new Map<string, ModuleDef>();
   const modules: ModuleDef[] = [];
@@ -337,11 +312,9 @@ export function emitFolder(
       moduleOf.set(key, mod);
       modules.push(mod);
     }
-    // A sole use folds back into module.yaml below, and the chain then names the module — so the
-    // module's own name is taken as far as a node is concerned.
+    // A sole use folds back into module.yaml, so the module's own name is taken as far as a node is concerned.
     usedNodeNames.add(mod.name.toLowerCase());
-    // Each insert gets its OWN node even when identically set: they are separate slots, and sharing one would
-    // make tweaking the vocal's reverb silently retune the drums'.
+    // Each insert gets its OWN node even when identically set — they are separate slots; docs/import.md.
     const node = uniquify(`${mod.name}_${owner}`, usedNodeNames);
     mod.inserts.push({ node, params, preset });
     return node;
@@ -519,8 +492,7 @@ export function emitFolder(
   for (const mod of modules)
     mod.inserts = mod.inserts.filter((i) => liveRefs.has(i.node));
 
-  // A plugin used in exactly ONE place needs no node: fold it into module.yaml, so the common import reads
-  // exactly as it did before nodes existed.
+  // A plugin used in exactly ONE place needs no node: fold it into module.yaml — see docs/import.md.
   const collapseSoleInserts = () => {
     for (const mod of modules) {
       if (mod.inserts.length !== 1) continue;
@@ -534,9 +506,7 @@ export function emitFolder(
   };
   collapseSoleInserts();
 
-  // graph.yaml — SEGMENTS (see chainSegments). The send LEVELS are still lost: a
-  // destination list says where the signal goes, not how much of it, so a weighted send
-  // arrives at full strength.
+  // graph.yaml — SEGMENTS, and the send LEVELS are still lost by it; see docs/import.md.
   const {
     tracks: chainTracks,
     modules: chainModules,
@@ -546,8 +516,7 @@ export function emitFolder(
     (n, d) => n + d.out.filter((o) => o.gain != null && o.gain !== 1).length,
     0,
   );
-  // ONE map, lanes first: a lane is a module too (packages/song/docs/trackModules.md), and
-  // putting the runs' sources at the top is what makes the file read the way the signal flows.
+  // ONE map, lanes first, so the file reads the way the signal flows — packages/song/docs/trackModules.md.
   const chainNodes = { ...chainTracks, ...chainModules };
   const seg: Record<string, unknown> = {};
   if (Object.keys(chainNodes).length) seg.modules = chainNodes;
@@ -579,9 +548,7 @@ export function emitFolder(
   // Which modules survive: one whose every insert was orphaned has nothing left to write.
   const liveModules = modules.filter((b) => b.inserts.length > 0);
 
-  // Modules -> module.yaml plus one nodes/<node>.yaml per insert when used more than once. Each file is a FLAT struct
-  // with no `name:` and no package wrapper. Opaque state rides as <node>.vstpreset, the convention the brain
-  // resolves; a plugin the cache doesn't know is written as a stub the chain simply routes through.
+  // Modules -> module.yaml, plus one flat nodes/<node>.yaml per insert past the first — see docs/import.md.
   const cachedNames = loadCachedPluginNames();
   const verify = cachedNames.size > 0; // nothing to check against without a scan
   const missingPlugins = new Set<string>();
@@ -620,8 +587,7 @@ export function emitFolder(
     for (const ins of b.inserts) {
       if (ins.node) {
         const params = paramsOf(ins.params);
-        // A node is a flat file naming what it extends — never a leaf beside the module it
-        // uses, which is the layout packages/song/docs/nodes.md dropped.
+        // A node is a flat file naming what it extends — packages/song/docs/nodes.md.
         writeFile(
           join(outDir, `nodes/${ins.node}.yaml`),
           yamlText(
@@ -636,8 +602,7 @@ export function emitFolder(
         nodeFiles++;
       }
       if (ins.preset && assets[ins.preset]) {
-        // Beside the file whose state it is: nodes/<node>.vstpreset for a node, and the
-        // module's own folder for the sole use that stayed in module.yaml.
+        // Beside the file whose state it is — the node's, or the module's folder for a sole use.
         const at = ins.node
           ? `nodes/${ins.node}.vstpreset`
           : `${dir}/${b.name}.vstpreset`;

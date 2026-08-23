@@ -25,9 +25,7 @@ describe("canFallBackToYoutube", () => {
   });
 
   it("ne le propose PAS pour un échec qui ne vient pas du réseau", () => {
-    // None of these says anything about the song's availability. The last one above all: the file
-    // WAS downloaded, SFTP is what failed to fetch it — and a YouTube file would hide that
-    // configuration fault.
+    // None of these says anything about availability — see docs/hunt.md, especially the SFTP case.
     for (const error of [
       "interrompu par un redémarrage du service",
       "recherche annulée",

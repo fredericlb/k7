@@ -15,13 +15,11 @@ import type {
 } from "./model.js";
 
 export interface AlsOptions {
-  // Resolve a Live sample reference to bytes; null when it can't be reached. The caller owns
-  // the path policy (see file-service's projectLifecycle) — this module never touches a disk.
+  // Resolve a Live sample reference to bytes, null when unreachable: the CALLER owns the path policy.
   readSample?: (ref: SampleRef) => Uint8Array | null;
 }
 
-// What a <SampleRef><FileRef> gave us, before any policy is applied. `relative` is Live's own
-// project-relative path when it set one, `absolute` the machine path it always writes.
+// What a <SampleRef><FileRef> gave us, before policy: `relative` when Live set one, `absolute` always.
 export interface SampleRef {
   name: string;
   relative?: string;
@@ -73,17 +71,14 @@ const ARRAY_TAGS = new Set([
   "PluginFloatParameter",
 ]);
 
-// Live's own devices carry no portable state — there is no VST to load them into, so they are
-// reported and skipped rather than written as chain nodes that could never resolve. `MixerDevice` is
-// excluded on purpose: it is the track's own mixer, not something the user placed in a chain.
+// Live's own devices carry no portable state, so they are reported and skipped — see docs/import.md.
 const NATIVE_DEVICE =
   /Device$|^(Eq8|Compressor2|Reverb|Operator|Wavetable|AutoFilter|Delay|Saturator|Limiter|GlueCompressor|MultibandDynamics|Echo|Roar|Drift|Meld)$/;
 const NOT_A_DEVICE = /^(MixerDevice|.*DeviceChain|DevicesListWrapper|Devices)$/;
 // Racks are containers: the plugins inside DO cross over, only the rack's own structure is lost.
 const RACK_DEVICE = /GroupDevice$/;
 
-// Live packs the project time signature into one integer: 201 -> 4/4. The denominators are the
-// powers of two, 99 numerators each. RemoteableTimeSignature exists too, but only inside a clip.
+// Live packs the time signature into one integer, 201 -> 4/4 — see docs/import.md.
 export function decodeTimeSignature(v: number): string {
   if (!Number.isFinite(v) || v < 0) return "4/4";
   const numerator = (v % 99) + 1;
@@ -266,9 +261,7 @@ function mapTrack(
   return track;
 }
 
-// Where Live keeps a track's clips moved between versions AND between track kinds — audio sits under
-// MainSequencer/Sample, MIDI under MainSequencer/ClipTimeable. Rather than hard-code either path, walk the
-// track and pick up clips wherever they are, using the enclosing tag to tell Arrangement from Session.
+// Where Live keeps clips moved between versions and track kinds, so walk rather than hard-code — docs/import.md.
 function collectArrangementClips(track: any, ctx: MapCtx): ClipOut[] {
   const out: ClipOut[] = [];
   const walk = (node: any, inSession: boolean): void => {
@@ -306,13 +299,7 @@ function clipWindow(clip: any): { start: number; length: number } {
   return { start: round(start), length: round(Math.max(0, end - start)) };
 }
 
-/**
- * Where the clip starts reading its material, in the material's own timeline.
- *
- * Live keeps two different things in <Loop> depending on the brace. With the loop ON, playback begins at
- * StartRelative and LoopStart/LoopEnd is the brace around the whole clip; with it OFF, LoopStart/LoopEnd IS
- * the region and StartRelative is 0. Reading only one of them misplaces half the clips in a real set.
- */
+/** Where the clip starts reading its material: <Loop> holds two different things by the brace — docs/import.md. */
 function materialStart(clip: any): number {
   return bool(val(clip, "Loop", "LoopOn"))
     ? num(val(clip, "Loop", "StartRelative"), 0)
@@ -341,9 +328,7 @@ function mapAudioClip(clip: any, ctx: MapCtx): ClipOut | null {
     }
   }
 
-  // An UNWARPED clip's region is in SECONDS, a warped one's in beats. Live writes both into the same
-  // <Loop> fields, so the only thing telling them apart is IsWarped — miss it and every unwarped clip
-  // lands off by tempo/60 (1.83x at 110bpm). Verified across a real set: the ratio is exact.
+  // An UNWARPED clip's region is in SECONDS, and only IsWarped tells it apart — see docs/import.md.
   const warped = bool(val(clip, "IsWarped"));
   const toBeats = (v: number): number => (warped ? v : (v * ctx.tempo) / 60);
 
@@ -375,9 +360,7 @@ function mapMidiClip(clip: any, ctx: MapCtx): ClipOut | null {
   const name = str(val(clip, "Name"));
   if (name) out.name = name;
 
-  // MIDI is always in beats. The loop brace is deliberately NOT carried: Live leaves a full-clip brace
-  // (0..244) on clips that play eight beats of it, and passing that region to materialWindow would slice
-  // the window from the brace instead of the clip's own start, dropping every note.
+  // MIDI is always in beats, and the loop brace is deliberately NOT carried — see docs/import.md.
   const offset = materialStart(clip);
   if (offset) out.offset = round(offset);
 
@@ -403,8 +386,7 @@ function mapMidiClip(clip: any, ctx: MapCtx): ClipOut | null {
   return out;
 }
 
-// Only a <SampleRef>'s FileRef is audio. A bare <FileRef> elsewhere in a set points at a device preset
-// (.adv/.adg) or even a VST binary, so scanning for FileRef generally would pull in nonsense.
+// Only a <SampleRef>'s FileRef is audio; a bare one points at a device preset or a VST binary.
 function readSampleRef(sampleRef: any): SampleRef | null {
   const fileRef = sampleRef?.FileRef;
   if (!fileRef) return null;
@@ -438,9 +420,7 @@ function decodeHex(text: string): Uint8Array | null {
   return bytes;
 }
 
-// Map a track's Devices node to plugin refs. Live gives no explicit instrument/FX role, so the first
-// device on a MIDI track is taken as the instrument and the rest as audio FX — the same approximation
-// the DAWproject mapper makes for cross-type ordering.
+// Map a track's Devices to plugin refs; Live gives no explicit instrument/FX role — see docs/import.md.
 function mapDevices(
   devices: any,
   contentType: "audio" | "notes",
@@ -449,8 +429,7 @@ function mapDevices(
   if (!devices) return [];
   const out: PluginOut[] = [];
 
-  // Walk into racks: an Instrument Rack wrapping a VST is ordinary in Live, and its plugins sit in a nested
-  // Devices node. The rack itself is flattened away — only the plugins it holds can cross over.
+  // Walk into racks and flatten them away: only the plugins a rack holds can cross over.
   const found: { tag: string; node: any }[] = [];
   const walk = (node: any): void => {
     if (node == null || typeof node !== "object") return;
@@ -495,9 +474,7 @@ function mapDevices(
       }
     }
 
-    // Live also exposes the automatable parameters by name — but only a subset (a real set lists 384 of a
-    // plugin's 2276), so paramsComplete is never set. emit.ts then keeps the preset and drops these
-    // partials, by design; they are the fallback for a plugin whose state blob would not decode.
+    // Live exposes only a SUBSET of the params by name, so paramsComplete is never set — docs/import.md.
     const params: Record<string, number> = {};
     for (const p of asArray<any>(d.ParameterList?.PluginFloatParameter)) {
       const pname = str(val(p, "ParameterName"));

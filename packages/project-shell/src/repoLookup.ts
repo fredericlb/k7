@@ -6,8 +6,7 @@
 import type { RepoRef } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 
-/** Where pl8 answers — `/pl8` on this origin. Asked of the table rather than spelled, which is
- *  what let this file survive the swap that moved the médiathèque off the origin root. */
+/** Where pl8 answers, asked of the table rather than spelled — see docs/fileApi.md. */
 const pl8 = (): string => serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
 /** A refusal in the SERVER's words, since it is the side that can be specific. */
@@ -18,16 +17,7 @@ async function failed(res: Response, fallback: string): Promise<Error> {
   return e;
 }
 
-/**
- * Resolve `/<repo>/…`'s repo name to the repository pl8 holds under it.
- *
- * Same origin as the page — every studio service sits at a fixed path under one origin — so
- * the session cookie rides along without asking, and there is no CORS to arrange. It is pl8
- * that must answer: it owns the repositories, and it is the only side that knows the URI.
- *
- * The error is the SERVER's words, because it is the one that can be specific (unknown name,
- * or a name two repositories answer to).
- */
+/** Resolve `/<repo>/…`'s repo name to the repository pl8 holds under it — docs/fileApi.md. */
 export async function repoByName(name: string): Promise<RepoRef> {
   const res = await fetch(
     `${pl8()}/api/projects/by-name/${encodeURIComponent(name)}`,
@@ -38,19 +28,7 @@ export async function repoByName(name: string): Promise<RepoRef> {
   return res.json() as Promise<RepoRef>;
 }
 
-/**
- * The account's LIBRARY repository — the modules and chains every project inherits — or null.
- *
- * Asked BEFORE the project is resolved, because without it there is no project worth opening:
- * a workspace mounts this repository as a submodule and every `@st0/…` ref in every chain
- * resolves inside it (see `@studio/song`'s docs/sharedFolders.md). A song opened without one
- * would compile with every shared module missing — which reads as a broken song rather than
- * as an account that has not been set up.
- *
- * `null` is a 200 and not a 404: "none set" is the ordinary state of a new account, and a
- * status code is the wrong place to keep the difference between that and a service that is
- * down. Only the second is worth a diagnosis.
- */
+/** The account's LIBRARY repository, or null — and `null` is a 200. See docs/fileApi.md. */
 export async function librariesRepo(): Promise<RepoRef | null> {
   const res = await fetch(`${pl8()}/api/projects/libraries`, {
     headers: { Accept: "application/json" },

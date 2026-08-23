@@ -8,6 +8,41 @@ The file is deliberately **renderer-agnostic** — plain numbers, no Pixi, no DO
 the seam that lets dagre own layout and lets the same geometry serve the hit areas and the
 drawing by construction.
 
+## What a node carries from its step
+
+`CARRIED`, `FLAGS` and `Consumed` declare it once instead of copying it. `buildGraph` used to
+restate the fields one by one, which made "add a field" three edits in three files. `assetChoices`
+missed the third: it reached the browser and stopped at the node, so st0 re-fetched the whole graph
+on a click to read a value already under the mouse. The same shape of omission put every ported
+cable on the node's edge once, when `targetPort` was forgotten on the edge copy in `layout`.
+
+The `_Unplaced` guard underneath makes the three groups cover the type: a new field on
+`WebChainStep` stops the build HERE, by name, until it is placed in one of them.
+
+Most of the carried fields are carried *rather than consumed* because two readers want them —
+`inputUI` turns `channel` into the node's dropdowns and the renderer needs the numbers again to
+know which entry is current; `rackUI` turns `rack` into pads and the renderer needs the row again
+to know what a tapped pad should sound; `withFolderOptions` turns the base and shader LISTS into a
+dropdown's entries while `base`/`shader` say which of them is on. `Consumed` is the other side:
+`module` becomes the label and the id, `enabled` becomes `bypassed`/`dim`, `emits` decides an
+edge's signal, `automations` become nodes of their own, and `bases`/`shaders` become options.
+
+`events` is carried and drawn as labelled sockets down the right edge, apart from `jacks.out`:
+those are the signal path, and an event is not something the chain carries. One list would let a
+cable be dragged from a note-on into an audio input — the drawing allowing what the model forbids.
+
+## One track's signal path
+
+`subgraphForTrack` narrows the graph to the chains one track enters plus everything reachable
+downstream, and returns a `WebGraph` — so `buildGraph` takes it unchanged and only the input set
+differs. A downstream chain fed by ANOTHER track would drag that track in, so its `from` is
+dropped and the chain we pass through is kept.
+
+`trackModules` adds the ORDER, which a node set does not carry: chain by chain from the track's
+own, then step by step inside each, which is the order the song is written in. De-duplicated,
+because a module shared between two of the track's chains is one module and drawing it twice would
+offer two sets of controls for one thing.
+
 ## Node geometry
 
 A node with no UI is a fixed size; one with a widget grid is sized BY that grid (`nodeSize`),
@@ -33,6 +68,33 @@ strip on a module with no sub line.
 
 `CELL` fits a control *and* its caption: a usable knob is ~24px across and the caption under
 it needs another ~10. Anything tighter and one of the two has to go.
+
+### The header's name has to be readable at that width
+
+`moduleDisplayName` keeps the LAST segment of a module ref — `@st0/audio/modulation/chorus-ense`
+→ `chorus-ense` — because everything before it is where the module is filed, and spending a
+card's width on a namespace every neighbour repeats leaves no room for the word that tells them
+apart. The whole ref stays as the header's `title`, so the filing is one hover away.
+
+`headerFontPx` then shrinks the size to fit. The header used to ellipse at a fixed 12.5px, which
+was fine while every card was `NODE_W` and stopped being fine when a card became only as wide as
+its grid: a two-column strip is 84px, so seventeen identically-shaped mixers all read `vo_j…`.
+Estimated from the glyph count rather than measured — this runs for every node on every layout, and
+a DOM measurement per card is a reflow per card. `GLYPH_W` is the average advance of the header's
+face at 1px, so a name of all `m`s still ellipses and a name of all `i`s is left smaller than it
+had to be; both beat the fixed size. Never LARGER than `HEADER_MAX_PX`, because this is about
+fitting a long name and not about blowing up a short one, and floored at `HEADER_MIN_PX`, below
+which it is a smudge and an ellipsis is honester.
+
+### A NOTE is sized by its text
+
+A doc module draws its `content` as written, and `noteSize` measures the box dagre has to reserve
+for it — a note that overlaps the chain it is about says nothing. Wrapped at `NOTE_MAX_W` rather
+than widened without limit: one long paragraph would push every rank of the graph sideways to make
+room for prose, which is the opposite of what a note is for. The height follows the WRAPPED line
+count, so the box fits what is drawn. `noteOf` decides a module IS a note by asking `WebGraph`'s
+`modules` map, which is keyed by doc modules and nothing else — no second field, and no lookup
+table to keep in step with one.
 
 ## The `sub` line
 
@@ -133,7 +195,14 @@ The list cannot live in the `ui.yaml`: which bases exist changes every time some
 one, so a panel listing them would be a copy of a directory going stale between saves. The author
 writes `bind: @base` and says nothing more; the entries are the folder's, and they arrive on the
 step. Same contract as `@channel`, whose sets are the machine's — see `@studio/song`'s
-`docs/intrinsics.md`.
+`docs/intrinsics.md`. `@shader` is the same mechanism over a different folder (`docs/shaders.md`),
+and `withFolderOptions` serves both from one site, because a shader module's panel is an ordinary
+authored `ui.yaml` and a second fold-in would be a second thing to remember.
+
+`none` comes first and always, because a chosen base has to be undoable: without an entry meaning
+"back to the module's default" the only way out of a base is editing the file by hand. The `value`
+is a position in the list and nothing more — `setModuleField` writes the option's LABEL, which is
+the base's name, so adding a base can renumber the list without changing what any entry writes.
 
 ## A REHEARSAL moves, and writes nothing
 
@@ -327,6 +396,12 @@ back.
 > chains, so reading either one's steps would answer no for every recording path with a plugin on
 > it.
 
+A destination naming a **track** lands on the track node itself rather than on the first module of
+that track's chain: that is where a live input's signal actually arrives, ahead of the lane's
+modules, and it is what `IN:in-2: [ ge.rythm ]` says. Checked before `isChain`, which says yes to
+the same name — a track-fed chain is called after its track. Only inputs reach there; every other
+destination is a bus (named after the module it starts at) or a sink.
+
 The **pending** node — the module being created, drawn where it will land — gets no sockets at
 all, because it is not built by `buildGraph`. That is the right answer rather than an oversight:
 it is dashed and spinning because it does not exist yet, and a socket would claim otherwise.
@@ -356,6 +431,17 @@ node has no `module.yaml` to declare one in — but with an ORDINARY bind rather
 intrinsic, since `node param "OUT" Volume <dB>` is a real command. So the renderer's usual write
 path reaches it with nothing routed specially, and the header's own fader and this one are two
 views of one number.
+
+Its travel is **-60 to +12**. -60 at the bottom where the field goes to -100, matching the header's
+fader: below -60 the curve is silence, and spending most of the throw on the difference between
+inaudible and more inaudible leaves the useful range unusable. +12 at the top is the field's real
+ceiling — this gain does not borrow Tracktion's +6 curve, which is why it is not `TRACK_UI`'s
+number.
+
+Both `MIX`/`RENDER` and `OUT`/`VIDEO_OUT` are **spelled out here rather than imported**: @studio/song
+owns those names (`MIX_NODE`, `RENDER_NODE`, `VIDEO_OUT_NODE`) and this package deliberately does
+not depend on it. They are taken literally elsewhere too — `nodeProject`'s `isSink` — which is why
+each is a bare name rather than a shape.
 
 The level is not in the graph document — it is a project setting — so it arrives as
 `mainOutVolume`, the same way `inputDevices` does. Absent, the card still draws and its fader reads
@@ -401,6 +487,19 @@ feeds the master bus whatever its chain names (@studio/song's docs/masterChain.m
 seeded the same way, off the picture's own list of live lanes — which is derived from the shots
 and the playhead, nothing metering a frame. See `computeLive` and
 @studio/ui-chains-react's docs/liveCables.md.
+
+That list is `liveVideoLanes`, and it is the meters' opposite number. The engine measures sound and
+knows nothing of the frame (@studio/song's docs/picture.md), so a video lane's cables had no way to
+ripple and stayed still through a playing song — the one part of the graph that never came alive.
+What the browser HAS is the shots and the playhead, which is the same bargain st0 already strikes
+for a rack's lit pads: derive it rather than observe it. The spans are half-open, like the
+compositor's own `activeAt` — a cut belongs to the LATER shot, so two shots meeting at a boundary
+never both count — and they are the host's to compute, from the same document the viewport draws.
+
+`insertFor` offers an arrow's `+` whenever at least one end is a module. It used to also demand
+that both ends belong to the same CHAIN, because the command took a chain name and an index into
+it; `chains.yaml` states its edges outright now, so an arrow IS the address, and the cases the
+same-chain rule quietly refused — a track feeding a bus, a split's branch — are ordinary arrows.
 
 A project written before `MIX: [ OUT ]` existed declares no master run at all, and its cables into
 the sum are skipped just the same — so the pair is drawn anyway whenever something routed there.
@@ -451,10 +550,17 @@ The socket's position is one rule in one place: `jackPoint` and the plate's CSS 
 by `PORT_PLATE`, which the renderer interpolates into its stylesheet. Two numbers here would be
 a cable that ends near the hole rather than in it, and nothing would ever say so.
 
-`link()` adds a connection once. The same source→target can be expressed twice (a chain's
-`from` and the upstream chain's `out`), so they collapse, keeping any gain label. Chains
-cannot loop, so a reverse edge is the same connection seen from the other end and collapses
-too — one arrow, not a pair.
+`link()` adds a connection once — but "once" is per SOCKET, not per pair, and the key has to serve
+two truths at the same time. The same link can be expressed from either end (`A.out: [B]` and
+`B.from: A`) and only one of the two carries ports, so those must collapse into one arrow, keeping
+any gain label; chains cannot loop, so a reverse edge is the same connection seen from the other
+end and collapses too. But a module that splits feeds one target from several of its outputs
+(`sep#drums: [mix]`, `sep#bass: [mix]`), and those are genuinely different cables that must NOT
+collapse — keying on the pair alone drew the second as the first, leaving one arrow out of the
+wrong jack. So an expression that names ports gets its own identity and one that names none merges
+into whatever cable already joins the pair, order-independently, because the two ends are visited
+in whatever order the chains happen to be in. The port is IN the edge id, and the renderer keys on
+it.
 
 What *leaves* a chain is normally its last module's output. A chain with no modules is a
 pass-through: it emits whatever reached it, so the follow walks its `from` (a track's own
@@ -483,8 +589,37 @@ a curve id reused by two params draws twice — so the id carries the chain, the
 param. The edge bypasses `link()` (no collapse, no gain) and carries the automation payload
 the renderer draws purple.
 
+That is a REVERSAL, and the reason the old rule died is worth keeping. It used to be one node per
+curve: a curve was one thing however many params it drove, each binding an edge out of the same
+card, and drawing it twice was duplication that made "where is this curve" two answers. That held
+while a curve node had no INPUT. It has one now — an envelope is restarted by an event, and which
+module fires it is per binding. One card with two event sockets could not say that the same shape
+is fired by the drums here and by the synth there; two cards say it by standing apart. The shape is
+still one file on disk and the label is still the curve's id, so the two instances are legibly the
+same curve.
+
+An `adsr` curve therefore also gets the cable that FIRES it, from the announcing module's note-on
+into the curve's event socket. It runs the other way to the automation edge — events in, values out
+— which is what makes the pair readable as a loop. The trigger defaults to the module being
+automated, which is what the compiler does (`nodeProject.ts`), and is drawn from the same field so
+the picture cannot claim one source while the bake uses another. `curveSubLabel` tells `adsr` from
+`custom` for the same reason: an envelope is the one curve here that is not a function of song
+time, and a reader who cannot tell them apart cannot tell why one has a socket on its left.
+
 The arrow lands on the **widget** bound to that param when the module draws one; with no
 widget it points at the module's border and the param name is shown as a label.
+
+`GraphNode.curveOf` carries the curve, the module and the param rather than letting the renderer
+parse them back out of the node id, which spells the same thing: a module ref may itself contain a
+colon (`synth:lead`), so `crv:env1@synth:lead:Filter Freq` has no unambiguous reading. The renderer
+needs all three to write `node automate`, and a gesture that guessed them wrong would rewrite
+somebody else's binding.
+
+A curve **nothing binds** is drawn free-standing, one card, driving nothing yet. A curve is a node
+like everything else here, so `curve new` has to put something on the graph: an unreferenced curve
+used to draw nothing at all, which made the verb's result invisible and the canvas menu's "add a
+curve" a promise with no picture behind it. Its id carries no binding, which is exactly what tells
+it apart from an instance — one free card per curve, one bound card per binding.
 
 ## Orphans are drawn
 
@@ -560,6 +695,58 @@ The one surface that stays horizontal is `moduleRow`, the Mixer's rank of strips
 own nodes out and never calls `layout`, because a row of mixer strips is a row and not a
 signal path.
 
+### Pins, and where a card was drawn last time
+
+`layout` takes two overrides and applies them AFTER the rank snap and BEFORE the extents, so a
+held card both wins over the rows and still counts toward the graph's measured size.
+
+`positions` is what somebody PINNED — `chains.yaml`'s `positions:`, keyed by chains name. Those win
+over everything the ranker decided, and dagre only ever places what has no entry: a module dragged
+once stays where it was put, a new one still arrives laid out. `prev` is where each node was DRAWN
+last time, keyed by node id — the host's session memory, so an edit (a cable pulled, a module
+dropped in) never reorganizes the picture. Pins outrank the session, because the file outranks it:
+another tab may have written one. `graph organize` is the command that empties both and lets dagre
+speak. The name resolution is `cables.ts`'s `jackRef` — a module by its chains name, the rest by
+label — inlined here because `cables.ts` imports this file.
+
+### The mixer's row, three functions deep
+
+`alignModuleRank` pulls the named modules onto ONE rank. The mixer view is that and nothing else:
+the same graph, the same cables, the same cards, only the ranks move. Every track ends on a mixer,
+but a track with a longer chain ends DEEPER, so by default the mixers sit on a staircase and no
+zoom shows them all. The shared rank is the DEEPEST of theirs, never a shallower one — pulling a
+mixer up would put it above modules that feed it, and an edge that has to climb is a cable drawn
+backwards. Sinks are pushed past it for the same reason, since they carry a rank computed before
+this ran; the two SUMS are exempt, being drawn as sinks while standing where a source does. It
+returns a new array, so the plain layout stays available to anything drawing the same graph beside
+this one.
+
+`spaceModulesEvenly` then gives the row one rhythm. dagre spaces a rank by what is above it — a
+track with a wide chain pushes its mixer away from its neighbour — so a shared rank alone still
+reads as a scattered line rather than a console. Equal GAP and not equal pitch, because the cards
+are not all the same width and it is the space between them the eye reads as regular. What it costs
+is upstream: the chains feeding the row are no longer straight columns, and they are not meant to
+be. Their cables need nothing done about them, since `cablePath` reads both ends off the nodes.
+
+`moduleRow` is the standalone surface: the named modules side by side, dagre deliberately not used
+— there are no cables between channel strips to route, and the ORDER is the caller's (the song's
+track order), which is not a thing a layout engine should be allowed to choose. The cards come from
+`buildGraph`, so each is the same card the full graph draws, live values and all; only the position
+is ours. A name with no module in the graph is skipped rather than drawn as a gap: the caller's list
+comes from the compiled project and the graph is refetched separately, so the two can be one reload
+apart and a hole in the row would be the only sign. One height for the whole row, the tallest card's
+— a ragged bottom reads as cards of different importance, and the camera fits the row's height to
+the view. The cards come WITHOUT their sockets: the plates are CSS-pinned to the top and bottom
+edges while this row meets its cables on the sides, and drawing a plug on the wrong edge would be
+worse than drawing none.
+
+Its `links` option decides whether the graph's own cables come with them. Off for a rank of channel
+strips — nothing runs between two channels, so every socket would be a plug into nothing. On for
+one lane's signal path, where the cables ARE the subject: they say what feeds what, and a send that
+skips a module shows as the longer cable it is. The edges are the graph's own, kept where both ends
+are in the row; nothing is invented between neighbours, because two cards side by side with no
+cable between them is the truth about a lane whose chains do not touch.
+
 ### The -Infinity extent
 
 dagre reports `-Infinity` for a graph with no nodes — it maxes over an empty set. That is
@@ -568,3 +755,46 @@ Framing a camera to that extent yields an Infinity translation and the graph is 
 for good, because the view believes it has already framed itself. A layout with nothing in
 it has no extent: report 0 and let the caller decide there is nothing to frame yet — which
 is the truth while a project is still loading.
+
+## Zooming the graph
+
+`zoomGesture.ts` lives here rather than in the renderer because a wheel notch and a trackpad pinch
+cannot share one answer, and that is a decision with a right and a wrong result.
+
+A mouse wheel arrives as ONE event per detent with a delta in the hundreds, so `0.001` turns that
+into a comfortable ~10% a notch. A trackpad PINCH arrives as Ctrl+wheel — a stream of small
+continuous deltas, dozens a second — where the same coefficient gives a fraction of a percent each,
+which is the "very slow" you feel with two fingers. Ten times the coefficient makes a pinch track
+the fingers and leaves the wheel exactly as it was. The pinch delta is CLAMPED first (`WHEEL_CLAMP`)
+because browsers disagree about the units they report a pinch in, and one answering in hundreds
+would jump a decade in a single event.
+
+`pinchFactor` measures a two-finger spread against the spread the gesture STARTED at, not the
+previous frame: a ratio of ratios accumulates rounding, so you would pinch out and back in without
+returning where you began. A zero or negative spread is not a gesture and answers 1.
+
+## The module builder's preview graph
+
+`modulePreview.ts` builds the smallest `WebGraph` that draws one module as the card it will be in a
+chain — a source, a chain, the module, a sink — from the panel being edited rather than from a
+project. `PREVIEW_SOURCE` stands for "whatever will feed this", because a module editor has no
+tracks and a chain's `from` has to resolve to something.
+
+`previewPluginId` is THE one place the engine address `<chain>:<module>` is spelled. Two things
+build it — the `ProjectDoc` the engine actually loads (the médiathèque's `engine/preview.ts`) and
+the graph node — and they have to agree, or the node names a look-alike rather than the plugin that
+is loaded. Nothing would report the disagreement: no type error, no failed request, just a card
+wired to an address nobody answers at.
+
+`moduleCategoryOf` reads the segment after `modules/` or `_modules/` rather than a fixed index. The
+same module is named `modules/audio/reverb` by the médiathèque,
+`_modules/audio/delay/tape-delay/module.yaml` by a shared library, and
+`LEMO - DANSE/modules/audio/amp/module.yaml` by st0 in a workspace holding several projects — an
+index would be right for one of those and wrong for the others. Anything unrecognised draws as
+audio: a glyph is not worth refusing a preview over.
+
+`visibleGrid` drops `hidden` widgets, because that flag is normally resolved away by the merge of a
+module over the base it extends and there is no merge on this path. And `bases` is passed for one
+reason: a widget bound to `@base` carries no entries of its own — `withFolderOptions` fills them
+from the step — so without it the preview drew that dropdown holding `none` and nothing else, which
+is the one widget you cannot check by looking at the panel you just wrote.

@@ -29,24 +29,12 @@ export const EFFECT_KEYS = [
   "phaser",
 ] as const;
 
-/**
- * The text of a document, with a bare `- pause:` written bare.
- *
- * yaml spells a null value `null` by default, so a pause added here would come out as
- * `- pause: null` beside the `- pause:` the migration wrote — same meaning, two spellings, and
- * a diff on every file the editor touched. Null means "no message" everywhere in this format,
- * so emptying it globally is exactly right rather than a trick.
- */
+/** The text of a document, with a bare `- pause:` written bare — see ../../docs/editing.md. */
 export function serialize(doc: Document): string {
   return doc.toString({ nullStr: "" });
 }
 
-/**
- * A string as a scalar, kept as a literal block when it has newlines.
- *
- * `answer:` is a block in every migrated file, and a plain `setIn` would fold a multi-line one
- * onto a quoted line — same value, unrecognisable diff.
- */
+/** A string as a scalar, kept a literal block when it has newlines — ../../docs/editing.md. */
 function text(value: string): Scalar {
   const s = new Scalar(value);
   if (value.includes("\n")) s.type = Scalar.BLOCK_LITERAL;
@@ -120,12 +108,7 @@ const TRACK_KEYS = [
   "title",
 ];
 
-/**
- * `1-5` → {from:1,to:5}, `11-` → {from:11,to:null}, `7` → {from:7,to:7}.
- *
- * Null for anything else, which the caller reads as "the whole category" — the same thing an
- * absent `songs:` means, so a malformed range shows every song rather than none.
- */
+/** `1-5`, `11-` or `7`; null for anything else, which the caller reads as the whole category. */
 export function parseRange(spec: string | undefined): SongRange | null {
   if (!spec) return null;
   const m = /^(\d+)\s*(-)?\s*(\d+)?$/.exec(spec.trim());
@@ -178,8 +161,7 @@ function readSong(raw: Record<string, unknown>): Song {
     liveOnly: typeof raw.liveOnly === "boolean" ? raw.liveOnly : undefined,
     speed: num(raw.speed),
     effects: readEffects(raw.effects),
-    // A flat song carries the track's own keys, so it reads as a one-track song here and the
-    // rest of the app never branches on the two shapes again.
+    // A flat song reads as a one-track song here, so nothing downstream branches on the shape.
     flat: !nested,
     tracks: nested
       ? nested.map((t) => readTrack((t ?? {}) as Record<string, unknown>))
@@ -212,8 +194,7 @@ export function readSession(doc: Document): Session {
     notice: str(raw.notice),
     order: order.map((e): OrderEntry => {
       const o = (e ?? {}) as Record<string, unknown>;
-      // `- pause:` parses to a null value, so the KEY is what tells the two apart — never the
-      // value, which is empty for an unnamed pause and a message for a named one.
+      // `- pause:` parses to a null value, so the KEY tells the two apart and never the value.
       if ("pause" in o)
         return { kind: "pause", message: str(o.pause) ?? undefined };
       return { kind: "cat", cat: str(o.cat), songs: rangeText(o.songs) };
@@ -228,12 +209,7 @@ function rangeText(v: unknown): string | undefined {
   return undefined;
 }
 
-/**
- * Where a track's fields live in its category document.
- *
- * The one place the flat/nested split is spelled, so every writer below addresses a track the
- * same way whichever shape it was written in.
- */
+/** Where a track's fields live — the ONE place the flat/nested split is spelled out. */
 export function trackPath(
   song: Song,
   songIndex: number,
@@ -245,13 +221,7 @@ export function trackPath(
     : ["songs", songIndex, "tracks", trackIndex, key];
 }
 
-/**
- * Set one track field, or REMOVE it when the value is empty.
- *
- * Removing rather than writing `start: 0` is what keeps a file diffable: the format's own
- * default for an absent `start` is the beginning of the song, so writing the default back
- * would add a line to every song the editor merely looked at.
- */
+/** Set one track field, or REMOVE it when the value is empty — see ../../docs/editing.md. */
 export function setTrackField(
   doc: Document,
   song: Song,
@@ -265,13 +235,7 @@ export function setTrackField(
   else doc.setIn(path, value);
 }
 
-/**
- * Whether a value means "not set" for this format.
- *
- * `false` counts, and that is the point: `liveOnly` is absent or true in every migrated file,
- * so unticking it must remove the line rather than write `liveOnly: false` — which means the
- * same thing and appears in none of them.
- */
+/** Whether a value means "not set" here; `false` counts, since `liveOnly: false` is never written. */
 function empty(v: string | number | boolean | undefined): boolean {
   return v === undefined || v === "" || v === false;
 }
@@ -296,13 +260,7 @@ export function setSongField(
   put(doc, ["songs", songIndex, key], value);
 }
 
-/**
- * Set one effect on a song, dropping the whole `effects:` map when the last one goes.
- *
- * An empty `effects: {}` is not what an unprocessed song looks like anywhere in these files,
- * and it would be the only one — so the map appears with the first value and leaves with the
- * last.
- */
+/** Set one effect, dropping the whole `effects:` map with the last one — ../../docs/editing.md. */
 export function setSongEffect(
   doc: Document,
   song: Song,
@@ -410,13 +368,7 @@ export function newCategoryText(name: string): string {
   return `# Une catégorie : son nom affiché, puis ses morceaux.\n# Voir apps/z0/docs/projects.md.\nname: ${JSON.stringify(name)}\nsongs: []\n`;
 }
 
-/**
- * Turn a flat song into a `tracks:` list, so a second track can be added to it.
- *
- * The track keys move off the song and into the first list entry; everything else (label,
- * status, speed…) stays where it is. Idempotent — a song that already has `tracks:` is left
- * alone rather than nested twice.
- */
+/** Promote a flat song to a `tracks:` list; idempotent — see ../../docs/editing.md. */
 export function expandToTracks(
   doc: Document,
   song: Song,
@@ -431,8 +383,7 @@ export function expandToTracks(
       doc.deleteIn(["songs", songIndex, k]);
     }
   }
-  // createNode, not the bare array: a plain JS array survives `setIn` as a plain array, and
-  // then nothing that appends to a sequence node can find it.
+  // createNode, not the bare array: `setIn` keeps a plain JS array, which nothing can append to.
   doc.setIn(["songs", songIndex, "tracks"], doc.createNode([track]));
 }
 
@@ -442,13 +393,7 @@ function songSeq(doc: Document): { items: unknown[] } | null {
   return seq && Array.isArray(seq.items) ? (seq as { items: unknown[] }) : null;
 }
 
-/**
- * Move a song within its category, carrying its node whole.
- *
- * Splicing the NODE rather than rewriting values is what keeps a moved song's own comments and
- * quoting with it — and what makes this safe on the `tracks:` shape, which a value-level move
- * would have to reassemble.
- */
+/** Move a song within its category, splicing the NODE so its comments and quoting travel with it. */
 export function moveSong(doc: Document, from: number, to: number): void {
   const seq = songSeq(doc);
   if (!seq) return;
@@ -473,13 +418,7 @@ export function addSong(doc: Document, songId: string): void {
   doc.addIn(["songs"], doc.createNode({ song: songId }));
 }
 
-/**
- * Add a track to a song, turning a flat one into a `tracks:` list first.
- *
- * That promotion is the whole reason this is not a one-liner: `song:` and `tracks:` are
- * exclusive in the format, so a second track cannot be added beside the first without moving
- * the first one down into the list.
- */
+/** Add a track, promoting a flat song first — `song:` and `tracks:` are exclusive in the format. */
 export function addTrack(
   doc: Document,
   song: Song,
@@ -490,11 +429,7 @@ export function addTrack(
   doc.addIn(["songs", songIndex, "tracks"], doc.createNode({ song: songId }));
 }
 
-/**
- * Remove one track. Removing the last of a `tracks:` list leaves the list empty rather than
- * collapsing the song back to the flat shape — a song with no track is a visible mistake to
- * fix, where a silently re-flattened one is a different song than the one you edited.
- */
+/** Remove one track; the last one leaves an empty list — see ../../docs/editing.md. */
 export function removeTrack(
   doc: Document,
   song: Song,

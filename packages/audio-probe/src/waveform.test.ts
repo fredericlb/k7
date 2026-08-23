@@ -23,8 +23,7 @@ function region(over: Partial<RegionWaveform>): RegionWaveform {
     warpMarks: [],
     transients: [],
     toDisplay: (s) => s, // identity: nothing here is windowed or warped
-    // …and the same identity, as the three numbers the wire carries: no trim, no stretch, and a
-    // map whose zero is the region's own.
+    // …and the same identity as the three numbers the wire carries: no trim, no stretch.
     sourceMap: { inPoint: 0, stretch: 1, zeroBeat: 0 },
     ...over,
   };
@@ -32,8 +31,7 @@ function region(over: Partial<RegionWaveform>): RegionWaveform {
 
 describe("beatGrid", () => {
   it("emits a line on every whole beat, timed from the region start by tempo", () => {
-    // 4 beats at 120bpm → a beat every 0.5s, inclusive of both ends (0..4).
-    // `+ 0` normalizes a harmless signed -0 (Math.ceil(-1e-9)) to 0.
+    // 4 beats at 120bpm → a beat every 0.5s, both ends included; `+ 0` normalizes a signed -0.
     const lines = beatGrid(region({ startBeat: 0, clipBeats: 4 }));
     expect(lines.map((l) => l.t + 0)).toEqual([0, 0.5, 1, 1.5, 2]);
   });
@@ -51,8 +49,7 @@ describe("beatGrid", () => {
   });
 
   it("aligns bars to the arrangement when the clip starts mid-bar", () => {
-    // startBeat 2 spans arrangement beats 2..6; the only bar boundary is beat 4
-    // (bar 2). `t` is still measured from the region start, so the first line is 0.
+    // startBeat 2 spans beats 2..6, so bar 2 is the only boundary and `t` still starts at 0.
     const lines = beatGrid(region({ startBeat: 2, clipBeats: 4, barBeats: 4 }));
     expect(lines.map((l) => l.t + 0)).toEqual([0, 0.5, 1, 1.5, 2]);
     expect(lines.map((l) => l.bar)).toEqual([false, false, true, false, false]);
@@ -60,10 +57,7 @@ describe("beatGrid", () => {
   });
 });
 
-// THE CROSS-LANGUAGE CONTRACT. This function no longer runs in production — the engine's
-// C++ port in engine/moteur/engine/Waveform.cpp does, while it is already downsampling the
-// audio — so these cases are what holds the two implementations to the same answer. A change
-// here is a change there, plus a sidecar version bump (see waveformCache.ts).
+// THE CROSS-LANGUAGE CONTRACT, holding the C++ port to the same answer — docs/waveform.md.
 describe("detectTransients", () => {
   // Four clean attacks, each a jump then a decay, on a flat-ish floor.
   const burst = (n: number): number[] =>
@@ -140,9 +134,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("follows the clip file's OWN window, which is where the engine starts playing", () => {
-    // The bug this pins. `placementToClip` leaves an audio clip's `offset` at 0 and puts the
-    // in-point in `sourceFrom`; a drawing reading only `offset` started every trimmed clip at the
-    // file's head, so the picture showed one part of the take and the engine played another.
+    // The bug this pins: a drawing reading only `offset` started every trimmed clip at the head.
     const w = regionWaveform(
       env(),
       clip({ length: 4, sourceFrom: 1 }),
@@ -164,8 +156,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("detects nothing of its own — an envelope with no onsets yields none", () => {
-    // The proof that detection moved: the peaks here would produce onsets if this still ran
-    // the detector on the resampled region.
+    // The proof that detection moved: these peaks would produce onsets if the detector ran here.
     const peak = new Array(100).fill(0).map((_, i) => (i % 10 === 0 ? 1 : 0));
     const w = regionWaveform(
       env({ peak, transients: [] }),
@@ -176,15 +167,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
     expect(w.transients).toEqual([]);
   });
 
-  /**
-   * The same window that puts the picture in the right place also CROPS it, and there is one view where
-   * that is wrong: the `whole` one, which exists to show the file the window is being judged against.
-   *
-   * `clip trim` writes seconds — numbers — and `mapClip` reads exactly those, so opening a trimmed clip
-   * redrew the pane as the trim itself, with nothing left to see what had been cut. A TIMECODE window
-   * survived it (`Number("2:1")` is NaN), so one field's two spellings drew two different pictures.
-   * WaveformOps draws the whole view WINDOWLESS for that reason; these pin what it is avoiding.
-   */
+  // These three pin what the WINDOWLESS `whole` view is avoiding — see docs/waveform.md.
   it("opens the region AT `from`, so the head of the file is not in the picture at all", () => {
     const w = regionWaveform(env(), clip({ sourceFrom: 1 }), project, 100);
     expect(w.seconds).toBe(3); // the file's 4, less the second trimmed off its head
@@ -192,8 +175,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("blanks what lies past `to` rather than shortening the picture", () => {
-    // Two different cuts, and only one of them changes the span — worth stating, because it is why
-    // a trimmed clip's pane looked like a different take rather than like a shorter one.
+    // Two different cuts, and only one of them changes the span — see docs/waveform.md.
     const w = regionWaveform(env(), clip({ sourceTo: 2 }), project, 100);
     expect(w.seconds).toBe(4);
     expect(w.peak.slice(0, 50).every((p) => p > 0)).toBe(true);
@@ -208,8 +190,7 @@ describe("regionWaveform maps the FILE's transients onto the region", () => {
   });
 
   it("hands out the mapping the marks went through, so the window lands on the same axis", () => {
-    // A second copy of `(sec - inPoint) * stretch` somewhere else is how a band comes to sit a
-    // pixel off the onsets beside it — the alignment bug this drawing already paid for once.
+    // A second copy of the mapping elsewhere is how a band comes to sit a pixel off the onsets.
     const w = regionWaveform(
       env(),
       clip({ sourceFrom: 1, length: 4 }),
@@ -227,9 +208,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
     ({ id: "c", type: "audio", source: "a.wav", start: 0, ...over }) as ClipDoc;
 
   it("prices the stretch the way the engine does — beats over source seconds", () => {
-    // 01.danse.st0's vocals: material cut at 120bpm, played in a 110bpm song. The marker pair is
-    // [timeline beat, source second], so the ratio is the beat span at the song tempo over the
-    // source span — 12/11, the same number applyClipWarp hands Tracktion.
+    // 01.danse.st0's vocals: cut at 120bpm, played at 110, so 12/11 — docs/waveform.md.
     const warp = {
       algorithm: "elastique",
       markers: [
@@ -255,8 +234,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
   });
 
   it("consumes LESS of the source than an unwarped clip over the same span", () => {
-    // A clip stretched 2x covers half as much material in the same number of bars. Drawing it at
-    // the file's own rate is what made the picture drift away from the sound across the clip.
+    // A clip stretched 2x covers half as much material in the same number of bars.
     const env: FileEnvelope = {
       fingerprint: "x",
       sampleRate: 48000,
@@ -290,15 +268,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
     expect(w.transients[0]).toBeGreaterThan(flat.transients[0]);
   });
 
-  /**
-   * A point pinned IN THE MIDDLE has to bend the picture — the whole of "the waveform reflects
-   * the warps".
-   *
-   * The overall ratio cannot see this: both maps below span the same source seconds over the same
-   * beats, so `warpStretch` answers the same number for each. What differs is where the interior
-   * point sends the material around it, which is exactly what the engine pins as a beat point and
-   * exactly what the drawing used to ignore.
-   */
+  // A point pinned IN THE MIDDLE has to bend the picture, which the overall ratio cannot see.
   const bendEnv: FileEnvelope = {
     fingerprint: "x",
     sampleRate: 48000,
@@ -323,8 +293,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
       project,
       200,
     );
-    // The same two ends, plus one point saying "one source second in lands on beat 4" — the first
-    // second now covers half the clip instead of a quarter.
+    // The same two ends, plus "one source second in lands on beat 4" — half the clip, not a quarter.
     const bent = regionWaveform(
       bendEnv,
       clip({
@@ -352,9 +321,7 @@ describe("a WARPED clip is drawn at the rate it is PLAYED at", () => {
       project,
       200,
     );
-    // `orig` and `target` coincide once the picture is warped: the moment is drawn where it
-    // lands, because the displacement has been applied to the audio under it. What is left for
-    // the arrow to show is a DRAG in flight, which is the only displacement still pending.
+    // `orig` and `target` coincide once the picture is warped — docs/waveform.md.
     for (const m of bent.warpMarks) expect(m.orig).toBeCloseTo(m.target, 6);
     // …and each carries the file second it pins, which is how a surface names one to remove it.
     expect(bent.warpMarks.map((m) => m.src)).toEqual([0, 1, 4]);

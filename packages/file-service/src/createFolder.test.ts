@@ -13,8 +13,7 @@ let ws: Workspace;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "td-mkdir-"));
-  // `.st0` is what makes a folder a project — the name, not the file inside it. The project's
-  // own `name` stays unsuffixed: that is its label, not its folder.
+  // `.st0` is what makes a folder a project; the project's own `name` stays unsuffixed.
   const proj = join(root, "song.st0");
   mkdirSync(join(proj, "clips"), { recursive: true });
   writeYaml(join(proj, "project.yaml"), { project: { name: "song" } });
@@ -26,8 +25,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("Workspace.createFolder", () => {
   it("creates it inside the target and reports the path", () => {
-    // Workspace-relative, like uploadFile's — this is what the tree addresses entries by, and the caller passed a
-    // tree path in. (createNode answers project-relative, but it is answering a different question.)
+    // Workspace-relative, like uploadFile's, because that is what the tree addresses entries by.
     const { path } = ws.createFolder("song.st0/clips", "takes");
     expect(path).toBe("song.st0/clips/takes");
     expect(existsSync(join(root, "song.st0", "clips", "takes"))).toBe(true);
@@ -41,8 +39,7 @@ describe("Workspace.createFolder", () => {
   });
 
   it("takes ONE segment — a name with separators can't escape the folder", () => {
-    // basename() reduces it rather than rejecting outright, which is what uploadFile does with the same input:
-    // the point is that nothing lands outside the folder that was right-clicked.
+    // `basename()` reduces rather than rejects, as uploadFile does: nothing lands outside the clicked folder.
     const { path } = ws.createFolder("song.st0/clips", "../../evil");
     expect(path).toBe("song.st0/clips/evil");
     expect(existsSync(join(root, "evil"))).toBe(false);

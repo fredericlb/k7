@@ -31,28 +31,14 @@ export interface UiLibrary {
   issues: string[];
 }
 
-/**
- * Where a ref's panel sits, relative to the module library that holds the module.
- *
- * The namespace is dropped because it names the LIBRARY, which the caller has already picked:
- * `@engine/audio/delay/tape-delay` and a project's own `audio/reverb` each land beside their module file. An io
- * module's ref carries no type folder (`desk`), so it gets one back — without that the panel would land at the
- * library root instead of in `io/desk/`. The `ui/` tree is gone, but that rescue is not: it is about the REF's
- * shape, not about where the file lives.
- */
+/** Where a ref's panel sits inside its library — the namespace dropped, io rescued, docs/uiLibrary.md. */
 export function uiPathFor(ref: string): string {
   const bare = ref.startsWith("@") ? ref.split("/").slice(1).join("/") : ref;
   const withType = bare.includes("/") ? bare : `io/${bare}`;
   return `${withType}/${UI_FILE}`;
 }
 
-/**
- * Read every panel the project can see, keyed by the ref of the module whose folder each one sits in.
- *
- * More than one library: the project's own `modules/`, then each library `modules_from` names — `_modules` and
- * the mediatek, typically. NEAREST WINS, so a project that forked a shared module draws its own face rather than
- * the one it was copied from.
- */
+/** Every panel the project can see, keyed by its module's ref — NEAREST WINS, see docs/uiLibrary.md. */
 export function loadUiLibrary(dir: string): UiLibrary {
   const out: UiLibrary = { byRef: {}, issues: [] };
   eachLibrarySibling(dir, UI_BASE, ({ ref, path, rel }, label) => {
@@ -69,8 +55,7 @@ export function loadUiLibrary(dir: string): UiLibrary {
   return out;
 }
 
-/** Serialise a panel as a `ui.yaml`. The header is the only place the module is named — a comment, because the
- *  folder is what actually says it, and two sources of truth is one too many. */
+/** Serialise a panel as a `ui.yaml`; its header NAMES the module, as a comment — docs/uiLibrary.md. */
 export function uiFileText(ui: ModuleUI, header?: string): string {
   // Validated on the way out as well as in: a panel this can't read back is a file the editor would refuse.
   UiFileSchema.parse(ui);
@@ -78,13 +63,7 @@ export function uiFileText(ui: ModuleUI, header?: string): string {
   return header ? `# ${header}\n${body}` : body;
 }
 
-/**
- * Write a panel into its module's folder, returning the absolute path it landed in.
- *
- * There is no "write to my own library instead" any more: a panel goes where its module is, including in a
- * shared one. That is the point of putting the two files together — a face is drawn once for the plugin every
- * song reaches for, not once per project that plays it.
- */
+/** Write a panel into its module's folder, SHARED library included — see docs/uiLibrary.md. */
 export function writeUiFile(
   dir: string,
   ref: string,
@@ -97,21 +76,11 @@ export function writeUiFile(
   return path;
 }
 
-/**
- * The library that holds `ref` — the project's own for a bare or `@project` ref, otherwise the root whose
- * LOCATION gives it that namespace. Throws rather than guessing: a panel written under the wrong root draws a
- * module that isn't there.
- *
- * `@engine/<slug>` is the ref that has no answer here, and deliberately so: an engine module is a scanned
- * plugin, with no folder in any library (see engineCatalogue.ts). A panel now needs a folder to sit in, so a
- * plugin the engine merely reports cannot have one until somebody makes it a module. Better a refusal that says
- * so than a file written under `io/`, which is where the io rescue would put it.
- */
+/** The library that holds `ref`, throwing rather than guessing — `@engine` has no answer, docs/uiLibrary.md. */
 function moduleRootFor(dir: string, ref: string): string {
   if (!ref.startsWith("@")) return join(dir, "modules");
   const ns = ref.slice(1).split("/")[0];
-  // `@project/audio/reverb` is the same module as the bare `audio/reverb` — the explicit spelling of the
-  // level the project owns. It names no library, so it never matches a root below and would be refused.
+  // `@project/audio/reverb` is the bare `audio/reverb` spelled out; it names no library to match.
   if (ns === "project") return join(dir, "modules");
   for (const root of moduleLibraryDirs(dir))
     if (moduleNamespaceOf(root) === ns) return root;
@@ -122,13 +91,7 @@ function moduleRootFor(dir: string, ref: string): string {
 
 // --- serialisation ------------------------------------------------------------
 
-/**
- * Emit the panel as YAML, with each widget on ONE flow line.
- *
- * Hand-written rather than `yaml`'s stringify because a widget is read as a row — eight scalars describing one
- * knob — and the block form the library would produce turns a 20-line panel into 200 lines nobody scans. This
- * is the shape the existing module files already use.
- */
+/** Emit the panel as YAML, each widget on ONE flow line — hand-written, see docs/uiLibrary.md. */
 function stringifyUi(doc: {
   cols: number;
   rows: number;
@@ -152,9 +115,7 @@ function stringifyUi(doc: {
   const lines = [
     `cols: ${doc.cols}`,
     `rows: ${doc.rows}`,
-    // `{}` and not a bare `widgets:`, which YAML reads back as NULL — and a null fails the schema, so a panel
-    // with no widgets yet read as MALFORMED and the editor greyed its own grid out. That is the scaffold every
-    // module without a panel gets, which is precisely when the grid is needed.
+    // `{}` and not a bare `widgets:`, which YAML reads back as NULL and the schema then refuses.
     ids.length ? "widgets:" : "widgets: {}",
   ];
   for (const [id, w] of ids)

@@ -114,6 +114,14 @@ Et tout est sous `/api/` parce que nginx ne proxifie que `^/(api|auth)/` : le re
 `location` porte déjà `proxy_buffering off` et `client_max_body_size 512m` — **aucun changement
 nginx des deux côtés**.
 
+### Les `..` nus se testent en unitaire, pas en HTTP
+
+`routes/shares.test.ts` exerce le garde `isKey` **directement** sur `..`, `../..`, `%2E%2E`… et
+c'est à savoir plutôt qu'à redécouvrir : un client conforme ne peut pas envoyer ces cas. `fetch`
+résout `/api/public/share/../manifest` en `/api/public/manifest` avant qu'un octet ne parte, et
+fait la même chose de `%2E%2E` — undici décode l'échappement d'abord. Le mur est donc réel, une
+socket brute peut encore le viser, et l'appel direct est le seul endroit où on peut l'éprouver.
+
 ### Le routeur public finit par un 404 terminal
 
 Express retombe sur la suite quand rien ne matche. Sans ce 404, une clé inconnue traverserait
@@ -129,6 +137,13 @@ dans l'adresse, donc il ne doit pas voyager en `Referer` vers ce que la page cha
 Le manifeste est aussi la **liste blanche** : `/doc/:name` et `/audio/:file` ne cherchent pas un
 fichier, ils cherchent un nom **dans le manifeste** et servent ce qu'il désigne. Aucune requête
 n'atteint jamais un chemin qu'elle a composé.
+
+L'extension y est **facultative**, et c'est ce qui permet au lecteur d'être st0 tel quel : `fget`
+demande `/project-doc` parce que c'est la route du service de fichiers, et l'instantané appelle les
+mêmes octets `project-doc.json` parce qu'un fichier a besoin d'un nom. Accepter les deux
+orthographes ici tient en un `||` ; apprendre à l'un des deux côtés l'existence de l'autre aurait
+été un cas particulier dans le seul endroit — le transport — qui doit rester ignorant de qui
+répond.
 
 ## L'envoi est en trois temps
 

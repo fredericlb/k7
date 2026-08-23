@@ -33,8 +33,7 @@ describe("parsePlaylist", () => {
   });
 
   it("drops a line that names no song rather than inventing a ref for it", () => {
-    // `- [x]` and `- {variant: foo}` are malformed lines. Coercing either would put a row on
-    // screen pointing at something nobody can go and look at.
+    // Coercing a malformed line would put a row on screen pointing at nothing (docs/playlistFile.md).
     const p = parsePlaylist(
       ["items:", "  - [x]", "  - variant: sans-voix", "  - Lithium"].join("\n"),
     );
@@ -42,8 +41,7 @@ describe("parsePlaylist", () => {
   });
 
   it("is null when the text is not a playlist at all", () => {
-    // Null and not an empty playlist: a file that does not parse is one to go and FIX, and an
-    // empty `items:` is one to go and fill. The surface says those differently.
+    // A file that does not parse is one to go and FIX; an empty `items:` is one to go and fill.
     expect(parsePlaylist("items: [\n")).toBeNull();
     expect(parsePlaylist("- just\n- a list\n")).toBeNull();
     expect(parsePlaylist("")).toBeNull();
@@ -62,8 +60,7 @@ describe("parsePlaylist", () => {
 
 describe("yamlScalar", () => {
   it("leaves a song path alone — spaces, ampersands and parentheses and all", () => {
-    // These come out of `segment()` and are the ordinary case; quoting them would put two
-    // conventions in one hand-edited file.
+    // These come out of `segment()` and are the ordinary case (docs/playlistFile.md).
     for (const plain of [
       "AC-DC/Back in Black/Hells Bells",
       "Simon & Garfunkel/Bookends/America",
@@ -178,8 +175,7 @@ describe("appendPlaylistItem", () => {
   });
 
   it("refuses a shape it cannot extend rather than guessing", () => {
-    // A flow list spread over lines, and an `items:` that is not a list at all. Inventing a
-    // second `items:` key lower down would make the two halves of the file disagree.
+    // Inventing a second `items:` key lower down would make the file's two halves disagree.
     expect(appendPlaylistItem("items: [\n  Lithium,\n]\n", { song: "x" })).toBe(
       null,
     );
@@ -221,8 +217,7 @@ describe("playlistPathOf", () => {
     expect(playlistPathOf("/live/repet/")).toBe("_playlists/live/repet.yaml");
   });
 
-  // Null and not a throw: the value comes out of a file somebody typed, and the surface that
-  // asked reports it beside the control it breaks rather than refusing the project.
+  // Null and not a throw, since the value comes out of a file somebody typed (docs/playlistFile.md).
   it("answers null for a name that would leave the folder", () => {
     expect(playlistPathOf("../secrets")).toBeNull();
     expect(playlistPathOf("live/../../out")).toBeNull();

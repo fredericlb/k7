@@ -15,8 +15,7 @@ import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { libraryRouter } from "./library.ts";
 
-// The router alone, with no auth in front: what this covers is the upload's own contract —
-// which status a caller gets and what lands on disk. Who may call it is server.ts's job.
+// The router alone, no auth: this covers the upload's contract, not who may call it.
 let root: string;
 let server: Server;
 let base: string;
@@ -26,8 +25,7 @@ beforeEach(async () => {
   process.env.STUDIO_MEDIATEK = root;
   ensureLayout();
   const app = express();
-  // Mounted the way server.ts mounts it, json parser included: a global json() ahead of a
-  // raw() route is exactly the arrangement that silently eats a body when it guesses wrong.
+  // Mounted as server.ts does, json included: a global json() ahead of raw() can eat a body.
   app.use(express.json({ limit: "1mb" }));
   app.use("/api/mediatek", libraryRouter);
   server = await new Promise<Server>((ok) => {
@@ -147,14 +145,12 @@ describe("uploading a song", () => {
   });
 
   it("cannot be talked into writing outside its family", async () => {
-    // A tag is not a path: the separators become spaces, so this lands in a comically
-    // named folder INSIDE songs/ and nowhere else.
+    // A tag is not a path: separators become spaces, so this lands INSIDE songs/ and nowhere else.
     const res = await post({ ...tags, artist: "../../.." }, "x");
     expect(res.status).toBe(200);
     const { path } = (await res.json()) as { path: string };
     expect(path).toMatch(/^songs\//);
-    // The artist is now the FIRST segment below the family, with no provenance level in
-    // between — so this also pins that `songs/` did not quietly grow one back.
+    // Four segments pins that `songs/` did not quietly grow a provenance level back.
     expect(path.split("/")).toHaveLength(4);
   });
 });
@@ -216,9 +212,7 @@ describe("uploading a variant", () => {
   });
 });
 
-// The read side. `/file` guesses a content type from the extension, and this shell and the file
-// service's used to do it from two different tables — so a cover served from here went out as
-// octet-stream while the cache could send it, and an AIFF the other way round.
+// The read side: `/file` guesses a content type, and the two shells' tables used to disagree.
 describe("GET /file", () => {
   const put = (rel: string, body: string) => {
     const abs = join(root, rel);
@@ -245,8 +239,7 @@ describe("GET /file", () => {
     expect(r.headers.get("content-type")).toBe("application/json");
   });
 
-  // This shell's own 404 ladder, which is NOT the cache's and stays its own: a folder is a
-  // distinct answer from a missing path.
+  // This shell's own 404 ladder: a folder is a distinct answer from a missing path.
   it("refuses a directory as not a file", async () => {
     mkdirSync(join(root, "songs", "adir"), { recursive: true });
     const r = await fetch(`${base}/api/mediatek/file?path=songs/adir`);
@@ -277,6 +270,4 @@ describe("GET /search and /list", () => {
   });
 });
 
-// `describe("POST /engine-faces")` stood here, over the pass that turned a machine's whole
-// plugin scan into library modules. The route went with the `modules` family: this volume
-// holds none, and a module is authored in st0 where the plugin is actually loaded.
+// `describe("POST /engine-faces")` stood here; the route went with the `modules` family.

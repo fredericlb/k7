@@ -6,18 +6,15 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { mediatekDir } from "@studio/mediatek/layout";
 import { fileFor } from "@studio/user-prefs";
-// The row's shape is the CONTRACT, so it lives where both halves can read it rather than
-// being declared here and again in the frontend.
+// The row's shape is the CONTRACT, so it lives where both halves read it.
 import type { HuntRecord } from "@studio/web-protocol/hunt";
 
 export type { HuntRecord };
 
-/** How many rows to keep. A history is for recognising what you already looked for, not an
- *  archive — and this file is read whole on every poll. */
+/** A memory for recognising what you already asked, not an archive — and read whole on every poll. */
 const KEEP = 100;
 
-/** On the library volume, under a dot-directory: `writablePath` refuses those and
- *  `revision.ts` does not walk them, so none of this appears in a family scan or the file API. */
+/** Under a dot-directory: `writablePath` refuses those and `revision.ts` does not walk them. */
 export function huntsDir(): string {
   return process.env.STUDIO_HUNTS_DIR || join(mediatekDir(), ".hunts");
 }
@@ -39,8 +36,7 @@ export function listHunts(sub: string): HuntRecord[] {
 function writeAll(sub: string, hunts: HuntRecord[]): void {
   const path = pathFor(sub);
   mkdirSync(dirname(path), { recursive: true });
-  // Throws rather than swallowing, like the repositories store and unlike the preferences: a
-  // lost preference costs a setting, a lost history row hides a download that really happened.
+  // Throws rather than swallowing: a lost row hides a download that really happened.
   writeFileSync(
     path,
     `${JSON.stringify({ hunts: hunts.slice(0, KEEP) }, null, 2)}\n`,
@@ -54,8 +50,7 @@ export function saveHunt(sub: string, rec: HuntRecord): void {
   writeAll(sub, [rec, ...rest]);
 }
 
-/** Change part of a row. Reads and rewrites the whole file, which at a hundred rows is
- *  cheaper than any index would be to keep correct. */
+/** Change part of a row: rewrites the whole file, cheaper at a hundred rows than any index. */
 export function patchHunt(
   sub: string,
   id: string,
@@ -78,14 +73,7 @@ export function removeHunt(sub: string, id: string): boolean {
   return true;
 }
 
-/**
- * Rows left mid-flight by a restart, told the truth about.
- *
- * A hunt lives in one process's memory, so a redeploy loses it while its row still says
- * "downloading" — a blue line that would spin for ever. Anything in a live state that no
- * runner still owns is marked failed the next time the list is read, which is also the first
- * moment anybody could have noticed.
- */
+/** Rows a restart orphaned, told the truth about at the first read — ../../docs/hunt.md. */
 export function reconcile(sub: string, running: Set<string>): HuntRecord[] {
   const all = listHunts(sub);
   let changed = false;

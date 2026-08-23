@@ -43,8 +43,7 @@ describe("the file input", () => {
   });
 
   it("emits audio", () => {
-    // Not derivable from the type folder: everything under io/ shares one, and what leaves
-    // the module is decided by its role.
+    // Everything under io/ shares one type folder, so the ROLE decides what leaves the module.
     expect(moduleEmits("io", "file")).toBe("audio");
     expect(moduleEmits("io", "out")).toBeUndefined();
   });
@@ -55,23 +54,14 @@ describe("the file input", () => {
   });
 
   it("is NOT a live interface input", () => {
-    // The narrower test gates channels, monitoring, trim and the tuner — none of which mean
-    // anything for a file. Both emit audio, and that is all they share.
+    // The narrower test gates channels, monitoring and trim, none of which a file has.
     const m = { kind: "io", io: "file" } as never;
     expect(isFileInputModule(m)).toBe(true);
     expect(isInputModule({} as never, m)).toBe(false);
   });
 
   it("carries the file it reads, and a chain may leave it unnamed", () => {
-    // Absent is the USEFUL case, not an oversight: a chain template's input names no file
-    // because whoever applies the template supplies the audio.
-    //
-    // It is `source:` and not `file:` because the loader already writes the module's FOLDER
-    // name to `file` — an authored one was overwritten by the decoration, silently, which is
-    // what this assertion caught the first time it ran.
-    // The MODULE names none — that is the template shape. A use of it carries the file, exactly
-    // as an io/IN node carries its channel. The use is a file in `nodes/` now, so it
-    // reaches the module through `extends` rather than by sitting beside it.
+    // `source:` and not `file:`, which the loader overwrites with the module's FOLDER name.
     file("modules/io/FILE/module.yaml", "io: file\n");
     file(
       "nodes/take.yaml",
@@ -83,9 +73,7 @@ describe("the file input", () => {
   });
 
   it("is not somewhere a chain can route TO", () => {
-    // The whole point of IO_SOURCES. `isSink` decides by ELIMINATION — every io module that
-    // is not a source is a destination — so before the list existed this routing would have
-    // been accepted in silence, wiring a chain INTO the thing meant to feed it.
+    // `isSink` decides by ELIMINATION, so without IO_SOURCES a chain wires INTO its own feeder.
     file("modules/io/FILE/module.yaml", "io: file\n");
     file(
       "modules/audio/amp/module.yaml",

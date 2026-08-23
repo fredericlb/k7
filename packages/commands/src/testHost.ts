@@ -21,16 +21,7 @@ export interface HostLog {
   refuse: string[];
 }
 
-/**
- * A complete host, plus whatever the test wants to change.
- *
- * The defaults are INERT, never spies: they return nothing and write nothing, so a verb reaching a
- * capability the test did not name does nothing visible rather than breaking. What matters is the
- * two channels, which come back in `lines`.
- *
- * An empty project by default: that is what most refusals exercise, and a test needing tracks
- * passes its own.
- */
+/** A complete host with INERT defaults — never spies — and an empty project unless one is given. */
 export function testHost(
   over: Partial<CommandHost> = {},
 ): CommandHost & { lines: HostLog } {

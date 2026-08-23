@@ -24,8 +24,7 @@ export interface BuiltinParam {
   max: number;
   /** Absent when the plugin publishes none — a state param usually does, an automatable one usually does not. */
   def?: number;
-  /** A discrete parameter's named settings, in order. Each carries the VALUE that selects it, because the
-   *  mapping is not always index/(n-1). Absent for a continuous control. */
+  /** A discrete parameter's named settings, each carrying the VALUE that selects it — not always index/(n-1). */
   states?: { label: string; value: number }[];
 }
 
@@ -40,33 +39,12 @@ export interface BuiltinPluginInfo {
 
 export { BUILTIN_PLUGINS };
 
-/**
- * Every built-in, by all THREE spellings a module may reach it with, lower-cased.
- *
- * The first two are the TypeScript twin of `resolveBuiltInType` in the engine's `EditBuilder.cpp`, and
- * deliberately its rule: a project may write the human form (`Chorus`, `Mixer`) or the internal id
- * (`chorus`, `studio_mixer`), and both must find the same plugin. That function matches on `name` or
- * `identifier`, case-insensitively; so does this. The two disagreeing would be the worst shape available —
- * a module that plays perfectly and shows an empty parameter list, or the reverse.
- *
- * The third is the SLUG, and it is the one a library module actually uses. A module that is the face for a
- * plugin the engine provides states nothing else at all — this is the whole file:
- *
- *     # _libraries/modules/instruments/4osc/module.yaml
- *     extends: "@engine/4osc"
- *
- * `@engine/<slug>` is `slugifyPluginName(displayName)`: the one rule `engineModuleOf` applies on the
- * machine and `baseModuleRefs` applies in a browser. Spelt here a third time by CALLING it rather than by
- * restating it, which is the whole reason that function sits in a leaf free of `node:fs`.
- *
- * Built once at module load: this is read per base module per hints gather.
- */
+/** Every built-in by all THREE spellings a module may reach it with, lower-cased — see docs/moduleTypes.md. */
 const BY_SPELLING: Map<string, BuiltinPluginInfo> = (() => {
   const m = new Map<string, BuiltinPluginInfo>();
   for (const [type, info] of Object.entries(BUILTIN_PLUGINS)) {
     m.set(type.toLowerCase(), info);
-    // Neither derived spelling overwrites a TYPE: a type is the addressable one, and "Delay" being
-    // both would otherwise depend on which came first in the object.
+    // Neither derived spelling overwrites a TYPE, which is the addressable one (docs/moduleTypes.md).
     for (const alias of [info.name, slugifyPluginName(info.name)])
       if (alias && !m.has(alias.toLowerCase()))
         m.set(alias.toLowerCase(), info);
@@ -83,13 +61,7 @@ export function builtinPluginFor(
   return BY_SPELLING.get(p.name.trim().toLowerCase());
 }
 
-/**
- * The built-in behind an `extends:` ref, or undefined when it names something else.
- *
- * `@engine/4osc` and nothing more is what a library module IS — see the note above. Only the engine
- * namespace: a `@st0/…` or a project-local ref names a FILE, which has to be read and resolved, and this
- * is the seam for the case where there is nothing to read.
- */
+/** The built-in behind an `extends:` ref, the ENGINE namespace only — see docs/moduleTypes.md. */
 export function builtinPluginForRef(
   ref: string | null | undefined,
 ): BuiltinPluginInfo | undefined {
@@ -102,8 +74,7 @@ export function builtinPluginForRef(
   );
 }
 
-/** The parameters of whatever plugin a module declares, or undefined when it is not a built-in.
- *  Undefined and empty are DIFFERENT: the second means a plugin whose state is not parameters. */
+/** A module's plugin's parameters; undefined and empty DIFFER — the second is a plugin whose state is not params. */
 export function builtinParamsFor(plugin: unknown): BuiltinParam[] | undefined {
   return builtinPluginFor(plugin)?.params;
 }

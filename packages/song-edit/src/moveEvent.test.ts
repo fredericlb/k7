@@ -11,13 +11,7 @@ import { parsePosition } from "@studio/song-schema/timecode";
 import { describe, expect, it } from "vitest";
 import { moveTrackPlacement, moveTrackPlacementsInRange } from "./trackMix";
 
-// Dragging a clip. The property that matters is that the file comes back with ONE line
-// different: a track file is hand-editable, and a drag that reflowed it would bury the
-// change in the diff and lose whatever the author wrote around it.
-//
-// A placement is addressed by POSITION IN BEATS, not by the text of its `start` — which is
-// the key the caller holds from the compiled project, and what makes "2:1:1", "2:1" and the
-// beat value 4 the same event.
+// Dragging a clip: ONE line different, and the placement addressed by POSITION IN BEATS.
 
 const NUM = 4;
 const DEN = 4;
@@ -50,10 +44,7 @@ events:
     );
     expect(moved).toBe(true);
     const after = read(dir);
-    // The snare moved; its fade, its pass count and its disabled flag travelled with it, on
-    // one line as before. A move rewrites the placement's own line and nothing else — the
-    // same trade graphFile.ts makes: one canonical form, or the first edit re-spaces the
-    // whole file instead of one line.
+    // The snare moved with its fade, its pass count and its flag, on one line as before.
     expect(after).toContain(
       '- { ref: snare, start: "3:1:1", fadeIn: "0:1", loop: 2, disabled: true }',
     );
@@ -114,9 +105,7 @@ events:
   });
 });
 
-// The bulk form: same file, same one-line-per-move property, but the range decides which
-// placements move — and the starts are collected before any is rewritten, so moving an
-// event ONTO another's start can never make the second one move twice or not at all.
+// The bulk form: the starts are collected before any is rewritten — see docs/trackMix.md.
 describe("moveTrackPlacementsInRange", () => {
   it("moves every placement starting in the range, and only those, one line each", () => {
     const before = `# the drum lane

@@ -74,6 +74,13 @@ repository mounts no submodule, and it is what a NEW account has — `Examples`,
 demos. Refusing to open it without a library repository would put those demos behind the single
 piece of setup they exist to precede. See `apps/st0/frontend/docs/projects.md`.
 
+The bench is the one the gate matches on the **app** as well as the name. It is a `.st0` project, so
+`/m9/@banc/…` names nothing at all and must fall through to the ordinary road, where pl8 answers
+"no such repository" — which is exactly what it is. Its wait is reported as `cloning` because from
+here it is the same thing: a visible wait while a machine fetches a catalogue, and the first one is
+the slow one. The project part of the address rides along with it, since the same bench opens on the
+whole catalogue or on one médiathèque chain.
+
 **`parseLaunch` knows about none of them.** All three are ordinary addresses whose repository part
 happens to start with `@`: the project part still ends at the last segment claiming the app's
 suffix, which is why `@shares` spells its token `<token>.st0` and why `@local` puts the workspace
@@ -132,6 +139,51 @@ holds `.z0` folders and a second one would be the second thing to keep in step w
 > The addresses caught up afterwards: st0 answers the ORIGIN now and the médiathèque is at
 > `/pl8`, so this page is `<origin>/` rather than `<origin>/st0/`. `projectsUrl` asks
 > `SERVICE_PATHS` and did not have to change.
+
+`projectsUrl` ends in a slash on purpose — that is `BASE_URL`'s own spelling, so a tab lands on the
+app's mount rather than on a redirect to it. And `serviceUrl` is what keeps the prefix a fact read
+from one table rather than a slash somebody has to remember.
+
+## What the gate takes, and what it refuses to know
+
+`GateEngine` declares what the gate needs about the engine it resolved against, **structurally**,
+so it does not care how each app models one. Two of its fields are flat (`fileBase`, `token`) and
+the third is nested: `engine: { id }`, because a call to another service has to name the machine it
+is borrowing (`FileCfg.engineId`, and pl8's `/api/stems` is the first that does). Nested rather
+than flattened to `id` is the shape `RankedEngine` already has — both hosts pass one of those
+straight through, so asking for the field where it actually lives costs neither of them an edit.
+
+`base` is handed over rather than read, for a dull reason with no way round it: it is vite's
+`import.meta.env.BASE_URL`, a build constant of the APP, and a package cannot read another
+package's build constant.
+
+The **address is parsed once per mount**, from `window.location.pathname` and not from
+`useLocation()` — the router's basename is this very prefix, so what the hook reports has the repo
+and the project already stripped off it. Once matters twice: `parseLaunch` returns a fresh object
+every call, which as a dependency of the setup effect would re-resolve the workspace forever; and
+the prefix cannot change without a navigation that remounts the gate anyway.
+
+### Strings that are optional, and why that is honest
+
+`ProjectGateStrings` is mostly required, and two groups are not: the **bench**'s wait
+(`benchWorkspace`, `benchFetching`) and the **idle** screen (`idleTitle`, `idleBody`, `resume`).
+Both are screens an app may be structurally unable to reach — the bench is a `.st0` project, so m9
+can never open one, and an app that passes no `idleTimeoutMs` never leaves the running phase.
+Required, they would each be made to translate a card nobody can see. The gate falls back to plain
+English rather than to an empty one.
+
+### "Somebody else opened this project"
+
+`ProjectTakenOver` lives here, and not three times in three engine gates, because the claim is
+enforced in ONE place (`@studio/engine-registry`) and a screen explaining it per app would be three
+accounts of one rule. It is pure presentation: a `heldBy` string and a callback, which is what keeps
+this package free of `@studio/engine-browser`. The wording stays the caller's, as everything else
+here does.
+
+**No Retry**, and that is the point of it. Retrying is precisely what must not happen: the claim was
+handed over on purpose, and a tab that took it back on a timer is how one project ends up flickering
+between two people. The only move is to go and pick again — or to reopen the project deliberately,
+which is a fresh open and therefore a fresh takeover.
 
 ## Why this is a package and not two copies
 

@@ -38,8 +38,7 @@ const track = (id: string, clips: WebClip[], over: Partial<WebTrack> = {}) =>
 
 describe("counting a material's placements", () => {
   it("counts across LANES, not only down one", () => {
-    // The case the whole feature exists for: `verse` is one material, played twice, and the
-    // second time on another instrument. Counting per lane would call both of them a first.
+    // The case the whole feature exists for: one material played twice, the second time on another instrument — per lane, both are firsts.
     const inst = materialInstances([
       track("bs", [clip("verse", 8)]),
       track("gtr", [clip("verse", 24)]),
@@ -50,8 +49,7 @@ describe("counting a material's placements", () => {
   });
 
   it("takes the EARLIEST as the first, whatever order the file lists them in", () => {
-    // A lane's `clips` are not sorted, and a placement dragged left does not move in the array.
-    // Reading position 0 as "the first" would put the ghost on the one that plays first.
+    // A lane's `clips` are not sorted, and a placement dragged left does not move in the array — position 0 is not 'the first'.
     const inst = materialInstances([
       track("bs", [clip("v", 24), clip("v", 8)]),
     ]);
@@ -75,8 +73,7 @@ describe("counting a material's placements", () => {
   });
 
   it("ignores a GENERATED lane — its clips are the scheduler's look-ahead", () => {
-    // Nobody placed them, so they are not occurrences of anything: a pattern streaming the same
-    // bar sixteen times would otherwise ghost the one real placement of it on the lane above.
+    // Nobody placed them, so they are occurrences of nothing: a pattern streaming one bar sixteen times would ghost the real placement.
     const inst = materialInstances([
       track("bs", [clip("hit", 0)]),
       track("algo", [clip("hit", 4), clip("hit", 8)], { generated: true }),
@@ -85,8 +82,7 @@ describe("counting a material's placements", () => {
   });
 
   it("names the material by its ref, falling back to the id", () => {
-    // `name` is what `events add` takes; an unnamed clip is addressed by id, and two of THOSE
-    // are still two placements of one thing.
+    // `name` is what `events add` takes; an unnamed clip is addressed by id, and two of THOSE are still two placements of one thing.
     expect(materialOf(clip("verse", 0))).toBe("verse");
     expect(materialOf(clip("", 0))).toBe("#id");
     const inst = materialInstances([track("bs", [clip("", 0), clip("", 8)])]);

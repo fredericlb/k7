@@ -9,8 +9,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** One row. A branch has `children`; a leaf has `entry`; a row with neither is plain text
- *  (used for "no match" and "first N matches"), which is why both are optional. */
+/** One row: a branch has `children`, a leaf has `entry`, and a row with neither is plain text — which is why both are optional. */
 export interface TreeNode<T> {
   key: string;
   label: string;
@@ -25,10 +24,7 @@ const MENU_BASE =
 // Scrolling and submenus can't share an element — an `overflow` clips a submenu away. They never need to.
 const MENU_SCROLL = "max-h-[min(28rem,80vh)] overflow-y-auto overflow-x-hidden";
 
-/** One level. Renders its rows and, for whichever row is open, the next level beside it.
- *  `header` (the root's search field) sits above them, outside the scroll area so it
- *  stays put while a long list of matches scrolls under it. `selected` highlights a row
- *  the keyboard is on — the mouse has hover for that. */
+/** One level: its rows, and the next level beside whichever is open; `header` sits outside the scroll area so it stays put. */
 function Level<T>({
   nodes,
   onPick,

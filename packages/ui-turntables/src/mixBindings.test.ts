@@ -17,9 +17,7 @@ const graphWith = (
   steps: {
     module: string;
     pluginId?: string;
-    // The widget's own fields, minus the placement the fixture supplies. Not a narrowing of
-    // three of them: `curve` and `step` are what the desk has to honour, so a fixture that
-    // cannot express them cannot test that it does.
+    // The widget's own fields, minus the placement: `curve` and `step` are what the desk must honour.
     widget?: Partial<WebWidget> & { bind: string };
   }[],
 ): WebGraph =>
@@ -74,9 +72,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("names a control the desk does not have", () => {
-    // A typo about your OWN project. st0's MIDI join skips a binding it cannot apply, because
-    // a module's map travels into projects that draw it differently — this file names this
-    // set's own nodes, so silence would leave a dead fader with nothing to fix.
+    // A typo about your OWN project: silence here would leave a dead fader with nothing to fix.
     const { bindings, problems } = resolveBindings(
       { "deckA.pitch": { module: "crossfade", param: "Mix" } },
       graphWith([{ module: "crossfade", pluginId: "x" }]),
@@ -95,9 +91,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("resolves a module with no plugin by the TRACK it processes", () => {
-    // An `offline` module — m9's tempo is one — compiles to no plugin, so there is no param
-    // to set. It is not unbindable: what it changes is the material of the track its chain
-    // draws from, and that track is the address.
+    // An `offline` module compiles to no plugin, so the track its chain draws from is the address.
     const { bindings, problems } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade" }]),
@@ -108,8 +102,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("names a module with neither a plugin nor a track", () => {
-    // Nothing to move at all. Named rather than skipped: "nothing happens when I move it" is
-    // the most likely reason a binding looks dead, and it is not the file's fault.
+    // Nothing to move at all, and named rather than skipped: a dead binding must say so.
     const graph = graphWith([{ module: "crossfade" }]);
     graph.chains.deckA.from = "";
     const { bindings, problems } = resolveBindings(VIEW, graph);
@@ -118,8 +111,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("resolves WITHOUT a widget rather than calling it broken", () => {
-    // No panel means no min/max, so nothing can be scaled — but the target exists, and
-    // reporting it as an error would be wrong.
+    // No panel means no min/max and nothing to scale — but the target exists, so it is no error.
     const { bindings, problems } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
@@ -129,8 +121,7 @@ describe("resolving the desk's bindings", () => {
   });
 
   it("resolves nothing at all with no graph yet", () => {
-    // Before the first compile. Every line is reported as unresolvable rather than the file
-    // looking empty — which would read as "you bound nothing".
+    // Before the first compile: every line is unresolvable, rather than the file looking empty.
     const { bindings, problems } = resolveBindings(VIEW, null);
     expect(bindings).toEqual([]);
     expect(problems).toHaveLength(1);
@@ -167,8 +158,7 @@ describe("which track a fader stretches", () => {
   });
 
   it("FOLLOWS the file when a fader is pointed elsewhere", () => {
-    // The difference between a declared control and a hardcoded one: deck A's fader stretches
-    // whatever module the file names, and here that is deck B's.
+    // A declared control, not a hardcoded one: deck A's fader stretches whatever module the file names.
     const crossed: MixView = {
       "deckA.tempo": { module: "tempoB", param: "Target BPM" },
     };
@@ -180,8 +170,7 @@ describe("which track a fader stretches", () => {
   });
 
   it("skips a binding whose plugin the ENGINE actually has", () => {
-    // The crossfade goes the other way — `setPluginParam`, not a warp. Stretching its track
-    // as well would apply the fade twice, in two different currencies.
+    // The crossfade goes the other way, so stretching its track too would apply the fade twice.
     const { bindings } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
@@ -191,9 +180,7 @@ describe("which track a fader stretches", () => {
   });
 
   it("leaves an EQ knob out of the stretches entirely", () => {
-    // The EQ is a REAL plugin, so its knobs take the param path — `set-plugin-param`, per
-    // pixel. Letting one into the stretch map would warp the deck's clip every time somebody
-    // touched the bass, which is the same confusion of currencies the crossfade case guards.
+    // The EQ is a REAL plugin: in the stretch map its bass knob would warp the deck's clip.
     const { bindings } = resolveBindings(
       { "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" } },
       graphWith([{ module: "eqA", pluginId: "deckA:eqA" }]),
@@ -204,10 +191,7 @@ describe("which track a fader stretches", () => {
   });
 
   it("STRETCHES when the graph invented an id the document has not got", () => {
-    // The bug this argument exists for. `buildGraphDoc` gives an `offline` module a
-    // `pluginId` — `deckA:tempoA` — and the compiler emits no such plugin. Judging by the
-    // graph classed every tempo fader as a param and sent it into the void; judging by the
-    // DOCUMENT is what puts it back on the warp path.
+    // `buildGraphDoc` gives an `offline` module a `pluginId` the compiler emits nothing for.
     const { bindings } = resolveBindings(
       { "deckA.tempo": { module: "tempoA", param: "Target BPM" } },
       graphWith([{ module: "tempoA", pluginId: "deckA:tempoA" }]),
@@ -237,9 +221,7 @@ describe("reading a binding backwards, for the graph", () => {
   };
 
   it("finds the control a module's param belongs to", () => {
-    // All the graph has is a module and a param — a node knows nothing about decks. The file
-    // already says which control drives it, and reading the same line the other way is what
-    // lets a knob turned there move the right deck.
+    // A node knows nothing about decks, so the file's line is read the other way — docs/deckSet.md.
     const { bindings } = resolveBindings(tempoView, graph());
     expect(controlDriving(bindings, "tempoB", "Target BPM")?.control.id).toBe(
       "deckB.tempo",
@@ -247,8 +229,7 @@ describe("reading a binding backwards, for the graph", () => {
   });
 
   it("FOLLOWS the file, so re-pointing a line moves the graph's knob too", () => {
-    // Deck A's fader aimed at deck B's module: the knob on `tempoB` is now deck A's control,
-    // and neither surface had to be told.
+    // Deck A's fader aimed at deck B's module: the knob on `tempoB` is now deck A's control.
     const crossed: MixView = {
       "deckA.tempo": { module: "tempoB", param: "Target BPM" },
     };
@@ -259,9 +240,7 @@ describe("reading a binding backwards, for the graph", () => {
   });
 
   it("refuses a binding that HAS a plugin", () => {
-    // That one has a socket of its own — the graph sends `set-plugin-param` and never asks
-    // this. Answering would give one param two routes to the engine, which is how a value
-    // gets applied twice.
+    // That one has a socket of its own, and answering would give one param two routes to the engine.
     const { bindings } = resolveBindings(
       VIEW,
       graphWith([{ module: "crossfade", pluginId: "deckA:crossfade" }]),
@@ -285,33 +264,27 @@ describe("what a control's position SHOWS", () => {
   const LIVE = { "deckA:crossfade": { Mix: 0.8 } };
 
   it("draws the ENGINE's value when no hand is on it", () => {
-    // The bug this exists for. Every surface used to keep its own copy, so a knob turned in
-    // Mix left the graph drawing the number the project file declares — and the graph is
-    // where you go to check what a module is actually doing.
+    // A per-surface copy left the graph drawing the file's number after a knob was turned in Mix.
     expect(shownValue(bound(), undefined, LIVE)).toBe(0.8);
   });
 
   it("lets the hand win while a gesture is in flight", () => {
-    // Optimism, and only for the round trip: waiting for the engine to agree before moving
-    // the knob would make every drag feel like a lag.
+    // Optimism, and only for the round trip: waiting for the engine would make every drag lag.
     expect(shownValue(bound(), 0.2, LIVE)).toBe(0.2);
   });
 
   it("knows nothing rather than guessing zero", () => {
-    // Before the first frame. Zero is a real value — and on a ±20 dB EQ it is the CENTRE —
-    // so a caller drawing the control's own home is right where inventing a 0 would not be.
+    // Before the first frame: zero is a real value, and on a ±20 dB EQ it is the CENTRE.
     expect(shownValue(bound(), undefined, {})).toBeUndefined();
     expect(shownValue(undefined, undefined, LIVE)).toBeUndefined();
   });
 
   it("yields the override once the engine has caught up", () => {
-    // An override that never yields is a control that has stopped listening: the engine can
-    // clamp what it was sent, and the graph can move the same param.
+    // An override that never yields is a control that has stopped listening.
     expect(engineAgrees(bound(), 0.8, LIVE)).toBe(true);
     expect(engineAgrees(bound(), 0.81, LIVE)).toBe(true); // within a hair
     expect(engineAgrees(bound(), 0.2, LIVE)).toBe(false);
-    // Nothing heard yet is not agreement — dropping the hand's value here would snap the
-    // knob back to wherever the file said.
+    // Nothing heard yet is not agreement — the knob would snap back to whatever the file said.
     expect(engineAgrees(bound(), 0.8, {})).toBe(false);
   });
 });
@@ -330,8 +303,7 @@ describe("what a control's position sends", () => {
     ).bindings[0];
 
   it("maps the control's range onto the WIDGET's", () => {
-    // The crossfader is 0..1 and so is Mix, so this is an identity — the case that matters is
-    // that it goes through the widget's numbers rather than assuming they match.
+    // An identity here, but it goes THROUGH the widget's numbers rather than assuming they match.
     const b = bind(0, 1);
     expect(valueFor(b, 0)).toBeCloseTo(0);
     expect(valueFor(b, 0.5)).toBeCloseTo(0.5);
@@ -345,9 +317,7 @@ describe("what a control's position sends", () => {
     expect(valueFor(b, 0.5)).toBeCloseTo(-27);
   });
 
-  // The widget half belongs to `widgetDenorm`, not to a lerp written here. Expanded by hand,
-  // a log control's midpoint landed at the ARITHMETIC middle — so the same param moved from
-  // the desk and moved on the graph gave two different numbers, in one app, on one plugin.
+  // The widget half belongs to `widgetDenorm`: a hand-rolled lerp put a log midpoint in the wrong place.
   it("follows a log widget's curve, like the graph does", () => {
     const b = resolveBindings(
       VIEW,
@@ -381,8 +351,7 @@ describe("what a control's position sends", () => {
   });
 
   it("scales a control whose own range is not 0..1", () => {
-    // The tempo fader is 10..300. Its middle has to land on the param's middle, which is what
-    // normalising by the CONTROL's range and expanding by the WIDGET's is for.
+    // The tempo fader is 10..300: normalise by the CONTROL's range, expand by the WIDGET's.
     const tempo = mixControl("deckA.tempo");
     if (!tempo) throw new Error("the desk defines it");
     const b = { ...bind(0, 100), control: tempo };
@@ -397,9 +366,7 @@ describe("what a control's position sends", () => {
   });
 });
 
-// What the graph is lent for the modules the engine holds nothing of. The desk is the only
-// place a tempo's numbers exist, so a rule broken here is a node stuck on a stale reading —
-// see ../docs/bpm.md.
+// What the graph is lent for the modules the engine holds nothing of — see ../docs/bpm.md.
 describe("what an offline module reads", () => {
   /** A measured deck: the song runs at 128, the fader has been pulled to 124. */
   const TEMPO = { natural: 128, seconds: 210, target: 124 };
@@ -412,9 +379,7 @@ describe("what an offline module reads", () => {
   const bindings = resolveBindings(TEMPO_VIEW, tempoGraph).bindings;
 
   it("publishes BOTH of a tempo node's numbers, not just the bound one", () => {
-    // `views/mix.yaml` names one param per control, so only `Target BPM` is bound. `Source BPM`
-    // is the song's own tempo — measured, drawn as a meter — and nothing else in the repo ever
-    // wrote it.
+    // One param per control is bound, so `Source BPM` — measured, drawn as a meter — is published here.
     expect(offlinePublish(bindings, { deckA: TEMPO }, "Source BPM")).toEqual([
       { module: "tempoA", param: "Target BPM", value: 124 },
       { module: "tempoA", param: "Source BPM", value: 128 },
@@ -422,9 +387,7 @@ describe("what an offline module reads", () => {
   });
 
   it("publishes 0 for a deck with no tempo rather than saying nothing", () => {
-    // Putting a record on CLEARS the fader and the measurement lands a moment later. Staying
-    // quiet across that gap left the node showing the outgoing song, at exactly the moment
-    // somebody looks at it to see what they just loaded. 0 is the module's own "leave alone".
+    // Silence across the gap after `clearTempo` left the node showing the OUTGOING song (docs/bpm.md).
     expect(offlinePublish(bindings, {}, "Source BPM")).toEqual([
       { module: "tempoA", param: "Target BPM", value: 0 },
       { module: "tempoA", param: "Source BPM", value: 0 },
@@ -432,8 +395,7 @@ describe("what an offline module reads", () => {
   });
 
   it("says nothing about a binding the ENGINE answers for", () => {
-    // A real plugin reports its own value down the socket; publishing it here too would give
-    // one param two sources, and the slower one would win half the time.
+    // A real plugin reports itself down the socket, and two sources means the slower one sometimes wins.
     const withPlugin = resolveBindings(
       VIEW,
       graphWith([
@@ -450,10 +412,7 @@ describe("what an offline module reads", () => {
   });
 
   it("says nothing about an offline module that is NOT a tempo", () => {
-    // The rule used to be "every binding with no plugin", and the number published was the
-    // deck's tempo target — so a stem cut read its deck's BPM as its own value. This list is
-    // drawn from the tempos and holds nothing for those controls; saying nothing is the honest
-    // answer until their value has a home on the desk.
+    // "Every binding with no plugin" made a stem cut read its deck's BPM as its own value.
     const cutView: MixView = {
       "deckA.stemBass": { module: "stemsA", param: "Bass" },
     };

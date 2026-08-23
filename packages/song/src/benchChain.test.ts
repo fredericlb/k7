@@ -12,9 +12,7 @@ import {
 } from "./benchChain";
 import { BENCH_EDGES } from "./scaffoldBench";
 
-// The REAL furniture, not a copy of it. This file used to restate `{ track, out, strip }`, which
-// is exactly the drift `BENCH_EDGES` is exported to prevent: when the sink became `MIX`, the copy
-// went on saying `OUT` and these tests went on passing against a bench nobody ships.
+// The REAL furniture: a restated copy went on saying `OUT` after the sink became `MIX`.
 const EDGES = BENCH_EDGES;
 
 // The real thing, from the médiathèque: `chains/blindtest/assourdissant/…/graph.yaml`.
@@ -69,8 +67,7 @@ describe("a shared chain, opened on the bench", () => {
   });
 
   it("survives a split and a merge", () => {
-    // Two branches from the input, meeting again at the output — the shape a parallel treatment
-    // has, and the one a naive rename would flatten.
+    // Two branches meeting at the output: the parallel shape a naive rename would flatten.
     const src = `modules:
   "@in": [ dry, wet ]
   dry: [ "@out" ]
@@ -84,11 +81,7 @@ describe("a shared chain, opened on the bench", () => {
   });
 
   it("gives a chain that treats nothing a level, and still gives it back", () => {
-    // `@in → @out` is a pass-through. On the bench that is the track into the strip into the
-    // sink — you get a fader over material that is otherwise untouched, which is the useful
-    // reading — and the strip comes back out as the boundary it stood for.
-    // …and `MIX -> OUT` past the strip, which is the PROJECT's furniture, not the chain's: every
-    // project carries the run out to the interface, and it comes back off with the strip.
+    // A pass-through becomes track, strip, sink, plus the project's own `MIX -> OUT` past it.
     const bench = chainToBench(`modules:\n  "@in": [ "@out" ]\n`, EDGES);
     expect(parse(bench)).toEqual({
       banc: ["mixer"],
@@ -110,8 +103,7 @@ bypassed: [ overdrive ]
 
 describe("what it refuses", () => {
   it("names the collision rather than eating the module", () => {
-    // A chain with its own `mixer` cannot be opened on a bench whose strip is `mixer`: saving
-    // would take the strip out and remove the chain's module with it.
+    // A chain with its own `mixer` cannot open on a bench whose strip is one: the save deletes it.
     const src = `modules:\n  "@in": [ mixer ]\n  mixer: [ "@out" ]\n`;
     expect(benchChainCollision(src, EDGES)).toMatch(/mixer/);
     expect(benchChainCollision(REAL, EDGES)).toBeNull();

@@ -52,14 +52,12 @@ describe("a jsdsp module in the graph", () => {
   });
 
   it("carries the pluginId its panel reads values by", () => {
-    // Without this the widgets draw their labels and no values, which is what the red node
-    // looked like from the outside: a module that plays, with an empty face.
+    // Without this the widgets draw labels and no values: a module that plays, with an empty face.
     expect(lead()?.pluginId).toBe("melody:lead");
   });
 
   it("offers no NATIVE editor, since the graph host has no window", () => {
-    // The other half of the same fact: `ui` is the widget grid, `hasNativePluginUI` is the
-    // plugin's own window — and a built-in has none to open.
+    // `ui` is the widget grid, `hasNativePluginUI` the plugin's own window — a built-in has none.
     expect(lead()?.hasNativePluginUI).toBe(false);
   });
 });

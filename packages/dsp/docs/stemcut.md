@@ -11,6 +11,11 @@ sortie = mix + (−Cut · stem)     Cut = 0 → le mix, échantillon pour échan
 Deux nœuds : `sub(0, Cut)` puis `gain`. Tout le reste de cette page explique pourquoi c'est cette
 forme-là et pas une autre.
 
+`sub(0, Cut)` plutôt que `mul(Cut, -1)` : un nœud dans les deux cas, mais celui-là se lit comme ce
+qu'il est — rien, moins ce qu'on a demandé d'enlever. Et le module existe deux fois, ici et dans
+`packages/dsp/src/stemcut.ts`, parce qu'un module est un dossier qu'on copie ; `packages/dsp/src/stemcut.test.ts`
+tient les deux copies et le `graphs/stemcut.json` committé à la même forme.
+
 ## Pourquoi soustraire, plutôt que jouer les stems
 
 La réponse tient dans un fait sur le modèle : **la somme des quatre stems ne redonne pas le

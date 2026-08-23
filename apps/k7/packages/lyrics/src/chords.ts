@@ -11,10 +11,7 @@
 // A single note: root letter, optional accidental.
 const NOTE = "[A-G](?:#|b|♯|♭)?";
 
-// Chord quality/extension body. Deliberately built from a known vocabulary
-// (maj, min, sus, add, m, dim, aug, numeric extensions, altered tones) rather
-// than "any letters" so common words like "Bad", "Cage" or "Fed" are NOT
-// mistaken for chords.
+// A KNOWN vocabulary, not "any letters", so "Bad" is not a chord — ../../../docs/tablature.md.
 const QUALITY = "(?:maj|min|aug|dim|sus|add|m|M|Δ|°|ø|\\+|-)";
 const EXT = "(?:[0-9]|[#b][0-9]|\\([^)]*\\))";
 const CHORD_BODY = `${QUALITY}?${EXT}*`;
@@ -65,10 +62,7 @@ function transposeNote(
   return (preferFlats ? FLAT : SHARP)[next];
 }
 
-/**
- * Transpose a single chord by `semitones`. The quality/extension is preserved;
- * only the root and any slash-bass note move. Non-chords are returned unchanged.
- */
+/** Transpose one chord: only the root and any slash bass move, and a non-chord does not. */
 export function transposeChord(
   chord: string,
   semitones: number,
@@ -88,11 +82,7 @@ export function transposeChord(
   return `${newRoot}/${transposeNote(bass, semitones, flats)}`;
 }
 
-/**
- * Transpose every chord token on a line while preserving the exact whitespace
- * between tokens (so "chords above lyrics" alignment is kept as closely as
- * possible — column drift can still occur when a token changes width).
- */
+/** Every chord on a line, keeping the exact whitespace between tokens (../../../docs/tablature.md). */
 export function transposeLine(line: string, semitones: number): string {
   if (!semitones) return line;
   return line

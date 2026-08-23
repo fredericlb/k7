@@ -42,21 +42,7 @@ function onDial(deg: number, radius: number): { x: number; y: number } {
   };
 }
 
-/**
- * The arc from NEUTRAL to where the knob is — the value, drawn round the dial.
- *
- * It says the one thing the needle does not: how far from the middle, and which way, at a
- * glance and without reading. Straight up is 0 dB / no filter, so the arc grows clockwise for a
- * boost and anticlockwise for a cut, and its length IS the amount. That matters most on a short
- * strip, where the numeric readouts are dropped for height (`deskLayout`) and this is the only
- * thing left saying how much.
- *
- * Empty at rest, deliberately: an arc of zero length is what "untouched" looks like, and a
- * column of knobs all showing a stub would be the noise the readouts were dropped to avoid.
- *
- * `largeArcFlag` is 0 always and safely: the sweep is ±150°, so an arc from centre-top can
- * never exceed 180° and would take the wrong way round only if it could.
- */
+/** The arc from NEUTRAL to where the knob is, empty at rest — see ../../docs/eq.md. */
 export function arcPath(deg: number, radius: number): string {
   if (!(radius > 0) || Math.abs(deg) < 0.5) return "";
   const from = onDial(0, radius);
@@ -65,18 +51,7 @@ export function arcPath(deg: number, radius: number): string {
   return `M ${from.x} ${from.y} A ${radius} ${radius} 0 0 ${deg > 0 ? 1 : 0} ${to.x} ${to.y}`;
 }
 
-/**
- * One knob.
- *
- * Dragged VERTICALLY rather than in a circle. Chasing the pointer round an arc is the obvious
- * reading of a round control and the wrong one: it makes the value jump when the pointer
- * crosses the centre, and it is unusable on a knob this small. Up is more, down is less, over
- * a fixed number of pixels — which is what every DAW does.
- *
- * `setPointerCapture` is what lets the hand leave the knob mid-gesture, and the arrow keys are
- * what make it reachable without a pointer at all. Double-click returns to the middle: the one
- * position worth a shortcut, and the one a drag never lands on exactly.
- */
+/** One knob, dragged VERTICALLY rather than round its arc — see ../../docs/eq.md. */
 function Knob({
   label,
   value,
@@ -92,10 +67,7 @@ function Knob({
   value: number;
   range: readonly [number, number];
   step: number;
-  /** The dial's diameter in px — the filter is drawn bigger, being the one a hand throws, and
-   *  both shrink together on a short deck. A NUMBER and not a Tailwind class, because the size
-   *  is computed from the room there is (`deskLayout`) and Tailwind cannot spell an arbitrary
-   *  one without a full class name it can see at build time. */
+  /** The dial's diameter in px — a NUMBER, since `deskLayout` computes it and Tailwind cannot spell it. */
   size: number;
   /** Show the value under the label? The first thing to go when the strip is short. */
   readout: boolean;
@@ -165,8 +137,7 @@ function Knob({
       >
         <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden="true">
           <title>{label}</title>
-          {/* The travel, and the mark at rest — without the mark the dial says how much, never
-              how far from neutral, which is the thing you actually read mid-set. */}
+          {/* The travel and the mark at rest: without the mark the dial never says how far from neutral. */}
           <circle
             cx="20"
             cy="20"
@@ -182,13 +153,7 @@ function Knob({
             className="stroke-foreground/40"
             strokeWidth="1.5"
           />
-          {/* The VALUE, as an arc from twelve o'clock — see `arcPath`. Two paths: the whole
-              travel, faint, so the arc is read against what it could have been rather than
-              against nothing, and the arc itself over it.
-
-              Outside the dial's face (r=18 against the circle's 15) so it never fights the
-              needle for the same pixels, and `butt` caps so a small value is a small mark
-              rather than a round blob two pixels long. */}
+          {/* The VALUE, as an arc from twelve o'clock, over a faint full travel — ../../docs/eq.md. */}
           <path
             d={`${arcPath(-SWEEP, 18)} ${arcPath(SWEEP, 18)}`}
             fill="none"
@@ -217,12 +182,7 @@ function Knob({
       <span className="font-mono text-[9px] text-muted-foreground leading-none">
         {label}
       </span>
-      {/* The number, and only when it is NOT at rest: a column of knobs all reading "0" is
-          noise, and what a glance wants is which one somebody has touched.
-
-          Dropped whole on a short strip — the value is a convenience and the knob is the
-          control, so this is the line that pays for the filter still being on screen. The
-          angle still says roughly where the knob is, which is what the dial is for. */}
+      {/* The number, only off rest, and dropped whole on a short strip — ../../docs/eq.md. */}
       {readout ? (
         <span className="h-3 font-mono text-[9px] tabular-nums leading-none">
           {rest
@@ -234,16 +194,7 @@ function Knob({
   );
 }
 
-/**
- * A deck's strip: grave, médium, aigu, then the filter.
- *
- * VERTICAL, and on the deck's inner edge — the two strips face each other across the middle,
- * so the desk reads as a mirror and a hand knows which deck it is on. The tempo fader keeps
- * the outer edge for the same reason.
- *
- * Each half greys on its own: a project can bind an EQ and no filter, and a strip that went
- * dark as a whole would blame the wrong module.
- */
+/** A deck's strip on its INNER edge — each half greys on its own, or it would blame the wrong module. */
 export function ChannelStrip({
   eq,
   eqLive,
@@ -265,10 +216,7 @@ export function ChannelStrip({
   onFilter: (value: number) => void;
 }) {
   return (
-    // `justify-center` and NO overflow, which is only safe because `layout` guarantees the
-    // content fits: a strip taller than its box overflows at both ends under this rule, and the
-    // two things at the ends are the top EQ knob and the filter. That is exactly how the filter
-    // went missing in a pane. See ../deskLayout.ts.
+    // `justify-center` and NO overflow, safe only because `layout` guarantees a fit (../deskLayout.ts).
     <div
       className="flex w-16 shrink-0 flex-col items-center justify-center py-2"
       style={{ gap: `${layout.gap}px` }}
@@ -287,8 +235,7 @@ export function ChannelStrip({
           disabled={!eqLive}
         />
       ))}
-      {/* A rule, because the filter is not a fourth band: the three above share a scale and a
-          meaning, and this one is a different instrument on the same strip. */}
+      {/* A rule, because the filter is not a fourth band but a different instrument on the same strip. */}
       <div className="h-px w-8 shrink-0 bg-border" />
       <Knob
         label="FILTRE"
@@ -305,26 +252,7 @@ export function ChannelStrip({
   );
 }
 
-/**
- * A deck's STEMS: one knob per separated instrument, to the LEFT of the deck.
- *
- * The same column as the strip beside it — the same knob, the same ladder of sizes, the same
- * `justify-center` — because it is the same gesture on the same kind of thing. What differs is
- * what the travel means: an EQ knob's middle is neutral and it goes both ways, where a cut
- * starts at nothing removed and only goes up. So the arc grows from the LEFT of the dial rather
- * than from the top, which is what `range` already does for any control whose rest is its floor.
- *
- * Not drawn at all when the set wires no stem cut (`live` false). A desk that predates them is
- * a complete desk, and four dead knobs would be worse than none — the same argument the filter
- * makes for greying on its own rather than taking the strip with it.
- *
- * `ready` is the other half: the knobs are wired, but this record has never been separated, so
- * there is nothing to take out of it. Greyed with the reason on the title, because that state is
- * fixed by preparing the set (`playlist stems`) and not by touching anything here.
- *
- * `prep` is that same state while it is being FIXED — the catch-up the desk starts when a set
- * declares a separating chain and the record it was handed had none. See ../../docs/stems.md.
- */
+/** A deck's STEMS, to the LEFT of both decks — four states, four readings: ../../docs/stems.md. */
 export function StemStrip({
   stems,
   live,
@@ -344,10 +272,7 @@ export function StemStrip({
 }) {
   if (!live) return null;
   return (
-    // `relative`, for the badge below. The column's HEIGHT is the one thing that may not move:
-    // it borrows the strip's ladder of sizes and is only allowed to because it is shorter at
-    // every step (`stemStripHeight`), so progress is drawn OVER the knobs rather than above them.
-    // A line of text here would be seven pixels the smallest step has not got.
+    // `relative`, for the badge: the column's HEIGHT may not move, so progress is drawn OVER the knobs.
     <div
       className="relative flex w-16 shrink-0 flex-col items-center justify-center py-2"
       style={{ gap: `${layout.gap}px` }}
@@ -359,8 +284,7 @@ export function StemStrip({
           label={STEM_LABELS[s]}
           value={stems[s] ?? 0}
           range={CUT_RANGE}
-          // Percent under the hand, 0..1 on the wire: `Cut` is a proportion, and a knob that
-          // read "0.4" would be the one control on this desk speaking in units nobody says.
+          // Percent under the hand, 0..1 on the wire — nobody reads a cut as "0.4".
           step={0.01}
           size={layout.knob}
           readout={layout.readout}
@@ -369,9 +293,7 @@ export function StemStrip({
           disabled={!ready}
         />
       ))}
-      {/* Over the dead knobs, which is where the eye already is when it wonders why they are
-          dead. A percent and nothing else: the phase is a word too long for a 64 px column, so
-          it goes in the title with everything else worth reading slowly. */}
+      {/* Over the dead knobs, a percent only: the phase is a word too long for a 64 px column. */}
       {prep ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span
@@ -393,12 +315,7 @@ export function StemStrip({
   );
 }
 
-/**
- * A separation running for what is on a deck, or the reason it will not finish.
- *
- * Held by the view that starts it rather than by the deck document: a job belongs to this
- * machine and this tab, where the loaded song outlives both.
- */
+/** A separation running for what is on a deck, or why it will not finish — a job belongs to THIS tab. */
 export type StemPrep =
   | { k: "running"; phase: string; percent: number | null }
   | { k: "failed"; why: string };
@@ -409,8 +326,7 @@ function titleFor(ready: boolean, prep: StemPrep | undefined): string {
   if (prep)
     return `Séparation en cours (${prep.phase}) — les potards s'allumeront à la fin`;
   if (ready) return "Retirer un instrument du morceau";
-  // No chain declared, or the record was prepared elsewhere: the two commands that fix it, since
-  // nothing on this column can.
+  // Nothing on this column fixes it, so the sentence names the two commands that do.
   return (
     "Ce morceau n'a pas été séparé — préparez la playlist (playlist stems), " +
     "ou nommez une chaîne dans le `stems:` de la surface pour que le pupitre le fasse lui-même"

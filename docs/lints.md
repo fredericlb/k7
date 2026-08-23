@@ -1,0 +1,99 @@
+# The four checks no test would catch
+
+Beside `biome`, `tsc` and the test suites, this repo runs four checks of its own. Two block, two
+report a debt. They exist because each guards a property the ordinary tooling has no opinion about,
+and each one was written after the property had already been broken.
+
+| script | npm | blocks? | refuses |
+|---|---|---|---|
+| `scripts/check-source-bytes.mjs` | `lint:bytes` | yes | a NUL byte in a tracked source file |
+| `scripts/check-doc-links.mjs` | `lint:docs` | yes | a `.md` naming a source file that is not there |
+| `scripts/check-comments.mjs` | `lint:comments` | no | long headers, multi-line body comments, French where English is expected |
+| knip | `lint:dead` | no | dead and duplicated code on the audio axis |
+
+`lint:bytes` is the shortest and the least obvious: ripgrep skips a file containing a NUL byte
+whole, so such a file stops existing for every sweep anyone runs afterwards.
+
+## `lint:docs` — a page that points at nothing
+
+The method of this repo is that the WHY lives in the prose: a comment points at a `docs/` page, and
+the page points back at the code it is about. A pointer to a file that has been renamed or deleted
+sends the reader into a wall, and nothing else notices — twenty-two of them had built up, still
+naming `apps/m9/…` two apps after the desk moved into st0.
+
+It reads only what git tracks, and only paths that look like ours.
+
+**What counts as "a path into this repo"** is anchored on the four TOP folders — `packages`,
+`apps`, `engine`, `commons` — and deliberately NOT on `docs/` or `scripts/`. Those two are written
+relative to the zone a page is talking about: the root `AGENTS.md` says `docs/picture.md` meaning
+st0's, and moteur's `protocol.md` says `scripts/two-sessions.ts` meaning its own. A check anchored
+on them would report a hundred sentences that are perfectly clear to a reader.
+
+The pattern's lookbehind is what keeps `[stems.md](../../ui-turntables/docs/stems.md)` from being
+read as a reference to `docs/stems.md`: a match may open on `../`, never in the middle of a path. A
+reference is resolved from the repo root first — how nearly every page writes one — then relative
+to the page, which is how a `../../packages/song/src/…` written inside a package's own `docs/`
+resolves. (Spelling a whole example path here would make this sentence a broken link itself.)
+
+**Two lists soften it, and both are meant to stay short.** `ALLOW` covers paths a page may
+legitimately name although this checkout has not got them: a page inside `engine/moteur` writes
+`engine/EditBuilder.cpp` relative to its own app, and a page may name a file of `@frediverse/*`,
+which is the commons submodule and may not be checked out. A growing list there is the check going
+soft.
+
+`TOMBSTONES` is the other one, and it is the opposite of a broken link: **a page names a file
+precisely because it is gone.** This repo records what it removed and why, so the reader is not
+being sent anywhere — they are being told what used to be there. Refusing those would make the
+check fight the method it exists to protect. They are listed one by one rather than detected,
+because "the sentence around it says it went" is not something a regex can be trusted with, and
+because a list somebody has to add to is a moment to ask whether the page is recording a removal or
+has simply gone stale.
+
+## `lint:comments` — where the prose lives
+
+The three limits are in the root `AGENTS.md`: a file header of at most 10 lines, a body comment of
+exactly one line, and English. It is non-blocking, like `lint:dead`: it reports a debt that predates
+the rule and shrinks as files are touched. New code has no excuse.
+
+**French is detected on FUNCTION WORDS, never on accents.** Accents were the first try and cannot
+work: this codebase writes the names of its own things — the médiathèque, a dépôt, a chaîne —
+inside perfectly good English sentences, so an accent test flags prose that is already fine and
+never reaches zero. Function words are what a language actually is, and they also catch French that
+happens to carry no accent.
+
+**Quoted spans are dropped before the test.** The screens are in French, so an English comment
+naming one quotes it — « Trouver des morceaux » is the button's name, not prose to translate. Only
+the guillemet and double-quote forms are stripped, because the apostrophe is a French letter and
+stripping `'…'` would eat the sentence around it.
+
+One thing the rule forbids outright, and it is worth repeating here: **never turn a multi-line
+comment into one line by joining its lines.** That produces an unreadable 500-character line and can
+swallow a `biome-ignore` directive, which then silently stops working — a directive must start its
+own comment. Condense to a single sentence and move the rest to a doc page.
+
+## Why it scans blocks rather than matching line by line
+
+A JSX comment's second line starts with PROSE, not with a marker:
+
+```jsx
+{/* The families moved from the side to the header, where st0 puts its views: the side is
+    worth more as the current zone's tree than as three fixed buttons. */}
+```
+
+A line-by-line match sees that as one line and reports nothing, which is how 341 of them stayed
+invisible for as long as the rule existed. So `runs()` walks the file instead, opening on `/*`,
+`/**` or JSX's `{/*` and closing on `*/`, and reports the whole run.
+
+Two guards fall out of that. A run with no closing marker within 60 lines is a **template
+literal**, not a comment — `gen-builtin-params.mjs` emits a generated file's own header inside one —
+so the scan bails out rather than swallowing the rest of the file. And a **directive inside a run
+of `//` lines SPLITS it**: a `biome-ignore` is not prose, and it may not share a line with any, so
+the lines on either side are measured separately.
+
+## A shebang looks like a body comment
+
+Both `check-comments.mjs` and the ad-hoc counters skip a leading comment block as the file's HEADER.
+A file starting with `#!/usr/bin/env node` has a first line that is neither blank nor a comment, so
+the skip stops immediately and the header that follows is counted as body. The same happens to a
+comment sitting under a file's imports. Neither is a real violation; the header rule is what
+applies, and those headers are within it.

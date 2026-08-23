@@ -47,3 +47,10 @@ sous le sujet OIDC de la personne. `sshKeys.ts` nomme donc l'utilisateur dans la
 l'email, la seule orthographe que ce service connaisse — et pl8 fait le pont vers le sujet.
 
 C'est une décision d'identité, avec son prix : `apps/pl8/docs/sshKeyForService.md`.
+
+## Le partage passe par la même paire
+
+`Workspace.shareLink` rend l'instantané et l'envoie à pl8 avec ce même bearer — pas la paire de
+`.settings.json` de k7. Le partage n'a demandé aucune plomberie nouvelle : ce service parlait déjà à
+pl8 avec ce token. Et pour la même raison qu'au-dessus, l'utilisateur est nommé à chaque appel
+(`?user=`), un service n'ayant pas de personne à lui.

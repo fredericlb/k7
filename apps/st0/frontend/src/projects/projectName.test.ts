@@ -20,22 +20,18 @@ describe("projectFolderName", () => {
   });
 
   it("laisse le MENU décider quand les deux se contredisent", () => {
-    // Somebody typing "hiver.z0" then picking st0 changed their mind; "hiver.z0.st0" would be
-    // neither. It came up mostly between `.st0` and `.m9`, before a set became a shape of st0
-    // project again rather than a folder of its own.
+    // Somebody typing 'hiver.z0' and then picking st0 changed their mind; 'hiver.z0.st0' would be neither.
     expect(projectFolderName("hiver.z0", "st0").folder).toBe("hiver.st0");
     expect(projectFolderName("hiver.st0", "z0").folder).toBe("hiver.z0");
   });
 
   it("garde un « v1 » qui fait partie du nom", () => {
-    // There is no `.v1` suffix any more — picture lives in a song — but "prise v1" is a perfectly
-    // ordinary name, and nothing must touch it.
+    // There is no `.v1` suffix any more — picture lives in a song — but 'prise v1' is an ordinary name nothing must touch.
     expect(projectFolderName("prise v1", "st0").folder).toBe("prise v1.st0");
   });
 
   it("refuse les séparateurs plutôt que de les remplacer en silence", () => {
-    // The file service would turn them into "_" — that is its contract — but a screen with room to
-    // say so beats a folder appearing under a name other than the one that was read.
+    // The file service would turn them into '_', but a screen with room to say so beats a folder under a name nobody read.
     expect(projectFolderName("chansons/hiver", "st0").error).toMatch(/\//);
     expect(projectFolderName("a\\b", "st0").error).toMatch(/\\\\|\\/);
   });

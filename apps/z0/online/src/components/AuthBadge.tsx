@@ -3,9 +3,7 @@ import { Button } from "@frediverse/ui/button";
 import { LogOut } from "lucide-react";
 import { logout, useAuth } from "../lib/auth";
 
-// Topbar identity badge — own @frediverse/ui implementation rather than
-// z0-shared's terminal-styled AuthBadge (that one still backs the
-// other five z0 frontends).
+// Its own @frediverse/ui badge; z0-shared's terminal-styled one still backs the other five.
 export function AuthBadge({
   logoutLabel = "LOGOUT",
   showLogout = true,

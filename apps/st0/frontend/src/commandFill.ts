@@ -11,13 +11,7 @@
 import type { PaletteArg } from "./components/CommandBar";
 import type { ArgClass } from "./types";
 
-/**
- * How many params must be filled before the line is runnable.
- *
- * Everything up to the last NON-optional one. Only a trailing run of optional params is
- * dropped: `a b? c` needs all three, because skipping `b` would shift `c` into its place and
- * the command would receive a value for a param the user never answered.
- */
+/** How many params must be filled before the line is runnable — everything up to the last NON-optional one, since skipping shifts the rest. */
 export function requiredCount(args: readonly PaletteArg[]): number {
   let n = args.length;
   while (n > 0 && args[n - 1]?.optional) n--;
@@ -29,12 +23,7 @@ export function emptyValues(args: readonly PaletteArg[]): string[] {
   return args.map(() => "");
 }
 
-/**
- * Whether the line can be dispatched as it stands: every required param answered.
- *
- * A trailing optional one left blank is not an omission, it is the answer "not that" — which is
- * why `event move` runs on three params although its fourth exists.
- */
+/** Whether the line can be dispatched as it stands: a trailing optional left blank is the answer 'not that', not an omission. */
 export function canRun(
   args: readonly PaletteArg[],
   values: readonly string[],
@@ -44,13 +33,7 @@ export function canRun(
   return true;
 }
 
-/**
- * The line's arguments, trailing blanks dropped.
- *
- * A blank in the MIDDLE is kept as an empty token — it would otherwise shift the params after
- * it one place left, and the command would read someone's track name as a timecode. `canRun`
- * is what stops that line being dispatched at all; this only decides how it is spelled.
- */
+/** The line's arguments, trailing blanks dropped — a blank in the MIDDLE is kept, or the params after it would shift one place left. */
 export function lineArgs(values: readonly string[]): string[] {
   const out = [...values];
   while (out.length && !out[out.length - 1]?.trim()) out.pop();
@@ -62,13 +45,7 @@ export function nextField(args: readonly PaletteArg[], from: number): number {
   return Math.min(from + 1, Math.max(0, args.length - 1));
 }
 
-/**
- * The first field still unanswered, or -1 when the form is complete.
- *
- * What Enter uses when the line is not runnable yet: it moves to the question that is actually
- * missing rather than refusing silently, which is the difference between a form that guides and
- * a form that sulks.
- */
+/** The first field still unanswered, or -1 when the form is complete — what Enter uses when the line is not runnable yet. */
 export function firstMissing(
   args: readonly PaletteArg[],
   values: readonly string[],
@@ -78,25 +55,7 @@ export function firstMissing(
   return -1;
 }
 
-/**
- * Where a gesture's values land, keyed by param NAME.
- *
- * By name rather than by position because a gesture knows what it is holding, not where the
- * command happens to ask for it — a clip drag knows a track and two timecodes whatever order
- * `event move` lists them in.
- *
- * It fills FORWARD ONLY, from the field with the keyboard. An answer you have already given is
- * never rewritten: type `event move` , put ge.rythm in its track field, and the drag fills the
- * timecodes after it, leaving your track alone. Without that rule the gesture would silently
- * replace a param you chose with the one it happened to touch, which is the opposite of
- * answering a question.
- *
- * The keyboard follows to the highest field it filled, so the next Enter is about the value the
- * gesture just put down.
- *
- * Returns null when the offer names nothing this form is still asking for — a gesture and a
- * command with nothing to say to each other, which is the common case and not an error.
- */
+/** Where a gesture's values land, keyed by param NAME, filling FORWARD ONLY from the field with the keyboard — null when nothing matches. */
 export function applyOffer(
   args: readonly PaletteArg[],
   offered: Readonly<Record<string, string>>,
@@ -114,13 +73,7 @@ export function applyOffer(
   return hi < 0 ? null : { values: out, active: hi };
 }
 
-/**
- * What the timeline CARET is looking at, in the vocabulary a command line speaks.
- *
- * Timecodes rather than beats, because that is what an argument of class `timecode` holds — the
- * conversion needs the time signature and belongs where the grid is drawn (`TimelineTab`'s
- * `onCaret`), not here and not in a handler.
- */
+/** What the timeline CARET is looking at, in the vocabulary a command line speaks — timecodes rather than beats. */
 export interface CaretAim {
   /** The track it is on. Null on a video lane, a group header, or nothing at all. */
   track: string | null;
@@ -128,63 +81,28 @@ export interface CaretAim {
   at: string | null;
   /** Where the event UNDER it starts — how every `event` verb addresses one. Null on bare lane. */
   eventStart: string | null;
-  /**
-   * The lanes the selection rectangle covers, comma-joined, and its span. Null when none is drawn.
-   *
-   * `tracks` keeps EVERY lane the rectangle touched, several included. A verb that only works on
-   * one is the one that has to say so — dropping the extras here would turn "you selected two
-   * lanes" into a command that silently acted on whichever came first.
-   */
+  /** The lanes the rectangle covers, comma-joined, and its span — EVERY lane it touched, since the verb is what must refuse two. */
   selTracks: string | null;
   selFrom: string | null;
   selTo: string | null;
 }
 
-/**
- * Which caret facts answer which of a command's params, per command — **by param NAME**.
- *
- * The same key `applyOffer` uses, and for the same reason: a source knows what it is holding, not
- * where a command happens to ask for it. So this table says nothing about order or arity, and a
- * command that grows an argument keeps working.
- *
- * An EXPLICIT list, not "fill anything called `track`". A caret is always somewhere, so a blanket
- * rule would silently pre-answer `track delete` and `event remove` with whatever the caret last
- * touched — and a form that opens already complete is one Enter from doing it. Every entry here is
- * a command where acting on what you are looking at IS the intent.
- */
+/** Which caret facts answer which of a command's params, by param NAME — an EXPLICIT list, or a caret would pre-answer every destructive verb. */
 const CARET_ANSWERS: Record<string, Partial<Record<string, keyof CaretAim>>> = {
-  // The verb this exists for. `commands.yaml` has said so since it was written: the event is
-  // addressed by its start, "the cut is its own argument, which is what the caret gives".
+  // The verb this exists for: the event is addressed by its start, and the cut is its own argument, which is what the caret gives.
   "event split": { track: "track", timecode: "eventStart", at: "at" },
-  // Split's inverse, answered by the RECTANGLE rather than by where the caret sits — what to
-  // rejoin is a range, and a range is what you drew. Its head says as much now: it is the only
-  // entry here that reads `sel*`, and the only command in the catalogue called `selection …`.
-  // `tracks` carries every lane it covered, including two: the handler refuses that, and it has
-  // to be able to, so nothing is dropped here.
-  //
-  // `event join` sat here too, taking the same three. It is gone with the virtual split: one verb
-  // rejoins a range now, whatever is in it.
+  // Split's inverse, answered by the RECTANGLE — `tracks` carries every lane it covered, since the handler is what refuses two.
   "selection consolidate": {
     tracks: "selTracks",
     from: "selFrom",
     to: "selTo",
   },
-  // Inserting and removing time HAPPEN at a point, and the point is where you are looking — so
-  // the caret answers `at` and the form opens on the one thing it cannot know, the length.
-  //
-  // Only `at`. These two are project-wide and `remove` deletes what starts inside the span, so a
-  // form that opened already complete would be one Enter from taking a bar out of every lane.
-  // Making the length the hole is what keeps the gesture deliberate.
+  // Only `at`: these two are project-wide, so making the length the hole is what keeps the gesture deliberate.
   "project add": { at: "at" },
   "project remove": { at: "at" },
 };
 
-/**
- * The caret's answers to one command, ready for `applyOffer`. Empty when it has none.
- *
- * A fact the caret cannot supply is simply absent, so a form still opens on it: park on empty
- * lane and `event split` arrives knowing the track and the cut, asking only which event.
- */
+/** The caret's answers to one command, ready for `applyOffer` — a fact it cannot supply is absent, so the form still opens on it. */
 export function caretAnswers(
   canonical: string,
   caret: CaretAim | null,
@@ -199,13 +117,7 @@ export function caretAnswers(
   return out;
 }
 
-/**
- * Whether the field with the keyboard is asking for `kind`.
- *
- * The inlet for a gesture that knows a VALUE and not a command: a click on the ruler produces a
- * timecode and has no idea which param wants one. Matching on the class the field already
- * declares is the whole check — the bar is asking for a timecode, here is a timecode.
- */
+/** Whether the field with the keyboard is asking for `kind` — the inlet for a gesture that knows a VALUE and not a command. */
 export function wantsKind(
   args: readonly PaletteArg[],
   active: number,
@@ -214,15 +126,7 @@ export function wantsKind(
   return args[active]?.kind === kind;
 }
 
-/**
- * What Enter does in the parameter form — the three answers, and the order between them.
- *
- * A highlighted suggestion is taken first, because completion is the validation. But ONLY when
- * it would change the field: an exact match still ranks first (see `rankValues`), so once the
- * field holds the suggestion the list is still on screen — and taking it again is a no-op.
- * Without that clause Enter is eaten for ever, and a form whose last field has a vocabulary
- * (`node replace <node> <extends-ref>`) can never be submitted at all: the reported bug.
- */
+/** What Enter does in the parameter form: a highlighted suggestion first, but ONLY when it would change the field, or Enter is eaten for ever. */
 export type EnterAction =
   | { kind: "take"; value: string }
   | { kind: "run" }

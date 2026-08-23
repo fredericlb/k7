@@ -6,9 +6,7 @@ import {
   signature,
 } from "./audioPolicy.ts";
 
-// Ported 1:1 from engine/capot/src-tauri/src/audio.rs, test names kept — they state the
-// rules more plainly than the code does, and they are the reason the policy is a pure
-// module rather than something inlined in the poll loop.
+// Test names kept from the Rust original: they state the rules more plainly than the code does.
 
 const dev = (name: string, current: boolean): AudioDevice => ({
   name,
@@ -65,8 +63,7 @@ describe("signature / menuSignature", () => {
   });
 
   it("menuSignature tracks what the submenu draws, not just membership", () => {
-    // `current` moves the ✓, and both settings are rendered — so all three have to
-    // move the signature, or the rebuilt-only-on-change guard would show stale rows.
+    // `current` moves the ✓ and both settings are rendered, so all three have to move the signature or the guard shows stale rows.
     const base = [dev("A", false), dev("B", true)];
     const sig = menuSignature(base, "A", "B");
     expect(menuSignature([dev("A", true), dev("B", false)], "A", "B")).not.toBe(

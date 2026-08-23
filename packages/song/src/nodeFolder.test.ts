@@ -6,17 +6,7 @@ import { createNode, loadModuleRefs, loadModules } from "./loader";
 import { resolveModuleMap } from "./moduleResolve";
 import { writeNode } from "./testSupport";
 
-// A project's uses of modules, in the flat `nodes/` folder.
-//
-// This is how a project uses a module the ENGINE provides, and it is why the folder can be
-// flat at all: `module populate` used to file 254 wrappers into the shared library so a
-// project could `extends` one, and each wrapper carried two facts the engine already knew.
-// The project writes only what is its own — which plugin, and how it is set.
-//
-// What used to make this work was the type FOLDER: a node sat at
-// `modules/<type>/<name>/<node>.yaml` and read `kind`, `inputs` and `category` off the
-// path. A flat folder has no such path, so those arrive from what the node `extends` —
-// and a node that extends nothing has only what it states itself.
+// The flat `nodes/` folder has no type path, so `kind`, `inputs` and `category` come from `extends`.
 
 let dir: string;
 
@@ -48,8 +38,7 @@ describe("the nodes folder", () => {
   });
 
   it("carries the identity of the plugin, so the project stands on its own", () => {
-    // The scan cache is machine-local. If the node did not say WHICH plugin, a
-    // project opened on a machine that has never scanned would not know what to load.
+    // The scan cache is machine-local, so the node has to say WHICH plugin itself.
     writeNode(dir, "slap", { plugin: { type: "internal", name: "ADT" } });
     expect(loadModules(dir).slap.plugin).toEqual({
       type: "internal",
@@ -58,8 +47,7 @@ describe("the nodes folder", () => {
   });
 
   it("takes kind, inputs and category from what it EXTENDS", () => {
-    // The replacement for the type folder, and the reason a node no longer has to be
-    // filed under the module it uses.
+    // The replacement for the type folder, and why a node need not sit under its module.
     mkdirSync(join(dir, "modules", "instruments", "mini"), { recursive: true });
     writeFileSync(
       join(dir, "modules", "instruments", "mini", "module.yaml"),
@@ -91,9 +79,7 @@ describe("the nodes folder", () => {
   });
 
   it("no longer reads a node filed beside a module.yaml", () => {
-    // The old layout, written by hand. It is not a second way of saying the same thing —
-    // it is simply not read, so a project carrying one is silently short a step until it
-    // moves. That is the clean cut this change made deliberately.
+    // The old layout is not read at all, so a project carrying one is silently short a step.
     mkdirSync(join(dir, "modules", "audio", "amp"), { recursive: true });
     writeFileSync(
       join(dir, "modules", "audio", "amp", "module.yaml"),
@@ -113,8 +99,7 @@ describe("the nodes folder", () => {
 });
 
 describe("creating one", () => {
-  // A catalogue of exactly one module, injected — the machine's own scan would make this
-  // pass or fail on what happens to be installed here.
+  // One module, injected: the machine's own scan would decide this by what is installed.
   const CATALOGUE = {
     "@engine/adt": {
       plugin: { type: "internal", name: "ADT" },
@@ -129,8 +114,7 @@ describe("creating one", () => {
     const rel = createNode(dir, "audio", "adt", "slap", CATALOGUE);
     expect(rel).toBe("nodes/slap.yaml");
     const m = loadModules(dir);
-    // The identity lands in the FILE. The scan is a discovery aid, not the project's
-    // memory of what it uses — a machine that has never scanned still opens this song.
+    // The identity lands in the FILE, so a machine that has never scanned still opens this song.
     expect(m.slap.plugin).toEqual({ type: "internal", name: "ADT" });
     expect(m.adt).toBeUndefined(); // and no module was invented on the way
   });

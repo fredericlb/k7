@@ -55,24 +55,14 @@ export async function listGristSessions(
     .sort((a, b) => a.id - b.id);
 }
 
-/**
- * One update per attachment download: `done` completed, `total` planned
- * (already-cached files excluded), `name` the file being written. A first
- * call with done=0 fires before any download so a UI can render a 0% bar.
- */
+/** One update per download; `total` excludes cached files, and a done=0 call opens the bar. */
 export type LoadProgressFn = (
   done: number,
   total: number,
   name: string,
 ) => void;
 
-/**
- * Fetch a full session (categories, songs, tracks, order) from Grist,
- * download any missing audio attachments into the local cache
- * (data/audio/grist/<deterministic name>), and return the in-memory Session
- * shape every consumer expects. Mirrors grist_load.go's LoadSessionFromGrist —
- * see the Go source for the full traversal/pairing rationale.
- */
+/** A whole session out of Grist, caching every missing attachment under data/audio/grist/. */
 export async function loadSessionFromGrist(
   g: GristClient,
   sessionId: number,
@@ -93,9 +83,7 @@ export async function loadSessionFromGrist(
 
   const orderRowsById = await fetchByIds(g, "OrderEntries", orderIds);
 
-  // Categories are discovered through OrderEntries but listed by ascending
-  // row id (declaration order), independent of play order — play order lives
-  // entirely in session.order.
+  // Listed by ascending row id, never by play order — play order lives in session.order alone.
   const catIds: number[] = [];
   const seenCat = new Set<number>();
   for (const oid of orderIds) {
@@ -185,8 +173,7 @@ export async function loadSessionFromGrist(
         liveOnly: asBool(songRow.fields.liveOnly),
         effects: parseEffects(songRow.fields),
       };
-      // Partition the song's tracks: type===trackType → questions (playable),
-      // type==="" → originals (reveal audio). Empty trackType = all questions.
+      // type===trackType is a question, type==="" a reveal original; empty trackType, all questions.
       const built = await buildTracks(
         sid,
         trackIdsBySong.get(sid) ?? [],
@@ -198,8 +185,7 @@ export async function loadSessionFromGrist(
         cat.trackType ?? "",
       );
       if (mode === "fusion" || mode === "multi") {
-        // Both modes hand the full track list to the player; fusion pairs
-        // each question with its original as the reveal.
+        // Both hand the full list to the player; fusion also pairs each question with its original.
         song.tracks = questions;
         if (mode === "fusion") {
           questions.forEach((t, i) => {
@@ -240,8 +226,7 @@ export async function loadSessionFromGrist(
       entry.type = "pause";
     } else {
       entry.cat = catNameById.get(asInt(orow.fields.category)) ?? "";
-      // Grist returns 0 for unset Int cells; treat 0 as unset for both bounds
-      // (start=0 equals the default, end=0 would always slice empty).
+      // Grist returns 0 for an unset Int cell, and 0 is unset for both bounds here.
       const from = optInt(orow.fields.start);
       if (from !== null && from > 0) entry.from = from;
       const to = optInt(orow.fields.end);
@@ -261,11 +246,7 @@ export async function loadSessionFromGrist(
   return session;
 }
 
-/**
- * Split a song's tracks into questions (type === trackType) and originals
- * (type === "", only when trackType ≠ ""). Order preserved — the i-th
- * question pairs with the i-th original (editor enforces interleaved order).
- */
+/** Questions and originals, order preserved so the i-th of each pair up. */
 export function partitionTracksByType(
   tracks: Track[],
   trackType: string,
@@ -292,11 +273,7 @@ export async function fetchByIds(
   return out;
 }
 
-/**
- * Materialize Tracks in RefList order, resolving each Attachments cell into a
- * cached (pre-trimmed, pre-transcoded) file path. from/to are zeroed because
- * the cached file already embodies the window.
- */
+/** Tracks in RefList order; from/to stay zero because the cached file already IS the window. */
 async function buildTracks(
   songId: number,
   trackIds: number[],
@@ -345,11 +322,7 @@ interface PlannedTrack {
   filename: string;
 }
 
-/**
- * Walk every track with an audio attachment and compute the cache filename it
- * will land at, so the cache can pre-scan the disk and quote a stable
- * progress denominator. Idempotent for a given Grist state.
- */
+/** Every cache filename a load will land on, so the progress denominator is fixed up front. */
 export function planCachedTracks(
   trackIdsBySong: Map<number, number[]>,
   trackRowsById: Map<number, GristRecord>,
@@ -378,12 +351,7 @@ export function planCachedTracks(
   return out;
 }
 
-/**
- * Lazily downloads Grist Attachments into data/audio/grist/, trims each to
- * its [from, to] window, and transcodes to libopus@64k in webm. Returned
- * paths are relative to the audio root (data/audio/). Filenames are
- * deterministic and content-addressed — see values.ts buildAudioFilename.
- */
+/** Attachments trimmed and transcoded to libopus@64k webm, under content-addressed names. */
 class AttachmentCache {
   hits = 0;
   downloads = 0;
@@ -467,8 +435,7 @@ class AttachmentCache {
 
     await mkdir(this.root, { recursive: true });
 
-    // Source bytes come from the raw-attachment cache so two tracks sharing a
-    // blob (or the editor preview) only download from Grist once.
+    // Through the raw cache, so two tracks sharing a blob only download from Grist once.
     const rawRel = await cacheRawAttachment(this.g, id, ident);
     const rawAbs = join(dataDir(), "audio", rawRel);
 
@@ -491,11 +458,7 @@ class AttachmentCache {
   }
 }
 
-/**
- * Download an attachment's raw bytes into data/audio/grist/raw/<fileIdent>
- * (if missing) and return the audio-root-relative path. Used by the track
- * loader (ffmpeg input) and the editor's un-trimmed audio preview.
- */
+/** Raw bytes into data/audio/grist/raw/<fileIdent>, for ffmpeg and the un-trimmed preview. */
 export async function cacheRawAttachment(
   g: GristClient,
   attId: number,
@@ -520,11 +483,7 @@ export async function cacheRawAttachment(
   return rel;
 }
 
-/**
- * Trim the resolved [from, to] window out of `in` and re-encode as
- * libopus@64k/webm at `out`. `-ss` before `-i` for the fast keyframe-snapped
- * seek — fine for blind-test snippets.
- */
+/** Trim to libopus@64k webm; `-ss` before `-i` for the keyframe-snapped seek, fine for snippets. */
 export async function transcodeOpusWebm(
   inPath: string,
   outPath: string,

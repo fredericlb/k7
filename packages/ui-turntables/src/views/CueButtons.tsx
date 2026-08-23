@@ -7,17 +7,7 @@ import { CUE_COLOURS } from "../deck";
 /** How long a press has to last to mean "record this" rather than "go there". */
 export const HOLD_MS = 1000;
 
-/**
- * One cue button.
- *
- * The press is timed from `pointerdown`, and the moment it RECORDS is that instant — not the
- * instant the second elapses. A DJ presses when they hear the thing they want to mark; making
- * them hold still for a second afterwards would put the cue a second late, every time, which
- * is a cue you have to correct rather than one you can use.
- *
- * So the position is captured on the way down and only USED if the press lasts. The timer
- * decides which of the two gestures happened; it never decides where.
- */
+/** One cue button — the timer decides WHICH gesture happened, never where. See ../../docs/cues.md. */
 function Cue({
   slot,
   at,
@@ -67,8 +57,7 @@ function Cue({
   const up = () => {
     const wasHold = fired.current;
     clear();
-    // A short press on an EMPTY button does nothing rather than jumping to nowhere — and
-    // saying so is the tooltip's job, not a jump to zero.
+    // A short press on an EMPTY button does nothing, rather than jumping to zero.
     if (!wasHold && at !== null) onJump();
   };
 
@@ -88,8 +77,7 @@ function Cue({
       onPointerUp={up}
       onPointerCancel={clear}
       onLostPointerCapture={clear}
-      // A cue is a gesture, not a menu item: the browser's own long-press menu on touch would
-      // land in the middle of setting one.
+      // A cue is a gesture: the browser's long-press menu would land in the middle of setting one.
       onContextMenu={(e) => e.preventDefault()}
       title={
         disabled
@@ -110,18 +98,7 @@ function mmss(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/**
- * A deck's eight cues, in one row under its waveform.
- *
- * White until something is on them, then the button's own colour — a colour per BUTTON and not
- * per cue, so slot 3 looks like slot 3 on both decks and on every song. That is what lets a
- * hand find one without reading.
- *
- * Drawn on an EMPTY deck too, greyed. A desk whose controls appeared and vanished with what is
- * loaded is a desk that moves under your hands: the row would push the title up and the strip
- * down the moment a song landed, and the eight positions a hand is learning would not be there
- * to learn. Greyed says "not yet"; absent says "look for it".
- */
+/** A deck's eight cues, drawn on an EMPTY deck too — greyed says "not yet". See ../../docs/cues.md. */
 export function CueButtons({
   markers,
   onJump,

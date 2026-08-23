@@ -1,11 +1,4 @@
-// A clip's own file, addressed by the id a SURFACE holds.
-//
-// A surface holds a PLACEMENT id (`bass_2_0@16`) while `clips/<ref>.yaml` is keyed by the
-// material. The two were never joined on this side, so `clip warp` and `clip onset` were
-// reachable only by typing a material name by hand — from the waveform they raised
-// `no clip "…" in this project`.
-//
-// Pinned on the FILE functions rather than through a command, because that is where the join is.
+// A clip's own file, addressed by the PLACEMENT id a surface holds — see docs/projectEdit.md.
 
 import {
   mkdirSync,
@@ -77,8 +70,7 @@ describe("the verbs that reach a clip's file", () => {
 
   it("reads and writes onset corrections through one too", () => {
     setClipOnsets(dir, "bass_2_0@16", { added: [1.5] });
-    // Read back under the OTHER spelling: both names have to reach one file, or a correction
-    // written from the waveform would be invisible to the same clip opened whole.
+    // Read back under the OTHER spelling: both names have to reach one file.
     expect(clipOnsets(dir, "bass_2_0").added).toEqual([1.5]);
   });
 });

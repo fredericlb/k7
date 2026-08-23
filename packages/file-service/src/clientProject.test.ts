@@ -52,15 +52,7 @@ const wsWith = (dir: string, name: string) => ({
   invalidateProjectDoc: () => {},
 });
 
-/**
- * What was sent SINCE this test started.
- *
- * The link is cached per session and every case here lands on the same one (a temp dir outside
- * the users root falls back to the bare service id), so there is one client for the whole file
- * and clearing `built` between tests would just hide it. A baseline says the same thing without
- * pretending each test gets a fresh engine — which is also truer to the service, where it does
- * not either.
- */
+/** What was sent SINCE this test started: one client serves the whole file, so a baseline beats clearing. */
 let baseline = 0;
 const names = () => (built[0]?.sent ?? []).slice(baseline).map((d) => d.name);
 
@@ -73,6 +65,7 @@ beforeEach(() => {
 describe("a document the browser built", () => {
   it("reaches the engine through the service's own link", () => {
     // The point of the route: there is one socket, and it is this one.
+
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
     const ws = wsWith(root, "compiled") as any;
     startEngineForActive(ws);
@@ -81,9 +74,8 @@ describe("a document the browser built", () => {
   });
 
   it("is NOT overwritten when the project is re-served from disk", () => {
-    // The bug this fixes. The service pushing the bare compile under a running set would drop
-    // the decks' clips, and the surface would blink empty until its next gesture. The browser
-    // polls `/revision`, rebuilds from the fresh compile and hands its own back instead.
+    // The bug: the bare compile pushed under a running set dropped the decks' clips until the next gesture.
+
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
     const ws = wsWith(root, "compiled") as any;
     startEngineForActive(ws);
@@ -93,8 +85,8 @@ describe("a document the browser built", () => {
   });
 
   it("is dropped by an explicit reload, which is what that command is FOR", () => {
-    // Somebody asked for what is on disk. Answering "no, a surface has the engine" would refuse
-    // the one command that exists to force exactly this.
+    // Somebody asked for what is on disk, which is the one command that exists to force exactly this.
+
     // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith
     const ws = wsWith(root, "compiled") as any;
     startEngineForActive(ws);
@@ -104,8 +96,7 @@ describe("a document the browser built", () => {
   });
 
   it("does not survive into a DIFFERENT project", () => {
-    // A document built for the project being left names its tracks and its clips; serving it
-    // over the next project would play the previous set.
+    // A document built for the project being left would play the previous set over the next one.
     const other = mkdtempSync(join(tmpdir(), "td-clientdoc-b-"));
     try {
       // biome-ignore lint/suspicious/noExplicitAny: a Workspace stand-in, see wsWith

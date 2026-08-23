@@ -63,8 +63,7 @@ describe("resolveItems", () => {
       LIBRARY,
     );
     expect(file.take).toMatchObject({ kind: "file", file: "instrumental.wav" });
-    // A chain variant is audio only once rendered — no file here, and no problem either: the
-    // pane probes the library for the render rather than refusing on these two lists alone.
+    // No file here, and no problem either: the pane probes the library rather than refusing.
     expect(chain.take).toMatchObject({ kind: "missing", file: null });
     expect(itemProblem(chain, true)).toBe("");
   });
@@ -124,8 +123,7 @@ describe("itemLabel", () => {
 
 describe("songRef", () => {
   it("writes the unambiguous path, and what it writes reads back", () => {
-    // A click means THAT morceau, unlike a title someone typed — so the search writes the
-    // form that cannot resolve to a namesake.
+    // A click means THAT morceau, so the search writes the form no namesake can answer to.
     expect(songRef(HELLS)).toBe("AC-DC/Back in Black/Hells Bells");
     // The property that matters: a line this produced finds its own song again.
     expect(findSong(songRef(HELLS), LIBRARY)).toBe(HELLS);
@@ -147,8 +145,7 @@ describe("songMatches", () => {
   });
 
   it("wants every word, but not in one place", () => {
-    // "nirvana lithium" is artist + title — a single substring match over the whole query
-    // finds nothing, which is exactly how a search feels broken.
+    // "nirvana lithium" is artist + title, which one substring over the whole query never finds.
     expect(songMatches(LITHIUM, "nirvana lithium")).toBe(true);
     expect(songMatches(LITHIUM, "nirvana bells")).toBe(false);
   });

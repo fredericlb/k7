@@ -13,12 +13,7 @@ type Status =
   | "replaced" // another device took over the remote role
   | "error";
 
-// The /remote device: it captures this device's microphone and streams it over
-// WebRTC to the recorder device on demand. The audio input device and (for
-// multi-channel interfaces) the input channel can be chosen here; the choice is
-// applied live without interrupting an in-progress stream. Exactly one remote is
-// active per user — opening /remote elsewhere takes over (this one shows
-// "replaced").
+// The /remote device: this machine's mic, streamed on demand — ../../../docs/audio.md.
 export function RemoteMicView() {
   const input = useRemoteInput();
   const [status, setStatus] = useState<Status>("starting");
@@ -29,10 +24,7 @@ export function RemoteMicView() {
   const streamRef = useRef<MediaStream | null>(null);
   streamRef.current = input.outputStream;
 
-  // Signaling starts once the microphone graph is ready (output stream exists),
-  // and keeps itself connected: the socket is reopened automatically if it drops
-  // (dev server restart, network blip, proxy idle timeout), so the remote stays
-  // registered and discoverable instead of silently going dead.
+  // Signaling reopens itself when it drops, so the remote never goes silently undiscoverable.
   useEffect(() => {
     if (!input.outputStream) return;
     let stopped = false; // component unmounting — don't reconnect
@@ -44,8 +36,7 @@ export function RemoteMicView() {
       pcRef.current = null;
     };
 
-    // The recorder asked us to start: create the peer connection, attach the
-    // processed output track, and send an offer.
+    // The recorder asked: a peer connection, the processed track on it, and an offer.
     const makeOffer = async (ws: WebSocket) => {
       const stream = streamRef.current;
       if (!stream) return;

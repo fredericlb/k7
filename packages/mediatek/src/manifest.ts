@@ -45,29 +45,14 @@ function walk(dir: string, out: Manifest): void {
   }
 }
 
-/**
- * Every file in a FAMILY, sorted by path so two manifests compare and diff stably.
- *
- * The raw capture zone has no manifest and therefore never syncs, which is structural
- * rather than filtered: `recordings/` is a root zone, not a family, so there is no argument
- * to this function that reaches it. A cache fetches what a manifest lists, and those files
- * enter no catalogue — mirroring them would fill every machine's disk with bytes no surface
- * can name or play. See docs/recordings.md.
- */
+/** Every file in a FAMILY, sorted; the capture zone is no family, so it never syncs (docs/recordings.md). */
 export function manifest(family: Family): Manifest {
   const out: Manifest = [];
   walk(familyDir(family), out);
   return out.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-/**
- * What a cache holding `have` must fetch and drop to match `want`.
- *
- * Both sides are the OWNER's description — `have` is what the server said last time, kept
- * beside the cached bytes, not a fresh stat of them. A downloaded file has its own mtime
- * and would differ from the source's on every single comparison; that is the whole reason
- * the manifest is remembered rather than recomputed locally. See docs/sync.md.
- */
+/** What a cache holding `have` must fetch and drop to match `want`, both being the OWNER's description — docs/sync.md. */
 export function diff(
   have: Manifest,
   want: Manifest,

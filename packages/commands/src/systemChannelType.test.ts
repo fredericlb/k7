@@ -61,8 +61,7 @@ describe("system channel type", () => {
   it("takes either half of the pair", async () => {
     reset();
     await runCommand("system channel type 4 mono", host(), "cli");
-    // Passed on as TYPED — `setInputPair` is what normalises to the odd channel, and the engine
-    // does its own rounding. What is said back is the pair either way.
+    // Passed on as TYPED: `setInputPair` normalises to the odd channel, and the engine rounds too.
     expect(paired).toEqual([{ channel: 4, stereo: false }]);
     expect(logs.join(" ")).toMatch(/in 3\+4 is two mono devices/);
   });

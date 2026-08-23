@@ -2,11 +2,7 @@ import { SongPreloader } from "@studio/player-web/preloader";
 import { useSyncExternalStore } from "react";
 import type { WSMessage, WSSubscriber } from "./monitor";
 
-// Framework-free port of composables/useAudioPlayback.ts. Owns the
-// SongPreloader engine and drives it from WS traffic (next / phase_change /
-// audio_command); Vue watchers became explicit notifications: a preloader
-// subscription re-broadcasts progress + transport state, and volume changes
-// re-apply the gain inline.
+// Owns the SongPreloader and drives it from WS traffic — see ../../../docs/effects.md.
 
 interface Track {
   artist?: string;
@@ -69,8 +65,7 @@ export class AudioPlayback {
   lastSongFrom = 0;
   lastSongTo = 0;
 
-  // Tracks the most recent preload so a subsequent song event waits for
-  // its buffers to be cached before calling play().
+  // The most recent preload, so a following song event waits for its buffers before play().
   private pendingPreloadPromise: Promise<void> | null = null;
 
   // Fusion alternation timer state.
@@ -97,8 +92,7 @@ export class AudioPlayback {
     this.preloaderUnsub = this.preloader.subscribe(() =>
       this.onPreloaderChange(),
     );
-    // Mirrors the Vue `immediate: true` transport watcher — the remote gets
-    // an initial playback_state as soon as the monitor boots.
+    // The remote gets an initial playback_state as soon as the monitor boots.
     this.broadcastPlaybackState();
   }
 
@@ -290,12 +284,7 @@ export class AudioPlayback {
     }
   }
 
-  /**
-   * Restart playback after a page reload mid-game. The backend doesn't
-   * re-broadcast the current `next` event on connect, so on load we fetch
-   * /api/game ourselves and replay it through handleNext, with the slot's
-   * category songs preloaded first so the song event finds them in cache.
-   */
+  /** Restart playback after a page reload mid-game — see ../../../docs/effects.md. */
   async recover(
     item: NextItem | null,
     categorySongs?: unknown[],

@@ -273,6 +273,25 @@ a `registry.ts` here.
 - Auth and engine assignment are separate concerns: the assignment ("in use" badge) is
   a per-engine lease **across users**, not per-workspace across tabs.
 
+Two traps in `server.ts` that read as ordinary lines:
+
+**`OIDC_SCOPES` must keep `groups`.** z0 reads this same cookie and gates its editor, presenter,
+monitor and remote on group membership (`AUTH_ADMIN_GROUPS`). `@frediverse/oidc` defaults to
+`openid profile email`, which puts an **empty** groups array in every session and 403s every admin
+surface with nothing to explain it. The value comes from `env.yaml`'s `common`, which already reads
+`openid profile email groups`. Note also that the code passes `scopes` only when non-empty: the
+package falls back on nullish only, so an empty array asks the IdP for *no* scopes rather than for
+its defaults.
+
+**The prefs zod schema is the GATE, not a description.** A zod object strips what it does not
+declare, so a field the frontend saves and `prefsSchema` does not name is accepted, answered
+`{ok:true}`, and dropped — which is what happened to `commands` for as long as the schema said "one
+field so far". `preferencesRouter` refuses such a write out loud now (`droppedKeys`), but the rule
+to remember is that widening `St0Prefs` in the browser is only half of adding a preference.
+`engineId` and not an address, for the same kind of reason: an engine's IP moves between networks
+while its identity does not, and storing a URL would pin someone to the network they first logged
+in from.
+
 ## st0 is opened ON a project — and the HOME page is where one is chosen
 
 **This app still does not own workspaces**, and never will: pl8 stores the repositories

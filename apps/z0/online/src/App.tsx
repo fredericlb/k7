@@ -25,22 +25,17 @@ import { PlaylistPlayer } from "./lib/playlistPlayer";
 import { loadPlaylistTracks, sessionFromPlaylist } from "./lib/playlists";
 import { m } from "./paraglide/messages.js";
 
-// State machine (React port of App.vue): auth gate → session picker →
-// SoloGame, with the token-aliased /t/<token> entry that keeps its URL for
-// shareability and loads the session in place. Playlist mode (/p/<id>) feeds
-// the same SoloGame a synthesized Session and a streaming player.
+// Auth gate, then picker, then SoloGame — which /t/<token> and /p/<id> both reach in place.
 
 interface TokenResolved {
   id: number;
   name: string;
 }
 
-// Multi modes are UI-only for now — no backend flow exists yet, so picking
-// either just shows a "coming soon" placeholder instead of a picker.
+// UI-only for now: no backend flow exists, so either multi mode shows a placeholder.
 type GameMode = "solo" | "multi-buzzer" | "multi-no-buzzer";
 
-// Playlist runs score against /api/playlists and keep no resume checkpoint —
-// a 30s-clip run is short enough that there's nothing to come back to.
+// A playlist run keeps no resume checkpoint: a run of 30 s clips is too short to come back to.
 const PLAYLIST_SCORING: ScoringTarget = {
   base: "/api/playlists",
   progress: false,

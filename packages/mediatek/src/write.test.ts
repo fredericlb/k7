@@ -26,8 +26,7 @@ describe("putting a file in", () => {
   });
 
   it("leaves no .part behind", () => {
-    // Written beside and renamed: the moteur may be reading this tree, and a half-written
-    // module.yaml is a project that won't compile.
+    // Written beside and renamed, because the moteur may be reading this tree (docs/index.md).
     putFile("samples/a/module.yaml", "a\n");
     expect(existsSync(join(root, "samples/a/module.yaml.part"))).toBe(false);
   });

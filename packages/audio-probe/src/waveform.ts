@@ -6,8 +6,7 @@
 import type { ClipDoc, ProjectDoc } from "@studio/engine-protocol/project";
 import { beatAtSource, sourceAtBeat } from "@studio/song-schema/warpPoints";
 
-// The whole-file envelope the engine computes and caches, placement-independent: it describes the FILE, and
-// regionWaveform maps a clip's region onto it. A fixed-density downsample, 0..1.
+// The whole-file envelope the engine computes and caches — placement-independent, docs/waveform.md.
 export interface FileEnvelope {
   fingerprint: string; // cheap content fingerprint (see waveformCache.ts) for invalidation
   sampleRate: number;
@@ -19,23 +18,13 @@ export interface FileEnvelope {
   transients: number[]; // onsets in FILE seconds, detected by the engine at this file's own resolution
   sensitivity: number; // the threshold those onsets were found with — per source, and sticky (docs/waveformCache.md)
   bpm: number; // the engine's tempo estimate, or 0 for "none found". A starting point, not an authority.
-  /**
-   * The same envelope split into three bands, for COLOUR — the way a DJ player draws a track.
-   *
-   * Peaks per bucket, in the SAME bucket space as `peak`, so a consumer indexes all four the
-   * same way. Split at 200 Hz and 4 kHz by complementary one-poles, so `low + mid + high` sums
-   * back to the signal and a column's colour cannot invent energy it has not got.
-   *
-   * Optional because a sidecar written before v4 has none, and a surface that has them should
-   * degrade to a plain envelope rather than to a blank one.
-   */
+  /** The same envelope split into three bands for COLOUR, in the same bucket space — docs/waveform.md. */
   low?: number[];
   mid?: number[];
   high?: number[];
 }
 
-// A warp marker in DISPLAY seconds: `orig` where the source point is drawn, `target` where its beat lands — so
-// the pair shows the stretch, and no displacement means no stretch there.
+// A warp marker in DISPLAY seconds: `orig` where the source point is drawn, `target` where its beat lands.
 export interface WarpMark {
   orig: number; // display seconds — the source point, as the waveform draws it
   target: number; // display seconds — where that point's beat sits on the grid
@@ -53,35 +42,13 @@ export interface RegionWaveform {
   tempo: number; // bpm
   warpMarks: WarpMark[]; // the clip's warp markers, in display seconds (empty == no warp)
   transients: number[]; // display seconds where transients are detected (grey bars)
-  /**
-   * A FILE second, as a position on the drawn region — the one mapping the marks above went
-   * through, handed out rather than re-derived. Anything else the caller wants to put on this
-   * picture (the material's own `from`/`to`, say) must land in the same space, and a second copy
-   * of `(sec - inPoint) * stretch` somewhere else is how the two come to disagree.
-   */
+  /** A FILE second as a position on the drawn region — the ONE mapping, handed out, docs/waveform.md. */
   toDisplay: (fileSec: number) => number;
-  /**
-   * …and the two numbers `toDisplay` IS, for a caller that has to go back the other way.
-   *
-   * `display = (file − inPoint) × stretch`, so `file = display / stretch + inPoint`. A function
-   * cannot cross a wire, and the browser needs the inverse the moment a GESTURE on the picture
-   * names a moment of the source — a double-click placing a stretch point does exactly that.
-   * Sending the pair keeps the note above true across the wire: there is still one mapping, and
-   * the far side applies it rather than reinventing it from `offset`, `sourceFrom` and a tempo.
-   */
+  /** …and the numbers `toDisplay` IS, for a caller going back the other way across a wire. */
   sourceMap: { inPoint: number; stretch: number; zeroBeat: number };
 }
 
-/**
- * A simple transient detector: bucket indices where the peak envelope jumps above the threshold.
- *
- * THE REFERENCE IMPLEMENTATION, and mirrored byte-for-byte in `engine/moteur/engine/Waveform.cpp`, which is what
- * actually runs — the engine already has the decoded audio, so it detects while it is downsampling and writes the
- * result into the sidecar. Nothing in production calls this any more; it stays because it is the written spec,
- * and `waveform.test.ts` is the contract both sides are held to. The same arrangement `fileFingerprint` has.
- *
- * Changing it means changing both, and bumping the sidecar version so existing caches rebuild.
- */
+/** A simple transient detector, and THE REFERENCE IMPLEMENTATION rather than the code that runs — docs/waveform.md. */
 export function detectTransients(peak: number[], sensitivity = 2): number[] {
   if (peak.length < 3) return [];
   const diffs: number[] = [];
@@ -111,17 +78,7 @@ export function detectTransients(peak: number[], sensitivity = 2): number[] {
   return result;
 }
 
-/**
- * How many TIMELINE seconds one SOURCE second of this clip occupies — 1 when it is not warped.
- *
- * The engine's own formula, deliberately: `applyClipWarp` (EditBuilder.cpp) takes the first
- * marker to the last, prices the beat span at the project tempo, and divides by the source span.
- * Only that ratio reaches Tracktion — the interior markers become beat points inside it — so
- * matching it here is matching what is actually heard, not re-deriving a stretch of our own.
- *
- * A marker pair is `[timeline beat, source second]`: two different clocks in one tuple, which is
- * why the two spans are computed apart and only then divided.
- */
+/** How many TIMELINE seconds one SOURCE second occupies, 1 unwarped — the engine's own formula, docs/waveform.md. */
 export function warpStretch(
   warp: ClipDoc["warp"] | undefined,
   tempo: number,
@@ -135,8 +92,7 @@ export function warpStretch(
   return (beatSpan * 60) / tempo / srcSpan;
 }
 
-// Resample the file envelope to the region the clip plays. Placement and tempo live in the project, so they stay
-// here; only the raw samples come from the engine-computed, disk-cached envelope.
+// Resample the file envelope to the region the clip plays — only the raw samples come from the sidecar.
 export function regionWaveform(
   env: FileEnvelope,
   clip: ClipDoc,
@@ -147,20 +103,10 @@ export function regionWaveform(
   const totalFrames = Math.max(0, env.frames | 0);
   const fileSeconds = env.seconds || totalFrames / sr;
   const tempo = project.tempo || 120;
-  // Bars are in quarter-note beats here, so a bar is `numerator * 4/denominator` — 6/8 gives 3, 2/2 gives 4.
-  // An odd-over-8 like 7/8 gives 3.5, which a whole-beat grid can only approximate: a pre-existing model limit.
+  // Bars are in quarter-note beats, so a bar is `numerator * 4/denominator` — docs/waveform.md.
   const den = project.timeSigDenominator || 4;
   const barBeats = Math.max(1, (project.timeSigNumerator || 4) * (4 / den));
-  /**
-   * Where in the SOURCE this clip starts playing, in seconds.
-   *
-   * TWO things add up, and only the second was ever read here: the clip file's own window
-   * (`sourceFrom`, seconds — see AudioClipSchema) and the placement's `offset`. `placementToClip`
-   * puts an audio clip's in-point in the FIRST of them and leaves `offset` at 0, so a drawing
-   * that read only `offset` began every trimmed clip at the file's head — the picture showing one
-   * part of the take while the engine played another. That is the offset this fixes; the engine's
-   * own in-point is the same sum (`clipPositionFor` in EditBuilder.cpp).
-   */
+  // Where in the SOURCE this clip starts: `sourceFrom` AND `offset` add up — docs/waveform.md.
   const offsetSec = Math.max(0, clip.offset || 0);
   const inPointSec = Math.max(0, (clip.sourceFrom ?? 0) + offsetSec);
   // The display spans the clip's MUSICAL length, so a clip longer than its sample shows trailing silence.
@@ -169,19 +115,9 @@ export function regionWaveform(
       ? (clip.length * 60) / tempo
       : Math.max(0, fileSeconds - inPointSec);
   const clipBeats = clip.length > 0 ? clip.length : (seconds * tempo) / 60;
-  // Timeline seconds per SOURCE second — 1 unless the clip is warped. A warped clip's picture is
-  // not the file drawn at its own rate but at the rate it is PLAYED at, which is the whole of what
-  // makes a waveform line up with what is heard.
+  // Timeline seconds per SOURCE second — a warped clip is drawn at the rate it is PLAYED at.
   const stretch = warpStretch(clip.warp, tempo);
-  /**
-   * The map's own points, when there are enough of them to bend anything.
-   *
-   * PIECEWISE, because the engine is: `applyClipWarp` pins every interior marker as a beat point
-   * so each segment stretches on its own. `stretch` is one ratio over the whole clip — the right
-   * answer to "how long is this", which is what it is still used for below, and the wrong one to
-   * "where is this moment". Drawn with the ratio alone, a point pinned in the middle moved the
-   * sound and left the picture exactly where it was.
-   */
+  // The map's own points, used PIECEWISE because the engine pins each of them — docs/waveform.md.
   const markers = clip.warp?.markers;
   const warped = Array.isArray(markers) && markers.length >= 2;
   const beatToDisp = 60 / tempo;
@@ -200,14 +136,12 @@ export function regionWaveform(
 
   const envN = env.peak.length;
   const startFrame = Math.min(totalFrames, Math.floor(inPointSec * sr));
-  // What the region ASKS of the source, and what the file can actually give: the display span
-  // priced back through the stretch, bounded by the clip's own `to` and by the end of the file.
+  // What the file can give: bounded by the clip's own `to` and by the end of the file.
   const endSec =
     clip.sourceTo && clip.sourceTo > inPointSec
       ? Math.min(clip.sourceTo, fileSeconds)
       : fileSeconds;
-  // How many source frames the region asks for, at the map's OVERALL rate — a count, which is
-  // what `stretch` answers well. Only the per-column spans below are piecewise.
+  // How many source frames the region asks for, at the map's OVERALL rate — a count, not a position.
   const wantFrames = Math.max(1, Math.round((seconds / stretch) * sr));
   const n = Math.max(1, Math.min(buckets, wantFrames));
   const peak = new Array<number>(n).fill(0);
@@ -217,14 +151,7 @@ export function regionWaveform(
   // The last source frame this region may show — its own `to`, or the end of the file.
   const endFrame = Math.min(totalFrames, Math.floor(endSec * sr));
   for (let b = 0; b < n; b++) {
-    /**
-     * Which audio this column shows — ASKED of the mapping rather than stepped through.
-     *
-     * It used to advance by a constant `wantFrames / n`, which is a straight line and therefore
-     * only correct while the map is one. Under a real map the segments run at different rates,
-     * so a column near a pinned point covers more or less source than its neighbours — which is
-     * the whole of what "the waveform reflects the warp" means.
-     */
+    // Which audio this column shows — ASKED of the mapping rather than stepped through.
     const f0 = Math.max(startFrame, Math.floor(toSource(b * dispPer) * sr));
     const f1 = Math.min(endFrame, Math.floor(toSource((b + 1) * dispPer) * sr));
     if (f1 <= f0 || envN === 0) continue; // past the audio: the column stays silent
@@ -241,26 +168,12 @@ export function regionWaveform(
     peak[b] = mx;
     rms[b] = cnt ? Math.sqrt(sq / cnt) : 0;
   }
-  // Warp markers → display seconds: `orig` mirrors how the audio is drawn, `target` where its beat lands.
-  /**
-   * The map's points on the drawn region — and `orig === target` now, which is the POINT.
-   *
-   * The picture is warped, so a pinned moment is drawn exactly where it lands: there is no
-   * displacement left to show, because it has been applied to the audio under it. The pair is
-   * kept because a DRAG needs somewhere to put the target while the hand holds it, and the arrow
-   * between the two is then the move being asked for rather than a state.
-   *
-   * Both are region-relative. `target` used to be the absolute beat priced in seconds, which
-   * agreed with `orig` only while the clip was untrimmed — the two origins differed by the
-   * in-point, silently, on exactly the clips a warp is usually for.
-   */
+  // The map's points on the drawn region, region-relative and `orig === target` — docs/waveform.md.
   const warpMarks: WarpMark[] = (clip.warp?.markers ?? [])
     .map(([beat, srcSec]) => ({
       orig: toDisplay(srcSec),
       target: (beat - zeroBeat) * beatToDisp,
-      // The FILE second it pins — what `clip warp` and `clip warp remove` address. Sent rather
-      // than left to be inverted: the mapping is piecewise now, and a surface that rebuilt it to
-      // name a point it can already see would be the second copy this file keeps warning about.
+      // The FILE second it pins, sent rather than left to be inverted from a piecewise map.
       src: srcSec,
     }))
     .filter(
@@ -272,12 +185,7 @@ export function regionWaveform(
           (mk.target >= -1e-6 && mk.target <= seconds + 1e-6)),
     );
 
-  // Transients are NOT detected here any more: they are computed once per FILE, by the engine, and cached in the
-  // sidecar (see waveformCache.ts). This only maps them onto the shown region — the same shift `orig` gets above,
-  // and the same linear file↔display mapping the envelope resampling uses, warp included.
-  //
-  // Detecting per region was subtly wrong as well as repeated: a short clip resamples the envelope UP, so the
-  // detector ran on interpolated detail the file never had, and the same audio drawn at two sizes disagreed.
+  // Transients are detected once per FILE by the engine; this only maps them on — docs/waveform.md.
   const transients = env.transients
     .map(toDisplay)
     .filter((t) => t >= -1e-6 && t <= seconds + 1e-6);
@@ -294,10 +202,7 @@ export function regionWaveform(
     warpMarks,
     transients,
     toDisplay,
-    // …and `zeroBeat` with them: the map's beats are counted from the FILE's start while the
-    // region's zero is the clip's in-point, and every `target` above has had it subtracted. A
-    // caller naming a beat must add it back, and on an untrimmed clip it is 0 — which is why its
-    // absence was invisible until a trimmed one was warped.
+    // …and `zeroBeat` with them, which a caller naming a beat must add back — docs/waveform.md.
     sourceMap: { inPoint: inPointSec, stretch, zeroBeat },
   };
 }

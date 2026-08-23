@@ -15,27 +15,10 @@ import {
 import type { EnginePresence } from "./addresses.ts";
 import type { EngineIdentity } from "./identity.ts";
 
-// The hosted studio: the registry an engine announces to when nothing local is configured, and
-// the trusted UI. Re-exported from the one table that owns it, so it cannot drift from the
-// service paths derived off it.
+// The hosted studio, re-exported from the one table that owns it so it cannot drift from the service paths derived off it.
 export const DEFAULT_STUDIO_URL = STUDIO_ORIGIN;
 
-/**
- * Where the registries live. Resolution, most explicit first, and the FIRST tier that
- * yields anything wins outright — the tiers are alternatives, not a union:
- *
- *   1. `configured` — the ones the user pinned with "Add web UI…". A deliberate,
- *      persisted choice beats an ambient one, which is why it goes above the env var.
- *   2. `$STUDIO_REGISTRY_URL`, comma-separated for more than one.
- *   3. what the local backends advertised — `~/.studio/web-endpoints/*.json`, one file per
- *      service, plus the legacy single `web-endpoint.json` — so a local dev setup still
- *      wins over the hosted default.
- *   4. the hosted studio.
- *
- * A LIST since each hosted service holds its own registry: an engine must be listed in
- * st0 and in the médiathèque to be pickable in both. Deduped, because the same URL
- * arriving twice would mean two heartbeats a tick to one server for nothing.
- */
+/** Where the registries live: four tiers, most explicit first, the first that yields anything winning outright — see docs/supervisorPolicy.md. */
 export function resolveRegistryUrls(configured?: string[] | null): string[] {
   if (configured?.length) return [...new Set(configured)];
   if (process.env.STUDIO_REGISTRY_URL)
@@ -51,27 +34,7 @@ export function resolveRegistryUrls(configured?: string[] | null): string[] {
   return [DEFAULT_STUDIO_URL];
 }
 
-/**
- * The hosted médiathèque this machine caches, derived rather than configured.
- *
- * Every service sits on ONE origin at a FIXED path (`SERVICE_PATHS`), so the registry URLs
- * already resolved above carry the only thing that varies — `https://st0.priv.frediver.se` and
- * `https://studio.frediver.se` differ by their origin and nothing else. Asking for the
- * library's URL as well made a second, hand-typed copy of a fact already on disk, which is
- * exactly how a machine ends up heartbeating to one studio and syncing from another.
- *
- * Only the ORIGIN is kept, and the path comes back from the table: a registry URL may be any
- * service's (`…/pl8`, or the bare origin now that st0 answers it), and the médiathèque is under
- * `/pl8`. It used to be the bare origin, and that was one `serviceUrl` call away from being
- * wrong the day the two swapped — which is the case for asking rather than assuming.
- *
- * The `if (origin)` guard is what keeps it honest: an unparseable registry URL yields `""` from
- * `studioOrigin`, and returning that would hand the file service an empty `MEDIATEK_URL` it
- * reads as configured.
- *
- * The FIRST registry wins: `resolveRegistryUrls` returns one tier's worth of alternatives, and
- * a machine pinned to several studios caches from the one it announces to first.
- */
+/** The hosted médiathèque this machine caches, DERIVED from the registry origins rather than configured — see docs/supervisorPolicy.md. */
 export function mediatekUrlFor(registryUrls: string[]): string | null {
   for (const u of registryUrls) {
     const origin = studioOrigin(u);
@@ -90,14 +53,7 @@ function urlIn(path: string): string | null {
   }
 }
 
-/**
- * Every registry a local backend advertised, deduped.
- *
- * The DIRECTORY is the contract; the single `web-endpoint.json` is read too because an older
- * st0 backend still writes only that one, and a tray shipped before this change reads only
- * that one. Both are cheap, and the union is what stops a version skew from silently costing
- * an app its engine.
- */
+/** Every registry a local backend advertised, deduped; the DIRECTORY is the contract and the legacy single file is read for version skew. */
 function advertisedUrls(): string[] {
   const out: string[] = [];
   try {
@@ -119,8 +75,7 @@ export interface HeartbeatBody extends EnginePresence {
   token: string;
 }
 
-// Every call is bounded: a registry that connects and never answers is harmless on a heartbeat but fatal on
-// the deregister, which runs while the user waits for the app to quit.
+// Every call is bounded: a registry that connects and never answers is harmless on a heartbeat and fatal on the deregister.
 const REQUEST_TIMEOUT_MS = 1500;
 
 async function post(
@@ -141,13 +96,7 @@ async function post(
   }
 }
 
-/**
- * Announce to every registry, in parallel. Resolves true only if they ALL answered.
- *
- * All-or-nothing because the tray shows one light, and "ok" has to mean every service can
- * offer this engine. A registry that is down is simply absent from that service's picker —
- * correct, since that service genuinely cannot be driven right now.
- */
+/** Announce to every registry in parallel, true only if they ALL answered — all-or-nothing, because the tray shows one light. */
 export async function heartbeat(
   registryUrls: string[],
   identity: EngineIdentity,

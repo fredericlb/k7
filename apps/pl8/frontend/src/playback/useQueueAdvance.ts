@@ -8,22 +8,11 @@ import { cacheRoot, playablePath } from "../engine/songPreview";
 import { usePlayback } from "./PlaybackProvider";
 import { effectiveTarget, type PlaybackTarget } from "./targets";
 
-/** A song's master, which is what "add to the queue" means. Variants are chosen on the song's
- *  page, one at a time, which a queue is not. */
+/** A song's MASTER, which is what "add to the queue" means: a variant is chosen one at a time. */
 const masterOf = (entry: Parameters<typeof takesOf>[0]): string | null =>
   takesOf(entry).find((t) => t.kind === "master")?.file ?? null;
 
-/**
- * Advance the queue when what was playing ends.
- *
- * `ended` is a counter, so it is compared against what was seen rather than treated as a flag
- * somebody has to reset.
- *
- * A track that does not resolve is SKIPPED rather than blocking: a queue stopping on its third
- * title because one machine lacks the cache is a queue you cannot listen to while repairing it.
- * Unless the TARGET itself is missing — then everything would fail, and running the whole queue
- * to find that out would look like a broken queue.
- */
+/** Advance when what was playing ends, SKIPPING a track that does not resolve (../../docs/miniPlayer.md). */
 export function useQueueAdvance(
   machine: { fileBase: string | null; token: string | null; ready: boolean },
   target: PlaybackTarget,
@@ -32,8 +21,7 @@ export function useQueueAdvance(
   const actual = effectiveTarget(target, machine.ready);
   const viaEngine = actual === "engine";
 
-  // This machine's cache, asked once per machine. `undefined` is "not known yet", which is
-  // neither "there is one" nor "there is none" — hence three states rather than two.
+  // This machine's cache, asked once: `undefined` is "not known yet", hence three states.
   const root = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     root.current = undefined;
@@ -62,8 +50,7 @@ export function useQueueAdvance(
         viaEngine && root.current
           ? playablePath(root.current, next.entry, file)
           : null;
-      // No cache on the machine: a fault of the target, not of the row, and draining the queue
-      // over it would erase what somebody just put there.
+      // A fault of the TARGET and not of the row, so draining the queue over it would erase work.
       if (viaEngine && !enginePath) return;
       playback.start({
         entry: next.entry,
@@ -82,13 +69,7 @@ export function useQueueAdvance(
     startNext();
   }, [playback.ended, startNext]);
 
-  /**
-   * The cold start: queueing while nothing plays begins at once.
-   *
-   * Without it the queue could never start — the advance above listens only for the END of a
-   * track, so a first add would sit there forever. `now` is not cleared when a track ends, so
-   * this fires only before the first play or after closing the bar, never between two titles.
-   */
+  /** The cold start, since the advance above only listens for the END of a track. */
   useEffect(() => {
     if (playback.now || !playback.queue.length) return;
     startNext();

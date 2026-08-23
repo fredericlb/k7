@@ -56,3 +56,29 @@ machine back up", not "this URL is wrong".
 An engine that **refuses** the cut is reported verbatim rather than treated as an address that did
 not answer. A chain that is not there, a model nobody downloaded: those are sentences with a remedy
 in them, and retrying the next address would turn each one into "no engine responded".
+
+## `stems/`, never beside the master
+
+The scan takes the **first** audio file in a folder and does not descend, so a stem dropped
+alongside the master could be played in place of the mix. `@studio/song-schema`'s `stems.ts` holds
+that rule for everyone, and `cut.ts` writes under `dirname(safePath(song))` — `dirname` and not a
+slice on `"/"`, because `safePath` answers in the platform's own separators and a hand-rolled
+split would put `stems/` at the volume root on Windows.
+
+## The bytes travel once, and come back streamed
+
+The master goes up **in the request body**: the engine holds no copy of this library, which is the
+whole point of driving the cut from here, so it travels once per job and is thrown away with the
+scratch directory afterwards. The stems come back one at a time, piped straight to disk — four
+stems of a long song are hundreds of megabytes, and this process is serving everybody else's
+requests while it happens. The final `DELETE` is best-effort: the files are here now, and an engine
+that never hears it sweeps on its own an hour later.
+
+Progress is forwarded **verbatim** — phase, percent, the worker's own lines — because this service
+is a pipe for the engine's progress rather than a second opinion. The one phase of its own is
+`collecting`, named because it is minutes for a long song over a LAN and an unlabelled gap at 100 %
+reads as a hang.
+
+The poll is every two seconds, which a job measured in minutes never feels. The 90-minute cap is
+past any honest run and exists only to catch an engine that stopped answering at all — the engine
+has its own, shorter one for a separation that merely takes too long.

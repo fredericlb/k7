@@ -24,9 +24,7 @@ interface Span {
 const longTasks: Span[] = [];
 const commits: Span[] = [];
 const activities: Span[] = [];
-// Stretches where the page was HIDDEN. A backgrounded tab has its timers throttled — Chrome clamps them hard, and
-// a sleeping machine stops them altogether — so the heartbeat comes back to a huge gap that was never a freeze.
-// Reporting those as stalls is worse than not reporting: it is a false lead with a number on it.
+// Stretches where the page was HIDDEN: a backgrounded tab has its timers throttled, and reporting that gap as a stall is a false lead.
 const hidden: Span[] = [];
 let longTaskObs: PerformanceObserver | null = null;
 
@@ -46,13 +44,7 @@ function overlapping(ring: Span[], from: number, to: number): Span[] {
 
 const ms = (s: Span, to: number) => Math.round(Math.min(s.end, to) - s.start);
 
-/**
- * Mark what the app is doing, so a stall can name it. Returns the closer; call it in a `finally`.
- *
- * Deliberately coarse — the message type, the endpoint — because the point is to halve the search space, not to
- * profile. A span left open (the code threw, or never finished) is the most useful shape of all: it is exactly
- * the thing that was still running when everything stopped.
- */
+/** Mark what the app is doing, so a stall can name it — deliberately coarse, and a span left OPEN is the most useful shape of all. */
 export function beginActivity(name: string): () => void {
   const span: Span = {
     name,
@@ -102,14 +94,10 @@ export function installFreezeWatchdog(): void {
     last = now;
     if (overshoot <= STALL_MS) return;
 
-    // A hidden page is not a frozen one. Throttled timers produce exactly the same gap, and the gap is the only
-    // thing the heartbeat can see — so the visibility record is what tells the two apart.
+    // A hidden page is not a frozen one: throttled timers produce the same gap, so the visibility record is what tells the two apart.
     if (overlapping(hidden, from, now).length) return;
 
-    // Drain the observer BEFORE reading the ring. Its callback and this interval are both tasks queued after the
-    // long task ended, in no guaranteed order — so the ring could still be empty for a stall the browser has
-    // already measured, and the report would say "nothing on the main thread" about our own 5s of JS. That is not
-    // a missing detail, it is the wrong conclusion, which is the one thing an instrument must not produce.
+    // Drain the observer BEFORE reading the ring: otherwise the report says 'nothing on the main thread' about our own 5 s of JS.
     for (const e of longTaskObs?.takeRecords() ?? [])
       push(longTasks, {
         name: taskName(e),
@@ -128,8 +116,7 @@ export function installFreezeWatchdog(): void {
     add("longtask", longTasks);
     add("commit  ", commits);
     add("activity", activities);
-    // Heap size when the browser offers it (Chromium only). A stall with no task behind it is often a major GC,
-    // and a heap climbing towards the limit is the difference between "the browser paused us" and "we made it".
+    // Heap size when the browser offers it: a stall with no task behind it is often a major GC, which the heap is the way to tell.
     const mem = (
       performance as Performance & {
         memory?: { usedJSHeapSize: number; jsHeapSizeLimit: number };
@@ -143,8 +130,7 @@ export function installFreezeWatchdog(): void {
     console.warn(
       `⏱️ [freeze] main thread blocked ~${Math.round(overshoot)}ms ` +
         `(at ${new Date().toLocaleTimeString()})` +
-        // No breadcrumb at all is itself a finding: the thread was taken from us rather than spent by us — GC, a
-        // browser-level pause, an extension, or a blocking dialog. Do not go looking in the app for that one.
+        // No breadcrumb at all is itself a finding: the thread was taken from us rather than spent by us — do not go looking in the app.
         (lines.length
           ? `\n${lines.join("\n")}`
           : "\n    (nothing on the main thread — not ours to fix in JS)"),

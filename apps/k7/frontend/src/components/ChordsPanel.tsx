@@ -8,8 +8,7 @@ interface Props {
   onToggle: () => void;
 }
 
-/** Desktop-only floating panel docked to the right margin, listing every chord
- * in the song with its guitar diagram(s). */
+/** A desktop-only panel on the right margin, listing every chord with its diagrams. */
 export function ChordsPanel({ chords, selected, open, onToggle }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
 

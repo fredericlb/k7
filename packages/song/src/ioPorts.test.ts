@@ -13,9 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ioPorts } from "./ioPorts";
 import type { Preferences } from "./preferences";
 
-// The I/O panel's list. The interesting half is that a port's CHANNEL is not always a
-// number: it can be a label from the machine's preferences, which is a property of the rig
-// and has to be resolved before the engine can be asked to meter anything.
+// A port's CHANNEL can be a label from the rig's preferences, resolved before anything is metered.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(
@@ -62,8 +60,7 @@ describe("the declared I/O", () => {
   const by = (ref: string) => ioPorts(dir, PREFS).find((p) => p.ref === ref);
 
   it("lists the inherited io modules AND their nodes", () => {
-    // The nodes are the point: one per physical input, and until they were keyed
-    // into the ref map nothing could name — or meter — a single one of them.
+    // One node per physical input, and unkeyed nothing could name or meter a single one.
     const refs = ioPorts(dir, PREFS).map((p) => p.ref);
     expect(refs).toEqual(
       expect.arrayContaining([
@@ -89,8 +86,7 @@ describe("the declared I/O", () => {
   });
 
   it("says when a label names an input this rig doesn't have", () => {
-    // Distinct from "no channel declared": the file DOES say which input it wants, and
-    // a silent meter beside it would read as nothing being plugged in.
+    // The file DOES name an input, so a silent meter would read as nothing being plugged in.
     const ghost = by("@workspace/io/IN:ghost");
     expect(ghost?.unknownLabel).toBe(true);
     expect(ghost?.channels).toEqual([]);

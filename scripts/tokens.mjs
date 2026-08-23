@@ -15,8 +15,7 @@ const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const force = args.includes("--force");
-/** `--env <file>`, so a test can run the real script against a scratch copy rather than
- *  editing the developer's own secrets and putting them back afterwards. */
+/** `--env <file>`, so a test runs the real script against a scratch copy of the secrets. */
 const flagValue = (name) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : null;
@@ -24,19 +23,7 @@ const flagValue = (name) => {
 const ENV_FILE = flagValue("env") ?? join(repo, "env.yaml");
 const TRAY_SETTINGS = join(homedir(), ".studio", "engine-tray.json");
 
-/**
- * Who calls whom, and where each side's half lives.
- *
- * `issuer` is the service that VERIFIES the token, so its secret signs it; `sub` is the
- * identity the callee will see. `assign` writes the minted token wherever the caller reads
- * it, which is not always env.yaml — the file service is spawned by the supervisor from its
- * own settings file, because that credential belongs to a machine and not to a deployment.
- *
- * `devUrl` is the one URL anything here still writes, and only into a checkout: a service is
- * at a FIXED path under one origin, which is what every caller defaults to, but in a checkout
- * that origin goes out to the LAN proxy and straight back for nothing. So a
- * server-to-server hop takes the loopback port, and this writes it so nobody types a URL.
- */
+/** The loopback a checkout takes instead of going out to the LAN proxy and back (../docs/tokens.md). */
 const MEDIATEK_DEV_URL = "http://127.0.0.1:8795"; // SERVICE_PORTS.pl8
 
 const LINKS = [
@@ -44,8 +31,7 @@ const LINKS = [
     name: "st0 → pl8",
     issuer: "pl8-backend",
     sub: "service:st0",
-    // The file service reads it from the supervisor's settings; its URL is derived from the
-    // registries that supervisor already announces to, so there is no dev URL to write here.
+    // The file service reads it from the supervisor's settings, and derives its URL (../docs/tokens.md).
     read: () => trayValue("mediatekToken"),
     assign: (token) => setTrayValue("mediatekToken", token),
     where: `${TRAY_SETTINGS} (mediatekToken)`,
@@ -64,10 +50,8 @@ const LINKS = [
 ];
 
 // --- the token scheme, byte for byte commons/packages/oidc/apiToken.ts ------------------
-// Duplicated rather than imported: this is a plain node script with no TypeScript loader, and
-// the alternative — booting tsx to sign 100 bytes — buys nothing. The pair is pinned by a test
-// that mints here and verifies with the real one: packages/engine-host/src/tokensScript.test.ts,
-// which lives there because that package owns the consumer half.
+
+// Duplicated rather than imported, and pinned by a test on both halves (../docs/tokens.md).
 
 const b64url = (buf) =>
   buf
@@ -114,13 +98,7 @@ function envDoc() {
   return parseDocument(readFileSync(ENV_FILE, "utf8"), { version: "1.2" });
 }
 
-/**
- * The secret a service signs its API tokens with, generated on first run.
- *
- * The backend falls back to `${SESSION_SECRET}:pl8` when this is unset, which works and
- * is exactly what nobody should rely on: rotating the session secret would then log everyone
- * out AND revoke every machine's sync in one move. Writing a real one separates the two.
- */
+/** The secret a service signs its API tokens with, generated on first run (../docs/tokens.md). */
 function ensureSecret(doc, service) {
   const current = strAt(doc, [service, "API_TOKEN_SECRET"]);
   if (current) return { secret: current, made: false };
@@ -188,8 +166,7 @@ for (const link of LINKS) {
   const secret = secrets.get(link.issuer);
   const newSecret = fresh.has(link.issuer);
 
-  // The dev-only loopback, written when the file has none — never overwritten, since a
-  // checkout pointed somewhere deliberate is a checkout somebody set up on purpose.
+  // The dev-only loopback, written when the file has none and never overwritten (../docs/tokens.md).
   if (link.devUrl && !strAt(doc, link.devUrl.at)) {
     if (!dryRun) setIn(doc, link.devUrl.at, link.devUrl.value);
     envTouched = true;
@@ -198,9 +175,7 @@ for (const link of LINKS) {
     );
   }
 
-  // A token that still verifies is a token that still works. Re-minting one would be a churn
-  // with a real cost: every machine holding the old one keeps it, and they all keep working,
-  // so a "refresh" that changes nothing anywhere is just noise in two config files.
+  // A token that still verifies is left alone: re-minting has a real cost (../docs/tokens.md).
   const held = link.read(doc);
   const holder = newSecret ? null : verify(secret, held);
   if (holder === link.sub && !force) {

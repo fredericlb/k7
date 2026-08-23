@@ -6,10 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-// STATIC, not `await import(...)` inside a test: this module pulls in most of the file
-// service, and paying that in the first test body put it over the 5 s default timeout under a
-// parallel run. Safe to hoist because nothing here reads the environment at import — every
-// path goes through `homedir()` at call time, which is what the override below steers.
+// STATIC, not `await import(...)`: paying this module's load in the first test body blew the 5 s timeout.
 import { slugify, userRoot } from "./slug.ts";
 import {
   listMachineWorkspaces,
@@ -18,12 +15,7 @@ import {
 } from "./workspaces.ts";
 
 let home: string;
-/**
- * A DIFFERENT user per test, on purpose. `homedir()` is read per call and this file steers it
- * with `$USERPROFILE`/`$HOME`, but vitest may run several files in one process — so another
- * file's own env juggling can put `homedir()` back for a moment. A unique slug per test keeps
- * "this user has nothing on this machine" true wherever the root lands.
- */
+/** A DIFFERENT user per test, so "nothing on this machine" holds wherever another file's env juggling lands. */
 let USER = "";
 let n = 0;
 
@@ -119,8 +111,7 @@ describe("listMachineWorkspaces", () => {
   it("names the repository itself, without asking pl8", async () => {
     checkout(myRoot(), "songs", "git@github.com:me/my-songs.git");
     const [ws] = await listMachineWorkspaces(USER);
-    // The SHORT name — the half of an address a person reads. Derived from the origin git
-    // wrote, so the link this page draws costs no round trip to the service that holds the URI.
+    // The SHORT name, derived from the origin git wrote, so the link costs no round trip to pl8.
     expect(ws.repoName).toBe("my-songs");
     expect(ws.uniqueName).toBe(true);
   });
@@ -130,8 +121,7 @@ describe("listMachineWorkspaces", () => {
     checkout(root, "songs", "git@github.com:me/songs.git");
     checkout(root, "songs-2", "git@gitlab.com:someone-else/songs.git");
     const rows = await listMachineWorkspaces(USER);
-    // `/songs/…` names two repositories, and pl8 answers 409 for exactly this rather than
-    // picking one. Both rows go through @local, which names the workspace and cannot collide.
+    // `/songs/…` names two repositories, and pl8 answers 409 for this rather than picking one.
     expect(rows.map((r) => r.uniqueName)).toEqual([false, false]);
     expect(rows.map((r) => r.repoName)).toEqual(["songs", "songs"]);
   });
@@ -140,9 +130,7 @@ describe("listMachineWorkspaces", () => {
     const root = myRoot();
     mkdirSync(join(root, "Examples", "synth-demo.st0"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);
-    // This is the row that did not exist at all while pl8's mirror was the source: no
-    // repository, so nothing to mirror, so nothing to list. Its demos are what a new account
-    // has on the day it has nothing else.
+    // The row pl8's mirror could not have: no repository, so nothing to mirror and nothing to list.
     expect(ws.name).toBe("Examples");
     expect(ws.origin).toBe(null);
     expect(ws.repoName).toBe(null);
@@ -154,8 +142,7 @@ describe("listMachineWorkspaces", () => {
     mkdirSync(join(myRoot(), "hiver.st0"), { recursive: true });
     const [ws] = await listMachineWorkspaces(USER);
     expect(ws.isSingleProject).toBe(true);
-    // `.` is what every other route already calls the workspace root, and what `parseLaunch`
-    // answers for an address whose repository IS the project.
+    // `.` is what every other route calls the workspace root, and what `parseLaunch` answers.
     expect(ws.projects).toEqual([{ path: ".", app: "st0" }]);
   });
 

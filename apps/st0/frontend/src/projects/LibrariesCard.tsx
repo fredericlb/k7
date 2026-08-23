@@ -11,8 +11,7 @@ import { useEffect, useState } from "react";
 import { projects } from "./api";
 
 export function LibrariesCard() {
-  // `undefined` = not read yet, `null` = read and there is none. The two draw differently: a new
-  // account must read "you need one", not a loading blank.
+  // `undefined` = not read yet, `null` = read and there is none: a new account must read 'you need one', not a loading blank.
   const [repo, setRepo] = useState<RepoRef | null | undefined>(undefined);
   const [uri, setUri] = useState("");
   const [editing, setEditing] = useState(false);
@@ -60,8 +59,7 @@ export function LibrariesCard() {
     <div
       className={cn(
         "flex flex-col gap-2 border-b px-6 py-4",
-        // With no repository the card is not an information row: it is the one thing to do on this
-        // screen, and nothing else here works until it is done.
+        // With no repository the card is not an information row: it is the one thing to do here, and nothing else works until it is done.
         missing && "border-b-amber-500/40 bg-amber-500/5",
       )}
     >
@@ -138,9 +136,7 @@ export function LibrariesCard() {
         </code>
       )}
 
-      {/* Changer de dépôt ne touche AUCUNE machine : le sous-module déjà cloné dans un espace
-          de travail pointe toujours sur l'ancien. Dit ici parce que c'est le seul endroit où
-          quelqu'un peut le provoquer, et que rien ne le rattrapera tout seul. */}
+      {/* Changing the repository touches NO machine: a submodule already cloned into a workspace still points at the old one. */}
       {editing && !missing && (
         <p className="text-xs text-amber-500">
           Les espaces de travail déjà présents sur une machine gardent l'ancien

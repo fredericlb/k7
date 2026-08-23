@@ -22,23 +22,15 @@ export function ViewportTab({
   /** The compiled picture, or null when this song carries none — see hooks/useVideoDoc.ts. */
   doc: WebVideoProject | null;
   error: string | null;
-  /** The compiled track order — how the engine's `levels` array is indexed. Only a shader with an
-   *  audio input reads it, so a song without one passes an empty list and nothing looks. */
+  /** The compiled track order — how the engine's `levels` array is indexed; only a shader with an audio input reads it. */
   trackIds?: readonly string[];
 }) {
-  // NOTHING of the engine's state is read here, and that is the point: `VideoCanvas` takes the
-  // frames off a raw subscription and feeds its clock, so this pane commits on a document change
-  // and on nothing else. It used to subscribe to `playing` and `playhead` as two slices, with a
-  // comment saying that was what kept it off the 20 Hz path — but the playhead is the field that
-  // moves, so the pane and its subtree committed on every frame all the same.
+  // NOTHING of the engine's state is read here: `VideoCanvas` takes the frames off a raw subscription, so this pane commits on a document change.
   const [debug, setDebug] = useState<LaneDebug[]>([]);
 
-  // Rebuilt only when the DOCUMENT changes, never on a playhead frame: the scene owns a GL
-  // context and a <video> per layer, and rebuilding it sixty times a second would tear down both
-  // sixty times a second.
+  // Rebuilt only when the DOCUMENT changes: the scene owns a GL context and a <video> per layer, and both would be torn down per frame.
   const scene = useMemo(() => (doc ? sceneOf(doc) : null), [doc]);
-  // Which lane drives each shader pass, from the same document. Memoised beside the scene because
-  // it changes with it and with nothing else — the LEVELS move at 20 Hz, this map does not.
+  // Which lane drives each shader pass, memoised beside the scene: the LEVELS move at 20 Hz, this map does not.
   const sources = useMemo(() => audioSources(doc), [doc]);
 
   if (error)
@@ -47,8 +39,7 @@ export function ViewportTab({
         {error}
       </div>
     );
-  // Declared and empty is a real state, not a bug: the surface says this song draws picture, and
-  // the lanes have not been written yet. Saying which file to add beats a black rectangle.
+  // Declared and empty is a real state: the surface says this song draws picture, and saying which file to add beats a black rectangle.
   if (!scene)
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
@@ -68,9 +59,7 @@ export function ViewportTab({
           onDebug={PROFILING ? setDebug : undefined}
         />
       </div>
-      {/* The strip: the format always, and — only while profiling — the per-lane sync error, the
-          verification signal that should settle small. It is a 5 Hz poll and a 5 Hz re-render of
-          this pane, which is a fair price for someone looking and none at all for anyone else. */}
+      {/* The strip: the format always, and the per-lane sync error only while profiling, it costing a 5 Hz re-render (docs/picture.md). */}
       <div className="flex shrink-0 items-center gap-3 border-t border-border bg-background px-3 py-1 font-mono text-[11px] text-muted-foreground">
         <span>
           {scene.viewport[0]}×{scene.viewport[1]}

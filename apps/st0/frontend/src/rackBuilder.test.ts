@@ -9,9 +9,7 @@ import {
   rackIssues,
 } from "./rackBuilder";
 
-// The rack builder's arithmetic. What is pinned hardest is the READING of the grid: bottom
-// row first, left to right, then the row above — a drum machine's page — because the notes it
-// assigns are addresses every sequencer row and every `sequence note` line will use for ever.
+// The rack builder's arithmetic, and hardest the READING of the grid: the notes it assigns are addresses every `sequence note` line will use.
 
 describe("padNote — the drum-machine reading", () => {
   it("starts at 36 bottom-left and ends at 51 top-right", () => {

@@ -1,10 +1,4 @@
-// Cutting and merging MATERIAL, as opposed to placements (trackMix.test.ts's split and join).
-//
-// The one contract both verbs have: what you hear must not change. A physical split's two halves
-// played back to back are the event that was there; a consolidation played once is the rectangle
-// that was there, silence included. Every case below is that question asked a different way.
-//
-// 120 bpm, 4/4 — so a bar is 4 beats and every number reads off that.
+// Cutting and merging MATERIAL at 120 bpm 4/4 — what you hear must not change; docs/materialCut.md.
 
 import {
   mkdirSync,
@@ -90,15 +84,13 @@ describe("event split, on a sequence", () => {
   });
 
   it("leaves the material it cut exactly where it was", () => {
-    // Another lane may still be playing it, and this verb cannot know. A sequences/ folder
-    // gaining a file is cheap; a project that stops compiling is not.
+    // Another lane may still be playing it, and this verb cannot know.
     splitSequenceMaterial(dir, "drums", 0, 2, NUM, DEN);
     expect(read("sequences/kick.yaml").notes).toHaveLength(4);
   });
 
   it("truncates a note that STRADDLES the cut rather than dropping it", () => {
-    // What was sounding at the cut goes on sounding up to it. Dropping it would make the halves
-    // play something the whole never did, which is the one thing a split may not do.
+    // What was sounding at the cut goes on sounding up to it — docs/materialCut.md.
     seq("hold", "  - { t: 0, d: 4, k: 36 }\n");
     lane('  - { ref: hold, start: "1:1:1" }\n');
     const { head, tail } = splitSequenceMaterial(dir, "drums", 0, 1, NUM, DEN)!;
@@ -107,8 +99,7 @@ describe("event split, on a sequence", () => {
   });
 
   it("keeps the extent, so a half that ends in silence still does", () => {
-    // The head is cut at beat 3 but its last note stops at 2. Without a `to` the sequence would
-    // end where the notes do, and the pair would play a beat shorter than the event did.
+    // The head is cut at beat 3 but its last note stops at 2, so without a `to` it ends early.
     const { head } = splitSequenceMaterial(dir, "drums", 0, 3, NUM, DEN)!;
     expect(read(head.file).to).toBe("1:4"); // three beats
   });
@@ -166,8 +157,7 @@ describe("selection consolidate, on sequences", () => {
     const out = consolidateSequenceMaterial(dir, "drums", 0, 4, NUM, DEN)!;
     expect(out.replaced).toBe(2);
     expect(out.from).toEqual(["a", "b"]);
-    // Offsets are measured from the RECTANGLE's start, which is what makes the result play
-    // where the events did.
+    // Offsets are measured from the RECTANGLE's start, so the result plays where the events did.
     expect(read(out.written.file).notes).toEqual([
       { t: 0, d: 1, k: 36 },
       { t: 1, d: 1, k: 38 },
@@ -175,8 +165,7 @@ describe("selection consolidate, on sequences", () => {
   });
 
   it("keeps the GAPS — silence where nothing played", () => {
-    // The whole reason the extent is the rectangle and not the notes: an event at beat 3 lands
-    // at beat 3 of the new material, and the two beats before it are simply empty.
+    // Why the extent is the rectangle and not the notes: the beats before an event stay empty.
     seq("a", "  - { t: 0, d: 1, k: 36 }\n");
     lane('  - { ref: a, start: "1:4:1" }\n');
     const out = consolidateSequenceMaterial(dir, "drums", 0, 8, NUM, DEN)!;
@@ -187,10 +176,7 @@ describe("selection consolidate, on sequences", () => {
   });
 
   it("plays a note the rectangle does not reach — no extent may cut it", () => {
-    // THE bug this pins, from a real project: two notes at beat 3.01 in a material selected by a
-    // three-beat rectangle. The old `to: "1:4"` was beat 3, so both sat after the end — in the
-    // file, and silent. Nothing about a consolidation may decide where its notes stop.
-    // The report's own numbers: the pair ends exactly on beat 4.
+    // THE bug this pins: two notes at beat 3.01 sat after a `to` of beat 3 — docs/materialCut.md.
     seq(
       "late",
       "  - { t: 3.013803, d: 0.479722, k: 47, v: 0.3228 }\n" +
@@ -199,8 +185,7 @@ describe("selection consolidate, on sequences", () => {
     lane('  - { ref: late, start: "1:1:1" }\n');
     const out = consolidateSequenceMaterial(dir, "drums", 0, 3, NUM, DEN)!;
     const w = read(out.written.file);
-    // The rectangle is three beats and the note ends past four, so the window is WIDENED to hold
-    // it: `to` was "1:4" (beat 3) and the notes sat after it, in the file and silent.
+    // The rectangle is three beats and the note ends past four, so the window is WIDENED.
     expect(w.to).toBe("2:1");
     expect(w.notes?.[0].t).toBeCloseTo(3.013803, 6);
   });
@@ -228,8 +213,7 @@ describe("selection consolidate, on sequences", () => {
   });
 
   it("unrolls a repeat rather than refusing it", () => {
-    // A loop is N copies of one window laid end to end, which is exactly what the consolidated
-    // material has to contain.
+    // A loop is N copies of one window laid end to end, which is what the material must contain.
     seq("a", "  - { t: 0, d: 1, k: 36 }\n", 'to: "1:3:1"\n');
     lane('  - { ref: a, start: "1:1:1", loop: 3 }\n');
     const out = consolidateSequenceMaterial(dir, "drums", 0, 8, NUM, DEN)!;

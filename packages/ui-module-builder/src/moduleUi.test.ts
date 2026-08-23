@@ -14,13 +14,7 @@ import {
   writeUi,
 } from "./moduleUi";
 
-// The visual module editor writes into a file a person also edits by hand, so the two
-// promises that matter are: every line outside `ui:` comes back byte-identical, and what
-// the grid writes is something the loader will accept.
-//
-// Nothing covered this while it was CUE text surgery. The bug the range test pins is real
-// and was found by reading that code: a knob retyped to a toggle kept its `min`, and the
-// file then failed to load — taking the module's whole graph node with it.
+// Two promises: every line outside `ui:` comes back byte-identical, and what the grid writes loads.
 
 const MODULE = `# the lead voice
 extends: instruments/fourosc
@@ -65,8 +59,7 @@ describe("reading", () => {
   });
 
   it("reads params as text, including one the schema would refuse", () => {
-    // The pane only displays them, and a value that won't load should still be visible —
-    // showing what is actually in the file is the point.
+    // The pane only displays them, so a value that will not load should still be visible.
     expect(readParams(MODULE)).toEqual({ "Filter Freq": "90", Level: "-12" });
     expect(readParams("params:\n  Drive: loud\n")).toEqual({ Drive: "loud" });
   });
@@ -77,13 +70,7 @@ describe("reading", () => {
   });
 });
 
-/**
- * The `plugin:` block, which is how a module in a LIBRARY gets a parameter list at all.
- *
- * `_libraries/modules/instruments/4osc/module.yaml` is not a base of the open song, is not
- * instantiated, and the builder overlay holds no engine link — so every other source is empty and
- * the bind dropdown was too. The file states which plugin it is; that is the one thing available.
- */
+/** The `plugin:` block, which is how a module in a LIBRARY gets a parameter list at all — docs/builder.md. */
 describe("the plugin a module declares", () => {
   it("reads the two words the built-in table is keyed on", () => {
     expect(readPlugin("plugin:\n  type: internal\n  name: 4osc\n")).toEqual({
@@ -97,8 +84,7 @@ describe("the plugin a module declares", () => {
   });
 
   it("is null for a module that only EXTENDS one", () => {
-    // Deliberately shallow: inheriting the plugin means resolving a ref this component cannot
-    // resolve. That module still has the two learned sources and the live engine's report.
+    // Deliberately shallow: inheriting would mean resolving a ref this component cannot resolve.
     expect(readPlugin(MODULE)).toBe(null);
   });
 
@@ -126,8 +112,7 @@ describe("writing", () => {
   });
 
   it("writes one widget per line, as a flow mapping", () => {
-    // The shape these files already have by hand, and what keeps moving a knob to a
-    // one-line diff instead of a five-line one.
+    // The shape these files already have by hand, and what keeps moving a knob a one-line diff.
     const ui = readUi(MODULE);
     const line = writeUi(MODULE, ui)
       .split("\n")
@@ -164,8 +149,7 @@ describe("writing", () => {
   });
 
   it("drops a range when the widget is retyped to a kind that can't carry one", () => {
-    // THE bug: a knob has min/max; retype it to a toggle and the range must not travel,
-    // or the schema refuses the file and the module stops loading entirely.
+    // THE bug: retype a knob to a toggle and the range must not travel, or the file stops loading.
     const after = writeUi("", {
       cols: 2,
       rows: 1,
@@ -208,8 +192,7 @@ describe("writing", () => {
   });
 });
 
-// An `io: in` module runs no plugin — the input IS the module — so the builder has no scanned parameter list to
-// offer and its panel had nothing bindable on it. `ioOf` is what tells the two kinds of module apart.
+// An `io: in` module runs no plugin, so `ioOf` is what tells the two kinds apart — see docs/builder.md.
 describe("an io module's direction", () => {
   it("reads the direction an io module declares", () => {
     expect(ioOf("io: in\nchannel: [2]\n")).toBe("in");
@@ -225,9 +208,7 @@ describe("an io module's direction", () => {
     expect(ioOf("io: [unclosed\n")).toBe(null);
   });
 
-  // THE bug the picker shipped with. A real input in a real song states no `io:` at all — this is
-  // `nodes/ge_rythm-in.yaml` from 01.danse.st0, whole — and reading only the file's own key called it
-  // an ordinary plugin, so it got neither the io binds nor a channel dropdown.
+  // THE bug the picker shipped with: `nodes/ge_rythm-in.yaml` states no `io:` and read as a plugin.
   it("follows `extends` to the engine's io modules", () => {
     const node = 'extends: "@engine/IN"\nchannel: [ 2 ]\n';
     expect(ioOf(node)).toBe("in");
@@ -240,8 +221,7 @@ describe("an io module's direction", () => {
   });
 
   it("reads the direction off the PATH for a file that inherits it by location", () => {
-    // `in-2.yaml` beside `io/IN/module.yaml` carries a channel and nothing else — the folder is
-    // what says it is an input, exactly as the loader reads it.
+    // `in-2.yaml` carries a channel and nothing else: the FOLDER says it is an input, as the loader reads it.
     expect(ioOf("channel: [1, 2]\n", "_modules/io/IN/in-2.yaml")).toBe("in");
     expect(ioOf("", "C:\\ws\\_modules\\io\\OUT\\main.yaml")).toBe("out");
     expect(ioOf("", "nodes/io/notamodule/x.yaml")).toBe(null);
@@ -254,9 +234,7 @@ describe("an io module's direction", () => {
   });
 });
 
-// The channel picker's two halves. Reading has to keep a preferences LABEL a label, because the
-// builder does not hold the machine's preferences and cannot resolve one; writing has to leave a
-// hand-written file looking hand-written, since these are the files people edit as text first.
+// The picker's two halves: reading keeps a LABEL a label, and writing leaves a hand-written file so.
 describe("an input module's channels", () => {
   it("reads a list of channels as the numbers it names", () => {
     expect(channelOf("io: in\nchannel: [1, 2]\n")).toEqual([1, 2]);
@@ -264,8 +242,7 @@ describe("an input module's channels", () => {
   });
 
   it("reads a preferences label as the label, not as numbers", () => {
-    // Resolving it belongs to whoever holds the preferences; guessing here would write the
-    // rig's naming out of the file the first time somebody touched the dropdown.
+    // Resolving belongs to whoever holds the preferences: guessing writes the rig's naming out.
     expect(channelOf("io: in\nchannel: Guitare\n")).toBe("Guitare");
   });
 
@@ -301,9 +278,7 @@ describe("an input module's channels", () => {
   });
 });
 
-// The builder's `status` dropdown, which is these two functions and a <Select>. The field says
-// nothing about sound — only how the completions rank the module — so what is worth pinning is
-// that the default is never WRITTEN and that a hand-written file survives being set.
+// The `status` dropdown: what is worth pinning is that the DEFAULT is never written.
 describe("a module's status", () => {
   it("reads listed for a file that says nothing", () => {
     expect(statusOf("name: Amp\n")).toBe("listed");
@@ -320,8 +295,7 @@ describe("a module's status", () => {
     expect(statusOf(setStatusIn("name: Amp\n", "favorite"))).toBe("favorite");
   });
 
-  // The point of the field being optional: a library where every module carries
-  // `status: listed` is a line of noise per file that a reader has to learn to skip.
+  // Why the field is optional: `status: listed` on every module is a line of noise per file.
   it("CLEARS rather than writing the default", () => {
     const after = setStatusIn("name: Amp\nstatus: hidden\n", "listed");
     expect(after).not.toContain("status");

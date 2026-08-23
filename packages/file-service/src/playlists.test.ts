@@ -32,8 +32,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("Workspace.playlists", () => {
   it("is empty, not a throw, before anything has made the folder", () => {
-    // An account with no set list has none. That is a fact about the workspace and not a
-    // failure to report, so the screen draws its empty state rather than an error.
+    // An account with no set list has none: a fact about the workspace, not a failure to report.
     expect(ws.playlists()).toEqual([]);
   });
 
@@ -64,15 +63,12 @@ describe("Workspace.playlists", () => {
   it("lists a file that does NOT parse, so you can click it and fix it", () => {
     write("_playlists/cassee.yaml", "items: [\n");
     const [p] = ws.playlists();
-    // It is on the disk. A listing that hid it would leave you unable to open the one thing
-    // you have to go and repair — the same rule the médiathèque's scan followed before this.
+    // A listing that hid it would leave you unable to open the one thing you have to repair.
     expect(p).toMatchObject({ name: "cassee", count: 0, ok: false });
   });
 
   it("looks beside the active project, not inside it", () => {
-    // The regression this guards: rooting the walk at the active project would give a
-    // workspace of four songs four separate playlist folders, and a set list belongs to the
-    // repository. A file under the PROJECT's own `_playlists` is therefore not one of these.
+    // Rooting the walk at the active project would give a workspace of four songs four set lists.
     write("_playlists/mine.yaml", "items: []\n");
     write("song.st0/_playlists/not-mine.yaml", "items: []\n");
     expect(ws.playlists().map((p) => p.path)).toEqual(["_playlists/mine.yaml"]);
@@ -85,6 +81,4 @@ describe("Workspace.playlists", () => {
   });
 });
 
-// `Workspace.createPlaylist` was tested here — the stub, the extension, the refusals and the
-// `..` that must not leave the folder. Making a playlist is `playlist new` now, so those five
-// cases moved with the behaviour: @studio/commands' `playlist.test.ts`.
+// `Workspace.createPlaylist`'s five cases moved with the behaviour, to @studio/commands' `playlist.test.ts`.

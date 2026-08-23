@@ -94,34 +94,23 @@ export function ChainsTab({
   onMidiStatus,
 }: {
   reloadKey: number;
-  // Bumped when `graph organize` ran: the one signal that empties the session's held node
-  // positions and lets dagre re-lay out everything — an ordinary reload never does.
+  // Bumped when `graph organize` ran: the one signal that empties the held node positions and lets dagre re-lay out everything.
   organizeKey?: number;
   // VISIBLE, not focused: a display:none container has no size and fit() would frame to 0.
   active: boolean;
   showList: boolean; // the sidebar is fullscreen chrome; the global view's pane is canvas only
-  /**
-   * Which glyph set the nodes wear. Defaulted, so the mounts that draw an ordinary song say
-   * nothing; a SET passes `DECK_ICONS`, whose lane glyph is a record rather than the question
-   * mark a name with no instrument prefix earns. See chainsIcons.tsx.
-   */
+  /** Which glyph set the nodes wear, defaulted so an ordinary song says nothing; a SET passes `DECK_ICONS` (chainsIcons.tsx). */
   icons?: ChainsIcons;
   // The engine's track order; liveness is derived off the store here, so only the graph re-runs it.
   trackOrder: string[];
-  /** …and the PICTURE's half of the same answer, since nothing meters a frame: when each video
-   *  lane is showing one, in seconds. Computed by the shell off the video doc — see
-   *  ../videoSpans.ts. */
+  /** …and the PICTURE's half of the same answer, since nothing meters a frame: when each video lane is showing one (../videoSpans.ts). */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
-  /** The compiled doc, for the one thing the graph cannot derive on its own: which notes a lane
-   *  plays, which is what lights a rack's pads. Absent until the first one lands. */
+  /** The compiled doc, for the one thing the graph cannot derive: which notes a lane plays, which is what lights a rack's pads. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
-  // Toggle a module's bypass. The canvas flips the node itself on click and lets the refetch confirm — see
-  // pendingBypass; the command no longer reloads the project, so waiting for one would be waiting for nothing.
+  // Toggle a module's bypass: the canvas flips the node itself on click and lets the refetch confirm — see pendingBypass.
   onBypassModule?: (module: string) => void;
-  /** The ⋮ bubble on a node: open that node's menu at those viewport coords — its alternatives
-   *  and its freeze. Straight through to the renderer: the menu is the SHELL's, like the asset
-   *  browser. */
+  /** The ⋮ bubble on a node: open that node's menu at those viewport coords — straight through, the menu being the SHELL's. */
   onNodeMenu?: (
     n: {
       module?: string;
@@ -145,24 +134,9 @@ export function ChainsTab({
   ) => void;
   /** The arrow a module is being created on right now, or null. Drawn as a placeholder until real data lands. */
   pendingInsert?: { before: string; after: string } | null;
-  /**
-   * The graph a writing command already came back with, and its id.
-   *
-   * A command that changes the project makes this pane's `reloadKey` move, and fetching the graph
-   * then costs a round trip plus a ~400 ms rebuild of what the service parsed moments earlier to
-   * answer that very command. An unconsumed seed IS that answer, so we draw it and skip the fetch.
-   * The id is taken once: a reload from anywhere else — a poll, another tab's edit, the undo
-   * journal — must re-fetch rather than redraw a graph that has already been shown.
-   */
+  /** The graph a writing command already came back with, and its id — taken once, so a reload from anywhere else re-fetches. */
   seedGraph?: { id: number; graph: WebGraph } | null;
-  /**
-   * Whether to DRAW the project's notes — its doc modules.
-   *
-   * Off by default, and the shell's to decide: a note is wired into the chain it is about, so
-   * showing every one all the time would put prose in the middle of the signal path. Filtered
-   * here rather than in the renderer because it is a question about this project's graph, and
-   * `DomChains` draws whatever graph it is given.
-   */
+  /** Whether to DRAW the project's notes: off by default, and filtered here rather than in the renderer, being a question about this graph. */
   showDocs?: boolean;
   /** How many notes the project has, reported up — the shell's button is in the footer. */
   onDocCount?: (n: number) => void;
@@ -172,18 +146,9 @@ export function ChainsTab({
     frozen: WebGraph["frozen"];
     automation: Record<string, WebAutomationLane[]>;
   }) => void;
-  // No "edit this module" here on purpose: a module is a LIBRARY thing — the same file backs every project
-  // that names it — so its builder lives in the médiathèque, not in one song's graph.
-  // Right-click a node → the shell opens its context menu.
+  // Right-click a node → the shell opens its context menu. No 'edit this module' here: a module is a LIBRARY thing.
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /**
-   * A `+` click opens the module picker at the pointer, and the pick runs. `at` is the click's
-   * WORLD point — where the picked module will be born.
-   *
-   * `nameFor` answers what a node of that module dropped HERE would be called. It is handed up
-   * rather than computed by the shell because the graph is this pane's — the lane a name is
-   * built from is read off the arrow, and the arrow means nothing without the chains around it.
-   */
+  /** A `+` click opens the module picker at the pointer and the pick runs; `nameFor` answers what a node dropped HERE would be called. */
   onEdgeInsert?: (
     info: { before: string; after: string },
     x: number,
@@ -191,19 +156,16 @@ export function ChainsTab({
     at: { x: number; y: number } | undefined,
     nameFor: (module: string) => string,
   ) => void;
-  // A right-click on empty canvas opens the same picker, for a module wired to nothing. Same
-  // `nameFor`, with no arrow to read a lane off: `<module>_<n>`.
+  // A right-click on empty canvas opens the same picker, with no arrow to read a lane off: `<module>_<n>`.
   onCanvasInsert?: (
     x: number,
     y: number,
     at: { x: number; y: number } | undefined,
     nameFor: (module: string) => string,
   ) => void;
-  // The patch cable landed: a free output clicked, then a free input — both as graph.yaml
-  // addresses (`name` or `name#port`), ready for `graph chain connect`.
+  // The patch cable landed: a free output then a free input, as graph.yaml addresses, ready for `graph chain connect`.
   onConnect?: (from: string, to: string) => void;
-  // A curve's cable landed on a knob, or a note-on landed on an envelope's ear — both write
-  // one line of `node automate`. Pure pass-through to the canvas, like onConnect beside it.
+  // A curve's cable landed on a knob, or a note-on on an envelope's ear — both write one line of `node automate`.
   onAutomate?: (
     module: string,
     param: string,
@@ -221,14 +183,7 @@ export function ChainsTab({
   requestPluginParams: (id: string) => void;
   watchPluginParams: (id: string, on: boolean) => void;
   setPluginParam: (id: string, name: string, value: number) => void;
-  /**
-   * What each `offline` module is currently set to — the desk's numbers, lent to the graph.
-   *
-   * An `offline` module compiles to no plugin, so the engine has nothing to report and no id to
-   * report it under: a tempo node's knob would draw the number `project.yaml` declares and never
-   * move. Passing this is what turns those widgets on at all, which is why it is optional and
-   * why the shell only passes it when a surface is actually realising them (see App).
-   */
+  /** What each `offline` module is currently set to — the desk's numbers lent to the graph, and what turns those widgets on at all. */
   moduleParams?: Record<string, Record<string, number>>;
   // Live mixer state plus the two callbacks a track node's controls actuate — pure pass-through to the canvas.
   trackControls?: Record<string, TrackControlValues>;
@@ -242,29 +197,13 @@ export function ChainsTab({
   focus?: { id: string; nonce: number } | null;
   /** How many chains that framing found — so the shell's status line can say when it was none. */
   onFocused?: (chains: number) => void;
-  /**
-   * Modules to pull onto ONE rank, and frame the camera on — the mixer view, and nothing else.
-   *
-   * A list rather than a flag: the shell knows which modules are the strips (`mixerStrips.ts`
-   * reads it off the compiled project) and this package must not have to guess. Empty or absent
-   * leaves the graph exactly as it lays out on its own.
-   */
+  /** Modules to pull onto ONE rank and frame the camera on — the mixer view; a list, since the shell knows which are strips (mixerStrips.ts). */
   alignModules?: readonly string[];
-  // How the machine's interface groups its inputs, for the socket dropdown a live input's node
-  // draws. Empty with no engine attached, and the node then shows its width and its monitoring
-  // and an empty list — which is the honest picture, not a broken one.
+  // How the machine's interface groups its inputs, for a live input's socket dropdown — empty with no engine, which is the honest picture.
   inputDevices?: readonly { name: string; channels: number[] }[];
-  // The song's output level, for the fader on the OUT card. Not in the graph document — it is a
-  // project setting — so the shell hands it over, the same way it hands over the input devices.
+  // The song's output level, for the fader on the OUT card: a project setting, so the shell hands it over.
   masterVolume?: number;
-  /**
-   * Where the shell reaches MIDI learn from.
-   *
-   * The runtime lives HERE because this is the one component that always holds the graph — the map
-   * is part of it — and it stays mounted when the pane is hidden, so a controller keeps playing
-   * while you are looking at the timeline. The shell only needs to arm a learn, so it gets a
-   * handle rather than the whole thing.
-   */
+  /** Where the shell reaches MIDI learn from — the runtime lives HERE, this being the one component that always holds the graph. */
   midiRef?: React.RefObject<MidiControlApi | null>;
   /** Say what a learn is waiting for, or what it captured. */
   onMidiStatus?: (line: string) => void;
@@ -281,15 +220,11 @@ export function ChainsTab({
     camApi.current = api;
   }, []);
 
-  // Through a ref, so the seed is not a dependency of this effect: it arrives in the same update as
-  // the reload it answers, and depending on it would re-run the effect a second time for the same
-  // graph. `consumedSeed` is what makes it a one-shot.
+  // Through a ref, so the seed is not a dependency of this effect; `consumedSeed` is what makes it a one-shot.
   const seedRef = useRef(seedGraph);
   seedRef.current = seedGraph;
   const consumedSeed = useRef(0);
-  // The seed is just another way of ANSWERING, so it lives INSIDE the load rather than beside it:
-  // the pane has one document from one place, and the retry in useDocument then covers the seeded
-  // path too — a seed that never arrives falls through to a request like any other miss.
+  // The seed is just another way of ANSWERING, so it lives INSIDE the load: one document from one place, retry included.
   const { doc: graph, error } = useDocument(async () => {
     const seed = seedRef.current;
     if (seed && seed.id > consumedSeed.current) {
@@ -299,17 +234,7 @@ export function ChainsTab({
     return api.graph();
   }, reloadKey);
 
-  /**
-   * What a node dropped here would be CALLED — handed to the shell with the click.
-   *
-   * The shell runs the command, but only this pane can answer the question: the name is
-   * `<lane>_<module>_<n>`, the lane is read off the arrow, and the arrow means nothing without
-   * the chains around it. See nodeInsert.ts.
-   *
-   * Both wrappers keep the `undefined` they were given rather than always being a function: the
-   * renderer decides whether to OFFER the grip by whether the prop is there, so a frozen
-   * document that passes none must go on passing none.
-   */
+  /** What a node dropped here would be CALLED, handed to the shell with the click — only this pane can answer it (nodeInsert.ts). */
   const nameFor = useCallback(
     (before: string | null) =>
       (module: string): string =>
@@ -335,12 +260,7 @@ export function ChainsTab({
     [onCanvasInsert, nameFor],
   );
 
-  // Bypasses clicked but not yet confirmed by a graph refetch, by module name.
-  //
-  // The command itself is now milliseconds and the engine flips the plugin live, but the BUTTON reads its state
-  // off the graph — and the graph is re-read from disk on every fetch (~220 ms on a real song, plus a dagre
-  // relayout). So the audio changed instantly while the control sat there looking untouched, which is the whole
-  // of what "the interaction takes a second" describes. Held here, cleared the moment real data lands.
+  // Bypasses clicked but not yet confirmed by a refetch, by module name: the engine flips live while re-reading the graph costs ~220 ms.
   const [pendingBypass, setPendingBypass] = useState<Record<string, boolean>>(
     {},
   );
@@ -360,26 +280,14 @@ export function ChainsTab({
     [onBypassModule],
   );
 
-  /**
-   * A rack pad was clicked: audition that symbol's material.
-   *
-   * `preview` rather than the node's own sampler, deliberately: the engine has no verb for
-   * sounding one note of a loaded plugin, and this one exists end to end. What you hear is the
-   * SAMPLE, dry — not the reverb and the mixer that follow the rack in the chain. That is the
-   * trade the audition route makes, and it is the same sound the editor's gutter ▶ plays.
-   *
-   * The row comes off the node, which already carries the effective rack (`WebChainStep.rack`),
-   * so nothing is fetched and a slice finds its window without a second lookup.
-   */
+  /** A rack pad was clicked: audition that symbol's material through `preview` — the SAMPLE, dry, off the node's effective rack. */
   const triggerRack = useCallback((module: string, symbol: string) => {
     const node = laidRef.current?.nodes.find(
       (n) => n.kind === "module" && n.module === module,
     );
     const sound = node?.rack?.find((s) => s.symbol === symbol);
     if (!sound) return;
-    // `kind: "source"` and not `"clip"`: what a rack holds is NOT a clip id by the time it gets
-    // here. `resolveRackAudio` has already rewritten it to a path in the module's own folder —
-    // which is exactly what the engine is handed — and `resolvePreview` takes a path either way.
+    // `kind: "source"` and not `"clip"`: `resolveRackAudio` has already rewritten it to a path in the module's own folder.
     const req: PreviewReq | null = sound.clip
       ? { kind: "source", source: sound.clip }
       : sound.source
@@ -390,13 +298,9 @@ export function ChainsTab({
             to: sound.to ?? 0,
           }
         : null;
-    // A symbol with neither names no material at all — the compiler already reports that against
-    // the file, so there is nothing to add here.
+    // A symbol with no material at all is already reported against the file, so there is nothing to add here.
     if (!req) return;
-    // …but a symbol whose material does not RESOLVE is worth a word: a pad that is drawn, lights
-    // with the sequence and stays silent on click is otherwise indistinguishable from a broken
-    // app. `rack-demo`'s own kit is in exactly that state — its samples sit in `clips/` while
-    // `resolveRackAudio` looks in the module's folder.
+    // …but a symbol whose material does not RESOLVE is worth a word: a pad that lights and stays silent reads as a broken app.
     void api
       .preview(req)
       .catch((e: Error) =>
@@ -404,55 +308,29 @@ export function ChainsTab({
       );
   }, []);
 
-  // Which of this project's rack sounds are firing right now — derived from the arrangement and
-  // the playhead, since the engine reports no notes. See rackLit.ts.
+  // Which of this project's rack sounds are firing right now — derived from the arrangement and the playhead (rackLit.ts).
   const rackLit = useLiveRackLit(project, graph);
 
-  /**
-   * The project's NOTES, by name. `graph.modules` is keyed by doc modules and nothing else
-   * (see graphDoc.ts), so its keys ARE the notes — no second field says which nodes are prose.
-   */
+  /** The project's NOTES, by name: `graph.modules` is keyed by doc modules and nothing else, so its keys ARE the notes. */
   const docNames = useMemo(
     () => new Set(Object.keys(graph?.modules ?? {})),
     [graph],
   );
   useEffect(() => onDocCount?.(docNames.size), [docNames, onDocCount]);
 
-  /**
-   * What the graph knows about each LANE's node, travelling up for the timeline's gutter: its
-   * other attribute sets, and its freeze.
-   *
-   * Reported rather than fetched again for the reason `onDocCount` is — the graph is fetched here
-   * and the timeline is a different pane. Sharing the one pair of maps is also what lets the
-   * gutter open the SAME ⋮ menu this pane's lane nodes open, without either surface deriving
-   * facts the other might derive differently.
-   *
-   * Memoised so the identity changes only when the graph does; a fresh object every render would
-   * make the effect below fire on each one.
-   */
+  /** What the graph knows about each LANE's node, travelling up for the timeline's gutter — memoised, so the effect below fires only on a new graph. */
   const laneNodes = useMemo(
     () => ({
       alternatives: graph?.trackAlternatives,
       frozen: graph?.frozen,
-      // …and each lane's AUTOMATION, by the same road and for the same reason. The binding lives
-      // on a module and the shape on a curve; a track owns the lane only because the automated
-      // module sits in its chain, and `automationLanes` is the one place that join is done.
+      // …and each lane's AUTOMATION, by the same road: `automationLanes` is the one place the binding and the curve are joined.
       automation: graph ? automationLanes(graph) : {},
     }),
     [graph],
   );
   useEffect(() => onLaneNodes?.(laneNodes), [laneNodes, onLaneNodes]);
 
-  /**
-   * The graph as it is DRAWN: without the notes, unless the shell asked for them.
-   *
-   * Filtered before `buildGraph` rather than after layout, which is the whole reason this is
-   * its own memo: dagre ranks what it is given, so hiding a node afterwards would leave the
-   * hole it was laid out into — a gap in the signal path where a note used to be.
-   *
-   * A note is dropped from BOTH places it can appear: a step in a chain's `use`, and the `to`
-   * of an `out` when a run ends on one. Missing the second would draw a cable to nothing.
-   */
+  /** The graph as it is DRAWN: without the notes unless the shell asked — filtered before `buildGraph`, or the hole would stay in the layout. */
   const drawn = useMemo(() => {
     if (!graph || showDocs || docNames.size === 0) return graph;
     return {
@@ -472,46 +350,30 @@ export function ChainsTab({
     };
   }, [graph, showDocs, docNames]);
 
-  // Where each node was DRAWN last — the session memory that keeps an EDIT from
-  // reorganizing the picture: dagre places only what it has never placed. `graph organize`
-  // (organizeKey) is what empties it, deliberately.
+  // Where each node was DRAWN last — the session memory that keeps an EDIT from reorganizing the picture; `graph organize` empties it.
   const prevLaid = useRef<Map<string, { x: number; y: number }> | null>(null);
   // What has already been written to `positions:` this session — see the pinning effect below.
   const pinned = useRef(new Set<string>());
   const organizeSeen = useRef(organizeKey);
   const laid = useMemo(() => {
     if (!drawn) return null;
-    // The OUT card IS drawn, and it costs one node: lanes end at `MIX` now, so only the master
-    // run reaches it (`@studio/song`'s docs/masterChain.md). It was left out while every lane
-    // ended there and drawing it added a card, an edge and a rank to every chain in the song.
-    //
-    // Two things it needs that are not in the graph document, and are handed over for the same
-    // reason: the interface's inputs, which a live input's node draws its socket dropdown from,
-    // and the song's output level, which is the OUT card's own fader.
+    // The OUT card IS drawn, and it costs one node — plus the two things not in the graph document: the inputs, and the song's output level.
     const { nodes, edges } = buildGraph(drawn, {
       drawMainOut: true,
       inputDevices,
       mainOutVolume: masterVolume,
     });
-    // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
-    // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
-    // dagre would otherwise space them by whatever feeds them. See @studio/ui-chains.
+    // The mixer view is an ARRANGEMENT of this same graph: one rank, then an even re-spacing for a console's rhythm.
     const row = alignModules ?? [];
-    // `graph organize` ran: forget the session's positions AND ignore the (old) pins this
-    // once — the reload that clears them may not have landed yet, and holding onto either
-    // would make "reorganize" a command that visibly does nothing.
+    // `graph organize` ran: forget the session's positions AND ignore the old pins this once, since the reload may not have landed.
     const fresh = organizeSeen.current !== organizeKey;
     organizeSeen.current = organizeKey;
     if (fresh) {
       prevLaid.current = null;
-      // …and forget what has been pinned, or `graph organize` would clear the file's positions and
-      // then decline to write the new ones — a reorganize that visibly does nothing, which is the
-      // very failure the `fresh` flag above exists to prevent.
+      // …and forget what has been pinned, or organize would clear the file's positions and then decline to write the new ones.
       pinned.current.clear();
     }
-    // The pins and the held positions apply only to the free graph: the mixer row IS an
-    // arrangement, and a strip dragged out of the line would put a console's channel
-    // wherever it last was.
+    // The pins and the held positions apply only to the free graph: the mixer row IS an arrangement.
     const out = spaceModulesEvenly(
       layout(
         alignModuleRank(nodes, row),
@@ -528,34 +390,11 @@ export function ChainsTab({
     return out;
   }, [drawn, alignModules, inputDevices, masterVolume, organizeKey]);
 
-  /**
-   * The graph writes down where it drew itself — once, and then the FILE is the layout.
-   *
-   * This is what stops the picture rearranging itself. A node the layout placed carries no pin,
-   * so the next FRESH layout is free to put it elsewhere, and it will as soon as anything about
-   * the graph changes: the row of tracks is one dagre rank, and its left-to-right order is
-   * crossing minimisation over the edges. `prevLaid` above hides that while you stay on the page,
-   * which is precisely why it felt arbitrary — the change surfaced at a reload, long after the
-   * edit that caused it.
-   *
-   * So: everything the layout had to place is pinned, and dagre speaks again only when
-   * `graph organize` empties `positions:`.
-   *
-   * Three things it must not do:
-   *
-   * - **Not the mixer row.** That layout is an ARRANGEMENT of the same graph, and pinning a strip
-   *   where the console put it would drag a channel's place into the free graph.
-   * - **Not a curve.** A pin is keyed by the node's NAME, and a curve draws one card per binding
-   *   while carrying one id — two cards, one key. Pinning them would stack two bindings of one
-   *   curve on the same spot.
-   * - **Not twice.** `pinned` remembers what has been sent, because `quietCommand` deliberately
-   *   does not reload: the positions we just wrote are not in `drawn` yet, so without this the
-   *   next re-render would send them all again.
-   */
+  /** The graph writes down where it drew itself — once, and then the FILE is the layout; not the mixer row, not a curve, not twice (docs/chainsGraph.md). */
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: `command` is a stable callback and re-running on its identity would re-send the batch.
   useEffect(() => {
-    // `onMoveNode` absent means this graph cannot be pinned by hand — a frozen snapshot. Then it
-    // must not pin itself either: the same permission decides both.
+    // `onMoveNode` absent means this graph cannot be pinned by hand — a frozen snapshot — so it must not pin itself either.
     if (!laid || !onMoveNode || (alignModules?.length ?? 0) > 0) return;
     const have = drawn?.positions ?? {};
     const at: Record<string, { x: number; y: number }> = {};
@@ -571,8 +410,7 @@ export function ChainsTab({
     void command(`graph pin ${JSON.stringify(at)}`);
   }, [laid, drawn?.positions, onMoveNode, alignModules]);
 
-  // The optimistic flag painted on, after layout — it changes how a node READS, never where it sits, so this
-  // costs nothing and cannot move the picture under the pointer.
+  // The optimistic flag painted on after layout: it changes how a node READS, never where it sits.
   const laidShown = useMemo(() => {
     if (!laid || !Object.keys(pendingBypass).length) return laid;
     return {
@@ -585,10 +423,7 @@ export function ChainsTab({
     };
   }, [laid, pendingBypass]);
 
-  // A node for the module being created, sitting where it will land: midway between the two ends of the arrow
-  // that was clicked. Adding a module costs ~700 ms of genuine recompiling on a real song (measured), and until
-  // it lands the graph looks exactly as it did — so the click reads as having done nothing. This is the only
-  // honest thing to draw: it is not the module (nobody knows what it will look like), it is the WAIT.
+  // A node for the module being created, sitting where it will land: what is drawn is the WAIT, adding one costing ~700 ms of recompiling.
   const withPending = useMemo(() => {
     if (!laidShown || !pendingInsert) return laidShown;
     const find = (name: string) =>
@@ -689,10 +524,8 @@ export function ChainsTab({
   );
 
   // --- MIDI: the graph's map, played ------------------------------------------------
-  //
-  // `setParam` is the same call a knob drag makes, so a value moved by hand and one moved by a
-  // controller are indistinguishable downstream — including the optimistic override that makes the
-  // widget follow before the engine answers.
+
+  // `setParam` is the same call a knob drag makes, so a value moved by hand and one moved by a controller are alike downstream.
   const midi = useMidiControl({
     graph,
     setParam: useCallback(
@@ -712,14 +545,8 @@ export function ChainsTab({
   }, [midi.learning, onMidiStatus]);
 
   // --- framing a track (a double-click on its timeline header) -----------------------
-  //
-  // The set is the same one the Graph panel draws: every chain `subgraphForTrack` walks to
-  // from this track, so a send that leaves the track's own chain is inside the frame too.
-  //
-  // Applied ONCE per focus, tracked by its nonce rather than by depending on `laid`: the
-  // graph is re-laid out after every command, and re-framing on each would take the camera
-  // away from wherever it had been panned since. Off screen it waits — a display:none canvas
-  // has no size, and fitTo would frame to zero.
+
+  // The set is the Graph panel's (`subgraphForTrack`), applied ONCE per focus by its nonce; off screen it waits, a hidden canvas having no size.
   const focusApplied = useRef(-1);
   useEffect(() => {
     if (!focus || !graph || !laid || !active) return;
@@ -735,14 +562,7 @@ export function ChainsTab({
     onFocused?.(chains.length);
   }, [focus, graph, laid, active, chainNodes, onFocused]);
 
-  /**
-   * Frame the aligned row when the mixer view opens — and only then.
-   *
-   * Keyed on the LIST, so turning it on frames and turning it off leaves the camera alone: coming
-   * back from the mixer to the plain graph is not an invitation to re-frame a view you had panned.
-   * Off screen it waits, exactly as `focus` does — a display:none canvas has no size and fitTo
-   * would frame to zero.
-   */
+  /** Frame the aligned row when the mixer view opens — and only then; keyed on the LIST, so turning it off leaves the camera alone. */
   const rowKey = (alignModules ?? []).join("|");
   const rowFramed = useRef<string | null>(null);
   /** Where the camera was before the row took it, so closing the view gives it back. */
@@ -752,8 +572,7 @@ export function ChainsTab({
     if (rowFramed.current === rowKey) return;
     if (!rowKey) {
       rowFramed.current = rowKey;
-      // Leaving: put the camera back where it was. The row borrowed it to show itself; a view
-      // you close should leave you where you were, not where it had taken you.
+      // Leaving: put the camera back where it was — the row only borrowed it to show itself.
       const back = camBeforeRow.current;
       camBeforeRow.current = null;
       if (back) camApi.current?.set(back);
@@ -761,22 +580,13 @@ export function ChainsTab({
     }
     const wanted = new Set(rowKey.split("|"));
     const nodes = laid.nodes.filter((n) => n.module && wanted.has(n.module));
-    // On the HEIGHT: a row framed on both axes shrinks with every strip the song gains, and
-    // below WIDGET_MIN_SCALE the cards lose their widgets — a mixer of bare names. Let it run
-    // off the right instead, where it pans.
-    //
-    // Marked done only if it ACTUALLY framed. A pane that is still hidden has no size, and
-    // recording that attempt would spend the one chance this key ever gets: the view would open
-    // on whatever the camera was showing, which reads as a button that does nothing.
+    // On the HEIGHT, and marked done only if it ACTUALLY framed: a hidden pane has no size, and that attempt would spend this key's one chance.
     if (!nodes.length) return;
     const was = camApi.current?.get();
-    // …and pulled BACK a fifth from a perfect fit. A row framed exactly fills the pane edge to
-    // edge, which reads as a wall: the strips are the subject, but what feeds them is the
-    // sentence, and a little air is what says the row belongs to a graph.
+    // …and pulled BACK a fifth from a perfect fit: a row framed exactly fills the pane edge to edge, which reads as a wall.
     if (camApi.current?.fitTo(nodes, { axis: "height", zoom: ROW_ZOOM_OUT })) {
       rowFramed.current = rowKey;
-      // Remembered only once the frame actually happened, and only the FIRST time in: a re-run
-      // that saved the row's own camera would hand that back as if it were where you had been.
+      // Remembered only once the frame actually happened, and only the FIRST time in.
       if (was && !camBeforeRow.current) camBeforeRow.current = was;
     }
   }, [rowKey, laid, active]);
@@ -819,22 +629,15 @@ export function ChainsTab({
   if (!graph || !laid)
     return <div className="p-4 text-sm text-muted-foreground">loading…</div>;
 
-  // Past the guard `laid` is real, so this is the layout with any un-confirmed bypass painted on. The fallback
-  // never fires — laidShown is only null when laid is — it is how the narrowing reaches a memo computed above.
+  // Past the guard `laid` is real; the fallback never fires and is only how the narrowing reaches a memo computed above.
   const shown = withPending ?? laid;
 
   return (
     // min-w-0: without it the canvas's width becomes this flex child's minimum and the page slides sideways.
     <div className="relative flex min-h-0 min-w-0 flex-1">
-      {/* The MIDI feedback pass, in a component of its own that draws nothing. It is the one thing
-          here that has to watch the param store, which ticks per engine frame — subscribing in
-          ChainsTab would re-render the whole graph at that rate, which is exactly what the store
-          exists to prevent (see its comment on pluginParamsStore). */}
+      {/* The MIDI feedback pass, in a component of its own that draws nothing: subscribing here would re-render the graph per engine frame. */}
       <MidiFeedback store={pluginParamsStore} push={midi.pushFeedback} />
-      {/* On a phone the chain list is a DRAWER, not a column: 288px of a ~390px screen
-          would leave the graph a sliver. It slides over the canvas, starts closed, and
-          closes again as soon as a chain is picked — by which point the graph is what
-          you want to be looking at. */}
+      {/* On a phone the chain list is a DRAWER: 288px of a ~390px screen would leave the graph a sliver, so it closes on a pick. */}
       {showList && isMobile && (
         <button
           type="button"
@@ -946,15 +749,12 @@ export function ChainsTab({
         </aside>
       )}
 
-      {/* Mount the graph only while the tab is visible: a display:none container
-          has no size, so fit() would frame to 0 and never show the graph. */}
+      {/* Mount the graph only while the tab is visible: a display:none container has no size, so fit() would frame to 0. */}
       <main className="min-w-0 flex-1">
         {active && (
           <DomChains
             icons={icons}
-            // The mixer arrangement is a ROW: the wheel walks along it and nothing pans
-            // vertically. Derived from the same list that made it a row, so the two cannot
-            // disagree about which view is on.
+            // The mixer arrangement is a ROW: the wheel walks along it, derived from the same list that made it one.
             row={(alignModules?.length ?? 0) > 0}
             graph={shown}
             selected={selected}
@@ -993,13 +793,7 @@ export function ChainsTab({
   );
 }
 
-/**
- * The MIDI feedback pass — the only thing here that watches the engine's param values.
- *
- * A component rather than a hook call in ChainsTab, and one that renders null, because those
- * values arrive per engine frame: subscribing in the parent would re-render the graph at that
- * rate. `usePluginParams` re-renders THIS, which draws nothing, and the push goes out from here.
- */
+/** The MIDI feedback pass — a component that renders null, so the per-frame param values do not re-render the graph. */
 function MidiFeedback({
   store,
   push,

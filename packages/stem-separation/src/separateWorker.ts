@@ -33,16 +33,7 @@ export interface WorkerProgress {
 
 const say = (p: WorkerProgress) => parentPort?.postMessage({ progress: p });
 
-/**
- * Decode anything ffmpeg reads into the exact shape the model wants: 44.1 kHz, stereo,
- * 32-bit float. Resampling and mono-to-stereo are ffmpeg's job rather than ours because it
- * already does both correctly, and the model's input length is fixed — arriving at 48 kHz
- * would not be a quality question, it would be the wrong number of samples.
- *
- * NOT best-effort, unlike every other ffmpeg call in this repo. A missing ffmpeg there costs a
- * FORMAT and the wav survives; here it costs the only thing the request asked for. So it fails
- * with its own sentence, the way a missing engine binary does.
- */
+/** Decode into the exact shape the model wants, failing HARD unlike every other ffmpeg call here — docs/stemSplit.md. */
 function decode(source: string): Promise<Float32Array[]> {
   return new Promise((resolve, reject) => {
     const ff = spawn("ffmpeg", [
@@ -91,14 +82,7 @@ function decode(source: string): Promise<Float32Array[]> {
   });
 }
 
-/**
- * The slice of ONNX Runtime this file uses, written down rather than imported as a type.
- *
- * It is four members wide, and naming them is the point: this is the contract the separation
- * depends on, so a version of ORT that changed it fails against a declaration somebody can
- * read instead of somewhere deep in an inference loop. It also keeps `tsc --noEmit` honest on
- * a machine that has not installed a 300 MB native package yet.
- */
+/** The slice of ONNX Runtime this file uses, declared rather than imported — see docs/stemSplit.md. */
 const ORT_MODULE = "onnxruntime-node";
 
 interface OrtTensor {
@@ -116,24 +100,13 @@ interface Ort {
   Tensor: new (type: string, data: Float32Array, dims: number[]) => OrtTensor;
 }
 
-/**
- * The session, on the best execution provider this machine will give us.
- *
- * Asked for in order and taken on the first that builds: ORT throws at session creation when a
- * provider is unavailable, so this is the only way to find out. Which one won is LOGGED — the
- * difference between DirectML and CPU here is minutes per song, and a silent fall back to CPU
- * looks exactly like a slow machine.
- */
+/** The session, on the first execution provider that builds, and which one won is LOGGED — docs/stemSplit.md. */
 async function session(
   model: string,
 ): Promise<{ run: RunFn; provider: string }> {
   let ort: Ort;
   try {
-    // Imported by NAME through a variable, and typed against the four-member interface above
-    // rather than against the package. Two reasons, and the second is the load-bearing one:
-    // the dependency is native, so this module has to be importable — by a test, by a tsc run
-    // on a machine that has not installed it — without it resolving; and esbuild must leave
-    // the specifier alone for `external` to work (see build-engine.mjs).
+    // Imported by NAME through a variable, so the native package need not resolve and esbuild leaves it.
     ort = (await import(/* @vite-ignore */ ORT_MODULE)) as Ort;
   } catch (e) {
     throw new Error(
@@ -203,8 +176,7 @@ export async function separate({
   const oa = new OverlapAdd(length);
   for (const [i, at] of starts.entries()) {
     const stems = await run(windowOf(chans, at));
-    // `[1, 4, 2, SEGMENT]`, flat. The stem index is the outer one — see STEMS for why the
-    // order is knowledge and not a guess.
+    // `[1, 4, 2, SEGMENT]`, flat, with the stem index outermost — STEMS is that order, not a guess.
     for (let s = 0; s < STEMS.length; s++)
       for (let c = 0; c < CHANNELS; c++) {
         const off = (s * CHANNELS + c) * SEGMENT;
@@ -222,8 +194,7 @@ export async function separate({
   return STEMS.map((name, s) => {
     const path = join(outDir, `${name}.wav`);
     const chans = oa.finish(s);
-    // An integer file cannot hold what a float one did, so an overshoot is CLAMPED — and said,
-    // because the only other way to find out is a click at the loudest moment of the record.
+    // An overshoot is CLAMPED and SAID: the other way to find out is a click (docs/stemSplit.md).
     const peak = peakOf(chans);
     if (peak > 1)
       say({

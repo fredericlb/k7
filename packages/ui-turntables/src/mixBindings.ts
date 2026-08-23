@@ -15,22 +15,11 @@ export interface ResolvedBinding {
   /** The node the chains file names — what the file said. */
   module: string;
   param: string;
-  /**
-   * The engine's `chain:module` address; what `set-plugin-param` takes. Absent for a module
-   * that compiles to NO plugin — an `offline` one, which the compiler skips.
-   */
+  /** The engine's `chain:module` address, what `set-plugin-param` takes — absent for an `offline` module. */
   pluginId?: string;
-  /**
-   * The track whose material this module processes — its chain's source.
-   *
-   * The address for a module realised OUTSIDE the graph. `offline` does not mean "does
-   * nothing": it means no engine plugin, and something else makes it true — a pass writing
-   * files for a stem splitter, the player warping a clip for a tempo. Either way the thing
-   * being changed is the track's material, so the track is what a binding must name.
-   */
+  /** The track whose material this module processes — the address for a module realised OUTSIDE the graph. */
   track?: string;
-  /** The widget that draws the param, and therefore states its range. Undefined when the
-   *  module has no panel for it — see below for why that is not fatal. */
+  /** The widget that draws the param, and therefore states its range. Undefined is not fatal. */
   widget?: WebWidget;
 }
 
@@ -45,20 +34,7 @@ export interface ResolvedBindings {
   problems: BindingProblem[];
 }
 
-/**
- * Resolve every binding against the graph.
- *
- * Three ways a line can fail, and all three are REPORTED rather than dropped, which is where
- * this parts company with st0's MIDI join. There, a map travels with a module into projects
- * that may draw it differently, so a binding that does not apply is a normal state and is
- * skipped in silence. Here the file belongs to THIS set and names THIS set's own nodes:
- * a line that does not resolve is a typo somebody made about their own project, and saying so
- * is the difference between a dead fader and a fixable one.
- *
- * A missing WIDGET is the one non-fatal case. Without one there is no min/max, so the value
- * cannot be scaled — but the target exists, and reporting it as broken would be wrong. It
- * resolves with no widget and the caller decides (m9 sends the control's own units).
- */
+/** Resolve every binding against the graph — three failures, all REPORTED rather than dropped (docs/controls.md). */
 export function resolveBindings(
   view: MixView,
   graph: WebGraph | null,
@@ -66,10 +42,7 @@ export function resolveBindings(
   const bindings: ResolvedBinding[] = [];
   const problems: BindingProblem[] = [];
 
-  // The steps of every chain, by the name the chains file uses — which is exactly what a
-  // binding's `module` is, so the lookup is one string and never a guess.
-  // The chain's SOURCE travels with each step: a module with no plugin is addressed by the
-  // material it processes, not by a plugin id it has not got.
+  // Every chain's steps by the name the chains file uses, each carrying its chain's SOURCE track.
   const steps = new Map<
     string,
     { step: WebGraph["chains"][string]["use"][number]; track?: string }
@@ -88,11 +61,7 @@ export function resolveBindings(
       });
       continue;
     }
-    // NAMED and not wired — what a scaffolded surface is made of. Silently skipped here on
-    // purpose: `unmappedControls` is what reports it, once, as the gate over the whole desk.
-    // Reporting it again here would print two sentences about one unfilled line, and this one
-    // would be the less useful of the two — it can only say the line is empty, where the gate
-    // says which components a desk needs before it is a desk.
+    // NAMED and not wired — skipped here on purpose, `unmappedControls` reports it once as the gate.
     if (!b) continue;
     const found = steps.get(b.module);
     if (!found) {
@@ -104,9 +73,7 @@ export function resolveBindings(
     }
     const { step, track } = found;
     if (!step.pluginId && !track) {
-      // Neither a plugin to tell nor material to change. An io module, a stub, an unsupported
-      // plugin. Named rather than skipped: "nothing to move" is the most likely reason a
-      // binding looks dead, and it is not the file's fault.
+      // Neither a plugin to tell nor material to change — named rather than skipped, so it is fixable.
       problems.push({
         control: id,
         message: `« ${b.module} » n'a ni plugin ni piste à faire bouger`,
@@ -127,20 +94,7 @@ export function resolveBindings(
   return { bindings, problems };
 }
 
-/**
- * The stretches to apply, keyed by the TRACK each lands on.
- *
- * This is the tempo going through its module. `tempo` compiles to no plugin, so there is no
- * param to set — what the binding gives is the track whose material it processes, and warping
- * that track's clip is how the stretch is realised.
- *
- * The fader still BELONGS to a deck: its scale is that deck's song, which is a fact about what
- * is loaded and not about the wiring. What it MOVES is whatever the file says. Rebind
- * `deckA.tempo` to `tempoB` and deck B stretches — which is the difference between a declared
- * control and a hardcoded one.
- *
- * A binding with a `pluginId` is skipped: that one is a real param and goes the other way.
- */
+/** The stretches to apply, keyed by the TRACK each lands on — the tempo through its module, docs/controls.md. */
 export function stretchTargets(
   bindings: ResolvedBinding[],
   byDeck: DeckTempos,
@@ -157,38 +111,11 @@ export function stretchTargets(
   return out;
 }
 
-/**
- * What every module with NO plugin should currently READ, for a host to lend to the graph.
- *
- * The engine cannot answer for these: an `offline` module compiles to nothing it holds, so there
- * is no plugin to watch and no id to watch it by. The value exists only on the surface that
- * realises it — for a tempo, the desk that warps the clip — and this is the list that surface
- * hands over.
- *
- * Two rules worth having in a function rather than in an effect, because both were once wrong:
- *
- * - **A tempo node has TWO numbers.** `views/mix.yaml` binds one param per control, so only
- *   `Target BPM` is named by a binding; `Source BPM` is the song's own tempo, MEASURED rather
- *   than chosen, and the node draws it as a meter. Nothing named it, so nothing wrote it, and
- *   that meter read 0 for every song ever loaded.
- * - **A deck with no tempo publishes 0, it does not stay quiet.** Putting a record on clears the
- *   fader and the measurement lands a moment later; a list that skipped the gap left the graph
- *   showing the OUTGOING song — at exactly the moment somebody looks at the node to see what
- *   they just put on. 0 is the tempo module's own "leave it alone".
- *
- * TEMPO controls only, and that is the third correction. The rule was "every binding with no
- * plugin", and the value it published was the deck's tempo target — so an offline module bound to
- * anything else (a stem cut) read its deck's BPM as its own value. There is nothing dishonest
- * about publishing nothing for those: this list is drawn from `DeckTempos` and holds no number
- * for them. When their value gets a home on the desk, it comes through here with its own arm.
- *
- * See ../docs/bpm.md.
- */
+/** What every TEMPO module with no plugin should READ, for a host to lend to the graph — ../docs/bpm.md. */
 export function offlinePublish(
   bindings: readonly ResolvedBinding[],
   byDeck: DeckTempos,
-  /** The tempo module's measured param. Passed in rather than imported to keep this file's
-   *  dependency on `deck.ts` to types only. */
+  /** The tempo module's measured param — passed in, to keep this file's use of `deck.ts` to types only. */
   sourceParam: string,
 ): { module: string; param: string; value: number }[] {
   const out: { module: string; param: string; value: number }[] = [];
@@ -202,18 +129,7 @@ export function offlinePublish(
   return out;
 }
 
-/**
- * Is this binding's target a plugin the engine has LOADED?
- *
- * The distinction that decides which of the two paths a control takes, and it cannot be read
- * off the graph. `buildGraphDoc` gives every step a `pluginId` — the `chain:module` address it
- * *would* have — including steps the compiler emits no plugin for at all. An `offline` module
- * comes back with `deckA:tempoA` on it and no such plugin in the document.
- *
- * So the DOCUMENT is the truth, and asking it is the difference between a tempo fader that
- * stretches and one that sends a param into the void. It sent one into the void for exactly
- * one commit.
- */
+/** Is this binding's target a plugin the engine has LOADED? The DOCUMENT decides, not the graph — docs/controls.md. */
 export function hasPlugin(
   b: ResolvedBinding,
   plugins: ReadonlySet<string>,
@@ -230,19 +146,7 @@ export function enginePluginIds(
   return ids;
 }
 
-/**
- * The binding read BACKWARDS: which control drives this module's param?
- *
- * The graph knows a module and a param — that is all a node has — and needs the desk control
- * they belong to, so a knob turned there moves the right deck. `views/mix.yaml` already says
- * it, in the other direction, and reading the same line both ways is what keeps the two
- * surfaces from disagreeing: re-point `deckA.tempo` at `tempoB` and the graph's knob on
- * `tempoB` becomes deck A's, without either side being told.
- *
- * Only bindings with NO plugin. One with a plugin has a socket of its own — the graph sends
- * `set-plugin-param` and never asks this — and answering for it would give a param two routes
- * to the engine, which is how a value ends up applied twice.
- */
+/** The binding read BACKWARDS: which control drives this module's param? No-plugin only — docs/deckSet.md. */
 export function controlDriving(
   bindings: readonly ResolvedBinding[],
   module: string,
@@ -253,21 +157,7 @@ export function controlDriving(
   );
 }
 
-/**
- * What a bound control should DRAW: the hand's value if a gesture is in flight, else the
- * engine's, else nothing.
- *
- * The order is the whole point, and getting it wrong is what left the graph's knobs stuck at
- * the number the project file declares. A surface's own state is an OPTIMISTIC layer over the
- * engine, never a substitute for it: the engine is the only thing that knows what a plugin is
- * set to, and it says so whichever surface did the setting. Two pictures of one plugin that
- * each keep their own copy will disagree the moment one of them is unmounted — which, in m9,
- * is every time somebody looks at the graph.
- *
- * `undefined` means "nothing known yet", which a caller draws as the control's own home rather
- * than as zero — a param whose flat is not zero would otherwise jump when the first frame
- * lands.
- */
+/** What a bound control DRAWS: the hand, else the engine, else nothing — an optimistic layer, docs/deckSet.md. */
 export function shownValue(
   binding: ResolvedBinding | undefined,
   held: number | undefined,
@@ -278,12 +168,7 @@ export function shownValue(
   return live[binding.pluginId]?.[binding.param];
 }
 
-/**
- * Has the engine caught up with an optimistic value, so the override may be dropped?
- *
- * An override that never yields is a control that has stopped listening: the engine can clamp
- * what it was sent, and the other picture of the same plugin can move it.
- */
+/** Has the engine caught up, so the override may be dropped? One that never yields has stopped listening. */
 export function engineAgrees(
   binding: ResolvedBinding | undefined,
   held: number,
@@ -296,23 +181,12 @@ export function engineAgrees(
   return said !== undefined && Math.abs(said - held) < epsilon;
 }
 
-/**
- * What to send for a control at `value`.
- *
- * With a widget, the control is normalised to 0..1 and the widget's own min/max expand it —
- * the journey a MIDI CC's 0..127 makes in st0, and the reason a control declares its range.
- * Without one, the control's own units go through untouched: inventing a range would make a
- * fader sweep one nobody chose, and passing the number along is the honest alternative.
- */
+/** What to send for a control at `value` — normalised by the CONTROL, expanded by the WIDGET (docs/controls.md). */
 export function valueFor(b: ResolvedBinding, value: number): number {
   const w = b.widget;
   if (w?.min === undefined || w?.max === undefined) return value;
   const [lo, hi] = b.control.range;
   const unit = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
-  // The widget half is `widgetDenorm`'s and not ours. Expanding it by hand — `min + unit *
-  // (max - min)` — is right only for a LINEAR widget with no `step`: a `curve: log` param
-  // moved from the desk landed somewhere else than the same param moved on the graph, in the
-  // same app, on the same plugin. The comment above already claimed this was "the journey a
-  // MIDI CC makes in st0"; st0 calls the shared function, so now this does too.
+  // The widget half is `widgetDenorm`'s, not ours: a hand-rolled lerp gets `curve` and `step` wrong.
   return widgetDenorm(w, unit);
 }

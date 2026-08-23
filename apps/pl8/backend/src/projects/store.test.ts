@@ -82,8 +82,7 @@ describe("revision", () => {
     const { repo } = addRepo("sub-1", "git@h:me/a.git");
     const afterAdd = revision("sub-1");
     expect(afterAdd).not.toBe(before);
-    // Back to the same count, and possibly the same filesystem timestamp: it is the mutation
-    // counter alone that keeps these three tokens apart, which is what it is for.
+    // Same count and possibly the same timestamp: only the mutation counter tells these apart.
     removeRepo("sub-1", repo.id);
     const afterRemove = revision("sub-1");
     expect(afterRemove).not.toBe(afterAdd);
@@ -114,8 +113,7 @@ describe("paths", () => {
   });
 });
 
-// The name in `/<repo>/<project>` — the half of a project's address a person reads, and
-// the one thing an editor arrives holding. See packages/project-shell/docs/launch.md.
+// The name in `/<repo>/<project>` — see packages/project-shell/docs/launch.md.
 describe("finding a repository by its short name", () => {
   it("names a repository by its last path segment, without .git", async () => {
     const { addRepo, nameOf } = await load();

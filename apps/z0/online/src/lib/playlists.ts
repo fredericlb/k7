@@ -1,10 +1,7 @@
 import { f } from "./api";
 import { type Session, shuffled } from "./game";
 
-// Playlist-mode API calls plus the adapter that turns a resolved playlist into
-// the Session shape SoloGame already consumes — one category, mode "", one
-// song per track. Answers fall out of artist/title, so alternativesFor() asks
-// for both halves exactly as it does for a prepared session.
+// A resolved playlist as the Session shape SoloGame already eats: one category, one song per track.
 
 export interface PlaylistRow {
   id: number;
@@ -76,24 +73,7 @@ export async function loadPlaylistTracks(id: number): Promise<PlaylistTracks> {
   );
 }
 
-/**
- * Wrap a playlist as a one-category Session, in RANDOM order. Each song's
- * `path` points at the backend redirect rather than a CDN URL: Deezer preview
- * signatures die after ~15 minutes, and a long game would otherwise stall
- * halfway through.
- *
- * Shuffled here and not in the backend on purpose. `/playlists/:id/tracks`
- * answers "what is in this playlist", and an endpoint that returned a
- * different order every call would be lying about that; which order to be
- * QUIZZED in is a property of the game, and this is the seam where a playlist
- * becomes one. A prepared session keeps its authored order — that one is
- * curated, and `order`'s from/to even slice it by index.
- *
- * Once per selection, so the order holds for the whole run and only changes
- * when you pick the playlist again. Nothing is lost by re-rolling: a playlist
- * run keeps no resume checkpoint (see PLAYLIST_SCORING), so there is no saved
- * position for a new order to invalidate.
- */
+/** A one-category Session in RANDOM order, drawn once per selection — ../../../docs/effects.md. */
 export function sessionFromPlaylist(
   data: PlaylistTracks,
   rng: () => number = Math.random,

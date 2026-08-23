@@ -27,9 +27,7 @@ export interface ClipOut {
   warp?: WarpOut; // audio only: time-stretch / warp settings
 }
 
-// A clip's warp: `markers` maps a TIMELINE beat to a SOURCE second, two being a linear stretch and more
-// piecewise. Times are (beats, seconds) — the only combination this project uses. DAWproject spells this
-// <Warps time contentTime>, Ableton <WarpMarker BeatTime SecTime>; both land here unchanged.
+// A clip's warp: `markers` maps a TIMELINE beat to a SOURCE second, two being linear and more piecewise.
 export interface WarpOut {
   algorithm?: string;
   markers: [number, number][]; // [timeline beat, source second]

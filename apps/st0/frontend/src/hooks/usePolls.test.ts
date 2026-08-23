@@ -24,8 +24,7 @@ describe("a take this tab has not seen", () => {
   });
 
   it("stays quiet while the same take is reported over and over", () => {
-    // It is reported every 2 s for ever after; firing each time would reopen the panel on a
-    // take the person has already closed.
+    // It is reported every 2 s for ever after, and firing each time would reopen the panel on a take already closed.
     expect(isNewTake("gtr_1.1_new", "gtr_1.1_new")).toBe(false);
   });
 

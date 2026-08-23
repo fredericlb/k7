@@ -37,8 +37,7 @@ describe("a parked module", () => {
   });
 
   it("draws no cable, because it has none", () => {
-    // Not the same as "is hidden": the node is there to be dragged a cable onto. An edge
-    // invented here would be a connection the file does not have.
+    // Not "is hidden": the node is there to be dragged a cable onto, but no edge is invented.
     expect(
       built.edges.filter(
         (e) => e.source === "mod:wah" || e.target === "mod:wah",

@@ -18,11 +18,7 @@ interface Reading {
 // A pluck is "in tune" once it's within this many cents of the note.
 const IN_TUNE_CENTS = 5;
 
-/**
- * A live guitar tuner: reads the microphone, estimates the played pitch via
- * autocorrelation, and shows the note, cents deviation, a needle meter and the
- * nearest standard-tuning string. There's nothing to score — it just listens.
- */
+/** A live tuner: the mic, a pitch by autocorrelation, and the nearest string. */
 export function GuitarTuner({ onBack }: Props) {
   const [running, setRunning] = useState(false);
   const [reading, setReading] = useState<Reading | null>(null);
@@ -50,8 +46,7 @@ export function GuitarTuner({ onBack }: Props) {
       streamRef.current = stream;
       const ctx = new AudioContext();
       ctxRef.current = ctx;
-      // Auto-started outside a gesture on some browsers — resume so the
-      // analyser reads real audio rather than silence.
+      // Started outside a gesture on some browsers, the analyser would read silence.
       await ctx.resume().catch(() => {});
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
@@ -61,15 +56,13 @@ export function GuitarTuner({ onBack }: Props) {
       const detector = PitchDetector.forFloat32Array(analyser.fftSize);
       setRunning(true);
 
-      // Hold the last confident reading briefly so the display doesn't blank
-      // out in the gaps between plucks.
+      // Hold the last confident reading, so the display does not blank between plucks.
       let lastPitchAt = 0;
       const loop = () => {
         analyser.getFloatTimeDomainData(buf);
         const [freq, clarity] = detector.findPitch(buf, ctx.sampleRate);
         const now = performance.now();
-        // Gate on pitchy's clarity score and the guitar's frequency range so
-        // noise and octave/harmonic glitches don't jump the display around.
+        // Gate on clarity and the guitar's range, so noise and harmonics cannot jump the needle.
         if (clarity > 0.9 && freq > 60 && freq < 1400) {
           const n = freqToNote(freq);
           setReading({ freq, name: n.name, octave: n.octave, cents: n.cents });

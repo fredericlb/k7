@@ -21,17 +21,7 @@ export interface InputDevice {
   channels: number[];
 }
 
-/**
- * The socket an `io: in` module listens on — the one choice an input has that a plugin module doesn't.
- *
- * Every option comes from a set the ENGINE declares, never from a range of numbers: `channels` is what
- * `findWaveInput` matches exactly, so a channel that is half of a stereo device does not exist on its
- * own and asking for it reads as silence (see EngineInputDevice in @studio/engine-browser).
- *
- * Which is why mono/stereo cannot be a filter over what happens to be there — an interface enumerating
- * twenty mono inputs would offer no stereo at all. It REGROUPS: picking a pair the interface has not
- * made yet asks the engine to make it, and the write follows.
- */
+/** The socket an `io: in` module listens on, from sets the ENGINE declares — see docs/inputChannels.md. */
 export function InputChannelBar({
   devices,
   channels,
@@ -45,8 +35,7 @@ export function InputChannelBar({
   onPick: (channels: number[]) => void;
   onRegroup?: (channel: number, stereo: boolean) => void;
 }) {
-  // Null until somebody flips it: the module's own channel count is the answer while it has one,
-  // so opening a stereo input shows the stereo list without being told.
+  // Null until somebody flips it, so a stereo input opens on the stereo list without being told.
   const [want, setWant] = useState<1 | 2 | null>(null);
   const width =
     want ?? (Array.isArray(channels) && channels.length === 2 ? 2 : 1);
@@ -106,9 +95,7 @@ export function InputChannelBar({
           {offered.map((o) => (
             <DropdownMenuItem
               key={o.key}
-              // A regroup is one act with two halves: the interface is asked to make the device,
-              // then the file is pointed at it. In that order — the write names a set that has to
-              // exist for it to mean anything.
+              // Two halves in THIS order: make the device, then point the file at it.
               onSelect={() => {
                 if (o.regroup) onRegroup?.(o.channels[0], width === 2);
                 onPick(o.channels);
@@ -136,8 +123,7 @@ export function InputChannelBar({
           no interface answering — the engine lists the inputs
         </span>
       ) : offered.some((o) => o.regroup) ? (
-        // Said before it is done, not after: regrouping is what makes the other arrangement of these
-        // channels stop existing, and a module still pointed at it goes quiet with no error anywhere.
+        // Said BEFORE it is done: a module left on the old arrangement goes quiet with no error anywhere.
         <span className="truncate text-[10px] text-amber-500">
           {width === 2 ? "pairing" : "splitting"} regroups the interface — a
           module on the old channels goes silent
@@ -155,18 +141,7 @@ export interface InputOption {
   regroup?: boolean;
 }
 
-/**
- * What the dropdown offers for a width: the devices that already carry it, then the ones the interface
- * could be regrouped into.
- *
- * The pairing rule is the INTERFACE's and is not negotiable — even/odd hardware channels only, so
- * 1 goes with 2 and 3 with 4, and there is no pairing of 2 with 3 to offer (Tracktion's
- * describeStandardDevices walks its channel list two at a time). Stated 1-based here, as everything
- * on the wire is, which makes the first of a pair the ODD one.
- *
- * Regroup options are withheld from a host that cannot regroup — the médiathèque draws this builder
- * with no engine to ask — leaving it the honest smaller menu rather than choices that would do nothing.
- */
+/** What the dropdown offers for a width: what exists, then what a REGROUP could make — docs/inputChannels.md. */
 export function inputOptions(
   devices: InputDevice[],
   width: 1 | 2,
@@ -212,8 +187,7 @@ export function inputOptions(
   return out;
 }
 
-// Same set, same order — what `findWaveInput` compares, so the picker highlights a device only when
-// the file names exactly it.
+// Same set, same order — what `findWaveInput` compares, so only an exact name highlights.
 function sameChannels(a: number[], b: number[]): boolean {
   return a.length === b.length && a.every((n, i) => n === b[i]);
 }

@@ -66,8 +66,7 @@ describe("the cold flag", () => {
   });
 
   it("is INHERITED, so a use of a cold module is cold", () => {
-    // The whole reason it is not in moduleResolve's OWN_ONLY. A node states only what it
-    // changes, and "this is still the thing that needs the whole file" is not a choice it makes.
+    // Not OWN_ONLY: a node states what it changes, and needing the whole file is not its choice.
     project("modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n");
     track("gtr");
     writeNode(dir, "master", {
@@ -85,8 +84,7 @@ describe("the cold flag", () => {
 });
 
 describe("adding one to a chain", () => {
-  // The two shapes the rule distinguishes. A track of audio clips is NOT enough: a chain fed by
-  // a lane is fed by whatever that lane plays, which is decided at playback.
+  // A track of audio clips is NOT enough: what a lane plays is decided at playback.
   const FROM_TRACK = "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n";
   const FROM_FILE =
     "modules:\n  gtr: [ take ]\n  take: [ amp ]\n  amp: [ OUT ]\n";
@@ -136,8 +134,7 @@ describe("adding one to a chain", () => {
   });
 
   it("allows placing one wired to NOTHING", () => {
-    // There is no input yet to be wrong about, and refusing here would refuse to write a module
-    // you are about to give a file to. The refusal comes when it is wired to something.
+    // No input yet to be wrong about: the refusal comes when it is wired to something.
     project(FROM_TRACK);
     track("gtr");
     const g = loadGraph(dir);

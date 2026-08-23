@@ -67,8 +67,7 @@ describe("createRevisionPoller", () => {
 
   it("does not stack a second ask on a slow answer", async () => {
     let calls = 0;
-    // Held on an object rather than a `let`: assigned only inside the executor, a bare binding
-    // narrows to `never` and cannot be called back.
+    // Held on an object rather than a `let`: assigned only inside the executor, a bare binding narrows to `never`.
     const pending: { release: ((v: string) => void) | null } = {
       release: null,
     };

@@ -18,14 +18,12 @@ describe("the normalisation graph", () => {
   });
 
   it("defaults Peak to 0 dBFS, so an unmeasured file is attenuated and never boosted", () => {
-    // The direction matters: with no cold pass having run the module must not be able to make
-    // anything louder, because it has no idea by how much.
+    // With no cold pass run it must not be able to make anything louder: it has no idea by how much.
     expect(g.params.find((p) => p.name === "Peak")?.default).toBe(0);
   });
 
   it("applies a gain and nothing else — the measuring is not in the graph", () => {
-    // A streaming node sees the samples it has, and the loudest may be the last. If this file
-    // ever grows an `envelope` it has stopped being a normaliser and become a compressor.
+    // If this graph ever grows an `envelope` it has become a compressor rather than a normaliser.
     expect(node("gain")).toBeTruthy();
     expect(node("envelope")).toBeUndefined();
     expect(node("biquad")).toBeUndefined();

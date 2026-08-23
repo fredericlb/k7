@@ -14,13 +14,7 @@ import {
 import { TIMECODE } from "@studio/song-schema/yaml/placementSchema";
 import { isScalar, parseDocument, visit } from "yaml";
 
-/**
- * Which fields hold a timecode, and whether it counts from 1 or from 0.
- *
- * A POSITION says where something sits — `start`, and a window's edges, which are positions in the
- * material, `"1:1"` being its beginning. A DURATION says how long something lasts. Reading one as
- * the other lands a whole bar out, so the pair is spelled out rather than guessed per file.
- */
+/** Which fields hold a timecode, and whether it counts from 1 or from 0 — see docs/timecode.md. */
 export const TIMECODE_FIELDS: Record<string, "position" | "duration"> = {
   start: "position",
   fadeIn: "duration",
@@ -38,13 +32,7 @@ export interface TimecodeChange {
   driftBeats: number;
 }
 
-/**
- * Rewrite one document's timecodes, returning the new text and what changed.
- *
- * Edits are SPLICED by source offset rather than re-serialised: a project is hand-written YAML with
- * comments and a shape its author chose, and rewriting a whole file to change eight characters
- * would bury the migration in a diff nobody could check.
- */
+/** Rewrite one document's timecodes, SPLICED by source offset rather than re-serialised — docs/timecode.md. */
 export function migrateTimecodes(
   text: string,
   num: number,
@@ -60,8 +48,7 @@ export function migrateTimecodes(
       const kind = TIMECODE_FIELDS[key];
       if (!kind) return;
       const v = pair.value;
-      // A STRING only: `from: 0.25` on a clip is SECONDS into a file, not a timecode, and the two
-      // spellings mean different things on the very same key (see AudioClipSchema).
+      // A STRING only: `from: 0.25` is SECONDS into a file, not a timecode (AudioClipSchema).
       if (!isScalar(v) || typeof v.value !== "string" || !v.range) return;
       const old = v.value.trim();
       if (!TIMECODE.test(old)) return;
@@ -69,17 +56,7 @@ export function migrateTimecodes(
         kind === "position" ? parseLegacyPosition : parseLegacyDuration;
       const back = kind === "position" ? parsePosition : parseDuration;
       const write = kind === "position" ? beatsToPosition : beatsToDuration;
-      /**
-       * Already in the canonical new spelling ⇒ leave it. This is what makes the pass IDEMPOTENT,
-       * and idempotence is not a nicety here: the rewrite reads with the OLD rule, so running it
-       * twice would read its own output as something it never meant and shift the song by a
-       * sixteenth. A second run must be a no-op or the script is a trap.
-       *
-       * The gap it leaves: a value that is canonical in the new notation AND meant something else
-       * in the old one would be skipped. Such a value would have to be short, sub-beat, and exactly
-       * what the writer emits — and `scan` over every project in ~/.studio/root found none. Where
-       * one exists the two rules disagree, which is a thing that can be searched for.
-       */
+      // Already canonical ⇒ leave it; this is what makes the pass IDEMPOTENT (docs/timecode.md).
       if (write(back(old, num, den), num, den) === old) return;
       const beats = read(old, num, den);
       const next = write(beats, num, den);
@@ -89,8 +66,7 @@ export function migrateTimecodes(
         key,
         from: old,
         to: next,
-        // What the NEW reader will make of what we just wrote, against what the old one made of
-        // what was there. That is the only comparison that says the song still sounds the same.
+        // The NEW reading of what was written against the OLD reading of what was there.
         driftBeats: Math.abs(back(next, num, den) - beats),
       });
     },

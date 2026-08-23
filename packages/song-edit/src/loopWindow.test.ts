@@ -8,9 +8,7 @@ import { PlacementSchema } from "@studio/song-schema/yaml/placementSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { materialWindow } from "./materialWindow";
 
-// The model these exercise: the MATERIAL owns its window (`from`/`to`, in the clip's or the sequence's own file)
-// and the PLACEMENT owns where it goes and how many times it is played (`start`, `loop`). A placement has no
-// length of its own — the extent is derived, N × the window — so the two can never disagree about it.
+// The model these exercise: the MATERIAL owns its window, the PLACEMENT its `start` and `loop`.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(
@@ -54,8 +52,7 @@ describe("a sequence's window into its own notes", () => {
   });
 
   it("rounds that default UP TO THE BAR", () => {
-    // Otherwise a pattern whose last hit is a sixteenth before the barline is 3.75 beats long, and every repeat
-    // of it drifts by a sixteenth. Material is written in bars; a sequence that means otherwise says `to`.
+    // Otherwise a pattern ending a sixteenth before the barline drifts by one on every repeat.
     seq({ notes: [{ t: 0, d: 0.25, k: 60 }] });
     place({});
     expect(melody().length).toBe(4);
@@ -70,8 +67,7 @@ describe("a sequence's window into its own notes", () => {
   });
 
   it("reads `from` as a POSITION, and hands it to the engine as a loop range", () => {
-    // A MIDI clip ignores `offset` (see insertMidiClip), so the loop range is the only thing that can say
-    // "start at bar 2" — and it is what carries the window whenever the window doesn't start at the beginning.
+    // A MIDI clip ignores `offset`, so the loop range is the only thing that can say "start at bar 2".
     seq({ from: "2:1", to: "3:1" });
     place({});
     const c = melody();
@@ -81,18 +77,13 @@ describe("a sequence's window into its own notes", () => {
   });
 
   it("writes no loop range for a single pass from the beginning", () => {
-    // Nothing to say: `to: "3:1"` is exactly where these eight notes already end, so the range would repeat the
-    // notes back at themselves. A loop that must never come round is one more thing to be slightly wrong about.
+    // Nothing to say: `to: "3:1"` is exactly where these eight notes already end.
     seq({ to: "3:1" });
     place({});
     expect(melody()).toMatchObject({ length: 8, loopStart: 0, loopEnd: 0 });
   });
 
-  /**
-   * …but a `to` that does NOT land on the notes says something they do not, and it is written even for one pass
-   * from the beginning. This is what a surface reads to shade the window, and without it the case commonest in a
-   * hand-written file — trim the tail, play it once — reached the roll and the tracker as nothing at all.
-   */
+  /** …but a `to` that does NOT land on the notes says something they do not, so it is written. */
   it("writes one for a `to` that CUTS the notes short", () => {
     seq({ to: "2:1" }); // 4 beats of the 8 the notes cover
     place({});
@@ -107,8 +98,7 @@ describe("a sequence's window into its own notes", () => {
   });
 
   it("still writes none when the file states no window at all", () => {
-    // The default `to` IS the extent, so this must not become "every sequence carries a range" — a roll that
-    // banded every clip in the project with the whole of itself would be saying nothing, loudly.
+    // The default `to` IS the extent, so this must not become "every sequence carries a range".
     place({});
     expect(melody()).toMatchObject({ length: 8, loopStart: 0, loopEnd: 0 });
   });
@@ -147,11 +137,7 @@ describe("`loop` counts passes of that window", () => {
       );
   });
 
-  /**
-   * An audio clip with no `to` ends where its FILE ends, which only the engine knows — so `length` stays 0 and
-   * the engine measures it. That works for one pass and cannot work for N: there is no number here to multiply.
-   * Refusing beats playing the first pass and silently dropping the rest.
-   */
+  /** An audio clip with no `to` has no number to multiply, so N passes are refused rather than dropped. */
   it("is refused on an audio clip whose window has no end", () => {
     writeYaml(join(dir, "clips", "riff.yaml"), { source: "clips/riff.wav" });
     writeYaml(join(dir, "nodes", "riff.yaml"), {
@@ -169,10 +155,7 @@ describe("`loop` counts passes of that window", () => {
   });
 });
 
-/**
- * The rule that turns a foreign DAW's geometry into this model, shared by the importer and by the migration so
- * both land on the same numbers. Everything in beats.
- */
+/** The rule turning a foreign DAW's geometry into this model, shared by the importer and the migration. */
 describe("reading a window out of a DAW's (length, offset, loop region)", () => {
   it("recognises a whole number of loops, and counts them", () => {
     expect(materialWindow({ length: 32, loopStart: 0, loopEnd: 8 })).toEqual({
@@ -191,8 +174,7 @@ describe("reading a window out of a DAW's (length, offset, loop region)", () => 
   });
 
   it("treats a length SHORTER than its region as one truncated pass", () => {
-    // Real material: LEMO - DANSE's two wurli takes are 24 beats against a 26.38-beat region. They never come
-    // round, so the region was only ever a bound — one pass of a 24-beat window says the same thing exactly.
+    // Real material: 24 beats against a 26.38-beat region that never comes round, so it was a bound.
     expect(
       materialWindow({ length: 24, loopStart: 0, loopEnd: 26.38 }),
     ).toEqual({ from: 0, to: 24, loops: 1 });

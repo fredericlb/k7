@@ -36,8 +36,7 @@ describe("the playlist vocabulary", () => {
   });
 
   it("offers a song ref for a bare `- ` item", () => {
-    // The common line, and the one that had no completion at all: `items:` is not a project
-    // file's field, so `fileKindFor` answered null and the whole file went uncovered.
+    // The common line, and the one that had no completion: `items:` is not a project file's field, so the whole file went uncovered.
     expect(values([], "items")).toEqual([
       "AC-DC/Back in Black/Hells Bells",
       "Nirvana/Nevermind/Lithium",
@@ -54,8 +53,7 @@ describe("the playlist vocabulary", () => {
   });
 
   it("offers every variant name once, under `variant:`", () => {
-    // The union across the library: a vocabulary is asked about a POSITION and has never seen
-    // the `song:` on the line above.
+    // The union across the library: a vocabulary is asked about a POSITION and has never seen the `song:` on the line above.
     expect(values(["items"], "variant")).toEqual(["acoustic", "live"]);
   });
 
@@ -66,8 +64,7 @@ describe("the playlist vocabulary", () => {
   });
 
   it("says nothing before the listing arrives, rather than guessing", () => {
-    // It is polled beside the file; on the first frame there is no answer, and one poll
-    // later there is.
+    // It is polled beside the file: on the first frame there is no answer, and one poll later there is.
     const empty = playlistVocabulary(null);
     expect(empty.valuesAt?.([], "items")).toEqual([]);
     // …the file's shape is known from the schema either way.

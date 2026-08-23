@@ -53,12 +53,7 @@ import {
 } from "../lib/guest";
 import { m } from "../paraglide/messages.js";
 
-// Solo gameplay walker (React port of SoloGame.vue). The imperative game
-// logic lives on a mutable ref object (`g`) so async flows never read stale
-// state; every mutation calls render() to snapshot into React. Modes mirror
-// the monitor exactly: free / multi / reversed / fusion / default
-// single-track with from/to clip range. Playback engine and score endpoints
-// are injectable so playlist mode reuses this walker verbatim.
+// The walker, on a mutable ref so async flows never read stale state; engine and scoring inject.
 
 type VerdictKind =
   | "correct"
@@ -84,11 +79,7 @@ const MAX_ATTEMPTS = 3;
 const WRONG_ATTEMPT_PENALTY = 100;
 const TIMER_DURATION_MS = 60_000;
 
-/**
- * Where the run's score lives. `base` is the collection root — the walker
- * appends /<id>/score etc. `progress: false` disables resume checkpointing,
- * which playlist runs don't have a table for (and don't need: they're short).
- */
+/** Where the score lives; `progress: false` for a playlist run, which has no table and is short. */
 export interface ScoringTarget {
   base: string;
   progress: boolean;
@@ -131,8 +122,7 @@ export function SoloGame({
 
   const slots = useMemo(() => buildSlots(session), [session]);
 
-  // Mutable game state — the Vue refs collapsed into one object. render()
-  // after every mutation.
+  // Mutable game state, in one object; every mutation must be followed by render().
   const g = useRef({
     orderIndex: resume?.orderIndex ?? 0,
     songIndex: -1,
@@ -857,9 +847,7 @@ export function SoloGame({
         return g.verdictFlash ? "bad" : "";
     }
   })();
-  // Maps each verdict kind to its glyph + the token colors it flashes/reads
-  // in. color-mix() over the shared tokens keeps the palette centralized in
-  // @frediverse/ui's theme.css rather than re-declaring rgba constants here.
+  // color-mix() over the shared tokens, so the palette stays in @frediverse/ui's theme.css.
   const VERDICT_STYLE: Record<
     string,
     { Icon: typeof Check; text: string; flash: string }

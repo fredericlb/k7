@@ -15,8 +15,7 @@ export function SeqGrid({
   view,
   content,
   racks,
-  // What the grid is OF: a change to it rebuilds rather than updates, since a different file's
-  // notes are not this one's edited.
+  // What the grid is OF: a change to it rebuilds rather than updates, another file's notes not being this one's edited.
   resetKey,
   onChange,
 }: {
@@ -34,9 +33,8 @@ export function SeqGrid({
   const contentRef = useRef(content);
   contentRef.current = content;
 
-  // NOT keyed on `content`: re-mounting on every edit would drop the tracker's cursor. The
-  // effect after it feeds new content to the live grid instead. `resetKey` is not read in
-  // here — it IS the key: another file's notes are not this one's edited, so they get a new grid.
+  // NOT keyed on `content`: re-mounting on every edit would drop the tracker's cursor, and `resetKey` IS the remount key.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: resetKey is the remount key, by design.
   useEffect(() => {
     if (!host.current) return;

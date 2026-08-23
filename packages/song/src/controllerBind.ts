@@ -8,14 +8,7 @@ import { moduleFolderForRef, setCcBinding } from "./controller";
 import { loadModules, moduleOwnRefs } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 
-/**
- * Bind (or, with `null`, unbind) a CC on a module named by a chain.
- *
- * The ref is found through `moduleOwnRefs` — the same list the PANEL is looked up by — so the map
- * lands in the folder the widgets came from, which is the only folder where its keys mean anything.
- * A node therefore writes to the module it is a use of: a node is one setting of a device,
- * and the MIDI map belongs to the device.
- */
+/** Bind or unbind a CC on a module a chain names, in the folder the PANEL came from — docs/controller.md. */
 export function bindModuleCc(
   dir: string,
   module: string,
@@ -25,8 +18,7 @@ export function bindModuleCc(
   const modules = loadModules(dir) as Record<string, LoadedModule>;
   const m = modules[module];
   if (!m) throw new Error(`no module "${module}" in this project`);
-  // First ref that actually HAS a folder. A module the engine merely reports has none at all,
-  // which is what `module own` exists to fix — so say that rather than writing nowhere.
+  // First ref that actually HAS a folder; an engine module has none, which `module own` fixes.
   const ref = moduleOwnRefs(m).find((r) => moduleFolderForRef(dir, r));
   if (!ref)
     throw new Error(

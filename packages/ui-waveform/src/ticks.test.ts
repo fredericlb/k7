@@ -46,8 +46,7 @@ describe("labelStride", () => {
   });
 
   it("gives a wide label more room than a narrow one at the same zoom", () => {
-    // 16px between bars: "7" fits, "129" is twice as wide and does not. Under the old flat
-    // 10px minimum both were labelled here, which is precisely how the numbers overlapped.
+    // 16px between bars: "7" fits, "129" is twice as wide and does not, though the old flat 10px labelled both.
     const spacing = 16;
     expect(labelStride(spacing, labelMinPx("7"))).toBe(1);
     expect(labelStride(spacing, labelMinPx("129"))).toBeGreaterThan(1);
@@ -100,8 +99,7 @@ describe("subdivideBeats", () => {
 });
 
 describe("subdivideGrid", () => {
-  // The other half of the same rule, for the ruler that is HANDED its ticks (the waveform's
-  // bar/beat list comes off the wire) and can only split what it has. Same MAX_COLUMN_PX.
+  // The other half of the same rule, for the ruler that is HANDED its ticks and can only split what it has.
   it("adds nothing while the columns still fit", () => {
     // 1s apart at 40px/s — under the 50px threshold, so the beats stand on their own.
     expect(subdivideGrid([0, 1, 2], 40)).toEqual([]);
@@ -135,8 +133,7 @@ describe("subdivideGrid", () => {
 });
 
 describe("nearestTick", () => {
-  // What a ruler click lands on. The list is the one the ruler DREW, so a click can only
-  // ever put the playhead on a line that is on screen.
+  // What a ruler click lands on: the list is the one the ruler DREW, so you can only land on a visible line.
   const ticks = [0, 0.5, 1, 1.5, 2];
 
   it("takes the closest line, either side", () => {
@@ -159,8 +156,7 @@ describe("nearestTick", () => {
   });
 
   it("returns null when the ruler drew nothing", () => {
-    // The caller then seeks exactly where the pointer was — a waveform with no musical
-    // grid (k7's) must not be snapped to anything.
+    // The caller then seeks exactly where the pointer was, since k7's grid-less waveform must not be snapped.
     expect(nearestTick([], 1.2)).toBe(null);
   });
 

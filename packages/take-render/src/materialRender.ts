@@ -43,13 +43,7 @@ export interface AudioConsolidateReport {
   from: string[];
 }
 
-/**
- * A free `clips/<name>` — the wav and its definition share it.
- *
- * Stamped rather than numbered, like a take (`recordTake`'s `fileStamp`): two consolidations of
- * one range a minute apart are two different renders, and a name that collided would have the
- * second silently overwrite the first's audio while both definitions still pointed at it.
- */
+/** A free `clips/<name>`, STAMPED rather than numbered — the wav and its definition share it. */
 function freeClipName(dir: string, base: string): string {
   const stem = `${base}_${fileStamp()}`;
   for (let n = 0; ; n++) {
@@ -58,38 +52,12 @@ function freeClipName(dir: string, base: string): string {
   }
 }
 
-/**
- * The DEFINITION a render files beside its wav — the text, and the only part of `fileRender` that
- * can be held to anything without an engine to render through.
- *
- * **It states a `source:` and nothing else**, and the nothing is the decision.
- *
- * `from`/`to` are a WINDOW into a file. What was rendered is the whole of the new material, so
- * there is no window: carrying the numbers over from the thing this was cut out of would frame the
- * render with somebody else's, and writing a `to` equal to the file's own end would not be a
- * window at all — it would be the file's DURATION, copied into the song. That copy goes stale the
- * moment `clip process` repoints `source:` at a processed wav of a different length, and nothing
- * would notice: the clip would draw and play to a second that no longer exists in it.
- *
- * The reason to want one was real — an absent extent used to reach the browser as `length: 0`,
- * where nothing can measure a file, so the timeline drew a single bar for a three-bar render. That
- * is answered where it belongs, on the side that HAS the audio: the file service measures the
- * source and fills the length in on its way to the browser (`naturalBeats` in workspace.ts). One
- * source of truth, and it is the file.
- */
+/** The DEFINITION a render files beside its wav: a `source:` and NOTHING else — docs/rendering.md. */
 export function renderedClipYaml(verb: string, ref: string): string {
   return `# Rendered by \`event ${verb}\`.\nsource: clips/${ref}.wav\n`;
 }
 
-/**
- * Render `doc` and file the result as `clips/<ref>.wav` + `clips/<ref>.yaml`.
- *
- * The definition states no window — see `renderedClipYaml` for why, and for where the length the
- * surfaces need is answered instead.
- *
- * The log's `seconds` is the wav that came OUT, not the span that went in: a tail ringing past the
- * cut is in the file and is what plays, so reporting the request would understate what was written.
- */
+/** Render `doc` as `clips/<ref>.wav` + `.yaml`; the reported `seconds` is the wav that came OUT. */
 function fileRender(
   engineBin: string,
   dir: string,
@@ -148,16 +116,7 @@ const windowOf = (c: ClipDoc, tempo: number) => ({
     (c.length > 0 ? (c.sourceFrom ?? 0) + (c.length * 60) / tempo : 0),
 });
 
-/**
- * Cut an AUDIO placement's material in two at `atBeats`, rendering a file for each half.
- *
- * The physical half of `event split` where the material is audio. Two renders rather than one
- * and a trim, because what has to come out is two whole files: the halves are then ordinary
- * material that can be processed, warped or moved apart, which is the reason to want a physical
- * split rather than the virtual one.
- *
- * The material it cut is left on disk, exactly as the sequence half leaves it.
- */
+/** Cut an AUDIO placement's material in two at `atBeats` — TWO renders, see docs/rendering.md. */
 export function splitAudioMaterial(
   engineBin: string,
   dir: string,
@@ -215,14 +174,7 @@ export function splitAudioMaterial(
   return { head, tail, from: base };
 }
 
-/**
- * Render ONE file over `[fromBeats, toBeats]`, holding everything that plays there.
- *
- * Everything in the rectangle, rendered into one file. Every clip in it is laid on one
- * track at its offset from the rectangle's start and the whole thing is bounced, so **gaps come
- * out as real silence**: nothing plays there, and the render is that long anyway because the
- * document is. That is what makes the result play back identically.
- */
+/** Render ONE file over `[fromBeats, toBeats]`, gaps included as real silence — docs/rendering.md. */
 export function consolidateAudioMaterial(
   engineBin: string,
   dir: string,
@@ -259,8 +211,7 @@ export function consolidateAudioMaterial(
           clipDoc({
             ...c,
             id: `${CUT_TRACK}-${i}`,
-            // Re-based on the rectangle. Everything else about the clip rides along untouched —
-            // its window, its fades, its warp — because what is being rendered is what plays.
+            // Re-based on the rectangle; everything else about the clip rides along untouched.
             start: c.start - fromBeats,
           }),
         ),

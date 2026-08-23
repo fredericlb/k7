@@ -52,8 +52,7 @@ describe("pushEventsToTake", () => {
   });
 
   it("makes NO take of a lane holding nothing", () => {
-    // An empty take is a row that says nothing — and recording onto an empty lane is not
-    // recording over anything.
+    // An empty take is a row that says nothing, and an empty lane is not recorded OVER.
     const empty = 'extends: "@studio/track"\nevents: []\n';
     expect(pushEventsToTake(empty)).toBe(empty);
   });
@@ -150,9 +149,7 @@ describe("takeValues", () => {
   });
 });
 
-// An ALTERNATIVE is a module partial, so `takes:` is one of the fields it may carry — which is
-// what makes a take belong to the set it was played in. Two settings are two ways of playing the
-// part, and a take of one is not a take of the other.
+// An ALTERNATIVE may carry `takes:`, so a take belongs to the set it was played in (docs/laneEdits.md).
 describe("takes inside an alternative", () => {
   const WITH_SET = `extends: "@studio/track"
 events:

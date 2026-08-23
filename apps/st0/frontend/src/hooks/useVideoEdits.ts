@@ -7,24 +7,7 @@ import { useCallback } from "react";
 import { api } from "../api";
 import type { VideoEdit } from "../components/TimelineTab";
 
-/**
- * Apply a finished picture drag to the lane's own file.
- *
- * A SURGICAL text rewrite, not a re-serialisation: these files carry the comments that document
- * the format, and a round trip through the parser would delete every one of them.
- * `setVideoPlacementField` edits by REF, so a placement that moved in the file between render and
- * drop is still the one that was grabbed.
- *
- * Every edit of the gesture is applied to ONE buffer and written once. Trimming a head is two
- * fields (three on a length-0 shot) describing a single drag; writing them separately would be two
- * reads of the same file, the second built on the text before the first.
- *
- * Not a COMMAND, unlike every audio edit this app makes: the CLI has no verb for a picture
- * placement. Which is also why it is a hook rather than a line in the two hosts — a write nobody
- * can spell as a command is one there is no second implementation of.
- *
- * @param project the open project, workspace-relative — `.` for a lone-project clone.
- */
+/** Apply a finished picture drag to the lane's own file: a SURGICAL text rewrite by REF, one buffer written once, and not a COMMAND. */
 export function useVideoEdits(
   project: string,
   bumpReload: () => void,

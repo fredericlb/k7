@@ -5,15 +5,9 @@ import {
   videoDragTo,
 } from "./components/TimelineTab";
 
-// The three drags a picture placement takes, as arithmetic. Nothing in this app mounts a
-// component, so what a gesture puts IN A FILE is the part a test can reach — and every case
-// below is one where a wrong answer is invisible on screen until the reload.
-// See docs/picture.md.
+// The three drags a picture placement takes, as arithmetic — every case below is one where a wrong answer is invisible until the reload.
 
-/**
- * No snapping — which is both how the maths is isolated from the ruler that feeds it, and the
- * REAL snapper the handler passes while Ctrl is held (`snap.ts`, docs/timeline.md).
- */
+/** No snapping — which isolates the maths from the ruler, and is the REAL snapper the handler passes while Ctrl is held. */
 const free = (sec: number) => Math.max(0, sec);
 /** Snap to whole seconds, standing in for whatever the ruler happens to be drawing. */
 const toSecond = (sec: number) => Math.max(0, Math.round(sec));
@@ -59,8 +53,7 @@ describe("trimming the head", () => {
   const head = (over = {}) => shot({ mode: "in" as const, ...over });
 
   it("keeps the TAIL where it is", () => {
-    // Writing start and source_from alone would slide the whole shot later instead of
-    // shortening it, and the cut after it would move too.
+    // Writing start and source_from alone would slide the whole shot later instead of shortening it, and move the cut after it.
     const next = videoDragTo(head(), 2, free);
     expect(next.start).toBe(6);
     expect(next.length).toBe(4);
@@ -95,9 +88,7 @@ describe("trimming the head", () => {
   });
 
   it("pins the extent of a length-0 shot, which is the same write", () => {
-    // A length-0 placement runs to the end of its source, so the trim would be undone on the
-    // next compile unless the extent is written too. It needs no special case: the general
-    // rule already writes `length`.
+    // A length-0 placement runs to the end of its source, so the trim needs the extent written too — no special case, the general rule does it.
     const v0 = head({ origLength: 0, length: 0 });
     const next = videoDragTo(v0, 1, free);
     expect(next).toEqual({ start: 5, length: 3 }); // the 4s placeholder, less the trim
@@ -126,8 +117,7 @@ describe("setting the extent", () => {
   });
 
   it("gives a length-0 shot a real extent, off the drawn placeholder", () => {
-    // Until it is dragged the browser has not measured the source, so 4s is what is on screen
-    // and 4s is what the drag starts from — anything else would jump under the cursor.
+    // Until it is dragged the browser has not measured the source, so 4s is on screen and 4s is what the drag starts from.
     expect(videoDragTo(tail({ origLength: 0, length: 0 }), 1, free)).toEqual({
       start: 4,
       length: 5,
@@ -142,8 +132,7 @@ describe("a drag that changed nothing writes nothing", () => {
   });
 
   it("is still when the tail returns to where it was — measured against the DRAWN extent", () => {
-    // A length-0 shot's live length becomes the 4s placeholder the moment it is dragged, so
-    // comparing against `origLength` (0) would call an unmoved tail a change and write 4.
+    // A length-0 shot's live length becomes the placeholder once dragged, so comparing against `origLength` would call an unmoved tail a change.
     const back = videoDragTo(
       shot({ mode: "out", origLength: 0, length: 0 }),
       0,
@@ -159,8 +148,7 @@ describe("a drag that changed nothing writes nothing", () => {
 
 describe("the ruler's ticks are what it lands on", () => {
   it("snaps the head, in whatever unit the ruler is reading", () => {
-    // The snap is a parameter: the timeline passes the beats it actually drew, converted. So
-    // switching the ruler to seconds changes where a shot can land without changing this.
+    // The snap is a parameter: switching the ruler to seconds changes where a shot can land without changing this.
     expect(videoDragTo(shot(), 2.4, toSecond).start).toBe(6);
     expect(videoDragTo(shot(), 2.6, toSecond).start).toBe(7);
   });

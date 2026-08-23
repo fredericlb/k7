@@ -1,10 +1,7 @@
 import { setModuleList } from "@studio/song-schema/yaml/moduleFile";
 import { describe, expect, it } from "vitest";
 
-// Writing an input's socket into its own file. `channel:` is spelt INLINE everywhere in this repo
-// and in the docs — a two-element block sequence costs three lines to say one thing, and these are
-// files people edit as text first. The rest of the file has to come back untouched, because a node
-// is usually two hand-written lines and a comment saying what is plugged in.
+// `channel:` is spelt INLINE, and the rest of a hand-written node file has to come back untouched.
 
 const NODE = `# ge_rythm-in — the live guitar: interface input 2, played into the ge.rythm track.
 # \`io\` and the ports come from @engine/IN; the CHANNEL is what this use adds.

@@ -16,12 +16,10 @@ export const TRACK_FAMILIES = [
 
 export type TrackFamily = (typeof TRACK_FAMILIES)[number];
 
-// A track with no prefix, or one whose code isn't below, sorts after every named
-// family — "les autres", kept together at the bottom in their existing order.
+// A track with no prefix, or an unknown one, sorts after every named family in its existing order.
 export const UNKNOWN_RANK = TRACK_FAMILIES.length;
 
-// prefix -> [family, label]. The label is the human name; the web app shows it as the
-// track's tooltip so the two-letter code is never the only thing explaining a row.
+// prefix -> [family, label]; the label is the human name the web app shows as a row's tooltip.
 export const TRACK_PREFIXES: Record<
   string,
   [family: TrackFamily, label: string]
@@ -42,8 +40,7 @@ export const TRACK_PREFIXES: Record<
 
 // A track name taken apart: "[position.][prefix.]label" — both leading segments are optional and independent.
 export interface ParsedTrackName {
-  // A 1-based slot the author is claiming, from a leading all-digits segment. Null when
-  // the name doesn't open with one — the track then takes its place by family.
+  // A 1-based slot the author claims, from a leading all-digits segment; null means "by family".
   position: number | null;
   prefix: string | null; // a known instrument code, lowercased
   label: string; // what's left; the whole name when it declares neither
@@ -114,8 +111,7 @@ export function sortTracksByKind<T>(
   tracks.forEach((t, i) => {
     const { position } = parseTrackName(nameOf(t));
     if (position === null) loose.push({ t, i, rank: trackKindRank(nameOf(t)) });
-    // 1-based, and clamped: "0." and "1." both mean first, anything past the end
-    // means last.
+    // 1-based and clamped: "0." and "1." both mean first, anything past the end means last.
     else pinned.push({ t, i, at: Math.min(Math.max(position - 1, 0), n - 1) });
   });
 

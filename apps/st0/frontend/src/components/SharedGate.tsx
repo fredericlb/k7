@@ -42,33 +42,15 @@ export interface OpenShare {
 
 type Phase =
   | { k: "opening" }
-  // The 404 a withdrawn share answers, and the one a mistyped address answers. ONE screen for
-  // both, because the server cannot tell them apart either and pretending otherwise would be
-  // making something up about somebody else's link.
+  // The 404 a withdrawn share answers, and the one a mistyped address answers: ONE screen, the server not telling them apart either.
   | { k: "gone" }
   | { k: "fault"; why: string }
   | { k: "open"; share: OpenShare };
 
-/**
- * The routes a snapshot has no answer for, and the answer each one gets instead.
- *
- * A share is a folder of JSON and audio — three compiled documents and the renders. There is no
- * file service behind it, so `/tree`, `/hints`, `/commands` and the rest name nothing at all.
- * Left to fail, every hook that asks would draw an error about a service being down, which is
- * FALSE: it is absent by design, and a viewer telling you the server is broken when it is doing
- * exactly what it should is worse than one that says nothing.
- *
- * Each value is TYPED rather than cast, so a field added to one of these shapes fails this file
- * instead of arriving at a component as `undefined` on the one code path nobody opens.
- *
- * `revision` is the load-bearing one: several hooks poll it and re-fetch when it moves. A
- * constant is what makes the whole shell settle after its first pass and then stop asking —
- * which is the true statement about a document that cannot change.
- */
+/** The routes a snapshot has no answer for, and the canned answer each gets — `revision` is the load-bearing one, being what makes the shell settle. */
 function cannedFor(manifest: ShareManifest): Record<string, unknown> {
   const project: ProjectInfo = { name: manifest.name, root: "" };
-  // `activeProject` is set, and that is not cosmetic: null draws the amber "pick a project"
-  // badge, which asks a visitor to do something no screen here offers.
+  // `activeProject` is set, and that is not cosmetic: null draws the amber badge, asking for something no screen here offers.
   const workspace: WorkspaceInfo = {
     root: "",
     rootIsProject: true,
@@ -96,8 +78,7 @@ function cannedFor(manifest: ShareManifest): Record<string, unknown> {
     projectRoot: "",
     media: {},
   };
-  // Clean, and TRUE rather than a stand-in: a snapshot is built from a project that compiled,
-  // by the machine that compiled it. Nothing here could produce an error to report.
+  // Clean, and TRUE rather than a stand-in: a snapshot is built from a project that compiled, by the machine that compiled it.
   const clean: ProjectErrors = { errors: [], diagnostics: [] };
   const history: HistoryState = { canUndo: false, canRedo: false };
   const git: GitStatus = {
@@ -148,8 +129,7 @@ export function SharedGate({
     let stop = false;
     void (async () => {
       try {
-        // The KEY is derived here and the token never leaves this tab as a path segment — see
-        // shareKey, including why this needs https and says so when it has not got it.
+        // The KEY is derived here and the token never leaves this tab as a path segment — see shareKey.
         const base = shareApiBase(
           window.location.origin,
           await shareKey(token),
@@ -159,25 +139,19 @@ export function SharedGate({
         if (!res.ok) return setPhase({ k: "gone" });
         const manifest = (await res.json()) as ShareManifest;
         if (stop) return;
-        // A schema this build cannot read is a FAULT and not a 404: the link is fine, the
-        // snapshot is fine, and this viewer is the one that is out of date.
+        // A schema this build cannot read is a FAULT and not a 404: this viewer is the one that is out of date.
         if (manifest.schema > 1)
           return setPhase({
             k: "fault",
             why: `this snapshot was made by a newer version (schema ${manifest.schema})`,
           });
-        // `/doc` because that is where the three documents answer, and the transport asks for
-        // them by the file service's route names — `/project-doc`, `/graph`, `/surfaces`. The
-        // identity fields are empty on purpose: a share has no user, no workspace and no engine,
-        // and the headers they fill are ignored by a route that authenticates nothing.
+        // `/doc` is where the three documents answer; the identity fields are empty on purpose, a share having no user, workspace or engine.
         configureFileApi({
           base: `${base}/doc`,
           userEmail: "",
           workspace: "",
           engineToken: "",
-          // …and no engine either, which is the same emptiness: a snapshot borrows no machine.
-          // Nothing on a share can reach the one route that reads it (pl8's `/api/stems`), for
-          // the reason `frozen` states below — a share writes nothing anywhere.
+          // …and no engine either, which is the same emptiness: a snapshot borrows no machine and writes nothing anywhere.
           engineId: "",
           frozen: {
             why: "this is a shared copy — it is frozen, and nothing here can be changed",
@@ -209,9 +183,7 @@ export function SharedGate({
       </div>
     );
 
-  // No "back to Projects" on either failure, and that is the point of the whole feature: whoever
-  // is reading this has no account here, so an invitation to sign in would be the one thing that
-  // cannot help them.
+  // No 'back to Projects' on either failure: whoever is reading has no account here, so an invitation to sign in cannot help.
   return (
     <div className="flex h-full items-center justify-center bg-background p-6">
       <div className="flex max-w-md flex-col gap-3 text-center">
@@ -229,8 +201,7 @@ export function SharedGate({
   );
 }
 
-/** The one thing a visitor may take away, as a plain link — a download is a navigation, and
- *  wiring it through fetch would only buy a blob URL and a copy of the file in memory. */
+/** The one thing a visitor may take away, as a plain link — a download is a navigation, and fetch would only buy a blob URL. */
 export function ShareDownload({ base }: { base: string }) {
   return (
     <Button asChild variant="secondary" size="sm">

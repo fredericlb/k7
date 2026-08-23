@@ -39,12 +39,10 @@ export interface Candidate {
   uploadSpeed: number;
 }
 
-/** What the library itself calls lossless. A subset of `AUDIO_EXT`: `.ape` and `.wv` are all
- *  over Soulseek and the médiathèque cannot file either, so they are not "better", they are out. */
+/** Lossless as the LIBRARY means it — a subset of `AUDIO_EXT`, so `.ape` and `.wv` are out. */
 const LOSSLESS_EXT = new Set([".flac", ".wav", ".aiff", ".aif"]);
 
-/** Words that carry no identity. Dropped from BOTH sides, because half of Soulseek files
- *  the Beatles under `Beatles` and the other half under `The Beatles`. */
+/** Words carrying no identity, dropped from BOTH sides — `Beatles` and `The Beatles` are one. */
 const NOISE = new Set(["the", "a", "an", "le", "la", "les", "los", "el"]);
 
 /** The last segment of a peer's path, which is the only part that is a file name. */
@@ -52,13 +50,7 @@ export function baseNameOf(filename: string): string {
   return filename.split(/[\\/]/).pop() ?? filename;
 }
 
-/**
- * A name reduced to what two spellings of it have in common.
- *
- * A Soulseek path is whatever the person sharing it typed — `AC-DC`, `AC_DC`, `ac dc` — while
- * MusicBrainz says `AC/DC`. All of them come down to `ac dc`, and that is the only level at
- * which the two can be compared at all.
- */
+/** A name reduced to what two spellings share: `AC/DC`, `AC-DC` and `ac dc` all become `ac dc`. */
 export function normalise(s: string): string {
   return s
     .normalize("NFKD")
@@ -75,28 +67,16 @@ export function tokens(s: string): string[] {
     .filter((w) => w.length > 1 && !NOISE.has(w));
 }
 
-/**
- * Do these words all appear in that text, as WORDS?
- *
- * Whole words and not substrings: `Air` is an artist, and `includes("air")` would take every
- * file Airbourne ever shared. The cost is that a run-together spelling is missed, which is the
- * cheaper mistake — a hunt that finds nothing says so, a hunt that files the wrong band does not.
- */
+/** Do these words all appear in that text, as WORDS? `includes("air")` would take Airbourne. */
 function hasAllWords(want: string[], hay: string): boolean {
   const words = new Set(normalise(hay).split(" "));
   return want.every((w) => words.has(w));
 }
 
-/**
- * Is this peer's file by the artist we asked for?
- *
- * Tested against the WHOLE path, because the artist is nearly always a parent folder rather
- * than part of the file name.
- */
+/** By the artist we asked for? Tested on the WHOLE path — the artist is a parent folder. */
 export function artistMatches(artist: string, filename: string): boolean {
   const want = tokens(artist);
-  // An artist made only of noise words — "The The" — leaves nothing to test, and `every` on an
-  // empty list is vacuously TRUE, which would accept every file on the network.
+  // "The The" leaves nothing to test, and `every` on an empty list accepts the whole network.
   if (!want.length) {
     const bare = normalise(artist);
     return bare.length > 0 && normalise(filename).includes(bare);
@@ -104,12 +84,7 @@ export function artistMatches(artist: string, filename: string): boolean {
   return hasAllWords(want, filename);
 }
 
-/**
- * …and is it the song we asked for?
- *
- * The file NAME only. The album folder above it names eleven other songs, and a path-wide test
- * would call every track on Nevermind a match for "Lithium".
- */
+/** …and the song we asked for? The file NAME only — the album folder names eleven other songs. */
 export function titleMatches(title: string, filename: string): boolean {
   const base = baseNameOf(filename);
   const stem = base.slice(0, base.length - extOf(base).length);
@@ -121,13 +96,7 @@ export function titleMatches(title: string, filename: string): boolean {
   return hasAllWords(want, stem);
 }
 
-/**
- * Kbps — the peer's figure, or the one the bytes imply.
- *
- * Measured when absent, because `bitRate` is optional in the protocol and a great many clients
- * leave it out. Size over duration is the number the encoder used, and it is the whole
- * difference between a 320 and a 128 when nobody wrote it down.
- */
+/** Kbps — the peer's figure, or size over duration when the optional field is left out. */
 export function bitrateOf(f: SlskdFile): number | null {
   if (f.bitRate && f.bitRate > 0) return f.bitRate;
   if (f.length && f.length > 0 && f.size > 0)
@@ -135,19 +104,13 @@ export function bitrateOf(f: SlskdFile): number | null {
   return null;
 }
 
-/**
- * The tier the request names: lossless, then mp3 320, then down.
- *
- * FLAC sits above WAV and AIFF though all three are lossless: they hold the same audio, and the
- * one that is half the size and carries its own tags is the one to keep a library in.
- */
+/** The tier: lossless, then 320, then down — FLAC over WAV, same audio at half the size. */
 export function qualityOf(f: SlskdFile): number {
   const ext = extOf(baseNameOf(f.filename));
   if (ext === ".flac") return 500;
   if (LOSSLESS_EXT.has(ext)) return 450;
   const kbps = bitrateOf(f);
-  // Lossy, and the peer said nothing we could measure either. Below every known rate rather
-  // than above: an unknown that outranked a measured 320 would win by being uninformative.
+  // Under every known rate: an unknown that outranked a measured 320 would win by being mute.
   if (kbps === null) return 100;
   if (kbps >= 320) return 300;
   if (kbps >= 256) return 250;
@@ -160,18 +123,7 @@ function availability(c: Candidate): number[] {
   return [c.hasFreeUploadSlot ? 0 : 1, c.queueLength, -c.uploadSpeed];
 }
 
-/**
- * The peers worth trying, best first — one entry per peer.
- *
- * ONE per peer, because that is what the request's "change user" step operates on: a peer
- * sharing a whole discography would otherwise fill the first ten places by itself, and ten
- * switches would all land on the same queue that was not moving.
- *
- * Quality decides, as asked. Availability breaks ties INSIDE a tier, and that is not a
- * refinement: a download is abandoned after sixty seconds of not starting, so a peer with a
- * three-hundred-long queue is worth nothing however good its copy is. Two files of the same
- * tier are the same file — the only thing left to choose on is who will actually send it.
- */
+/** The peers worth trying, best first, ONE entry per peer — the ranking is ../../docs/hunt.md. */
 export function rankCandidates(
   responses: SlskdResponse[],
   want: { artist: string; title: string },
@@ -179,8 +131,7 @@ export function rankCandidates(
   const best = new Map<string, Candidate>();
   for (const r of responses) {
     for (const file of r.files ?? []) {
-      // The library's OWN gate, not a second list beside it: `masterName` throws on anything
-      // else at filing time, so taking it would mean a download that cannot be put away.
+      // The library's OWN gate: anything else is a download that cannot then be put away.
       if (!isAudio(baseNameOf(file.filename))) continue;
       if (file.isLocked) continue;
       if (!artistMatches(want.artist, file.filename)) continue;
@@ -202,8 +153,7 @@ export function rankCandidates(
     if (a.quality !== b.quality) return b.quality - a.quality;
     const [x, y] = [availability(a), availability(b)];
     for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] - y[i];
-    // Last resort, so the same search twice gives the same order — a list that reshuffled
-    // would make a failure impossible to reproduce.
+    // Last resort, so the same search twice gives an order a failure can be reproduced from.
     return a.username.localeCompare(b.username);
   });
 }
@@ -211,14 +161,7 @@ export function rankCandidates(
 /** Where a transfer has got to, in the four states this cares about. */
 export type TransferPhase = "queued" | "running" | "done" | "failed";
 
-/**
- * Read slskd's transfer state.
- *
- * The wire value is a comma-joined flags enum — `"Completed, Succeeded"`, `"Queued, Remotely"` —
- * so this matches by SUBSTRING and not by equality. That is deliberate: the exact spelling is
- * Soulseek.NET's to change, and a switch over literals would silently classify a renamed flag
- * as "still queued" and wait sixty seconds for nothing.
- */
+/** Read slskd's transfer state — a comma-joined flags enum, so by SUBSTRING; ../../docs/hunt.md. */
 export function classify(state: string | null | undefined): TransferPhase {
   const s = (state ?? "").toLowerCase();
   if (s.includes("succeeded")) return "done";
@@ -231,8 +174,7 @@ export function classify(state: string | null | undefined): TransferPhase {
     s.includes("aborted")
   )
     return "failed";
-  // `Initializing` counts as started: the peer has answered and the two are negotiating, which
-  // is exactly what the sixty-second rule is waiting to see.
+  // `Initializing` counts as started: the peer answered, which is what the minute waits for.
   if (s.includes("inprogress") || s.includes("initializing")) return "running";
   return "queued";
 }

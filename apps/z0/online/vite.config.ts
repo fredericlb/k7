@@ -2,10 +2,7 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-// Single-origin: online is the apex SPA at st0.priv.frediver.se/z0, and the
-// backend answers /api (+ /auth, /audio, and the /ws socket) on the same host.
-// The backend serves BARE paths — the proxy strips /api for it — so the dev
-// proxy strips it too (stripApiPrefix). Port 3003 matches the LAN proxy.
+// The apex SPA at /z0 on port 3003, which is the LAN proxy's rule; the backend sees bare paths.
 export default defineAppConfig({
   dir: import.meta.url,
   base: "/z0/",

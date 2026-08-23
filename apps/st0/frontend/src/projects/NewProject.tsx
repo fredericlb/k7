@@ -17,21 +17,7 @@ import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
-/**
- * The three ARCHETYPES — one row, where there used to be two.
- *
- * The upper row chose the APPLICATION, and so the folder's suffix. There is only one app now, so
- * that question has no answers left to pick between, and what tells these three apart is a
- * TEMPLATE rather than an application.
- *
- * Each is named after the SURFACE it opens on, because that is exactly what is being chosen: a
- * project is no longer distinguished by what it IS — everything is a `.st0` — but by the screen
- * it declares (packages/song/docs/surfaces.md). A fourth existed, `live`: the graph alone, no
- * surface. It went with this naming, an entry whose whole description is "none of the three"
- * being nothing anybody picks on purpose. The `live` MODE remains, and a mix declares it.
- *
- * See `PROJECT_SHAPES` in @studio/song.
- */
+/** The three ARCHETYPES, each named after the SURFACE it opens on — there is one app now, so a template is what tells them apart (packages/song/docs/surfaces.md). */
 const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
   {
     id: "arrangement",
@@ -56,8 +42,7 @@ export function NewProject({
   onCreate,
 }: {
   blocked: string;
-  /** Returns when done. `onStep` narrates the wait: cloning takes tens of seconds, and a screen
-   *  saying nothing for that long looks frozen. */
+  /** Returns when done; `onStep` narrates the wait, cloning taking tens of seconds and a silent screen looking frozen. */
   onCreate: (
     folder: string,
     onStep: (s: string) => void,
@@ -114,8 +99,7 @@ export function NewProject({
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            {/* The archetype decides the TEMPLATE written in the folder. The suffix is no
-                longer a choice — there is only one. */}
+            {/* The archetype decides the TEMPLATE written in the folder; the suffix is no longer a choice, there being only one. */}
             <div className="flex items-center gap-2">
               {SHAPES.map((sh) => (
                 <Button
@@ -143,8 +127,7 @@ export function NewProject({
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
 
-            {/* What will actually be created, before confirming. A refused name says so here
-                rather than after a round trip to the machine. */}
+            {/* What will actually be created, before confirming: a refused name says so here rather than after a round trip. */}
             <p className="font-mono text-xs text-muted-foreground">
               {badName ? (
                 <span className="text-destructive">{badName}</span>

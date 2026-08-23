@@ -41,8 +41,7 @@ describe("resolveInMediatek", () => {
   });
 
   it("refuse tout ce qui sortirait de la médiathèque", () => {
-    // The client sends only relative paths, and that is the guarantee: it can name only what this
-    // machine caches. A `..` is an attempt, not a typo.
+    // The client sends only relative paths, so it can name only what this machine caches.
     for (const nasty of [
       "../secret-witness.txt",
       "songs/../../secret-witness.txt",
@@ -57,8 +56,7 @@ describe("resolveInMediatek", () => {
   });
 
   it("refuse ce qui n'est pas là plutôt que de le passer à mpv", () => {
-    // mpv would fail anyway, but minutes later and in its own words — whereas "that song is not on
-    // this machine" is exactly what should be read.
+    // mpv would fail anyway, but later and in its own words rather than "not on this machine".
     expect(() => resolveInMediatek("songs/absent/original.flac")).toThrow(
       /n'est pas sur cette machine/,
     );

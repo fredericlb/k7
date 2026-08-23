@@ -9,14 +9,9 @@ import {
   setTrackField,
 } from "./trackFile";
 
-// The file the app writes most (every clip drag), and the one where the format question has
-// teeth — placements carry TIMECODES.
-//
-// A lane is a node now (docs/trackModules.md), so it is `parseModule` that vets one: the
-// timecode trap moved with it, which is why `quoteTimecodes` guards every module write.
+// The file the app writes most, and a lane is a MODULE now, so the timecode trap moved with it.
 
-// A lane as the app leaves it: what it extends, then one placement per line as a flow map,
-// every timecode quoted.
+// A lane as the app leaves it: one placement per line as a flow map, every timecode quoted.
 const AUTHORED = `color: "#739814"
 extends: "@studio/track"
 disabled: false
@@ -38,9 +33,7 @@ describe("the timecode trap", () => {
   });
 
   it("would be CORRUPTED unquoted under YAML 1.1 — hence the quoting rule", () => {
-    // The single most important measurement in this whole spike, on real data from
-    // LEMO - DANSE. Unquoted, the same bytes mean different things per YAML version, and
-    // the 1.1 reading is silently, catastrophically wrong: bar 25 becomes beat 1501.
+    // Measured on real data: unquoted, the 1.1 reading turns bar 25 into beat 1501 (docs/moduleFile.md).
     const unquoted =
       "events:\n  - { ref: b, start: 25:1, length: 8:0:3:0:0:1:1:2 }\n";
     expect(parse(unquoted, { version: "1.2" }).events[0].start).toBe("25:1");
@@ -58,8 +51,7 @@ describe("the timecode trap", () => {
     const moved = movePlacement(AUTHORED, "25:1", "26:1");
     expect(moved).toContain('start: "26:1"');
     expect(moved).not.toMatch(/start: 26:1[^"]/);
-    // …including one written into a placement wholesale, and NOT the loop count beside it,
-    // which is a number and would be corrupted by quoting rather than saved by it.
+    // …including one written wholesale, and NOT the loop count beside it, which is a number.
     const rewritten = setTrackField(AUTHORED, "events", [
       { ref: "x", start: "1:1", fadeIn: "2:1", loop: 4 },
     ]);
@@ -70,9 +62,7 @@ describe("the timecode trap", () => {
   });
 
   it("quotes a timecode written under a key that wasn't there before", () => {
-    // The gap this closes: a key added through the document API arrives as a BARE STRING, not a Scalar, and the
-    // quoter read only `.value` — so it skipped the pair and let `to: 3:1` out unquoted, which is the very
-    // reading this whole rule exists to prevent. Found by migrating a real song; every sequence file was wrong.
+    // The gap this closes: a key set through the document API arrives as a BARE STRING (docs/moduleFile.md).
     const doc = parseDocument("notes: []\n", { version: "1.2" });
     doc.set("to", "3:1");
     quoteTimecodes(doc);
@@ -96,9 +86,7 @@ describe("the edits the app makes most", () => {
   };
 
   it("flips a flag in one line", () => {
-    // A lane has no fader to move (its level is a module param, see MixerPlugin) and no mute
-    // either — that is its module's bypass now, in graph.yaml. What is left on the file is
-    // its colour and whether it is in the render at all, and those still rewrite one line.
+    // A lane has no fader and no mute on its file — only its colour and whether it renders at all.
     const after = setTrackField(AUTHORED, "disabled", true);
     expect(changed(AUTHORED, after)).toBe(1);
     expect(after).toContain("disabled: true");
@@ -146,9 +134,7 @@ describe("the edits the app makes most", () => {
 
 describe("the fields a lane carries", () => {
   it("takes a group's members and a strudel lane's pattern", () => {
-    // Both are ordinary module fields now. WHICH of them a lane may write is decided by what
-    // it extends, and that is a question about the project — graph.ts's validate() reports it,
-    // not this schema, which vets one file.
+    // Both are ordinary module fields; WHICH a lane may write is graph.ts's question (docs/moduleFile.md).
     expect(
       parseModule('extends: "@studio/group-track"\ntracks: [a, b]\n').issues,
     ).toEqual([]);
@@ -168,8 +154,7 @@ describe("the fields a lane carries", () => {
   });
 
   it("still refuses a key no module has", () => {
-    // `.strict()`, so `type: single` — which a track file used to open with — says so by name
-    // and by line rather than being read and dropped.
+    // `.strict()`, so an unknown key is named by line rather than read and dropped.
     const { value, issues } = parseModule(
       'extends: "@studio/track"\ncontentType: audio\n',
     );

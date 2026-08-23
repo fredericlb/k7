@@ -24,14 +24,10 @@ export interface ModuleFile {
   rel: string;
 }
 
-// `.yml` as well as `.yaml`: same format, other spelling, and a person who types the
-// short one should not find their module silently absent. `.yaml` wins when both exist.
+// `.yml` as well as `.yaml`: same format, other spelling, and `.yaml` wins when both exist.
 const EXTS = [".yaml", ".yml"];
 
-/** The basenames a module folder holds that are NEITHER the generic nor one of its nodes: its panel
- *  (uiLibrary.ts), its named settings (presets.ts) and its MIDI map (controller.ts). Named here because this
- *  file is what decides which of a folder's YAML files is what — and every one of them that is not on this list
- *  is one use of the module. Adding a sibling file without adding it here files it as a NODE. */
+/** The module folder's OWN basenames — anything else there is a node, so add a new sibling here. */
 export const UI_BASE = "ui";
 export const PRESETS_BASE = "presets";
 export const CONTROLLER_BASE = "controller";
@@ -44,10 +40,7 @@ export const MODULE_OWN_BASES: ReadonlySet<string> = new Set([
   CONTROLLER_BASE,
 ]);
 
-/**
- * The module file for `base` ("module", or a node's name) in `folder`, or null when
- * the folder has none. `relDir` is the folder's path relative to the project, for the rel.
- */
+/** The module file for `base` ("module", or a node's name) in `folder`, or null; `relDir` builds the rel. */
 export function moduleFileFor(
   folder: string,
   relDir: string,
@@ -60,16 +53,7 @@ export function moduleFileFor(
   return null;
 }
 
-/**
- * The YAML files a folder holds, keyed by basename, `.yaml` winning over `.yml`.
- *
- * One `readdir` and nothing else. Listing a folder used to cost three syscalls per entry — the
- * readdir, a `statSync` to prove the entry was a file, then `existsSync` back through
- * `moduleFileFor` to find the name readdir had just handed over. On a real song that was 40% of
- * `entityFiles`, for facts already in hand: a `Dirent` says file-or-directory itself. Only a
- * SYMLINK still needs a stat — `Dirent` reports the link, `statSync` reports its target, and a
- * library module reached through one must keep loading.
- */
+/** The YAML files a folder holds, by basename, in ONE readdir — see docs/moduleCache.md. */
 function yamlFilesIn(folder: string): Map<string, string> {
   let found: Dirent[];
   try {
@@ -83,7 +67,7 @@ function yamlFilesIn(folder: string): Map<string, string> {
     if (!EXTS.includes(ext)) continue;
     if (e.isDirectory()) continue;
     if (!e.isFile()) {
-      // A symlink, or something stranger: ask what it points AT, as the stat used to.
+      // A symlink, or something stranger: ask what it points AT — a library reached through one must load.
       try {
         if (!statSync(join(folder, e.name)).isFile()) continue;
       } catch {
@@ -97,10 +81,7 @@ function yamlFilesIn(folder: string): Map<string, string> {
   return byBase;
 }
 
-/**
- * The NODE files beside a module's generic — every `<node>.yaml` that is none of the folder's own
- * (MODULE_OWN_BASES). One entry per node NAME; a directory is never one.
- */
+/** The NODE files beside a module's generic — every `<node>.yaml` that is not one of MODULE_OWN_BASES. */
 export function nodeFiles(
   folder: string,
   relDir: string,
@@ -117,11 +98,7 @@ export function nodeFiles(
   return out;
 }
 
-/**
- * The file for entity `base` in `folder` — for the flat per-file kinds (tracks/, clips/,
- * sequences/, video_tracks/) and for a root file like chains. Exported separately from
- * moduleFileFor only because the rel is built differently.
- */
+/** The file for entity `base` — the flat per-file kinds and the root files, `rel` built differently. */
 export function entityFileFor(
   folder: string,
   relDir: string,

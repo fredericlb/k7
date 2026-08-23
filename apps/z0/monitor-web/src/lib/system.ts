@@ -4,10 +4,7 @@ import { Mic } from "./mic";
 import { MonitorClient } from "./monitor";
 import { VirtualBuzzers } from "./virtualBuzzers";
 
-// Wires the monitor modules together the same way App.vue's setup did.
-// start()/stop() are reversible (React StrictMode double-mounts effects in
-// dev): stop closes sockets, timers and the mic but keeps the internal WS
-// subscriptions alive so a re-start picks up where it left off.
+// start()/stop() are reversible for StrictMode: stop keeps the WS subscriptions a restart needs.
 
 export interface MonitorSystem {
   monitor: MonitorClient;

@@ -101,9 +101,7 @@ export function HomeView({
       minute: "2-digit",
     });
 
-  // Moments are grouped by tag, each tag shown as one global timeline (all its
-  // moments across every day, latest first). A moment with several tags appears
-  // under each. Untagged moments get their own group so nothing is hidden.
+  // One timeline per tag, a multi-tagged moment under each, and a group for the untagged.
   const dateShort = (iso: string) => {
     const d = new Date(iso);
     const pad = (n: number) => String(n).padStart(2, "0");

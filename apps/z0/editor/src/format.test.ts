@@ -206,8 +206,7 @@ describe("writing keeps the file as it was written", () => {
   });
 
   it("REMOVES a field rather than writing the format's own default back", () => {
-    // Writing `end: 0` would add a line to every song the editor merely looked at, and 0 is
-    // not what an absent `end` means anyway.
+    // `end: 0` would add a line to every song merely looked at, and is not what absence means.
     const doc = parseDocument(STEMS);
     const song = readCategory("stems", doc).songs[0];
     setTrackField(doc, song, 0, 0, "end", undefined);
@@ -306,8 +305,7 @@ describe("structural edits", () => {
   });
 
   it("refuses to remove the track of a FLAT song", () => {
-    // There is no track node to remove — the keys are the song's. Collapsing it here would
-    // silently delete the song's own fields with it.
+    // There is no track node to remove: the keys are the song's, and would go with it.
     const doc = parseDocument(STEMS);
     const before = String(doc);
     removeTrack(doc, readCategory("stems", doc).songs[0], 0, 0);
@@ -315,8 +313,7 @@ describe("structural edits", () => {
   });
 });
 
-// Two shapes the real files have that the format page understates — both would be silently
-// mangled by a naive setter, so they are pinned here.
+// Two shapes a naive setter would silently mangle — see ../../docs/editing.md.
 describe("the shapes the migration actually wrote", () => {
   const ANSWERS = `name: Bandes originales
 songs:

@@ -21,8 +21,7 @@ export default function IconPicker({
   const set = useIcons();
   const icons = useMemo(() => Object.entries(set ?? {}), [set]);
   const needle = q.trim().toLowerCase();
-  // Capped: two hundred rows is already more than anyone scans, and rendering fifteen hundred
-  // SVGs into a popover is a visible pause on every keystroke.
+  // Capped: two hundred rows is more than anyone scans, and rendering fifteen hundred SVGs into a popover pauses on every keystroke.
   const shown = useMemo(
     () =>
       (needle

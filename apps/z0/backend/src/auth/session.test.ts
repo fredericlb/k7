@@ -15,17 +15,14 @@ import {
   studioUser,
 } from "./session.ts";
 
-// ONE secret, `common`'s: it signs the guest cookie here and verifies the one
-// pl8 signed. Two cookies, one key — see the "renamed" case below for why that
-// is safe.
+// ONE secret, `common`'s: it signs the guest cookie here and verifies the one pl8 signed.
 const SECRET = "the-shared-studio-secret";
 
 beforeAll(() => {
   initSessionAuth({ sessionSecret: SECRET, adminGroups: ["admins"] });
 });
 
-// currentUser() reads req.headers.cookie for the account and req.session for
-// the guest — cookie-session having already decoded the latter upstream.
+// The account comes off req.headers.cookie, the guest off the req.session cookie-session decoded.
 const req = (opts: { cookie?: string; session?: unknown }): Request =>
   ({
     headers: opts.cookie ? { cookie: opts.cookie } : {},
@@ -42,16 +39,13 @@ describe("studioUser", () => {
   });
 
   it("carries the groups through, which is what the admin gate reads", () => {
-    // pl8 has to request the `groups` scope for this to be non-empty — see its
-    // server.ts. Without it every admin surface 403s with nothing to look at.
+    // pl8 must request the `groups` scope, or every admin surface 403s — ../../../docs/auth.md.
     const u = studioUser(studioCookie({ sub: "a", groups: ["admins"] }));
     expect(isAdmin(u)).toBe(true);
   });
 
   it("refuses a session signed with the wrong key", () => {
-    // The realistic misconfiguration: this service given a SESSION_SECRET of
-    // its own instead of `common`'s. Nothing errors — the cookie simply never
-    // verifies, and the login appears to loop. docs/auth.md.
+    // A key of its own instead of `common`'s errors nowhere and loops — ../../../docs/auth.md.
     expect(studioUser(studioCookie({ sub: "a" }, "not-the-key"))).toBe(null);
   });
 
@@ -61,11 +55,7 @@ describe("studioUser", () => {
 });
 
 describe("one secret is enough for two cookies", () => {
-  // This is why z0 does NOT need a second key, and why it must instead use
-  // `common`'s like st0 and m9 do. A guest holds a cookie this backend signed
-  // with that very key — but cookie-session signs `<name>=<value>`, so the
-  // cookie's NAME is inside the signature. Renaming it to studio.sid leaves a
-  // signature computed over `bt_session=…`, which no longer verifies.
+  // cookie-session signs `<name>=<value>`, so the NAME is inside the signature.
   it("rejects a guest cookie renamed studio.sid, same key and all", () => {
     const issued = sessionCookieHeader(
       { kind: "guest", name: "mallory" },
@@ -78,8 +68,7 @@ describe("one secret is enough for two cookies", () => {
 
 describe("currentUser", () => {
   it("prefers the account over a guest cookie left over beside it", () => {
-    // Load-bearing order: /auth/logout can only expire bt_session, so a guest
-    // shadowing an account would be unloggable-out from z0.
+    // Load-bearing order: /auth/logout expires bt_session only, so a shadowing guest would stick.
     const u = currentUser(
       req({
         cookie: studioCookie({ sub: "abc" }),
@@ -101,8 +90,7 @@ describe("currentUser", () => {
   });
 
   it("ignores a bt_session cookie the middleware did not decode", () => {
-    // req.session is cookie-session's job; a raw bt_session header alone is
-    // not a principal here, and must not become one via the studio path.
+    // A raw bt_session header is not a principal, and must not become one by the studio path.
     const raw = sessionCookieHeader(
       { kind: "user", sub: "nope" },
       { cookieName: SESSION_COOKIE_NAME, secret: SECRET },

@@ -63,8 +63,7 @@ describe("the auto-wah graph", () => {
   });
 
   it("is what graphs/autowah.json holds — the file a module's `dsp:` points at", () => {
-    // The committed artifact is what actually runs; the library only produces it. This is what catches a change
-    // to the library that nobody re-emitted.
+    // The committed artifact is what runs, so this catches a library change nobody re-emitted.
     const committed = JSON.parse(
       readFileSync(join(here, "..", "graphs", "autowah.json"), "utf8"),
     ) as GraphJson;

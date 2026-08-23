@@ -45,8 +45,7 @@ export function DeleteProject({
 
   return (
     <>
-      {/* Discret : c'est une action rare et destructrice, elle n'a pas à concurrencer du
-          regard le clic qui OUVRE le projet, lequel est le geste courant sur cette ligne. */}
+      {/* Discreet: a rare destructive act has no business competing for the eye with the click that OPENS the project. */}
       <Button
         variant="ghost"
         size="xs"
@@ -75,8 +74,7 @@ export function DeleteProject({
           </DialogHeader>
 
           <p className="rounded bg-muted px-3 py-2 font-mono text-xs">{path}</p>
-          {/* Ce que le git rend récupérable, dit sans le survendre : l'historique garde le
-              contenu, ce qui n'est pas la même chose qu'un bouton « annuler ». */}
+          {/* What git makes recoverable, said without overselling it: history keeps the content, which is not an undo button. */}
           <p className="text-xs text-muted-foreground">
             Le contenu reste dans l'historique git du dépôt.
           </p>

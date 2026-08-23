@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { songIdOf, songPathPrefix, songRefOf } from "../songRef";
 import { cueIds, cueRefs, parseMix } from "./mixFile";
 
-// mix.yaml is the only file a SET has that an arranged song has no counterpart for, and one of
-// the two places the médiathèque is named from a project (the playlist is the other). What is
-// pinned here is the REF — the shape, and that it survives a round trip to a cache path —
-// because everything downstream is a string comparison against it.
+// What is pinned here is the REF: its shape, and that it survives a round trip to a cache path.
 
 describe("a song ref", () => {
   it("is `@st0/` plus the médiathèque id, verbatim", () => {
@@ -15,18 +12,14 @@ describe("a song ref", () => {
   });
 
   it("becomes the FOLDER a sync fetches, trailing slash and all", () => {
-    // A song is its folder: the master, its variants and song.yaml. A sync that fetched only
-    // the sidecar would land a catalogued folder with nothing to play.
+    // A song IS its folder, so fetching only the sidecar would land nothing to play (docs/names.md).
     expect(songPathPrefix("@st0/songs/lemo/mante/danse")).toBe(
       "songs/lemo/mante/danse/",
     );
   });
 
   it("accepts the ids the médiathèque actually makes — spaces and all", () => {
-    // Ids are built from the TAGS, so this is the ordinary case, not an edge one:
-    // `songs/Alain Bashung/Album inconnu/La nuit je mens` is a real entry. A pattern that
-    // banned whitespace refused nearly every set list anyone would write, and did it as a
-    // schema error on the whole file.
+    // Ids are built from the TAGS, so spaces are the ordinary case rather than an edge one (docs/names.md).
     const real = "@st0/songs/Alain Bashung/Album inconnu/La nuit je mens";
     expect(songIdOf(real)).toBe(
       "songs/Alain Bashung/Album inconnu/La nuit je mens",
@@ -48,8 +41,7 @@ describe("a song ref", () => {
   });
 
   it("is not a module ref, and does not answer for one", () => {
-    // The two vocabularies differ by a segment — a module ref omits its family — and they are
-    // read by different files. Pinned so a future merge of the two is a deliberate act.
+    // The two vocabularies differ by a segment, and this is pinned so merging them is deliberate.
     expect(songIdOf("@st0/audio/reverb")).toBe(null);
     expect(songIdOf("songs/lemo/mante/danse")).toBe(null);
     expect(songIdOf("@st0/songs")).toBe(null);
@@ -98,16 +90,14 @@ describe("mix.yaml", () => {
   });
 
   it("refuses a path where a ref belongs", () => {
-    // The médiathèque's own layout is not a project's vocabulary: a path would break on the
-    // next machine, which is the whole reason refs exist.
+    // A path would break on the next machine, which is the whole reason refs exist.
     const { value, issues } = parse("cues:\n  - songs/a/b/c\n");
     expect(value).toBe(null);
     expect(issues[0].message).toContain("@st0/songs");
   });
 
   it("refuses an unknown key rather than ignoring it", () => {
-    // `songs:` in particular — the key this file used to have. A set carried over by hand
-    // gets told, rather than opening with every cue silently gone.
+    // `songs:` in particular, the key this file used to have — a hand-carried set gets told.
     const { value, issues } = parse("cues: []\nsongs: []\n");
     expect(value).toBe(null);
     expect(issues.length).toBe(1);

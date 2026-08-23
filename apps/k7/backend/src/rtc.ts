@@ -23,8 +23,7 @@ const TICKET_TTL_MS = 60_000; // a ticket only needs to survive the ws handshake
 
 type Role = "recorder" | "remote";
 
-// One signaling room per user, holding at most one socket in each role — the
-// "only one remote" rule falls out of the single `remote` slot.
+// One room per user, one socket per role: "only one remote" falls out of the single slot.
 interface Room {
   recorder?: WebSocket;
   remote?: WebSocket;
@@ -85,8 +84,7 @@ function send(ws: WebSocket | undefined, msg: unknown): void {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
 }
 
-// Attach the signaling server to the shared HTTP server, handling upgrades on
-// the /rtc path only (everything else is left for other handlers / rejected).
+// Signaling onto the shared HTTP server, taking upgrades on the /rtc path alone.
 export function attachRtc(server: Server): void {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -118,9 +116,7 @@ function register(ws: WebSocket, userId: string, role: Role): void {
   const room = rooms.get(userId) ?? {};
   rooms.set(userId, room);
 
-  // A newcomer replaces any existing socket in the same role (e.g. the remote
-  // reconnecting after a refresh): the newest device wins, the stale one is
-  // closed so it stops thinking it's live.
+  // A newcomer replaces its role's socket: the newest device wins, the stale one is closed.
   const previous = room[role];
   if (previous && previous !== ws) {
     send(previous, { type: "replaced" });
@@ -129,8 +125,7 @@ function register(ws: WebSocket, userId: string, role: Role): void {
   room[role] = ws;
 
   const peerRole: Role = role === "recorder" ? "remote" : "recorder";
-  // Tell the newcomer whether its peer is already here, and tell the peer that
-  // someone just joined.
+  // Tell the newcomer whether its peer is here, and the peer that someone joined.
   send(ws, {
     type: "peer-present",
     present: room[peerRole]?.readyState === WebSocket.OPEN,
@@ -138,8 +133,7 @@ function register(ws: WebSocket, userId: string, role: Role): void {
   send(room[peerRole], { type: "peer-online" });
 
   ws.on("message", (data) => {
-    // Signaling payloads (offer/answer/ice/want) are relayed verbatim to the
-    // peer; the server never inspects them.
+    // Payloads are relayed verbatim to the peer; the server never inspects them.
     const peer = rooms.get(userId)?.[peerRole];
     if (peer && peer.readyState === WebSocket.OPEN) peer.send(data.toString());
   });

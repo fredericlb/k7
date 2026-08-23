@@ -9,18 +9,7 @@ import { quoteTimecodes } from "./moduleFile";
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };
 
-/**
- * Insert or delete `lenBeats` of time at `atBeats` in one curve file.
- *
- * The same rule the lanes follow — by the point's own position — and the same round trip: an
- * insert followed by a delete of the same span returns the file to what it was. Deleting drops
- * the points that fall INSIDE the span, because a point at a moment that no longer exists has
- * nowhere to be.
- *
- * A curve of any other type is returned untouched, which is the honest answer rather than a
- * refusal: an LFO does not move because it is not positioned. What DOES change for it is its
- * phase relative to everything after the cut, and that is a fact about music, not a thing to fix.
- */
+/** Insert or delete time in one curve file, by the point's own position — see docs/curveEdits.md. */
 export function spliceCurveTime(
   text: string,
   atBeats: number,
@@ -75,12 +64,7 @@ export interface CurvePointAt {
   value: number;
 }
 
-/**
- * The points a curve file declares, in file order, with each time parsed.
- *
- * Unreadable entries are skipped rather than throwing: a half-typed file still has to answer
- * "how many points are there", and the schema is what reports the malformed one.
- */
+/** The points a curve file declares, in file order, unreadable entries skipped (docs/curveEdits.md). */
 export function curvePoints(
   text: string,
   num: number,
@@ -111,8 +95,7 @@ export function curvePoints(
   return out;
 }
 
-/** Where a point at `beat` sits in the seq, or -1. Matched within 1e-6, like every other
- *  timecode address in the repo (`findPlacementAt`). */
+/** Where a point at `beat` sits in the seq, or -1 — matched within 1e-6, like every timecode address. */
 function pointIndexAt(
   points: ReturnType<typeof parseDocument>["contents"],
   doc: ReturnType<typeof parseDocument>,
@@ -139,18 +122,7 @@ function pointIndexAt(
   });
 }
 
-/**
- * Put a point at `beat`, inserted IN TIME ORDER.
- *
- * A curve is a function of song time, so two points cannot share a moment — one already there is
- * given the new value rather than joined by a twin. That is the same "one address, one value" rule
- * `node automate` follows for a param, and it is what makes the time a usable address for `move`
- * and `remove` below.
- *
- * Sorted on insert because the bake sorts anyway (`bakeCurve`) and the FILE is the thing a person
- * reads: a curve whose points wander is one nobody can check by eye, and a drag that appends would
- * scramble it within a minute.
- */
+/** Put a point at `beat`, IN TIME ORDER and one value per moment — see docs/curveEdits.md. */
 export function setCurvePoint(
   text: string,
   beat: number,
@@ -200,13 +172,7 @@ export function setCurvePoint(
   return doc.toString(OUT);
 }
 
-/**
- * Move the point at `beat` to `toBeat`, optionally giving it a new value.
- *
- * Remove-then-set rather than an in-place edit of `time`, so the list stays sorted and a move
- * ONTO another point's moment replaces it — the same collision rule `setCurvePoint` states.
- * Returns null when nothing is there, which the command reports by address.
- */
+/** Move the point at `beat` to `toBeat` — remove-then-set, so the list stays sorted (docs/curveEdits.md). */
 export function moveCurvePoint(
   text: string,
   beat: number,

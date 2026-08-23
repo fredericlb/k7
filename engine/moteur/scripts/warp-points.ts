@@ -11,9 +11,7 @@ import { renderProject } from "../../../packages/file-service/src/render.ts";
 const RATE = 48000;
 const TEMPO = 120; // 2 beats per second, so a beat is exactly 0.5s and the arithmetic reads plainly
 const SRC_SECS = 8;
-// Where a burst STARTS in the source file. Off the markers and off sample 0: one sits in the
-// middle of each segment, so a burst measures the INTERPOLATION and not just a pinned point, and
-// none of them is inside the time-stretcher's priming region at the head of the clip.
+// Where a burst STARTS in the source, off every marker and off sample 0 (../docs/renderHarnesses.md).
 const BURSTS = [1, 3, 5, 7];
 const BURST_LEN = 0.12;
 
@@ -26,8 +24,7 @@ interface Case {
 
 const CASES: Case[] = [
   {
-    // Ends identity — beat 16 IS second 8 at this tempo — so `applyClipWarp`'s auto-tempo layer
-    // stretches by exactly 1.0 and every difference below belongs to an interior point.
+    // Ends identity, so auto-tempo stretches by exactly 1.0 (../docs/renderHarnesses.md).
     name: "ends identiques, seuls les points du milieu bougent",
     markers: [
       [0, 0],
@@ -37,9 +34,7 @@ const CASES: Case[] = [
     ],
   },
   {
-    // The shape of a real recording's map: the file is squeezed to 12 beats overall AND re-timed
-    // inside. Auto-tempo does the first, the warp map the second, and this case is the one that
-    // fails if the two are made to apply the same ratio twice.
+    // A real recording's shape: squeezed overall AND re-timed inside (../docs/renderHarnesses.md).
     name: "compression d'ensemble + points intermediaires",
     markers: [
       [0, 0],
@@ -50,8 +45,7 @@ const CASES: Case[] = [
   },
 ];
 
-/** Where a source second lands, through the map — the same piecewise interpolation
- *  `beatAtSource` does in @studio/song, in seconds. */
+/** Where a source second lands: the piecewise interpolation `beatAtSource` does, in seconds. */
 function expectedSecs(markers: Marker[], sourceSec: number): number {
   let i = 0;
   while (i + 2 < markers.length && markers[i + 1][1] < sourceSec) i++;
@@ -61,8 +55,7 @@ function expectedSecs(markers: Marker[], sourceSec: number): number {
   return (beat * 60) / TEMPO;
 }
 
-/** A 16-bit stereo wav of 1 kHz bursts on silence — an envelope survives time-stretching where
- *  a click does not, which is what makes the measurement below possible at all. */
+/** A 16-bit stereo wav of 1 kHz bursts on silence: an envelope survives stretching, a click does not. */
 function writeSource(path: string): void {
   const frames = Math.round(SRC_SECS * RATE);
   const data = Buffer.alloc(frames * 4);
@@ -132,14 +125,7 @@ function readWav(path: string): Wav {
   return { rate, mono };
 }
 
-/**
- * Each burst's energy CENTROID, in seconds.
- *
- * Not its onset: a time-stretcher smears a burst's edges, and it smears them further the more it
- * stretches, so a threshold crossing reads early by an amount that varies per segment. The
- * centroid of the same energy does not move under a symmetric smear, which is what makes a tight
- * tolerance honest here rather than a tolerance chosen to fit the answer.
- */
+/** Each burst's energy CENTROID in seconds, never its onset (../docs/renderHarnesses.md). */
 function centroids(w: Wav): number[] {
   const hop = Math.round(w.rate * 0.005);
   const env: number[] = [];
@@ -215,8 +201,9 @@ async function main(): Promise<void> {
 
   for (const c of CASES) {
     const last = c.markers[c.markers.length - 1];
-    // Where each burst's MIDDLE lands: the centroid is what is measured, so it is what is predicted.
+    // Where each burst's MIDDLE lands: the centroid is measured, so it is what is predicted.
     const want = BURSTS.map((b) => expectedSecs(c.markers, b + BURST_LEN / 2));
+
     // The same, had the interior points been dropped — one straight ratio, end to end.
     const linear = BURSTS.map(
       (b) => (((b + BURST_LEN / 2) / last[1]) * last[0] * 60) / TEMPO,
@@ -226,14 +213,7 @@ async function main(): Promise<void> {
     const heard = centroids(readWav(out.files[0]));
     rmSync(out.dir, { recursive: true, force: true });
 
-    /**
-     * 100ms, and the reason is worth stating rather than tuning away: the time-stretcher primes.
-     * The measured error is about 80ms early on the first burst and decays to ~20ms by the
-     * last — a transient, not the constant offset a wrong mapping would give — and it is the
-     * floor of what a stretched render can be measured to here. The tolerance is loose, so it
-     * carries the discrimination check below with it: being NEAR the map proves little on its
-     * own, being three times nearer the map than the straight ratio is the actual claim.
-     */
+    // Loose on purpose, so the discrimination check below carries it (../docs/renderHarnesses.md).
     const TOL = 0.1;
     const near =
       heard.length === want.length &&

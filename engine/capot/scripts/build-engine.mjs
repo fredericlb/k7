@@ -29,8 +29,7 @@ const engineDir = join(repo, "engine", "moteur");
 const OUT = join(trayDir, "out");
 const CACHE = join(trayDir, ".cache"); // vendored downloads (gitignored)
 
-// The Node we vendor into the app: pinned and downloaded, since a Homebrew node is a shim that breaks off
-// this machine. Kept on the repo's Node 22 line (.nvmrc). See docs/buildEngine.md.
+// The Node we vendor: pinned and downloaded, a Homebrew one being a shim (docs/buildEngine.md).
 const NODE_VERSION = "v22.23.1";
 
 // The CMake preset for this host. Linux has no packaged tray target yet, but the engine still builds.
@@ -71,8 +70,7 @@ function tauriCmd() {
   return { cmd: "npx", args: ["--yes", "@tauri-apps/cli@2"] };
 }
 
-// The freshest built engine binary, Debug last — see @studio/engine-client's engineBinary.ts for
-// why that exception exists. It matters more here than anywhere: this one is SHIPPED.
+// The freshest built engine binary, Debug last — see @studio/engine-client's engineBinary.ts.
 function findEngineBinary() {
   const build = join(engineDir, "build");
   if (!existsSync(build)) return null;
@@ -119,28 +117,13 @@ function hostTriple() {
   return host;
 }
 
-// `--sidecar-only`: stage the sidecars without building. tauri_build validates externalBin, so a plain
-// `cargo check` / `tauri dev` needs them present.
+// `--sidecar-only`: stage the sidecars without building — see docs/buildEngine.md.
 const sidecarOnly = process.argv.includes("--sidecar-only");
 
-// `--dev`: a DEBUG tray app carrying nothing — the Rust falls back to the repo's engine build and to a
-// separately-run, hot-reloading file service. See docs/buildEngine.md.
+// `--dev`: a DEBUG tray app carrying nothing, so the Rust takes its fallbacks (docs/buildEngine.md).
 const devMode = process.argv.includes("--dev");
 
-/**
- * Refuse a vendored Node that is not the one nodejs.org published.
- *
- * This binary is what RUNS `engine-host.mjs` and `file-service.mjs` inside the signed app, so a
- * substituted archive is arbitrary code shipped under our signature — and until this check the
- * download was a bare `curl` with nothing compared afterwards. The C++ side already pins its
- * ASIO SDK by digest (`engine/moteur/CMakeLists.txt`); this is the same rule for the other
- * downloaded dependency.
- *
- * Checked against the release's own `SHASUMS256.txt` rather than a digest pinned here, because a
- * table would need an entry per platform and arch and would go stale at every Node bump — the
- * failure mode being a build that silently stops verifying. It catches a truncated, corrupted or
- * swapped archive; it does not, on its own, defend against nodejs.org itself being compromised.
- */
+/** Refuse a vendored Node that is not the one nodejs.org published — see docs/buildEngine.md. */
 function verifyNodeArchive(archivePath, archive) {
   const sumsPath = join(CACHE, `SHASUMS256-${NODE_VERSION}.txt`);
   if (!existsSync(sumsPath))
@@ -223,8 +206,7 @@ function vendorNode() {
   return cached;
 }
 
-// Bundle the file service into one .mjs the vendored Node runs directly, and copy this app's songs/ into the
-// app's resources (minus a checkout's per-machine junk), replaced wholesale so deleted demos don't linger.
+// This app's songs/ into the app's resources, replaced wholesale (docs/buildEngine.md).
 function stageDemos(destDir) {
   const src = join(trayDir, "songs");
   if (!existsSync(src)) {
@@ -247,14 +229,7 @@ function stageDemos(destDir) {
   console.log(`  ${names.length} demo(s): ${names.join(", ")}`);
 }
 
-/**
- * Copy the Faust standard libraries out of the engine's build tree into the app's resources.
- *
- * Found by walking the build presets rather than named: which preset was used is the caller's
- * business, and `findEngineBinary` above already answers the same question the same way. The
- * NEWEST wins, for the same reason it does there — a stale `libraries/` from a preset nobody
- * builds any more would ship a different Faust than the engine beside it.
- */
+/** The Faust standard libraries out of the engine's build tree, newest preset winning (docs/buildEngine.md). */
 function stageFaustLibs(destDir) {
   const build = join(engineDir, "build");
   const found = existsSync(build)
@@ -272,8 +247,7 @@ function stageFaustLibs(destDir) {
   found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
   rmSync(destDir, { recursive: true, force: true });
   mkdirSync(destDir, { recursive: true });
-  // The `.lib` files only: the submodule also carries its own docs, tests and CI config, none of
-  // which the compiler reads.
+  // The `.lib` files only: the submodule's own docs, tests and CI config are not read by the compiler.
   let n = 0;
   for (const f of readdirSync(found[0]))
     if (f.endsWith(".lib")) {
@@ -283,21 +257,7 @@ function stageFaustLibs(destDir) {
   console.log(`  ${n} Faust library file(s) from ${found[0]}`);
 }
 
-/**
- * Copy one installed package into `resources/node_modules/`, so a bundle that had to leave it
- * external can still resolve it.
- *
- * "with no node_modules beside it" was true of every bundle here until a NATIVE dependency
- * arrived. esbuild cannot inline a `.node` — it is a binary — so the only two options are to
- * refuse the dependency (which is the call `packages/mediatek/docs/index.md` makes for sqlite)
- * or to put the package on disk where Node's ordinary resolution finds it. `file-service.mjs`
- * lives in `resources/`, so `resources/node_modules/<name>` is exactly one lookup away.
- *
- * `prune` drops the platform trees this build will never load — ONNX Runtime ships a copy of
- * its shared library per platform, and carrying all of them would multiply the bundle for
- * nothing. Missing is FATAL, following vendorNode: a resource that silently failed to stage
- * produces an app that looks built and dies on first use.
- */
+/** One installed package into `resources/node_modules/`, for what a bundle cannot inline (docs/buildEngine.md). */
 function stageNodeModule(name, destRoot, prune) {
   const src = join(repo, "node_modules", name);
   if (!existsSync(src)) {
@@ -346,14 +306,7 @@ async function bundleTs(entry, outFile) {
     platform: "node",
     format: "esm",
     target: "node22",
-    // Native modules, which esbuild cannot bundle — a `.node` is a binary, not source.
-    //
-    // The two are external for OPPOSITE reasons, and the difference is what makes the second
-    // one work. `fsevents` is optional: chokidar probes for it and falls back to polling, so a
-    // require that throws costs nothing. `onnxruntime-node` has no fallback — external alone
-    // would just move the failure to runtime, since the bundle is a lone .mjs with no
-    // node_modules beside it. It is external AND staged (stageNodeModule below), which is the
-    // half that was missing from the argument packages/mediatek/docs/index.md makes about sqlite.
+    // Native modules, external for OPPOSITE reasons — only one of the two is also staged (docs/buildEngine.md).
     external: ["fsevents", "onnxruntime-node"],
     // ESM output has no `require`, but the CommonJS deps here call it — without this the bundle dies at runtime.
     banner: {
@@ -395,8 +348,7 @@ function collectBundles(bundleDir, dest) {
   return found;
 }
 
-// Build the .dmg ourselves: Tauri's target drives `hdiutil convert`, which fails here with EAGAIN even on a
-// trivial image. `hdiutil create -srcfolder` works, at the cost of the styled Finder window. See docs/buildEngine.md.
+// Build the .dmg ourselves: Tauri's target drives an `hdiutil convert` that fails here (docs/buildEngine.md).
 function makeDmg(appPath, destDir) {
   if (process.platform !== "darwin") return null;
   const conf = JSON.parse(
@@ -444,8 +396,7 @@ function makeDmg(appPath, destDir) {
   return status === 0 ? name : null;
 }
 
-// A debug tray app carrying NOTHING: emptying externalBin and resources makes the Rust take its dev fallbacks,
-// so editing the engine or the file service needs no rebuild of this app.
+// A debug tray app carrying NOTHING, so the Rust takes its dev fallbacks (docs/buildEngine.md).
 function buildDevApp() {
   const OUT_DEV = join(OUT, "dev");
   console.log("\n=== tray (debug, no vendored payload) ===");
@@ -502,8 +453,8 @@ function buildDevApp() {
 }
 
 // ── 1. the C++ engine ──────────────────────────────────────────────────────────
-// Dev mode never rebuilds it — it points at whatever is in engine/moteur/build, which is what makes the loop fast.
-// Delegated to the moteur's own build:* npm scripts; Linux has no such script yet and keeps its preset here.
+
+// Delegated to the moteur's own build:* npm scripts, and never run in dev (docs/buildEngine.md).
 if (!sidecarOnly && !devMode) {
   const engineScript = {
     win32: "build:win",
@@ -530,8 +481,8 @@ if (!engineBin && !devMode) {
 }
 
 // ── 2. stage what the app will carry (release only) ────────────────────────────
-// Tauri copies externalBin into the bundle beside the tray executable, which is what makes the .app
-// self-contained — engine.rs prefers that copy over the dev repo build dir.
+
+// Tauri copies externalBin beside the tray executable, which is what makes the .app self-contained.
 if (devMode) {
   if (!engineBin)
     console.warn(
@@ -546,8 +497,7 @@ const triple = hostTriple();
 const sidecarDir = join(trayDir, "src-tauri", "binaries");
 mkdirSync(sidecarDir, { recursive: true });
 
-// Everything the app must carry to run without the repo or anything on PATH: the engine, and a self-contained
-// node to run the bundled file service.
+// Everything the app must carry to run without the repo: the engine, and a self-contained node.
 const stage = (src, name) => {
   // Tauri resolves externalBin as `<name>-<triple>` PLUS the platform's executable extension (.exe on Windows).
   const ext = process.platform === "win32" ? ".exe" : "";
@@ -561,8 +511,7 @@ console.log("\n=== sidecars ===");
 stage(engineBin, "studio-moteur");
 stage(vendorNode(), "node");
 
-// The two Node processes the app ships, each bundled to a single .mjs. Built in --sidecar-only too, and must be:
-// tauri.conf.json lists both as resources and Tauri ERRORS on a glob matching nothing.
+// The two Node processes the app ships, built in --sidecar-only too (docs/buildEngine.md).
 console.log("\n=== file service bundle ===");
 await bundleTs(
   join(repo, "packages", "file-service", "src", "server.ts"),
@@ -575,9 +524,7 @@ await bundleTs(
   join(trayDir, "src-tauri", "resources", "engine-host.mjs"),
 );
 
-// …and the one dependency neither bundle could swallow. `onnxruntime-common` comes too: it is
-// what onnxruntime-node itself requires, and an external package's own imports resolve from
-// where IT sits, not from the bundle.
+// …and the one dependency neither bundle could swallow, plus what IT requires (docs/buildEngine.md).
 console.log("\n=== native node modules ===");
 const resourceModules = join(trayDir, "src-tauri", "resources", "node_modules");
 mkdirSync(resourceModules, { recursive: true });
@@ -588,14 +535,7 @@ stageNodeModule("onnxruntime-common", resourceModules);
 console.log("\n=== demo songs ===");
 stageDemos(join(trayDir, "src-tauri", "resources", "songs"));
 
-// The Faust standard libraries. `import("stdfaust.lib")` is resolved when the ENGINE compiles a
-// module — at runtime, on the musician's machine — so `libraries/` has to travel with the app.
-// Its only other copy is `_deps/faust-src`, which is a build directory and does not ship.
-//
-// FATAL when missing, following vendorNode: without it every Faust module fails to compile in
-// the installed app, one warning at a time, from a build that reported nothing wrong. That is
-// the failure mode this repo goes out of its way to avoid, and it is one `cmake --build` away
-// from being impossible to reproduce on the machine that made the bundle.
+// The Faust standard libraries, which the engine resolves at RUNTIME — fatal when missing (docs/buildEngine.md).
 console.log("\n=== faust libraries ===");
 stageFaustLibs(join(trayDir, "src-tauri", "resources", "faust-libs"));
 
@@ -609,8 +549,7 @@ if (sidecarOnly) {
 // ── 3. the tray app ────────────────────────────────────────────────────────────
 console.log("\n=== tray (tauri release bundle) ===");
 const tauri = tauriCmd();
-// CI=true skips bundle_dmg.sh's Finder styling, which needs a GUI session. A dmg failure is deliberately
-// non-fatal — the .app is built first and is still good — so we collect, then exit non-zero below.
+// CI=true skips bundle_dmg.sh's Finder styling, and a dmg failure is non-fatal (docs/buildEngine.md).
 const trayArgs = [...tauri.args, "build"];
 if (process.platform === "win32") {
   const relCfg = join(tmpdir(), "studio-tray-release-config.json");

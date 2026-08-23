@@ -45,6 +45,21 @@ Size plus the owner's mtime misses a file replaced in place, same second, same l
 library whose writes go through one service that bumps a mutation counter, that is a gap the
 poll closes rather than the manifest.
 
+## `scope` narrows BOTH sides of the diff
+
+`syncFamily` takes a `scope` predicate, for a cache that holds what its songs reach for rather
+than the whole catalogue. It is applied to `want` **and** to `have`, and that is the part that
+has to be right: scoping `want` alone would make every file outside the scope look like one the
+owner had dropped, and the first partial sync would delete the rest of the library. Everything
+out of scope keeps its remembered entry untouched.
+
+Two other properties of a sync, for the same reason `download()` uses `.part`: files land under
+a temporary name and are renamed into place, so an interrupted sync leaves whole files rather
+than truncated ones — the moteur may be reading this tree. And the remembered manifest is
+written **last**, reflecting only what actually landed: a crash mid-sync means the next one
+re-fetches, which is the safe direction. `markSynced` is only called for a sync that failed
+nothing, so a partial sync stays stale and the missing files are retried.
+
 ## Eviction lives next door
 
 `diff()` returns `drop` — what the cache holds and the owner **no longer has**. That is a

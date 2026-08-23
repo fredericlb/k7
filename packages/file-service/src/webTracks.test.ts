@@ -54,16 +54,14 @@ describe("what a clip carries to the browser", () => {
   });
 
   it("leaves an ABSENT window absent — a clip with none is not a clip windowed to zero", () => {
-    // The compiler synthesises clips with no file to be trimmed by (a freeze render, a pattern's
-    // clip), and `undefined` is how those say so. A 0 here would read as a real in-point.
+    // The compiler synthesises clips with no file to be trimmed by; a 0 would read as a real in-point.
     const w = first(clip());
     expect(w.sourceFrom).toBeUndefined();
     expect(w.sourceTo).toBeUndefined();
   });
 
   it("the source's NAME, never its path", () => {
-    // The browser needs to tell that a bounce repointed the clip at a new file; it has no business
-    // resolving a path on the engine's machine, and this is the seam where that line is drawn.
+    // The browser must see that a bounce repointed the clip, without resolving a path on this machine.
     const w = first(
       clip({ source: "/srv/root/f/ws/song/clips/riff_warm.wav" }),
     );
@@ -78,25 +76,21 @@ describe("what a clip carries to the browser", () => {
   });
 
   it("carries the FADES, which this mapping used to drop", () => {
-    // They were on the placement, on the engine wire and in the C++ engine, and stopped exactly
-    // here — so the timeline had nothing to draw and no way to let one be dragged. The whole of
-    // that gap was these two lines.
+    // They reached the engine and stopped exactly here, so the timeline had nothing to draw.
     const w = first(clip({ fadeIn: 1, fadeOut: 2.5 }));
     expect(w.fadeIn).toBe(1);
     expect(w.fadeOut).toBe(2.5);
   });
 
   it("a zero fade is ABSENT, not a zero", () => {
-    // No fade is the default and the file deletes the key rather than writing it; sending zeroes
-    // would put two explicit numbers on every untouched event of a document polled every 2s.
+    // Sending zeroes would put two explicit numbers on every untouched event of a 2 s poll.
     const w = first(clip());
     expect(w.fadeIn).toBeUndefined();
     expect(w.fadeOut).toBeUndefined();
   });
 
   it("takes go through the SAME mapping as the arrangement", () => {
-    // A take should draw identically to the arrangement it was — two copies of this mapping is
-    // how the two would come to differ, which is why `toWebClip` is named rather than inlined.
+    // A take draws identically to the arrangement it was, which is why `toWebClip` is not inlined twice.
     const t = track([clip()]);
     t.takes = [{ name: "take 1", clips: [clip({ sourceFrom: 2 })] }];
     const web = toWebTracks([t])[0];

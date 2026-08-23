@@ -20,6 +20,30 @@ The previous `cors({ origin: allowlist ?? true })` made reflect-everything the D
 and the allowlist opt-in — and nothing ever opted in, so every launch was wide open.
 Deny-by-default is the whole point; keep it that way.
 
+The callback form in `server.ts` is deliberate: `origin: true` would reflect ANY origin. And an
+`OPTIONS` that reaches past the middleware was refused there, so it is answered with a 403 naming the
+origin and where to allow it — running on would return a 401 that lies, since a preflight carries no
+header to be missing.
+
+## Two routes outside the header gates
+
+Every gated route requires the custom `x-studio-*` headers, and two routes cannot send any.
+
+**`/media`**, for a `<video>` element: an element GET can't set headers, so user, workspace and token
+ride in the QUERY. It is read-only, with the traversal guard still applied, and the token is compared
+in constant time by the same three-state rule `requireEngineToken` uses — an absent identity allows,
+an unreadable one refuses. The residual risk is deliberate and worth writing down: a token holder can
+read any user's media here.
+
+**`/health`** is ungated and deliberately EMPTY. Its one caller is a browser telling "my origin is
+refused" apart from "nothing is listening", which `fetch()` reports identically. It must reveal
+nothing — the answer IS the payload — and it sits after the cors middleware so a refused probe is
+still recorded for the tray.
+
+The effective policy is logged at boot, because a bad allowlist otherwise surfaces only as an
+unexplained browser failure; and so is an absent engine identity, because this binds `0.0.0.0` and an
+open run is an open run on the whole LAN — worth a line rather than a state you have to infer.
+
 ## The user's own web UIs
 
 `~/.studio/web-origins.json` — `{"origins": ["https://daw.test"]}` — is part of the

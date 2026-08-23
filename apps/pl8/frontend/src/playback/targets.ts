@@ -13,19 +13,11 @@ export interface PlaybackTargetInfo {
   /** One line under the label — what actually happens, not a restatement of the label. */
   hint: string;
   icon: LucideIcon;
-  /** True when the destination cannot work without a reachable engine, so the menu can say
-   *  so instead of offering a choice that would be silence. */
+  /** True when the destination needs a reachable engine, so the menu says so instead of offering silence. */
   needsEngine: boolean;
 }
 
-/**
- * The destinations, in the order the menu draws them.
- *
- * A LIST and a dropdown rather than a switch, because two is where this starts and not where
- * it stops: streaming the engine's output back to this browser is already half-built
- * (`@studio/engine-browser/stream`), and a machine that is neither is the obvious third. A
- * boolean would have to be replaced on the day any of those lands; an entry here does not.
- */
+/** The destinations in menu order — a LIST rather than a switch (../../docs/playbackTarget.md). */
 export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
   {
     id: "browser",
@@ -44,34 +36,18 @@ export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
   {
     id: "machine",
     label: "Les enceintes de la machine",
-    // What this really changes against the engine: nothing is asked of it, so st0 can use it at
-    // the same time, and the file does not cross the network — it is already over there.
+    // Nothing is asked of the engine, so st0 may use it at the same time and no file crosses the network.
     hint: "joué par la machine elle-même, sans passer par le moteur",
     icon: Radio,
-    // `true` even though the engine plays NOTHING: it is how the machine is discovered and how it
-    // hands over its token (the probe opens a WebSocket to it). With no reachable engine there is
-    // no file-service address to talk to. See ../../docs/machinePlayer.md.
+    // `true` although the engine plays NOTHING: it is how the machine is discovered and hands its token over.
     needsEngine: true,
   },
 ];
 
-/**
- * The browser, and deliberately so.
- *
- * It is the destination that needs NOTHING — no engine chosen, no machine turned on, no copy
- * of the song on somebody else's disk. A default that can fail to make a sound is a default
- * that makes the app look broken to whoever has just signed in for the first time.
- */
+/** The browser, deliberately: it is the destination that needs NOTHING to make a sound. */
 export const DEFAULT_PLAYBACK_TARGET: PlaybackTarget = "browser";
 
-/**
- * Narrow whatever was stored back to a destination.
- *
- * The preference is kept as a plain string on purpose (see the backend's `prefsSchema`), so
- * that adding a destination is a front-end change alone. The cost of that is exactly this
- * function: an unknown id — one this build has never heard of, written by a newer one in
- * another tab — reads as the default rather than as a target nothing can play.
- */
+/** Narrow whatever was stored back to a destination — the preference is a plain string on purpose. */
 export function asPlaybackTarget(value: unknown): PlaybackTarget {
   return PLAYBACK_TARGETS.some((t) => t.id === value)
     ? (value as PlaybackTarget)
@@ -82,21 +58,12 @@ export function asPlaybackTarget(value: unknown): PlaybackTarget {
 export function playbackTargetInfo(id: PlaybackTarget): PlaybackTargetInfo {
   return (
     PLAYBACK_TARGETS.find((t) => t.id === id) ??
-    // Unreachable through `asPlaybackTarget`, and typed as non-optional so callers do not
-    // each invent their own fallback.
+    // Unreachable through `asPlaybackTarget`, and non-optional so no caller invents a fallback.
     (PLAYBACK_TARGETS[0] as PlaybackTargetInfo)
   );
 }
 
-/**
- * The destination that will ACTUALLY be used, given what is reachable right now.
- *
- * A remembered choice pointing at a machine that is switched off must not mean silence: the
- * bytes are on the hosted library either way, so the browser can always play them. This is
- * where that fallback is decided, once, rather than in each surface that plays something —
- * and the surfaces say which one they landed on, because sound coming out of the wrong
- * machine with no explanation is the confusing half of this feature.
- */
+/** The destination ACTUALLY used, with the fallback decided once (../../docs/playbackTarget.md). */
 export function effectiveTarget(
   chosen: PlaybackTarget,
   engineReady: boolean,

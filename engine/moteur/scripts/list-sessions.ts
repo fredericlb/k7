@@ -6,9 +6,7 @@
 
 import { EngineClient } from "@studio/engine-client/engineClient";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
-// By RELATIVE path, not a subpath import: engineQueries is internal to @studio/engine-host
-// and its `exports` says so. Widening a package's public surface for a probe would be the
-// wrong trade — the probe is the thing that should bend.
+// By RELATIVE path: engineQueries is internal to @studio/engine-host (../docs/sessions.md).
 import { EngineQueries } from "../../../packages/engine-host/src/engineQueries.ts";
 
 const doc = (name: string): ProjectDoc =>
@@ -45,8 +43,7 @@ const doc = (name: string): ProjectDoc =>
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const PORT = Number(process.argv[2] || 8833);
-// Read-only against a REAL engine: it must not send projects or drop anyone's session, which
-// is the difference between a diagnostic and a way to lose the song someone is working on.
+// Read-only against a REAL engine, or it is a way to lose a song (../docs/sessions.md).
 const PEEK = process.argv.includes("--peek");
 
 async function main() {
@@ -67,13 +64,10 @@ async function main() {
   st0.transport("play");
   await wait(1500);
 
-  // The supervisor's own client, on the DEFAULT session: it drives nothing and asks about
-  // everyone. That is the whole reason list-sessions carries no session field.
+  // The supervisor's own client, on the DEFAULT session, driving nothing (../docs/sessions.md).
   const q = new EngineQueries(PORT);
 
-  // Ask everything the tray polls BEFORE listing, because that is the regression: reading used
-  // to create, so these very queries conjured a "" session which then appeared in the tray's own
-  // Sessions submenu — reported by the process that had just invented it.
+  // Ask everything the tray polls BEFORE listing: reading used to CREATE (../docs/sessions.md).
   const plugins = await q.listEditPlugins();
   await q.pluginCount();
   await q.listAudioDevices();

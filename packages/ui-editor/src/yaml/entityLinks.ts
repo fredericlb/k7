@@ -33,13 +33,7 @@ const FIELD_KINDS: Record<string, string[]> = {
   in: ["track", "chain", "clip", "sequence"],
 };
 
-/**
- * chains.yaml's sections, which key by ENTITY rather than by field name.
- *
- * The file declares segments — `tracks: { vo.jo: [eq_dj:vox] }` — so the key is a track id and the values are
- * module refs. FIELD_KINDS cannot answer that: the key above a value is `vo.jo`, a name no table can enumerate.
- * The SECTION is what says what its keys and values mean.
- */
+/** chains.yaml's sections, which key by ENTITY rather than by field name — see docs/completion.md. */
 const SECTION_KINDS: Record<string, { keys?: string[]; values: string[] }> = {
   tracks: { keys: ["track"], values: ["module", "sink"] },
   modules: { keys: ["module"], values: ["module", "sink"] },
@@ -64,21 +58,14 @@ function resolvePath(
   keyPath: string[],
   value: string,
 ): string | null {
-  // The section wins where there is one: inside `modules:` a key called `in` is a module named "in", not the
-  // `in:` field of a track file.
+  // The section wins where there is one: inside `modules:` a key called `in` is a module named "in".
   const section = SECTION_KINDS[keyPath[0] ?? ""];
   if (section) return firstPath(hints, section.values, value);
   const kinds = field ? FIELD_KINDS[field] : undefined;
   return kinds ? firstPath(hints, kinds, value) : null;
 }
 
-/**
- * Every span in the document that resolves to a file: the values, plus the KEYS of the chains sections.
- *
- * Keys are in because chains.yaml names a module once as a key (`eq_dj:vox: [ OUT ]`) and only then as a
- * destination — a module wired to nothing appears as a key and nowhere else, so keys-are-never-links would
- * leave it unreachable.
- */
+/** Every span resolving to a file: the values, plus the KEYS of the chains sections, since a module may be only a key. */
 export function linkTargets(
   state: EditorState,
   hints: Hints,

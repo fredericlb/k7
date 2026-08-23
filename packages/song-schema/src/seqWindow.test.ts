@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { seqWindowFromText, windowSpan } from "./seqWindow";
 
-// A sequence's `from`/`to` are TIMECODES and POSITIONS — `"1:1"` is the first beat, `"3:1"` the
-// third bar. Read from the file's own text, because the note grids are handed the document.
+// A sequence's `from`/`to` are TIMECODES and POSITIONS, read from the file's own text (docs/entityFiles.md).
 
 const seq = (head: string) => `${head}\nnotes:\n  - { t: 0, d: 1, k: 60 }\n`;
 
@@ -26,8 +25,7 @@ describe("what the file states", () => {
   });
 
   it("says NOTHING when the file states nothing", () => {
-    // Not `{from: 0, to: null}`: a window nobody wrote is not a window, it is the whole material,
-    // and a surface that drew it would band every sequence in the project.
+    // A window nobody wrote is not a window: it is the whole of the material.
     expect(seqWindowFromText(seq("name: drums"))).toBeNull();
   });
 
@@ -39,14 +37,12 @@ describe("what the file states", () => {
 
 describe("what it refuses to guess", () => {
   it("ignores a half-typed edge rather than reading it as 0", () => {
-    // This runs on every keystroke: a band that jumps to the head of the file between two
-    // characters of "3:1" is worse than one that waits.
+    // This runs on every keystroke, and a band that jumps mid-word is worse than one that waits.
     expect(seqWindowFromText(seq('from: "3:"'))).toBeNull();
   });
 
   it("ignores a SECONDS spelling, which a sequence does not have", () => {
-    // A number in a clip means seconds into a file; the same spelling meaning beats one folder
-    // over is a rule only ever learned by getting it wrong (SeqEdge refuses it too).
+    // A number in a clip means seconds into a file, and SeqEdge refuses it here for that reason.
     expect(seqWindowFromText(seq("from: 1.5"))).toBeNull();
   });
 

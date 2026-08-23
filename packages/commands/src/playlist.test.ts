@@ -21,8 +21,7 @@ let root: string;
 const logs: string[] = [];
 const refusals: string[] = [];
 
-/** A host with a WORKSPACE and no project — which is the shape these two verbs are for.
- *  `null` is the CLI's shape: a song folder and no repository around it. */
+/** A host with a WORKSPACE and no project; `null` is the CLI's shape, a song folder alone. */
 const host = (repo: string | null = root) =>
   ({
     songPath: join(root, "song.st0"),
@@ -46,8 +45,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe("playlist new", () => {
   it("writes a stub that PARSES, and adds the extension", async () => {
     await runCommand("playlist new ete 2026", host(), "cli");
-    // Not an empty file: the screen draws its right-hand pane from the text, so a blank one
-    // would open on a parse failure for a playlist nobody has yet had a chance to get wrong.
+    // Not an empty file, which would open on a parse failure — see docs/playlist.md.
     expect(parsePlaylist(read("_playlists/ete 2026.yaml"))).toEqual({
       title: "ete 2026",
       items: [],
@@ -72,14 +70,12 @@ describe("playlist new", () => {
     );
     await runCommand("playlist new set", host(), "cli");
     expect(refusals.join(" ")).toMatch(/already there/);
-    // A "create" that quietly handed back somebody else's set list is how you edit the wrong
-    // one — so the file on disk is untouched by the refusal.
+    // The file on disk is untouched by the refusal — see docs/playlist.md.
     expect(read("_playlists/set.yaml")).toContain("title: mine");
   });
 
   it("cannot be talked out of the folder, with either separator", async () => {
-    // `playlistPathOf` splits on `/`, so the BACKSLASH form is one segment to it and three to
-    // `join` — which is why the containment check is made against the resolved path.
+    // `playlistPathOf` splits on `/`, so containment is checked against the RESOLVED path.
     for (const name of ["../../escaped", "..\\..\\escaped"]) {
       await runCommand(`playlist new ${name}`, host(), "cli");
       expect(refusals.join(" ")).toMatch(/not a playlist name/);
@@ -148,8 +144,7 @@ describe("playlist song add", () => {
   });
 
   it("refuses a shape the append cannot extend, and writes nothing", async () => {
-    // A flow sequence spread over lines: inventing a second `items:` key lower down would write a
-    // file whose two halves disagree, which is worse than being told to type the line yourself.
+    // A flow sequence spread over lines — see docs/playlist.md.
     const broken = "title: set\nitems: [\n  a,\n";
     start(broken);
     await runCommand(

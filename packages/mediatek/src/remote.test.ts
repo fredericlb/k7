@@ -18,8 +18,7 @@ let mode: "whole" | "cut" = "whole";
 
 const BODY = "x".repeat(2048);
 
-/** The error a promise rejected with. A named helper because `.catch(e => e)` widens to
- *  `void | Error`, and the assertions below are all about the message. */
+/** The error a promise rejected with — a helper, because `.catch(e => e)` widens to `void | Error`. */
 const caught = (p: Promise<unknown>): Promise<Error> =>
   p.then(
     () => new Error("it did not throw"),
@@ -34,8 +33,7 @@ beforeEach(async () => {
       res.writeHead(200, { "content-length": String(BODY.length) });
       return void res.end(BODY);
     }
-    // A body that stops: the length promises 2048 bytes and the socket dies after 16. This is
-    // exactly what `fetch` reports as `TypeError: terminated`, with the reason in `cause`.
+    // A body that stops after 16 of a promised 2048 bytes — what `fetch` calls `terminated`.
     res.writeHead(200, { "content-length": String(BODY.length) });
     res.write(BODY.slice(0, 16));
     setTimeout(() => res.socket?.destroy(), 10);
@@ -63,8 +61,7 @@ describe("remoteLibrary.download", () => {
     await expect(
       remoteLibrary({ base }).download("songs/a/original.wav", dest),
     ).rejects.toThrow(RemoteError);
-    // The point of the temporary name: `dest` is this machine's cache, and half a master
-    // there plays until it stops rather than announcing that it is short.
+    // The point of the temporary name: half a master in the cache plays until it stops.
     expect(existsSync(dest)).toBe(false);
     expect(existsSync(`${dest}.part`)).toBe(false);
   });
@@ -75,8 +72,7 @@ describe("remoteLibrary.download", () => {
     const e = await caught(
       remoteLibrary({ base }).download("songs/a/original.wav", dest),
     );
-    // `terminated` alone was the whole of a real bug report — it names neither the library it
-    // tried nor what went wrong. Both have to survive the trip back through HTTP to a browser.
+    // `terminated` alone was the whole of a real bug report — see docs/sync.md.
     expect(e.message).toContain(base);
     expect(e.message).toContain("songs/a/original.wav");
     expect(e.message).toContain("←"); // the cause chain, not just "terminated"
@@ -90,8 +86,7 @@ describe("remoteLibrary.download", () => {
         join(dir, "x.wav"),
       ),
     );
-    // The URL is DERIVED rather than typed (see mediatekUrlFor), so "which library did it
-    // even try" is half the answer whenever the answer is "the wrong one".
+    // The URL is DERIVED rather than typed, so which library it tried is half the answer.
     expect(e.message).toContain(base);
     expect(e).toBeInstanceOf(RemoteError);
   });

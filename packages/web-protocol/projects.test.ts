@@ -37,8 +37,7 @@ describe("projectApp", () => {
   });
 
   it("does not know `.v1` or `.m9` — both are shapes of an st0 project", () => {
-    // Neither names a folder kind: a `.st0` carries `video_tracks/` and a `viewport` surface,
-    // or `songs.yaml` and a `turntables` surface. See @studio/song's PROJECT_SHAPES.
+    // Neither names a folder kind: both are shapes inside `.st0` — see @studio/song's PROJECT_SHAPES.
     expect(projectApp("le clip.v1")).toBe(null);
     expect(projectApp("prise v1.v1")).toBe(null);
     expect(projectApp("myset.m9")).toBe(null);
@@ -87,9 +86,7 @@ describe("projectLabel", () => {
 describe("launchUrl", () => {
   it("sends each app to its own service, under one origin", () => {
     const o = "https://st0.priv.frediver.se";
-    // st0's service path is the empty string — it answers the origin — so its projects have no
-    // prefix at all, while z0's editor keeps one. That asymmetry is the table's, not this
-    // function's: it concatenates either way.
+    // st0 answers the origin so its projects have no prefix; the asymmetry is the table's, not this function's.
     expect(launchUrl(o, "band", "winter.st0", "st0")).toBe(
       "https://st0.priv.frediver.se/band/winter.st0",
     );
@@ -114,9 +111,7 @@ describe("launchUrl", () => {
   });
 });
 
-// A surface addressed on its own — the link you send to the tablet by the decks. The whole
-// point of putting it BELOW the project is that nothing above it has to change, so most of what
-// is pinned here is that `parseLaunch` and `projectBasename` still answer as they always did.
+// A surface addressed on its own: put BELOW the project, so what is pinned here is that nothing above it changed.
 describe("a surface's external address", () => {
   const O = "https://st0.priv.frediver.se";
 
@@ -127,8 +122,7 @@ describe("a surface's external address", () => {
   });
 
   it("leaves the PROJECT parsing exactly as it was", () => {
-    // The reason this shape was chosen. A route below the project is already the app's, so the
-    // repo, the project and the router's basename are untouched by the segment after them.
+    // Why this shape: a route below the project is already the app's, so nothing above it moves.
     const p = "/band/winter.st0/@external/desk";
     expect(parseLaunch(p, "st0", "/")).toEqual({
       repo: "band",
@@ -141,8 +135,7 @@ describe("a surface's external address", () => {
     expect(parseExternal("/band/winter.st0/@external/desk", "st0", "/")).toBe(
       "desk",
     );
-    // A project at a depth, and one that IS its repository — both still work, because the
-    // segment is found by name rather than by counting.
+    // A project at a depth and one that IS its repository: the segment is found by name, not by counting.
     expect(
       parseExternal("/band/songs/winter.st0/@external/desk", "st0", "/"),
     ).toBe("desk");
@@ -175,8 +168,7 @@ describe("a surface's external address", () => {
   });
 
   it("keeps `@` literal, as every other sentinel here does", () => {
-    // `encodeURIComponent` escapes it and RFC 3986 does not, so an encoded one would not match
-    // the address the person is looking at — the bug this file's `encodeSegment` exists for.
+    // RFC 3986 allows `@` literally, so encoding it would not match the address on screen.
     expect(
       externalUrl(O, { repo: "band", project: "w.st0" }, "desk", "st0"),
     ).toContain(`/${EXTERNAL_SEGMENT}/`);
@@ -219,11 +211,9 @@ describe("the menu of those addresses", () => {
   });
 
   it("SHADOWS a repository of that name at its root, and only there", () => {
-    // The cost of a plain word instead of an `@` sentinel, written down rather than discovered.
-    // A lone-project clone called `external` is addressed `/external`, which is this page now.
+    // The cost of a plain word instead of an `@` sentinel: `/external` is this page, not that clone.
     expect(isExternalIndex(`/${EXTERNAL_INDEX}`, "/")).toBe(true);
-    // Every project INSIDE such a repository is untouched: two segments, so `parseLaunch` reads
-    // the repo and the project exactly as before and the menu does not claim it.
+    // Every project INSIDE such a repository is untouched: two segments, so the menu does not claim it.
     expect(parseLaunch("/external/winter.st0", "st0", "/")).toEqual({
       repo: "external",
       project: "winter.st0",
@@ -259,8 +249,7 @@ describe("a chain opened on the bench", () => {
   });
 
   it("refuses a path that would climb out of the médiathèque", () => {
-    // This is what an ADDRESS says, and the machine joins it onto two roots — the médiathèque
-    // and the workspace. A traversal accepted here would be a folder made outside both.
+    // The machine joins this onto two roots, so a traversal accepted here would make a folder outside both.
     expect(benchChainPath("chains/../../etc/passwd.st0")).toBeNull();
     expect(benchChainPath("chains/./x.st0")).toBeNull();
     expect(benchChainPath("chains//x.st0")).toBeNull();
@@ -268,11 +257,7 @@ describe("a chain opened on the bench", () => {
   });
 });
 
-/**
- * A SHARED project's address, and the reason it is spelled with the app's own suffix: it makes
- * the token the PROJECT part of an ordinary address, so `parseLaunch` and everything under it
- * need no change at all. These are what pin that.
- */
+/** A SHARED project's address: the app's suffix makes the token an ordinary project part, and these pin it. */
 describe("a shared snapshot's address", () => {
   const TOKEN = "Ck7bQ2mR9xLpN4wZaB1dEf3gH5jK8sT0uV6yW2nA";
 
@@ -293,15 +278,7 @@ describe("a shared snapshot's address", () => {
     expect(shareToken(at.project)).toBe(TOKEN);
   });
 
-  /**
-   * The bug this pins rendered a blank page and nothing else.
-   *
-   * `encodeURIComponent` escapes `@`, and RFC 3986 does not — it is a `pchar`, legal literally in
-   * a path segment, and a browser keeps it that way. So the link said `/@shares/…`, the router
-   * was handed a basename of `/%40shares/…`, React Router found that it did not prefix the
-   * location and refused to render ANYTHING. The two sentinels this file mints, `@shares` and
-   * `@banc`, were the only names it could get wrong.
-   */
+  /** The bug this pins rendered a blank page: `/%40shares/…` did not prefix `/@shares/…` — docs/addresses.md. */
   it("writes a link with a literal @, and takes a basename off the path unchanged", () => {
     const url = shareUrl("https://studio.frediver.se", TOKEN);
     expect(url).toBe(`https://studio.frediver.se/@shares/${TOKEN}.st0`);
@@ -310,8 +287,7 @@ describe("a shared snapshot's address", () => {
   });
 
   it("takes the OTHER spelling of the same address just as happily", () => {
-    // `%40shares` and `@shares` are one address, and an old bookmark may hold either. The
-    // basename is a SLICE of whatever it was handed, so both prefix their own location.
+    // An old bookmark may hold either spelling; the basename is a SLICE, so both prefix their own location.
     const escaped = `/%40shares/${TOKEN}.st0`;
     expect(parseLaunch(escaped, "st0", "/")).toEqual({
       repo: SHARE_REPO,
@@ -327,8 +303,7 @@ describe("a shared snapshot's address", () => {
   });
 
   it("refuses a project part that is not a token", () => {
-    // The address is typed by anyone and then put into a URL, so it is checked here rather
-    // than trusted and checked later.
+    // The address is typed by anyone and then put into a URL, so it is checked here rather than later.
     expect(shareToken("winter.st0")).toBeNull(); // too short to be a secret
     expect(shareToken(`${TOKEN}`)).toBeNull(); // no suffix: not a project at all
     expect(shareToken("../../etc/passwd.st0")).toBeNull();
@@ -343,12 +318,7 @@ describe("a shared snapshot's address", () => {
     expect(shareToken(`${"a".repeat(30)}=.st0`)).toBeNull();
   });
 
-  /**
-   * The hash the viewer derives, checked against the one pl8 stored — `createHash("sha256")` in
-   * `apps/pl8/backend/src/shares/store.ts`. The two are computed by different APIs on different
-   * machines and only ever meet as a directory name, so a disagreement would be a 404 on every
-   * link ever minted, with nothing anywhere saying why.
-   */
+  /** Two APIs on two machines meeting only as a directory name, so a disagreement would 404 every link ever minted. */
   it("hashes a token to the key pl8 named the directory with", async () => {
     const key = await shareKey(TOKEN);
     expect(key).toBe(createHash("sha256").update(TOKEN).digest("hex"));
@@ -359,10 +329,7 @@ describe("a shared snapshot's address", () => {
   });
 
   it("addresses pl8 under its own prefix, on the one unauthenticated route", async () => {
-    // The PAGE the viewer is on is st0's, at the origin root; the route that serves the snapshot
-    // is pl8's, under `/pl8`. Only the origin of the page URL survives, and the prefix comes
-    // back from SERVICE_PATHS — which is what stopped this returning the bare origin, as it
-    // correctly did while the médiathèque answered the root.
+    // The page is st0's at the root, the route is pl8's under `/pl8`: the prefix comes back from SERVICE_PATHS.
     const key = await shareKey(TOKEN);
     expect(shareApiBase(`https://studio.frediver.se/@shares/x.st0`, key)).toBe(
       `https://studio.frediver.se/pl8/api/public/share/${key}`,
@@ -377,8 +344,7 @@ describe("a project in a workspace with no repository", () => {
   const ORIGIN = "https://st0.priv.frediver.se";
 
   it("reads back through parseLaunch with nothing added to it", () => {
-    // The whole argument for spelling it this way: `@local` sits where a repository goes, and
-    // the project part ends at the last segment claiming the app — the ordinary rule, unchanged.
+    // `@local` sits where a repository goes, and the project part ends by the ordinary rule, unchanged.
     expect(parseLaunch("/@local/Examples/synth-demo.st0", "st0", "/")).toEqual({
       repo: "@local",
       project: "Examples/synth-demo.st0",
@@ -392,8 +358,7 @@ describe("a project in a workspace with no repository", () => {
       workspace: "Examples",
       project: "synth-demo.st0",
     });
-    // A workspace that IS a project: `.` is what every other route already calls its root, and
-    // what parseLaunch answers when a repository is the project.
+    // A workspace that IS a project: `.` is what parseLaunch already answers when a repository is one.
     expect(localTarget("hiver.st0")).toEqual({
       workspace: "hiver.st0",
       project: ".",
@@ -405,8 +370,7 @@ describe("a project in a workspace with no repository", () => {
   });
 
   it("refuses a workspace name that is not one", () => {
-    // Checked and not trusted: this comes off an address anyone can type and is then joined
-    // onto the user's root, exactly as benchChainPath and shareToken are.
+    // Checked and not trusted, exactly as benchChainPath and shareToken are: it is joined onto the user's root.
     expect(localTarget("../elsewhere/x.st0")).toBe(null);
     expect(localTarget("./x.st0")).toBe(null);
     expect(localTarget("")).toBe(null);
@@ -423,8 +387,7 @@ describe("a project in a workspace with no repository", () => {
   });
 
   it("puts a single-project workspace's name where the project goes, once", () => {
-    // `.` is the project, and the workspace folder IS it — so the address names it once rather
-    // than twice, and `localTarget` reads that back as the same pair.
+    // The workspace folder IS the project, so the address names it once and `localTarget` reads back the pair.
     const url = localProjectUrl(ORIGIN, "hiver.st0", ".", "st0");
     expect(url).toBe(`${ORIGIN}/@local/hiver.st0`);
     const back = parseLaunch(new URL(url).pathname, "st0", "/");
@@ -435,8 +398,7 @@ describe("a project in a workspace with no repository", () => {
   });
 
   it("is a sentinel no repository can be mistaken for", () => {
-    // The same argument as @banc and @shares: `@` cannot begin a git short name, which is the
-    // last segment of an SSH URI without `.git`. Three sentinels, one rule.
+    // Three sentinels, one rule: `@` cannot begin a git short name, so none can collide with a repository.
     for (const sentinel of [LOCAL_REPO, BENCH_REPO, SHARE_REPO])
       expect(sentinel.startsWith("@")).toBe(true);
     expect(new Set([LOCAL_REPO, BENCH_REPO, SHARE_REPO]).size).toBe(3);

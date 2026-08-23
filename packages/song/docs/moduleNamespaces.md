@@ -226,7 +226,20 @@ been a second axis crossing that one, and one folder would hold most of the libr
 you install a big free pack — 186 of the 252 measured here come from one.
 
 Flat under the type folder was never on the table: two hundred effects in one folder is a level
-you cannot find anything in.
+you cannot find anything in. That is also why `engineFaceModule` takes a sub-folder at all — the
+médiathèque's own modules already sit at that depth.
+
+`faceFolder` answers `""` for a category word that says nothing the TYPE folder does not already
+say — `fx`, `effect`, `audio`, `instrument`, `midi`. `Fx` under `audio/` would be a level holding
+everything, which is the same as no level at all.
+
+Two plugins whose names slug the same **collapse to one, first wins** — the identical rule
+`engineModules` applies to the scan it derives its refs from. It has to be identical, or the face
+would name a ref the catalogue does not synthesise. A name with no slug in it is skipped exactly as
+the catalogue skips it.
+
+The face's header names the plugin as the SCAN spells it: the slug is lossy, and someone reading
+the file a year later needs to know which of two similarly-slugged plugins it stands for.
 
 ### What it does not do
 

@@ -7,8 +7,7 @@ import { m } from "../paraglide/messages.js";
 
 export interface LogLine {
   t: number; // epoch ms
-  // cmd/info/refused/error/engine are in-app activity; `engine`/`file` also carry the tray's
-  // merged process log.
+  // cmd/info/refused/error/engine are in-app activity; `engine` and `file` also carry the tray's merged process log.
   kind: "cmd" | "engine" | "file" | "info" | "refused" | "error";
   text: string;
 }
@@ -18,9 +17,7 @@ const KIND_CLASS: Record<LogLine["kind"], string> = {
   engine: "text-violet-400",
   file: "text-teal-400",
   info: "text-muted-foreground",
-  // A refusal is not an error: the command was understood and declined, and the line says why.
-  // Amber rather than red, and distinct from `info` — which is what it used to be recorded as,
-  // so a verb that said no read exactly like a verb that had worked.
+  // A refusal is not an error but a verb declining, so it is amber and distinct from `info` — which is what it used to be recorded as.
   refused: "text-amber-400",
   error: "text-red-400",
 };

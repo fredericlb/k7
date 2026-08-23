@@ -15,42 +15,21 @@ import type {
   TrackDoc,
 } from "./project";
 
-/**
- * The click's level when `settings.yaml` names none — Tracktion's own default.
- *
- * Here rather than beside `DEFAULT_COUNT_IN` in @studio/song, because `DEFAULT_SETTINGS` below
- * needs it and this package cannot import that one: song depends on this, not the other way round.
- */
+/** The click's level when `settings.yaml` names none — Tracktion's own default, here because `DEFAULT_SETTINGS` below needs it. */
 export const DEFAULT_METRONOME_LEVEL = 0.6;
 
-/**
- * The quietest click there is — Tracktion's floor (`Edit::setClickTrackVolume` clamps to 0.2..1).
- *
- * Stated once and read by the schema, the command and the slider, because it is not a preference:
- * a smaller number is accepted, written down, and then played at 0.2, so every surface that offers
- * a level has to stop in the same place or the file ends up claiming something nobody hears.
- * Silence is `metronome: false`, which is a different question and a different control.
- */
+/** The quietest click there is — Tracktion's floor; stated once so the schema, the command and the slider all stop in the same place. */
 export const METRONOME_MIN = 0.2;
 
 /** Project settings the engine is happy with when nothing has been authored. */
 export const DEFAULT_SETTINGS: SettingsDoc = {
   metronome: false,
-  // Tracktion's own default click level, so a project that never mentions one sounds like the
-  // engine's idea of a metronome rather than this file's.
+  // Tracktion's own default, so a project that never mentions one sounds like the engine's idea of a metronome.
   metronomeLevel: DEFAULT_METRONOME_LEVEL,
   countIn: 0,
 };
 
-/**
- * A valid, empty project. Every required field defaulted; override what you mean.
- *
- * `recordDir` defaults to `""`, which is a REFUSAL, not a blank: the engine rejects
- * arming a track with `"this song has no clips/ directory to record into"` (see
- * Recording.cpp) rather than recording a take that then has nowhere to go. That default
- * is right for a preview or a deck — surfaces that play and never record — and wrong the
- * moment you want to capture anything, so pass a real directory then.
- */
+/** A valid, empty project; `recordDir: ""` is a REFUSAL rather than a blank, so pass a real directory to record anything. */
 export function emptyDoc(over: Partial<ProjectDoc> = {}): ProjectDoc {
   return {
     name: "",
@@ -113,10 +92,7 @@ export function clipDoc(
   };
 }
 
-/**
- * Formats loaded from disk via the scan cache, as opposed to a built-in named by its
- * xmlTypeName. Mirrors the engine's own isExternalFormat.
- */
+/** Formats loaded from disk via the scan cache, as opposed to a built-in named by its xmlTypeName; mirrors the engine's isExternalFormat. */
 export const EXTERNAL_PLUGIN_FORMATS = new Set([
   "vst3",
   "vst",
@@ -129,20 +105,7 @@ export const EXTERNAL_PLUGIN_FORMATS = new Set([
   "aax",
 ]);
 
-/**
- * The `plugin:` block of a module file, without a YAML parser.
- *
- * Lives beside `enginePlugin` — which consumes exactly what it produces — for the reason
- * stated there: a browser that needs to know what a module runs should not drag in a
- * parser, nor a module that reads the filesystem, for two scalars.
- *
- * Both spellings module files in this repo use are read: the indented block and the inline
- * flow map. Unparseable means `undefined`, never a throw — a module with no plugin is a
- * real thing (an io module), and the caller shows it as loading nothing.
- *
- * Third-copy rule: this started in pl8's module preview, and m9 wanting the same
- * two scalars is what moved it here rather than making a second one.
- */
+/** The `plugin:` block of a module file, without a YAML parser; both spellings are read, and unparseable means `undefined` rather than a throw. */
 export function readPluginBlock(
   yaml: string,
 ): { type?: string; name?: string } | undefined {
@@ -165,22 +128,10 @@ export const JSDSP_TYPE = "jsdsp";
 /** …and the built-in the engine actually loads for one: a host for a graph it is handed. */
 export const DSP_GRAPH_PLUGIN = "DSP Graph";
 
-/** The DSP source a `jsdsp` module carries. A fixed NAME, not a path: the type says the file
- *  is there, and a module stays a folder you can copy without rewriting anything inside it. */
+/** The DSP source a `jsdsp` module carries: a fixed NAME, so a module stays a folder you can copy without rewriting anything inside it. */
 export const JSDSP_FILE = "jsdsp.ts";
 
-/**
- * The same statement, one layer down: a module whose DSP is the Faust source beside it.
- *
- * The two are siblings on purpose, and they differ in exactly one place — WHO compiles. `jsdsp`
- * runs its JS here, at compile time, and sends the engine a description to interpret; `faust`
- * sends the SOURCE and the engine compiles it. That is why there is no generated artifact beside
- * a `dsp.dsp` the way there is beside a `jsdsp.ts`: the compiler is on the far side, so a cached
- * copy of its output would be a second source of truth for nobody's benefit.
- *
- * See packages/song/docs/faustModules.md for the whole of it, including what the day the app
- * needs the parameter list WITHOUT an engine would cost (`faust -json`, and a sibling after all).
- */
+/** A module whose DSP is the Faust source beside it — `jsdsp`'s sibling, differing only in WHO compiles; packages/song/docs/faustModules.md. */
 export const FAUST_TYPE = "faust";
 /** …and the built-in that runs one: a host handed a source rather than a graph. */
 export const FAUST_PLUGIN = "Faust";
@@ -188,47 +139,23 @@ export const FAUST_PLUGIN = "Faust";
 /** The DSP source a `faust` module carries. Fixed, for the reason JSDSP_FILE is. */
 export const FAUST_FILE = "dsp.dsp";
 
-/**
- * The plugin type a mixer module instantiates. An internal plugin reaches the engine under its
- * DISPLAY name (see enginePlugin), so this is the string a compiled PluginDoc actually carries.
- *
- * Here rather than in @studio/song/project, which owns the compiler and opens `node:fs`: a
- * BROWSER that builds a document — m9's decks do — needs the word and not the compiler. That
- * file re-exports all three, so every existing importer is unchanged.
- */
+/** The plugin type a mixer module instantiates — an internal plugin reaches the engine under its DISPLAY name, so this is what a PluginDoc carries. */
 export const MIXER_PLUGIN = "Mixer";
 
 /** The five knobs a strip has, in the order a strip reads them. Also the param names in the module file. */
 export const MIXER_PARAMS = ["Volume", "Pan", "Low", "Mid", "High"] as const;
 
-/**
- * What a strip's `Volume` MEANS: decibels, floor to +6, with 0 at unity — never 0..1.
- *
- * Stated as a constant because a surface that guessed a 0..1 range would look like it worked
- * (the fader moves, the number changes) while sending +0.5 dB for what the user set to half.
- * The floor is silence as far as this vocabulary is concerned; anything quieter is the same.
- */
+/** What a strip's `Volume` MEANS: decibels, floor to +6, 0 at unity — never 0..1, which would look like it worked and send +0.5 dB for half. */
 export const VOLUME_DB = { min: -60, max: 6, unity: 0 } as const;
 
-/**
- * Map an authored `plugin: {type, name}` onto the engine's older wire form, where `type`
- * holds either a built-in's xmlTypeName or an external format. `fallback` is the module
- * name. Full mapping table: @studio/song's docs/enginePlugin.md.
- *
- * Lives here rather than with the song compiler that used to own it: this is a mapping
- * onto the WIRE, and a browser building a one-module document to preview needs it without
- * dragging in a module that reads the filesystem. `@studio/song` re-exports it.
- */
+/** Map an authored `plugin: {type, name}` onto the engine's older wire form, `fallback` being the module name — @studio/song's docs/enginePlugin.md. */
 export function enginePlugin(
   plugin: { type?: unknown; name?: unknown } | undefined,
   fallback: string,
 ): { type: string; name: string } {
   const type = String(plugin?.type ?? "");
   const name = plugin?.name != null ? String(plugin.name) : "";
-  // A module whose DSP is its own source. `jsdsp` is what the AUTHOR writes — it says where the
-  // sound comes from — and the engine has no such plugin: it loads the built-in graph host and
-  // is handed the compiled graph in the doc. The mapping is here so the author never has to
-  // spell `internal` + `DSP Graph`, which said nothing about the file beside the module.
+  // `jsdsp` is what the AUTHOR writes; the engine has no such plugin, so it loads the graph host and is handed the compiled graph.
   if (type === JSDSP_TYPE) return { type: DSP_GRAPH_PLUGIN, name: fallback };
   // …and its sibling, whose source the ENGINE compiles. Same shape of mapping, same reason.
   if (type === FAUST_TYPE) return { type: FAUST_PLUGIN, name: fallback };

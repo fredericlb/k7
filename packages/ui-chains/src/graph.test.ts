@@ -37,12 +37,7 @@ const graph = (
 });
 
 describe("buildGraph", () => {
-  // An empty layout is what every page load starts with, for the moment before the
-  // project arrives. dagre maxes over an empty node set and reports -Infinity, which is
-  // TRUTHY — so the view's `if (!graph.width) return` guard passed, it framed a camera
-  // to an infinite extent (translation = Infinity), reported success, and then never
-  // framed the real graph because it believed it already had. The symptom was a graph
-  // view that only failed to zoom-to-fit on a fresh open/refresh.
+  // Every page load starts empty, and dagre reports -Infinity for that — see docs/graphBuild.md.
   it("reports zero extent for an empty layout, never -Infinity", () => {
     const { nodes, width, height } = layout([], []);
     expect(nodes).toHaveLength(0);
@@ -96,9 +91,7 @@ describe("buildGraph", () => {
     });
   });
 
-  // The mixer's sum is IMPLICIT: every lane ends there, so the arrows into it said nothing the
-  // picture did not already say — and tied every run in the song to one rank. What is drawn is
-  // the run that leaves it. See docs/graphBuild.md.
+  // The mixer's sum is IMPLICIT: what is drawn is the run that leaves it. See docs/graphBuild.md.
   describe("the sum", () => {
     // A song as the scaffolds write one: two lanes into MIX, and the master run declared empty.
     const song = (): WebGraph =>
@@ -129,9 +122,7 @@ describe("buildGraph", () => {
       ]);
     });
 
-    // Two cards said MIX before this: `from: MIX` fell through to the track branch — a lane strip
-    // with a volume knob, on the one node that carries no parameter — and the empty run added a
-    // pass-through beside it.
+    // Two cards said MIX before this: `from: MIX` fell through to the track branch. docs/graphBuild.md.
     it("draws MIX once, as a sink, with the master run leaving it", () => {
       const { nodes } = buildGraph(song());
       expect(nodes.filter((n) => n.label === "MIX").map((n) => n.id)).toEqual([
@@ -156,9 +147,7 @@ describe("buildGraph", () => {
       ).toEqual(["mod:eq->snk:OUT", "snk:MIX->mod:comp"]);
     });
 
-    // A sink's rank is past the deepest module, which is the wrong end of the page for this one:
-    // the master run LEAVES the sum, so ranked as a sink it drew its first plugin above the card
-    // feeding it.
+    // A sink's rank is the wrong end of the page for a sum: the master run LEAVES it.
     it("ranks MIX where a lane is, not where a sink is", () => {
       const g = song();
       g.chains.MIX = {
@@ -173,9 +162,7 @@ describe("buildGraph", () => {
       expect(rank("mod:comp")).toBeLessThan(rank("snk:OUT") ?? 0);
     });
 
-    // The mixer view pushes every sink under the strip row so no cable climbs to reach one. The
-    // sum is not one of them: nothing arrives at it, and under the row it would sit below the
-    // master run it feeds — or, with an empty master chain, on OUT's own rank.
+    // The mixer view pushes every sink under the strip row, and a SUM is not one of them.
     it("leaves MIX above the row when the strips are aligned", () => {
       const { nodes } = buildGraph(song());
       const aligned = alignModuleRank(nodes, ["lead", "synth-pad"]);
@@ -184,8 +171,7 @@ describe("buildGraph", () => {
       expect(rank("snk:MIX")).toBeLessThan(rank("snk:OUT") ?? 0);
     });
 
-    // Sockets: nothing may ARRIVE at the sum (a drag there would write what the mixer already
-    // says, and its cable would then not be drawn), and the master run leaves by its output.
+    // Sockets: nothing may ARRIVE at the sum, and the master run leaves by its output.
     it("gives MIX an output socket and no input", () => {
       const { nodes } = buildGraph(song());
       const mix = nodes.find((n) => n.id === "snk:MIX");
@@ -194,8 +180,7 @@ describe("buildGraph", () => {
       expect(nodes.find((n) => n.id === "snk:OUT")?.jacks?.out).toEqual([]);
     });
 
-    // A project written before `MIX: [ OUT ]` existed declares no master run, and the cables into
-    // the sum are skipped all the same — so the card and the wire out of it are drawn here.
+    // A project written before `MIX: [ OUT ]` declares no master run, so the pair is drawn anyway.
     it("draws MIX -> OUT even when the file declares no master run", () => {
       const { nodes, edges } = buildGraph(
         graph(
@@ -216,8 +201,7 @@ describe("buildGraph", () => {
       ]);
     });
 
-    // …and a host that wants no OUT card gets none, sum included: `drawMainOut` is about the
-    // picture, and half a wire is worse than neither end of it.
+    // …and a host that wants no OUT card gets none, sum included: half a wire is worse than neither end.
     it("leaves OUT out of that pair when drawMainOut is off", () => {
       const { nodes, edges } = buildGraph(
         graph({
@@ -230,12 +214,9 @@ describe("buildGraph", () => {
     });
   });
 
-  // The PICTURE's pair, which is the same card and the same rules with a different signal on the
-  // wire. What is worth pinning is that nothing about it is a special case — every assertion below
-  // has a twin ten lines up. See @studio/song's docs/videoOutputs.md.
+  // The PICTURE's pair: the same rules, a different signal, no special case. @studio/song's docs/videoOutputs.md.
   describe("the picture's sum", () => {
-    // A video project as the open path leaves one: two lanes of picture into RENDER, the video
-    // master run declared empty, and the song's own pair beside it.
+    // A video project as the open path leaves one, with the song's own pair beside it.
     const film = (): WebGraph => ({
       ...graph(
         {
@@ -293,8 +274,7 @@ describe("buildGraph", () => {
     });
 
     it("carries PICTURE on the wire out of it", () => {
-      // The one thing that differs from the audio pair, and the thing that makes the video run
-      // read as picture right across the graph.
+      // The one thing that differs from the audio pair, and what makes the run read as picture.
       const { edges } = buildGraph(film());
       expect(edges.find((e) => e.source === "snk:RENDER")?.signal).toBe(
         "video",
@@ -321,8 +301,7 @@ describe("buildGraph", () => {
     });
 
     it("gives VIDEO_OUT no fader — a frame has no level", () => {
-      // `OUT` is the one built-in name carrying a param. The symmetry stops exactly here, and a
-      // control drawn on VIDEO_OUT would write a value no renderer reads.
+      // `OUT` is the one built-in name carrying a param, so the symmetry stops exactly here.
       const { nodes } = buildGraph(film(), { mainOutVolume: -6 });
       expect(nodes.find((n) => n.id === "snk:OUT")?.ui).toBeDefined();
       expect(nodes.find((n) => n.id === "snk:VIDEO_OUT")?.ui).toBeUndefined();
@@ -339,8 +318,7 @@ describe("buildGraph", () => {
       expect(rank("snk:RENDER")).toBeLessThan(rank("snk:VIDEO_OUT") ?? 0);
     });
 
-    // The editor re-parses on every keystroke, so a lane pointed at RENDER a second before the
-    // run below it is written must not lose its card in between.
+    // The editor re-parses on every keystroke, so a half-typed graph must not lose the card.
     it("draws RENDER -> VIDEO_OUT even when the file declares no video master run", () => {
       const g = film();
       delete g.chains.RENDER;
@@ -354,8 +332,7 @@ describe("buildGraph", () => {
     });
 
     it("leaves VIDEO_OUT out of that pair when drawMainOut is off", () => {
-      // `drawMainOut` means "do not draw where the signal leaves", and a picture ending nowhere
-      // while the sound ended at a card would be half an answer.
+      // `drawMainOut` means "do not draw where the signal leaves", picture and sound alike.
       const { nodes, edges } = buildGraph(film(), { drawMainOut: false });
       expect(nodes.find((n) => n.id === "snk:VIDEO_OUT")).toBeUndefined();
       expect(nodes.find((n) => n.id === "snk:OUT")).toBeUndefined();
@@ -413,9 +390,7 @@ describe("buildGraph", () => {
       warnings: [],
     });
     const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
-    // One curve node per BINDING, purple (kind "curve"), labelled by the curve's id + shape.
-    // The id carries which binding it is; the label does not, so two instances of one curve
-    // read as the same curve.
+    // One curve node per BINDING: the id carries it, the label does not. See docs/graphBuild.md.
     expect(byId["crv:sweep@synth:Filter Freq"]).toMatchObject({
       kind: "curve",
       label: "sweep",
@@ -456,13 +431,7 @@ describe("buildGraph", () => {
       curves: { sweep: { type: "custom" } },
       warnings: [],
     });
-    // TWO nodes, one per binding — and this test used to assert the opposite.
-    //
-    // One node per curve was right while a curve node had no input: two cards for one shape
-    // were duplication, and "where is this curve" had two answers. A curve node LISTENS now —
-    // an envelope is restarted by an event, and which module fires it is a fact about the
-    // BINDING. One card could not say that the same shape follows the drums here and the synth
-    // there. They stay legibly one curve: same label, one file.
+    // TWO nodes, one per binding — this test used to assert the opposite. See docs/graphBuild.md.
     expect(nodes.filter((n) => n.kind === "curve")).toHaveLength(2);
     expect(edges.filter((e) => e.source.startsWith("crv:sweep@"))).toHaveLength(
       2,
@@ -488,10 +457,7 @@ describe("buildGraph", () => {
   });
 
   it("keeps the track input when a chain is named after its source track", () => {
-    // `from` names a track that ALSO happens to be a chain name (a common authoring
-    // pattern: one chain per track, same name). It must resolve to the TRACK, not be
-    // mistaken for a chain-feeds-chain self-loop and dropped — otherwise the track
-    // node vanishes and cable-wobble liveness has nothing to seed from.
+    // `from` naming a track that is ALSO a chain name must resolve to the TRACK. docs/graphBuild.md.
     const { nodes, edges } = buildGraph(
       graph(
         { drums: { from: "drums", use: [], out: [{ to: "OUT", gain: 1 }] } },
@@ -505,9 +471,7 @@ describe("buildGraph", () => {
     ]);
   });
 
-  // A splitter feeds one target from two of its outputs. Keyed on the PAIR alone, the second
-  // collapsed into the first and the graph drew one cable — out of the wrong jack, since the
-  // survivor kept the first port it saw. The pair is not the identity of a cable; the socket is.
+  // A splitter feeds one target from two outputs: the pair is not a cable's identity, the socket is.
   it("keeps two cables when one source feeds a target from two ports", () => {
     const { edges } = buildGraph(
       graph({
@@ -529,8 +493,7 @@ describe("buildGraph", () => {
     expect(new Set(toMix.map((e) => e.id)).size).toBe(2);
   });
 
-  // …and the other half of the same key: one link expressed from BOTH ends is still one cable,
-  // whichever end is visited first. Only one of the two carries the port.
+  // …and the other half of the same key: one link expressed from BOTH ends is still one cable.
   it("collapses a link expressed from both ends, and keeps its port", () => {
     const { edges } = buildGraph(
       graph({
@@ -639,8 +602,7 @@ describe("nodeSize", () => {
   });
 
   it("is its GRID's width, not the no-panel minimum", () => {
-    // A panelled node used to inherit NODE_W as a floor, which parked dead space to the right of every grid
-    // narrower than 160px — a 2-column mixer strip is 84px of controls in a 160px card.
+    // A panelled node used to inherit NODE_W as a floor, parking dead space beside every narrow grid.
     expect(nodeSize({ cols: 2, rows: 6, widgets: {} }).w).toBe(
       UI_PAD * 2 + 2 * CELL,
     );
@@ -648,16 +610,12 @@ describe("nodeSize", () => {
   });
 
   it("still leaves the header something to be drawn in", () => {
-    // The one case the grid alone cannot answer: a single column is 48px, and the header's padding and kind glyph
-    // eat that before a single character of the name.
+    // The one case the grid alone cannot answer: one column is 48px, all of it header padding and glyph.
     expect(nodeSize({ cols: 1, rows: 2, widgets: {} }).w).toBe(NODE_MIN_W);
   });
 });
 
-// A cable is coloured by WHAT IT CARRIES, so the signal path reads at a glance. The type comes
-// from the edge's SOURCE — the lane output the run left by (`fromPort`), what the lane holds
-// (`trackSignals`) when it left bare, or the module's type folder — because an instrument takes
-// midi and gives back audio: the wire into it is blue and the one out of it orange.
+// A cable is coloured by what its SOURCE emits, so the signal path reads at a glance. docs/graphBuild.md.
 describe("cable signal typing", () => {
   const sig = (edges: { source: string; target: string; signal?: string }[]) =>
     Object.fromEntries(
@@ -690,10 +648,7 @@ describe("cable signal typing", () => {
   });
 
   it("draws a split lane's two cables from their own jacks", () => {
-    // A lane is not typed by what it carries: it offers `audio` and `midi`, and a run that named
-    // one carries that answer as `fromPort`. Without it both runs read `trackSignals[gtr]` — one
-    // colour for two cables that carry different things — and both left the same socket, so the
-    // node drew one wire where there are two. See @studio/song's docs/trackModules.md.
+    // A lane is not typed by what it carries: a run that named an output says so as `fromPort`.
     const { edges } = buildGraph({
       ...graph(
         {
@@ -727,8 +682,7 @@ describe("cable signal typing", () => {
   });
 
   it("keeps a midi transformer's output midi", () => {
-    // The other midi-input module: an arpeggiator takes midi and emits midi, so the
-    // whole run before the instrument stays blue.
+    // An arpeggiator takes midi and emits midi, so the run before the instrument stays blue.
     const { edges } = buildGraph({
       ...graph(
         {
@@ -796,8 +750,7 @@ describe("cable signal typing", () => {
 
 describe("cable signal through a pass-through chain", () => {
   it("carries the source's signal across a chain with no modules", () => {
-    // An empty chain is a wire, not a processor — it emits what reached it. Without
-    // this its outgoing cable was the only untyped one in a real song.
+    // An empty chain is a wire, not a processor — it emits whatever reached it.
     const { edges } = buildGraph({
       ...graph(
         { sc: { from: "keys", use: [], out: [{ to: "OUT", gain: 1 }] } },
@@ -820,11 +773,7 @@ describe("cable signal through a pass-through chain", () => {
   });
 });
 
-// A chain takes its name from its source track when it isn't named explicitly, so
-// `from` and the chain's own name are usually the same string. That made a STALE `from`
-// — a track renamed without chains.yaml catching up — resolve to the chain itself, which
-// collapsed to a self-loop and took the whole track node out of the drawing. A broken
-// reference has to be visible, not invisible.
+// A STALE `from` used to collapse to a self-loop and take the track node with it. docs/graphBuild.md.
 describe("a chain whose source track no longer exists", () => {
   it("still draws the track node instead of vanishing", () => {
     const { nodes, edges } = buildGraph(
@@ -847,8 +796,7 @@ describe("a chain whose source track no longer exists", () => {
   });
 
   it("keeps reading a REAL chain-to-chain feed as one", () => {
-    // The guard must not break the case it was written for: `from` naming another
-    // chain is still a chain link, not a track.
+    // The guard must not break its own case: `from` naming another chain is still a chain link.
     const { nodes, edges } = buildGraph(
       graph(
         {
@@ -989,9 +937,7 @@ describe("a module's sub line", () => {
   });
 });
 
-// Video lanes are chain sources like any other, and — like audio tracks — one that no
-// chain mentions is still drawn: it still DRAWS (project.layers composites it), so
-// leaving it out would understate the song. Only its glyph and its strip differ.
+// Video lanes are chain sources like any other, orphans included — only glyph and strip differ.
 describe("video tracks", () => {
   const withVideo = (
     chains: WebGraph["chains"],
@@ -1048,10 +994,7 @@ describe("video tracks", () => {
   });
 });
 
-// A live input is the node its run STARTS at, and what it feeds is a TRACK. The arrow has
-// to land on the track node: a track-fed chain is called after its track, so `isChain`
-// says yes to the same name and the edge used to be drawn to that chain's first MODULE —
-// past the point where the signal actually arrives.
+// A live input feeds a TRACK, and the arrow has to land on the track node. See docs/graphBuild.md.
 describe("an input wired to a track", () => {
   it("draws the arrow to the track, not to its first module", () => {
     const { edges } = buildGraph({
@@ -1078,10 +1021,7 @@ describe("an input wired to a track", () => {
 });
 
 describe("layout puts every rank on its own row", () => {
-  // The ranks are computed in buildGraph and handed to dagre, which treats them as a hint: its
-  // longest-path ranker pushes a node as LATE as it can, hugging the sink below. Measured on a
-  // fifteen-track song: rank 1 spread over SIX lines, from y=16 to y=1380 — a first-in-chain
-  // module sitting on the mixer line, at the bottom of a column it belongs at the top of.
+  // dagre treats a rank as a hint and pushes a node as LATE as it can. See docs/graphBuild.md.
   const deepAndShallow = graph(
     {
       long: {
@@ -1119,8 +1059,7 @@ describe("layout puts every rank on its own row", () => {
   it("puts the short chain's module at the TOP, beside the deep one's first", () => {
     const { l } = laid();
     const y = (mod: string) => l.nodes.find((n) => n.module === mod)?.y ?? 0;
-    // `drive` is first in its chain and `comp` is first in the other: same rank, same row —
-    // rather than dragged down to meet the mixer its own chain reaches in one step.
+    // `drive` and `comp` are each first in their chain: same rank, so same row.
     expect(y("drive")).toBe(y("comp"));
     expect(y("drive")).toBeLessThan(y("verb"));
   });
@@ -1141,9 +1080,7 @@ describe("layout puts every rank on its own row", () => {
   });
 
   it("parts two nodes the collapse would have stacked", () => {
-    // dagre places x assuming its own y: two nodes it put on different lines may share a
-    // column, and collapsing them onto one row is what makes them overlap. Measured: one such
-    // pair on a fifteen-track song, a module nested inside another.
+    // dagre places x assuming its own y, so collapsing two lines onto one row can overlap them.
     const { l } = laid();
     const a = l.nodes;
     for (let i = 0; i < a.length; i++)
@@ -1157,8 +1094,7 @@ describe("layout puts every rank on its own row", () => {
   });
 
   it("reports an extent that covers where the nodes ACTUALLY are", () => {
-    // dagre's own figure describes the picture before the rows moved — 488px short on a
-    // fifteen-track song, which is the bottom of the graph missing from every fit.
+    // dagre's own figure describes the picture before the rows moved — 488px short, measured.
     const { l } = laid();
     expect(l.width).toBeGreaterThanOrEqual(
       Math.max(...l.nodes.map((n) => n.x + n.w)),
@@ -1170,9 +1106,7 @@ describe("layout puts every rank on its own row", () => {
 });
 
 describe("layout puts every track on one line", () => {
-  // Tracks carry `rank: 0` and dagre overrides it: the ranker pushes a source down to shorten
-  // the edges below it, so chains of different depths scatter their tracks over as many lines.
-  // Measured at SIX lines on a fifteen-track song, one of them BELOW the mixers it fed.
+  // Tracks carry `rank: 0` and dagre overrides it, scattering the source line. docs/graphBuild.md.
   const uneven = graph(
     {
       long: {
@@ -1255,8 +1189,7 @@ describe("layout honours the pins", () => {
   it("a pin ABOVE the first track is reported, so the camera can still frame it", () => {
     const { nodes, edges } = buildGraph(uneven);
     const laid = layout(nodes, edges, { comp: { x: -200, y: -300 } });
-    // Both past the pin by the margin every extent carries, and never positive — a fit reads
-    // `width - left` as the box, and a graph laid out normally must frame exactly as before.
+    // Both past the pin by the margin every extent carries, and never positive.
     expect(laid.top).toBeLessThanOrEqual(-300);
     expect(laid.left).toBeLessThanOrEqual(-200);
     expect(laid.height - laid.top).toBeGreaterThan(300);
@@ -1275,8 +1208,7 @@ describe("layout honours the pins", () => {
     const { nodes, edges } = buildGraph(uneven);
     const first = layout(nodes, edges);
     const prev = new Map(first.nodes.map((n) => [n.id, { x: n.x, y: n.y }]));
-    // The same graph minus one edge — the kind of change a pulled cable makes, and exactly
-    // what used to re-rank everything.
+    // The same graph minus one edge — the kind of change that used to re-rank everything.
     const fewer = edges.filter((_, i) => i !== edges.length - 1);
     const second = layout(nodes, fewer, undefined, prev);
     for (const n of second.nodes) {
@@ -1298,8 +1230,7 @@ describe("layout honours the pins", () => {
 });
 
 describe("headerFontPx", () => {
-  // A card is only as wide as its panel's grid now, so a fixed header size left seventeen
-  // identically-shaped mixers all reading "vo_j…". The name is fitted instead.
+  // A card is only as wide as its grid, so the header's size is fitted. See docs/graphBuild.md.
   it("leaves a short name at the ceiling — this shrinks, it does not enlarge", () => {
     expect(headerFontPx("eq", 200)).toBe(HEADER_MAX_PX);
   });
@@ -1331,8 +1262,7 @@ describe("headerFontPx", () => {
 });
 
 describe("moduleDisplayName", () => {
-  // The header wears the module, so what it wears is the LAST segment: a card is one word wide
-  // and "@st0/audio/dynamics/comp-opto" would fit as "@st0/…" — the prefix, the useless half.
+  // The header wears the LAST segment: a card is one word wide, and the prefix is the useless half.
   it("keeps the last segment of a namespaced reference", () => {
     expect(moduleDisplayName("@st0/audio/dynamics/comp-opto")).toBe(
       "comp-opto",
@@ -1350,9 +1280,7 @@ describe("moduleDisplayName", () => {
 });
 
 describe("alignModuleRank", () => {
-  // The Mixer VIEW: the same graph, the same cables, the strips pulled onto one rank so a single
-  // frame holds them all. Chains of different lengths are the whole point — that is what puts the
-  // mixers on a staircase in the first place.
+  // The Mixer VIEW: the same graph with the strips pulled onto one rank. See docs/graphBuild.md.
   const uneven = graph(
     {
       a: {
@@ -1405,12 +1333,7 @@ describe("alignModuleRank", () => {
 });
 
 describe("spaceModulesEvenly", () => {
-  // A shared rank puts the strips on one LINE; this is what gives that line one RHYTHM. dagre
-  // spaces a rank by what feeds it, so a track with a wide chain pushes its mixer away from its
-  // neighbour — which reads as a scattered row rather than a console.
-  // vox carries a SEND as well as its own path, and its compressor draws a WIDE panel, so its
-  // column is much wider than one card. That is what makes dagre space this rank unevenly, and
-  // it is the shape a real song has — measured there at gaps of 152/136/356/116.
+  // A shared rank is one LINE; this gives it one RHYTHM, against gaps measured at 152/136/356/116.
   const uneven = graph(
     {
       a: {
@@ -1469,11 +1392,7 @@ describe("spaceModulesEvenly", () => {
   };
 
   it("leaves the SAME gap between every pair, and it is the STRIP's", () => {
-    // One distinct gap, and it is 24 — `STRIP_GAP`, tighter than the 60 `layout` parts
-    // colliding siblings with. The number is the assertion: on a graph small enough for every
-    // strip to collide, the row sweep alone already produces ONE gap, so "all gaps equal" would
-    // pass with this function removed. On a real song they do not collide — measured there at
-    // 152/136/356/116 before, 24 after — and it is the only thing that closes them up.
+    // One gap, and 24 is the assertion: "all gaps equal" would pass with this function removed.
     expect(gapsOf(laidRow())).toEqual([24, 24, 24]);
   });
 
@@ -1499,9 +1418,7 @@ describe("spaceModulesEvenly", () => {
     const { nodes, edges } = buildGraph(uneven);
     const before = layout(alignModuleRank(nodes, row), edges);
     const after = spaceModulesEvenly(before, row);
-    // `cablePath` hangs the cable from BOTH ends read off the nodes, so re-spacing a card
-    // re-routes its cable for free. This used to strip dagre's waypoints by hand, back when they
-    // were the route; touching an edge now would only invent a second opinion about where it goes.
+    // `cablePath` reads both ends off the nodes, so re-spacing a card re-routes its cable for free.
     expect(after.edges).toBe(before.edges);
   });
 
@@ -1517,8 +1434,7 @@ describe("spaceModulesEvenly", () => {
 });
 
 describe("trackModules", () => {
-  // What a lane's row is made of: the modules its signal reaches, in the order it reaches them.
-  // The ORDER is the whole contribution — a node set says which, not in what sequence.
+  // What a lane's row is made of: the modules its signal reaches, and the ORDER is the contribution.
   const song = graph(
     {
       vox: {
@@ -1547,8 +1463,7 @@ describe("trackModules", () => {
   });
 
   it("follows a send out of the lane's own chain", () => {
-    // `conv` is in the reverb chain, which vox feeds — the same reach the graph frames when it
-    // focuses a track, so the row and the framing cannot disagree about what belongs to a lane.
+    // `conv` is in the reverb chain vox feeds — the same reach the graph frames for that track.
     expect(trackModules(song, "vox")).toContain("conv");
     expect(trackModules(song, "bass")).toEqual(["drive"]);
   });
@@ -1569,16 +1484,13 @@ describe("trackModules", () => {
       },
       ["vox"],
     );
-    // Two chains of the lane naming one module is one card: two would offer two sets of
-    // controls for one thing.
+    // Two chains naming one module is one card: two would offer two sets of controls for one thing.
     expect(trackModules(shared, "vox")).toEqual(["glue"]);
   });
 });
 
 describe("moduleRow", () => {
-  // The Mixer panel: named modules laid out side by side, in the order the caller gives — the
-  // song's track order. dagre is not used, because there is nothing here to route and the order
-  // is not a layout engine's to choose.
+  // The Mixer panel: named modules side by side in the caller's order. See docs/graphBuild.md.
   const three = graph(
     {
       a: {
@@ -1620,8 +1532,7 @@ describe("moduleRow", () => {
   });
 
   it("keeps the node the full graph would draw — the card, not a copy of it", () => {
-    // Same id, same size, same chain: only the position is the row's. That is what lets a strip
-    // carry its live values, its VU and its own menu without any of it re-implemented here.
+    // Same id, same size, same chain: only the position is the row's, so nothing is re-implemented.
     const built = buildGraph(three);
     const full = layout(built.nodes, built.edges);
     const fromFull = full.nodes.find((n) => n.module === "mx-vox");
@@ -1633,8 +1544,7 @@ describe("moduleRow", () => {
   });
 
   it("strips the sockets, which on an edgeless row would plug into nothing", () => {
-    // The full graph gives this same card its jacks — a cable arrives and one leaves. Here there
-    // are no cables at all, so drawing the plates would only put furniture between the strips.
+    // The full graph gives this card jacks; here there are no cables, so plates would be furniture.
     const built = buildGraph(three);
     const fromFull = layout(built.nodes, built.edges).nodes.find(
       (n) => n.module === "mx-vox",
@@ -1647,8 +1557,7 @@ describe("moduleRow", () => {
   });
 
   it("skips a name the graph does not have, rather than leaving a hole", () => {
-    // The list comes from the compiled project and the graph is fetched separately, so the two
-    // can be one reload apart.
+    // The list and the graph are fetched separately, so the two can be one reload apart.
     const row = moduleRow(three, ["mx-vox", "gone", "mx-bass"]);
     expect(row.nodes.map((n) => n.module)).toEqual(["mx-vox", "mx-bass"]);
   });
@@ -1663,8 +1572,7 @@ describe("moduleRow", () => {
 });
 
 describe("moduleRow with links", () => {
-  // One lane's signal path: the cables are the subject, so they are carried — and the row is read
-  // ACROSS, so they meet the cards on the sides rather than diving under one to reach the next.
+  // One lane's signal path: the cables are carried, and a row read ACROSS meets them on the sides.
   const lane = graph(
     {
       vox: {
@@ -1690,8 +1598,7 @@ describe("moduleRow with links", () => {
   });
 
   it("invents nothing between neighbours the graph does not join", () => {
-    // Two cards side by side with no cable between them is the truth about a lane whose chains
-    // do not touch. A row that drew one anyway would assert a routing that is not there.
+    // Two cards with no cable between them is the truth about a lane whose chains do not touch.
     const apart = graph(
       {
         a: {
@@ -1723,8 +1630,7 @@ describe("moduleRow with links", () => {
   });
 
   it("gives every card the SAME height, so none of them is short", () => {
-    // The camera fits the row's height to the view, so one height means every card is the
-    // height of the view rather than the tallest one being it alone.
+    // The camera fits the row's height, so one height makes every card the height of the view.
     const tall = graph(
       {
         vox: {
@@ -1764,8 +1670,7 @@ describe("moduleRow width scale", () => {
   );
 
   it("widens each card without touching its height", () => {
-    // Elbow room, not bigger controls: the grid inside is a fixed cell size (widgetRect), so the
-    // height must not move or the card would gain dead space below the controls too.
+    // Elbow room, not bigger controls: the grid is a fixed cell size, so the height must not move.
     const plain = moduleRow(one, ["mx-vox"]).nodes[0];
     const wide = moduleRow(one, ["mx-vox"], { widthScale: 1.5 }).nodes[0];
     expect(wide.w).toBe(Math.round(plain.w * 1.5));
@@ -1796,8 +1701,7 @@ describe("a RACK node draws its sounds", () => {
   it("gives one pad per loaded sound, named by symbol and bound to it", () => {
     const ui = rackUI(kit);
     expect(Object.keys(ui.widgets)).toEqual(["rack:BD", "rack:HH", "rack:SN"]);
-    // The label is kept even though the pad draws bare: it is what a tooltip and a right-click
-    // name the sound by (see DomChains, which prints it for every button but a pad).
+    // The label is kept though the pad draws bare: a tooltip and a right-click name the sound by it.
     expect(ui.widgets["rack:BD"]).toMatchObject({
       type: "button",
       label: "BD",
@@ -1812,16 +1716,14 @@ describe("a RACK node draws its sounds", () => {
   });
 
   it("is never smaller than 2×2, even holding one sound", () => {
-    // Two pads side by side look like two controls; a square looks like a rack with slots free,
-    // which is what it is.
+    // Two pads in a row look like two controls; a square looks like a rack with slots free.
     expect(rackGrid(1)).toEqual({ cols: 2, rows: 2 });
     expect(rackGrid(0)).toEqual({ cols: 2, rows: 2 });
     expect(rackGrid(4)).toEqual({ cols: 2, rows: 2 });
   });
 
   it("stays square-ish as it grows, and never wider than four", () => {
-    // 4×2 for eight says less about the instrument than 3×3 does; past sixteen the grid can only
-    // get taller, or the node outgrows the pane.
+    // 4×2 for eight says less about the instrument than 3×3, and past sixteen the grid only grows down.
     expect(rackGrid(8)).toEqual({ cols: 3, rows: 3 });
     expect(rackGrid(9)).toEqual({ cols: 3, rows: 3 });
     expect(rackGrid(16)).toEqual({ cols: 4, rows: 4 });

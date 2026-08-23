@@ -11,15 +11,7 @@ import type { LoadedModule } from "./rawDoc";
 
 export { DOC_CATEGORY, DOC_REF } from "@studio/song-schema/moduleTypes";
 
-/**
- * The built-in, as the ref map holds it.
- *
- * Shaped exactly like the io modules `engineCatalogue` synthesises — `kind`, `inputs`,
- * `category` and a `file` — because a module with no folder still has to answer the same
- * questions as one with a folder. It carries no `content` of its own: the empty note is not a
- * thing anybody wants, and a node that forgets its text should read as empty rather than
- * inherit somebody else's sentence.
- */
+/** The built-in as the ref map holds it, carrying no `content` of its own — see docs/docModules.md. */
 export function docModule(): LoadedModule {
   const meta = MODULE_TYPES[DOC_CATEGORY];
   return {
@@ -31,8 +23,7 @@ export function docModule(): LoadedModule {
   };
 }
 
-/** The built-in refs this file owns, for the ref map to start from. The five LANES are the
- *  other set (trackModule.ts); `readModuleRefs` seeds both. */
+/** The built-in refs this file owns; the LANES are the other set (trackModule.ts), seeded alongside. */
 export const studioModules = (): Record<string, LoadedModule> => ({
   [DOC_REF]: docModule(),
 });

@@ -78,14 +78,7 @@ export async function generateKey(
   return pub;
 }
 
-/**
- * Install a key generated elsewhere. The public half is optional because an OpenSSH-format
- * private key already carries it — `ssh -i` needs no `.pub` beside it — but writing it when
- * we have it keeps `publicKey()` answering here too.
- *
- * `restrict` is what makes ssh accept the file: it refuses a key others can read, and on
- * Windows that is an ACL question rather than a mode, which `chmod` cannot answer.
- */
+/** Install a key generated elsewhere; the public half is optional, and `restrict` is what ssh insists on. */
 export async function installKey(
   dir: string,
   privatePem: string,
@@ -119,8 +112,7 @@ async function restrict(file: string): Promise<void> {
 /** The GIT_SSH_COMMAND that pins git to this key. */
 export function sshCommand(dir: string): string {
   const p = keyPaths(dir);
-  // IdentitiesOnly stops an agent offering the human's keys, BatchMode fails instead of prompting, and accept-new
-  // pins the host key into OUR known_hosts. git splits this sh-style even on Windows, hence the forward slashes.
+  // Every option here is load-bearing, and git splits this sh-style even on Windows — see docs/keys.md.
   const key = p.private.replaceAll("\\", "/");
   const hosts = p.knownHosts.replaceAll("\\", "/");
   return (

@@ -17,8 +17,7 @@ import type { SidHandler } from "../commands.ts";
 import { splitWords } from "./shared.ts";
 
 export const SYSTEM_VERBS: Record<string, SidHandler> = {
-  // The MACHINE's plugin cache, not this song's modules — hence `system`. The optional word is
-  // a format filter, which is what `module list vst` used to be as a verb of its own.
+  // The MACHINE's plugin cache, not this song's modules; the optional word is a format filter.
   "system.plugins.list": async (a, h) => {
     await h.listPlugins(a.trim() || undefined);
   },
@@ -27,9 +26,7 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     await h.rescanPlugins();
   },
 
-  // --- channel labels (global user preferences) -------------------------------
-  // The interface in use is shown here but CHOSEN in the médiathèque's « État du moteur »,
-  // which both switches the engine and writes this file (engine/moteur/docs/audioDevice.md).
+  // --- channel labels: shown here, but the interface is CHOSEN in « État du moteur » ---
   "system.channel.list": (_a, h) => {
     const p = loadPreferences();
     const f = formatChannels(p);
@@ -63,18 +60,7 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     clearChannelLabel(dir, ch);
     h.log([`cleared ${dir} ${ch.join("+")}`]);
   },
-  /**
-   * `system channel type <channel> <mono|stereo>` — two inputs heard as one device, or not.
-   *
-   * TWO writes for one act, and both are needed: the preference is what makes it survive (the
-   * engine forgets its grouping across a restart as surely as it forgets which interface to open,
-   * and `engineLink` replays this file on every connect), the engine message is what makes it true
-   * now. Written first, so a rig that answers slowly still remembers what was asked of it.
-   *
-   * Either half of the pair names it — `setInputPair` stores the odd one — because the interface
-   * pairs even/odd hardware channels and there is no pair 2+3 to describe. Which is also why
-   * there is no `in|out` here: an output pair is what a mix already is.
-   */
+  /** Two inputs as one device: TWO writes, preference first — ui-module-builder/docs/inputChannels.md. */
   "system.channel.type": (a, h) => {
     const [chArg, modeArg] = splitWords(a);
     const mode = (modeArg ?? "").toLowerCase();
@@ -93,24 +79,12 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
     const heard = h.setInputStereo?.(channel, stereo) ?? false;
     h.log([
       `in ${first}+${first + 1} is ${stereo ? "one stereo device" : "two mono devices"}` +
-        // No engine has still done the durable half, and saying so is the difference between
-        // "it did nothing" and "it will be there when the engine is".
+        // No engine still did the durable half, which is not the same as doing nothing.
         (heard ? "" : " — remembered; the engine hears it on its next connect"),
     ]);
   },
 
-  /**
-   * `system stems <chaîne>` — which chain separates a record, remembered once.
-   *
-   * The ONE place that answer lives. It was asked for at each use — by `playlist stems`, by a
-   * desk's surface, by the playlist panel's button — and it is the same answer every time: which
-   * module separates and which model it wants is a fact about the library and about this
-   * machine's `~/.studio/models`, not about the set list in front of you.
-   *
-   * Checked while it is set, which is the cheap moment: a chain that does not separate is refused
-   * here rather than thirty songs into a set list. A machine with no project open stores it
-   * unchecked and says so — a `@st0/…` ref has nothing to resolve against without one.
-   */
+  /** Which chain separates a record, remembered once and checked here — see docs/playlist.md. */
   "system.stems": (a, h) => {
     const ref = a.trim();
     if (!ref)
@@ -139,8 +113,7 @@ export const SYSTEM_VERBS: Record<string, SidHandler> = {
         return h.refuse([`system stems: ${(e as Error).message}`]);
       }
     } else {
-      // Not a failure: `system` verbs work with no project, and this one is worth setting from a
-      // shell that has not opened one. What it cannot do is prove the chain is there.
+      // Not a failure: `system` verbs work with no project — see docs/playlist.md.
       checked = " — not checked: no project is open to resolve it against";
     }
     setStemsChain(ref);

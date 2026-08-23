@@ -24,8 +24,7 @@ export interface UserPreset {
 
 const VALID_NAME = /^[A-Za-z0-9 _-]+$/;
 
-/** The `presets.yaml` for a module ref, or null: only a module with a FOLDER can hold presets, which
- *  means a local plugin module. An inherited one is read where it lives; see docs/userPresets.md. */
+/** The `presets.yaml` for a module ref, or null — only a LOCAL plugin module has a folder to hold one. */
 export function modulePresetsFile(
   dir: string,
   moduleRef: string,
@@ -38,8 +37,7 @@ export function modulePresetsFile(
   return join(dir, "modules", type, name, `${PRESETS_BASE}.yaml`);
 }
 
-/** Every preset the file declares, or an empty map. A file the schema refuses reads as EMPTY rather than
- *  throwing: one malformed shelf must not stop a module loading, exactly like a malformed panel. */
+/** Every preset the file declares; a file the schema refuses reads as EMPTY rather than throwing. */
 function readPresets(path: string | null): PresetsFile {
   if (!path) return {};
   const found = moduleFileFor(dirname(path), "", PRESETS_BASE);
@@ -63,12 +61,7 @@ export function listModulePresets(
   );
 }
 
-/**
- * Snapshot a module's authored params as a new named preset.
- *
- * Throws verbatim on a bad name, a module that can't hold presets, an empty snapshot, or a name already taken —
- * overwriting is a decision, not a side effect of saving.
- */
+/** Snapshot a module's authored params as a new named preset; a taken name throws, since overwriting is a decision. */
 export function saveModuleAsPreset(
   dir: string,
   module: string,
@@ -140,13 +133,7 @@ const key = (k: string): string =>
     ? k
     : JSON.stringify(k);
 
-/**
- * Serialise the shelf: one FLOW mapping per preset, hand-written rather than through `stringify`.
- *
- * A preset is read as a row — a name and the handful of values it sets — and the block form turns six presets
- * into forty lines nobody scans. It also keeps adding one to a one-line diff. Same argument, same shape, as
- * the panel writer's widgets.
- */
+/** Serialise the shelf: one FLOW mapping per preset, so a preset reads as a row and adding one is a one-line diff. */
 function presetsFileText(ref: string, presets: PresetsFile): string {
   PresetsFileSchema.parse(presets);
   const lines = [`# presets for ${ref}`];

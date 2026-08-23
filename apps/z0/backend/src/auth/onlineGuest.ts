@@ -5,12 +5,7 @@ import type { GristRecord } from "../grist/client.ts";
 import { asString } from "../grist/values.ts";
 import { setSessionUser } from "./session.ts";
 
-// Online-guest entry flow (online_guest.go), used by the SPA's /t/<token>
-// route. The browser keeps a UUID ("guest subject") in localStorage; the
-// Guests Grist table maps subject → username (globally unique, application-
-// enforced). A successful claim sets the normal session cookie with
-// kind="guest_online" and sub=<UUID>, so everywhere that gates on a subject
-// treats the guest like a real user (solo score/progress accept it).
+// An online guest gets a subject of their own, so every gate that reads one treats them as a user.
 
 const gristOr503 = (res: Response) => {
   if (!gameState.gristClient) {
@@ -20,8 +15,7 @@ const gristOr503 = (res: Response) => {
   return gameState.gristClient;
 };
 
-// GET /sessions/by-token/:token — public alias → (id, name) resolver so the
-// gate can show "you're about to play <name>" to unauthenticated visitors.
+// GET /sessions/by-token/:token — public, so the gate can name the session before anyone logs in.
 export async function handleResolveSessionToken(
   req: Request,
   res: Response,
@@ -47,8 +41,7 @@ export async function handleResolveSessionToken(
   res.json({ id: rows[0].id, name: asString(rows[0].fields.name) });
 }
 
-// GET /auth/guest-lookup?id=<uuid> — pre-fill the gate with the username last
-// associated with this browser's stored guest UUID. Quiet 404 = first-timer.
+// GET /auth/guest-lookup?id=<uuid> — pre-fill the gate; a quiet 404 just means a first-timer.
 export async function handleGuestLookup(
   req: Request,
   res: Response,
@@ -77,10 +70,7 @@ export async function handleGuestLookup(
   });
 }
 
-// POST /auth/guest-online — claim (or re-claim) a guest identity.
-// Returning guest: matching guestId row; a changed username must still be
-// globally unique (rename). Fresh guest: mint/keep a UUID, insert the row.
-// 409 on collision; 200 with {guestId, username}.
+// POST /auth/guest-online — claim or re-claim a guest identity; 409 when the name is taken.
 export async function handleAuthGuestOnline(
   req: Request,
   res: Response,
@@ -125,8 +115,7 @@ export async function handleAuthGuestOnline(
       res.status(409).json({ error: "username taken" });
       return;
     }
-    // Keep a well-formed caller-provided id so a guest whose row was deleted
-    // still lines up with their old Scores rows.
+    // Keep the caller's id when it is well-formed, so a wiped row still meets its old Scores.
     const newId = looksLikeGuestId(guestId) ? guestId : mintGuestId();
     await g.addRecords("Guests", [
       { subject: newId, username, createdAt: Math.floor(Date.now() / 1000) },
@@ -151,8 +140,7 @@ async function findGuestBySubject(
   return rows[0] ?? null;
 }
 
-// Case-insensitive uniqueness over the whole (small) Guests table — Grist has
-// no case-insensitive Text equality, so fold here.
+// Folded here over the whole (small) table: Grist has no case-insensitive Text equality.
 async function isUsernameTaken(
   username: string,
   exceptRowId: number,

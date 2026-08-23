@@ -9,35 +9,22 @@ import { extOf, isAudio } from "./media.ts";
 import { NotAudioError, segment } from "./song.ts";
 import { putFile } from "./write.ts";
 
-/** The zone, mediatek-relative. A path and not a directory, because everything that writes
- *  here goes through `putFile`, which takes one. */
+/** The zone, mediatek-relative — a path, not a directory, because every write goes through `putFile`. */
 export const recordingsRoot = (): string => RECORDINGS_DIR;
 
 const two = (n: number): string => String(n).padStart(2, "0");
 
-/** The day a capture is filed under, in LOCAL time — a rehearsal that ran to 00:30 is
- *  filed by the wall clock of whoever played it, not by UTC's idea of the date. */
+/** The day a capture is filed under, in LOCAL time — the wall clock of whoever played it. */
 export function dayOf(at: Date): string {
   return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())}`;
 }
 
-/** The capture's own name, `HH-MM-SS`. Colons would be legal on two systems out of three,
- *  which is one too few for a path this one writes. */
+/** The capture's own name, `HH-MM-SS` — colons are legal on only two systems out of three. */
 export function stampOf(at: Date): string {
   return `${two(at.getHours())}-${two(at.getMinutes())}-${two(at.getSeconds())}`;
 }
 
-/**
- * A moment's file name, without extension: `moment-<HH-MM-SS>--<secondes>--<nom>`.
- *
- * A moment is a span cut out of a session — an hour, a length and, sometimes, a name — so
- * all three are in the name. It sits in the same day folder as the captures: it IS one, a
- * shorter one, and splitting it off would make "what did we play that evening" two places.
- *
- * `--` separates the fields, so a name that carries its own run of hyphens is collapsed to
- * one: nothing parses this back, but a human reading `moment-21-05-07--15--Solo` should
- * not have to guess where the length ended.
- */
+/** A moment's file name: `moment-<HH-MM-SS>--<secondes>--<nom>`, in the day folder — docs/recordings.md. */
 export function momentStem(
   at: Date,
   durationSec: number,
@@ -61,26 +48,15 @@ export interface RecordingDay {
   files: RecordingFile[];
 }
 
-/**
- * File one capture, under the day and second it was made.
- *
- * A second is not a unique key — two microphones stopping together is an ordinary
- * afternoon, not a conflict to report — so a taken name gains `-2`, `-3`, … rather than
- * failing or overwriting. That is the opposite of `addSong`'s 409, and deliberately:
- * there, two uploads deducing one folder means the same song twice; here, two files at
- * the same second are two different files.
- */
+/** File one capture under the day and second it was made, a taken name gaining `-2` — docs/recordings.md. */
 export function addRecording(opts: {
   filename: string;
   bytes: Uint8Array;
-  /** When it was CAPTURED. The caller knows and the server does not — a batch pushed the
-   *  morning after would otherwise land, whole, under the wrong day. */
+  /** When it was CAPTURED — a batch pushed the morning after would otherwise land under one wrong day. */
   at?: Date;
-  /** How long the span is, in seconds. Present == this is a MOMENT cut out of a session,
-   *  and it is named as one. Absent == a whole capture. */
+  /** How long the span is, in seconds; present == a MOMENT cut out of a session, absent == a whole capture. */
   durationSec?: number;
-  /** A moment's name, when it has one. Ignored without `durationSec`: a capture is named
-   *  by its clock alone, and nothing names one. */
+  /** A moment's name, when it has one — ignored without `durationSec`, a capture being named by its clock. */
   label?: string;
 }): { path: string; day: string; name: string } {
   if (!isAudio(opts.filename))
@@ -107,8 +83,7 @@ export function countRecordings(): number {
   return listRecordings().reduce((n, d) => n + d.files.length, 0);
 }
 
-/** Directory entry names, or none for a folder that is not there — the ordinary case for
- *  the first capture of a day. */
+/** Directory entry names, or none for a folder that is not there — the first capture of a day. */
 function names(abs: string): string[] {
   try {
     return readdirSync(abs);
@@ -117,13 +92,7 @@ function names(abs: string): string[] {
   }
 }
 
-/**
- * Every day and every capture in it, newest day first.
- *
- * Its own listing rather than a family scan: these produce no `MediatekEntry`, so nothing
- * in the catalogue would ever mention them. Sorted here and not by the caller — a listing
- * that reshuffles between two polls is unusable, and `readdir` order is not stable.
- */
+/** Every day and every capture in it, newest day first and sorted here — `readdir` order is not stable. */
 export function listRecordings(): RecordingDay[] {
   const root = recordingsDir();
   const days: RecordingDay[] = [];

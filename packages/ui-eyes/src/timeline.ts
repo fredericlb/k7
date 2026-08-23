@@ -10,8 +10,7 @@ export interface Active {
   sourceTime: number;
 }
 
-// The clip active on `layer` at `t`, or null. Intervals are half-open, so a cut boundary belongs to the LATER clip
-// and a frame is never drawn from two. A length-0 clip runs to the next clip's start, or to the end.
+// The clip active on `layer` at `t`, or null. Half-open intervals, so a cut belongs to the LATER clip; length 0 runs to the next start.
 export function activeAt(layer: VideoLayer, t: number): Active | null {
   const clips = layer.clips;
   for (let i = 0; i < clips.length; i++) {

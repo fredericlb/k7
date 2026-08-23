@@ -24,12 +24,10 @@ import {
 } from "lucide-react";
 import type { GitStatus } from "../types";
 
-/** One surface's address, ready to hand over. Computed by `App`, which is where the launch
- *  parameters and the surface list both are; this panel only draws them. */
+/** One surface's address, ready to hand over — computed by `App`, which holds both the launch parameters and the surface list. */
 export type SurfaceLink = { id: string; type: string; url: string };
 
-/** The badge the header's button wears: `!` for a diverged branch, else the commits waiting.
- *  Exported so the button and the panel cannot disagree about what the repo is doing. */
+/** The badge the header's button wears — exported so the button and the panel cannot disagree about what the repo is doing. */
 export function shareBadge(gitStatus: GitStatus | null): {
   behind: number;
   conflicted: boolean;
@@ -54,8 +52,7 @@ export function SharePanel({
   gitStatus: GitStatus | null;
   /** A render is already running — the rows grey out rather than starting a second. */
   busy: boolean;
-  /** Every surface this project declares — all of them open on a second device. Empty is a
-   *  project that declares none at all, and the section is then absent rather than empty. */
+  /** Every surface this project declares — empty is a project that declares none, and the section is then absent rather than empty. */
   externals: readonly SurfaceLink[];
   onRun: (command: string) => void;
   onClose: () => void;
@@ -66,8 +63,7 @@ export function SharePanel({
     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50";
   const head = "px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground";
 
-  // `project commit` takes the message as the rest of its line, so this asks for one before
-  // dispatching — an empty prompt is a cancelled commit, not a command run with no message.
+  // `project commit` takes the message as the rest of its line, so this asks first — an empty prompt is a cancelled commit.
   const commit = () => {
     const message = window
       .prompt("Commit message (stages + pushes the whole repo):", "")
@@ -115,8 +111,7 @@ export function SharePanel({
             </span>
           ) : null}
         </button>
-        {/* Said in the panel and not only in a tooltip on the button: a branch that cannot
-            fast-forward needs a merge by hand, and that is a sentence, not a badge. */}
+        {/* Said in the panel and not only in a tooltip: a branch that cannot fast-forward needs a merge by hand, which is a sentence. */}
         {conflicted ? (
           <p className="px-2 py-1 text-xs text-amber-500">
             le dépôt a divergé — un pull demande une fusion à la main
@@ -145,9 +140,7 @@ export function SharePanel({
         </button>
 
         <div className="my-1 border-t border-border" />
-        {/* The two that PUBLISH, and they publish different things: k7 gets a release, a link
-            gets a frozen copy of the project itself — playable and readable by anyone who has
-            it, with no account and no engine. See packages/commands/docs/shareBundle.md. */}
+        {/* The two that PUBLISH different things: k7 gets a release, a link gets a frozen copy (packages/commands/docs/shareBundle.md). */}
         <div className={head}>Publier</div>
         <button
           type="button"
@@ -168,24 +161,14 @@ export function SharePanel({
           Share to k7
         </button>
 
-        {/* The addresses of this project's own surfaces — `<projet>/@external/<nom>`, one screen
-            alone on a second device, driving THIS engine. Here because this panel is already
-            where every address the project hands out is found, and because the gesture is the
-            same one: you are giving somebody — or some tablet — a link.
-
-            It is not a share, and the two sit apart for that reason: a share is frozen,
-            account-less and read-only, while this needs the account, needs an engine, and WRITES.
-            Every declared surface is listed: the four types all draw on a second device, so a
-            filter here would hide an address that works. See ../docs/external.md. */}
+        {/* The addresses of this project's surfaces, apart from the shares because these need the account and an engine and WRITE (../docs/external.md). */}
         {externals.length ? (
           <>
             <div className="my-1 border-t border-border" />
             <div className={head}>Sur un autre appareil</div>
             {externals.map((x) => (
               <div key={x.id} className="flex items-center gap-1">
-                {/* A LINK, not a command: opening it here would replace the editor you are
-                    standing in front of, so it goes to a new tab and the address bar is what
-                    carries it to the phone. The copy beside it IS the command. */}
+                {/* A LINK, not a command: opening it here would replace the editor, so it goes to a new tab and the copy beside it IS the command. */}
                 <a
                   href={x.url}
                   target="_blank"

@@ -26,8 +26,7 @@ describe("geolerp's ends", () => {
   });
 
   it("names the fix rather than only the fault", () => {
-    // "Wrong" is not actionable on its own: the whole point is that the obvious spelling is the
-    // wrong one, so the message has to carry the other one.
+    // The obvious spelling IS the wrong one, so the message has to carry the other one.
     let message = "";
     try {
       graph((g) => {
@@ -55,8 +54,7 @@ describe("geolerp's ends", () => {
   });
 
   it("says nothing about ends it cannot see", () => {
-    // Params, not literals: the auto-wah's `low`/`high` are knobs, and which is larger is the
-    // player's business at run time. Guessing there would refuse a legitimate graph.
+    // Params, not literals: which knob is larger is the player's business at run time.
     expect(() =>
       graph((g) => {
         const low = g.param("Low", { min: 60, max: 8000, default: 200 });

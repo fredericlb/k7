@@ -13,11 +13,7 @@ import type {
 } from "../types";
 import { useRevision } from "./useRevision";
 
-/**
- * The repo's ahead/behind for the share badge. A network op on the server (it fetches),
- * so it's called sparingly: on a 10-minute timer and right after a commit/pull
- * (refresh). Failures leave the last-known badge rather than clearing it.
- */
+/** The repo's ahead/behind for the share badge — a network op on the server, so it runs on a 10-minute timer and after a commit or pull. */
 export function useGitStatus(): {
   gitStatus: GitStatus | null;
   refreshGitStatus: () => void;
@@ -37,22 +33,11 @@ export function useGitStatus(): {
   return { gitStatus, refreshGitStatus };
 }
 
-/**
- * Whether two answers from the pattern clock say the same thing.
- *
- * By serialisation rather than a field-by-field compare, on purpose: `WebTrack` is a wide shape
- * that grows, and a hand-rolled equality would quietly stop noticing whatever was added last.
- * A few generated lanes stringified once every 700 ms is nothing beside the render it prevents.
- */
+/** Whether two answers from the pattern clock say the same thing — by serialisation, a hand-rolled equality quietly missing what was added last. */
 const sameTracks = (a: WebTrack[], b: WebTrack[]): boolean =>
   a.length === b.length && JSON.stringify(a) === JSON.stringify(b);
 
-/**
- * The pattern clock's live lanes — polled only in a song that HAS a strudel track.
- * Without one the clock can never produce a lane, so the poll would ask for an empty
- * list forever. Clearing on the way out matters: a project switch from a strudel song
- * to a plain one would otherwise strand the old song's lanes on the timeline.
- */
+/** The pattern clock's live lanes, polled only in a song that HAS a strudel track; clearing on the way out is what stops lanes stranding. */
 export function useOrbit(hasStrudel: boolean): WebTrack[] {
   const [orbit, setOrbit] = useState<WebTrack[]>([]);
   useEffect(() => {
@@ -61,9 +46,7 @@ export function useOrbit(hasStrudel: boolean): WebTrack[] {
       return;
     }
     let alive = true;
-    // Only when they actually CHANGED. This lands a fresh array 1.4 times a second, and the
-    // timeline derives its whole row list from it — so an unchanged answer used to rebuild
-    // every lane and every clip, playing or not.
+    // Only when they actually CHANGED: this lands a fresh array 1.4 times a second, and the timeline derives its whole row list from it.
     const tick = () =>
       api
         .strudelTracks()
@@ -82,18 +65,7 @@ export function useOrbit(hasStrudel: boolean): WebTrack[] {
   return orbit;
 }
 
-/**
- * The project's errors — the count for the status badge, and the located diagnostics
- * for the editor's inline squiggles.
- *
- * Gated on the change token rather than run on a timer: /project-errors compiles the
- * project, and this used to pay it every 2 seconds whether or not a file had moved.
- * /revision is a file walk (~2ms) that answers "has anything changed" — so the check
- * runs once per edit instead of thirty times a minute while you read. `reloadKey`
- * still forces a pass: an action can change the answer without changing a source.
- *
- * The token itself is polled once for the whole app (`useRevision`), not once per consumer.
- */
+/** The project's errors, gated on the change token rather than a timer — `/project-errors` compiles the project, `/revision` is a 2 ms file walk. */
 export function useProjectErrors(reloadKey: number): {
   projectErrors: number;
   diagnostics: Diagnostic[];
@@ -124,16 +96,7 @@ export function useProjectErrors(reloadKey: number): {
   return { projectErrors, diagnostics };
 }
 
-/**
- * Waveforms are cached + prewarmed on the backend; this kicks it and tracks progress.
- *
- * It steps aside for the transport. The batch runs a SECOND engine process to decode every
- * stale source, on the same machine as the engine that is playing, and the two competing for
- * cores is what made the playhead stutter through the first playback of a session — the only
- * one that pays, since the sidecars are cached after it. So: never start while playing, and
- * cancel an in-flight batch the moment the transport does. Whatever was already written stays
- * written, so stopping and resuming costs only the file that was mid-decode.
- */
+/** Waveforms are cached and prewarmed on the backend; this kicks it, and steps aside for the transport — the decode competes for the same cores. */
 export function useWarmWaveforms(
   reloadKey: number,
   playing: boolean,
@@ -167,8 +130,7 @@ export function useWarmWaveforms(
     if (playing) return; // the machine is busy making sound; ask again when it stops
     void warmWaveforms();
   }, [reloadKey, warmWaveforms, playing]);
-  // Kill the batch on the transport's edge. The polling loop above ends on its own: a cancelled
-  // prewarm reports `warming: false`, which is exactly what the loop waits for.
+  // Kill the batch on the transport's edge; the polling loop ends on its own, a cancelled prewarm reporting `warming: false`.
   useEffect(() => {
     if (!playing) return;
     void api.cancelWaveformPrewarm().catch(() => {});
@@ -176,23 +138,7 @@ export function useWarmWaveforms(
   return warm;
 }
 
-/**
- * Follow what happens to the workspace under us — the two things this tab did not do itself.
- *
- * A project SWITCH (another tab, the CLI): refresh the workspace + project state and bump the
- * reload. `lastActiveRef` is shared with the shell so its own opens don't read as a switch.
- *
- * And a TAKE landing. That one is not a poll of its own: the answer is already in this
- * request, and the hook simply stopped reading it. A recording is the one edit nobody types —
- * the ENGINE writes the wav, the file service declares the clip and places it on the lane —
- * so no command reply ever tells this tab about it. Without this, a take appeared only when
- * the next command happened to reload the document, which is why stopping with the header's
- * Stop button never showed one at all: the clip was on disk and on the lane, and the screen
- * went on showing the song without it.
- *
- * The first answer only SEEDS the take: `lastTake` is the service's memory of the newest take
- * ever, so firing on it would reopen the review of an old recording on every page load.
- */
+/** Follow what happens to the workspace under us: a project SWITCH, and a TAKE landing — the one edit nobody types, so no command reply mentions it. */
 export function useActiveProjectFollow(opts: {
   lastActiveRef: React.RefObject<string | null>;
   onSwitch: (w: WorkspaceInfo) => void;
@@ -223,14 +169,7 @@ export function useActiveProjectFollow(opts: {
   }, []);
 }
 
-/**
- * Is `clip` a take this tab has not seen? `seen` is undefined before the first answer.
- *
- * The undefined case is the whole of it: `lastTake` is the file service's memory of the newest
- * take it ever wrote, not a fresh event, so a tab opened hours later is told about a recording
- * from this morning. Seeding on the first answer is what makes this mean "a take just landed"
- * rather than "a take exists".
- */
+/** Is `clip` a take this tab has not seen? Seeding on the first answer is what makes this mean 'a take just landed' rather than 'a take exists'. */
 export const isNewTake = (
   seen: string | null | undefined,
   clip: string | null,

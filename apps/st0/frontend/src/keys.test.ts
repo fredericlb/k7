@@ -32,8 +32,7 @@ describe("the Escape ladder", () => {
     expect(esc({ graph_slot: "1", fullscreen: "1" })).toBe("ui slot close");
   });
 
-  // The slot sits INSIDE the chains pane, so a fullscreened pane holding an open clip has to
-  // give the clip up first — leaving the layout before the thing you were reading is backwards.
+  // The slot sits INSIDE the chains pane, so a fullscreened pane has to give the clip up first — leaving the layout first is backwards.
   it("leaves a fullscreened pane only once the slot is empty", () => {
     expect(esc({ fullscreen: "1" })).toBe("ui global");
   });
@@ -44,14 +43,12 @@ describe("the Escape ladder", () => {
 });
 
 describe("the transport keys", () => {
-  // Space must name a command that moves the transport and nothing view-shaped: the whole point
-  // of the focus rule in App is that this one key survives whatever had focus.
+  // Space must name a command that moves the transport and nothing view-shaped: this one key survives whatever had focus.
   it("space toggles playback", () => {
     expect(resolveBinding(KEYS.space, {})).toBe("transport toggle");
   });
 
-  // Same survival rule as space: the shifted pair must also get through a focused control,
-  // which is why App's listener names both tokens.
+  // Same survival rule as space: the shifted pair must get through a focused control, which is why App names both tokens.
   it("shift+space replays from where playback last started", () => {
     expect(resolveBinding(KEYS["shift+space"], {})).toBe("transport replay");
   });
@@ -61,14 +58,9 @@ describe("the transport keys", () => {
   });
 });
 
-// The clipboard chords — the only two this shell takes off the browser. Pinned here because
-// "⌃C copies the rectangle" is a promise about a key the browser also has a use for, and the
-// four tokens have to keep resolving to the same two commands. See docs/clipEditors.md.
+// The clipboard chords, the only two this shell takes off the browser — the four tokens must keep resolving to the same two commands.
 describe("the clipboard keys", () => {
-  // UNCONDITIONAL, and this is the regression the pair is pinned against: they were conditional
-  // on a `v` rectangle being drawn, so copying an event you had SELECTED BY CLICKING did nothing
-  // and said nothing — and the paste then reported an empty clipboard. Both commands answer in
-  // every state now (the caret is a one-cell rectangle), so neither key may go quiet again.
+  // UNCONDITIONAL, and the regression it is pinned against: conditional on a rectangle, copying a clicked event did nothing and said nothing.
   it("⌃C and c copy whatever the state, so the key is never silent", () => {
     expect(resolveBinding(KEYS["ctrl+c"], {})).toBe("selection copy");
     expect(resolveBinding(KEYS.c, {})).toBe("selection copy");
@@ -79,8 +71,7 @@ describe("the clipboard keys", () => {
     expect(resolveBinding(KEYS.p, {})).toBe("selection paste");
   });
 
-  // The chord is listed first in KEYS, which is what makes it the one the help legend and the
-  // settings page advertise — `shortcutsByCommand` takes the first token naming a command.
+  // The chord is listed first in KEYS, which is what makes it the one advertised — `shortcutsByCommand` takes the first token.
   it("the legend advertises the chord, not the plain letter", () => {
     const by = shortcutsByCommand();
     expect(by["selection copy"]).toBe("Ctrl+C");
@@ -102,8 +93,7 @@ describe("the clipboard keys", () => {
   });
 });
 
-// The person's own keymap (the settings page's shortcut cells): assignments move a shortcut
-// rather than doubling it, steals are total, and the conditional bindings stay the app's.
+// The person's own keymap: assignments move a shortcut rather than doubling it, steals are total, and the conditional bindings stay the app's.
 describe("effectiveKeys / resolveToken", () => {
   it("an assignment moves the command — the new token runs it, the default goes dead", () => {
     const eff = effectiveKeys({ "transport toggle": { key: "p" } });

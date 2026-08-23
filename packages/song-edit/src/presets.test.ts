@@ -32,9 +32,7 @@ const SONG = join(
 );
 const REF = "instruments/synth"; // the synth module's own ref
 
-// A preset is a NAME and the values it sets, and the whole shelf is one file in the module's folder — the
-// third sibling of module.yaml and ui.yaml. What these pin down is that the round trip survives the file
-// (save, list, apply), and that the module folder's own three files are never mistaken for nodes of it.
+// A preset is a NAME and the values it sets; the whole shelf is one file in the module's folder.
 
 // modulePresetsFile is pure string work — no fs — so it always runs.
 describe("modulePresetsFile", () => {
@@ -92,8 +90,7 @@ describe("presets round-trip (synth-demo)", () => {
     saveModuleAsPreset(dir, "synth", "bright");
     const lines = shelf().trim().split("\n");
     expect(lines[0]).toMatch(/^# presets for instruments\/synth$/);
-    // A param name with a space needs no quotes as a YAML key, and quoting it anyway would put noise in
-    // every line of every shelf — the names plugins use are almost all like this.
+    // A param name with a space needs no quotes as a YAML key, and plugins name nearly all of theirs so.
     expect(lines[1]).toBe("warm: { Filter Freq: 0.42 }");
     expect(lines[2]).toBe("bright: { Filter Freq: 0.9 }");
   });
@@ -135,8 +132,7 @@ describe("presets round-trip (synth-demo)", () => {
   });
 
   it("is not read as a node of the module it sits beside", () => {
-    // The same hazard `ui.yaml` has: every other `<name>.yaml` in a module folder is one USE of the module,
-    // so an unguarded shelf would come back as a module called "synth:presets".
+    // Every other `<name>.yaml` in a module folder is one USE of it, so this would read as "synth:presets".
     setModuleParam(dir, "synth", "Filter Freq", 0.42);
     saveModuleAsPreset(dir, "synth", "warm");
     expect(Object.keys(loadModules(dir))).not.toContain("synth:presets");

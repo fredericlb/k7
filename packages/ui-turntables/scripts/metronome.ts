@@ -111,11 +111,9 @@ ws.on("open", () => {
   send({ type: "transport", action: "seek", position: TIMELINE_BASE });
   send({ type: "transport", action: "play" });
   send({ type: "broadcast", on: true });
-  // Halfway through, move the tempo the way a drag does. The click clip is rebuilt, and its
-  // second placement is the one that can be wrong.
+  // Halfway through, move the tempo the way a drag does — the rebuilt clip is the fragile placement.
   setTimeout(() => {
-    // Through the real gesture, so the deck's SLIP moves too — the click has to follow the
-    // grid where the pitch fader left it, not where it started.
+    // Through the REAL gesture, so the deck's slip moves too and the click follows the grid.
     tempos = nudgedTempos(tempos, null, null, "deckA", 136, sourceOf);
     changedAt = total;
     push();
@@ -181,8 +179,7 @@ function finish() {
     process.exit(1);
   }
 
-  // The capture starts at an unknown transport second, so the tap's own offset is measured
-  // once from the FIRST click and every later one is checked against the grid from there.
+  // The capture starts at an unknown transport second, so the offset is taken from the FIRST click.
   const gridOf = (t: NonNullable<DeckTempos["deckA"]>) => {
     const period = 60 / t.target;
     const first = transportAt(t.phase ?? 0, t);

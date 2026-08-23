@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetDeezerState, previewUrl, trackByISRC } from "./deezer.ts";
 
-// Preview URLs are signed and short-lived, so the cache has to key off the
-// URL's own `exp` stamp rather than a fixed TTL — that's what these pin down,
-// along with the limiter that keeps us under Deezer's per-IP quota.
+// The cache keys off the URL's own `exp` stamp, not a fixed TTL; the limiter is pinned here too.
 
 const previewFor = (id: number, expUnix: number) =>
   `https://cdn.example/${id}.mp3?hdnea=exp=${expUnix}~acl=/x~hmac=deadbeef`;

@@ -16,8 +16,7 @@ const TIMEOUT_MS = 5 * 60_000;
 
 const bin = (): string => process.env.YTDLP_BIN || "yt-dlp";
 
-/** What YouTube is asked. The artist IS wanted here, unlike the Soulseek search: a video title
- *  reads "Artist - Title", so the artist is in the very field being queried. */
+/** The artist IS wanted here, unlike on Soulseek: a video title reads "Artist - Title". */
 export function youtubeQuery(tags: {
   artist?: string;
   title?: string;
@@ -28,19 +27,10 @@ export function youtubeQuery(tags: {
   return named || tags.query.trim();
 }
 
-/**
- * yt-dlp's arguments, as an ARRAY.
- *
- * An array and never a command line: the query is whatever somebody typed, and `execFile` with no
- * shell makes it one argument whatever quotes, semicolons or `$(…)` it carries.
- *
- * `--audio-format best` does NOT convert — it keeps the source codec. YouTube serves Opus around
- * 130 kbps, and re-encoding that to mp3 would be lossy-to-lossy, worse than either, for nothing.
- */
+/** An ARRAY and never a command line, and `best` keeps the codec — see ../../docs/hunt.md. */
 export function ytdlpArgs(query: string, outDir: string): string[] {
   return [
-    // `ytsearch1:` turns a phrase into one video without querying YouTube ourselves — and one
-    // result only, because the second is already a cover or a live take.
+    // `ytsearch1:` turns a phrase into one video; the second is already a cover or a live take.
     `ytsearch1:${query}`,
     "--no-playlist",
     "--extract-audio",
@@ -59,8 +49,7 @@ export function ytdlpArgs(query: string, outDir: string): string[] {
   ];
 }
 
-/** The one audio file in the output folder, or null. yt-dlp names by video id, so the extension
- *  cannot be guessed before looking — the codec is what gives it. */
+/** The one audio file in the folder: yt-dlp names by video id, so only the codec gives the extension. */
 export function audioIn(dir: string): string | null {
   try {
     return readdirSync(dir).find((f) => isAudio(f)) ?? null;
@@ -71,8 +60,7 @@ export function audioIn(dir: string): string | null {
 
 let probed: boolean | null = null;
 
-/** Is yt-dlp there? Probed once: it is a binary in the image and does not appear mid-run, and
- *  asking on every history render would be a `spawn` per poll. */
+/** Is yt-dlp there? Probed once: it is a binary in the image and does not appear mid-run. */
 export async function youtubeAvailable(): Promise<boolean> {
   if (probed !== null) return probed;
   probed = await new Promise<boolean>((resolve) => {
@@ -81,9 +69,7 @@ export async function youtubeAvailable(): Promise<boolean> {
   return probed;
 }
 
-/** Fetch the track from YouTube. The work folder is under `.hunts/tmp/` — real space on the
- *  volume, hidden from family scans by the dot — and removed whatever happens, since a failed
- *  download would otherwise leave bytes nothing names. */
+/** Fetch the track. The work folder is `.hunts/tmp/<id>`, removed whatever happens. */
 export async function fetchFromYoutube(
   query: string,
   id: string,

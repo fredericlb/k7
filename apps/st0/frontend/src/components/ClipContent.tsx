@@ -9,13 +9,7 @@ import { api } from "../api";
 import { clipEnvelopeKey, type EnvelopeProject } from "../clipEnvelope";
 import type { WebClip, WebNote, WebWaveform } from "../types";
 
-/**
- * Memoised, because the timeline re-renders for reasons no clip cares about — the caret
- * moving, a hover, a poll landing — and this is the most numerous thing on the surface once
- * the lanes are expanded. Both props settle it by shallow compare: `clip` comes off the
- * project doc and keeps its identity until the doc is refetched, and `spanBeats` is a number.
- * Below here a waveform is fetched per clip, so a needless re-render is not free.
- */
+/** Memoised: this is the most numerous thing on the surface once the lanes are expanded, and below here a waveform is fetched per clip. */
 export const ClipContent = memo(function ClipContent({
   clip,
   spanBeats,
@@ -24,8 +18,7 @@ export const ClipContent = memo(function ClipContent({
   clip: WebClip;
   // The beats the block spans on screen — notes lay out against this, so the mini-roll lines up with the arrangement.
   spanBeats: number;
-  // Tempo and time signature: they decide how much of the source the region shows, so they are
-  // part of the envelope's identity rather than of its drawing.
+  // Tempo and time signature decide how much of the source the region shows, so they are part of the envelope's identity.
   project: EnvelopeProject;
 }) {
   return clip.type === "midi" ? (
@@ -40,8 +33,7 @@ export const ClipContent = memo(function ClipContent({
   );
 });
 
-// The notes as a mini piano-roll, y scaled to the clip's own note range. A looping clip tiles its window's notes
-// exactly as the engine repeats them, so a short pattern reads as the repeats it plays.
+// The notes as a mini piano-roll, y scaled to the clip's own range; a looping clip tiles its window's notes as the engine repeats them.
 function ClipMidi({
   notes,
   spanBeats,
@@ -98,22 +90,10 @@ function ClipMidi({
 // A modest bucket count — the lane block is small, so more would just be thrown away by the polygon's linear stretch.
 const BUCKETS = 160;
 
-/**
- * ONE entry per clip, holding the key it was fetched under — the same shape (and the same
- * reason) as the file service's own `WfEntry`: a changed key misses, and replacing the entry
- * rather than adding one keeps this bounded by the clip count however many times a clip is
- * trimmed or moved. `data: null` means tried and failed, so it isn't retried each mount.
- */
+/** ONE entry per clip, holding the key it was fetched under — so this stays bounded by the clip count however often one is trimmed. */
 const wfCache = new Map<string, { key: string; data: WebWaveform | null }>();
 
-/**
- * The clip's envelope, fetched once and shared: the expanded lane's waveform and the block's
- * activity mask read the SAME entry, so opening the lanes up costs no second decode. Pass
- * null to ask for nothing (a MIDI clip has no envelope, and hooks cannot be conditional).
- *
- * It is keyed by `clipEnvelopeKey` and not by the id, because a trim changes what the clip
- * plays without changing anything the id can see — see src/clipEnvelope.ts.
- */
+/** The clip's envelope, fetched once and shared, keyed by `clipEnvelopeKey` — a trim changes what plays without changing the id. */
 export function useClipWaveform(
   clip: WebClip | null,
   project: EnvelopeProject,

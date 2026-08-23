@@ -33,12 +33,7 @@ let ws: string;
 let dir: string;
 let library: string;
 
-/**
- * A WAV header and `seconds` of silence — enough to BE a file, and to have a LENGTH.
- *
- * The length matters since the render's duration is what a clip's stretch map is retimed onto.
- * 16-bit stereo at 48k, so a second is 192 000 bytes: small enough to write a few of.
- */
+/** A WAV header and `seconds` of silence — the LENGTH is what a stretch map is retimed onto. */
 function wav(path: string, seconds = 0): void {
   const bytes = Math.round(seconds * 48000) * 4;
   const b = Buffer.alloc(44 + bytes);
@@ -63,8 +58,7 @@ const put = (root: string, rel: string, body: string): void => {
   writeFileSync(path, body, "utf8");
 };
 
-/** A song: one guitar track through an amp and its strip, playing one clip.
- *  In a WORKSPACE folder, because the library submodule is mounted beside it. */
+/** A song in a WORKSPACE folder, since the library submodule is mounted beside it. */
 function song(): string {
   ws = mkdtempSync(join(tmpdir(), "td-process-ws-"));
   const d = join(ws, "song");
@@ -100,13 +94,7 @@ function song(): string {
   return d;
 }
 
-/**
- * The account's LIBRARY submodule, holding one module and one chain that uses it twice.
- *
- * Beside the project rather than at `$STUDIO_MEDIATEK`: the modules and chains a project
- * inherits are a git checkout in its workspace now, so there is no environment to set and
- * nothing to restore. See packages/song/docs/sharedFolders.md.
- */
+/** The account's LIBRARY submodule, beside the project rather than at `$STUDIO_MEDIATEK`. */
 function libraries(): string {
   const d = join(ws, "_libraries");
   // Descriptive only — the level comes from where the root SITS, not from this line.
@@ -144,11 +132,9 @@ afterEach(() => {
 
 describe("resolving a chain of the project", () => {
   it("takes the compiled plugins, in order, and drops the strip", () => {
-    // The mixer is a LEVEL, not a treatment: it stays live on the track, so baking it into the
-    // material would apply it twice — the same reason a freeze neutralises it.
+    // The mixer is a LEVEL and stays live on the track, so baking it in would apply it twice.
     const project = loadProject(dir);
-    // The strip IS in the chain the engine plays — without this the assertion below would pass
-    // just as well on a project that never had one.
+    // The strip IS in the chain the engine plays, without which the assertion below is vacuous.
     expect(project.tracks[0].plugins.map((p) => p.type)).toEqual([
       "Chorus",
       "Mixer",
@@ -161,8 +147,7 @@ describe("resolving a chain of the project", () => {
   });
 
   it("refuses a chain that is only a strip", () => {
-    // Nothing would be left after the mixer is dropped, so the bounce would write a copy of the
-    // source under a name that promises a treatment.
+    // Nothing is left once the mixer is dropped, so the bounce would copy the source under a lie.
     put(dir, "graph.yaml", "modules:\n  gtr: [ strip ]\n  strip: [ OUT ]\n");
     expect(() => resolveChain(dir, loadProject(dir), "gtr")).toThrow(
       /no treatment to apply/,
@@ -186,8 +171,7 @@ describe("resolving a chain of the project", () => {
 describe("resolving a chain of the médiathèque", () => {
   it("resolves each step through what it extends", () => {
     const c = resolveChain(dir, loadProject(dir), "@st0/live/vocal-strip");
-    // The step's own params win over the module's, and a step that overrides nothing still
-    // arrives with the module's — that is `extends`, and it is why a template is worth having.
+    // The step's own params win, and a step overriding nothing still arrives with the module's.
     expect(c.plugins.map((p) => p.type)).toEqual(["4Band EQ", "4Band EQ"]);
     expect(c.plugins[0].params).toEqual({ Low: -12 });
     expect(c.plugins[1].params).toEqual({ Low: 1 });
@@ -203,8 +187,7 @@ describe("resolving a chain of the médiathèque", () => {
   });
 
   it("refuses rather than bouncing a chain missing a step", () => {
-    // A module the cache has not got would render as a step that quietly did nothing, and the
-    // result would sound like the chain — minus one treatment nobody was told about.
+    // A module the cache has not got would render as a step that quietly did nothing.
     rmSync(join(library, "modules", "audio", "eq"), {
       recursive: true,
       force: true,
@@ -215,17 +198,9 @@ describe("resolving a chain of the médiathèque", () => {
   });
 });
 
-/**
- * A chain that SEPARATES — the offline half, wired in `mediatekChain`.
- *
- * Three things would be wrong silently here: an offline step reported as a module this machine
- * cannot load (it is right there, and simply runs elsewhere), a chain that both separates and
- * treats running half of itself, and a host with no way to run the model bouncing the mix
- * unseparated under a name promising stems.
- */
+// A chain that SEPARATES — the offline half, wired in `mediatekChain`; docs/processChain.md.
 describe("a chain that separates", () => {
-  /** The library module and a chain holding it. `model: false` writes no `assets/` file, which
-   *  is a machine that has not downloaded it — a different refusal from an unauthored one. */
+  /** `model: false` writes no `assets/` file — a machine that has not downloaded it. */
   const stemChain = (
     opts: { model?: boolean; withEq?: boolean } = {},
   ): void => {
@@ -270,8 +245,7 @@ describe("a chain that separates", () => {
   });
 
   it("refuses a chain that both separates and treats", () => {
-    // Flattened for a render a chain is a list of names with no ports on it, so a step after a
-    // separator has four inputs and no way to name one. Refused rather than guessed at.
+    // Flattened for a render a chain has no ports, so a step after a separator cannot name one.
     stemChain({ withEq: true });
     expect(() =>
       resolveChain(dir, loadProject(dir), "@st0/tools/stems"),
@@ -316,8 +290,7 @@ describe("a chain that separates", () => {
     expect(r.changed).toBe(true);
     expect(r.lines.join("\n")).toMatch(/4 file\(s\)/);
     expect(r.lines.join("\n")).toMatch(/stems\/vocals\.wav/);
-    // No render, so nothing about the engine binary — the cold branch is BEFORE that check,
-    // a separation needing ffmpeg and a model rather than the moteur.
+    // No render, so nothing about the engine binary: the cold branch is BEFORE that check.
     expect(r.lines.join("\n")).not.toMatch(/studio-moteur/);
   });
 
@@ -354,8 +327,7 @@ describe("what a target names", () => {
     expect(t.sources[0].replace(/\\/g, "/")).toContain("clips/riff.wav");
   });
 
-  // The whole reason there are two commands: each takes what its noun promises, and points at
-  // the other rather than quietly bouncing something else.
+  // The whole reason there are two commands: each takes what its noun promises.
   it("each refuses the other's argument, by name", () => {
     expect(() => resolveTargets(dir, loadProject(dir), "gtr", "clip")).toThrow(
       /is a track, so run `track process`/,
@@ -390,8 +362,7 @@ describe("where the render lands", () => {
   });
 
   it("replaces a previous run of the SAME chain rather than growing the name", () => {
-    // Every run is its own file — that is what the stamp is for, and why nothing is overwritten
-    // any more. What must not happen is the name growing a slug and a date each time.
+    // Every run is its own file; what must not happen is the name growing a slug and a date.
     const once = renderPath("/songs/clips/riff.wav", "warm", "260816T101500");
     const twice = renderPath(once, "warm", "260816T113000");
     expect(twice.replace(/\\/g, "/")).toBe(
@@ -439,12 +410,7 @@ describe("the repoint — the `in place` half", () => {
   });
 });
 
-/**
- * From `01.danse.st0`: `clip process … normalize` bounced a 17.920 s take and wrote 19.920 s —
- * `--render` appends two seconds for reverb and release. The clip's stretch map still ended at
- * 17.92, and the engine reads that beat span as the length of the WHOLE source, so the take's
- * 110 bpm was read as 98.9, everything played 11% slow, and the phrase was cut before its end.
- */
+// From `01.danse.st0`: a 17.92 s take rendered at 19.92 s played 11% slow — docs/processChain.md.
 describe("the stretch map follows the render", () => {
   /** A clip with a map: 8 beats over 4 seconds, which is 120 bpm. */
   const warped = (secs: number): string => {
@@ -518,12 +484,7 @@ describe("the stretch map follows the render", () => {
   });
 });
 
-/**
- * The property every one of the above rests on: the bounce renders the RAW file, unwarped, at
- * position zero. A document carrying the clip's warp or its window would move the material under
- * the clip files this repoints, and the seconds their `from`/`to` cut at would stop meaning what
- * they meant.
- */
+// The property every one of the above rests on: the RAW file, unwarped, at position zero.
 describe("what the bounce document holds", () => {
   it("is the source alone — no warp, no window, no offset", () => {
     const project = loadProject(dir);

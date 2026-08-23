@@ -36,9 +36,7 @@ export function SongVariants({ entry }: { entry: MediatekEntry }) {
             <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
               {v.ref}
             </span>
-            {/* The sidecar names something the folder has not got. Said out loud rather than
-                drawn as a row like any other: it used to mean "a chain the library holds", and
-                every variant written that way now lands here. */}
+            {/* The sidecar names something the folder has not got, said out loud rather than drawn. */}
             {v.kind === "missing" ? (
               <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-destructive">
                 introuvable

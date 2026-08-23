@@ -72,6 +72,19 @@ espaces de travail de la machine ; ce registre est ce qui dit si l'adresse porta
 `/<dépôt>/<projet>` se résoudra, puisque `by-name` ci-dessous est demandé ici. Une copie que la
 machine a et que ce registre ignore s'ouvre par `@local` et pas autrement.
 
+### `by-name` : le nom court redevient une URI, ici et nulle part ailleurs
+
+L'adresse d'un projet est `/<dépôt>/<projet>`, donc un éditeur arrive en tenant un **nom** et rien
+d'autre. Il ne doit surtout pas tenir l'URI : celle-ci porte un hôte, un port et un utilisateur, et
+une barre d'adresse se copie, se met en signet et se colle dans une conversation. pl8 détient les
+dépôts, donc c'est pl8 qui retourne la moitié lisible en ce qu'on donne à git.
+
+Une ambiguïté n'est **pas** « on en prend un » : deux dépôts portant le même nom court répondent
+409 avec les deux URI, et on ouvre le projet depuis la page d'accueil de st0.
+
+`by-name` et `libraries` sont montés **avant** `/:id/*`. Ni l'un ni l'autre n'est un identifiant de
+dépôt — ce sont des hachages — mais un lecteur ne devrait pas avoir à le savoir pour en être sûr.
+
 ## Le dépôt des bibliothèques est rangé ici aussi
 
 Un compte en déclare **un** : les modules et les chaînes que tous ses projets héritent. Il est

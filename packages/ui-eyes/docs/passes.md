@@ -1,7 +1,7 @@
 # Les passes — du GLSL entre la trame et l'écran
 
-`compositor.ts` est la **mise en place** : quel quad va où. `passes.ts` est la partie qui exécute
-le code de quelqu'un d'autre. Le vocabulaire (le module `shaders`, les uniformes, d'où vient
+`compositor.ts` est la **mise en place** : quel quad va où — sa propre page est
+[compositor.md](compositor.md). `passes.ts` est la partie qui exécute le code de quelqu'un d'autre. Le vocabulaire (le module `shaders`, les uniformes, d'où vient
 `uAudio`) est dans `packages/song-video/docs/shaders.md` ; cette page-ci est ce que fait le moteur de
 rendu avec.
 
@@ -36,6 +36,14 @@ shader. Deux durées de vie, deux ressources.
 `RenderTarget.bind(clear)` prend un booléen justement pour ça : `true` au premier dessin de la
 trame, `false` ensuite. C'est ce que `passes.test.ts` épingle.
 
+Les deux ressources ne sont créées **que si quelque chose les demande**, et elles **survivent à une
+reconstruction de scène** tant que le viewport n'a pas changé. Cette branche vaut d'être écrite :
+le document est recompilé à chaque frappe dans l'éditeur, et réallouer des textures pleine trame à
+chaque frappe se voit à l'écran — c'est l'image qui saccade pendant qu'on tape.
+
+`makeTarget` est partagé par les deux classes pour que leur filtrage ne puisse pas diverger : sinon
+un shader d'image adoucirait l'image là où un shader de couche ne le ferait pas.
+
 ## Pourquoi une paire et pas une cible
 
 Un shader ne peut pas échantillonner la texture qu'il écrit — c'est indéfini en GL, et en pratique
@@ -44,7 +52,16 @@ Un shader ne peut pas échantillonner la texture qu'il écrit — c'est indéfin
 
 Les cibles font la taille du **viewport**, pas celle du rectangle de la couche : une passe peut
 échantillonner à côté du fragment qu'elle écrit (tout flou le fait), et une cible recadrée sur la
-couche lui donnerait le bord du recadrage au lieu de l'image.
+couche lui donnerait le bord du recadrage au lieu de l'image. Ça coûte deux textures RGBA pleine
+trame par chaîne, une fois.
+
+C'est aussi ce qui donne son sens à `uResolution` : la chaîne d'une couche tourne à la taille du
+viewport puis est dessinée dans le rectangle de la couche, donc un effet vaut la même chose sur une
+incrustation que sur une couche plein cadre — il ne change pas de caractère parce que la piste a été
+rétrécie.
+
+`runPasses` laisse le RÉSULTAT en texture avant et le framebuffer délié : ses deux appelants — une
+couche qu'on va composer, et l'image finie qu'on va recopier — continuent alors de la même façon.
 
 `CLAMP_TO_EDGE` compte plus ici que sur une texture vidéo : sans lui, un shader qui échantillonne
 au-delà du bord ramène l'autre côté de l'image, ce qui se lit comme un bug **du shader** plutôt que
@@ -61,6 +78,19 @@ d'une couche tournent **avant** la composition, donc tout ce que le shader n'éc
 traversable, sinon la couche masque tout ce qui est dessous. Même chose pour la cible d'image : le
 fond est ajouté au blit final, sinon un shader d'image traiterait le fond comme s'il était de
 l'image.
+
+## Le contrat des uniformes
+
+`PASS_UNIFORMS` est un **contrat**, pas une commodité. Un shader est écrit contre cette liste et
+rien ne dit à son auteur qu'il s'est trompé de nom : GL renvoie silencieusement un emplacement nul
+pour un uniforme inconnu — et pour un uniforme simplement INUTILISÉ aussi, donc les deux sont
+indiscernables d'ici. Écrire la liste est le seul endroit où cette différence peut être notée.
+
+`uTex` est ce que la passe lit : la trame de la couche pour la première passe d'une chaîne, la
+sortie de la passe précédente ensuite. C'est tout ce qui les fait s'enchaîner.
+
+Un emplacement nul dans un `PassProgram` est donc **normal** — un shader qui ignore `uP3` n'a pas
+de `uP3`, et écrire dans un emplacement nul est un no-op en WebGL, pas une erreur.
 
 ## L'attribut est lié à l'emplacement 0 AVANT le lien
 
@@ -86,12 +116,21 @@ les garde entre deux rapports, et la plupart des trames en réutilisent un — c
 `uTime` est la position du **transport**, fournie par la boucle qui lit déjà l'horloge. Une horloge
 propre au moteur de rendu dériverait de la lecture en une mesure.
 
+Les niveaux sont donnés par passe, **clés sur l'identifiant de la passe** — le `<owner>:<index>`
+compilé — parce que c'est ce qui survit au renommage de tout le reste. Une passe pour laquelle
+personne n'a fourni de niveau garde celui qu'elle avait, c'est-à-dire le 0 avec lequel elle a été
+compilée quand aucun audio n'est câblé.
+
 ## Un shader cassé n'emporte rien
 
 `compilePass` renvoie `null` et une ligne dans la console. Une passe qui n'a pas compilé est
 simplement absente de la chaîne ; la couche se dessine comme si elle n'existait pas. Un shader est
 du source qu'on est **en train d'éditer**, et un fragment à moitié tapé ne doit pas éteindre le
-viewport.
+viewport. C'est la même posture que tout le chemin de l'image tient face à un dossier de shaders
+manquant : on perd l'effet, on garde la trame.
+
+Le message nomme le **nœud** (`glow`), pas le fichier : le nœud est ce qui est à l'écran et ce sur
+quoi on cliquerait pour le corriger.
 
 Les deux étages sont supprimés une fois attachés : le programme les garde en vie jusqu'à sa propre
 suppression, et sans ça une reconstruction de scène fuirait un objet shader par passe et par

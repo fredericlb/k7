@@ -14,8 +14,7 @@ export interface AudioDevice {
 const US = "";
 const RS = "";
 
-/** A stable identifier for "the set of interfaces currently visible". Used to decide
- *  when it's worth re-attempting a switch that didn't take (see `lastAttempt`). */
+/** A stable identifier for "the set of interfaces currently visible", used to decide when a switch that didn't take is worth re-attempting. */
 export function signature(devices: AudioDevice[]): string {
   return devices
     .map((d) => d.name)
@@ -23,10 +22,7 @@ export function signature(devices: AudioDevice[]): string {
     .join(US);
 }
 
-/** Everything the audio submenu's contents depend on. Polling every 2s must not mean
- *  REBUILDING every 2s: tearing the submenu down and re-adding its rows under an open
- *  menu is both wasted work and visible churn, so the tray rebuilds only when this
- *  changes. Includes `current` and the two settings because they're rendered too. */
+/** Everything the audio submenu's contents depend on, `current` and the two settings included, so polling every 2s does not mean rebuilding. */
 export function menuSignature(
   devices: AudioDevice[],
   preferred: string | null,
@@ -41,8 +37,7 @@ export function menuSignature(
 const has = (devices: AudioDevice[], name: string): boolean =>
   devices.some((d) => d.name === name);
 
-/** The device the engine should switch to, or null if it's already where it belongs
- *  (or nothing better is reachable). */
+/** The device the engine should switch to, or null when it is already where it belongs and nothing better is reachable. */
 export function desiredSwitch(
   devices: AudioDevice[],
   preferred: string | null,
@@ -55,8 +50,7 @@ export function desiredSwitch(
   if (preferred && has(devices, preferred))
     return current !== preferred ? preferred : null;
 
-  // The fallback applies only when the user's pick is genuinely missing, or they never made one — never over a
-  // device they are deliberately on.
+  // The fallback applies only when the pick is genuinely missing or was never made — never over a device someone is deliberately on.
   const pickMissing = !!preferred && !has(devices, preferred);
   if (pickMissing || (!preferred && current === null)) {
     if (fallback && has(devices, fallback) && current !== fallback)

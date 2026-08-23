@@ -25,14 +25,12 @@ import { parse } from "yaml";
 import type { z } from "zod";
 import { DOC_EXAMPLES } from "./examples";
 
-// The name an entity entry uses -> the schema the loader validates that file with. Same
-// objects, not copies: a schema change is a test change, which is the point.
+// The name an entity entry uses → the schema the loader validates that file with. Same objects, not copies: a schema change is a test change.
 const SCHEMAS: Record<string, z.ZodType> = {
   ProjectFile: ProjectFileSchema,
   Settings: SettingsSchema,
   Surface: SurfaceSchema,
-  // No `Track`: a lane is a NODE of a `@studio/…-track` module, so its examples declare
-  // `schema=Module` like every other node. See packages/song/docs/trackModules.md.
+  // No `Track`: a lane is a NODE of a `@studio/…-track` module, so its examples declare `schema=Module` like every other node.
   Clip: ClipSchema,
   Sequence: SequenceSchema,
   Curve: CurveSchema,
@@ -65,8 +63,7 @@ describe("the documented file formats", () => {
     it(`${e.where} is valid YAML the loader would accept`, () => {
       const parsed = parse(e.code, { version: "1.2" });
       const result = SCHEMAS[e.schema as string].safeParse(parsed);
-      // The whole issue list, not just the first: a stale example is usually stale in
-      // more than one place, and fixing them one test-run at a time is miserable.
+      // The whole issue list, not just the first: a stale example is usually stale in more than one place.
       const why = result.success
         ? ""
         : result.error.issues
@@ -77,10 +74,7 @@ describe("the documented file formats", () => {
   }
 });
 
-// Every top-level key a schema declares, for the coverage check below. Only object
-// schemas have one to give; a union (a clip is audio or video, a track is one of three
-// kinds) contributes the keys of every branch, since an example of any branch documents
-// the field.
+// Every top-level key a schema declares, for the coverage check below — a union contributes the keys of every branch.
 function topLevelKeys(schema: z.ZodType): string[] {
   const def = (schema as unknown as { def?: Record<string, unknown> }).def;
   if (!def) return [];
@@ -96,14 +90,12 @@ function topLevelKeys(schema: z.ZodType): string[] {
 }
 
 describe("documentation coverage", () => {
-  // A field the schema accepts but no example mentions is a field nobody can discover
-  // except by reading the source.
+  // A field the schema accepts but no example mentions is one nobody can discover except by reading the source.
   for (const [name, schema] of Object.entries(SCHEMAS)) {
     const examples = DOC_EXAMPLES.filter((e) => e.schema === name);
     if (!examples.length) continue;
     it(`${name}: every field appears in an example`, () => {
-      // The prose counts as documentation too: a field is often explained in the
-      // sentence above the block rather than shown in it.
+      // The prose counts as documentation too: a field is often explained in the sentence above the block rather than shown in it.
       const text = examples.map((e) => `${e.code}\n${e.context}`).join("\n");
       const undocumented = topLevelKeys(schema).filter(
         (k) => !text.includes(k),

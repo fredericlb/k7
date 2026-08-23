@@ -21,8 +21,7 @@ import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { type Pair, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { stemNodeFiles } from "../src/scaffoldSet.ts";
 
-/** What `yaml/graphFile.ts` pins, restated: 1.2 so a `5:1:1` scalar stays a string, and no
- *  wrapping, which is what keeps `bypassed:` on one line however many lanes it grows. */
+/** As `yaml/graphFile.ts` pins it: 1.2 keeps `5:1:1` a string, no wrapping keeps `bypassed:` on one line. */
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 const OUT = { lineWidth: 0 };
 
@@ -42,8 +41,7 @@ interface Deck {
   id: string;
   /** The node its five lanes meet on, from the mapping's `<deck>.eqLow`. */
   eq: string;
-  /** The node its record already flows through, from `<deck>.tempo`. Where the stems are
-   *  inserted, so the file reads deck, tempo, stems, bus. */
+  /** From `<deck>.tempo`: the stems go in after it, so the file reads deck, tempo, stems, bus. */
   tempo: string;
 }
 
@@ -70,8 +68,7 @@ function decksOf(mapping: YAMLMap): Deck[] {
     if (!id || control !== "tempo") continue;
     const tempo = moduleOf(mapping, key);
     const eq = moduleOf(mapping, `${id}.eqLow`);
-    // Refused rather than half-wired: without the bus this deck's stems have nowhere to meet,
-    // and inventing a node name would put eight lanes into a graph nobody wrote.
+    // Refused rather than half-wired: inventing a node name writes eight lanes nobody asked for.
     if (!tempo || !eq) {
       console.error(
         `  ! ${id}: mapping has no ${!tempo ? `${key}` : `${id}.eqLow`} — cannot tell which node its stems meet on`,
@@ -92,15 +89,7 @@ function moduleOf(mapping: YAMLMap, control: string): string | null {
   return typeof m === "string" && m ? m : null;
 }
 
-/**
- * The line above `bypassed:` stopped being true, so it is rewritten — but ONLY when it is still
- * the one the old scaffold wrote.
- *
- * It said "heard through the crossfade only", which was right when a deck was one lane feeding a
- * run. Five feeders make the EQ a meeting point, so the run breaks there and what the lanes are
- * heard through is a BUS. Prose that quietly stops matching the file under it is worse than no
- * prose; prose somebody has edited themselves is not this script's to touch.
- */
+/** Rewrite the note above `bypassed:` ONLY where it is still the one the old scaffold wrote. */
 function retellBypassed(contents: { items?: Pair[] } | null): void {
   const pair = contents?.items?.find(
     (i) => String((i.key as { value?: unknown })?.value) === "bypassed",
@@ -152,8 +141,7 @@ for (const dir of roots) {
   let touched = false;
 
   for (const deck of decks) {
-    // Already done — reported per deck rather than per project, since a half-migrated set is a
-    // real state (an interrupted run) and saying "nothing to do" about it would be wrong.
+    // Reported per deck, since a half-migrated set is a real state after an interrupted run.
     if (modules.has(stemLane(deck.id, STEMS[0]))) {
       console.log(`  = ${deck.id}: already has its stem lanes`);
       continue;
@@ -165,8 +153,7 @@ for (const dir of roots) {
       continue;
     }
 
-    // Inserted right after `tempo<X>: [ eq<X> ]`, so the file reads deck, tempo, stems, bus —
-    // the order scaffoldSet writes and the order the signal takes.
+    // Right after `tempo<X>`, so the file reads deck, tempo, stems, bus — the signal's order.
     const at = modules.items.findIndex(
       (i) =>
         String((i as { key?: { value?: unknown } }).key?.value) === deck.tempo,
@@ -182,19 +169,7 @@ for (const dir of roots) {
     });
     modules.items.splice(at < 0 ? modules.items.length : at + 1, 0, ...made);
 
-    /**
-     * Every source lane is heard through the bus ONLY, and THE DECK'S OWN LANE IS ONE OF THEM.
-     *
-     * That last part is what a migration gets wrong if it only adds the stems. Before this, deck
-     * A's lane flowed into a RUN — one feeder, so the EQ was a step and the signal went through
-     * it. Five feeders make the EQ a meeting point, the run breaks there, and every lane reaches
-     * it as a send instead. `out` compiles as a PARALLEL path, so an unmuted deck A would now be
-     * heard twice: once through its EQ and the crossfade, once raw, with the crossfader unable to
-     * take either away. Deck B was already muted because it ended on a port; deck A was not.
-     *
-     * For a stem lane the same rule is worse than a duplicate — an unmuted one adds its INVERTED
-     * copy straight to the master, which is the subtraction happening in the wrong place.
-     */
+    /** Every source lane is muted, THE DECK'S OWN INCLUDED: `out` is parallel, so it is heard raw. */
     for (const lane of [deck.id, ...STEMS.map((s) => stemLane(deck.id, s))]) {
       const bypassed = gdoc.get("bypassed") as YAMLSeq | undefined;
       if (!bypassed) {
@@ -225,9 +200,7 @@ for (const dir of roots) {
   changed += 1;
   retellBypassed(gdoc.contents as { items?: Pair[] } | null);
 
-  // The mapping's new entries are block maps by default; the file's existing lines are inline
-  // flow maps, and a migration that changed the shape of a file it touched would read as a
-  // rewrite. Set after the fact because `createNode` has no say in it.
+  // Flow maps like the existing lines, set after the fact because `createNode` has no say in it.
   for (const s of STEMS)
     for (const deck of decks) {
       const v = (sdoc.get("mapping") as YAMLMap).get(stemControl(deck.id, s)) as

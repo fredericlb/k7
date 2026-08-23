@@ -20,9 +20,7 @@ const graphWith = (clips?: WebTrackClip[]): WebGraph => ({
   warnings: [],
 });
 
-// `tc` is what the file service already spelled with `beatsToPosition` — the renderer never
-// divides beats itself, so here it is simply carried. Written the way that function writes it:
-// the shortest form, so a downbeat is `5:1` and not `5:1:1`.
+// `tc` is spelled by the file service with `beatsToPosition`, in its shortest form (`5:1`).
 const clip = (ref: string, start: number, len?: number): WebTrackClip => ({
   ref,
   start,
@@ -43,35 +41,28 @@ describe("a track node's clip list", () => {
   it("carries the lane's clips, each with the position it plays at", () => {
     const n = trackNode(graphWith([clip("verse", 0), clip("chorus", 16)]));
     expect(n.clips?.map((c) => c.ref)).toEqual(["verse", "chorus"]);
-    // The timecode is drawn to the LEFT of the name, and is spelled by the file service — the
-    // renderer never divides beats into bars, or two places would answer "where is this clip".
+    // Drawn to the LEFT of the name, and spelled THERE — see docs/graphBuild.md.
     expect(n.clips?.map((c) => c.tc)).toEqual(["1:1", "5:1"]);
   });
 
   it("is taller than the same lane with nothing on it", () => {
-    // The height is what dagre is told, so the list has to be paid for BEFORE anything is
-    // drawn — otherwise the rows spill out of the card the layout reserved.
+    // dagre is told this height, so the list is paid for BEFORE anything is drawn.
     const empty = trackNode(graphWith());
     const full = trackNode(graphWith([clip("verse", 0)]));
     expect(full.h).toBeGreaterThan(empty.h);
-    // …and no wider: a card's width is its mixer grid's, and a long clip name is ellipsed
-    // rather than allowed to push the whole rank sideways.
+    // …and no wider: a long clip name is ellipsed rather than pushing the whole rank sideways.
     expect(full.w).toBe(empty.w);
   });
 
   it("adds NOTHING to a lane with no clips", () => {
-    // Not an empty list and not a heading: a node that has grown to say "0 clips" has grown to
-    // tell you nothing. `clips` is absent, which is what the renderer tests.
+    // Not an empty list and not a heading: `clips` is absent, which is what the renderer tests.
     const n = trackNode(graphWith());
     expect(n.clips).toBeUndefined();
     expect(n.clipsMore).toBeUndefined();
   });
 
   it("counts the LIST's overflow while keeping every clip for the timeline", () => {
-    // Two different jobs. The list shows the first few and says how many it left out — a lane
-    // with sixty takes would otherwise be a node taller than the window. The mini timeline
-    // above it draws them ALL, because a picture of the lane with clips missing from it is
-    // worse than no picture: it would say the lane is emptier than it is.
+    // Two different jobs: the list trims and counts, the timeline draws them ALL. docs/graphBuild.md.
     const many = Array.from({ length: CLIP_LIST_MAX + 4 }, (_, i) =>
       clip(`take-${i}`, i * 4),
     );
@@ -107,9 +98,7 @@ describe("the mini timeline's scale", () => {
       ?.clips?.map((c) => c.at);
 
   it("is SHARED by every lane, not each lane's own extent", () => {
-    // The whole point. A per-lane scale would draw the bass's last clip hard against its right
-    // edge at bar 2 and the guitar's at bar 33, side by side, both claiming to show where
-    // things are — which is worse than no timeline, because it is believable.
+    // The whole point: a per-lane scale would draw bar 2 and bar 33 in the same place.
     const g = twoLanes(
       [clip("a", 0, 4), clip("b", 96, 32)],
       [clip("c", 0, 4), clip("d", 32, 4)],
@@ -130,8 +119,7 @@ describe("the mini timeline's scale", () => {
   });
 
   it("gives a very short clip a width you can still hit", () => {
-    // A one-bar clip in a six-minute song is a fraction of a percent: invisible, and impossible
-    // to hover. The floor is what keeps the timeline usable for finding things.
+    // A one-bar clip in a six-minute song is invisible and impossible to hover without the floor.
     const g = twoLanes([clip("a", 0, 1), clip("b", 400, 4)], [clip("c", 0, 4)]);
     const w = buildGraph(g, { drawMainOut: false }).nodes.find(
       (n) => n.kind === "track" && n.label === "gtr",
@@ -147,8 +135,7 @@ describe("the mini timeline's scale", () => {
   });
 
   it("keeps a missing clip, and says which one it is", () => {
-    // The state this list is best at catching: a lane pointing at material that is not there
-    // looks exactly like a full one on a routing diagram.
+    // On a routing diagram, a lane pointing at material that is not there looks like a full one.
     const n = trackNode(
       graphWith([{ ref: "gone", start: 0, tc: "1:1", kind: "missing" }]),
     );

@@ -10,15 +10,13 @@ import { LOCAL_ARGS, LOCAL_COMMANDS } from "./palette";
 const asDispatched = (name: string) =>
   name.replace(/^ui\s+/i, "").toLowerCase();
 
-// A runnable line for a command: its name plus a placeholder for each argument it declares,
-// which is what makes a HEAD match rather than an exact one.
+// A runnable line for a command: its name plus a placeholder per argument, which is what makes a HEAD match rather than an exact one.
 const withArgs = (name: string) =>
   [name, ...(LOCAL_ARGS[name] ?? []).map((_, i) => `arg${i}`)].join(" ");
 
 describe("every shell command is one the dispatcher recognises", () => {
   it("classifies each of them on the side of its own prefix", () => {
-    // The pairing rule (docs/shell.md): a `ui` name must read as `ui`, a bare one must not.
-    // Get it wrong and the command lists in the palette, runs, and is answered with "type: ui …".
+    // The pairing rule (docs/shell.md): a `ui` name must read as `ui`, a bare one must not, or the command lists, runs and is refused.
     const wrong = LOCAL_COMMANDS.filter((name) => {
       const line = asDispatched(withArgs(name));
       return isUiLine(line) !== /^ui\s/i.test(name);
@@ -27,8 +25,7 @@ describe("every shell command is one the dispatcher recognises", () => {
   });
 
   it("classifies them the same with no arguments typed yet", () => {
-    // The bar dispatches the bare name for a command with no args, and the palette also holds
-    // one while its form is still being filled — both must land on the same side.
+    // The bar dispatches the bare name for a command with no args, and holds one while its form fills — both must land on the same side.
     const wrong = LOCAL_COMMANDS.filter(
       (name) =>
         (LOCAL_ARGS[name] ?? []).length === 0 &&
@@ -38,9 +35,7 @@ describe("every shell command is one the dispatcher recognises", () => {
   });
 
   it("tells `ui file` from the TREE's verbs, which now share no head with it", () => {
-    // This was the one real collision — `file new x` against `ui file x`, told apart only by
-    // the second token, and it needed a list of exceptions checked before everything else. The
-    // tree's verbs are an `fs` group now, so the group name does what the exception did.
+    // The one real collision — `file new x` against `ui file x` — is gone: the tree's verbs are an `fs` group, and the group name does it.
     expect(isUiLine("file kick.yaml")).toBe(true); // `ui file` — open it
     for (const l of [
       "fs file new clips kick.yaml",
@@ -71,18 +66,14 @@ describe("every shell command is one the dispatcher recognises", () => {
   });
 });
 
-// The transport verbs the shell answers over the engine's own socket. Their reason is latency —
-// the service sends the same message, after an HTTP round trip and the undo journal — so what
-// is worth pinning is that they stay OUT of `ui` and never grow to include a verb that writes.
+// The transport verbs the shell answers over the engine's own socket: what is worth pinning is that they stay OUT of `ui` and write nothing.
 describe("the bare transport verbs", () => {
   it("are not `ui` lines — `ui` promises not to move the transport", () => {
     for (const line of BARE_TRANSPORT) expect(isUiLine(line)).toBe(false);
   });
 
   it("holds only the four that write nothing", () => {
-    // `transport metronome` rewrites settings.yaml, `loop`/`locate` are the timeline's and
-    // `record`/`replay` have branches of their own. A verb added here without a file to write
-    // would silently stop being journaled — which is the failure this list is one edit away from.
+    // The four that are not here have branches or files of their own; a verb added without one would silently stop being journalled.
     expect([...BARE_TRANSPORT].sort()).toEqual([
       "transport play",
       "transport rewind",

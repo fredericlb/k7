@@ -4,8 +4,7 @@ import { describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 import type { CommandHost } from "./commands";
 
-// The refusal channel, pinned two ways: the flag reaches a host, and no handler
-// quietly goes back to saying no through `log`. See docs/refusal.md.
+// The refusal channel, pinned two ways — see docs/refusal.md.
 
 const said: string[] = [];
 let refused = false;
@@ -40,11 +39,7 @@ describe("refusals are marked", () => {
   });
 });
 
-/**
- * The rule the migration followed: a handler that RETURNS instead of working is refusing.
- * Written as a source check so the next handler cannot reintroduce the silent kind — the
- * failure mode was invisible, and only a mechanical reader sees it coming back.
- */
+// A handler that RETURNS instead of working is refusing; a source check, see docs/refusal.md.
 describe("no handler says no through log", () => {
   // A bare `<verb> list`-shaped call: the listing IS the answer, so it reports and returns.
   const answers = ["names.length > 1"];

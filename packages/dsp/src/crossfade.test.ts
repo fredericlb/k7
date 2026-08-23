@@ -32,8 +32,7 @@ describe("the crossfade graph", () => {
   });
 
   it("weights the two sides against each other, not each against the dry", () => {
-    // `mix` (the node) blends the graph's output with what came IN on port 0, which for a crossfade would
-    // fold the first side in twice. The blend has to be arithmetic between the two wires instead.
+    // The `mix` NODE blends against port 0, which would fold the first side in twice.
     expect(g.nodes.some((n) => n.type === "mix")).toBe(false);
     const [subNode] = g.nodes.filter((n) => n.type === "sub");
     expect(subNode.in).toEqual([1, "Mix"]); // 1 − Mix on one side, Mix on the other
@@ -47,10 +46,7 @@ describe("the crossfade graph", () => {
   });
 
   it("matches the demo song's module, which carries its own copy of the source", () => {
-    // A module is a FOLDER you can copy: it holds its `jsdsp.ts` rather than pointing at this
-    // library, so the crossfade exists twice on purpose. Two copies of one thing is a drift
-    // waiting to happen — the same reason autowah.test.ts reads the engine's pasted fallback —
-    // so the module's committed graph is compared here rather than trusted.
+    // A module is a FOLDER you can copy, so the crossfade exists twice on purpose — hence this check.
     const demo = JSON.parse(
       readFileSync(
         join(
@@ -74,14 +70,7 @@ describe("the crossfade graph", () => {
   });
 
   it("matches the copy in `modules/` — the authored article", () => {
-    // A third copy, for the third reason a module folder is self-contained: this one is the
-    // module as it is AUTHORED, `modules/audio/utility/crossfade/`, which is what somebody
-    // copies into their library repository (`docs/catalogue.md`). The demo above is a demo;
-    // this one is what a set naming `@st0/audio/utility/crossfade` ends up running.
-    //
-    // It used to be "the one every new library is seeded with", and nothing seeds any more —
-    // the account's library repository is the reference. What the test pins is unchanged: the
-    // folder's compiled graph against this package's function, so the two cannot drift.
+    // A third copy: the module as AUTHORED, which is what somebody copies — ../docs/catalogue.md.
     const authored = JSON.parse(
       readFileSync(
         join(

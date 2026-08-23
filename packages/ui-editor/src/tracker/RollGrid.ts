@@ -41,8 +41,7 @@ export function renderRollGrid(
   const keys = notes.map((n) => n.k);
   const hi = Math.min(127, (keys.length ? Math.max(...keys) : 72) + 3);
   const lo = Math.max(0, (keys.length ? Math.min(...keys) : 60) - 3);
-  // The window joins the content span: a `to` reaching PAST the last hit is a pad, and a grid that
-  // stopped at the notes would clip the very edge explaining the silence after them.
+  // The window joins the content span, or a grid stopping at the notes would clip the edge explaining the silence.
   const endBeat = Math.max(
     notes.reduce((m, n) => Math.max(m, n.t + n.d), BEATS_PER_BAR),
     win?.to ?? 0,
@@ -115,9 +114,7 @@ export function renderRollGrid(
     lane.style.cssText = `position:absolute;left:0;right:0;top:${rowTop(k)}%;height:${rowH}%;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,0.04);background:${isBlack(k) ? "rgba(255,255,255,0.03)" : "transparent"}`;
     body.appendChild(lane);
   }
-  // The window, as GROUND — appended after the lanes and before the gridlines and notes, so DOM
-  // order alone puts it behind them (everything in here is absolutely positioned, so it is the only
-  // thing deciding what paints over what). Colourless on purpose: the notes are this pane's colour.
+  // The window as GROUND, appended after the lanes and before the notes, since DOM order alone decides what paints over what.
   if (win && win.to > win.from) {
     const band = document.createElement("div");
     band.style.cssText = `position:absolute;top:0;bottom:0;left:${pctX(win.from)}%;width:${pctX(win.to - win.from)}%;box-sizing:border-box;background:rgba(255,255,255,0.06);border-left:1px solid rgba(226,232,240,0.45);border-right:1px solid rgba(226,232,240,0.45)`;

@@ -67,10 +67,7 @@ describe("laying it down at the triggers", () => {
   });
 
   it("holds a running envelope at the value it REACHED, mid-ramp", () => {
-    // The case that decides whether the cut is real: the second trigger lands at 0.3 beats =
-    // 150ms, half way down the decay, where the envelope is worth 0.75. The last corner before
-    // it is the peak at 1.0 — so without a point at the cut, the line runs from that peak
-    // straight down to the new trigger's zero and the decay's own slope is lost.
+    // Without a point at the cut the line runs from the peak down, losing the decay's own slope.
     const { points } = bakeAdsr(env(), [0, 0.3], TEMPO);
     const before = points.filter((p) => p[0] < 0.3);
     expect(before.at(-1)?.[1]).toBeCloseTo(0.75);
@@ -78,14 +75,12 @@ describe("laying it down at the triggers", () => {
   });
 
   it("CUTS a running envelope where the next trigger lands", () => {
-    // The whole point of one lane holding one value. The first envelope is a beat long and the
-    // second fires half way through it, during the hold — so the first never reaches its release.
+    // One lane holds one value, so the second trigger stops the first before its release.
     const { points } = bakeAdsr(env(), [0, 0.5], TEMPO);
     const cut = points.filter((p) => p[0] < 0.5);
     expect(cut.at(-1)?.[1]).toBeCloseTo(0.5); // held at the level it had reached
     expect(points.find((p) => p[0] === 0.5)).toEqual([0.5, 0]); // …then straight back to zero
-    // …and everything past the cut belongs to the SECOND envelope: its own five corners,
-    // offset by half a beat, with nothing of the first left running underneath.
+    // …and past the cut only the SECOND envelope's five corners, offset by half a beat.
     expect(points.filter((p) => p[0] >= 0.5)).toEqual([
       [0.5, 0],
       [0.7, 1],
@@ -107,8 +102,7 @@ describe("laying it down at the triggers", () => {
   });
 
   it("is measured in MILLISECONDS, so the tempo moves it", () => {
-    // The same envelope at half the tempo covers half the beats: 500ms is a beat at 120 and
-    // half a beat at 240. That is the whole reason the file is written in ms.
+    // 500ms is a beat at 120 and half a beat at 240, which is why the file is written in ms.
     const slow = bakeAdsr(env(), [0], 60).points.at(-1)![0];
     const fast = bakeAdsr(env(), [0], 240).points.at(-1)![0];
     expect(slow).toBeCloseTo(0.5);
@@ -147,8 +141,7 @@ describe("reading one off the file", () => {
   });
 
   it("defaults the level rather than leaving the envelope silent", () => {
-    // Every TIME defaults to 0, which is a legible spike. A level of 0 would be a decay into
-    // nothing and a hold at nothing — an envelope that looks authored and does not sound.
+    // A level of 0 is an envelope that looks authored and does not sound; a time of 0 is a spike.
     const c = parseCurve("env1", { type: "adsr" }) as AdsrCurve;
     expect(c.level).toBe(0.5);
     expect([c.attack, c.decay, c.sustain, c.release]).toEqual([0, 0, 0, 0]);

@@ -14,34 +14,22 @@ import { Router } from "express";
 
 export const separateRouter: Router = Router();
 
-// Where the stems go: `stems/` under the song's own folder, never beside the master — the scan
-// takes the FIRST audio file in a folder and does not descend, so a stem left alongside could be
-// played in place of the mixdown. Named ONCE, in @studio/song, because the pass, the scan and the
-// deck all have to agree on the word; it was declared here and in coldPass.ts as well.
+// Stems go under the song's own folder, never beside the master, and the word is named ONCE in @studio/song.
 
-/**
- * Start a separation and answer with a job to poll.
- *
- * Everything render.ts argues AGAINST a job for is true the other way round here, which is
- * what its own comment predicted: minutes rather than seconds, a person rather than a server
- * waiting, and N files, which "needs a job to hold them". This is the thing that asks.
- */
+/** Start a separation and answer with a job to poll: minutes, a person waiting, and N files. */
 separateRouter.post(
   "/separate",
   wrap((req, res) => {
     const source = req.body?.source;
     const model = req.body?.model;
-    // Absolute because the caller resolved them: the source comes off the médiathèque scan and
-    // the model off the module's resolved asset. Refused rather than guessed at — this router
-    // has no workspace to make a relative path mean something.
+    // Absolute because the caller resolved them; this router has no workspace to make a relative path mean anything.
     if (typeof source !== "string" || !isAbsolute(source))
       return res.status(400).json({ error: "source must be an absolute path" });
     if (typeof model !== "string" || !isAbsolute(model))
       return res.status(400).json({ error: "model must be an absolute path" });
     if (!existsSync(source))
       return res.status(404).json({ error: `no such file: ${source}` });
-    // A named 503, not a 500: a machine without the model is a real and fixable state, and
-    // "separation failed" reads as a broken request rather than a missing download.
+    // A named 503, not a 500: a machine without the model is a real and fixable state.
     if (!existsSync(model))
       return res.status(503).json({
         error:
@@ -64,9 +52,7 @@ separateRouter.get(
   "/separate/:id",
   wrap((req, res) => {
     const job = separateJob(req.params.id);
-    // 404 rather than a synthetic "done", exactly as cloneJobs does: a job this service has
-    // forgotten cannot be waited on, and the caller's real question — are the stems on disk? —
-    // is one it can ask the disk directly.
+    // 404 rather than a synthetic "done", as cloneJobs does: a forgotten job cannot be waited on.
     if (!job) return res.status(404).json({ error: "unknown separation job" });
     res.json(job);
   }),

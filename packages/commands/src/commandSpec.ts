@@ -28,12 +28,10 @@ import {
 } from "./commands";
 import { alternatives } from "./git";
 
-// The surfaces a command can appear on. Only one remains — the web backend dispatches under "cli" too — but it
-// stays a type so a future surface needing its own subset has somewhere to hook in.
+// One surface remains — the web backend dispatches under "cli" too — but it stays a type.
 export type Surface = "cli";
 
-// How an argument gets its values: a named provider, a literal set, or a scalar `type` checked before the handler.
-// Only for ONE-token arguments — an argument that swallows the rest of the line stays the handler's business.
+// A scalar shape checked before the handler, for ONE-token arguments only — docs/completions.md.
 export type ArgKind = "timecode" | "number" | "note";
 
 export interface ArgSpec {
@@ -46,8 +44,7 @@ export interface ArgSpec {
   values?: string[];
   // A one-line clue about what this argument ACCEPTS — worth writing when the class's own clue doesn't say enough.
   hint?: string;
-  // TRAILING args only: the line runs without it. Several hints already said "optional" in prose, which told a
-  // reader and not the palette — so a form could never know it had collected enough. See docs/optionalArgs.md.
+  // TRAILING args only: the line runs without it. See docs/optionalArgs.md.
   optional?: boolean;
 }
 /** What a command does, as a sentence, in each language a surface can be asked for. */
@@ -63,21 +60,11 @@ export interface CommandSpec {
   // The palette's line, and what it fuzzy-matches on. See commands.yaml's header.
   readable?: ReadableDescription;
   surfaces: Surface[];
-  // `with:` was here — fixed leading args a spec passed to a shared handler, so several verbs
-  // could reach one. Its last user was `module nam`, one verb per file-valued param; those are
-  // `node param <node> nam <file>` now, and the mechanism had nobody left. A verb that IS one
-  // setting of another verb is a fact for the ARGUMENT to carry, not for the catalogue to bake in.
+  // `with:` was here — fixed leading args, and it lost its last user; see docs/completions.md.
   args?: ArgSpec[]; // trailing user args (for completion)
 }
 
-/**
- * Each module's `status:`, for the providers that rank by it — a lookup rather than a list, so
- * one read of the ref map answers for every name a provider offers.
- *
- * Off the ref map and not the compiled project: `status` is an authoring fact that never reaches
- * the engine, so it is only ever on the FILES. An unreadable module folder costs the ranking and
- * not the command — everything then answers `listed`, which is the order the list already had.
- */
+/** Each module's `status:`, off the ref map, for the providers that rank by it — docs/completions.md. */
 function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
   let refs: Record<string, unknown> = {};
   try {
@@ -88,25 +75,12 @@ function moduleStatuses(h: CommandHost): (name: string) => ModuleStatus {
   return (name) => moduleStatusOf(refs[name]);
 }
 
-// Named completion providers referenced by commands.yaml `complete:`, reading live state off the host.
-// `satisfies`, not an annotation: an annotation widened the keys to `string`, which made
-// ProviderName `string` too — so `PROVIDER_CLASS` checked nothing and the wire could not name one.
+// Named providers behind commands.yaml `complete:`; `satisfies` is load-bearing, docs/completions.md.
 const PROVIDERS = {
   baseModules: (h) => h.baseModules,
-  // The module category folders, each with a trailing "/" so completing drops you ready to type the name.
+  // The module category folders, each with a trailing "/" so completing leaves you at the name.
   categories: () => Object.keys(MODULE_TYPES).map((c) => `${c}/`),
-  /**
-   * The blocks a chain can use: the project's own, plus the INHERITED modules by ref — those
-   * are nameable before any chain has used one, so they can't come off the project.
-   *
-   * `@engine` refs are the exception and are NOT offered. That namespace is the plugin scan,
-   * so its size is a fact about the machine rather than about the song: a rig with four hundred
-   * plugins put four hundred entries in front of the dozen modules the project has. It is
-   * BROWSED instead — the file tree's Libraries tab — and it is still what `extends:` inherits
-   * from, which is the `baseModules` provider above. Filtered from the vocabulary half only:
-   * a ref the project already USES arrives through `collectPluginModules` and stays completable,
-   * because a node that exists is a node its verbs have to be able to name.
-   */
+  /** The project's blocks plus the INHERITED refs, minus `@engine` — see docs/completions.md. */
   modules: (h) =>
     completionOrder(
       [
@@ -115,27 +89,10 @@ const PROVIDERS = {
       ],
       moduleStatuses(h),
     ),
-  /**
-   * This project's NODES — its uses of modules, by the name the chains call them.
-   *
-   * The same first half as `modules` and deliberately not the second: a `@ref` names a shared
-   * DEFINITION, and editing one is the builder's job, not a `node …` verb's (it would write a
-   * file every other project reads). The two providers are what makes that line visible in the
-   * completion rather than only in the documentation.
-   *
-   * Off the compiled project, so a name here is one the chains actually hold — which is what a
-   * node IS. See packages/song/docs/nodes.md.
-   */
+  /** This project's NODES — its uses of modules, and no `@ref`. See docs/completions.md. */
   nodes: (h) => collectPluginModules(h.project()).map((b) => b.module),
   tracks: (h) => h.project().tracks.map((t) => t.id),
-  /**
-   * Every alternative name in the project, deduped. Not the named module's alone: a provider is
-   * handed the host and not the half-typed line, so it cannot know which module was just named.
-   * The handler checks against the real module, which is where a wrong name has to be caught.
-   *
-   * Off `loadModules` and not `loadGraph`: this reads the module FILES and nothing else, where
-   * the graph would also read every clip, sequence and curve to answer a question about names.
-   */
+  /** Every alternative name in the project, deduped, off the module FILES — docs/completions.md. */
   moduleAlternatives: (h) => {
     if (!h.songPath) return [];
     try {
@@ -152,8 +109,7 @@ const PROVIDERS = {
       return []; // an unreadable module folder costs the completion, not the command
     }
   },
-  // The branches you can switch to — every local one EXCEPT the one you are on, which is
-  // not a destination. Best-effort: no repo means nothing to offer, not an error.
+  // The branches you can switch to — every local one EXCEPT the one you are on.
   alternatives: (h) => {
     const dir = h.repoDir ?? h.songPath;
     if (!dir) return [];
@@ -167,14 +123,7 @@ const PROVIDERS = {
   },
   // Marker names for `project marker delete`. A multi-word name doesn't complete cleanly, but single-word ones do.
   markerNames: (h) => h.project().markers.map((m) => m.name),
-  /**
-   * The workspace's set lists, by the NAME `playlist song add` takes — `_playlists/` stripped and
-   * the extension with it, subfolders kept (`live/repet` is one).
-   *
-   * Off `repoDir` and never `songPath`: a playlist belongs to the repository, so a project folder
-   * is the one place it cannot be. No workspace means nothing to offer rather than an error — the
-   * command itself has the refusal, and a completion that threw would take the whole bar with it.
-   */
+  /** The workspace's set lists, off `repoDir` and never `songPath` — see docs/completions.md. */
   playlists: (h) => {
     const root = h.repoDir;
     if (!root) return [];
@@ -196,13 +145,7 @@ const PROVIDERS = {
     walk(join(root, PLAYLISTS_DIR), "");
     return out.sort();
   },
-  // What `clip process` accepts: the audio clips this project places, then its audio files —
-  // for material no clip file has claimed yet. Tracks are deliberately absent, and the handler
-  // refuses one by name: `track process` is the command for those. Clip ids were dropped from a
-  // list like this once, back when the command reading it resolved only a track or a path, and
-  // the rule that did it stands unchanged — never offer what the command would reject.
-  // Annotated because it reaches into PROVIDERS for `audioFiles`: inferring it would need the
-  // map's own type, which is what is being inferred.
+  // What `clip process` accepts — clips then audio files, and no track. See docs/completions.md.
   clipTargets: (h): string[] => [
     ...new Set(
       h
@@ -213,12 +156,9 @@ const PROVIDERS = {
     ),
     ...PROVIDERS.audioFiles(h),
   ],
-  // The chains a bounce can run: this project's, then the médiathèque's under `@st0/`.
-  // Both in one list because the command takes either — see processChain.ts.
+  // The chains a bounce can run: this project's, then the médiathèque's `@st0/` ones, in one list.
   chains: (h) => chainNames(h.songPath, h.project()),
-  // The project's curves, by id — what `node automate` binds. Read off disk rather than off the
-  // compiled project: a curve nothing binds yet is exactly the one you are about to bind, and
-  // the document only carries the bound ones' baked points.
+  // The project's curves, by id — read off disk, not off the document. See docs/completions.md.
   curves: (h) => {
     try {
       return Object.keys(loadCurves(h.songPath)).sort();
@@ -226,12 +166,9 @@ const PROVIDERS = {
       return []; // a broken curve file costs the completion, not the command
     }
   },
-  // The kinds of surface there are, from the schema's own enum rather than retyped: a fourth one
-  // has to be added there anyway (it is what the parser accepts), and a list here that had to be
-  // kept in step would offer a type the file would then be refused for. Takes no host — the set
-  // is the editor's, not the project's, which is exactly why `type` is an enum at all.
+  // The kinds of surface, from the schema's own enum rather than retyped — docs/completions.md.
   surfaceTypes: () => [...SURFACE_TYPES],
-  // Sequence FILE ids, read off disk: a sequence's file id can differ from the midi-clip name collectSequences reports.
+  // Sequence FILE ids, read off disk: a file id can differ from the midi-clip name it reports.
   sequenceFiles: (h) => {
     try {
       return readdirSync(join(h.songPath, "sequences"))
@@ -294,8 +231,7 @@ export function loadCommandSpecs(): CommandSpec[] {
         command: String(c.command),
         sid: String(c.sid),
         help: c.help ? String(c.help) : undefined,
-        // Both languages or neither: a half-translated sentence would show a French list with
-        // one English row in it, which reads as a bug rather than as a missing translation.
+        // Both languages or neither, so a French list never shows one English row in it.
         readable:
           c.readable?.en && c.readable?.fr
             ? { en: String(c.readable.en), fr: String(c.readable.fr) }
@@ -338,8 +274,7 @@ export function loadCommandSpecs(): CommandSpec[] {
 // The provider names as a TYPE, so the vocabulary follows and a stale reference stops compiling.
 export type ProviderName = keyof typeof PROVIDERS;
 
-// The DISPLAY class of an argument — what KIND of thing it names, in one word, so a command line reads as a
-// coloured sentence. A coarsening of the three vocabularies. Mirrored on the wire; a test keeps the two in step.
+// The DISPLAY class of an argument, mirrored on the wire and kept in step by a test.
 export const ARG_CLASSES = [
   "track",
   "module",
@@ -356,15 +291,12 @@ export type ArgClass = (typeof ARG_CLASSES)[number];
 // Which class each provider serves. Exhaustive over PROVIDERS, so a new one must say what it names to compile.
 const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   tracks: "track",
-  // A named thing picked from a closed list — the same shape the palette renders for any
-  // other choice. Not "file": an alternative is a branch, and nothing on disk.
+  // Not "file": an alternative is a branch, and nothing on disk. See docs/completions.md.
   alternatives: "choice",
   moduleAlternatives: "choice",
-  // A clip id and an audio path are both material, and the palette colours material as a file —
-  // the same answer `sequenceFiles` gets, whose ids are likewise entities rather than paths.
+  // A clip id and an audio path are both material, which the palette colours as a file.
   clipTargets: "file",
-  // A chain is a named thing picked from a closed list, like an alternative — it is neither a
-  // module nor anything on disk the `file` class would colour.
+  // A chain is neither a module nor anything on disk the `file` class would colour.
   chains: "choice",
   curves: "choice",
   modules: "module",
@@ -375,11 +307,9 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   markerNames: "marker",
   sequenceFiles: "file",
   audioFiles: "file",
-  // A playlist IS its file — there is no `playlist.yaml` marker inside a folder, the extension
-  // is the whole rule — so it is coloured as one, exactly as a sequence's id is.
+  // A playlist IS its file: no marker inside a folder, the extension is the whole rule.
   playlists: "file",
-  // A closed set of words the EDITOR has components for, which is what `choice` colours. Not
-  // "file": the surface's file does not exist yet — naming its type is what creates it.
+  // Not "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
 };
 
@@ -456,8 +386,7 @@ function argKind(
   return kind as ArgKind;
 }
 
-// Check one token against its shape. 4/4 on purpose: this checks the FORM of a timecode, and asking the host
-// for the real signature would compile the project just to reject a typo.
+// Check one token against its shape; the timecode parses at 4/4 on purpose, docs/completions.md.
 function argError(kind: ArgKind, name: string, token: string): string | null {
   switch (kind) {
     case "timecode":
@@ -480,8 +409,7 @@ function argError(kind: ArgKind, name: string, token: string): string | null {
   }
 }
 
-// The first argument that doesn't fit, walking declared args POSITIONALLY. Extra tokens are the rest-of-line an
-// argument may swallow; missing ones are the handler's to report, with its own usage line.
+// The first argument that doesn't fit, walking declared args POSITIONALLY — docs/completions.md.
 export function validateArgs(
   spec: CommandSpec,
   userArgs: string,
@@ -504,8 +432,7 @@ export const PROVIDER_NAMES: ReadonlySet<string> = new Set(
 const forSurface = (surface: Surface): CommandSpec[] =>
   loadCommandSpecs().filter((c) => c.surfaces.includes(surface));
 
-// Autocomplete: inside a command the token under the cursor picks its ArgSpec BY POSITION, so a command whose
-// interesting argument isn't first still completes. Earlier tokens are echoed, so a suggestion is a runnable line.
+// Autocomplete: the token under the cursor picks its ArgSpec BY POSITION, earlier ones echoed.
 export function completions(
   line: string,
   host: CommandHost,

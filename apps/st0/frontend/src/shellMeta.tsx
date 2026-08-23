@@ -21,12 +21,7 @@ import {
 import { m } from "./paraglide/messages.js";
 import type { Pane, Panel } from "./routes";
 
-// The panes, not tabs: a "view" is a LAYOUT over the same instances, and the default one stacks the
-// frame over the timeline over the desk over the graph. `editor` is in this list because it can be
-// FULLSCREENED and toggled from the header — it just has no slot in either layout (see App's
-// ringPanes). `viewport` and `turntables` are here for the same reason `timeline` is: all three are
-// `split` SURFACES the project declares, and which of them a given project actually mounts is
-// `viewPanes` in routes.ts, not this table. `mastering` is a fourth of those.
+// The panes, not tabs: a view is a LAYOUT over the same instances, and which of them a project mounts is `viewPanes` in routes.ts, not this table.
 export const PANES: Pane[] = [
   "editor",
   "viewport",
@@ -48,19 +43,9 @@ export const PANE_META: Record<Pane, { icon: LucideIcon; label: string }> = {
   chains: { icon: Workflow, label: "Chains" },
 };
 
-// `VIEW_META` was here: an icon and a label for `global` and `live`. Both layouts are gone --
-// there is one, and which panes it holds is what the project declares (routes.ts).
+// `VIEW_META` was here, for `global` and `live`: there is one layout, and which panes it holds is what the project declares (routes.ts).
 
-// The bottom panels: `graph` is the caret track's path, `logs` what happened.
-//
-// `docs` was a third — a project's notes and to-dos in one list. A note is a doc module in the
-// GRAPH now, toggled beside the mixer, so there is nothing left for a panel to aggregate.
-//
-// Two things left this row rather than being added to it. The MIXER is a view of the graph and
-// is drawn where the graph is; its button sits beside these all the same (see App.tsx). The
-// EDITOR panel drew a clip's contents, which the graph's own slot now does — the same
-// `ClipView`, with the pane's height instead of a band's, so keeping the panel was showing the
-// same roll twice and inviting the two to disagree.
+// The bottom panels: `graph` is the caret track's path, `logs` what happened — the MIXER and a clip's CONTENTS are drawn where the graph is.
 export const PANEL_META: Record<Panel, { icon: LucideIcon; label: string }> = {
   graph: { icon: Workflow, label: "Graph" },
   logs: { icon: ScrollText, label: "Logs" },
@@ -93,15 +78,7 @@ export function TransportClock({
   );
 }
 
-/**
- * The transport, reduced to what you need when the shell is hidden behind something.
- *
- * Play/pause and the clock, and deliberately nothing else: stop, rewind, record and the
- * metronome all belong to a session you are looking at, and this rides over a popin that is
- * covering it. One BUTTON for the two states, as the header's does — and it sends `stop` to
- * pause, because that is what the engine understands and having two spellings of pause in one
- * app is how they come to disagree.
- */
+/** The transport reduced to what you need when the shell is hidden: play/pause and the clock, with `stop` as the pause the engine understands. */
 export function MiniTransport({
   playing,
   waiting,

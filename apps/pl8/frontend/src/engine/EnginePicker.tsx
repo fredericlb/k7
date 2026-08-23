@@ -10,18 +10,12 @@ import { formatLatency } from "@studio/web-protocol/quality";
 import { Check, Server } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-/** How good the link is, measured: the round trip plus what its interface costs. Null when
- *  nothing answered — listed by the registry, out of reach from this browser. */
+/** How good the link MEASURED, or null for an engine the registry lists and nothing answered for. */
 function where(r: RankedEngine<PublicEngine>): string {
   return r.latency ? formatLatency(r.latency) : "hors de portée";
 }
 
-/**
- * The engines, as rows. Not a popover, not a screen — whatever wraps it decides that.
- *
- * `onPicked` is what the wrapper does AFTER a choice (a popover closes itself); the gate has
- * nothing to close, so it passes nothing.
- */
+/** The engines as rows; whatever wraps them decides the shape, and `onPicked` is its own business. */
 export function EngineList({
   ranked,
   chosenId,
@@ -39,8 +33,7 @@ export function EngineList({
     <>
       {ranked.length === 0 && (
         <div className="px-2 py-2 text-xs text-muted-foreground">
-          {/* Not an error: an engine appears here only once its tray has been pointed at
-              the médiathèque, because each service holds its own registry. */}
+          {/* Not an error: each service holds its own registry (packages/engine-registry/docs/shared.md). */}
           Aucun moteur ne s'est annoncé à la médiathèque. Dans le capot : « Add
           web UI… ».
         </div>
@@ -98,9 +91,7 @@ export function EnginePicker({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // It OPENS ITSELF when there is a genuine question: several engines are reachable and
-  // none is remembered. One reachable engine is not a choice, and no engine at all is a
-  // fact to read — neither deserves a panel in the way.
+  // It OPENS ITSELF only on a genuine question: several reachable, and none remembered.
   const reachable = ranked.filter((r) => r.wsUrl);
   const unanswered =
     reachable.length > 1 && !reachable.some((r) => r.engine.id === chosenId);
@@ -119,9 +110,7 @@ export function EnginePicker({
 
   const current = chosenId ?? null;
   const chosen = ranked.find((r) => r.engine.id === current);
-  // The HOSTNAME when we have it, the id's head when the chosen engine is not in the list
-  // — which is the "it is off, or I am on another network" case, and hiding it behind
-  // "aucun moteur" would read as a choice that never saved.
+  // The id's head when the chosen engine is not listed: "aucun moteur" would read as a lost choice.
   const label = chosen
     ? chosen.engine.hostname
     : current

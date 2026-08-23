@@ -27,11 +27,7 @@ describe("rulerTicks windowing", () => {
     expect(seen[seen.length - 1].beat).toBe(20);
   });
 
-  /**
-   * The property the whole thing rests on: a windowed tick is the SAME tick. Its index is
-   * computed from the origin, so the label stride and the three weights do not shift as the
-   * window moves — which is what would have made panning re-letter the ruler under the cursor.
-   */
+  /** The property the whole thing rests on: a windowed tick is the SAME tick, its index computed from the origin rather than the window. */
   it("gives a tick the same identity whether or not the list starts at it", () => {
     const all = bars(0, 64, 1);
     const seen = bars(0, 64, 1, { lo: 10, hi: 20 });

@@ -44,12 +44,10 @@ import { SurfaceTab } from "./SurfaceTab";
 import type { TimelineHandle } from "./TimelineTab";
 import { ViewportTab } from "./ViewportTab";
 
-/** No caret and no rectangle until a surface says otherwise — a frozen identity, since the key
- *  listener takes it as a dependency. */
+/** No caret and no rectangle until a surface says otherwise — a frozen identity, the key listener taking it as a dependency. */
 const NO_CONDITIONS: ConditionCtx = {};
 
-/** The `ui` verbs that mean nothing on a one-surface screen and are not worth saying so about:
- *  what Esc and Tab fall through to when there is nothing to close and one pane to focus. */
+/** The `ui` verbs that mean nothing on a one-surface screen and are not worth saying so about — what Esc and Tab fall through to. */
 const QUIET_UI = new Set([
   "close",
   "global",
@@ -73,15 +71,9 @@ export function ExternalSurface({
 }) {
   const store = useRef(new EngineStore()).current;
   const pluginParamsStore = useRef(new PluginParamsStore()).current;
-  // The one live slice this level draws. NOT the playhead: the clock subscribes for itself, which
-  // is what keeps a ~20 Hz frame from re-rendering the surface under it. See shellMeta.tsx.
+  // The one live slice this level draws; NOT the playhead, whose clock subscribes for itself (shellMeta.tsx).
   const playing = useStoreState(store, (s) => s.playing);
-  /**
-   * Where a fault goes on a screen with no status line.
-   *
-   * The shell has a log panel to put these in; this has none, and inventing one would be
-   * inventing the shell. One line in the footer is what a phone has room for.
-   */
+  /** Where a fault goes on a screen with no status line — one line in the footer, which is what a phone has room for. */
   const [status, setStatus] = useState("");
   const pushLog = useCallback(() => {}, []);
 
@@ -112,65 +104,33 @@ export function ExternalSurface({
     engineUrl,
   });
 
-  /**
-   * The caret, the zoom and the selection — reported UP by the surface that has them.
-   *
-   * The shell derives these from its own state because it holds a caret, a slot and a fullscreen
-   * pane; here there is one surface and it holds all there is. The conditional bindings (`m`, `s`,
-   * `z`, ⇧L) read them, so a key that would act on nothing goes quiet rather than sending a
-   * command with an empty argument. See keys.ts.
-   */
+  /** The caret, the zoom and the selection, reported UP by the surface that has them — the conditional bindings read them (keys.ts). */
   const [conditions, setConditions] = useState<ConditionCtx>(NO_CONDITIONS);
   /** The arrangement's handle, when one is mounted — how the caret verbs are answered locally. */
   const timelineRef = useRef<TimelineHandle>(null);
   /** Where the current roll began, in seconds — what ⇧Space goes back to. */
   const replayAt = useRef(0);
 
-  /**
-   * The lines this screen answers itself.
-   *
-   * Three groups, and each is here for a reason of its own. The four BARE TRANSPORT verbs go
-   * straight down the socket, exactly as the shell sends them and for the same measured reason —
-   * the file service would send this identical message after an HTTP round trip and an undo
-   * journal walk. `replay` joins them, being a seek and a play. The CARET verbs are the mounted
-   * surface's and no service can answer them at all. Everything else under `ui` names a pane, a
-   * panel or a screen this device does not have, and is refused in words rather than posted to a
-   * service that would answer "unknown command".
-   */
+  /** The lines this screen answers itself: the bare transport verbs down the socket, the caret verbs to the surface, the rest refused in words. */
   const runLocal = useCallback(
     (line: string): boolean => {
       if (line === "transport replay") {
-        // Back to where playback last started, and roll again from there. The bare verb after the
-        // seek, as the shell does it: letting anything re-choose the position would make replay
-        // return somewhere other than where it started.
+        // Back to where playback last started, then the bare verb: letting anything re-choose the position would move the replay.
         seek(replayAt.current);
         transport("play");
         return true;
       }
       if (BARE_TRANSPORT.includes(line)) {
-        // …falling through to the slow path in the two cases the socket cannot answer for: no
-        // connection of our own, and an engine mid-apply, which this path DROPS rather than
-        // queues. Dropping is right for a disabled button and wrong for a key.
+        // …falling through to the slow path in the two cases the socket cannot answer for — dropping is right for a disabled button.
         if (!connected || engineBusyRef.current) return false;
-        // Where this roll begins, for `replay` above — read before the verb goes, since the
-        // playhead is about to move. A stop or a rewind is not a start and does not set it.
+        // Where this roll begins, for `replay` above, read before the verb goes; a stop or a rewind is not a start.
         if (line === "transport play" || line === "transport toggle")
           if (!store.getSnapshot().playing)
             replayAt.current = store.getSnapshot().playhead;
         transport(line.slice("transport ".length) as TransportAction);
         return true;
       }
-      /**
-       * The CARET verbs — the mounted surface's own, answered through its handle.
-       *
-       * Two of them are `transport` lines and the rest are `ui` ones, which is the shell's split
-       * too and not an accident: `t` and ⇧L MOVE the transport, and `ui` promises not to. Both
-       * halves reach the same handle.
-       *
-       * A surface with no arrangement says so rather than going quiet: the key is bound, the
-       * command is real, and this device is the wrong place — which is a different thing from a
-       * key that does nothing.
-       */
+      /** The CARET verbs — the mounted surface's own, through its handle; a surface with no arrangement says so rather than going quiet. */
       const ui = line.startsWith("ui ") ? line.slice(3).trim() : null;
       const onTimeline: Record<string, (h: TimelineHandle) => void> = {
         "transport locate": (h) => h.seekToCaret(),
@@ -190,9 +150,7 @@ export function ExternalSurface({
         return true;
       }
       if (ui === null) return false;
-      // The LAYOUT verbs go quiet rather than complaining. They are what Esc and Tab resolve to
-      // once nothing is open, and a screen that answers Escape with a sentence about the editor
-      // is a screen that nags every time you dismiss something.
+      // The LAYOUT verbs go quiet rather than complaining: they are what Esc and Tab resolve to once nothing is open.
       if (QUIET_UI.has(ui)) return true;
       if (isUiLine(ui)) {
         setStatus(`« ${ui} » appartient à l'éditeur, pas à une surface.`);
@@ -203,22 +161,10 @@ export function ExternalSurface({
     [connected, engineBusyRef, transport, seek, store],
   );
 
-  /**
-   * Running a command, and the reload key every surface here reads — hooks/useSurfaceCommands.ts.
-   *
-   * Held at THIS level rather than inside the timeline, though that is the only one writing today:
-   * the reload key is also what re-asks the picture, the surfaces list and the compiled document,
-   * and a second copy of it would be two screens disagreeing about how old the project is.
-   */
+  /** Running a command, and the reload key every surface here reads — held at THIS level, a second copy being two ages of one project. */
   const commands = useSurfaceCommands(setStatus, runLocal);
 
-  /**
-   * The command catalogue and this person's layer over it, fetched once.
-   *
-   * Both are the shell's too. The prefs are what make the KEYMAP this person's — a remapped play
-   * key has to keep working on the tablet, or the two screens are two instruments — and they are
-   * what the context menu draws its icons and names from.
-   */
+  /** The command catalogue and this person's layer over it, fetched once: a remapped play key has to keep working on the tablet. */
   const [backendCmds, setBackendCmds] = useState<CommandInfo[]>([]);
   const [commandPrefs, setCommandPrefs] = useState<CommandPrefs>({});
   useEffect(() => {
@@ -235,16 +181,7 @@ export function ExternalSurface({
   }, []);
   const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
 
-  /**
-   * The line a menu entry PRE-WRITES, and the one place this screen has to put it.
-   *
-   * A `MenuItem` is either complete — every argument filled by what was clicked, so it runs — or
-   * it still owes one, and in the shell those go to the command bar half-typed. There is no
-   * command bar here, and inventing one would be inventing the shell; but dropping the entries
-   * that owe an argument would take "New alternative…" off a menu whose whole subject is
-   * alternatives. So the footer holds ONE input, filled by those entries, opened by the same
-   * double-Shift the bar answers to, and typeable in its own right.
-   */
+  /** The line a menu entry PRE-WRITES: ONE footer input, there being no command bar here and no dropping the entries that owe an argument. */
   const [line, setLine] = useState("");
   const lineRef = useRef<HTMLInputElement>(null);
   const prewrite = useCallback((command: string) => {
@@ -261,27 +198,22 @@ export function ExternalSurface({
     onDoubleShift: focusLine,
   });
 
-  // The song's picture, for the frame. Asked of every project and empty for most — the same call
-  // the shell makes, on the key above rather than on the shell's.
+  // The song's picture, for the frame — the same call the shell makes, on the key above rather than on the shell's.
   const { doc: videoDoc, error: videoError } = useVideoDoc(commands.reloadKey);
-  // …and the tempo the transport clock counts in. The only two fields of the compiled document
-  // this level needs; the surfaces below ask for what they need themselves.
+  // …and the tempo the transport clock counts in: the only two fields of the compiled document this level needs.
   const noMidiSeqs = useCallback(() => {}, []);
   const { recInfo } = useProjectDoc(commands.reloadKey, {
     onMidiSeqs: noMidiSeqs,
   });
 
-  // The project's own list, on the same key as everything else here — which is driven by
-  // `/revision`, so a surface added or renamed in the editor reaches this device rather than
-  // leaving it saying "no such surface" until somebody walks over and reloads it.
+  // The project's own list, on the same key as everything else here, which is driven by `/revision`.
   const { surfaces } = useSurfaces(commands.reloadKey);
   const surface = useMemo(
     () => surfaces.find((s) => s.id === name) ?? null,
     [surfaces, name],
   );
 
-  // The list arrives a moment after this mounts, so "not found" has to wait for it — otherwise
-  // every external link says "no such surface" for a frame before drawing.
+  // The list arrives a moment after this mounts, so 'not found' has to wait for it.
   if (!surfaces.length && !surface)
     return (
       <Centre>
@@ -307,12 +239,7 @@ export function ExternalSurface({
   return (
     <EngineStoreProvider value={store}>
       <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-        {/* Play/pause and the clock, above the surface. The shell's own `MiniTransport`, which
-            exists for exactly this case — riding over something that is covering the header —
-            and it is what a second device most needs: a tablet by the decks is where a hand is,
-            and walking back to the laptop to press play is the thing this whole screen is for
-            not doing. Stop, rewind, record and the metronome are deliberately absent, being
-            decisions about a session you are looking at; the keys still run all of them. */}
+        {/* Play/pause and the clock — the shell's `MiniTransport`; stop, rewind, record and the metronome stay out (../docs/external.md). */}
         <MiniTransport
           playing={playing}
           waiting={!engineReady}
@@ -342,8 +269,7 @@ export function ExternalSurface({
             timelineRef={timelineRef}
           />
         </div>
-        {/* One line of chrome. Not a command BAR: no completion, no palette, no catalogue behind
-            it — those are the shell's, and what makes them worth having is a keyboard. */}
+        {/* One line of chrome, not a command BAR: completion and the palette are the shell's, and what makes them worth having is a keyboard. */}
         <form
           className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-1"
           onSubmit={(e) => {
@@ -366,9 +292,7 @@ export function ExternalSurface({
             className="min-w-0 flex-1 bg-transparent py-0.5 font-mono text-xs outline-none placeholder:text-muted-foreground"
           />
         </form>
-        {/* The way back, and what went wrong when something did. The way back is not optional:
-            installed as a PWA this screen has no address bar and often no back gesture either,
-            so without it the menu is a trap door. */}
+        {/* The way back, which is not optional: installed as a PWA this screen has no address bar, so without it the menu is a trap door. */}
         <footer className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-1">
           <Back />
           {status ? (
@@ -382,16 +306,7 @@ export function ExternalSurface({
   );
 }
 
-/**
- * Which component draws this type — the same four the shell's layout mounts, given the same
- * things by a host that is not a layout.
- *
- * The switch is `SurfaceTab`'s inverted, and deliberately so. That one draws the desk and says of
- * the other three that the SHELL draws them, because inside the editor they are panes with the
- * shell's own state behind them. Out here there is no shell, so each is given what it actually
- * needs: the master strip an engine link, the frame a compiled picture, the arrangement its own
- * component (`ExternalTimeline`) because what it needs is a page of wiring.
- */
+/** Which component draws this type — `SurfaceTab`'s switch inverted: out here there is no shell, so each is given what it actually needs. */
 function Drawn({
   surface,
   project,
@@ -444,10 +359,7 @@ function Drawn({
         />
       );
     case "viewport":
-      // No `trackIds`: that list exists so a shader's audio input can be looked up in the engine's
-      // `levels` array, which is indexed against the compiled track order. Threading it here would
-      // mean compiling the song on a device that is only showing its picture — and a shader with
-      // no audio input, which is nearly all of them, reads it not at all. See src/shaderAudio.ts.
+      // No `trackIds`: that list is for a shader's audio input, and building it would mean compiling the song on a device only showing its picture.
       return <ViewportTab doc={videoDoc} error={videoError} />;
     case "timeline":
       return (
@@ -469,12 +381,7 @@ function Drawn({
   }
 }
 
-/**
- * Back to `/external`, as a plain link.
- *
- * Not a router one: this app is mounted under a basename that ends at the PROJECT, and the menu
- * sits above every project — there is no route from here to there, only an address.
- */
+/** Back to `/external`, as a plain link: this app's basename ends at the PROJECT, so there is no route from here to there. */
 function Back() {
   return (
     <a

@@ -59,12 +59,7 @@ export function compileShape(s: Record<string, unknown>): ShapeDoc {
   }
 }
 
-/**
- * `viewport:` read as [w, h] plus the export fps, which is its optional third element.
- *
- * The fps defaults to 30 rather than failing, because it is only ever used by a render: a
- * project that never exports is complete without it, and realtime follows the transport.
- */
+/** `viewport:` as [w, h] plus the export fps, an optional third element defaulting to 30. */
 export function readViewport(proj: Record<string, unknown>): {
   viewport: [number, number];
   fps: number;
@@ -76,15 +71,7 @@ export function readViewport(proj: Record<string, unknown>): {
   };
 }
 
-/**
- * The lanes a project draws, bottom first.
- *
- * `layers:` is the ORDER and the membership at once, and both halves are enforced: a name it
- * lists with no file is an error, and a file no name lists is an error too. The second one
- * matters more than it looks — a lane missing from `layers` would compile fine and simply
- * never appear, which is the exact shape of bug this codebase refuses to ship (a thing
- * accepted and silently ignored). Throwing here is what turns it into a line to fix.
- */
+/** The lanes a project draws, bottom first — `layers:` is the ORDER and the membership at once. */
 export function compileVideoTracks(
   dir: string,
   layersRaw: unknown,
@@ -129,7 +116,6 @@ export function compileVideoTracks(
       w: Number(t.w ?? 0),
       h: Number(t.h ?? 0),
       // Only the matching field is read downstream, so the other stays empty.
-      // Authored `events:` becomes the compiled `clips` — the boundary, as on the audio side.
       clips:
         kind === "video"
           ? (Array.isArray(t.events) ? t.events : []).map((p) =>
@@ -146,8 +132,7 @@ export function compileVideoTracks(
   });
 }
 
-/** Where the last picture ends, in seconds. A length-0 clip is unmeasurable here (the source
- *  decides), so it contributes its `start` alone — the timeline widens once it is trimmed. */
+/** Where the last picture ends, in seconds; a length-0 clip contributes its `start` alone. */
 export function videoDuration(tracks: VideoTrackDoc[]): number {
   let end = 0;
   for (const t of tracks)

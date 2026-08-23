@@ -30,18 +30,9 @@ export interface StreamStats {
   formatChanges: number;
   /** The format currently arriving, or null before the first frame. */
   format: { channels: number; sampleRate: number } | null;
-  /**
-   * Arrival jitter, ms: how much later or earlier a frame landed than its own capture
-   * clock said it should. The mean is meaningless (the two machines' epochs are
-   * unrelated); the SPREAD is the number that decides how deep a jitter buffer must be.
-   */
+  /** Arrival jitter, ms; the mean is meaningless since the two machines' epochs are unrelated, and the SPREAD is what sizes a cushion. */
   jitterMs: { min: number; max: number; last: number };
-  /**
-   * Clock drift, ms per minute, positive when the engine produces faster than this
-   * browser consumes. Estimated from capture-time against arrival-time over the whole
-   * session, so it needs a minute or two before it means anything — and it is THE number
-   * that decides whether resampling is needed or whether a cushion is enough.
-   */
+  /** Clock drift, ms per minute, positive when the engine produces faster than this browser consumes — see docs/streaming.md. */
   driftMsPerMin: number | null;
 }
 
@@ -56,14 +47,7 @@ const emptyStats = (): StreamStats => ({
   driftMsPerMin: null,
 });
 
-/**
- * Feed this whatever binary arrives on the engine socket.
- *
- * It is safe to hand it anything: a message that is not one of ours is counted and
- * dropped, never played. The one thing it does NOT do is correct for drift — that is the
- * decision this class exists to inform, and a resampler written before the measurement
- * would be a guess wearing a number.
- */
+/** Feed this whatever binary arrives on the engine socket; it corrects no drift, which is the decision it exists to inform. */
 export class StreamPlayer {
   private sink: StreamSink;
   private now: () => number;
@@ -87,9 +71,7 @@ export class StreamPlayer {
     }
     const arrival = this.now();
 
-    // A format change is not a glitch to smooth over: 44.1 kHz material played at 48 kHz
-    // is a pitch shift, and a channel count change would interleave wrongly. Flush and
-    // let the host rebuild its context at the new rate.
+    // A format change is not a glitch to smooth over, so flush and let the host rebuild its context at the new rate.
     const f = this.stats.format;
     if (
       f === null ||
@@ -106,8 +88,7 @@ export class StreamPlayer {
     } else if (this.lastSeq !== null) {
       const gap = seqGap(this.lastSeq, frame.seq);
       if (gap > 0) {
-        // The sender dropped under backpressure. Re-cushion rather than butt-join across
-        // the hole: the samples on either side are unrelated, and splicing them clicks.
+        // The sender dropped under backpressure: re-cushion rather than butt-join across the hole, which clicks.
         this.stats.dropped += gap;
         this.sink.reset();
         this.resetClocks(frame.captureMs, arrival);
@@ -129,8 +110,7 @@ export class StreamPlayer {
   }
 
   private measure(captureMs: number, arrival: number): void {
-    // Both clocks measured from the same first frame, so the unknowable offset between the
-    // two machines cancels and what is left is transport jitter plus drift.
+    // Both clocks measured from the same first frame, so the unknowable offset cancels and what is left is jitter plus drift.
     const elapsedCapture = captureMs - this.originCapture;
     const elapsedArrival = arrival - this.originArrival;
     const delta = elapsedArrival - elapsedCapture;
@@ -143,8 +123,7 @@ export class StreamPlayer {
       if (delta < j.min) j.min = delta;
       if (delta > j.max) j.max = delta;
     }
-    // Below a minute the slope is jitter, not drift, and reporting it would invite acting
-    // on noise. Null says "not known yet", which is different from zero.
+    // Below a minute the slope is jitter, not drift, so null says "not known yet", which is different from zero.
     this.stats.driftMsPerMin =
       elapsedCapture >= 60_000 ? (delta / elapsedCapture) * 60_000 : null;
   }

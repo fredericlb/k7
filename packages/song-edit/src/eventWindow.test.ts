@@ -1,8 +1,4 @@
-// Setting an EVENT's window — which slice of its material one placement plays.
-//
-// The only window there is, since the descent: a clip file describes the bytes, a placement
-// describes the use (docs/materialCut.md). This is what the clip panel's two edge handles commit
-// and what `event window` writes.
+// Setting an EVENT's window — the only window there is since the descent; docs/trackMix.md.
 
 import {
   mkdirSync,
@@ -43,8 +39,7 @@ const at = (tc: string) => parsePosition(tc, NUM, DEN);
 
 describe("setTrackPlacementWindow", () => {
   it("writes the pair in SECONDS, on the addressed event and no other", () => {
-    // Seconds because that is the axis the gesture happened on: a waveform is a file, and a hand
-    // pointing at it points at a second of it.
+    // Seconds because that is the axis the gesture happened on — a waveform is a file.
     const dir = laneDir();
     expect(
       setTrackPlacementWindow(dir, "vo", at("24:1"), NUM, DEN, {
@@ -58,8 +53,7 @@ describe("setTrackPlacementWindow", () => {
   });
 
   it("DELETES a `from` dragged back to the material's start", () => {
-    // Absent already means the start; a written 0 makes "not trimmed" and "trimmed to the
-    // beginning" read alike, which is the rule the fades and the disable follow too.
+    // Absent already means the start, so a written 0 would blur "not trimmed" into "trimmed to 0".
     const dir = laneDir();
     setTrackPlacementWindow(dir, "vo", at("24:1"), NUM, DEN, {
       from: 3,
@@ -103,8 +97,7 @@ describe("setTrackPlacementWindow", () => {
   });
 
   it("clears the edge a drag decided against rather than leaving it behind", () => {
-    // Both words go out every time: an old `to` beside a new one would keep narrowing what the
-    // drag just opened, and the event would play less than the band shows.
+    // Both words go out every time, or an old `to` keeps narrowing what the drag just opened.
     const dir = laneDir();
     setTrackPlacementWindow(dir, "vo", at("24:1"), NUM, DEN, {
       from: 2,

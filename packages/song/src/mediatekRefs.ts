@@ -23,20 +23,12 @@ const PREFIX = `${MEDIATEK_REF}/`;
 /** The module half of a ref, or null when it isn't one of the médiathèque's. */
 function mediatekModule(ref: unknown): string | null {
   if (typeof ref !== "string" || !ref.startsWith(PREFIX)) return null;
-  // A chain may name a NODE of a library module (`@st0/audio/x:warm`); the folder to
-  // fetch is the module's, and the node travels inside it.
+  // A chain may name a NODE of a library module; the folder to fetch is the module's.
   const { module } = splitModuleKey(ref);
   return module.length > PREFIX.length ? module : null;
 }
 
-/**
- * Every `@st0/…` module this project names, sorted and deduplicated.
- *
- * Two ways a project reaches one, and both count: a module of its own that `extends` it —
- * the documented way to adjust a module you do not own — and a chain step naming it outright.
- * Read straight off the YAML rather than off `projectModules`, because the loader can only
- * report refs whose files are already on this machine, and the missing ones are the point.
- */
+/** Every `@st0/…` module this project names, read off the YAML — see docs/sharedFolders.md. */
 export function mediatekRefs(dir: string): string[] {
   const out = new Set<string>();
 
@@ -45,10 +37,7 @@ export function mediatekRefs(dir: string): string[] {
     if (ref) out.add(ref);
   }
 
-  // graph.yaml declares SEGMENTS: a node names its next hops, and a library module can be
-  // one of them — both as a key that exists before it is wired and as a destination. Read as
-  // the file is shaped rather than through the derived chains, which would need the whole
-  // graph model to answer a question about names.
+  // Read as the graph FILE is shaped, not through the derived chains — see docs/sharedFolders.md.
   let chains: GraphFile | null = null;
   try {
     chains = (loadChains(dir, loadProjectRoot(dir)) ??
@@ -67,9 +56,7 @@ export function mediatekRefs(dir: string): string[] {
     if (ref) out.add(ref);
   }
 
-  // …and what those modules extend in turn, since inheritance is how the library builds on
-  // itself. Only as far as what is already on disk can say: a module fetched this round
-  // reveals its own parent to the next one, which is one round late and never wrong.
+  // …and what those extend in turn, as far as what is on disk can say — one round late, never wrong.
   const known = projectModules(dir);
   const queue = [...out];
   while (queue.length) {
@@ -83,31 +70,7 @@ export function mediatekRefs(dir: string): string[] {
   return [...out].sort();
 }
 
-/**
- * Every médiathèque SONG this project names — a set's list, and empty for a project with no
- * desk.
- *
- * Here rather than left to callers because this file is where "what does this project reach
- * for" is answered, and a cache sync has exactly one question to ask. The two halves stay
- * SEPARATE functions returning separate vocabularies (`modules/…` against `songs/…`): a module
- * ref omits its family and a song ref carries one, so a single merged list would need to be
- * taken apart again by whoever fetches it.
- *
- * This is what the file is FOR. A set names forty songs; the machine that plays them opens
- * file paths, so all forty must be on its disk before the gig, and the venue has no wifi.
- *
- * **Two arguments, because the answer is in two places now.** It used to read the project's own
- * `songs.yaml` and needed nothing else. The list is the PLAYLIST the desk's surface names, and a
- * playlist lives at the WORKSPACE root — the repository, beside `_modules` — so this needs the
- * folder above as well as the project. That is the cost of a set list being a document other
- * projects can open, and it is paid once, here.
- *
- * Read off the YAML before anything resolves it, for the reason the modules above are: a ref
- * that resolves to nothing is precisely the one worth fetching. A line naming a song by its
- * bare TITLE is therefore skipped — resolving that needs the catalogue, which is the thing
- * being synced — so it arrives on the desk as a song the cache has not got, which it is. The
- * unambiguous form is what a click writes, and what the desk's own listing offers.
- */
+/** Every médiathèque SONG this project names — the desk's playlist, at the WORKSPACE root, docs/sharedFolders.md. */
 export function mediatekSongRefs(dir: string, workspace: string): string[] {
   let name: string | undefined;
   try {
@@ -131,21 +94,13 @@ export function mediatekSongRefs(dir: string, workspace: string): string[] {
   const out = new Set<string>();
   for (const item of items) {
     const ref = item.song.replace(/^\/+|\/+$/g, "");
-    // The path form only — `artist/album/title`, which is what a click writes. A bare title is
-    // a name the catalogue resolves, and this runs to POPULATE that catalogue.
+    // The path form only: a bare title needs the catalogue, and this runs to POPULATE it.
     if (ref.includes("/")) out.add(songRefOf(`songs/${ref}`));
   }
   return [...out].sort();
 }
 
-/**
- * The library-relative folder a `@st0/…` ref lives in, with its trailing slash.
- *
- * `@st0/audio/filter/auto-wah` → `modules/audio/filter/auto-wah/`. A prefix rather than a
- * file list because a module IS its folder: the jsdsp source, the presets and the panel are as
- * much part of it as `module.yaml`, and a sync that fetched only the file named would land a
- * module that loads nothing.
- */
+/** The library-relative FOLDER a `@st0/…` ref lives in, since a module is its folder — docs/sharedFolders.md. */
 export function mediatekPathPrefix(ref: string): string {
   return `modules/${ref.slice(PREFIX.length)}/`;
 }

@@ -33,22 +33,14 @@ import { recentCommands } from "../recentCommands";
 import type { ArgClass } from "../types";
 import { CommandParams } from "./CommandParams";
 
-// A command the palette can build: its canonical name, a joined display label, each translation,
-// the sentence it is listed by, and its params.
+// A command the palette can build: its canonical name, a joined display label, each translation, the sentence it is listed by, and its params.
 export interface PaletteCommand {
   canonical: string;
   label: string;
   names: string[];
   /** What it DOES, in the reader's language — see palette.ts. Never empty. */
   readable: string;
-  /**
-   * The same sentence in EVERY language the catalogue states it in, kept beside the resolved one.
-   *
-   * Only the settings screen reads it, and only to place a field per language with the right
-   * words greyed in each: a placeholder is what tells an empty field from a nameless command, and
-   * it has to be the sentence THAT field would leave standing. Absent on a command the catalogue
-   * describes in no language — `readable` falls back to the line, which is not a translation.
-   */
+  /** The same sentence in EVERY language the catalogue states it in — only the settings screen reads it, to grey each field's own words. */
   readableBy?: Record<string, string>;
   args: PaletteArg[];
 }
@@ -69,9 +61,7 @@ export interface CommandPending {
   kind: ArgClass;
 }
 
-// One colour per param kind, so a form reads as coloured questions: project-owned things cool,
-// typed literals warm, a fixed word set between. Exhaustive over ArgClass, so a new kind can't
-// ship uncoloured.
+// One colour per param kind, so a form reads as coloured questions — exhaustive over ArgClass, so a new kind cannot ship uncoloured.
 const ARG_COLOR: Record<ArgClass, string> = {
   track: "text-sky-400",
   module: "text-violet-400",
@@ -87,29 +77,12 @@ const ARG_COLOR: Record<ArgClass, string> = {
 // The shell focuses the bar and PRE-WRITES lines through this; prewrite parses one back into command + params.
 export interface CommandBarHandle {
   focus: () => void;
-  /**
-   * Give the keyboard back to the editor.
-   *
-   * The bar is DOCKED — always on screen — so Escape can no longer mean "unmount it", and
-   * leaving it focused would swallow every single-key binding (the shell's listener ignores
-   * events from an input). Blurring is what "I'm done here" has to do instead.
-   */
+  /** Give the keyboard back to the editor: the bar is DOCKED, so Escape cannot mean 'unmount it' and blurring says 'I am done here'. */
   blur: () => void;
   prewrite: (text: string) => void;
-  /**
-   * Fill params from a gesture elsewhere in the editor, keyed by param NAME.
-   *
-   * `live` means the gesture is still under the pointer: the value is shown and nothing is
-   * validated, so a drag can re-offer on every frame. The closing offer (`live` false) takes
-   * the focus back, because the click that started the gesture took it away and Enter has to
-   * land here.
-   */
+  /** Fill params from a gesture elsewhere, keyed by param NAME — `live` shows without validating; the closing offer takes the focus back. */
   offer: (values: Record<string, string>, live?: boolean) => void;
-  /**
-   * Fill the ACTIVE field from a gesture that knows a value and not a command — a click on the
-   * ruler is a timecode with no idea which param wanted one. Ignored unless that field is
-   * asking for this kind, so a stray click cannot land in a field that meant something else.
-   */
+  /** Fill the ACTIVE field from a gesture that knows a value and not a command — ignored unless that field is asking for this kind. */
   offerValue: (kind: ArgClass, value: string, live?: boolean) => void;
 }
 
@@ -136,24 +109,9 @@ export const CommandBar = forwardRef<
     autoFocus?: boolean;
     // Which field is waiting, so the shell can route a gesture to it (null between commands).
     onPending?: (p: CommandPending | null) => void;
-    /**
-     * Whether the COMMAND field has the keyboard.
-     *
-     * Reported rather than acted on, because what losing it means is the shell's to decide: on a
-     * phone the bar is a popin and goes away, on a wide screen it is a docked strip that stays.
-     * The parameter form's own fields are deliberately not reported — while it is open the bar
-     * is not what has the keyboard, and saying "unfocused" would be answering a different
-     * question from the one the shell is asking.
-     */
+    /** Whether the COMMAND field has the keyboard — reported rather than acted on, what losing it means being the shell's to decide. */
     onFocusChange?: (focused: boolean) => void;
-    /**
-     * What the timeline caret is looking at, so a command can address it instead of asking.
-     *
-     * A PROP and not a hook: the bar is mounted twice (docked and as the phone's popin) and is
-     * drawn by the shell, which already holds the caret — a context read here would be a second
-     * subscription to the same state, re-rendering the bar on every arrow key. Absent when no
-     * timeline is on screen, which is a project without an arrangement surface.
-     */
+    /** What the timeline caret is looking at — a PROP and not a hook: the bar is mounted twice, and the shell already holds the caret. */
     caret?: CaretAim | null;
   }
 >(function CommandBar(
@@ -174,13 +132,10 @@ export const CommandBar = forwardRef<
   // One slot per param, "" meaning unanswered — a form, not a queue. See commandFill.ts.
   const [values, setValues] = useState<string[]>([]);
   const [active, setActive] = useState(0);
-  // The active field's WHOLE vocabulary, fetched once per field and ranked here on every
-  // keystroke. One round trip per question instead of one per letter, and a fuzzy match.
+  // The active field's WHOLE vocabulary, fetched once per field and ranked here: one round trip per question, and a fuzzy match.
   const [vocab, setVocab] = useState<string[]>([]);
   const [sel, setSel] = useState(0);
-  // Whether the command list is on screen at all. It has to be FOCUS, not "are there
-  // suggestions": the bar is docked and always mounted, and the catalogue is non-empty from the
-  // moment it loads — so anything else leaves 30 rows hanging over the minimap for ever.
+  // Whether the command list is on screen at all — it has to be FOCUS: the bar is docked, and the catalogue non-empty from the moment it loads.
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null); // the command field
   const argRef = useRef<HTMLInputElement>(null); // the form's active field
@@ -188,13 +143,9 @@ export const CommandBar = forwardRef<
   const latest = useRef(0); // guard against out-of-order async vocabularies
 
   const arg = command ? (command.args[active] ?? null) : null;
-  // NOTHING is listed until a character is typed. The catalogue is ninety rows: opening on the
-  // whole of it puts a wall over the minimap every time the bar takes the focus, and a list you
-  // did not ask for is a list you have to dismiss. One letter is the whole cost of asking.
+  // NOTHING is listed until a character is typed: the catalogue is ninety rows, and a list you did not ask for is one you have to dismiss.
   const query = command ? "" : value.trim();
-  // MEMOISED, because the bar is docked and always mounted and App renders two of it: unmemoised,
-  // both ranked the ninety-row catalogue — and read and parsed `localStorage` inside the render —
-  // on every state change anywhere in the shell, not merely when the query changed.
+  // MEMOISED, because the bar is docked, always mounted and rendered twice — unmemoised, both ranked ninety rows on every state change.
   const matches = useMemo(
     () => (query ? rankCommands(commands, value, recentCommands()) : []),
     [query, value, commands],
@@ -236,8 +187,7 @@ export const CommandBar = forwardRef<
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
 
-  // The form's active field takes the keyboard whenever it changes — that is what makes Tab
-  // "go to the next question" rather than "move to the next DOM node and hope".
+  // The form's active field takes the keyboard whenever it changes — what makes Tab 'go to the next question'.
   useEffect(() => {
     if (command) argRef.current?.focus();
   }, [command, active]);
@@ -290,8 +240,7 @@ export const CommandBar = forwardRef<
     [commands, command, values, active],
   );
 
-  // Say which field is waiting. The shell routes gestures by this, so it must also say "none"
-  // when the form closes — a stale pending would keep a drag feeding a command that is gone.
+  // Say which field is waiting: the shell routes gestures by this, so it must also say 'none' when the form closes.
   useEffect(() => {
     onPending?.(
       command && arg
@@ -314,8 +263,7 @@ export const CommandBar = forwardRef<
         if (latest.current === id) setVocab(vals);
       })
       .catch(() => {});
-    // Deliberately NOT on `values`: re-fetching on every keystroke is what this replaced. The
-    // prior args are read at fetch time, which is what a later field's vocabulary depends on.
+    // Deliberately NOT on `values`: re-fetching on every keystroke is what this replaced, the prior args being read at fetch time.
   }, [command, active, listArg]);
 
   // Keep the highlighted row on screen — an unseen selection can't be trusted.
@@ -332,18 +280,7 @@ export const CommandBar = forwardRef<
 
   // --- the command field -------------------------------------------------------
 
-  /**
-   * Open a command's form — unless there is nothing left to ask.
-   *
-   * Three outcomes, and the middle one is the point. A command with no params runs at once, as it
-   * always has. A command the CARET can answer completely runs at once too: `event split` needs a
-   * track, an event and a cut, and parking on a clip states all three — asking them back is asking
-   * you to retype what you are looking at. Anything else opens the form, seeded with whatever the
-   * caret did supply, and `start` lands the keyboard on the first real hole.
-   *
-   * Only commands named in `CARET_ANSWERS` are seeded, so this cannot turn a destructive verb into
-   * a one-keystroke one by accident. See commandFill.ts.
-   */
+  /** Open a command's form — unless there is nothing left to ask; only commands named in `CARET_ANSWERS` are seeded (commandFill.ts). */
   const pickCommand = (spec: PaletteCommand) => {
     if (spec.args.length === 0) {
       onRun(spec.canonical); // nothing to ask — run at once
@@ -373,8 +310,7 @@ export const CommandBar = forwardRef<
       pickCommand(matches[selIdx]);
       return;
     }
-    // Nothing matched: run the line as typed. That is the CLI road, and it is how a command
-    // with its arguments already on it — pasted, or recalled — dispatches without a form.
+    // Nothing matched: run the line as typed — the CLI road, and how a line with its arguments already on it dispatches.
     const typed = value.trim();
     if (!typed) return;
     onRun(typed);
@@ -397,8 +333,7 @@ export const CommandBar = forwardRef<
     if (!command) return;
     if (e.key === "Tab") {
       e.preventDefault();
-      // A highlighted suggestion is taken first — completion is still the validation — and the
-      // same key then steps to the next question.
+      // A highlighted suggestion is taken first — completion is still the validation — and the same key then steps on.
       if (suggestions.length) takeSuggestion(suggestions[selIdx]);
       setActive((i) => nextField(command.args, i));
       setSel(0);
@@ -406,8 +341,7 @@ export const CommandBar = forwardRef<
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      // The three answers and the order between them are `enterAction`'s — including the
-      // clause that stops a completed field eating every Enter (see it for the bug).
+      // The three answers and the order between them are `enterAction`'s, including the clause that stops a completed field eating every Enter.
       const act = enterAction(
         command.args,
         values,
@@ -444,8 +378,7 @@ export const CommandBar = forwardRef<
     <div className="relative flex flex-1 items-center">
       <span className="mr-1 font-mono text-sm text-primary">❯</span>
       {command ? (
-        // While the form is open the bar shows WHAT is being filled, and takes no typing: the
-        // questions have their own fields, and a second input here would compete for the keys.
+        // While the form is open the bar shows WHAT is being filled and takes no typing: a second input would compete for the keys.
         <button
           type="button"
           onClick={() => {
@@ -513,8 +446,7 @@ export const CommandBar = forwardRef<
               onMouseEnter={() => setSel(i)}
               className={`flex shrink-0 cursor-pointer items-baseline justify-between gap-4 px-3 py-0.5 ${i === selIdx ? "bg-accent" : ""}`}
             >
-              {/* The sentence leads, because it is what was searched for; the name follows in
-                  the corner, where a keybinding sits in every palette you have used. */}
+              {/* The sentence leads, being what was searched for; the name follows in the corner, where a palette puts a keybinding. */}
               <span className="min-w-0 truncate text-foreground">
                 {c.readable}
               </span>

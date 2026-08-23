@@ -56,12 +56,9 @@ describe("validate", () => {
   });
 });
 
-// A disabled track is ignored by the engine and draws nothing on the timeline. The graph
-// follows: the track is gone, and so is any chain sourced from it — a lane that plays
-// nothing feeding a chain that runs nothing is a diagram-shaped lie.
+// A disabled track goes, and so does any chain sourced from it: both would be a diagram-shaped lie.
 describe("disabled tracks (and the chains they feed)", () => {
-  // A lane is a module now, so the fixture builds ONE map: the lanes, plus the sink they end
-  // at. `kind: "track"` is what makes a node a lane, and its output port is what it carries.
+  // One map, since a lane is a module: `kind: "track"` is what makes a node a lane.
   const lane = (extra: Record<string, unknown> = {}) => ({
     kind: "track",
     category: "tracks",
@@ -102,21 +99,17 @@ describe("disabled tracks (and the chains they feed)", () => {
   });
 
   it("keeps a BUS chain alive when one of its sources is disabled", () => {
-    // A bus has no `from` to test, and is routed into by `out` from several chains —
-    // disabling one source must not take the shared reverb down with it.
+    // A bus has no `from` to test, so disabling one source must not take the reverb with it.
     const g = build(
       { melody: lane(), pad: lane({ disabled: true }) },
-      // A bus is a module SEVERAL things feed — which is the only way to write one now,
-      // and exactly what makes it a chain of its own.
+      // A bus is a module SEVERAL things feed, which is what makes it a chain of its own.
       { modules: { melody: ["reverb"], pad: ["reverb"], reverb: ["OUT"] } },
     );
     expect(Object.keys(g.chains).sort()).toEqual(["melody", "reverb"]);
   });
 
   it("keeps warning about a node that names nothing at all", () => {
-    // It used to read as a dangling `from`, because a name in `tracks:` could only be a lane.
-    // With one map an unknown name is an unknown MODULE, which is the more honest diagnosis —
-    // and the chain is still drawn, because it is a mistake you have to be able to see.
+    // With one map an unknown name is an unknown MODULE, and the chain is still drawn to be seen.
     const g = build({}, { modules: { ghost: ["OUT"] } });
     expect(Object.keys(g.chains)).toEqual(["ghost"]);
     expect(g.warnings).toContainEqual(

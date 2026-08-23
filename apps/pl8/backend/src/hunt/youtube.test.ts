@@ -4,8 +4,7 @@ import { youtubeQuery, ytdlpArgs } from "./youtube.ts";
 
 describe("youtubeQuery", () => {
   it("met l'artiste ET le titre — l'inverse de la recherche Soulseek", () => {
-    // A YouTube video title reads "Artist - Title", so the artist is in the very field being
-    // queried. On slskd it was the folder above and added nothing.
+    // A video title reads "Artist - Title", so the artist is in the field being queried.
     expect(
       youtubeQuery({ artist: "Nirvana", title: "Lithium", query: "x" }),
     ).toBe("Nirvana Lithium");
@@ -21,8 +20,7 @@ describe("youtubeQuery", () => {
 
 describe("ytdlpArgs", () => {
   it("passe la requête comme UN seul argument, jamais comme une commande", () => {
-    // This text comes from what somebody typed. The array plus execFile without a shell is what
-    // keeps a semicolon or a $(…) as characters in a search.
+    // The array plus execFile with no shell keeps a `;` or a `$(…)` as characters in a search.
     const nasty = 'lithium"; rm -rf /; echo "';
     const args = ytdlpArgs(nasty, "/tmp/out");
     expect(args[0]).toBe(`ytsearch1:${nasty}`);
@@ -36,8 +34,7 @@ describe("ytdlpArgs", () => {
   });
 
   it("garde le codec de la source plutôt que de le convertir", () => {
-    // `--audio-format best` does not convert: it keeps. Re-encoding YouTube's ~130 kbps Opus to
-    // mp3 would be lossy-to-lossy, worse than either.
+    // `best` keeps rather than converts: ~130 kbps Opus into mp3 is lossy-to-lossy.
     const args = ytdlpArgs("x", "/tmp/out");
     expect(args[args.indexOf("--audio-format") + 1]).toBe("best");
     expect(args).toContain("--extract-audio");
@@ -48,9 +45,7 @@ describe("ytdlpArgs", () => {
     const args = ytdlpArgs("x", "/vol/.hunts/tmp/abc");
     expect(args).toContain("--max-filesize");
     expect(args).toContain("--socket-timeout");
-    // Built with `join` as production does: the server is Linux, but a Windows dev machine gives
-    // backslashes — which yt-dlp accepts — and a hard-coded expectation failed the whole suite
-    // here, and nowhere else.
+    // Built with `join` as production does, or a Windows dev machine's backslashes fail this.
     expect(args[args.indexOf("--output") + 1]).toBe(
       join("/vol/.hunts/tmp/abc", "%(id)s.%(ext)s"),
     );

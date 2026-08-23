@@ -11,16 +11,12 @@ export function rtcSocketUrl(
   role: "recorder" | "remote",
   ticket: string,
 ): string {
-  // Single-origin: the backend is always on this same host, so the signaling
-  // socket is too. It carries the service prefix like every other backend call —
-  // the edge only routes /k7/rtc* here and strips the prefix before the server,
-  // which is why the handler upstream still matches a bare /rtc.
+  // Same host, and the service prefix like every other call — see ../../docs/routing.md.
   const ws = window.location.origin.replace(/^http/, "ws"); // http→ws, https→wss
   return `${ws}${BASE}/rtc?role=${role}&ticket=${encodeURIComponent(ticket)}`;
 }
 
-// A public STUN server is enough for same-network devices (and many NATs);
-// symmetric-NAT cases would need a TURN server, which is out of scope here.
+// A public STUN server is enough here; a symmetric NAT would need TURN, which is out of scope.
 export const ICE_CONFIG: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 };
@@ -31,15 +27,9 @@ export interface RemoteMicConnection {
   close: () => void;
 }
 
-// Recorder side: open signaling, ask the remote device to offer its mic, and
-// resolve with the received audio stream. Rejects (with a user-facing message)
-// if no remote is connected or the connection can't be established.
+// Recorder side: open signaling, ask for the remote mic, resolve with its stream.
 export async function connectRemoteMic(): Promise<RemoteMicConnection> {
-  // The bridge AudioContext (see pc.ontrack) must be *running* or its output is
-  // silence. Autoplay policy only lets us resume it from a user gesture, and by
-  // the time ontrack fires we're long past the click — so create and resume it
-  // now, as the first synchronous step, while the click that called us is still
-  // the active gesture.
+  // FIRST, while the click is still the active gesture: the bridge context — ../../docs/audio.md.
   let audioCtx: AudioContext | null = null;
   try {
     audioCtx = new AudioContext();
@@ -54,8 +44,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
 
   // Nodes/elements kept referenced so they aren't garbage-collected mid-take.
   let bridgeNode: MediaStreamAudioSourceNode | null = null;
-  // A muted sink element: some Chrome builds only run the WebRTC receive
-  // pipeline for a remote track once it's attached to an HTMLMediaElement.
+  // A muted sink: some Chrome builds only run their receive pipeline for an attached track.
   let sink: HTMLAudioElement | null = null;
 
   const close = () => {
@@ -108,8 +97,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
       settled = true;
       clearTimeout(timer);
       const remote = e.streams[0];
-      // Attach the remote stream to a muted sink so Chrome definitely runs its
-      // receive pipeline for the track.
+      // Attach to that sink, so Chrome definitely runs its receive pipeline.
       try {
         sink = new Audio();
         sink.muted = true;
@@ -119,12 +107,7 @@ export async function connectRemoteMic(): Promise<RemoteMicConnection> {
       } catch {
         /* sink is best-effort */
       }
-      // MediaRecorder can't reliably record a *remote* WebRTC track directly —
-      // it often yields empty/silent output even while the live meter (a Web
-      // Audio analyser) shows signal. Re-route the remote audio through the
-      // (already-running) local AudioContext into a fresh MediaStreamDestination
-      // and hand the recorder that locally-generated stream, which records
-      // reliably.
+      // MediaRecorder cannot reliably record a REMOTE track, so bridge it — ../../docs/audio.md.
       if (audioCtx) {
         try {
           audioCtx.resume().catch(() => {});

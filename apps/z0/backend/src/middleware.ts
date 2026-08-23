@@ -1,23 +1,18 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { currentUser, isAdmin, type SessionUser } from "./auth/session.ts";
 
-// Paths reachable without a session (mirrors auth.go's isPublicPath): the
-// hello probe, the whole /auth surface, public audio streaming, and the
-// token-based session resolver (the SPA shows the session name on the gate
-// before the visitor logs in).
+// Reachable with no session: the probe, /auth, audio, and the token resolver the gate needs.
 export function isPublicPath(p: string): boolean {
   if (p === "/hello") return true;
   if (p === "/auth" || p.startsWith("/auth/")) return true;
   if (p.startsWith("/audio/")) return true;
   if (p.startsWith("/sessions/by-token/")) return true;
-  // <audio> elements don't send credentials, and this only redirects to a
-  // public Deezer preview URL.
+  // <audio> sends no credentials, and this only redirects to a public Deezer preview URL.
   if (p.startsWith("/playlists/preview/")) return true;
   return false;
 }
 
-// Express keeps per-request state on res.locals; this mirrors Go's
-// context.WithValue(ctxUserKey).
+// Express keeps per-request state on res.locals, and this is where authMiddleware left it.
 export function requestUser(res: Response): SessionUser | null {
   return (res.locals.user as SessionUser | undefined) ?? null;
 }
@@ -55,9 +50,7 @@ export function adminOnly(handler: RequestHandler): RequestHandler {
   };
 }
 
-// Echo whichever Origin asked (mirrors main.go's cors.Options). Browsers
-// reject `Access-Control-Allow-Origin: *` combined with credentials, and the
-// frontends all send `credentials: "include"` — so reflect the actual Origin.
+// The Origin is echoed, because a browser rejects `*` combined with credentials.
 export function cors(req: Request, res: Response, next: NextFunction): void {
   const origin = req.headers.origin;
   if (origin) {

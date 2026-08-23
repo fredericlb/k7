@@ -1,9 +1,4 @@
-// Moving a material's window down onto every placement of it.
-//
-// The property that matters is that NOTHING SOUNDS DIFFERENT: the compiler's effective window was
-// already the intersection of the two levels, so pushing the material's down and clearing it has
-// to leave every event playing the same slice. The reach is the other half — a take missed here
-// would play the whole file the day it was swapped back onto the lane.
+// Moving a material's window down onto every placement — NOTHING SOUNDS DIFFERENT; docs/windowDescend.md.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -62,8 +57,7 @@ describe("reading a material file", () => {
   });
 
   it("ignores a `from` nested under another key", () => {
-    // A warp's markers and a rack's slices both live indented; only a top-level edge is the
-    // material's own, and moving a nested one would corrupt something else entirely.
+    // Only a TOP-LEVEL edge is the material's own; a warp's markers live indented too.
     expect(
       materialWindow("source: a.wav\nwarp:\n  from: 9\n  to: 10\n", "clip"),
     ).toBeNull();
@@ -191,8 +185,7 @@ describe("the descent, over a whole lane file", () => {
   });
 
   it("leaves a file it has nothing to do to byte-identical", () => {
-    // A migration that re-serialised every module.yaml in the project to no effect would bury
-    // its own diff — and `toString` reflows whatever it touches.
+    // `toString` reflows whatever it touches, and a no-effect migration would bury its own diff.
     expect(descendWindows(LANE, () => undefined, G).text).toBe(LANE);
   });
 

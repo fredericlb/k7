@@ -29,16 +29,7 @@ export interface Grid {
   den: number;
 }
 
-/**
- * An edge as a comparable number of BEATS.
- *
- * The two kinds are not the same axis and never were: a clip's bare number is seconds into a file,
- * a sequence's edge is a position in the notes and has no other spelling (`SeqEdge`). Reading them
- * with one rule is exactly the confusion this migration exists to end — so `kind` is required, not
- * inferred.
- *
- * Null for an edge that cannot be read: a half-typed timecode is left alone rather than guessed at.
- */
+/** An edge as a comparable number of BEATS; `kind` is required, not inferred — docs/windowDescend.md. */
 export function edgeBeats(
   v: Edge | undefined,
   kind: MaterialWindow["kind"],
@@ -86,16 +77,7 @@ export function stripMaterialWindow(text: string): string {
   return doc.toString(OUT);
 }
 
-/**
- * The window an event ends up with — the intersection, resolved once here instead of on every read.
- *
- * The compiler's rule, unchanged: the larger `from`, the smaller `to`, so an event could only ever
- * narrow what its material played. What is written back is the WINNING edge's own spelling, since
- * the two levels always accepted the same two and there is no reason to convert one.
- *
- * An edge only one side states is that side's. An edge neither states stays absent — which after
- * this migration means "the whole file", answered by whoever can measure it.
- */
+/** The window an event ends up with — the larger `from`, the smaller `to`; docs/windowDescend.md. */
 export function narrowest(
   mat: MaterialWindow,
   ev: { from?: Edge; to?: Edge },
@@ -133,16 +115,7 @@ export interface Descent {
   intersected: string[];
 }
 
-/**
- * Push each material's window onto every placement of it, in one lane file.
- *
- * Every list, not just the one that is playing: `everyEventList` reaches the takes and each
- * alternative's own events and takes. A take missed here would play the whole file the day you
- * swapped it back onto the lane, which is the failure that would be found last.
- *
- * `windowOf` answers for a ref, or undefined for a material that states nothing — the common case
- * after this, and the case that writes nothing at all.
- */
+/** Push each material's window onto every placement of it, in one lane file — EVERY event list. */
 export function descendWindows(
   text: string,
   windowOf: (ref: string) => MaterialWindow | undefined,
@@ -151,9 +124,7 @@ export function descendWindows(
   const doc = parseDocument(text, OPTS);
   if (doc.errors.length) return { text, wrote: 0, intersected: [] };
   let wrote = 0;
-  // Whether any key was actually set or cleared. A file this has nothing to do to is answered
-  // UNCHANGED rather than re-serialised: `toString` reflows, and a migration that rewrote every
-  // module.yaml in the project to no effect would bury its own diff.
+  // A file with nothing to do to it is answered UNCHANGED rather than re-serialised.
   let changed = false;
   const intersected: string[] = [];
   for (const path of everyEventList(doc)) {
@@ -171,8 +142,7 @@ export function descendWindows(
       };
       const win = narrowest(mat, ev, g);
       if (win.intersected) intersected.push(ref);
-      // Set what there is and clear what there is not, so a placement never keeps an edge the
-      // resolution decided against.
+      // Set what there is and CLEAR what there is not, so no edge outlives the resolution.
       for (const k of ["from", "to"] as const) {
         const v = win[k];
         const had = item.get(k) as Edge | undefined;
@@ -184,8 +154,7 @@ export function descendWindows(
     }
   }
   if (!changed) return { text, wrote, intersected };
-  // The quoting trap, at the one choke point: `to: 3:1` unquoted is sexagesimal in YAML 1.1 and
-  // would load as beat 181. Every writer in this repo goes through this.
+  // The quoting trap, at the one choke point: `to: 3:1` unquoted loads as beat 181.
   quoteTimecodes(doc);
   return { text: doc.toString(OUT), wrote, intersected };
 }

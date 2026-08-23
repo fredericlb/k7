@@ -33,9 +33,7 @@ const SONG = join(
 );
 const REF = "instruments/synth";
 
-// A module's MIDI map is one file in its folder — the FOURTH sibling of module.yaml, ui.yaml and
-// presets.yaml. What these pin down is that it round-trips, that it reaches the graph the panel
-// reaches, and that the folder's own files are never mistaken for nodes of the module.
+// A module's MIDI map is the fourth sibling in its folder, and must never read as a node of it.
 
 describe("parseController", () => {
   it("reads a hand-authored map", () => {
@@ -113,15 +111,13 @@ describe("a module's MIDI map (synth-demo)", () => {
     setCcBinding(dir, REF, "Resonance", { ch: 1, cc: 71 });
     const lines = mapText().trim().split("\n");
     expect(lines[0]).toMatch(/^# MIDI map for instruments\/synth/);
-    // A param name with a space needs no quotes as a YAML key — the names plugins use are almost
-    // all like this, and quoting them would put noise in every line of every map.
+    // A space needs no quotes as a YAML key, and quoting would add noise to every line.
     expect(lines[1]).toBe("Filter Freq: { ch: 1, cc: 74 }");
     expect(lines[2]).toBe("Resonance: { ch: 1, cc: 71 }");
   });
 
   it("is not read as a node of the module it sits beside", () => {
-    // The hazard ui.yaml and presets.yaml both have: every OTHER `<name>.yaml` in a module folder
-    // is one USE of the module, so an unguarded map comes back as a module called "synth:controller".
+    // Every other `<name>.yaml` is a USE, so an unguarded map reads as "synth:controller".
     setCcBinding(dir, REF, "Filter Freq", { ch: 1, cc: 74 });
     expect(Object.keys(loadModules(dir))).not.toContain("synth:controller");
   });

@@ -49,8 +49,7 @@ describe("the catalogue the palette lists", () => {
   });
 
   it("keeps the WHOLE table beside it, for the screen that names a command per language", () => {
-    // The settings page places one field per locale and greys the catalogue's own words into
-    // each. It cannot get them from `readable`, which is one language by the time it is here.
+    // The settings page places one field per locale and greys the catalogue's words into each — `readable` is one language by then.
     expect(build("en")[0].readableBy).toEqual({
       en: "Mute or unmute a track",
       fr: "Couper ou rétablir le son d'une piste",
@@ -65,8 +64,7 @@ describe("the catalogue the palette lists", () => {
       "en",
     );
     expect(bare[0].readable).toBe("track solo");
-    // No table either: the line is not a translation, and a placeholder claiming to be one
-    // would offer the same English words as the French field's suggestion.
+    // No table either: the line is not a translation, and a placeholder claiming to be one would offer English to the French field.
     expect(bare[0].readableBy).toBeUndefined();
   });
 
@@ -74,16 +72,13 @@ describe("the catalogue the palette lists", () => {
     const all = build();
     const local = all.find((c) => c.canonical === "ui help");
     expect(local?.readable).toContain("help");
-    // Every shell command has a sentence: the palette cannot tell the two halves apart, so a
-    // missing one would be one unfindable row among sixty findable ones.
+    // Every shell command has a sentence: the palette cannot tell the two halves apart, so a missing one is an unfindable row.
     const missing = LOCAL_COMMANDS.filter((c) => !LOCAL_READABLE[c]);
     expect(missing).toEqual([]);
   });
 
   it("keeps every shell description inside the palette's row — 60 chars", () => {
-    // The same cap `commandSpec.test.ts` holds commands.yaml to. It has to be the same number:
-    // the two halves are listed side by side and a reader cannot tell which one a row came
-    // from, so a longer sentence here would be the one row that truncates.
+    // The same cap `commandSpec.test.ts` holds commands.yaml to: the two halves are listed side by side, so a longer one truncates.
     const long = Object.entries(LOCAL_READABLE).flatMap(([name, r]) =>
       (["en", "fr"] as const)
         .filter((lang) => r[lang].length > 60)
@@ -122,15 +117,12 @@ describe("finding a command by describing it", () => {
   });
 
   it("puts the command whose NAME was typed first", () => {
-    // Typing a verb means the verb: "track color" beats a description that merely contains
-    // the same letters.
+    // Typing a verb means the verb: 'track color' beats a description that merely contains the same letters.
     expect(names("track color")[0]).toBe("track color");
   });
 
   it("keeps the catalogue's own order when nothing is typed", () => {
-    // Everything the palette holds — the backend's, then the shell's own — in the catalogue's
-    // own order, which groups by area rather than by alphabet. Capped like any other answer:
-    // the shell's half alone outgrew a screen, and the bar lists nothing until you type anyway.
+    // Everything the palette holds, in the catalogue's own order and capped like any other answer — the bar lists nothing until you type.
     const all = build();
     expect(names("")).toEqual(all.slice(0, 30).map((c) => c.canonical));
     expect(names("")[0]).toBe("track mute");

@@ -53,9 +53,7 @@ const PAIRS = Object.entries(LEGACY_TRACK_REFS).sort(
 
 let files = 0;
 let refs = 0;
-// The lanes that STREAM. Their file holds nothing until the transport rolls, so nothing in it can
-// say whether its events are notes or samples — only the wiring can, and this script does not
-// touch graph.yaml. Listed at the end so the one thing needing a human decision is not silent.
+// A STREAMING lane's file cannot say what its events are, so these are listed for a human.
 const streaming: string[] = [];
 
 for (const root of roots) {

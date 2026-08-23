@@ -168,6 +168,37 @@ Le `graph.yaml` illisible est traité pareil : la compilation de l'image est *be
 le compilateur du morceau signale déjà l'erreur, dans l'éditeur, sur la ligne fautive. Perdre les
 effets se rattrape en lisant ce message ; perdre la trame est un écran noir sans explication.
 
+## Ce que la compilation décide en silence
+
+`videoChains.ts` prend cinq décisions qui ne se lisent nulle part ailleurs :
+
+- **Une étape dont le module est introuvable renvoie `null`, sans lever.** `validate()` signale déjà
+  la référence cassée, par son nom, sur la ligne qui la nomme ; découvrir un module manquant en
+  compilant l'image ferait tomber toute la trame pour une étape.
+- **Un module qui n'est pas un module d'image sur un fil vidéo n'est pas compilé et n'est pas
+  signalé ici non plus** : la vérification des ports refuse déjà l'image vers un module audio, et
+  elle en parle en termes de câble plutôt que de trame qui n'a pas su se dessiner.
+- **Les étapes contournées sont GARDÉES dans le run compilé.** Le rendu doit *dessiner* une passe
+  éteinte, et non recevoir une liste plus courte qu'il ne saurait distinguer d'une chaîne plus
+  courte. Un contournement de la chaîne ENTIÈRE (`enabled: false` sur le run) la supprime au
+  contraire : c'est le run qui a été retiré, et une pile de commandes désactivées dessinerait les
+  réglages de quelque chose qui n'est pas là.
+- **Seul le run qui PART vraiment vers le périphérique est la chaîne de la trame.** Un run qui sort
+  de la somme et finit ailleurs n'en est pas une, et le traiter comme telle appliquerait une passe
+  que l'image n'atteint jamais.
+- **Les paramètres d'un effet vidéo sont filtrés aux nombres** — `params:` peut porter une chaîne
+  qui nomme un fichier, ce qui ne veut rien dire pour un rendu. Le même tri que `nodeProject` fait
+  avant le fil audio. Pour un shader, un `P1..P4` que le module ne mentionne pas vaut **0** et non
+  « absent » : l'uniforme existe dans le programme quoi qu'en dise le fichier, et le laisser non
+  défini reviendrait à donner au shader ce que GL avait là avant.
+
+L'entrée audio d'un shader est une entrée latérale : elle arrive par les `in:` de l'étape, ce à quoi
+`gtr: [ glow#audio ]` se compile. Ce qui est retenu est le **nœud**, le port étant abandonné — le
+rendu a besoin d'un nom pour aller lire un niveau, et savoir sur quelle prise il a atterri est déjà
+tranché par le fait d'y être arrivé. La première source seulement : les sources d'une étape
+remplissent ses ports dans l'ordre et un shader déclare exactement un port audio, donc une seconde
+source est une erreur de câblage que la vérification des ports signale déjà.
+
 ## Les couches traversées
 
 | | |

@@ -22,10 +22,7 @@ import {
 import { loadAndSwapGristSession } from "./state/sessionControl.ts";
 import { WsHub } from "./ws.ts";
 
-// Boot sequence: config → session auth → routes (OIDC discovery happens inside
-// setupAuth, below) → HTTP server with the two WebSocket upgrade endpoints →
-// graceful shutdown on SIGINT/TERM. The .env files are loaded by `node
-// --env-file-if-exists` (see package.json), with real process env winning.
+// Boot: config → session auth → routes → the two WS upgrade endpoints → graceful shutdown.
 const config = loadAppConfig();
 initSessionAuth(config.auth);
 
@@ -39,10 +36,7 @@ const { values: flags } = parseArgs({
   strict: false,
 });
 
-// Grist-backed state: schema bootstrap, hydrate the game store, start the
-// write-behind worker, pick a game, restore phase/session/buzzers. Without
-// Grist config the server still boots (auth + static routes work; game state
-// is memory-only and no game is selected).
+// Without Grist configured the server still boots, memory-only and with no game selected.
 gameState.sessionProgress = new SessionProgress(emptySession());
 if (config.grist.url && config.grist.docId) {
   gameState.gristClient = new GristClient(config.grist);
@@ -53,11 +47,7 @@ if (config.grist.url && config.grist.docId) {
     "[Session] Booted with empty placeholder — pick one via the monitor UI.",
   );
 
-  // Pick a game at startup — always end up with one selected (main.go):
-  //   --game-id <id>  → resume if it exists, else create with that id
-  //   --continue <id> → resume existing (errors if missing)
-  //   --latest        → resume the most recent game
-  //   (none)          → create a fresh game with a random id
+  // --game-id resumes or creates, --continue resumes, --latest takes the newest, none makes one.
   const db = gameState.db;
   let continueId = String(flags.continue ?? "");
   const gameIdFlag = String(flags["game-id"] ?? "");
@@ -116,8 +106,7 @@ if (config.grist.url && config.grist.docId) {
     );
   }
 
-  // Restore buzzer token→deviceId map + phone counter, then persist game
-  // metadata so even a brand-new empty game is visible to --latest.
+  // Persist right after restoring, so even a brand-new empty game is visible to --latest.
   await loadBuzzerState();
   savePersistedState();
 } else {
@@ -127,19 +116,7 @@ if (config.grist.url && config.grist.docId) {
 const app = express();
 app.set("trust proxy", true);
 app.use(cors);
-// Installs cookie-session for `bt_session` — the GUEST cookie, all this backend
-// still mints — and mounts NO routes. Must come before authMiddleware, which
-// reads the session it decodes.
-//
-// It used to mount login + callback: z0 ran its own OIDC flow, on its own
-// backend, so that a player could be a guest with no account. The guests
-// survived; the flow did not. `redirectUriFor` named
-// <origin>/z0/auth/callback (the LAN proxy set X-Forwarded-Prefix for exactly
-// that), and the IdP has only the prefixless callback registered on this
-// client — so every account login died at the authorization endpoint with
-// "the 'redirect_uri' parameter does not match any of the pre-registered
-// 'redirect_uris'". A service under a path cannot own a flow here. st0 does,
-// because it has no prefix; this reads the cookie st0 mints. docs/auth.md.
+// cookie-session for the GUEST cookie and NO routes — see ../../docs/auth.md.
 await setupAuth(app, {
   cookieName: SESSION_COOKIE_NAME,
   service: "z0-backend",
@@ -152,9 +129,7 @@ registerRoutes(app);
 const hub = new WsHub();
 gameState.hub = hub;
 const server = createServer(app);
-// /ws and /ws/buzzer sit behind the same origin; note they are NOT public
-// paths — the auth sub-phase will gate the upgrade on the session cookie the
-// same way authMiddleware gates HTTP routes.
+// /ws and /ws/buzzer are NOT public paths: the upgrade is gated on the same cookie.
 server.on("upgrade", (req, socket, head) =>
   hub.handleUpgrade(req, socket, head),
 );
@@ -164,8 +139,7 @@ server.listen(port, "0.0.0.0", () => {
   console.log(`[z0] backend listening on 0.0.0.0:${port}`);
 });
 
-// Graceful shutdown: flush pending Grist writes, drop WS clients, then exit —
-// a clean Ctrl+C still persists state (main.go's StopStateWorker semantics).
+// Flush pending Grist writes before exiting, so a clean Ctrl+C still persists the state.
 function shutdown(signal: string): void {
   console.log(`[z0] ${signal} — shutting down`);
   hub.close();

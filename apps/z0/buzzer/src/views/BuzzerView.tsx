@@ -9,9 +9,7 @@ import { useAuth } from "../lib/auth";
 import { BuzzerSocket } from "../lib/ws";
 import { m } from "../paraglide/messages.js";
 
-// The phone buzzer (port of BuzzerView.vue). All the imperative WS-driven
-// state lives on a mutable ref (`g`) + force-render — the handlers arrive on
-// socket callbacks, so plain useState closures would go stale.
+// WS state lives on a mutable ref plus a force-render: a useState closure would go stale here.
 
 const STORAGE_KEY = "buzzer_token";
 const DEBOUNCE_MS = 500;
@@ -141,8 +139,7 @@ export function BuzzerView() {
     }, 2000);
   }
 
-  // Wake lock, three-tier: native API (HTTPS), silent canvas video (HTTP),
-  // silent oscillator (last resort). Must be called during a user gesture.
+  // Three tiers — native API, silent canvas video, silent oscillator — all needing a user gesture.
   async function acquireWakeLock() {
     if (nr.wakeLockAcquired) return;
     if ("wakeLock" in navigator) {
@@ -241,8 +238,7 @@ export function BuzzerView() {
     socket.send({ type: "register", payload: { name } });
   }
 
-  // Auto-register re-check on connection changes (the WS handlers below call
-  // it directly on the relevant state transitions).
+  // Re-checked on a connection change; the WS handlers below call it on their own transitions.
   useEffect(() => {
     tryAutoRegister();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,8 +360,7 @@ export function BuzzerView() {
     socket.on("phase_change", (p: { phase: string }) => {
       const prev = g.gamePhase;
       g.gamePhase = p.phase;
-      // Leaving answering/judging without a resolved result → probably "no
-      // winner". Defer briefly so a bump/score_set can cancel this.
+      // Leaving with no result probably means "no winner", deferred so a score_set can cancel it.
       if (
         nr.wasAnswering &&
         (prev === "answering" || prev === "judging") &&
@@ -396,8 +391,7 @@ export function BuzzerView() {
       if (p.player !== g.playerName) return;
       const delta = p.score - g.playerScore;
       g.playerScore = p.score;
-      // Score delta on the answering player's buzzer decides win vs RATÉ; a
-      // second positive delta (politeness bonus) accumulates the same round.
+      // The delta decides win or miss, and a second positive one accumulates in the same round.
       if (delta > 0 && (nr.wasAnswering || nr.pointsThisRound > 0)) {
         nr.pointsThisRound += delta;
         clearPendingRate();
@@ -427,8 +421,7 @@ export function BuzzerView() {
         g.lockReason = p.locked ? (p.reason ?? null) : null;
         if (!p.locked) g.answeringName = null;
         if (!p.locked || p.durationMs) stopAnswerTimer();
-        // Per-device penalty lock while we were answering → RATÉ (but not for
-        // non-penalty reasons like "politeness").
+        // A penalty lock mid-answer is a miss; "politeness" is not a penalty.
         if (
           p.locked &&
           p.durationMs &&

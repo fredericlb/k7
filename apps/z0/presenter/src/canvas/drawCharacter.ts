@@ -42,12 +42,10 @@ export const genCharFeatures = (name: string): CharFeatures => {
   };
 };
 
-// Approximate drawn height of the character at scale 1 (baseY at feet,
-// hat top reaches roughly y = -120). Used by callers to map score → scale.
+// The character's drawn height at scale 1, feet to hat; callers map a score onto it.
 export const CHAR_BASE_HEIGHT = 120;
 
-// Linear scale from 1 (no points) up to a max where the character occupies
-// half the canvas height when score equals totalSongs * 1000 (a perfect game).
+// Linear from 1 at no points to half the canvas height at a perfect totalSongs * 1000.
 export const charScaleForScore = (
   score: number,
   totalSongs: number,

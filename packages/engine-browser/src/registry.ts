@@ -3,23 +3,13 @@
 // service mounts the same five routes (@studio/engine-registry), so they are spelled once here
 // rather than per app — pl8's and m9's copies had already drifted in their return types.
 
-/**
- * What one account has this service remember. `engineId` is the only field EVERY service keeps
- * — it is what the registry itself is for — and a host adds its own by widening `P` below.
- */
+/** What one account has this service remember; `engineId` is the only field EVERY service keeps, and a host widens `P` below. */
 export interface EnginePrefs {
   engineId?: string;
 }
 
-/**
- * What a service answers on `/api/engines`. Structural, so no app has to import a shape.
- *
- * `P` is that service's preference shape. It is a parameter rather than a fixed
- * `{engineId?}` because the schema belongs to the HOST (`packages/user-prefs/docs/store.md`)
- * and a union of every service's fields would be a shape no service actually has: pl8
- * remembers where playback happens, st0 does not. Defaulted, so an app that keeps nothing
- * else says nothing.
- */
+// `P` is a service's OWN preference shape, a parameter rather than a fixed one because the schema belongs to the host (packages/user-prefs/docs/store.md).
+
 /** What `select` answers: the secret to renew with, and whom this claim displaced if anyone. */
 export interface ClaimGrant {
   ok: true;
@@ -27,14 +17,7 @@ export interface ClaimGrant {
   tookOver?: { holder: string; engineId: string };
 }
 
-/**
- * Why a claim stopped being ours. Three answers, because a surface that can only say one of
- * them says the wrong one most of the time.
- *
- * `project` — the same project was opened, here or elsewhere.
- * `engine`  — a DIFFERENT project took this engine; `tookFor` names it.
- * `lapsed`  — nobody took anything; the claim aged out.
- */
+/** Why a claim stopped being ours: `project` (opened elsewhere), `engine` (`tookFor`), `lapsed` (aged out). */
 export type ClaimLostReason = "project" | "engine" | "lapsed";
 
 /** A `select` refused because the claim moved on — thrown by the client, carrying why. */
@@ -60,13 +43,7 @@ export class ClaimLost extends Error {
 
 export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
   list(): Promise<E[]>;
-  /**
-   * Claim an engine for a project, or renew a claim already held.
-   *
-   * `secret` absent = an OPEN, which always wins. `secret` present = a renewal, which is refused
-   * with `ClaimLost` if somebody has taken the project since. Those must stay distinguishable, or
-   * a displaced tab renews its way back in and the two fight for ever.
-   */
+  /** Claim an engine for a project, or renew a claim held: no `secret` is an OPEN and always wins, a `secret` a renewal that can be refused. */
   select(
     id: string,
     token: string,
@@ -74,39 +51,19 @@ export interface RegistryClient<E, P extends EnginePrefs = EnginePrefs> {
     project: string | null,
     secret?: string,
   ): Promise<ClaimGrant>;
-  /** The CLAIM's secret, not the engine token: a goodbye may only drop the claim it holds.
-   *  See @studio/engine-registry's router. */
+  /** The CLAIM's secret, not the engine token: a goodbye may only drop the claim it actually holds. */
   release(id: string, secret: string): boolean;
   prefs(): Promise<P>;
-  /**
-   * WHOLESALE — the router REPLACES, it does not merge.
-   *
-   * Reach for `patchPrefs` unless you genuinely mean to clear everything else: a caller
-   * holding one field wipes the rest, which is how choosing a machine in z0's editor came to
-   * erase the médiathèque's playback destination.
-   */
+  /** WHOLESALE — the router REPLACES, so a caller holding one field wipes the rest; reach for `patchPrefs` instead. */
   savePrefs(p: P): Promise<{ ok: true }>;
-  /**
-   * One field, the others left alone — read, merge, write.
-   *
-   * Not a PATCH route: the store replaces documents and there is nothing on the server that
-   * merges. Doing it here means every service gets the safe verb, rather than pl8 being the
-   * only one that remembered to write the merge by hand.
-   */
+  /** One field, the others left alone — read, merge, write, here rather than on a server that has nothing to merge with. */
   patchPrefs(p: Partial<P>): Promise<{ ok: true }>;
 }
 
-/** Read a JSON body, or throw with `what` in the message. Passed in because each app already
- *  has one, wired to its own error reporting — this module does not impose a second. */
+/** Read a JSON body, or throw with `what` in the message; passed in because each app already has one wired to its own reporting. */
 export type ReadJson = <T>(res: Response, what: string) => Promise<T>;
 
-/**
- * The five routes, against one service's `base`.
- *
- * `base` is the app's own origin prefix ("" for pl8, "/m9" for the decks) — this talks to the
- * SERVICE the browser loaded, never to another one, because each holds its own registry (see
- * @studio/engine-registry's docs/shared.md).
- */
+/** The five routes against one service's `base` — the SERVICE the browser loaded, never another, each holding its own registry. */
 export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   base: string,
   json: ReadJson,
@@ -114,16 +71,14 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
   return {
     list: async () => json<E[]>(await fetch(`${base}/api/engines`), "engines"),
 
-    /** Take or RENEW the claim, verifying the token server-side. The holder re-POSTs it every
-     *  ENGINE_ASSIGN_RENEW_MS, because "in use" expires on its own. */
+    /** Take or RENEW the claim, token-checked server-side; the holder re-POSTs every ENGINE_ASSIGN_RENEW_MS, since "in use" expires. */
     async select(id, token, latencyMs, project, secret) {
       const res = await fetch(`${base}/api/engine/select`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, token, latencyMs, project, secret }),
       });
-      // 409 is not a fault and must not read as one: the request was fine, the project moved.
-      // Its own type, so a caller can tell "let go and say so" from "the network is down".
+      // 409 is not a fault: the request was fine and the project moved, so it gets its own type rather than reading as a network error.
       if (res.status === 409) {
         const body = (await res.json().catch(() => ({}))) as {
           heldBy?: string;
@@ -140,8 +95,7 @@ export function registryClient<E, P extends EnginePrefs = EnginePrefs>(
       return json<ClaimGrant>(res, "select");
     },
 
-    /** The claim's goodbye, as a BEACON so it survives the tab closing — a fetch there is
-     *  cancelled with the page. Best-effort by nature, which is why the TTL exists behind it. */
+    /** The claim's goodbye, as a BEACON so it survives the tab closing; best-effort by nature, which is why the TTL sits behind it. */
     release: (id, secret) =>
       navigator.sendBeacon(
         `${base}/api/engine/release`,

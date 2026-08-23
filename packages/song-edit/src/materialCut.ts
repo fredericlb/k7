@@ -1,7 +1,8 @@
 // materialCut.ts — cutting and merging MATERIAL, where trackMix.ts moves and resizes PLACEMENTS.
-// `event split` writes two sequences, `selection consolidate` writes one over a range. Sequences only: notes are text this package reads
-// and writes, while the same verbs on audio need a render and live with the bounce
-// (@studio/commands' processChain.ts). Full rationale: docs/materialCut.md.
+// `event split` writes two sequences, `selection consolidate` writes one over a range. Sequences
+// only: notes are text this package reads and writes, while the same verbs on audio need a render
+// and live with the bounce (@studio/audio-passes' processChain.ts).
+// Full rationale: docs/materialCut.md.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -49,14 +50,7 @@ export interface ConsolidateReport {
   from: string[];
 }
 
-/**
- * A free name under `sequences/`, from `base`.
- *
- * `base-1`, `base-2`, … and the number keeps climbing past anything already there — the same
- * uniquifying every other writer here does (`moduleFork`, the recycle bin, an import). A split
- * run twice therefore leaves four sequences rather than overwriting the first pair, which is
- * the right default for a verb whose whole point is that it WRITES material.
- */
+/** A free name under `sequences/` — the number keeps climbing, so nothing is overwritten. */
 function freeSequenceName(
   dir: string,
   base: string,
@@ -74,8 +68,7 @@ function freeSequenceName(
   }
 }
 
-/** The notes a sequence file holds, as plain values. Anything unreadable is no notes at all —
- *  the compile reports a malformed sequence, and this verb must not be the surface that raises it. */
+/** The notes a sequence file holds; anything unreadable is no notes at all, and the compile says so. */
 function notesOf(file: string): NoteIn[] {
   try {
     const doc = parseDocument(readFileSync(file, "utf8"), { version: "1.2" });
@@ -98,13 +91,7 @@ function notesOf(file: string): NoteIn[] {
   }
 }
 
-/**
- * The notes that sound inside `[from, to)`, moved so the window's start is beat 0.
- *
- * A note STRADDLING an edge is truncated rather than dropped: the cut is a moment in time, and
- * what was sounding at that moment goes on sounding up to it. Dropping it would make the halves
- * play something the whole never did, which is the one thing a split may not do.
- */
+/** The notes sounding inside `[from, to)`, rebased to beat 0; a straddling note is TRUNCATED. */
 function notesIn(notes: NoteIn[], from: number, to: number): NoteIn[] {
   const out: NoteIn[] = [];
   for (const n of notes) {
@@ -116,19 +103,7 @@ function notesIn(notes: NoteIn[], from: number, to: number): NoteIn[] {
   return out.sort((a, b) => a.t - b.t || a.k - b.k);
 }
 
-/**
- * Write `sequences/<ref>.yaml`.
- *
- * `extentBeats` fixes the extent with a `to:`, and only a SPLIT passes one: its halves are cut to
- * the cut, so their notes can never run past it, and a head whose last note stops early still has
- * to end where the knife fell.
- *
- * A CONSOLIDATION passes null, and that is the correction this whole function carries. It used to
- * write the rectangle's span, which read as "the new material ends here" while the notes were
- * copied whole — so a selected event playing past the rectangle put notes AFTER the extent, and
- * nothing played them. Present in the file, silent: the worst shape a bug takes. A consolidated
- * material IS its notes, so it declares no window at all.
- */
+/** Write `sequences/<ref>.yaml` — which edges it declares differs by verb, see docs/materialCut.md. */
 function writeSequence(
   dir: string,
   ref: string,
@@ -144,9 +119,7 @@ function writeSequence(
         n.v === undefined ? "" : `, v: ${n.v}`
       }` + " }",
   );
-  // Both edges are POSITIONS and quoted, for the reason every timecode here is: `3:1` unquoted
-  // is sexagesimal in YAML 1.1. A consolidation states BOTH -- the window IS the rectangle, said
-  // in full -- while a split's half states only its `to`, since it starts at its own beat 0.
+  // Both edges are POSITIONS and quoted, since `3:1` unquoted is sexagesimal in YAML 1.1.
   const edges =
     window == null
       ? ""
@@ -190,19 +163,7 @@ function windowOf(
   return { from, ...(to != null ? { to } : {}) };
 }
 
-/**
- * Cut a SEQUENCE placement's material in two at `atBeats`, and play the halves.
- *
- * The physical half of `event split`. Where the virtual one leaves two placements of one
- * material, this writes two sequences and points a placement at each — so the halves can then be
- * edited apart, which is the whole reason to want it.
- *
- * The material it cut is **left on disk**. Another placement, on another lane, may still be
- * playing it, and this verb cannot know what was meant to be kept; `sequences/` gaining a file
- * is cheap, a project that stops compiling is not.
- *
- * Answers null when no placement starts at `fromBeats` — a stale surface, not a broken file.
- */
+/** Cut a SEQUENCE placement's material in two at `atBeats` and play the halves — docs/materialCut.md. */
 export function splitSequenceMaterial(
   dir: string,
   trackId: string,
@@ -256,16 +217,14 @@ export function splitSequenceMaterial(
     den,
   );
 
-  // ONE write for both halves, as the virtual split does: a file caught between them would be a
-  // lane playing the head twice, or nothing at all.
+  // ONE write for both halves: a file caught between them would play the head twice.
   editTrackStruct(
     dir,
     trackId,
     (t) => {
       const i = findPlacementAt(t, fromBeats, num, den);
       if (i < 0) return t;
-      // Both halves are whole materials now, so every window on the placement is cleared: a
-      // `from`/`to` left behind would window the NEW file with the OLD file's numbers.
+      // Every window on the placement is cleared: both halves are whole materials now.
       let next = setPlacementField(t, i, "ref", head.ref);
       next = setPlacementField(next, i, "from", undefined);
       next = setPlacementField(next, i, "to", undefined);
@@ -281,21 +240,7 @@ export function splitSequenceMaterial(
   return { head, tail, from: ref };
 }
 
-/**
- * Write ONE sequence over `[fromBeats, toBeats]`, holding everything that plays there.
- *
- * What `event join` refuses. Join puts a run back together only when nothing has to be written —
- * one material, no gap, each neighbour continuing the last. Every other case needs a new file,
- * and this is the verb that writes it.
- *
- * **Gaps are kept.** The new sequence spans the whole rectangle: notes land at their offset from
- * its start, and where nothing played there are simply no notes. A `to:` fixes the extent, so a
- * rectangle ending in silence still ends there — which is what makes the result play back
- * identically, the same test a split has to pass.
- *
- * Selected by where a placement STARTS, both ends inclusive — the rule `events move` and
- * `event join` already use, so one rectangle means one set of events whichever verb reads it.
- */
+/** Write ONE sequence over `[fromBeats, toBeats]`, gaps kept — see docs/materialCut.md. */
 export function consolidateSequenceMaterial(
   dir: string,
   trackId: string,
@@ -341,28 +286,14 @@ export function consolidateSequenceMaterial(
     const end = win.to ?? Math.max(win.from, ...all.map((n) => n.t + n.d));
     const loops = Math.max(1, Math.floor(Number(p.loop ?? 1)) || 1);
     const span = end - win.from;
-    // A repeat is unrolled rather than refused: it is N copies of one window laid end to end,
-    // which is exactly what the consolidated material has to contain.
+    // A repeat is UNROLLED rather than refused: N copies of one window laid end to end.
     for (let pass = 0; pass < loops; pass++)
       for (const n of notesIn(all, win.from, end))
         notes.push({ ...n, t: n.t + (start - fromBeats) + pass * span });
   }
 
   const ordered = notes.sort((a, b) => a.t - b.t || a.k - b.k);
-  /**
-   * The window the new material declares: the RECTANGLE, and never less than what it holds.
-   *
-   * Both edges, stated in full — `from` at the rectangle's start and `to` at its end — so the
-   * material says exactly what was selected. That is what keeps a gap at either end: a sequence
-   * with no `to` ends where its last note does, and the trailing silence of a selection would
-   * simply not be there.
-   *
-   * `Math.max` with the last note's end is the correction that matters, and the bug it fixes was
-   * silent. The rectangle selects by where an event STARTS, so a selected event may legitimately
-   * play past the right edge — and an extent taken from the rectangle alone then declared the
-   * material over before its own notes. They sat in the file, after the end, and nothing played
-   * them. The window may only ever be widened by what it contains, never narrowed.
-   */
+  // The declared window is the RECTANGLE, never narrowed below what it holds — docs/materialCut.md.
   const lastNote = ordered.reduce((end, n) => Math.max(end, n.t + n.d), 0);
   const taken = new Set<string>();
   const written = writeSequence(

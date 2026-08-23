@@ -1,10 +1,4 @@
-// Editing a lane that is playing one of its ALTERNATIVES must edit that one.
-//
-// A lane is a module node and its takes are that module's attribute sets, so `events:` exists in
-// two places at once: the module's own (which is set "1") and one per entry under
-// `alternatives:`. Every edit here used to write the module's own list whichever set was on, so
-// moving a clip while on take 2 silently rewrote take 1 — the arrangement you were NOT looking
-// at. See docs/alternatives.md and the `eventsIn`/`eventsToEdit` pair in trackFile.ts.
+// Editing a lane playing one of its ALTERNATIVES must edit that one — packages/song/docs/alternatives.md.
 
 import {
   mkdirSync,
@@ -118,8 +112,7 @@ describe("a lane playing an alternative", () => {
   });
 
   it("forks in the file's own idiom, not as one long flow row", () => {
-    // An empty set is written `- {}`, and a flow map keeps everything inside it on one line: the
-    // forked arrangement arrived as a single 400-character row. These files are read by people.
+    // A flow map keeps everything on one line, so the fork arrived as a 400-character row.
     const after = movePlacement(INHERITING, "1:1", "3:1");
     expect(after).toContain("  - events:\n");
     expect(after).toContain('      - { ref: take1_a, start: "3:1" }\n');
@@ -147,9 +140,7 @@ events:
 
 describe("creating an alternative", () => {
   it("blanks a LANE's clips, so a new take is a new take", () => {
-    // A set states only what it changes, so an empty entry would inherit the arrangement and the
-    // new take would open holding the old one's placements. `events: []` says it outright — a list
-    // is a scalar to the merge, which is what a lane's takes need.
+    // A set states only what it changes, so `events: []` is what keeps the new take empty.
     const { text, name } = addAlternative(PLAIN, undefined, {
       blankEvents: true,
     });
@@ -189,8 +180,7 @@ params: { Gain: 3 }
   });
 });
 
-// The layer that decides `blankEvents`, since whether a module is a LANE is a question about what
-// it extends — and only the loader can answer it.
+// The layer deciding `blankEvents`: whether a module is a LANE is a question only the loader answers.
 describe("newModuleAlternative, through the real loader", () => {
   let dir: string;
   beforeEach(() => {

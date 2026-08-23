@@ -9,16 +9,7 @@ import { blobDir, isKey, keyOf } from "../shares/store.ts";
 import { publicShareRouter } from "./publicShare.ts";
 import { sharesRouter } from "./shares.ts";
 
-/**
- * The two halves of a share, mounted the way `server.ts` mounts them — the PUBLIC one first and
- * with no guard, the author's behind a stub session, and a `requireAuth` fence after both.
- *
- * That fence is the point of this file. `server.ts` really does carry
- * `app.use("/api", requireAuth, …)`, so anything mounted after it inherits a guard it never asked
- * for, and the symptom is a shared link redirecting a stranger to an identity provider — nothing
- * throws, nothing fails at boot. The public describe below is what notices.
- */
-
+// Both halves mounted as `server.ts` mounts them, fence included — see ../../docs/shares.md.
 let root: string;
 let server: Server;
 let base: string;
@@ -151,10 +142,7 @@ describe("uploading one", () => {
   });
 });
 
-/**
- * Everything here runs with NO credential of any kind. That is the whole contract: an `<audio>`
- * element does not send them, so a share that needed one could not play.
- */
+/** NO credential of any kind: an `<audio>` element sends none, so a share needing one cannot play. */
 describe("reading one with no session at all", () => {
   it("answers the manifest", async () => {
     const { key } = await share();
@@ -193,13 +181,7 @@ describe("what the public half refuses", () => {
     }
   });
 
-  /**
-   * The bare `..` cases are HERE and not over HTTP, and that is worth knowing rather than
-   * discovering: a compliant client cannot send one. `fetch` resolves
-   * `/api/public/share/../manifest` to `/api/public/manifest` before a byte leaves, and it does
-   * the same to `%2E%2E` — undici decodes the escape first. So the wall is real, a raw socket can
-   * still aim at it, and this is the only place it can be exercised.
-   */
+  /** The bare `..` cases are HERE and not over HTTP: `fetch` resolves them, ../../docs/shares.md. */
   it("is a hex sha256 and nothing else — the guard itself", () => {
     for (const bad of [
       "..",
@@ -232,11 +214,7 @@ describe("what the public half refuses", () => {
     ).toBe(404);
   });
 
-  /**
-   * The one that catches a reordered mount. A path this router does not have must be ITS 404 and
-   * not the fence's 401 — a 401 would say "this exists but not for you" about something that does
-   * not exist, and it is also what a share mounted below the guard would answer for everything.
-   */
+  /** The one that catches a reordered mount: this router's 404 and never the fence's 401. */
   it("answers 404 for a path it does not have — never 401", async () => {
     const { key } = await share();
     expect((await fetch(`${base}/api/public/share/${key}/nope`)).status).toBe(

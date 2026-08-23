@@ -10,8 +10,6 @@ import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
   const cut = g.param("Cut", { min: 0, max: 1, default: 0 });
-  // A NEGATIVE gain — the one thing no fader and no send can express, and the reason this is a
-  // module. `mix + (−Cut · stem)` is a subtraction that costs nothing at rest: at Cut 0 this lane
-  // contributes silence, so the mix beside it comes through sample for sample.
+  // A NEGATIVE gain, `mix + (−Cut · stem)` — the one thing no fader and no send can express.
   g.gain(g.sub(0, cut));
 };

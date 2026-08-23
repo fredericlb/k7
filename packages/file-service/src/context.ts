@@ -13,13 +13,7 @@ import {
 import type { RequestHandler } from "express";
 import { getWorkspace, UnknownWorkspaceError } from "./workspaces.ts";
 
-/**
- * What this machine can check a caller against.
- *
- * Three states and not two, because "" used to mean both "no identity here, nothing to gate
- * on" and "the identity is there and I could not read it" — and the second opened every route
- * on the machine. A `catch` around a file read is not a configuration decision.
- */
+/** What this machine can check a caller against — three states, since "" once opened every route. */
 type TokenState =
   | { k: "token"; value: string }
   /** No identity on this machine at all: a bare dev run, genuinely nothing to compare with. */
@@ -56,9 +50,7 @@ export function engineToken(): string {
   return s.k === "token" ? s.value : "";
 }
 
-// Reject callers without the engine's token. With none configured — a bare dev run — there is
-// nothing to gate on; with one that cannot be READ, refuse, because an unreadable secret is not
-// the absence of a secret.
+// Reject callers without the engine's token; an unreadable secret is not the absence of a secret.
 export const requireEngineToken: RequestHandler = (req, res, next) => {
   const state = engineTokenState();
   if (state.k === "none") return next();

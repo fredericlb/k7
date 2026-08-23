@@ -115,8 +115,7 @@ export async function handleListPlaylists(
   res.json({ playlists, spotify: spotifyConfigured() });
 }
 
-// POST /playlists — resolve a pasted URL and save the link. Idempotent: an
-// already-saved playlist is returned as-is rather than duplicated.
+// POST /playlists — idempotent: an already-saved playlist comes back rather than duplicating.
 export async function handleAddPlaylist(
   req: Request,
   res: Response,
@@ -134,8 +133,7 @@ export async function handleAddPlaylist(
 
   try {
     const existing = await findPlaylist(g, ref);
-    // Resolve regardless: it validates the link and warms the memo, so the
-    // first game start doesn't pay for a full Spotify bridge.
+    // Resolved either way: it validates the link and warms the memo the first game would pay for.
     const resolved = await resolvePlaylist(ref, true);
     if (resolved.tracks.length === 0) {
       res
@@ -194,8 +192,7 @@ export async function handleDeletePlaylist(
       res.status(403).json({ error: "not yours" });
       return;
     }
-    // Cascade: a Ref to a deleted row would leave the leaderboard holding
-    // scores nothing can ever display again.
+    // Cascade, or the leaderboard keeps scores whose Ref points at a row that is gone.
     const scores = await g.listRecords("PlaylistScores", { playlist: id });
     if (scores.length > 0)
       await g.deleteRecords(
@@ -212,8 +209,7 @@ export async function handleDeletePlaylist(
   }
 }
 
-// GET /playlists/:id/tracks — the playable list. Served from the resolver's
-// memo, so repeat games on the same playlist don't re-hit the upstream APIs.
+// GET /playlists/:id/tracks — off the resolver's memo, so a repeat game re-hits no upstream API.
 export async function handlePlaylistTracks(
   req: Request,
   res: Response,
@@ -246,8 +242,7 @@ export async function handlePlaylistTracks(
   }
 }
 
-// GET /playlists/preview/:deezerId — 302 to a currently-valid preview URL.
-// Public (like /audio), because <audio> elements don't send credentials.
+// GET /playlists/preview/:deezerId — public like /audio, since <audio> sends no credentials.
 export async function handlePlaylistPreview(
   req: Request,
   res: Response,
@@ -324,8 +319,7 @@ export async function handlePlaylistScore(
   }
 }
 
-// GET /playlists/:id/leaderboard — standard competition ranking (ties share a
-// rank, the next one skips), mirroring the solo leaderboard.
+// GET /playlists/:id/leaderboard — competition ranking, ties sharing a rank, like the solo one.
 export async function handlePlaylistLeaderboard(
   req: Request,
   res: Response,

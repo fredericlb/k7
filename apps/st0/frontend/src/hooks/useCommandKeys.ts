@@ -14,16 +14,7 @@ export function useCommandKeys({
   runCommand,
   onDoubleShift,
 }: {
-  /**
-   * False while something OWNS the surface — a settings page, the module builder.
-   *
-   * The panes these bindings act on are hidden behind such a screen, and Esc must not reach past
-   * it to close the slot underneath. A docked PANEL is deliberately not one of those: it leaves
-   * the panes on screen, so the keys that drive them must keep working — Space while you watch a
-   * level on the I/O tab is the whole point of that tab not being a dialog over the thing it
-   * meters. Typing is safe either way, the guard below being about the FOCUSED element rather
-   * than about which screen is open.
-   */
+  /** False while something OWNS the surface — a docked PANEL is deliberately not one of those, since it leaves the panes on screen. */
   enabled?: boolean;
   /** The person's keymap — the app's simple bindings with their `key:` prefs applied. */
   effKeys: Record<string, string>;
@@ -39,21 +30,7 @@ export function useCommandKeys({
     if (!enabled) return;
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
-      // Two different reasons to stand aside, and only one of them holds for Space.
-      //
-      // TYPING — a field or a code editor — owns every key it is given, Space included; that is
-      // what makes it a text editor. Nothing here may touch it.
-      //
-      // A CONTROL with focus (a button, a link, a select) is a different case: it keeps the keys
-      // the platform gives it, but two of them come back here.
-      //
-      // Space, because it has to be the transport wherever the last click landed — a button
-      // reached by pointer keeps focus, and "Space plays" failing because you had just clicked
-      // Mute is the bug this rule exists to kill. Escape, because a focused button does nothing
-      // with it at all, and Esc's first job is to close the overlay that button is sitting in.
-      // Enter still activates the button, so a control tabbed to is still reachable from the
-      // keyboard. Every other key still belongs to the control — `blurOnClick` (keys.ts) is what
-      // hands those back after a mouse click.
+      // Two reasons to stand aside: TYPING owns every key, where a focused CONTROL keeps them all but Space and Escape (docs/shell.md).
       const typing =
         !!el &&
         (el.tagName === "INPUT" ||
@@ -66,10 +43,7 @@ export function useCommandKeys({
           el.tagName === "A" ||
           el.tagName === "SELECT");
       if (control) {
-        // What comes back from a focused control is the TRANSPORT's keys — wherever the person
-        // has put them, so a remapped play key keeps the promise Space's default had — plus
-        // Escape. Enter stays the control's even though its default is transport rewind: it
-        // activates the button, which is what keeps a Tab-focused control operable.
+        // What comes back from a focused control is the TRANSPORT's keys, wherever they have been put, plus Escape; Enter stays the control's.
         const t = keyToken(e);
         const passes =
           t === "esc" ||
@@ -78,10 +52,7 @@ export function useCommandKeys({
             !!effKeys[t]?.startsWith("transport "));
         if (!passes) return;
       }
-      // The command entry: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a
-      // held Shift. What that OPENS is the host's — the shell's docked bar or its popin palette,
-      // a surface's one line. (Never the other way: this branch is unreachable from inside any of
-      // them, all being inputs.)
+      // The command entry: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held one; what it OPENS is the host's.
       if (
         e.key === "Shift" &&
         !e.ctrlKey &&
@@ -101,19 +72,12 @@ export function useCommandKeys({
       lastShiftAt.current = 0;
       const token = keyToken(e);
       if (!token) return;
-      // ⌃C with text actually SELECTED on the page is the browser's copy, and it is let through.
-      //
-      // The chord is this shell's otherwise (keys.ts's CHORDS), which is the whole reason the
-      // exception has to be here: a log line, a status message or a refusal reads as text and
-      // copying it is what a person means by ⌃C over it. A grid's rectangle is not a DOM
-      // selection at all — the timeline's lanes are `select-none` and the roll's drags
-      // `preventDefault` — so the two cannot be confused, and the app's own copy is unaffected.
+      // ⌃C with text actually SELECTED on the page is the browser's copy and is let through — a grid's rectangle is no DOM selection.
       if (token === "ctrl+c") {
         const sel = window.getSelection();
         if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       }
-      // Through the person's own keymap: their assignments and steals first, the app's
-      // conditional bindings (esc, f, m…) as the fallback — see keys.ts's resolveToken.
+      // Through the person's own keymap: their assignments first, the app's conditional bindings as the fallback (keys.ts's resolveToken).
       const command = resolveToken(token, conditions, effKeys);
       if (!command) return;
       e.preventDefault();

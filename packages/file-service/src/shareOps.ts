@@ -30,13 +30,7 @@ import {
 import type { WebProject } from "@studio/web-protocol";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 
-/**
- * What an export needs to know about the workspace, and nothing more.
- *
- * Six members instead of a class: that is what lets this file be read without opening the other,
- * and what stops `safePath` becoming public by accident. Same shape as the `lifecycleHost` next
- * door, and for the same reason.
- */
+/** What an export needs of the workspace: six members instead of a class, so `safePath` stays private. */
 export interface ShareHost {
   /** The workspace root — a cloned repository. Named in a share's origin. */
   root: string;
@@ -50,12 +44,7 @@ export interface ShareHost {
   surfaces(): ReturnType<typeof projectSurfaces>;
 }
 
-/**
- * Render the mixdown. `"mp3"` transcodes, which needs ffmpeg.
- *
- * The caller streams `path` then calls `cleanup` — the file lives in a temporary folder that must
- * go even if streaming fails.
- */
+/** Render the mixdown; the caller streams `path` then calls `cleanup`, whether or not it worked. */
 export function exportMix(
   host: ShareHost,
   format: "wav" | "mp3",
@@ -94,28 +83,7 @@ export function exportMix(
   }
 }
 
-/**
- * The frozen snapshot `project share link` sends to pl8 — rendered here, uploaded by the caller.
- *
- * The three documents are what a BROWSER draws a project from, and each is here for a reason
- * the next person should not have to re-derive:
- *
- * - `project-doc.json` (`WebProject`) is the arrangement. It carries `sourceName` — the audio
- *   file's NAME and never its path — so it says what a clip is called without saying where
- *   anything lives on this machine.
- * - `graph.json` (`WebGraph`) is the chains, the modules and their AUTHORED parameter values.
- *   That is the feature: "see the modules without editing them" is this document.
- * - `surfaces.json` is what the project DECLARES, verbatim. A project with a viewport surface
- *   is shared with that surface still declared and no video beside it; the snapshot says which
- *   media it carries (`media.video: false`) rather than editing the project's own claims.
- *
- * Three documents are deliberately NOT here. `video-doc` carries workspace-relative media paths
- * (`toWebVideoTracks`) and the share is audio-only anyway; `project-errors` quotes file paths
- * and lines of YAML; `/tree` and `/file` are the source itself. A share shows the song, not the
- * folder it was made in.
- *
- * Nothing here writes to the project. Freezing a shared copy is a RENDER, not `node freeze` ×N.
- */
+/** The frozen snapshot `project share link` sends to pl8 — the three documents, and the three left out, in docs/share.md. */
 export function buildShare(host: ShareHost): ShareBundle {
   const dir = host.requireActive();
   const engine = findEngineBinary();
@@ -134,17 +102,7 @@ export function buildShare(host: ShareHost): ShareBundle {
   );
 }
 
-/**
- * Render the snapshot and send it to pl8. Answers the secret the link is built from.
- *
- * The credential is NOT k7's `.settings.json` pair but the machine's own pl8 bearer —
- * `mediatekBase()` / `mediatekToken()`, the `service:st0` token `npm run tokens` already writes
- * into the supervisor's settings for the library pull. Sharing needed no new plumbing: this
- * service has been talking to pl8 with it all along.
- *
- * A service token has no person of its own, so the user is named on every call (`?user=`) — the
- * same arrangement, and the same accepted cost, that `/ssh-key/private` documents.
- */
+/** Render the snapshot, send it to pl8, and answer the secret the link is built from — docs/share.md. */
 export async function shareLink(
   host: ShareHost,
   userEmail: string,
@@ -169,14 +127,12 @@ export async function shareLink(
     });
     return { token: link.token, bytes: link.bytes };
   } finally {
-    // The upload streams from these files, so they live until it is over — and go whether it
-    // ended well or not. A share of a long song is half a gigabyte of temp.
+    // The upload streams from these files, so they go only now — half a gigabyte of temp for a long song.
     bundle.cleanup();
   }
 }
 
-/** Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for
- *  artist and title. Credentials sit at the WORKSPACE root — one k7 login serves every project. */
+/** Publish to k7; an unknown song throws NEEDS_META, which the route turns into a prompt (docs/share.md). */
 export async function shareK7(
   host: ShareHost,
   opts: { artist?: string; title?: string },

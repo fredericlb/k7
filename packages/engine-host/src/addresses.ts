@@ -21,24 +21,9 @@ export interface EnginePresence {
   addresses: EngineAddresses;
 }
 
-/**
- * The IPv4s worth advertising: non-internal, and not an address the browser could never
- * usefully dial.
- *
- * `!ni.internal` alone is not enough. A `169.254.x.x` link-local address is what an
- * interface assigns itself when DHCP fails — Node reports it as external, but nothing
- * on the LAN routes to it, so advertising one only adds a probe the browser must wait
- * to time out before trying an address that works.
- */
-/**
- * Interfaces that exist on the machine and reach no browser: VPN tunnels, container bridges,
- * WSL and Hyper-V switches, VirtualBox and VMware host adapters.
- *
- * They are not `internal`, so the flag above lets them through, and they carry perfectly
- * ordinary private addresses. Every one advertised is an address the relay dials in sequence
- * and the browser probes in parallel — pure waiting, since nothing on the LAN routes to them.
- * Matched by NAME because the address cannot tell them apart from a real one.
- */
+// Only the IPv4s a browser could usefully dial: `!internal` alone lets a link-local 169.254 address through, and nothing routes to one.
+
+/** Interfaces that reach no browser — VPN tunnels, container bridges, WSL and Hyper-V — matched by NAME, their addresses looking ordinary. */
 const PHANTOM_IFACE =
   /^(vEthernet|WSL|Hyper-V|VirtualBox|VMware|vmnet|docker|br-|veth|tun|tap|utun|ZeroTier|Tailscale|wg\d)/i;
 
@@ -61,19 +46,7 @@ function lanIPv4s(): string[] {
   return out;
 }
 
-/**
- * A stable per-host id: sha256(hostname + "|" + sorted non-internal MACs).
- *
- * A coarse hint for the registry, never an identity — `web/backend/src/registry.ts`
- * keys on the engine `id` and pins its `token` on first sight, and carries this field
- * without ever deduplicating on it.
- *
- * The MAC set is the NON-INTERNAL one deliberately: a loopback adapter's zero MAC and
- * the transient MACs of VPN/container interfaces are exactly what would make this value
- * unstable, and stability is its only purpose. (The tray's deleted Rust twin hashed
- * ALL MACs, so this value changes once per existing user on upgrade. That is safe —
- * see above — and it is the one value that visibly moves.)
- */
+/** A stable per-host id over the NON-INTERNAL MACs — a coarse hint the registry never deduplicates on, and stability is its only purpose. */
 function machineFingerprint(host: string): string {
   const macs: string[] = [];
   const ifaces = networkInterfaces();

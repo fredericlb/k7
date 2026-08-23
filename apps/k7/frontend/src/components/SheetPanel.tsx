@@ -12,9 +12,7 @@ interface Props {
 
 const ACCEPT = "application/pdf,image/*";
 
-// A sheet is a PDF or a set of images, not text — so this panel is an uploader
-// plus an inline viewer (PDFs embedded, images stacked in order) rather than a
-// textarea.
+// A sheet is files, not text, so this is an uploader and a viewer rather than a textarea.
 export function SheetPanel({ sheets, urlFor, onUpload, onDelete }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -92,8 +90,7 @@ export function SheetPanel({ sheets, urlFor, onUpload, onDelete }: Props) {
                 </object>
               </figure>
             ) : (
-              // Images stack flush against each other, like the pages of a
-              // score — no caption; the delete control floats in the corner.
+              // Images stack flush, like the pages of a score, so they carry no caption.
               <div key={file.id} className="sheet-image-wrap">
                 <img
                   className="sheet-image"

@@ -64,3 +64,20 @@ Nothing changes in *this* component: it still calls `/auth/me` and `/auth/login`
 exactly as before. What changed is who answers, and the consequence to know is the one st0's
 AGENTS.md already stated in the other direction — **signing out here signs you out of every
 studio service**, and pl8 being down takes every service's login with it, not just its own.
+
+Worth knowing when reading old commits: the day st0 took the root, the flow stayed in this
+backend for one release, routed *by name* in nginx. It worked, and it read as an exception to
+every rule around it. It is not one any more — `mountRoutes: []`, the same cookie name, the same
+`SESSION_SECRET` out of `env.yaml`'s `common`, or the check fails. And no `scopes` here: asking
+the IdP for anything is the job of whoever runs the flow.
+
+## The bearer token, beside the session
+
+`bearerOrSession` guards the library, the repositories and the shares, because the main consumer
+has **no cookie jar**: the local file service — syncing a cache, or coming for the deploy key so
+it can clone — runs headless beside the engine. It is the scheme k7 already uses for the st0 CLI:
+a signed `{sub, iat}`, no server-side storage, and rotating the secret revokes everything at once.
+
+`POST /api/token` mints one and is **session only**, deliberately: a token must not be able to
+mint another. Two routes refuse the bearer for reasons of their own — the hunt, which spends an
+account's reputation ([hunt.md](hunt.md)), and the preferences, which have no headless caller.

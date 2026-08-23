@@ -25,8 +25,7 @@ const arg = (
   ...(optional ? { optional: true } : {}),
 });
 
-// `event move` as commands.yaml declares it — the command the whole gesture-feeds-the-bar path
-// was built around. The KINDS are real, because that is what a kind-matched offer tests against.
+// `event move` as commands.yaml declares it — the KINDS are real, being what a kind-matched offer tests against.
 const MOVE: PaletteArg[] = [
   arg("track", "track"),
   arg("timecode", "timecode"),
@@ -135,8 +134,7 @@ describe("applyOffer", () => {
   });
 
   it("never rewrites an answer BEHIND the keys — it fills forward", () => {
-    // The track was chosen by hand and the keyboard has moved past it; the drag touched
-    // another lane, and must not silently replace what was chosen.
+    // The track was chosen by hand and the keyboard has moved past it; the drag touched another lane and must not replace it.
     expect(
       applyOffer(
         MOVE,
@@ -179,8 +177,7 @@ describe("wantsKind", () => {
   });
 });
 
-// The gesture the whole thing was built for, traced end to end: trigger `event move`, drag a
-// clip within its lane, press Enter. The claim under test is ONE keystroke, not two.
+// The gesture the whole thing was built for, traced end to end — the claim under test is ONE keystroke, not two.
 describe("a clip drag answering the form", () => {
   const drag = (toTc: string) =>
     applyOffer(
@@ -230,10 +227,7 @@ describe("a clip drag answering the form", () => {
   });
 });
 
-// What Enter does in the form. The reported bug: with a suggestion highlighted, Enter did
-// nothing at all — it took the suggestion, the list kept showing it (an exact match still
-// ranks first), and the next Enter took it again, for ever. A command whose LAST field has a
-// vocabulary could therefore never be submitted, which is exactly `node replace`'s shape.
+// What Enter does in the form: with a suggestion highlighted, Enter took it again for ever, so `node replace`'s shape could never be submitted.
 describe("enterAction", () => {
   // `node replace <node> <extends-ref>` — both required, the last one completing.
   const REPLACE: PaletteArg[] = [
@@ -249,8 +243,7 @@ describe("enterAction", () => {
   });
 
   it("RUNS once the field already holds it — the bug", () => {
-    // Same suggestion still highlighted, now equal to the answer. Taking it again would be a
-    // no-op, and it is what ate every Enter.
+    // Same suggestion still highlighted, now equal to the answer: taking it again is the no-op that ate every Enter.
     expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, "audio/cab")).toEqual(
       {
         kind: "run",
@@ -272,8 +265,7 @@ describe("enterAction", () => {
   });
 
   it("still takes a DIFFERENT suggestion over running", () => {
-    // Completion is the validation: arrowing to another entry and pressing Enter answers the
-    // field, it does not dispatch the line that was runnable a moment ago.
+    // Completion is the validation: arrowing to another entry and pressing Enter answers the field, it does not dispatch.
     expect(enterAction(REPLACE, ["lead", "audio/cab"], 1, "audio/ir")).toEqual({
       kind: "take",
       value: "audio/ir",
@@ -281,17 +273,9 @@ describe("enterAction", () => {
   });
 });
 
-/**
- * What the CARET answers, and what it deliberately does not.
- *
- * `event split` asked for a track, an event and a cut — three things you had just parked on and
- * had to type back. These pin that it now answers all three, and that the answering is opt-in:
- * a caret is always somewhere, so a rule that filled anything called `track` would quietly
- * pre-answer every destructive verb in the catalogue.
- */
+/** What the CARET answers, and what it deliberately does not — the answering is opt-in, or a caret would pre-answer every destructive verb. */
 describe("caretAnswers", () => {
-  // `event split <track> <timecode> <at>`, as commands.yaml declares it: the event is addressed
-  // by its START, and the cut is the third argument.
+  // `event split <track> <timecode> <at>`: the event is addressed by its START, and the cut is the third argument.
   const SPLIT: PaletteArg[] = [
     arg("track", "track"),
     arg("timecode", "timecode"),
@@ -317,16 +301,14 @@ describe("caretAnswers", () => {
   });
 
   it("distinguishes WHERE the caret is from WHERE the event starts", () => {
-    // The two are different timecodes and land in different fields. Feeding the caret's own
-    // position as the event's address would split whatever starts under the cut, or nothing.
+    // The two are different timecodes and land in different fields — the caret's own position would split the wrong thing, or nothing.
     const answers = caretAnswers("event split", on());
     expect(answers.timecode).not.toBe(answers.at);
     expect(answers.timecode).toBe("2:1:1");
   });
 
   it("leaves the field it cannot answer empty, rather than guessing", () => {
-    // Parked on bare lane: the track and the cut are known, the event is not. The form must open
-    // on that hole — inventing an event start here would cut a clip nobody pointed at.
+    // Parked on bare lane: the track and the cut are known, the event is not, so the form must open on that hole.
     const answers = caretAnswers("event split", on({ eventStart: null }));
     expect(answers).toEqual({ track: "drums", at: "3:1:1" });
     const filled = applyOffer(SPLIT, answers, emptyValues(SPLIT), 0);
@@ -335,8 +317,7 @@ describe("caretAnswers", () => {
   });
 
   it("says nothing on a row's label, where there is no moment", () => {
-    // The caret parked on a track name is on a ROW, not at a time. `tc` is null there and the
-    // whole point of carrying null rather than beat -1 is that it cannot become a timecode.
+    // The caret parked on a track name is on a ROW, not at a time — `tc` is null there and cannot become a timecode.
     expect(
       caretAnswers("event split", on({ at: null, eventStart: null })),
     ).toEqual({
@@ -345,8 +326,7 @@ describe("caretAnswers", () => {
   });
 
   it("answers NOTHING for a command that did not ask", () => {
-    // The opt-in. `event remove` takes a track and a timecode by the same names, and a caret that
-    // filled them would put a destructive line one Enter away from a cursor that merely moved.
+    // The opt-in: `event remove` takes the same two names, and filling them would put a destructive line one Enter away.
     expect(caretAnswers("event remove", on())).toEqual({});
     expect(caretAnswers("track delete", on())).toEqual({});
   });
@@ -356,8 +336,7 @@ describe("caretAnswers", () => {
     expect(caretAnswers("event split", null)).toEqual({});
   });
 
-  // `selection consolidate` is answered by the RECTANGLE, not by where the caret sits: what to rejoin is a
-  // range, and a range is what you drew.
+  // `selection consolidate` is answered by the RECTANGLE, not by where the caret sits: what to rejoin is a range, and a range is what you drew.
   describe("and the rectangle, for a consolidation", () => {
     const JOIN: PaletteArg[] = [
       arg("tracks", "track"),
@@ -375,9 +354,7 @@ describe("caretAnswers", () => {
     });
 
     it("fills a CONSOLIDATE from the same rectangle, `to` included", () => {
-      // The whole line, so the form never asks: what to consolidate is a range, and the range is
-      // what you drew. `to` is a required argument because the CLI has no selection to read —
-      // here it is deduced, exactly as a join's is.
+      // The whole line, so the form never asks; `to` is a required argument because the CLI has no selection to read.
       const answers = caretAnswers("selection consolidate", dragged("drums"));
       const filled = applyOffer(JOIN, answers, emptyValues(JOIN), 0);
       expect(filled?.values).toEqual(["drums", "2:1:1", "4:1:1"]);
@@ -385,25 +362,20 @@ describe("caretAnswers", () => {
     });
 
     it("asks for the range when there is NO rectangle", () => {
-      // The other half of the rule, and the reason `from`/`to` are required in the catalogue at
-      // all: a caret sitting on an event says nothing about how far a consolidation should reach.
-      // Nothing is filled, so the form asks — and the CLI, which has no selection to read ever,
-      // is in this case permanently.
+      // The other half of the rule: a caret sitting on an event says nothing about how far a consolidation should reach.
       expect(caretAnswers("selection consolidate", on())).toEqual({});
       expect(canRun(JOIN, emptyValues(JOIN))).toBe(false);
     });
 
     it("passes on EVERY lane the rectangle covered, two included", () => {
-      // The refusal is the handler's, and it can only make it if what it receives is what was
-      // selected. Quietly keeping the first lane here would run a join nobody asked for on it.
+      // The refusal is the handler's, and it can only make it if what it receives is what was selected.
       expect(
         caretAnswers("selection consolidate", dragged("drums,bass")).tracks,
       ).toBe("drums,bass");
     });
 
     it("says nothing when no rectangle is drawn", () => {
-      // A caret parked on a clip is not a range. `selection consolidate` then opens its form empty,
-      // right: it is asking which stretch, and nobody has said.
+      // A caret parked on a clip is not a range, so the form opens empty — it is asking which stretch, and nobody has said.
       expect(caretAnswers("selection consolidate", on())).toEqual({});
     });
   });

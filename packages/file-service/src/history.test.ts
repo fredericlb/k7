@@ -180,8 +180,7 @@ describe("Workspace.recordChange", () => {
     expect(ws.historyState().canUndo).toBe(false);
   });
 
-  // The same diff, said the other way: what a CLIENT is told so it can scope its reload. The
-  // journal's own paths stay workspace-relative; these are the project's own.
+  // The same diff said the other way: the journal's paths are workspace-relative, these the project's.
   describe("names what it changed", () => {
     it("tells a rewrite from an appearance, project-relative", async () => {
       const { ws } = openProject();

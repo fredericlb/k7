@@ -22,12 +22,7 @@ const stem = (path: string) => {
   return dot > 0 ? base.slice(0, dot) : base;
 };
 
-/**
- * `assets/`-relative paths → one level per folder.
- *
- * `roland jc 120b/bright on.nam` under param `nam` → level "roland jc 120b" → leaf "bright on".
- * A file sitting directly in `assets/` becomes a leaf at the root, beside the folders.
- */
+/** `assets/`-relative paths → one level per folder; a file sitting directly in `assets/` becomes a leaf at the root, beside the folders. */
 export function buildAssetTree(
   files: string[],
   param: string,
@@ -60,8 +55,7 @@ export function buildAssetTree(
     });
   }
 
-  // Folders before files at every level: a folder is a place to go, a file is the answer,
-  // and mixing them alphabetically buries the structure.
+  // Folders before files at every level: a folder is a place to go and a file is the answer, and mixing them buries the structure.
   const order = (nodes: TreeNode<string>[]): TreeNode<string>[] => {
     for (const n of nodes) if (n.children) order(n.children);
     nodes.sort((a, b) => {
@@ -74,11 +68,7 @@ export function buildAssetTree(
   return order(roots);
 }
 
-/**
- * Flat matches for a query, best first. Scored on the file's own name AND on its whole path, so
- * both "jc" and "roland/bright" find `roland jc 120b/bright on.nam` — the folder is half of what
- * you remember about a profile.
- */
+/** Flat matches for a query, best first — scored on the file's own name AND its whole path, the folder being half of what you remember. */
 export function searchAssets(
   files: string[],
   param: string,
@@ -126,8 +116,7 @@ export function AssetPicker({
   onClose: () => void;
 }) {
   const tree = buildAssetTree(files, param);
-  // "none" first and always: a module with no profile loaded is a legitimate state, and it must
-  // not be something you have to hunt for among the files.
+  // 'none' first and always: a module with no profile loaded is a legitimate state, not something to hunt for among the files.
   const withNone: TreeNode<string>[] = [
     { key: "none", label: "— none —", entry: "" },
     ...tree,

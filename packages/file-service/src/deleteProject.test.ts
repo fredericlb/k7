@@ -12,11 +12,7 @@ import chokidar from "chokidar";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
-// Reproduces the Windows EPERM: deleting a project moves its folder to the recycle bin,
-// but the folder is held open by the strudel file watcher. If the rename races the OS
-// releasing that directory handle it fails with EPERM — so deleteProject retries. Here
-// `beforeMove` closes the watcher fire-and-forget (the old, racy pattern) to force the
-// retry to be what recovers the delete.
+// Reproduces the Windows EPERM: a fire-and-forget watcher close, so the rename's retry is what recovers.
 let root: string;
 let ws: Workspace;
 

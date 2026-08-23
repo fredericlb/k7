@@ -41,8 +41,7 @@ function clipLine(
   return `${(c.name || c.id || "(unnamed)").padEnd(16)} ${span.padEnd(18)} ${what}`;
 }
 
-// One track and its clips. Flags that change what you'd hear are called out, and a clipless track says so
-// rather than rendering as a bare header you would mistake for a group.
+// One track and its clips; a clipless one says so rather than reading as a bare group header.
 export function describeTrack(t: TrackDoc, num: number, den: number): string[] {
   const flags = [
     t.mute ? "muted" : "",
@@ -66,8 +65,7 @@ export function describeTrack(t: TrackDoc, num: number, den: number): string[] {
   ];
 }
 
-// The whole arrangement, clustered like the web timeline (see web/frontend/src/rows.ts), so both surfaces
-// describe one project alike. A dangling `group` shows as ungrouped: print what the song has.
+// The whole arrangement, clustered like the web timeline — see docs/rendering.md.
 export function describeTimeline(p: ProjectDoc): string[] {
   const num = p.timeSigNumerator;
   const den = p.timeSigDenominator;

@@ -27,15 +27,12 @@ export function autoWah(): GraphJson {
     // How hard you are playing, followed per sample.
     const envDb = g.todb(g.envelope(attack, release));
 
-    // Sensitivity moves the level that reaches the TOP of the sweep: -60 dB when turned up, -15 dB when down.
-    // Shaped in dB because playing dynamics are logarithmic — a linear map spends its travel on the loudest few
-    // dB and feels dead everywhere else.
+    // Sensitivity moves the level reaching the TOP of the sweep, in dB because dynamics are logarithmic.
     const floorDb = g.lerp(-60, -15, sens);
     const up = g.linmap(envDb, floorDb, 0);
     const travel = g.select(up, g.sub(1, up), direction);
 
-    // Geometric, because pitch is: a linear sweep crawls at the bottom and races at the top, which is the single
-    // thing that makes a filter sweep sound synthetic instead of like a pedal.
+    // Geometric, because pitch is: a linear sweep is the one thing that sounds synthetic here.
     let freq = g.geolerp(low, high, travel);
     freq = g.clamp(freq, 60, g.mul(sr, 0.45)); // an unstable coefficient above Nyquist would be a NaN downstream
     freq = g.glide(freq); // one block of slew, so a per-block coefficient step cannot zipper

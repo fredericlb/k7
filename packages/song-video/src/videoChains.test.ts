@@ -64,9 +64,7 @@ describe("a video lane's run", () => {
   });
 
   it("does not warn — a video lane is a LANE in the derivation", () => {
-    // The failure this pins: a video lane lives in `video_tracks/` rather than in `modules`, so
-    // `main: [ glow ]` was read as a run whose first STEP was a module called `main`, and the
-    // graph reported the lane as "not a module or module node" about a file sitting right there.
+    // The failure this pins: `main: [ glow ]` was read as a run whose first STEP was `main`.
     shaderModule("glow", "type: shader\nshader: pulse\n");
     graph(
       "modules:\n  main: [ glow ]\n  glow: [ RENDER ]\n  RENDER: [ VIDEO_OUT ]\n",
@@ -77,8 +75,7 @@ describe("a video lane's run", () => {
   });
 
   it("keeps the four knobs, clamped to 0..1, and fills the ones nobody set", () => {
-    // Clamped because the value leaves TypeScript for GLSL: a shader has every right to assume
-    // 0..1, and what an out-of-range uniform produces is not a wrong picture but an unreadable one.
+    // Clamped because the value leaves TypeScript for GLSL — see docs/shaders.md.
     shaderModule(
       "glow",
       "type: shader\nshader: pulse\nparams: { P1: 4, P2: -1 }\n",
@@ -95,8 +92,7 @@ describe("a video lane's run", () => {
   });
 
   it("compiles a shader with NOTHING picked, minus its source", () => {
-    // A node you have just added. It keeps its card, its knobs and its dropdown; the picture
-    // passes through.
+    // A node you have just added: it keeps its card and its knobs, and the picture passes through.
     shaderModule("glow", "type: shader\n");
     graph(
       "modules:\n  main: [ glow ]\n  glow: [ RENDER ]\n  RENDER: [ VIDEO_OUT ]\n",
@@ -117,8 +113,7 @@ describe("a video lane's run", () => {
 
 describe("the audio side input", () => {
   it("names the LANE feeding the shader's audio port", () => {
-    // A name and not a number: the level moves at the engine's meter rate, and compiling one in
-    // would freeze it into a cached document.
+    // A name and not a number, or a moving level would freeze into a cached document.
     shaderModule("glow", "type: shader\nshader: pulse\n");
     mkdirSync(join(dir, "nodes"), { recursive: true });
     writeFileSync(
@@ -197,9 +192,7 @@ describe("the document it lands in", () => {
   });
 
   it("still compiles the PICTURE when the graph will not parse", () => {
-    // Best-effort by design: a broken graph is already reported by the song compile, on the line
-    // that broke. Losing the effects is recoverable by reading that; losing the frame is a black
-    // screen with no explanation.
+    // Best-effort by design — see docs/shaders.md.
     shaderModule("glow", "type: shader\nshader: pulse\n");
     graph("modules: [ this is not a map ]\n");
     const doc = loadVideoProject(dir);

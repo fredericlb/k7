@@ -16,20 +16,7 @@ export interface ProjectName {
 
 const SUFFIXES = Object.values(PROJECT_SUFFIXES);
 
-/**
- * The folder to create, for a typed name and a chosen application.
- *
- * Shown BEFORE creating, as `AddSong` shows the derived tree before uploading: here too the name
- * decides everything, and seeing it is what lets it be corrected.
- *
- * Separators are REFUSED rather than replaced. The file service would turn them into `_` — that is
- * its contract, and it is right not to fail — but a screen with room to say so beats a folder
- * appearing under a name other than the one that was read.
- *
- * A suffix already typed is stripped before ours is added: somebody writing "hiver.st0" then
- * picking m9 from the menu changed their mind, and "hiver.st0.m9" would be neither. The menu
- * decides, always.
- */
+/** The folder to create, shown BEFORE creating: separators are REFUSED rather than replaced, and a suffix already typed is stripped. */
 export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
   const name = raw.trim();
   if (!name) return { folder: "", error: "il faut un nom" };
@@ -38,8 +25,7 @@ export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
       folder: "",
       error: "pas de « / » ni de « \\ » dans un nom de projet",
     };
-  // A name starting with a dot is a hidden folder: the project would exist unseen, here and in
-  // the repository's tree alike.
+  // A name starting with a dot is a hidden folder: the project would exist unseen, here and in the repository's tree alike.
   if (name.startsWith("."))
     return { folder: "", error: "un nom ne peut pas commencer par un point" };
   const stem = SUFFIXES.reduce(

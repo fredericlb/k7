@@ -22,11 +22,9 @@ interface Props {
   session: Session;
   stream?: MediaStream;
   allTags: string[];
-  // When resuming a saved session, its stored envelope so the waveform shows the
-  // existing recording ahead of the new take.
+  // A resumed session's stored envelope, drawn ahead of the new take.
   baseEnvelope?: Envelope | null;
-  // When true, the recorder keeps running but collapses to a fixed bottom bar so
-  // the user can browse the rest of the app. `onExpand` reopens the full view.
+  // Collapsed to a bottom bar and still recording; `onExpand` reopens the full view.
   minimized?: boolean;
   onExpand?: () => void;
   onSave: (result: {
@@ -85,9 +83,7 @@ export function RecorderView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Memoized so the object identity is stable while paused for review —
-  // otherwise a new envelope every render would re-run the waveform's canvas
-  // draw on each playhead tick (the stutter this avoids).
+  // Memoized: a fresh envelope object would redraw the canvas on every playhead tick.
   const { envelope, threshold } = useMemo(() => {
     const gainedSamples = rec.samples.map((s) => Math.min(1, s * rec.gain));
     let peak = 0;
@@ -99,10 +95,7 @@ export function RecorderView({
     };
   }, [rec.samples, rec.gain]);
 
-  // When resuming, the waveform shows the saved recording ahead of the new
-  // take. The display timeline is offset by the existing envelope's length so
-  // the two stretches line up seam-to-seam (the recorder's own timeline —
-  // highlights, preview, saved annotations — stays relative to the new take).
+  // The DISPLAY timeline carries the saved take ahead of the new one — see ../../../docs/audio.md.
   const baseSamples = useMemo(
     () => baseEnvelope?.samples ?? [],
     [baseEnvelope],
@@ -140,8 +133,7 @@ export function RecorderView({
     [metronome, displayOffset],
   );
 
-  // Stable identity while reviewing so the waveform's canvas draw isn't
-  // re-triggered on every playhead tick (offset onto the display timeline).
+  // Stable identity again, and offset onto the display timeline.
   const focus = useMemo(
     () =>
       reviewing
@@ -165,8 +157,7 @@ export function RecorderView({
     };
   }, [previewUrl]);
 
-  // Route preview playback through a gain node so listening back while
-  // recording is normalized to the same level the finished session will be.
+  // Preview goes through a gain node, so listening back is at the finished session's level.
   const ensurePlaybackGain = () => {
     const a = audioRef.current;
     if (!a) return;
@@ -195,8 +186,7 @@ export function RecorderView({
     };
   }, []);
 
-  // Smoothly follow the preview audio's position (for the waveform playhead)
-  // while it's playing, mirroring the stopped-session playback loop.
+  // Follow the preview's position for the playhead, as the stopped-session loop does.
   useEffect(() => {
     const loop = () => {
       if (audioRef.current) setPreviewTime(audioRef.current.currentTime);
@@ -285,9 +275,7 @@ export function RecorderView({
     }
   };
 
-  // Stopping requires a deliberate 2-second hold (button press or space bar) so
-  // a stray tap/keypress can't end a long take. Progress drives a fill on the
-  // button; releasing early cancels.
+  // Stopping takes a deliberate HOLD_MS hold, so no stray tap ends a long take.
   const canStop = () =>
     !uploading && (rec.status === "recording" || rec.status === "paused");
 
@@ -315,16 +303,14 @@ export function RecorderView({
     holdRaf.current = requestAnimationFrame(tick);
   };
 
-  // The once-mounted key listener reads the latest hold/cancel via refs so it
-  // never rebinds and never captures stale status/pending.
+  // Refs, so the once-mounted key listener never rebinds nor captures a stale status.
   const beginHoldRef = useRef(beginHold);
   beginHoldRef.current = beginHold;
   const cancelHoldRef = useRef(cancelHold);
   cancelHoldRef.current = cancelHold;
   const canStopRef = useRef(canStop);
   canStopRef.current = canStop;
-  // While minimized (browsing another page), don't let a stray space bar press
-  // start the hold-to-stop — the stop control isn't visible there.
+  // Minimized, the stop control is off screen, so a space bar press must not start the hold.
   const minimizedRef = useRef(minimized);
   minimizedRef.current = minimized;
 
@@ -341,12 +327,10 @@ export function RecorderView({
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "Space") return;
-      // Don't hijack space while typing a comment/tag, when nothing to stop, or
-      // while minimized (the stop control isn't on screen then).
+      // Never hijack space while typing a comment or a tag.
       if (isEditable(e.target) || minimizedRef.current || !canStopRef.current())
         return;
-      // Swallow every space keydown while active (incl. auto-repeats) so the
-      // page doesn't scroll, but only start the hold on the first one.
+      // Swallow every space keydown so the page cannot scroll, but hold only on the first.
       e.preventDefault();
       if (!e.repeat) beginHoldRef.current();
     };
@@ -376,9 +360,7 @@ export function RecorderView({
     (p) => reviewing && p.startSec === reviewing.startSec,
   );
 
-  // Collapsed bar shown while the user browses elsewhere — keeps the recorder
-  // mounted (so recording continues) and surfaces the live waveform + a running
-  // count of detected moments. Clicking it reopens the full recorder.
+  // The collapsed bar keeps the recorder MOUNTED, which is what keeps the take running.
   if (minimized) {
     return (
       <div
@@ -439,8 +421,7 @@ export function RecorderView({
       {rec.error && <p className="error">🎤 {rec.error}</p>}
       {uploadErr && <p className="error">Upload failed: {uploadErr}</p>}
 
-      {/* Persistent (hidden) preview player — kept mounted across reviews so its
-          Web Audio gain node stays wired for normalized playback. */}
+      {/* A hidden preview player, kept mounted so its Web Audio gain node stays wired. */}
       <audio
         ref={audioRef}
         src={previewUrl ?? undefined}

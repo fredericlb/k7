@@ -5,12 +5,7 @@
 // Same icon set and reasons as st0' trackIcons.tsx, but keyed by CATEGORY rather than a
 import type { WebModuleCategory } from "@studio/graph-model";
 
-/** An inline SVG, as a viewBox and a body. Declared here rather than imported from st0'
- *  trackIcons — which is where it started — because that file stayed in the app: its
- *  TrackIcon draws the same lanes in the mixer and the timeline, so a graph package owning
- *  it would have those two importing one. ModuleIcon has no such tie: it is keyed on
- *  WebModuleCategory, which is the GRAPH's vocabulary, and its only consumer anywhere was
- *  the chains icon table. Two fields is a cheaper duplication than that coupling. */
+/** An inline SVG, as a viewBox and a body — declared here rather than in st0, docs/hosting.md. */
 export interface Glyph {
   vb: string;
   body: string;
@@ -49,8 +44,7 @@ const FOR_CATEGORY: Partial<Record<WebModuleCategory, string>> = {
   io: "arrows-left-right-12",
 };
 
-// The glyph for a category, or null when it has none. A sink has no category of its own, so callers pass "io";
-// `missing` wins over the category, the `?` being the whole point of drawing that node.
+// The glyph for a category, or null when it has none; `missing` wins over the category.
 export function moduleGlyph(
   category?: WebModuleCategory,
   missing?: boolean,

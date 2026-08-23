@@ -8,20 +8,7 @@ export interface TakeCount {
   beats: number;
 }
 
-/**
- * Where a take is, from the transport's own beat positions.
- *
- * `startBeat` is the playhead when the transport STARTED — which is what the old code got wrong.
- * It captured that once per mount and the pane outlived the take, so from the second take onward
- * it was measuring against the first take's start while `curBeat` was an absolute song position:
- * a take punched in at bar 15 counted 56 beats the instant it began, and a take starting earlier
- * than the last one showed a pre-roll of tens of beats. "Trop grand ou aléatoire" was exactly it.
- *
- * Both results are CLAMPED, and that is not belt-and-braces: the pre-roll can never be longer than
- * the pre-roll, and a take can never have run for less than nothing. Whatever the engine does with
- * its playhead during a count-in — and that is its business, not this counter's — the worst this
- * can now show is a number that stops moving, rather than one nobody can explain.
- */
+/** Where a take is, from the transport's own beat positions — both results CLAMPED, so the worst this shows is a number that stops moving. */
 export function takeCounter(
   startBeat: number,
   curBeat: number,
@@ -40,14 +27,7 @@ export function takeCounter(
   };
 }
 
-/**
- * The beat the take's MATERIAL starts on: the transport's start plus the count-in.
- *
- * `startBeat` is where the transport rolled, not where recording begins — the count-in runs
- * between them — and every surface that draws a take has to know the difference. The growing
- * clip on the lane drew from `startBeat`, so it appeared the instant Play was pressed and, once
- * recording did start, stretched back over bars that hold nothing.
- */
+/** The beat the take's MATERIAL starts on: the transport's start plus the count-in, which is the difference every surface must know. */
 export function recordingFrom(startBeat: number, countInBeats: number): number {
   return startBeat + Math.max(0, countInBeats);
 }

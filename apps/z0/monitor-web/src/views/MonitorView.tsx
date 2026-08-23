@@ -8,9 +8,7 @@ import { useMonitorState } from "../lib/monitor";
 import { createMonitorSystem } from "../lib/system";
 import { useVirtualBuzzersState } from "../lib/virtualBuzzers";
 
-// React port of monitor-web's App.vue main screen. Only mounted once the
-// auth gate has passed (authenticated admin), which is when the Vue version
-// called startMonitor().
+// Mounted only once the auth gate has passed, which is what starts the monitor.
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";

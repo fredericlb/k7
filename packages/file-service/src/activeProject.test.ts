@@ -5,9 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
-// Two consequences of an app being opened ON a project instead of picking one: the tree is
-// the project's rather than the clone's, and a project pl8 named out of a stale mirror has
-// to be refused HERE, by name and by existence. See docs/activeProject.md.
+// The two consequences of being opened ON a project instead of picking one — see docs/activeProject.md.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(
@@ -82,8 +80,7 @@ describe("the tree is rooted at the active project", () => {
   });
 
   it("finds a project at a depth, and inside another one", () => {
-    // Both are arrangements the address vocabulary supports (`songs/winter.st0`, and a nested
-    // set), so the scan may not stop at the first project it recognises.
+    // Both are addresses the vocabulary supports, so the scan may not stop at the first it recognises.
     mkdirSync(join(root, "albums", "winter.st0"), { recursive: true });
     mkdirSync(join(root, "song.st0", "live.z0"), { recursive: true });
     expect(new Workspace(root).workspaceInfo().projects.sort()).toEqual([
@@ -95,9 +92,7 @@ describe("the tree is rooted at the active project", () => {
   });
 });
 
-// The list is the expensive half of a route polled every two seconds by every tab: 721
-// directories on a real workspace. It is therefore held, and the holding has to be right in
-// the one case that matters — a project this service just made.
+// 721 directories on a real workspace, polled every two seconds by every tab — hence the held list.
 describe("the project list is scanned, not re-walked on every poll", () => {
   it("shows a project it created straight away", () => {
     ws.workspaceInfo(); // fills the cache
@@ -112,8 +107,7 @@ describe("the project list is scanned, not re-walked on every poll", () => {
   });
 
   it("reuses the answer for a folder that appeared behind its back", () => {
-    // The trade, stated: a `git pull` or a hand-made folder is seen on the next rescan, not on
-    // the next poll. If this ever becomes false the window was removed, not merely shortened.
+    // The trade: a `git pull` or a hand-made folder is seen on the next rescan, not on the next poll.
     ws.workspaceInfo();
     mkdirSync(join(root, "outside.st0"), { recursive: true });
     expect(ws.workspaceInfo().projects).not.toContain("outside.st0");
@@ -125,8 +119,7 @@ describe("the project list is scanned, not re-walked on every poll", () => {
 
 describe("opening a project pl8 named out of a stale mirror", () => {
   it("refuses a `.st0` folder that is not there, saying so", () => {
-    // The name rule alone says yes here, and the failure then surfaced much later as
-    // @studio/song's "unsupported song" — true, and about the wrong thing.
+    // The name rule alone says yes, and the failure surfaced later as "unsupported song" — the wrong thing.
     expect(() => ws.setActiveProject("01_danse.st0")).toThrow(
       /no project '01_danse\.st0' in this workspace/,
     );

@@ -8,11 +8,7 @@ import {
   WINDOW_MS,
 } from "./playheadClock";
 
-// The transport's rate is KNOWN — one second per second — so the only unknown is the offset
-// between the engine's clock and ours, and every frame is a noisy measurement of it. Noisy in
-// ONE direction: a frame is sampled and then travels, so it always understates the offset. What
-// these pin is that the estimate takes the least-delayed frame, that the drawn line is a
-// straight one, and that a real jump rolls the estimate back instead of being averaged in.
+// The rate is KNOWN, so the only unknown is the offset, and every frame measures it noisily in ONE direction — always understating.
 
 const FRAME = 1000 / 60;
 /** Transit times, in ms. Never negative — a frame cannot arrive before it was sampled. */
@@ -48,8 +44,7 @@ describe("playheadClock", () => {
 
   it("settles at the BEST frame's latency, not the average one", () => {
     const rows = play(6000).slice(120);
-    // The estimate is the least-delayed sample, so the line sits exactly that far behind. It
-    // cannot do better: 4 ms is how stale the freshest thing we were told actually is.
+    // The estimate is the least-delayed sample, so the line sits exactly that far behind and cannot do better.
     for (const r of rows)
       expect((r.truth - r.drawn) * 1000).toBeCloseTo(MIN_LAT, 1);
   });
@@ -61,9 +56,7 @@ describe("playheadClock", () => {
   });
 
   it("builds its estimate only from frames that arrived", () => {
-    // Construction is not a measurement, so it contributes no sample. The property matters less
-    // for correctness than for honesty: a clock seeded with a perfect value measures better than
-    // it is, and the first version of the bench above was flattered by exactly that.
+    // Construction is not a measurement, so it contributes no sample: a clock seeded with a perfect value measures better than it is.
     const c = newPlayheadClock(12.5, true, 1000);
     expect(c.window).toHaveLength(0);
     expect(feedPlayhead(c, true, 13, 1500).window).toHaveLength(1);
@@ -78,8 +71,7 @@ describe("playheadClock", () => {
     c = feedPlayhead(c, true, 10.0, 2010);
     c = advancePlayhead(c, 2016);
     expect(playheadAt(c, 2016)).toBeCloseTo(10.006, 2);
-    // …and the OLD samples are gone with it: a max filter would otherwise prefer them forever,
-    // because a jump forward makes every later sample smaller.
+    // …and the OLD samples go with it: a max filter would otherwise prefer them forever, a jump forward making every later sample smaller.
     expect(c.window).toHaveLength(1);
   });
 
@@ -98,8 +90,7 @@ describe("playheadClock", () => {
     c = feedPlayhead(c, true, 0.05, 51); // a 1 ms transit — the best there will be
     for (let t = 100; t <= WINDOW_MS + 400; t += 50)
       c = feedPlayhead(c, true, t / 1000, t + 20);
-    // Past the window, only the 20 ms samples remain, so the estimate has given the millisecond
-    // back rather than trusting a frame from four seconds ago.
+    // Past the window only the 20 ms samples remain, so the estimate gave the millisecond back rather than trusting a four-second-old frame.
     expect(c.window.every((s) => s.at > WINDOW_MS + 400 - WINDOW_MS)).toBe(
       true,
     );

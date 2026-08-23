@@ -7,11 +7,7 @@ import { alternativesOf, pickAlternative } from "./alternatives";
 
 describe("what a module's alternatives ARE", () => {
   it("counts the module's own fields as the first, unnamed", () => {
-    // Not written down anywhere: the fields at the top of the file are the first set, which is
-    // what keeps a module that never uses this byte-identical.
-    // Typed as the open record a parsed module IS: the argument type has only optional keys,
-    // so a bare literal sharing none of them is refused, and the point here is precisely a
-    // module carrying ordinary fields and no `alternatives:`.
+    // Typed as the open record a parsed module IS, since a bare literal sharing no key is refused.
     const m: Record<string, unknown> = { params: { Gain: 3 } };
     expect(alternativesOf(m)).toEqual([{ name: "1", at: 1 }]);
   });

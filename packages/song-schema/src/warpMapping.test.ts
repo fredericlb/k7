@@ -9,8 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { beatAtSource, sourceAtBeat, type WarpMarker } from "./warpPoints";
 
-/** Four seconds of source over eight beats, but the FIRST half is played at half speed:
- *  one source second covers four beats, the remaining three cover the other four. */
+/** Four source seconds over eight beats, the first second covering four of them. */
 const BENT: WarpMarker[] = [
   [0, 0],
   [4, 1],
@@ -29,8 +28,7 @@ describe("beatAtSource", () => {
   });
 
   it("bends BETWEEN the markers, which the one-ratio reading could not", () => {
-    // Half a source second into a segment running at 4 beats/s is beat 2. The overall ratio
-    // (8 beats over 4 s = 2 beats/s) would have said beat 1 — the error a pinned point makes.
+    // Half a second into a segment running at 4 beats/s is beat 2; the overall ratio says beat 1.
     expect(beatAtSource(BENT, 0.5)).toBeCloseTo(2, 9);
     expect(beatAtSource(BENT, 2.5)).toBeCloseTo(6, 9);
   });

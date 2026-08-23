@@ -35,18 +35,13 @@ export function usePlayQueue(): PlayQueue {
     setQueue((q) => moveTo(q, from, to));
   }, []);
 
-  /**
-   * Through a ref, because the caller is an effect reacting to a song ending: it must read the
-   * queue AS IT IS at that instant, and a value captured on the previous render would have it take
-   * a song already taken.
-   */
+  /** Through a REF: the caller is an effect and must read the queue as it is at that instant. */
   const held = useRef(queue);
   held.current = queue;
   const takeNext = useCallback((): QueueItem | null => {
     const head = held.current[0];
     if (!head) return null;
-    // Compared by identity before cutting: two calls close together must not remove two songs for
-    // one that starts.
+    // Compared by identity before cutting, or two close calls remove two songs for one start.
     setQueue((q) => (q[0]?.id === head.id ? q.slice(1) : q));
     return head;
   }, []);

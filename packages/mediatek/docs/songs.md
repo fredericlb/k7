@@ -159,6 +159,23 @@ C'est la règle inverse de celle d'`ingest.md`, où un PUT remplace sans demande
 différence est l'appelant : pousser un workspace est un acte délibéré visant un dossier
 nommé, envoyer un fichier depuis un navigateur ne l'est pas.
 
+## Le sidecar s'écrit en dernier
+
+`addSong` pose le dossier, puis le master, puis `song.yaml` — dans cet ordre, comme le fait le
+miroir et pour la même raison : une panne au milieu laisse alors un dossier non catalogué, pas
+une entrée de catalogue qui pointe vers rien. Le scan sait lire le premier cas (un dossier avec
+de l'audio et sans sidecar est listé quand même) ; le second serait un morceau sans octets.
+
+## `bpm:` est détecté une fois, puis édité
+
+`setSongBpm` **n'écrase jamais**. `bpm` est un champ qu'une personne corrige, et la valeur
+détectée n'est qu'un point de départ : l'estimation du moteur descend d'une octave sur du
+matériel rapide (voir `packages/file-service/docs/waveformCache.md`). Ré-analyser un morceau ne
+doit pas défaire une correction, donc une clé déjà présente — quelle que soit sa valeur — gagne.
+
+Un `bpm` de 0 est le « rien trouvé » du moteur et n'écrit rien : un zéro explicite dans le
+fichier se lirait comme une affirmation, alors que l'absence est l'état honnête.
+
 ## Les deux autres familles : on dépose un dossier
 
 `modules/` et `samples/` se manipulent comme une arborescence, et un **module est un

@@ -55,19 +55,12 @@ const num = (s: string | undefined): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
-/**
- * Every ▶ the document earns.
- *
- * `sharedSource` is the rack's own `source:` — the file's, whether it sits at the top level
- * (a bare rack fragment) or inside `rack: { … }` (a module). Slice symbols are resolved
- * against it after the walk, since it may be declared below them.
- */
+/** Every ▶ the document earns; `sharedSource` is the rack's own, resolved after the walk since it may sit below. */
 export function previewTriggers(state: EditorState): PreviewTrigger[] {
   const out: PreviewTrigger[] = [];
   const slices: { pos: number; from: number; to: number }[] = [];
   let sharedSource: string | undefined;
-  // The whole document: a ▶ that only appears in the first 3000 characters is worse than none,
-  // since the file looks like it has no playable lines further down. See parseTree.ts.
+  // The whole document, since a ▶ stopping at the parse budget makes the rest look unplayable (see parseTree.ts).
   const tree = parsedTree(state);
 
   tree.iterate({

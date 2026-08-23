@@ -4,10 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
 
-// A module whose DSP is its own source says so with `plugin: {type: jsdsp}`, and the file is
-// `jsdsp.ts` beside it. It used to be a `jsdsp:` field naming the file, next to a
-// `plugin: {type: internal, name: DSP Graph}` that said nothing about it — two things that had
-// to agree, and the one that mattered was the one nobody read.
+// `plugin: {type: jsdsp}` with `jsdsp.ts` beside it, replacing two fields that had to agree.
 
 let dir: string;
 
@@ -58,8 +55,7 @@ describe("a module whose DSP is its own source", () => {
   });
 
   it("gives the OLD spelling none — the field is gone and `internal` is not the marker", () => {
-    // A module left in the old form resolves no source at all, rather than half-working. It has
-    // to be migrated, and this is what says so out loud instead of it going quiet at play time.
+    // The old form resolves NO source rather than half-working, so it is loud instead of quiet.
     writeModule(
       "legacy",
       "plugin:\n  type: internal\n  name: DSP Graph\njsdsp: legacy.ts\n",
@@ -68,8 +64,7 @@ describe("a module whose DSP is its own source", () => {
   });
 
   it("points at the file even before it exists", () => {
-    // The type is a declaration, not a discovery: a module can claim its source before the file
-    // is written, and the builder's tab is what creates it.
+    // A declaration, not a discovery: a module claims its source before the file is written.
     const folder = writeModule("early", "plugin:\n  type: jsdsp\n", false);
     expect(loadModules(dir)["early"]?.jsdsp).toBe(join(folder, "jsdsp.ts"));
   });

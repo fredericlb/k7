@@ -9,12 +9,7 @@ interface Props {
   disabled?: boolean;
 }
 
-/**
- * Multi-tag chip input with autocomplete. Type a tag and press Enter or comma
- * to add it; Backspace on an empty field removes the last chip. As you type, a
- * dropdown of matching existing tags (used elsewhere, not already applied)
- * appears — click one, or navigate with ↑/↓ and press Enter to add it.
- */
+/** A chip input for tags: Enter or comma adds, Backspace on empty removes, ↑/↓ picks. */
 export function TagInput({
   value,
   onChange,

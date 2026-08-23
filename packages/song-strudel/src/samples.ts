@@ -32,8 +32,7 @@ function bankDirs(projectDir: string | null): string[] {
   return dirs;
 }
 
-// Memoise resolutions (the clock resolves per event) — cheap, and sample banks
-// don't change within a session.
+// Memoise resolutions (the clock resolves per event) — banks don't change within a session.
 const memo = new Map<string, string | null>();
 
 export function resolveSample(

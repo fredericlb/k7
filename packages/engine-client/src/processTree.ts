@@ -5,16 +5,7 @@
 
 import { spawnSync } from "node:child_process";
 
-/**
- * Kill `pid` and its descendants.
- *
- * Windows has no signals and no process groups: `taskkill /T` walks the parent links
- * itself, `/F` forces it.
- *
- * Unix gets the same reach from the process GROUP, which is why every child here is
- * spawned `detached: true` — that makes the child a group leader, so negating its pid
- * signals the whole group. Falls back to the bare pid if the group is already gone.
- */
+/** Kill `pid` and its descendants — see docs/processTree.md for what each platform needs. */
 export function killTree(pid: number): void {
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {

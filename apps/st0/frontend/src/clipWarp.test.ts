@@ -11,16 +11,10 @@
 import { describe, expect, it } from "vitest";
 import { toClipBeat, toFileSec, warpLine } from "./clipWarp";
 
-// A clip trimmed to start 2 s into its file, played at half speed — one source second occupies
-// two of the picture. `zeroBeat` 0: an untrimmed map, which is where the omission hid.
+// A clip trimmed to start 2 s in, played at half speed — one source second occupies two of the picture; `zeroBeat` 0 is where the omission hid.
 const FLAT = { inPoint: 2, stretch: 0.5, zeroBeat: 0 };
 
-/**
- * A BENT map, in the two spaces the browser gets it: `orig` display seconds, `src` file seconds.
- *
- * The first source second is drawn across four display seconds, the next three across four —
- * so the two halves run at different rates and no single ratio describes both.
- */
+/** A BENT map, in the two spaces the browser gets it — the two halves run at different rates, so no single ratio describes both. */
 const BENT = [
   { orig: 0, src: 0 },
   { orig: 4, src: 1 },
@@ -39,8 +33,7 @@ describe("toFileSec", () => {
   });
 
   it("follows the map SEGMENT BY SEGMENT — the bug, pinned", () => {
-    // Half-way through the first segment is source second 0.5, not the 1 an overall ratio
-    // (8 display over 4 source = 2) would answer.
+    // Half-way through the first segment is source second 0.5, not the 1 an overall ratio would answer.
     expect(
       toFileSec(2, { inPoint: 0, stretch: 2, zeroBeat: 0 }, BENT),
     ).toBeCloseTo(0.5, 9);
@@ -102,9 +95,7 @@ describe("warpLine", () => {
   });
 
   it("re-states an EXISTING point unchanged, so placing one beside it bends nothing", () => {
-    // The whole of the reported bug, as one assertion: double-clicking on a mark of a bent map
-    // must name that mark's own source second. Read through the ratio it named another, and the
-    // map acquired a point it never had.
+    // The whole of the reported bug: double-clicking a mark of a bent map must name that mark's own source second, not the ratio's.
     const map = { inPoint: 0, stretch: 2, zeroBeat: 0 };
     expect(warpLine("b", BENT[1].orig, BENT[1].orig, map, 120, BENT)).toBe(
       "clip warp b 1.0000 8.000",

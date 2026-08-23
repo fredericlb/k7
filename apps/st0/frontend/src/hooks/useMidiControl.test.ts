@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ccKey, splitCcKey } from "../midiControl";
 import { mappedParams } from "./useMidiControl";
 
-// Joining a module's MIDI map to the graph it is drawn in. The map is keyed by the widget's
-// `bind`, which is how a widget already names its target — so this is a join on one string.
+// Joining a module's MIDI map to the graph it is drawn in — keyed by the widget's `bind`, so this is a join on one string.
 
 const graph = (steps: Record<string, unknown>[], chain = "lead"): WebGraph =>
   ({
@@ -47,9 +46,7 @@ describe("mappedParams", () => {
   });
 
   it("drops a binding whose param has no widget", () => {
-    // Without min/max there is no way to turn 0..127 into a value, and inventing a range would
-    // make the knob sweep one nobody chose. The map travels with the module, so this is a normal
-    // state — a project that draws the module differently — not a broken file.
+    // Without min/max there is no way to turn 0..127 into a value, and the map travels with the module — so this is a normal state.
     const g = graph([
       {
         module: "filter",
@@ -73,8 +70,7 @@ describe("mappedParams", () => {
   });
 
   it("maps the SAME module in two chains twice — one control plays both", () => {
-    // The map is the module's, and each chain has its own instance of the plugin. That is the
-    // documented consequence of the map living in the module's folder, not a bug.
+    // The map is the module's, and each chain has its own instance of the plugin — the documented consequence, not a bug.
     const step = {
       module: "filter",
       cc: { Cutoff: { ch: 1, cc: 74 } },
@@ -103,8 +99,7 @@ describe("mappedParams", () => {
 
 describe("ccKey", () => {
   it("round-trips a param whose name has spaces", () => {
-    // A plugin names its params "Filter Freq"; a ':' join would also be ambiguous, since a param
-    // name may contain one.
+    // A plugin names its params 'Filter Freq', and a ':' join would be ambiguous too, since a param name may contain one.
     const k = ccKey("synth", "Filter Freq");
     expect(splitCcKey(k)).toEqual({ module: "synth", param: "Filter Freq" });
   });

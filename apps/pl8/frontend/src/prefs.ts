@@ -5,43 +5,19 @@
 import type { EnginePrefs } from "@studio/engine-browser/registry";
 import { engines } from "./api";
 
-/**
- * What this service remembers about a person. It is the front-end's copy of the backend's
- * `prefsSchema` — kept structural rather than imported, because the backend is a separate
- * build and this is a browser bundle.
- */
+/** The front-end's structural copy of the backend's `prefsSchema`, that being a separate build. */
 export interface Pl8Prefs extends EnginePrefs {
   /** Which engine auditions a module. The registry's own field. */
   engineId?: string;
-  /** Where playback happens.
-   *
-   *  Typed `string` and not `PlaybackTarget`, which is the honest shape: the backend stores
-   *  whatever string it is given (see its `prefsSchema`), so what comes back can be a
-   *  destination this build has never heard of — written by a newer one, in another tab.
-   *  `asPlaybackTarget` is what narrows it, at the one place that reads it. */
+  /** Where playback happens, typed `string` because the backend stores whatever it is given. */
   playbackTarget?: string;
 }
 
-/**
- * The last known whole object, and the read that produced it.
- *
- * Module-level rather than a React context because it is not a rendering concern: two
- * independent hooks — the engine pick and the playback destination — write to one document,
- * and what they need to share is the DOCUMENT, not a subtree of the tree. A provider would
- * put the merge under whichever component happened to sit above both, which is an accident
- * of layout, and this file would still have to exist for the non-React caller.
- */
+/** The last known whole object, at module level because two hooks share a DOCUMENT, not a subtree. */
 let known: Pl8Prefs = {};
 let reading: Promise<Pl8Prefs> | null = null;
 
-/**
- * Read them, once per page.
- *
- * Memoised on the PROMISE so two hooks mounting in the same tick make one request rather
- * than two. A failed read resolves to `{}` — the ordinary first-login state — and is not
- * cached, so the next caller looks again: a volume that was briefly unreachable must not
- * leave the tab believing this person has no preferences until it is reloaded.
- */
+/** Read once per page, memoised on the PROMISE; a failed read gives `{}` and is not cached. */
 export async function readPrefs(): Promise<Pl8Prefs> {
   if (reading) return reading;
   reading = engines
@@ -57,27 +33,14 @@ export async function readPrefs(): Promise<Pl8Prefs> {
   return reading;
 }
 
-/**
- * Change some fields and keep the rest.
- *
- * Read-then-write, and the read is the memoised one: the whole point is that the object PUT
- * back carries the fields this caller does not know about. Skipping the read — merging into
- * `known` alone — would clear every field on the very first write of a fresh page, which is
- * exactly the bug this file exists to prevent.
- *
- * The failure is swallowed, as `@studio/user-prefs` intends: what is lost is that the choice
- * outlives the session, and taking the choice away as well is strictly worse from where the
- * person is standing. `known` is updated either way, so the rest of the tab agrees with what
- * they just clicked.
- */
+/** Change some fields and keep the rest: read-then-write, so a fresh page clears nothing. */
 export async function patchPrefs(change: Partial<Pl8Prefs>): Promise<void> {
   const current = await readPrefs();
   known = { ...current, ...change };
   await engines.savePrefs(known).catch(() => {});
 }
 
-/** What has been read so far, for a caller that cannot wait — an empty object before the
- *  first read comes back, never a lie about a field it does hold. */
+/** What has been read so far, for a caller that cannot wait: empty, never a lie about a field. */
 export function knownPrefs(): Pl8Prefs {
   return known;
 }

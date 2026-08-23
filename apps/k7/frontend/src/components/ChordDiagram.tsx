@@ -3,9 +3,7 @@ import ChordImport from "@tombatossals/react-chords/lib/Chord";
 import { useMemo, useState } from "react";
 import { GUITAR, getChordPositions } from "../utils/chordDiagram";
 
-// react-chords is a Babel-compiled CommonJS module. Depending on the bundler's
-// interop, the default import is either the component (node/Vite SSR) or a
-// `{ default: component }` wrapper (Vite browser build) — unwrap defensively.
+// react-chords is CommonJS, so its default import is the component or a wrapper around it.
 const Chord = ((ChordImport as unknown as { default?: typeof ChordImport })
   .default ?? ChordImport) as typeof ChordImport;
 
@@ -13,10 +11,7 @@ interface Props {
   symbol: string;
 }
 
-/**
- * One chord: its name, a guitar fingering diagram, and a pager to step through
- * the alternative fingerings when the database has more than one.
- */
+/** One chord: its name, a fingering diagram, and a pager over the alternatives. */
 export function ChordDiagram({ symbol }: Props) {
   const positions = useMemo(() => getChordPositions(symbol), [symbol]);
   const [i, setI] = useState(0);

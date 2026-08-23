@@ -42,6 +42,12 @@ vingt : le battement ne peut pas rater la fenêtre, et il ne coûte rien.
 Tout ce qui se passe sans qu'on touche à rien et qui doit compter passe par là. Rien d'autre ne
 devrait avoir à connaître ce module.
 
+### Le minuteur n'est armé que pendant la phase `open`
+
+`ProjectGate` passe `0` dans toutes les autres. Un clone en cours, une erreur, l'écran qui renvoie
+choisir : ce sont déjà des cartes derrière lesquelles rien ne tourne, et les expirer remplacerait
+une carte par une autre sans rien libérer.
+
 ## Ce qui se ferme, dans cet ordre
 
 La phase `idle` de `ProjectGate` est un écran comme les autres : elle **remplace** `children`.
@@ -60,6 +66,10 @@ contre une socket encore ouverte, qui aurait très bien pu repousser un document
 
 `unloadEngine` est exactement l'appel que fait `quit()` — quitter un projet et s'endormir dessus
 sont la même fermeture, et il n'y en a qu'une écrite.
+
+`onIdle` est tenu dans une **ref**, et celle-là porte : une application qui passe une fermeture
+écrite sur place donnerait un `onIdle` neuf à chaque rendu, et avec lui dans les dépendances,
+l'effet se rejouerait — rendant le bail et vidant le moteur à chaque image de l'écran de veille.
 
 Un échec est **ignoré**. Le moteur éteint ou la machine partie est une des raisons pour lesquelles
 un onglet reste vingt minutes sans qu'on y touche ; l'écran qui propose de rouvrir est le bon dans

@@ -19,14 +19,7 @@ import {
 import { writeLibrary } from "./testSupport";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
 
-// Editing a module that lives in the workspace's SHARED `_modules` must never write there — one library backs
-// every project, so a save made while mixing one song would change the others. The edit is copied into the
-// project instead and the chains follow it. What has to hold:
-//
-//   * the shared file is byte-for-byte what it was;
-//   * the edit is readable through the project's own module map, UI included;
-//   * every chain that named the shared ref names the copy — none still points at the original;
-//   * a second fork is a second module, not a collision with the first.
+// Editing a SHARED module must never write there: the edit is copied in and the chains follow it.
 
 let root: string; // the workspace: _modules/ beside the project
 let dir: string; // the project
@@ -43,8 +36,7 @@ beforeEach(() => {
     "project:\n  name: song\n  tempo: 120\n  modules_from:\n    - ../_modules\n",
     "utf8",
   );
-  // Two tracks through ONE shared module — so the fork has to repoint a key AND every
-  // destination naming it, which is the whole point of the repointing test below.
+  // Two tracks through ONE module, so the fork must repoint a key AND every destination.
   writeFileSync(
     join(dir, "graph.yaml"),
     formatChains({
@@ -116,8 +108,7 @@ describe("forking on edit", () => {
     expect(r.chains).toEqual(["bs.lead", "dr.room"]);
     const text = readFileSync(join(dir, "graph.yaml"), "utf8");
     expect(text).not.toContain("@workspace/audio/delay/tape-delay");
-    // Three times: the two tracks that feed it, and its own entry. Missing the key would
-    // leave the module unwired; missing a destination would leave a dangling reference.
+    // Three times: the two feeders and its own entry, since either miss breaks the wiring.
     expect(text.match(/bs_lead_tape-delay_1/g)).toHaveLength(3);
     // …and unquoted now: the shared ref needed quotes for its leading @, this name does not.
     expect(text).not.toContain('"bs_lead_tape-delay_1"');
@@ -184,9 +175,7 @@ describe("forking on edit", () => {
   });
 
   it("carries the shared module's panel over to the copy", () => {
-    // The panel is a file in the module's folder, so the folder copy brings it — and the header it is rewritten
-    // with names the copy. Without either the fork would come up blank, which reads as the edit having wiped
-    // the module's face.
+    // The folder copy brings the panel; without it the fork comes up blank, as if the edit wiped it.
     const panel = {
       cols: 2,
       rows: 1,
@@ -226,13 +215,10 @@ describe("forking on edit", () => {
   });
 });
 
-// A module the ENGINE reports has no files anywhere — the catalogue is synthesised from the scan cache. That
-// is fine until you want to give it a face or a shelf, because both are files in a module's FOLDER. What
-// materialising has to do: make the folder, record which plugin to load, and take the chains with it.
+// A scanned module has no files, so materialising makes the folder, records the plugin and repoints.
 describe("giving an engine module a folder", () => {
   const NAM = "@engine/nam";
-  // The catalogue is ambient — what this machine happens to have scanned — so it is injected, exactly as
-  // loadModuleRefs and createNode take theirs.
+  // The catalogue is ambient, so it is injected exactly as loadModuleRefs takes its own.
   const CATALOGUE = {
     [NAM]: {
       plugin: { type: "vst3", name: "Neural Amp Modeler" },
@@ -254,8 +240,7 @@ describe("giving an engine module a folder", () => {
   });
 
   it("writes a module file that records WHICH plugin, and keys it locally", () => {
-    // The scan is a discovery aid, not the project's memory: opened on a machine that has never scanned, the
-    // project must still know what to load.
+    // The scan is a discovery aid: on a machine that never scanned, the project still knows what to load.
     const r = materialiseEngineModule(dir, NAM, CATALOGUE);
     expect(r.module).toBe("nam");
     expect(r.path).toBe("modules/audio/nam/module.yaml");

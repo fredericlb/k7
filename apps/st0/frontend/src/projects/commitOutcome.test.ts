@@ -22,9 +22,7 @@ describe("commitOutcome", () => {
   });
 
   it("traite comme un ÉCHEC tout ce qui ne prouve pas un commit", () => {
-    // The original bug: the first version looked for known failure words and returned "success"
-    // for everything else. The verb was wrong, the command answered "unknown command", and the
-    // screen said all was well — a project neither committed nor pushed, without a word.
+    // The original bug: looking for known failure words meant 'unknown command' read as a success, and a project was neither committed nor pushed.
     for (const out of [
       ["unknown command: commit new project hiver.st0"],
       ["no repository"],
@@ -44,8 +42,7 @@ describe("commitOutcome", () => {
   });
 
   it("dit pourquoi quand git ne voit rien à committer", () => {
-    // After creating a folder, "nothing to commit" means it is ignored — a useful fact, not a
-    // success.
+    // After creating a folder, 'nothing to commit' means it is ignored — a useful fact, not a success.
     expect(commitOutcome(["nothing to commit — the project is clean"])).toMatch(
       /ignoré/,
     );

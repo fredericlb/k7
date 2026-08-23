@@ -14,36 +14,14 @@ export type ConditionCtx = Record<string, string | undefined>;
 // Sentinel excluding the palette-opener from the completion base-command list; no key binds to it.
 export const RESERVED_COMMAND = "@command";
 
-/**
- * The rectangle's two, held by FOUR tokens — the clipboard chords and two plain letters.
- *
- * UNCONDITIONAL, unlike every other binding here, and that is the one thing worth reading twice.
- * They were conditional — copy on a rectangle being drawn, paste on something being held — which
- * is the rule that keeps a key from being dead. The rule cost more than it bought here: a person
- * who had selected an event by CLICKING it pressed copy, nothing happened and nothing was said,
- * and the paste then told them the clipboard was empty. A key that goes quiet is indistinguishable
- * from one that is broken.
- *
- * Both commands answer in every state now — the copy takes the caret's own cell when no rectangle
- * is drawn (`cellBox`, and the placement under it on a lane), and each says out loud when it found
- * nothing. So the shortcut is never dead: it either does the thing or gives the reason.
- */
+/** The rectangle's two, held by FOUR tokens and UNCONDITIONAL: both commands answer in every state, so the shortcut is never dead. */
 const COPY_SELECTION: Binding = "selection copy";
 const PASTE_SELECTION: Binding = "selection paste";
 
 export const KEYS: Record<string, Binding> = {
-  // The palette is NOT bound here — it opens on a double-tap of Shift, handled in App's listener.
-  // `?` (shift+/) opens the help overlay, a command like any other; keyToken keeps shift, rejecting only meta/ctrl/alt.
+  // The palette is NOT bound here — it opens on a double-tap of Shift; `?` opens the help overlay, a command like any other.
   "?": "ui help",
-  // These no longer SWITCH view — every pane is already on screen, so they fullscreen one instead.
-  //
-  // Named panes, not ring positions: `2` is the timeline wherever the timeline is, and says so
-  // rather than going quiet on a project that has none (`fullscreen` refuses out loud). The DESK
-  // is `4` because a set is the one layout where it is a pane you reach constantly — a set
-  // declares no timeline, so `2` is the dead key there and this is the live one.
-  //
-  // The VIEWPORT deliberately has none, and never has: picture is rare enough that a digit is
-  // better spent elsewhere, and the frame is reached by its header button, Tab, or `f`.
+  // Named panes, not ring positions: `2` is the timeline wherever it is, the DESK is `4`, and the VIEWPORT deliberately has none.
   "1": "ui editor",
   "2": "ui timeline",
   "3": "ui chains",
@@ -52,33 +30,28 @@ export const KEYS: Record<string, Binding> = {
   f: { if: "focus_pane", command: "ui {focus_pane}" },
   // Tab cycles which pane owns the keys, taking Tab from focus traversal — hence the skip-a-focused-control rule.
   tab: "ui focus next",
-  // Space is the transport wherever you are, short of a text editor: App's listener lets it
-  // through a focused button/link/select where it stands aside for every other key.
+  // Space is the transport wherever you are, short of a text editor — App's listener lets it through a focused control.
   space: "transport toggle",
   // Shift+Space replays: back to where playback last started, and roll again from there.
   "shift+space": "transport replay",
   enter: "transport rewind",
   // t locates the transport to the timeline caret; quiet on a label, which is a row rather than a beat.
   t: "transport locate",
-  // Esc backs out ONE layer, first match winning, outermost thing on screen first: a popin
-  // shadows the graph slot, which shadows a fullscreen pane, which shadows the bottom panel.
-  // `ui global` is the layout itself, which with one of them is just "leave the fullscreen".
+  // Esc backs out ONE layer, first match winning, outermost first: a popin shadows the graph slot, then a fullscreen pane, then the panel.
   esc: [
     { if: "popin", command: "ui popin close" },
     { if: "graph_slot", command: "ui slot close" },
     { if: "fullscreen", command: "ui global" },
     "ui close",
   ],
-  // m is context-sensitive like `e`: on a clip it names the bare `event move` (the timeline's move mode),
-  // otherwise it mutes `caret_track` — unset with no track, so the key resolves to nothing rather than an empty arg.
+  // m is context-sensitive like `e`: on a clip the bare `event move`, otherwise it mutes `caret_track`, unset with no track.
   m: [
     { if: "hover_midi_sequence", command: "event move" },
     { if: "hover_audio_clip", command: "event move" },
     { if: "caret_track", command: "track mute {caret_track}" },
   ],
   s: { if: "caret_track", command: "track solo {caret_track}" },
-  // r arms the track under the caret. Session state the engine holds, so it writes no file and
-  // survives a reload — which is why the verb is `transport arm` and not a `track` one.
+  // r arms the track under the caret — session state the engine holds, which is why the verb is `transport arm`.
   r: { if: "caret_track", command: "transport arm {caret_track}" },
   // Shift+R toggles the GLOBAL record enable — what play DOES with the armed set, not what is armed.
   R: "transport record",
@@ -95,46 +68,22 @@ export const KEYS: Record<string, Binding> = {
   z: { if: "timeline_selection", command: "ui zoom" },
   Z: { if: "timeline_zoomed", command: "ui zoom out" },
   "0": { if: "timeline_zoomed", command: "ui zoom reset" },
-  // Shift+L makes the selection the loop region, or clears it. Plain `l` stays the caret-right key.
-  // Three conditions rather than two: the clip pane's grids draw the same rectangle (gridCaret.ts),
-  // and looping it is the point of drawing one over a bar of a take.
+  // Shift+L makes the selection the loop region, or clears it; three conditions, since the clip pane's grids draw the same rectangle.
   L: [
     { if: "clip_selection", command: "transport loop" },
     { if: "timeline_selection", command: "transport loop" },
     { if: "timeline_loop", command: "transport loop" },
   ],
-  // Copy the rectangle, paste it at the caret — on the clipboard chords FIRST, which is what
-  // makes them the pair the help legend advertises (`shortcutsByCommand` takes the first token).
-  // ⌃C/⌃V are the only chords this shell takes off the browser; keyToken says why.
+  // Copy the rectangle, paste it at the caret — the clipboard chords FIRST, which is what the help legend advertises.
   "ctrl+c": COPY_SELECTION,
   "ctrl+v": PASTE_SELECTION,
-  // The plain letters stay beside them. This timeline is driven by single keys — `v`, `z`, `m`,
-  // `s` — and a hand already there should not have to reach for a modifier; a hand coming from
-  // any other application should not have to learn that it must not. Both, then.
+  // The plain letters stay beside them: a hand already on single keys should not reach for a modifier, nor should one arriving from elsewhere.
   c: COPY_SELECTION,
-  // `p` is one line whatever is held: the clipboard carries its kind, so the verb no longer has
-  // to. It was two — `clipboard_events` / `clipboard_notes`, one command each — which is why the
-  // condition is now merely that something IS held.
+  // `p` is one line whatever is held: the clipboard carries its kind, so the condition is merely that something IS held.
   p: PASTE_SELECTION,
 };
 
-/**
- * The clipboard chords, and the ONLY ones this shell takes off the browser.
- *
- * ⌘/⌃ + C and V are where a hand already is for copy and paste, and a DAW that answered them
- * with the browser's copy of whatever text happened to be selected would be the odd one out
- * among every application a person has open. Everything else with a modifier stays the
- * browser's — ⌘1/⌃1 is its tab switching — because a web app that holds chords nobody asked it
- * to hold is how one starts feeling broken. ⌃Z/⌃Y never reach here at all: they have their own
- * capture listener in App, the editor's keystroke history having to be spent first.
- *
- * ⌘ and ⌃ produce the SAME token. Which of the two is the clipboard modifier is the platform's
- * business, and a keymap spelling both would be two rows saying one thing.
- *
- * The stand-aside that matters is not here but in App's listener: with text actually selected
- * on the page, ⌃C is the browser's copy and is let through. Here the binding is conditional
- * anyway, so the chord is only ever taken while there IS a rectangle to copy.
- */
+/** The clipboard chords, and the ONLY ones this shell takes off the browser; ⌘ and ⌃ produce the SAME token. */
 const CHORDS: Record<string, string> = { c: "ctrl+c", v: "ctrl+v" };
 
 /** ⌘/⌃ + a letter → its token, or null for every chord that is not ours. */
@@ -143,16 +92,11 @@ const chordToken = (e: KeyboardEvent): string | null =>
     ? null
     : (CHORDS[e.key.toLowerCase()] ?? null);
 
-/**
- * Canonical token for a browser key event, matching the strings used as KEYS keys.
- * Returns null for anything unbindable — every modifier chord but the two above, so
- * ⌘1 / ⌃1 stay with the browser rather than being stolen here.
- */
+/** Canonical token for a browser key event — null for anything unbindable, so ⌘1 / ⌃1 stay with the browser. */
 export function keyToken(e: KeyboardEvent): string | null {
   if (e.metaKey || e.ctrlKey) return chordToken(e);
   if (e.altKey) return null;
-  // Shift+space still arrives as " ", so the shift is read here — a letter would arrive
-  // already uppercased ("Z"), which is why only the named keys need the modifier spelt out.
+  // Shift+space still arrives as a space, so the shift is read here; a letter arrives already uppercased.
   if (e.key === " ") return e.shiftKey ? "shift+space" : "space";
   if (e.key === "Enter") return "enter";
   if (e.key === "Escape") return "esc";
@@ -161,32 +105,14 @@ export function keyToken(e: KeyboardEvent): string | null {
   return e.key.length === 1 ? e.key : null; // a bare character; named keys above
 }
 
-/**
- * Drop focus after a MOUSE activation of a momentary button (M/S/A, transport, a
- * toolbar toggle). Pass it as the button's `onClick` alongside its real handler.
- *
- * This is no longer what saves Space: the shell now takes Space off a focused button
- * outright, because "Space plays" has to hold wherever the last click happened to land
- * (see App's listener). What it still saves is every OTHER single-key binding — `1`,
- * `m`, `s`, `f` — which the listener does stand aside for while a control has focus, so
- * a button reached by pointer would otherwise swallow them all.
- *
- * Blurring on click cuts exactly the pointer case — a Tab-focus is never followed by a
- * click, so the keyboard path is untouched. Not `preventDefault` on pointerdown: that
- * suppresses focus by suppressing the compatibility mouse events, which is both less
- * obvious and more browser-dependent.
- */
+/** Drop focus after a MOUSE activation of a momentary button — what still saves every single-key binding but Space, which the shell takes outright. */
 export const blurOnClick = (e: { currentTarget: HTMLElement }): void =>
   e.currentTarget.blur();
 
 const interpolate = (s: string, cond: ConditionCtx) =>
   s.replace(/\{(\w+)\}/g, (_, k) => cond[k] ?? "");
 
-/**
- * Resolve a binding to a concrete command line for the current conditions, or null
- * when nothing applies. The first matching alternative wins; a bare string always
- * matches.
- */
+/** Resolve a binding to a concrete command line for the current conditions, or null — the first matching alternative wins. */
 export function resolveBinding(
   binding: Binding | undefined,
   cond: ConditionCtx,
@@ -205,24 +131,10 @@ export function resolveBinding(
   return binding.command ? interpolate(binding.command, cond) : null;
 }
 
-/** Stored in a CommandPref's `key` when the person took a default shortcut away without
- *  giving another — "no key" has to be sayable, and an absent field already means "the app's". */
+/** Stored in a CommandPref's `key` when the person took a default shortcut away without giving another. */
 export const KEY_NONE = "none";
 
-/**
- * The SIMPLE one-key bindings — the app's, with the person's `key:` prefs applied
- * (commandPrefs.ts, the settings page's Commands screen).
- *
- * Three rules, in order: a command given a key VACATES its default token (a shortcut is
- * changed, not doubled); an assignment then lands, stealing its token from whatever held it —
- * visibly, since every row of the settings page reads this same map; and KEY_NONE removes
- * without replacing. Vacate-all-then-assign-all, so two prefs trading tokens cannot depend on
- * object order.
- *
- * The CONDITIONAL bindings (the esc ladder, `f`'s interpolation, `m`'s three meanings) are
- * deliberately not in this map: they are rules rather than shortcuts, and stay the app's —
- * the same line keyForCommand has always drawn by matching plain strings only.
- */
+/** The SIMPLE one-key bindings, with the person's `key:` prefs applied — vacate all, then assign all; the CONDITIONAL ones stay the app's. */
 export function effectiveKeys(prefs: CommandPrefs): Record<string, string> {
   const eff: Record<string, string> = {};
   for (const [token, b] of Object.entries(KEYS))
@@ -235,11 +147,7 @@ export function effectiveKeys(prefs: CommandPrefs): Record<string, string> {
   return eff;
 }
 
-/**
- * What a pressed token runs: the effective simple map first; a token it does not name falls
- * through to KEYS only for a CONDITIONAL binding. A simple default the person moved or removed
- * is dead here on purpose — found again in KEYS, "change this shortcut" would mean "add one".
- */
+/** What a pressed token runs: the effective simple map first, falling through to KEYS only for a CONDITIONAL binding. */
 export function resolveToken(
   token: string,
   cond: ConditionCtx,
@@ -253,9 +161,7 @@ export function resolveToken(
     : resolveBinding(b, cond);
 }
 
-/** The key bound to a plain command, for tooltips — so a hint can't advertise a key the
- * effective table doesn't actually bind. With prefs, the person's own layer applies (a moved,
- * stolen or removed key reads as such); without, the app's defaults. */
+/** The key bound to a plain command, for tooltips — read off the effective table, so a hint cannot advertise a key nothing binds. */
 export const keyForCommand = (
   command: string,
   prefs?: CommandPrefs,
@@ -275,24 +181,17 @@ export function keyLabel(token: string): string {
     enter: "Enter",
     esc: "Esc",
     tab: "Tab",
-    // Spelt out rather than as ⌃, which too few people read at a glance. It is ⌘ that fires it
-    // on a Mac, and one label cannot say both without becoming a sentence — see CHORDS.
+    // Spelt out rather than as a glyph, which too few people read at a glance; on a Mac it is ⌘ that fires it — see CHORDS.
     "ctrl+c": "Ctrl+C",
     "ctrl+v": "Ctrl+V",
   };
   if (named[token]) return named[token];
-  // A shifted letter arrives as its own uppercase token ("Z", "L"…) — spell the shift out,
-  // whichever letter a person binds; a lone letter reads as if it were the unshifted key.
+  // A shifted letter arrives as its own uppercase token, so the shift is spelt out whichever letter is bound.
   if (/^[A-Z]$/.test(token)) return `⇧${token}`;
   return token;
 }
 
-/**
- * The base command name(s) a binding names, with any interpolated argument stripped
- * ("track mute {caret_track}" -> "track mute"). A name that is ONLY an
- * interpolation ("{focus_pane}", the `f` binding) has no literal command, so it
- * yields nothing — the help legend describes `f` on its own instead.
- */
+/** The base command name(s) a binding names, with any interpolated argument stripped; one that is ONLY an interpolation yields nothing. */
 function baseCommands(binding: Binding | undefined): string[] {
   if (binding == null) return [];
   if (typeof binding === "string") {
@@ -304,11 +203,7 @@ function baseCommands(binding: Binding | undefined): string[] {
   return baseCommands(binding.command);
 }
 
-/**
- * Reverse of the keymap for the help view: each command mapped to the readable label of
- * the key that runs it (first key wins). Derived from the effective table, so the help
- * dialog can only ever show a key that actually binds — the person's own layer included.
- */
+/** Reverse of the keymap for the help view — derived from the effective table, so it can only ever show a key that actually binds. */
 export function shortcutsByCommand(
   prefs: CommandPrefs = {},
 ): Record<string, string> {

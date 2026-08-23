@@ -51,13 +51,7 @@ export function parseMarkers(raw: unknown, num: number, den: number): Marker[] {
 
 /** Bars of count-in a project gets when settings.yaml doesn't say. See parseSettings. */
 export const DEFAULT_COUNT_IN = 1;
-/**
- * The click's default and its floor live on the WIRE side — `DEFAULT_SETTINGS` needs them there
- * and this package cannot be imported from it.
- *
- * Imported as well as re-exported, the arrangement `MIXER_PLUGIN` below spells out: `export … from`
- * republishes a name without BINDING it locally, and `parseSettings` reads both.
- */
+/** The click's default and floor live on the WIRE side; imported as well as re-exported, as MIXER_PLUGIN below. */
 export {
   DEFAULT_METRONOME_LEVEL,
   METRONOME_MIN,
@@ -74,12 +68,9 @@ export function parseSettings(raw: unknown): SettingsDoc {
     string,
     unknown
   >;
-  // One bar when the file says nothing — a take should start with a count, and a project that never
-  // mentions count_in gets the usual one rather than none. `count_in: 0` still means "record
-  // immediately": it is a stated 0, which `??` leaves alone.
+  // One bar when the file says nothing; a stated `count_in: 0` still means "record immediately".
   const n = Number(s.count_in ?? DEFAULT_COUNT_IN);
-  // The click's level, defaulted and CLAMPED to the range the engine will actually honour — a file
-  // edited by hand can say anything, and 0.2..1 is Tracktion's own bound (see SettingsSchema).
+  // CLAMPED to what the engine honours — 0.2..1 is Tracktion's own bound (see SettingsSchema).
   const lvl = Number(s.metronome_level ?? DEFAULT_METRONOME_LEVEL);
   return {
     metronome: Boolean(s.metronome ?? false),
@@ -90,9 +81,7 @@ export function parseSettings(raw: unknown): SettingsDoc {
   };
 }
 
-// Both now live in @studio/engine-protocol/build — they map onto the WIRE, and a browser
-// needs them without this module's filesystem imports. Re-exported here, where every
-// caller already looks.
+// These live in @studio/engine-protocol/build, a leaf a BROWSER can hold; re-exported where callers look.
 export {
   EXTERNAL_PLUGIN_FORMATS,
   enginePlugin,
@@ -102,9 +91,7 @@ export {
 // …and the one plugin type that is NOT on the wire, so it stays in song's own vocabulary.
 export { OFFLINE_TYPE } from "@studio/song-schema/moduleTypes";
 
-// Fold each group's mute/solo onto its members on the way to the engine, which resolves
-// both per audio track and knows nothing about groups. OR, not override — see
-// docs/mixFolding.md.
+// Fold each group's mute/solo onto its members — OR, not override, see docs/mixFolding.md.
 export function withGroupMix(doc: ProjectDoc): ProjectDoc {
   if (!doc.groups.length) return doc;
   const byId = new Map(doc.groups.map((g) => [g.id, g]));
@@ -118,14 +105,7 @@ export function withGroupMix(doc: ProjectDoc): ProjectDoc {
   };
 }
 
-/**
- * Drop every lane's takes on the way to the engine.
- *
- * A take is what a lane WAS playing — the arrangement set aside, not something to play — so the
- * engine has no use for it and no business diffing it. It is compiled onto the document anyway
- * because a surface draws it with the same clip extents the arrangement has, and one compiler
- * producing both is what keeps the two identical. This is where the two readers part.
- */
+/** Drop every lane's takes on the way to the engine — where the two readers part, see docs/takes.md. */
 export function withoutTakes(doc: ProjectDoc): ProjectDoc {
   if (!doc.tracks.some((t) => t.takes?.length)) return doc;
   return {
@@ -134,15 +114,11 @@ export function withoutTakes(doc: ProjectDoc): ProjectDoc {
   };
 }
 
-// A ProjectDoc carries no picture, so nothing here strips one on the way to the engine.
-// Picture is its own document, from its own compile of the same folder — @studio/song-video's
-// videoDoc.ts, and packages/song-video/docs/picture.md for why.
+// A ProjectDoc carries no picture: that is its own document (packages/song-video/docs/picture.md).
 
-// Read a single-file source into the { project, tracks } shape. Folder projects
-// are handled earlier (in loadProject); here the only supported file is YAML.
+// Read a single-file source into the { project, tracks } shape — folder projects never reach here.
 function readSource(sourcePath: string): AssembledDoc {
-  // A .dawproject is a binary ZIP and a .als binary gzip — catch the mixup with an actionable message,
-  // not a parse error on binary bytes. Importing is what turns either into a folder project.
+  // A .dawproject is a binary ZIP and a .als binary gzip — say so rather than parse-error on bytes.
   if (/\.(dawproject|als)$/i.test(sourcePath))
     throw new Error(
       `'${basename(sourcePath)}' is a foreign project file, not a song file. ` +
@@ -254,17 +230,14 @@ function mapDoc(doc: AssembledDoc, baseDir: string): ProjectDoc {
 
   return {
     uuid: proj.uuid ? String(proj.uuid) : undefined,
-    // A FLAT project has no graph, so it has no master chain either — the mixer's sum reaches
-    // the interface unprocessed. Sent as an empty list rather than left out, so a doc from here
-    // diffs against one from the node compiler without reading as "unchanged".
+    // A FLAT project has no master chain; sent EMPTY rather than left out, or the diff reads "unchanged".
     masterPlugins: [],
     name: String(proj.name ?? "untitled"),
     tempo: Number(proj.tempo ?? 120),
     sampleRate: Number(proj.sampleRate ?? 48000),
     timeSigNumerator: num,
     timeSigDenominator: den,
-    // Unity when unsaid, and always present: the engine diffs, so an absent field would read as
-    // "unchanged" (docs/masterVolume.md).
+    // Unity when unsaid, and always present — the engine diffs (docs/masterVolume.md).
     masterVolume: Number(proj.masterVolume ?? 0),
     recordDir: "", // loadProject sets it for a folder project; a single file can't record
     tracks: activeTracks,
@@ -282,15 +255,7 @@ export interface ClipGrid {
   den: number;
 }
 
-/**
- * A clip's window edge, in SECONDS. A bare number already is one; a TIMECODE is a position in the
- * file and needs the project's grid to become one (see AudioClipSchema).
- *
- * Without a grid a timecode is dropped, which is what this did for EVERY caller until the drawing
- * needed it: `Number("2:1")` is `NaN`, so the musical spelling — the one an imported song is full
- * of — silently produced a clip with no window at all. `nodeProject` had its own resolver and was
- * right; this path had none and was quietly wrong.
- */
+/** A clip's window edge in SECONDS; a timecode needs the grid, and without one is dropped — docs/timecode.md. */
 function windowEdge(v: unknown, grid?: ClipGrid): number | undefined {
   if (v == null || v === "") return undefined;
   const n = Number(v);
@@ -331,11 +296,7 @@ function mapClip(
       : {}),
     fadeIn: Number(c.fadeIn ?? 0),
     fadeOut: Number(c.fadeOut ?? 0),
-    // The clip's own stretch map, when it has one and does not decline it. Read through the same
-    // `readClipWarp` the node compiler uses: this builds the UNPLACED clip — what the clip editor
-    // asks for when it wants the whole file — and it carried no map at all, so the warp view drew
-    // no stretch marks and `warpStretch` priced a warped clip at 1. There is no placement here to
-    // decline one, which is the only half of that rule this side does not have.
+    // The clip's own stretch map, through the same reader the node compiler uses — see docs/warp.md.
     ...(() => {
       const { map, declined } = readClipWarp(
         (c as { warp?: Parameters<typeof readClipWarp>[0] }).warp,
@@ -358,14 +319,11 @@ function mapClip(
   };
 }
 
-// The audio clip `id` as a standalone, UNPLACED ClipDoc — what lets a surface show its
-// waveform before any track references it. Null for a video source (told apart by
-// extension, since clips/ holds both kinds identically) or a single-file song.
+// The audio clip `id` as a standalone, UNPLACED ClipDoc — null for a video source or a single-file song.
 export function loadAudioClipDoc(
   dir: string,
   id: string,
-  // The project's grid, so a TIMECODE window resolves. Omitted, such an edge is dropped — which is
-  // all this could ever do before, and is why the callers that draw the window now pass one.
+  // The project's grid, so a TIMECODE window resolves; omitted, such an edge is dropped.
   grid?: ClipGrid,
 ): ClipDoc | null {
   if (!isFolderProject(dir)) return null;
@@ -374,11 +332,7 @@ export function loadAudioClipDoc(
   return mapClip({ id, ...def }, dir, `'${id}'`, grid);
 }
 
-// The mixer's vocabulary moved to @studio/engine-protocol/build — a leaf the BROWSER can hold,
-// which m9 needs to put a level on a deck without dragging a YAML parser and `node:fs` in for
-// two strings. Imported as well as re-exported: `export … from` re-publishes a name without
-// binding it locally, and `trackMixer` below reads MIXER_PLUGIN. Re-exported because this is
-// where every existing importer looks, the same arrangement `readPluginBlock` has.
+// Imported as well as re-exported: `export … from` publishes a name without BINDING it, and trackMixer reads it.
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
 
 export {
@@ -387,13 +341,7 @@ export {
   VOLUME_DB,
 } from "@studio/engine-protocol/build";
 
-/**
- * The channel strip at the end of a track's chain, or undefined when it has none.
- *
- * The LAST mixer, not the first: a track may legitimately run a strip mid-chain (into a bus, say), and the one
- * that decides what leaves the track is the one nearest the output. A track with none is not "at unity" — it is
- * a track with nowhere to put a level, which is what the surfaces need to say rather than draw a dead fader.
- */
+/** The LAST mixer in a track's chain, or undefined — a track with none has nowhere to put a level. */
 export function trackMixer(t: TrackDoc): PluginDoc | undefined {
   for (let i = t.plugins.length - 1; i >= 0; i--)
     if (t.plugins[i].type === MIXER_PLUGIN) return t.plugins[i];

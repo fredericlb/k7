@@ -50,8 +50,7 @@ const all = (): ModuleLibrary[] => [
 
 describe("libraryTree", () => {
   it("draws a row per level, in the order it was given", () => {
-    // The service answers nearest-first — the order the loader resolves in — and this does not
-    // re-sort it: two places deciding precedence is how they come to disagree.
+    // The service answers nearest-first and this does not re-sort it: two places deciding precedence is how they come to disagree.
     expect(libraryTree(all()).map((n) => n.name)).toEqual([
       "@project",
       "@workspace",
@@ -79,8 +78,7 @@ describe("libraryTree", () => {
   });
 
   it("draws @project and @workspace even with no folder yet", () => {
-    // The placeholder: a level you can put a module in is a real answer, and the row's menu is
-    // what puts one there. Hiding it would leave nowhere to start on a new project.
+    // The placeholder: a level you can put a module in is a real answer, and hiding it would leave nowhere to start on a new project.
     const fresh = [
       lib("project", "01.danse.st0/modules", false),
       lib("workspace", "_modules", false),
@@ -99,8 +97,7 @@ describe("libraryTree", () => {
   });
 
   it("hides @st0 when it is not mounted", () => {
-    // The one level that is not a folder to fill in: it is a git submodule somebody has to
-    // mount, so an empty row would be an offer nothing here can honour.
+    // The one level that is not a folder to fill in: it is a submodule somebody has to mount, so an empty row would be a false offer.
     const noSub = [
       lib("project", "p/modules", true, [audio("p/modules", "a")]),
       lib("st0", "_libraries/modules", false),
@@ -138,8 +135,7 @@ describe("@engine", () => {
   });
 
   it("carries the real ref on the leaves, whatever the folder rows say", () => {
-    // The type rows are synthesised — a ref is flat (`@engine/nam`) — so the LEAF is the only
-    // thing whose path anything downstream should trust.
+    // The type rows are synthesised — a ref is flat — so the LEAF is the only thing whose path anything downstream should trust.
     const [row] = libraryTree([engine()]);
     expect(row.children?.[0].children?.map((n) => n.path)).toEqual([
       "@engine/nam",
@@ -221,8 +217,7 @@ describe("libraryModuleRef", () => {
 
 describe("isLibraryPath", () => {
   it("is true only for the ACCOUNT's library", () => {
-    // `_modules` is shared too, but a save aimed at it forks into the project — it has a way
-    // back already and needs no gate in front of it.
+    // `_modules` is shared too, but a save aimed at it forks into the project: it has a way back already and needs no gate.
     expect(isLibraryPath("_libraries/modules/audio/reverb/module.yaml")).toBe(
       true,
     );
@@ -237,8 +232,7 @@ describe("isLibraryPath", () => {
   });
 });
 
-// The library's CHAINS, in the same tab as its modules — they come out of the same repository,
-// and a tab that showed one and not the other would make you look in two places for one thing.
+// The library's CHAINS, in the same tab as its modules: they come out of the same repository, and two tabs would be two places to look.
 describe("chains in the libraries tree", () => {
   const LEVELS = [
     { ns: "workspace", path: "_libraries/modules", exists: true, nodes: [] },
@@ -254,8 +248,7 @@ describe("chains in the libraries tree", () => {
 
   it("adds them under a row of their own, LAST", () => {
     const rows = libraryTree(LEVELS, CHAINS);
-    // Not filed under a module namespace: a chain is not a module, and putting it there would
-    // say it was one.
+    // Not filed under a module namespace: a chain is not a module, and putting it there would say it was one.
     expect(rows[rows.length - 1].name).toBe(CHAINS_LABEL);
     expect(rows.length).toBe(2);
   });
@@ -266,8 +259,7 @@ describe("chains in the libraries tree", () => {
       "process/normalize",
       "live/vocals",
     ]);
-    // A chain is a folder on disk — a graph and the nodes it names — and the tree says so rather
-    // than hiding half of it. It was a leaf until the nodes had somewhere to be.
+    // A chain is a folder on disk — a graph and the nodes it names — and the tree says so rather than hiding half of it.
     expect(chainsRow?.children?.every((c) => c.dir)).toBe(true);
     expect(chainsRow?.children?.[0].path).toBe(
       "_libraries/chains/process/normalize",
@@ -275,8 +267,7 @@ describe("chains in the libraries tree", () => {
   });
 
   it("puts a chain's NODES under it, each at its real path", () => {
-    // The path is what tells a node's row from its chain's when one is clicked, so it is the
-    // real one and not a label.
+    // The path is what tells a node's row from its chain's when one is clicked, so it is the real one and not a label.
     const first = libraryTree(LEVELS, CHAINS).at(-1)?.children?.[0];
     expect(first?.children?.map((n) => n.name)).toEqual(["normalize.yaml"]);
     expect(first?.children?.[0].path).toBe(

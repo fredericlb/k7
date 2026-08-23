@@ -2,10 +2,7 @@ import { useSyncExternalStore } from "react";
 import { logout as logoutAs } from "z0-shared/account";
 import { f } from "./api";
 
-// React port of the buzzer's own useAuth: /api/auth/me with the public
-// guestEnabled/registrationOpen flags, re-polled every 5s while the user is
-// still on the LoginGate so JOIN unlocks the moment the admin opens
-// registration.
+// Re-polled every 5 s while the gate is up, so JOIN unlocks the moment registration opens.
 
 export interface AuthUser {
   name: string;
@@ -93,9 +90,7 @@ function startPolling(): void {
   }, 5000);
 }
 
-// Signing in and out is the same rule for all six SPAs, and a subtle one — the
-// account belongs to pl8, the guest cookie to z0. It lives in z0-shared/account
-// rather than in six copies here.
+// One rule for all six SPAs: the account belongs to pl8, the guest cookie to z0.
 export { login } from "z0-shared/account";
 
 export async function logout(): Promise<void> {

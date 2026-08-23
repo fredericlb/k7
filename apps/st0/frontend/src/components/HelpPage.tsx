@@ -163,8 +163,7 @@ export function HelpPage({
     };
   }, []);
 
-  // Mounted only while it is showing, so it is an overlay for as long as it exists. Registered
-  // so the shell's Esc stops at this page instead of also closing the graph slot under it.
+  // Mounted only while it is showing, and registered so the shell's Esc stops at this page instead of closing the slot under it.
   usePopin(true, onBack);
 
   useEffect(() => {
@@ -187,10 +186,7 @@ export function HelpPage({
         </div>
       </header>
 
-      {/* A documentation LAYOUT: a table of contents that stays put, and one long
-          scrollable body. Not tabs — the point of a reference is that you can search the
-          whole of it (ctrl-F) and link into the middle, neither of which survives a tab
-          that unmounts what it isn't showing. */}
+      {/* A documentation LAYOUT — a fixed table of contents over one scrollable body; tabs would break ctrl-F and deep links. */}
       <div className="flex min-h-0 flex-1">
         <nav className="hidden w-56 shrink-0 flex-col gap-3 overflow-y-auto border-r border-border bg-card/40 p-2 md:flex">
           {DOC_PARTS.map((part) => (

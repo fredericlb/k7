@@ -114,6 +114,23 @@ in. What the button *says* is the host's — a shared package knows this module 
 project's, and cannot know whose it is or what writing to it costs. Same argument as
 `renderPreview`. See [sharedModules.md](sharedModules.md).
 
+## A file-valued param is a param, and all three arguments are QUOTED
+
+Picking a file in the builder's asset browser writes `node param <node> <param> <file>`, not a
+verb of its own. It used to be one per param (`module nam …`), built from the param's own name —
+so choosing an `.onnx` sent a command nobody had written.
+
+All three arguments are quoted, and the FILENAME is the one that matters. A `.nam` routinely
+carries spaces and a subfolder: `two rocks/Two-Rock_Studio Overdrive_SM7b_All Flat_Clean.nam`.
+Unquoted, the dispatcher's splitter folded most of that path into the PARAM name — which may
+legitimately contain spaces, `Wet Level` — and took the last token as the value, so picking an amp
+refused with `"Flat_Clean.nam" is not a number`, naming the tail of the file it had just cut. The
+same fix was already written twenty lines above it, for the node ref, and had not been applied
+here: *a node ref carries a `:` and may carry spaces, and `node param` splits on them*. A filename
+does too, and more often.
+
+The sentinel stays BARE: `none` is a word the command understands, not a file.
+
 ## What did not move, and is not coming back
 
 - **The audition's own input picker.** A live input belongs to a TRACK now

@@ -44,13 +44,7 @@ function meter(root: string): { num: number; den: number } {
   };
 }
 
-/**
- * Marker keys that would also shorten — reported, never rewritten.
- *
- * A marker is a MAP KEY, so changing it is not editing a value but moving the label to another
- * address, and anything holding a marker by its key would be pointing at nothing. They are also
- * where a v1 project keeps WALL-CLOCK positions, which are not this notation at all.
- */
+/** Marker keys are reported, never rewritten: a KEY is an address, and holders would break. */
 function deepMarkers(root: string, num: number, den: number): string[] {
   const doc = parseDocument(readFileSync(join(root, "project.yaml"), "utf8"), {
     version: "1.2",
@@ -102,8 +96,7 @@ function main(): void {
   console.log(
     `\n${total} timecode(s) in ${touched} file(s), ${num}/${den}${write ? " — WRITTEN" : " — dry run, nothing written"}`,
   );
-  // The short form's floor is one tick (1/960 of a quarter); a deep chain could name a moment
-  // between two of them, so the worst case is half a tick, reported rather than assumed.
+  // The floor is one tick, so the worst case is half a tick — reported rather than assumed.
   console.log(
     `worst rounding: ${worst.toFixed(9)} beats (${(worst * TICKS_PER_QUARTER).toFixed(4)} ticks)`,
   );

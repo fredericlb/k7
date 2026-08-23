@@ -27,18 +27,13 @@ const {
 /** git refuses a file:// submodule by default (CVE-2022-39253); the real thing is SSH. */
 const ALLOW_FILE = { ...process.env, GIT_ALLOW_PROTOCOL: "file:ssh" };
 
-// Every fixture here drives REAL git — a bare origin, a checkout, commits, pushes and a
-// submodule adoption — because what is being proved is that a commit leaves this machine, and a
-// mocked git would prove the opposite. That is a dozen subprocesses per test, well past vitest's
-// 5 s default on a loaded machine. `scaffoldSet.test.ts` buys the same room for the same reason.
+// Every fixture drives REAL git — a dozen subprocesses per test, well past vitest's 5 s default.
 vi.setConfig({ testTimeout: 30_000 });
 
 let tmp: string;
 let origin: string;
 let lib: string;
-/** A scratch HOME, because "no médiathèque configured" also means "none ADVERTISED on this
- *  machine" — `mediatekBase()` falls back to `~/.studio/web-endpoints/pl8.json`, and the
- *  developer running this has one. Both variables: `homedir()` reads one or the other. */
+/** A scratch HOME, so `mediatekBase()` cannot fall back to the developer's own `~/.studio` endpoint. */
 let realHome: { HOME?: string; USERPROFILE?: string };
 
 const git = (cwd: string, ...args: string[]): string =>
@@ -50,8 +45,7 @@ beforeEach(() => {
   lib = join(tmp, "_libraries");
   mkdirSync(origin, { recursive: true });
   mkdirSync(lib, { recursive: true });
-  // A real remote and a real checkout: what is being proved is that a commit LEAVES this
-  // machine, and a mocked git would prove the opposite of that.
+  // A real remote and a real checkout: a mocked git would prove the opposite of what is claimed.
   git(origin, "init", "--bare", "--initial-branch=main");
   git(lib, "init", "--initial-branch=main");
   git(lib, "remote", "add", "origin", origin);
@@ -78,20 +72,12 @@ const pushed = (): string[] =>
 describe("a brand-new library repository", () => {
   it("gets a commit, and pushes it", async () => {
     expect(await initIfEmpty(lib)).toBe("initialised");
-    // On the REMOTE, not merely committed here: a gitlink is a promise that a commit is
-    // fetchable, and the caller only records one once this has happened.
+    // On the REMOTE, not merely committed here: a gitlink promises the commit is fetchable.
     expect(git(origin, "rev-parse", "main").trim()).toHaveLength(40);
   });
 
   it("writes NOTHING into it — the repository is the reference", async () => {
-    // A catalogue used to be written here, so that `@st0/…` refs resolved on a new account. The
-    // account's own repository is the source now: whatever is in it is what its projects
-    // inherit, and a build shipping a copy of somebody's modules was a second source of truth
-    // that could only ever disagree with the first.
-    //
-    // The consequence is the one the seed existed to prevent, and it is deliberate now: a new
-    // library is EMPTY, so a scaffolded SET's four `@st0/…` refs resolve to nothing until
-    // somebody puts modules there — silently, an unresolved ref not being a compile error.
+    // A new library is EMPTY, and its refs resolve to nothing until somebody puts modules there.
     await initIfEmpty(lib);
     expect(pushed()).toEqual([]);
     expect(existsSync(join(lib, "modules"))).toBe(false);
@@ -100,17 +86,13 @@ describe("a brand-new library repository", () => {
   it("does nothing at all the second time", async () => {
     await initIfEmpty(lib);
     const head = git(lib, "rev-parse", "HEAD").trim();
-    // The whole safety of this: "already started" is a question about the CHECKOUT, not a
-    // flag somebody has to keep. A repository with a commit has been here before.
+    // "Already started" is a question about the CHECKOUT, not a flag somebody has to keep.
     expect(await initIfEmpty(lib)).toBe("filled");
     expect(git(lib, "rev-parse", "HEAD").trim()).toBe(head);
   });
 
   it("leaves a repository that already has a commit alone, whatever is in it", async () => {
-    // A repository made through a web UI arrives with a README and a commit. It used to be
-    // seeded anyway — having a commit and having modules were two questions, and conflating them
-    // is what once left the seed doing nothing. There is ONE question now: is there something
-    // for a gitlink to point at.
+    // ONE question: is there something for a gitlink to point at — not "has it got modules".
     writeFileSync(join(lib, "README.md"), "# les bibliotheques\n", "utf8");
     git(lib, "add", "-A");
     git(
@@ -126,15 +108,12 @@ describe("a brand-new library repository", () => {
     const head = git(lib, "rev-parse", "HEAD").trim();
     expect(await initIfEmpty(lib)).toBe("filled");
     expect(git(lib, "rev-parse", "HEAD").trim()).toBe(head);
-    // …and it pushed nothing: a repository that has been here before is not this function's
-    // business, however far behind its remote it happens to be.
+    // …and it pushed nothing: a repository that has been here before is not this function's business.
     expect(() => git(origin, "rev-parse", "main")).toThrow();
   });
 
   it("keeps an unregistered library out of the project repo's `git add -A`", async () => {
-    // The leak: until `submodule add` has run, `_libraries` is an untracked folder inside a
-    // song repository — and `project commit` adds the whole tree. Git would commit the
-    // catalogue into the song, or record a gitlink with no `.gitmodules` beside it.
+    // The leak: until `submodule add` has run, `_libraries` is untracked inside a song repo (docs/libraries.md).
     const project = join(tmp, "ws2");
     mkdirSync(project, { recursive: true });
     git(project, "init", "--initial-branch=main");
@@ -156,14 +135,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("registers the submodule even though the exclusion is in the way", async () => {
-    // The bug this pins, found in a real workspace and not here: `excludeFromProjectRepo`
-    // writes `/_libraries/` into `.git/info/exclude`, and `git submodule add` REFUSES an
-    // ignored path. Every first mount therefore left the library seeded, pushed and
-    // unregistered — the very half-state the exclusion exists to make survivable. The test
-    // that should have caught it built its fixture with `-f` already.
-    //
-    // The two are not in conflict: the exclusion guards the untracked window, and this is the
-    // act that closes it.
+    // `git submodule add` REFUSES a path the exclusion ignores, which is why `--force` — docs/libraries.md.
     const project = join(tmp, "ws7");
     mkdirSync(project, { recursive: true });
     git(project, "init", "--initial-branch=main");
@@ -221,15 +193,13 @@ describe("a brand-new library repository", () => {
     const who = ["-c", "user.name=t", "-c", "user.email=t@t"];
     git(project, ...who, "commit", "-m", "the song");
 
-    // Committed and pushed FIRST, adopted second — a repository with no commits has nothing for
-    // a gitlink to point at, which is the order `ensureLibraries` takes for the same reason.
+    // Committed and pushed FIRST, adopted second — the order `ensureLibraries` takes, and why.
     const inside = join(project, "_libraries");
     mkdirSync(inside, { recursive: true });
     git(inside, "init", "--initial-branch=main");
     git(inside, "remote", "add", "origin", origin);
     await initIfEmpty(inside);
-    // A module for the publish tests below to EDIT. Written here by hand: st0 is what puts one in
-    // a library, and this fixture stands in for a library somebody has already used.
+    // A module for the publish tests below to EDIT, standing in for a library somebody has used.
     mkdirSync(join(inside, "modules", "audio", "reverb"), { recursive: true });
     writeFileSync(
       join(inside, "modules", "audio", "reverb", "module.yaml"),
@@ -239,8 +209,7 @@ describe("a brand-new library repository", () => {
     git(inside, "add", "-A");
     git(inside, ...who, "commit", "-m", "un module");
     git(inside, "push", "origin", "HEAD");
-    // `protocol.file.allow`: git refuses a file:// submodule by default (CVE-2022-39253). The
-    // real thing is SSH; this is a local bare repo standing in for one.
+    // `protocol.file.allow`: git refuses a file:// submodule by default (CVE-2022-39253).
     git(
       project,
       "-c",
@@ -286,8 +255,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("leaves everything else in the song alone, staged or not", async () => {
-    // The rule that makes this safe to do automatically: a commit ABOUT a module must not carry
-    // half a song with it. Path-limited, so what is in flight stays in flight.
+    // A commit ABOUT a module must not carry half a song with it, so it is path-limited.
     const project = await songWithLibrary("ws5");
     writeFileSync(join(project, "wip.yaml"), "unfinished: true\n", "utf8");
     writeFileSync(join(project, "staged.yaml"), "half: true\n", "utf8");
@@ -311,8 +279,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("records nothing when the library could not be pushed", async () => {
-    // A gitlink promises the commit is fetchable. Pointing one at a commit that never left this
-    // machine breaks the song for everybody who clones it.
+    // A gitlink pointing at a commit that never left this machine breaks the song for everybody.
     const project = await songWithLibrary("ws6");
     const songHead = git(project, "rev-parse", "HEAD").trim();
     git(
@@ -361,9 +328,7 @@ describe("a brand-new library repository", () => {
   });
 
   it("reports a push it could not make, rather than claiming it landed", async () => {
-    // The race: two machines mounting the same new repository at once. The loser's push is
-    // rejected — and its caller must then NOT record a gitlink, or the workspace would point
-    // at a commit nobody else can fetch.
+    // The race: two machines mounting the same new repository, and the loser must record no gitlink.
     git(lib, "remote", "set-url", "origin", join(tmp, "nowhere.git"));
     expect(await initIfEmpty(lib)).toBe("unpushed");
     // Still committed locally, so the next open has something to push rather than starting over.

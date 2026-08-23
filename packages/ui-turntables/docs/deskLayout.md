@@ -21,6 +21,18 @@ L'ordre dans lequel les choses tombent est l'ordre inverse de ce qu'elles valent
 | 3. les **repères** | jamais retirés | huit positions fixes qu'une main apprend ne valent rien si elles sont parfois absentes — le même argument que `CueButtons` fait déjà pour les dessiner sur une platine vide. |
 | 4. la **forme d'onde** | jamais retirée, et elle GRANDIT | c'est ce à quoi sert une platine. |
 
+### Et dessinée même à vide
+
+La forme d'onde a été un moment conditionnée à `load`, au motif qu'une bande vide sous une
+platine vide est du mobilier. C'est l'argument que les repères refusent déjà, et pour une
+meilleure raison : un pupitre dont les contrôles apparaissent et disparaissent selon ce qui est
+chargé est un pupitre qui bouge sous les mains. La bande pousserait les repères et le titre vers
+le bas à l'instant où un morceau arrive, et l'endroit que l'œil a appris ne serait pas là pour
+être appris. Vide dit « rien pour l'instant » ; absent dit « regarde ailleurs ».
+
+C'est aussi là que se disent « analyse du morceau… » et une analyse ratée
+([waveform.md](waveform.md)) — deux phrases illisibles sur une bande qui n'existe pas.
+
 Le point 4 est le vrai contenu de « cacher les platines » : la forme d'onde **prend la place que
 le disque a rendue**, jusqu'à 180 px. Sans cela le panneau serait une bande courte et beaucoup
 de vide, ce qui serait pire que le disque.

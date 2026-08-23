@@ -40,11 +40,8 @@ const done = (code) => {
 };
 
 // --- 1. Bundle the real modules, not a reimplementation -----------------------
-// The whole point is to exercise packages/engine-browser as shipped; a hand-written copy
-// in the page would prove only that the copy works.
-// Fed through stdin with resolveDir set to the repo, NOT written to the temp dir: esbuild
-// resolves bare specifiers relative to the importing FILE, so an entry sitting in %TEMP%
-// cannot see node_modules and `@studio/*` comes back unresolved.
+
+// Fed through stdin with resolveDir set to the REPO, never a temp dir (../docs/broadcast.md).
 const ENTRY = `
 import { StreamPlayer } from "@studio/engine-browser/stream";
 import { createWorkletSink } from "@studio/engine-browser/stream-sink";
@@ -66,8 +63,7 @@ window.__run = async (url, ms) => {
     setTimeout(() => rej(new Error("no frame within 8s")), 8000);
   });
 
-  // The context MUST be built at the stream's rate: the sink does not resample, and 44.1
-  // material in a 48 kHz context is a pitch shift rather than an audible fault.
+  // The context MUST be built at the STREAM's rate: the sink does not resample.
   const ctx = new AudioContext({ sampleRate: first, latencyHint: "interactive" });
   await ctx.resume();
   const sink = await createWorkletSink(ctx, { channels: 2 });
@@ -138,13 +134,8 @@ const port = await new Promise((res) => {
 cleanup.push(() => server.close());
 
 // --- 3. Drive Chrome ---------------------------------------------------------
-// --autoplay-policy: an AudioContext stays suspended without a user gesture, and there is
-// nobody here to click. --headless=new keeps Web Audio real (it renders to a null sink at
-// the nominal rate) rather than stubbing it out.
-// A FIXED debugging port, discovered over HTTP rather than by reading stderr. On Windows
-// the process spawned here is only a launcher: it forks the real browser and exits 0
-// immediately, taking its stderr — and the "DevTools listening on…" line — with it. Waiting
-// on that line reads as "chrome exited with 0" while a perfectly healthy browser runs.
+
+// Two flags and a FIXED debugging port, all three load-bearing (../docs/broadcast.md).
 const dbgPort = 9222 + (process.pid % 500);
 const chrome = spawn(
   CHROME,
@@ -260,8 +251,7 @@ line(
   "buffer depth (frames)",
   `first ${r.depthFirst}, last ${r.depthLast}, min ${r.depthMin}, max ${r.depthMax}`,
 );
-// The depth trend IS the drift, seen from the consumer: a cushion that walks steadily one
-// way is two clocks disagreeing, and it is what a fixed cushion eventually loses to.
+// The depth TREND is the drift, seen from the consumer (../docs/broadcast.md).
 if (r.depthFirst !== null && r.depthLast !== null && r.format)
   line(
     "depth drift",

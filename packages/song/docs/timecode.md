@@ -61,3 +61,50 @@ schema refused would be written unquoted, and read back as 1.5.
 The model measures time in beats = QUARTER NOTES (Tracktion's unit; the ABC parser
 agrees — "whole-note = 4 beats"). A metrical beat is `Q = 4/denominator` quarter notes;
 a bar is `numerator` such beats.
+
+## A marker map's KEYS have to be quoted
+
+The markers are the one place in the model where a timecode is a **key** rather than a value, which
+is why `yaml/edit.ts` has `setQuotedKeyMap` beside `setFileValue`. `setFileValue` takes a plain
+object and `createNode` gives every key the plain style — correct under YAML 1.2 and a disaster
+under 1.1, where `2:1:1` unquoted is a sexagesimal integer. `quoteTimecodes` cannot rescue it
+either: it walks values under known keys.
+
+## Rewriting a document — timecodeMigrate.ts
+
+Edits are SPLICED by source offset rather than re-serialised: a project is hand-written YAML with
+comments and a shape its author chose, and rewriting a whole file to change eight characters would
+bury the migration in a diff nobody could check. Back to front, so an earlier splice cannot move a
+later one's offsets.
+
+`TIMECODE_FIELDS` spells out which fields hold a timecode and whether each counts from 1 or from 0.
+A POSITION says where something sits — `start`, and a window's edges, which are positions in the
+material, `"1:1"` being its beginning. A DURATION says how long something lasts. Reading one as the
+other lands a whole bar out, so the pair is written down rather than guessed per file.
+
+A STRING only: `from: 0.25` on a clip is SECONDS into a file, not a timecode, and the two spellings
+mean different things on the very same key (`AudioClipSchema`).
+
+**A value already in the canonical new spelling is left alone, and that is what makes the pass
+idempotent.** Idempotence is not a nicety here: the rewrite reads with the OLD rule, so running it
+twice would read its own output as something it never meant and shift the song by a sixteenth. A
+second run must be a no-op or the script is a trap.
+
+The gap it leaves: a value that is canonical in the new notation AND meant something else in the old
+one would be skipped. Such a value would have to be short, sub-beat, and exactly what the writer
+emits — and a scan over every project in `~/.studio/root` found none. Where one exists the two rules
+disagree, which is a thing that can be searched for.
+
+`driftBeats` compares what the NEW reader makes of what was just written against what the old one
+made of what was there. That is the only comparison that says the song still sounds the same.
+
+## A clip's window edge needs the grid
+
+A clip's `from`/`to` is a window edge in SECONDS. A bare number already is one; a TIMECODE is a
+position in the file and needs the project's tempo and signature to become one (`AudioClipSchema`).
+
+Without a grid, `project.ts`'s `windowEdge` drops a timecode — which is what it did for EVERY
+caller until the drawing needed it. `Number("2:1")` is `NaN`, so the musical spelling, the one an
+imported song is full of, silently produced a clip with no window at all. `nodeProject.ts` had its
+own resolver and was right; this path had none and was quietly wrong. That is why the callers that
+draw a window now pass a `ClipGrid`.

@@ -7,31 +7,14 @@ import { Router } from "express";
 import type { z } from "zod";
 import type { PrefsStore } from "./store.ts";
 
-/**
- * The top-level fields a schema DROPPED — sent, valid, and not in what came out.
- *
- * A zod object strips what it does not declare, silently and by default, so a service whose
- * schema has fallen behind its frontend answers `{ok:true}` and stores less than it was handed.
- * st0 lost the whole command layer that way: renaming commands worked, saving said it had, and a
- * reload showed the catalogue's own names again — the schema still described the day it held one
- * field. Nothing anywhere said so, which is what makes this worth a check rather than a comment.
- *
- * Answered as a list of names, because the useful sentence is "this service does not know
- * `commands`" and the fix is to declare it.
- */
+/** The top-level fields a schema DROPPED — sent, valid, and not in what came out; see docs/store.md. */
 export function droppedKeys(sent: unknown, kept: unknown): string[] {
   if (!sent || typeof sent !== "object") return [];
   if (!kept || typeof kept !== "object") return [];
   return Object.keys(sent).filter((k) => !(k in kept));
 }
 
-/**
- * The routes over one store, validating writes against `schema`.
- *
- * The schema is the HOST's, not this package's: st0 and the médiathèque remember
- * different things, and a union of every service's fields here would be a shape no service
- * actually has.
- */
+/** The routes over one store, validating writes against the HOST's schema — see docs/store.md. */
 export function preferencesRouter<S extends z.ZodType>(
   store: PrefsStore<z.infer<S>>,
   schema: S,
@@ -41,8 +24,7 @@ export function preferencesRouter<S extends z.ZodType>(
   router.get(
     "/preferences",
     wrap((req, res) => {
-      // `{}` and not 404 for a user who has never saved: "no preferences yet" is the
-      // ordinary first-login state, and a 404 would have every caller special-case it.
+      // `{}` and not 404 for a user who has never saved — the ordinary first-login state.
       const sub = (req as { user?: { sub?: string } }).user?.sub;
       if (!sub)
         return res.status(401).json({ error: "no user on the session" });
@@ -50,8 +32,7 @@ export function preferencesRouter<S extends z.ZodType>(
     }),
   );
 
-  // Parsed here rather than through `validate`, which replaces `req.body` with the stripped
-  // result — and the two are exactly what has to be COMPARED (see droppedKeys).
+  // Parsed here, not through `validate`: it replaces `req.body`, and the two must be COMPARED.
   router.put(
     "/preferences",
     wrap((req, res) => {
@@ -63,16 +44,13 @@ export function preferencesRouter<S extends z.ZodType>(
         return res.status(400).json({
           error: parsed.error.issues.map((i) => i.message).join("; "),
         });
-      // Refused rather than stored short: a write that quietly keeps half of what it was given
-      // is a preference that comes back wrong on the next load, with nothing to point at.
+      // Refused rather than stored short — see docs/store.md for the feature this cost.
       const dropped = droppedKeys(req.body, parsed.data);
       if (dropped.length)
         return res.status(400).json({
           error: `this service does not store ${dropped.join(", ")} — declare it in its preferences schema`,
         });
-      // Wholesale, not a merge: the browser holds the whole object and sends it back, so a
-      // merge would make a field impossible to CLEAR — you could pick an engine and never
-      // un-pick one.
+      // Wholesale, not a merge, which would make a field impossible to CLEAR (docs/store.md).
       store.write(sub, parsed.data as z.infer<S>);
       res.json({ ok: true });
     }),

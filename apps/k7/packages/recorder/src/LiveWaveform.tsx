@@ -10,11 +10,7 @@ interface Props {
   paused?: boolean;
   /** Playback position (sec) while listening back to a highlight — drawn as a playhead. */
   playhead?: number | null;
-  /**
-   * Time range (sec) to frame while paused for review — the view zooms out to
-   * fit the whole moment, then returns to the standard trailing window when
-   * cleared (recording resumes).
-   */
+  /** Time range (sec) framed while reviewing; cleared, the trailing window comes back. */
   focus?: { start: number; end: number } | null;
   /** Canvas height in px — smaller for the minimized recording bar. */
   height?: number;
@@ -26,12 +22,7 @@ const EDGE_MARGIN = 4; // px kept clear at top/bottom so peaks don't touch the e
 const BEATS_PER_BAR = 4;
 const BEAT_TICK_HEIGHT = 24; // light beat ticks are short; bar lines run full height
 
-/**
- * Live oscilloscope-style waveform: centered on a zero line, scrolling right
- * to left as new samples arrive, with "now" pinned to the right edge. Used
- * while actively recording, where there's no fixed timeline to seek/select —
- * only the trailing WINDOW_SEC of history is ever shown.
- */
+/** An oscilloscope scrolling right to left, "now" pinned to the edge, WINDOW_SEC of history. */
 export function LiveWaveform({
   envelope,
   elapsed,
@@ -54,14 +45,12 @@ export function LiveWaveform({
   const focusRef = useRef(focus);
   focusRef.current = focus;
 
-  // The time range currently mapped across the canvas. Eased toward the target
-  // view so entering/leaving review zooms rather than jumps.
+  // The range mapped across the canvas, eased toward the target so review zooms, not jumps.
   const viewRef = useRef({ start: elapsed - WINDOW_SEC, end: elapsed });
   const animating = useRef(false);
   const animRaf = useRef<number | null>(null);
 
-  // Target view: the trailing window while recording, or the padded moment
-  // (never tighter than the standard window) while reviewing.
+  // The trailing window while recording, or the padded moment — never tighter — while reviewing.
   const computeTarget = () => {
     const f = focusRef.current;
     if (f) {
@@ -132,8 +121,7 @@ export function LiveWaveform({
 
     const centerY = height / 2;
     const halfHeight = height / 2 - EDGE_MARGIN;
-    // While recording, keep the view snapped to the trailing window; during the
-    // zoom animation the loop owns viewRef, so don't fight it here.
+    // Snap to the trailing window, unless the zoom animation owns viewRef right now.
     if (!animating.current && !focus) viewRef.current = computeTarget();
     const view = viewRef.current;
     const windowSec = Math.max(0.1, view.end - view.start);
@@ -171,10 +159,7 @@ export function LiveWaveform({
       );
     };
 
-    // Metronome beat/bar grid, anchored at the moment the metronome was
-    // started — light tick per beat, a taller/bolder line every bar. Only
-    // the visible window's beats are walked, so this stays cheap no matter
-    // how long the recording runs.
+    // The beat grid, anchored where the metronome started; only visible beats are walked.
     if (metronome && metronome.bpm > 0) {
       const beatSec = 60 / metronome.bpm;
       let beat = Math.max(
@@ -268,8 +253,7 @@ export function LiveWaveform({
     for (let x = 1; x < width; x++) ctx.lineTo(x, bottom[x]);
     ctx.stroke();
 
-    // "Now" marker where new samples enter — at the right edge while recording,
-    // and off-canvas (hidden) once the view zooms out past it during review.
+    // The "now" marker, at the right edge while recording and off-canvas once review zooms out.
     const nowX = timeToX(elapsed);
     if (nowX >= 0 && nowX <= width) {
       ctx.strokeStyle = "rgba(235,235,242,0.9)";
@@ -281,9 +265,8 @@ export function LiveWaveform({
       ctx.stroke();
     }
 
-    // The playback playhead is drawn as a DOM overlay (below), not on the
-    // canvas — so following it during playback doesn't force a full 60fps
-    // canvas redraw, which caused GC-induced audio stutter.
+    // The playhead is a DOM overlay below, not canvas: a 60fps redraw stuttered the audio.
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     width,
@@ -298,8 +281,7 @@ export function LiveWaveform({
     tick,
   ]);
 
-  // Playhead position (px) from the current view — re-rendered on each preview
-  // tick, but only moves this DOM overlay, leaving the canvas untouched.
+  // Its position in px: re-rendered on every preview tick, but it moves the overlay alone.
   const pv = viewRef.current;
   const playheadX =
     playhead != null

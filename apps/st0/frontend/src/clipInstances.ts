@@ -5,13 +5,7 @@
 
 import type { WebClip, WebTrack } from "./types";
 
-/**
- * How a placement names its MATERIAL: the ref `events add` takes, and what makes two placements
- * "the same clip".
- *
- * One spelling, exported rather than repeated, so the clipboard and the ghost badge cannot come
- * to disagree about which events are copies of each other.
- */
+/** How a placement names its MATERIAL — one spelling, so the clipboard and the ghost badge cannot disagree about which events are copies. */
 export const materialOf = (c: WebClip): string => c.name || c.id;
 
 /** Where a material's FIRST placement sits, and how many placements it has in all. */
@@ -21,22 +15,7 @@ export interface Instances {
   start: number;
 }
 
-/**
- * Every material in the song, by ref: how many times it is placed, and where the first one is.
- *
- * A fact about the SONG rather than about the view, so callers hand it every track and not the
- * drawn rows: zooming into three lanes must not un-ghost an event because the copy it repeats is
- * on the fourth, and a repeat off the left edge is still a repeat.
- *
- * TRACK lanes only, and the exclusions are the whole judgement here. A take holds what its lane
- * was playing, which is the same material by construction — counting takes would ghost every
- * event on every lane ever recorded over. A generated lane's clips are the scheduler's
- * look-ahead rather than placements anybody wrote. Video lanes are a material space of their own.
- *
- * FIRST is the earliest in time, ties broken by lane order and then by the lane's own. Two
- * placements on one beat still have to have a first, and "the one nearer the top" is the only
- * answer a person can check by looking.
- */
+/** Every material in the song, by ref: how often it is placed and where the first one is — TRACK lanes only, over the whole song. */
 export function materialInstances(
   tracks: readonly WebTrack[],
 ): Map<string, Instances> {
@@ -48,8 +27,7 @@ export function materialInstances(
       if (!at) out.set(materialOf(c), { n: 1, track: t.id, start: c.start });
       else {
         at.n++;
-        // Strictly earlier, so an exact tie leaves the one already found — which is the one on
-        // the higher lane, this loop being in the project's own track order.
+        // Strictly earlier, so a tie leaves the one already found — the higher lane, this loop running in the project's track order.
         if (c.start < at.start - 1e-9) {
           at.track = t.id;
           at.start = c.start;

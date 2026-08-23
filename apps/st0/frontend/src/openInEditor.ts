@@ -5,26 +5,7 @@
 import { materialRefOf } from "@studio/song-schema/placementId";
 import { fuzzyScore } from "./fuzzy";
 
-/**
- * The file `arg` names, or null when the project holds none.
- *
- * Three passes, in this order, and the order is the whole design:
- *
- * 1. **An exact path** stands as it is — a completion handed one back, and there is nothing to guess.
- * 2. **The best fuzzy match**, which is what lets `ui file <track>` be typed with a bare id.
- * 3. **The MATERIAL behind it**, because half the callers name a PLACEMENT. The right-click on an
- *    event offers `ui file` with a clip's id — `audio_14_0@98.5`, see `@studio/song/placementId` —
- *    and the file it wants is `clips/audio_14_0.yaml`. That `@98.5` is a subsequence of no path, so
- *    pass 2 scored −1 on every file and the editor opened on nothing at all.
- *
- * Third and not first: `materialRefOf` returns a material name unchanged, and an entity may
- * legitimately carry an `@`, so what was written gets the first say and this answers only when
- * nothing did.
- *
- * **Null rather than `arg`** when all three miss. Falling back to the text typed meant opening a
- * path nobody named, which reported an "open error" about a file that was never asked for — and by
- * then the pane had already been popped open on nothing.
- */
+/** The file `arg` names, or null: an exact path, then the best fuzzy match, then the MATERIAL behind a placement — and null rather than `arg`. */
 export function resolveEditorFile(arg: string, files: string[]): string | null {
   if (!arg) return null;
   const best = (q: string): string | null =>

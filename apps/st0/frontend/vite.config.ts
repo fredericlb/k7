@@ -2,28 +2,10 @@ import { frediverseParaglide } from "@frediverse/i18n/vite";
 import { defineAppConfig } from "@frediverse/vite-config";
 import { DEV_HOST, LEGACY_DEV_HOSTS } from "../../../scripts/dev-hosts.mjs";
 
-/**
- * The paths on this origin that are NOT st0.
- *
- * st0 answers the origin ROOT, so its service worker's scope is `/` — a scope is a prefix and
- * there is no way to say "everything except `/pl8`". The worker therefore controls the whole
- * origin, the four other apps included, and the only thing that keeps it honest is this list:
- * a navigation to one of them must reach the network instead of being answered with st0's
- * index.html. Get it wrong and `/pl8` serves the editor's shell — a white page with st0's
- * router refusing an address it cannot parse.
- *
- * The same table as `apps/studio/docker/nginx.conf`'s locations and as the reserved repository
- * names in @studio/web-protocol/projects. Three copies, and this is the one a browser enforces.
- *
- * The worker itself is the shared preset's — every frediverse app gets one. Only this list is
- * st0's, because only st0 answers the root: see @frediverse/vite-config's docs/pwa.md.
- */
+/** The paths on this origin that are NOT st0: the worker's scope is `/`, so only this list keeps a navigation to `/pl8` off st0's shell. */
 const OTHER_APPS = /^\/(pl8|k7|z0|api|auth)(\/|$)/;
 
-// Unlike the other apps, st0's dev server does not always sit on a fixed
-// port: the backend URL it proxies to is env-driven with the repo defaults as the
-// fallback. The backend URL it passes is always localhost, so taking the port
-// off it is faithful.
+// Unlike the other apps, st0's dev server has no fixed port: the backend URL it proxies to is env-driven, and always localhost.
 const port = Number(process.env.STUDIO_WEB_PORT) || 5223;
 const backendPort =
   Number(
@@ -32,33 +14,16 @@ const backendPort =
 
 export default defineAppConfig({
   dir: import.meta.url,
-  // Dedicated port (k7 5173 / frotomaton 5183 / froutine 5193 /
-  // frediprofile 5203 / labs 5213 taken). `defineAppConfig` sets `strictPort`,
-  // so a clash is a hard failure rather than a silent renumber and this has to
-  // stay unique — it was 5203, which frediprofile already owns, and whichever
-  // dev server started second simply died.
+  // Dedicated port, and it has to stay unique: `strictPort` makes a clash a hard failure, and this was 5203, which frediprofile owns.
   port,
   backendPort,
-  // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
-  // and without it an `upgrade` dies here — invisible behind the proxy, which routes /st0/api
-  // straight to the backend, and fatal under `st0 --web` where this server is visited direct.
-  // See packages/engine-registry/docs/proxy.md.
+  // The engine relay: only a declared wsPath gets `ws: true`, and without it an `upgrade` dies here (packages/engine-registry/docs/proxy.md).
   wsPaths: ["/api/engine"],
-  // `/auth` alongside the default `/api`, and both go to THIS app's backend: :8789 runs the
-  // origin's OIDC flow, being the service with no path prefix. It was a hand-written proxy to
-  // pl8's :8795 for as long as the médiathèque owned the flow; `proxyPaths` says it in one word
-  // now, which is the shape every other SPA here already had.
+  // `/auth` alongside the default `/api`, both to THIS app's backend: :8789 runs the origin's OIDC flow, being the service with no prefix.
   proxyPaths: ["/auth"],
-  // The public dev host, which also pins HMR to :443 (the LAN proxy terminates
-  // TLS there). Declared ONLY for the fixed-port case: under `st0 --web`
-  // the server is on a free port and visited directly over plain http, where
-  // both the allowlist entry and a 443 HMR socket would be wrong.
+  // The public dev host, which also pins HMR to :443 — declared ONLY for the fixed-port case, a free port being visited over plain http.
   host: process.env.STUDIO_WEB_PORT ? undefined : DEV_HOST,
-  // No `base`: st0 is the studio's front door now, so its assets and its routes sit at `/` and
-  // `import.meta.env.BASE_URL` is `/` — which is what puts this app's own API at `/api`. It was
-  // `/st0/` until the médiathèque moved to `/pl8`; anything still linking there gets st0's SPA
-  // and an address whose first segment reads as a repository name (see src/main.tsx).
-  // Dev runs under WSL against /mnt/c, where inotify never fires.
+  // No `base`: st0 is the front door, so its assets and routes sit at `/`. Dev runs under WSL against /mnt/c, where inotify never fires.
   poll: true,
   // The one thing about the shared service worker that is st0's: see OTHER_APPS above.
   pwaDenylist: [OTHER_APPS],
@@ -67,11 +32,7 @@ export default defineAppConfig({
     plugins: [frediverseParaglide()],
     // The old name still reaches these servers — see scripts/dev-hosts.mjs.
     server: { allowedHosts: LEGACY_DEV_HOSTS },
-    // @studio/ui-chains, /ui-editor and /ui-timeline are consumed as raw .ts
-    // (no build step, like the rest of the brain). Vite usually skips
-    // pre-bundling a linked workspace dep, but esbuild's dep scanner can grab
-    // these and choke on the .ts extension in their exports maps — exclude them
-    // so they're served as source like the rest of the app.
+    // The three @studio UI packages are consumed as raw .ts, and esbuild's dep scanner chokes on the extension in their exports maps.
     optimizeDeps: {
       exclude: [
         "@studio/ui-chains",

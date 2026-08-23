@@ -73,8 +73,7 @@ describe("what a curve listens for", () => {
 
 describe("a curve nothing binds", () => {
   it("is drawn anyway — a card waiting to be wired", () => {
-    // `curve new` has to put something on the graph, or its result is invisible. An
-    // unreferenced curve drew nothing at all before.
+    // `curve new` has to put something on the graph, or its result is invisible.
     const g = graph(ENV);
     (g as { curves: Record<string, unknown> }).curves.spare = {
       type: "lfo",
@@ -110,9 +109,7 @@ describe("a curve nothing binds", () => {
 
 describe("several instances of one curve", () => {
   it("gives each binding its own node, fired by its own module", () => {
-    // The reason the old one-node-per-curve rule had to go: the same envelope following two
-    // different instruments is two behaviours, and one card with two event sockets could not
-    // say which fires which.
+    // Why one-node-per-curve had to go: one card could not say which instrument fires which.
     const g = graph(ENV);
     g.chains.lead.use.push({
       module: "drums",

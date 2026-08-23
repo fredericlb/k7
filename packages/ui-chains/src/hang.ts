@@ -5,30 +5,19 @@
 
 import type { Pt } from "./graph";
 
-// The droop grows with the HORIZONTAL run: a cable between side-by-side sockets sags like a
-// hammock, a vertical drop hangs nearly straight — which is what gravity actually does.
+// The droop grows with the HORIZONTAL run, which is what gravity does. See docs/hang.md.
 export const HANG_DROOP_MIN = 6; // world px — even a short cable is not a ruler
 export const HANG_DROOP_RATE = 0.22; // px of sag per px of horizontal run
 export const HANG_DROOP_MAX = 72;
-// The stub: how far a cable leaves a socket along the plate's own axis before the sag takes
-// over — what makes it read as PLUGGED IN rather than tied on.
+// The stub: how far a cable leaves a socket along the plate's axis, which reads as PLUGGED IN.
 export const HANG_STUB_MIN = 14;
 export const HANG_STUB_RATE = 0.25;
 export const HANG_STUB_MAX = 60;
-// Sampling of the rest curve. The samples feed the same Catmull-Rom trace every cable takes,
-// so the step only needs to be fine enough that the spline through them IS the bezier.
+// Sampling of the rest curve, fine enough that the spline through the samples IS the bezier.
 export const HANG_STEP = 14;
 export const HANG_MAX_POINTS = 33; // 32 segments — cap so a screen-wide cable stays cheap
 
-/**
- * The rest polyline of a cable hanging from `from` (an OUT socket) to `to` (an IN socket).
- *
- * A cubic with one control point out of each socket: along the plate's axis by the stub, then
- * pulled down by the droop. `across` says the sockets are on the SIDES (the mixer row) — the
- * classic hammock; otherwise signal runs down, the cable leaves the bottom plate downward and
- * arrives at the top plate from above, so the droop on the arriving side is capped by the
- * stub — a cable that swung in from underneath would read as threaded through the card.
- */
+/** The rest polyline of a cable hanging OUT socket to IN socket; `across` is the mixer row's. docs/hang.md. */
 export function hangPoints(
   from: Pt,
   to: Pt,
@@ -80,10 +69,8 @@ export function hangPoints(
 }
 
 // --- the swing -------------------------------------------------------------------
-// One spring per cable, on the slack's offset from rest. Endpoint motion EXCITES it (the
-// slack lags what its ends do), the spring pulls it home, the damping lets it overshoot a
-// little on the way — which is the whole difference between a cable and a drawn line.
 
+// One spring per cable, on the slack's offset from rest, excited by endpoint motion. docs/hang.md.
 export const SWAY_K = 34; // spring rate, 1/s² — about a 1 Hz pendulum
 export const SWAY_DAMP = 3.4; // underdamped on purpose: a visible swing, settled in ~a second
 export const SWAY_COUPLE = 0.55; // how much of its ends' motion the slack inherits
@@ -115,12 +102,7 @@ export const newSway = (): CableSway => ({
   seen: false,
 });
 
-/**
- * Tell the spring where the cable's endpoints ARE. Their movement since last time becomes
- * the opposite offset — the slack stays where it was for an instant while its ends move on,
- * which is inertia as the eye knows it. The first sighting excites nothing: a cable that
- * swung on mount would be reporting the layout, not a move.
- */
+/** Tell the spring where the endpoints ARE; the first sighting excites nothing. See docs/hang.md. */
 export function exciteSway(s: CableSway, a: Pt, b: Pt): void {
   if (s.seen) {
     s.ox -= ((a.x - s.ax + b.x - s.bx) / 2) * SWAY_COUPLE;
@@ -133,11 +115,7 @@ export function exciteSway(s: CableSway, a: Pt, b: Pt): void {
   s.seen = true;
 }
 
-/**
- * One step of the damped spring (semi-implicit Euler). Returns whether the cable still
- * moves; a settled one is snapped to exact rest, so the loop can stop instead of chasing
- * ever-smaller numbers.
- */
+/** One step of the damped spring (semi-implicit Euler); a settled cable is snapped to EXACT rest. */
 export function stepSway(s: CableSway, dt: number): boolean {
   s.vx += (-SWAY_K * s.ox - SWAY_DAMP * s.vx) * dt;
   s.vy += (-SWAY_K * s.oy - SWAY_DAMP * s.vy) * dt;

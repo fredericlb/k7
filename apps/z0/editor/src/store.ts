@@ -92,8 +92,7 @@ export class Store {
       this.loadError = (e as Error).message;
     }
     this.emit();
-    // After the files, and never blocking them: the catalogue only supplies labels and audio,
-    // so a médiathèque that is down must still let the session be read and edited.
+    // After the files and never blocking them — see ../../docs/editing.md.
     try {
       this.catalogue = await loadCatalogue();
     } catch (e) {
@@ -143,13 +142,7 @@ export class Store {
       if (!this.slugToPath.has(`${base}-${n}`)) return `${base}-${n}`;
   }
 
-  /**
-   * Make a category — which here means a FILE.
-   *
-   * Written through immediately rather than left to the debounce: everything that follows
-   * (picking it, adding songs) addresses it by path, and a path that only exists in this tab
-   * is one crashed reload away from losing the lot.
-   */
+  /** A category is a FILE, written through at once: everything after addresses it by path. */
   async createCategory(name: string): Promise<string> {
     const slug = this.freeSlug(name);
     const path = `categories/${slug}.yaml`;
@@ -168,11 +161,7 @@ export class Store {
     return slug;
   }
 
-  /**
-   * Recycle a category's file. The rounds that named it are left alone on purpose: removing
-   * them would be a second, invisible edit to another file, and a round pointing at nothing is
-   * shown as such and is one click to fix or delete.
-   */
+  /** The rounds that named it are LEFT alone: editing another file invisibly is the worse fault. */
   async deleteCategory(slug: string): Promise<void> {
     const path = this.slugToPath.get(slug);
     if (!path) return;

@@ -83,8 +83,7 @@ describe("sampleCurve — lfo (cycles per bar)", () => {
   });
 
   it("frequency is per BAR: 0.5 cycle/bar spans two bars", () => {
-    // Half a cycle per bar -> a full cycle spans two bars. The peak (a quarter cycle
-    // in) is at half a bar = beat 2; a full bar (beat 4) is the half-cycle zero-cross.
+    // Half a cycle per bar: the peak is at beat 2, and beat 4 is the half-cycle zero-cross.
     expect(sampleCurve(lfo({ frequency: 0.5 }), 2, NUM, DEN)).toBeCloseTo(1);
     expect(sampleCurve(lfo({ frequency: 0.5 }), 4, NUM, DEN)).toBeCloseTo(0.5);
   });

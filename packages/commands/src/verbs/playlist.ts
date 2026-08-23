@@ -35,14 +35,12 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     if (!name) return h.refuse(["usage: playlist new <name>"]);
     const found = playlistFile(name, h);
     if (!found) return;
-    // Refused rather than opened: a "create" that quietly hands back somebody else's set list is
-    // how you edit the wrong one.
+    // Refused rather than opened: handing back somebody else's set list is how you edit the wrong one.
     if (existsSync(found.abs))
       return h.refuse([`${found.rel} is already there`]);
     try {
       mkdirSync(dirname(found.abs), { recursive: true });
-      // The STUB rather than an empty file: the screen draws its right-hand pane from the text,
-      // so an empty one would open on a parse failure for a playlist nobody has got wrong yet.
+      // The STUB rather than an empty file, which would open on a parse failure. See docs/playlist.md.
       writeFileSync(
         found.abs,
         playlistStub(basename(found.rel).replace(/\.ya?ml$/i, "")),
@@ -53,27 +51,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     }
     h.log([`+ playlist ${found.rel}`]);
   },
-  /**
-   * `playlist stems <playlist> [chain]` — separate every song of a set list, before the evening.
-   *
-   * The preparation half of cutting a stem live: a deck subtracts a stem from the mix it came out
-   * of (packages/dsp/docs/stemcut.md), and it can only do that over files that already exist.
-   * Minutes per song, so this is a command you run the night before rather than mid-set.
-   *
-   * The chain is OPTIONAL and defaults to the machine's — `system stems`. Which module separates
-   * and which model it wants is the same answer every time, so it is asked once and kept in
-   * preferences.yaml; naming one here is the override, for the run that wants a different model.
-   * A chain that treats rather than separates is refused either way, rather than quietly bouncing
-   * thirty songs.
-   *
-   * The songs are the MACHINE's copies, under the médiathèque cache: a deck opens file paths, so
-   * what matters is what is on this disk. Writing into that cache is safe — `syncFamily` drops
-   * what it once fetched (`heldManifest`), never what it finds beside it.
-   *
-   * Sequential and resumable: a song whose `stems/` already holds something is skipped, and the
-   * separation registry hashes the WORK, so even a re-run of an interrupted pass costs nothing
-   * twice. Both halves matter for thirty songs on one machine.
-   */
+  /** `playlist stems <playlist> [chain]` — the night before a gig, see docs/playlist.md. */
   "playlist.stems": async (a, h) => {
     const [first, ...rest] = splitWords(a);
     // Named on the line, else the machine's standing answer. One question, asked once.
@@ -99,9 +77,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     }
     if (!items.length) return h.refuse([`${found.rel} names no song`]);
 
-    // Resolved against the OPEN PROJECT's module vocabulary, like every other cold step: that is
-    // where a `@st0/…` ref becomes a module and a model becomes a path on this machine. The one
-    // playlist verb that needs a project, and it says so rather than throwing NO_PROJECT.
+    // Resolved against the OPEN PROJECT's module vocabulary, like every cold step — docs/playlist.md.
     let chain: ResolvedChain;
     try {
       chain = resolveChain(h.songPath, h.project(), chainRef);
@@ -121,9 +97,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     let skipped = 0;
     for (const item of items) {
       const folder = join(songs, ...item.song.split("/"));
-      // The master is the FIRST audio file in the folder and the scan does not descend — the
-      // médiathèque's own rule (`scanSongs`), restated here because this reads the cache directly
-      // rather than through a scan of every song on the disk.
+      // The master is the FIRST audio file in the folder and the scan does not descend.
       let master: string | undefined;
       try {
         master = readdirSync(folder, { withFileTypes: true }).find(
@@ -137,9 +111,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
         lines.push(`${item.song}: no audio in its folder`);
         continue;
       }
-      // Already done is a question about the FOLDER, not a flag anybody keeps — the same rule
-      // every "is this fresh" question in this repo asks. A half-finished pass costs nothing to
-      // redo: the registry hashes the work and hands back the run already in flight.
+      // "Already done" is a question about the FOLDER, not a flag anybody keeps — docs/playlist.md.
       const out = coldOutDir(join(folder, master));
       const held = existsSync(out) ? readdirSync(out).filter(isAudio) : [];
       if (held.length) {
@@ -157,8 +129,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
           `${item.song}: ${wrote.reduce((n, d) => n + d.files.length, 0)} stem(s)`,
         );
       } catch (e) {
-        // Per song, and the loop goes on: one unreadable file must not cost the other twenty
-        // nine their preparation, and the line says which one it was.
+        // Per song, and the loop goes on: one unreadable file must not cost the other twenty-nine.
         lines.push(`${item.song}: ${(e as Error).message.split("\n")[0]}`);
       }
     }
@@ -168,19 +139,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
       ...lines,
     ]);
   },
-  /**
-   * `playlist song add <playlist> <song> [variant]` — one more line at the end of a set list.
-   *
-   * The song is the REST of the line, spaces included, because a song's ref is a path through
-   * the médiathèque's folders (`AC-DC/Back in Black/Hells Bells`) and asking for quotes around
-   * the common case would be asking for them every time. QUOTE it and a variant may follow —
-   * one rule, and the only one that can tell "a song with spaces" from "a song and a version".
-   *
-   * The ref is kept verbatim and nothing checks it: the catalogue is another service's, and a
-   * playlist that refused a song you are about to upload would be a playlist you cannot write
-   * ahead of a gig. The screen says "morceau introuvable" against the same line, which is where
-   * the two listings meet (apps/st0/frontend/docs/playlists.md).
-   */
+  /** `playlist song add <playlist> <song> [variant]` — quote the song to name a variant, docs/playlist.md. */
   "playlist.song.add": (a, h) => {
     const m = /^("[^"]*"|\S+)\s+(.+)$/.exec(a.trim());
     if (!m)
@@ -206,9 +165,7 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
       song,
       ...(variant ? { variant } : {}),
     });
-    // Null is the file's shape refusing the append — a flow `items: [` spread over lines, say.
-    // The same refusal the screen's button wears, and for the same reason: inventing a second
-    // `items:` key lower down would write a file whose two halves disagree.
+    // Null is the FILE's shape refusing the append — see docs/playlist.md.
     if (next === null)
       return h.refuse([
         `${rel}: the way \`items:\` is written there is not a shape this can extend — add the line by hand`,

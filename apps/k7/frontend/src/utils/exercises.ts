@@ -46,8 +46,7 @@ function pick<T>(arr: readonly T[]): T {
 
 /** A random chord prompt, never equal to `avoid` (the current one). */
 export function randomChord(avoid?: string): ChordPrompt {
-  // Retry a few times so the same chord doesn't come up twice in a row; the
-  // pool is large enough that this converges immediately.
+  // A few retries keep the same chord from coming up twice; the pool converges at once.
   for (let i = 0; i < 20; i++) {
     const root = pick(EXERCISE_ROOTS);
     const q = pick(EXERCISE_QUALITIES);

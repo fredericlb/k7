@@ -11,15 +11,7 @@ const mod = (name: string, over: Partial<DeckModule> = {}): DeckModule => ({
   ...over,
 });
 
-/**
- * Deck A's MODULE plugins, with `modules` loaded onto it.
- *
- * The document ends every deck with the level the crossfader moves (see deck.ts), and the
- * graph does not draw it — a strip is not a step in the signal path, it is how loud the path
- * comes out, which is why st0 draws its mixer as a fader panel and not as a node. So the
- * identity these tests hold is between the graph's nodes and the plugins BEFORE that level;
- * the assertion here is what stops the level quietly moving and the slice hiding a real one.
- */
+/** Deck A's MODULE plugins — everything before the level, which is not a step in the signal path. */
 const deckAModules = (modules: DeckModule[]) => {
   const doc = deckDoc(
     {
@@ -41,8 +33,7 @@ const deckAModules = (modules: DeckModule[]) => {
 
 describe("the deck as a WebGraph", () => {
   it("draws even with nothing loaded", () => {
-    // A deck before a pick is the ordinary state, not an error one — and arranging a chain
-    // BEFORE choosing a song is a thing somebody will want to do.
+    // A deck before a pick is ordinary, and a chain gets arranged BEFORE a song is chosen.
     const g = deckGraph(null, []);
     expect(g.tracks).toEqual([DECKS[0]]);
     expect(g.chains[DECKS[0]].out).toEqual([{ to: "OUT", gain: 1 }]);
@@ -70,9 +61,7 @@ describe("the deck as a WebGraph", () => {
   });
 });
 
-// The finding this step exists for. The plan expected m9 to need a throwaway project
-// folder to get a graph at all; WebGraph is a wire type, so the whole pipeline runs on data
-// built in the browser.
+// `WebGraph` is a WIRE type, so the whole pipeline runs on data built in the browser — no folder.
 describe("no compiler, no project folder", () => {
   it("lays out a browser-built graph through the shared pipeline", () => {
     const { nodes, edges } = buildGraph(deckGraph("Song", [mod("filter")]));
@@ -94,8 +83,7 @@ describe("no compiler, no project folder", () => {
   });
 });
 
-// A graph showing a filter the engine never loaded is a picture of a signal path that does
-// not exist. These two must not drift.
+// A graph showing a filter the engine never loaded pictures a signal path that does not exist.
 describe("the graph and the document agree", () => {
   it("gives a node and a plugin the SAME id", () => {
     const modules = [mod("filter"), mod("crush")];
@@ -111,8 +99,7 @@ describe("the graph and the document agree", () => {
   });
 
   it("maps the authored plugin onto the engine's wire form", () => {
-    // `internal` means the NAME is the engine's type and the module name is the label —
-    // getting this backwards loads nothing at all, silently.
+    // `internal` means the NAME is the engine's type: backwards, it loads nothing at all, silently.
     const plugins = deckAModules([mod("bass")]);
     expect(plugins[0].type).toBe("4OSC");
     expect(plugins[0].name).toBe("bass");

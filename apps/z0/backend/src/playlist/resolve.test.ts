@@ -7,8 +7,7 @@ import {
 } from "./resolve.ts";
 import { __resetSpotifyState } from "./spotify.ts";
 
-// The upstream APIs are stubbed at the global fetch boundary, so these cover
-// the real pagination / ISRC-bridge code paths without touching the network.
+// Stubbed at the global fetch boundary, so the real pagination and ISRC bridge still run.
 
 const dzTrack = (id: number, artist: string, title: string) => ({
   id,

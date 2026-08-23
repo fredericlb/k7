@@ -1,8 +1,6 @@
 import type { SessionUser } from "@frediverse/oidc";
 
-// @frediverse/oidc's requireAuth attaches the logged-in user to the request.
-// Declared here (as k7/routine/labs each do) because the shape is per-app:
-// this backend's own gate is authMiddleware, which uses res.locals instead.
+// Declared per app, because this backend's own gate is authMiddleware, which uses res.locals.
 declare global {
   namespace Express {
     interface Request {

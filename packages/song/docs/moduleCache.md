@@ -86,6 +86,19 @@ before, so `node param`'s write-then-reload still sees its own write.
 
 Lazily, too: a scope that never asks the cache walks nothing.
 
+**It is RE-ENTRANT, and that is not a nicety.** A scope already open for the same project is kept
+rather than replaced. Opening a fresh one threw the enclosing scope's stamp away and walked again —
+which is how HOISTING a scope over two calls that each open their own (a compile and a graph build)
+made things *slower*, measured at +19 ms a level. Same shape as `withRevision` in the file service,
+and for the same reason. The previous scope is RESTORED rather than cleared on the way out, because
+a scope for another folder may enclose this one — the graph of a library chain built while a project
+is open — and the two stamps are not the same.
+
+The oracle above is asked only when there IS a previous stamp to hand back, which is what makes an
+empty watcher safe. `cachedForModules`'s `key` names WHICH read (the loaders cache two), so one
+stamp walk covers both, and insertion order is the LRU: a slot is re-inserted on every hit and the
+oldest goes when there are too many.
+
 ### One more syscall per entry, next door
 
 `yamlFilesIn` in `yaml/moduleIO.ts` belongs to the same pass: listing a folder used to cost

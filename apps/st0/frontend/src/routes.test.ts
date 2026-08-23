@@ -33,16 +33,14 @@ describe("toPath", () => {
     expect(toPath(st({ full: "chains", panel: "logs" }))).toBe(
       "/chains?panel=logs",
     );
-    // `/docs` is the HELP page and `panel=graph` is a panel — two different things that both
-    // used to be spelled "docs" while a Docs panel existed. Only one is left.
+    // `/docs` is the HELP page and `panel=graph` is a panel — two different things that both used to be spelled 'docs'.
     expect(toPath(st({ help: true, panel: "graph" }))).toBe(
       "/docs?panel=graph",
     );
   });
 
   it("names the desk like any other pane", () => {
-    // It was `/surface/desk` — its own kind of address, because a `view` surface was named by
-    // FILENAME and the list was the project's. A pane is named by the union.
+    // It was `/surface/desk` — a `view` surface was named by FILENAME, where a pane is named by the union.
     expect(toPath(st({ full: "turntables" }))).toBe("/turntables");
     expect(toPath(st({ full: "turntables", panel: "logs" }))).toBe(
       "/turntables?panel=logs",
@@ -50,8 +48,7 @@ describe("toPath", () => {
   });
 
   it("stacks help over a pane", () => {
-    // The URL names the TOPMOST screen, because that is the one you are looking at. Getting
-    // this order wrong writes an address that restores something else on reload.
+    // The URL names the TOPMOST screen: getting this order wrong writes an address that restores something else on reload.
     expect(toPath(st({ help: true, full: "turntables" }))).toBe("/docs");
   });
 });
@@ -72,15 +69,13 @@ describe("fromLocation", () => {
   });
 
   it("round-trips the desk once the project declares it", () => {
-    // Not in the loop above: `turntables` needs the flag, exactly as `/viewport` does — the
-    // default is deliberately pessimistic for both. See `fromLocation`'s `declared`.
+    // Not in the loop above: `turntables` needs the flag, exactly as `/viewport` does — the default is pessimistic for both.
     const s = st({ full: "turntables" });
     expect(fromLocation("/turntables", "", { turntables: true })).toEqual(s);
   });
 
   it("falls back to the layout on a path it doesn't know", () => {
-    // The URL bar is user-editable; a typo should land somewhere usable rather than
-    // leaving the shell with no screen at all.
+    // The URL bar is user-editable; a typo should land somewhere usable rather than leaving the shell with no screen at all.
     expect(fromLocation("/nonsense", "")).toEqual(st());
     expect(fromLocation("/", "")).toEqual(st());
   });
@@ -96,9 +91,7 @@ describe("fromLocation", () => {
   });
 
   it("no longer reads a `/surface/<id>` address", () => {
-    // The one surface that had a screen of its own is a pane, so the segment names nothing. An
-    // old link falls through to the layout, like any other unknown path — which is where
-    // `/surface/desk` already landed on a project that had no such file.
+    // The one surface that had a screen of its own is a pane, so the segment names nothing and falls through to the layout.
     expect(fromLocation("/surface/desk", "")).toEqual(st());
     expect(fromLocation("/surface/", "")).toEqual(st());
     expect(fromLocation("/surface", "")).toEqual(st());
@@ -107,8 +100,7 @@ describe("fromLocation", () => {
 
 describe("viewPanes", () => {
   it("gives the layout its timeline only when the project declares one", () => {
-    // The timeline is a `split` surface now, not a pane the shell hands out — so the layout is
-    // a function of what the PROJECT says rather than a table. See packages/song/docs/surfaces.md.
+    // The timeline is a `split` surface now, so the layout is a function of what the PROJECT says (packages/song/docs/surfaces.md).
     expect(viewPanes({ timeline: true })).toEqual({
       ring: ["timeline", "chains"],
       fullscreen: ["editor", "timeline", "chains"],
@@ -120,17 +112,13 @@ describe("viewPanes", () => {
   });
 
   it("keeps the editor when the arrangement is missing", () => {
-    // A project with no timeline surface is one that has not declared an arrangement, and its
-    // files are still what you are there to edit. `live` used to fullscreen NOTHING here, on
-    // the grounds that its single pane already had the window; that layout went with the mode,
-    // and this is the half of the pair that leaves you somewhere to work.
+    // A project with no timeline surface still has files to edit, and this is the half of the pair that leaves you somewhere to work.
     expect(viewPanes({ timeline: false }).fullscreen).toContain("editor");
     expect(viewPanes({ timeline: false }).ring).toEqual(["chains"]);
   });
 
   it("refuses `/timeline` as an address when there is no timeline", () => {
-    // The same rule that already refuses it in a live project: an address must not parse into a
-    // pane nothing will mount.
+    // The same rule that already refuses it in a live project: an address must not parse into a pane nothing will mount.
     expect(fromLocation("/timeline", "", { timeline: true }).full).toBe(
       "timeline",
     );
@@ -138,8 +126,7 @@ describe("viewPanes", () => {
   });
 
   it("puts the FRAME above the arrangement when the project declares one", () => {
-    // The ring is read by the number keys and the mobile tabs, so its order is the order the
-    // panes are stacked on screen — frame, arrangement, desk, graph.
+    // The ring is read by the number keys and the mobile tabs, so its order is the stacking order — frame, arrangement, desk, graph.
     expect(viewPanes({ timeline: true, viewport: true })).toEqual({
       ring: ["viewport", "timeline", "chains"],
       fullscreen: ["editor", "viewport", "timeline", "chains"],
@@ -152,14 +139,12 @@ describe("viewPanes", () => {
   });
 
   it("puts the DESK directly over the graph", () => {
-    // A SET: no arrangement, a desk and the chains it is played against. Those two are the
-    // whole column, which is the point of the desk being a pane rather than a screen over it.
+    // A SET: no arrangement, a desk and the chains it is played against — the whole column, which is the point of the desk being a pane.
     expect(viewPanes({ timeline: false, turntables: true })).toEqual({
       ring: ["turntables", "chains"],
       fullscreen: ["editor", "turntables", "chains"],
     });
-    // …and under the arrangement when a project somehow declares both, since the ring is the
-    // stacking order and the desk sits nearest the graph.
+    // …and under the arrangement when a project declares both, the ring being the stacking order.
     expect(
       viewPanes({ timeline: true, viewport: true, turntables: true }).ring,
     ).toEqual(["viewport", "timeline", "turntables", "chains"]);
@@ -172,15 +157,12 @@ describe("viewPanes", () => {
     expect(fromLocation("/turntables", "", { turntables: false })).toEqual(
       st(),
     );
-    // …and NOT by the optimistic default the timeline gets: a desk is the exception, so an
-    // ordinary song must never parse this address on the frame before the surfaces land.
+    // …and NOT by the optimistic default the timeline gets: a desk is the exception, so an ordinary song must not parse this address.
     expect(fromLocation("/turntables", "")).toEqual(st());
   });
 
   it("drops the editor from a FROZEN layout, and from its addresses", () => {
-    // A shared snapshot has no source at all — no /tree and no /file — so the editor is not a
-    // pane whose document is read-only, it is a pane with nothing behind it. Dropped in the one
-    // list the number keys, the mobile tabs, `ui editor` and every address all read.
+    // A shared snapshot has no source at all, so the editor is a pane with nothing behind it — dropped in the one list every address reads.
     expect(viewPanes({ timeline: true, frozen: true })).toEqual({
       ring: ["timeline", "chains"],
       fullscreen: ["timeline", "chains"],
@@ -203,8 +185,7 @@ describe("viewPanes", () => {
   });
 
   it("lands an old `/video` bookmark on the frame", () => {
-    // It was the picture pane's address for a year. Subject to the same check as any other, so
-    // a song without picture still falls through to its layout rather than to a dead pane.
+    // It was the picture pane's address for a year, and is subject to the same check as any other.
     expect(fromLocation("/video", "", { viewport: true }).full).toBe(
       "viewport",
     );

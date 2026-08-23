@@ -15,8 +15,7 @@ export function findEngineBinary(): string | null {
   const override = process.env.STUDIO_ENGINE;
   if (override && existsSync(override)) return override;
 
-  // Beside the running executable: in a packaged app the supervisor IS the vendored node, next to the staged
-  // engine, and its import.meta.url points into Resources where the repo walk finds nothing.
+  // Beside the running executable: in a packaged app the supervisor IS the vendored node, and the repo walk finds nothing.
   const sidecarDir = dirname(process.execPath);
   for (const name of ["studio-moteur.exe", "studio-moteur"]) {
     const p = join(sidecarDir, name);
@@ -43,20 +42,7 @@ export function findEngineBinary(): string | null {
     }
   }
   if (!found.length) return null;
-  /**
-   * Newest first WITHIN a tier, and Debug is a tier of its own, below every other.
-   *
-   * Freshness alone was the rule and it is a trap, because the two things a `--config Debug` build
-   * is newer than are the RelWithDebInfo binary beside it and nothing else. At -O0 the DSP path —
-   * NAM's Eigen inference, the DspGraph interpreter, 186 AirWindows effects — cannot render in real
-   * time: the transport crawls at a fraction of a second per second and the device crackles, which
-   * reads as a broken SONG rather than as the wrong flags. CMakePresets.json says the same thing
-   * about the dev presets; this is the multi-config generator's half of it, where the choice is not
-   * in the preset but in a `--config` typed at a shell months later.
-   *
-   * A Debug build is still picked when it is the only one there — someone who built nothing else
-   * meant it.
-   */
+  // Newest first WITHIN a tier, Debug being a tier of its own below every other: at -O0 the DSP path cannot render in real time.
   found.sort(
     (a, b) =>
       Number(a.debug) - Number(b.debug) ||

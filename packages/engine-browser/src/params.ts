@@ -56,13 +56,7 @@ export function usePluginParams(store: PluginParamsStore): PluginParamsMap {
   );
 }
 
-/**
- * One plugin param's live value. Returns a PRIMITIVE, so React's own Object.is is the equality
- * cache and a frame that did not move this number re-renders nothing — see docs/params.md.
- *
- * A null id or name is the "nothing to watch" case (a widget bound to a track or an offline
- * module), so a caller can hold the hook unconditionally.
- */
+/** One plugin param's live value as a PRIMITIVE, with null meaning "nothing to watch" so a caller can hold the hook unconditionally — docs/params.md. */
 export function usePluginParamValue(
   store: PluginParamsStore,
   id: string | null,

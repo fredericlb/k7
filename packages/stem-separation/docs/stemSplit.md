@@ -92,6 +92,32 @@ reconstructing the mix, so nothing holds its output inside ±1; `peakOf` measure
 before it is written and the job's `lines` say when one was clamped. Silence would be worse:
 the alternative way to learn about it is a click at the loudest moment of the record.
 
+## Windows, and how they are folded back — `separateAudio.ts`
+
+The graph's input length is fixed, so a five-minute song is cut into windows of exactly
+`SEGMENT` samples and the results are folded back into one signal. Three details decide
+whether that is audible.
+
+**The last window is pulled back**, not run past the end. `windowStarts` ends the final window
+*at* the file's end, so the tail is covered by real audio rather than by padding. A file shorter
+than one window gets a single window at 0, which the caller pads — there is nothing to pull back
+to.
+
+**The weight is a triangle**, 0 at the edges and 1 in the middle, which is what makes the 25 %
+overlap a crossfade rather than a seam. Each output sample is the weighted mean of every window
+covering it, so a sample at the edge of one window — where the model had the least context — is
+dominated by the window that saw it in the middle. The ends are nudged off zero on purpose: a
+sample covered by exactly one window (the very first and last of a file) would otherwise divide
+by a zero weight and come out as silence or NaN.
+
+**The accumulator holds sums, not windows.** `OverlapAdd` keeps sum of (weight × sample) over
+the top and sum of weight underneath, divided at the end — the standard overlap-add. Two flat
+buffers per stem, because a five-minute song is 13 million samples per channel and keeping every
+window alive would be several gigabytes. The weight ledger is per *position*, not per stem or
+channel, since every stem sees the same windows.
+
+The WAV writer is by hand: a 44-byte header is smaller than the argument for a dependency.
+
 ## The second door is `POST /process`, and `/stems` is GONE
 
 There are two doors. `POST /separate` is per MACHINE and takes absolute paths, including the
@@ -180,6 +206,20 @@ resolution finds it. See `engine/capot/scripts/docs/buildEngine.md`.
 
 **macOS is not covered.** Nothing in this repo signs a third-party `.dylib`, so a notarised
 `.app` carrying `libonnxruntime.dylib` is unsolved. Windows and Linux bundles carry it.
+
+That is also why `separateWorker.ts` imports ORT **by name through a variable** and types it
+against a four-member interface written out in the file rather than against the package. Two
+reasons, the second load-bearing: the module has to be importable — by a test, by a `tsc --noEmit`
+on a machine that has not installed 300 MB of native code — without the dependency resolving; and
+esbuild must leave the specifier alone for `external` to work. Naming the four members is not
+ceremony either: it is the contract the separation depends on, so an ORT release that changed it
+fails against a declaration somebody can read instead of somewhere deep in an inference loop.
+
+`decode()` is the one ffmpeg call in this repo that is **not** best-effort, for the reason the
+section above gives: elsewhere a missing ffmpeg costs a format and the wav survives, here it costs
+the only thing the request asked for. Resampling and mono-to-stereo are ffmpeg's job because the
+model's input length is fixed — arriving at 48 kHz is not a quality question, it is the wrong
+number of samples.
 
 ## The call site
 

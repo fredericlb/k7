@@ -44,6 +44,22 @@ stays read-only, and every save aimed into it forks — including one that meant
 
 The result is an ordinary project-local module. The next save goes straight to it; only the first edit forks.
 
+Four details behind those four steps:
+
+- **`sharedRoots` reads through `moduleLibraryDirs`**, so the médiathèque is among them. A module the loader
+  keyed and the catalogue listed, but that this function did not see, was one the builder refused to open.
+- **`chainsUsing` counts `out` as well as `use`.** A module several things feed is a chain of its own now, and a
+  chain that only ever names itself tells nobody anything — which is why its own chain is left out. It is
+  exported because naming a fork after its track and naming a NODE after its lane are the same question
+  (`instanceName.ts`), and one question is entitled to one answer: the first chain it returns is the owner in
+  both.
+- **Only a shared module's own module file may be forked.** A sidecar forked on its own would land in a folder
+  no chain names, which is a silent no-op dressed up as a save, so `forkSharedModule` throws for anything else.
+- **The panel is REWRITTEN even though the folder copy brought it.** Its header then names the copy instead of
+  the module it was drawn for: a `ui.yaml` whose comment still points at `@engine/…` reads as the fork having
+  borrowed a face rather than been given one. The `chains` reported afterwards are the chains as they now
+  stand, so the report names what the copy plays in rather than which nodes were rewired.
+
 ## Why a folder and not a node
 
 The obvious shape is a node file beside the shared module — `<track>_<leaf>_<n>.yaml`, which is what the
@@ -83,7 +99,9 @@ module is a folder.
 
 So this is the moment it becomes one:
 
-1. Make `modules/<category>/<slug>/`, stepping past a name the project has taken.
+1. Make `modules/<category>/<slug>/`, stepping past a name the project has taken. Not `instanceName`: this one
+   is named after a PLUGIN's own slug and wants it bare, so the folder reads as the plugin it is, and the
+   counter only appears when the name is already taken — two engine modules can slug the same.
 2. Write a `module.yaml` recording **which plugin** to load — the scan is a discovery aid, not the project's
    memory of what it uses, and the project must still open on a machine that has never scanned.
 3. Repoint every chain step naming the ref, exactly as a fork does.

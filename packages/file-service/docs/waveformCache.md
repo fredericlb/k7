@@ -167,3 +167,82 @@ jamais ses bandes. Le prix est que tout ce qui est déjà analysé l'est de nouv
 Les trois champs restent **optionnels** dans `FileEnvelope`. La porte de version fait qu'un
 service à jour ne sert que du v4 — mais une surface qui les lit doit se dégrader vers une
 enveloppe simple plutôt que vers une vide, et un type optionnel est ce qui l'y oblige.
+
+## waveformOps.ts — the per-session layer over the sidecars
+
+`waveformOps.ts` slices the engine-computed file envelopes to clip regions, memoizes the sliced
+results, and prewarms the whole active project in the background. The durable cache is still the
+sidecars above; everything in that file is in memory and per session.
+
+### What the memo signature has to fold
+
+`wfSig` folds the envelope's content fingerprint plus the placement, tempo and bucket count the
+region math reads. `sourceFrom`, `sourceTo` and the warp markers are in there because
+`regionWaveform` reads all three: they decide WHICH part of the file the region shows and at what
+rate. They were absent while the region math ignored them, which was harmless then and would now
+mean trimming a clip's `from` left the old picture on screen. The markers themselves go in, not
+just "is it warped" — moving one changes the rate.
+
+**A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS.** st0's timeline keeps its own entry
+per clip and filed it under the id alone, which put that exact bug back one layer up: the block
+went on drawing the untrimmed envelope. Its mirror of this signature is
+`apps/st0/frontend/src/clipEnvelope.ts`; change one and read the other.
+
+The sensitivity rides in the signature too, because re-detecting changes the onsets and nothing
+else, and a memo keyed only on the fingerprint would keep serving the previous threshold's
+answer. The onset corrections ride there for exactly the same reason — moving one onset must not
+be answered from the memo of the last one.
+
+### `whole` means the MATERIAL, not the placement
+
+The clip as its own file defines it, so the span is the source's full duration instead of
+whatever musical length a track happened to place it with. That is the view a `clips/<id>.yaml`
+wants: you are editing the sample there, and `from`/`to` can only be judged against the whole of
+it. `whole` therefore reverses the usual precedence — the definition carries no
+start/length/offset, which is exactly what makes the span the file.
+
+Because the window is the thing being JUDGED against the file, it must not also crop the picture.
+It did: `regionWaveform` opens the region AT `sourceFrom` and blanks whatever lies past
+`sourceTo` (two different cuts — only the first shortens the span). So a NUMERIC `from:`/`to:` —
+exactly what `clip trim` writes — silently redrew the pane as the trim itself: head gone, tail
+flat, and no way left to see what had been cut or to judge putting it back. A TIMECODE window
+escaped it, because `mapClip` only reads a number, so the two spellings of one field drew two
+different pictures. Drawn windowless and shaded instead, they draw the same one.
+
+The window that is SHADED is the PLACEMENT's, not the definition's. Since the descent
+(`packages/song/docs/materialCut.md`) a material states no window at all: a clip file describes
+the bytes, a placement describes the use. Shading with the definition's left every whole-file view
+unshaded — and a caller that has no `eventWindow` of its own, like the take review, then framed on
+the whole file and put its mark at zero instead of at the take's head. Handed a bare material
+name, there is no placement to ask and the answer is honestly nothing to shade.
+
+The tempo grid is passed down so a TIMECODE `from:`/`to:` resolves to seconds here as it does in
+the compiler. An imported song writes nearly all of them that way, and without it the definition
+came back with no window at all — the picture was right, and there was nothing to shade it with.
+
+### The material behind an id
+
+A clip's id identifies a PLACEMENT (`bass_2_0@16`), and the two lookups want different things out
+of it: `findClip` wants the placement, while `clips/<ref>.yaml` and the onset corrections are
+properties of the file every placement of it shares. Handed a bare material name — which the
+route also is, for the whole-file view — `materialRefOf` returns it unchanged.
+
+The clip's own onset corrections are applied to the DETECTED set before anything maps it into the
+region: both are file seconds, and the region mapping is what turns them into the display seconds
+a surface draws. Resolved once here rather than in each surface, so the slice widget, the clip
+block and the take review all draw the same onsets without knowing corrections exist. The raw set
+is sent beside it, mapped the same way, so an editor can tell which pins it may only refuse and
+which it may pick up.
+
+### Prewarm, cancel and clear
+
+Prewarm runs in two phases: rebuild every stale sidecar in ONE engine process, so a song of fresh
+clips pays JUCE startup once, then memoize the sliced results on the fast no-spawn path now the
+sidecars are fresh. A run guard plus an `AbortController` let a newer prewarm — or a delete —
+take over: on Windows a held `.wav` blocks a rename, so cancelling has to kill the child and not
+merely stop consuming it.
+
+`clear` drops the memo and every `{source}.cache` sidecar, which is a walk since they sit beside
+their audio. The sweep uses the tree's own hidden-name rule, so it never clears where the user
+does not consider their workspace to be, and each unlink has its own catch so one sidecar the
+engine still holds open does not abandon the rest.

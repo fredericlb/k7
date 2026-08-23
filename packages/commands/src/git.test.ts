@@ -12,13 +12,7 @@ import {
   switchAlternative,
 } from "./git";
 
-// An alternative is a branch you try a direction on. The three verbs that END one — apply, cancel, switch —
-// each decide what happens to work you have not committed, and they must agree: `switch` commits it, so
-// `apply` does too. Refusing with "commit them first" sent you off to run a second command that would only
-// have produced this same commit, and the edits being applied are usually the last ones you made.
-//
-// A real repo, because every one of these is a git behaviour: what a stub would prove is that the stub agrees
-// with itself.
+// Apply, cancel and switch must agree about uncommitted work, and a real repo is what proves it — docs/git.md.
 
 let dir: string;
 const git = (...args: string[]) =>
@@ -32,8 +26,7 @@ beforeEach(() => {
   git("config", "user.email", "t@t.test");
   git("config", "user.name", "t");
   git("config", "commit.gpgsign", "false");
-  // The host's global config turns LF into CRLF on checkout. These assertions compare file CONTENT to prove a
-  // merge carried it, so the fixture opts out — otherwise they measure the line-ending setting, not the merge.
+  // The host's global config turns LF into CRLF on checkout, which these content assertions would measure.
   git("config", "core.autocrlf", "false");
   writeFileSync(song(), "tempo: 120\n");
   git("add", "-A");
@@ -100,8 +93,7 @@ describe("applying an alternative", () => {
   });
 });
 
-// The neighbours, pinned here because `apply`'s rule is "the same as switch's" — a change to one of them
-// should be a visibly deliberate change to the pair.
+// The neighbours, pinned here because `apply`'s rule is "the same as switch's".
 describe("the other two verbs", () => {
   it("switch commits work in progress too", () => {
     newAlternative(dir, "faster");

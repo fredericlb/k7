@@ -5,13 +5,9 @@
 export interface SessionRow {
   id: number;
   name: string;
-  // The caller's saved solo score for this session, when one exists. Set
-  // server-side from the Scores Grist table for non-guest users; absent
-  // means "never completed yet". The picker renders it as a small badge.
+  // The caller's saved solo score; absent means never completed, and the picker badges it.
   score?: number;
-  // Resume marker: present iff the user has an unfinished solo run on
-  // this session. The picker shows a RESUME label and the played/total
-  // ratio so the player knows where they left off without selecting first.
+  // Present only for an unfinished run, so the picker can label it without selecting first.
   resume?: {
     orderIndex: number;
     songIndex: number;
@@ -21,9 +17,7 @@ export interface SessionRow {
   };
 }
 
-// LoadProgress mirrors the backend's "session_loading" WS payload (and the
-// solo-load HTTP polling shape) so SessionPicker can render the bar from
-// either source without further translation.
+// Mirrors the "session_loading" WS payload, so the bar draws from either source untranslated.
 export interface LoadProgress {
   id: number;
   done: number;

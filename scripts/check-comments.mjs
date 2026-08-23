@@ -3,39 +3,71 @@
 //
 // Non-blocking, like lint:dead. It reports a debt that predates the rule, so the number is a
 // budget to spend down as files are touched — not a gate. New code has no excuse.
+// Why it scans blocks rather than matching line by line: ../docs/lints.md.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const HEADER_MAX = 10;
 
+/** A run of `/* … *\/` with no closing marker is a template literal, not a comment — bail out. */
+const RUNAWAY = 60;
+
 /** Lines that are a directive rather than prose, so length rules do not apply. */
 const DIRECTIVE =
-  /^\s*(\/\/|\/\*)\s*(biome-ignore|eslint|@ts-|prettier-ignore|<reference)/;
+  /^\s*(\{\s*)?(\/\/|\/\*)\s*(biome-ignore|eslint|@ts-|prettier-ignore|<reference)/;
 
-const isComment = (l) => /^\s*(\/\/|\/\*|\*)/.test(l);
+/** Opens a block comment: `/*`, `/**`, or JSX's `{/*` — the last is why this is not a line match. */
+const OPENS = /^\s*(\{\s*)?\/\*/;
+const CLOSES = /\*\//;
+const LINE = /^\s*\/\//;
 const isBlank = (l) => /^\s*$/.test(l);
 
-/**
- * French prose, detected on FUNCTION WORDS rather than on accents.
- *
- * Accents were the first try and they cannot work: this codebase writes the names of its own
- * things — the médiathèque, a dépôt, a chaîne — inside perfectly good English sentences, so an
- * accent test flags prose that is already fine and never reaches zero. Function words are what a
- * language actually is, and they also catch French that happens to carry no accent.
- */
-/**
- * Quoted spans, dropped before the test.
- *
- * The screens are in French, so an English comment naming one quotes it — « Trouver des morceaux »
- * is the button's name, not prose to translate. Only the guillemet and double-quote forms, because
- * the apostrophe is a French letter and stripping `'…'` would eat the sentence around it.
- */
+/** Quoted spans, dropped before a test that reads FUNCTION WORDS and not accents (../docs/lints.md). */
 const QUOTED = /«[^»]*»|"[^"]*"/g;
 
 // `on`, `son`, `plus`, `sa` and `vers` are English words too and are deliberately absent.
 const FRENCH =
   /(^|[\s("'`])(le|les|une|des|du|aux|cet|cette|ces|qui|que|dont|sont|pas|pour|dans|avec|sans|donc|mais|alors|c'est|n'est|qu'il|qu'elle|elle|nous|vous|leur|ses|ainsi|ici|celui|celle|ceux|rien|tout|toute|toutes|tous|entre|chez|depuis|jamais|toujours|lorsque|parce|puisque|d'un|d'une|l'on|n'a|qu'on)([\s,.;:!?)"'`]|$)/i;
+
+/** Every comment RUN from `from` on, plus the lines each covers — see ../docs/lints.md. */
+function runs(lines, from) {
+  const out = [];
+  const covered = new Set();
+  let i = from;
+  while (i < lines.length) {
+    if (OPENS.test(lines[i])) {
+      let k = i;
+      while (k < lines.length && !CLOSES.test(lines[k]) && k - i < RUNAWAY) k++;
+      if (k - i >= RUNAWAY) {
+        i++;
+        continue;
+      }
+      for (let n = i; n <= k; n++) covered.add(n);
+      if (k > i && !DIRECTIVE.test(lines[i]))
+        out.push({ line: i + 1, len: k - i + 1 });
+      i = k + 1;
+      continue;
+    }
+    if (LINE.test(lines[i])) {
+      let k = i;
+      while (k < lines.length && LINE.test(lines[k])) k++;
+      for (let n = i; n < k; n++) covered.add(n);
+      // A directive inside a run SPLITS it: it is not prose, and it may not share a line with any.
+      let seg = i;
+      for (let n = i; n <= k; n++) {
+        if (n === k || DIRECTIVE.test(lines[n])) {
+          if (n - seg > 1) out.push({ line: seg + 1, len: n - seg });
+          seg = n + 1;
+        }
+      }
+      i = k;
+      continue;
+    }
+    i++;
+  }
+  return { out, covered };
+}
 
 const files = execFileSync(
   "git",
@@ -64,26 +96,24 @@ for (const file of files) {
 
   // The header is the comment run the file opens with, after any blank lines.
   let i = 0;
+  // A shebang comes BEFORE the header, and stopped the skip dead — ten scripts read as body blocks.
+  if (/^#!/.test(lines[0] ?? "")) i = 1;
   while (i < lines.length && isBlank(lines[i])) i++;
   const headerStart = i;
-  while (i < lines.length && isComment(lines[i])) i++;
+  while (i < lines.length && /^\s*(\/\/|\/\*|\*)/.test(lines[i])) i++;
   const headerLen = i - headerStart;
   if (headerLen > HEADER_MAX)
     longHeaders.push({ file, line: headerStart + 1, len: headerLen });
 
-  // Every comment run in the body. Two consecutive comment lines is already a block.
-  for (let j = i; j < lines.length; j++) {
-    if (!isComment(lines[j]) || DIRECTIVE.test(lines[j])) continue;
-    let k = j;
-    while (k < lines.length && isComment(lines[k])) k++;
-    if (k - j > 1) blocks.push({ file, line: j + 1, len: k - j });
-    j = k;
-  }
+  const { out, covered } = runs(lines, i);
+  for (const b of out) blocks.push({ file, ...b });
 
-  for (const [n, l] of lines.entries())
-    if (isComment(l) && FRENCH.test(l.replace(QUOTED, " ")))
+  for (const n of covered)
+    if (FRENCH.test(lines[n].replace(QUOTED, " ")))
       french.push({ file, line: n + 1 });
 }
+
+french.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 
 const show = (list, label, fmt) => {
   if (!list.length) return;

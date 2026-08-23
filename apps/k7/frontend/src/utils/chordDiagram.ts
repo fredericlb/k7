@@ -11,8 +11,7 @@ import type {
   GuitarDb,
 } from "../types/chords";
 
-// resolveJsonModule infers a huge literal type whose `chords` object has no string
-// index signature; cast to our shape so `chords[key]` lookups type-check.
+// A cast, because resolveJsonModule infers no index signature — ../../../docs/tablature.md.
 const guitar = guitarData as unknown as GuitarDb;
 
 /** Instrument config consumed by @tombatossals/react-chords. */
@@ -24,8 +23,7 @@ export const GUITAR: ChordInstrument = {
   tunings: guitar.tunings,
 };
 
-// Root note -> chords-db `chords` property name (sharps camelCased, some flats
-// kept, enharmonics folded in).
+// Root note to the chords-db property name: sharps camelCased, enharmonics folded in.
 const ROOT_TO_DB: Record<string, string> = {
   C: "C",
   "C#": "Csharp",
@@ -95,11 +93,7 @@ const SUFFIX_ALIASES: Record<string, string> = {
 
 const norm = (s: string) => s.replace(/♯/g, "#").replace(/♭/g, "b");
 
-/**
- * Guitar fingering positions (alternatives) for a chord symbol, or null when the
- * chord isn't in the database. Tries the exact quality, then slash form, then the
- * bare triad.
- */
+/** Fingerings for a chord symbol — exact quality, then slash, then bare triad — or null. */
 export function getChordPositions(symbol: string): ChordPosition[] | null {
   const parts = splitChord(symbol);
   if (!parts) return null;

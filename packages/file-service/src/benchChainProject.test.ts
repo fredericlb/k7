@@ -39,20 +39,13 @@ const benchRoot = (): string =>
 /** …and the chain inside it. This is what used to be `$STUDIO_MEDIATEK/chains/…`. */
 const libraryChain = (): string => join(benchRoot(), "_libraries", CHAIN);
 
-/**
- * The URI the account's libraries are registered under.
- *
- * Never fetched here: the mount is pre-populated below, so `ensureLibraries` finds it and
- * returns without touching git. That is the point — this test is about the chain's round trip
- * through the filesystem, not about cloning.
- */
+/** Never fetched: the mount is pre-populated, so `ensureLibraries` returns without touching git. */
 const LIBRARIES_URI = "git@example.test:studio/libraries.git";
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "td-benchchain-home-"));
   prevHome = process.env.HOME;
-  // Off the real machine: this test WRITES to a library checkout, which is the whole point of
-  // it, and the user's own is not a fixture.
+  // Off the real machine: this test WRITES to a library checkout, and the user's own is not a fixture.
   process.env.HOME = home;
 
   // The library submodule, laid out by hand where the file service would have cloned it.
@@ -100,8 +93,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
-    // Saved untouched: whatever the bench opened must be what the catalogue gets back, or every
-    // open-and-close of a chain would rewrite it.
+    // Saved untouched, or every open-and-close of a chain would rewrite it.
     const opened = readFileSync(join(benchDir(project), "graph.yaml"), "utf8");
     ws.write(`${project}/graph.yaml`, opened);
 
@@ -119,8 +111,7 @@ describe("a médiathèque chain, opened on the bench", () => {
     const ws = new Workspace(root);
     ws.setActiveProject(project);
 
-    // What editing a chain on the bench actually looks like: a module spliced in before the
-    // strip, which is the bench's stand-in for `@out`.
+    // Editing a chain on the bench: a module spliced in before the strip, its stand-in for `@out`.
     ws.write(
       `${project}/graph.yaml`,
       "modules:\n  banc: [ comp ]\n  comp: [ reverb ]\n  reverb: [ mixer ]\n  mixer: [ OUT ]\n",
@@ -145,9 +136,7 @@ describe("a médiathèque chain, opened on the bench", () => {
       readFileSync(join(libraryChain(), "nodes", "comp.yaml"), "utf8"),
     ).toContain("Ratio: 8");
 
-    // The bench's LANE is somewhere to put material, and has no business in a chain other
-    // projects load. It is a node like the module above, so what keeps it here is its
-    // NAME — the bench's own furniture — rather than which folder it sits in.
+    // The bench's LANE has no business in a shared chain, and its NAME is what keeps it out.
     ws.write(
       `${project}/nodes/banc.yaml`,
       'extends: "@studio/track"\nevents: []\n',
@@ -156,11 +145,7 @@ describe("a médiathèque chain, opened on the bench", () => {
   });
 
   it("writes a shared module in place, with no fork and no push", async () => {
-    // This used to answer `{ pushed: true }`: the bench's `modules/` was a mirror of a
-    // machine-wide cache, so a save there had to be pushed to the hosted médiathèque or the
-    // next open would discard it. The library is a submodule now, so a shared module is an
-    // ORDINARY path — written where it is, and published by `project commit` when somebody
-    // decides to. No mirror to be discarded by, and nothing to fire and forget.
+    // This used to answer `{ pushed: true }`; a shared module is an ORDINARY path now, published by a commit.
     const { project } = await ensureChainBench(EMAIL, CHAIN, LIBRARIES_URI);
     const ws = new Workspace(benchRoot());
     ws.setActiveProject(project);

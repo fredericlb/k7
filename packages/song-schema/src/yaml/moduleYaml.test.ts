@@ -10,12 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseModule, setModuleValue } from "./moduleFile";
 
-// The spike's evidence. Three questions decide whether YAML can replace CUE for module
-// files, and only the third is really about YAML:
-//
-//   1. does it validate as tightly?      — the errors that mattered today
-//   2. does it survive this app's words? — `5:1:1`, `on`, `C4`, `no` (the 1.1 trap)
-//   3. does an EDIT keep the file?       — the whole argument; see "editing" below
+// Three questions: does it validate as tightly, does this app's vocabulary survive it, and does an EDIT keep the file.
 
 const M = (body: string) => body.replace(/^\n/, "");
 
@@ -108,11 +103,7 @@ rack:
 
 describe("this app's vocabulary survives YAML", () => {
   it("keeps a timecode a string, not a sexagesimal number", () => {
-    // THE trap. In YAML 1.1 `5:1:1` is 18061 and `on` is `true` — st0 writes both
-    // all day (marker timecodes, bypass states). 1.2 is forced in PARSE_OPTIONS; this is
-    // what proves it, and what fails the day someone "modernises" that option.
-    // `content` is the free-text field now that `docs:` is gone (a note is a doc module) —
-    // same job here: an arbitrary string a human types, which 1.1 would reinterpret.
+    // THE trap: 1.2 is forced in PARSE_OPTIONS, and this fails the day someone "modernises" it.
     const { value } = parseModule("content: 5:1:1\n");
     expect(value?.content).toBe("5:1:1");
   });
@@ -141,9 +132,7 @@ content: C4
 });
 
 describe("editing", () => {
-  // A module file as a human leaves it: a header, a blank line, a comment on a key,
-  // inline flow maps, and a deliberate key order. Every one of these is a thing the CUE
-  // path had to protect by hand (cueText.ts) and a thing a naive parse→stringify loses.
+  // A module file as a human leaves it — every part of which a naive parse-then-stringify loses.
   const AUTHORED = M(`
 # amp: the head the whole record goes through.
 # Swap the model, not the module.
@@ -171,14 +160,12 @@ ui:
         l === before[i] ? null : `${i + 1}: ${before[i]} -> ${l}`,
       )
       .filter(Boolean);
-    // ONE line. That is the whole case for the Document API: a knob drag is a one-line
-    // diff in git, not a reflowed file.
+    // ONE line: the whole case for the Document API — a knob drag is a one-line diff in git.
     expect(changed).toEqual(["9:   Level: 0.8 ->   Level: 0.5"]);
   });
 
   it("keeps every comment", () => {
-    // A file-valued param is edited exactly like a numeric one, comment and all — which is
-    // the point of it living in `params:` rather than in a field of its own.
+    // A file-valued param is edited exactly like a numeric one, which is why it lives in `params:`.
     const after = setModuleValue(AUTHORED, ["params", "nam"], "twin.nam");
     expect(after).toContain("# amp: the head the whole record goes through.");
     expect(after).toContain("# Swap the model, not the module.");
@@ -188,8 +175,7 @@ ui:
   });
 
   it("keeps inline flow maps inline", () => {
-    // The widget grid writes these; expanding them to block style on every edit would
-    // churn the file and bury the change.
+    // The widget grid writes these, and expanding them to block style would bury the change.
     const after = setModuleValue(AUTHORED, ["ui", "widgets", "w1", "max"], 2);
     expect(after).toContain("w1: { type: knob,");
     expect(after).toContain("max: 2 }");

@@ -21,9 +21,7 @@ import {
   writeModule,
 } from "./testSupport";
 
-// A module needn't extend anything — it can carry its rack inline, or stand as a bare
-// routing node. These check the three enforcement points that used to require a base: the
-// generated #tdModule schema, the compiler's ref-check + build loop.
+// A module needn't extend anything, so the schema, the ref-check and the build loop must all allow it.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -37,11 +35,7 @@ const SONG = join(
   "synth-demo.st0",
 );
 
-// The fixture's instrument step is found by the PREFIX "synth", not matched literally: the
-// song names a NODE there ({module: synth:lead}), and these tests only care that it's
-// the synth module's step, whichever of its files the demo happens to use. testSupport
-// throws when no such step exists, so an edit aimed at a step that moved fails loudly
-// instead of leaving a test that proves nothing.
+// Found by the PREFIX "synth", since the song names a NODE there, and a miss throws loudly.
 
 describe("bare (extends-less) modules", () => {
   let dir: string;
@@ -52,9 +46,7 @@ describe("bare (extends-less) modules", () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
   it("makes extends optional, and has no `name` field at all", () => {
-    // The schema's half of it: a bare module has to VALIDATE before the compiler can be
-    // asked to build one. And `name` must not exist — the FOLDER names the module, so a
-    // file carrying one would give two answers with no rule for which wins.
+    // A bare module has to VALIDATE, and `name` must not exist since the FOLDER names it.
     expect(ModuleSchema.safeParse({}).success).toBe(true);
     expect(
       ModuleSchema.safeParse({ extends: "instruments/fourosc" }).success,
@@ -74,9 +66,7 @@ describe("bare (extends-less) modules", () => {
   });
 
   it("compiles a self-contained rack module (inline rack, no extends) to a sampler", () => {
-    // The module is its own folder; the file is the generic one and the FOLDER names it.
-    // Called `drumkit` and not `kit`: the fixture's `kit` is a LANE, and one flat name space
-    // means a node may not take a module's name (or the other way round).
+    // Called `drumkit` and not `kit`, since the fixture's `kit` is a LANE in the same name space.
     writeModule(dir, "instruments", "drumkit", {
       type: "rack",
       rack: { symbols: { BD: { note: 36, clip: "kick.wav" } } },

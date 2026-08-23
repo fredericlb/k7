@@ -120,14 +120,38 @@ Windows support; code-server means WSL here. What tmux provides on Linux — a P
 that outlives and multiplexes its viewers — is exactly what `server.mjs` implements
 with node-pty and xterm.js, the bricks VS Code itself is made of.
 
+## The name, and the one still accepted beside it
+
+`scripts/dev-hosts.mjs` holds both. `st0.priv.frediver.se` is one origin with one path per service
+— `/pl8`, `/k7`, `/z0` — and st0 at the root, exactly as production is under
+`studio.frediver.se`. It resolves to the LAN server, which reverse-proxies to the dev servers on
+the workstation.
+
+The NAME does not follow the apps and agrees with this one by accident: it was given for the
+médiathèque, back when the médiathèque was called `st0` and served the root. That app is `pl8` now
+and the editor took the freed name, so the host matches again without ever having moved. A hostname
+lives in a router and in everyone's bookmarks, and renaming it buys nothing this repo can spend.
+
+`studio.test` was the dev URL until the LAN server took over, and it stays in `EXTRA_HOSTS` for
+exactly two reasons, **both of which end**: a local Caddy may still be running and answering it on
+127.0.0.1, and the reverse proxy may still forward with `Host: studio.test` rather than the public
+name. Vite rejects an unlisted Host outright, so dropping it before both are settled would answer
+403 to every request instead of failing somewhere legible. Delete it once neither holds.
+
 ## Auth
 
 `code.priv.frediver.se`, `console.priv.frediver.se` and the Tilt UI are **unauthenticated, on purpose**: a dev-only choice on
 an open-source repo, acceptable because nothing here is reachable from outside the LAN.
 The trust boundary IS the LAN: the proxy (traefik) lives on another machine, so the
 console and the editor bind `0.0.0.0` — their ports answer any LAN peer, proxied or
-not. The day any of it leaves the dev network, the remedy is a forward-auth rule on
-the proxy pointed at st0's backend, which owns `/auth` for the origin.
+not. A loopback bind answers the proxy "connection refused". The day any of it leaves
+the dev network, the remedy is a forward-auth rule on the proxy pointed at st0's
+backend, which owns `/auth` for the origin.
+
+Anyone who reaches the editor gets a shell on the dev machine, which is what makes this a
+decision rather than an oversight. To put VS Code's own auth back, drop
+`--without-connection-token` from `scripts/vscode.mjs` and add `--connection-token-file <path>`:
+`serve-web` then trades a `?tkn=` query for a 7-day cookie.
 
 ## Reaching it from another machine
 

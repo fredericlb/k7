@@ -4,16 +4,7 @@
 
 import type { WebProject } from "./types";
 
-/**
- * The id of the lane placing `clip`, or "" when nothing does.
- *
- * "" is not a failure. A take whose placement was never written — or was deleted while its file
- * stayed in `clips/` — is exactly what this is for, and it reviews the same: the waveform, the
- * onsets and the level are properties of the FILE, and none of them needs a lane.
- *
- * The first lane wins. A placement is a reference, so one clip may sit on several, but the label
- * answers "where is this playing" and listing them all would say less, not more.
- */
+/** The id of the lane placing `clip`, or "" when nothing does — not a failure, and the first lane wins, a placement being a reference. */
 export function trackPlacing(
   project: WebProject | null | undefined,
   clip: string,
@@ -24,13 +15,7 @@ export function trackPlacing(
   return "";
 }
 
-/**
- * The beat `clip` is placed at on lane `track`, or null when it is not on it.
- *
- * What puts the song's ruler over the waveform. The recording panel used to answer this with the
- * beat the transport ROLLED at, which is right for the take that just landed and wrong for every
- * other one — a take picked out of the sidebar plays where IT sits, not where the last one did.
- */
+/** The beat `clip` is placed at on lane `track`, or null — a take from the sidebar plays where IT sits, not where the last one rolled. */
 export function placedBeat(
   project: WebProject | null | undefined,
   track: string,
@@ -63,25 +48,14 @@ const optionOf = (
   n,
   clip: clips[0]?.id ?? "",
   ...(name ? { name } : {}),
-  // The EARLIEST placement, not the first written: the row's job is to say where to put the
-  // playhead to hear this from its beginning, and a list is not necessarily in time order.
-  // Bar one when it holds nothing, which is where a lane playing nothing begins.
+  // The EARLIEST placement, not the first written: the row says where to put the playhead, and bar one when it holds nothing.
   startBeat: clips.length
     ? clips.reduce((m, c) => Math.min(m, c.start), Infinity)
     : 0,
   events: clips.length,
 });
 
-/**
- * Every version of lane `track` there is to listen to: its takes, then what it is playing.
- *
- * In SLOT order, and the playing one last. A `select` exchanges two lists rather than moving
- * one, so a row's number does not change when you audition it — the list stays put under the
- * pointer instead of resorting itself around whichever take you last clicked.
- *
- * **Empty when the lane has no takes.** One recording produces no choice, and a sidebar
- * offering a choice of one is a column of nothing. See packages/song/docs/takes.md.
- */
+/** Every version of lane `track` there is to listen to, in SLOT order with the playing one last — empty when it has no takes. */
 export function takeOptions(
   project: WebProject | null | undefined,
   track: string,

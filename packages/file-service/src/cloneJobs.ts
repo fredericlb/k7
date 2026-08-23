@@ -25,12 +25,7 @@ function sweep(): void {
   for (const [id, j] of jobs) if (j.done && j.at < cutoff) jobs.delete(id);
 }
 
-/**
- * Start a clone, or return the one already running for this workspace.
- *
- * Returns immediately. A caller that asks twice — two tabs, a retry, a remount — joins the
- * job in flight instead of starting a second `git clone` into the same directory.
- */
+/** Start a clone, or join the one already running for this workspace — see docs/cloneJobs.md. */
 export function startClone(
   userEmail: string,
   workspace: string,

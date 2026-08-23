@@ -10,14 +10,7 @@ export interface AlternativeInfo {
   at: number;
 }
 
-/**
- * Every alternative a module has, in order — the module's OWN fields first.
- *
- * That first entry is not written down anywhere: the fields at the top of the file ARE the
- * first set, and `alternatives:` holds the ones after it. It is what makes a module that never
- * uses this keep exactly the file it had, and it is why the first one cannot be named — there
- * is nowhere to carry a name. It answers to "1".
- */
+/** Every alternative a module has, the module's OWN fields first and answering to "1" (docs/alternatives.md). */
 export function alternativesOf(
   m: { alternatives?: unknown } | null | undefined,
 ): AlternativeInfo[] {
@@ -35,13 +28,7 @@ export function alternativesOf(
   ];
 }
 
-/**
- * Which one `want` names, as an index into `alternativesOf` — 0 when nothing answers to it.
- *
- * A NAME wins over a number, so an alternative somebody deliberately called `2` is the one
- * `alternative: 2` selects. A name that matches nothing falls back to the first rather than
- * silencing the module: a typo should cost you the variant, not the sound.
- */
+/** Which one `want` names, a NAME winning over a number and a miss falling back to the first, never to silence. */
 export function pickAlternative(
   names: string[],
   want: string | number | undefined,

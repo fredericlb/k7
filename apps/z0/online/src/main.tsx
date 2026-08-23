@@ -4,8 +4,7 @@ import App from "./App";
 import "./index.css";
 import { LocaleProvider } from "./lib/i18n";
 
-// LocaleProvider sits above App: switching language remounts its children, so
-// nothing that renders a message may live above it.
+// LocaleProvider remounts its children on a switch, so nothing rendering a message may sit above it.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <LocaleProvider>

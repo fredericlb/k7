@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { inputOptions } from "./InputChannelBar";
 
-// What the channel dropdown offers, and it is not a filter over the device list. A Focusrite 18i20
-// enumerates twenty MONO inputs and no stereo device at all, so "stereo" filtered would be empty for
-// ever — the pairs have to be offered as something the interface can be asked to become.
-//
-// The pairing rule is the interface's own and is the reason this cannot be arithmetic on channel
-// numbers: Tracktion walks its channel list two at a time, so 1 pairs with 2 and 3 with 4, and there
-// is no pair 2+3 to offer however reasonable it looks written down.
+// What the dropdown offers, which is not a filter over the device list — see docs/inputChannels.md.
 
 const mono = (n: number, name = `Input ${n}`) => ({ name, channels: [n] });
 const FOCUSRITE = [1, 2, 3, 4, 5, 6].map((n) => mono(n));
@@ -47,8 +41,7 @@ describe("the stereo list", () => {
   });
 
   it("never offers to pair across the hardware boundary", () => {
-    // 2+3 is the pair a person would draw and the interface cannot make. Offering it would write
-    // `channel: [2, 3]`, which matches no device and plays silence.
+    // 2+3 is the pair a person would draw and the interface cannot make: it matches no device.
     const o = inputOptions(FOCUSRITE, 2, true);
     expect(o.map((x) => x.channels)).not.toContainEqual([2, 3]);
   });
@@ -75,8 +68,7 @@ describe("the stereo list", () => {
 
 describe("a host that cannot regroup", () => {
   it("is offered only what already exists", () => {
-    // The médiathèque draws this builder with no engine link. An option that quietly did nothing
-    // would be worse than a shorter menu.
+    // The médiathèque has no engine link, and an option that quietly did nothing is worse than none.
     expect(inputOptions(FOCUSRITE, 2, false)).toEqual([]);
     expect(inputOptions(FOCUSRITE, 1, false)).toHaveLength(6);
   });

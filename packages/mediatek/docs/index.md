@@ -51,6 +51,68 @@ drawing one needs both halves of that: what is actually in the folder (nodes, a
 offer to create them. Drawing the three fixed rows alone meant a folder dropped with two
 files of its own showed neither, and read as having been flattened on the way in.
 
+## What left the volume, and why — two different reasons
+
+`scan.ts` held a `scanModules`, a `scanChains` and a `scanPlaylists`. None of the three is
+there now, and they went for reasons worth keeping apart.
+
+**Modules and chains** left *with their families*. A module and a chain are authored in st0,
+against a project where the plugin the module names is actually loaded, and committed to the
+account's **library repository** — a git repository somebody owns, not a folder on this volume.
+See `packages/song/docs/sharedFolders.md`.
+
+**Playlists** left because a playlist holds no **bytes**. It is pure reference — names of songs
+filed elsewhere — so hosting it bought nothing, while costing the account a document it could
+not version alongside the work it was written for. A set list lives in the workspace's
+`_playlists/` now, and st0 is the app that opens one (`packages/song/docs/playlists.md`).
+
+## The words a browser needs live in `types.ts`
+
+`RECORDINGS_DIR`, `CHAINS_FILE`, `NODES_DIR` and `SONG_FILE` sit in `types.ts` rather than in
+`layout.ts` or `scan.ts`, where the rest of that shape lives. The reason is one-way: those two
+open `node:fs`, and a surface reaching for the *name* of a file must not pull the filesystem in
+with it. Both re-export the constants, so no importer had to change.
+
+`CHAINS_FILE` is `graph.yaml` — literally the same name a st0 project uses at its root. It said
+`chains.yaml` for a while, on the argument that a shared chain is a different object from a
+project's whole topology. It is not: a chain is a **folder** holding that file with a `nodes/`
+beside it, which is exactly what a project holds, and the two differ only in a chain having no
+`project.yaml` and naming its ends `@in`/`@out`. One name, so nothing downstream carries a second
+spelling. (`NODES_DIR` was `instances/` until it was migrated to `nodes/`.)
+
+## `files` and `assets` are two different questions
+
+An entry that is a **folder** carries both, and they are not interchangeable.
+
+`files` is the entry's own definition — its nodes, its panel, its shelf, a `.vstpreset`, a jsdsp
+source. Exactly what is on disk: nothing more, because a row for a file that is not there lies
+about the disk, and nothing less, because the tree used to draw three fixed rows and whatever had
+actually been dropped in vanished.
+
+`assets` is the **material it loads** — samples, impulse responses, amp profiles. A tree draws
+these as children and drops new ones in; nothing offers to *create* one, since they arrive as
+bytes. They are `assets/`-relative POSIX paths and they are **nested**: a NAM pack is a folder per
+amp, so flattening would invent a shape the disk has not got. A path ending in `/` is a folder
+that holds nothing — the one thing no other path would mention.
+
+## What an entry carries beyond its path
+
+Three fields on `meta` are computed in `scanSongs` and each answers a question a consumer
+cannot answer from the path alone:
+
+- **`master`** — the playable file's *name* inside the folder. `path` is the folder, because a
+  song *is* a folder with a sidecar, so without this a consumer that has to OPEN the audio (the
+  moteur, which takes file paths) has nothing to open. Absent when the folder is catalogued but
+  carries no audio yet.
+- **`stems`** — has this song been separated, is there a `stems/` beside its master? The DJ desk
+  asks, because a deck can only subtract an instrument from a record whose stems exist
+  (`packages/dsp/docs/stemcut.md`), and the browser shows it so a set can be prepared. It is read
+  off the dirents already in hand — the folder, not its contents: descending would be a syscall
+  per song for a fact the directory entry itself carries.
+- **`bpm`** — detected at upload and then editable by hand. Surfaced on the entry because a
+  surface lining a song up to a grid needs it, and re-reading the sidecar would be a second
+  source of truth.
+
 ## Why the token is per family
 
 `familyRevision()` is computed for each family separately — `songs` and `samples`.
@@ -106,6 +168,45 @@ module long after the code was right.
 
 Bump it whenever what the scan PRODUCES changes — a new field, a different rule about what
 counts as an entry. A dropped index costs one walk, which is what the next section is about.
+
+## Confinement, and the two paths a caller may not write
+
+`safePath` (layout.ts) turns a mediatek-relative path into an absolute one inside the root.
+The local library never needed it: the file service's own `safePath` confines to the workspace,
+which put the mediatek out of reach entirely. A **hosted** mediatek has no such wall — the path
+in the request is the only thing between a caller and the disk — so the check lives here, where
+both sides use it.
+
+It is **lexical only**, deliberately. It runs on every byte served, and the tree it guards is one
+the service itself writes; a symlink *into* it is something an operator did on purpose.
+
+Containment is asked of `relative`, **not** of `startsWith`, and the two are not the same test.
+`startsWith` compares *spellings*: a root written with forward slashes in `env.yaml` never matched
+the backslashed path `resolve` produces, and every nested path was reported as escaping a library
+it was plainly inside. `relative` normalises both sides and answers the question actually being
+asked — is this under that.
+
+`writablePath` adds the second half. Inside the root is not enough: two things are the library's
+own and not content — `mediatek.yaml`, which says what the folder *is*, and `.cache/`, which is
+derived. Writing there would let a caller poison an index or forge a cache's bookkeeping.
+Everything else is allowed, **including paths in no family**: a library that refused unfamiliar
+folders could never grow a third one.
+
+## Moving an entry is one syscall, and revs both ends
+
+`moveEntry` (write.ts) renames, and it does so for a folder as readily as for a file.
+
+Composing the same thing from read + write + delete on the client was the previous answer, and
+it had two faults this does not: a folder cannot be read as bytes at all, and a failure between
+the write and the delete leaves a duplicate. `renameSync` is one syscall on the same volume, so
+the tree is never in a state where the entry exists twice or not at all.
+
+**Both** ends are bumped. A move between families changes two listings, and revving only the
+destination would leave the source's catalogue showing something that is no longer there.
+
+Every write in that file goes in beside its target and is renamed into place, for the reason the
+cache's downloads do: the moteur may be reading this tree, and a half-written `module.yaml` is a
+project that will not compile.
 
 ## The cache is never load-bearing
 

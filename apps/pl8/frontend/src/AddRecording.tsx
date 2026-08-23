@@ -25,8 +25,7 @@ export function AddRecording({
       await library.addRecordings(files);
       onDone();
     } catch (e) {
-      // A partial upload is a real result: the files that made it are in the zone, and the refresh
-      // shows them despite the error.
+      // A partial upload is a real result, so the refresh runs despite the error.
       onDone();
       onError((e as Error).message);
     } finally {
@@ -57,8 +56,7 @@ export function AddRecording({
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
-          // Cleared at once: otherwise re-picking the same batch after an error emits no change
-          // and the button looks dead.
+          // Cleared at once, or re-picking the same batch after an error emits no change.
           e.target.value = "";
           if (files.length) void send(files);
         }}

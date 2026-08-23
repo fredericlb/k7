@@ -18,14 +18,7 @@ export interface WindowSpan {
   to: number;
 }
 
-/**
- * The window `text` states, or **null when it states none** — which is the answer a surface wants,
- * since a window nobody wrote is not a window, it is the whole of the material.
- *
- * A half-typed edge is read as absent rather than as 0: this runs on every keystroke in the
- * editor, and a band that jumps to the head of the file between two characters of `"3:1"` is
- * worse than one that waits.
- */
+/** The window `text` states, or NULL when it states none — a half-typed edge reads as absent, not as 0. */
 export function seqWindowFromText(
   text: string,
   num = 4,
@@ -40,9 +33,7 @@ export function seqWindowFromText(
   if (doc.errors.length || !isMap(doc.contents)) return null; // mid-keystroke: don't guess
   const edge = (field: "from" | "to"): number | null => {
     const node = doc.get(field, true);
-    // A STRING, not merely a scalar: `from: 1.5` is a YAML number, and since ticks joined the
-    // notation `parsePosition` reads "1.5" happily as bar 1 plus half a tick. Requiring the quotes
-    // is what makes the seconds spelling refused here the way SeqEdge refuses it.
+    // A STRING and not merely a scalar: an unquoted `1.5` is a YAML number `parsePosition` would take.
     if (!isScalar(node) || typeof node.value !== "string") return null;
     const raw = node.value.trim();
     if (!raw) return null;
@@ -59,12 +50,7 @@ export function seqWindowFromText(
   return { from: from ?? 0, to };
 }
 
-/**
- * Both edges as beats, against the extent of the notes the window windows.
- *
- * Null when the span does not run forwards — a backwards pair is refused when the project is read,
- * and while it is being typed the honest drawing is none at all.
- */
+/** Both edges as beats against the notes' extent; null when the span does not run forwards. */
 export function windowSpan(win: SeqWindow, extent: number): WindowSpan | null {
   const to = win.to ?? extent;
   return to > win.from ? { from: win.from, to } : null;

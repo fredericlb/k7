@@ -141,8 +141,7 @@ export class Preview {
       this.set({ isPlaying: false });
       cancelAnimationFrame(this.raf);
     };
-    // A source started with a duration ends itself; the timer is the belt to that braces,
-    // because `onended` does not fire if the node is collected first.
+    // A belt to the source's own braces: `onended` never fires if the node is collected first.
     if (span)
       this.stopTimer = setTimeout(
         () => this.stop(),

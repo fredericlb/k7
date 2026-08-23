@@ -40,8 +40,7 @@ export function SeqGridPane({
   return (
     <GraphSlotPane
       onClose={onClose}
-      // Its own strip: a glyph for the grid's kind, the stem, and the path in full. The frame
-      // adds the ✕ after it.
+      // Its own strip: a glyph for the grid's kind, the stem, and the path in full — the frame adds the ✕ after it.
       bar={
         <>
           <Icon className="h-4 w-4 text-muted-foreground" />

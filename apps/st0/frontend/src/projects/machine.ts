@@ -17,13 +17,7 @@ const CLONE_CAP_MS = 10 * 60_000;
 const sleep = (ms: number): Promise<void> =>
   new Promise((r) => setTimeout(r, ms));
 
-/**
- * This repository's workspace on this machine, cloned if it is not there yet.
- *
- * Cloning lives here because it is the only way to create a project in an EMPTY repository —
- * otherwise you would need a project to open one in order to create one. `onStep` relays git's
- * own words, not ours: a thirty-second wait that says nothing reads as a frozen screen.
- */
+/** This repository's workspace on this machine, cloned if it is not there — the only way to create a project in an EMPTY repository. */
 export async function ensureWorkspace(
   m: Machine,
   uri: string,
@@ -57,8 +51,7 @@ export async function ensureWorkspace(
   return job.workspace;
 }
 
-/** Commit and push what was just done, returning the gripe if there is one. The verb is
- *  `project commit`, not `commit`: a line matching no command answers "unknown command". */
+/** Commit and push what was just done, returning the gripe if there is one — `project commit`, since a bare `commit` names no command. */
 export async function commitAndPush(
   m: Machine,
   workspace: string,
@@ -73,12 +66,10 @@ export async function commitAndPush(
   return commitOutcome(out);
 }
 
-/** Create a project: clone if needed, scaffold, commit. The commit comes AFTER and its failure
- *  does not undo the creation — deleting the folder to look tidy would throw work away. */
+/** Create a project: clone if needed, scaffold, commit — and a failed commit does not undo the creation. */
 export async function createProjectOnMachine(
   m: Machine,
-  /** The workspace folder on THIS machine — the page already holds it, so nothing resolves a
-   *  URI or ensures a clone here. `ensureWorkspace` still serves, but for ADDING a repository. */
+  /** The workspace folder on THIS machine — the page already holds it; `ensureWorkspace` still serves, but for ADDING a repository. */
   workspace: string,
   folder: string,
   onStep: (s: string) => void,
@@ -99,8 +90,7 @@ export async function createProjectOnMachine(
   };
 }
 
-/** …and delete one. The service recycles it; the COMMIT is what removes it from the repository,
- *  and so from every other machine. */
+/** …and delete one: the service recycles it, and the COMMIT is what removes it from the repository and from every other machine. */
 export async function deleteProjectOnMachine(
   m: Machine,
   workspace: string,

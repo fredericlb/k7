@@ -13,17 +13,7 @@ export interface DragPayload {
   itemKinds?: readonly string[];
 }
 
-/**
- * True when the drag carries files from outside the page.
- *
- * Two ways to say yes, because browsers don't agree on which they populate during
- * `dragover`: the canonical "Files" entry in `types`, or an item whose kind is "file".
- * Requiring both — or only the first — refuses legitimate drags from some sources, and
- * the refusal is invisible.
- *
- * An INTERNAL drag (a parameter dragged onto a widget) is refused whatever else it says:
- * those are page-local and have nothing to upload.
- */
+/** True when the drag carries files from outside the page — two ways to say yes, browsers disagreeing, and an INTERNAL drag is refused. */
 export function acceptsFileDrop(p: DragPayload): boolean {
   if (p.types.includes(PARAM_MIME)) return false;
   if (p.types.includes("Files")) return true;

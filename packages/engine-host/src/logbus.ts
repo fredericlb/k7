@@ -33,16 +33,7 @@ export function line(tag: string, text: string): void {
   out()?.write(`${stamp()} [${tag}] ${text}\n`);
 }
 
-/**
- * Drain a child's stdout/stderr into the merged log under `tag`.
- *
- * Line-buffered by hand rather than per-chunk: a pipe hands over arbitrary byte
- * boundaries, so writing chunks verbatim would split single log lines across two
- * timestamps and glue unrelated ones together.
- *
- * Draining is not optional. A piped child whose output nobody reads blocks once the
- * pipe buffer fills — for the engine that means the audio thread stops when it logs.
- */
+/** Drain a child's output into the merged log under `tag`, line-buffered by hand; draining is not optional, since a full pipe blocks the child. */
 export function pump(reader: Readable, tag: string): void {
   let rest = "";
   reader.setEncoding("utf8");

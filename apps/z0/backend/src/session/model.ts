@@ -13,11 +13,7 @@ export interface Track {
   /** Grist-only: youtubeId — editor-facing, never serialized to clients. */
   youtubeId?: string;
   effects?: Record<string, number>;
-  /**
-   * Grist-only variant marker (e.g. "stems"): partitions a song's tracks into
-   * "question" tracks (matching the category's trackType) and "original"
-   * tracks (type="") wired in as reveal audio. Not serialized.
-   */
+  /** Grist-only, not serialized: it splits a song's tracks into questions and reveal originals. */
   type?: string;
 }
 

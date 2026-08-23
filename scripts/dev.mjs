@@ -45,10 +45,7 @@ async function shutdown(code = 0) {
   if (stopping) return;
   stopping = true;
   tilt.kill();
-  // The tray is DETACHED, so it outlives whatever started it. The monitor stops it on
-  // its own signal, but Tilt may end the resource too abruptly for that — and an
-  // orphaned menu-bar icon with no session to explain it is the one leak worth being
-  // sure about.
+  // The tray is DETACHED, and Tilt may end its resource too abruptly to stop it (../docs/dev.md).
   try {
     await stopAll();
   } catch {}

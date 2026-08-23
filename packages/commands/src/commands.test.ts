@@ -8,9 +8,7 @@ import type { PluginDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { describe, expect, it } from "vitest";
 import { collectPluginModules, collectSequences } from "./commands";
 
-// Minimal fixtures: the collect* functions read only a few fields, and the shared
-// constructors fill the rest. They used to be hand-written here and again in
-// commandSpec.test.ts, which is how one of them fell behind a new required field.
+// Minimal fixtures: hand-written ones fell behind a new required field twice over.
 const plugin = (over: Partial<PluginDoc> & Pick<PluginDoc, "id">): PluginDoc =>
   pluginDoc({ type: "vst", role: "instrument", ...over });
 

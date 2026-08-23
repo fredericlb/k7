@@ -30,19 +30,13 @@ export interface LearnedCc {
 const STATUS_CC = 0xb0;
 const key = (ch: number, cc: number) => `${ch}:${cc}`;
 
-/**
- * The live MIDI control surface.
- *
- * One instance for the app. Routes are replaced wholesale whenever the graph reloads, because
- * the map is part of the graph — there is no incremental state to keep in step.
- */
+/** The live MIDI control surface — one instance for the app, its routes replaced wholesale whenever the graph reloads. */
 export class MidiControl {
   private access?: MIDIAccess;
   private routes = new Map<string, CcRoute[]>();
   private learning: ((l: LearnedCc) => void) | null = null;
   private onValue: CcHandler;
-  // Which input port last drove each key. Feedback goes back to the port of the SAME NAME, so a
-  // motorised fader follows itself and a second controller is not moved by the first.
+  // Which input port last drove each key: feedback goes back to the port of the SAME NAME, so a fader follows itself.
   private lastInput = new Map<string, string>();
   // The last value sent per key, so a value echoed back to us is not echoed on again.
   private lastSent = new Map<string, number>();
@@ -88,20 +82,13 @@ export class MidiControl {
     for (const r of routes) {
       const k = key(r.ch, r.cc);
       const at = this.routes.get(k);
-      // One control MAY drive several params — a macro. The file forbids the reverse (two
-      // controls on one param), which is the direction that is a bug.
+      // One control MAY drive several params — a macro; the file forbids the reverse, which is the direction that is a bug.
       if (at) at.push(r);
       else this.routes.set(k, [r]);
     }
   }
 
-  /**
-   * Arm learn: the next control change captures instead of playing. Returns a cancel.
-   *
-   * Deliberately swallows that one message rather than also actuating: the knob you wiggle to
-   * teach it is usually already mapped to something else, and moving that something while
-   * assigning is a surprise you cannot undo.
-   */
+  /** Arm learn: the next control change captures instead of playing, and that message is SWALLOWED rather than also actuating. */
   learn(onLearned: (l: LearnedCc) => void): () => void {
     this.learning = onLearned;
     return () => {
@@ -114,13 +101,7 @@ export class MidiControl {
     return this.learning !== null;
   }
 
-  /**
-   * Echo a value back to the device that drives `key` — the "bidirectional when possible" half.
-   *
-   * Possible means: something has driven this key (so we know which device to answer), and that
-   * device has an output port of the same name. A controller with no output, or one that has not
-   * been touched yet, is simply write-only, and this says so by returning false.
-   */
+  /** Echo a value back to the device that drives `key` — possible means it has been touched and has an output port of that name. */
   feedback(k: string, t: number): boolean {
     const route = this.routeFor(k);
     if (!route || !this.access) return false;
@@ -131,8 +112,7 @@ export class MidiControl {
     );
     if (!out) return false;
     const v = Math.max(0, Math.min(127, Math.round(t * 127)));
-    // Nothing to say when the device already shows this — and saying it anyway is how a
-    // feedback loop starts on a controller that echoes what it receives.
+    // Nothing to say when the device already shows this — saying it anyway is how a feedback loop starts.
     if (this.lastSent.get(k) === v) return true;
     this.lastSent.set(k, v);
     out.send([STATUS_CC | (route.ch - 1), route.cc, v]);
@@ -186,8 +166,7 @@ export class MidiControl {
     const t = d2 / 127;
     for (const r of routes) {
       this.lastInput.set(r.key, device);
-      // What we just received is what the device already shows; recording it stops the next
-      // feedback pass from sending it straight back.
+      // What we just received is what the device already shows; recording it stops the next pass sending it back.
       this.lastSent.set(r.key, d2);
       this.onValue(r.key, t);
     }

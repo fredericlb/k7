@@ -11,12 +11,7 @@ export interface GridCell {
   col: number;
 }
 
-/**
- * The `v` selection: an anchor that stays and a head that moves — vim's, and the timeline's.
- *
- * Two cells rather than a normalised box, because which end MOVES is the whole of the gesture:
- * growing a rectangle leftwards from its right edge has to keep the right edge still.
- */
+/** The `v` selection: an anchor that stays and a head that moves — two cells, because which end MOVES is the whole of the gesture. */
 export interface GridSelection {
   anchor: GridCell;
   head: GridCell;
@@ -36,13 +31,7 @@ export interface GridBox {
   colHi: number;
 }
 
-/**
- * `c` pinned inside the grid.
- *
- * Clamps rather than wraps: the timeline's caret stops at the ends, and a caret that jumped from
- * the last beat to the first would move the eye somewhere it did not ask to go. An empty grid
- * gives `{0,0}` rather than a negative index — the caller draws nothing for it anyway.
- */
+/** `c` pinned inside the grid — clamped rather than wrapped, and an empty grid gives `{0,0}` rather than a negative index. */
 export function clampCell(c: GridCell, b: GridBounds): GridCell {
   return {
     row: Math.max(0, Math.min(Math.round(c.row), Math.max(0, b.rows - 1))),
@@ -70,15 +59,7 @@ export function selBox(sel: GridSelection): GridBox {
   };
 }
 
-/**
- * The caret's own cell, as a box — the one-by-one rectangle a copy falls back on.
- *
- * With nothing drawn, `selection copy` used to answer null and the key went quiet, which reads
- * as a broken shortcut rather than as "there was nothing selected": ⌃C means "copy what I am
- * pointing at" in every other application. A caret IS pointing at something, so it is treated as
- * the smallest rectangle there is and the same copy path runs. An empty cell then returns null
- * for the honest reason — nothing in it — and the shell says so out loud.
- */
+/** The caret's own cell as a box — the one-by-one rectangle a copy falls back on, so ⌃C copies what you are pointing at. */
 export const cellBox = (c: GridCell): GridBox => ({
   rowLo: c.row,
   rowHi: c.row,
@@ -93,31 +74,13 @@ export function inBox(box: GridBox, row: number, col: number): boolean {
   );
 }
 
-/**
- * The selection's span in COLUMNS, as a half-open pair — `[lo, hi + 1)`.
- *
- * The +1 is the rule the timeline's loop already follows and the reason this is a function: a
- * rectangle from column 4 to column 4 is one cell WIDE, not zero, so the region it means runs to
- * the far edge of that cell. Reading it as `[lo, hi]` gives an empty loop for a one-cell
- * selection, which reads as "the loop did nothing".
- */
+/** The selection's span in COLUMNS, half-open: a rectangle from column 4 to column 4 is one cell WIDE, not zero. */
 export function colSpan(sel: GridSelection): { from: number; to: number } {
   const b = selBox(sel);
   return { from: b.colLo, to: b.colHi + 1 };
 }
 
-/**
- * A grid column as a beat of the SONG — what the transport is told, and the one conversion both
- * clip editors need.
- *
- * The grid's own origin cancels, which is worth stating because it looks like an omission. Both
- * panes draw their first column at the canvas's left edge, and both stack the arrangement ruler
- * over that same edge starting at the placement (`ArrangementRuler`'s `startBeat={clip.start}`).
- * So a column's local beat is `origin + col × unit` and its song beat is
- * `clipStart + (local − origin)` — the origin appears on both sides and falls out. A windowed
- * clip therefore needs no special case: its window moved the local numbering, not where the
- * material plays.
- */
+/** A grid column as a beat of the SONG — the grid's own origin cancels, so a windowed clip needs no special case. */
 export function songBeatOfCol(
   col: number,
   unit: number,
@@ -136,13 +99,7 @@ export function songSecondsOfCol(
   return (songBeatOfCol(col, unit, clipStart) * 60) / Math.max(1e-6, tempo);
 }
 
-/**
- * What the shell drives on whichever clip grid is on screen — the same four things `TimelineHandle`
- * exposes, so `v`, `t` and Shift+L mean one thing wherever the caret is.
- *
- * A handle rather than props because these are COMMANDS: they arrive from the command bar or from
- * a key that names one, and the pane that answers them is the one currently drawn.
- */
+/** What the shell drives on whichever clip grid is on screen — a handle rather than props, because these are COMMANDS. */
 export interface ClipGridHandle {
   /** `v` — caret ⇄ rectangle. */
   toggleSelect: () => void;
@@ -152,14 +109,7 @@ export interface ClipGridHandle {
   toggleLoop: () => void;
   /** `selection copy` — the rectangle's contents, or null when it holds nothing. */
   copy: () => MaybeClipboard;
-  /**
-   * `selection paste` — the command LINE that would put the clipboard down at the caret.
-   *
-   * A line rather than a write, so the paste goes through the same journalled path a typed
-   * command takes: the pane decides WHAT lands where, the shell runs it, and one paste is one
-   * Ctrl+Z. `note` is always said — it is the count when there is a line, and the reason when
-   * there is not (the wrong kind, nothing that fits).
-   */
+  /** `selection paste` — the command LINE that would put the clipboard down at the caret, so one paste is one Ctrl+Z. */
   pasteLine: (clip: Clipboard) => PasteResult;
 }
 
@@ -169,11 +119,5 @@ export interface PasteResult {
   note: string;
 }
 
-/**
- * Whether a rectangle is live, reported UP rather than asked for.
- *
- * `L` is a conditional binding and has to go quiet with nothing to loop, and a condition is
- * computed in a memo — which cannot read a ref. So the grid pushes the flag the way the timeline
- * pushes `onView`, and the handle above stays the three things the shell CALLS.
- */
+/** Whether a rectangle is live, reported UP rather than asked for: a condition is computed in a memo, which cannot read a ref. */
 export type OnGridSelection = (live: boolean) => void;

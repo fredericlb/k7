@@ -88,8 +88,7 @@ describe("validateFile", () => {
   });
 
   it("covers exactly the module folder's own basenames", () => {
-    // The router cannot import moduleIO (it reads the disk), so the two are pinned here:
-    // add a sibling file there without adding it here and it would be read as a node.
+    // The router cannot import moduleIO, so an unlisted sibling file would be read as a node.
     const own = [...MODULE_OWN_BASES].filter((b) => b !== "module");
     const asModule = (base: string) =>
       parserFor(`modules/audio/cab/${base}.yaml`) ===

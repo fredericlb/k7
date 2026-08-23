@@ -33,6 +33,13 @@ Deux conséquences moins évidentes :
 - **Vider un champ le SUPPRIME.** `setTrackField(..., undefined)` fait `deleteIn`. Écrire
   `end: 0` serait ajouter une ligne à chaque morceau simplement regardé, et `0` n'est pas ce
   que veut dire une fin absente — c'est « jusqu'au bout ».
+- **`false` compte comme vide**, et c'est délibéré : `empty()` de `format.ts` traite
+  `undefined`, `""` et `false` pareil, parce que `liveOnly` est absent ou vrai dans tous les
+  fichiers migrés. Décocher la case doit donc retirer la ligne, pas écrire `liveOnly: false` —
+  même sens, et une orthographe qui n'existe nulle part ailleurs.
+- **Un `effects:` vide n'existe pas non plus.** `setSongEffect` fait apparaître la table avec
+  la première valeur et la fait partir avec la dernière : un `effects: {}` serait le seul de
+  tout le corpus, et ce n'est pas à quoi ressemble un morceau non traité.
 
 ## Un morceau a deux formes, et une seule adresse
 
@@ -50,6 +57,11 @@ idempotente.
 
 Retirer la piste d'un morceau **à plat** est refusé : il n'y a pas de nœud de piste à retirer,
 les clés sont celles du morceau, et « replier » supprimerait ses champs avec.
+
+Et dans l'autre sens : retirer la **dernière** piste d'un morceau sous `tracks:` laisse la
+liste vide plutôt que de replier le morceau à plat. Un morceau sans piste est une erreur
+visible qu'on va corriger ; un morceau silencieusement replié est un *autre* morceau que celui
+qu'on éditait.
 
 ## Le début et la fin
 

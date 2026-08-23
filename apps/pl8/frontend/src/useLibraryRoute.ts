@@ -16,21 +16,7 @@ export function stateForLocation(
   return sameRoute(next, state) ? null : next;
 }
 
-/**
- * state → URL: the address to write, or null to leave it alone.
- *
- * `prev` is the state as of the previous commit. Two reasons to write nothing:
- *
- *   the screen did not change  — nothing happened; this effect just re-ran.
- *   the URL already says so    — we got here BY the URL (deep link, back/forward), so
- *                                writing it again would add a history entry per move.
- *
- * The second test is what makes a deep link survive. In the commit where the URL→state
- * direction fires, this side is handed the OLD state and the NEW location, which looks
- * exactly like "the app moved the screen away from the address". It isn't, and the only
- * honest way to tell is to ask whether the address already agrees with where we are going —
- * which the first test cannot see, because `prev` is about the state alone.
- */
+/** state → URL: the address to write, or null for either of two reasons (../docs/routing.md). */
 export function urlForState(
   state: RouteState,
   prev: RouteState,
@@ -41,33 +27,21 @@ export function urlForState(
   return toPath(state);
 }
 
-/**
- * Drive `state` from the URL and back. The caller owns the state; this only decides when each
- * side should follow the other.
- *
- * Opening a FILE pushes, so Back closes the builder rather than leaving the app; changing
- * section replaces, because a tab you clicked through is not a place you want to walk back
- * out of one step at a time.
- */
+/** Drive `state` from the URL and back — a FILE pushes, a section replaces (../docs/routing.md). */
 export function useLibraryRoute(
   state: RouteState,
   apply: (next: RouteState) => void,
 ): void {
   const location = useLocation();
   const navigate = useNavigate();
-  // The state as of the previous commit — what tells the state→URL direction whether the APP
-  // moved the screen. Deliberately NOT touched by the URL→state effect: doing so reads as
-  // "the app moved" and is the ping-pong this hook exists to avoid.
+  // The previous commit's state, deliberately NOT touched by the URL→state effect.
   const prev = useRef<RouteState>(state);
 
-  // URL → state, on mount and every back/forward. useLayoutEffect, so a deep link draws its
-  // screen before paint.
+  // URL → state, in a layout effect so a deep link draws its screen before paint.
   useLayoutEffect(() => {
     const next = stateForLocation(location.pathname, state);
     if (next) apply(next);
-    // `state` is deliberately NOT a dependency: this direction reacts to the LOCATION, and
-    // including it would run it on every screen change too — the other half of the loop.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: see above
+    // biome-ignore lint/correctness/useExhaustiveDependencies: this direction reacts to the LOCATION, so `state` is not a dependency
   }, [location.pathname]);
 
   // state → URL.

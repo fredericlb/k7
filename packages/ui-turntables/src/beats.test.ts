@@ -19,8 +19,7 @@ describe("where a song's beat grid starts", () => {
   });
 
   it("survives a slop the first onset would not", () => {
-    // The reason this is an average and not `transients[0]`. One onset is one measurement,
-    // and here the first is a quarter of a beat early — which used to move every beat line.
+    // Why this is an average and not `transients[0]`: here the first onset is a quarter beat early.
     const t = onsets(120, 0.2, 64, 0.01);
     t[0] = 0.075;
     const g = beatPhase(t, 120);
@@ -29,16 +28,14 @@ describe("where a song's beat grid starts", () => {
   });
 
   it("reports NO confidence when the onsets say nothing", () => {
-    // Onsets spread evenly across the beat cancel each other out. Saying so is the point:
-    // a confident answer from noise would move a record for no reason.
+    // Onsets spread evenly across the beat cancel out, and a confident answer from noise moves a record.
     const p = 60 / 120;
     const t = Array.from({ length: 60 }, (_, i) => (i * p) / 60);
     expect(beatPhase(t, 120).strength).toBeLessThan(0.1);
   });
 
   it("always lands inside one beat, and never behind zero", () => {
-    // The period at 120 is 0.5 s. A grid late in the beat must not come back NEGATIVE —
-    // atan2 answers in (-π, π], and a clip `start` cannot be less than zero.
+    // `atan2` answers in (-π, π], and a clip `start` cannot be less than zero.
     for (const phase of [0.01, 0.25, 0.3, 0.49]) {
       const g = beatPhase(onsets(120, phase), 120);
       expect(g.phase).toBeGreaterThanOrEqual(0);
@@ -48,8 +45,7 @@ describe("where a song's beat grid starts", () => {
   });
 
   it("folds a grid stated beyond one beat back into one", () => {
-    // 0.6 s at 120 bpm IS 0.1 s into the next beat — the same grid, and the answer a
-    // position inside `[0, period)` has to give.
+    // 0.6 s at 120 bpm IS 0.1 s into the next beat — the same grid, inside `[0, period)`.
     expect(beatPhase(onsets(120, 0.6), 120).phase).toBeCloseTo(0.1, 3);
   });
 
@@ -59,13 +55,7 @@ describe("where a song's beat grid starts", () => {
   });
 
   it("calls a grid confident only when the onsets beat chance", () => {
-    // `strength` alone cannot decide: scattering n onsets at random still leaves a resultant
-    // of about 0.886/√n, so a bare threshold would grade a song by its LENGTH. The Rayleigh
-    // statistic n·R² is that comparison done properly.
-    //
-    // The numbers are this machine's cache, and they separate rather than hover: 141 for a
-    // four-on-the-floor house track, 17 for a pop song, 0.2 for one whose detected tempo is
-    // simply wrong — and that last one is the case that must not move a record.
+    // `strength` alone would grade a song by its LENGTH, so the Rayleigh test decides — ../docs/bpm.md.
     expect(beatPhase(onsets(120, 0.2), 120).confident).toBe(true);
     const p = 60 / 120;
     // Golden-ratio steps: equidistributed round the beat, and deterministic.
@@ -102,8 +92,7 @@ describe("how far the slave moves to meet the master", () => {
   });
 
   it("delays by the gap between the two grids", () => {
-    // Both at 120 (so a 0.5 s beat) and both unstretched: a grid 0.1 s later than the
-    // master's has to wait 0.4 s to meet the NEXT one, not run 0.1 s backwards.
+    // A grid 0.1 s later than the master's waits 0.4 s for the NEXT beat, not 0.1 s backwards.
     const d = alignDelay(at(120, 120, 0.2), at(120, 120, 0.3), 120);
     // 0.4 s at the document's 120 bpm is 0.8 beats.
     expect(d).toBeCloseTo(0.8, 6);
@@ -118,9 +107,7 @@ describe("how far the slave moves to meet the master", () => {
   });
 
   it("measures the phase where it is HEARD, not where it sits in the file", () => {
-    // The correction this exists for. A song of 90 bpm stretched to 120 plays a third
-    // faster, so a grid 0.4 s into the FILE arrives at 0.3 s on the deck. Using the file's
-    // number would misplace the downbeat by 100 ms — an audible flam.
+    // A grid 0.4 s into a 90 bpm FILE stretched to 120 arrives at 0.3 s — the file's number flams.
     const master = at(120, 120, 0);
     const slave = at(90, 120, 0.4);
     const period = 60 / 120;

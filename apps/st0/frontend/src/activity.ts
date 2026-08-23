@@ -5,12 +5,10 @@
 
 import type { WebNote } from "./types";
 
-// The floor: a silent stretch still shows the block at half strength, or an empty bar would
-// read as no event at all.
+// The floor: a silent stretch still shows the block at half strength, or an empty bar would read as no event at all.
 export const QUIET = 0.5;
 
-/** Raw activity → alphas in [QUIET..1], normalised to the LOUDEST bucket — the event's own
- *  peak is what reaches full opacity, however quiet the event is against the rest of the song. */
+/** Raw activity → alphas in [QUIET..1], normalised to the LOUDEST bucket — the event's own peak is what reaches full opacity. */
 export function toAlphas(raw: number[]): number[] {
   if (!raw.length) return [];
   let m = 0;
@@ -18,8 +16,7 @@ export function toAlphas(raw: number[]): number[] {
   return raw.map((v) => (m > 0 ? QUIET + (1 - QUIET) * (v / m) : QUIET));
 }
 
-/** Max-pool an envelope's peaks into at most `buckets` alphas. Max, not mean: a hit inside a
- *  quiet bucket is the activity the block should show, and averaging would wash it out. */
+/** Max-pool an envelope's peaks into at most `buckets` alphas — max, not mean: averaging would wash out a hit in a quiet bucket. */
 export function audioActivity(peak: number[], buckets: number): number[] {
   if (!peak.length) return [];
   const n = Math.min(buckets, peak.length);
@@ -31,12 +28,7 @@ export function audioActivity(peak: number[], buckets: number): number[] {
   return toAlphas(out);
 }
 
-/**
- * A sequence's activity: each bucket sums the velocities of every note SOUNDING in it — a
- * chord is louder than its loudest note, which is what "adding all velocities" asks for. A
- * missing `vel` is the schema's default, 1. A looping clip tiles its window's notes exactly
- * as ClipContent's mini-roll does, so the activity repeats where the repeats play.
- */
+/** A sequence's activity: each bucket sums the velocities of every note SOUNDING in it, and a looping clip tiles its window's notes. */
 export function midiActivity(
   notes: WebNote[],
   spanBeats: number,
@@ -74,12 +66,7 @@ export function midiActivity(
   return toAlphas(raw);
 }
 
-/**
- * The alphas as a CSS mask gradient — black at each bucket's centre carrying the bucket's
- * alpha, interpolated between centres. A mask rather than a painted gradient so the block's
- * fill stays whatever it already was (a class or the track's own colour), and the string
- * stays colour-blind and short.
- */
+/** The alphas as a CSS mask gradient — a mask rather than a painted gradient, so the block's fill stays whatever it already was. */
 export function activityMask(alphas: number[]): string {
   if (!alphas.length) return "";
   const one = (a: number) => `rgb(0 0 0 / ${Math.round(a * 1000) / 1000})`;

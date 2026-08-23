@@ -45,8 +45,7 @@ describe("chooseEngine", () => {
     expect(r.ambiguous).toBe(true);
   });
 
-  // UNREACHABLE is "listed but nothing answered from this browser". Offering one produces a preview
-  // that silently never connects — a broken editor, not a wrong network.
+  // UNREACHABLE is "listed but nothing answered here", and offering one produces a preview that silently never connects.
   it("never offers an unreachable engine, remembered or not", () => {
     expect(chooseEngine([engine("far", null)], "far").engine).toBeNull();
     expect(chooseEngine([engine("far", null)], undefined).ambiguous).toBe(
@@ -54,8 +53,7 @@ describe("chooseEngine", () => {
     );
   });
 
-  // The usual reason is being on the wrong network; falling back to another machine would
-  // preview through hardware the user is not sitting at.
+  // The usual reason is being on the wrong network, and falling back would preview through hardware the user is not sitting at.
   it("falls back to the picker rather than to another machine", () => {
     const r = chooseEngine([engine("a", 5), engine("b", 30)], "gone");
     expect(r.engine).toBeNull();

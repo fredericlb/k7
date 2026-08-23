@@ -26,34 +26,10 @@ export interface EditorPref {
 export interface Preferences {
   audioDevice?: AudioDevicePref; // preferred audio interface (engine opens it on connect)
   channels: { in: ChannelLabel[]; out: ChannelLabel[] };
-  /**
-   * Which interface inputs are grouped into STEREO devices, as the 1-based FIRST channel of each
-   * pair — `[1, 5]` means 1+2 and 5+6 are stereo and everything else is mono.
-   *
-   * The rig's own wiring, so it lives here beside the interface rather than in any song. It is
-   * replayed to the engine on every connect exactly as `audioDevice` is (engineLink), and for the
-   * same reason: the engine keeps no memory of a device choice, and Tracktion's own copy of this
-   * one is only readable through the call that reopens the remembered interface — the one thing
-   * `engine/moteur/AGENTS.md` forbids. See engine/moteur/docs/audioDevice.md.
-   *
-   * Only the FIRST of a pair is stored because only it can be: the interface pairs even/odd
-   * hardware channels, so 2 names the same pair as 1 and there is no pair 2+3 to describe.
-   */
+  /** Which inputs are STEREO, as each pair's 1-based FIRST channel — see engine/moteur/docs/audioDevice.md. */
   inputPairs: number[];
   editor: EditorPref;
-  /**
-   * The chain that SEPARATES a record into stems — `@st0/stems`.
-   *
-   * Here rather than in a project, and asked for ONCE rather than at each use. Which module
-   * separates and which model it wants is a fact about the library and the machine — the same
-   * answer for every playlist, every set and every clip — so a screen that asked for it would be
-   * asking the same question of the same person every time. A set still says WHETHER its desk
-   * catches up on an unprepared record (`stems: true` on its surface); it no longer says which
-   * chain, because that was never its business.
-   *
-   * Optional: a machine that separates nothing has no chain, and every caller says so with the
-   * command that sets one rather than failing halfway through a set list.
-   */
+  /** The chain that SEPARATES a record into stems — one answer for the whole machine, asked once. */
   stemsChain?: string;
 }
 
@@ -65,9 +41,7 @@ export const defaultPreferences = (): Preferences => ({
 });
 const empty = defaultPreferences;
 
-// Coerce a parsed object into a well-formed Preferences (tolerant of hand-edits). Exported so the
-// coercion can be tested on its own: it is what every hand-edit of this file passes through, and
-// reaching it via loadPreferences would mean reading the real ~/.studio of whoever runs the suite.
+// Coerce a parse into a well-formed Preferences; exported so a test need not read the real ~/.studio.
 export function normalizePreferences(v: any): Preferences {
   const p = empty();
   if (v && typeof v === "object") {
@@ -94,8 +68,7 @@ export function normalizePreferences(v: any): Preferences {
         }))
         .filter((e: ChannelLabel) => e.ch.length && e.label);
     }
-    // Normalised to the ODD channel of each pair and deduplicated: a hand-edit saying `[2]` means
-    // the pair 1+2, which is the same pair `[1]` names, and the engine would round it down anyway.
+    // Normalised to each pair's ODD channel and deduplicated, since `[2]` names the pair `[1]` does.
     if (Array.isArray(v.inputPairs))
       p.inputPairs = [
         ...new Set<number>(
@@ -106,8 +79,7 @@ export function normalizePreferences(v: any): Preferences {
         ),
       ].sort((a: number, b: number) => a - b);
     if (typeof v.editor?.vim === "boolean") p.editor.vim = v.editor.vim; // an explicit boolean only — undefined must stay "unset", not read as off
-    // Trimmed, because it is typed by hand as often as it is picked, and a trailing space in a
-    // chain ref resolves to nothing with no hint as to why.
+    // Trimmed: it is typed by hand, and a trailing space resolves to nothing with no hint why.
     if (typeof v.stemsChain === "string" && v.stemsChain.trim())
       p.stemsChain = v.stemsChain.trim();
   }
@@ -137,12 +109,7 @@ export function setAudioDevice(name: string, type?: string): Preferences {
   return p;
 }
 
-/**
- * Remember that the pair starting at `channel` is stereo, or that it is not.
- *
- * Takes either half and stores the odd one, so a caller holding "channel 2" does not have to know
- * the interface's pairing rule to record what it just did.
- */
+/** Remember whether the pair at `channel` is stereo — either half is accepted, the odd one stored. */
 export function setInputPair(channel: number, stereo: boolean): Preferences {
   const p = loadPreferences();
   const first = channel % 2 === 1 ? channel : channel - 1;
@@ -219,8 +186,7 @@ export function formatChannels(p: Preferences): { in: string; out: string } {
   return { in: fmt(p.channels.in), out: fmt(p.channels.out) };
 }
 
-// A track's `input` -> physical channels: a list already is, a string is a MACHINE-level label (so one project
-// resolves differently per rig). Unresolvable reports `unknownLabel` rather than monitoring the wrong input.
+// A track's `input` -> physical channels; an unresolvable LABEL reports itself rather than monitoring wrongly.
 export function resolveInput(
   input: string | number[] | undefined,
   p: Preferences,

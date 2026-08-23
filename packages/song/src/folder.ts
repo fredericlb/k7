@@ -27,13 +27,7 @@ type LegacyTrack = RawTrack & {
   role?: unknown;
   plugins?: unknown[];
   sends?: unknown[];
-  /**
-   * The old flat format's own `events:` — a list of clip IDS, not placements.
-   *
-   * Declared here rather than inherited, because a lane's list is `events:` now and this one
-   * must NOT follow it: these are files written before the rename, and reading them is the only
-   * reason this path exists. The word means what it meant when they were written.
-   */
+  /** The old flat format's own `events:` — clip IDS, not placements, so it must NOT follow the rename. */
   clips?: unknown[];
 };
 
@@ -50,8 +44,7 @@ export function isFolderProject(abs: string): boolean {
 
 export function assembleFolder(dir: string): AssembledDoc {
   const root = loadProjectRoot(dir, true); // the root file -> project, trackOrder
-  // Read schema-free: the fields this path wants (`role`, `plugins`, `sends`, `volume`, `pan`)
-  // are the legacy flat track's, and no schema in the repo has ever described them.
+  // Read schema-free: no schema here has ever described the legacy flat track's fields.
   const tracksMap = readYamlEntities(dir, "tracks").values as Record<
     string,
     RawTrack

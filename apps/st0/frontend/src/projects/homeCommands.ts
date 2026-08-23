@@ -19,15 +19,7 @@ import {
 } from "./machine";
 import { projectFolderName } from "./projectName";
 
-/**
- * The catalogue, in the same shape the editor's is (`palette.ts`): a canonical name, a sentence
- * in each language, and the params the form asks for.
- *
- * The rules are the catalogue's everywhere — imperative, no example, no full stop, **60
- * characters at most in each language** — and `homeCommands.test.ts` holds this half to them, as
- * `palette.test.ts` and `commandSpec.test.ts` hold the other two. A row is the sentence with the
- * command's name at the right of it, so a longer line is a truncated one.
- */
+/** The catalogue, in the same shape the editor's is — imperative, no example, no full stop, 60 characters at most in each language. */
 export const HOME_COMMANDS: {
   canonical: string;
   readable: { en: string; fr: string };
@@ -52,12 +44,7 @@ export const HOME_COMMANDS: {
       },
     ],
   },
-  /**
-   * Deleting is TWO verbs, and that is the bar's way of doing what a dialog does with a second
-   * button. A palette can dispatch a destructive line from one Enter on a fuzzy match; naming the
-   * project twice, in two commands, is what makes the second Enter a decision rather than a
-   * reflex — and `init` is what SAYS what will happen, since there is no dialog to read it in.
-   */
+  /** Deleting is TWO verbs: naming the project twice is what makes the second Enter a decision, and `init` is what SAYS what will happen. */
   {
     canonical: "project delete init",
     readable: {
@@ -116,8 +103,7 @@ export const HOME_COMMANDS: {
   },
 ];
 
-/** The catalogue as the bar takes it. `readable` is resolved ONCE, here, so nothing downstream
- *  has a table to choose from — the same thing `buildPaletteCommands` does for the editor. */
+/** The catalogue as the bar takes it, with `readable` resolved ONCE — the same thing `buildPaletteCommands` does for the editor. */
 export function buildHomePalette(locale: string): PaletteCommand[] {
   const lang = locale.startsWith("fr") ? "fr" : "en";
   return HOME_COMMANDS.map((c) => ({
@@ -139,17 +125,7 @@ export interface HomeContext {
   openWs: string | null;
 }
 
-/**
- * Which workspace a `project …` line acts in — the one question these verbs do not ask.
- *
- * The address answers it first: a repository unfolded is the one you are looking at. Failing
- * that, a machine holding exactly ONE workspace has no ambiguity to resolve either. Anything
- * else is refused by name rather than guessed: creating a project in the wrong repository is a
- * commit pushed somewhere nobody was looking.
- *
- * The alternative would be a third argument on every project verb, which is the repository you
- * are already standing in — and `project new arrangement hiver` is the line somebody types.
- */
+/** Which workspace a `project …` line acts in: the address first, then a machine holding exactly one — anything else refused by name. */
 export function resolveWorkspace(
   ctx: HomeContext,
 ): { ws: MachineWorkspace } | { error: string } {
@@ -187,12 +163,7 @@ export function findProject(
   );
 }
 
-/**
- * One param's whole vocabulary, for the field that is open — the bar fetches it once per field.
- *
- * Everything here is already in this page's hands (it polls both services), so this answers
- * synchronously where the editor's `listArg` is a round trip.
- */
+/** One param's whole vocabulary, for the field that is open — answered synchronously, this page already polling both services. */
 export function homeArgValues(
   canonical: string,
   argIndex: number,
@@ -205,8 +176,7 @@ export function homeArgValues(
   }
   if (canonical === "system repo remove" && argIndex === 0)
     return ctx.repos.map((r) => r.name);
-  // …and SYNC offers what the MACHINE holds rather than what pl8 registers: a clone added by
-  // hand is one you can still commit and push, and it is the register that is missing a row.
+  // …and SYNC offers what the MACHINE holds rather than what pl8 registers: a clone added by hand is still one you can push.
   if (canonical === "system repo sync" && argIndex === 0)
     return ctx.workspaces.map((w) => w.repoName || w.name);
   return [];
@@ -218,11 +188,7 @@ export interface ArmedDelete {
   path: string;
 }
 
-/**
- * What a line DOES, injected — so the dispatcher below is testable without a machine, and so the
- * bar and the buttons on the same screen cannot come to mean different things: both go through
- * these, and they are `machine.ts`'s.
- */
+/** What a line DOES, injected — so the dispatcher below is testable without a machine, and the bar and the buttons cannot diverge. */
 export interface HomeActs {
   create: typeof createProjectOnMachine;
   remove: typeof deleteProjectOnMachine;
@@ -245,19 +211,11 @@ export interface HomeDeps extends HomeContext {
   acts: HomeActs;
   /** What happened, or where a long act has got to — the line under the bar. */
   say: (text: string) => void;
-  /** …and the same channel for a NO. Two of them because a screen cannot tell them apart
-   *  otherwise, which is the lesson `CommandHost.refuse` records for the brain's verbs. */
+  /** …and the same channel for a NO — two of them, because a screen cannot otherwise tell them apart. */
   refuse: (text: string) => void;
   /** Re-read both services without waiting for the poll: after a write we already know. */
   changed: () => void;
-  /**
-   * The project `project delete init` named, held between the two halves.
-   *
-   * A ref rather than state: it is read by the very next command and never drawn. CONSUMED by
-   * every line, including the ones that are not the confirm — the same rule the graph's pending
-   * insert follows, and here it is what stops a destructive verb sitting armed behind three
-   * unrelated commands.
-   */
+  /** The project `project delete init` named, held between the two halves — a ref, CONSUMED by every line, the confirm or not. */
   armed: { current: ArmedDelete | null };
 }
 
@@ -270,27 +228,20 @@ const machineOf = (d: HomeDeps): Machine | null => {
   return null;
 };
 
-/**
- * Run one line of this screen's vocabulary; answers whether it was one at all.
- *
- * `false` for a line no verb here matches, so the caller can say "unknown command" once rather
- * than every branch saying it. Everything else is reported through `say`/`refuse`.
- */
+/** Run one line of this screen's vocabulary; `false` for a line no verb here matches, so the caller says 'unknown command' once. */
 export async function runHomeCommand(
   raw: string,
   d: HomeDeps,
 ): Promise<boolean> {
   const line = raw.trim();
   if (!line) return true;
-  // Longest name first: `project delete init` must not be read as `project delete` with a word
-  // after it, and `system repo add` shares its two first tokens with the other two.
+  // Longest name first: `project delete init` must not be read as `project delete` with a word after it.
   const spec = [...HOME_COMMANDS]
     .sort((a, b) => b.canonical.length - a.canonical.length)
     .find((c) => line === c.canonical || line.startsWith(`${c.canonical} `));
   if (!spec) return false;
   const rest = line.slice(spec.canonical.length).trim();
-  // Consumed HERE, before any branch: whatever this line is, the arming belonged to the one
-  // before it. `project delete confirm` reads the value below off this local copy.
+  // Consumed HERE, before any branch: whatever this line is, the arming belonged to the one before it.
   const armed = d.armed.current;
   d.armed.current = null;
 
@@ -320,8 +271,7 @@ export async function runHomeCommand(
           type as ProjectShape,
         );
         d.changed();
-        // The folder EXISTS whatever the push did, so a failed push is said beside the success
-        // rather than instead of it — the same reading the dialog takes.
+        // The folder EXISTS whatever the push did, so a failed push is said beside the success rather than instead of it.
         if (gripe) d.refuse(`${project} créé, mais : ${gripe}`);
         else d.say(`+ ${found.ws.name}/${project}`);
       } catch (e) {
@@ -345,8 +295,7 @@ export async function runHomeCommand(
           }`,
         );
       d.armed.current = { workspace: found.ws.name, path: p.path };
-      // What the dialog's paragraph says, said here instead: this is the only place a person
-      // reads what confirming will do, and "are you sure?" on its own names nothing.
+      // What the dialog's paragraph says, said here instead: 'are you sure?' on its own names nothing.
       d.say(
         `${p.path} — le dossier sera recyclé sur la machine et le commit poussé ; ` +
           `le contenu reste dans l'historique git. Pour le faire : project delete confirm ${p.path}`,
@@ -364,8 +313,7 @@ export async function runHomeCommand(
       const found = resolveWorkspace(d);
       if ("error" in found) return use(d.refuse, found.error);
       const p = findProject(found.ws, rest);
-      // NAMED AGAIN, and it has to be the same one: a confirm that deleted whatever was armed
-      // would make the second line a formality, which is the one thing it must not be.
+      // NAMED AGAIN, and it has to be the same one, or the second line would be the formality it must not be.
       if (!p || p.path !== armed.path || found.ws.name !== armed.workspace)
         return use(
           d.refuse,
@@ -395,8 +343,7 @@ export async function runHomeCommand(
       const m = machineOf(d);
       if (!m) return true;
       try {
-        // The REGISTER first, then the clone. pl8 is what makes `/<dépôt>/<projet>` resolve from
-        // any machine; the clone is what makes the row appear on this one. See ProjectsPane.
+        // The REGISTER first, then the clone: pl8 is what makes `/<dépôt>/<projet>` resolve from any machine.
         await d.acts.addRepo(uri);
         d.changed();
         const ws = await d.acts.clone(m, uri, d.say);
@@ -422,8 +369,7 @@ export async function runHomeCommand(
       try {
         await d.acts.forgetRepo(repo.id);
         d.changed();
-        // Said out loud, because the row does NOT go away: what changes is the address, and
-        // taking a name out of a list must not read as having deleted somebody's files.
+        // Said out loud, because the row does NOT go away: what changes is the address, not somebody's files.
         d.say(
           `${repo.name} retiré du registre — les fichiers restent, l'adresse /${repo.name}/… ne se résout plus`,
         );
@@ -449,15 +395,7 @@ export async function runHomeCommand(
         );
       const m = machineOf(d);
       if (!m) return true;
-      /**
-       * PULL, then commit and push — and the second runs whatever the first said.
-       *
-       * That order because `project commit` pushes, and a push is refused when the remote has
-       * moved: pulling first is what makes the push land in the ordinary case. And the commit
-       * runs even after a pull that failed, because it is the half that protects work — a
-       * refused `pull --ff-only` (a tree with local edits over the same files) must not leave
-       * this morning's changes uncommitted as well as unmerged.
-       */
+      /** PULL, then commit and push — that order because a push is refused when the remote has moved, and the commit runs even after a failed pull. */
       try {
         for (const verb of ["project pull", "project commit sync"]) {
           d.say(`${ws.name}: ${verb}…`);

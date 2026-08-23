@@ -64,6 +64,50 @@ opening — see `projectSchema.ts`, which is the only place it is still mentione
 A bare rig is therefore not a kind of project any more, just a folder that declares no
 surfaces. You get one by starting from a mix and throwing the desk away.
 
+## `mix` is excluded from the type, not defaulted away
+
+`TimelineShape` is `Exclude<ProjectShape, "mix">`, so `scaffold(dir, name, "mix")` does not
+compile: it would otherwise write a song into a folder whose whole point is that it has no
+arrangement. `scaffoldSet.ts` answers for that one, and `projectLifecycle.ts` is where the three
+are dispatched. The default is `arrangement`, which is what every caller written before the
+archetypes were named already meant by `scaffold(dir, name)`.
+
+## The picture's outputs are SPLICED, not restated
+
+`videoGraph` runs `addVideoRun` (videoOutputs.ts) over the arrangement's graph — the same splice
+the open path makes on a project that arrives without the run — so the archetype and the repair
+cannot write the line two different ways. That is exactly how `MIX: [ OUT ]` ended up spelled once
+in four scaffolds and once in a migration script. The explanatory `#` note above it is scaffold.ts's
+job: the splice writes a line, not a reason.
+
+It throws if the base graph ever loses its `modules:` map. That cannot happen from outside — the
+text is a few lines up in the same file — and a `video` project silently scaffolded without a
+frame's way out is worse than a failed scaffold.
+
+## `curves/` exists from the start, and empty
+
+Every other entity folder appears as a side effect of scaffolding a file into it, but a new song
+has no curve to write — and a folder that isn't there is one the editor can't offer and `curve new`
+has to invent. Git tracks files, not directories, so keeping it costs a file: `curves/.gitignore`,
+which deliberately ignores NOTHING. A pattern in it would hide the curves themselves. Unconditional:
+every song gets curves.
+
+## The arrangement is a surface a song ASKS for
+
+The timeline is a surface ([surfaces.md](surfaces.md)), so a folder that draws one says so in
+`surfaces/timeline.yaml` — the way a set says it wants a desk. It is scaffolded because a new song
+is a song: the alternative was a first screen with no lanes on it and nothing to explain why. The
+`video` archetype's `surfaces/viewport.yaml` is declared the same way, since a song's picture and a
+song's sound are one folder and this archetype gets a lane of each — otherwise picture is a feature
+you could only discover by reading about it.
+
+## Nothing points at the shared folders
+
+A project sees the workspace's own libraries and the machine's media library because of WHERE they
+are (sharedFolders.ts). The three `ensure*` calls that used to write those lists into
+`project.yaml` wrote down facts the loader already knew, and left a project wrong whenever one of
+them moved.
+
 ## Why the files are hand-authored
 
 Every file here is authored by hand rather than serialised from an object, because the COMMENTS

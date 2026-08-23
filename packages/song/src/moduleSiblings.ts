@@ -17,14 +17,7 @@ export interface SiblingFile {
   rel: string;
 }
 
-/**
- * Every `<base>.yaml` under one module library, with the ref its folder gives it.
- *
- * Two depths, because the two trees differ: a project files modules one level under the type
- * folder, a shared library may put one category folder in between. Mirrors the loaders' own
- * walk rather than guessing at it, so a folder this hands back a ref for is a folder
- * loadModules and loadModuleRefs agree about.
- */
+/** Every `<base>.yaml` under one library, at the TWO depths the loaders' own walk uses. */
 export function siblingsIn(
   root: string,
   ns: string | null,
@@ -55,8 +48,7 @@ export function siblingsIn(
         `${type}/${name}`,
         ns ? `@${ns}/${type}/${name}` : moduleRefOf(type, name),
       );
-      // A category folder, one level deep only — and only in a shared library, which is the
-      // one shape that files a module under `<type>/<category>/<leaf>`.
+      // A category folder, one level deep, and only in a shared library — the one shape that files one.
       if (!ns) continue;
       for (const leaf of dirs(folder))
         at(
@@ -69,23 +61,13 @@ export function siblingsIn(
   return out;
 }
 
-/**
- * Walk every library the project can see, NEAREST FIRST, calling `take` once per ref.
- *
- * Nearest wins: a project that forked a shared module reads its own file rather than the one
- * it was copied from. `take` is told when a ref has already been answered so it can skip
- * without reading — precedence, not a merge.
- */
+/** Walk every library NEAREST FIRST, calling `take` once per ref — precedence, never a merge. */
 export function eachLibrarySibling(
   dir: string,
   base: string,
   take: (found: SiblingFile, library: string) => void,
 ): void {
-  // The project's OWN `modules/` is the `@project` level, and `siblingsIn` reads a null
-  // namespace as exactly that: bare refs, and no category folder in between. It used to fall
-  // out of `moduleNamespaceOf` returning null for a root with no config; that function answers
-  // from LOCATION now and always names a level, so the one root that is not a library is
-  // named here.
+  // The project's OWN `modules/` is the one root that is no library, so its null namespace is named here.
   const own = resolve(join(dir, "modules"));
   for (const root of modulePanelRoots(dir)) {
     const ns = resolve(root) === own ? null : moduleNamespaceOf(root);

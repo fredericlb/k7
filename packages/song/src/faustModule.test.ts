@@ -72,35 +72,14 @@ describe("a faust module", () => {
   });
 
   it("carries its SOURCE inline, not a compiled artifact", () => {
-    // The whole difference from jsdsp: the compiler is on the engine's side, so the text is
-    // what travels. A build step here would be a second source of truth for nobody's benefit.
+    // The compiler is on the engine's side, so the TEXT travels and there is no build step here.
     asFaust(true);
     const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.faustDsp).toContain('hslider("Cutoff"');
     expect(p?.dspGraph).toBeUndefined(); // never both — one module, one plugin, one property
   });
 
-  // The modules this repo SHIPS, dropped into a project as an author would have them. The
-  // tests above prove the pipeline on a fixture; these prove the actual files, which is the
-  // half a fixture cannot cover — a module.yaml whose plugin block does not parse, or a
-  // source that was never written, both read as an ordinary module contributing nothing.
-  //
-  // Two tests and not one loop, because WHERE each may sit is the difference between them and
-  // is worth writing down: the fixture's `lead` is fed the melody lane's notes, so only an
-  // instrument fits there. A one-line loop would have hidden that behind a parameter.
-  /**
-   * Copy a shipped module out of the catalogue and into this project.
-   *
-   * `at` is its path in the CATALOGUE, which is laid out exactly as a library is
-   * (packages/dsp/docs/catalogue.md); `into` is where it lands HERE, and the two differ for the
-   * Wurlitzer for a reason worth knowing: a module's folder holds one `module.yaml` and nothing
-   * else that is a module, so the loader does not descend into one. In the library
-   * `instruments/synth/` is a category — piano-v3, wurli-v2, stage-73-v2 all live under it —
-   * but in this fixture `instruments/synth` IS a module, so nothing nested inside it is found.
-   *
-   * Which is the honest shape of the thing: a catalogue path is a LIBRARY path, and where a copy
-   * of it can sit inside a project depends on what that project already owns.
-   */
+  /** Copy a SHIPPED module in: `at` is its library path, `into` where it can sit in this project. */
   const ship = (at: string, into = at): void => {
     const to = join(dir, "modules", ...into.split("/"));
     mkdirSync(dirname(to), { recursive: true });
@@ -122,9 +101,7 @@ describe("a faust module", () => {
   });
 
   it("ships moogladder, which fits after one", () => {
-    // An audio effect on `lead`'s own slot is refused by the typed-input check — "port 'in'
-    // expects audio but source 'melody' is midi" — and that refusal is the check working.
-    // So it goes where an effect goes: between the instrument and the output.
+    // Between the instrument and the output: on `lead`'s slot the typed-input check refuses it.
     ship("audio/filter/moogladder");
     writeFileSync(
       join(dir, "nodes", "moog.yaml"),
@@ -142,8 +119,7 @@ describe("a faust module", () => {
   });
 
   it("still compiles when the source is missing", () => {
-    // Same rule as its neighbour: a missing file costs the SOUND, never the node. Otherwise a
-    // module would come and go from the song depending on whether someone had written it yet.
+    // A missing file costs the SOUND, never the node, or a module comes and goes from the song.
     asFaust(false);
     const p = plugins().find((x) => x.id.endsWith(":lead"));
     expect(p?.type).toBe("Faust");

@@ -68,8 +68,7 @@ function song(): string {
       "utf8",
     );
   }
-  // One USE of `amp`, in the flat nodes/ folder, so the two deletion scopes can be told
-  // apart: deleting it takes one FILE, deleting `amp` takes a whole module folder.
+  // One USE of `amp`, so the two scopes differ: one FILE against a whole module folder.
   mkdirSync(join(d, "nodes"), { recursive: true });
   writeFileSync(
     join(d, "nodes", "lead.yaml"),
@@ -85,14 +84,10 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-// `node replace <node> <extends-ref>` — point a node at another module. ONE line changes:
-// its `extends`. It used to CREATE a module and rewrite the chains onto the new name, which
-// answered a different question and asked for two things when only the replacement is worth
-// naming. So what these assert hardest is what does NOT move: the chains, and the node's name.
+// `node replace` changes ONE line, its `extends:` — so these assert what does NOT move.
 describe("node replace", () => {
   const nodeFile = () => readFileSync(join(dir, "nodes", "lead.yaml"), "utf8");
-  // Read BACK, not string-matched: what matters is the value the loader will see, and the
-  // quoting is the serializer's business — `@engine/…` is not a legal plain scalar in YAML.
+  // Read BACK, not string-matched: `@engine/…` is not a legal plain scalar in YAML.
   const nodeExtends = () =>
     (parse(nodeFile(), { version: "1.2" }) as { extends?: string }).extends;
 
@@ -106,8 +101,7 @@ describe("node replace", () => {
   });
 
   it("writes an @-namespaced ref so it reads back — `@` starts no plain scalar", () => {
-    // The trap this format keeps setting (see the timecode quoting rule): emitted bare,
-    // `extends: @project/audio/cab` is not YAML at all, and the project stops loading.
+    // Emitted bare, `extends: @project/audio/cab` is not YAML at all and the project stops loading.
     return runCommand(
       "node replace lead @project/audio/cab",
       host(),
@@ -118,8 +112,7 @@ describe("node replace", () => {
   });
 
   it("drops what described the old thing, and says which", async () => {
-    // `params: {Depth: 3}` addressed the old module's knobs; left behind it would be set on a
-    // plugin that has no such control. An own `plugin:` is worse — it OUTRANKS the new extends.
+    // `params:` addressed the old module's knobs, and an own `plugin:` would OUTRANK the new extends.
     await runCommand("node replace lead audio/cab", host(), "cli");
     expect(nodeFile()).not.toContain("Depth");
     expect(logs.join(" ")).toContain("params");
@@ -158,9 +151,7 @@ describe("node replace", () => {
   });
 });
 
-// `graph unlink` — out of the SIGNAL PATH, and still in the graph, wired to nothing. Nothing is
-// deleted and nothing disappears from the canvas, so putting it back is one `node insert`.
-// Removing a node outright is `node delete` (nodeDelete.test.ts).
+// `graph unlink` — out of the SIGNAL PATH, still on the canvas; removing outright is `node delete`.
 describe("graph unlink", () => {
   it("closes the gap over the node and leaves its files alone", async () => {
     // `cab` is fed by `amp` on one path and by `bass` on another, so BOTH must be rejoined.
@@ -184,10 +175,7 @@ describe("graph unlink", () => {
   });
 
   it("unlinks a LANE now, and leaves its file on disk", async () => {
-    // It used to be refused: a chain STARTED at a track, so there was nothing feeding it to
-    // rejoin to what it fed. A lane is a module now (packages/song/docs/trackModules.md), so
-    // the splice is well defined — the lane leaves the signal path and keeps its clips, which
-    // is exactly what unlinking means everywhere else.
+    // It used to be refused; a lane is a module now (packages/song/docs/trackModules.md).
     await runCommand("graph unlink gtr", host(), "cli");
     expect(chains()).toMatch(/gtr:\s*\[\s*\]/);
     expect(existsSync(join(dir, "nodes", "gtr.yaml"))).toBe(true);
@@ -201,12 +189,7 @@ describe("graph unlink", () => {
   });
 });
 
-// --- and then the NAME follows -------------------------------------------------------
-//
-// A node the graph's `+` made is called `<lane>_<module>_<n>` (`@studio/song`'s instanceName.ts),
-// so one still wearing `gtr_amp_1` while it extends a cab is a name that lies about the one
-// thing a name here carries. The judgement being tested is which names are OURS to move — and
-// what happens to the chains, the file and the preset when one does.
+// --- and then the NAME follows: `<lane>_<module>_<n>` lies once the module changes ---
 
 describe("node replace — the name following the module", () => {
   /** The same song, plus a node the convention named, spliced into gtr's run. */
@@ -233,9 +216,7 @@ describe("node replace — the name following the module", () => {
     expect(chains()).toContain("gtr: [ gtr_cab_1 ]");
     expect(chains()).toContain("gtr_cab_1: [ cab ]");
     expect(chains()).not.toContain("gtr_amp_1");
-    // The FILE moved — a comment nobody could have regenerated proves it was not rewritten from
-    // scratch. (`params` would be gone, and that is `setModuleExtends`: what described the old
-    // module cannot describe the new one. The rename does not touch the contents at all.)
+    // The FILE moved: a comment nobody could regenerate proves it was not rewritten from scratch.
     const moved = readFileSync(join(dir, "nodes", "gtr_cab_1.yaml"), "utf8");
     expect(moved).toContain("# the one somebody wrote by hand");
     expect(moved).toContain("monitor: true");
@@ -243,8 +224,7 @@ describe("node replace — the name following the module", () => {
   });
 
   it("takes the node's preset with it", async () => {
-    // `nodes/<node>.vstpreset` is keyed by the name, so leaving it behind would silently reset a
-    // plugin's opaque state — the one part of a node nothing else can rebuild.
+    // `nodes/<node>.vstpreset` is keyed by the name, and nothing else can rebuild that state.
     writeFileSync(join(dir, "nodes", "gtr_amp_1.vstpreset"), "x", "utf8");
     await runCommand("node replace gtr_amp_1 audio/cab", host(), "cli");
     expect(nodes()).toContain("gtr_cab_1.vstpreset");
@@ -275,8 +255,7 @@ describe("node replace — the name following the module", () => {
   });
 
   it("keeps the name a SURFACE points at, and says which file holds it", async () => {
-    // A mapping is the one place outside the chains where the name is a reference, and nothing
-    // rewrites one — a desk pointing at a name that moved draws a knob that does nothing.
+    // A mapping is the one reference outside the chains, and nothing rewrites one.
     mkdirSync(join(dir, "surfaces"), { recursive: true });
     writeFileSync(
       join(dir, "surfaces", "desk.yaml"),

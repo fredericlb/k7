@@ -1,15 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stemSlots } from "./shareBundle";
 
-/**
- * The engine names a stem by its TRACK's name, and a track name is a human string — it can hold a
- * slash, a quote, or the same characters as its neighbour. Those names would become URL segments
- * of a PUBLIC link, so none of them is used as one: every stem gets a slot id we choose, and the
- * human name stays a label.
- *
- * This is the one place the engine's output reaches a path, and it is where the traversal bug
- * would be.
- */
+// The one place the engine's output reaches a PUBLIC path — see docs/shareBundle.md.
 
 const track = (id: string, name?: string) => ({ id, name });
 const stem = (name: string) => ({ name, file: `${name}.wav` });
@@ -25,8 +17,7 @@ describe("giving each stem a slot", () => {
     const nasty = 'Gtr/L "wide" ../..';
     const out = stemSlots([track("t1", nasty)], [stem(nasty)]);
     expect(out[0].name).toBe(nasty);
-    // …and nothing of it reaches the path. `buildShareBundle` may later swap the extension for
-    // `.mp3`; what it never does is take a character of this from the track's name.
+    // …and nothing of it reaches the path: only the extension is ever swapped later.
     expect(out[0].file).toBe("audio/s0.wav");
   });
 

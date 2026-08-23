@@ -6,8 +6,7 @@ import { describe, expect, it } from "vitest";
 import { AUDIO_EXT, extOf, MIME_BY_EXT, mimeFor, VIDEO_EXT } from "./media.ts";
 
 describe("MIME_BY_EXT", () => {
-  // Whole-table equality rather than a snapshot: adding an entry is then a one-line, reviewable
-  // change to this test, and deleting one fails with a readable diff.
+  // Whole-table equality rather than a snapshot, so adding an entry is a reviewable one-line change.
   it("is exactly this", () => {
     expect(MIME_BY_EXT).toEqual({
       ".wav": "audio/wav",
@@ -35,8 +34,7 @@ describe("MIME_BY_EXT", () => {
     });
   });
 
-  // THE lock. The original drift was a drift of shape, not of content, and this is the assertion
-  // that could not have been satisfied by both old tables at once.
+  // THE lock: the original drift was of SHAPE, and both old tables could not satisfy this at once.
   it("keys with the dot, lowercase, matching extOf", () => {
     for (const key of Object.keys(MIME_BY_EXT)) {
       expect(key).toMatch(/^\.[a-z0-9]+$/);
@@ -44,8 +42,7 @@ describe("MIME_BY_EXT", () => {
     }
   });
 
-  // Ties what is SERVED to what is scanned: a format added to either set but not here would be
-  // listed in the catalogue and then sent as an unplayable octet-stream.
+  // Ties what is SERVED to what is scanned: a format in one but not the other is listed and unplayable.
   it("can serve everything the scan calls audio or video", () => {
     for (const ext of [...AUDIO_EXT, ...VIDEO_EXT])
       expect(MIME_BY_EXT[ext]).toBeDefined();

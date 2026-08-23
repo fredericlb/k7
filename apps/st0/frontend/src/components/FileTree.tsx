@@ -51,11 +51,7 @@ function withoutPaths(nodes: FileNode[], paths: string[]): FileNode[] {
   return walk(nodes);
 }
 
-/**
- * The two actions that live nowhere else — the pins are this component's localStorage and the
- * OS pickers are its two hidden inputs. Exposed so `ui pin` and `fs file upload` can reach them:
- * every action the tree offers is a command, and these are the ones no route and no parent hold.
- */
+/** The two actions that live nowhere else — the pins are this component's localStorage, the OS pickers its two hidden inputs. */
 export interface FileTreeHandle {
   /** Pin a path to the top of the tree, or unpin it if it is already there. Answers the new state. */
   togglePin: (path: string) => boolean;
@@ -72,27 +68,13 @@ const dragHasFiles = (e: React.DragEvent): boolean =>
 /** The generic module file a module folder is recognised BY, and opened at. */
 const MODULE_FILE = /^module\.ya?ml$/i;
 
-/**
- * A module is a folder that HOLDS a `module.yaml`, and the tree draws it as one row.
- *
- * Recognised by its contents rather than by its path. The shape used to be read off the path
- * — `…/modules/<category>/<name>` against a hard-coded category list — which missed a shared
- * library, where a module sits one folder deeper (`_modules/<type>/<category>/<leaf>`), and
- * would miss any category the list had not been told about. The file is the definition; asking
- * for it cannot drift from what the loader does.
- */
+/** A module is a folder that HOLDS a `module.yaml`, drawn as one row — recognised by its contents, never by its path. */
 function moduleFileIn(node: FileNode): string | null {
   if (!node.dir) return null;
   return node.children?.find((c) => MODULE_FILE.test(c.name))?.name ?? null;
 }
 
-/**
- * The tree with every module folded into a single row, plus the module file each one opens at.
- *
- * The three files a module is are its DEFINITION, not contents to browse — you edit a module,
- * and the builder is what edits all three. Leaving them as rows offered three ways into one
- * screen and invited a drop into a folder whose shape the loader decides.
- */
+/** The tree with every module folded into a single row, plus the module file each opens at — the three files are a DEFINITION, not contents. */
 function foldModules(nodes: FileNode[]): {
   tree: FileNode[];
   modules: Map<string, string>;
@@ -103,8 +85,7 @@ function foldModules(nodes: FileNode[]): {
       const file = moduleFileIn(n);
       if (file) {
         modules.set(n.path, file);
-        // `dir` and `children` both dropped: the shared tree decides "leaf" from those alone,
-        // and a leaf is what draws no chevron and reports a click through onOpen.
+        // `dir` and `children` both dropped: the shared tree decides 'leaf' from those alone.
         const { dir: _dir, children: _children, ...leaf } = n;
         return leaf as FileNode;
       }
@@ -113,14 +94,7 @@ function foldModules(nodes: FileNode[]): {
   return { tree: walk(nodes), modules };
 }
 
-/**
- * Is this path inside the workspace's shared module library?
- *
- * `_modules` backs every project in the workspace, so it is read-only here — `module populate` rebuilds it and
- * is the only thing that writes to it. Editing a module in it saves a project-local COPY instead (see
- * moduleFork.ts on the server); everything else is simply not offered, which is why these actions disappear
- * rather than failing on the way back. Mirrors isInSharedModules — the server enforces, this only explains.
- */
+/** Is this path inside the workspace's shared module library? Read-only here — editing one saves a project-local COPY (moduleFork.ts, server side). */
 const isShared = (path: string): boolean =>
   path.split("/").some((seg) => seg === "_modules");
 
@@ -159,12 +133,10 @@ export function FileTree({
   // Where a drop onto empty space lands — the active project, or the workspace root when none is open.
   rootDir: string;
   onOpen: (path: string) => void;
-  /** A module row was clicked — the path is its `module.yaml`, which is what the builder takes.
-   *  Absent and a module simply opens nothing, since its files are no longer rows. */
+  /** A module row was clicked — the path is its `module.yaml`, which is what the builder takes. */
   onOpenModule?: (moduleFile: string) => void;
   onOpenProject: (path: string) => void;
-  // Drop local files into `dir` (a workspace-relative folder), FOLDERS included — each file carries the path
-  // it sat at, because a module is a folder of three. EditorTab does the upload.
+  // Drop local files into `dir`, FOLDERS included: each carries the path it sat at, a module being a folder of three. EditorTab uploads.
   onUpload: (dir: string, files: DroppedFile[]) => void;
   // Right-click actions on an entry, wired by EditorTab; the menu only appears when both are provided.
   onRename?: (path: string, newName: string) => void;
@@ -177,31 +149,19 @@ export function FileTree({
   onCloneModule?: (path: string, newName: string) => void;
   // Add an <node>.yaml to a module folder (it inherits that folder's module.yaml).
   onCreateNode?: (path: string) => void;
-  /**
-   * The module levels this project can reach, as the file service answered — nearest first.
-   *
-   * The raw answer and not a rendered tree, because two things here need what a row's shape
-   * cannot carry: which level a row belongs to (so a create knows its root) and whether that
-   * level is writable at all. ABSENT for a shell that offers no such tab, which is what makes
-   * the tab bar disappear rather than show a dead one.
-   */
+  /** The module levels this project can reach, nearest first — the RAW answer, a row's shape carrying neither its level nor its writability. */
   levels?: ModuleLibrary[];
   /** The library's CHAINS, listed in the same tab — one row each, opening the chains builder. */
   chains?: readonly { ref: string; path: string; nodes?: string[] }[];
   /** A chain row was opened: its ref, for the builder. */
   onOpenChain?: (ref: string, node?: string) => void;
-  /** A module row in a LIBRARY was clicked. The same path space as every other row here — the
-   *  libraries are a folder in the workspace — but a different callback, because what the
-   *  builder does with it differs: it opens read-only (see ../libraryTree.ts). */
+  /** A module row in a LIBRARY was clicked — the same path space, a different callback, since it opens read-only (../libraryTree.ts). */
   onOpenLibraryModule?: (moduleFile: string) => void;
-  /** Make an empty module in a library. `root` is the level's path as it was GIVEN here, and
-   *  `rel` the module's path under it (`audio/reverb`) — never built from a name, which is
-   *  what keeps the levels apart. */
+  /** Make an empty module in a library: `root` is the level's path as GIVEN here, `rel` the module's path under it, never built from a name. */
   onCreateModule?: (root: string, rel: string) => void;
   ref?: Ref<FileTreeHandle>;
 }) {
-  // Which of the two trees is on screen. Client-only and not URL state: it is disclosure — the
-  // same sidebar showing one of two things — and nothing else in the shell depends on it.
+  // Which of the two trees is on screen — client-only and not URL state, being disclosure and nothing else.
   const [tab, setTab] = useState<"project" | "libraries">("project");
 
   // Pinned files: client-only state in localStorage per project, re-loaded on a project switch so pins can't cross.
@@ -249,9 +209,7 @@ export function FileTree({
   }, [tree]);
   const shownPins = pins.filter((p) => treeFiles.has(p));
 
-  // The file PICKER — the same upload as a drag. Worth a second way in: drag-and-drop fails silently when it fails.
-  // Two inputs, because `webkitdirectory` is a property of the INPUT and not of the click: one asks for files,
-  // the other for a folder, and a browser draws them as two different dialogs.
+  // The file PICKER, worth a second way in — two inputs, because `webkitdirectory` is a property of the INPUT and draws a different dialog.
   const pickRef = useRef<HTMLInputElement>(null);
   const pickDirRef = useRef<HTMLInputElement>(null);
   const pickInto = useRef<string>(rootDir);
@@ -264,9 +222,7 @@ export function FileTree({
   const pickFiles = (dir: string) => pick(dir, pickRef.current);
   const pickFolder = (dir: string) => pick(dir, pickDirRef.current);
 
-  // The three the right-click menu offers and nothing else can: they are this component's own state.
-  // Rebuilt on every render, which is what it costs to keep `togglePin` reading the CURRENT pins
-  // — the three are plain closures over this render's state, and a ref assignment is free.
+  // The three the right-click menu offers and nothing else can, rebuilt every render so `togglePin` reads the CURRENT pins.
   useImperativeHandle(
     ref,
     (): FileTreeHandle => ({
@@ -276,8 +232,7 @@ export function FileTree({
     }),
   );
 
-  // A pick, in the shape a drop already arrives in. `webkitRelativePath` carries the folder for a directory
-  // pick and is "" otherwise, which is exactly the difference between the two inputs above.
+  // A pick, in the shape a drop already arrives in: `webkitRelativePath` carries the folder for a directory pick and is '' otherwise.
   const uploadPicked = (input: HTMLInputElement) => {
     const files = Array.from(input.files ?? []).map((file) => ({
       path: file.webkitRelativePath || file.name,
@@ -287,31 +242,19 @@ export function FileTree({
     input.value = ""; // so the same pick can be repeated
   };
 
-  // Folded before anything reads it: `modules` is then the only thing that knows a row is a
-  // module, because the node no longer says `dir` and the path never did say it reliably.
-  // The project's own `modules/` is dropped from THIS tab: it is `@project` on the other one.
-  // Shown twice it would be two ways into one module — one that opens the builder, one that
-  // browses its files — and which folder a module lives in is the loader's business rather
-  // than somewhere to drop files by hand. The two SHARED levels need no dropping: the file
-  // tree is the active project's own files and they sit outside it.
+  // Folded before anything reads it, and the project's own `modules/` dropped from THIS tab: it is `@project` on the other one.
   const { tree: folded, modules } = useMemo(
     () => foldModules(withoutPaths(tree, ownModulesOf(activeProject))),
     [tree, activeProject],
   );
   const isModule = (path: string) => modules.has(path);
 
-  // The same fold over the LIBRARIES, so a shared module is one row that opens the builder
-  // exactly as a project one is. Folded here rather than where the rows are built, so the two
-  // trees cannot come to disagree about what a module looks like (see libraryTree.ts).
+  // The same fold over the LIBRARIES, so a shared module is one row that opens the builder (see libraryTree.ts).
   const lib = useMemo(() => {
     const rows = libraryTree(levels ?? [], chains ?? []);
     return rows.length ? foldModules(rows) : null;
   }, [levels, chains]);
-  // A chain row by its path, so opening one is answered before the module lookup: the two trees
-  // share a tab and a click, and only this map tells their rows apart.
-  // Both a chain row and its NODE rows answer here: the value is the chain to open, and the node
-  // to land on when the row was one. A node is addressed by the chain it belongs to, because the
-  // builder opens a chain and then a file within it — there is no such thing as a node alone.
+  // A chain row by its path, answered before the module lookup — the value is the chain to open, and the node to land on when the row was one.
   const chainByPath = useMemo(() => {
     const m = new Map<string, { ref: string; node?: string }>();
     for (const c of chains ?? []) {
@@ -324,18 +267,7 @@ export function FileTree({
   // What may not be touched — `@engine`, whose rows are a vocabulary and not files.
   const frozen = useMemo(() => readOnlyPaths(levels ?? []), [levels]);
 
-  /**
-   * The Libraries tab's own menu: make a folder, make a module.
-   *
-   * Both offered on any FOLDER of a writable level, the namespace row included — that row is
-   * the level's own folder, and a level whose folder does not exist yet is drawn precisely so
-   * you can create through it. `@engine` gets neither: `rootOf` refuses a read-only level, so
-   * the menu does not open at all there rather than opening with everything greyed.
-   *
-   * A module is named by its path UNDER the row you clicked, so the same entry reads the same
-   * way everywhere: `audio/reverb` on `@project`, `reverb` inside `audio`. The hint spells the
-   * file out, so what is about to be written is never a guess.
-   */
+  /** The Libraries tab's own menu: make a folder, make a module — on any FOLDER of a writable level, named by its path UNDER the clicked row. */
   const libraryActions = useMemo((): TreeAction<FileNode>[] => {
     const all = levels ?? [];
     // `rootOf` already refuses a read-only level, so belonging to a writable one IS the test.
@@ -366,8 +298,7 @@ export function FileTree({
         run: (t, value) => {
           const root = rootOf(all, t.path);
           if (!root || !value.trim()) return;
-          // The path under the LEVEL, which is what the service validates: at least a type
-          // folder and a name. The row may already be some way inside it.
+          // The path under the LEVEL, which is what the service validates: at least a type folder and a name.
           const under =
             t.path === root.path ? "" : t.path.slice(root.path.length + 1);
           onCreateModule?.(
@@ -383,8 +314,7 @@ export function FileTree({
   // `t.dir` is false on a module row now, so the folded set answers instead.
   const isModuleTarget = (t: TreeTarget<FileNode>) =>
     !t.root && isModule(t.path);
-  // Both "New node…" and "Clone module…" resolve the module inside the ACTIVE PROJECT, so neither reaches a
-  // shared one. Editing a shared module is what copies it into the project (see moduleFork.ts).
+  // Both resolve the module inside the ACTIVE PROJECT, so neither reaches a shared one (see moduleFork.ts).
   const isLocalModuleTarget = (t: TreeTarget<FileNode>) =>
     isModuleTarget(t) && !isShared(t.path);
 
@@ -416,8 +346,7 @@ export function FileTree({
     {
       key: "new-folder",
       label: "New folder…",
-      // Same reach as "New file…": inside a folder, never at the root, where a loose entry would sit among the
-      // projects rather than in one.
+      // Same reach as 'New file…': inside a folder, never at the root, where a loose entry would sit among the projects.
       when: (t) => t.dir && !t.root && !isShared(t.path) && !!onCreateFolder,
       prompt: {
         placeholder: "folder-name",
@@ -427,10 +356,7 @@ export function FileTree({
       run: (t, name) => onCreateFolder?.(t.path, name),
     },
     {
-      // No prompt, and no ellipsis with it: a node is named `<module>_<n>` by the service, the
-      // same rule the graph's `+` and a forked module follow (`@studio/song`'s instanceName.ts).
-      // What used to be asked here was the one thing nobody had a better answer for than a
-      // counter, and the file it makes opens straight away — so the name is there to read.
+      // No prompt, and no ellipsis with it: a node is named `<module>_<n>` by the service (@studio/song's instanceName.ts).
       key: "new-node",
       label: "New node",
       when: (t) => isLocalModuleTarget(t) && !!onCreateNode,
@@ -475,8 +401,7 @@ export function FileTree({
       label: "Delete",
       danger: true,
       when: (t) => menuEnabled && !t.root && !isShared(t.path),
-      // A module is a DIRECTORY on disk that the tree draws as a leaf, so `t.dir` alone would
-      // send it down the single-file route and leave the folder behind.
+      // A module is a DIRECTORY the tree draws as a leaf, so `t.dir` alone would leave the folder behind.
       run: (t) => onDelete?.(t.path, t.dir || isModule(t.path)),
     },
   ];
@@ -505,9 +430,7 @@ export function FileTree({
             )}
           >
             <Pin className="h-3.5 w-3.5 shrink-0 text-primary" />
-            {/* Folder + filename (the last two path segments), so two pinned files with
-                the same name — a common shape here (several tracks/*.yaml) — are told
-                apart. The full path is the tooltip. */}
+            {/* Folder + filename, so two pinned `tracks/*.yaml` are told apart; the full path is the tooltip. */}
             <span className="truncate">{p.split("/").slice(-2).join("/")}</span>
           </button>
           <button
@@ -526,10 +449,7 @@ export function FileTree({
 
   return (
     <>
-      {/* The two pickers. Hidden rather than styled: they exist to be clicked programmatically, and
-          `multiple` is the whole point — the upload path has always taken a batch, only the drag could
-          produce one. `webkitRelativePath` is what a folder pick fills in, and it is empty for a plain
-          file pick, so ONE mapping serves both. */}
+      {/* The two pickers, hidden because they are clicked programmatically; `webkitRelativePath` is empty for a file pick, so ONE mapping serves both. */}
       <input
         ref={pickRef}
         type="file"
@@ -548,8 +468,7 @@ export function FileTree({
         onChange={(e) => uploadPicked(e.target)}
       />
 
-      {/* Two trees, one sidebar. Drawn only for a shell that has libraries to show — the tab
-          bar is the affordance, so one lonely tab would be a control that decides nothing. */}
+      {/* Two trees, one sidebar, drawn only for a shell that has libraries: one lonely tab is a control that decides nothing. */}
       {levels !== undefined && (
         <div className="mb-1 flex shrink-0 items-center gap-1 border-b border-border/60 pb-1">
           {(
@@ -576,14 +495,10 @@ export function FileTree({
         </div>
       )}
 
-      {/* The LIBRARIES: read-only rows over somebody else's catalogue. No actions at all — not
-          a menu with everything greyed out — because nothing here is this project's to rename,
-          move or delete. Opening a module is the one thing the tab is for, and the builder it
-          opens says the rest. */}
+      {/* The LIBRARIES: read-only rows with no actions at all, since nothing here is this project's to rename or delete (docs/sharedModules.md). */}
       {tab === "libraries" ? (
         !lib ? (
-          // Only reachable before the first answer has arrived: `@project` and `@workspace` are
-          // always offered once it has, empty or not.
+          // Only reachable before the first answer has arrived: `@project` and `@workspace` are always offered once it has.
           <p className="p-2 text-xs text-muted-foreground">
             reading the module libraries…
           </p>
@@ -591,26 +506,14 @@ export function FileTree({
           <Tree<FileNode>
             nodes={lib.tree}
             activePath={activePath}
-            /* The one thing this tab writes, and it is offered on the NAMESPACE row only.
-               A module is a FOLDER holding a definition, so "New folder…" would make something
-               the loader does not recognise and a row that opens no builder — this makes the
-               file that makes it a module. One place and one shape (`<type>/<name>`), because
-               the type folder is part of what a module IS: `audio/reverb` is the name a chain
-               writes. A level whose folder does not exist yet is drawn for exactly this, and
-               creating through it is what brings the folder into being. */
+            /* The one thing this tab writes, on the NAMESPACE row only, in one shape `<type>/<name>` (docs/sharedModules.md). */
             actions={libraryActions}
-            // The NEAREST namespace row, open on arrival: a tab whose rows are all closed
-            // folders says nothing about what is behind them, and the project's own modules
-            // are what somebody opening this is most often after.
+            // The NEAREST namespace row, open on arrival: a tab of closed folders says nothing about what is behind them.
             reveal={lib.tree[0]?.path ?? null}
-            // A read-only level's rows are greyed: they name a plugin the engine reports and
-            // there is no file behind them to open. Same treatment a .wav gets, for the same
-            // reason — a row you can read and cannot open.
+            // A read-only level's rows are greyed: they name a plugin the engine reports, with no file behind them to open.
             isDisabled={(n) => isBinary(n) || frozen.has(n.path)}
             onOpen={(node) => {
-              // A CHAIN first: it is a folder on disk holding a `graph.yaml` and a `nodes/`,
-              // exactly as a module folder holds its definition, so the module lookup below has
-              // no way of telling the two apart. This map does, and it is asked first.
+              // A CHAIN first: it is a folder holding a `graph.yaml` and a `nodes/`, which the module lookup below cannot tell apart.
               const chain = chainByPath.get(node.path);
               if (chain) {
                 onOpenChain?.(chain.ref, chain.node);
@@ -619,12 +522,10 @@ export function FileTree({
               const file = lib.modules.get(node.path);
               if (file) onOpenLibraryModule?.(`${node.path}/${file}`);
             }}
-            // A chain FOLDER opens on its name while its chevron still folds — it holds its nodes
-            // AND is a thing to edit, and the tree can say both. See docs/chainsBuilder.md.
+            // A chain FOLDER opens on its name while its chevron still folds — see docs/chainsBuilder.md.
             opensOnName={(n) => chainByPath.has(n.path)}
             icon={(node, open) =>
-              // A chain wears the builder's own glyph, so the row and the screen it opens are
-              // recognisably one thing.
+              // A chain wears the builder's own glyph, so the row and the screen it opens are recognisably one thing.
               chainByPath.get(node.path)?.node === undefined &&
               chainByPath.has(node.path) ? (
                 <Workflow className="h-4 w-4 shrink-0" />
@@ -649,8 +550,7 @@ export function FileTree({
           actions={actions}
           acceptsFileDrop={dragHasFiles}
           isDisabled={isBinary}
-          // A module opens the BUILDER, on the panel — the screen that edits all three of its
-          // files. Everything else opens as text, as before.
+          // A module opens the BUILDER, on the panel — the screen that edits all three of its files; everything else opens as text.
           onOpen={(node) => {
             const file = modules.get(node.path);
             if (file) onOpenModule?.(`${node.path}/${file}`);

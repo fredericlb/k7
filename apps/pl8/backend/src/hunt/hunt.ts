@@ -28,31 +28,19 @@ import {
 import { type HuntRecord, listHunts, patchHunt, saveHunt } from "./store.ts";
 import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 
-/**
- * The failure after which YouTube makes sense: Soulseek was asked and exhausted.
- *
- * A CLASS and not a re-reading of the message: error text changes with rewording, and an
- * `includes("no peer")` would eventually recognise nothing — and so never offer the fallback
- * again, with nothing to signal it.
- */
+/** Soulseek was asked and exhausted — a CLASS, not a re-read message; see ../../docs/hunt.md. */
 class ExhaustedError extends Error {}
 
 /** A peer gets this long to START sending before the hunt moves to the next one. */
 export const NO_START_MS = 60_000;
 
-/**
- * …and this many moves before the hunt is a failure.
- *
- * Read as: ten peers are tried. The counter is raised each time one is abandoned, and reaching
- * ten stops the hunt — so the tenth abandonment is the failure rather than the eleventh attempt.
- */
+/** …and this many moves before the hunt is a failure — ten peers tried, ../../docs/hunt.md. */
 export const MAX_SWITCHES = 10;
 
 /** How long the network gets to answer a search before what arrived is ranked. */
 const SEARCH_WINDOW_MS = 12_000;
 
-/** Once a transfer IS moving, how long it may take. Not in the request, but a peer that sends
- *  two kilobytes and sulks would otherwise leave a blue row spinning for ever. */
+/** Once a transfer IS moving, how long it may take — a peer that sends two kilobytes and sulks. */
 const TRANSFER_CAP_MS = 30 * 60_000;
 
 const POLL_MS = 2_000;
@@ -80,8 +68,7 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** Is this song already filed? Asked BEFORE downloading: `addSong` would refuse it at the end
- *  anyway, and finding out after forty megabytes is a worse way to learn it. */
+/** Already filed? Asked BEFORE downloading — learning it after forty megabytes is worse. */
 function alreadyFiled(tags: SongTags): string | null {
   const folder = songFolder(tags);
   try {
@@ -94,11 +81,7 @@ function alreadyFiled(tags: SongTags): string | null {
   }
 }
 
-// `addToPlaylist` was here: a hunt could target a playlist, and the line was written as soon as
-// the song was filed. Playlists live in the workspace repository now, on the file service's disk,
-// which this service cannot reach — and giving it that reach would make the holder of the session
-// and the deploy key a writer in everyone's repository, which apps/pl8/docs/projects.md refuses.
-// So a hunt files the song, and adding it to a set list is a click in st0.
+// `addToPlaylist` was here: a hunt files the song and st0 adds it to a set list — ../../docs/hunt.md.
 
 /** Everything the network answered, up to the window or until it says it is done. */
 async function gather(searchId: string, signal: AbortSignal) {
@@ -114,13 +97,7 @@ async function gather(searchId: string, signal: AbortSignal) {
 
 type Outcome = "done" | "stalled" | "failed";
 
-/**
- * Wait on one peer.
- *
- * `stalled` is the sixty-second rule and means "never started". `failed` is the peer saying no —
- * a rejection, an error, a cancellation — and does not wait out the minute, because a peer that
- * has already refused will not change its mind.
- */
+/** Wait on one peer: `stalled` is the sixty-second rule, `failed` is a refusal that never waits. */
 async function watch(
   c: Candidate,
   signal: AbortSignal,
@@ -140,8 +117,7 @@ async function watch(
       seen = true;
       transferId = t.id || transferId;
     } else if (seen) {
-      // It was there and is gone: slskd drops a transfer it has given up on, and treating
-      // that as "still queued" would wait out the whole minute for an answer already given.
+      // There and now gone: slskd drops a transfer it has given up on, which is an answer.
       return { outcome: "failed", transferId };
     }
     const phase = classify(t?.state);
@@ -154,20 +130,7 @@ async function watch(
   return { outcome: "stalled", transferId };
 }
 
-/**
- * What to ASK slskd, in the order to ask it.
- *
- * The album and the title, then the title alone — and **never the artist**.
- *
- * A Soulseek search is matched against the whole shared path, and the artist is nearly always
- * the folder ABOVE the album: it narrows nothing the album has not already narrowed, and every
- * term added is another way for a legitimate copy to miss. The album is the precise half of the
- * pair, which is why it goes first and why dropping it is what the second attempt does.
- *
- * The artist has not gone away — it is the FILTER on what comes back (`rankCandidates`). Asking
- * broadly and judging strictly is the whole shape of this: a term in the query can only lose
- * results, while a term in the filter can be applied to what the peers actually sent.
- */
+/** Album then title, then the title alone — never the artist, which filters instead: ../../docs/hunt.md. */
 export function searchTexts(
   album: string | null | undefined,
   title: string,
@@ -175,23 +138,11 @@ export function searchTexts(
   const t = title.trim();
   if (!t) return [];
   const a = (album ?? "").trim();
-  // No album — or one that adds nothing — leaves a single attempt rather than the same
-  // search run twice, which would only spend a second round of somebody's patience.
+  // No album leaves a single attempt rather than the same search run twice.
   return a ? [`${a} ${t}`, t] : [t];
 }
 
-/**
- * Work down the ranked peers until one of them actually sends the file.
- *
- * `tried` is shared ACROSS the searches and is the budget: ten peers in total, not ten per
- * attempt. Otherwise the fallback search would quietly double the worst case to twenty minutes
- * of waiting, and the ten in the request would stop meaning anything.
- *
- * A peer already tried is skipped rather than re-queued — the two searches overlap heavily, and
- * giving the same unmoving queue a second minute is the one thing the switching exists to avoid.
- *
- * `null` for "this round found nobody", so the caller can decide whether another search is left.
- */
+/** Work down the ranked peers; `tried` is the budget across BOTH searches — ../../docs/hunt.md. */
 async function takeFromSomeone(
   sub: string,
   id: string,
@@ -234,8 +185,7 @@ async function run(
     artist: tags.artist,
     title: tags.title,
     album: tags.album ?? undefined,
-    // What a person reading the folder sees about where it came from — the field exists for
-    // exactly this, beside `upload` and `k7`.
+    // Where it came from, for whoever reads the folder — beside `upload` and `k7`.
     source: "slskd",
   };
   patchHunt(sub, id, {
@@ -260,8 +210,7 @@ async function run(
   const tried = new Set<string>();
   let taken: Candidate | null = null;
   let why = "";
-  // Did the network really answer "I do not have it"? Set here and nowhere else: only what
-  // happens INSIDE this loop says anything about the track's availability.
+  // Set here and nowhere else: only what happens INSIDE this loop speaks to availability.
   let exhausted = false;
   for (const text of searchTexts(tags.album, tags.title)) {
     if (tried.size >= MAX_SWITCHES) break;
@@ -283,15 +232,11 @@ async function run(
       exhausted = true;
       why = `${tried.size} pair${tried.size > 1 ? "s" : ""} essayé${tried.size > 1 ? "s" : ""} pour « ${text} », aucun n'a commencé à envoyer`;
     } finally {
-      // NOT awaited: stopping a search and waiting for it to wind down is slskd's housekeeping,
-      // not this hunt's outcome, and holding the file up for ten seconds of it would delay the
-      // green row for nothing. `releaseSearch` never rejects, so nothing escapes here.
+      // NOT awaited: it is slskd's housekeeping, not this hunt's outcome — ../../docs/hunt.md.
       void releaseSearch(searchId);
     }
   }
-  // The LAST reason, which is the one from the narrowest search still standing — and the only
-  // one worth showing: "nobody had it" after the title alone is a different fact from the same
-  // sentence about the album.
+  // The LAST reason, from the narrowest search still standing, is the only one worth showing.
   if (!taken) {
     const why2 = why || "aucune recherche n'a abouti";
     // The TYPE carries the information, not the text: `startHunt` reads it to decide the button.
@@ -300,8 +245,7 @@ async function run(
 
   const { bytes } = await fetchDownload(taken.file.filename);
   const filed = addSong({
-    // The peer's own file name, which is what gives the master its extension. `masterName`
-    // refuses anything the scan would not see as audio, and `segment` makes the folder.
+    // The peer's own file name, which gives the master its extension and nothing else.
     filename: baseNameOf(taken.file.filename),
     bytes,
     tags: songTags,
@@ -341,16 +285,7 @@ export function startHunt(sub: string, query: string): HuntRecord {
   return rec;
 }
 
-/**
- * The fallback: take a failed row and fetch the track from YouTube.
- *
- * The SAME row, not a new one. It already carries the tags MusicBrainz resolved, so the song
- * files where it would have gone — and the history keeps one row per wanted song rather than one
- * per attempt, which is the question somebody has when re-reading the list.
- *
- * `null` when the row is unknown or already running, which the route reports as 404/409: two
- * downloads writing the same folder would race.
- */
+/** The fallback, on the SAME row rather than a new one — `null` if unknown or running already. */
 export function startYoutube(sub: string, id: string): HuntRecord | null {
   const row = listHunts(sub).find((h) => h.id === id);
   if (!row || running.has(id)) return null;
@@ -390,8 +325,7 @@ async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
       artist: rec.artist,
       title: rec.title || rec.query,
       album: rec.album,
-      // The sidecar says where it came from, as it does for `slskd` or `upload` — the only trace,
-      // once filed, that this is a video's audio track and not a record.
+      // Once filed, the only trace that this is a video's audio track and not a record.
       source: "youtube",
     },
     // Recovering a failure: nothing is there to overwrite, and if something is, `addSong` refuses.

@@ -18,8 +18,7 @@ import type { PluginOut, Song } from "./model.js";
 const BEGIN = "STUDIO_PARAMS_BEGIN";
 const END = "STUDIO_PARAMS_END";
 
-// Locating the engine is the CALLER's job: this is a library, so it takes the binary rather than guessing where
-// the repo is. A copy of that search used to live here and broke the moment the package moved — don't bring it back.
+// Locating the engine is the CALLER's job, and a copy of that search here broke on a move — docs/import.md.
 
 // name -> { format, identifier } from the plugin cache, matching an imported plugin to one the engine can load.
 type CacheEntry = { format: string; id: string };
@@ -74,8 +73,7 @@ function runEngine(engineExe: string, args: string[]): string | undefined {
 type Dump = { params: Record<string, number>; complete: boolean };
 type DumpResult = { ok: true; dump: Dump } | { ok: false; reason: string };
 
-// Dump one plugin's params: externals go through --dump-params-ext, a stateless one falls back to a built-in dump
-// by type. A failure returns a human-readable reason, so a kept-as-preset plugin is never silent.
+// Dump one plugin's params, returning a readable reason on failure so a kept-as-preset plugin is never silent.
 function dumpOne(
   engineExe: string,
   p: PluginOut,
@@ -122,8 +120,7 @@ function dumpOne(
     : { ok: false, reason: `no state to convert (type '${p.type}')` };
 }
 
-// Fill each plugin's params from the engine so the emitter writes chain params instead of a .vstpreset.
-// Mutates `song`, returns how many resolved, and reports every plugin that stays a preset with its reason.
+// Fill each plugin's params from the engine; mutates `song` and reports every plugin that stays a preset.
 export function resolvePluginParams(
   song: Song,
   files: Record<string, Uint8Array>,
@@ -138,8 +135,7 @@ export function resolvePluginParams(
   try {
     for (const t of song.tracks)
       for (const p of t.plugins ?? []) {
-        // Key the dump cache by the STATE FILE too: two instances carrying different presets must not share a dump, or
-        // the second inherits the first's values and emit.ts then collapses them into one module.
+        // Key the dump cache by the STATE FILE too, or two presets share one dump — see docs/import.md.
         const key = `${p.name.toLowerCase()}|${p.type}|${p.path ?? ""}`;
         if (!memo.has(key))
           memo.set(key, dumpOne(engineExe, p, files, cache, tmpDir));

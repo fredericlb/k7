@@ -141,6 +141,29 @@ it; joining first would hang the engine on Ctrl-C. The thread is also created on
 a successful `listen()` — created before, the `return 1` on a port already in use would
 destroy a joinable `std::thread` and turn a clean error exit into `std::terminate`.
 
+## The headless listener
+
+`scripts/listen-headless.mjs` drives a real Chrome at the stream, which is what makes the numbers
+below mean anything. Four things about how it is built:
+
+- **It bundles the real modules**, fed to esbuild through stdin with `resolveDir` set to the repo
+  rather than written to a temp file. The whole point is to exercise `packages/engine-browser` as
+  shipped; a hand-written copy in the page would prove only that the copy works. The `resolveDir`
+  matters because esbuild resolves bare specifiers relative to the importing FILE, so an entry
+  sitting in `%TEMP%` cannot see `node_modules` and every `@studio/*` comes back unresolved.
+- **The AudioContext is built at the STREAM's rate.** The sink does not resample, so 44.1 material
+  in a 48 kHz context is a pitch shift rather than an audible fault.
+- **`--autoplay-policy` and `--headless=new`.** An AudioContext stays suspended without a user
+  gesture and there is nobody here to click; the new headless keeps Web Audio real — it renders to
+  a null sink at the nominal rate — rather than stubbing it out.
+- **A FIXED debugging port, discovered over HTTP** rather than by reading stderr. On Windows the
+  process spawned is only a launcher: it forks the real browser and exits 0 immediately, taking its
+  stderr — and the `DevTools listening on…` line — with it. Waiting on that line reads as "chrome
+  exited with 0" while a perfectly healthy browser runs.
+
+What it reports is the buffer depth over time, and the **trend** is the point: a cushion that walks
+steadily one way is two clocks disagreeing, and that is what a fixed cushion eventually loses to.
+
 ## What was measured
 
 `node engine/moteur/scripts/measure-broadcast.mjs ws://HOST:PORT [seconds]` subscribes,

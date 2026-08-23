@@ -40,19 +40,7 @@ interface WfEntry {
   data: WebWaveform;
 }
 
-/**
- * The envelope's content fingerprint + the placement/tempo/buckets the region math reads.
- *
- * `sourceFrom`, `sourceTo` and the warp markers are in here because `regionWaveform` reads all
- * three: they decide WHICH part of the file the region shows and at what rate (see
- * docs/waveformCache.md). They were absent while the region math ignored them, which was
- * harmless then and would now mean trimming a clip's `from` left the old picture on screen.
- *
- * A CACHE IN FRONT OF THIS ONE HAS TO FOLD THE SAME THINGS. st0's timeline keeps its own entry per
- * clip and filed it under the id alone, which put that exact bug back one layer up: the block went
- * on drawing the untrimmed envelope. Its mirror of this signature is
- * `apps/st0/frontend/src/clipEnvelope.ts`; change one and read the other.
- */
+/** The fingerprint + everything the region math reads; a cache in front must fold the same (docs/waveformCache.md). */
 const wfSig = (
   fingerprint: string,
   clip: ClipDoc,
@@ -80,9 +68,7 @@ function materialWindow(c: ClipDoc): { from: number; to: number } | null {
     : null;
 }
 
-// Slice the disk-cached file envelope to the clip's region and add the bar/beat grid — the WebWaveform drawn.
-// `window`, when the region is wider than the clip's own from/to, is that pair put on the SAME axis as the
-// marks — through the region's own mapping, never a second copy of it.
+// Slice the file envelope to the clip's region and add the bar/beat grid; `window` rides the region's own mapping.
 function buildWaveform(
   env: Parameters<typeof regionWaveform>[0],
   clip: ClipDoc,
@@ -149,12 +135,7 @@ export class WaveformOps {
     return `${this.host.activeProject() ?? this.host.root}::${clipId}::${buckets}`;
   }
 
-  /**
-   * `whole` asks for the MATERIAL rather than the placement: the clip as its own file defines it, so the span is
-   * the source's full duration instead of whatever musical length a track happened to place it with. That is the
-   * view a clips/<id>.yaml wants — you are editing the sample there, and `from`/`to` can only be judged against
-   * the whole of it.
-   */
+  /** `whole` asks for the MATERIAL rather than the placement — see docs/waveformCache.md. */
   async waveform(
     clipId: string,
     buckets: number = DEFAULT_WF_BUCKETS,
@@ -164,8 +145,7 @@ export class WaveformOps {
   ): Promise<WebWaveform> {
     const dir = this.host.requireActive();
     const p = this.host.cachedProjectDoc(dir);
-    // A rack's audio is an absolute path beside its module, not a clip id, so serve its whole-file waveform;
-    // the workspace guard keeps the query param from reading arbitrary files.
+    // A rack's audio is an absolute path, not a clip id; the workspace guard confines the query param.
     if (isAbsolute(clipId) && AUDIO_EXT.test(clipId)) {
       const fileAbs = resolve(clipId);
       if (!this.host.withinRoot(fileAbs))
@@ -191,22 +171,13 @@ export class WaveformOps {
       };
       return buildWaveform(env, whole, p, buckets);
     }
-    // A placed clip comes from the compiled project; a defined-but-unplaced one is read from its definition, so its
-    // waveform shows while you edit it (a video clip has none, and loadAudioClipDoc returns null). `whole` reverses
-    // that precedence: the definition carries no start/length/offset, which is exactly what makes the span the file.
-    // The grid, so a TIMECODE `from:`/`to:` resolves to seconds here as it does in the compiler. An
-    // imported song writes nearly all of them that way, and without this the definition came back
-    // with no window at all — the picture was right, and there was nothing to shade it with.
+    // The grid, so a TIMECODE `from:`/`to:` resolves to seconds here as it does in the compiler.
     const grid = {
       tempo: p.tempo,
       num: p.timeSigNumerator,
       den: p.timeSigDenominator,
     };
-    // The MATERIAL this id names. A clip's id identifies a PLACEMENT (`bass_2_0@16`), and the
-    // two lookups below want different things out of it: `findClip` wants the placement, while
-    // `clips/<ref>.yaml` and the onset corrections are properties of the file every placement of
-    // it shares. Handed a bare material name — which this route also is, for the whole-file view
-    // — `materialRefOf` returns it unchanged.
+    // The MATERIAL this id names, where the lookups below want a PLACEMENT — see docs/waveformCache.md.
     const ref = materialRefOf(clipId);
     const clip = whole
       ? (loadAudioClipDoc(dir, ref, grid) ?? findClip(p, clipId))
@@ -214,29 +185,7 @@ export class WaveformOps {
     if (!clip) throw new Error(`no clip '${clipId}'`);
     if (clip.type !== "audio")
       throw new Error(`'${clipId}' is not an audio clip`);
-    /**
-     * `whole` means the FILE, and the window is the thing being JUDGED against it — so the window must not
-     * also crop the picture. It did: `regionWaveform` opens the region AT `sourceFrom` and blanks whatever
-     * lies past `sourceTo` (two different cuts — only the first shortens the span). So a NUMERIC `from:`/`to:`
-     * — exactly what `clip trim` writes — silently redrew the pane as the trim itself: head gone, tail flat,
-     * and no way left to see what had been cut or to judge putting it back.
-     *
-     * A TIMECODE window escaped it, because `mapClip` only reads a number, so the two spellings of one field
-     * drew two different pictures. Drawn windowless here and shaded instead, they draw the same one.
-     */
-    /**
-     * The window to SHADE — the PLACEMENT's, not the definition's.
-     *
-     * `clip` above is deliberately the definition in `whole` mode, because that is what makes the
-     * span the file. Its window is a different question, and since the descent (song/docs/
-     * materialCut.md) a material states none at all: a clip file describes the bytes, a placement
-     * describes the use. Shading with the definition's left every whole-file view unshaded — and a
-     * caller that has no `eventWindow` of its own, like the take review, then framed on the whole
-     * file and put its mark at zero instead of at the take's head.
-     *
-     * Handed a bare material name — which this route also is — there is no placement to ask, and
-     * the answer is honestly nothing to shade.
-     */
+    // The window to SHADE is the PLACEMENT's, and it must not also crop — see docs/waveformCache.md.
     const window = whole ? materialWindow(findClip(p, clipId) ?? clip) : null;
     const drawn = window
       ? { ...clip, sourceFrom: undefined, sourceTo: undefined }
@@ -247,10 +196,7 @@ export class WaveformOps {
       findEngineBinary(),
       sensitivity,
     );
-    // The clip's own corrections, applied to the DETECTED set before anything maps it into the region: both
-    // are file seconds, and the region mapping is what turns them into the display seconds a surface draws.
-    // Resolved here rather than in each surface, so the slice widget, the clip block and the take review all
-    // draw the same onsets without knowing corrections exist. See song/onsets.ts.
+    // The clip's own corrections, applied to the DETECTED set in file seconds before any mapping.
     const edits = clipOnsets(dir, ref);
     const corrected = {
       ...env,
@@ -258,16 +204,13 @@ export class WaveformOps {
     };
 
     const key = this.wfKey(`${clipId}${whole ? "::whole" : ""}`, buckets);
-    // The sensitivity rides in the signature: re-detecting changes the onsets and nothing else, and a memo keyed
-    // only on the fingerprint would keep serving the previous threshold's answer. The corrections ride there for
-    // exactly the same reason — moving one onset must not be answered from the memo of the last one.
+    // The sensitivity and the corrections ride in the signature, or the memo serves the previous answer.
     const sig = `${wfSig(env.fingerprint, clip, p, buckets)}|${env.sensitivity}|${JSON.stringify(edits)}`;
     const cached = this.wfCache.get(key);
     if (cached && cached.sig === sig) return cached.data;
     const data = {
       ...buildWaveform(corrected, drawn, p, buckets, window),
-      // The raw set, mapped the same way, so an editor can tell which pins it may only refuse and which it
-      // may pick up — and the corrections as the file holds them, in file seconds.
+      // The raw set, mapped the same way, so an editor can tell a refusable pin from a movable one.
       detected: buildWaveform(env, drawn, p, buckets).transients,
       onsetEdits: edits,
     };
@@ -285,10 +228,10 @@ export class WaveformOps {
 
     let removed = 0;
     const sweep = (abs: string): void => {
-      // The try covers only the readdir; each unlink has its own catch, so one locked sidecar doesn't abandon the rest.
+      // The try covers only the readdir; each unlink has its own catch (docs/waveformCache.md).
       try {
         for (const e of readdirSync(abs, { withFileTypes: true })) {
-          // The same exclusions as the tree, so we never sweep where the user doesn't consider their workspace to be.
+          // The same exclusions as the tree, so the sweep stays inside what the user calls their workspace.
           if (e.isDirectory()) {
             if (!this.host.skip(e.name)) sweep(join(abs, e.name));
           } else if (e.name.endsWith(CACHE_EXT)) {

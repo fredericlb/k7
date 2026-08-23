@@ -28,23 +28,7 @@ export interface RollFit {
   origin: number;
 }
 
-/**
- * The view for one clip.
- *
- * **With a window** (`from`/`to` — the loop pair, for MIDI): the view is FRAMED on the window, with
- * a margin of context either side, and the canvas runs over the whole sequence. It used to be
- * caged to it — the canvas stopped at the window's end and nothing outside was drawn — which is
- * the same thing the audio clip panel did and the same reason it stopped: a window can only be
- * judged against what lies outside it, and material a window would give back is material you have
- * to be able to see. The pitch fit still reads only the notes the window contains, so a stray note
- * three octaves down cannot squash the pitches that are actually playing.
- *
- * **Without one**: frame what is USED, with a margin, on both axes — the time axis is the one that
- * had stopped doing so (it framed `[0, clip.length]`; measured on LEMO - DANSE, `da.dub`'s drums
- * opened with their notes filling 7% of the pane) — and let the canvas run to the placed extent,
- * and no further. Both branches stop at the material now: writing past the end of what a
- * placement plays produces a note nothing sounds.
- */
+/** The view for one clip: FRAMED on the window with a margin when there is one, else on what is USED — and the canvas stops at the material either way. */
 export function rollFit(
   notes: WebNote[],
   clipLength: number,
@@ -80,8 +64,7 @@ export function rollFit(
   const seqEnd = notes.reduce((mx, n) => Math.max(mx, n.time + n.duration), 0);
 
   if (loop) {
-    // The margin is a fraction of the WINDOW, not of the sequence: what you want either side of a
-    // two-beat window is a beat, not a fifth of a four-minute file.
+    // The margin is a fraction of the WINDOW: what you want either side of a two-beat window is a beat, not a fifth of a four-minute file.
     const tMargin = Math.max(bar / 2, MARGIN * loop.win);
     return {
       loKey,
@@ -91,8 +74,7 @@ export function rollFit(
       hiBeat: loop.to + tMargin,
       beats: Math.max(bar, loop.to - loop.from + 2 * tMargin),
       placedEnd,
-      // Everywhere the wheel may reach: the whole sequence, and never less than the window.
-      // Rounded up to a bar so the canvas ends on a line the ruler draws.
+      // Everywhere the wheel may reach, never less than the window, rounded up to a bar so the canvas ends on a line the ruler draws.
       canvasBeats: Math.ceil(Math.max(seqEnd, loop.to, bar) / bar) * bar,
       origin: 0,
     };
@@ -115,11 +97,7 @@ export function rollFit(
     hiBeat,
     beats: Math.max(bar, hiBeat - loBeat),
     placedEnd,
-    // Bounded by what the clip IS, exactly as the windowed branch above is bounded by its
-    // sequence — never past it. It used to add eight bars of room to write in beyond the end,
-    // which put a four-beat clip on a forty-beat canvas: nine empty bars you could roam into and
-    // drop a note that the placement would never play. A note outside the extent is not material
-    // half-in, it is material that does not sound.
+    // Bounded by what the clip IS: eight bars of room past the end put a four-beat clip on a forty-beat canvas nothing would play.
     canvasBeats: Math.ceil(Math.max(seqEnd, placedEnd, bar) / bar) * bar,
     origin: 0,
   };

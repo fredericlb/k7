@@ -49,8 +49,7 @@ describe("the revision token, from either walk", () => {
 
   it("still ignores media — a wav is walked now, and must not be counted", async () => {
     const narrowBefore = ws.revision().rev;
-    // The wide walk sees this file (it is what the journal diffs binaries by); the narrow one
-    // never did. If it leaked into the token the two would part company right here.
+    // The wide walk sees this file and the narrow one never did; a leak into the token would show here.
     writeFileSync(join(proj, "take.wav"), Buffer.alloc(64));
     expect(ws.revision().rev).toBe(narrowBefore);
     expect(await wide()).toBe(narrowBefore);

@@ -60,8 +60,7 @@ describe("the graph memo", () => {
   });
 
   it("rebuilds after an edit made BEHIND the service's back", async () => {
-    // The case a mutation counter cannot see: git pull, an external editor, another process. The token notices
-    // because it carries the file count and the newest mtime.
+    // The case a mutation counter cannot see; the token notices via the file count and newest mtime.
     expect(steps()).toEqual(["amp"]);
     await new Promise((r) => setTimeout(r, 12)); // mtime resolution — the write must land in a later tick
     writeFileSync(join(proj, "graph.yaml"), chains("amp", "cab"), "utf8");
@@ -71,9 +70,7 @@ describe("the graph memo", () => {
   it("notices a project file appearing, not just changing", async () => {
     const before = ws.graphDoc();
     await new Promise((r) => setTimeout(r, 12));
-    // A NOTE, because `graphDoc().modules` is keyed by doc modules alone now — it was every
-    // module while a Docs panel aggregated their notes. The subject is unchanged: a file that
-    // APPEARS must invalidate the memo, and the map is where a new one can be seen.
+    // A NOTE, because `graphDoc().modules` is keyed by doc modules — a file that APPEARS must invalidate the memo.
     writeModule(proj, "docs", "fuzz", { content: "watch the gain here" });
     expect(ws.graphDoc()).not.toBe(before);
     expect(ws.graphDoc().modules).toHaveProperty("fuzz");

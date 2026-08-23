@@ -21,33 +21,28 @@ describe("the mastering surface's controls", () => {
   const skeleton = SURFACE_MAPPING_SKELETON.mastering;
 
   it("is the list the scaffold writes, in the same order", () => {
-    // The order is the signal's, so a scaffolded file read top to bottom reads as the chain
-    // inside the node. A test on the SET alone would let the two agree and still print the
-    // limiter before the compressor.
+    // The order is the signal's, so a scaffolded file read top to bottom reads as the chain inside the node.
     expect(skeleton.map(([id]) => id)).toEqual(
       MASTER_CONTROLS.map((c) => c.id),
     );
   });
 
   it("says the same thing about each one", () => {
-    // The note is what somebody reads when they fill the line in. Two copies that disagree send
-    // them looking for two different modules.
+    // The note is what somebody reads when they fill the line in; two copies that disagree send them looking for two modules.
     expect(skeleton.map(([, wants]) => wants)).toEqual(
       MASTER_CONTROLS.map((c) => c.wants),
     );
   });
 
   it("puts every control in one of the three parts", () => {
-    // The parts ARE the node: a control in none of them would resolve, move a param, and be
-    // drawn nowhere.
+    // The parts ARE the node: a control in none of them would resolve, move a param, and be drawn nowhere.
     for (const c of MASTER_CONTROLS) expect(MASTER_PARTS).toContain(c.part);
     for (const part of MASTER_PARTS)
       expect(MASTER_CONTROLS.some((c) => c.part === part)).toBe(true);
   });
 
   it("keeps every home inside its own range", () => {
-    // `home` is what a knob draws before the engine has said anything. Outside the range it
-    // would draw at an end, then jump on the first frame.
+    // `home` is what a knob draws before the engine has said anything; outside the range it would draw at an end, then jump.
     for (const c of MASTER_CONTROLS) {
       expect(c.range[0]).toBeLessThan(c.range[1]);
       expect(c.home).toBeGreaterThanOrEqual(c.range[0]);
@@ -56,16 +51,12 @@ describe("the mastering surface's controls", () => {
   });
 
   it("requires all of them — this surface is ONE node", () => {
-    // Where the desk offers its stem cuts without requiring them, because a desk with none is a
-    // complete desk. There is no smaller mastering strip: a missing line is the same strip with
-    // a dead knob. Asserted through the GATE rather than against a `REQUIRED_CONTROLS` alias —
-    // the behaviour is the claim, and the alias was one exported name for one array.
+    // There is no smaller mastering strip: a missing line is the same strip with a dead knob, asserted through the GATE.
     expect(unmappedControls({})).toEqual(MASTER_CONTROLS);
   });
 
   it("counts an absent line and a null one as the same gap", () => {
-    // A scaffolded file is made of `null`s, so a gate that only looked for absence would pass
-    // every freshly created surface and then draw ten dead knobs.
+    // A scaffolded file is made of `null`s, so a gate that only looked for absence would draw ten dead knobs.
     const wired = Object.fromEntries(
       MASTER_CONTROLS.map((c) => [c.id, { module: "qm", param: "x" }]),
     );
@@ -79,8 +70,7 @@ describe("the mastering surface's controls", () => {
   });
 
   it("reads one module out of ten lines naming it", () => {
-    // The shape the strip is drawn for, and the reason `mappedModules` deduplicates rather than
-    // taking the first: more than one is legal and worth SAYING, not silently halving.
+    // The shape the strip is drawn for, and why `mappedModules` deduplicates: more than one is legal and worth SAYING.
     const one = Object.fromEntries(
       MASTER_CONTROLS.map((c) => [c.id, { module: "master_qm_1", param: "x" }]),
     );

@@ -36,9 +36,7 @@ const STEPS = 8;
 const STEP_MS = 120;
 const FINAL = NATURAL * (process.argv.includes("--down") ? 0.92 : 1.08);
 
-// --- a file whose frequency IS its position ---------------------------------------------
-// elastique preserves pitch, so stretching does not move the tone: whatever is heard says
-// where in the file it came from, independently of how fast it is being played.
+// --- a file whose frequency IS its position: elastique preserves pitch, so a tone names its second ---
 function chirp(): string {
   const n = RATE * SECONDS;
   const pcm = Buffer.alloc(n * 2);
@@ -202,8 +200,7 @@ function step() {
   done++;
   const target = NATURAL + ((FINAL - NATURAL) * done) / STEPS;
   const next = nudgedTempos(faders, null, null, "deckA", target, sourceOf);
-  // `--raw` keeps the new tempo and throws the slip away: the fader as it behaved before this
-  // was measured, so the two runs differ in exactly one thing.
+  // `--raw` keeps the new tempo and throws the SLIP away, so the two runs differ in one thing.
   faders = RAW ? { deckA: { ...faders.deckA!, target } } : next;
   push();
   marks.push({ sample: total, rate: target / NATURAL });

@@ -112,9 +112,7 @@ describe("sequence note velocity", () => {
   });
 
   it("refuses a note name it cannot read", async () => {
-    // Refused by the ARG SPEC (`type: note`), before the handler is even called — which is why the
-    // message names the parameter. The handler keeps its own check anyway, as `sequence note new`
-    // does beside it: a caller reaching a handler directly is not covered by the spec.
+    // Refused by the ARG SPEC (`type: note`); the handler keeps its own check for direct callers.
     await runCommand("sequence note velocity melody H9 0 0.5", host(), "cli");
     expect(logs.join(" ")).toMatch(/expects a note name/);
     expect(reloaded).toBe(0);

@@ -7,10 +7,7 @@ import {
   type WarpMarker,
 } from "./warpPoints";
 
-// A clip's stretch map: `[timelineBeat, sourceSecond]`, rising through both. Moving one point
-// leaves its NEIGHBOURS where they are — only the two segments touching it change their rate. The
-// alternative, redistributing outward, sounds smoother and means one drag re-times material at the
-// far end of the clip, which nobody can see from the handle they are holding.
+// A clip's stretch map, rising through both axes, and moving a point leaves its NEIGHBOURS put — docs/warpPoints.md.
 
 const MAP: WarpMarker[] = [
   [0, 0],
@@ -28,8 +25,7 @@ describe("moving a point", () => {
   });
 
   it("leaves the source second alone — the moment is the same moment", () => {
-    // The handle moves along the TIMELINE. Which instant of the file it pins does not change,
-    // or the drag would be scrubbing rather than stretching.
+    // The handle moves along the TIMELINE; changing which instant it pins would be scrubbing.
     expect(setWarpPoint(MAP, 2, 5)[1][1]).toBe(2);
   });
 
@@ -108,9 +104,7 @@ describe("seeding a clip that has none", () => {
   });
 
   it("is an IDENTITY map, which the engine skips — so seeding changes no sound", () => {
-    // A two-point warp of ratio 1 means "the source already runs at the project tempo", and
-    // entering Tracktion's auto-tempo path for it is both pointless and a bug it has (see
-    // applyClipWarp). The third point is what makes it a warp.
+    // A two-point warp of ratio 1 is skipped, so the THIRD point is what makes it a warp (docs/warpPoints.md).
     const seeded = seedWarp(8, 4);
     expect(seeded).toHaveLength(2);
     expect(setWarpPoint(seeded, 2, 3)).toHaveLength(3);
@@ -122,13 +116,7 @@ describe("seeding a clip that has none", () => {
   });
 });
 
-/**
- * The bug this exists for, from `01.danse.st0`: `clip process … normalize` bounced a 17.920 s take
- * through a chain and wrote a 19.920 s file — the render adds a two-second tail for reverb and
- * release. The map still ended at 17.92, and the engine reads the map's beat span as the length of
- * the WHOLE source, so the take's 110 bpm became 98.9, everything played 11% slow, and the phrase
- * was cut before its end by the window cap.
- */
+// The bug this exists for: a bounce that added a two-second tail played the take 11% slow (docs/warpPoints.md).
 describe("retiming a map onto a bounced file", () => {
   // 32.834841 beats over 17.92 s is 109.93 bpm — the real take.
   const TAKE: WarpMarker[] = [
@@ -144,9 +132,7 @@ describe("retiming a map onto a bounced file", () => {
     expect(out).not.toBeNull();
     if (!out) return;
     expect(out[out.length - 1][1]).toBe(19.92);
-    // The whole point: the engine now reads the same tempo off the longer file. To within the
-    // six decimals the point is WRITTEN at — a millionth of a beat over 36 is where this stops,
-    // and it is nine orders of magnitude below anything audible.
+    // The whole point: the engine reads the same tempo off the longer file, to the six decimals written.
     expect(Math.abs(bpm(out) - bpm(TAKE)) / bpm(TAKE)).toBeLessThan(1e-7);
     // …and every point that was already there is untouched — the material did not move.
     expect(out.slice(0, 3)).toEqual(TAKE);
@@ -158,10 +144,7 @@ describe("retiming a map onto a bounced file", () => {
     if (!out) return;
     expect(out[out.length - 1][1]).toBe(10);
     expect(out.some((m) => m[1] > 10)).toBe(false);
-    // Not the same tempo to the last decimal, and it cannot be: the map is PIECEWISE, so a
-    // prefix carries its own local rate. What is exact is the segment this appended — it
-    // continues at the map's overall rate — and the tempo the engine reads off the whole is
-    // then within a tenth of a percent, which is inaudible and honest.
+    // Not the same tempo to the last decimal, since the map is PIECEWISE — only the appended segment is exact.
     const a = out[out.length - 2];
     const b = out[out.length - 1];
     const want = (TAKE[2][0] - TAKE[0][0]) / (TAKE[2][1] - TAKE[0][1]);
@@ -177,9 +160,7 @@ describe("retiming a map onto a bounced file", () => {
     expect(out?.[1][1]).toBe(0.5);
   });
 
-  // The map goes in a file a person reads and a diff shows. Every marker an importer writes
-  // carries six decimals — a microsecond, a millionth of a beat — and `36.49944379017857`
-  // beside `15.336937` is noise in both.
+  // Six decimals, the precision an importer writes — the map goes in a file a person reads.
   it("writes a point at the precision the others are written at", () => {
     const out = retimeWarpMarkers(TAKE, 19.92);
     expect(out?.[out.length - 1]).toEqual([36.499444, 19.92]);
@@ -187,8 +168,7 @@ describe("retiming a map onto a bounced file", () => {
       for (const v of m) expect(String(v)).not.toMatch(/\.\d{7,}/);
   });
 
-  // Nothing to say means nothing written: a bounce that changed no duration must leave the clip
-  // file byte-identical, or every run of every chain would churn every map it touched.
+  // A bounce that changed no duration must leave the clip file byte-identical (docs/warpPoints.md).
   it("says nothing when the file is the length the map already claims", () => {
     expect(retimeWarpMarkers(TAKE, 17.92)).toBeNull();
     expect(retimeWarpMarkers(TAKE, 17.9205)).toBeNull(); // a millisecond is the same end

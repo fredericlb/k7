@@ -15,10 +15,7 @@ import { allowedOrigin } from "./cors.ts";
 
 const ENV_KEYS = ["STUDIO_WEB_ORIGIN", "STUDIO_REGISTRY_URL"] as const;
 
-// cors.ts reads the REAL contract path (~/.studio/web-origins.json) — it is shared
-// with the tray, so it can't be redirected without the two disagreeing about where
-// the file lives. These tests therefore write the real file, and must put a
-// developer's own list back exactly as they found it.
+// These write the REAL `~/.studio/web-origins.json`, shared with the tray, and must put it back.
 const ORIGINS_PATH = webOriginsPath();
 let saved: string | null = null;
 
@@ -53,9 +50,7 @@ describe("allowedOrigin — default policy", () => {
   });
 
   it("allows loopback on ANY port, since `st0 --web` picks a free one", () => {
-    // The host carries the trust, not the port — so this is deliberate, not an
-    // oversight. Asserted so nobody "tightens" it to a fixed port and breaks
-    // `st0 --web`, which chooses its port at launch.
+    // The host carries the trust, not the port; asserted so nobody "tightens" it to a fixed one.
     expect(allowedOrigin("http://localhost:5999")).toBe(true);
     expect(allowedOrigin("http://127.0.0.1:1234")).toBe(true);
   });
@@ -89,9 +84,7 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("https://other.example.org")).toBe(false);
   });
 
-  // Each hosted service holds its own engine registry, so an engine announces to several and
-  // every one of them is a browser that calls this service. Reading only the first would
-  // CORS-refuse the médiathèque with nothing logged on either side.
+  // An engine announces to several registries, and reading only the first CORS-refused the médiathèque.
   it("allows EVERY origin in a comma-separated registry list", () => {
     process.env.STUDIO_REGISTRY_URL =
       "https://daw.example.org/api, https://media.example.org/api";
@@ -106,8 +99,7 @@ describe("allowedOrigin — default policy", () => {
     expect(allowedOrigin("null")).toBe(false);
   });
 
-  // One unparseable entry must not cost its neighbours their origin: the list is hand-edited
-  // through an env var, and a stray comma would otherwise lock every service out at once.
+  // The list is hand-edited through an env var, so a stray comma must not lock every service out.
   it("keeps the good entries when one url in the list is malformed", () => {
     process.env.STUDIO_REGISTRY_URL = "not a url,https://media.example.org";
     expect(allowedOrigin("https://media.example.org")).toBe(true);
@@ -116,16 +108,14 @@ describe("allowedOrigin — default policy", () => {
 
 describe("allowedOrigin — web UIs added from the tray", () => {
   it("allows an origin the user added, which no other rule would", () => {
-    // A reverse-proxied web UI is neither loopback nor private, so this file is the
-    // only thing that can admit it — the reason the tray writes it at all.
+    // A reverse-proxied web UI is neither loopback nor private, which is why the tray writes this file.
     expect(allowedOrigin("https://daw.test")).toBe(false);
     writeOrigins(["https://daw.test"]);
     expect(allowedOrigin("https://daw.test")).toBe(true);
   });
 
   it("takes effect WITHOUT a restart, and stops when the entry goes", () => {
-    // The whole point of re-reading per call: adding a web UI in the menu bar must
-    // not require bouncing the file service.
+    // Why the file is re-read per call: adding a web UI in the menu bar must not need a restart.
     writeOrigins(["https://daw.test"]);
     expect(allowedOrigin("https://daw.test")).toBe(true);
     writeOrigins(["https://other.test"]);
@@ -156,8 +146,7 @@ describe("allowedOrigin — web UIs added from the tray", () => {
   });
 
   it("is still outranked by STUDIO_WEB_ORIGIN", () => {
-    // An operator who pinned the origins meant it — the tray's list must not widen
-    // a deliberate production lockdown.
+    // An operator who pinned the origins meant it; the tray's list must not widen that lockdown.
     writeOrigins(["https://daw.test"]);
     process.env.STUDIO_WEB_ORIGIN = "https://pinned.example.org";
     expect(allowedOrigin("https://daw.test")).toBe(false);
@@ -175,8 +164,7 @@ describe("allowedOrigin — STUDIO_WEB_ORIGIN is total", () => {
   });
 
   it("suppresses the dev and private-network defaults once set", () => {
-    // The escape hatch must be total, or locking down prod would silently still
-    // admit every LAN origin.
+    // The escape hatch must be total, or locking down prod would still admit every LAN origin.
     process.env.STUDIO_WEB_ORIGIN = "https://daw.example.org";
     expect(allowedOrigin("http://localhost:5203")).toBe(false);
     expect(allowedOrigin("http://192.168.1.5:5203")).toBe(false);

@@ -342,10 +342,7 @@ export function createEffectChain(
   };
 }
 
-/**
- * Pitch wobble: multiple LFOs at irrational ratios + random drift
- * connected to source.detune for a "warped vinyl" feel.
- */
+/** Pitch wobble: LFOs at irrational ratios plus random drift on `source.detune`, for warped vinyl. */
 export class PitchWobble {
   private oscs: OscillatorNode[] = [];
   private gains: GainNode[] = [];

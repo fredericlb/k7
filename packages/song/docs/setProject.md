@@ -193,6 +193,12 @@ It deliberately does NOT write the `stems: true` line. A separation is minutes a
 happens because a set asked for it. (And it never writes a chain: `system stems` holds that, once,
 for the machine.)
 
+The sixteen stem files are GENERATED rather than written out, because sixteen files spelled by hand
+is sixteen chances to swap `bass` and `drums`. `stemNodeFiles` is exported and parameterised by the
+decks for one caller beyond the scaffold — `scripts/migrateSetStems.ts`, which gives an older set
+exactly the files a new one gets. Two spellings of these nodes would be two sets that behave
+differently for no reason anybody could see.
+
 ### The tempo module is COLD
 
 `@st0/audio/utility/tempo` is `cold: true` and `plugin: {type: offline}` — a tempo
@@ -208,6 +214,11 @@ which is the one input whose whole length is knowable up front.
 Two nodes, not one shared: each deck plays at its own BPM, and a param belongs to a use
 rather than to a module. `Source BPM` is measured by the pass; `Target BPM` is what the desk's
 tempo fader sets.
+
+The tempo stays on the RECORD's lane alone, and that is deliberate. It is realised by warping the
+clip, and the desk applies that same warp to all five clips of a deck (`withDecks`), so a tempo
+node per stem lane would be four more nodes describing one fact. The binding resolves by TRACK for
+an offline module, and the track it names is the deck's.
 
 **Nothing about two is fixed.** `scaffoldSet` writes two decks because two is what a
 crossfade takes; the format holds any number, and no code special-cases the names `deckA`,

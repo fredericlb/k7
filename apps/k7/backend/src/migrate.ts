@@ -65,8 +65,7 @@ const SCHEMA: TableSchema = {
     ["ReleaseDate", "Text"],
     ["Description", "Text"],
     ["CanDownload", "Bool"],
-    // Stable id of the originating st0 song (set on CLI import); lets a
-    // re-export add a version to the same release instead of creating a new one.
+    // The originating st0 song, so a re-export adds a version instead of a release.
     ["SongUuid", "Text"],
     ["CreatedAt", "Text"],
   ],
@@ -74,10 +73,7 @@ const SCHEMA: TableSchema = {
     ["Uid", "Text"],
     ["ReleaseUid", "Text"],
     ["Name", "Text"],
-    // A published version IS a song in the médiathèque, under
-    // songs/K7/<release>/<version>/. AudioPath points at its master; the
-    // stems sit in `stems/` beside it and TrackMeta is the parallel JSON of
-    // {id,path,name,mime}, preserving order + original name + type. See docs/audio.md.
+    // AudioPath is the master of a song in the médiathèque — see ../../docs/audio.md.
     ["AudioPath", "Text"],
     ["AudioMime", "Text"],
     ["TrackMeta", "Text"],
@@ -98,10 +94,7 @@ const SCHEMA: TableSchema = {
     ["Title", "Text"],
     ["Lyrics", "Text"],
     ["Tablature", "Text"],
-    // A sheet is not text — it is a PDF or a set of images. SheetFiles holds the
-    // uploaded attachments (source of truth for the bytes, visible in the Grist
-    // UI); SheetMeta is a parallel JSON array of {id,name,mime} preserving each
-    // file's original name, type and order.
+    // SheetFiles holds the bytes; SheetMeta the parallel {id,name,mime}, in order.
     ["SheetFiles", "Attachments"],
     ["SheetMeta", "Text"],
     ["Favorite", "Bool"],
@@ -121,9 +114,7 @@ async function migrate(): Promise<void> {
     console.log(describeStep(step));
   }
 
-  // Moments (Comments) are now standalone entities keyed by their own OwnerId so
-  // they can survive their session's deletion. Backfill OwnerId on any existing
-  // moment from its session's owner (idempotent — only fills blanks).
+  // Backfill a moment's own OwnerId from its session's, which is what lets it outlive it.
   const sessions = await listRecords("Sessions");
   const ownerByUid = new Map(
     sessions.map((s) => [s.fields.Uid, s.fields.OwnerId]),

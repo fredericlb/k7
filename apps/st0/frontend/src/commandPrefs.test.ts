@@ -14,10 +14,7 @@ import {
   setCommandPref,
 } from "./commandPrefs";
 
-// What a person has made of the command catalogue. The catalogue is the app's and the same for
-// everyone; this is the layer over it, and the reason it is pure is that the settings page and
-// every menu have to apply it identically — a menu that ordered commands its own way would make
-// the page a lie.
+// What a person has made of the command catalogue: pure, because the settings page and every menu have to apply it identically.
 
 const CMDS = [
   { canonical: "clip trim", readable: "Trim a clip" },
@@ -28,8 +25,7 @@ const CMDS = [
 
 describe("the entity a command acts on", () => {
   it("is the first word of its line", () => {
-    // Carried by the line already, so a command added to the catalogue is filterable the day it
-    // exists — nothing new to author, nothing that can drift.
+    // Carried by the line already, so a command added to the catalogue is filterable the day it exists.
     expect(entityOf("clip onset move")).toBe("clip");
     expect(entityOf("track mute")).toBe("track");
   });
@@ -43,9 +39,7 @@ describe("the entity a command acts on", () => {
   });
 });
 
-// A PLURAL verb — `events move`, which moves every event in a range — is the same subject taken
-// several at a time, not another subject. A group of its own held one command, said nothing the
-// singular's group did not, and hid it from the only filter anyone would look under.
+// A PLURAL verb is the same subject taken several at a time: a group of its own held one command and hid it from the only filter.
 describe("a plural verb", () => {
   const WITH_PLURAL = [
     ...CMDS,
@@ -66,7 +60,6 @@ describe("a plural verb", () => {
 
   it("keeps its own group when nothing SINGULAR answers to it", () => {
     // Derived, not tabulated — but a fold is only a fold when there is something to fold into.
-    // A plural whose singular nobody wrote would otherwise invent a subject out of a suffix.
     const alone = commandHeads([{ canonical: "chains organize" }]);
     expect(entityGroup("chains organize", alone)).toBe("chains");
     expect(isPluralCommand("chains organize", alone)).toBe(false);
@@ -91,8 +84,7 @@ describe("what a command is called", () => {
   });
 
   it("does NOT borrow another language's name", () => {
-    // The whole point of a field per language: a command named only in French shows the
-    // catalogue's own sentence in English, rather than a French name in an English menu.
+    // The whole point of a field per language: a command named only in French shows the catalogue's own sentence in English.
     const frOnly = { "clip trim": { label: { fr: "Rogner" } } };
     expect(labelOf(CMDS[0], frOnly, "fr")).toBe("Rogner");
     expect(labelOf(CMDS[0], frOnly, "en")).toBe("Trim a clip");
@@ -106,23 +98,14 @@ describe("what a command is called", () => {
   });
 
   it("still reads a name saved BEFORE there was a field per language", () => {
-    // A bare string was one name with no language attached, so it stands for every locale — and
-    // nothing rewrites it on load: a document says what it always said until somebody edits it.
+    // A bare string was one name with no language attached, so it stands for every locale, and nothing rewrites it on load.
     const legacy = { "clip trim": { label: "Rogner" } };
     expect(labelOf(CMDS[0], legacy, "fr")).toBe("Rogner");
     expect(labelOf(CMDS[0], legacy, "en")).toBe("Rogner");
   });
 });
 
-/**
- * The space bar did not work in the settings page's name fields, and this is where it broke.
- *
- * `labelIn` is the VALUE of a controlled input. It trimmed, so typing "Rogner" then a space held
- * "Rogner " in state and rendered "Rogner" straight back into the field: the space disappeared as
- * it was typed, and a name of more than one word could not be entered at all. What a person is
- * still typing is not what a menu draws — so the reader answers as authored, and the trim lives
- * at the two places a name is DISPLAYED.
- */
+/** The space bar did not work in the settings page's name fields, and this is where it broke: `labelIn` trimmed a CONTROLLED input's value. */
 describe("the text a field is handed back", () => {
   it("is what was typed, space and all", () => {
     const p = setCommandLabel({}, "clip trim", "fr", "Rogner ", ["en", "fr"]);
@@ -152,8 +135,7 @@ describe("naming a command in one language", () => {
   });
 
   it("EXPANDS a legacy name across the languages before editing one", () => {
-    // The migration, and the reason `locales` is a parameter: without it, renaming in French
-    // would drop the name English had been showing all along — invisibly, until you switched.
+    // The migration, and the reason `locales` is a parameter: without it, renaming in French drops the name English was showing.
     const legacy: CommandPrefs = { "clip trim": { label: "Rogner" } };
     const next = setCommandLabel(
       legacy,
@@ -184,8 +166,7 @@ describe("naming a command in one language", () => {
   });
 
   it("emptying the last field takes the override back entirely", () => {
-    // An override given up must leave the document as it was — no `label: {}` behind, and no
-    // entry at all once nothing else is overridden, or the row would read as touched forever.
+    // An override given up must leave the document as it was — no `label: {}` behind, and no entry once nothing else is overridden.
     const one = setCommandLabel({}, "clip trim", "fr", "Rogner", LOCALES);
     expect(setCommandLabel(one, "clip trim", "fr", "", LOCALES)).toEqual({});
   });
@@ -200,8 +181,7 @@ describe("naming a command in one language", () => {
 
 describe("the order", () => {
   it("puts the placed ones first, and leaves the rest as the catalogue had them", () => {
-    // The rule that matters: you can pull three commands to the top without numbering the other
-    // two hundred, and a command added to the app later does not land inside somebody's list.
+    // The rule that matters: three commands pulled to the top without numbering the other two hundred.
     const prefs: CommandPrefs = { "ui help": { order: 0 } };
     expect(orderCommands(CMDS, prefs).map((c) => c.canonical)).toEqual([
       "ui help",
@@ -260,8 +240,7 @@ describe("setting a field", () => {
   });
 
   it("drops the entry when the last override is taken back", () => {
-    // An override undone must leave the document as it was, not grow a row of empty objects that
-    // every later read has to step over.
+    // An override undone must leave the document as it was, not grow a row of empty objects every later read steps over.
     const a = setCommandPref({}, "clip trim", { label: "Rogner" });
     expect(setCommandPref(a, "clip trim", { label: "" })).toEqual({});
   });

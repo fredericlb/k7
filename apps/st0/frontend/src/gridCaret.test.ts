@@ -21,8 +21,7 @@ describe("the caret", () => {
   });
 
   it("STOPS at the ends rather than wrapping", () => {
-    // The timeline's rule: a caret that jumped from the last beat to the first would move the
-    // eye somewhere it did not ask to go.
+    // The timeline's rule: a caret that jumped from the last beat to the first would move the eye somewhere it did not ask to go.
     expect(moveCell({ row: 0, col: 0 }, -1, -1, B)).toEqual({ row: 0, col: 0 });
     expect(moveCell({ row: 3, col: 7 }, 1, 1, B)).toEqual({ row: 3, col: 7 });
   });
@@ -67,9 +66,7 @@ describe("the rectangle", () => {
     });
   });
 
-  // …and with NO rectangle at all, the caret is that same one-cell box. This is what lets ⌃C
-  // copy the note you are pointing at: the grids feed `cellBox(caret)` to the very code path a
-  // drawn rectangle feeds, so "copy" means one thing whether or not `v` was ever pressed.
+  // …and with NO rectangle at all the caret is that same one-cell box, fed to the very code path a drawn rectangle feeds.
   it("the caret's own cell IS a rectangle — the one a copy falls back on", () => {
     expect(cellBox({ row: 2, col: 3 })).toEqual(selBox(sel([2, 3], [2, 3])));
   });
@@ -77,8 +74,7 @@ describe("the rectangle", () => {
 
 describe("the span a transport reads", () => {
   it("runs to the FAR edge of the last column", () => {
-    // The +1 is the whole point, and the same one the timeline's loop makes: a one-cell
-    // selection is one cell WIDE, so [4,4] must mean [4,5) and not an empty region.
+    // The +1 is the whole point, and the timeline's loop makes it too: [4,4] must mean [4,5) and not an empty region.
     expect(
       colSpan({ anchor: { row: 0, col: 4 }, head: { row: 0, col: 4 } }),
     ).toEqual({ from: 4, to: 5 });

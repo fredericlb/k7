@@ -24,8 +24,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** A cached file plus the manifest entry that says the cache holds it. `fetchedSec` is the
- *  local mtime, which for a downloaded file IS when it was fetched. */
+/** A cached file plus its manifest entry; `fetchedSec` is the local mtime, which IS the fetch time. */
 function cached(
   files: { path: string; bytes: number; fetchedSec: number }[],
 ): void {
@@ -69,8 +68,7 @@ describe("staying under a budget", () => {
   });
 
   it("drops a file that alone exceeds the budget", () => {
-    // The budget is the promise. One 8 GB video must not be able to void it by being
-    // bigger than the whole allowance.
+    // The budget is the promise: one 8 GB video must not void it by exceeding the allowance.
     cached([{ path: "samples/video/huge.mp4", bytes: 500, fetchedSec: 1000 }]);
     const r = evictFamily("samples", 100);
     expect(r.evicted).toEqual(["samples/video/huge.mp4"]);
@@ -89,10 +87,7 @@ describe("staying under a budget", () => {
   });
 });
 
-// THE trap. `diff()` compares the owner's manifest against what the cache REMEMBERS it
-// holds — so bytes deleted without the manifest being rewritten are bytes the cache
-// believes it still has, for ever. It would never re-fetch them, and the moteur would find
-// a missing path while the catalogue insisted everything was fine.
+// THE trap: `diff()` compares against what the cache REMEMBERS, so deleting must forget too (docs/eviction.md).
 describe("the manifest forgets what was evicted", () => {
   it("drops the evicted entry from the remembered manifest", () => {
     cached([
@@ -106,8 +101,7 @@ describe("the manifest forgets what was evicted", () => {
   });
 
   it("KEEPS an entry whose file could not be deleted", () => {
-    // Undeletable means still on disk. Forgetting it would have the cache re-fetch over a
-    // file it already carries, and under-report its own size for ever after.
+    // Undeletable means still on disk, and forgetting it would under-report the family's size.
     cached([
       { path: "samples/audio/a.wav", bytes: 100, fetchedSec: 1000 },
       { path: "samples/audio/b.wav", bytes: 100, fetchedSec: 2000 },
@@ -116,8 +110,7 @@ describe("the manifest forgets what was evicted", () => {
     rmSync(join(root, "samples/audio/a.wav"));
     mkdirSync(join(root, "samples/audio/a.wav"));
     mkdirSync(join(root, "samples/audio/a.wav", "blocker"));
-    // …and back-date it, or the fresh mkdir makes it the NEWEST thing here and b.wav gets
-    // evicted instead. (That is what this test caught the first time it ran.)
+    // …and back-date it, or the fresh mkdir is the NEWEST thing here and b.wav goes instead.
     utimesSync(join(root, "samples/audio/a.wav"), 1000, 1000);
     const r = evictFamily("samples", 150);
     expect(r.failed.map((f) => f.path)).toEqual(["samples/audio/a.wav"]);
@@ -129,8 +122,7 @@ describe("the manifest forgets what was evicted", () => {
 
 describe("what the policy does and does not touch", () => {
   it("leaves a family the policy does not name completely alone", () => {
-    // The default for `modules` is exactly this: a chain can name any of them, so a
-    // missing one fails a project to load. Absent from the policy means never evicted.
+    // Absent from the policy means never evicted — the default `modules` relied on.
     cached([{ path: "samples/audio/a.wav", bytes: 999, fetchedSec: 1 }]);
     const reports = evict({ songs: 0 });
     expect(reports.map((r) => r.family)).toEqual(["songs"]);
@@ -147,8 +139,7 @@ describe("what the policy does and does not touch", () => {
 
 describe("reporting a family's size", () => {
   it("reads the remembered manifest, not the disk", () => {
-    // Deliberately: it is the same number `evictFamily` compares against, so a settings
-    // screen showing one and an eviction using the other would disagree on screen.
+    // The same number `evictFamily` compares against, so a settings screen cannot disagree with it.
     cached([
       { path: "samples/audio/a.wav", bytes: 100, fetchedSec: 1 },
       { path: "samples/audio/b.wav", bytes: 250, fetchedSec: 2 },

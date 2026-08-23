@@ -19,22 +19,10 @@ import {
 } from "@studio/ui-waveform";
 import { memo, type RefObject, useEffect, useState } from "react";
 
-/**
- * What the ruler is READING IN. Not what the song is placed in — that is always beats.
- *
- * A song's positions are musical and a `video_tracks/` placement's are wall-clock, and one
- * surface carries both. The two are exactly convertible here (one `tempo:`, no tempo map), so
- * nothing is lost either way round — but a cut is read in minutes and seconds, and a ruler that
- * could only count bars makes picture unreadable however accurately it is drawn.
- *
- * A per-SESSION toggle, deliberately not a project setting: which unit you want depends on what
- * you are doing this minute, not on what the song is. See docs/picture.md.
- */
+/** What the ruler is READING IN — not what the song is placed in, which is always beats; a per-SESSION toggle (docs/picture.md). */
 export type RulerMode = "bars" | "seconds";
 
-// A tick's weight and its number: a bar keeps its own, a beat inside one is numbered within
-// the bar (5.2, 5.3…), and anything finer is a line with no number at all. At module level
-// because two things ask — the ruler and the lanes' grid — and they must read one answer.
+// A tick's weight and its number — at module level because two things ask, the ruler and the lanes' grid, and they must read one answer.
 const tickAt = (b: number, barBeats: number) => {
   const bar = Math.abs(b / barBeats - Math.round(b / barBeats)) < 1e-6;
   const onBeat = Math.abs(b - Math.round(b)) < 1e-6;
@@ -49,9 +37,7 @@ const tickAt = (b: number, barBeats: number) => {
   };
 };
 
-// Every tick drawn between the view's edges, from the ruler's ORIGIN rather than from the
-// first visible one — the ruler and the grid both walk this, and computing it twice from one
-// formula is what stops them drifting apart as you pan.
+// Every tick drawn between the view's edges, from the ruler's ORIGIN rather than the first visible one, so the two cannot drift as you pan.
 const tickBeats = (
   beatLo: number,
   lastBeat: number,
@@ -72,20 +58,7 @@ export interface RulerTick {
   level: 0 | 1 | 2;
 }
 
-/**
- * The ticks a ruler draws, in BEATS whichever unit it reads in.
- *
- * One function for both modes, and the return type is what makes that possible: a tick knows
- * where it sits, what to print and how heavy to be, and neither the ruler nor the grid has to
- * know which ladder produced it. They call this SEPARATELY rather than being handed the array —
- * an array prop would be a new identity every render and would defeat the memo that keeps both
- * off the frame path (see the components below).
- *
- * The two ladders differ in kind, not just in scale: bars HALVE (a bar, its beats, half-beats),
- * while time walks 1/2/5/10 per decade and then the minute steps a viewer actually reads. `16s`
- * between labels is not a duration anyone thinks in, which is why `SECOND_TICKS` is a list and
- * not a formula (@studio/ui-timeline/ticks).
- */
+/** The ticks a ruler draws, in BEATS whichever unit it reads in — one function for both ladders, called separately so no array prop defeats the memo. */
 export const rulerTicks = (
   mode: RulerMode,
   beatLo: number,
@@ -94,18 +67,7 @@ export const rulerTicks = (
   barBeats: number,
   bps: number, // beats per second — the whole of the conversion, since there is no tempo map
   secStep: number,
-  /**
-   * The slice actually ON SCREEN, when the caller knows it — ticks outside are not built.
-   *
-   * What makes the zoom unbounded. The ladder floors at a 64th of a beat, so a whole-song list
-   * saturates at 64 nodes per beat: 19 000 for a three-minute song, 192 000 for a long set, and
-   * that ceiling — not the browser's — is what the zoom used to be clamped away from. Windowed,
-   * the count follows the PANE instead: about forty, at any zoom, on any length of song.
-   *
-   * It changes nothing else, and that is by construction: `index` is computed from the ORIGIN
-   * (`b / unit`), never from the first tick built, so the label stride and the three weights are
-   * the same lines whether or not the list starts where the view does.
-   */
+  /** The slice actually ON SCREEN, when the caller knows it — what makes the zoom unbounded, `index` still being computed from the ORIGIN. */
   view?: { lo: number; hi: number },
 ): RulerTick[] => {
   const lo = Math.max(beatLo, view?.lo ?? beatLo);
@@ -122,8 +84,7 @@ export const rulerTicks = (
       };
     });
   const out: RulerTick[] = [];
-  // From the ORIGIN and not from the first visible second, exactly as `tickBeats` is: a ladder
-  // that started where the view does would re-place every line as you panned.
+  // From the ORIGIN and not from the first visible second, exactly as `tickBeats` is, or panning would re-place every line.
   for (const sec of ticksUpTo(hi / bps, secStep)) {
     const beat = sec * bps;
     if (beat < lo - 1e-9) continue;
@@ -133,8 +94,7 @@ export const rulerTicks = (
       index: Math.round(sec / secStep),
       key: `s:${sec}`,
       label: formatClock(sec, secStep),
-      // A minute carries the bar's weight and a whole second the beat's, so the eye reads the
-      // same three-level rhythm in either unit.
+      // A minute carries the bar's weight and a whole second the beat's, so the eye reads the same three-level rhythm in either unit.
       level: Math.abs(sec % 60) < 1e-6 ? 0 : whole ? 1 : 2,
     });
   }
@@ -144,17 +104,7 @@ export const rulerTicks = (
 /** How far past each edge the ticks are still built, in px — a scroll must reveal lines, not a bare strip. */
 const VIEW_MARGIN_PX = 400;
 
-/**
- * The beat range on screen, watched HERE rather than by the surface that owns the scroller.
- *
- * Inside the memoised tick layers on purpose. A scroll is a stream, and `timeline.md`'s rule is
- * that live state is drawn by LEAVES: were the host to hold the scroll position, every scroll
- * frame would re-render the whole arrangement to move forty lines. Held here, a scroll re-renders
- * the lines and nothing else.
- *
- * `null` when there is no scroller to ask — a caller that passes none gets the whole range, which
- * is what every surface did before and is still right for one that fits its pane.
- */
+/** The beat range on screen, watched HERE rather than by the surface that owns the scroller, so a scroll re-renders the lines and nothing else. */
 function useVisibleBeats(
   scroller: RefObject<HTMLElement | null> | undefined,
   beatLo: number,
@@ -192,17 +142,7 @@ export interface TickProps {
   secStep: number;
 }
 
-/**
- * The scale a ruler draws at: its unit, its seconds step, and how many columns per printed
- * number. ONE function, so the timeline and the clip editors cannot pick different ladders for
- * the same zoom.
- *
- * The unit: a bar while a bar fits, then its beats, then halves of a beat as the zoom opens up
- * (see @studio/ui-timeline/ticks). The seconds step is chosen against the widest CLOCK this
- * ruler can print, the bar stride against its widest bar number — measured at the ruler's END
- * rather than on screen, or panning past bar 10 and again past 100 would re-thin every label
- * under the cursor.
- */
+/** The scale a ruler draws at — ONE function, so the timeline and the clip editors cannot pick different ladders for the same zoom. */
 export function rulerScale(
   mode: RulerMode,
   ppb: number,
@@ -226,14 +166,7 @@ export function rulerScale(
   return { unit, secStep, barStride };
 }
 
-/**
- * The tick layer, memoised — on the timeline, together with its grid, the most numerous
- * elements on the surface.
- *
- * It is a pure function of the VIEW WINDOW, and every prop here is a number, so React's
- * shallow compare settles it: a re-render of the host for any other reason (a caret move,
- * a poll landing, a meter changing) leaves it untouched. See docs/timeline.md.
- */
+/** The tick layer, memoised: a pure function of the VIEW WINDOW, every prop a number, so a host re-render leaves it untouched (docs/timeline.md). */
 export const RulerTicks = memo(function RulerTicks({
   mode,
   beatLo,
@@ -264,9 +197,7 @@ export const RulerTicks = memo(function RulerTicks({
         secStep,
         view,
       ).map((t) => (
-        // Three weights, so the coarse line still reads as the bar (or the minute) once the
-        // finer ones are drawn between them. Strided on the tick's index from the ORIGIN, or
-        // the surviving labels would change as scrolling moved the first one.
+        // Three weights, strided on the tick's index from the ORIGIN, or the surviving labels would change as scrolling moved the first one.
         <div
           key={t.key}
           className={cn(
@@ -286,20 +217,7 @@ export const RulerTicks = memo(function RulerTicks({
   );
 });
 
-/**
- * The GRID that matches those ticks — the same ladder, one step fainter, drawn across the
- * material instead of in a header of its own.
- *
- * It lives here beside `RulerTicks` rather than in whichever surface draws lanes, because the
- * pair is one statement: a line under the ruler has to be a line the ruler drew, at the weight
- * the ruler gave it. The timeline had this and the piano roll did not — the roll drew bar lines
- * only, hard-coded, so at any zoom past the bar the ruler subdivided and the material below it
- * stayed blank.
- *
- * Memoised for the reason `RulerTicks` is: with the ticks it is the most numerous thing on the
- * surface, every prop is a number, and a re-render of the host for any other reason (a caret
- * move, a poll landing, a meter changing) must leave it untouched. See docs/timeline.md.
- */
+/** The GRID that matches those ticks, one step fainter — here beside `RulerTicks`, since a line under the ruler has to be a line the ruler drew. */
 export const Grid = memo(function Grid({
   mode,
   beatLo,
@@ -337,16 +255,14 @@ export const Grid = memo(function Grid({
         view,
       ).map((t) => {
         const left = (t.beat - beatLo) * ppb;
-        // A tick at the lane's right edge is a 1px border past the end of the box, and one
-        // pixel of horizontal scroll in a view that fits its pane exactly.
+        // A tick at the lane's right edge is a 1px border past the end of the box, and one pixel of horizontal scroll.
         if (left >= laneW) return null;
         return (
           <div
             key={`grid:${t.key}`}
             className={cn(
               "pointer-events-none absolute border-l border-dashed",
-              // The ruler's three weights, one step fainter: down here they cross the
-              // material rather than sitting in a header of their own.
+              // The ruler's three weights, one step fainter: down here they cross the material rather than sitting in a header of their own.
               t.level === 0
                 ? "border-border/40"
                 : t.level === 1
@@ -361,18 +277,7 @@ export const Grid = memo(function Grid({
   );
 });
 
-/**
- * The ruler a clip editor stacks over its material: the SONG's positions, not the file's — the
- * tick at "bar 33" is the same bar 33 the timeline shows, because a clip editor is a magnified
- * piece of the arrangement and its header should say where in the song you are looking.
- *
- * `startBeat` is the arrangement beat at the strip's left edge (the clip's placement, window
- * origin included). The ladder stays anchored at the SONG's origin — a clip placed off the bar
- * grid shows its ticks where the song's bars really fall, not renumbered from its own edge.
- *
- * A click seeks the transport to the nearest drawn tick, exactly as the timeline's ruler does —
- * you aimed at a line, not at a pixel — and opening the zoom is how a finer position is reached.
- */
+/** The ruler a clip editor stacks over its material: the SONG's positions, anchored at the SONG's origin, and a click seeks the nearest drawn tick. */
 export function ArrangementRuler({
   startBeat,
   beats,

@@ -22,9 +22,7 @@ let seen: Seen[];
 let app: Server;
 let registry: EngineRegistry;
 let base: string;
-/** How long the stand-in takes to answer. The engine's machine is legitimately silent while it
- *  works — an analysis downloads a master and decodes it — and the relay must not read that
- *  silence as a dead host. Set per test; reset to "instantly" by `startUpstream`. */
+/** How long the stand-in takes to answer; the engine's machine is legitimately silent while it works, and the relay must not read that as dead. */
 let thinkMs = 0;
 
 /** A stand-in file service: records what arrived and echoes it back. */
@@ -44,8 +42,7 @@ function startUpstream(): Promise<number> {
           body,
           contentLength: req.headers["content-length"],
         });
-        // Nothing is written until the think time is up — which is what a real slow route does,
-        // and what the relay used to destroy.
+        // Nothing is written until the think time is up, which is what a real slow route does and what the relay used to destroy.
         setTimeout(() => {
           res.writeHead(200, { "content-type": "application/json" });
           res.end(JSON.stringify({ got: body }));
@@ -124,8 +121,7 @@ describe("engineFilesProxy", () => {
 
   it("retries the next address with the body intact", async () => {
     await close(app);
-    // 127.0.0.2 is loopback too, so nothing listens there and the connection is REFUSED
-    // rather than left hanging — the first host fails fast and the LAN entry answers.
+    // 127.0.0.2 is loopback too, so the connection is REFUSED rather than left hanging and the LAN entry answers.
     base = await startApp(
       (upstream.address() as AddressInfo).port,
       "127.0.0.2",
@@ -140,11 +136,7 @@ describe("engineFilesProxy", () => {
   });
 
   it("waits on a route that thinks for longer than the dial bound", async () => {
-    // The regression: `timeout` on an http.request is a socket IDLE timeout, and it was only
-    // dropped once the answer STARTED. So it bounded the upstream's thinking time at 1.5 s —
-    // and `POST /mediatek/analyse` says nothing while it downloads a master and runs the
-    // engine over it. Every song analysed through the relay died here, was retried on the
-    // next address, died again, and answered 502, leaving the work running on the far side.
+    // The regression: an http.request `timeout` is a socket IDLE timeout — see docs/proxy.md.
     thinkMs = 2200; // comfortably past DIAL_TIMEOUT_MS, without making the suite slow
     const res = await fetch(`${base}/api/engine/e1/files/mediatek/analyse`, {
       method: "POST",

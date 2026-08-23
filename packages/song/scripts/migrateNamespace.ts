@@ -11,9 +11,7 @@ import { LEGACY_MEDIATEK_NS } from "@studio/song-schema/moduleTypes";
 
 const FROM = `@${LEGACY_MEDIATEK_NS}/`;
 const TO = "@st0/";
-// A library's own `modules/config.yaml` says which level it is. Nothing reads it back — the
-// level comes from the folder's location — but a line that contradicts the loader is a lie
-// somebody will act on, so it is rewritten too. Anchored, so it cannot match a ref.
+// Nothing reads `config.yaml` back, but a line contradicting the loader is a lie, so it is rewritten.
 const CONFIG_LINE = /^(namespace:\s*)["']?mediatek["']?\s*$/m;
 
 const args = process.argv.slice(2);

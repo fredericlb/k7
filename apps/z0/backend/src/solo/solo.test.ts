@@ -9,13 +9,11 @@ import { GristClient, type GristRecord } from "../grist/client.ts";
 import { authMiddleware, cors } from "../middleware.ts";
 import { registerRoutes } from "../routes.ts";
 
-// Solo + online-guest flows against a stub Grist with records CRUD and
-// BulkRemoveRecord (via /apply) support.
+// Solo and online-guest flows against a stub Grist with records CRUD and BulkRemoveRecord.
 
 const SECRET = "solo-test-secret-0123456789abcdef";
 
-// Mint with the same secret the app resolves, so this holds whether or not
-// the local env.yaml defines SESSION_SECRET.
+// Minted with the secret the app RESOLVES, so a local env.yaml cannot disagree with us.
 process.env.SESSION_SECRET = SECRET;
 const authConfig = loadAppConfig().auth;
 

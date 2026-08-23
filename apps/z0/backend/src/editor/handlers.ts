@@ -16,11 +16,7 @@ import {
   parseRefList,
 } from "../grist/values.ts";
 
-// Editor API (editor.go) — Grist-backed, normalized so the frontend renders
-// libraries (pickers across all rows) alongside the per-session subtree. The
-// editor round-trips every Grist row id back to save unchanged, so the
-// reconciler can tell existing rows from new ones. See the Go source for the
-// full rationale.
+// The retired Grist editor's API: every row id round-trips, so a save can tell new from existing.
 
 interface EditorOrderEntry {
   id: number;
@@ -175,8 +171,7 @@ export async function handleEditorListSessions(
   });
 }
 
-// GET /editor/sessions/:id — the editable, id-preserving form of a session,
-// embedding the categories/songs/tracks reachable from its order.
+// GET /editor/sessions/:id — the id-preserving form, embedding everything its order reaches.
 export async function handleEditorLoadSession(
   req: Request,
   res: Response,
@@ -258,8 +253,7 @@ export async function handleEditorLoadSession(
   res.json(out);
 }
 
-// GET /editor/library/:kind — every row of Categories | Songs | Tracks for
-// the picker dialogs, sorted by id.
+// GET /editor/library/:kind — every Categories | Songs | Tracks row, by id, for the pickers.
 export async function handleEditorListLibrary(
   req: Request,
   res: Response,
@@ -293,8 +287,7 @@ export async function handleEditorListLibrary(
   }
 }
 
-// POST /editor/attachments — multipart upload → Grist Attachments row id.
-// (Multer parses the multipart body; the file lands on req.file.)
+// POST /editor/attachments — multer parses the multipart body, Grist returns the row id.
 export async function handleEditorUploadAttachment(
   req: Request,
   res: Response,
@@ -318,9 +311,7 @@ export async function handleEditorUploadAttachment(
   res.json({ id, filename: file.originalname, size: file.buffer.length });
 }
 
-// GET /editor/attachments/:id/url — resolve an attachment row id to a
-// /audio/<…> URL. The editor preview wants the un-trimmed original, so this
-// goes through the raw cache (not the trim/transcode cache).
+// GET /editor/attachments/:id/url — through the RAW cache: a preview wants the untrimmed original.
 export async function handleEditorAttachmentURL(
   req: Request,
   res: Response,
@@ -365,9 +356,7 @@ export async function handleEditorCreateSession(
   }
 }
 
-// POST /editor/sessions/:id/duplicate — clone the Session + OrderEntries +
-// Categories; Songs/Tracks stay shared (the duplicated categories point at
-// the same Songs rows — the "library stays shared" contract).
+// POST /editor/sessions/:id/duplicate — Session, OrderEntries and Categories; the library is shared.
 export async function handleEditorDuplicateSession(
   req: Request,
   res: Response,
@@ -395,8 +384,7 @@ export async function handleEditorDuplicateSession(
     }
     const orderIds = parseRefList(srow.fields.order);
 
-    // Step 1: duplicate each unique referenced category (songs RefList
-    // copied verbatim — both categories point at the same Songs rows).
+    // Step 1: each referenced category, its songs RefList copied verbatim rather than cloned.
     const catIdMap = new Map<number, number>();
     const catCreates: GristFields[] = [];
     const catCreateOrigIds: number[] = [];
@@ -465,14 +453,7 @@ export async function handleEditorDuplicateSession(
   }
 }
 
-// ─── Save (load → edit → save reconciler) ───────────────────────────────────
-//
-// Wire shape: the load arrays but with *string* ids — existing rows carry
-// their numeric Grist id stringified ("456"); new rows carry a request-local
-// tempId ("new-track-1"). Order of operations: Tracks → Songs → Categories →
-// OrderEntries → Session, so each phase can resolve the previous phase's temp
-// ids before stamping RefLists. OrderEntries dropped from the session are
-// deleted; Categories/Songs/Tracks are library rows and are never deleted here.
+// ─── Save: Tracks → Songs → Categories → OrderEntries → Session, so temp ids resolve in turn ──
 
 interface SaveOrderEntry {
   id?: string;
@@ -519,8 +500,7 @@ interface SaveRequest {
   tracks: SaveTrack[];
 }
 
-// Canonical effect columns — kept aligned with grist/schema.ts. Saves send 0
-// for absent effects so previously-set values clear on update.
+// Aligned with grist/schema.ts; a save sends 0 for an absent effect so an old value clears.
 const EFFECT_COLUMNS = [
   "speed",
   "pitch",
@@ -581,8 +561,7 @@ function songFieldsForSave(s: SaveSong, trackIds: number[]): GristFields {
   return fields;
 }
 
-// Generic upsert phase: batch-create new rows (recording tempId → real id) and
-// batch-update existing ones. One Grist call per batch.
+// One Grist call per batch: create the new rows, recording tempId → real id, then update the rest.
 async function upsertPhase<T>(
   g: GristClient,
   table: string,
@@ -611,10 +590,7 @@ async function upsertPhase<T>(
   if (updates.size > 0) await g.updateRecords(table, updates);
 }
 
-// POST /editor/sessions/:id — the reconciler. Applies the desired subtree
-// bottom-up, then deletes OrderEntries that fell off. Returns idMap
-// (tempId → row id) so the auto-save client can patch in-memory ids without
-// a reload.
+// POST /editor/sessions/:id — the reconciler; its idMap lets a client patch ids without reloading.
 export async function handleEditorSaveSession(
   req: Request,
   res: Response,
@@ -735,8 +711,7 @@ export async function handleEditorSaveSession(
       try {
         await g.deleteRecords("OrderEntries", stale);
       } catch (err) {
-        // Non-fatal: orphan rows, but the session is consistent. idMap still
-        // ships so the auto-save client resolves its temp ids.
+        // Non-fatal: orphan rows, but the session is consistent, and idMap still ships.
         res.json({
           ok: true,
           warning: `delete stale order entries: ${err}`,

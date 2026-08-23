@@ -27,16 +27,7 @@ interface Props {
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-/**
- * The sections, and they are ENTRIES rather than controls — which is the line AppHeader draws and
- * the reason they are the ones behind the hamburger on a phone.
- *
- * The icons used to be what made the bar fit: below a breakpoint `styles.css` hid every label and
- * left a row of glyphs, deliberately instead of a hamburger. That is the decision this adoption
- * gives up — six anonymous glyphs are a row nobody can read either, and the shared bar collapses
- * them into a menu that names them. The icons stay because a named entry with a glyph is still
- * faster to find than a named entry without one.
- */
+/** The sections, and they are ENTRIES rather than controls — ../../../docs/header.md. */
 const NAV_ITEMS: { key: NavKey; label: string; icon: string }[] = [
   { key: "sessions", label: "Sessions", icon: "🎙" },
   { key: "moments", label: "Moments", icon: "◆" },
@@ -79,13 +70,7 @@ export function HeaderView({
 
   return (
     <AppHeader
-      // No `variant`: the house look (`tint`) is the default now. It was `plain` — the quiet
-      // option back when the default was a solid accent — on the reason the old doc gave for
-      // it, "an app whose page carries the colour". The tint IS that reason answered: 20 % of
-      // the accent over the page, so the bar belongs to the page instead of sitting on it.
-      //
-      // The z-index is not the same kind of choice and stays: the shared bar sticks at z-10,
-      // `.topbar` sat at 20 above the page's own layers, and dropping it puts the bar under them.
+      // No `variant`, and the z-index stays — for two different reasons, ../../../docs/header.md.
       className="z-20"
       title={
         // A button, not a div: it navigates, and the mark has always been the way home.
@@ -105,9 +90,7 @@ export function HeaderView({
       items={items}
       actions={
         <>
-          {/* Favourites is a MENU over songs, not a page — so it stays inline rather than
-              collapsing with the sections. Empty, it draws nothing: a menu of nothing is a
-              button that disappoints. */}
+          {/* Favourites is a MENU over songs and not a page, so it stays inline and draws nothing when empty. */}
           {favorites.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -150,9 +133,7 @@ export function HeaderView({
             <span className="nav-icon">⚙</span>
           </Button>
 
-          {/* The one thing this bar DOES rather than opens, so it keeps its weight and its
-              label. Its error hangs off it — anchored to the button that failed, which is
-              where anyone would look for it. */}
+          {/* The one thing this bar DOES rather than opens, so its error hangs off the button that failed. */}
           <div className="topbar-new-wrap">
             <Button
               className="topbar-new"

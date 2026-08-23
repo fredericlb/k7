@@ -36,9 +36,7 @@ function emailOf(req: Request): string | null {
   return (req as { user?: { email?: string } }).user?.email ?? null;
 }
 
-/** What `scripts/tokens.mjs` prefixes a machine-to-service token's subject with. A literal and
- *  not an import: that script is plain node and cannot read TypeScript, so the two agree by
- *  this comment and by the test below it. */
+/** `scripts/tokens.mjs`'s prefix, as a literal: plain node cannot import this, so a test agrees it. */
 const SERVICE_SUB_PREFIX = "service:";
 
 export function projectsRouter(opts: {
@@ -50,8 +48,7 @@ export function projectsRouter(opts: {
   router.use((req, res, next) => {
     const sub = subOf(req);
     if (!sub) return res.status(401).json({ error: "no user on the session" });
-    // The one place both spellings of a person are in hand at once. Recorded here rather than
-    // at login because this service mints no session — it verifies one pl8 already issued.
+    // The one place both spellings of a person are in hand at once — this service mints no session.
     rememberIdentity(sub, emailOf(req));
     next();
   });
@@ -83,20 +80,7 @@ export function projectsRouter(opts: {
     }),
   );
 
-  /**
-   * The PRIVATE half, for the file service on this user's engine machine.
-   *
-   * Bearer only — deliberately not `bearerOrSession`. A session cookie is sent by a browser
-   * on any navigation, so accepting one here would make this reachable by pointing a logged-in
-   * tab at the URL. A bearer is only ever attached on purpose.
-   *
-   * WHOSE key, then. An ACCOUNT token answers that by itself: its subject is the owner and no
-   * `user` is accepted, so a person's own token can never reach for somebody else's. A SERVICE
-   * token — which is what a machine actually holds (`scripts/tokens.mjs`) — has no key of its
-   * own, so it must NAME the person, and any name it gives is honoured. That is the accepted
-   * cost of one credential per machine rather than one per person: whoever holds a machine's
-   * token can ask for anyone's key. See ../../docs/sshKeyForService.md.
-   */
+  /** The PRIVATE half, bearer ONLY and never a session — see ../../docs/sshKeyForService.md. */
   router.get(
     "/ssh-key/private",
     wrap((req, res) => {
@@ -112,14 +96,12 @@ export function projectsRouter(opts: {
         return res.status(400).json({
           error: "a service token must say whose key it is asking for (?user=)",
         });
-      // An account token naming someone else is refused rather than ignored: silently handing
-      // back your own key for a request that asked for another's would read as success.
+      // Refused rather than ignored: handing back your own key here would read as success.
       if (!service && asked && subFor(asked) !== bearer)
         return res
           .status(403)
           .json({ error: "an account token can only ask for its own key" });
-      // `subFor` because the two halves spell a person differently — the file service knows
-      // the email the browser sent it, this side files everything under the OIDC subject.
+      // `subFor` because the two halves spell a person differently: an email against a subject.
       const owner = service ? subFor(asked) : bearer;
       const dir = keyDirFor(owner);
       const key = privateKey(dir);
@@ -133,17 +115,7 @@ export function projectsRouter(opts: {
     }),
   );
 
-  /**
-   * Every repository this person has REGISTERED, and nothing about what is in one.
-   *
-   * It answered that too, out of a bare blobless mirror of each — a second copy of what the
-   * engine machine's working clone already held, a `git fetch` behind it, and blind to a project
-   * committed there whose push had not landed. st0's home page asks the machine now, which is
-   * the side the folders are on. What is left here is what only a hosted service can hold: the
-   * list itself, which belongs to a PERSON rather than to a machine and outlives every engine.
-   *
-   * Synchronous again, and that is the shape of the change: there is nothing to fetch.
-   */
+  /** Every repository REGISTERED, and nothing about what is in one — ../../docs/projects.md. */
   router.get(
     "/",
     wrap((req, res) => {
@@ -153,17 +125,7 @@ export function projectsRouter(opts: {
     }),
   );
 
-  /**
-   * The URI behind a short name — what st0 and m9 ask on the way in.
-   *
-   * A project's address is `/<name>/<project>`, so an editor arrives holding a name and
-   * nothing else. It must not hold the URI: that carries a host, a port and a user, and an
-   * address bar is copied, bookmarked and pasted into chat. pl8 owns the repositories, so pl8
-   * is what turns the readable half back into the thing git is given.
-   *
-   * Registered before `/:id/*`: `by-name` is not a repository id (those are hashes), but the
-   * reader should not have to know that to be sure.
-   */
+  /** The URI behind a short name — an address bar must never carry one; ../../docs/projects.md. */
   router.get(
     "/by-name/:name",
     wrap((req, res) => {
@@ -185,17 +147,7 @@ export function projectsRouter(opts: {
     }),
   );
 
-  /**
-   * The LIBRARY repository — the modules and chains every project of this account inherits.
-   *
-   * Registered before `/:id/*` for the reason `by-name` is: `libraries` is not a repository id,
-   * and the reader should not have to know that ids are hashes to be sure of it.
-   *
-   * `null` rather than a 404 for "none set": it is the ordinary state of a new account, and it
-   * is a state the callers ACT on — pl8 draws the card that asks for one, and st0 refuses to
-   * open a project (see packages/project-shell/docs/launch.md). A 404 would make both of them
-   * tell "not configured" apart from "the service is down" by reading a status code.
-   */
+  /** The LIBRARY repository. `null` and not a 404 for "none set" — it is a state callers ACT on. */
   router.get(
     "/libraries",
     wrap((req, res) => {
@@ -208,12 +160,7 @@ export function projectsRouter(opts: {
     }),
   );
 
-  /**
-   * Point them at a repository, or move them to another one.
-   *
-   * PUT and not POST: there is one, so this SETS rather than adds, and doing it twice with the
-   * same URI has to be the same as doing it once.
-   */
+  /** Point them at a repository. PUT and not POST: there is one, so this SETS rather than adds. */
   router.put(
     "/libraries",
     express.json(),
@@ -225,13 +172,10 @@ export function projectsRouter(opts: {
       } catch (e) {
         return res.status(400).json({ error: (e as Error).message });
       }
-      // Same key as every other repository: the machine that mounts this submodule fetches a
-      // copy of it, and there has to be one to copy.
+      // Same key as every other repository, and there has to be one before anything can clone.
       await generateKey(keyDirFor(sub), `studio-${sub}`);
       const repo = setLibrariesRepo(sub, uri);
-      // Recorded, not verified. This used to mirror the repository here so the screen could say
-      // whether the URI was one git would answer for before any machine tried it; the mirror is
-      // gone, and the first clone is what says so now — later, and in git's own words.
+      // Recorded, not verified: the first clone is what says whether git answers for this URI.
       res.json({ libraries: { ...repo, name: nameOf(repo) } });
     }),
   );
@@ -259,8 +203,7 @@ export function projectsRouter(opts: {
         return res.status(400).json({ error: (e as Error).message });
       }
       const keys = keyDirFor(sub);
-      // The clone st0 starts right after this cannot run without a key, and this is the first
-      // moment one is needed.
+      // The clone st0 starts right after cannot run without a key, and this is the first need.
       await generateKey(keys, `studio-${sub}`);
       const { repo, added } = addRepo(sub, uri, req.body?.label);
       res
@@ -275,17 +218,12 @@ export function projectsRouter(opts: {
       const sub = subOf(req)!;
       if (!removeRepo(sub, req.params.id))
         return res.status(404).json({ error: "unknown repository" });
-      // Nothing else to drop: this service holds no copy of the repository any more. The
-      // working clone stays on whatever machine has it, which is the honest outcome — removing
-      // a name from a list must not delete somebody's files.
+      // Nothing else to drop: removing a name from a list must not delete somebody's files.
       res.json({ ok: true });
     }),
   );
 
-  // `/:id/status`, `/:id/refresh` and `/:id/tree` were here, and all three were about the
-  // mirror: how its fetch was doing, doing it again, and reading the tree out of it. The engine
-  // machine answers the last one from a real checkout (`GET /workspace-tree`), and the other two
-  // described work this service no longer does.
+  // `/:id/status`, `/:id/refresh` and `/:id/tree` were here; all three were about the gone mirror.
 
   return router;
 }

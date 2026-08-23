@@ -78,8 +78,7 @@ import {
 } from "@studio/ui-chains/hang";
 import { patchAct } from "@studio/ui-chains/patchGesture";
 import { pinchFactor, spreadOf } from "@studio/ui-chains/zoomGesture";
-// The one icon this file draws from a set: the freeze badge. Everything else on a card is a
-// shape built out of CSS, which a snowflake is not.
+// The one icon this file draws from a set: the freeze badge, a snowflake being no CSS shape.
 import { Snowflake } from "lucide-react";
 import {
   createContext,
@@ -118,22 +117,7 @@ import {
   planMotion,
 } from "./nodeMotion";
 
-/**
- * What the graph can be right-clicked ON — its OWN vocabulary, not the shell's.
- *
- * st0' `MenuCtx` is a superset covering timeline things (markers, clip placements) this
- * has no way to produce. Declaring the narrow union here is what lets the component say
- * what it emits instead of importing an app's idea of a menu; a host whose own type is
- * wider accepts a handler for it unchanged.
- */
-/**
- * A play button on the SINK node — for a host that can audition what reaches it.
- *
- * On the output and not on the input, because what you want to hear is the signal after
- * everything in the chain has had it. Opt-in and absent by default: st0 has a transport of
- * its own and m9 has a deck, so neither wants a second play button inside the graph. The
- * médiathèque has neither, which is why it needs one here.
- */
+/** A play button on the SINK node, opt-in and absent by default — docs/hosting.md. */
 export interface SinkPlay {
   playing: boolean;
   /** No engine, or nothing to play. `title` is what says which. */
@@ -147,9 +131,7 @@ export type GraphMenuCtx =
   | { kind: "module"; id: string; missing?: boolean }
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
-  // One WIDGET on a module, right-clicked: the param it drives, and the CC already mapped to it.
-  // Distinct from "module" because the answer is about one knob — a MIDI binding is per param, and
-  // the module menu has nothing to say about which one you were pointing at.
+  // One WIDGET right-clicked: the param it drives, and the CC already mapped to it.
   | {
       kind: "param";
       /** The module the widget is drawn on. */
@@ -162,14 +144,7 @@ export type GraphMenuCtx =
       cc?: WebCc;
     };
 
-/**
- * The glyphs a node draws itself with, supplied by the host.
- *
- * Injected rather than imported because they are the APP's vocabulary, not the graph's:
- * st0 draws the same track icons in its mixer and its timeline, so they cannot live in
- * a chains package without those two importing one. A second consumer that wants st0'
- * exact icons can pass st0' exact icons.
- */
+/** The glyphs a node draws itself with, supplied by the host — docs/hosting.md. */
 export interface ChainsIcons {
   ModuleIcon: (props: {
     category?: WebModuleCategory;
@@ -188,11 +163,7 @@ export interface ChainsIcons {
   }) => React.ReactNode;
 }
 
-// Carried by context, not by props: `Node` is nested several layers down, and threading
-// them through every layer is the kind of thing that made this file 2000 lines. The
-// PROVIDER is not a caller's job though — DomChains takes `icons` as a required prop and
-// provides it itself, so there is no arrangement in which a caller forgets and the graph
-// throws at render. The compiler is the guarantee; the throw below is unreachable.
+// Carried by context, not by props, and provided by DomChains itself — docs/hosting.md.
 const IconsContext = createContext<ChainsIcons | null>(null);
 
 function useIcons(): ChainsIcons {
@@ -201,13 +172,10 @@ function useIcons(): ChainsIcons {
   return v;
 }
 
-// A shared, never-updated store for a graph without live params — gives every widget something
-// to subscribe to, so the hook is unconditional and a host may still pass nothing.
+// A shared, never-updated store for a graph without live params, so the hook stays unconditional.
 const EMPTY_PARAMS_STORE = new PluginParamsStore();
 
-// The PALETTE lives in `chainsCss.ts` with the stylesheet: half of these colours were interpolated
-// into it, so splitting them would have made two files where one only compiles with the other.
-// Re-imported here because the cable canvas paints in JavaScript, not in CSS.
+// The PALETTE lives in `chainsCss.ts` with the stylesheet, and is re-imported here for the canvas.
 
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
@@ -215,18 +183,14 @@ const EMPTY_ORDER: string[] = [];
 const EMPTY_LIVE: Set<string> = new Set();
 // …and for "nothing is leaving", so settling twice does not re-render the graph twice.
 const EMPTY_GHOSTS: Ghost<GraphNode>[] = [];
-// A cable drawn mid-move is drawn STILL: the ripple is a 1.2 Hz ornament and 200 ms of it is
-// nothing, while resampling every cable per frame to carry it is real work. `flattenInto` reads
-// `base` alone, so a still cable never looks at this.
+// A cable drawn mid-move is drawn STILL — docs/nodeMotion.md.
 const NO_SAMPLES: CableGeom["samples"] = [];
 
 const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan never selects)
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
 const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 
-// The stylesheet — four hundred and fifteen lines, scoped to `.dgx` — is `chainsCss.ts`, with the
-// hook that injects it. It lived here, between the colours above and the components below, and it
-// was the only block in this file holding no logic.
+// The stylesheet — 415 lines, scoped to `.dgx` — is `chainsCss.ts`, with the hook that injects it.
 
 // --- widget targeting + value resolution (ports render.ts's widgetTarget/widgetValue) --
 
@@ -237,19 +201,10 @@ type WidgetTarget =
   | { kind: "module"; module: string; field: string }
   // A param of a module realised OUTSIDE the graph — see `offlineOf`.
   | { kind: "offline"; module: string; name: string }
-  // A RACK's pad. The one target that SETS nothing: it fires a sound and returns, so it has no
-  // value to read back and no address to write to — which is why it is a kind of its own rather
-  // than a module field that happens to be momentary. See `rackUI` in @studio/ui-chains.
+  // A RACK's pad — the one target that SETS nothing, docs/widgets.md.
   | { kind: "rack"; module: string; symbol: string };
 
-/**
- * What a widget actuates: an `@` bind is an INTRINSIC — the thing's own field rather than a plugin param — and
- * which thing that is depends on the node it is drawn on. A track's are its mixer controls; a module's are the
- * fields of its own file, which is how a live input's `monitor` is reachable at all (it has no plugin, so it has
- * no params, so before this every widget on one was inert).
- *
- * Everything else is a plugin param, and needs a plugin to send it to.
- */
+/** What a widget actuates: a pad, an `@` intrinsic, a plugin param, else offline — docs/widgets.md. */
 function widgetTarget(
   n: GraphNode,
   w: WebWidget,
@@ -257,9 +212,7 @@ function widgetTarget(
   offline = false,
 ): WidgetTarget | null {
   if (!w.bind) return null;
-  // A rack pad, before the general `@` case: it is an intrinsic too, but of a kind that fires
-  // rather than sets, and reading it as a module FIELD named "rack:BD" would send it looking for
-  // a value that does not exist.
+  // A rack pad, before the general `@` case: an intrinsic that FIRES rather than sets.
   const symbol = rackBindSymbol(w.bind);
   if (symbol)
     return n.module ? { kind: "rack", module: n.module, symbol } : null;
@@ -274,9 +227,7 @@ function widgetTarget(
     return n.module ? { kind: "module", module: n.module, field } : null;
   }
   if (n.pluginId) return { kind: "plugin", pluginId: n.pluginId, name: w.bind };
-  // No plugin, and the host says it knows what such a module is set to. Opt-in, so a host with
-  // no surface realising them — pl8, or st0 on a project that declares no desk — keeps drawing
-  // nothing here rather than a knob that turns against an address the engine never had.
+  // No plugin, and the host says it knows what such a module is set to — opt-in, docs/widgets.md.
   return offline && n.module
     ? { kind: "offline", module: n.module, name: w.bind }
     : null;
@@ -288,13 +239,7 @@ function hasChannel(o: Record<string, number>, prefix: string): boolean {
   return false;
 }
 
-/**
- * The override map with one channel's entries dropped, keeping the one under the hand.
- *
- * Returns the SAME object when it dropped nothing. A fresh one is never Object.is-equal to the
- * state, so `setOverride` would re-render on every incoming frame purely to say nothing changed —
- * which, at a plugin's ~20 frames a second per plugin, doubled the graph's render rate.
- */
+/** The override map with one channel dropped — the SAME object when it dropped nothing, docs/widgets.md. */
 function dropChannel(
   o: Record<string, number>,
   prefix: string,
@@ -314,24 +259,12 @@ function targetKey(t: WidgetTarget): string {
   if (t.kind === "track") return `t:${t.trackId}:${t.control}`;
   if (t.kind === "module") return `m:${t.module}:${t.field}`;
   if (t.kind === "offline") return `o:${t.module}:${t.name}`;
-  // A pad holds no value, so it can carry no optimistic override — the key exists only so the
-  // union is covered, and nothing ever writes under it.
+  // A pad holds no value, so nothing ever writes under this key — it only covers the union.
   if (t.kind === "rack") return `r:${t.module}:${t.symbol}`;
   return `p:${t.pluginId}:${t.name}`;
 }
 
-/**
- * A module field's current value as a WIDGET number: the value of the option this field currently holds.
- *
- * The field is a word (`monitor: auto`) and a widget speaks numbers, and the widget's own `options` already
- * carry the mapping — so the panel that draws the choices is the one that names them, and nothing here has to
- * know what `monitor` means.
- *
- * A socket is matched on `arg` rather than on the label, because that is the half that says what the field
- * holds: the entry is CALLED "Input 1 + 2" and the file says `1,2`. Two widgets may bind `@channel` — the
- * socket and its width — and each finds itself in its OWN options, which is what lets width be a control
- * without being a field: mono and stereo are not two settings, they are how wide this one is.
- */
+/** A module field's current value as a WIDGET number, through the widget's own options — docs/widgets.md. */
 function moduleFieldValue(
   n: GraphNode,
   w: WebWidget,
@@ -342,11 +275,7 @@ function moduleFieldValue(
     const arg = n.channel.join(",");
     return w.options?.find((o) => o.arg === arg)?.value;
   }
-  // A base is matched on the label like `monitor`, because the label IS the name written in the
-  // file. An unset base shows `none` rather than nothing: the entry exists so the choice can be
-  // undone, and a blank dropdown would leave the one module state you cannot get back to unnamed.
-  // A SHADER is the same answer over a different folder — and its `none` is a real state rather
-  // than an escape hatch: a shader node with nothing picked passes its picture through.
+  // A base and a shader are matched on the LABEL, which is the name written in the file.
   const current =
     field === "monitor"
       ? n.monitor
@@ -359,74 +288,41 @@ function moduleFieldValue(
   return w.options?.find((o) => o.label === current)?.value;
 }
 
-/**
- * Where a host parks the camera between mounts.
- *
- * Named because it was not: six surfaces wrote `useRef<{x,y,k}|null>(null)` with four
- * near-identical comments above it. The graph is torn down with its pane, so the pan and zoom
- * have to be held by something that outlives it — see docs/chainsGraph.md. A host that omits
- * it gets a fresh frame on every reopen, which is a choice, but rarely the intended one.
- *
- * `Cam` itself lives in camera.ts, with everything else that moves it, and is re-exported here
- * because four hosts import it from the package entry.
- */
+/** Where a host parks the camera between mounts — `Cam` itself lives in camera.ts, docs/hosting.md. */
 export type { Cam };
 export type CamStore = React.MutableRefObject<Cam | null>;
 
 interface Channels {
-  // The STORE, not its map: each widget subscribes to its own plugin, so one plugin's frame
-  // re-renders one control instead of the graph. See @studio/engine-browser's docs/params.md.
+  // The STORE, not its map, so one plugin's frame re-renders one control — engine-browser's docs/params.md.
   params: PluginParamsStore;
   trackControls: Record<string, TrackControlValues>;
   override: Record<string, number>;
-  // The engine's `levels` arrive by POSITION, so metering anything needs the order to name them. Here rather than
-  // as a prop because a widget deep inside a tabs page needs it too, and `ch` is what already reaches there.
+  // The engine's `levels` arrive by POSITION, so metering anything needs the order to name them.
   trackOrder: string[];
   // A module the compiler emits NO plugin for — see `moduleParams` on the props.
   moduleParams: Record<string, Record<string, number>>;
-  // Does the host handle those at all? An EMPTY map is a legitimate state (nothing set yet),
-  // so the offer has to be a fact of its own rather than inferred from the map's size.
+  // Does the host handle those at all? An EMPTY map is a legitimate state — docs/hosting.md.
   offlineChannel: boolean;
-  // …and can it TAKE one back? Showing without taking is legitimate — m9's graph knows a
-  // deck's tempo while the desk that sets it is unmounted — but a knob that turns against a
-  // host with nowhere to put the value is the lie this pair of flags exists to avoid.
+  // …and can it TAKE one back? Showing without taking is legitimate — docs/hosting.md.
   offlineWritable: boolean;
-  // The same question for the other two channels, which went years without being asked. The
-  // send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that passes
-  // neither still got a widget that dragged, moved its optimistic override, sent nothing, and
-  // had no engine frame coming to correct it. st0's Graph panel was exactly that.
+  // The same question for the other two channels, which went years without being asked.
   pluginWritable: boolean;
   trackWritable: boolean;
-  // …and the same question for a RACK pad, which asks for a sound rather than a value: can this
-  // host make one? A pad on a host that cannot is drawn and inert, never clickable-and-silent.
+  // …and for a RACK pad, which asks for a sound rather than a value: can this host make one?
   rackTriggerable: boolean;
-  // Is this graph a REHEARSAL — see the prop. The three flags above ask "is there anywhere to
-  // send this", and a rehearsal's answer is that there is nowhere and none is needed: the
-  // override IS the value. Without it the builder's card drew every widget read-only until a
-  // plugin happened to be loaded, which is exactly the panel you cannot try out yet.
+  // Is this graph a REHEARSAL — there is nowhere to send a value and none is needed.
   rehearsal: boolean;
   /** Which rack sounds are firing right now — a STORE, subscribed per pad. See `RackLitStore`. */
   rackLit?: RackLitStore;
 }
 
-/**
- * Which rack sounds are firing, as a pad asks it: subscribe to one module, read one note.
- *
- * A STORE and not a prop, for the reason `PluginParamsStore` is one: this changes as fast as the
- * playhead moves, and a prop would re-render every node in the graph on each frame. The pad holds
- * its own subscription and reads a BOOLEAN, so React's own `Object.is` ends the render there.
- *
- * The graph does not know how the answer is arrived at. st0 derives it from the arrangement and the
- * playhead — the browser has both — which is why it lights for a SEQUENCE and not for live MIDI or
- * a strudel lane, whose notes the browser never sees. See packages/song/docs/racks.md.
- */
+/** Which rack sounds are firing, as a pad asks it: one module, one note — docs/widgets.md. */
 export interface RackLitStore {
   subscribeTo(module: string, cb: () => void): () => void;
   isLit(module: string, note: number): boolean;
 }
 
-/** One pad's lit state. Null module or note is the "nothing to watch" case, so the caller can
- *  hold the hook unconditionally. */
+/** One pad's lit state — a null module or note is "nothing to watch", so the hook stays unconditional. */
 function useRackLit(
   store: RackLitStore | undefined,
   module: string | null,
@@ -444,13 +340,7 @@ function useRackLit(
   return useSyncExternalStore(subscribe, read, read);
 }
 
-/**
- * The value a widget shows: override, else engine, else authored, else nothing. See docs/chainsGraph.md.
- *
- * `live` is the subscribed value when the caller is a rendering widget, which holds its own
- * subscription. An event handler passes none and the store is read at call time — which for a
- * handler is the RIGHT reading, being the value as of the click rather than as of the last paint.
- */
+/** The value a widget shows: override, else engine, else authored, else nothing — docs/widgets.md. */
 function widgetValue(
   n: GraphNode,
   w: WebWidget,
@@ -459,8 +349,7 @@ function widgetValue(
 ): number | undefined {
   const tgt = widgetTarget(n, w, ch.offlineChannel);
   if (!tgt) return undefined;
-  // A pad has no value to show. Whether it is LIT is a different question, asked of a different
-  // channel and per pad — see `useRackLit`, which the widget holds its own subscription to.
+  // A pad has no value to show; whether it is LIT is `useRackLit`'s separate question.
   if (tgt.kind === "rack") return undefined;
   const key = targetKey(tgt);
   if (key in ch.override) return ch.override[key];
@@ -491,8 +380,7 @@ function fmtValue(v: number | undefined): string {
   return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
 }
 
-// --- edge geometry ------------------------------------------------------------
-// The maths lives in @studio/ui-chains/cables; here we only pair it with the drawing's per-edge metadata.
+// --- edge geometry (the maths is @studio/ui-chains/cables; here, its per-edge metadata) ---
 
 interface EdgeGeom extends CableGeom {
   id: string;
@@ -505,23 +393,7 @@ interface EdgeGeom extends CableGeom {
 
 // --- controls ----------------------------------------------------------------
 
-// A knob dial as an SVG arc, value normalised 0..1. An unknown value leaves the pointer off and travel unfilled.
-/**
- * `text` is the reading, drawn in the middle of the dial.
- *
- * Which is why the pointer is a rim TICK rather than a line from the centre: it used to run
- * from (c,c) to the rim, straight through where the number now sits. It starts at 62% of the
- * radius instead — the same gesture, from outside the text.
- *
- * The font is a fraction of the dial rather than a fixed size: a knob here is anything from
- * 14px to 60-odd depending on the cells it was given, and one size would be either unreadable
- * on the small ones or absurd on the large.
- *
- * And it is DROPPED when the reading does not fit inside the tick — measured against the text
- * actually being drawn, not a guess at its width. A one-row knob is 21px whatever its colSpan
- * (the height is what binds: a row less the caption), and "-100" needs 14px of middle it has
- * not got. Better no reading than one over its own pointer.
- */
+// A knob dial as an SVG arc, 0..1, with `text` read in its middle — docs/widgets.md.
 function Knob({
   t,
   known,
@@ -688,11 +560,7 @@ function TabsWidget({
   const TAB_H = 16; // px for the tab bar
 
   return (
-    // `justifyContent` inline, against .dgx-w's own `center`: the bar has to sit at the TOP
-    // of its box because that is what the sub-widget offset below assumes (`+ TAB_H`). Centred,
-    // the two disagreed by half the leftover height — a page's first row overlapped the bar on a
-    // one-row box and hung 26px under it on the next, with no row an author could pick that was
-    // flush. Inline rather than a class so it beats the stylesheet whatever the order.
+    // `justifyContent` inline: the bar sits at the TOP, as the `+ TAB_H` offset assumes — docs/widgets.md.
     <div
       className="dgx-w"
       style={{ ...style, justifyContent: "flex-start" }}
@@ -700,9 +568,7 @@ function TabsWidget({
     >
       {/* tab bar */}
       <div
-        // `w-full`, because .dgx-w is a centring flex column: without it the bar is sized to
-        // its NAMES and parked in the middle of the widget, which is what left "General"
-        // reading "Gene…" with empty box on either side of it.
+        // `w-full`, because .dgx-w is a centring flex column that would size the bar to its NAMES.
         className="flex w-full overflow-hidden"
         style={{ height: TAB_H, borderBottom: "1px solid #2f2f36" }}
       >
@@ -713,9 +579,7 @@ function TabsWidget({
               e.stopPropagation();
               setActivePage(name);
             }}
-            // `flex-auto`, not `flex-1`: basis is the NAME's width, so the spare space is
-            // shared out rather than cut into equal slices that clip a long page name next to
-            // a short one. `truncate` stays as the last resort, for a name wider than the box.
+            // `flex-auto`, not `flex-1`: basis is the NAME's width, so the spare space is shared out.
             className="flex-auto truncate px-1 text-center text-[8px] leading-none text-muted-foreground hover:text-foreground"
             style={{
               borderBottom:
@@ -793,16 +657,12 @@ function WaveformWidget({
   onWatch?: (pluginId: string, side: "input" | "output", on: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Where to listen. Normally this node's own plugin, on the side the widget asks for —
-  // but a node may name a tap of its own, which is how a live input gets a picture at all:
-  // it has no plugin, so it borrows the INPUT of the first module on the lane it feeds.
-  // The widget's `source` does not apply there; an input has one signal, not two sides.
+  // Where to listen: this node's own plugin, or the tap it names — docs/waveformWidget.md.
   const tap = n.tap ?? (n.pluginId ? { id: n.pluginId, side: w.source } : null);
   // The waveform key is pluginId:side (e.g. "chain:module:output").
   const key = tap?.id && tap.side ? `${tap.id}:${tap.side}` : null;
 
-  // The envelope reaches the canvas through a REF off a RAW subscription, never through
-  // useEngineState — see docs/waveformWidget.md for the three things that were wrong here.
+  // The envelope reaches the canvas through a REF off a RAW subscription — docs/waveformWidget.md.
   const store = useEngineStoreOrNull();
   const envelopeRef = useRef<WaveformEnvelope[]>(NO_ENVELOPE);
   const dirtyRef = useRef(true);
@@ -811,8 +671,7 @@ function WaveformWidget({
 
   useEffect(() => {
     if (!store) return;
-    // Read on subscribe too: a widget mounted (or repointed at another tap) between two
-    // frames must not keep drawing the previous one until the next frame lands.
+    // Read on subscribe too, so a widget repointed between two frames drops the previous picture.
     const read = (): void => {
       const env = key
         ? (store.getSnapshot().waveform[key] ?? NO_ENVELOPE)
@@ -828,9 +687,7 @@ function WaveformWidget({
     return store.subscribe(read);
   }, [store, key]);
 
-  // The tap is the ENGINE's, and inserting one costs it a plugin in the chain — so it is
-  // placed while this widget is on screen and removed when it leaves. Nothing did this,
-  // which is why the widget drew an empty box: it read a key the engine was never filling.
+  // The tap costs the ENGINE a plugin, so it is placed and removed with this widget — docs/waveformWidget.md.
   const id = tap?.id;
   const side = tap?.side === "input" ? "input" : "output";
   useEffect(() => {
@@ -845,8 +702,7 @@ function WaveformWidget({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // The box comes from a ResizeObserver, exactly as the cable canvas takes its host size:
-    // measuring inside the draw flushes style on every frame, per widget on screen.
+    // The box comes from a ResizeObserver: measuring inside the draw flushes style every frame.
     let W = 0;
     let H = 0;
     let appliedDpr = 0;
@@ -908,8 +764,7 @@ function WaveformWidget({
       ctx.stroke();
     };
 
-    // Started by an envelope, stopped by stillness — the rule the camera and the ripple
-    // already follow. A widget on a silent module schedules no frames at all.
+    // Started by an envelope, stopped by stillness: a silent module schedules no frames at all.
     const tick = (now: number): void => {
       raf = 0;
       if (!dirtyRef.current || W <= 0 || H <= 0) return;
@@ -975,8 +830,7 @@ function WidgetInner({
   onTap: (n: GraphNode, w: WebWidget) => void;
   // A dropdown picks an exact value rather than flipping one, so it can't go through onTap.
   onPick: (n: GraphNode, w: WebWidget, value: number) => void;
-  // A library dropdown picks a FILE for a module field, so it takes neither a widget nor a number.
-  /** Open the library browser for this widget, at the click's viewport coords. */
+  /** Open the library browser for this widget, at the click's viewport coords — it picks a FILE. */
   onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
   onWatchWaveform?: (
@@ -986,30 +840,20 @@ function WidgetInner({
   ) => void;
   /** Right-click on this control — the host's menu for the PARAM it drives (see GraphMenuCtx). */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
-  /**
-   * A curve's cable is in hand: this widget is a LANDING TARGET, and clicking it binds the
-   * curve to the param it drives.
-   *
-   * Only passed while such a cable is out — so the ordinary press (a knob's drag, a toggle's
-   * tap) is untouched the rest of the time, rather than every widget growing a mode it has to
-   * check on every press.
-   */
+  /** A curve's cable is in hand and this widget is a LANDING TARGET — passed only while one is out. */
   onLandAutomation?: (n: GraphNode, w: WebWidget) => void;
   styleOverride?: React.CSSProperties;
 }) {
   const r = widgetRect(w);
-  // Hoisted above the two delegating returns because the subscription below is a hook and a hook
-  // cannot live after one. Pure, and null for both of them — neither type carries a `bind`.
+  // Hoisted above the two delegating returns, since the subscription below is a hook.
   const tgt = widgetTarget(n, w, ch.offlineChannel);
-  // This control's own live value: a plugin frame re-renders this widget, not the graph. Same
-  // shape as InputMeterBar and FaderMeter below — the leaf that draws the number owns the tap.
+  // This control's own live value: a plugin frame re-renders this widget, not the graph.
   const live = usePluginParamValue(
     ch.params,
     tgt?.kind === "plugin" ? tgt.pluginId : null,
     tgt?.kind === "plugin" ? tgt.name : null,
   );
-  // …and a rack pad's own tap, for the same reason and in the same place: one sound firing lights
-  // one pad rather than re-rendering the graph twenty times a second.
+  // …and a rack pad's own tap, so one sound firing lights one pad rather than the graph.
   const padSymbol = tgt?.kind === "rack" ? tgt.symbol : null;
   const padLit = useRackLit(
     ch.rackLit,
@@ -1053,18 +897,13 @@ function WidgetInner({
     );
   }
 
-  // Drawn from a value it cannot change: read-only rather than dead, which is what an offline
-  // module looks like on a surface that only borrows its number — and now what ANY widget looks
-  // like when its host gave no way back. Read-only is honest; draggable-and-ignored is not.
+  // Read-only where the host gave no way back — honest, where draggable-and-ignored is not.
   const actuable =
     tgt !== null &&
-    // A RACK pad writes nothing, so none of the channels answers for it. What it needs is a host
-    // that can make a sound; without one the pad draws and stays inert, which is the same honesty
-    // the flags below are for — and a rehearsal cannot invent a sound, so this one is asked first.
+    // A pad needs a host that can make a SOUND, which a rehearsal cannot invent — so it is asked first.
     (tgt.kind === "rack"
       ? ch.rackTriggerable
-      : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer,
-        // so its widgets move whether or not a plugin happens to be loaded behind them.
+      : // A rehearsal has nowhere to send a value and needs nowhere: the override is the answer.
         ch.rehearsal ||
         (tgt.kind === "offline"
           ? ch.offlineWritable
@@ -1083,8 +922,7 @@ function WidgetInner({
   const caption =
     w.type === "label" || w.type === "button" ? undefined : w.label;
 
-  // …and where a DROPDOWN's goes. Not the library kind: its body is a file name at 100% width
-  // (.dgx-file), so there is no room beside it to compete for and nothing to gain by trying.
+  // …and where a DROPDOWN's goes — never the library kind, whose body already fills the box.
   const beside =
     w.type === "dropdown" &&
     !w.library &&
@@ -1115,8 +953,7 @@ function WidgetInner({
             }
           : { className: "dgx-w" };
 
-  // A control that drives something can be right-clicked for what drives IT. On the widget rather
-  // than the node, and stopped there, so the module's own menu does not answer for one knob.
+  // A control that drives something can be right-clicked for what drives IT, and stopped there.
   if (actuable && onContextParam)
     interact.onContextMenu = (e) => {
       e.preventDefault();
@@ -1149,8 +986,7 @@ function WidgetInner({
           {fmtValue(value)}
         </span>
         <div className={`dgx-fader${known ? "" : " unknown"}`}>
-          {/* The VU rides beside the throw, left of it, as a channel strip has it. Only on a chain that IS a
-              track: a bus is fed by several, and there is no one level to show. */}
+          {/* The VU rides left of the throw, and only on a chain that IS a track. */}
           {n.chain && <FaderMeter trackId={n.chain} order={ch.trackOrder} />}
           <div className="rail">
             <i
@@ -1173,8 +1009,7 @@ function WidgetInner({
       </div>
     );
   } else if (w.type === "button") {
-    // A rack pad has no value, so `t` says nothing about it: what lights it is the arrangement
-    // reaching its note, which the pad subscribes to on its own. Everything else is its param.
+    // A rack pad has no value, so `t` says nothing about it: what lights it is its own note.
     const on = padSymbol ? padLit : known && t >= 0.5;
     const c = (w.bind && CTRL[w.bind]) ?? RING;
     body = (
@@ -1182,11 +1017,7 @@ function WidgetInner({
         className={`dgx-btn${on ? " on" : ""}`}
         style={{ ["--c" as string]: c }}
       >
-        {/* A rack PAD draws bare: the grid is the picture, and sixteen three-letter symbols in a
-            card this size is a wall of text where a drum machine's face should be. The symbol is
-            still the widget's label — it names the pad in the tooltip below and in a right-click
-            — so nothing is lost, only unprinted. Every other button keeps its word; `?` remains
-            the tell for a hand-authored one that forgot to write one. */}
+        {/* A rack PAD draws bare, its symbol left to the tooltip; see docs/widgets.md. */}
         {padSymbol ? "" : (w.label ?? "?")}
       </b>
     );
@@ -1201,14 +1032,7 @@ function WidgetInner({
   } else if (w.type === "meter") {
     body = <div className="dgx-meter" />;
   } else if (w.type === "filepicker" || (w.type === "dropdown" && w.library)) {
-    // Picks a FILE the module carries, for the file-valued param it binds. A button, not a
-    // <select>: these folders are nested and long (a NAM pack is a folder per amp), and a
-    // native select is one flat alphabetical scroll with no search. Clicking asks the shell to
-    // open the same browsing popup the `+` on an arrow uses — see AssetPicker.
-    //
-    // `dropdown` + `library` is the older spelling of the same widget, from when the files came
-    // from a shared library instead of the module's own assets/. Read as a filepicker so every
-    // panel already written keeps working — see docs/filePicker.md.
+    // Picks a FILE the module carries, through a button rather than a <select> — docs/widgets.md.
     const param = String(w.type === "filepicker" ? (w.bind ?? "") : w.library);
     const current = n.assets?.[param] ?? "";
     const shown = current
@@ -1218,8 +1042,7 @@ function WidgetInner({
       <button
         type="button"
         className={`dgx-sel dgx-file${current ? "" : " unknown"}`}
-        // The whole path, since the face shows only the basename: two amps in different packs
-        // can have the same file name, and hovering is what tells them apart.
+        // The whole path, since the face shows only the basename, which two packs may share.
         title={current || `pick a ${w.library} file`}
         disabled={!n.module}
         onClick={(e) => {
@@ -1246,8 +1069,7 @@ function WidgetInner({
         disabled={!actuable || !opts.length}
         onChange={(e) => onPick(n, w, Number(e.target.value))}
       >
-        {/* Only until the first value arrives — without it the select would show the
-            first option as though it were the setting. */}
+        {/* Only until the first value arrives, so the first option is never shown as the setting. */}
         {cur === undefined && <option value="">—</option>}
         {opts.map((o) => (
           <option key={o.value} value={o.value}>
@@ -1258,16 +1080,7 @@ function WidgetInner({
     );
   }
 
-  /**
-   * A curve's cable is in hand and this widget can take it: the whole control becomes a target.
-   *
-   * Only a PLUGIN param, and for the reason the right-click menu gives: an `@` bind is a module
-   * field (a word, not a number) and a track widget drives a mixer control, neither of which a
-   * curve has anything to say to. A label or a waveform binds nothing at all.
-   *
-   * It takes over the press, so a knob does not start turning under a cable that was about to
-   * land on it — which is the one thing that would make the gesture feel broken.
-   */
+  // A curve's cable is in hand and this PLUGIN param can take it — docs/widgets.md.
   const landing = !!onLandAutomation && !!w.bind && !w.bind.startsWith("@");
   if (landing)
     return (
@@ -1290,14 +1103,10 @@ function WidgetInner({
     <div
       {...interact}
       style={style}
-      // An unlabelled pad has to say what it is SOMEWHERE, and hovering is that somewhere. Only
-      // for pads: every other widget either prints its own label or draws its caption below, and
-      // a tooltip repeating the word already on screen is noise.
+      // An unlabelled pad has to say what it is somewhere, and only a pad needs the tooltip for it.
       title={padSymbol ?? undefined}
     >
-      {/* A dropdown's caption goes BESIDE its select where the box has room for both, and
-          above it where it has not — see captionFitsBeside. Every other widget draws its
-          caption underneath, as it always did. */}
+      {/* A dropdown's caption goes beside its select or above it, per captionFitsBeside; every other one is underneath. */}
       {caption && w.type === "dropdown" && !beside && (
         <span className="dgx-wlab top">{caption}</span>
       )}
@@ -1315,18 +1124,7 @@ function WidgetInner({
     </div>
   );
 }
-/**
- * Does a dropdown's caption fit BESIDE its select, rather than above it?
- *
- * Measured from the glyph counts, not from the DOM: the real widths only exist after a reflow,
- * and this runs for every widget of every node on every frame that touches one. The constants
- * are `.dgx-wlab` (6px, uppercase) and `.dgx-sel` (9px monospace) — if either size moves, these
- * move with it.
- *
- * The select is priced at its WIDEST option, because that is what it must be able to show: a
- * dropdown that fits while reading "Sine" and clips on "Saw down" would rearrange itself as you
- * used it.
- */
+/** Does a dropdown's caption fit BESIDE its select? Counted in glyphs, never from the DOM — docs/widgets.md. */
 const CAP_ADV = 6 * 0.62; // uppercase advance at .dgx-wlab's size
 const SEL_ADV = 9 * 0.6; // monospace advance at .dgx-sel's size
 const SEL_CHROME = 26; // border, padding and the native arrow
@@ -1351,22 +1149,12 @@ function fitFont(label: string, w: number, h: number): number {
   return Math.max(8, Math.min(byWidth, h * 0.6));
 }
 
-/**
- * What the header actually leaves the NAME, in px — the card less everything beside it.
- *
- * The numbers are `.dgx-hd`'s own, above: 10px of padding each side, a 7px gap, a 13px glyph or
- * an 8px dot leading it, and the padding-right a corner button adds (`pbtn`/`bbtn`). Repeated
- * here because the layout is flex and the real figure only exists after a reflow, which is
- * exactly what a per-card measurement would cost. If the CSS moves, this moves with it.
- */
+/** What the header leaves the NAME, in px — `.dgx-hd`'s own numbers, repeated, docs/nodeCard.md. */
 function headerNameW(n: GraphNode, hasGlyph: boolean, corners: number): number {
   const HD_PAD = 10;
   const HD_GAP = 7;
   const lead = hasGlyph ? 13 : 8;
-  // The same figure `.dgx-hd`'s padding-right uses, from the same count — 12px per bubble plus
-  // the 2px the first one hangs past them. It read `hasNativePluginUI ? 26 : 0` before, which
-  // was wrong twice over: a module with a bypass bubble and no native UI reserved nothing, and a
-  // node with one bubble reserved room for two.
+  // The same figure `.dgx-hd`'s padding-right uses: 12px per bubble plus 2px of overhang.
   const corner = corners ? corners * 12 + 2 : 0;
   return Math.max(16, n.w - HD_PAD * 2 - lead - HD_GAP - corner);
 }
@@ -1374,22 +1162,10 @@ function headerNameW(n: GraphNode, hasGlyph: boolean, corners: number): number {
 /** One corner bubble, in the order they sit: the corner first, then leftwards. */
 export type CornerButton = "plugin" | "bypass" | "menu";
 
-/**
- * Which bubbles a node's corner shows.
- *
- * ONE list, because three things read it — the buttons, the header's padding, and how much room
- * `headerNameW` leaves the name. They disagreed before this existed: a module with a bypass
- * bubble but no native plugin UI got no padding at all, so a long name ran under it.
- *
- * The ⋮ `menu` appears on any node that COULD use one (any module node, a lane included), not
- * only on one that already has alternatives or a freeze — creating either has to start somewhere,
- * and that somewhere is the node. A note is left out: it is drawn as prose with no header to
- * hang a bubble off.
- */
+/** Which bubbles a node's corner shows — ONE list, read by three things, docs/nodeCard.md. */
 function cornerButtons(n: GraphNode, canOpenMenu: boolean): CornerButton[] {
   const out: CornerButton[] = [];
-  // Neither on a baked module: there is no live plugin behind it, so the engine has no window to
-  // open and nothing to bypass. The ⋮ stays — it is how the freeze is undone.
+  // Neither on a baked module: no live plugin, so no window to open and nothing to bypass.
   const baked = !!n.frozen && n.kind === "module";
   if (n.hasNativePluginUI && n.module && !baked) out.push("plugin");
   if (n.kind === "module" && n.module && !baked) out.push("bypass");
@@ -1426,9 +1202,7 @@ function InputMeterBar({
         background: "rgba(239,68,68,0.22)", // red-500 @ 22%
       }}
     >
-      {/* Scaled, not resized: the fill is a plain block of colour, so scaleX draws the identical
-          pixels while changing no geometry — a width would reflow this element every frame the
-          engine speaks. See @studio/engine-browser's docs/meters.md. */}
+      {/* Scaled, not resized: a width would reflow this every frame the engine speaks (docs/meters.md). */}
       <div
         style={{
           height: "100%",
@@ -1442,21 +1216,13 @@ function InputMeterBar({
   );
 }
 
-/**
- * The fader's VU — the same signal, range and colours as a Mix-panel strip, because it is the same strip: a mixer
- * module sits on a track's chain and the fader on it is that track's level.
- *
- * Its own component with its own subscription, exactly like InputMeterBar: the level arrives every frame, and it
- * has to move a 9px bar rather than re-render the graph. `null` (a chain that is not a track — a bus is fed by
- * several) draws nothing at all, so the fader keeps its full width instead of reserving space for a dead bar.
- */
+/** The fader's VU — the same strip as the Mix panel's, with its own subscription, docs/nodeCard.md. */
 function FaderMeter({ trackId, order }: { trackId: string; order: string[] }) {
   const t = useTrackLevel(trackId, order);
   if (t === null) return null;
   return (
     <div className="dgx-fmeter">
-      {/* The SHADE, not the fill: it covers the ramp from the top down to the level. Scaled from
-          the top rather than resized — same block of black, no geometry to redo. */}
+      {/* The SHADE, not the fill: it covers the ramp down to the level, scaled rather than resized. */}
       <i style={{ transform: `scaleY(${1 - t})` }} />
     </div>
   );
@@ -1504,21 +1270,16 @@ function NodeInner({
   onContext: (n: GraphNode, e: React.MouseEvent) => void;
   onOpenPlugin: (module: string) => void;
   onBypass: (module: string) => void;
-  /** The ⋮ bubble was clicked: open THIS host's menu for the node at those viewport coords.
-   *  Optional, and the button exists only when it is given — pl8's bench and m9's desk pass
-   *  nothing and get no menu, the way they pass no command bar. */
+  /** The ⋮ bubble was clicked: this host's menu for the node — the button exists only when given. */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
   /** What the engine reported about THIS node's plugin, if anything. */
   warning?: string;
   onDragStart: (n: GraphNode, w: WebWidget, e: React.PointerEvent) => void;
   onTapWidget: (n: GraphNode, w: WebWidget) => void;
   onPickWidget: (n: GraphNode, w: WebWidget, value: number) => void;
-  /** Open the library browser for this widget, at the click's viewport coords — a FILE for
-   *  the module field the widget names. Called `onPickLibrary` until the assets rework;
-   *  the old name survived a merge as a dead prop beside this one, and is gone now. */
+  /** Open the library browser for this widget — a FILE for the module field the widget names. */
   onPickAsset: (n: GraphNode, param: string, x: number, y: number) => void;
-  /** What this TRACK is fed from, as a chip on its header. Undefined draws none — which is
-   *  every node that is not a track, and every host that cannot change one. */
+  /** What this TRACK is fed from, as a chip on its header; undefined draws none. */
   trackInput?: string;
   onPickTrackInput: (n: GraphNode, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap for a module — see WaveformWidget. */
@@ -1530,11 +1291,7 @@ function NodeInner({
   /** Right-click on one of this node's controls — the menu for the PARAM, not for the module. */
   onContextParam?: (n: GraphNode, w: WebWidget, x: number, y: number) => void;
   sinkPlay?: SinkPlay;
-  /** A jack was pressed or released — the patch-cable gesture. Absent (read-only hosts, ghosts),
-   *  the sockets stay inert exactly as they always were.
-   *
-   *  BOTH halves of the pointer, because one socket answers two gestures: press-drag-release, and
-   *  click-then-click. `phase` is the only thing that tells them apart — see cable.md. */
+  /** A jack was pressed or released — BOTH halves, since `phase` is what tells the two gestures apart. */
   onTapJack?: (
     n: GraphNode,
     side: "in" | "out",
@@ -1542,8 +1299,7 @@ function NodeInner({
     index: number,
     phase: "down" | "up",
   ) => void;
-  /** The cable in hand, while one is — which SIDE its loose end seeks, the signal it carries and
-   *  the node its plugged end is ON, gating which jacks invite landing it. */
+  /** The cable in hand: the side its loose end seeks, its signal, its node — what gates a landing. */
   patchWant?: {
     seeking: "in" | "out";
     type: WebSignal;
@@ -1558,8 +1314,7 @@ function NodeInner({
   onStartEvent?: (n: GraphNode, event: string) => void;
   /** …and it landed on this envelope's ear. */
   onLandEvent?: (n: GraphNode) => void;
-  /** The header was pressed on a node the host lets you move — the pin gesture. Absent, the
-   *  header is inert and the press pans, exactly as it always did. */
+  /** The header was pressed on a node the host lets you move — absent, the press pans instead. */
   onHeaderDrag?: (n: GraphNode, e: React.PointerEvent) => void;
 }) {
   const { ModuleIcon, moduleGlyph, TrackIcon } = useIcons();
@@ -1572,35 +1327,16 @@ function NodeInner({
         : undefined;
   // Does this node draw a glyph? Decides whether the accent dot steps aside and the far card reserves height.
   const hasGlyph = n.kind === "track" || !!moduleGlyph(iconCategory, n.missing);
-  /**
-   * The name the card wears: the MODULE this node uses, or its own when there is no second name.
-   *
-   * A node and its module are two different things — `sy_jun-chorus` is one use of
-   * `@st0/audio/modulation/chorus-ense` — and the header used to say only the first. Seventeen
-   * uses of one mixer then read as seventeen unrelated cards, and what a node IS could only be
-   * learnt by opening it. The node's own name goes underneath, small, where it answers the
-   * second question: WHICH use is this.
-   */
+  // The name the card wears: the MODULE this node uses, its own underneath — docs/nodeCard.md.
   const headName = n.uses ? moduleDisplayName(n.uses) : n.label;
-  // The corner cluster, decided once: the buttons below, the header's padding and the width the
-  // name is measured against all read this same list.
+  // The corner cluster, decided once, since three things read this same list.
   const corners = cornerButtons(n, !!onNodeMenu);
   const slot = (b: CornerButton) => corners.indexOf(b);
   const sel =
     (!!n.chain && n.chain === selected) ||
     (!!n.chains && !!selected && n.chains.includes(selected)) ||
     (n.kind === "module" && !!n.module && n.module === selected);
-  // Every node responds to a tap. A module can flag four ways (missing/stub/unknownPlugin/notSupported), all red.
-  /**
-   * A node with a problem. Two colours, not one — which is what `docs/graphFlags.md` has always
-   * said and what this file has never drawn: a plugin the engine could load but WON'T
-   * (`not_supported`) is amber, everything else it cannot find at all is red.
-   *
-   * The `.k-unsupported`, `.dgx-nm.unsupported`, `.dgx-sub.unsupported` and `.dgx-far.unsupported`
-   * rules were all unreachable, because `notSupported` folded into `red` here and the class was
-   * only ever `stub`. So a not-supported plugin drew a red card, contradicting its own flag line
-   * and `hosting.md`'s promise of "an unsupported plugin amber".
-   */
+  // A node with a problem, in TWO colours: amber for a plugin refused, red for one absent — docs/nodeCard.md.
   const amber = !!n.notSupported;
   const red = n.missing || n.stub || n.unknownPlugin || amber;
   const flagCls = amber ? " unsupported" : red ? " stub" : "";
@@ -1631,8 +1367,7 @@ function NodeInner({
       <InputMeterBar trackId={n.label} order={trackOrder} />
     ) : null;
 
-  // The module on its way: a spinner and nothing else. It has no name, no category and no parameters yet — the
-  // command that will decide all three is still running — so anything else drawn here would be invented.
+  // The module on its way: a spinner and nothing else, since anything else would be invented.
   if (n.pending)
     return (
       <div
@@ -1652,18 +1387,7 @@ function NodeInner({
       </div>
     );
 
-  /**
-   * A NOTE: a doc module, drawn as its text and nothing else.
-   *
-   * Before the LOD branch on purpose. Every other card drops to its name when the camera pulls
-   * back, because widgets stop being readable and the name is what is left; a note has no
-   * widgets and its text IS the card, so shrinking it to the node's filename would replace
-   * the only thing worth reading with the one thing that is not.
-   *
-   * No jacks drawn either: a note takes one input and gives nothing back, and a socket on a
-   * comment invites a wire out of it. The cable INTO it is the ordinary one — that is what says
-   * which part of the chain the note is about. See @studio/song's docs/docModules.md.
-   */
+  // A NOTE: a doc module, its text and nothing else, before the LOD branch — docs/nodeCard.md.
   if (n.note !== undefined)
     return (
       <div
@@ -1679,25 +1403,20 @@ function NodeInner({
         onContextMenu={(e) => onContext(n, e)}
         title={n.label}
       >
-        {/* `pre-wrap`: the author's own line breaks are the shape of the note, and a long line
-            still wraps inside the width `noteSize` reserved for it. */}
+        {/* `pre-wrap`: the author's own line breaks are the shape of the note; `noteSize` reserved the width. */}
         <div className="dgx-note-body">{n.note}</div>
       </div>
     );
 
   // Far LOD: widgets are unreadable at this zoom, so the whole card becomes the name, sized to fill it.
   if (far) {
-    // The module here too, for the reason the header says it: at this zoom the card IS one word,
-    // and the useful one is what the node is rather than which copy of it. Two LODs answering
-    // differently would be two cards.
+    // The module here too, for the header's reason: two LODs answering differently would be two cards.
     const label = headName || (n.kind === "sink" ? "OUT" : n.kind);
     return (
       <div
         className={`${cls}${onHeaderDrag ? " grab" : ""}`}
         data-node-id={n.id}
-        // There is no header at this zoom, so the whole card is the handle — the pin gesture is
-        // the same one, and a card you cannot move until you zoom in is a card that stopped
-        // answering. Nothing else on it takes the press: the far card draws a glyph and a name.
+        // No header at this zoom, so the whole card is the pin gesture's handle — docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
         style={{
           left: n.x,
@@ -1719,9 +1438,7 @@ function NodeInner({
         onClick={() => onTapNode(n)}
         onContextMenu={(e) => onContext(n, e)}
       >
-        {/* Stacked here, unlike the header: at this zoom the name IS the card, so a
-            glyph beside it would take the width the text needs to stay legible. It goes
-            above instead, on a share of the HEIGHT, and the name is fitted to the rest. */}
+        {/* Stacked, unlike the header: at this zoom the name IS the card, so the glyph spends HEIGHT rather than width. */}
         {n.kind === "track" ? (
           <TrackIcon
             name={label}
@@ -1781,13 +1498,10 @@ function NodeInner({
       <div
         className={`dgx-hd${onHeaderDrag ? " grab" : ""}`}
         style={{ "--corners": corners.length } as React.CSSProperties}
-        // Drag the header, move the card — the pin gesture. Buttons living in the header
-        // already stop this press for their own reasons, so they stay buttons.
+        // Drag the header, move the card — the pin gesture, docs/hosting.md.
         onPointerDown={onHeaderDrag ? (e) => onHeaderDrag(n, e) : undefined}
       >
-        {/* The accent dot marks identity on a node with no glyph of its own. Where one
-            IS drawn it leads the row instead, saying the node's kind rather than just
-            colouring it — two markers in a row would only crowd the name. */}
+        {/* The accent dot marks identity only on a node with no glyph of its own, which leads the row instead. */}
         {!hasGlyph && <span className="dgx-tri" />}
         {n.kind === "track" ? (
           <TrackIcon name={n.label} video={n.video} className="dgx-ticon" />
@@ -1798,16 +1512,11 @@ function NodeInner({
             className="dgx-ticon"
           />
         )}
-        {/* The name is SIZED to fit rather than ellipsed: a card is only as wide as its panel's
-            grid, and at a fixed 12.5px seventeen identically-shaped mixers all read "vo_j…".
-            What is left for it is the card less the header's padding, the leading glyph or dot,
-            and the room a corner button takes out of the right — see headerFontPx. `title`
-            stays: a name floored at the minimum can still be shorter than the truth. */}
+        {/* The name is SIZED to fit rather than ellipsed, by headerFontPx over headerNameW; see docs/nodeCard.md. */}
         <span className="dgx-nms">
           <span
             className={`dgx-nm${flagCls}`}
-            // The whole ref, not just the word drawn: the filing a card cannot spare the width
-            // for — the namespace, the type folder — is one hover away rather than gone.
+            // The whole ref, not just the word drawn: the filing is one hover away rather than gone.
             title={n.uses ? `${n.uses}\n${n.label}` : n.label}
             style={{
               fontSize: headerFontPx(
@@ -1818,18 +1527,12 @@ function NodeInner({
           >
             {headName}
           </span>
-          {/* Only when there are two names to tell apart. A module that names itself, and a
-              track, have one — and a second line repeating the first would be noise. */}
+          {/* Only when there are two names to tell apart; a repeated second line would be noise. */}
           {n.uses && <span className="dgx-nodenm">{n.label}</span>}
         </span>
-        {/* The flag moved to the content area (it explains the missing options down
-            there); the header keeps only a real sub — the chains a module is shared
-            across. Saying it in both places was the same sentence twice. */}
+        {/* The header keeps only a real sub — the chains a module is shared across; the flag is drawn in the content area. */}
         {n.sub && <span className={`dgx-sub${flagCls}`}>{n.sub}</span>}
-        {/* What feeds this track, and one click to change it. In the header row rather than
-            on a corner like the plugin bubble: it carries a NAME, and the corners are for
-            glyph-sized toggles. `stopPropagation` on the press for the same reason the
-            others do it — otherwise the pointer-down arms a pan and the click never lands. */}
+        {/* What feeds this track, in the header row rather than on a corner because it carries a NAME. */}
         {trackInput !== undefined && (
           <button
             type="button"
@@ -1846,10 +1549,7 @@ function NodeInner({
         )}
       </div>
 
-      {/* The native plugin's editor. A bubble on the node's top-right corner rather
-          than the last item in the header row: it acts on the PLUGIN, not on the
-          title, and in the row it was competing for width with exactly the names that
-          need it most — an external plugin's, which is the only kind that has one. */}
+      {/* The native plugin's editor: a corner bubble, not a header item, where it stole width from the longest names. */}
       {corners.includes("plugin") && (
         <span
           className="dgx-cbtn dgx-pbtn"
@@ -1866,9 +1566,7 @@ function NodeInner({
         </span>
       )}
 
-      {/* Bypass — a module still in the path but passing its input through untouched. On a LANE
-          it would read as "produces nothing", which is that lane's mute; lanes carry theirs on
-          the mixer strip in the card instead, so the bubble stays a module's. */}
+      {/* Bypass — a module's, never a lane's, where it would read as the mute the mixer strip already carries. */}
       {corners.includes("bypass") && (
         <span
           className={`dgx-cbtn dgx-bbtn${n.bypassed ? " on" : ""}`}
@@ -1884,11 +1582,7 @@ function NodeInner({
         </span>
       )}
 
-      {/* The node's own menu: its other attribute SETS, and freezing. Reported with the click's
-          viewport coords rather than drawn here, exactly as a widget's library browser is: the
-          menu is the HOST's, so it can offer its own wording, its own commands and its own undo —
-          and a graph that drew one would be a graph that owned a popup. See
-          packages/song/docs/{alternatives,freeze}.md. */}
+      {/* The node's own menu — alternatives and freezing — reported to the HOST rather than drawn here. */}
       {corners.includes("menu") && (
         <span
           className={`dgx-cbtn dgx-abtn${n.alternative && n.alternative !== "1" ? " on" : ""}`}
@@ -1908,8 +1602,7 @@ function NodeInner({
         </span>
       )}
 
-      {/* What the engine said went wrong with THIS plugin. Hover for the message — it is
-          usually the only explanation for a module that looks fine and does nothing. */}
+      {/* What the engine said went wrong with THIS plugin, on hover: often the only word on a module doing nothing. */}
       {warning && (
         <span
           className="dgx-wbtn"
@@ -1921,10 +1614,7 @@ function NodeInner({
         </span>
       )}
 
-      {/* FROZEN: the point a render was taken at, or a node that render already contains. Its own
-          badge rather than a shade of `dim`, because the two mean opposite things about what a
-          click will do — a bypassed module is live and one click from audible, a frozen one is
-          not there at all until the point is thawed. See packages/song/docs/freeze.md. */}
+      {/* FROZEN: its own badge rather than a shade of `dim`, which means the opposite — see packages/song/docs/freeze.md. */}
       {n.frozen && (
         <span
           className="dgx-fbtn"
@@ -1940,13 +1630,8 @@ function NodeInner({
         </span>
       )}
 
-      {/* Ports. Which sockets show is decided in graph.ts (`jacksFor`) — it depends on what is
-          wired to the node, which is a fact about the graph rather than about the DOM. Here we
-          only place them: evenly spaced down the edge, so two ports sit at a third and two
-          thirds and neither collides with the header. */}
-      {/* A curve is not on the signal path — it drives a knob — so it gets one mauve socket and
-          no input: nothing plugs INTO a curve. Kept out of `jacksFor`, which types a jack by the
-          signal it carries and a curve carries none. */}
+      {/* Ports. `jacksFor` in graph.ts decides which show; here they are only spaced evenly down the edge. */}
+      {/* A curve gets one mauve socket and no input, kept out of `jacksFor` because it carries no signal. */}
       {n.kind === "curve" && (
         <span
           className={`dgx-port out${onStartAutomation ? " plug" : ""}`}
@@ -1956,8 +1641,7 @@ function NodeInner({
               : undefined
           }
           style={{ ["--jc" as string]: MAUVE, top: "50%" }}
-          // The press starts the cable, exactly as a free signal jack does. stopPropagation for
-          // the same reason: the press must not also arm a pan under the cable being drawn.
+          // The press starts the cable, and is stopped so it does not also arm a pan.
           onPointerDown={
             onStartAutomation
               ? (e) => {
@@ -1970,8 +1654,7 @@ function NodeInner({
           <i />
         </span>
       )}
-      {/* An envelope LISTENS: one socket on its left edge, where the note-on cable lands. Only
-          an envelope has it — a curve of song time is fired by nothing. */}
+      {/* An envelope LISTENS: one socket on its left edge, where the note-on cable lands. */}
       {n.eventIn && (
         <span
           className={`dgx-port ev evin${
@@ -1983,9 +1666,7 @@ function NodeInner({
               : "event in — bind this curve to a param first, then a note-on can fire it"
           }
           style={{ ["--jc" as string]: cableColorFor("event"), top: "50%" }}
-          // Only a BOUND envelope can take one: the trigger is written onto the binding, and a
-          // free card has none to write it on. The socket is drawn either way — it says what
-          // the curve is — but it only lights, and only answers, when there is somewhere to go.
+          // Only a BOUND envelope can take one: the trigger is written onto the binding.
           onPointerUp={
             patchWant?.kind === "event" && n.curveOf?.module
               ? (e) => {
@@ -2027,21 +1708,14 @@ function NodeInner({
       {n.kind !== "curve" &&
         (["in", "out"] as const).map((side) =>
           (n.jacks?.[side] ?? []).map((p, i, all) => {
-            // The patch gesture, where the host armed it. At REST: a free OUT starts a new
-            // cable, and any OCCUPIED jack lifts the cable end plugged into it — only a
-            // free IN answers to nothing, having nothing to give. Holding one: exactly the
-            // jacks that can LAND the loose end — the seeking side, free, and the same
-            // signal, because a midi cable has no business in an audio socket.
+            // Which jacks the patch gesture arms, at rest and with a cable in hand — docs/hosting.md.
             const plug =
               !!onTapJack &&
               (patchWant
                 ? p.free &&
                   side === patchWant.seeking &&
                   p.type === patchWant.type &&
-                  // …and never back onto the node the cable LEFT. `graph chain connect` refuses
-                  // it outright ("can't connect 'x' to itself"), so offering the socket only
-                  // promised a landing the verb throws out. Unreachable until a lane grew an
-                  // input, which put a free one on the very node most cables leave from.
+                  // …and never back onto the node the cable LEFT, which the verb refuses outright.
                   n.id !== patchWant.node
                 : side === "out" || !p.free);
             return (
@@ -2056,16 +1730,10 @@ function NodeInner({
                 style={{
                   // Coloured by what the port carries, so a socket matches the cable for it.
                   ["--jc" as string]: cableColorFor(p.type),
-                  // Spread across the WIDTH: the sockets are on the top and bottom edges now
-                  // that signal runs down. Must agree with `jackPoint`, which is where the
-                  // cable's end is computed — the plate and the cable end are one place drawn
-                  // twice, and a disagreement reads as a cable that misses its socket.
+                  // Spread across the WIDTH, and it MUST agree with `jackPoint` — docs/hosting.md.
                   left: `${((i + 1) / (all.length + 1)) * 100}%`,
                 }}
-                // The press, not the click: a cable is drawn by DRAGGING out of a socket, and a
-                // click event only exists once the button is already back up. stopPropagation for
-                // the reason the node header gives — the same press must not also arm a pan, which
-                // is what used to pull the whole graph sideways under a cable being drawn.
+                // The press, not the click, since a cable is drawn by DRAGGING out of a socket.
                 onPointerDown={
                   plug
                     ? (e) => {
@@ -2074,9 +1742,7 @@ function NodeInner({
                       }
                     : undefined
                 }
-                // …and the release lands it, which is the other half of the drag. A release on the
-                // socket the press armed lands nothing: that gesture is a CLICK, and it leaves the
-                // cable in hand for a second click elsewhere.
+                // …and the release lands it — on the socket the press armed, that is a CLICK instead.
                 onPointerUp={
                   plug
                     ? (e) => {
@@ -2096,9 +1762,7 @@ function NodeInner({
         <div className="dgx-out">
           <b>OUT</b>
           <span>stereo</span>
-          {/* Auditioning happens at the OUTPUT: what you want to hear is the signal after
-              everything in the chain, so the button belongs where that signal arrives. Only a
-              host that can actually play offers one — st0 and m9 pass nothing. */}
+          {/* Auditioning happens at the OUTPUT, where the signal after the whole chain arrives. */}
           {sinkPlay ? (
             <button
               type="button"
@@ -2150,13 +1814,7 @@ function NodeInner({
         // No grid and no content: keep the card's shape and say what is missing. A flagged module says WHY, in red.
         <div className={`dgx-empty${flagCls}`}>{flagText ?? "No Options"}</div>
       )}
-      {/* What this lane HOLDS, under its controls. Only on a track, only when it holds
-          something, and only once the widgets are legible — at far zoom the card is its name
-          and a list of clip refs would be a grey smear.
-
-          A "missing" clip is called out: a lane pointing at material that is not there looks
-          exactly like a full one otherwise, which is the failure this list is best at catching.
-          The count line replaces the tail rather than extending it — see CLIP_LIST_MAX. */}
+      {/* What this lane HOLDS, under its controls, once the widgets are legible; see docs/nodeCard.md. */}
       {n.kind === "track" && n.clips?.length && showWidgets ? (
         <ClipList clips={n.clips} more={n.clipsMore} color={n.color} />
       ) : null}
@@ -2164,18 +1822,7 @@ function NodeInner({
     </div>
   );
 }
-/**
- * A lane's events: a mini timeline of the whole lane, then the first few by name.
- *
- * Its own component because the hover link between the two needs STATE, and the node around it
- * is memoised so that a pan or a meter frame re-renders no card at all — putting a `useState`
- * up there would have handed every track node a reason to re-render that has nothing to do with
- * the graph.
- *
- * The timeline draws EVERY clip; the list shows `CLIP_LIST_MAX` of them. Hovering a marker bolds
- * its name below when that name is on screen, which is what ties the two halves together: the
- * timeline says WHERE, the list says WHAT, and the pointer says which is which.
- */
+/** A lane's events: a mini timeline of the whole lane, then the first few by name — docs/nodeCard.md. */
 function ClipList({
   clips,
   more,
@@ -2190,14 +1837,7 @@ function ClipList({
   const shown = clips.slice(0, CLIP_LIST_MAX);
   return (
     <div className="dgx-clips">
-      {/* The lane at a glance, node-wide: one block per clip, placed where it starts and as
-          wide as it runs. On WHITE, so the blocks read as material on tape rather than as more
-          chrome — it is the one surface here that stands for the song itself.
-
-          The block's colour is the TRACK's, which is what makes two lanes tellable apart at a
-          glance; a lane that authors none falls back to the node's accent. A missing clip
-          overrides both and is red — the graph must not paint absent material in the reassuring
-          colour of the lane it is missing from. */}
+      {/* The lane at a glance: one block per clip, coloured by the TRACK; see docs/nodeCard.md. */}
       <div className="dgx-clip-tl">
         {clips.map((c, i) => (
           <span
@@ -2231,9 +1871,7 @@ function ClipList({
               : `${c.tc} — ${c.ref} (${c.kind})`
           }
         >
-          {/* WHERE first, then WHAT. A lane is read down its positions — they are what
-              orders the list — and a fixed-width column of them stays a column however
-              long the names beside it are. Tabular figures so the digits line up. */}
+          {/* WHERE first, then WHAT: a fixed-width column of positions stays a column, with tabular figures. */}
           <span className="dgx-clip-tc">{c.tc}</span>
           <span className="dgx-clip-nm">{c.ref}</span>
         </div>
@@ -2246,10 +1884,7 @@ function ClipList({
 // Memoised: with `ch` and every handler stable, a pan or a param frame re-renders no card at all.
 const Node = memo(NodeInner);
 
-// The SVG layer OVER the cable canvas: everything about a cable that does not move — its
-// label, the automation PARAM labels, and the hit paths the insert `+` hangs off. Every
-// cable — signal and automation alike — is drawn by DomChains onto the canvas; see
-// @studio/ui-chains' docs/wobble.md for why they left the DOM.
+// The SVG layer OVER the cable canvas: the labels and the hit paths, everything that does not move.
 function CablesInner({
   signal,
   auto,
@@ -2268,22 +1903,13 @@ function CablesInner({
     info: EdgeInsert,
     x: number,
     y: number,
-    // WORLD coords of the cable's midpoint — where the picked module will be BORN, so a new
-    // node appears on the arrow it was dropped onto rather than wherever the layout says.
+    // WORLD coords of the cable's midpoint — where the picked module will be BORN.
     at: { x: number; y: number },
   ) => void;
 }) {
   return (
     <>
-      {/* A signal cable's NAME — the cable itself is on the canvas underneath, and its label
-          stays here because text is the one thing a canvas draws worse.
-
-          No arrowhead, then or now: a cable ends in a PLUG, and the plug is the socket it
-          disappears into — the nodes paint over this layer, so the last few pixels are hidden by
-          the plate and the cable reads as seated. An arrow was the right mark while the cable
-          pointed at a card and had nowhere in particular to land. Direction is not lost with it:
-          the graph is laid out top to bottom, inputs on a card's top edge and outputs on its
-          bottom, so which way a cable runs is read off where it lands. */}
+      {/* A signal cable's NAME, kept in SVG while the cable is on the canvas; see docs/liveCables.md. */}
       {signal.map((g) => {
         const pts = g.base;
         if (!showLabels || !g.label || pts.length < 2) return null;
@@ -2301,10 +1927,7 @@ function CablesInner({
         );
       })}
 
-      {/* automation cables draw on the CANVAS now, hanging and swaying like every other —
-          a curve is a node, and its cables are cables. Only the param LABEL stays here,
-          text being the one thing a canvas draws worse. Chord midpoint on purpose: the
-          hang sags below it, so the label sits clear of its own cable. */}
+      {/* Only the param LABEL stays here, at the chord midpoint so the hang sags clear below it. */}
       {showLabels &&
         auto.map((s) => {
           const lab = s.onWidget
@@ -2327,8 +1950,7 @@ function CablesInner({
           );
         })}
 
-      {/* insert affordance — a transparent hit path over each eligible arrow, plus the
-          blue recolour + circled `+` while it's hovered */}
+      {/* insert affordance — a transparent hit path per eligible arrow, recoloured with a `+` on hover. */}
       {signal.map((g) => {
         if (!g.insert) return null;
         const d = smoothPath(g.base);
@@ -2391,24 +2013,7 @@ function nodeToCtx(n: GraphNode): GraphMenuCtx | null {
   }
 }
 
-/**
- * Frame these nodes. Answers whether it actually framed: a host with no size yet — a pane still
- * hidden, a canvas one render early — frames nothing, and a caller that recorded that as done
- * would never try again. Ask, and retry on the next render.
- *
- * `axis: "height"` fills the height and lets the set run off the right,
- * where it pans — for a ROW, where fitting both axes divides the pane between however many
- * members it has and the scale falls with each one. Below WIDGET_MIN_SCALE the widget grid is
- * dropped altogether, so a wide enough row would frame to a rank of bare name cards.
- */
-/**
- * The camera, for a host that has to put it back.
- *
- * `fitTo` frames a set of nodes; `get`/`set` are for a view that TAKES the camera and owes it
- * afterwards — the mixer arrangement borrows it to show the row, and hands it back when it
- * closes. Reading the live camera rather than the parked one (`camStore`, written only when a
- * glide settles) is the difference between restoring where you were and where you last stopped.
- */
+/** The camera, for a host that BORROWS it and has to put it back — docs/camera.md. */
 export interface ChainsCamApi {
   fitTo: FitToFn;
   get: () => Cam;
@@ -2418,18 +2023,9 @@ export interface ChainsCamApi {
 export interface FitToOpts {
   /** Keep the zoom this fit computed and only CENTRE on this node — used to walk a chain. */
   panOnly?: GraphNode;
-  /**
-   * `"height"` fills the height and lets the set run off the right, where it pans — for a ROW,
-   * where fitting both axes divides the pane between however many members it has and the scale
-   * falls with each one. Below WIDGET_MIN_SCALE the widget grid is dropped altogether, so a wide
-   * enough row would frame to a rank of bare name cards.
-   */
+  /** `"height"` fills the height and lets the set run off the right, where it pans — docs/camera.md. */
   axis?: "both" | "height";
-  /**
-   * Multiply the fitted zoom. Below 1 it pulls BACK from a perfect fit, which is what a view
-   * wants when the set it framed is the subject and not the whole story — the mixer row asks for
-   * 0.8, so the cards that feed the strips stay in the frame around them.
-   */
+  /** Multiply the fitted zoom; below 1 it pulls BACK from a perfect fit — docs/camera.md. */
   zoom?: number;
 }
 
@@ -2482,38 +2078,12 @@ export function DomChains({
   /** The glyphs the nodes wear. Required, so no caller can render a graph without them. */
   icons: ChainsIcons;
   graph: LaidOutGraph;
-  /**
-   * Animate a change of layout: cards slide to their new places, a new one fades up, a removed
-   * one fades out. On by default — a graph redrawn after a command is the case it exists for.
-   *
-   * Turn it OFF where the layout is recomputed as fast as somebody types: pl8's chain view
-   * re-lays out on every keystroke, so each character would be one node leaving and another
-   * arriving, and the picture would never be still long enough to read. See docs/nodeMotion.md.
-   *
-   * `prefers-reduced-motion` overrules it either way; nothing here is load-bearing, so the
-   * reduced answer is simply the old one — everything lands at once.
-   */
+  /** Animate a change of layout, on by default — docs/nodeMotion.md says when to turn it off. */
   motion?: boolean;
   selected: string | null;
-  /**
-   * The engine level index order, threaded to each track node.
-   *
-   * The levels themselves never flow through here — and neither does WHICH tracks are audible:
-   * this renderer subscribes for that itself, off the host's store, because it moves 20 times a
-   * second and only the cable canvas reads it. See docs/liveCables.md.
-   */
+  /** The engine level index order; the levels themselves never flow through here — docs/liveCables.md. */
   trackOrder?: string[];
-  /**
-   * When each VIDEO lane is showing a picture, in seconds — the meters' opposite number.
-   *
-   * A prop where liveness is a subscription, and the difference is what each thing DOES: the
-   * meters move twenty times a second, these spans move when somebody cuts a shot. The renderer
-   * reads the playhead off the same frame it reads the levels off and answers `liveVideoLanes`
-   * itself, so a moving playhead re-renders nothing here either. See docs/liveCables.md.
-   *
-   * Omitted by every host with no picture — pl8's preview, the decks — and the video cables then
-   * stay still, which is what they did for everyone before this existed.
-   */
+  /** When each VIDEO lane is showing a picture, in seconds — omitted, its cables stay still, docs/liveCables.md. */
   videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   onSelect: (c: string | null) => void;
   onPickModule?: (module: string | null) => void;
@@ -2525,63 +2095,30 @@ export function DomChains({
     y: number,
     at?: { x: number; y: number },
   ) => void;
-  /** Right-click on EMPTY canvas — a pick lands in the graph wired to nothing, BORN at the
-   *  click (`at`, world px) rather than wherever the layout would put it. */
+  /** Right-click on EMPTY canvas — a pick lands wired to nothing, BORN at `at` (world px). */
   onCanvasInsert?: (
     x: number,
     y: number,
     at?: { x: number; y: number },
   ) => void;
-  /**
-   * The patch cable landed: a free OUT jack was clicked, the cable followed the cursor, and a
-   * free IN jack of the same signal took it. `from`/`to` are chains.yaml addresses —
-   * `name` or `name#port` (see jackRef) — so the host can run `graph chain connect from to`
-   * verbatim. Optional, and the jacks are clickable only when it is given: pl8's read-only
-   * views and the desk pass nothing and keep their inert sockets, the way they pass no
-   * command bar. Esc or any right-click drops the cable in hand.
-   */
+  /** The patch cable landed: `from`/`to` are chains.yaml addresses, ready for the verb — docs/hosting.md. */
   onConnect?: (from: string, to: string) => void;
-  /**
-   * A lifted cable was dropped on the bare canvas: delete its arrow. Same addresses
-   * `onConnect` speaks, ready for `graph chain disconnect`. Lifting needs BOTH this and
-   * `onReplug` — the jacks offer to pick a cable up only when the drop has somewhere to go.
-   */
+  /** A lifted cable was dropped on the bare canvas: delete its arrow — docs/hosting.md. */
   onDisconnect?: (from: string, to: string) => void;
-  /**
-   * A curve cable landed — bind `curve` to `module`'s `param`, optionally fired by `trigger`.
-   *
-   * One callback for both cables, because both write one line of the same verb. Absent, the
-   * curve sockets are inert and no card offers to take one: a host that cannot run commands
-   * (the médiathèque, the decks) draws the graph and edits nothing.
-   */
+  /** A curve cable landed — bind `curve` to `module`'s `param`, optionally fired by `trigger`. */
   onAutomate?: (
     module: string,
     param: string,
     curve: string,
     trigger?: string,
   ) => void;
-  /**
-   * A lifted cable's loose end landed on another jack: the arrow from→to becomes
-   * newFrom→newTo (only one end differs). Ready for `graph chain replug`, verbatim — one gesture,
-   * one verb, one undo step.
-   */
+  /** A lifted cable's loose end landed elsewhere: from→to becomes newFrom→newTo, one undo step. */
   onReplug?: (from: string, to: string, newFrom: string, newTo: string) => void;
-  /**
-   * A module was dragged by its header and dropped: pin it there. `module` is the chains
-   * name (jackRef), `x`/`y` world px, whole and non-negative — ready for `graph move`.
-   * Optional, and the headers are draggable only when it is given (and never in the mixer
-   * row): the read-only hosts keep their inert headers, the same rule as every gesture here.
-   */
+  /** A module was dragged by its header and dropped: pin it there — the pin gesture, docs/hosting.md. */
   onMoveNode?: (module: string, x: number, y: number) => void;
   /** Hands the camera up, once mounted — see ChainsCamApi. */
   onCamReady?: (cam: ChainsCamApi) => void;
-  /**
-   * This graph is arranged as a ROW to be read across — st0's mixer view.
-   *
-   * It changes what the navigation MEANS rather than what it looks like: the wheel walks along
-   * the row instead of zooming, and nothing pans vertically, because there is one line of cards
-   * and everything above or below it is empty. The cards, the cables and the zoom are untouched.
-   */
+  /** This graph is arranged as a ROW to be read across — it changes what the navigation MEANS, docs/hosting.md. */
   row?: boolean;
   // Where the camera lives BETWEEN mounts: the graph unmounts with its pane. See docs/chainsGraph.md.
   camStore?: CamStore;
@@ -2589,31 +2126,14 @@ export function DomChains({
   engineWarnings?: Record<string, string>;
   // Identifies WHICH graph is on screen: a change re-frames, a redraw of the same one leaves the camera alone.
   fitKey?: string | number | null;
-  /** How the first frame is chosen. "both" (the default) fits the whole graph; "height" fills the
-   *  height and lets the width overflow, which is pannable — what a row of channel strips wants,
-   *  since fitting both axes shrinks every strip as the song gains tracks. */
+  /** How the first frame is chosen: "both" fits the whole graph, "height" lets the width overflow. */
   fitAxis?: "both" | "height";
   command: (line: string) => void | Promise<void>;
   // Bypass a module. Separate from `command` because it must RELOAD — the quiet path never bumps reloadKey.
   onBypassModule?: (module: string) => void;
-  /**
-   * The ⋮ bubble on a node's corner: open THIS host's menu for that node there — its
-   * alternatives, and its freeze.
-   *
-   * Optional, and the bubble exists only when it is given — one of the props st0 passes and the
-   * médiathèque's bench and m9's desk do not, like the command bar and the edge inserts. The
-   * menu is the host's because it offers the host's commands and lands in the host's undo; a
-   * graph that drew one would be a graph that owned a popup. See docs/hosting.md.
-   */
+  /** The ⋮ bubble: open THIS host's menu for that node — the menu is the host's, docs/hosting.md. */
   onNodeMenu?: (n: GraphNode, at: { x: number; y: number }) => void;
-  /**
-   * A RACK pad was clicked: sound that symbol of that module.
-   *
-   * The graph says WHICH sound was asked for and stops there. How one is made audible is the
-   * host's: st0 auditions the sample through the file service, the médiathèque could preview it
-   * from its own catalogue, and a host that offers nothing leaves the pads drawn but silent —
-   * which is the right degradation for a surface with no engine behind it. See docs/hosting.md.
-   */
+  /** A RACK pad was clicked: the graph says WHICH sound was asked for and stops there — docs/hosting.md. */
   onTriggerRack?: (module: string, symbol: string) => void;
   /** Which rack sounds are firing right now, as a store each pad subscribes to. See `RackLitStore`. */
   rackLit?: RackLitStore;
@@ -2627,16 +2147,9 @@ export function DomChains({
     x: number,
     y: number,
   ) => void;
-  /**
-   * What each track is fed FROM, by track id — the chip a track node wears.
-   *
-   * A plain record and not a lookup on the graph, like `engineWarnings` beside it: this is
-   * what the HOST knows about a live input and the graph does not. The chip is drawn only
-   * where `onPickTrackInput` is also given, so a host that cannot change one never shows one.
-   */
+  /** What each track is fed FROM — what the HOST knows about a live input and the graph does not. */
   trackInputs?: Record<string, string>;
-  /** Choose what feeds a track, at the click's viewport coords — the popup is the host's,
-   *  exactly as the asset browser above is. */
+  /** Choose what feeds a track, at the click's viewport coords — the popup is the host's. */
   onPickTrackInput?: (trackId: string, x: number, y: number) => void;
   /** Place/remove the engine's waveform tap while a waveform widget is on screen. */
   onWatchWaveform?: (
@@ -2646,33 +2159,11 @@ export function DomChains({
   ) => void;
   /** A play button on the sink. Omit it and there is none — see SinkPlay. */
   sinkPlay?: SinkPlay;
-  /**
-   * This graph is a REHEARSAL: a picked module field is shown and never written.
-   *
-   * The module builder's preview card is the case. A field is normally committed by a command
-   * that edits a file (`setModuleField`), and in the builder there is no project node for that
-   * command to reach — so a base dropdown either wrote into somebody else's song or did nothing
-   * at all, and either way the panel being written could not be tried out.
-   *
-   * Only module FIELDS are held back. A plugin param still goes down the socket, because the
-   * plugin behind a preview is an orphan instance that no project owns: turning its knobs is
-   * how you hear the module, and nothing about it is saved either.
-   */
+  /** This graph is a REHEARSAL: a picked module FIELD is shown and never written — docs/hosting.md. */
   rehearsal?: boolean;
   pluginParamsStore?: PluginParamsStore;
   setPluginParam?: (id: string, name: string, value: number) => void;
-  /**
-   * What a module with NO plugin is currently set to, by module name then param.
-   *
-   * `offline` modules compile to nothing the engine holds — m9's tempo is one — so there is
-   * no plugin to ask and no id to ask it by. Their value lives on whichever surface realises
-   * them (for the tempo, the desk that warps the clip), and this is how that surface lends it
-   * to the graph. Without it such a widget draws the number the FILE declares and never
-   * changes, which reads as a knob stuck on its default.
-   *
-   * Passing it — or `onModuleParam` — is what turns those widgets on at all: a host that
-   * offers neither keeps them inert rather than showing a control that turns against nothing.
-   */
+  /** What a module with NO plugin is set to, lent by the surface that realises it — docs/hosting.md. */
   moduleParams?: Record<string, Record<string, number>>;
   /** …and the way back, for the same modules. Called per frame during a drag. */
   onModuleParam?: (module: string, name: string, value: number) => void;
@@ -2685,27 +2176,20 @@ export function DomChains({
   ) => void;
 }) {
   useCss();
-  // NOT subscribed here: each widget taps its own plugin, so one frame moves one control rather
-  // than re-rendering every node. See @studio/engine-browser's docs/params.md.
+  // NOT subscribed here: each widget taps its own plugin — engine-browser's docs/params.md.
   const params = pluginParamsStore ?? EMPTY_PARAMS_STORE;
   const hostRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
-  // The camera lives OUTSIDE React, and that is the point: nothing in the render reads x or y,
-  // so a pan that went through state re-rendered every node on every pointer event for a
-  // translation the compositor could have done alone. `cam` is what is on screen, `goal` where
-  // a gesture is taking it — the same thing while panning, apart only while a zoom glides.
+  // The camera lives OUTSIDE React: `cam` is what is on screen, `goal` where a gesture takes it — docs/camera.md.
   const cam = useRef<Cam>({ ...(camStore?.current ?? { x: 0, y: 0, k: 1 }) });
   const goal = useRef<Cam>({ ...cam.current });
   // The point a zoom holds still: where the wheel was, in host coordinates.
   const anchor = useRef({ px: 0, py: 0 });
   const kick = useRef<() => void>(() => {});
-  // Through a ref: the wheel and the pan are bound once, and would otherwise read `row` as it
-  // was on their first render — the mixer view would never reach them.
+  // Through a ref: the wheel and the pan are bound once, and would read `row` as it first was.
   const rowRef = useRef(row);
   rowRef.current = row;
-  // Redraws the cable canvas. Declared here rather than beside its body further down because
-  // everything that moves the camera has to call it: the canvas sits OUTSIDE `.dgx-world`, so
-  // the CSS transform that pans the nodes moves nothing on it — see docs/camera.md.
+  // Redraws the cable canvas, which sits OUTSIDE `.dgx-world` and so is moved by no transform.
   const paintRef = useRef<() => void>(() => {});
   // Has the graph been framed? A saved camera means the user already has a view, so it starts true.
   const fitted = useRef(camStore?.current != null);
@@ -2713,8 +2197,7 @@ export function DomChains({
   const userMoved = useRef(camStore?.current != null);
   const camStoreRef = useRef(camStore);
   camStoreRef.current = camStore;
-  // What the drawing takes from the camera, and all it takes (see camera.ts). Committed only
-  // when one of the three actually differs, which above WIDGET_MIN_SCALE is never.
+  // What the drawing takes from the camera, committed only when one of the three differs.
   const [lod, setLod] = useState<Lod>(() => lodFor(cam.current.k));
   const lodRef = useRef(lod);
   // Persist ONLY after a real fit: the identity camera is indistinguishable from one the user chose.
@@ -2724,8 +2207,7 @@ export function DomChains({
   };
   const persistRef = useRef(persist);
   persistRef.current = persist;
-  // Put the camera somewhere outright — a fit or a chain selection, not a gesture: there is
-  // nothing to chase, so it lands whole in one frame.
+  // Put the camera somewhere outright — a fit, not a gesture, so it lands whole in one frame.
   const place = (c: Cam) => {
     Object.assign(cam.current, c);
     Object.assign(goal.current, c);
@@ -2803,9 +2285,7 @@ export function DomChains({
     const byId = new Map(graph.nodes.map((n) => [n.id, n]));
     const signal: EdgeGeom[] = [];
     const auto: AutoTarget[] = [];
-    // An automation cable is a CABLE: it hangs, sways and rides the canvas like every signal
-    // one — a curve is a node, and its cables behave as cables do. Only its param LABEL stays
-    // in the SVG (text is the one thing a canvas draws worse), off the AutoTarget list.
+    // An automation cable is a CABLE: only its param LABEL stays in the SVG, off the AutoTarget list.
     const autoGeom: ({ id: string } & CableGeom)[] = [];
     for (const e of graph.edges) {
       if (e.automation) {
@@ -2841,19 +2321,7 @@ export function DomChains({
     return { byId, signal, auto, autoGeom };
   }, [graph]);
 
-  // --- node motion: the cards slide, arrive and leave rather than jumping -----------
-  //
-  // Beside the geometry it is about, though the cable refs it writes to are declared just
-  // below: these are closures the frame loop calls, so nothing here runs during this render.
-  //
-  // FLIP. React draws every node at its FINAL place — `left`/`top`, exactly as before — and the
-  // frame loop writes the offset it still has to cover as a `transform`. So the two never
-  // disagree about where anything is, a layout arriving mid-flight simply continues from the
-  // screen, and a graph at rest carries no inline style at all.
-  //
-  // `filter:opacity()` rather than `opacity`, because React owns that one: a dimmed node
-  // declares `opacity` inline, and an unrelated re-render mid-fade would take the fade back.
-  // The two multiply, which is the right answer for a dimmed node on its way out.
+  // --- node motion: the cards slide, arrive and leave rather than jumping (docs/nodeMotion.md) ---
   const reducedMotion = useRef(
     typeof window !== "undefined" &&
       !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
@@ -2907,21 +2375,12 @@ export function DomChains({
       clearMotionStyle(nodeEls.current.get(id));
       styled.current.delete(id);
     }
-    // The cables follow for free: this loop repaints the canvas every frame anyway, so all it
-    // takes is geometry built from where the cards ARE. `rebuildCables` is what decides — it
-    // asks `motionCables` while anything is in flight — so the liveness path agrees with this
-    // one instead of putting the final geometry back under moving nodes.
+    // The cables follow for free, and `rebuildCables` is the one place that decides — docs/nodeMotion.md.
     rebuildCables.current();
     return still;
   };
 
-  /**
-   * The cable draws for one frame of a move, from the interpolated positions.
-   *
-   * `cablePath` is two socket points — no waypoints, no resampling — so rebuilding all of them
-   * per frame costs nothing worth naming. They are drawn STILL: the ripple is a 1.2 Hz ornament
-   * and 200 ms without it is invisible, where resampling every cable to carry it would not be.
-   */
+  // The cable draws for one frame of a move, from the interpolated positions — docs/nodeMotion.md.
   const motionCables = useRef<() => CableDraw[]>(() => []);
   motionCables.current = () => {
     const ms = motions.current;
@@ -2947,8 +2406,7 @@ export function DomChains({
     const lifted = patchRef.current?.edge?.id;
     for (const e of graph.edges) {
       if (e.id === lifted) continue; // its end is in hand — the dashed ghost draws it
-      // The automation cables move too — a curve is a node, its cables are cables, and a
-      // dragged card must not shed the mauve ones while the others follow.
+      // The automation cables move too: a curve is a node, and its cables are cables.
       if (e.automation) {
         const a = autoTarget(e, byId);
         if (!a) continue;
@@ -2970,8 +2428,7 @@ export function DomChains({
       if (e.points.length < 2) continue;
       const base = cablePath(e, byId.get(e.source), byId.get(e.target));
       if (base.length < 2) continue;
-      // Every motion frame re-reads the sockets, so the swing is fed continuously through a
-      // slide — the slack trails the cards and settles after they land.
+      // Every motion frame re-reads the sockets, so the slack trails the cards through a slide.
       const sway = swayFor(e.id);
       exciteSway(sway, base[0], base[base.length - 1]);
       draws.push({
@@ -2997,19 +2454,11 @@ export function DomChains({
     applyLive.current();
   };
 
-  /**
-   * A new layout: what moved, what arrived, what left — and the first frame of it, now.
-   *
-   * A LAYOUT effect, and the first write happens in it rather than being left to the loop: React
-   * has already put every node at its destination, so a frame painted before the offsets are on
-   * would show the whole graph jump there and then slide back out. That is the FLIP pitfall, and
-   * a layout effect is exactly the hook that runs before the browser paints.
-   */
+  // A new layout, and its first frame now — a LAYOUT effect, which is the FLIP rule, docs/nodeMotion.md.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: the refs above were reassigned with this render's layout, so `graph` IS the trigger and the body reads nothing else.
   useLayoutEffect(() => {
-    // A new layout retires every dropped card's inline transform: its left/top now carry the
-    // written position (or, if the write failed, the honest old one), so the offset comes off
-    // in the same frame the node re-renders — no snap, no double offset.
+    // A new layout retires every dropped card's inline transform, its left/top now carrying it.
     if (droppedNodes.current.size) {
       for (const { el } of droppedNodes.current.values())
         el.style.transform = "";
@@ -3021,11 +2470,7 @@ export function DomChains({
       drawn.current = settledDrawn();
       return;
     }
-    // The FIRST layout is not a change. A graph that faded up every time its pane mounted would
-    // be an animation about nothing — and on mount the frame loop is not bound yet, so a motion
-    // started here would never be advanced and the whole graph would sit at zero opacity.
-    // The cap is a screen and a half, in WORLD px — what the eye can follow is a fact about the
-    // view, not about the layout, so it is measured through the camera's zoom.
+    // The FIRST layout is not a change, and the cap is a screen and a half in WORLD px — docs/nodeMotion.md.
     const host = hostRef.current;
     const travel = host
       ? (Math.hypot(host.clientWidth, host.clientHeight) * 1.5) /
@@ -3036,8 +2481,7 @@ export function DomChains({
       : null;
     drawn.current = settledDrawn();
     if (!plan?.moving) {
-      // Nothing to do — but something may still be in flight from the layout before this one,
-      // and nothing else would ever take its inline styles back off.
+      // Nothing to do — but something from the layout before this one may still be in flight.
       if (motions.current.size || styled.current.size) settleMotion.current();
       return;
     }
@@ -3049,35 +2493,23 @@ export function DomChains({
     cablesSvg.current?.classList.add("moving");
     // dt 0: place the offsets, advance nothing.
     motionStep.current(0);
-    // …and look again next frame. The ghosts are not in the DOM yet — the state update above
-    // lands after this effect — so this write missed them, and without a second bind they would
-    // never be found at all. One frame drawn where they already were is the right picture anyway.
+    // …and look again next frame: the ghosts are not in the DOM until the state update lands.
     rebind.current = true;
     kick.current();
   }, [graph, animate]);
 
-  // --- what carries signal: refs, not state ----------------------------------------
-  // Liveness comes from the engine's meters and is read by the cable CANVAS and nothing else —
-  // no node, no widget, no SVG layer. So it never enters the render: a track crossing the
-  // silence floor repaints the canvas and re-renders zero components. It used to be a prop fed
-  // by a hook, and on percussive material that was the whole graph several times a second.
-  // See docs/liveCables.md.
-  // Read here as well as at the bottom, where it decides which store the METERS get: liveness
-  // has to subscribe from the host's own, and an inert one simply never notifies.
+  // --- what carries signal: refs, not state, so a crossing re-renders nothing (docs/liveCables.md) ---
   const hostStore = useEngineStoreOrNull();
   const liveRef = useRef<Set<string>>(EMPTY_LIVE);
   const activeRef = useRef<string[]>(EMPTY_ORDER);
-  // …and which VIDEO lanes are showing a frame, derived from the same engine frame — the playhead
-  // against the host's spans. Its own ref beside the meters', because the two sums are seeded
-  // separately: sound reaching MIX says nothing about picture reaching RENDER.
+  // …and which VIDEO lanes are showing a frame, seeded separately — docs/liveCables.md.
   const activeVideoRef = useRef<string[]>(EMPTY_ORDER);
   const cableDrawsRef = useRef<CableDraw[]>([]);
   const rebuildCables = useRef<() => void>(NOOP);
   const applyLive = useRef<() => void>(NOOP);
   // Set by the ripple effect below; poked whenever liveness changes, to start a stopped loop.
   const rippleRef = useRef<() => void>(NOOP);
-  // One swing per cable, keyed by edge id and SHARED with the draws — the spring loop mutates
-  // these and repaints, so a settling cable never rebuilds the draw list. See ui-chains docs/hang.md.
+  // One swing per cable, keyed by edge id and SHARED with the draws, so settling rebuilds nothing.
   const sways = useRef(new Map<string, CableSway>());
   const swayKick = useRef<() => void>(NOOP);
   const swayFor = (id: string): CableSway => {
@@ -3089,20 +2521,12 @@ export function DomChains({
     return s;
   };
 
-  // --- the cable canvas ------------------------------------------------------------
-  // Thicker cables as the camera pulls back, so their width on screen holds. Taken from the LOD
-  // rather than recomputed from the camera: `lodFor` QUANTISES it, which is what keeps a zoom
-  // from re-rendering the SVG layer every pixel — and both layers must read the same number, or
-  // the cables change width whenever one redraws and the other does not.
+  // --- the cable canvas: its width comes from the LOD, which QUANTISES it (docs/camera.md) ---
   const linkBoost = lod.boost;
 
-  // Both reassigned every render, like `paint` and `fit`, so they always see the CURRENT edges
-  // without the subscription that calls them having the graph as a dependency.
-  // Colour by what a cable CARRIES, live or not — tinting live cables orange made everything look like audio.
+  // Reassigned every render, like `paint` and `fit`, so it always sees the CURRENT edges.
   rebuildCables.current = () => {
-    // Mid-move the laid-out geometry is a lie: the cards are somewhere between two layouts
-    // and the cables have to leave from where they actually are — and a HELD or freshly
-    // dropped card is the same lie, told by a hand instead of the tween. See docs/nodeMotion.md.
+    // Mid-move the laid-out geometry is a lie, and so is a HELD card's — docs/nodeMotion.md.
     if (motions.current.size || nodeDrag.current || droppedNodes.current.size) {
       cableDrawsRef.current = motionCables.current();
       swayKick.current();
@@ -3115,9 +2539,7 @@ export function DomChains({
       ...model.signal
         .filter((g) => g.id !== lifted)
         .map((g) => {
-          // Excitation happens HERE, where the endpoints are read: a rebuild whose sockets moved
-          // (a new layout landing, a motion frame) swings the slack; one that only changed
-          // liveness reads the same points and excites nothing.
+          // Excitation happens HERE, where the endpoints are read, so only a moved socket swings.
           const sway = swayFor(g.id);
           exciteSway(sway, g.base[0], g.base[g.base.length - 1]);
           return {
@@ -3155,8 +2577,7 @@ export function DomChains({
     }
     swayKick.current();
   };
-  // The liveness set is keyed by EDGE, so it is recomputed from the track ids against the
-  // current edges — which is why a graph change goes through here too, not just a meter frame.
+  // The liveness set is keyed by EDGE, so a graph change goes through here too, not just a meter frame.
   applyLive.current = () => {
     liveRef.current = computeLive(
       model.signal,
@@ -3171,12 +2592,9 @@ export function DomChains({
   const cvRef = useRef<HTMLCanvasElement>(null);
   const scratch = useRef(newScratch()).current;
   const phase = useRef(0);
-  // The host's size, from the ResizeObserver below rather than read off the DOM: a layout read
-  // inside the draw would flush style on every frame, which is the kind of cost this change exists to remove.
+  // The host's size, from the ResizeObserver below: reading it in the draw would flush style per frame.
   const hostSize = useRef({ w: 0, h: 0 });
-  // Reassigned every render, like `fit` below, so the rAF and the observer always draw the
-  // CURRENT camera and cables without either of them being a dependency. Declared up with the
-  // camera refs, because the two places that MOVE the camera outside the loop repaint through it.
+  // Reassigned every render, like `fit` below, so the rAF always draws the CURRENT camera and cables.
   paintRef.current = () => {
     const cv = cvRef.current;
     if (!cv) return;
@@ -3186,8 +2604,7 @@ export function DomChains({
     const width = Math.round(hostSize.current.w * dpr);
     const height = Math.round(hostSize.current.h * dpr);
     if (!width || !height) return;
-    // Resizing the backing store also clears it, so only do it when it actually changed —
-    // and doing it here is what keeps the canvas sharp when the window moves to another screen.
+    // Resizing the backing store also clears it, so only do it when it actually changed.
     if (cv.width !== width || cv.height !== height) {
       cv.width = width;
       cv.height = height;
@@ -3208,19 +2625,14 @@ export function DomChains({
     );
   };
 
-  // A graph or LOD change redraws AT ONCE, in a layout effect, so the canvas and the nodes land
-  // in the same frame. The CAMERA is not in here any more and must not be: it left React with
-  // the pan and the zoom, so it never re-renders — the loop repaints instead, right after it
-  // writes the transform, which is what keeps the cables on their sockets through a gesture.
+  // A graph or LOD change redraws AT ONCE so canvas and nodes land together; the CAMERA never does.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: these are the frame's inputs, not values this body reads — the refs above were reassigned with them during the render, so listing them here IS the redraw trigger.
   useLayoutEffect(() => {
     applyLive.current();
   }, [model.signal, linkBoost]);
 
-  // The ripple, on its own clock. It is an ornament at WOBBLE_HZ, so it is capped well below
-  // the screen's rate, and it stops dead when nothing carries signal — a still graph then
-  // leaves its last frame on the canvas and costs nothing at all. Mounted ONCE and steered by
-  // `liveRef`, because liveness no longer re-renders anything for an effect to depend on.
+  // The ripple, on its own clock at WOBBLE_HZ, mounted ONCE and steered by `liveRef`.
   useEffect(() => {
     let raf = 0;
     let lastAt = 0;
@@ -3250,10 +2662,7 @@ export function DomChains({
     };
   }, []);
 
-  // The SWING's clock, beside the ripple's and for the same economy: stepped at the screen's
-  // rate while any cable moves, stopped dead the moment the last one settles — a still graph
-  // pays nothing. Kicked by every rebuild, which is where excitation happens; a kick while
-  // running is a no-op, so motion frames and the spring never race two loops.
+  // The SWING's clock, beside the ripple's: kicked by every rebuild, and a kick while running is a no-op.
   useEffect(() => {
     let raf = 0;
     let lastAt = 0;
@@ -3278,15 +2687,7 @@ export function DomChains({
     };
   }, []);
 
-  /**
-   * The meters, straight off the store into `activeRef` — the one subscription in this file that
-   * is not a leaf's, and the reason a crossing costs a repaint instead of a render.
-   *
-   * The PICTURE rides along on the same frame, and has to: the playhead arrives in it, and a
-   * second subscription would recompute liveness twice for one engine tick. A lane is showing
-   * while the transport RUNS — a paused frame is a held picture, and nothing travels along a
-   * cable to hold it, which is the same thing a stopped meter says about sound.
-   */
+  // The meters straight off the store, and the PICTURE on the same frame — docs/liveCables.md.
   useEffect(() => {
     if (!hostStore) return;
     const order = trackOrder ?? EMPTY_ORDER;
@@ -3309,8 +2710,7 @@ export function DomChains({
     return hostStore.subscribe(read);
   }, [hostStore, trackOrder, videoSpans]);
 
-  // --- fit: frame the whole graph to the host, on graph change and on resize ---------
-  // Returns whether it actually framed: with no host size or extents there is nothing to fit, so the caller retries.
+  // --- fit: frame the whole graph to the host; it ANSWERS whether it did (docs/camera.md) ---
   const fit = useRef<() => boolean>(() => false);
   fit.current = () => {
     const host = hostRef.current;
@@ -3321,9 +2721,7 @@ export function DomChains({
       !Number.isFinite(graph.height)
     )
       return false;
-    // The BOX, not the extent: a pin may sit above the first track or left of it, and `left`/`top`
-    // are how far. Both 0 on a graph nobody dragged, so this is the same frame it always was —
-    // and it is this, not the extent, that is empty when there is nothing to frame.
+    // The BOX, not the extent: a pin may sit above the first track or left of it — docs/hosting.md.
     const gw = graph.width - graph.left;
     const gh = graph.height - graph.top;
     if (!gw || !gh) return false;
@@ -3331,9 +2729,7 @@ export function DomChains({
     const sh = host.clientHeight;
     if (!sw || !sh) return false;
     const pad = 0.9;
-    // "height" frames the HEIGHT and lets the width run off the side, which is pannable. A row of
-    // channel strips wants that: fitting both axes means the strips get smaller with every track
-    // the song gains, and a mixer you cannot read is worse than one you have to scroll.
+    // "height" frames the HEIGHT and lets the width run off the side, which is pannable — docs/camera.md.
     const k = clampZoom(
       fitAxis === "height"
         ? (sh / gh) * pad
@@ -3343,9 +2739,7 @@ export function DomChains({
     fitted.current = true;
     place({
       k,
-      // Height-fitted content usually overflows; pin it to the left edge rather than centring it
-      // off screen, so the first strip is the one you see. Each offset then carries the box's own
-      // corner to that place, which is what puts a card pinned at y = -300 on screen.
+      // Height-fitted content overflows, so it is pinned LEFT and each offset carries the box's corner.
       x:
         (fitAxis === "height" && gw * k > sw ? 0 : (sw - gw * k) / 2) -
         graph.left * k,
@@ -3367,8 +2761,7 @@ export function DomChains({
     if (!host) return;
     // Only until the first successful fit: the host starts at zero size, but later resizes must not re-frame.
     const ro = new ResizeObserver(([entry]) => {
-      // The cable canvas is sized from here, and redrawn — it is not in the flow, so nothing
-      // else would tell it the host got bigger.
+      // The cable canvas is sized from here: not being in the flow, nothing else would tell it.
       const box = entry?.contentRect;
       if (box) hostSize.current = { w: box.width, h: box.height };
       paintRef.current();
@@ -3389,8 +2782,7 @@ export function DomChains({
     const sw = host.clientWidth;
     const sh = host.clientHeight;
     if (!sw || !sh) return false;
-    // Framing a chain the user picked is their choice too: a later resize must not throw it away.
-    // AFTER the size checks, so a frame that did not happen does not claim the camera either.
+    // Framing a chain the user picked is their choice too — AFTER the size checks, so a no-op claims nothing.
     userMoved.current = true;
     const minX = Math.min(...nodes.map((n) => n.x));
     const minY = Math.min(...nodes.map((n) => n.y));
@@ -3413,10 +2805,7 @@ export function DomChains({
         y: sh / 2 - (panOnly.y + panOnly.h / 2) * cur.k,
       });
     } else {
-      // Centred, EXCEPT a row that does not fit across: centring a rank of strips wider than the
-      // pane puts its middle on screen and hides the first channel, which is the one you look for
-      // to know where you are. Left-aligned then, with the same margin the pad allows, and the
-      // tail runs off the right where it pans.
+      // Centred, EXCEPT a row that does not fit across — see `frameOriginX`, docs/camera.md.
       const spills = axis === "height" && bw * k > sw;
       const originX = frameOriginX(sw, bw * k, pad, spills);
       place({
@@ -3428,14 +2817,11 @@ export function DomChains({
     return true;
   };
   useEffect(() => {
-    // One options object forwarded whole. It was three positionals, and the axis got dropped in
-    // this very line — a caller silently getting fit-both, which is the bug the parameter exists
-    // to prevent. An object cannot be half-forwarded by accident.
+    // One options object forwarded whole, because it cannot be half-forwarded by accident.
     onCamReady?.({
       fitTo: (nodes, opts) => fitTo.current(nodes, opts),
       get: () => ({ ...cam.current }),
-      // Placed outright, no glide: putting a camera BACK is not a gesture to animate — the view
-      // you left should be the view you return to, at once.
+      // Placed outright, no glide: putting a camera BACK is not a gesture to animate.
       set: (c) => {
         userMoved.current = true;
         place(c);
@@ -3459,8 +2845,6 @@ export function DomChains({
   overrideRef.current = override;
   useEffect(() => {
     // A plugin frame landed: drop the overrides it now speaks for, keeping the one under the hand.
-    // Subscribed rather than depended on, so a frame reconciling nothing costs one key scan and
-    // no render — which is the whole point of not holding the param map up here.
     return params.subscribe(() => {
       if (!hasChannel(overrideRef.current, "p:")) return;
       setOverride((o) => dropChannel(o, "p:", drag.current?.key));
@@ -3473,18 +2857,15 @@ export function DomChains({
     setOverride((o) => dropChannel(o, "t:", drag.current?.key));
   }, [trackControls]);
 
-  // Either prop turns the channel on: a host may only be able to SHOW such a value (m9's
-  // graph, while the desk that realises it is unmounted) or only to take one.
+  // Either prop turns the channel on: a host may only SHOW such a value, or only take one.
   const offlineChannel =
     moduleParams !== undefined || onModuleParam !== undefined;
   const pluginWritable = setPluginParam !== undefined;
-  // Either one: a track node's widgets are the toggles AND the two continuous controls, and a
-  // host that wired one half meant it.
+  // Either one: a host that wired the toggles or the two continuous controls meant it.
   const trackWritable = onTrackSet !== undefined || onTrackToggle !== undefined;
   const offlineWritable = onModuleParam !== undefined;
   const rackTriggerable = onTriggerRack !== undefined;
-  // Memoised on VALUES, never on the host's callbacks: a host that passes an inline lambda
-  // (App.tsx does, to GraphPanel) would otherwise hand every node a new `ch` on every render.
+  // Memoised on VALUES, never on the host's callbacks, which are often inline lambdas.
   const ch = useMemo<Channels>(
     () => ({
       params,
@@ -3516,13 +2897,10 @@ export function DomChains({
     ],
   );
 
-  // The same trick the window listeners use below, extended to the node handlers: read the current
-  // value through a ref so every handler can be bound once and a memoised Node never sees a new prop.
-  // Assigned on every render, never in an effect — an effect would serve one render's stale value.
+  // Through a ref, assigned every render, so every handler binds once and a memoised Node sees no new prop.
   const chRef = useRef(ch);
   chRef.current = ch;
-  // Read through a ref by the window listeners, which are bound once and would otherwise hold
-  // whichever value the flag had on the render that bound them.
+  // Likewise for the window listeners, which are bound once and would hold the binding render's value.
   const rehearsalRef = useRef(false);
   rehearsalRef.current = !!rehearsal;
   const selRef = useRef(selected);
@@ -3533,9 +2911,7 @@ export function DomChains({
     (n: GraphNode, w: WebWidget, e: React.PointerEvent) => {
       const ch = chRef.current;
       e.stopPropagation(); // don't select the node or start a pan
-      // A frozen MODULE's plugin does not exist in the engine — the render replaced it — so a knob
-      // here would move, send a param set into the void, and be discarded on the next reload. A
-      // frozen LANE is different: its card carries the lane's own controls, not a plugin's.
+      // A frozen MODULE has no plugin in the engine; a frozen LANE carries its own controls.
       if (n.frozen && n.kind === "module") return;
       const tgt = widgetTarget(n, w, ch.offlineChannel);
       if (!tgt) return;
@@ -3547,11 +2923,7 @@ export function DomChains({
         key: targetKey(tgt),
         startT: v === undefined ? 0 : widgetNorm(w, v),
         startY: e.clientY,
-        // A fader sweeps over its OWN throw, so the cap tracks the pointer instead of running away from it — the one
-        // control here whose travel is drawn on screen, and the one where a fixed 150 px would be visibly wrong.
-        // Measured off the rail rather than derived from the box: the readout, the caption and the borders all eat
-        // into it, and clientHeight is exactly the span the cap's centre line moves over. Arithmetic would drift the
-        // moment any of that changed, and the drift is the bug — a cap that does not stay under the finger.
+        // A fader sweeps over its OWN throw, measured off the rail — docs/widgets.md.
         travel:
           w.type === "fader"
             ? Math.max(
@@ -3599,8 +2971,7 @@ export function DomChains({
                 cur.tgt.name,
                 cur.value,
               );
-            // An offline module has no socket to send down: the surface that REALISES it —
-            // for m9's tempo, the clip warp — is what this reaches, and it decides the cost.
+            // An offline module has no socket, so this reaches the surface that REALISES it.
             else if (cur.tgt.kind === "offline")
               cb.current.onModuleParam?.(
                 cur.tgt.module,
@@ -3620,9 +2991,7 @@ export function DomChains({
         setPanning(true);
         setHovered(null);
         userMoved.current = true; // the camera is theirs now — stop auto-framing
-        // Both, and no glide: a drag under a finger has nothing to catch up to. Both, unless the
-        // graph is a row — then there is nowhere to go vertically and a drag that slid the line
-        // off the top would be a gesture with only one useful direction out of two.
+        // Both axes and no glide, unless the graph is a ROW — docs/camera.md.
         cam.current.x = goal.current.x = p.cx + nx;
         if (!rowRef.current) cam.current.y = goal.current.y = p.cy + ny;
         kick.current();
@@ -3635,16 +3004,13 @@ export function DomChains({
         if (d.tgt.kind === "track") {
           if (d.tgt.control === "volume" || d.tgt.control === "pan")
             cb.current.onTrackSet?.(d.tgt.trackId, d.tgt.control, d.value);
-          // A module FIELD is a named setting, not a range — nothing here can be dragged
-          // to a new one, so a drag that reached one commits nothing rather than guessing.
+          // A module FIELD is a named setting, not a range, so a drag onto one commits nothing.
         } else if (
           d.tgt.kind === "plugin" &&
           d.node.module &&
           !rehearsalRef.current
         ) {
-          // Not in a rehearsal: this line WRITES the value into the module's file, and the
-          // builder's card is the panel being written rather than a module being set. What the
-          // socket already carried is what a rehearsal is for — turn it, hear it, keep nothing.
+          // Not in a rehearsal: this line WRITES the value into the module's file — docs/hosting.md.
           cb.current.command(
             `node param ${d.node.module} ${JSON.stringify(d.tgt.name)} ${d.value}`,
           );
@@ -3666,9 +3032,7 @@ export function DomChains({
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    // A widget's own pointerdown stops here, so this fires for the canvas or a node body: a press that moves pans.
-    // Grabbing the canvas also ends any zoom still in flight — it stops where it got to, rather
-    // than sliding on under a hand that is now steering.
+    // Grabbing the canvas ends any zoom still in flight: you are steering now — docs/camera.md.
     goal.current.k = cam.current.k;
     pan.current = {
       sx: e.clientX,
@@ -3679,28 +3043,20 @@ export function DomChains({
     };
   };
 
-  /**
-   * The camera loop, the wheel and the two-finger pinch, bound once — see docs/camera.md.
-   *
-   * Everything here writes the transform onto the element and reads only refs, so a pan or a
-   * zoom costs no React work at all until the LOD changes. The loop runs while a gesture is
-   * live and stops when the camera settles: an idle graph schedules no frames.
-   */
+  // The camera loop, the wheel and the pinch, bound once and writing only refs — docs/camera.md.
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     let raf = 0;
     let last = 0;
     const step = (t: number) => {
-      // Clamped: a backgrounded tab hands back one enormous dt, which would land the glide in
-      // a single jump — the one frame where smoothing is most visible for being absent.
+      // Clamped: a backgrounded tab hands back one enormous dt, which would land the glide at once.
       const dt = last ? Math.min(100, t - last) : 16;
       last = t;
       const c = cam.current;
       const g = goal.current;
       let moving = pan.current != null;
-      // The cards, before the camera: `motionStep` rebuilds the cable draws from where they are
-      // this frame, and the repaint below is the one that puts them on screen.
+      // The cards, before the camera: `motionStep` rebuilds the cable draws for this frame.
       if (motions.current.size) {
         const still = motionStep.current(dt);
         moving = moving || still;
@@ -3734,15 +3090,12 @@ export function DomChains({
         raf = requestAnimationFrame(step);
       }
     };
-    // Non-passive, both to stop the page scrolling under it and because this IS the handler:
-    // a React onWheel would allocate a synthetic event per notch, and a trackpad sends many.
+    // Non-passive: it must preventDefault, and a React onWheel would allocate an event per notch.
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       userMoved.current = true; // either way, the camera is theirs now — stop auto-framing
       if (rowRef.current) {
-        // A ROW is read across, so the wheel walks along it and nothing moves vertically —
-        // there is only one line of cards, and a view that drifts off it is a view of nothing.
-        // Whatever the device says: a mouse has no deltaX to offer, so its notch drives x here.
+        // A ROW is read across: the wheel walks along it, whatever axis the device reports.
         const c = cam.current;
         const g = goal.current;
         g.k = c.k;
@@ -3752,19 +3105,13 @@ export function DomChains({
       } else if (isZoomWheel(e) || isMouseWheel(e)) {
         const r = host.getBoundingClientRect();
         anchor.current = { px: e.clientX - r.left, py: e.clientY - r.top };
-        // Multiplied onto the GOAL, not onto what is on screen: pinching faster then stacks up
-        // instead of each step being swallowed by the one still gliding.
-        // `e.ctrlKey` marks a trackpad PINCH, whose stream of small deltas needs a rate of its
-        // own — a notch's would make it crawl. Cmd+wheel is a mouse and keeps the notch's.
+        // Multiplied onto the GOAL, and `e.ctrlKey` marks a PINCH with its own rate — docs/camera.md.
         goal.current.k = clampZoom(
           goal.current.k *
             wheelFactor(e.deltaY, e.deltaMode, host.clientHeight, e.ctrlKey),
         );
       } else {
-        // Two fingers on a SURFACE. The camera moves WITH them, 1:1 and with no glide — the same
-        // rule a drag follows, because both are a hand pushing the world about and easing that is
-        // lag. The deltas are screen pixels and so is the translation, which is why no zoom is in
-        // this. A mouse never lands here: `isMouseWheel` sent its notch to the zoom above.
+        // Two fingers on a SURFACE: the camera moves WITH them, 1:1 and with no glide, in screen px.
         const c = cam.current;
         const g = goal.current;
         g.k = c.k; // a slide takes over from any zoom still in flight, as a pointer-down does
@@ -3775,17 +3122,7 @@ export function DomChains({
     };
     host.addEventListener("wheel", wheel, { passive: false });
 
-    /**
-     * Two fingers, where there is no wheel at all.
-     *
-     * Touch events rather than the pointer flow above: that flow drives node drags, widget drags
-     * and cable draws, and a second finger arriving mid-gesture would be read as a second drag.
-     * Here the rule is simply "two fingers means zoom" — the pan in progress is dropped.
-     *
-     * Measured from the camera the gesture STARTED on rather than frame to frame, because a
-     * ratio of ratios accumulates rounding: pinch out and back in, and you would not land where
-     * you began. Written straight onto `cam` with no glide — the fingers are the animation.
-     */
+    // Two fingers where there is no wheel at all — TOUCH events, and absolute, docs/camera.md.
     let pinch: { dist: number; k: number; x: number; y: number } | null = null;
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length !== 2) return;
@@ -3803,8 +3140,7 @@ export function DomChains({
       const py = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
       userMoved.current = true;
       const k = clampZoom(pinch.k * pinchFactor(pinch.dist, d));
-      // From the gesture's OWN starting camera, not from what is on screen — `zoomAbout` reads
-      // the camera it is given, so handing it `pinch` is what makes the whole gesture absolute.
+      // From the gesture's OWN starting camera, which is what makes the whole pinch absolute.
       Object.assign(cam.current, zoomAbout(pinch, k, px, py));
       Object.assign(goal.current, cam.current);
       kick.current();
@@ -3844,19 +3180,7 @@ export function DomChains({
     const ctx = nodeToCtx(n);
     if (ctx) cb.current.onContextMenu?.(ctx, e.clientX, e.clientY);
   }, []);
-  /**
-   * Right-click on a CONTROL: the menu for the param it drives.
-   *
-   * Only a module's own PLUGIN param. Two things are excluded, and both because the answer would
-   * be a promise nothing can keep:
-   *
-   * - a widget on a track node (`@volume`) drives a mixer control, and the MIDI map is a file in a
-   *   MODULE's folder — there is nowhere to record it;
-   * - an `@` bind is a module FIELD (`monitor`), a word rather than a number, so a control change
-   *   has nothing to sweep.
-   *
-   * Both fall through to the node's own menu, which is what they had before.
-   */
+  // Right-click on a CONTROL: the menu for the PLUGIN param it drives, and only that — docs/widgets.md.
   const contextParam = useCallback(
     (n: GraphNode, w: WebWidget, x: number, y: number): void => {
       if (!n.module || !w.bind || w.bind.startsWith("@") || !n.pluginId) return;
@@ -3874,8 +3198,7 @@ export function DomChains({
     },
     [],
   );
-  // The plugin's OWN window, drawn by the plugin on the engine's machine. The verb names an
-  // instance rather than a module, because a window belongs to what is loaded, not to the file.
+  // The plugin's OWN window: the verb names an INSTANCE, since a window belongs to what is loaded.
   const openPlugin = useCallback(
     (module: string) => void cb.current.command(`node external-ui ${module}`),
     [],
@@ -3885,38 +3208,24 @@ export function DomChains({
     (module: string) => cb.current.onBypassModule?.(module),
     [],
   );
-  // The node only ASKS: the menu is a viewport-positioned overlay, so it is the shell's to
-  // render — the same arrangement the widget browser and the `+` on an arrow already have.
+  // The node only ASKS: a viewport-positioned overlay is the shell's to render — docs/hosting.md.
   const openNodeMenu = useCallback(
     (n: GraphNode, at: { x: number; y: number }) =>
       cb.current.onNodeMenu?.(n, at),
     [],
   );
-  // The widget only ASKS: the browser popup is a viewport-positioned overlay, so it is the
-  // shell's to render, exactly as the `+` on an arrow works. What comes back is written by
-  // the shell too — an asset loads when the plugin is BUILT, so there is nothing optimistic
-  // to do here.
+  // The widget only ASKS, and the shell writes what comes back — an asset loads at BUILD time.
   const pickAsset = useCallback(
     (n: GraphNode, param: string, x: number, y: number) => {
       if (n.module) cb.current.onAssetBrowse?.(n.module, param, x, y);
     },
     [],
   );
-  // What feeds a track. Same shape as the asset browser above and for the same reason: the
-  // list is the MACHINE's — its interface, its channel labels — and the graph knows neither.
+  // What feeds a track: the list is the MACHINE's — its interface, its channel labels.
   const pickTrackInput = useCallback((n: GraphNode, x: number, y: number) => {
     cb.current.onPickTrackInput?.(n.label, x, y);
   }, []);
-  /**
-   * Commit a module FIELD: the option's label, written into the module's own file.
-   *
-   * No optimism and no socket. A field is not a plugin param — there is nothing live to set, and the engine
-   * learns it by rebuilding the track's input, so the reload the command triggers IS how it takes effect.
-   * Showing the new value before that would be a guess about a round-trip we can just wait for.
-   *
-   * Declared before its two callers because their dependency arrays name it, and those are evaluated
-   * on the spot rather than at call time.
-   */
+  // Commit a module FIELD into its own file — no optimism and no socket, docs/widgets.md.
   const setModuleField = useCallback(
     (
       // The whole target, not just its two names: a rehearsal keys its override by it.
@@ -3926,19 +3235,12 @@ export function DomChains({
     ) => {
       const opt = w.options?.find((o) => o.value === value);
       if (!opt) return; // a field with no named settings — nothing to write
-      // A rehearsal shows the pick and writes nothing. The optimism the next paragraph refuses
-      // is the ONLY thing that can answer here: there is no round-trip to wait for, so without
-      // it the dropdown would open, list its entries and then snap back to what it was.
+      // A rehearsal shows the pick and writes nothing, so the override is all that can answer.
       if (rehearsal) {
         setOverride((o) => ({ ...o, [targetKey(tgt)]: value }));
         return;
       }
-      // `arg` where the entry SAYS one thing and SETS another: a socket reads "Input 1 + 2" and
-      // writes `1,2`. Everywhere else the word on screen is the word in the file.
-      //
-      // The line names the field the way the WIDGET does — `@channel`, the bind verbatim — so
-      // there is one vocabulary and no verb per field to keep in step. See the `INTRINSICS`
-      // table in @studio/commands.
+      // `arg` where the entry SAYS one thing and SETS another, and the field is named as the WIDGET does.
       cb.current.command(
         `node param ${tgt.module} @${tgt.field} ${opt.arg ?? opt.label}`,
       );
@@ -3950,8 +3252,7 @@ export function DomChains({
   const pickWidget = useCallback(
     (n: GraphNode, w: WebWidget, value: number) => {
       const tgt = widgetTarget(n, w, chRef.current.offlineChannel);
-      // A track intrinsic has no named settings, and a rack pad has no value at all: neither is
-      // something a drag or a picked option can SET.
+      // A track intrinsic has no named settings and a rack pad no value: neither can be SET here.
       if (!tgt || tgt.kind === "track" || tgt.kind === "rack") return;
       if (tgt.kind === "module") {
         setModuleField(w, tgt, value);
@@ -3987,10 +3288,7 @@ export function DomChains({
           cb.current.onTrackToggle?.(tgt.trackId, tgt.control);
         return;
       }
-      // A RACK pad fires its sound and is done: nothing is set, so there is no override to place
-      // and nothing to commit to the file. The host decides HOW it sounds — st0 auditions the
-      // sample — for the reason the node menu is the host's: what a click reaches belongs to the
-      // application, not to the drawing. See packages/song/docs/racks.md.
+      // A RACK pad fires its sound and is done: no override to place, nothing to commit.
       if (tgt.kind === "rack") {
         cb.current.onTriggerRack?.(tgt.module, tgt.symbol);
         return;
@@ -4028,20 +3326,9 @@ export function DomChains({
     [],
   );
 
-  // --- the patch cable ----------------------------------------------------------------
-  // In hand: a cable with ONE loose end. A free OUT jack starts a NEW one (loose end seeks
-  // an input); an OCCUPIED jack lifts an EXISTING cable's end off it — the other end stays
-  // plugged, and what the loose end seeks is the side it came off. Landing writes connect
-  // or replug; a click on bare canvas deletes what existed and drops what did not.
+  // --- the patch cable: one loose end, landing on connect or replug (docs/hosting.md) ---
   const [patch, setPatch] = useState<{
-    /**
-     * WHAT is being drawn, because the three cables land on different things.
-     *
-     * `signal` runs socket to socket and is gated by type. `automation` leaves a curve and
-     * lands on a WIDGET — a knob, not a hole — which is why the landing test could not simply
-     * be widened. `event` runs socket to socket again, but only from a module's note-on into
-     * an envelope's ear.
-     */
+    /** WHAT is being drawn, because the three cables land on different things — docs/hosting.md. */
     kind?: "signal" | "automation" | "event";
     /** The curve this cable belongs to, on both of the two that involve one. */
     curve?: { curve: string; module?: string; param?: string };
@@ -4050,20 +3337,17 @@ export function DomChains({
     fixedRef: string; // the plugged end's chains address
     fixedNode: string; // …the node it is ON, which is the one jack gating must NOT offer
     fixedAt: { x: number; y: number }; // …and its socket, where the temp cable is pinned
-    // The arrow this WAS, when an existing cable was lifted — absent for a new one. The
-    // drawn cable with this id steps aside while its ghost is in hand (see rebuildCables).
+    // The arrow this WAS, when an existing cable was lifted — absent for a new one.
     edge?: { id: string; from: string; to: string };
   } | null>(null);
   const patchRef = useRef(patch);
   patchRef.current = patch;
   const patchEl = useRef<SVGPathElement | null>(null);
-  // The laid-out graph, for the jack → edge lookup a lift needs — a ref, so tapJack stays
-  // stable while always reading the current layout.
+  // The laid-out graph, in a ref, so `tapJack` stays stable while reading the current layout.
   const graphRef = useRef(graph);
   graphRef.current = graph;
 
-  // Screen → world, the inverse of the camera `applyCam` writes — the first thing here to
-  // need it: everything else either lives in world coords already or stays in client px.
+  // Screen → world, the inverse of the camera `applyCam` writes — the one place that needs it.
   const toWorld = useCallback((cx: number, cy: number) => {
     const r = hostRef.current?.getBoundingClientRect();
     const c = cam.current;
@@ -4073,13 +3357,11 @@ export function DomChains({
     };
   }, []);
 
-  /** The dashed promise of a cable HANGS like the real one it becomes — same curve, same
-   *  sag. `f` is always the OUT end: a lifted source end puts the cursor there instead. */
+  /** The dashed promise HANGS like the cable it becomes; `f` is always the OUT end. */
   const patchD = (f: { x: number; y: number }, t: { x: number; y: number }) =>
     smoothPath(hangPoints(f, t));
 
-  // A patch change hides/unhides a drawn cable, so the canvas must follow at once — the ref
-  // is written before the state lands, because rebuildCables reads the ref.
+  // The ref is written before the state lands, because `rebuildCables` reads the ref.
   const setPatchNow = (next: typeof patchRef.current): void => {
     patchRef.current = next;
     setPatch(next);
@@ -4087,8 +3369,7 @@ export function DomChains({
     paintRef.current();
   };
 
-  // The socket THIS press armed from, so its own release lands nothing — that gesture is a click,
-  // and it leaves the cable in hand for a second one. Cleared by every release.
+  // The socket THIS press armed from, so its own release lands nothing; cleared by every release.
   const armedFrom = useRef<string | null>(null);
 
   /** The loose end went into `p`: a lifted cable moves one of its ends, a new one is drawn. */
@@ -4108,14 +3389,7 @@ export function DomChains({
     setPatchNow(null);
   };
 
-  /**
-   * The three halves of the two curve cables.
-   *
-   * Both commit through ONE callback, because both write one line: `node automate <module>
-   * <param> <curve> [trigger]`. An automation cable supplies the first three; an event cable
-   * supplies the trigger and reads the other three off the envelope it landed on — which is why
-   * a curve node carries its binding (`curveOf`) rather than having it parsed back out of an id.
-   */
+  // The three halves of the two curve cables, committing through ONE callback — docs/hosting.md.
   const startAutomation = useCallback((n: GraphNode) => {
     suppressClick.current = false;
     if (!n.curveOf) return;
@@ -4154,8 +3428,7 @@ export function DomChains({
   const landEvent = useCallback((n: GraphNode) => {
     const cur = patchRef.current;
     const b = n.curveOf;
-    // A free card has no binding to write a trigger onto — the socket is not armed for one,
-    // and this is the second guard rather than the only one.
+    // A free card has no binding to write a trigger onto — the second guard, not the only one.
     if (cur?.kind !== "event" || !b?.module || !b.param) return;
     cb.current.onAutomate?.(b.module, b.param, b.curve, cur.curve?.module);
     setPatchNow(null);
@@ -4171,9 +3444,7 @@ export function DomChains({
     ) => {
       const cur = patchRef.current;
       const here = jackRef(n, p.name);
-      // A press STARTS a gesture, so it can never be the click that ended a pan. It has to clear
-      // the flag itself: the press no longer arms a pan (it stops propagation), so the pointerup
-      // that used to reset this never fires, and one pan would leave every socket dead.
+      // A press STARTS a gesture, so it clears the flag itself: no pointerup will — docs/hosting.md.
       if (phase === "down") suppressClick.current = false;
       const act = patchAct(phase, !!cur, armedFrom.current, here);
       if (phase === "up" || act === "land") {
@@ -4194,17 +3465,10 @@ export function DomChains({
         });
         return;
       }
-      // An occupied jack: lift the FIRST signal cable's end off it. First, because a jack
-      // rarely carries two — and the other end of any of them is one more click away.
-      // Only where the drop has somewhere to go: a host without replug/disconnect keeps
-      // its cables plugged.
+      // An occupied jack lifts the FIRST signal cable's end off it, where a drop has somewhere to go.
       if (!cb.current.onReplug || !cb.current.onDisconnect) return;
       const g = graphRef.current;
-      // Matched by the jack this cable IS ON, which is the port it names — or the FIRST jack
-      // when it names none. A bare cable has always meant the first socket (`cablePath` draws it
-      // there), and it only started mattering once a node whose first output is NAMED could be
-      // fed by one: a lane's `audio` jack, wired `gtr: [ amp ]`. Without the second half of this
-      // test the cable was drawn plugged into a socket that would not give it back.
+      // Matched by the port the cable NAMES — or the FIRST jack when it names none, docs/hosting.md.
       const portOf = (ed: GraphEdge) =>
         (side === "out" ? ed.sourcePort : ed.targetPort) ?? undefined;
       const e = g.edges.find(
@@ -4231,8 +3495,7 @@ export function DomChains({
       setPatchNow(
         side === "out"
           ? {
-              // The source end comes off: the target stays plugged, the loose end seeks
-              // a new OUT jack to leave from.
+              // The source end comes off: the loose end seeks a new OUT jack to leave from.
               type: p.type,
               seeking: "out",
               fixedRef: to,
@@ -4255,8 +3518,7 @@ export function DomChains({
     [],
   );
 
-  // Direct DOM on every move, no re-render: the cable's loose end is the cursor, 60 times
-  // a second — at the OUT end of the curve when the source side is what came off.
+  // Direct DOM on every move, no re-render: the cable's loose end is the cursor, 60 times a second.
   const movePatch = useCallback(
     (e: React.PointerEvent) => {
       const cur = patchRef.current;
@@ -4271,8 +3533,7 @@ export function DomChains({
     [toWorld],
   );
 
-  // What every node's jack gating reads — memoised, or holding a cable would re-render all
-  // the cards on every unrelated state change (the object would be new each render).
+  // What every node's jack gating reads — memoised, or a new object would re-render all the cards.
   const patchWant = useMemo(
     () =>
       patch
@@ -4286,9 +3547,7 @@ export function DomChains({
     [patch],
   );
 
-  // A click on the BARE canvas while a cable is in hand: an existing cable dropped there is
-  // DELETED, a new one simply ceases. Same target test as the canvas menu — a node click
-  // bubbles here too, and dropping on a node's body must keep the cable in hand.
+  // A cable dropped on the BARE canvas is DELETED; a new one simply ceases — docs/hosting.md.
   const canvasDrop = (e: React.MouseEvent): boolean => {
     const cur = patchRef.current;
     if (!cur || suppressClick.current) return false;
@@ -4300,12 +3559,7 @@ export function DomChains({
     return true;
   };
 
-  // --- dragging a node by its HEADER: the pin gesture --------------------------------
-  // In hand: the node, its element (moved by a transform, so React never fights the drag),
-  // and the offset in world px. On release the offset becomes `graph move` — see the
-  // onMoveNode prop — and the transform STAYS until the graph containing the write arrives:
-  // clearing it on release would snap the card home for the length of the round trip, the
-  // same trap the timeline's clip drag documents.
+  // --- dragging a node by its HEADER: the pin gesture (docs/hosting.md) --------------
   const nodeDrag = useRef<{
     n: GraphNode;
     el: HTMLElement;
@@ -4315,8 +3569,7 @@ export function DomChains({
     dy: number;
     moved: boolean;
   } | null>(null);
-  // Dropped, written, waiting for the reload: offsets the cables must keep honouring, and
-  // transforms to take off the moment a new layout lands (see the motion layout effect).
+  // Dropped, written, waiting for the reload: offsets to honour and transforms to take off later.
   const droppedNodes = useRef(
     new Map<string, { dx: number; dy: number; el: HTMLElement }>(),
   );
@@ -4329,9 +3582,7 @@ export function DomChains({
       "[data-node-id]",
     ) as HTMLElement | null;
     if (!el) return;
-    // A press STARTS a gesture, so it can never be the click that ended a pan — and it no
-    // longer arms one, having just stopped the propagation that would. Same reason the jacks
-    // clear it themselves: one pan would otherwise leave every card dead.
+    // A press STARTS a gesture, so it clears the flag itself, exactly as a jack does.
     suppressClick.current = false;
     nodeDrag.current = {
       n,
@@ -4350,8 +3601,7 @@ export function DomChains({
       d.dy = (ev.clientY - d.sy) / k;
       if (Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) > 3) d.moved = true;
       d.el.style.transform = `translate(${d.dx}px, ${d.dy}px)`;
-      // The cables follow live — through the same path a node MOTION takes, which also
-      // excites their springs: dragging a card makes its slack swing, as it should.
+      // The cables follow live, through the same path a node MOTION takes, springs included.
       rebuildCables.current();
       paintRef.current();
     };
@@ -4366,15 +3616,9 @@ export function DomChains({
         d.el.style.transform = "";
         return;
       }
-      // It travelled, so the click that follows is the tail of the drag rather than a tap:
-      // swallow it. It matters most on the far card, where the WHOLE card is the handle —
-      // every nudge would otherwise toggle the selection under the hand.
+      // It travelled, so the click that follows is the drag's tail rather than a tap: swallow it.
       suppressClick.current = true;
-      // Wherever it was let go, including ABOVE the first track or left of it. It used to be
-      // clamped to the origin, back when the fit framed 0..: a card dragged up there stuck to
-      // the top edge and slid sideways under the hand. The layout now reports where the drawing
-      // BEGINS as well as how far it reaches, so a negative pin is inside the frame like any
-      // other — see LaidOutGraph's `left`/`top`.
+      // Wherever it was let go, including ABOVE the first track or left of it — docs/hosting.md.
       const x = Math.round(d.n.x + d.dx);
       const y = Math.round(d.n.y + d.dy);
       droppedNodes.current.set(d.n.id, {
@@ -4382,8 +3626,7 @@ export function DomChains({
         dy: y - d.n.y,
         el: d.el,
       });
-      // Pre-seed the drawn map with the drop, so the layout that lands the write plans NO
-      // slide — the card is already exactly where the file will say it is.
+      // Pre-seed the drawn map with the drop, so the layout landing the write plans NO slide.
       drawn.current.set(d.n.id, { node: d.n, x, y });
       rebuildCables.current();
       paintRef.current();
@@ -4393,9 +3636,7 @@ export function DomChains({
     window.addEventListener("pointerup", onUp);
   }, []);
 
-  // Esc or ANY right-click puts the cable in hand BACK — capture phase, so neither the
-  // shell's own Esc ladder nor a node's context menu acts on a press that only meant
-  // "never mind". A lifted cable re-draws where it was: cancelling writes nothing.
+  // Esc or ANY right-click puts the cable in hand BACK, in the CAPTURE phase and writing nothing.
   useEffect(() => {
     if (!patch) return;
     const back = () => {
@@ -4422,13 +3663,7 @@ export function DomChains({
       host?.removeEventListener("contextmenu", onCtx, true);
     };
   }, [patch]);
-  /**
-   * Right-click on EMPTY canvas — the picker, for a module that lands wired to nothing.
-   *
-   * Only when the event reaches the host itself or the world it holds: a node stops propagation on its own
-   * right-click, so anything still arriving here came from the background. `preventDefault` regardless, because
-   * the browser's own menu over a graph is never what was wanted.
-   */
+  // Right-click on EMPTY canvas — the picker, for a module that lands wired to nothing.
   const canvasMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     const t = e.target as Node;
@@ -4450,16 +3685,7 @@ export function DomChains({
   // Too far for the widgets ⇒ nodes draw as a fitted name instead (see Node's far branch).
   const far = !showWidgets;
 
-  /**
-   * Where the meters read their levels. The host's store when it drives an engine; an inert one
-   * of our own when it does not.
-   *
-   * PROVIDED here rather than demanded of the host, exactly as `icons` is, and for the same
-   * reason: `InputMeterBar` renders under every TRACK node unconditionally, so a host that drew
-   * a graph without wrapping itself in an EngineStoreProvider crashed at render — which is what
-   * the médiathèque's module preview did, and what m9's deck panel would have done too.
-   * An inert store never updates, so those meters simply read silent, which is the truth.
-   */
+  // Where the meters read their levels — PROVIDED here rather than demanded, docs/hosting.md.
   const ownStore = useRef<EngineStore | null>(null);
   ownStore.current ??= new EngineStore();
   const meterStore = hostStore ?? ownStore.current;
@@ -4477,12 +3703,9 @@ export function DomChains({
           onContextMenu={canvasMenu}
           style={{ cursor: hovered ? "pointer" : undefined }}
         >
-          {/* The signal cables. OUTSIDE `.dgx-world` on purpose: that element carries the
-              camera as a CSS transform, and a canvas scaled by CSS goes blurry — so the camera
-              is applied to the 2D context instead and this stays at the host's own resolution. */}
+          {/* The signal cables, OUTSIDE `.dgx-world`: a canvas scaled by CSS goes blurry, so the camera is applied to the 2D context. */}
           <canvas ref={cvRef} className="dgx-cablecv" />
-          {/* No `transform` here on purpose: the camera is written onto this element by the
-              frame loop, so React re-rendering the graph never fights a gesture for it. */}
+          {/* No `transform` here: the frame loop writes the camera onto this element, so React never fights a gesture. */}
           <div className="dgx-world" ref={worldRef}>
             <svg
               className="dgx-cables"
@@ -4498,8 +3721,7 @@ export function DomChains({
                 setHovered={setHovered}
                 onInsert={insert}
               />
-              {/* The cable in hand, its far end moved by movePatch off-React. In the world
-                  SVG, so its coordinates are jackPoint's own and no conversion can drift. */}
+              {/* The cable in hand, moved by movePatch off-React, in the world SVG so jackPoint's coordinates hold. */}
               {patch && (
                 <path
                   ref={patchEl}
@@ -4509,9 +3731,7 @@ export function DomChains({
                 />
               )}
             </svg>
-            {/* On their way out: drawn where they were last seen, faded down by the loop and
-                unmounted when it settles. Before the live nodes so a card arriving on the same
-                spot paints over the one it replaces rather than under it. */}
+            {/* On their way out, before the live nodes so an arriving card paints over the one it replaces. */}
             {ghosts.map((g) => (
               <Node
                 key={`gone:${g.node.id}`}
@@ -4563,17 +3783,12 @@ export function DomChains({
                 sinkPlay={sinkPlay}
                 onTapJack={onConnect ? tapJack : undefined}
                 patchWant={patchWant}
-                // The curve cables, all four halves gated on the one callback that commits
-                // them: a host that cannot run a command draws the sockets and offers nothing.
+                // The curve cables, all four halves gated on the one callback that commits them.
                 onStartAutomation={onAutomate ? startAutomation : undefined}
                 onLandAutomation={onAutomate ? landAutomation : undefined}
                 onStartEvent={onAutomate ? startEvent : undefined}
                 onLandEvent={onAutomate ? landEvent : undefined}
-                // EVERY node — everything on the graph is a node, and what is a node can be
-                // put somewhere: a module by its chains name, a track by its id, a curve by
-                // its curve id, the sink by "OUT" (all jackRef's answer). Only the mixer row
-                // refuses, being an arrangement: a strip dragged out of the line would put a
-                // console's channel wherever it last was.
+                // EVERY node can be pinned, all by jackRef's answer; only the ROW refuses.
                 onHeaderDrag={onMoveNode && !row ? beginNodeDrag : undefined}
               />
             ))}

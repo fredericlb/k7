@@ -10,9 +10,7 @@ import {
 } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
 
-// The one answer to "what does this module run with?". These assertions used to live in
-// graph.test.ts against four `effective*` helpers, beside three inline copies elsewhere
-// that had already drifted from them.
+// The one answer to "what does this module run with?", after four helpers and three copies drifted.
 
 // A LoadedModule without the loader — the two derived fields, and nothing else.
 const mod = (m: Partial<LoadedModule>): LoadedModule =>
@@ -144,9 +142,7 @@ describe("resolveModule", () => {
   });
 
   it("keeps an inherited asset the loader wrote as undefined on the child", () => {
-    // THE fix. Decoration writes `nam`/`jsdsp`/`preset` on every module, at undefined when it
-    // declares none, so a plain spread had the child erase its parent's — which is why five
-    // call sites had grown a `?? base?.x` for each.
+    // Decoration writes those keys at undefined, so a plain spread had the child erase its parent's.
     const byRef = {
       "@st0/audio/amp": mod({
         nam: "/mods/amp/assets/jcm800.nam",
@@ -166,8 +162,7 @@ describe("resolveModule", () => {
   });
 
   it("never inherits what says WHERE the module lives", () => {
-    // A module filed under audio/ that extends an instrument is still an effect: its
-    // icon, its ports and its node name come from its own folder, not its base's.
+    // Its icon, ports and node name come from its OWN folder, not from its base's.
     const byRef = {
       "@library/synth": mod({
         kind: "plugin",
@@ -208,8 +203,7 @@ describe("resolveModule", () => {
 
 describe("mergeAuthored", () => {
   it("takes the child's value, including one it sets to a falsy", () => {
-    // Skipping `undefined` must not become skipping "" or 0 — a module silencing an
-    // inherited gain of 3 dB by writing 0 has to mean it.
+    // Skipping `undefined` must not skip 0: silencing an inherited 3 dB gain has to mean it.
     expect(mergeAuthored({ gain: 3 }, { gain: 0 }).gain).toBe(0);
     expect(mergeAuthored({ source: "loop" }, { source: "" }).source).toBe("");
   });

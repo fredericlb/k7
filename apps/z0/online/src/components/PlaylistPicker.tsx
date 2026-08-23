@@ -13,9 +13,7 @@ import {
 } from "../lib/playlists";
 import { m } from "../paraglide/messages.js";
 
-// Playlist-mode picker: paste a public Deezer or Spotify link, or replay one
-// somebody already saved. Saved rows are shared by everyone (like sessions);
-// only the person who added one — or an admin — can remove it.
+// Saved playlists are shared by everyone, but only the person who added one, or an admin, removes it.
 
 const PROVIDER_TAG_CLASS: Record<string, string> = {
   deezer: "border-[#a238ff]/50 text-[#c78bff]",

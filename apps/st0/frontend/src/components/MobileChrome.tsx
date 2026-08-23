@@ -71,17 +71,7 @@ export function MobileMenu({
   );
 }
 
-/**
- * One row of that menu — a place to go, or a thing to open.
- *
- * `aria-current` and not `aria-pressed`: on a phone these are NAVIGATION. A pane button on the
- * desktop toggles fullscreen and Escape backs out of it, which is a pressed control; here there
- * is no layout to back out to, so picking a row means "show me that", and the current one is
- * where you are rather than a switch left on.
- *
- * A full-width hit target with the label beside the icon, because the row a thumb misses is the
- * one drawn as an icon with a caption under it — which is what the tab bar was.
- */
+/** One row of that menu: `aria-current` and not `aria-pressed`, since on a phone these are NAVIGATION, with a full-width hit target. */
 export function MobileMenuItem({
   icon: Icon,
   label,

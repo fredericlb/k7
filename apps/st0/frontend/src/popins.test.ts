@@ -24,8 +24,7 @@ describe("the popin stack", () => {
     expect(closeTopPopin()).toBe(false);
   });
 
-  // The owner deregisters through its own effect cleanup, so a closer that declines to close
-  // (an overlay guarding unsaved work) must still be there for the next Escape.
+  // The owner deregisters through its own effect cleanup, so a closer that declines must still be there for the next Escape.
   it("does not pop the entry itself", () => {
     let calls = 0;
     const off = registerPopin(() => {

@@ -15,8 +15,7 @@ export interface FileNode {
   children?: FileNode[]; // dirs only
 }
 
-// What a save in the shared `_modules` library turned into. The library is read-only — one copy backs every
-// project in the workspace — so the edit lands on a project-local copy of the module and the chains follow it.
+// A save in the read-only `_modules` library lands on a project-local copy, and the chains follow it.
 export interface ForkedModule {
   ref: string; // the shared module that was edited, e.g. "@engine/audio/delay/tape-delay"
   module: string; // the local module the copy became — what the chains now name
@@ -24,9 +23,7 @@ export interface ForkedModule {
   chains: string[]; // the chains repointed at the copy
 }
 
-// A module's `ui.yaml`, the file beside its `module.yaml` — what the module editor's widget grid edits. It may
-// not exist on disk yet: `path` is then where it WOULD go and `content` a blank grid, so the first save creates
-// it through the ordinary write route.
+// A module's `ui.yaml`, which may not exist yet: `path` is then where it WOULD go, and the first save creates it.
 export interface ModuleUiFile {
   ref: string; // the module the panel draws, e.g. "@engine/audio/delay/tape-delay"
   path: string; // workspace-relative
@@ -34,8 +31,7 @@ export interface ModuleUiFile {
   exists: boolean;
 }
 
-// A module's `presets.yaml` — its named settings, the third file of the folder. Same four fields as the panel
-// above and for the same reason: the module may not have a shelf yet, and the first save is what creates it.
+// A module's `presets.yaml` — its named settings, and like the panel above it may not exist yet.
 export interface ModulePresetsFile {
   ref: string; // the module the presets belong to
   path: string; // workspace-relative
@@ -49,9 +45,7 @@ export interface WorkspaceInfo {
   rootIsProject: boolean;
   activeProject: string | null; // workspace-relative ("." for the root), or null
   projects: string[]; // workspace-relative project dirs
-  // The clip the recorder wrote most recently, so a surface can offer to review it. Rides this poll
-  // because only the file service learns the id — the engine reports a FILE — and it stays set until
-  // there is another take: whether it has been looked at belongs to the client.
+  // The clip the recorder wrote most recently: only the file service learns the id, and it stays set until the next take.
   lastTake?: { clip: string; track: string } | null;
 }
 
@@ -63,9 +57,7 @@ export interface GitStatus {
   conflicted: boolean;
 }
 
-// The alternatives (branches) of the workspace repo — mirrors @studio/commands/git.
-// `parent` is the branch an alternative was started from, "" for one that is not an
-// alternative (the root branch, or a branch made outside st0).
+// The workspace repo's branches (mirrors @studio/commands/git); `parent` is "" for one st0 did not start.
 export interface Alternatives {
   current: string;
   parent: string;
@@ -95,6 +87,7 @@ export interface FileContent {
 }
 
 // --- undo/redo journal ---------------------------------------------------------
+
 // What one undo/redo step touched (or would touch) — enough to toast and to navigate the editor.
 export interface HistoryPeek {
   kind: "text" | "process"; // "process" restores a bounced audio file — confirm before undoing
@@ -116,17 +109,7 @@ export interface UndoResult {
   files?: string[];
 }
 
-/**
- * One file a writing command touched, as `POST /command` reports it.
- *
- * It comes out of the journal's own diff — the two images `recordChange` compares to build the
- * undo entry — so naming it costs nothing. What it is FOR is the reload behind a command: a
- * client that knows a marker moved inside one clip file can skip the routes that answer about
- * files and names, which cannot have changed. See apps/st0/frontend/src/reloadScope.ts.
- *
- * Paths are PROJECT-relative (`clips/x.yaml`) — the vocabulary `hints.paths` speaks, and the
- * one an anchored test can trust. The journal's own `files` stay workspace-relative.
- */
+/** One file a writing command touched, PROJECT-relative — what narrows the reload; see docs/document.md. */
 export interface ChangedFile {
   path: string;
   kind: "added" | "edited" | "removed";
@@ -136,8 +119,7 @@ export interface ChangedFile {
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can extend ("type/name", "@ns/type/name")
   ioSinks: string[]; // io module names ("OUT")
-  // Chain `use` refs: a bare name for the folder's generic, plus "<name>:<node>" per
-  // node file, then the inherited modules by ref ("@ns/type/name").
+  // Chain `use` refs: a bare name for the folder's generic, "<name>:<node>" per node file, then inherited refs.
   modules: string[];
   tracks: string[];
   channels: string[]; // input-channel labels from the machine's preferences
@@ -146,12 +128,10 @@ export interface Hints {
   videoTracks: string[];
   sequences: string[];
   chains: string[];
-  // What each module's file-valued params may be set to — its own assets/ walked, keyed by the
-  // chain `use` ref. There is no shared library any more: a module carries what it loads.
+  // Each module's own assets/ walked, keyed by chain `use` ref: a module carries what it loads, there is no shared library.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names
-  // …and their ranges, for the bases whose plugin is a built-in st0 defines. A widget bound without one is
-  // drawn 0..1, which is simply wrong for a -60..+6 dB fader. The live engine's report wins where it exists.
+  // …and their ranges, for st0's built-in plugins: without one a widget draws 0..1, wrong for a -60..+6 dB fader.
   paramMetaByBase: Record<
     string,
     Record<string, { min: number; max: number; def?: number }>
@@ -175,9 +155,7 @@ export interface Hints {
   media: Record<string, string[]>;
 }
 
-// One declared port — a module under an io/ folder, the project's own or an inherited one
-// (mirrors @studio/song/ioPorts). What the I/O panel lists; the LEVELS come from the
-// engine socket, keyed by position in the array this arrives in.
+// One declared port, a module under an io/ folder (mirrors @studio/song/ioPorts); the LEVELS come from the engine socket, by position.
 export interface IoPort {
   ref: string; // how a chain names it ("OUT", "@engine/io/IN:in-1")
   name: string; // the part worth showing ("IN:in-1")
@@ -189,8 +167,7 @@ export interface IoPort {
   generic: boolean; // the folder's module.yaml rather than one of its nodes
 }
 
-// One entry of the shared `_modules` catalogue (mirrors @studio/song/moduleCatalogue).
-// What the module builder lists; `path` is workspace-relative, and is the file it opens.
+// One entry of the shared `_modules` catalogue (mirrors @studio/song/moduleCatalogue) — what the module builder lists.
 export interface CatalogueModule {
   ref: string; // how a chain names it ("@engine/audio/delay/tape-delay")
   name: string; // the part worth showing, namespace dropped
@@ -199,8 +176,7 @@ export interface CatalogueModule {
   kind: string; // what it IS, as the type folder decides
   plugin?: string; // the plugin it loads, for display
   extends?: string;
-  // Where the module builder opens it. Absent for an ENGINE module: it has no file, which
-  // is the whole point — its substance is the plugin, and the plugin is the engine's.
+  // Where the module builder opens it, workspace-relative; absent for an ENGINE module, whose substance is the plugin.
   path?: string;
   nodes: number; // how many nodes sit beside it
   hasUi: boolean; // it already has a `ui.yaml` beside it
@@ -211,9 +187,7 @@ export interface WebPreferences {
   audioDevice: string | null;
   channels: { in: string; out: string };
   vim: boolean; // the editor's vim mode
-  /** The chain that separates a record into stems, or null when this machine separates nothing.
-   *  Written by `system stems <chaîne>`, read by every surface that could start a separation —
-   *  which is why none of them asks for one. */
+  /** The chain that separates a record into stems, null when this machine separates nothing — so no surface asks for one. */
   stemsChain: string | null;
 }
 
@@ -224,19 +198,16 @@ export interface ProjectInfo {
 }
 
 // --- Timeline: the compiled, flat project (mirrors the brain's ProjectDoc) ------
-// The backend compiles the node project into this, so the Timeline needs to know nothing about chains or modules.
+
+// Compiled by the backend, so the Timeline knows nothing about chains or modules — see docs/document.md.
 
 export interface WebNote {
   time: number; // beats, relative to the clip
   duration: number; // beats
   key: number; // MIDI note number
-  // 0..1, as the file states it (NoteSchema's `v`). ABSENT means the schema's default, which is 1 —
-  // so a roll draws a note that never mentioned velocity at full, and dragging it back to full
-  // clears the field rather than writing one.
+  // 0..1 as the file states it (NoteSchema's `v`); ABSENT means the schema's default of 1, and dragging back to full clears the field.
   vel?: number;
-  // A pad's two effects, UNREALISED — the sequencer draws an icon from them, and the engine is what
-  // expands them. The surface sees the pattern as authored, one note per pad, however many times
-  // the engine ends up playing it (@studio/song docs/padEffects.md).
+  // A pad's two effects UNREALISED, drawn as an icon and expanded by the engine — see packages/song/docs/padEffects.md.
   repeat?: number;
   skip?: number;
 }
@@ -246,74 +217,27 @@ export interface WebClip {
   name: string;
   start: number; // beats
   length: number; // beats (0 == natural)
-  /**
-   * WHICH part of the source this placement draws — the same three numbers `regionWaveform`
-   * reads, in the units `ClipDoc` states them in: `offset` the placement's in-point, `sourceFrom`
-   * and `sourceTo` the clip file's own window in seconds (absent == the file's start / its end).
-   *
-   * They are here because the browser CACHES a clip's envelope, and until it could see them a
-   * trim moved the window while the picture stayed: same id, so the cached envelope was reused
-   * and the block went on showing material the clip no longer plays. See
-   * apps/st0/frontend/src/clipEnvelope.ts, which is the only thing that reads them.
-   */
-  //
-  // All optional, including `offset` — which is required on `ClipDoc` and cannot be here: the
-  // shell SYNTHESISES stand-in clips to open an editor over (EditorTab, ModuleSidePane), and
-  // those know an id and a name and nothing about a placement. A required 0 would have them
-  // claim an in-point they never had.
+  /** WHICH part of the source this placement draws, all three optional — see docs/document.md. */
   offset?: number; // audio: seconds into the source; midi: playStart (beats)
   sourceFrom?: number;
   sourceTo?: number;
-  // The audio file's NAME, never its path — enough to tell that a bounce repointed the clip at a
-  // new file, which is the other way its material changes without the placement moving. The path
-  // itself stays server-side: nothing in the browser may resolve one.
+  // The audio file's NAME, never its path — enough to tell that a bounce repointed the clip; see docs/document.md.
   sourceName?: string;
   // A clip-relative loop [loopStart, loopEnd) in beats, repeated to fill `length`; absent or both 0 == no loop.
   loopStart?: number;
   loopEnd?: number;
   // The clip is time-stretched: just the fact (markers stay engine-side), so the timeline can flag it.
   warped?: boolean;
-  // …and THIS event declines that map (`event status warp`), so it plays at the sample's own
-  // rate. Both are sent: `warped` alone cannot tell "never stretched" from "stretched, switched
-  // off here", and the timeline draws the second as the icon with a line through it.
+  // …and THIS event declines that map (`event status warp`); both are sent, since `warped` alone cannot tell it from "never stretched".
   warpOff?: boolean;
-  // Placed but silenced — the event-level `mute`. Still drawn (dimmed): an event you
-  // can't see is a deleted one. The ENGINE is what skips it.
+  // Placed but silenced — the event-level `mute`. Still drawn dimmed; the ENGINE is what skips it.
   disabled?: boolean;
-  /**
-   * How long this event fades in and out, IN BEATS. Absent means no fade, which is also how the
-   * file says it — the field is deleted rather than written as zero.
-   *
-   * These were on the placement, on the engine wire and in the C++ engine long before they were
-   * here, and only here: the browser was never told they existed, so the timeline could neither
-   * draw a fade nor let one be dragged, and the only way to set one was to type YAML. Beats
-   * rather than the file's timecode, like every other time on this document — a surface measures
-   * in the unit it draws in.
-   */
+  /** How long this event fades in and out, IN BEATS; absent means no fade — see docs/document.md. */
   fadeIn?: number;
   fadeOut?: number;
-  /**
-   * This clip is a RENDER, not a placement — the lane is frozen and this is what stands in for it.
-   *
-   * Which matters to anything that would edit it: there is no `clips:` entry for a move to
-   * rewrite, and a bar-1 render sitting over a real placement at bar 1 means a drag would move
-   * material the lane is not even showing. See packages/song/docs/freeze.md.
-   */
+  /** This clip is a RENDER standing in for a frozen lane, and cannot be edited — see packages/song/docs/freeze.md. */
   frozen?: boolean;
-  /**
-   * What the PLACEMENT itself said, unmerged — the same `EventDoc` the compiler builds, passed
-   * through untouched. Absent when the event stated nothing beyond its `ref` and `start`.
-   *
-   * Everything else on this clip is the placement and its material already resolved together, and
-   * that is one-way: `sourceFrom`/`sourceTo` are the intersection of two windows, a sequence's
-   * window is over in `loopStart`/`loopEnd`, and the repeat count was multiplied into `length`. So
-   * a surface can DRAW an event from the rest of this object and cannot WRITE one back — which is
-   * what made a copy/paste on the timeline drop the trim, the fades and the passes.
-   *
-   * Read by `clipboard.ts` alone. It is not what the timeline draws from: the resolved numbers
-   * above stay the drawing's single source, and this is deliberately beside them rather than
-   * instead of them.
-   */
+  /** What the PLACEMENT itself said, unmerged — read by clipboard.ts alone; see docs/document.md. */
   event?: WebEvent;
   notes: WebNote[]; // midi only
 }
@@ -339,13 +263,7 @@ export interface WebWaveformGrid {
 export interface WebWarpMark {
   orig: number;
   target: number;
-  /**
-   * The FILE second this point pins — what `clip warp` and `clip warp remove` name it by.
-   *
-   * On the wire because the file↔display mapping is PIECEWISE (the engine pins every interior
-   * marker as its own beat point), so a surface cannot invert it from two numbers. It can see
-   * the point; this is what lets it name the one it is pointing at.
-   */
+  /** The FILE second this point pins, which a surface cannot invert from two numbers — see docs/document.md. */
   src: number;
 }
 export interface WebWaveform {
@@ -357,36 +275,13 @@ export interface WebWaveform {
   clipBeats: number; // beats the region spans
   grid: WebWaveformGrid[];
   warpMarks: WebWarpMark[]; // stretch markers, in region seconds (empty == not warped)
-  /**
-   * The linear file↔display mapping every second above went through:
-   * `display = (file − inPoint) × stretch`, so `file = display / stretch + inPoint`.
-   *
-   * On the wire because a GESTURE goes the other way. Everything here is in region seconds, which
-   * is the right space to DRAW in and the wrong one to command in — `clip warp` names a moment of
-   * the SOURCE file. Without this pair a surface would have to rebuild it out of `offset`,
-   * `sourceFrom` and the warp ratio, which is a second copy of the one thing the producer already
-   * computed (`RegionWaveform.toDisplay` says why that matters).
-   */
+  /** `display = (file − inPoint) × stretch` — the mapping a GESTURE has to go back through; see docs/document.md. */
   sourceMap: { inPoint: number; stretch: number; zeroBeat: number };
-  /**
-   * The material's own `from`/`to` — the span of the source this clip IS — in the same region
-   * seconds as everything above.
-   *
-   * Sent only when the picture is WIDER than the window, which is the `whole` view: a placed clip
-   * is drawn from its in-point, so there the region and the window are the same thing and a band
-   * over the whole pane would say nothing. Absent therefore means "nothing to shade", not
-   * "untrimmed".
-   *
-   * Named for the SOURCE rather than plainly `window`, because it is passed straight to a React
-   * prop and a prop called `window` shadows the global one inside the component that draws it.
-   */
+  /** The span of the source this clip IS, sent only when the picture is WIDER than it — see docs/document.md. */
   sourceWindow?: { from: number; to: number };
-  // Display seconds where the onsets ARE — what the engine detected, with the clip's corrections already
-  // applied. Every surface reads this one and therefore agrees; only an editor needs the two below.
+  // Display seconds where the onsets ARE, corrections applied — the one list every surface agrees on.
   transients: number[];
-  // The same list before the corrections, and the corrections themselves (in FILE seconds, as the clip
-  // stores them). An onset editor needs both: to tell a detected onset from a hand-placed one, and to name
-  // a removal by the time the DETECTOR gave it rather than by wherever the pointer was. See song/onsets.ts.
+  // The same list before corrections, and the corrections themselves, in FILE seconds — see docs/document.md.
   detected?: number[];
   onsetEdits?: { added?: number[]; removed?: number[] };
 }
@@ -397,8 +292,7 @@ export type PreviewReq =
   | { kind: "clip"; clip: string }
   | { kind: "slice"; source: string; from: number; to: number };
 
-// A module preset. The ENGINE discovers these, so the shape is its; re-exported here
-// because the file service's /presets route hands the same objects to the browser.
+// A module preset, shaped by the ENGINE that discovers it; re-exported because /presets hands the same objects on.
 export type { PresetInfo } from "@studio/engine-protocol";
 
 // Progress of the background waveform prewarm (for the status-line spinner).
@@ -412,14 +306,7 @@ export interface WebPlugin {
   type: string; // xmlTypeName / format
   name: string;
 }
-// One track's strip, read off the mixer module at the end of its chain. `module` is the node ref an edit
-// addresses (e.g. "mixer:vo.jo"); the rest are that module's params, in their own units — dB for the level,
-// -1..+1 for the pan.
-//
-// The three tone bands were here and are not any more. They remain on the MIXER — the plugin has them, the
-// module declares them, a panel can bind them and a node file can hold them — but a track no longer carries
-// them: a strip's EQ is the mixer module's business, reached where every other module param is, and lifting
-// three of its params onto the track meant two places to read one value.
+// One track's strip, read off the mixer module at the end of its chain; the tone bands left it — see docs/document.md.
 export interface WebMixer {
   module: string;
   volume: number;
@@ -436,30 +323,18 @@ export interface WebTrack {
   contentType: string;
   // Authored track colour ('' == none): a swatch on the label, and the fill of this track's clips.
   color: string;
-  // The channel strip at the end of this track's chain — where its level, pan and tone live now that a track
-  // states none of them itself. Absent means the track has NO strip: not "at unity", but nowhere to put a
-  // level, which is a thing to say rather than a dead fader to draw.
+  // The strip at the end of this track's chain; absent means NO strip — not "at unity" — see docs/document.md.
   mixer?: WebMixer;
   mute: boolean;
   solo: boolean;
   disabled?: boolean; // true ⇒ track is ignored (filtered by the brain); absent when false
   clips: WebClip[];
-  // The lane's TAKES — what it was playing before something was recorded over it. Absent on a
-  // lane with none. Drawn as rows indented under it; nothing plays them until one is selected
-  // (`track take select`). See packages/song/docs/takes.md.
+  // The lane's TAKES, drawn as indented rows and silent until one is selected — packages/song/docs/takes.md.
   takes?: WebTake[];
   plugins: WebPlugin[];
-  // `docs` / `todos` were here, for the Docs panel. Both are gone with it — a note is a doc
-  // module on the graph now (`@studio/doc`). See packages/song/docs/docModules.md.
-  // `frozen`, `alternatives` and `alternative` were here, for the timeline's lane header. All
-  // three are gone with the fields they came from — see packages/song/docs/trackModules.md.
-  // They did not come back HERE: both are facts about the module a lane is, so the timeline's
-  // gutter reads them off `WebGraph` (`trackAlternatives`, `frozen`) rather than off a second
-  // copy on this document. Putting them back would also cost a clone of the module vocabulary on
-  // every 2 s poll of /project-doc, which is memoised per revision and this route is not.
+  // `docs`/`todos`, `frozen`, `alternatives` and `alternative` all left this type — see docs/document.md.
 }
-// A TAKE (mirrors TakeDoc): an arrangement the lane WAS playing, set aside. Its clips are compiled
-// exactly as the lane's own are, so a row of them draws with no special case.
+// A TAKE (mirrors TakeDoc): an arrangement the lane WAS playing, compiled exactly as its own clips are.
 export interface WebTake {
   name?: string;
   clips: WebClip[];
@@ -472,9 +347,7 @@ export interface WebGroup {
   mute: boolean;
   solo: boolean;
 }
-// A video clip on a video track. Every time here is SECONDS: picture is cut against the wall
-// clock, where the song's own lanes are placed in bars against its tempo. One timeline draws
-// both, and its ruler reads either — see apps/st0/frontend/docs/picture.md.
+// A video clip: every time here is SECONDS, picture being cut against the wall clock — apps/st0/frontend/docs/picture.md.
 export interface WebVideoClip {
   id: string;
   name: string;
@@ -504,17 +377,7 @@ export type WebShape =
       w?: number;
       color: string;
     };
-/**
- * One pass over the picture (mirrors VideoPluginDoc) — a video chain's step, compiled.
- *
- * A `shader` carries its GLSL INLINE: the browser cannot open the module's `shaders/` folder, and
- * a page of text is smaller than the route that would serve it. Absent when the node has nothing
- * picked, which draws as a pass that lets its picture through.
- *
- * `audioFrom` names a LANE rather than carrying a number, because the number moves: the engine
- * pushes levels at ~20 Hz and the surface holding that stream is the one that can look one up.
- * See @studio/song's docs/shaders.md.
- */
+/** One pass over the picture (mirrors VideoPluginDoc); its GLSL rides inline and `audioFrom` names a lane — see docs/document.md. */
 export interface WebVideoPlugin {
   id: string;
   type: "video_effect" | "video_transition" | "shader";
@@ -537,12 +400,10 @@ export interface WebVideoTrack {
   h: number;
   clips: WebVideoClip[];
   shapes: WebShape[];
-  // This lane's own run, applied to the layer BEFORE it is composited. Absent on a lane no run
-  // starts at, which is every lane in a project that draws no shaders.
+  // This lane's own run, applied to the layer BEFORE it is composited; absent on a lane no run starts at.
   plugins?: WebVideoPlugin[];
 }
-// GET /commands — the palette's catalogue; `args` are the trailing params in the order the palette asks them.
-// The class list mirrors ARG_CLASSES in packages/commands/src/commandSpec.ts, where a test fails if they drift.
+// GET /commands — the palette's catalogue; mirrors ARG_CLASSES in packages/commands/src/commandSpec.ts.
 export type ArgClass =
   | "track"
   | "module"
@@ -553,10 +414,7 @@ export type ArgClass =
   | "number"
   | "note"
   | "text";
-// The named provider an argument completes from — the PRECISE type of thing it names, where
-// `kind` is only the colour it is drawn in: `file` is a clip AND a sequence AND a module asset,
-// and `module` is also a category. Absent for a scalar or a literal set. Mirrors the PROVIDERS
-// keys in packages/commands/src/commandSpec.ts, where a test fails if the two drift.
+// The PRECISE type of thing an argument names, where `kind` is only its colour — see docs/document.md.
 export type ArgProvider =
   | "alternatives"
   | "audioFiles"
@@ -569,23 +427,18 @@ export type ArgProvider =
   | "markerNames"
   | "modules"
   | "moduleAlternatives"
-  // A NODE — one of this project's uses of a module, which is what the `node …` verbs address.
-  // Separate from `modules` because a `@ref` names a shared definition, and those are edited in
-  // the builder rather than by a verb. See packages/song/docs/nodes.md.
+  // One of this project's USES of a module, which is what the `node …` verbs address — packages/song/docs/nodes.md.
   | "nodes"
-  // A set list of the REPOSITORY, by name — `_playlists/<name>.yaml`, subfolders kept. The one
-  // provider here that reads nothing of the open project, a playlist belonging to the workspace.
+  // A set list of the REPOSITORY — the one provider that reads nothing of the open project.
   | "playlists"
   | "sequenceFiles"
-  // The kinds of SURFACE the editor can draw — a closed set of words, not something read off the
-  // project: the file being named is the one the command is about to create.
+  // The kinds of SURFACE the editor can draw — a closed set of words, since the file is about to be created.
   | "surfaceTypes"
   | "tracks";
 export interface CommandArg {
   name: string;
   kind: ArgClass;
-  // What this argument NAMES, when the answer comes off the project. The right-click menu matches
-  // on it to offer every command the clicked thing can answer — see st0's contextMenu.ts.
+  // What this argument NAMES off the project — what st0's contextMenu.ts matches a right-click on.
   provider?: ArgProvider;
   // One line on what this argument accepts; empty when there is nothing to promise, and the palette shows no clue.
   hint: string;
@@ -595,9 +448,7 @@ export interface CommandArg {
 export interface CommandInfo {
   command: string;
   help?: string;
-  // One sentence on what the command DOES, per language — what the palette lists and matches
-  // on. The command name stays the CLI's in every language; only the sentence is translated,
-  // because a name is an identifier and a sentence is an explanation.
+  // One sentence per language on what the command DOES; the NAME is never translated — see docs/document.md.
   readable?: { en: string; fr: string };
   args: CommandArg[];
 }
@@ -614,16 +465,13 @@ export interface WebProject {
   tempo: number;
   timeSigNumerator: number;
   timeSigDenominator: number;
-  // The song's OUTPUT level in dB — 0 is unity, +6 the top of the fader. The header's fader reads
-  // it and `project master` writes it; see @studio/song's docs/masterVolume.md, including why +6
-  // is rarely the answer to a quiet mix.
+  // The song's OUTPUT level in dB, 0 unity and +6 the top of the fader — packages/song/docs/masterVolume.md.
   masterVolume: number;
   tracks: WebTrack[];
   groups: WebGroup[];
   // The metronome enable from settings.yaml — the header button's source of truth; toggling rewrites the file.
   metronome: boolean;
-  // …and how loud it clicks, 0.2 … 1. Never 0: silence is the flag above, and the floor is the
-  // engine's own (see METRONOME_MIN). What the footer button's right-click slider sits on.
+  // …and how loud it clicks, 0.2 … 1; never 0, because silence is the flag above (see METRONOME_MIN).
   metronomeLevel: number;
   // Whether any track streams from an algo/ pattern; false == the shell need not poll the pattern clock.
   strudel: boolean;
@@ -634,10 +482,8 @@ export interface WebProject {
 }
 
 // --- PICTURE: the same folder, read again ----------------------------------------
-// Nothing here is a beat: a shot is cut against the wall clock. A separate document and not a
-// section of WebProject, which is what keeps the frame out of what the C++ engine is handed
-// without anything having to strip it on the way.
-// See packages/song/docs/picture.md.
+
+// Nothing here is a beat, and it is a separate document for that reason — see docs/document.md.
 
 /** A named point on the picture's ruler. `sec` is its position; `tc` the `m:ss.mmm` it is stored under (the delete key). */
 export interface WebVideoMarker {
@@ -657,15 +503,13 @@ export interface WebVideoProject {
   markers: WebVideoMarker[];
   /** Already in `layers:` draw order, bottom first — no consumer re-sorts. */
   videoTracks: WebVideoTrack[];
-  /** The `RENDER -> VIDEO_OUT` run: passes over the frame the lanes were composited INTO — the
-   *  picture's `masterPlugins`. Always sent, empty by default. */
+  /** The `RENDER -> VIDEO_OUT` run over the composited frame — the picture's `masterPlugins`, empty by default. */
   framePlugins: WebVideoPlugin[];
 }
 
 // --- Project errors: whether the project even compiles --------------------------
 
-// Everything the compile reports, one entry per message — a superset of what breaks the Timeline (which stops
-// at the first failure). Empty == clean. `file` is project-relative; line/col are 1-based.
+// Everything the compile reports, `file` project-relative and line/col 1-based; a superset of what breaks the Timeline.
 export interface Diagnostic {
   file: string;
   line: number;
@@ -679,13 +523,12 @@ export interface ProjectErrors {
 }
 
 // --- Chains: the routing graph --------------------------------------------------
-// Moved to @studio/graph-model. Three apps draw chains — st0, pl8's module
-// builder and m9 — and only st0 wants the rest of this file, so the graph
-// model is its own package. Import it from there, not through here.
+
+// Moved to @studio/graph-model, since three apps draw chains and only st0 wants the rest of this file.
 
 // ── Engine-side file service headers ─────────────────────────────────────────
-// The browser talks to the file service directly (cross-origin) with no OIDC cookie there, so it passes
-// identity, context and a light gate as headers.
+
+// Cross-origin with no OIDC cookie, so identity, context and the gate ride as headers — see docs/machine.md.
 
 /** The authenticated user's email — the file service slugifies it to pick the root. */
 export const USER_HEADER = "x-studio-user";
@@ -695,8 +538,8 @@ export const WORKSPACE_HEADER = "x-studio-workspace";
 export const ENGINE_TOKEN_HEADER = "x-studio-engine-token";
 
 // ── The engine assignment ────────────────────────────────────────────────────
-// "Assigned" is a LEASE: a closed tab can only say goodbye best-effort, so the truth has to expire on its own.
-// The driving tab renews with an idempotent re-POST of /api/engine/select. Per-engine across users.
+
+// "Assigned" is a LEASE, because a closed tab can only say goodbye best-effort — see docs/machine.md.
 
 /** How often the driving tab re-selects to keep its engine assignment alive. */
 export const ENGINE_ASSIGN_RENEW_MS = 5000;
@@ -705,10 +548,8 @@ export const ENGINE_ASSIGN_RENEW_MS = 5000;
 export const ENGINE_ASSIGN_TTL_MS = 15000;
 
 // ── Reaching an engine, and staying reached ──────────────────────────────────
-// One budget for both halves. The browser measures addresses in PARALLEL, so it spends this
-// once; the relay dials them in SEQUENCE, so without a shared deadline it spends this PER
-// address and is called unreachable while the engine answers. Both now stop at the same wall
-// clock. See packages/engine-registry/docs/proxy.md and packages/engine-browser/docs/access.md.
+
+// One budget for both halves, the browser probing in parallel and the relay dialling in sequence — see docs/machine.md.
 
 /** All the time anyone gets to reach an engine — the browser's probe, and the relay's dial. */
 export const ENGINE_REACH_BUDGET_MS = 3000;
@@ -717,9 +558,8 @@ export const ENGINE_REACH_BUDGET_MS = 3000;
 export const ENGINE_DIAL_TIMEOUT_MS = 1500;
 
 // ── Keeping a link honest ────────────────────────────────────────────────────
-// A half-open socket — a wedged relay, a lapsed NAT, a laptop back from sleep — never fires
-// `close`, so nothing reconnects and sends go nowhere. The engine has no server-side ping
-// (IXWebSocket ships `kPingIntervalSeconds(-1)`), so the client is what has to ask.
+
+// A half-open socket never fires `close`, and the engine has no server-side ping — see docs/machine.md.
 
 /** Nothing inbound for this long ⇒ ask `whoami`, the one verb the engine always answers. */
 export const ENGINE_IDLE_PING_MS = 10000;
@@ -733,8 +573,7 @@ export const ENGINE_RECONNECT_MIN_MS = 1000;
 /** …and never waits longer than this, so a forgotten tab stops hammering the relay. */
 export const ENGINE_RECONNECT_MAX_MS = 30000;
 
-// The queue that covers a blink, and only a blink. Unbounded, it turned a ten-minute outage
-// into a burst of stale transport verbs delivered all at once on reconnect.
+// The queue that covers a blink, and only a blink: unbounded, a ten-minute outage burst on reconnect.
 
 /** Most messages held while the socket is down. Oldest go first. */
 export const ENGINE_OUTBOX_MAX = 200;
@@ -743,8 +582,8 @@ export const ENGINE_OUTBOX_MAX = 200;
 export const ENGINE_OUTBOX_TTL_MS = 30000;
 
 // ── The engine registry ──────────────────────────────────────────────────────
-// An engine registers itself (via the supervisor) with these addresses; the browser MEASURES them
-// (packages/engine-browser/src/probe.ts) and picks from the unassigned ones. See the backend `registry.ts`.
+
+// An engine registers these addresses; the browser measures them all (packages/engine-browser/src/probe.ts).
 
 /** Every address a browser may try. All are probed at once; the fastest to answer is the one used. */
 export interface EngineAddresses {
@@ -766,30 +605,7 @@ export interface WorkspaceList {
   workspaces: WorkspaceSummary[];
 }
 
-/**
- * One workspace on the machine, with the projects it actually holds — what st0's home page
- * lists.
- *
- * The machine answers this, and nothing else does. pl8 kept a bare blobless mirror of every
- * repository to answer the same question from the hosted side; it was a second copy of what the
- * working clone already had, and a worse one — a fetch behind, and blind to a project that is
- * committed but not yet pushed. See apps/st0/frontend/docs/projects.md.
- *
- * `origin` is `remote.origin.url` as git wrote it, normalized; null for a workspace that is not
- * a clone at all. `repoName` is its SHORT name, derived here rather than asked of pl8, because
- * that is the half of a project's address a person reads — and deriving it costs nothing the
- * `origin` has not already paid for.
- *
- * `uniqueName: false` says the short name does NOT identify this workspace *on this machine*: two
- * clones whose origins end in the same name make `/<name>/…` ambiguous, and pl8 refuses such an
- * address (409) rather than picking one.
- *
- * That is only HALF of whether the portable address works, and deliberately the only half this
- * side can answer. The other half is whether pl8's registry knows the repository at all — a
- * `/<name>/…` address is resolved through it, so a clone this machine has and that registry does
- * not is unaddressable that way however unique its name is. The page holds both answers because
- * the page talks to both services; the machine states what it knows and guesses nothing.
- */
+/** One workspace on the machine with the projects it holds — the only side that can answer; see docs/machine.md. */
 export interface MachineWorkspace {
   name: string;
   origin: string | null;
@@ -804,25 +620,13 @@ export interface MachineWorkspaceList {
   workspaces: MachineWorkspace[];
 }
 
-/** One surface a project declares, named and typed and nothing more — enough to build its
- *  address and to decide whether a given device can drive it. */
+/** One surface a project declares, named and typed — enough to build its address and to gate a device. */
 export interface SurfaceRef {
   id: string;
   type: string;
 }
 
-/**
- * One project on this machine that declares at least one surface, with those surfaces.
- *
- * The identity fields are `MachineWorkspace`'s, repeated per project rather than nested, because
- * this list is read as a flat one: the caller is looking for a SURFACE and the workspace it lives
- * in is a detail of the address. `path` is workspace-relative, `.` for a lone-project clone.
- *
- * `active` is the workspace's `.studio-active` marker — the project this workspace currently has
- * open. One per workspace at a time, which is why it is a flag here and not a filter: a caller
- * that wants only the live ones can say so, and one showing a menu wants to know which row is
- * already up. See apps/st0/frontend/docs/external.md.
- */
+/** One project declaring at least one surface, identity fields flattened onto it — see docs/machine.md. */
 export interface SurfacedProject {
   workspace: string;
   repoName: string | null;
@@ -833,43 +637,24 @@ export interface SurfacedProject {
   surfaces: SurfaceRef[];
 }
 
-/** Reply to GET /workspaces/surfaces on the file service. Projects declaring none are absent
- *  rather than present and empty.
- *
- *  Not `ProjectSurfaces`, which is @studio/song's — that one is ONE project's surfaces with the
- *  diagnostics from reading them, and this is the machine's list of the projects that have any. */
+/** Reply to GET /workspaces/surfaces; not @studio/song's `ProjectSurfaces` — see docs/machine.md. */
 export interface SurfacedProjectList {
   projects: SurfacedProject[];
 }
 
-/**
- * Reply to GET /engine/served on the file service — the project this person's st0 session is
- * actually loaded into on the engine, or `null` when it is holding none.
- *
- * Not the same question as `SurfacedProject.active`, and the difference is the point. That flag is
- * a workspace's `.studio-active` marker, one per workspace and written by whoever opened last; this
- * is the file service's note of what it SENT, one project for the whole account, because a session
- * is per service and per person (packages/engine-protocol/docs/sessions.md). A machine with three
- * markers is still an engine holding one song.
- *
- * `workspace` + `path` rather than an absolute path: those are the two strings every address on
- * this side is built from, and the engine's disk layout is nobody else's business.
- */
+/** GET /engine/served — what the session actually LOADED, which is not `SurfacedProject.active`; see docs/machine.md. */
 export interface ServedProject {
   workspace: string;
   /** Workspace-relative, `.` for a lone-project clone — `SurfacedProject.path`'s spelling. */
   path: string;
 }
 
-/** Reply to GET /engine/served. `project: null` means the engine holds nothing for this person —
- *  no project has been opened since the service came up, or the last one was unloaded. */
+/** Reply to GET /engine/served; `project: null` means the engine holds nothing for this person. */
 export interface ServedProjectReply {
   project: ServedProject | null;
 }
 
-/** Reply to GET/POST /api/projects/ssh-key on pl8 — the user's PUBLIC deploy key, the one
- * they paste into their git host. pl8 generates the pair and owns the private half; see
- * packages/git-repos/docs/keys.md. */
+/** The user's PUBLIC deploy key, pl8 owning the private half — see packages/git-repos/docs/keys.md. */
 export interface SshKeyInfo {
   publicKey: string | null;
 }
@@ -879,9 +664,7 @@ export interface WorkspaceForRepo {
   workspace: string | null;
 }
 
-/** A `git clone` in flight on the file service. Started by POST /workspaces/clone and polled
- * at GET /workspaces/clone/:id, because the wait is long enough to be worth showing —
- * see packages/file-service/docs/cloneJobs.md. */
+/** A `git clone` in flight: started, then polled, because the wait is worth showing — packages/file-service/docs/cloneJobs.md. */
 export interface CloneJob {
   id: string;
   workspace: string; // the folder it is cloning into, chosen from the repository's name
@@ -893,14 +676,7 @@ export interface CloneJob {
   lines: string[]; // the tail of git's output, for a failure that needs reading
 }
 
-/**
- * How a stem separation is doing. The same shape as CloneJob — start, poll, 404 when swept —
- * with one field it has no use for.
- *
- * A clone's product is a DIRECTORY, named by `workspace`, so there is nothing to list. A
- * separation's product is four files, and the caller needs their paths: they are what it came
- * for, and they are not derivable from the request (the stems' names come from the model).
- */
+/** How a stem separation is doing — CloneJob's shape plus the `files` it produced; see docs/machine.md. */
 export interface SeparateJob {
   id: string;
   source: string; // the mix being split, absolute on the engine's machine
@@ -913,58 +689,26 @@ export interface SeparateJob {
   files: string[]; // the stems written, absolute. Empty until `done`.
 }
 
-/**
- * What `POST /stems` answers — the desk asking for ONE record to be prepared.
- *
- * Two fields rather than one job, because a record already separated must start nothing: the
- * desk asks on every load, and the scan flag it asks WITH is a snapshot taken minutes ago. So
- * `ready` is the state of the disk, and `job` is only there when there was work to do. Encoding
- * the first as a job that is instantly done would hand the caller an id nobody can poll.
- */
+/** What `POST /stems` answers: `ready` is the disk, `job` only when there was work — see docs/machine.md. */
 export interface StemsReply {
   ready: boolean;
   job: SeparateJob | null;
 }
 
-/** One project inside a repository: where it is, and which app opens it. The folder's NAME
- *  decides the app — see ./projects.ts. */
+/** One project inside a repository; the folder's NAME decides which app opens it — see ./projects.ts. */
 export interface RepoProject {
   path: string;
   app: ProjectApp;
 }
 
-/**
- * A repository named by its short name — pl8's answer to "what is behind `/<name>/…`".
- *
- * The one thing an editor needs before it can resolve a workspace, and the reason the URI is
- * not in the address bar in the first place.
- */
-/**
- * One module LIBRARY a project can reach — a level, where it is, and what is in it.
- *
- * Its own answer beside the file tree, because the tree is the SONG and these are outside it:
- * the workspace's `_modules` and the account's `_libraries` sit beside the project, not in it.
- * Ordered by precedence, nearest first, by whoever answers.
- *
- * `exists: false` with no nodes is a real state and not an absence: a level you could put a
- * module in is worth drawing, so somebody can. Distinguishing it from an empty one matters
- * because only one of the two is fixed by adding a module.
- */
+/** One module LIBRARY a project can reach, nearest first; `exists: false` is a state, not an absence — docs/machine.md. */
 export interface ModuleLibrary {
   /** The `@`-prefixed level a chain writes: `project`, `workspace`, `st0`, `engine`. */
   ns: string;
-  /** Workspace-relative, so every other route takes it as-is. EMPTY for `@engine`, which is
-   *  the one level with no folder anywhere — see `readOnly`. */
+  /** Workspace-relative, so every other route takes it as-is; EMPTY for `@engine`, which has no folder. */
   path: string;
   exists: boolean;
-  /**
-   * Nothing here can be created, renamed or written.
-   *
-   * True for `@engine` and only for it. A scanned plugin is a module the engine merely
-   * REPORTS: it has no folder, so there is nothing to write into and nothing to open — the
-   * rows are a vocabulary you can name in a chain, not files. Giving one a folder is
-   * `module own <ref>` (see packages/song/docs/moduleFork.md), which is a different act.
-   */
+  /** Nothing here can be created, renamed or written — true for `@engine` alone; see docs/machine.md. */
   readOnly?: boolean;
   nodes: FileNode[];
 }
@@ -975,44 +719,17 @@ export interface RepoRef {
   uri: string;
 }
 
-/**
- * One git repository a person has REGISTERED with pl8.
- *
- * The register and nothing more: which repositories exist, and what URI is behind each short
- * name. What is INSIDE one is `MachineWorkspace` above, answered by the machine that holds the
- * working copy — pl8 kept a bare blobless mirror to answer it too, and that copy is gone.
- *
- * So there is no `projects`, no `branch`, and no fetch status here any more: all three
- * described the mirror. What survives is what only a hosted service can hold — a list that
- * belongs to a person rather than to a machine.
- */
+/** One git repository a person REGISTERED with pl8 — the register and nothing inside it; see docs/machine.md. */
 export interface RepoSummary {
   id: string;
   uri: string;
-  /**
-   * The repository's SHORT name — its last path segment without `.git`, which is also what
-   * the clone is called on the engine's machine.
-   *
-   * This is the half of a project's address that a person can read, and it is what pl8 puts
-   * in the link: `/<name>/<project>`. Derived from `uri` rather than stored, so the two
-   * cannot drift; the URI itself never reaches the address bar, because it carries a host, a
-   * port and a user, none of which belong in a bookmark.
-   */
+  /** The SHORT name, derived from `uri` so the two cannot drift — the half of an address a person reads. */
   name: string;
   label: string;
   addedAt: string;
 }
 
-/**
- * One frozen snapshot a person has shared, as their own Projets section lists them.
- *
- * The AUTHOR's view and nobody else's: `origin` names a repository and a folder on the machine
- * it came from, and the public routes serve none of this — they serve the snapshot's manifest.
- *
- * `token` rides along in the clear because it IS the copy-link button, the same posture
- * `.projects/ssh/` already takes with everybody's deploy key. It is blanked on revocation, so a
- * revoked row cannot be copied back out of the screen it is still drawn on.
- */
+/** One frozen snapshot a person shared — the AUTHOR's view, which no public route serves; see docs/machine.md. */
 export interface ShareSummary {
   /** `sha256(token)` — the directory's name on the volume, and the `:key` in every route. */
   key: string;
@@ -1036,27 +753,13 @@ export interface PublicEngine {
   hostname: string;
   addresses: EngineAddresses;
   assigned: boolean; // already selected by someone; hidden from the pick list
-  /**
-   * Who holds it and what they opened on it, when somebody does.
-   *
-   * On the wire because "busy" and "busy with Fred's winter.st0" are not the same screen: an
-   * engine that reads simply unavailable is one people retry, and taking a project over is a
-   * thing you should only do knowing whose it is. Undefined when the engine is free.
-   */
+  /** Who holds it and what they opened, undefined when free — "busy" alone is a screen people retry; docs/machine.md. */
   heldBy?: string;
   heldProject?: string;
   // This engine's heartbeat arrived from the browser's own public IP — a same-LAN hint, not authoritative.
   sameSourceIp: boolean;
-  /**
-   * A short-lived pass for the relay at `<base>/api/engine/<id>/ws`, which is how a browser
-   * reaches an engine it may not dial directly (an HTTPS page and a `ws://` LAN address).
-   *
-   * Optional because the REGISTRY does not mint it — the `/engines` route does, being the
-   * authenticated one. See packages/engine-registry/proxy.ts.
-   */
+  /** A short-lived pass for the relay, minted by `/engines` and not by the registry — packages/engine-registry/proxy.ts. */
   proxyTicket?: string;
 }
 
-// How good a link to an engine is — Q1/Q2/Q3, off a measured latency — lives in ./quality,
-// because the browsers measure it, the surfaces draw it and the backends will constrain on it.
-// It replaced a locality tier, which ranked a gigabit LAN below a laptop running at 2048 frames.
+// How good a link is — Q1/Q2/Q3, off a measured latency — lives in ./quality; see docs/quality.md.

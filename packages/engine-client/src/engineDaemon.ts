@@ -53,14 +53,11 @@ export interface EngineDaemonOptions {
   logDir?: string;
   // Extra environment for the child — the supervisor passes the engine's identity. Merged over the parent env.
   env?: NodeJS.ProcessEnv;
-  // How the engine's output is handled. "file" (default) writes a log and unrefs, so the engine outlives a CLI
-  // invocation; "pipe" returns streams for the caller to pump and is NOT unref'd — a pumped child we let go of
-  // would keep the parent's event loop alive with nothing reading it.
+  // "file" (default) writes a log and unrefs, so the engine outlives a CLI invocation; "pipe" returns streams and is NOT unref'd.
   stdio?: "file" | "pipe";
 }
 
-// Start the daemon unless one is running: the ChildProcess when THIS call started it in "pipe" mode, true when
-// it started it otherwise, false when one was already up.
+// Start the daemon unless one is running: the ChildProcess in "pipe" mode, true when it started one otherwise, false when one was up.
 export function ensureEngineDaemon(
   bin: string,
   opts: EngineDaemonOptions = {},
@@ -102,8 +99,7 @@ export function ensureEngineDaemon(
 
 export function stopEngineDaemon(): void {
   const pid = readPid();
-  // The whole TREE, not the pid: a scan child left behind keeps the audio device and the port, so the next
-  // launch fails its already-running check. See processTree for how each platform does it.
+  // The whole TREE, not the pid: a scan child left behind keeps the audio device and the port — see docs/processTree.md.
   if (pid != null) killTree(pid);
   rmSync(ENGINE_PID, { force: true }); // force: absent pidfile is not an error
 }

@@ -60,10 +60,58 @@ the file service owns.
 `engine` stays on the seam for everything that is NOT a document — the transport, a seek, a param.
 Those are messages about what is already loaded, and no host has a second writer for them.
 
+### The two props that are NOT the engine, and how narrow they are
+
+`MixView` takes `engine: { fileBase, id }` and an optional `library: { base }`. Both are as small
+as they can be on purpose:
+
+- `engine` was `RankedEngine<PublicEngine>` and used on exactly one line, `fileLink(engine)`. A
+  prop asking for a whole probe reply would force a host without one to fabricate the other
+  fifteen fields — the difference between a seam and a shape m9 happened to have.
+- `library` is pl8's API base, and it appeared because separating a record is pl8's work now:
+  pl8 holds the master (`apps/pl8/docs/stems.md`). Optional, so a host with no library to point
+  at still draws a desk — the knobs then say a record has no stems, which is true, rather than
+  the view failing to render.
+
 Everything else the desk needs is already shared and is imported directly rather than injected:
 the file routes are `@studio/project-shell`'s `projectApi`, the catalogue types and the
 playlist RESOLUTION are `@studio/mediatek`'s, and the playlist format is `@studio/song`'s. A
 seam over those would be a seam over something that is already one thing.
+
+### Listening in the tab is optional, and its absence is deliberate
+
+`Deck.setListening` is the one seam member the desk draws a control for only when the host
+supplies it. The "Écouter ici" checkbox is **off by default**: the sound already comes out of the
+machine's audio interface, so streaming it into the tab doubles it. On a laptop with no monitors
+it is the only way to hear anything, which is why it exists at all.
+
+A host with no stream player gets **no checkbox**, not a disabled one. A checkbox that cannot be
+honoured is worse than none: it says the sound could be here, and the only thing it changes is
+your confidence about why it is not.
+
+### Two services, two credentials
+
+`service.ts` talks to two things, and they do not authenticate the same way — so they cannot
+share a `get`:
+
+| | how it is reached | credential |
+|---|---|---|
+| the file service | `FileLink.base`, from the engine's own probe reply | the three shared `x-studio-*` headers (`fileHeaders`) |
+| pl8's library | `LibraryLink.base`, supplied by the host | the session cookie, `credentials: "include"` |
+
+The file service sits on a machine with no cookie jar, and `requireEngineToken` gates the whole
+service before `/mediatek` is even mounted — so a call missing the engine token is a 401 whatever
+it asks for. Sending `fileHeaders()` at pl8 would be the mirror mistake: a 401 carrying an engine
+token nobody there can check. `fileHeaders` is safe to call from a view because the gate
+configures the transport before anything renders.
+
+The base rather than a derived path, in both cases, because the prefix differs by host: pl8
+answers at `/api` on its own origin and at `/pl8/api` from st0's, and a package that guessed would
+be wrong for one of them.
+
+Both read the SERVER's sentence out of an error body rather than throwing the bare status. Every
+route answers `{error}` with something actionable — "engine binary not found", "is not in this
+cache" — and a surface can only be as honest as the error it is handed.
 
 ## What is NOT in here
 

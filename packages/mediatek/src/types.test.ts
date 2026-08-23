@@ -9,8 +9,7 @@ describe("asFamily", () => {
     for (const f of FAMILIES) expect(asFamily(f)).toBe(f);
   });
 
-  // Everything a query string can actually deliver: absent, empty, wrong case, an array from a
-  // repeated parameter, an object from `?family[x]=y`.
+  // Everything a query string can deliver: absent, empty, wrong case, an array, an object.
   it("rejects anything else", () => {
     for (const v of [undefined, null, "", "Songs", "song", ["songs"], {}, 0])
       expect(asFamily(v)).toBeUndefined();

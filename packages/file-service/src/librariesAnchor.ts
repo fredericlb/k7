@@ -7,24 +7,7 @@ import { join } from "node:path";
 import { LIBRARIES_DIR } from "@studio/song/sharedFolders";
 import { slugify, userRoot } from "./slug.ts";
 
-/**
- * A path to hand `resolveChain`, for a request with no workspace on it.
- *
- * `resolveChain` takes a PROJECT dir and reaches the libraries at `../_libraries`
- * (`librariesDirFor`), so what it actually needs is somewhere one level under a workspace root.
- * This returns such a path — a workspace root joined with a name that need not exist, because
- * nothing reads the leaf; only its parent is walked.
- *
- * ANY workspace of this account will do, and that is the whole reason this can exist. The
- * libraries are a git submodule of the account's one library repository, mounted identically in
- * every workspace: two clones that disagreed would be two checkouts of the same remote at
- * different commits, which is a sync problem rather than an ambiguity about what `@st0/stems`
- * means. The first one holding a checkout wins, in readdir order, so the answer is stable for as
- * long as the disk is.
- *
- * Null when the account has no workspace with a libraries checkout — a real and fixable state
- * (nothing has been cloned on this machine yet), which the caller reports rather than throwing.
- */
+/** A path to hand `resolveChain` when a request has no workspace; ANY of the account's will do (docs/processChain.md). */
 export function librariesAnchor(userEmail: string): string | null {
   const root = userRoot(slugify(userEmail));
   let names: string[];
@@ -36,9 +19,7 @@ export function librariesAnchor(userEmail: string): string | null {
   for (const name of names.sort()) {
     const ws = join(root, name);
     if (!existsSync(join(ws, LIBRARIES_DIR))) continue;
-    // The leaf is a PLACEHOLDER and is never opened: `librariesDirFor` only resolves `..` off
-    // it. Named for what it is, so an error message quoting the path does not send anybody
-    // looking for a project that was never there.
+    // The leaf is a PLACEHOLDER `librariesDirFor` only resolves `..` off, and is named for that.
     return join(ws, "(no project)");
   }
   return null;

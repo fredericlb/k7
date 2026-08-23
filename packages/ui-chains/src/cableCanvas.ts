@@ -13,8 +13,7 @@ export const WOBBLE_HZ = 1.2; // crests per second travelling down the cable
 export const WOBBLE_STEP = 8; // densify a segment to ~this spacing so the curve is smooth
 export const WOBBLE_MAX_SAMPLES = 96; // cap per edge, so a very long cable can't explode the point count
 
-// The wobble is an ornament at 1.2 Hz; redrawing it at a 149 Hz screen's rate is rasterising
-// five frames nobody can tell apart. A camera move is NOT throttled by this — see DomChains.
+// The wobble is an ornament at 1.2 Hz, so it is capped; a camera move is NOT. See docs/wobble.md.
 export const WOBBLE_FPS = 30;
 
 // Stroke widths in WORLD px, the numbers .dgx-cbl / .dgx-cbl-shadow carried inline in the SVG.
@@ -22,27 +21,17 @@ export const CABLE_W = 2.2;
 export const SHADOW_W = 4.4;
 // .dgx-cbl-shadow was `stroke:#000; stroke-opacity:.5`, which canvas spells as one colour.
 export const SHADOW_COLOR = "rgba(0,0,0,.5)";
-// An AUTOMATION cable's dress, the numbers `.dgx-cbl.auto` carried in the SVG: thinner,
-// dashed, and an arrowhead into the knob it drives — a curve does not plug into a socket,
-// so the head is what says where it lands. Same cable otherwise: it hangs, sways, and rides
-// over the cards exactly as a signal cable does.
+// An AUTOMATION cable's dress — thinner, dashed, an arrowhead into the knob. See docs/hang.md.
 export const AUTO_W = 1.8;
 export const AUTO_SHADOW_W = 3.2;
 export const AUTO_DASH: readonly number[] = [5, 4];
 export const AUTO_ARROW = 6.5; // arrowhead length, world px (scaled by boost like the strokes)
 const NO_DASH: readonly number[] = [];
 
-/**
- * Only what this file calls on a canvas context, so a test can pass a recorder instead.
- *
- * A real `CanvasRenderingContext2D` satisfies it structurally, which is the point: this
- * package draws, and depending on the DOM's types to do it would put a lib requirement on
- * every consumer for six method signatures.
- */
+/** Only what this file calls on a canvas context, which a real one satisfies structurally. */
 export interface CableCtx {
   lineWidth: number;
-  // A colour string is all this file ever assigns; the `object` arm is only what lets a real
-  // context — which also takes a gradient or a pattern — satisfy this interface.
+  // A colour string is all this file assigns; the `object` arm lets a real context satisfy this.
   strokeStyle: string | object;
   fillStyle: string | object;
   lineCap: string;
@@ -88,12 +77,7 @@ function room(s: CableScratch, count: number): Float64Array {
   return s.buf;
 }
 
-/**
- * A still cable's points, flattened into the scratch. Returns the point count.
- *
- * The base polyline is what `smoothPath` drew at rest, so tracing it through the same
- * `tracePolyline` below is what makes a cable's shape independent of whether it is live.
- */
+/** A still cable's points, flattened into the scratch — the rest geometry. Returns the point count. */
 export function flattenInto(s: CableScratch, pts: readonly Pt[]): number {
   const xy = room(s, pts.length);
   for (let i = 0; i < pts.length; i++) {
@@ -103,15 +87,7 @@ export function flattenInto(s: CableScratch, pts: readonly Pt[]): number {
   return pts.length;
 }
 
-/**
- * A live cable's points, displaced along their own normals by a travelling sine — plus the
- * swing's offset, when the cable's slack is in motion — into the scratch. Returns the count.
- *
- * The envelope is `sin(πu)`, zero at both ends, so a live cable's endpoints sit exactly where
- * the still one's do — which is why the label and the arrowhead never have to be redrawn. The
- * sway rides the SAME envelope: however hard a cable swings, it stays plugged in.
- * Allocates nothing but the buffer it may have to grow.
- */
+/** A live cable's points, displaced by a travelling sine and the swing, under `sin(πu)`. See docs/wobble.md. */
 export function wobbleInto(
   s: CableScratch,
   g: CableGeom,
@@ -136,12 +112,7 @@ export function wobbleInto(
   return n;
 }
 
-/**
- * A STILL cable mid-swing: the base points displaced by the slack's offset under the same
- * pinned-ends envelope, u approximated by index — the base polyline is sampled near-uniformly
- * (hangPoints), and a swing does not need arc-length exactness the way a travelling wave does.
- * This is also what a cable draws during a node MOTION, whose geometry carries no samples.
- */
+/** A STILL cable mid-swing, `u` approximated by index since `hangPoints` samples near-uniformly. */
 export function swayInto(
   s: CableScratch,
   base: readonly Pt[],
@@ -158,14 +129,7 @@ export function swayInto(
   return n;
 }
 
-/**
- * Trace a flat point buffer as the SAME cubics `smoothPath`/`cubicSegments` describe, into
- * the context's current path.
- *
- * This is the whole safety argument of leaving SVG: the control points below must be the ones
- * `cubicSegments` computes, or a cable changes shape the day it stops being a string. A test
- * asserts exactly that, which is what `smoothPathXY`'s byte-identity test used to do.
- */
+/** Trace a flat point buffer as the SAME cubics `smoothPath` describes — the contract, docs/wobble.md. */
 export function tracePolyline(
   ctx: CableCtx,
   xy: ArrayLike<number>,
@@ -200,16 +164,13 @@ export interface CableDraw {
   geom: CableGeom;
   color: string;
   live: boolean;
-  // The cable's swing state, read at DRAW time — the object is shared with whatever steps the
-  // spring, so a settling cable repaints without the draw list being rebuilt. Absent = still.
+  // The cable's swing state, read at DRAW time and shared with whatever steps the spring.
   sway?: { ox: number; oy: number };
-  // The dress an AUTOMATION cable wears (see AUTO_*). Absent, the signal defaults stand —
-  // the cable itself is the same cable, which is the point.
+  // The dress an AUTOMATION cable wears (see AUTO_*); absent, the signal defaults stand.
   width?: number;
   shadowWidth?: number;
   dash?: readonly number[];
-  // Draw an arrowhead at the target end, this long in world px — oriented by the LAST DRAWN
-  // segment, so a swinging cable's head follows its own tangent into the knob.
+  // An arrowhead at the target end, this long in world px, oriented by the LAST DRAWN segment.
   arrowSize?: number;
 }
 
@@ -221,17 +182,11 @@ export interface CableFrame {
   dpr: number;
   cables: readonly CableDraw[];
   phase: number;
-  // World-unit stroke multiplier that grows as the camera pulls back, keeping on-screen thickness constant.
+  // World-unit stroke multiplier that keeps on-screen thickness constant as the camera pulls back.
   boost: number;
 }
 
-/**
- * Draw the whole signal-cable layer.
- *
- * The canvas lives OUTSIDE the panned/zoomed world element — a canvas scaled by CSS goes
- * blurry — so the camera is applied to the context instead, and everything below is in world
- * coordinates exactly as the SVG was.
- */
+/** Draw the whole signal-cable layer, the camera applied to the CONTEXT. See docs/wobble.md. */
 export function drawCables(
   ctx: CableCtx,
   f: CableFrame,
@@ -262,9 +217,7 @@ export function drawCables(
     if (n < 2) continue;
     ctx.beginPath();
     tracePolyline(ctx, scratch.buf, n);
-    // Shadow then cable, per cable rather than in two passes — the SVG painted them in this
-    // order inside one <g> each, so a crossing cable's shadow falls on its neighbour the same
-    // way. The shadow is always SOLID: the dash is the cable's dress, the shadow its weight.
+    // Shadow then cable, per cable rather than in two passes, and the shadow always SOLID.
     ctx.setLineDash(NO_DASH);
     ctx.strokeStyle = SHADOW_COLOR;
     ctx.lineWidth = (c.shadowWidth ?? SHADOW_W) * f.boost;
@@ -273,8 +226,7 @@ export function drawCables(
     ctx.strokeStyle = c.color;
     ctx.lineWidth = (c.width ?? CABLE_W) * f.boost;
     ctx.stroke();
-    // The arrowhead, off the last DRAWN segment: a swinging cable's head keeps pointing
-    // along the cable and into the knob, whatever the spring is doing to the middle.
+    // The arrowhead, off the last DRAWN segment, so a swinging cable's head still points into the knob.
     if (c.arrowSize) {
       const bx = scratch.buf[(n - 2) * 2];
       const by = scratch.buf[(n - 2) * 2 + 1];

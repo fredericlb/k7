@@ -30,8 +30,7 @@ export function Minimap({
 }: {
   reloadKey: number;
   orbit: WebTrack[]; // the live Strudel lanes — see the rows note below
-  // Each lane's automation, by track id. Taken for the same reason the rows are built the same
-  // way: this component's job is to keep its rows lined up with the timeline's.
+  // Each lane's automation, by track id — taken for the reason the rows are built the same way: they must line up with the timeline's.
   automation?: Record<string, WebAutomationLane[]>;
   // The timeline caret. `beat < 0` means its row's LABEL is selected, so there is no column to mark.
   caret: { row: RowKey; beat: number } | null;
@@ -57,8 +56,7 @@ export function Minimap({
     return Math.ceil((end + 1) / barBeats) * barBeats;
   }, [proj, barBeats]);
 
-  // The same rows the timeline draws, from the same track list — dropping the live lanes also dropped any group
-  // whose only members they were, and a 4-lane timeline showed up here as one.
+  // The same rows the timeline draws, from the same track list — dropping the live lanes also dropped the groups they were in.
   const rows = useMemo(
     () =>
       proj ? projectRows(proj, [...proj.tracks, ...orbit], [], automation) : [],
@@ -101,8 +99,7 @@ export function Minimap({
       className="relative w-full shrink-0 cursor-pointer select-none overflow-hidden border-t border-border bg-card/30"
       style={{ height: h }}
     >
-      {/* one row per lane, clips positioned by beat — a group holds no clips, so it
-          reads as a plain grey band over the tracks it owns */}
+      {/* one row per lane, clips positioned by beat; a group holds none, so it reads as a plain grey band over the tracks it owns */}
       {rows.map((row, ri) =>
         row.kind === "group" ? (
           <div
@@ -120,9 +117,7 @@ export function Minimap({
             style={{ top: ri * rowH, height: rowH }}
           />
         ) : row.kind === "automation" ? (
-          // An automation lane, as a thin mauve rule. Drawn for the reason a take is: this
-          // component's job is to keep its rows LINED UP with the timeline's, so a row the
-          // timeline shows and this one skips would put every lane below it one step out.
+          // An automation lane, as a thin mauve rule: a row the timeline shows and this one skips puts every lane below it out.
           <div
             key={`auto:${row.track.id}:${row.lane.param}`}
             title={`${row.track.name} — ${row.lane.param}`}
@@ -132,9 +127,7 @@ export function Minimap({
             <div className="absolute inset-x-0 top-1/2 h-px bg-[#a889b5]/60" />
           </div>
         ) : row.kind === "take" ? (
-          // A take, as pale marks: it is not playing, and the minimap's job here is to keep the
-          // rows lined up with the timeline's — drawing the LANE's clips again on this row (the
-          // branch below) would read as material that is there twice.
+          // A take, as pale marks: it is not playing, and drawing the LANE's clips again would read as material that is there twice.
           <div
             key={`take:${row.track.id}:${row.n}`}
             title={`${row.track.name} — take ${row.n}`}
@@ -189,9 +182,7 @@ export function Minimap({
         ),
       )}
 
-      {/* caret. On a beat: a full-height guide down the column plus a module on its
-          own row. On a label: no column to point at — the whole row lights up
-          instead, which is what "this row is selected" looks like from up here. */}
+      {/* caret: a full-height guide down the column on a beat, and on a label the whole row lit, there being no column to point at. */}
       {caret && caretRow >= 0 && onLabel && (
         <div
           className="pointer-events-none absolute inset-x-0 bg-primary/40 outline outline-1 -outline-offset-1 outline-primary"
@@ -204,8 +195,7 @@ export function Minimap({
             className="pointer-events-none absolute inset-y-0 w-px bg-primary/70"
             style={{ left: pct(caret.beat) }}
           />
-          {/* the caret names its ROW; nesting and the live lanes reorder them, so
-              find where that row is actually drawn */}
+          {/* the caret names its ROW, and nesting plus the live lanes reorder them, so find where that row is actually drawn */}
           {caretRow >= 0 && (
             <div
               className="pointer-events-none absolute bg-primary"
@@ -225,19 +215,7 @@ export function Minimap({
   );
 }
 
-/**
- * The live playhead, and the ONLY thing here that knows the transport.
- *
- * The subscription sits in this leaf rather than in the body above, which is the rule the
- * timeline already follows (`TimelineTab`'s `Playhead`): the body draws one div per row and one
- * per CLIP, and reading the playhead up there reconciled all of them 20 times a second to move
- * a single line. See `docs/timeline.md`.
- *
- * The line is the element's LEFT EDGE — the box is full width and gets translated, because a
- * percentage translate is a percentage of the element's own width, which is the minimap's only
- * when the element spans it. Worth the indirection: the transport then moves this without a
- * layout, and the row already clips.
- */
+/** The live playhead, and the ONLY thing here that knows the transport — a leaf, and translated as the element's LEFT EDGE (docs/timeline.md). */
 function MinimapPlayhead({
   totalBeats,
   tempo,
@@ -246,8 +224,7 @@ function MinimapPlayhead({
   tempo: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  // Per animation frame, written straight onto the node — the engine's 50 ms cadence is a
-  // visible step on a bar this short. See docs/playhead.md.
+  // Per animation frame, written straight onto the node — 50 ms is a visible step on a bar this short (docs/playhead.md).
   usePlayheadFrames(
     useCallback(
       (seconds: number) => {
@@ -265,8 +242,7 @@ function MinimapPlayhead({
     <div
       ref={ref}
       className="pointer-events-none absolute inset-y-0 left-0 w-full border-white border-l"
-      // Hidden until the first callback says where it is: the position is written to the node
-      // rather than rendered, so an unstyled first paint would flash the line at beat 0.
+      // Hidden until the first callback says where it is: the position is written to the node, so a first paint would flash it at beat 0.
       style={{ willChange: "transform", visibility: "hidden" }}
     />
   );

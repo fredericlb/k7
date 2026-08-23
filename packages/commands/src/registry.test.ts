@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadCommandSpecs } from "./commandSpec";
 import { SID_HANDLERS } from "./commands";
 
-// A command in commands.yaml names a `sid`; the handler for it lives in
-// SID_HANDLERS. This asserts the two never drift apart — adding a command without a
-// handler, or renaming a sid on one side only, fails here instead of at runtime on
-// whichever surface (CLI or web) types the command.
+// commands.yaml names a `sid` and SID_HANDLERS holds it: a drift fails here, not at runtime.
 describe("command registry integrity (commands.yaml <-> SID_HANDLERS)", () => {
   const specs = loadCommandSpecs();
   const yamlSids = [...new Set(specs.map((s) => s.sid))];

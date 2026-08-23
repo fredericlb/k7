@@ -13,21 +13,7 @@ export interface EnvelopeProject {
   timeSigNumerator: number;
 }
 
-/**
- * Everything `regionWaveform` reads, in one string.
- *
- * The id is NOT enough on its own, and that is the whole point: `event trim` rewrites the event's
- * file's `from`/`to` and nothing else, so the placement keeps its id, its start and its length
- * while the material under it changes. A cache keyed on the id alone answered the trimmed block
- * with the untrimmed envelope — for the rest of the session, since nothing ever evicted it.
- *
- * `sourceName` covers the other way the material changes without the placement moving: a bounce
- * (`clip process`) repoints the clip at a new file and leaves everything else alone.
- *
- * What is deliberately absent is the file's CONTENT: the service folds a fingerprint into its own
- * signature, and a browser cannot see one. A file rewritten in place under the same name is
- * therefore still stale here, and a reload is what clears it.
- */
+/** Everything `regionWaveform` reads, in one string — the id alone is not enough, since a trim moves the material and nothing else. */
 export function clipEnvelopeKey(
   clip: WebClip,
   project: EnvelopeProject,
@@ -41,8 +27,7 @@ export function clipEnvelopeKey(
     clip.start,
     clip.sourceFrom ?? "",
     clip.sourceTo ?? "",
-    // Only the FACT of a warp reaches the browser (WebClip.warped), so turning one on or off is
-    // caught here and moving a marker inside it is not — the markers stay engine-side.
+    // Only the FACT of a warp reaches the browser, so turning one on or off is caught here and moving a marker inside it is not.
     clip.warped ? 1 : 0,
     project.tempo,
     project.timeSigNumerator,

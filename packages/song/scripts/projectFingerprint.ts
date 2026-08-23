@@ -56,8 +56,7 @@ for (const t of [...doc.tracks].sort((a, b) => a.id.localeCompare(b.id))) {
     .join(" ");
   out.push(`track ${t.id}${io ? `  ${io}` : ""}`);
   for (const p of t.plugins) {
-    // Params by NAME and value: a merge that loses a base's default is exactly the kind
-    // of regression this file exists to catch, and the names alone would hide it.
+    // By NAME and value: names alone would hide a merge losing a base's default.
     const params = Object.entries(p.params ?? {})
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${k}=${v}`)
@@ -66,9 +65,7 @@ for (const t of [...doc.tracks].sort((a, b) => a.id.localeCompare(b.id))) {
       p.path ? `preset=${short(p.path)}` : "",
       p.irFile ? `ir=${short(p.irFile)}` : "",
       p.namFile ? `nam=${short(p.namFile)}` : "",
-      // The GRAPH, not its bytes. A recompile can reformat the JSON without changing a
-      // single node, and a byte count reports that as a difference — which is exactly the
-      // false alarm this instrument must not raise.
+      // The GRAPH, not its bytes: a reformat with no node changed must not read as a difference.
       p.dspGraph ? `dsp=${dspShape(p.dspGraph)}` : "",
       p.rack?.length ? `rack=${p.rack.length}` : "",
       p.enabled === false ? "BYPASSED" : "",

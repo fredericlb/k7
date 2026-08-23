@@ -10,17 +10,7 @@ import { webEndpointsDir } from "@studio/engine-client/paths";
 const clean = (s: string): string =>
   s.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "service";
 
-/**
- * Advertise this service's registry, and return the goodbye.
- *
- * Every service holds its OWN registry (see docs/shared.md), so an engine has to heartbeat to
- * all of them to be pickable in all of them. This used to be a single `web-endpoint.json`
- * holding one URL, which only st0 ever wrote — so an engine was listed in st0 and
- * invisible in the médiathèque and the decks, which had registries nobody ever announced to.
- *
- * Failure is swallowed on purpose: an unwritable `~/.studio` must not stop a backend booting,
- * and the supervisor can still be pointed at a registry with `$STUDIO_REGISTRY_URL`.
- */
+/** Advertise this service's registry and return the goodbye; failure is swallowed, since an unwritable `~/.studio` must not stop a boot. See docs/shared.md. */
 export function advertiseRegistry(service: string, url: string): () => void {
   const path = join(webEndpointsDir(), `${clean(service)}.json`);
   try {

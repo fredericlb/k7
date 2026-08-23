@@ -10,23 +10,12 @@ import type { SeparateJob } from "@studio/web-protocol";
 const KEEP_MS = 5 * 60 * 1000;
 const MAX_LINES = 50;
 
-/**
- * Far longer than `render.ts`'s five minutes, because it is bounding a different thing: a
- * render that takes five minutes has hung, while a separation that takes five minutes is a
- * long song on a CPU. The cap is here to stop a wedged worker holding a thread forever, so it
- * is set past any honest run rather than close to the expected one.
- */
+/** Set past any honest run rather than near the expected one — see docs/stemSplit.md. */
 const TIMEOUT_MS = 60 * 60 * 1000;
 
 const jobs = new Map<string, SeparateJob & { at: number; worker?: Worker }>();
 
-/**
- * Keyed by the WORK — who, which file, which model — not by a workspace.
- *
- * cloneJobs keys on the destination because that is what two clones would collide over. Here
- * the thing worth not doing twice is the inference itself: a second tab, a retry or a remount
- * would otherwise start another hour of arithmetic producing byte-identical files.
- */
+/** Keyed by the WORK — who, which file, which model — and not by a workspace; docs/stemSplit.md. */
 function idFor(userEmail: string, source: string, model: string): string {
   return createHash("sha256")
     .update(`${userEmail}\0${source}\0${model}`)
@@ -75,13 +64,7 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
     job.worker = undefined;
   };
 
-  /**
-   * A WORKER, not the event loop. This service is shared: it serves every workspace on the
-   * machine, prewarms waveforms, polls the médiathèque every 60 s and answers `revision()`
-   * every two. An hour of inference on the main thread would stall all of it. Every other
-   * heavy job in this repo is an out-of-process spawn for the same reason; ORT lives in this
-   * process, so a thread is what buys the same property.
-   */
+  // A WORKER, not the event loop: this service is shared, and ORT lives in-process (docs/stemSplit.md).
   const worker = new Worker(
     fileURLToPath(new URL("./separateWorker.ts", import.meta.url)),
     {
@@ -122,8 +105,7 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
       finish({ failed: true, error: String(m.failed), phase: "failed" });
     }
   });
-  // A worker that dies without saying why — an OOM, a native crash inside ORT — would
-  // otherwise leave the job running forever and the poller looping forever.
+  // A worker that dies without saying why would otherwise leave the poller looping forever.
   worker.on("error", (e: Error) => {
     clearTimeout(timer);
     finish({ failed: true, error: e.message, phase: "failed" });
@@ -146,8 +128,7 @@ export function separateJob(id: string): SeparateJob | null {
   return j ? snapshot(j) : null;
 }
 
-// A copy, so a caller cannot hold a reference that keeps changing under it mid-response — and
-// so `worker`, which is not on the wire, never leaves this module.
+// A copy: nothing changes under a caller mid-response, and `worker` never leaves this module.
 function snapshot(j: SeparateJob): SeparateJob {
   return {
     id: j.id,

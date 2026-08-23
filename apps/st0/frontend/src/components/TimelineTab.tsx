@@ -98,44 +98,20 @@ import {
 
 // Fallback beat width, used only before the pane is measured — after that the view's range fills it exactly.
 const PX_PER_BEAT = 24;
-// The gutter, the row height and the marker colour come from @studio/ui-timeline (see the
-// import above). They were redeclared here with the same values when the package was
-// extracted, which is the drift lanes.ts's own header warns about: two surfaces disagreeing
-// about the gutter is a click landing one column off, read as a rounding bug and not one.
-/**
- * The name column, 30% wider here than the shared default.
- *
- * `GUTTER_DESKTOP` is sized for what v1 puts in one — a name. This one carries an alternatives
- * arrow, two meters, an instrument icon, the name and three toggles, so the name was down to a
- * few characters and a title had nowhere to go. Local rather than pushed into `@studio/ui-timeline`
- * because the width is a property of what a surface PUTS in the column, and v1 would only be
- * paying viewport for controls it does not draw.
- *
- * What must not drift is this app's own idea of it: the caret's "left of the first beat" test and
- * useHZoom's anchor maths both subtract the same `GUTTER` variable, and two numbers there is a
- * click landing one column off (see @studio/ui-timeline's lanes.ts).
- */
+/** The name column, 30% wider than the shared `GUTTER_DESKTOP`, since this one carries an arrow, two meters, an icon, a name and three toggles — ONE variable, or a click lands a column off (@studio/ui-timeline's lanes.ts). */
 const GUTTER_WIDE = Math.round(GUTTER_DESKTOP * 1.3);
 
 // Extra lane height when EXPANDED, so a clip can draw its content. Groups stay ROW_H — they hold no clips.
 const EXPAND_EXTRA = 40;
-// The shortest an event may be left by a FREE resize. The grid's own step is the floor while
-// there is one; once Ctrl has suspended it, this is — a 64th, short enough to be a real choice
-// and long enough that an edge dragged past the other does not leave a placement nothing plays.
+// The shortest an event may be left by a FREE resize — a 64th; the grid's own step is the floor while there is one.
 const MIN_FREE_BEATS = 1 / 16;
 const NATURAL = 4; // beats drawn for a length-0 clip
-// How wide a pass must be before its loop mark also gets the glyph. The rule alone stays down to
-// `placedRepeats`' own floor; the 8px icon needs its own width plus air, or a fast loop draws a
-// row of touching glyphs that reads as grit rather than as a repeat.
+// How wide a pass must be before its loop mark also gets the glyph: the 8px icon needs its own width plus air.
 const MIN_LOOP_GLYPH_PX = 18;
 const VU_MIN_DB = -60; // name-header VU meter: dB mapped to an empty header fill
 const VU_MAX_DB = 6; // dB mapped to a full-width header fill
 
-// A track row as the CLIPBOARD reads it — the placements it holds, by ref and start beat. Both
-// halves of `copy` go through it (a rectangle's lanes, and the one lane the caret is on), so what
-// a copied event is called cannot depend on which of the two put it there.
-// `event` is the placement's own words, which the rest of a compiled clip has already merged away
-// — without it a copy can only carry the material's name and where it sat. See clipboard.ts.
+// A track row as the CLIPBOARD reads it — both halves of `copy` go through it, and `event` carries the placement's own words (clipboard.ts).
 const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
   events: r.track.clips.map((c) => ({
     ref: materialOf(c),
@@ -148,56 +124,14 @@ const laneEvents = (r: Extract<Row, { kind: "track" }>) => ({
 const LABEL_SELECTED =
   "bg-primary/25 outline outline-1 -outline-offset-1 outline-primary";
 
-/**
- * What holds the NAME COLUMN still while the lanes pan under it.
- *
- * `sticky left-0` on every gutter cell rather than a second scroll container beside the first:
- * one scroller means one scroll position, so the names cannot drift a pixel out of step with the
- * rows they name — which is the failure mode of every two-pane arrangement, and it shows up as a
- * lane whose label belongs to its neighbour.
- *
- * The `before:` layer is the opaque GROUND, and it is not decoration: every tint this column wears
- * — a group's `bg-muted/60`, the caret's `bg-primary/25`, a selection's `/20` — is
- * semi-transparent, and a sticky cell with nothing behind it would have the clips sliding visibly
- * through the names. `-z-10` puts it under the cell's own content and above whatever scrolls past.
- *
- * `z-30` is over the lane's layers (a selected clip is z-10; an edge handle, a marker and the
- * playhead are z-20) and under the RULER, which sticks the other way at z-40. Where the two cross,
- * the ruler wins — its own spacer is the corner, and a corner belongs to the header.
- */
+/** What holds the NAME COLUMN still while the lanes pan under it: `sticky left-0` on every cell, over an opaque `before:` ground, at z-30 (docs/timeline.md). */
 const GUTTER_STICKY =
   "sticky left-0 z-30 before:absolute before:inset-0 before:-z-10 before:bg-background before:content-['']";
 
 // `beat: LABEL` puts the caret on the row's label — the only position a group or generated lane can take.
 export const LABEL = -1;
 
-/**
- * The two things on this surface that move at ENGINE frame rate, each subscribing for itself.
- *
- * They are separate components for one reason: a `useEngineState` subscription re-renders the
- * component that holds it, so whoever holds it decides how much of the screen a frame costs.
- * Held by TimelineTab, one selector re-rendered the whole arrangement ~23 times a second —
- * see docs/timeline.md for what that measured. Held here, a frame rewrites one absolutely
- * positioned div and nothing else: no lane, no clip, no ruler tick is touched.
- *
- * Everything they need to place themselves arrives as a NUMBER, so React's own bailout does
- * the rest — a parent re-render with an unchanged view window re-renders neither of them.
- */
-/**
- * The take being recorded, drawn on its lane as it grows.
- *
- * Its OWN subscription, for the reason set out above `Playhead`: a `useEngineState` held by
- * TimelineTab re-renders the whole arrangement ~23 times a second. Held here, a frame rewrites one
- * absolutely positioned div — no lane, no other clip, no ruler tick is touched.
- *
- * Not a clip: there is no file yet and nothing on disk names it. It is the shape of what is being
- * played, from where the take started to wherever the transport has got to, so the lane stops being
- * the one place that shows nothing while you record. `addTakeToTrack` writes the real placement on
- * Stop and this disappears under it.
- *
- * Width and not `transform`, unlike the playhead: this element genuinely changes size, and it is
- * absolutely positioned, so the layout it costs is its own and reaches no sibling.
- */
+/** The take being recorded, drawn on its lane as it grows — its OWN subscription, so a frame rewrites one absolutely positioned div (docs/playhead.md). */
 function RecordingClip({
   tempo,
   startBeat,
@@ -215,14 +149,9 @@ function RecordingClip({
   ppb: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  // The take's material starts after the COUNT-IN, not where the transport rolled. This read
-  // `now <= startBeat`, which is the transport's own start: the block appeared the instant Play
-  // was pressed, grew through a count-in that records nothing, and then reached back over those
-  // bars — where the placement that lands on Stop has nothing.
+  // The take's material starts after the COUNT-IN, not where the transport rolled.
   const from0 = recordingFrom(startBeat, countInBeats);
-  // WIDTH per animation frame, not a transform: unlike the playhead this element genuinely
-  // changes size, and only its right edge moves. It is absolutely positioned, so the layout it
-  // costs is its own and reaches no sibling. See docs/playhead.md.
+  // WIDTH per animation frame, not a transform: unlike the playhead this element genuinely changes size — see docs/playhead.md.
   usePlayheadFrames(
     useCallback(
       (seconds: number) => {
@@ -267,18 +196,14 @@ function Playhead({
   height: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  // Written per animation frame instead of rendered per engine frame: the engine speaks every
-  // 50 ms, which is one move every three screen frames and a step you can see. This component
-  // renders once and the line is moved from the callback. See docs/playhead.md.
+  // Written per animation frame instead of per engine frame: 50 ms is one move every three screen frames — see docs/playhead.md.
   usePlayheadFrames(
     useCallback(
       (seconds: number) => {
         const el = ref.current;
         if (!el) return;
         const beat = (seconds * tempo) / 60;
-        // HIDDEN, not unmounted, when the transport is outside the zoomed range — the callback
-        // needs a node to write to on the frame it comes back into view. Still never pinned to
-        // an edge it isn't at.
+        // HIDDEN, not unmounted, outside the zoomed range: the callback needs a node to write to when it comes back.
         const inside = beat >= beatLo && beat <= beatHi;
         el.style.visibility = inside ? "visible" : "hidden";
         if (inside)
@@ -288,10 +213,7 @@ function Playhead({
     ),
   );
   return (
-    // Parked at the lane's left edge and TRANSLATED from there, rather than re-`left`-ed: a
-    // position is layout and a transform is not, so the transport moves this line without
-    // relaying it out sixty times a second. `will-change` earns its keep on exactly this kind
-    // of element — one node, moving continuously for as long as the song plays.
+    // Parked at the lane's left edge and TRANSLATED from there: a position is layout and a transform is not.
     <div
       ref={ref}
       className="pointer-events-none absolute top-0 z-20 w-px bg-white/80"
@@ -312,15 +234,7 @@ const vuFill = (db: number | undefined) =>
     Math.min(1, ((db ?? -Infinity) - VU_MIN_DB) / (VU_MAX_DB - VU_MIN_DB)),
   ) * 100;
 
-/**
- * One lane's meters: the output level across the name header, and — when armed — the input
- * level as a thin bar on its bottom edge.
- *
- * Selects a single number out of the frame, so the store's default `Object.is` already stops
- * a re-render when this lane's level is unchanged; a silent track costs nothing while a loud
- * one plays. The dB is rounded first, because a bar 0.4 dB different is the same bar on
- * screen and re-rendering for it would be paying for a pixel nobody can see.
- */
+/** One lane's meters — the output level across the header, the input level when armed; the dB is rounded first, so a bar nobody can see costs no re-render. */
 function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
   const out = useEngineState((s) => Math.round(s.levels[index] ?? -Infinity));
   const input = useEngineState((s) =>
@@ -328,19 +242,12 @@ function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
   );
   return (
     <>
-      {/* live VU: a faint green fill across the name header, its width the track's output
-          level. Behind the label — the content spans are `relative`, so they paint over
-          this absolutely-placed bar. */}
-      {/* Scaled from the left, not resized: a flat block of colour draws the same either way, and
-          a width would reflow this every time the engine speaks. See @studio/engine-browser's
-          docs/meters.md. */}
+      {/* live VU: a faint green fill behind the label, SCALED from the left rather than resized so it never reflows (@studio/engine-browser docs/meters.md). */}
       <div
         className="pointer-events-none absolute inset-y-0 left-0 w-full origin-left bg-emerald-500/20"
         style={{ transform: `scaleX(${vuFill(out) / 100})` }}
       />
-      {/* armed input meter: a thin red bar pinned to the bottom edge, its fill the live
-          input level. The faint track shows the bar's extent even at silence, so an
-          armed-but-quiet input still reads as armed. */}
+      {/* armed input meter, pinned to the bottom edge; the faint track shows at silence, so a quiet armed input still reads as armed. */}
       {armed && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-red-500/20">
           <div
@@ -353,23 +260,7 @@ function LaneMeter({ index, armed }: { index: number; armed: boolean }) {
   );
 }
 
-/**
- * Which attribute set a lane is playing, in its gutter — drawn only when it HAS a choice.
- *
- * The caller passes an entry or nothing, so "more than one" is already decided upstream: the
- * graph only carries the pair past a list of one (packages/song/docs/alternatives.md), and a
- * lane with a single set should grow no badge.
- *
- * The first set's name IS "1" — the module's own fields have nowhere to carry a name — so one
- * label says the number or the name without choosing between them. It is amber only when the
- * lane is AWAY from that first set, which is the state you must be able to read off the row:
- * otherwise a lane playing a variant of its clips looks like clips gone missing.
- *
- * Clicking opens the lane's ⋮ menu — the one the chains pane opens on that same node, so
- * switching and creating are one behaviour with one implementation rather than two. It is handed
- * the button's own rectangle rather than the pointer, so the menu hangs off the badge whether it
- * was reached by mouse or by keyboard.
- */
+/** Which attribute set a lane is playing, drawn only when it HAS a choice — amber away from the first, and the click opens the lane's ⋮ menu (packages/song/docs/alternatives.md). */
 function LaneAlternative({
   track,
   names,
@@ -390,8 +281,7 @@ function LaneAlternative({
       // The gutter is too narrow to repeat the lane's name, so the tooltip carries it.
       title={title}
       aria-label={title}
-      // As the m/s/a buttons do: the gutter is the row's handle, and opening this must not also
-      // move the caret, select the row, or (on a double tap) send the other panes after it.
+      // As the m/s/a buttons do: the gutter is the row's handle, and opening this must not also move the caret.
       onPointerDown={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       onClick={(e) => {
@@ -413,8 +303,7 @@ function LaneAlternative({
   );
 }
 
-// The lanes' grid layer is `Grid`, in Ruler.tsx beside the ticks it matches — the piano roll
-// draws the same one now. Its memo and the profile that asked for it are documented there.
+// The lanes' grid layer is `Grid`, in Ruler.tsx beside the ticks it matches — its memo is documented there.
 
 interface Caret {
   row: RowKey; // identity, not an index — the orbit lanes renumber the rows
@@ -428,20 +317,12 @@ export interface VideoEdit {
   value: number;
 }
 
-// The shortest shot a drag may leave, in seconds. A zero-length placement is one that exists and
-// shows nothing, and `length: 0` already MEANS "to the end of the source" in this format.
+// The shortest shot a drag may leave, in seconds: `length: 0` already MEANS 'to the end of the source'.
 const V_MIN = 0.04;
 // Seconds drawn for a `length: 0` placement, whose real extent needs the source opened to know.
 const V_NATURAL = 4;
 
-/**
- * A picture placement in hand. Seconds throughout, even though the gesture is happening on a
- * beat grid: the file says seconds, so the drag thinks in them and converts only to draw.
- *
- * `pxPerSec` and the tick list are captured at the GRAB rather than read live, exactly as the
- * audio clip drag captures `ppb`: a zoom arriving mid-drag would otherwise re-scale the offset
- * under the cursor and the shot would slide away from the pointer.
- */
+/** A picture placement in hand, in seconds throughout; `pxPerSec` and the ticks are captured at the GRAB, so a zoom mid-drag cannot slide the shot. */
 interface VDrag {
   trackId: string;
   ref: string;
@@ -462,14 +343,7 @@ interface VDrag {
 const drawnLength = (length: number): number =>
   length > 0 ? length : V_NATURAL;
 
-/**
- * Where a picture drag puts the shot, in seconds. PURE, and exported for its tests.
- *
- * Out here rather than inside the pointer handler because it is the only part of this gesture a
- * test can reach: nothing in this app mounts a component, so the arithmetic that decides what
- * lands in a file is the arithmetic worth pinning. `snapSec` is a parameter for the same reason
- * — the ruler's tick list belongs to the render, and the maths does not need to know.
- */
+/** Where a picture drag puts the shot, in seconds — PURE and exported for its tests, since nothing in this app mounts a component. */
 export function videoDragTo(
   v: Pick<
     VDrag,
@@ -482,9 +356,7 @@ export function videoDragTo(
   if (v.mode === "move")
     return { start: snapSec(v.origStart + deltaSec), length: v.length };
   if (v.mode === "in") {
-    // The head follows the pointer, the source's in-point follows the head, and the EXTENT
-    // shortens by the same amount — so the tail stays exactly where it is. Clamped so a trim
-    // can neither swallow the tail nor ask for a frame before the file starts.
+    // The head follows the pointer, the source's in-point follows the head, and the EXTENT shortens by the same amount.
     const start = Math.max(
       Math.min(snapSec(v.origStart + deltaSec), v.origStart + drawn - V_MIN),
       v.origStart - v.origFrom,
@@ -498,17 +370,7 @@ export function videoDragTo(
   return { start: v.start, length: end - v.origStart };
 }
 
-/**
- * The fields a finished picture drag writes, in SECONDS. PURE, and exported for its tests.
- *
- * The left edge writes THREE, and each is load-bearing:
- *   `source_from` by the same delta as the head moved, or the frame under the new edge is not
- *     the frame that was there — never below zero, there is nothing before the file;
- *   `length` by that delta the other way, or the TAIL slides and the gesture is a move wearing
- *     a trim's clothes.
- * A length-0 shot needs the extent pinned for a second reason on top — its own source would
- * otherwise undo the trim on the next compile — and it is the same write, so no special case.
- */
+/** The fields a finished picture drag writes, in SECONDS — the left edge writes three, and each is load-bearing (docs/picture.md). */
 export function videoDragEdits(v: VDrag): VideoEdit[] {
   if (v.mode === "out")
     return [{ ref: v.ref, field: "length", value: v.length }];
@@ -559,9 +421,7 @@ interface Move {
   toTrackId: string;
   // A pointer drag is live: it commits on release, and must not also be cancelled by the keymap's handlers.
   dragging?: boolean;
-  // Released and written, waiting for the reload to show it. The clip keeps drawing where it was
-  // DROPPED until the project comes back, or it would snap home for the length of a round trip
-  // and jump forward again. Not modal: the keys are yours again the moment you let go.
+  // Released and written, waiting for the reload: the clip keeps drawing where it was DROPPED rather than snapping home for a round trip.
   pending?: boolean;
 }
 
@@ -626,64 +486,26 @@ export function TimelineTab({
 }: {
   active: boolean;
   reloadKey: number;
-  /**
-   * Nothing here can be written — a shared snapshot.
-   *
-   * What it takes away is the EDITING GESTURES, and only those: the caret still moves, a clip
-   * still opens, m and s still work (locally), the ruler still seeks. `fsend` is what actually
-   * refuses a write, one level down and for every surface at once; this is about not offering a
-   * grip that leads nowhere. A drag that runs and snaps back is worse than one that never
-   * starts, and a resize handle that lights up under the cursor is a promise.
-   */
+  /** Nothing here can be written — a shared snapshot; what it takes away is the EDITING GESTURES and only those (docs/shared.md). */
   readOnly?: boolean;
-  /**
-   * Is a take rolling, and from which beat — so an armed lane can draw it as it grows.
-   *
-   * Both are PROPS and not subscriptions: they change once per take, and a `useEngineState` held
-   * by this component re-renders the whole arrangement (see the note above `Playhead`). The one
-   * value that does move per frame is read inside `RecordingClip`, which is the only thing a frame
-   * then touches.
-   */
+  /** Is a take rolling, and from which beat — both PROPS and not subscriptions, since they change once per take. */
   rolling: boolean;
   takeStartBeat: number;
-  /** The take's pre-roll in BEATS (count-in bars × the signature), so the growing clip can
-   *  skip it: those bars record nothing. */
+  /** The take's pre-roll in BEATS, so the growing clip can skip it: those bars record nothing. */
   takeCountInBeats: number;
   // The live pattern lanes, polled by the shell: one poll feeds both this and the minimap, so they can't disagree.
   orbit: WebTrack[];
-  // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`).
-  // Empty for a song that carries none, which is most of them. See hooks/useVideoDoc.ts.
+  // The song's picture lanes, from the SECOND compile of the same folder (`GET /video-doc`) — see hooks/useVideoDoc.ts.
   videoTracks: WebVideoTrack[];
-  /**
-   * A picture placement was dragged: set these fields of it, in SECONDS.
-   *
-   * By `ref` and not by index, because that is what the file's placement is keyed on and a
-   * placement that moved in the file between render and drag is still the one grabbed. The
-   * values are seconds even though the gesture happened on a beat grid — the file says seconds,
-   * and converting at the edge is what keeps re-typing `tempo:` from moving anybody's cut.
-   *
-   * A LIST rather than one field per call, because trimming the head writes two of them (three
-   * on a length-0 shot) and they describe one gesture. Sent separately they would be two reads
-   * and two writes of the same file, and the second would be built on the pre-first text.
-   */
+  /** A picture placement was dragged: set these fields of it in SECONDS, by `ref`, as a LIST — one gesture, one read-modify-write (docs/picture.md). */
   onVideoEdit?: (trackId: string, edits: VideoEdit[]) => void;
   setStatus: (s: string) => void;
   onEditTarget: (t: EditTarget | null) => void; // the clip under the caret, for the Editor panel
-  // A clip was CLICKED — a press that never moved. The shell shows its content where the graph
-  // is; the caret-driven `onEditTarget` above is a different question, answered continuously.
+  // A clip was CLICKED — a press that never moved; the caret-driven `onEditTarget` above is a different question.
   onOpenClip?: (t: EditTarget) => void;
-  // The bare lane was clicked — no clip. The counterpart of `onOpenClip`: the shell puts the
-  // graph back where a clip's content had gone. The caret has already moved off the clip.
+  // The bare lane was clicked — the counterpart of `onOpenClip`: the shell puts the graph back.
   onEmptyClick?: () => void;
-  /**
-   * The caret: its position (the minimap draws it), the track it is on (m/s act on that track by
-   * name), and the same two facts as TIMECODES — where it is, and where the event under it starts.
-   *
-   * The timecodes are computed here rather than by the shell because this component is the only
-   * one that knows the beat grid: `beatsToPosition` needs the time signature, and a consumer that
-   * had to fetch one to read the caret would be reading it a tick late. They are what lets a
-   * command address what the caret is looking at — see commandFill.ts' `caretAnswers`.
-   */
+  /** The caret: its position, the track it is on, and the same two facts as TIMECODES — computed here, the only place that knows the beat grid. */
   onCaret: (
     c: Caret & {
       trackId: string | null;
@@ -691,21 +513,11 @@ export function TimelineTab({
       tc: string | null;
       /** Where the event under it STARTS — how every `event` verb addresses one. Null on bare lane. */
       eventTc: string | null;
-      /**
-       * The RECTANGLE, when one is drawn: the lanes it covers comma-joined, and its span.
-       *
-       * The same three values `feedEventsMove` sends, computed once here — but reported
-       * unconditionally rather than only while the bar is filling `events move`, because a
-       * command can now be answered by the selection BEFORE its form exists (`selection consolidate`).
-       * `tracks` keeps every lane the rectangle touched, including several: a verb that only
-       * works on one has to be the one to say so.
-       */
+      /** The RECTANGLE, when one is drawn: the lanes it covers comma-joined, and its span — reported unconditionally, since a command may be answered before its form exists. */
       selection: { tracks: string; from: string; to: string } | null;
     },
   ) => void;
-  // Whether a selection or zoom is live, so z / shift+z / 0 can be conditional bindings rather than dead commands.
-  // What state the timeline is in, for the key conditions — and for `expanded`, which the SHELL
-  // acts on: tall lanes need the height the pane below is holding. See docs/shell.md.
+  // What state the timeline is in, for the key conditions — and for `expanded`, which the SHELL acts on (docs/shell.md).
   onView: (v: {
     selecting: boolean;
     zoomed: boolean;
@@ -714,15 +526,13 @@ export function TimelineTab({
   }) => void;
   // Right-click: report what is under the cursor and where, so the shell can open its menu (see contextMenu.ts).
   onContextMenu?: (ctx: MenuCtx, x: number, y: number) => void;
-  /** Make a lane — the corner button over the name column. Absent ⇒ no button, which is what a
-   *  frozen or read-only song gets. */
+  /** Make a lane — the corner button over the name column; absent ⇒ no button, which is what a frozen song gets. */
   onNewTrack?: () => void;
   // Move the transport, in seconds — the same engine seek the minimap's click uses.
   onSeek?: (seconds: number) => void;
   // Set/clear the transport loop region, in seconds (Shift+L → toggleLoop below).
   onSetLoop?: (start: number, end: number, enabled: boolean) => void;
-  // Commit a move as `event move <track> <from> <to>`; a 4th arg moves lanes, which the brain re-checks its side.
-  /** An edge handle was dragged: re-time the event at `fromTc` to span newStart..newEnd. */
+  /** An edge handle was dragged: re-time the event at `fromTc` to span newStart..newEnd (a move is `event move`, whose 4th argument changes lane). */
   onResizeEvent?: (
     trackId: string,
     fromTc: string,
@@ -742,9 +552,7 @@ export function TimelineTab({
     toTc: string,
     toTrackId?: string,
   ) => void;
-  // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar
-  // instead of committing, `live` on every frame and once more on release. The shell decides
-  // which command that is; this only reports the numbers it already knows. See docs/timeline.md.
+  // Present only while the command bar is filling `event move`: the drag then ANSWERS the bar instead of committing (docs/timeline.md).
   feedMove?: (
     trackId: string,
     fromTc: string,
@@ -752,44 +560,26 @@ export function TimelineTab({
     toTrackId: string | undefined,
     live: boolean,
   ) => void;
-  // Present only while the bar's OPEN field is asking for a timecode: a click on the ruler
-  // answers it there and then, instead of seeking. Nothing else on the timeline changes.
+  // Present only while the bar's OPEN field is asking for a timecode: a click on the ruler answers it instead of seeking.
   feedTimecode?: (tc: string, live: boolean) => void;
-  // Present only while the bar is filling `events move`: the selection rectangle then ANSWERS
-  // its region — tracks, from, to — on every change, so growing it keeps the fields true.
-  // The shell decides which command that is; this only reports what it already knows.
+  // Present only while the bar is filling `events move`: the rectangle then ANSWERS its region on every change.
   feedEventsMove?: (tracks: string, from: string, to: string) => void;
-  // A header was DOUBLE-clicked: point the shell's other panes at this row. Selecting it is
-  // this component's own business (the caret); following it is not — see docs/timeline.md.
+  // A header was DOUBLE-clicked: point the shell's other panes at this row — selecting it is this component's own business.
   onFocusRow?: (target: RowTarget) => void;
   // Per-track mute/solo/arm by track id — the same state the graph's track nodes draw, so the two stay in lockstep.
   trackControls?: Record<string, { mute: number; solo: number; arm: number }>;
   onTrackToggle?: (id: string, control: "mute" | "solo" | "arm") => void;
-  /**
-   * What the graph knows about each lane's NODE, by lane id: its other attribute sets, and its
-   * freeze. `alternatives` carries an entry only for a lane that HAS a choice.
-   *
-   * From the graph, by way of the shell, because both belong to the module a lane IS and this
-   * pane reads the compiled project rather than the routing model. The same maps the chains
-   * pane's lane nodes draw from, so neither surface can name a set the other does not.
-   * See packages/song/docs/alternatives.md.
-   */
+  /** What the graph knows about each lane's NODE, by lane id — the same maps the chains pane draws from (packages/song/docs/alternatives.md). */
   laneNodes?: {
     alternatives?: Record<
       string,
       { alternatives: string[]; alternative: string }
     >;
     frozen?: Record<string, "at" | "inside">;
-    /** Each lane's automation, by track id — from the graph, which is where the binding and the
-     *  curve both live. One row per entry, drawn under the lane. */
+    /** Each lane's automation, by track id, from the graph — one row per entry, drawn under the lane. */
     automation?: Record<string, WebAutomationLane[]>;
   };
-  /**
-   * Open a lane's ⋮ menu at a point — switch or add an alternative, freeze or thaw.
-   *
-   * The shell's, not this pane's: it is the same menu the chains graph opens on the same node,
-   * and it is the shell that owns turning a pick into a command or a half-typed bar line.
-   */
+  /** Open a lane's ⋮ menu at a point — the shell's, being the same menu the chains graph opens on the same node. */
   onNodeMenu?: (
     n: {
       module?: string;
@@ -801,24 +591,15 @@ export function TimelineTab({
   ) => void;
   ref?: React.Ref<TimelineHandle>;
 }) {
-  // The ONE live value the body itself needs, and it changes on a keystroke rather than on a
-  // frame. Everything else the engine sends is drawn by Playhead and LaneMeter, which
-  // subscribe for themselves: this component held a `s => s` selector, and since the store
-  // hands out a fresh snapshot ~20x/s, that re-rendered the entire arrangement at frame rate
-  // whether or not anything in it had changed. docs/timeline.md has the profile.
+  // The ONE live value the body itself needs; the rest is drawn by Playhead and LaneMeter, which subscribe for themselves (docs/timeline.md).
   const armedIds = useEngineState((s) => s.armed, arrayEq);
-  // Re-asked when the project moves, and again on a backoff while the service is not answering.
-  // This pane is the one the hole was FOUND on: a single empty reply — a file service restarting
-  // mid-request — pinned "timeline unavailable" for half an hour over a healthy service, because
-  // nothing here re-asks unless a command moves `reloadKey`. See useDocument.
+  // Re-asked when the project moves, and again on a backoff while the service is not answering — see useDocument.
   const { doc: proj, error } = useDocument(() => api.projectDoc(), reloadKey);
   const [caret, setCaret] = useState<Caret>({ row: "", beat: 0 });
   const [sel, setSel] = useState<Selection | null>(null);
   // Expanded: taller lanes showing each clip's content. A per-session view toggle, not a saved preference.
   const [expanded, setExpanded] = useState(false);
-  // Which unit the RULER counts in. The same kind of toggle, and for the same reason: a song
-  // carrying picture is read in bars while you write it and in seconds while you cut it, and
-  // that is about the minute you are in rather than about the project. See `RulerMode`.
+  // Which unit the RULER counts in: a song carrying picture is read in bars while you write it and in seconds while you cut it.
   const [rulerMode, setRulerMode] = useState<RulerMode>("bars");
   // The name of the marker the cursor is over, shown in the header while hovering.
   const [hoverMarker, setHoverMarker] = useState<string | null>(null);
@@ -835,9 +616,8 @@ export function TimelineTab({
   projRef.current = proj;
   const commitMoveRef = useRef<() => void>(() => {});
 
-  // A committed move stops being drawn once the project it wrote has come back — which is also
-  // the right answer when the command FAILED: the clip returns to where the file still says it
-  // is, rather than sitting at a position nothing on disk agrees with.
+  // A committed move stops being drawn once the project it wrote has come back — which is also the right answer when the command FAILED.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: `proj` IS the signal — a new doc arrived.
   useEffect(() => {
     setMove((m) => (m?.pending ? null : m));
@@ -861,8 +641,7 @@ export function TimelineTab({
   );
   const clipEnd = (c: { start: number; length: number }) =>
     c.start + (c.length > 0 ? c.length : NATURAL);
-  // What a clip's ENVELOPE depends on in the project, held as one identity: the blocks below are
-  // memoised, and an object literal in a prop is exactly what memo cannot see through.
+  // What a clip's ENVELOPE depends on in the project, as one identity: an object literal in a prop is what memo cannot see through.
   const envProject = useMemo(
     () => ({
       tempo: proj?.tempo ?? 120,
@@ -1008,18 +787,12 @@ export function TimelineTab({
     );
   }, [active, proj, clipUnderCaret, onEditTarget]);
 
-  // Which materials are placed more than once, and where each one's first placement is — one
-  // pass over the song per compile, rather than a scan of every lane per drawn block.
+  // Which materials are placed more than once, and where each one's first placement is — one pass per compile.
   const instances = useMemo(
     () => materialInstances(proj?.tracks ?? []),
     [proj],
   );
-  /**
-   * The material the caret is parked on, when it has copies elsewhere — what lights the others up.
-   *
-   * Null when the material is placed only once: there would be no others to light, and saying so
-   * here keeps the per-block test to one string comparison.
-   */
+  /** The material the caret is parked on when it has copies elsewhere — null when it is placed only once. */
   const kinOfCaret = useMemo(() => {
     if (!clipUnderCaret) return null;
     const ref = materialOf(clipUnderCaret);
@@ -1029,15 +802,12 @@ export function TimelineTab({
   // What m/s aim at from here — a lane's track, a header's group, a pattern lane's GROUP. See docs/timeline.md.
   const caretTrackId = useMemo(() => {
     const target = caretRow && rowTarget(caretRow);
-    // A video lane is not an engine track: no level, no arm, no mixer command. The caret reports
-    // no track id on one, so every consumer downstream refuses it without having to know why.
+    // A video lane is not an engine track: the caret reports no track id on one, so every consumer downstream refuses it.
     return !target || target.kind === "video" ? null : target.id;
   }, [caretRow]);
   // …reported to the shell further down, once the selection rectangle it also carries exists.
 
-  // Click a header: the row itself is selected — the caret parked on its label, the position
-  // `h` off the view's first beat already puts it in. A live rectangle is dropped, because its
-  // head is somewhere else and a click that left one standing would draw two selections.
+  // Click a header: the row itself is selected, and a live rectangle is dropped, or a click would leave two selections drawn.
   const selectRow = useCallback((row: Row) => {
     setSel(null);
     setCaret({ row: rowKey(row), beat: LABEL });
@@ -1052,9 +822,7 @@ export function TimelineTab({
     [onFocusRow],
   );
 
-  // The gutter is the row's handle, on all three kinds of row. Paired with `select-none` in
-  // the class list: a double-click would otherwise take the track's name as a word selection
-  // and leave it highlighted behind the caret's own mark.
+  // The gutter is the row's handle on all three kinds of row, paired with `select-none`: a double-click would else select the name.
   const gutterProps = useCallback(
     (row: Row) => ({
       onClick: () => selectRow(row),
@@ -1157,18 +925,10 @@ export function TimelineTab({
   );
 
   // --- dragging a clip with the mouse -------------------------------------------
-  // The pointer half of Move mode: same state, same commitMove, and the same same-material rule on the target lane.
+
+  // The pointer half of Move mode: same state, same commitMove, same same-material rule on the target lane.
   const ppbRef = useRef(PX_PER_BEAT); // assigned during render, below
-  /**
-   * The ruler's current UNIT in beats — a bar, a beat, a half, a sixteenth — assigned during
-   * render beside `ppbRef` and read on pointerdown.
-   *
-   * A drag snaps to it, which is the whole reason it is here. It snapped to whole BEATS at every
-   * zoom before, so the grid and the gesture disagreed in both directions: zoomed in past the
-   * beat the lines offered eighths the drag could not land on, and zoomed out to bars the drag
-   * still moved in beats you could not see. The zoom is the resolution control everywhere else
-   * here (`packages/ui-waveform/docs/ticks.md`); this makes the drag obey it.
-   */
+  /** The ruler's current UNIT in beats, assigned during render beside `ppbRef` and read on pointerdown — a drag snaps to it. */
   const unitRef = useRef(1);
   const dragRef = useRef<{
     x: number;
@@ -1177,8 +937,7 @@ export function TimelineTab({
     /** The snap step, in beats — the ruler's unit at the moment of the grab. */
     unit: number;
     moved: boolean;
-    // WHICH clip is under the press, carried here rather than read back off `move`: a lane whose
-    // clip cannot be moved sets no `move` at all, and a click on it still has to know what it hit.
+    // WHICH clip is under the press, carried here rather than read off `move`: a lane whose clip cannot be moved sets none.
     trackId: string;
     clipId: string;
   } | null>(null);
@@ -1216,18 +975,7 @@ export function TimelineTab({
         trackId: track.id,
         clipId: c.id,
       };
-      // No MOVE on a generated lane: its clips are streamed by the pattern, so there is no
-      // `events:` entry in its file to rewrite. The press is tracked either way, because a CLICK
-      // is a request to SEE the clip and that asks nothing of the disk.
-      //
-      // A FROZEN lane's clip is out for the same reason and one worse: it is a render, and the
-      // lane's real placements are still in its file, unlisted here — a drag would rewrite one of
-      // those (the render sits at bar 1, and so does many a first take). See
-      // packages/song/docs/freeze.md.
-      //
-      // …and a read-only DOCUMENT joins them, which is the third reading of the same sentence:
-      // there is a clip to look at and nothing to write. A drag that ran and then snapped back
-      // is the one outcome worse than a drag that never starts.
+      // No MOVE on a generated, frozen or read-only lane — there is a clip to look at and nothing to write (packages/song/docs/freeze.md).
       if (readOnly || track.generated || c.frozen) return;
       setSel(null);
       setMove({
@@ -1244,9 +992,7 @@ export function TimelineTab({
     [readOnly],
   );
 
-  // Resizing an event by its edge. Kept apart from the move drag: a move changes only
-  // `start` and may change lane, a resize changes start AND length and never leaves the
-  // lane. `edge` says which end is in hand; the other stays where it is.
+  // Resizing an event by its edge, kept apart from the move drag: a resize changes start AND length and never leaves the lane.
   const [resize, setResize] = useState<{
     trackId: string;
     clipId: string;
@@ -1266,19 +1012,10 @@ export function TimelineTab({
     const r = resizeRef.current;
     if (r?.pending) return; // already written and only still drawn — a hover must not re-time it
     if (!r) return;
-    // Whole beats, the same grid the move drag and the caret use — unless Ctrl is down, which
-    // frees the edge, as it frees every other drag here.
-    //
-    // Measured from where the edge WAS when grabbed, never from where it is now: `d` is
-    // an absolute offset from the grab point, so adding it to the live value re-applied
-    // it on every pointermove and the edge ran away from the cursor in whichever
-    // direction you moved. Both branches read origStart/origEnd for that reason.
+    // Whole beats unless Ctrl frees the edge, and measured from where the edge WAS when grabbed, never from where it is now.
     const free = freeSnap(e);
     const d = snapTo((e.clientX - r.x) / r.ppb, free ? 0 : 1);
-    // An edge may not cross the other: a zero or negative length is an event that exists
-    // and plays nothing, and the command refuses it anyway. The floor is the grid's own step
-    // while there is one — a beat — and a 64th once the gesture is free, because the whole
-    // point of freeing it is to reach a length the grid cannot express.
+    // An edge may not cross the other; the floor is the grid's step while there is one, and a 64th once the gesture is free.
     const min = free ? MIN_FREE_BEATS : 1;
     const next =
       r.edge === "start"
@@ -1303,15 +1040,13 @@ export function TimelineTab({
     }
     const num = proj.timeSigNumerator;
     const den = proj.timeSigDenominator;
-    // A drag that ended where it started writes nothing — the same courtesy the move
-    // drag extends, and it keeps a stray click on a handle out of the undo history.
+    // A drag that ended where it started writes nothing — the same courtesy the move drag extends.
     if (r.start === r.origStart && r.end === r.origEnd) {
       setResize(null);
       setStatus("resize cancelled — no change");
       return;
     }
-    // Held until the reload, exactly as a committed move is: clearing here snapped the edge
-    // back to where it was grabbed for the length of the round trip.
+    // Held until the reload, exactly as a committed move is: clearing here snapped the edge back for a round trip.
     setResize({ ...r, pending: true });
     onResizeEvent?.(
       r.trackId,
@@ -1322,15 +1057,8 @@ export function TimelineTab({
   }, [proj, onResizeEvent, setStatus]);
 
   // --- dragging a FADE ----------------------------------------------------------
-  /**
-   * A fade is a LENGTH from one end of the clip inwards, so the gesture is simpler than a resize:
-   * one number, floored at nothing, capped at the clip's own extent. The handle sits at the top
-   * corner because the full-height strips at `left-0`/`right-0` are the resize edges, and two
-   * gestures on one pixel is how a drag becomes a coin toss.
-   *
-   * `orig` is read at the grab for the reason the resize does it: adding an absolute offset to the
-   * live value re-applies it every pointermove and the handle runs away from the cursor.
-   */
+
+  /** A fade is a LENGTH from one end inwards — one number, capped at the clip's extent, with `orig` read at the grab. */
   const [fade, setFade] = useState<{
     trackId: string;
     clipId: string;
@@ -1350,8 +1078,7 @@ export function TimelineTab({
     const f = fadeRef.current;
     if (!f || f.pending) return;
     const free = freeSnap(e);
-    // A fade-in grows rightwards and a fade-out leftwards, so the pointer's delta counts against
-    // the one and for the other — the only difference between the two ends.
+    // A fade-in grows rightwards and a fade-out leftwards, so the pointer's delta counts against the one and for the other.
     const dx = (e.clientX - f.x) / f.ppb;
     const d = snapTo(f.which === "fadeIn" ? dx : -dx, free ? 0 : 1);
     const len = Math.max(0, Math.min(f.span, f.orig + d));
@@ -1367,8 +1094,7 @@ export function TimelineTab({
     }
     const num = proj.timeSigNumerator;
     const den = proj.timeSigDenominator;
-    // Ended where it started: write nothing, the courtesy every other drag here extends, and what
-    // keeps a stray click on a handle out of the undo history.
+    // Ended where it started: write nothing, the courtesy every other drag here extends.
     if (f.len === f.orig) {
       setFade(null);
       setStatus("fade cancelled — no change");
@@ -1379,38 +1105,18 @@ export function TimelineTab({
       f.trackId,
       beatsToPosition(f.start, num, den),
       f.which,
-      // A LENGTH, so it is spelled as a duration. The command reads it back with `parseDuration`,
-      // and the same beats spelled as a position would be several bars — see `event fadein`.
+      // A LENGTH, so it is spelled as a duration — the command reads it back with `parseDuration` (see `event fadein`).
       beatsToDuration(f.len, num, den),
     );
   }, [proj, onFadeEvent, setStatus]);
 
   // --- dragging a PICTURE placement ---------------------------------------------
-  /**
-   * The three drags a shot takes, told apart by where the press landed.
-   *
-   * | grab | writes | why |
-   * |---|---|---|
-   * | the body | `start` | move the shot |
-   * | the left edge | `start`, `source_from` **and** `length` | trim the head |
-   * | the right edge | `length` | set the extent |
-   *
-   * The left edge writing THREE fields is the interesting one. `source_from` moves by the same
-   * delta as the head, or the frame under the new edge is not the frame that was there before
-   * the trim; `length` moves by that delta the other way, or the tail slides and the gesture is
-   * a move rather than a trim. A `length: 0` placement needs the extent pinned for a second
-   * reason on top — its source's own length would undo the trim on the next compile — and it is
-   * the same write, so it is not a special case.
-   *
-   * Kept apart from the audio clip drag rather than folded into it: that one addresses a
-   * TIMECODE and commits through `event move`, a command the CLI owns, while a placement is a
-   * decimal second rewritten in its lane's own file. One gesture, two vocabularies.
-   */
+
+  /** The three drags a shot takes, told apart by where the press landed — the left edge writes three fields (docs/picture.md). */
   const [vdrag, setVDrag] = useState<VDrag | null>(null);
   const vdragRef = useRef<VDrag | null>(vdrag);
   vdragRef.current = vdrag;
-  // The ruler's drawn ticks (in beats) and the beats-per-second, assigned during render below.
-  // The drag reads them on pointerdown so it snaps to the lines that are actually on screen.
+  // The ruler's drawn ticks (in beats) and the beats-per-second, assigned during render below and read on pointerdown.
   const ticksRef = useRef<number[]>([]);
   const bpsRef = useRef(1);
   const onVideoEditRef = useRef(onVideoEdit);
@@ -1447,14 +1153,10 @@ export function TimelineTab({
   const onVideoDragMove = useCallback((e: React.PointerEvent) => {
     const v = vdragRef.current;
     if (!v || v.pending) return;
-    // Measured from the GRAB and not from the last frame: an offset re-applied every
-    // pointermove makes the edge run away from the cursor, whichever way you move.
+    // Measured from the GRAB and not from the last frame: a re-applied offset makes the edge run away from the cursor.
     const d = (e.clientX - v.x) / v.pxPerSec;
     if (Math.abs(e.clientX - v.x) > DRAG_SLOP) v.moved = true;
-    // Snapped to the ruler's own ticks, whichever unit it is reading — you aimed at a line, not
-    // at a pixel. Which is also how a finer position is reached: open the zoom and the ruler
-    // subdivides, exactly as it does for the caret. Ctrl suspends it, as on every other drag
-    // here: a shot then follows the pointer to the frame.
+    // Snapped to the ruler's own ticks, whichever unit it is reading; Ctrl suspends it, as on every other drag here.
     const free = freeSnap(e);
     const snapSec = (sec: number): number => {
       if (free) return Math.max(0, sec);
@@ -1470,35 +1172,29 @@ export function TimelineTab({
     const v = vdragRef.current;
     if (!v || v.pending) return; // a second pointerup must not send the same edit twice
     const write = onVideoEditRef.current;
-    // A drag that ended where it started writes nothing — the same courtesy the clip drag
-    // extends, and it keeps a stray click on a shot out of the undo history.
+    // A drag that ended where it started writes nothing — the same courtesy the clip drag extends.
     if (!write || !v.moved || videoDragIsStill(v)) {
       setVDrag(null);
       if (v.moved) setStatus("drag cancelled — no change");
       return;
     }
-    // Held until the reload, exactly as a committed move is: clearing here snapped the shot
-    // back to where it was grabbed for the length of the round trip.
+    // Held until the reload, exactly as a committed move is: clearing here snapped the shot back for a round trip.
     setVDrag({ ...v, pending: true });
     write(v.trackId, videoDragEdits(v));
   }, [setStatus]);
 
-  // The reload landed, so the compiler's answer replaces the drag's guess. The same rule the
-  // clip move follows: the ghost is held until the document that proves it comes back, and what
-  // is on screen is then always what compiled and never what the pointer assumed.
+  // The reload landed, so the compiler's answer replaces the drag's guess — the same rule the clip move follows.
   useEffect(() => {
     setVDrag((v) => (v?.pending ? null : v));
   }, [videoTracks]);
 
-  // A live prop read from pointer callbacks that must not re-bind on every frame — the same
-  // shadowing commitMoveRef does, and for the same reason.
+  // A live prop read from pointer callbacks that must not re-bind on every frame — as `commitMoveRef` does.
   const feedMoveRef = useRef(feedMove);
   feedMoveRef.current = feedMove;
   const feedTimecodeRef = useRef(feedTimecode);
   feedTimecodeRef.current = feedTimecode;
 
-  // The move as `event move`'s four values. ONE place, so the frames of a live drag and its
-  // release cannot disagree about which timecode is the `from` and which the `to`.
+  // The move as `event move`'s four values, in ONE place, so a live drag and its release cannot disagree.
   const moveArgs = useCallback((m: Move) => {
     const p = projRef.current;
     if (!p) return null;
@@ -1523,16 +1219,7 @@ export function TimelineTab({
         Math.abs(e.clientY - d.y) > DRAG_SLOP
       )
         d.moved = true;
-      /**
-       * Snapped to the RULER'S CURRENT UNIT — unless Ctrl is down, which frees the gesture.
-       *
-       * `d.unit` is the step the grid was drawing when the clip was grabbed — a bar zoomed out, a
-       * sixteenth zoomed in. It is read at the GRAB rather than live, so a wheel notch mid-drag
-       * cannot change what the gesture means under your hand. The MODIFIER is read live, and that
-       * asymmetry is the point: the step is what the gesture means, Ctrl is the hand.
-       *
-       * The arithmetic (and the clamp at the song's start) is `snap.ts`'s, where it can be tested.
-       */
+      /** Snapped to the RULER'S CURRENT UNIT unless Ctrl is down — the step read at the GRAB, the modifier read live (snap.ts). */
       const offset = dragOffset(
         e.clientX - d.x,
         d.ppb,
@@ -1540,11 +1227,7 @@ export function TimelineTab({
         m.origStart,
       );
       const lane = laneAtPoint(e.clientX, e.clientY);
-      // Where the event may LAND. It used to be a lane whose `contentType` matched the source
-      // lane's, which refused every drag between an audio lane and a sequences one. A lane is
-      // not typed now, so the question is about the event under the hand: a lane takes it when
-      // its matching output is wired, which `contentType` says in one word — and a lane wired
-      // bare says "audio notes", meaning either. See packages/song/docs/trackModules.md.
+      // Where the event may LAND: a lane takes it when its matching output is wired, which `contentType` says in one word (packages/song/docs/trackModules.md).
       const src = projRef.current?.tracks.find((t) => t.id === m.trackId);
       const takes =
         src?.clips.find((c) => c.id === m.clipId)?.type === "midi"
@@ -1557,8 +1240,7 @@ export function TimelineTab({
       if (offset !== m.offset || toTrackId !== m.toTrackId) {
         const next = { ...m, offset, toTrackId };
         setMove(next);
-        // …and if the bar is asking for this move, it reads the timecode under the pointer as
-        // the drag happens. Nothing is validated: `live` says the gesture is still in hand.
+        // …and if the bar is asking for this move, it reads the timecode under the pointer as the drag happens.
         const feed = feedMoveRef.current;
         const a = feed ? moveArgs(next) : null;
         if (feed && a) feed(a.trackId, a.fromTc, a.toTc, a.toTrackId, true);
@@ -1567,20 +1249,7 @@ export function TimelineTab({
     [laneAtPoint, moveArgs],
   );
 
-  /**
-   * Put the caret ON the event that was clicked, covering it.
-   *
-   * The caret is one cell, so covering something that spans eight beats is the `v` rectangle —
-   * the same selection the keyboard builds, anchored at the event's first beat and headed at its
-   * last. That is what makes a click a starting point rather than a dead end: `z` frames it,
-   * Shift+L loops it, `m` picks it up, and the Editor panel follows the caret onto its file.
-   *
-   * A length-0 placement draws NATURAL beats wide, so it is covered as it is drawn — a caret
-   * that stopped short of the block it is meant to be over would read as a rounding bug.
-   *
-   * Clamped, because a clip can begin before the zoomed view does; an unclamped head would put
-   * the selection somewhere the keys cannot walk back from.
-   */
+  /** Put the caret ON the event that was clicked, covering it — the same `v` rectangle the keyboard builds, clamped to the zoomed view. */
   const coverClip = useCallback(
     (m: Move) => {
       const row: RowKey = `track:${m.trackId}`;
@@ -1600,12 +1269,7 @@ export function TimelineTab({
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
-    // Answering the bar is NOT committing. The line is filled and sits there waiting for enter,
-    // so the drop writes nothing to disk — which is what makes the gesture safe to try.
-    //
-    // BEFORE the click branch below, and deliberately: while the bar is filling `event move`, a
-    // click on a clip is how you say WHICH one, and answering that is worth more than a
-    // selection you did not ask for.
+    // Answering the bar is NOT committing, and it comes BEFORE the click branch: a click is how you say WHICH clip.
     const feed = feedMoveRef.current;
     const m = moveRef.current;
     if (feed && m) {
@@ -1615,14 +1279,7 @@ export function TimelineTab({
       setStatus("event move — enter runs it, esc drops the line");
       return;
     }
-    // A press that never passed the slop is a CLICK. It used to reach commitMove, which found a
-    // move of zero beats and said "move cancelled — no change": a refusal, for a gesture that
-    // had asked for nothing.
-    //
-    // Parking the caret over the clip is what SHOWS it: `clipUnderCaret` above answers
-    // `onEditTarget` continuously, so the Editor panel follows the caret without being told.
-    // The graph slot is the one thing the caret cannot say — it is a click, not a position —
-    // so that one is told outright.
+    // A press that never passed the slop is a CLICK: parking the caret over the clip is what SHOWS it, and only the graph slot is told outright.
     if (!d.moved && m) {
       coverClip(m);
       const p = projRef.current;
@@ -1653,9 +1310,7 @@ export function TimelineTab({
     const den = proj.timeSigDenominator;
     const fromTc = beatsToPosition(m.origStart, num, den);
     const toTc = beatsToPosition(m.origStart + m.offset, num, den);
-    // HELD, not cleared. Clearing here drew the clip back at its old start for the whole
-    // write-and-reload round trip, so a drop read as "it sprang back" and then jumped forward.
-    // The effect below drops it once the project that contains the move has arrived.
+    // HELD, not cleared: clearing here drew the clip back at its old start for the whole write-and-reload round trip.
     setMove({ ...m, dragging: false, pending: true });
     onMoveEvent?.(
       m.trackId,
@@ -1678,9 +1333,7 @@ export function TimelineTab({
           el.isContentEditable)
       )
         return;
-      // Move mode is modal: keys are swallowed HARD (capture + stopImmediatePropagation), away from the shell.
-      // A PENDING move is not being carried — it is already written and only still drawn, so it
-      // must not swallow the keys for the length of a reload.
+      // Move mode is modal and swallows keys HARD; a PENDING move is not being carried, so it must not swallow them for a reload.
       if (moveRef.current && !moveRef.current.pending) {
         if (e.key === "ArrowLeft" || e.key === "j") nudgeMove(-1);
         else if (e.key === "ArrowRight" || e.key === "m") nudgeMove(1);
@@ -1694,10 +1347,7 @@ export function TimelineTab({
         return;
       }
       const selecting = !!selRef.current;
-      // Escape drops the selection, and stops there. Without this it fell through to the
-      // shell, which reads Escape as "back out of the fullscreen pane" — so the one key
-      // everyone reaches for to undo a mistaken drag left the selection standing AND
-      // threw you out of the timeline. Swallowed hard for the same reason move mode's is.
+      // Escape drops the selection and stops there, or the shell would also throw you out of the fullscreen pane.
       if (selecting && e.key === "Escape") {
         const s = selRef.current;
         setSel(null);
@@ -1789,30 +1439,13 @@ export function TimelineTab({
         if (!proj || caret.beat === LABEL) return;
         onSeek?.((caret.beat * 60) / proj.tempo);
       },
-      /**
-       * `selection copy` — the events inside the rectangle, relative to its corner.
-       *
-       * TRACK rows only, and their order on screen is the clipboard's row order: a group header
-       * holds no placements and a generated lane's are the scheduler's, rewritten every tick.
-       * They are skipped rather than counted, so pasting three lanes down lands on the three
-       * lanes that can hold something.
-       */
+      /** `selection copy` — the events inside the rectangle, relative to its corner; TRACK rows only, skipped rather than counted. */
       copy: () => {
         const s = selRef.current;
-        /**
-         * NO RECTANGLE: the PLACEMENT under the caret is what gets copied.
-         *
-         * A lane's unit is a clip rather than a grid step, so the caret's own "cell" here is the
-         * event it is parked on — and copying the clip you just clicked is what ⌃C means in
-         * every other application. Without this the key answered a `v` rectangle and nothing
-         * else, so a person who had selected an event by clicking it pressed copy, saw nothing
-         * happen, and was told by the paste that the clipboard was empty. The clip's own length
-         * is the span, so what comes back is a rectangle the size of what was copied.
-         */
+        /** NO RECTANGLE: the PLACEMENT under the caret is what gets copied — a lane's unit is a clip rather than a grid step. */
         if (!s) {
           const c = clipUnderCaret;
-          // A generated lane's clips are the scheduler's look-ahead, backed by no file — there
-          // is no placement to put down again. The rectangle path skips them for the same reason.
+          // A generated lane's clips are the scheduler's look-ahead, backed by no file — there is no placement to put down.
           if (!c || caretRow?.kind !== "track" || caretRow.track.generated)
             return null;
           const len = c.length > 0 ? c.length : NATURAL;
@@ -1830,13 +1463,7 @@ export function TimelineTab({
           );
         return lanes.length ? copyEvents(lanes, lo, hi + 1) : null;
       },
-      /**
-       * `selection paste` — one `events add`, so a rectangle of twelve placements is one journal entry.
-       *
-       * The lanes it can reach are the track rows from the CARET down; rows with nothing under
-       * them are dropped rather than folded onto the last lane. A label-selected caret has no
-       * beat to paste at, so the command goes quiet and says why.
-       */
+      /** `selection paste` — one `events add`, so twelve placements are one journal entry; the lanes are the track rows from the CARET down. */
       pasteLine: (c) => {
         if (c.kind !== "events")
           return { note: "the clipboard holds notes, not events" };
@@ -1858,8 +1485,7 @@ export function TimelineTab({
           };
         const num = proj.timeSigNumerator;
         const den = proj.timeSigDenominator;
-        // `start` is the only field re-spelled: it is a position in the ARRANGEMENT and the paste
-        // moved it. The window and the fades measure into the material and go over verbatim.
+        // `start` is the only field re-spelled: it is a position in the ARRANGEMENT and the paste moved it.
         const payload = out.map((e) => ({
           track: e.track,
           ref: e.ref,
@@ -1962,10 +1588,7 @@ export function TimelineTab({
     if (!active) setMove(null);
   }, [active]);
 
-  // The playhead does NOT touch the caret. They are two independent positions — where the
-  // transport is, and where you are working — and the caret only ever moves because you moved
-  // it. `t` still sends the transport to the caret; nothing sends the caret anywhere.
-  // See docs/timeline.md.
+  // The playhead does NOT touch the caret: two independent positions, and only you move the caret — see docs/timeline.md.
 
   // The rectangle in on-screen rows, normalised so anchor-first and head-first draw the same box.
   const selBox = useMemo(() => {
@@ -1981,13 +1604,7 @@ export function TimelineTab({
     };
   }, [sel, visRows]);
 
-  /**
-   * The lanes a rectangle covers that can actually hold events, comma-joined, and its span.
-   *
-   * Track lanes only: a group holds no placements, picture has no verbs, and a generated lane's
-   * file has no `events:` to rewrite. Null when there is no rectangle, or none of what it covers
-   * is a lane — which is the honest answer, not an empty string.
-   */
+  /** The lanes a rectangle covers that can actually hold events, comma-joined, and its span — null rather than an empty string. */
   const selRange = useMemo(() => {
     if (!selBox || !proj) return null;
     const ids = visRows
@@ -2005,11 +1622,9 @@ export function TimelineTab({
     };
   }, [selBox, visRows, proj]);
 
-  // The caret, whole: where it is, what it is over, and what it has selected. One payload because
-  // one gesture moves all three, and a command reads whichever of them it can use.
+  // The caret, whole: where it is, what it is over, and what it has selected — one payload, because one gesture moves all three.
   useEffect(() => {
-    // The grid, read here rather than passed in: a beat means nothing without the time signature,
-    // and a project that has not loaded yet has no grid to state one against.
+    // The grid, read here rather than passed in: a beat means nothing without the time signature.
     const at = (beat: number): string | null =>
       proj
         ? beatsToPosition(beat, proj.timeSigNumerator, proj.timeSigDenominator)
@@ -2017,16 +1632,14 @@ export function TimelineTab({
     onCaret({
       ...caret,
       trackId: caretTrackId,
-      // LABEL is "parked on the row's name", which is a row and not a moment — reporting beat -1
-      // as a timecode would hand a command a position nothing is at.
+      // LABEL is 'parked on the row's name', a row and not a moment, so it reports no timecode.
       tc: caret.beat === LABEL ? null : at(caret.beat),
       eventTc: clipUnderCaret ? at(clipUnderCaret.start) : null,
       selection: selRange,
     });
   }, [caret, caretTrackId, clipUnderCaret, selRange, proj, onCaret]);
 
-  // While the bar is filling `events move`, the rectangle ANSWERS its region — and re-answers
-  // on every change, so a shift+drag grows the fields live. Track lanes only, for `selRange`'s reasons.
+  // While the bar is filling `events move`, the rectangle ANSWERS its region and re-answers on every change.
   useEffect(() => {
     if (!feedEventsMove || !selRange) return;
     feedEventsMove(selRange.tracks, selRange.from, selRange.to);
@@ -2045,8 +1658,7 @@ export function TimelineTab({
       );
       return;
     }
-    // Same for a resize — a drag with no numbers is a guess, and the span is the whole
-    // point of the gesture.
+    // Same for a resize — a drag with no numbers is a guess, and the span is the whole point of the gesture.
     if (resize && proj) {
       const num = proj.timeSigNumerator;
       const den = proj.timeSigDenominator;
@@ -2134,14 +1746,9 @@ export function TimelineTab({
   const x = (beat: number) => (beat - beatLo) * ppb;
   // The last beat drawn: the zoom's end, or the song's rounded-up extent.
   const lastBeat = view ? beatHi : contentBeats;
-  // Beats per second — the whole of the conversion between the song's unit and the picture's.
-  // Exact and reversible because there is ONE tempo and no tempo map: a placement written at
-  // 4.5s is at 9 beats at 120bpm, and re-typing `tempo:` slides the grid under the shot rather
-  // than moving the shot. Clamped off zero so a malformed `tempo: 0` cannot divide by it.
+  // Beats per second — the whole conversion between the song's unit and the picture's, exact because there is ONE tempo, clamped off zero.
   const bps = Math.max(1e-6, proj.tempo / 60);
-  // The ruler's scale — its unit, seconds step and label stride — from the SHARED chooser
-  // (Ruler.tsx), so this ruler and the ones the clip editors stack over their material cannot
-  // pick different ladders for the same zoom.
+  // The ruler's scale, from the SHARED chooser (Ruler.tsx), so this ruler and the clip editors' cannot pick different ladders.
   const { unit, secStep, barStride } = rulerScale(
     rulerMode,
     ppb,
@@ -2149,11 +1756,7 @@ export function TimelineTab({
     bps,
     lastBeat,
   );
-  // The drawn ticks, for the gestures that SNAP to one — the ruler's click-to-seek and its
-  // right-click "add marker here". Grid and RulerTicks build the same list from the same
-  // helper rather than taking it as a prop: an array would be a new identity on every render
-  // and would defeat the memo that keeps them off the frame path. It is what the ruler is
-  // READING IN, so switching to seconds moves what you can land on with it.
+  // The drawn ticks, for the gestures that SNAP to one — built from the shared helper rather than taken as a prop, which would defeat the memo.
   const bars = rulerTicks(
     rulerMode,
     beatLo,
@@ -2163,21 +1766,10 @@ export function TimelineTab({
     bps,
     secStep,
   ).map((t) => t.beat);
-  // Read by the picture drag on pointerdown, so a shot snaps to the lines actually on screen
-  // (see beginVideoDrag). Assigned during render for the same reason `ppbRef` is.
+  // Read by the picture drag on pointerdown, so a shot snaps to the lines actually on screen (see beginVideoDrag).
   ticksRef.current = bars;
   bpsRef.current = bps;
-  /**
-   * …and the step a CLIP drag moves in, in beats: whatever the ruler is currently drawing.
-   *
-   * In seconds mode that is `secStep` converted through the tempo, not the musical `unit` —
-   * `rulerScale` returns both and the mode decides which is on screen. A drag snapping to beats
-   * under a ruler ticking every five seconds would land between every pair of lines.
-   *
-   * It snaps the OFFSET rather than the resulting position, which is deliberate and is what a
-   * tick list could not do: a take placed by hand at 4:2:2.43 keeps that phase when you move it a
-   * bar. The zoom decides how FAR each step is, not where the grid is.
-   */
+  /** …and the step a CLIP drag moves in, in beats: whatever the ruler is drawing, snapping the OFFSET rather than the resulting position. */
   unitRef.current = rulerMode === "seconds" ? secStep * bps : unit;
   // Both tick layers take the same seven, so the ruler and the grid cannot read different units.
   const tickProps = {
@@ -2210,8 +1802,7 @@ export function TimelineTab({
   const contentH =
     ROW_H +
     visRows.reduce(
-      // A take is a short row like a group header: it is a record of what a lane held, not a
-      // lane, so it never grows with the expanded clip view.
+      // A take is a short row like a group header: a record of what a lane held, not a lane.
       (h, r) =>
         h +
         (r.kind === "group" || r.kind === "take" || r.kind === "automation"
@@ -2241,8 +1832,7 @@ export function TimelineTab({
           <span className="text-foreground">0</span> reset ·{" "}
           <span className="text-foreground">⇧L</span> loop
         </div>
-        {/* The hovered marker's name — the timeline header is where a marker labels
-            itself, so it stays readable however zoomed the ruler is. */}
+        {/* The hovered marker's name: the header is where a marker labels itself, so it reads however zoomed the ruler is. */}
         {hoverMarker && (
           <span
             className="shrink-0 truncate font-semibold"
@@ -2252,8 +1842,7 @@ export function TimelineTab({
             ◆ {hoverMarker}
           </span>
         )}
-        {/* The ruler's unit. Beside Expand because it is the same kind of control: what this
-            surface SHOWS, for as long as you are looking at it, changing nothing on disk. */}
+        {/* The ruler's unit, beside Expand because it is the same kind of control: what this surface SHOWS, changing nothing on disk. */}
         <button
           type="button"
           onClick={() =>
@@ -2290,27 +1879,13 @@ export function TimelineTab({
           <StretchVertical className="h-3.5 w-3.5" />
         </button>
       </div>
-      {/* `isolate` — a stacking context of its own, and it is load-bearing rather than tidy.
-          This pane stacks four layers against each other (a clip at z-10, an edge handle and the
-          playhead at z-20, the sticky gutters at z-30, the sticky ruler at z-40), and without it
-          those numbers compete with the SHELL's: the ruler's 40 beat the header's 20 and drew
-          straight over the cog menu, which is a plain absolute dropdown inside the header rather
-          than a portalled one. Contained, the whole pane participates outside at `auto` and the
-          header sits above it — while the full-screen overlays (settings at z-40, the builder at
-          z-30) still sit above the header, which is the order the shell needs. */}
+      {/* `isolate` — load-bearing: it keeps this pane's four z-indices private from the shell's (docs/timeline.md). */}
       <div ref={scrollRef} className="isolate min-h-0 flex-1 overflow-auto">
         <div
           style={{ width: GUTTER + laneW }}
           className="relative select-none font-mono text-xs"
         >
-          {/* The GRID: every tick the ruler drew, continued down the lanes as a dashed
-              rule, so where a clip falls against the beat is readable where the clip is
-              and not only in the header. Same `tickBeats`, same view window, so the two
-              cannot drift.
-              Dashed because the solid vertical lines here already mean something — the
-              playhead, a marker — and a third would compete with them.
-              FIRST in the wrapper on purpose: positioned siblings paint in tree order, so
-              everything a lane holds draws over this rather than being crossed out by it. */}
+          {/* The GRID: the ruler's own ticks continued down the lanes, dashed and FIRST in the wrapper so everything paints over it. */}
           <Grid
             {...tickProps}
             ppb={ppb}
@@ -2325,18 +1900,12 @@ export function TimelineTab({
             className="sticky top-0 z-40 flex bg-background"
             style={{ height: ROW_H }}
           >
-            {/* The corner: sticky BOTH ways, so it holds while the ruler scrolls under it
-                horizontally and the lanes scroll under the ruler vertically. It needs no ground of
-                its own — the ruler row it sits in is opaque across the full width. */}
+            {/* The corner: sticky BOTH ways, and needing no ground of its own since the ruler row is opaque across the full width. */}
             <div
               style={{ width: GUTTER }}
               className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-background px-1"
             >
-              {/* NEW TRACK, in the corner over the name column — the one place that is above the
-                  list of lanes and scrolls with neither axis. It is `track new` like everything
-                  else here, so it journals and undoes as one step; the lane it makes is named for
-                  you, and renaming is the gutter's own business. Hidden on a frozen song, where
-                  every other structural edit is refused too. */}
+              {/* NEW TRACK, in the corner: the one place above the lanes that scrolls with neither axis, and `track new` like everything else. */}
               {onNewTrack && (
                 <button
                   type="button"
@@ -2349,12 +1918,7 @@ export function TimelineTab({
                 </button>
               )}
             </div>
-            {/* The ruler is both the transport scrubber and a time-range selector. A plain
-                CLICK moves the playhead to the nearest DRAWN tick, and moves nothing else —
-                the caret stays where you left it. A DRAG sweeps a selection over the dragged
-                beat range across ALL tracks — the same rectangle `v` builds, so z / Shift+L
-                then act on it. Beat = the view's start + pixels/ppb; the selection snaps to
-                whole-beat cells, which is coarser than the ruler's unit on purpose. */}
+            {/* The ruler is both the transport scrubber and a time-range selector — click seeks, drag sweeps `v`'s rectangle (docs/timeline.md). */}
             <div
               className="relative cursor-pointer overflow-hidden"
               style={{ width: laneW }}
@@ -2394,18 +1958,12 @@ export function TimelineTab({
                     if (gesture === -1) el.style.cursor = "ns-resize";
                   }
                   if (gesture === -1) {
-                    // Vertical drag → zoom, 1.005 per px: ~1.16× at 30px, precise near the start and exponential at distance.
-                    // The ceiling is the pane's, not a constant of its own: this is the SECOND
-                    // gesture that zooms, and a number written twice is two answers waiting to
-                    // disagree — which is what a hand-written 32 here already was.
+                    // Vertical drag → zoom, 1.005 per px; the ceiling is the pane's, not a constant of its own.
                     const next = Math.max(
                       1,
                       Math.min(zoomCeiling(availW), zoomStart * 1.005 ** -dy),
                     );
-                    // Anchor: keep the beat under the cursor fixed after the width change.
-                    // Through the package rather than by hand — the copy that used to live
-                    // here set scrollLeft immediately, so it was clamped by the OLD
-                    // scrollWidth and the anchored beat drifted. See useHZoom's `zoomAt`.
+                    // Anchor: keep the beat under the cursor fixed after the width change, through the package — see useHZoom's `zoomAt`.
                     zoomAtX(next, startX);
                   } else {
                     // Horizontal drag → selection
@@ -2424,15 +1982,10 @@ export function TimelineTab({
                   if (gesture === -1) return; // zoom gesture — nothing to undo
                   if (dragged) return; // selection stays
                   setSel(null); // plain click deselects and seeks
-                  // Snapped to the nearest tick the ruler DREW: you aimed at a line, not at
-                  // a pixel. `bars` is that list, so the grid you see and the positions you
-                  // can land on cannot disagree — and since the drawn unit follows the zoom,
-                  // opening the view up is how you reach a finer one.
+                  // Snapped to the nearest tick the ruler DREW: `bars` is that list, so the grid you see and the positions you can land on agree.
                   const raw = Math.max(0, beatLo + (startX - rect.left) / ppb);
                   const beat = nearestTick(bars, raw) ?? raw;
-                  // If the bar is asking for a timecode, the click ANSWERS it and the
-                  // transport stays put: answering is not acting, the same rule the clip
-                  // drag follows. Only a click — a drag on the ruler is still a selection.
+                  // If the bar is asking for a timecode, the click ANSWERS it and the transport stays put — only a click, never a drag.
                   if (feedTimecodeRef.current) {
                     feedTimecodeRef.current(
                       beatsToPosition(beat, tsNum, tsDen),
@@ -2447,11 +2000,7 @@ export function TimelineTab({
                 e.preventDefault();
               }}
               onContextMenu={(e) => {
-                // Right-click the ruler → "add marker here", pre-writing `project marker new <tc> `.
-                // HERE is where you right-clicked, snapped to the nearest DRAWN tick — the
-                // same rule, off the same `bars`, that a left-click seek uses. So the two
-                // buttons agree about where a point on the ruler is, and a marker can only
-                // land on a line you can see. See docs/timeline.md.
+                // Right-click the ruler → 'add marker here', snapped to the same drawn tick a left-click seek uses (docs/timeline.md).
                 e.preventDefault();
                 const rect = e.currentTarget.getBoundingClientRect();
                 const raw = Math.max(0, beatLo + (e.clientX - rect.left) / ppb);
@@ -2466,20 +2015,14 @@ export function TimelineTab({
                 );
               }}
             >
-              {/* The RULES always draw; only the NUMBERS thin out, by powers of two, once
-                  a bar is narrower than a label (see ticks.ts — the same rule the
-                  waveform's ruler uses, so the two agree when stacked in the clip
-                  editor). Strided on the bar's own index, not its position in `bars`, or
-                  the surviving labels would change as scrolling moved the first one. */}
+              {/* The RULES always draw; only the NUMBERS thin out, strided on the bar's own index so scrolling never moves them (ticks.ts). */}
               <RulerTicks
                 {...tickProps}
                 ppb={ppb}
                 barStride={barStride}
                 scroller={scrollRef}
               />
-              {/* The transport loop region, over its bar range. `overflow-hidden` above
-                  clips it when it runs past the view, same as the bar markers. The engine
-                  does the actual wrapping; this just shows what's looping. */}
+              {/* The transport loop region over its bar range; the ENGINE does the wrapping, this only shows what is looping. */}
               {loop && (
                 <div
                   className="pointer-events-none absolute top-0 z-10 h-full border-x-2 border-amber-400 bg-amber-400/20"
@@ -2490,9 +2033,7 @@ export function TimelineTab({
                   title="loop region — Shift+L to clear"
                 />
               )}
-              {/* Marker handles: a diamond flag at the top of each marker line, sitting
-                  in the ruler (the timeline "header"). Hovering shows the name up top;
-                  right-clicking offers to delete it. The full line is drawn below. */}
+              {/* Marker handles: a diamond flag in the ruler, hover for the name and right-click to delete; the full line is drawn below. */}
               {visMarkers.map((mk) => (
                 <div
                   key={mk.tc}
@@ -2522,9 +2063,7 @@ export function TimelineTab({
             </div>
           </div>
 
-          {/* lanes — group headers with their members nested under them, then any
-              live Strudel orbit lanes (which nest too, when their group owns the
-              algo/ pattern that streams them) */}
+          {/* lanes — group headers with their members nested under them, then any live Strudel orbit lanes, which nest too. */}
           {visRows.map((row, ri) => {
             // Is this the caret's row, with its LABEL selected? The gutter wears the caret's own marks, because it IS the caret.
             const onRow = rowKey(row) === caret.row;
@@ -2578,8 +2117,7 @@ export function TimelineTab({
                       )}
                       title={`${row.group.name} — a group; holds no clips of its own`}
                     >
-                      {/* Stripped like a track row's: a group can pin its position too,
-                          and the full name stays in the title. */}
+                      {/* Stripped like a track row's: a group can pin its position too, and the full name stays in the title. */}
                       {trackLabel(row.group.name)}
                     </span>
                   </div>
@@ -2592,13 +2130,7 @@ export function TimelineTab({
                 </div>
               );
 
-            /**
-             * A PICTURE lane. Its placements are decimal seconds and this grid is beats, which
-             * is exactly convertible here (one `tempo:`, no tempo map), so they can be dragged.
-             * What the ruler is reading in decides what they snap to; what the FILE holds is
-             * always seconds, so re-typing `tempo:` slides the grid under the cut rather than
-             * moving it. See docs/picture.md.
-             */
+            /** A PICTURE lane: decimal seconds against a beat grid, exactly convertible here, so they can be dragged (docs/picture.md). */
             if (row.kind === "video") {
               const vt = row.track;
               const toBeats = (s: number) => s * bps;
@@ -2610,10 +2142,7 @@ export function TimelineTab({
                     "flex border-b border-border/40",
                     vt.mute && "opacity-50", // "mute" on a video lane == hidden
                   )}
-                  // No context menu: this menu is DERIVED from the command catalogue, and
-                  // picture has no verbs in it — a placement is rewritten in its lane's file
-                  // rather than through `@studio/commands`. An empty menu would be worse than
-                  // none. See docs/contextMenu.md.
+                  // No context menu: it is DERIVED from the command catalogue, and picture has no verbs in it (docs/contextMenu.md).
                   style={{ height: ROW_H }}
                 >
                   <div
@@ -2648,25 +2177,21 @@ export function TimelineTab({
                     className="relative overflow-hidden"
                     style={{
                       width: laneW,
-                      // A shape lane holds no placements at all, so it is hatched rather than
-                      // drawn as an empty row that looks like a lane you forgot to fill.
+                      // A shape lane holds no placements at all, so it is hatched rather than drawn as an empty row.
                       ...(vt.kind === "shape"
                         ? { backgroundImage: HATCH }
                         : null),
                     }}
                   >
                     {vt.clips.map((c, i) => {
-                      // The one being dragged draws where the pointer says, not where the
-                      // document does — the ghost the commit then makes true.
+                      // The one being dragged draws where the pointer says — the ghost the commit then makes true.
                       const live =
                         vdrag && vdrag.trackId === vt.id && vdrag.ref === c.id
                           ? vdrag
                           : null;
                       const start = live ? live.start : c.start;
                       const length = live ? live.length : c.length;
-                      // A length-0 placement runs to the end of a source the browser has not
-                      // measured, so it draws at a placeholder width, dashed and amber: an
-                      // honest "this is provisional" rather than a confident wrong rectangle.
+                      // A length-0 placement runs to the end of a source nothing has measured, so it draws provisional: dashed and amber.
                       const provisional = length <= 0;
                       const w = Math.max(
                         ppb,
@@ -2674,11 +2199,7 @@ export function TimelineTab({
                       );
                       return (
                         <div
-                          // By placement, not by ref: one source may be placed twice on a lane,
-                          // and `c.id` IS the ref. A drag on either then writes the FIRST — the
-                          // file keys its placements by ref too (videoTrackFile.ts), so that is
-                          // the format's own limit rather than this component's, and drawing
-                          // them with one key would add a React warning to it.
+                          // By placement, not by ref: one source may be placed twice, and the file keys its placements by ref too (videoTrackFile.ts).
                           key={`${c.id}:${i}`}
                           onPointerDown={(e) =>
                             beginVideoDrag(e, vt, c, "move")
@@ -2707,8 +2228,7 @@ export function TimelineTab({
                             className="h-2.5 w-2.5 shrink-0 opacity-80"
                           />
                           <span className="truncate">{c.name || c.id}</span>
-                          {/* The two trim handles. Wider than they look — a 6px target is a
-                              miss, and the body's own drag is what a miss lands on. */}
+                          {/* The two trim handles, wider than they look: a 6px target is a miss, and a miss lands on the body's own drag. */}
                           {onVideoEdit && (
                             <>
                               <span
@@ -2734,16 +2254,7 @@ export function TimelineTab({
               );
             }
 
-            /**
-             * A TAKE of the lane above: what it WAS playing, kept rather than thrown away when
-             * something was recorded over it (packages/song/docs/takes.md).
-             *
-             * Read-only, deliberately. Nothing here is playing, so there is no level to draw, no
-             * arm to toggle and nothing a drag could mean — the one thing you do to a take is
-             * move it back onto the track, and that is a command, from the right-click menu. Its
-             * events are drawn where they SIT, at the same scale as the lane's own, so the two
-             * can be compared by eye without moving either.
-             */
+            /** A TAKE of the lane above — read-only, deliberately: the one thing you do to a take is move it back, and that is a command (packages/song/docs/takes.md). */
             if (row.kind === "take") {
               const tk = row.track;
               return (
@@ -2769,8 +2280,7 @@ export function TimelineTab({
                     className={cn(
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 border-r border-border bg-muted/30 px-2 text-muted-foreground",
                       GUTTER_STICKY,
-                      // Indented past its lane — and past the lane's own indent when that lane
-                      // is in a group, so the nesting reads at both levels.
+                      // Indented past its lane — and past the lane's own indent when that lane is in a group.
                       "pl-5",
                       inSel && "bg-primary/20",
                       labelled && LABEL_SELECTED,
@@ -2810,19 +2320,7 @@ export function TimelineTab({
               );
             }
 
-            /**
-             * An AUTOMATION row: one knob of the lane above, drawn against song time.
-             *
-             * A polyline and nothing else — no clips, no caret cell, no drag. What it draws is the
-             * curve as AUTHORED (`WebCurve.points`, absolute song timecodes and values in 0..1),
-             * which is why only a `custom` curve has a shape here: an LFO is a figure you set on
-             * the graph and an ADSR is fired by note-ons, and neither is a thing you move against
-             * the ruler. A row for one of those still appears — the binding is real and worth
-             * seeing — and says so with an empty line.
-             *
-             * Its header addresses the TRACK (`rowTarget`), so mute and solo from here mean the
-             * lane, which is the only thing they could mean.
-             */
+            /** An AUTOMATION row: one knob of the lane above against song time — only a `custom` curve has a shape, and its header addresses the TRACK. */
             if (row.kind === "automation") {
               const lane = row.lane;
               const pts = lane.points
@@ -2851,10 +2349,7 @@ export function TimelineTab({
                   onContextMenu={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    // The MOMENT under the pointer, snapped to a tick the ruler actually drew —
-                    // the same rule a ruler click follows, so the grid you see and the positions
-                    // a point can land on cannot disagree. It is what makes the three
-                    // `curve point …` verbs act on where you aimed.
+                    // The MOMENT under the pointer, snapped to a tick the ruler actually drew — what makes the `curve point …` verbs act where you aimed.
                     const box = (
                       e.currentTarget as HTMLElement
                     ).getBoundingClientRect();
@@ -2884,8 +2379,7 @@ export function TimelineTab({
                     className={cn(
                       "flex shrink-0 cursor-pointer select-none items-center gap-1 truncate border-r border-border bg-muted/30 px-2 text-[10px] text-muted-foreground",
                       GUTTER_STICKY,
-                      // Indented past its lane, like a take's row — the nesting says the knob
-                      // belongs to the lane above rather than standing beside it.
+                      // Indented past its lane, like a take's row: the knob belongs to the lane above.
                       "pl-5",
                     )}
                     title={`${lane.module} · ${lane.param} ← ${lane.curve}`}
@@ -2894,8 +2388,7 @@ export function TimelineTab({
                   </div>
                   <div className="relative flex-1 overflow-hidden">
                     {pts.length > 1 && (
-                      // `vectorEffect` so the stroke keeps its width whatever the viewBox does —
-                      // the x axis here is beats scaled to pixels, which is an extreme aspect.
+                      // `vectorEffect` so the stroke keeps its width whatever the viewBox does — the x axis here is an extreme aspect.
                       <svg
                         className="pointer-events-none absolute inset-0 h-full w-full"
                         aria-hidden="true"
@@ -2966,8 +2459,7 @@ export function TimelineTab({
                   style={{ width: GUTTER }}
                   {...gutterProps(row)}
                   className={cn(
-                    // No `relative`: GUTTER_STICKY positions it, and sticky is what anything
-                    // absolute inside anchors to. Two position classes would fight in `cn`.
+                    // No `relative`: GUTTER_STICKY positions it, and two position classes would fight in `cn`.
                     "flex shrink-0 cursor-pointer select-none items-center gap-1 overflow-hidden border-r border-border px-2",
                     GUTTER_STICKY,
                     // On the row: a faint tint. Label selected: the full caret mark.
@@ -2978,11 +2470,7 @@ export function TimelineTab({
                 >
                   {/* Both live meters, subscribing for themselves — see LaneMeter. */}
                   <LaneMeter index={ti} armed={armed} />
-                  {/* The instrument its name's prefix asks for ("ge.lead" → a strat),
-                      painted the track's own colour — it carries the identity the
-                      separate swatch used to, in the space the row index used to take.
-                      An undeclared track gets a question mark, so the column still
-                      lines every name up. */}
+                  {/* The instrument the name's prefix asks for ("ge.lead" → a strat), in the track's colour; undeclared gets a question mark. */}
                   <span
                     // The row shows the label alone, so the full name — the track's id and filename — has to be reachable here.
                     title={[
@@ -3005,9 +2493,7 @@ export function TimelineTab({
                       // A coloured icon is the track's identity and holds full strength; an uncoloured one is decoration and sits back.
                       className={cn("shrink-0", !t.color && "opacity-70")}
                     />
-                    {/* Which of its attribute sets this lane is playing, right of the icon and
-                        before the name: it belongs to the lane's identity, and `shrink-0` next to
-                        a truncating label means a narrow gutter eats the name, not this. */}
+                    {/* Which attribute set this lane plays, before the name; `shrink-0` means a narrow gutter eats the name, not this. */}
                     {alt && onNodeMenu && (
                       <LaneAlternative
                         track={t.name}
@@ -3016,8 +2502,7 @@ export function TimelineTab({
                         onOpen={(at) =>
                           onNodeMenu(
                             {
-                              // A lane IS a module node, so it is addressable as one — the id is
-                              // the name its file carries. See packages/song/docs/trackModules.md.
+                              // A lane IS a module node, so it is addressable as one (packages/song/docs/trackModules.md).
                               module: t.id,
                               alternatives: alt.alternatives,
                               alternative: alt.alternative,
@@ -3028,17 +2513,11 @@ export function TimelineTab({
                         }
                       />
                     )}
-                    {/* The label alone: the position is already said by where the row
-                        sits, and the instrument by the icon left of it. Repeating
-                        "3.ge." in the text spends the gutter's width on what the row
-                        has just shown you. */}
+                    {/* The label alone: the row's position and the icon already say what "3.ge." would repeat at the gutter's expense. */}
                     <span className="truncate">{trackLabel(t.name)}</span>
-                    {/* A snowflake reported a FROZEN lane here. Freezing is gone with the
-                        field it read — see packages/song/docs/trackModules.md. */}
+                    {/* A snowflake reported a FROZEN lane here; freezing went with the field it read (packages/song/docs/trackModules.md). */}
                   </span>
-                  {/* [m]ute / [s]olo / [a]rm — the same controls the chains graph's track
-                      nodes carry. stopPropagation so a tap toggles without also moving
-                      the caret / opening the track menu. */}
+                  {/* [m]ute / [s]olo / [a]rm, the graph's track nodes' own controls; stopPropagation so a tap does not also move the caret. */}
                   {onTrackToggle && (
                     <div className="relative flex shrink-0 items-center gap-0.5">
                       {msa.map(([label, control, on, onCls]) => (
@@ -3048,8 +2527,7 @@ export function TimelineTab({
                           aria-label={`${control} ${t.name}`}
                           aria-pressed={on}
                           onPointerDown={(e) => e.stopPropagation()}
-                          // dblclick is its own event and bubbles past the click handler's stop —
-                          // without this, two fast mutes would also send the panes after the row.
+                          // dblclick is its own event and bubbles past the click handler's stop.
                           onDoubleClick={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -3070,34 +2548,15 @@ export function TimelineTab({
                     </div>
                   )}
                 </div>
-                {/* overflow-hidden because a zoom puts the out-of-view clips at
-                    negative offsets: without it they'd spill across the gutter. */}
+                {/* overflow-hidden because a zoom puts out-of-view clips at negative offsets, which would spill across the gutter. */}
                 <div
                   // Hit-tested by a clip drag (laneAtPoint), rather than re-deriving row geometry there.
                   data-lane-track={t.id}
-                  /**
-                   * A click on the BARE lane — no clip under it.
-                   *
-                   * It puts the caret there, and that is the whole mechanism: nothing is under
-                   * the caret any more, so `clipUnderCaret` goes null, `onEditTarget` reports
-                   * null, and whatever a clip had opened closes. `onEmptyClick` only tells the
-                   * shell to put the graph back, which is the one thing the caret cannot say.
-                   *
-                   * Clips bubble to here — they do not stop the event — so `dragRef` is the
-                   * test: their own pointerdown has already run and filled it. Checking the
-                   * TARGET as well catches the overlays that are not pointer-transparent.
-                   */
+                  /** A click on the BARE lane: it puts the caret there, and `dragRef` is the test, since clips bubble to here. */
                   onPointerDown={(e) => {
                     if (e.button !== 0) return;
                     if (dragRef.current) return; // a clip took this press
-                    /**
-                     * Shift: the caret GROWS into the `v` rectangle — anchored where the
-                     * caret is (or where the rectangle already was), headed under the
-                     * pointer, and dragged across beats and rows. The same Selection the
-                     * keyboard's v builds, so z / Shift+L then act on it. It works over a
-                     * clip too: a clip lets a shifted press bubble through, which is why
-                     * this branch sits before the bare-lane target test.
-                     */
+                    /** Shift: the caret GROWS into the `v` rectangle — the same Selection the keyboard's `v` builds, and it works over a clip too. */
                     if (e.shiftKey) {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const cellAt = (cx: number) =>
@@ -3122,8 +2581,7 @@ export function TimelineTab({
                         }),
                       });
                       const onSelMove = (ev: PointerEvent) => {
-                        // The head's row comes off the rows' own DOM (data-sel-row): rows
-                        // have three heights, and a second copy of that geometry would drift.
+                        // The head's row comes off the rows' own DOM (data-sel-row): rows have three heights, and a second copy would drift.
                         const key = document
                           .elementFromPoint(ev.clientX, ev.clientY)
                           ?.closest?.("[data-sel-row]")
@@ -3168,32 +2626,21 @@ export function TimelineTab({
                   )}
                   style={{ width: laneW }}
                 >
-                  {/* A cold wash marked a FROZEN lane here. Gone with the field it read — see
-                      packages/song/docs/trackModules.md. */}
-                  {/* record-armed: the whole lane goes red. Bottom of the stack, so
-                    the VU, the caret and the clips all still read on top of it.
-                    Comes from the engine's state frame, not the project — arming is
-                    session state and is in no file (see keys.ts `r`). */}
+                  {/* A cold wash marked a FROZEN lane here, gone with the field it read (packages/song/docs/trackModules.md). */}
+                  {/* record-armed: the whole lane goes red, at the bottom of the stack, off the engine's state frame rather than the project. */}
                   {armed && (
                     <div className="pointer-events-none absolute inset-0 bg-red-600/30" />
                   )}
-                  {/* caret cell — gone while the label is selected (the caret is on
-                      the row, not in the lane) and while a rectangle is being drawn
-                      (the rectangle IS the caret then, with two ends) */}
+                  {/* caret cell — gone while the label is selected, and while a rectangle is being drawn, the rectangle BEING the caret then. */}
                   {onRow && !labelled && !selBox && (
                     <div
-                      // pointer-events-none: it is a mark, not a target — and a press landing on
-                      // it must read as a press on the bare lane, which is what moves the caret.
+                      // pointer-events-none: it is a mark, not a target, so a press on it reads as a press on the bare lane.
                       className="pointer-events-none absolute top-0 h-full bg-primary/25 outline outline-1 outline-primary"
                       style={{ left: x(caret.beat), width: ppb }}
                     />
                   )}
                   {inSel && selBox && selSlice(selBox)}
-                  {/* A generated lane holds no clips of its own: its material is
-                    streamed from the group's algo/ pattern, and the clips it carries
-                    are the scheduler's look-ahead, rewritten every tick. Drawing them
-                    would show flickering modules you can't select or edit — so hatch
-                    the lane instead, marking it as never yours to fill. */}
+                  {/* A generated lane carries only the scheduler's look-ahead, rewritten every tick, so it is hatched rather than drawn. */}
                   {t.generated ? (
                     <div
                       title={`${t.name} — generated by an algo pattern; can't hold clips`}
@@ -3202,10 +2649,7 @@ export function TimelineTab({
                     />
                   ) : (
                     <>
-                      {/* The take being played, growing on the lane it is being recorded onto.
-                          There is no clip yet — nothing on disk names it — so this is drawn from
-                          the transport rather than from the document, and the real placement
-                          lands under it on Stop. */}
+                      {/* The take growing on its lane: nothing on disk names it yet, so it is drawn from the transport and replaced on Stop. */}
                       {rolling && armedIds.includes(t.id) && (
                         <RecordingClip
                           tempo={proj.tempo}
@@ -3216,9 +2660,7 @@ export function TimelineTab({
                           ppb={ppb}
                         />
                       )}
-                      {/* The move ghost: the outline the clip left behind, where it was
-                          picked up. Only on the lane that holds it, and gone the instant
-                          the move commits or cancels. */}
+                      {/* The move ghost: where the clip was picked up, on its own lane only, gone the instant the move commits or cancels. */}
                       {move && move.trackId === t.id && (
                         <div
                           className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
@@ -3231,9 +2673,7 @@ export function TimelineTab({
                           }}
                         />
                       )}
-                      {/* The resize ghost: where the event stood when its edge was
-                          grabbed. Same outline as the move ghost — one gesture language
-                          for "here is what you are changing from". */}
+                      {/* The resize ghost: where the event stood when its edge was grabbed, in the move ghost's outline — one gesture language. */}
                       {resize && resize.trackId === t.id && (
                         <div
                           className="pointer-events-none absolute top-1 h-[calc(100%-8px)] rounded border border-dashed border-primary/70 bg-primary/5"
@@ -3250,35 +2690,16 @@ export function TimelineTab({
                         const w = (c.length > 0 ? c.length : NATURAL) * ppb;
                         // A clip whose content loops to fill its length: flagged, so the repeats aren't mistaken for one long take.
                         const looping = (c.loopEnd ?? 0) > (c.loopStart ?? 0);
-                        // …and WHERE it starts over. Not the same question as `looping` above,
-                        // which now only feeds the tooltip: a MIDI clip states its window even
-                        // when it plays once (clipLoop.ts), so `looping` can be true with
-                        // nothing to mark. The marks come off `passes`, so they draw nothing.
+                        // …and WHERE it starts over: the marks come off `passes`, so a MIDI clip stating its window draws none (clipLoop.ts).
                         const loop = clipLoop(c);
                         const loopMarks = loop ? placedRepeats(loop, ppb) : [];
-                        // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is
-                        // where it stops being a glyph and starts being grit.
+                        // A glyph needs room the bare rule does not; `MIN_LOOP_GLYPH_PX` is where it stops being a glyph and starts being grit.
                         const loopGlyphs =
                           !!loop && loop.win * ppb >= MIN_LOOP_GLYPH_PX;
-                        // A time-stretched clip plays back at an altered rate — flag it with a
-                        // countdown-timer icon. CROSSED when this event has declined the map
-                        // (`event status warp`): the material is still warped, and this one
-                        // playing at its own rate is a state worth seeing rather than an absence.
+                        // A time-stretched clip gets a countdown-timer icon, CROSSED when this event has declined the map (`event status warp`).
                         const stretched = !!c.warped;
                         const unwarped = !!c.warpOff;
-                        /**
-                         * The same material, placed elsewhere too.
-                         *
-                         * `ghost` marks every placement but the earliest, so a lane of repeats
-                         * reads as one take and its returns rather than as material a person
-                         * would have to remember placing. The FIRST wears nothing: an icon on
-                         * all of them would say "these are copies" without saying of what.
-                         *
-                         * `kin` is the other half — the caret on one of them lights the rest,
-                         * which is what answers "where else does this play" without a search.
-                         * The clip under the caret is excluded by identity: both sides come out
-                         * of the same compiled project, so it is the same object.
-                         */
+                        /** The same material, placed elsewhere too: `ghost` marks every placement but the earliest, and `kin` lights the rest from the caret. */
                         const inst = instances.get(materialOf(c));
                         const ghost =
                           (inst?.n ?? 1) > 1 &&
@@ -3333,11 +2754,7 @@ export function TimelineTab({
                                     proj.timeSigNumerator,
                                     proj.timeSigDenominator,
                                   ),
-                                  // …and the RECTANGLE, when one is drawn. A range verb takes a
-                                  // span, and the placement only says where it starts — so
-                                  // without this `selection consolidate` reached the menu one
-                                  // argument short and the bar asked for the end that was
-                                  // already selected. The same value the palette reads.
+                                  // …and the RECTANGLE, when one is drawn: a range verb takes a span, and the placement only says where it starts.
                                   sel: selRange,
                                 },
                                 e.clientX,
@@ -3345,17 +2762,12 @@ export function TimelineTab({
                               );
                             }}
                             className={cn(
-                              // `isolate` so the activity layer's -z-10 stays inside this block instead of dropping behind the lane.
-                              // `group` is what the name reads to know it is being pointed at.
+                              // `isolate` keeps the activity layer's -z-10 inside this block; `group` is what the name reads.
                               "group absolute top-1 flex h-[calc(100%-8px)] cursor-grab overflow-hidden rounded px-1 text-[10px] active:cursor-grabbing isolate",
-                              // Disabled: still placed, still readable, plainly off. Not
-                              // hidden — an event you can't see is a deleted one.
+                              // Disabled: still placed, still readable, plainly off — an event you cannot see is a deleted one.
                               c.disabled &&
                                 "opacity-40 saturate-0 outline-dashed outline-1 outline-muted-foreground",
-                              // A SIBLING of the one under the caret: the same material, playing
-                              // somewhere else. Light, and light on purpose — it answers "where
-                              // else does this play" while the eye is on the clip you picked, so
-                              // anything louder would compete with the thing being pointed at.
+                              // A SIBLING of the one under the caret: light on purpose, so it does not compete with the clip you picked.
                               kin &&
                                 "outline outline-1 -outline-offset-1 outline-primary/60 brightness-110",
                               // Expanded: name on top, content filling the rest. Collapsed: the name centred in the short block as before.
@@ -3371,23 +2783,14 @@ export function TimelineTab({
                               width: Math.max(ppb, drawW),
                             }}
                           >
-                            {/* The fill, with the content's activity running through it: 50%
-                                opaque where the event is quiet, 100% where it is loud. The
-                                flat background the block used to wear moved in there. */}
+                            {/* The fill, with the content's activity running through it: 50% opaque where quiet, 100% where loud (docs/timeline.md). */}
                             <ClipActivity
                               clip={c}
                               spanBeats={c.length > 0 ? c.length : NATURAL}
                               color={t.color || undefined}
                               project={envProject}
                             />
-                            {/* Where the material STARTS OVER — one rule per pass, with the
-                                loop glyph on it. Without them a looping event is one long
-                                block, and nothing on it says whether it is a single take or
-                                the same bar sixteen times. `placedRepeats`, not
-                                `visibleRepeats`: this axis starts at the event's left edge
-                                (see clipLoop.ts). Clipped to the DRAWN width, so a resize
-                                drag drops the marks it is about to lose rather than
-                                leaving them past the end. */}
+                            {/* Where the material STARTS OVER, one rule per pass: `placedRepeats`, since this axis begins at the event's left edge (clipLoop.ts). */}
                             {loopMarks
                               .filter((b) => b * ppb < drawW)
                               .map((b) => (
@@ -3396,22 +2799,13 @@ export function TimelineTab({
                                   className="pointer-events-none absolute inset-y-0 w-px bg-white/30"
                                   style={{ left: b * ppb }}
                                 >
-                                  {/* Only when a pass is wide enough to hold it — below that
-                                      the glyphs touch and read as a dotted smear. */}
+                                  {/* Only when a pass is wide enough to hold it — below that the glyphs touch and read as a dotted smear. */}
                                   {loopGlyphs && (
                                     <Repeat className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 h-2 w-2 text-white/75" />
                                   )}
                                 </div>
                               ))}
-                            {/* The FADES, drawn as the two wedges they are: a triangle from the
-                                top of one end down to the baseline at the fade's length. Under
-                                the loop marks and over the activity fill, so a fade shades the
-                                material rather than hiding it, and `pointer-events-none` because
-                                what you grab is the corner handle below, not the wedge.
-
-                                Live while a fade is being dragged: `fadeOf` reads the gesture in
-                                hand before the clip's own value, so the wedge follows the cursor
-                                instead of waiting for the round trip. */}
+                            {/* The FADES as two wedges, `pointer-events-none` since the corner handle is what you grab; `fadeOf` keeps them live mid-drag (docs/timeline.md). */}
                             {(["fadeIn", "fadeOut"] as const).map((which) => {
                               const live =
                                 fade?.clipId === c.id &&
@@ -3434,8 +2828,7 @@ export function TimelineTab({
                                   )}
                                   style={{
                                     width: w,
-                                    // The wedge itself. A fade-in is dark at the head and clear
-                                    // by its end; a fade-out the mirror.
+                                    // The wedge itself: a fade-in is dark at the head and clear by its end, a fade-out the mirror.
                                     clipPath:
                                       which === "fadeIn"
                                         ? "polygon(0 0, 100% 100%, 0 100%)"
@@ -3444,10 +2837,7 @@ export function TimelineTab({
                                 />
                               );
                             })}
-                            {/* …and the two corner handles that drag them. The TOP corners: the
-                                resize strips below are full-height at the same two ends, and two
-                                gestures on one pixel is how a drag becomes a coin toss. Absent on
-                                a read-only document rather than inert, like the resize handles. */}
+                            {/* …and the two corner handles that drag them, at the TOP corners so they never share a pixel with the resize strips. */}
                             {!readOnly &&
                               (["fadeIn", "fadeOut"] as const).map((which) => {
                                 const len =
@@ -3459,9 +2849,7 @@ export function TimelineTab({
                                     className={cn(
                                       "absolute top-0 z-30 h-2 w-2 cursor-ew-resize rounded-sm",
                                       which === "fadeIn" ? "left-0" : "right-0",
-                                      // Visible once there is a fade; otherwise it appears on
-                                      // hover, the same disclosure the edge handles use — an
-                                      // always-lit corner on every clip is noise.
+                                      // Visible once there is a fade; otherwise on hover, the same disclosure the edge handles use.
                                       len > 0
                                         ? "bg-white/60"
                                         : "bg-white/0 group-hover:bg-white/35",
@@ -3494,13 +2882,7 @@ export function TimelineTab({
                                   />
                                 );
                               })}
-                            {/* Edge handles. Narrow strips inside the block's own ends,
-                                so they never overlap the neighbouring event and the body
-                                between them still drags the whole clip.
-
-                                Absent on a read-only document, not inert: `cursor-ew-resize`
-                                and a hover highlight are a PROMISE, and a handle that lights
-                                up under the cursor and then refuses is worse than none. */}
+                            {/* Edge handles, narrow strips INSIDE the block's own ends, and absent rather than inert on a read-only document. */}
                             {!readOnly &&
                               (["start", "end"] as const).map((edge) => (
                                 <div
@@ -3543,40 +2925,24 @@ export function TimelineTab({
                                 />
                               ))}
                             <div className="flex items-center gap-0.5 leading-tight">
-                              {/* Kind at a glance: a note for MIDI/sequence clips, a speaker
-                                for audio. */}
+                              {/* Kind at a glance: a note for MIDI/sequence clips, a speaker for audio. */}
                               {c.type === "midi" ? (
                                 <Music className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               ) : (
                                 <Volume2 className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
-                              {/* A RETURN of material that first plays earlier in the song.
-                                  Drawn on every placement but that first one, so the eye can
-                                  tell a lane of repeats from a lane of takes without opening
-                                  any of them. Beside the kind icon rather than in a corner:
-                                  what a block IS and how many times it has been seen are the
-                                  same question, asked at the same moment. */}
+                              {/* A RETURN of material heard earlier, drawn on every placement but the first (docs/timeline.md). */}
                               {ghost && (
                                 <Ghost className="h-2.5 w-2.5 shrink-0 opacity-80" />
                               )}
-                              {/* The loop badge that sat here is gone: the marks down the
-                                  block say the same thing and say WHERE, which a badge in a
-                                  corner never could. */}
+                              {/* The loop badge that sat here is gone: the marks down the block say the same thing and say WHERE. */}
                               {stretched &&
                                 (unwarped ? (
                                   <TimerOff className="h-2.5 w-2.5 shrink-0 opacity-80" />
                                 ) : (
                                   <Timer className="h-2.5 w-2.5 shrink-0 opacity-80" />
                                 ))}
-                              {/* The name, on HOVER. A lane full of blocks each shouting its
-                                  own name is noise you read past; what the eye wants at rest
-                                  is the shape of the arrangement. Faded rather than
-                                  unmounted, so the row keeps its height and the icons beside
-                                  it never move.
-                                  …and shown outright while the block is in hand: a drag puts
-                                  `pointer-events-none` on it so `laneAtPoint` can see past
-                                  it, which also means it stops being hovered — exactly when
-                                  knowing what you are holding matters most. */}
+                              {/* The name on HOVER, faded rather than unmounted so the row keeps its height — and shown outright while the block is in hand. */}
                               <span
                                 className={cn(
                                   "truncate opacity-0 transition-opacity group-hover:opacity-100",
@@ -3586,9 +2952,7 @@ export function TimelineTab({
                                 {c.name || c.id}
                               </span>
                             </div>
-                            {/* The clip's waveform / mini piano-roll, only when there's
-                              room for it. `relative` anchors ClipContent's absolute fill;
-                              `min-h-0` lets it shrink inside the flex column. */}
+                            {/* The clip's waveform or mini piano-roll, only when there is room; `relative` anchors ClipContent's absolute fill. */}
                             {expanded && (
                               <div className="relative mt-0.5 min-h-0 flex-1">
                                 <ClipContent
@@ -3608,9 +2972,7 @@ export function TimelineTab({
             );
           })}
 
-          {/* marker lines — an electric-blue vertical rule spanning the ruler and every
-              lane, at each marker's beat. Non-interactive (the ruler handle above owns
-              hover/right-click); brightened while its handle is hovered. */}
+          {/* marker lines spanning the ruler and every lane, non-interactive: the ruler handle above owns hover and right-click. */}
           {visMarkers.map((mk) => (
             <div
               key={mk.tc}
@@ -3625,8 +2987,7 @@ export function TimelineTab({
               }}
             />
           ))}
-          {/* playhead — its own subscriber, so the transport moves one div and re-renders
-              nothing else on this surface. See Playhead. */}
+          {/* playhead — its own subscriber, so the transport moves one div and re-renders nothing else here (see Playhead). */}
           <Playhead
             tempo={proj.tempo}
             beatLo={beatLo}

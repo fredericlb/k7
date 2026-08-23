@@ -37,8 +37,7 @@ const styleOf = (line: string, text: string) =>
 
 describe("the faust tokeniser", () => {
   it("knows the composition operators, which ARE the language", () => {
-    // Longest first: `<:` and `:>` must not be read as a `:` followed by an angle bracket, which
-    // is the one mistake that would recolour every split and merge in every module.
+    // Longest first: `<:` and `:>` must not be read as a `:` followed by an angle bracket.
     expect(styleOf("a <: b", "<:")).toBe("operator");
     expect(styleOf("a :> b", ":>")).toBe("operator");
     expect(styleOf("a : b", ":")).toBe("operator");
@@ -51,8 +50,7 @@ describe("the faust tokeniser", () => {
   });
 
   it("reads a lone `_` as the wire, and `_foo` as a name", () => {
-    // Found by this test: the identifier rule swallowed `_`, because it is also a legal first
-    // character of a name. Every `process = _, _` in every module drew as a variable.
+    // Found by this test: the identifier rule swallowed `_`, so every `process = _, _` drew as a variable.
     expect(styles("process = _, _")).toEqual([
       "keyword",
       "operator",
@@ -75,8 +73,7 @@ describe("the faust tokeniser", () => {
   });
 
   it("gives the UI primitives their own colour", () => {
-    // They declare the module's parameters, and nothing checks that `module.yaml` agrees with
-    // them — so standing out is the cheapest help there is.
+    // They declare the module's parameters, and nothing checks that `module.yaml` agrees with them.
     expect(styleOf('hslider("Cutoff", 1200, 20, 20000, 1)', "hslider")).toBe(
       "macroName",
     );
@@ -122,8 +119,7 @@ describe("the faust tokeniser", () => {
   });
 
   it("returns only names CodeMirror knows", () => {
-    // A typo in a style name costs the colour and warns to a console nobody is watching. Every
-    // name this can produce is checked against the real tag table instead.
+    // A typo in a style name costs the colour and warns to a console nobody is watching.
     const real = tags as unknown as Record<string, unknown>;
     const source = [
       'import("stdfaust.lib");',

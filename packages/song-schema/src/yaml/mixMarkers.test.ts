@@ -1,8 +1,4 @@
-// Cue points in mix.yaml: the file a DESK writes, mid-set, on a gesture nobody will repeat.
-//
-// Two things are worth pinning above all: that a sheet written before markers existed still
-// reads, and that writing one does not eat the file's comments — they are the one worked
-// example a reader of a set gets.
+// Cue points in mix.yaml: an older sheet still reads, and a write keeps the comments (docs/deskFiles.md).
 
 import { describe, expect, it } from "vitest";
 import { cueMarkers, cueRefs, parseMix, withMarkers } from "./mixFile";
@@ -25,8 +21,7 @@ describe("reading a cue sheet", () => {
   });
 
   it("reads a ref that carries cues, beside one that does not", () => {
-    // Both shapes in one file, on purpose: a song with nothing to say stays ONE LINE, which is
-    // every song until somebody drops a cue on it.
+    // Both shapes in one file, on purpose: a song with nothing to say stays ONE LINE.
     const { value, issues } = parseMix(
       `cues:\n  - "${A}"\n  - ref: "${B}"\n    markers: [12.5, null, 48]\n`,
     );
@@ -48,8 +43,7 @@ describe("reading a cue sheet", () => {
   });
 
   it("names the key when the entries are a bare list", () => {
-    // The first thing anyone writes, and the fix is one line — so it is said by name rather
-    // than reported as "expected object".
+    // The first thing anyone writes, and the fix is one line (docs/deskFiles.md).
     const { value, issues } = parseMix(`- "${A}"\n`);
     expect(value).toBeNull();
     expect(issues[0].message).toContain("cues:");
@@ -69,8 +63,7 @@ describe("writing a cue back", () => {
   });
 
   it("holds a slot open, so button 3 stays button 3", () => {
-    // A cue is muscle memory. A list that closed its gaps would renumber somebody's set
-    // mid-gig, which is worse than an empty button.
+    // A cue is muscle memory: a list that closed its gaps would renumber somebody's set mid-gig.
     const out = withMarkers(PLAIN, A, [null, null, 48]);
     expect(cueMarkers(parseMix(out).value)).toEqual({
       [A]: [null, null, 48],
@@ -109,15 +102,13 @@ describe("writing a cue back", () => {
   });
 
   it("APPENDS a ref the file does not name", () => {
-    // A deck can be playing a song somebody removed from the playlist a moment ago. Refusing
-    // the cue would lose a gesture the DJ has already made.
+    // Refusing the cue would lose a gesture the DJ has already made (docs/deskFiles.md).
     const out = withMarkers(`cues: []\n`, A, [5]);
     expect(cueMarkers(parseMix(out).value)).toEqual({ [A]: [5] });
   });
 
   it("makes the key from nothing at all, on an absent file", () => {
-    // `readMixText` answers "" for a project that has never been cued, and the first cue of
-    // the evening lands on that. It must produce a file the parser accepts.
+    // `readMixText` answers "" for a project never cued, and the evening's first cue lands there.
     const out = withMarkers("", A, [5]);
     const { value, issues } = parseMix(out);
     expect(issues).toEqual([]);
@@ -125,8 +116,7 @@ describe("writing a cue back", () => {
   });
 
   it("writes the cues on ONE line, under the ref they belong to", () => {
-    // Eight numbers down the page would bury the ref. Flow style is what keeps a sheet
-    // readable once every song has been cued.
+    // Eight numbers down the page would bury the ref they belong to.
     const out = withMarkers(PLAIN, A, [1, 2, 3]);
     expect(out).toMatch(/markers: \[\s*1,\s*2,\s*3\s*\]/);
   });

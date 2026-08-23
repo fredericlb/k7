@@ -1,11 +1,7 @@
 import type { Player } from "@studio/player-web";
 import type { PreloaderState, SongEntry } from "@studio/player-web/preloader";
 
-// Playlist-mode playback: two rotating <audio> elements (one playing, one
-// prefetching the next track) instead of SongPreloader's decoded AudioBuffers.
-// Streaming is what makes long playlists viable — a decoded 30 s stereo
-// preview costs ~10 MB of RAM, so 50 tracks would blow past half a gigabyte.
-// The trade-off is that no Web Audio effect can apply; playlist mode has none.
+// Two rotating <audio> elements rather than decoded buffers — see ../../../docs/effects.md.
 
 const READY_TIMEOUT_MS = 15_000;
 
@@ -21,8 +17,7 @@ export class PlaylistPlayer implements Player {
   };
   private listeners = new Set<() => void>();
 
-  // [current, spare] — play() swaps them so the element that prefetched the
-  // upcoming track becomes the one that plays it.
+  // [current, spare] — play() swaps them, so whichever prefetched the track is the one that plays.
   private els: HTMLAudioElement[] = [makeAudio(), makeAudio()];
   private gain = 1;
   private stopTimer: number | null = null;
@@ -59,11 +54,7 @@ export class PlaylistPlayer implements Player {
 
   // ─── loading ──────────────────────────────────────────────────────────────
 
-  /**
-   * Warm one track on the spare element. Resolves on `canplaythrough`, on
-   * error, or on a timeout — never rejects, because SoloGame's intro gate
-   * waits on this and a dead track must not freeze the game.
-   */
+  /** Warm one track; it NEVER rejects, because the intro gate waits on it. */
   private warm(el: HTMLAudioElement, src: string): Promise<void> {
     return new Promise<void>((resolve) => {
       let done = false;
@@ -120,8 +111,7 @@ export class PlaylistPlayer implements Player {
       el.removeAttribute("src");
       el.load();
     }
-    // progress 0, like SongPreloader: the intro's Start button stays disabled
-    // until the first track has actually buffered.
+    // progress 0, so the intro's Start button stays disabled until a first track has buffered.
     this.set({
       total: 0,
       loaded: 0,
@@ -180,11 +170,7 @@ export class PlaylistPlayer implements Player {
     this.set({ isPlaying: false });
   }
 
-  /**
-   * Unlock autoplay: browsers only allow programmatic play() once an element
-   * has been played inside a user gesture. SoloGame calls this synchronously
-   * from the Start click, before any await.
-   */
+  /** Unlock autoplay; it MUST run synchronously from the Start click — ../../../docs/effects.md. */
   resumeContext(): void {
     for (const el of this.els) {
       const p = el.play();
@@ -199,9 +185,7 @@ export class PlaylistPlayer implements Player {
     for (const el of this.els) el.volume = this.gain;
   }
 
-  // ─── unreachable in playlist mode ─────────────────────────────────────────
-  // Every playlist category is built with mode "", so SoloGame never routes
-  // here. They delegate rather than throw, in case a mode ever leaks in.
+  // ─── unreachable: every playlist category is mode "", so these delegate rather than throw ──
 
   setEffects(_effects: Record<string, number>): void {}
   setSecondGain(_value: number): void {}

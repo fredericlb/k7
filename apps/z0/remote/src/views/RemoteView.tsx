@@ -10,9 +10,7 @@ import { useAuth } from "../lib/auth";
 import { BuzzerSocket } from "../lib/ws";
 import { m } from "../paraglide/messages.js";
 
-// The server names the phase at runtime, so the lookup can't be a computed
-// message key — Paraglide only compiles calls it can see. Unknown phases fall
-// back to the raw name, uppercased, as tOr() used to do.
+// Spelled out because Paraglide only compiles calls it can see, and the phase names arrive at runtime.
 const PHASE_LABELS: Partial<Record<string, () => string>> = {
   unknown: m["remote.phases.unknown"],
   loading: m["remote.phases.loading"],
@@ -29,10 +27,7 @@ const PHASE_LABELS: Partial<Record<string, () => string>> = {
   pause: m["remote.phases.pause"],
 };
 
-// The host's remote control (port of RemoteView.vue). WS-driven state lives
-// on a mutable ref (`g`) + force-render, exactly like the buzzer port. The
-// remote owns session selection, judging, scoring, registration toggles, and
-// simulated buzzer players; phase transitions themselves are server-driven.
+// The host's remote: session choice, judging, scoring — but never a phase, which the server owns.
 
 interface Player {
   name: string;
@@ -443,8 +438,7 @@ export function RemoteView() {
     await doNext();
   }
 
-  // Simulated players: real buzzer WS connections, so buzzing from the BUZZ
-  // tab goes through the genuine pipeline.
+  // Simulated players hold REAL buzzer sockets, so the BUZZ tab takes the genuine pipeline.
   async function addPlayer() {
     const name = g.newPlayerName.trim();
     if (!name) return;
@@ -630,8 +624,7 @@ export function RemoteView() {
         if (info.currentItem.finished) setPhase("end");
         else if (info.currentItem.type === "category") setPhase("category");
         else if (info.currentItem.type === "song") {
-          // Prefer the authoritative phase mid-song so a refresh during
-          // reveal doesn't collapse back to "song".
+          // The authoritative phase wins mid-song, or a refresh during reveal collapses to "song".
           if (
             info.phase &&
             ["answering", "judging", "reveal"].includes(info.phase)

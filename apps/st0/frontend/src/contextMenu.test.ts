@@ -13,9 +13,7 @@ const a = (
   optional?: boolean,
 ): CommandArg => ({ name, kind, provider, hint: "", optional });
 
-// A slice of the real commands.yaml, kept to the shapes that decide something here: a track
-// first, a track then a timecode, a module, a category (which is NOT this module), a base-module
-// ref, a clip, a timecode, a marker.
+// A slice of the real commands.yaml, kept to the shapes that decide something here.
 const CATALOGUE: CommandInfo[] = [
   {
     command: "track mute",
@@ -30,8 +28,7 @@ const CATALOGUE: CommandInfo[] = [
   {
     command: "track pan",
     help: "set a track's pan on its mixer strip, -1 left … +1 right",
-    // The catalogue's own sentence, in both languages — what the status line says when there is
-    // one. `help` is the CLI's fuller line and stays the fallback.
+    // The catalogue's own sentence, in both languages — `help` is the CLI's fuller line and stays the fallback.
     readable: { en: "Pan a track", fr: "Panoramiquer une piste" },
     args: [a("track", "track", "tracks"), a("-1..1", "number")],
   },
@@ -70,8 +67,7 @@ const CATALOGUE: CommandInfo[] = [
     args: [a("node", "module", "nodes")],
   },
   {
-    // Takes the module FIRST — the node clicked on — then the ONE thing the menu cannot know:
-    // what to point it at. Derived here like everything else, stopping at a trailing space.
+    // Takes the module FIRST — the node clicked on — then the ONE thing the menu cannot know: what to point it at.
     command: "node replace",
     help: "replace what a node is, keeping its name and its place (e.g. node replace echo @engine/audio/filter/auto-wah)",
     args: [
@@ -89,8 +85,7 @@ const CATALOGUE: CommandInfo[] = [
     ],
   },
   {
-    // The SAME argument shape as `node param` — a module, then free text. Only the argument's
-    // name separates them, which is why the param slot pins one.
+    // The SAME argument shape as `node param`: only the argument's name separates them, which is why the param slot pins one.
     command: "module clone",
     help: "clone a module folder (e.g. module clone instruments/bass bass2)",
     args: [a("category/name", "module", "modules"), a("newName", "text")],
@@ -132,14 +127,7 @@ const labels = (items: { label: string }[]) => items.map((i) => i.label);
 const says = (items: { label: string; description: string }[], label: string) =>
   items.find((i) => i.label === label)?.description;
 
-/**
- * A PAD's two effects.
- *
- * Written out rather than derived, for the reason a take's verbs are: `<sequence> <note> <start>`
- * is the shape of EVERY `sequence note` verb, so asking the catalogue for "commands taking these
- * three" would offer to remove the note and set its velocity — the things the pad is already under
- * your hand for. These rows are a menu somebody chose.
- */
+/** A PAD's two effects, written out rather than derived: every `sequence note` verb has that shape, so the catalogue would offer the wrong rows. */
 describe("a pad", () => {
   const pad = (has: { repeat?: number; skip?: number } = {}) =>
     contextMenu(
@@ -154,8 +142,7 @@ describe("a pad", () => {
       "sequence note skip beat 36 2 2",
       "sequence note skip beat 36 2 4",
     ]);
-    // Named by the VALUE, since two rows share a verb — "repeat" twice would be a menu you
-    // cannot choose from.
+    // Named by the VALUE, since two rows share a verb — 'repeat' twice would be a menu you cannot choose from.
     expect(labels(pad())).toEqual([
       "repeat ×2",
       "repeat ×4",
@@ -164,18 +151,12 @@ describe("a pad", () => {
     ]);
   });
 
-  // Every row RUNS: the click already knows the sequence, the note, the beat and the value, so
-  // there is nothing left for the command bar to collect.
+  // Every row RUNS: the click already knows the sequence, the note, the beat and the value.
   it("leaves nothing for the bar to ask", () => {
     expect(pad().every((i) => i.complete)).toBe(true);
   });
 
-  /**
-   * The value it is already ON is not offered, and an `off` row appears instead.
-   *
-   * A row that sets a pad to what it already is would do nothing, and a menu with no way back off
-   * would make an effect a one-way decision.
-   */
+  /** The value it is already ON is not offered, and an `off` row appears instead — else an effect would be a one-way decision. */
   it("drops the value already set, and offers the way off", () => {
     const menu = lines(pad({ repeat: 4 }));
     expect(menu).not.toContain("sequence note repeat beat 36 2 4");
@@ -195,8 +176,7 @@ describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
 
   it("offers EVERY command a track can answer, not a chosen few", () => {
-    // The point of deriving it: `track pan` was never in the hand-written menu, and nobody has
-    // to remember to add the next one either.
+    // The point of deriving it: `track pan` was never in the hand-written menu, and nobody has to add the next one.
     expect(lines(menu)).toEqual([
       "track mute gtr",
       "track gain gtr ",
@@ -209,22 +189,18 @@ describe("a track", () => {
   });
 
   it("leaves a trailing space exactly when a value is still owed", () => {
-    // That space is where the caret lands, and it is also what tells the bar to complete the
-    // next ARGUMENT rather than the command name.
+    // That space is where the caret lands, and what tells the bar to complete the next ARGUMENT rather than the command name.
     expect(lines(menu)).toContain("track mute gtr"); // nothing left to say
     expect(lines(menu)).toContain("track gain gtr "); // a dB is
   });
 
   it("names each command, and drops the word that names what was clicked", () => {
-    // You aimed at the track: repeating "track" down six rows puts a column of the word you
-    // already know between the eye and the only word that differs.
+    // You aimed at the track: repeating it down six rows puts a column of the word you know before the one that differs.
     expect(labels(menu)).toEqual([
       "mute",
       "gain",
       "pan",
-      // …and a head naming something ELSE stays: the two `event` rows are about one placement on
-      // the lane, `selection consolidate` about a rectangle of them, and `ui file` about the
-      // file behind the track. That is exactly what each head is saying.
+      // …and a head naming something ELSE stays: a rectangle of placements, or the file behind the track, is what its head says.
       "event remove",
       "event move",
       "selection consolidate",
@@ -243,8 +219,7 @@ describe("a track", () => {
   });
 
   it("prefers the catalogue's sentence, in the language being read", () => {
-    // `readable` is written for a person reading a list; `help` is the CLI's line and carries
-    // caveats. The NAME stays the CLI's in both languages — only the sentence is translated.
+    // `readable` is written for a person reading a list; the NAME stays the CLI's in both languages.
     expect(says(menu, "pan")).toBe("Pan a track");
     const fr = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE, {}, "fr");
     expect(says(fr, "pan")).toBe("Panoramiquer une piste");
@@ -261,8 +236,7 @@ describe("a track", () => {
 
 describe("a group", () => {
   it("is NOT the track list — it answers only two of them", () => {
-    // A group is not a value the `tracks` provider lists, so deriving would hand it a freeze, a
-    // gain and the `event` family, none of which reach it.
+    // A group is not a value the `tracks` provider lists, so deriving would hand it verbs that do not reach it.
     expect(
       lines(contextMenu({ kind: "group", id: "drums" }, CATALOGUE)),
     ).toEqual(["track mute drums", "track solo drums"]);
@@ -303,8 +277,7 @@ describe("a take", () => {
   });
 
   it("is NOT derived — `<track> <number>` is also a gain", () => {
-    // The reason this one is written out by hand: `track gain` and `track pan` have exactly that
-    // shape, so asking the catalogue would offer to set a take's level.
+    // The reason this one is written out by hand: `track gain` and `track pan` have exactly that shape.
     expect(
       lines(contextMenu({ kind: "take", track: "gtr", n: 1 }, TAKES)),
     ).not.toContain("track gain gtr 1");
@@ -313,8 +286,7 @@ describe("a take", () => {
 
 describe("a module node", () => {
   it("offers what takes a module, and not what takes a CATEGORY", () => {
-    // Both are class `module` on the wire — the colour they are drawn in. Matching on that
-    // instead of the provider would offer `module new` on every module in the graph.
+    // Both are class `module` on the wire — matching on that instead of the provider would offer `module new` on every module.
     const l = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE));
     expect(l).toEqual([
       "node bypass lead ",
@@ -327,8 +299,7 @@ describe("a module node", () => {
   });
 
   it("drops `node`, and only `node` — what you clicked is the USE", () => {
-    // `module clone` and `module cc` act on the module BEHIND the node, and follow it into every
-    // project that loads it. That is a different subject, and its head is what says so.
+    // `module clone` and `module cc` act on the module BEHIND the node — a different subject, and its head is what says so.
     expect(
       labels(contextMenu({ kind: "module", id: "lead" }, CATALOGUE)),
     ).toEqual([
@@ -354,10 +325,7 @@ describe("a module node", () => {
   });
 
   it("shrinks to the verbs that survive a DANGLING node", () => {
-    // A name nothing answers to: no file to open, no param to set. These touch graph.yaml
-    // alone, which the catalogue cannot say — it describes arguments, not what a handler writes.
-    // `node replace` is NOT among them any more: it repoints an `extends:`, and a dangling
-    // name has no file to repoint — offering it would offer a certain failure.
+    // A name nothing answers to: these touch graph.yaml alone, and `node replace` is no longer among them.
     expect(
       lines(
         contextMenu({ kind: "module", id: "gone", missing: true }, CATALOGUE),
@@ -383,9 +351,7 @@ describe("a clip", () => {
   });
 
   it("drops `event`, which is what you right-clicked", () => {
-    // The rows read "remove", "move". `ui file` keeps its head: it is about the material's
-    // file, not about this placement — and `selection consolidate` keeps its own, which is what
-    // says that row reaches past the one event you clicked.
+    // The rows read 'remove', 'move'; `ui file` and `selection consolidate` keep their heads, reaching past this placement.
     const l = labels(
       contextMenu(
         { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
@@ -402,10 +368,7 @@ describe("a clip", () => {
   });
 
   it("fills a RANGE verb from the rectangle the click landed in", () => {
-    // The bug this pins, reported from the app: right-click inside a selection, pick consolidate,
-    // and the bar asked for `to`. The placement says where it STARTS and nothing more, so a verb
-    // taking a span arrived one argument short — while the rectangle was holding the answer, and
-    // the palette was already reading it (commandFill).
+    // The bug this pins: consolidate arrived one argument short while the rectangle was holding the answer.
     const l = lines(
       contextMenu(
         {
@@ -419,16 +382,14 @@ describe("a clip", () => {
       ),
     );
     expect(l).toContain("selection consolidate gtr 2:1:1 6:1:1");
-    // …and ONCE. The placement-shaped derivation matches its leading arguments too, so without
-    // the filter it appeared twice — the second half-filled, which is the one that asks.
+    // …and ONCE: the placement-shaped derivation matches its leading arguments too, so without the filter it appeared twice.
     expect(l.filter((x) => x.startsWith("selection consolidate"))).toHaveLength(
       1,
     );
   });
 
   it("still asks for the range when no rectangle is drawn", () => {
-    // The other half of the rule: a caret on an event says nothing about how far to reach, so the
-    // verb arrives short and the bar collects the rest. Its trailing space is that question.
+    // The other half of the rule: a caret on an event says nothing about how far to reach, so the bar collects the rest.
     const l = lines(
       contextMenu(
         { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
@@ -439,8 +400,7 @@ describe("a clip", () => {
   });
 
   it("never offers the `clip …` family — an event is a placement, not the material", () => {
-    // The material may sit on other lanes too: `clip process riff` here read as "process this
-    // event" while acting on every placement of the file. Those verbs stay the bar's.
+    // The material may sit on other lanes too, so `clip process` here would act on every placement of the file.
     const l = lines(
       contextMenu(
         { kind: "clip", id: "riff", track: "gtr", tc: "2:1:1" },
@@ -468,9 +428,7 @@ describe("a param", () => {
   });
 
   it("is not fooled by a command of the same SHAPE", () => {
-    // `module clone <module> <newName>` fills a (module, text) pair exactly as `node param`
-    // does. Offering it here would pre-write a right-clicked knob's name as a folder name — the
-    // one case in this file where matching on types alone was not enough.
+    // `module clone <module> <newName>` fills a (module, text) pair exactly as `node param` does — types alone were not enough.
     expect(lines(menu).join(" ")).not.toContain("module clone");
   });
 
@@ -490,14 +448,12 @@ describe("a param", () => {
   });
 
   it("keeps every head — none of them names the control you clicked", () => {
-    // `node param`, `module cc`, `ui midi learn`: three heads, three different subjects, and a
-    // param is none of them. There is no word here that repeating would be noise.
+    // `node param`, `module cc`, `ui midi learn`: three heads, three subjects, and a param is none of them.
     expect(labels(menu)).toEqual(["ui midi learn", "node param"]);
   });
 
   it("names the unbind apart from the bind, which is the same verb", () => {
-    // `none` is a literal the entry writes, not a value you are being asked for — so it belongs
-    // in the name, rather than being asked for.
+    // `none` is a literal the entry writes, not a value you are being asked for, so it belongs in the name.
     const bound = contextMenu(
       {
         kind: "param",
@@ -538,8 +494,7 @@ describe("the ruler and its markers", () => {
   });
 
   it("obeys what the person turned off, like every other menu", () => {
-    // This case used to go straight to `build`, around the one filter every entry passes
-    // through, so a verb taken off the right-click came back on this menu alone.
+    // This case used to go straight to `build`, around the one filter every entry passes through.
     expect(
       contextMenu({ kind: "marker", name: "Chorus" }, CATALOGUE, {
         "project marker delete": { menu: false },
@@ -548,20 +503,14 @@ describe("the ruler and its markers", () => {
   });
 });
 
-/**
- * A STRETCH POINT in the clip editor's warp view.
- *
- * Placing one and moving it are GESTURES — a double-click and a drag — so the menu carries the
- * one act a hand cannot express: dropping the point it is already on.
- */
+/** A STRETCH POINT in the warp view: placing and moving are GESTURES, so the menu carries only dropping the point it is on. */
 describe("a warp point", () => {
   const ctx = { kind: "warp-point", clip: "break", src: "1.9400" } as const;
 
   it("names the point by the FILE second it pins, complete", () => {
     const items = contextMenu(ctx, CATALOGUE);
     expect(lines(items)).toEqual(["clip warp remove break 1.9400"]);
-    // Nothing left for the bar to collect: the pointer was ON the point, so both arguments
-    // are already known and the row RUNS rather than pre-writing.
+    // Nothing left for the bar to collect: the pointer was ON the point, so the row RUNS rather than pre-writing.
     expect(items[0].complete).toBe(true);
   });
 
@@ -570,12 +519,7 @@ describe("a warp point", () => {
   });
 
   it("offers no way to PLACE one: that is the double-click, not a row", () => {
-    // A menu entry for it would ask for a beat in the command bar, which is the gesture's own
-    // job and worse at it — you are pointing at the beat already.
-    //
-    // Asserted on the LINES rather than with `not.toContain(expect.stringContaining(…))`, which
-    // is how this was first written and passes on anything: `toContain` compares by reference,
-    // so an asymmetric matcher inside it never matches and the negation is always true.
+    // Asserted on the LINES: `toContain` compares by reference, so an asymmetric matcher inside it never matches.
     const got = lines(contextMenu(ctx, CATALOGUE));
     expect(got.filter((l) => l.startsWith("clip warp"))).toEqual([
       "clip warp remove break 1.9400",
@@ -589,9 +533,7 @@ describe("a warp point", () => {
   });
 });
 
-// The list is DERIVED: the command written tomorrow lands on a menu without anyone looking at
-// it. Two rows reading alike is worse than a head repeated ten times, so the shortening is all
-// or nothing — one clash and every row keeps its full name.
+// The list is DERIVED, so the shortening is all or nothing — one clash and every row keeps its full name.
 describe("two rows that would read alike", () => {
   it("keeps every head rather than draw one name twice", () => {
     const CLASH: CommandInfo[] = [
@@ -612,13 +554,7 @@ describe("two rows that would read alike", () => {
 
 describe("the menu's contract", () => {
   it("carries a name, a sentence, a line, the verb behind it, and whether the line is finished — nothing else", () => {
-    // No handlers, no ids to dispatch on: every entry is text the bar could have been typed into,
-    // which is what stops the menu growing a vocabulary of its own.
-    //
-    // `verb` is the fourth and is still text: the command WITHOUT the entity, untranslated. It is
-    // what `commandPrefs` is keyed by, so it is what lets the renderer draw the icon and the name
-    // this person chose — and keeping it here rather than re-deriving it from `command` means the
-    // menu never has to un-localize a line to find out which command it is.
+    // No handlers and no ids to dispatch on: every entry is text the bar could have been typed into, `verb` included.
     for (const ctx of [
       { kind: "track", id: "gtr" },
       { kind: "module", id: "lead" },
@@ -629,8 +565,7 @@ describe("the menu's contract", () => {
         expect(typeof item.command).toBe("string");
         expect(item.command.length).toBeGreaterThan(0);
         expect(item.label.length).toBeGreaterThan(0);
-        // The sentence is always THERE, even when it is empty: the status line reads it on every
-        // hover, and a row that carried none would leave the previous row's still standing.
+        // The sentence is always THERE, even when it is empty: a row carrying none would leave the previous row's standing.
         expect(typeof item.description).toBe("string");
         expect(typeof item.verb).toBe("string");
         expect(item.command.startsWith(item.verb)).toBe(true);
@@ -645,8 +580,7 @@ describe("the menu's contract", () => {
   });
 
   it("says which lines are finished, so the host knows what to RUN", () => {
-    // The host runs a finished line and opens the bar on an unfinished one. `complete` is stated
-    // rather than sniffed off the trailing space, which is only a caret position.
+    // The host runs a finished line and opens the bar on an unfinished one; `complete` is stated, not sniffed off a trailing space.
     const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
     const by = (line: string) =>
       menu.find((i) => i.command.trimEnd() === line)?.complete;
@@ -662,8 +596,7 @@ describe("the menu's contract", () => {
   });
 
   it("names a command the catalogue has never heard of", () => {
-    // The shell's own commands are not in the catalogue; each carries its own sentence, and the
-    // name is the line's own, so a row can never come out blank.
+    // The shell's own commands are not in the catalogue; each carries its own sentence, so a row can never come out blank.
     const l = contextMenu({ kind: "track", id: "gtr" }, []);
     expect(l).toEqual([
       {
@@ -671,8 +604,7 @@ describe("the menu's contract", () => {
         description: "open the track's own file, tracks/<id>.yaml",
         command: "ui file gtr",
         complete: true,
-        // The verb without the entity — `ui file`, not `ui file gtr`. Two entries for the same
-        // verb on two different tracks are one command, and wear one icon.
+        // The verb without the entity — two entries for the same verb on two tracks are one command, and wear one icon.
         verb: "ui file",
       },
     ]);
@@ -683,9 +615,7 @@ describe("the menu's contract", () => {
   });
 });
 
-// A person may take a verb OFF the right-click (commandPrefs.ts's `menu`). The menu is derived,
-// so this can only ever remove: there is no arrangement of prefs that puts a command on a menu
-// its arguments do not fit.
+// A person may take a verb OFF the right-click (commandPrefs.ts's `menu`): the menu is derived, so this can only ever remove.
 describe("what the person has turned off", () => {
   it("drops a verb marked `menu: false`, and leaves the rest alone", () => {
     const all = lines(contextMenu({ kind: "module", id: "lead" }, CATALOGUE));
@@ -700,8 +630,7 @@ describe("what the person has turned off", () => {
   });
 
   it("reaches the entries the CATALOGUE does not hold either", () => {
-    // `ui file` is written by hand in contextMenu.ts, not derived — the filter sits at the one
-    // place every entry passes through precisely so those obey too.
+    // `ui file` is written by hand, not derived — the filter sits at the one place every entry passes so those obey too.
     const off = lines(
       contextMenu({ kind: "module", id: "lead" }, CATALOGUE, {
         "ui file": { menu: false },

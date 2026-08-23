@@ -34,8 +34,7 @@ describe("what a schema silently threw away", () => {
     ]);
   });
 
-  // A declared field the person has CLEARED is absent from both sides, which is not a loss —
-  // it is the whole point of writing wholesale rather than merging.
+  // A declared field the person has CLEARED is absent from both sides, and is not a loss.
   it("does not call an absent optional field a loss", () => {
     expect(droppedKeys({}, keep({ engineId: undefined }))).toEqual([]);
   });

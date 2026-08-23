@@ -16,14 +16,12 @@ import type { LibrarySource } from "./remote.ts";
 import { bumped } from "./revision.ts";
 import type { Family } from "./types.ts";
 
-/** Where the OWNER's description of what we hold is kept — beside the bytes, never derived
- *  from them. Under `.cache/`, so the family walk and the revision token both skip it. */
+/** Where the OWNER's description of what we hold is kept, never derived from the bytes — docs/sync.md. */
 function manifestPath(family: Family): string {
   return join(cacheDir(), "manifest", `${family}.json`);
 }
 
-/** What the owner said about the files we have. Empty when we have never synced, or when
- *  the record was lost — which costs a re-fetch, not correctness. */
+/** What the owner said about the files we have; losing the record costs a re-fetch, not correctness. */
 export function heldManifest(family: Family): Manifest {
   try {
     const v = JSON.parse(readFileSync(manifestPath(family), "utf8"));
@@ -33,9 +31,7 @@ export function heldManifest(family: Family): Manifest {
   }
 }
 
-/** Record what the owner said about the files we now hold. Exported for evict.ts, which
- *  MUST rewrite it: a file deleted without being forgotten is one the cache believes it
- *  still has for ever, and would never re-fetch. */
+/** Record what the owner said about the files we now hold — evict.ts MUST rewrite it too (docs/sync.md). */
 export function rememberManifest(family: Family, m: Manifest): void {
   const p = manifestPath(family);
   mkdirSync(dirname(p), { recursive: true });
@@ -46,26 +42,11 @@ export interface SyncReport {
   family: Family;
   fetched: string[];
   dropped: string[];
-  /** Paths the owner has that could not be fetched, with why. A partial sync is a real
-   *  outcome — one unreadable file must not lose the rest of a library. */
+  /** Paths the owner has that could not be fetched, with why — a partial sync is a real outcome. */
   failed: { path: string; error: string }[];
 }
 
-/**
- * Bring one family's cache in line with the owner.
- *
- * Downloads to a temp name and renames into place, so a sync interrupted halfway leaves
- * whole files rather than truncated ones — the moteur may be reading this tree.
- *
- * The manifest is written LAST and only reflects what actually landed: a crash mid-sync
- * means the next one re-fetches, which is the safe direction.
- *
- * `scope` narrows the sync to the paths it accepts, for a cache that holds what its songs
- * reach for rather than the whole catalogue. It applies to BOTH sides of the diff, which is
- * the part that has to be right: scoping `want` alone would make every file outside the
- * scope look like one the owner had dropped, and the first partial sync would delete the
- * rest of the library. Everything out of scope keeps its remembered entry untouched.
- */
+/** Bring one family's cache in line with the owner, `scope` narrowing BOTH sides of the diff — docs/sync.md. */
 export async function syncFamily(
   source: LibrarySource,
   family: Family,
@@ -112,12 +93,7 @@ export async function syncFamily(
   return report;
 }
 
-/**
- * Is this family's cache in step with the owner?
- *
- * Compares the owner's token to the one seen at the last sync — never the local tree's own
- * revision, which is computed over local mtimes and would never match. Cheap enough to poll.
- */
+/** Is this family in step with the owner? The owner's token against the one seen last sync, never ours. */
 export async function isStale(
   source: LibrarySource,
   family: Family,
@@ -140,8 +116,7 @@ export function seenRevision(family: Family): string {
   }
 }
 
-/** Record the owner's token after a sync that left nothing failed — a partial sync must
- *  stay stale, or the missing files would never be retried. */
+/** Record the owner's token after a sync that failed nothing — a partial sync must stay stale. */
 export function markSynced(family: Family, ownerRevision: string): void {
   const p = revisionPath(family);
   mkdirSync(dirname(p), { recursive: true });

@@ -31,9 +31,7 @@ describe("a widget with no bind", () => {
       },
     });
 
-  // `true` is the flag loadGraph and compileNodeProject pass — the path that actually
-  // rejected the file, rather than `cue vet ./...` (which never reaches a package-less
-  // module file at all).
+  // `true` is the flag loadGraph and compileNodeProject pass: the path that rejects the file.
   const validate = () => loadModules(dir, true);
 
   it("loads a dropdown that has not been bound yet", () => {
@@ -45,8 +43,7 @@ describe("a widget with no bind", () => {
   });
 
   it("loads every other control unbound too", () => {
-    // Same authoring step for all of them; singling out the dropdown would just move the
-    // problem to whichever widget you dropped next.
+    // One authoring step for all: singling one out moves the problem to the next widget.
     for (const type of [
       "knob",
       "slider",
@@ -62,8 +59,7 @@ describe("a widget with no bind", () => {
   });
 
   it("still rejects an EMPTY bind", () => {
-    // Optional is not the same as "anything goes": a bind written as "" is a real
-    // mistake — it names no parameter and nothing would ever drive the widget.
+    // Optional is not "anything goes": `bind: ""` names no parameter and drives nothing.
     moduleWith("knob", { bind: "" });
     expect(validate).toThrow(/bind/);
   });

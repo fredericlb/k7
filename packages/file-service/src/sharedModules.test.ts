@@ -77,10 +77,7 @@ describe("the shared module library is read-only", () => {
 });
 
 describe("a module library OUTSIDE the workspace", () => {
-  // The mediatek lives at ~/.studio/mediatek, beside the workspaces rather than inside one.
-  // It needs no read-only predicate of its own: every file route resolves through safePath,
-  // which confines to the workspace root — so these routes cannot ADDRESS it at all. That
-  // is a stronger guarantee than `_modules` gets, and this pins it rather than assuming it.
+  // The mediatek sits beside the workspaces, so `safePath` means these routes cannot ADDRESS it at all.
   it("cannot be reached by climbing out of the workspace", async () => {
     const outside = "../mediatek/modules/audio/reverb/module.yaml";
     expect(() => ws.write(outside, "plugin: {}\n")).toThrow(/escapes/);
@@ -94,8 +91,7 @@ describe("a module library OUTSIDE the workspace", () => {
   });
 
   it("cannot be reached through a symlink planted inside the workspace", () => {
-    // The lexical check alone would pass here; safePath's second gate realpaths and
-    // re-checks, which is what makes the confinement hold.
+    // The lexical check alone would pass here; `safePath`'s second gate realpaths and re-checks.
     const media = mkdtempSync(join(tmpdir(), "td-media-"));
     mkdirSync(join(media, "modules"), { recursive: true });
     try {
@@ -145,9 +141,7 @@ describe("saving a shared module forks it into the project", () => {
   });
 });
 
-// There is NO exception any more. The builder used to pass a flag that wrote `_modules` in place; it lives in
-// the médiathèque now, which is the only editable catalogue, so a workspace's copy is read-only for everyone
-// without exception — and this test guards that the escape hatch stays closed.
+// The builder's in-place flag is gone: a workspace's copy is read-only for everyone, without exception.
 describe("nothing edits the workspace library in place", () => {
   const EDIT =
     "plugin:\n  name: Tape Delay\n  type: vst3\nparams:\n  Mix: 0.9\n";
@@ -164,17 +158,14 @@ describe("the catalogue the builder lists", () => {
     const entry = ws
       .moduleCatalogue()
       .find((m) => m.ref === "@workspace/audio/delay/tape-delay");
-    // Workspace-relative, so it goes straight back through read/write — no project to anchor on, since a
-    // catalogue sits BESIDE the projects.
+    // Workspace-relative, so it goes straight back through read/write: a catalogue sits BESIDE the projects.
     expect(entry?.path).toBe(SHARED);
     expect(entry?.category).toBe("audio");
     expect(entry?.name).toBe("audio/delay/tape-delay");
   });
 
   it("offers no FILE for a project with no shared library, rather than throwing", () => {
-    // It used to answer nothing at all here, because the catalogue WAS the shared folder.
-    // The engine's own modules have no files — that is the point — so what a project with
-    // no `_modules` beside it lacks is anything to OPEN, not anything to reach for.
+    // A project with no `_modules` beside it lacks anything to OPEN, not anything to reach for.
     const solo = mkdtempSync(join(tmpdir(), "td-solo-"));
     mkdirSync(join(solo, "song.st0"), { recursive: true });
     writeYaml(join(solo, "song.st0", "project.yaml"), {

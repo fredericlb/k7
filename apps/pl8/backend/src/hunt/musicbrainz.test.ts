@@ -37,8 +37,7 @@ const rec = (
 
 describe("buildQuery", () => {
   it("asks every artist/title split at once", () => {
-    // We do not know which words name the artist, so the query does not guess: one clause per
-    // split point, and Lucene scores whichever one matches.
+    // One clause per split point, so Lucene scores whichever one matches, and nothing guesses.
     expect(buildQuery("miles davis so what")).toBe(
       '(artist:"miles" AND recording:"davis so what") OR ' +
         '(artist:"miles davis" AND recording:"so what") OR ' +
@@ -53,8 +52,7 @@ describe("buildQuery", () => {
   });
 
   it("cannot be turned into query syntax by what somebody typed", () => {
-    // The string is assembled from `normalise`d words, so a quote or a tilde is a word
-    // separator here and never an operator.
+    // Assembled from `normalise`d words, so a quote is a word separator and never an operator.
     const out = buildQuery('nirvana" OR artist:"beatles');
     expect(out).not.toContain('"" OR');
     expect(out).toBe(
@@ -71,8 +69,7 @@ describe("buildQuery", () => {
 
 describe("queryScore", () => {
   it("prefers the recording whose ARTIST explains part of what was typed", () => {
-    // The whole discriminator. A cover titled "Lithium(nirvana)" really does contain both
-    // words — what it does not have is an artist accounting for one of them.
+    // A cover titled "Lithium(nirvana)" has both words but no artist accounting for one.
     const real = queryScore("nirvana lithium", "Nirvana", "Lithium");
     const impostor = queryScore(
       "nirvana lithium",
@@ -116,9 +113,7 @@ describe("pickAlbum", () => {
   });
 
   it("separates two plain Albums by how often the song appears on them", () => {
-    // MusicBrainz types an outtakes compilation exactly like a studio album, so kind cannot
-    // separate these two. Recurrence can: the real record is on every pressing, the curiosity
-    // on one. Note the compilation is EARLIER — date would have picked the wrong one.
+    // Same kind, so only recurrence separates them — and the compilation is EARLIER on purpose.
     const releases = [
       rel("Orange and Blue", "Album", undefined, "1996"),
       ...Array.from({ length: 6 }, (_, i) =>
@@ -145,9 +140,7 @@ describe("pickAlbum", () => {
 
 describe("chooseTags", () => {
   it("pools the releases of every recording that tied", () => {
-    // A song like Lithium comes back as a hundred recordings — one per concert — each
-    // carrying only the release it appeared on. No single one knows which record the song
-    // belongs to; together they do.
+    // A hundred recordings, one per concert: no single one knows the record, together they do.
     const out = chooseTags(
       [
         rec("Lithium", "Nirvana", [
@@ -171,8 +164,7 @@ describe("chooseTags", () => {
   });
 
   it("ignores MusicBrainz's own score, which is anti-correlated here", () => {
-    // Measured: for "nirvana lithium" the real recording scores 38 while the covers titled
-    // after it score 100. Any floor at all would throw the right answer away.
+    // Measured: the real recording scores 38, the covers 100 — any floor loses the right answer.
     const out = chooseTags(
       [
         rec(

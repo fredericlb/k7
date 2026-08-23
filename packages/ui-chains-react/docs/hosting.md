@@ -32,12 +32,109 @@ components through a context, but the PROVIDER is not a caller's job — the com
 `icons` as a required prop and provides it itself. There is no arrangement in which a host
 forgets and the graph throws at render.
 
+They reach `Node` through a context rather than through props because it is nested several layers
+down, and threading them through every layer is the kind of thing that made `DomChains.tsx` grow
+the way it did. The throw in `useIcons` is unreachable: the compiler is the guarantee.
+
+The MODULE glyph is the exception, and `moduleIcons.tsx` ships it: it is keyed on
+`WebModuleCategory`, which is the graph's own vocabulary, and its only consumer anywhere was the
+chains icon table. `Glyph` — a viewBox and a body — is declared there rather than imported from
+st0's `trackIcons` where it started, because that file stayed in the app for the reason above.
+Two fields is a cheaper duplication than the coupling.
+
 **`runCommand`** (the `command` prop) — a `@studio/commands` SID line. Every app that can
 edit a graph has one.
 
 **Live engine state**, through `@studio/engine-browser`: `engineStore` for meters and the
 playhead, `params` for the ~20 Hz plugin parameter feed. Both are external stores, so a
 frame re-renders the node that reads it and nothing else.
+
+### Can this host TAKE a value back? — the writability flags
+
+`Channels` carries a pair of booleans per value channel, and they answer different questions.
+`offlineChannel` asks whether the host handles module params at all — an EMPTY map is a
+legitimate state (nothing set yet), so the offer has to be a fact of its own rather than inferred
+from the map's size. `offlineWritable`, `pluginWritable`, `trackWritable` and `rackTriggerable`
+then ask whether it can take one BACK.
+
+Showing without taking is legitimate: m9's graph knows a deck's tempo while the desk that sets it
+is unmounted. What is not legitimate is a knob that turns against a host with nowhere to put the
+value, and that lie is what the second half of each pair exists to avoid. It went years unasked:
+the send is an optional call (`setPluginParam?.()`, `onTrackSet?.()`), so a host that passed
+neither still got a widget that dragged, moved its optimistic override, sent nothing, and had no
+engine frame coming to correct it. st0's Graph panel was exactly that. A pad on a host that
+cannot make a sound is likewise drawn and inert, never clickable-and-silent.
+
+`rehearsal` is the fifth, and it is not one of the pair: it says there is nowhere to send a value
+and none is needed, because the override IS the value. Without it the module builder's card drew
+every widget read-only until a plugin happened to be loaded — which is exactly the panel you
+cannot try out yet. See `ModulePreview.tsx` above.
+
+More precisely, `rehearsal` means **a picked module FIELD is shown and never written**. A field is
+normally committed by a command that edits a file, and in the builder there is no project node for
+that command to reach — so a base dropdown either wrote into somebody else's song or did nothing
+at all, and either way the panel being written could not be tried out. Only fields are held back:
+a plugin PARAM still goes down the socket, because the plugin behind a preview is an orphan
+instance no project owns, turning its knobs is how you hear the module, and nothing about it is
+saved either.
+
+### `moduleParams` — a value the graph cannot ask the engine for
+
+`offline` modules compile to nothing the engine holds — m9's tempo is one — so there is no plugin
+to ask and no id to ask it by. Their value lives on whichever surface REALISES them (for the
+tempo, the desk that warps the clip), and this prop is how that surface lends it to the graph.
+Without it such a widget draws the number the file declares and never changes, which reads as a
+knob stuck on its default. Passing it — or `onModuleParam` — is what turns those widgets on at
+all: a host that offers neither keeps them inert rather than showing a control that turns against
+nothing.
+
+`trackInputs` is a plain record for the same reason, like `engineWarnings` beside it: it is what
+the HOST knows about a live input and the graph does not. The chip is drawn only where
+`onPickTrackInput` is also given, so a host that cannot change one never shows one.
+
+### `onNodeMenu` and `onTriggerRack` — what the graph refuses to own
+
+The ⋮ bubble opens THIS host's menu for that node — its alternatives, and its freeze. The menu is
+the host's because it offers the host's commands and lands in the host's undo; a graph that drew
+one would be a graph that owned a popup. The bubble exists only when the callback is given, like
+the command bar and the edge inserts.
+
+`onTriggerRack` is the same shape: the graph says WHICH sound was asked for and stops there. How
+one is made audible is the host's — st0 auditions the sample through the file service, the
+médiathèque could preview it from its own catalogue — and a host that offers nothing leaves the
+pads drawn but silent, which is the right degradation for a surface with no engine behind it.
+
+### `row` — a graph read across
+
+st0's mixer view. It changes what the navigation MEANS rather than what it looks like: the wheel
+walks along the row instead of zooming, and nothing pans vertically, because there is one line of
+cards and everything above or below it is empty. The cards, the cables and the zoom are untouched.
+
+### The right-click vocabulary — `GraphMenuCtx`
+
+The union is the graph's OWN vocabulary, not the shell's. st0's `MenuCtx` is a superset covering
+timeline things (markers, clip placements) this has no way to produce; declaring the narrow union
+here is what lets the component say what it emits instead of importing an app's idea of a menu,
+and a host whose own type is wider accepts a handler for it unchanged.
+
+`param` is distinct from `module` because the answer is about one KNOB: a MIDI binding is per
+param, and the module menu has nothing to say about which one you were pointing at.
+
+### The sink's play button — `SinkPlay`
+
+Opt-in and absent by default. It sits on the OUTPUT and not on the input, because what you want
+to hear is the signal after everything in the chain has had it. st0 has a transport of its own
+and m9 has a deck, so neither wants a second play button inside the graph; the médiathèque has
+neither, which is why the prop exists.
+
+### The parked camera — `CamStore`
+
+It was named because it was not: six surfaces wrote `useRef<{x,y,k}|null>(null)` with four
+near-identical comments above it. The graph is torn down with its pane, so the pan and zoom have
+to be held by something that outlives it (`apps/st0/frontend/docs/chainsGraph.md`). A host that
+omits it gets a fresh frame on every reopen, which is a choice, but rarely the intended one.
+`Cam` itself lives in `camera.ts` with everything else that moves it, and is re-exported from
+`DomChains.tsx` because four hosts import it from the package entry.
 
 **Stable props, and this one is not decoration.** Every node and every widget is memoised, so
 a prop whose identity changes on each of the host's renders undoes that for the whole graph.
@@ -129,6 +226,41 @@ moved by direct DOM writes on pointermove (no re-render per frame), its near end
 place the renderer converts screen to world (the camera's inverse), and only while a cable
 is in hand does the host div listen to pointermove at all.
 
+`onConnect` and `onDisconnect` are optional, and the jacks are clickable only when they are
+given: pl8's read-only views and the desk pass nothing and keep their inert sockets, the way they
+pass no command bar. LIFTING in particular needs BOTH `onDisconnect` and `onReplug` — the jacks
+offer to pick a cable up only when the drop has somewhere to go. Esc or any right-click drops the
+cable in hand. `onAutomate` is one callback for BOTH curve cables, because both write one line of
+the same verb; absent, the curve sockets are inert and no card offers to take one.
+
+**Which jacks are armed.** At rest, a free OUT starts a new cable and any OCCUPIED jack lifts the
+cable end plugged into it — only a free IN answers to nothing, having nothing to give. With a
+cable in hand, exactly the jacks that can LAND the loose end light up: the seeking side, free, and
+the same signal, because a midi cable has no business in an audio socket. And never back onto the
+node the cable LEFT: `graph chain connect` refuses that outright ("can't connect 'x' to itself"),
+so offering the socket only promised a landing the verb throws out. It was unreachable until a
+lane grew an input, which put a free socket on the very node most cables leave from.
+
+**The plate and the cable end are one place drawn twice.** A socket's `left` is spread across the
+card's WIDTH — signal runs down, so the sockets are on the top and bottom edges — and that
+arithmetic must agree with `jackPoint`, which is where the cable's end is computed. A disagreement
+reads as a cable that misses its socket.
+
+An ENVELOPE's event socket is drawn whether or not it can take a cable, because the socket is what
+says what the curve is; but it only lights, and only answers, when the curve is BOUND — the
+trigger is written onto the binding, and a free card has none to write it on.
+
+**Three kinds of cable, landing on three different things.** `signal` runs socket to socket and is
+gated by type. `automation` leaves a curve and lands on a WIDGET — a knob, not a hole — which is
+why the landing test could not simply be widened. `event` runs socket to socket again, but only
+from a module's note-on into an envelope's ear.
+
+The two curve cables commit through ONE callback, `onAutomate`, because both write one line:
+`node automate <module> <param> <curve> [trigger]`. An automation cable supplies the first three;
+an event cable supplies the trigger and reads the other three off the envelope it landed on —
+which is why a curve node carries its binding (`curveOf`) rather than having it parsed back out of
+an id.
+
 ### The pin — `onMoveNode(module, x, y)`
 
 Drag ANY node's header and drop it: `onMoveNode` fires with the node's name — a module or a
@@ -160,6 +292,54 @@ through the same rebuilt-geometry path a node motion takes — springs included,
 swings. The transform survives the DROP until the graph containing the write arrives, and the
 drop pre-seeds the motion planner's drawn map, so the card neither snaps home for the length of
 the round trip nor slides to where it already is. A press that never travelled stays a click.
+
+## The module preview — what is wired, and what is left at rest
+
+`ModulePreview.tsx` is the second host in this package: the module being edited, drawn as the
+card it will be in a chain, through the same `buildGraph` → `layout` → `DomChains` pipeline the
+full graph takes. Its props are a short list, and each one exists for a reason worth stating.
+
+**`command`.** A preview writes nothing of its own — see `rehearsal` below — so this is only
+ever reached by a node's own menu. A host with no command bar passes one that says so out loud.
+
+**`ui`, the grid AS EDITED rather than as saved.** The whole point is to see a widget land
+before saving it.
+
+**`bases`, the named bases the module may be set to** — its own `base/` folder plus its
+ancestors'. A widget bound to `@base` says nothing about its own entries: the folder's contents
+change every time a base is snapshotted, so the graph fills them at draw time and this prop is
+where they come in. Without it that dropdown draws "none" alone, and the one thing you cannot
+check by reading the panel you just wrote is the one thing the preview would not show.
+
+**`sourceInput` / `onPickSourceInput`.** The source node is a placeholder in this graph
+("whatever will feed this"), and an interface input is what makes it a real one — so the module
+can be HEARD treating something you play rather than only inspected. Both props or neither: the
+chip is a control, and one you cannot click is worse than none. It is keyed by the source node's
+id, which is the graph's own name for the placeholder, `PREVIEW_SOURCE`.
+
+**`sourceArmed` / `onToggleSourceArm`** — the `A` button every track node's mixer strip has
+always drawn. In a preview it was inert: the strip is part of `TRACK_UI` and gets drawn whether
+or not a host wired the callbacks, so it read as a graph you cannot touch, which is what it was.
+Here it means "let this input through", the only thing a preview's source can do. The other four
+strip controls are left at rest rather than wired to commands this graph has no way to carry
+out — a preview's source has no volume to ride and nothing to be muted against.
+
+**`paramsStore` / `onSetParam`** — the loaded plugin's live values and how to change one, what
+makes the module's own widgets SOUND rather than merely move. Both or neither. They are no
+longer what decides whether a widget answers the mouse: under `rehearsal` every widget turns and
+holds its position locally, because a panel is authored long before any plugin is loaded and "is
+this dropdown the right way round" is a question about the panel, not about the plugin. What
+these two add is the sound.
+
+**`rehearsal`, always on here.** This card is the panel being WRITTEN, tried out. A module field
+is committed by a command that edits a file, and the builder has no project node for one to
+reach — so a base dropdown here shows the entry you picked and leaves the module alone.
+
+Two more, about the view rather than the module. The **camera lives outside the graph**: the
+panel unmounts whenever the editor closes, and a camera that reset on every remount would fight
+the person using it. And `fitKey` is the grid's `cols × rows`, so the view re-frames when the
+card's SHAPE changes — adding a row should fit the new picture, renaming a label should not move
+the camera.
 
 ## Styling: one injected sheet
 

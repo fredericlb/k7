@@ -66,8 +66,7 @@ const GLYPHS: Record<string, TrackGlyph> = {
   },
 };
 
-// prefix -> glyph. The family and label live in @studio/song/trackKind, so an icon can't ship without an order.
-// Four are near-misses (ba, ds, ch, bs): Qlementine has no upright bass, drum machine, choir or synth-bass glyph.
+// prefix → glyph; the family and label live in @studio/song/trackKind, and four are near-misses, Qlementine having no glyph for them.
 const GLYPH_FOR: Record<string, string> = {
   be: "bass-16",
   ba: "cello-16",
@@ -124,6 +123,7 @@ export function TrackIcon({
       aria-hidden="true"
       focusable="false"
       // The bodies come from a vetted, checked-in icon set, never from project data — there is no untrusted markup here.
+
       // biome-ignore lint/security/noDangerouslySetInnerHtml: static, checked-in SVG
       dangerouslySetInnerHTML={{ __html: glyph.body }}
     />

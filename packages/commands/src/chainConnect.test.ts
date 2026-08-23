@@ -101,8 +101,7 @@ describe("graph chain connect", () => {
     await runCommand("graph chain connect OUT reverb", host(), "cli");
     expect(logs.join(" ")).toContain("sink");
     await runCommand("graph chain connect reverb gtr", host(), "cli");
-    // A lane's material is its clips; the derivation discards anything else aimed at one, so
-    // the refusal is what stops a cable that would have gone quietly nowhere.
+    // The derivation discards anything else aimed at a lane, so the cable would go nowhere.
     expect(logs.join(" ")).toContain(
       "only a live input's signal lands on a lane",
     );
@@ -110,9 +109,7 @@ describe("graph chain connect", () => {
   });
 
   it("LETS a live input feed a lane — which is what recording onto one is", async () => {
-    // The one exception the model makes (packages/song's graph.ts lands a live input's signal on
-    // a lane). The verb used to refuse every track outright, stricter than the thing it guards,
-    // which left an `IN` node in the graph with nowhere it could go.
+    // The one exception the model makes; refusing every track left an `IN` node with nowhere to go.
     const io = join(dir, "modules", "io", "mic");
     mkdirSync(io, { recursive: true });
     writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
@@ -127,9 +124,7 @@ describe("graph chain connect", () => {
   });
 
   it("…and still when the input is UPSTREAM, not the node the cable leaves", async () => {
-    // A preamp through a compressor and onto the lane. What decides is the run REACHING the
-    // source, not the source itself — the second branch of runCarriesInput, and the shape of a
-    // real recording path.
+    // What decides is the run REACHING the source, not the source itself — `runCarriesInput`.
     const io = join(dir, "modules", "io", "mic");
     mkdirSync(io, { recursive: true });
     writeFileSync(join(io, "module.yaml"), "io: in\n", "utf8");
@@ -138,8 +133,7 @@ describe("graph chain connect", () => {
       "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\n  mic: [ reverb ]\n  reverb: []\n",
       "utf8",
     );
-    // The derivation splits this into TWO chains — `mic` whose out names reverb, and `reverb`
-    // alone — so reading either one's steps answers no. Only walking the feeds finds the preamp.
+    // The derivation splits this into TWO chains, so only walking the feeds finds the preamp.
     await runCommand("graph chain connect reverb gtr", host(), "cli");
     expect(logs.join(" ")).toContain("connected reverb → gtr");
   });

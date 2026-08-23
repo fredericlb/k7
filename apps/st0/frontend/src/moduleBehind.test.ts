@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { moduleBehind } from "./moduleBehind";
 
-// Which file sits BESIDE an instance in the popin: its `extends:` target, resolved the way a
-// ctrl-click resolves it. Pinned because the answer decides a whole second editor appearing.
+// Which file sits BESIDE an instance in the popin: its `extends:` target, resolved as a ctrl-click resolves it — a whole second editor.
 
 const hints = {
   projectRoot: "/root/song.st0",

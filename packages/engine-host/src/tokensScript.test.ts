@@ -27,8 +27,7 @@ const script = join(repo, "scripts", "tokens.mjs");
 let home: string;
 let envFile: string;
 
-/** The script, with HOME pointed at a scratch dir and its own env.yaml — so it writes nothing
- *  of the developer's. Both HOME and USERPROFILE: `homedir()` reads one or the other. */
+/** The script with HOME pointed at a scratch dir, so it writes nothing of the developer's; both HOME and USERPROFILE, since `homedir()` reads either. */
 function run(...args: string[]): string {
   return execFileSync(process.execPath, [script, "--env", envFile, ...args], {
     cwd: repo,
@@ -60,17 +59,14 @@ describe("the tokens script", () => {
   });
 
   it("generates the signing secret when the service has none", () => {
-    // env.example.yaml ships it empty. Left that way, the backend falls back to
-    // `${SESSION_SECRET}:pl8`, and rotating the session secret would log everyone out
-    // AND revoke every machine's sync in one move.
+    // Left empty, the backend falls back to the session secret, so rotating that would log everyone out AND revoke every machine's sync.
     expect(secretIn(join(repo, "env.example.yaml"))).toBe("");
     run();
     expect(secretIn(envFile)).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("mints k7's token into env.yaml, signed by the same médiathèque", () => {
-    // Both links are verified by the médiathèque, so one secret signs both — and each side
-    // arrives with an identity of its own, so a library log says which service wrote.
+    // One secret signs both links, and each side still arrives with an identity of its own, so a library log says which service wrote.
     run();
     const { verify } = createApiTokens(secretIn(envFile));
     const k7 = parse(readFileSync(envFile, "utf8"))["k7-backend"];
@@ -79,11 +75,9 @@ describe("the tokens script", () => {
   });
 
   it("writes k7's loopback URL, since a checkout cannot use the fixed one", () => {
-    // The service's address is fixed and defaulted in code; a CHECKOUT is the exception,
-    // because the public name goes out to the LAN proxy and straight back for nothing.
+    // The address is fixed in code, and a CHECKOUT is the exception: the public name goes out to the LAN proxy and straight back for nothing.
     run();
-    // Against the table, not a literal: the script carries its own copy of the port (a .mjs
-    // cannot import a .ts), so this is what stops the two from drifting apart.
+    // Against the table, not a literal: the script carries its own copy of the port, and this is what stops the two from drifting.
     expect(
       parse(readFileSync(envFile, "utf8"))["k7-backend"].MEDIATEK_URL,
     ).toBe(localServiceUrl("pl8"));
@@ -129,8 +123,7 @@ describe("the tokens script", () => {
   });
 
   it("keeps the rest of the tray settings", () => {
-    // It is the supervisor's file — ports, the audio device, the pinned registries. Rewriting
-    // it wholesale would cost a musician their interface choice to gain a token.
+    // It is the supervisor's file, so rewriting it wholesale would cost a musician their interface choice to gain a token.
     mkdirSync(join(home, ".studio"), { recursive: true });
     writeFileSync(
       join(home, ".studio", "engine-tray.json"),

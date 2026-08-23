@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mixerModules } from "./mixerStrips";
 import type { WebProject, WebTrack } from "./types";
 
-// Which strips the Mixer panel draws, and in what order. The compiled project is the only thing
-// that knows a track's mixer module, so this is the whole of the panel's decision.
+// Which strips the Mixer panel draws, and in what order — the compiled project is the only thing that knows a track's mixer module.
 
 const track = (id: string, mixer?: string): WebTrack =>
   ({
@@ -25,8 +24,7 @@ describe("mixerModules", () => {
   });
 
   it("skips a track with no mixer rather than drawing a dead strip", () => {
-    // Not "at unity" — a track with nowhere to put a level. A strip for it would say something
-    // the song does not.
+    // Not 'at unity' — a track with nowhere to put a level; a strip for it would say something the song does not.
     expect(
       mixerModules(
         proj([track("vox", "mx-vox"), track("fx"), track("bass", "mx-bass")]),
@@ -35,8 +33,7 @@ describe("mixerModules", () => {
   });
 
   it("draws a shared strip ONCE, where the first track using it puts it", () => {
-    // Two tracks may end on the same bus strip. It is one card: two would offer two controls
-    // for one value.
+    // Two tracks may end on the same bus strip, and it is one card: two would offer two controls for one value.
     expect(
       mixerModules(
         proj([

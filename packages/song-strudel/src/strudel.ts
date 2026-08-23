@@ -17,25 +17,19 @@ import type { Lane } from "@studio/song/trackModule";
 export interface StrudelLane {
   track: string; // the declaring track's id — a real, chainable, mixable track
   label: string; // the lane it claims: the track's name, defaulting to its id
-  // No `contentType`: a lane is not typed, so how an event reads is the EVENT's business — a
-  // sound that resolves to a sample is a sample, anything else is a waveform, and each leaves by
-  // the lane's matching output. See patternClock's resolve() and docs/trackModules.md.
+  // No `contentType`: a lane is not typed, so how an event reads is the EVENT's business.
 }
 
 // A pattern file and everything the project declares about it.
 export interface StrudelLink {
   path: string; // absolute
   lanes: StrudelLane[]; // the tracks fed by this file, by declaration order (id)
-  // Where this file's UNDECLARED lanes hang: the group they join and the scope keying their ids, so two patterns
-  // can both have an unclaimed "lead".
+  // Where this file's UNDECLARED lanes hang — the group they join and the scope keying their ids.
   group: string; // shared by every declaring track ('' if none, or if they differ)
   key: string; // a stable id fragment for this file (its slugged basename)
 }
 
-// The pattern files this project actually plays — a .strudel no track links to is
-// IGNORED (algo/ is a library you pick from). Several tracks may claim different lanes
-// of one file, so it yields ONE link carrying all of them; a link pointing nowhere is
-// kept, so loading reports the miss rather than silently playing nothing.
+// The pattern files this project actually plays — ONE link per file, carrying every track that claims a lane of it.
 export function strudelPatterns(dir: string): StrudelLink[] {
   let tracks: Record<string, Lane>;
   try {

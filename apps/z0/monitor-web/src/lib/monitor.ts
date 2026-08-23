@@ -1,11 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { f } from "./api";
 
-// Framework-free port of composables/useMonitor.ts: inline WS client on
-// /ws?role=monitor with 1s auto-reconnect, a 5s /api/game refresh poll, a
-// capped log of inbound traffic, and a subscribe() fan-out other modules
-// (audio, game state, mic) hook into. The Vue refs became an immutable
-// snapshot + listeners for useSyncExternalStore.
+// The /ws?role=monitor client: 1 s reconnect, a 5 s /api/game poll, and the subscribe() fan-out.
 
 export interface Player {
   name: string;

@@ -42,12 +42,7 @@ function song(): string {
 
 const laneText = () => readFileSync(join(dir, "nodes", "drums.yaml"), "utf8");
 
-/**
- * The compiled event the command reads its CURRENT state from.
- *
- * Built from the file each time it is asked, so a second command in one test sees what the first
- * wrote — which is what makes `toggle` testable at all.
- */
+/** Built from the file each time, so a second command sees what the first wrote — hence `toggle`. */
 const host = () =>
   ({
     songPath: dir,
@@ -67,8 +62,7 @@ const host = () =>
                 name: "kick",
                 start: 0,
                 disabled: /disabled:\s*true/.test(text),
-                // The file's negative spelling, turned into the compiler's flag exactly as
-                // nodeProject does: `warp: false` present ⇒ this placement declines the map.
+                // As nodeProject does: `warp: false` present ⇒ this placement declines the map.
                 warpOff: /warp:\s*false/.test(text) || undefined,
               },
             ],
@@ -129,8 +123,7 @@ describe("event status mute", () => {
   });
 
   it("the two aspects now read the same way round", async () => {
-    // The point of the rename, stated as a test: `on` means the word after the verb is true, in
-    // both — one silences, the other follows the map — and neither is the odd one out.
+    // The point of the rename: `on` means the word after the verb is true, in both.
     await run("event status mute drums 1:1:1 on");
     await run("event status warp drums 1:1:1 on");
     expect(laneText()).toMatch(/disabled:\s*true/);

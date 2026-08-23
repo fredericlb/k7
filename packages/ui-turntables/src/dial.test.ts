@@ -3,8 +3,7 @@ import { CENTRE, pointOnDial, progressOf, wedgePath } from "./dial";
 
 describe("where a moment sits on the dial", () => {
   it("starts at twelve o'clock and turns CLOCKWISE", () => {
-    // Where every clock and every DJ player puts the start. Getting the direction wrong is the
-    // kind of thing that looks fine in a screenshot and wrong the moment it moves.
+    // A wrong direction looks fine in a screenshot and wrong the moment it moves.
     const top = pointOnDial(0, 40);
     expect(top.x).toBeCloseTo(CENTRE);
     expect(top.y).toBeCloseTo(CENTRE - 40);
@@ -31,9 +30,7 @@ describe("the wedge that fills", () => {
   });
 
   it("draws a whole circle at the end, not a vanished sweep", () => {
-    // The seam this exists for. An SVG arc whose ends coincide draws nothing at all, so at
-    // exactly 1 a naive sweep disappears — and a record that had just finished would look
-    // like one that had not started.
+    // An SVG arc whose ends coincide draws nothing, so a finished record would look unstarted.
     const full = wedgePath(1, 49);
     expect(full).not.toBe("");
     expect(full).not.toContain(`L ${CENTRE} ${CENTRE}`); // a circle, not a pie slice
@@ -41,8 +38,7 @@ describe("the wedge that fills", () => {
   });
 
   it("takes the LONG way round past halfway", () => {
-    // The other half of the same trap: an arc goes the short way unless told, so a track past
-    // 50 % would draw its own complement — reading as barely started when it is nearly done.
+    // An arc goes the SHORT way unless told, so a track past 50 % would draw its own complement.
     expect(wedgePath(0.25, 49)).toContain("A 49 49 0 0 1");
     expect(wedgePath(0.75, 49)).toContain("A 49 49 0 1 1");
   });
@@ -66,8 +62,7 @@ describe("how far through the song", () => {
   });
 
   it("says zero for a song whose length nobody knows yet", () => {
-    // The seconds between a load and its analysis landing. A wedge drawn from a made-up length
-    // would move at a speed that means nothing.
+    // The seconds before the analysis lands: a made-up length moves the wedge at a meaningless speed.
     expect(progressOf(30, 0)).toBe(0);
     expect(progressOf(30, Number.NaN)).toBe(0);
   });

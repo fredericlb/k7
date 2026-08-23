@@ -23,8 +23,7 @@ describe("binding a curve to a param", () => {
   });
 
   it("REPLACES the curve on a param already bound, rather than stacking two", () => {
-    // One knob, one lane: the compiler bakes one automation per (plugin, param), so a second
-    // would silently win. Better that the file says what the graph shows.
+    // One automation per (plugin, param) is baked, so a second would silently win.
     const once = setModuleAutomation(MOD, "Filter Freq", "sweep");
     const twice = setModuleAutomation(once, "Filter Freq", "wobble");
     expect(twice).toContain("wobble");
@@ -41,8 +40,7 @@ describe("binding a curve to a param", () => {
   });
 
   it("writes a trigger only when there IS one", () => {
-    // Absent means the module being automated, which is what the compiler assumes — writing it
-    // out would be noise that goes stale the day the binding moves.
+    // Absent means the module being automated, and writing it out goes stale when it moves.
     expect(setModuleAutomation(MOD, "P", "env1")).not.toContain("trigger");
     expect(setModuleAutomation(MOD, "P", "env1", "drums")).toContain(
       "trigger: drums",
@@ -50,8 +48,7 @@ describe("binding a curve to a param", () => {
   });
 
   it("takes a binding off, and the empty list with it", () => {
-    // `automations: []` would say something was authored and then emptied. Unbinding the last
-    // one means the module has none, which is what no key at all says.
+    // `automations: []` would say something was authored and then emptied, which is not the case.
     const bound = setModuleAutomation(MOD, "Filter Freq", "sweep");
     const off = setModuleAutomation(bound, "Filter Freq", null);
     expect(off).not.toContain("sweep");

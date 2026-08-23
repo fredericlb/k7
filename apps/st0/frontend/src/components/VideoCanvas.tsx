@@ -32,8 +32,7 @@ export function VideoCanvas({
   onDebug,
 }: {
   scene: VideoScene;
-  /** Which lane drives each shader pass's `uAudio`, by pass id — see shaderAudio.ts. Empty for
-   *  every song that shades nothing, which is the case that costs nothing below. */
+  /** Which lane drives each shader pass's `uAudio`, by pass id (shaderAudio.ts) — empty for every song that shades nothing. */
   audioSources?: Readonly<Record<string, string>>;
   /** The compiled track order — how the engine's nameless `levels` array is indexed. */
   trackIds?: readonly string[];
@@ -45,17 +44,14 @@ export function VideoCanvas({
   const clockRef = useRef<EngineClock | null>(null);
   const onDebugRef = useRef(onDebug);
   onDebugRef.current = onDebug;
-  // In a ref for the same reason the debug callback is: the subscription below must read a fresh
-  // map without being torn down and rebuilt, which for a GL driver means losing the context.
+  // In a ref for the same reason the debug callback is: the subscription must read a fresh map without losing the GL context.
   const sourcesRef = useRef(audioSources);
   sourcesRef.current = audioSources;
   const trackIdsRef = useRef(trackIds);
   trackIdsRef.current = trackIds;
-  // The smoothed levels, held across reports. A ref rather than state because nothing React
-  // draws depends on them — they go straight into the driver's uniforms.
+  // The smoothed levels, held across reports — a ref, since nothing React draws depends on them.
   const levelsRef = useRef<Record<string, number>>({});
-  // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is
-  // not drawing. See the subscription below.
+  // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is not drawing.
   const store = useEngineStore();
 
   // Rebuild the driver on a scene change: video content changes rarely, so recreating beats a diff path.
@@ -72,9 +68,7 @@ export function VideoCanvas({
     }
     driverRef.current = driver;
     fit(driver, host, scene);
-    // Where the transport is RIGHT NOW. A fresh clock knows nothing, and the next frame can be
-    // 250 ms away with the transport stopped — long enough for a scene change to draw frame 0 of
-    // a song parked at 3:20.
+    // Where the transport is RIGHT NOW: a fresh clock knows nothing, and with the transport stopped the next frame can be 250 ms away.
     const now = store.getSnapshot();
     clock.feed(now.playing, now.playhead);
 
@@ -92,27 +86,12 @@ export function VideoCanvas({
     };
   }, [scene, store]);
 
-  /**
-   * Feed the clock every engine state frame — off a RAW subscription, which renders nothing.
-   *
-   * The pane used to read `playing` and `playhead` through `useEngineState` and pass them down as
-   * props. Splitting the selector in two was not enough and could not be: the playhead is the
-   * field that MOVES, so the pane and its whole subtree committed ~20 times a second to hand a
-   * number to an imperative clock that no React output depends on. `timeline.md`'s rule is that
-   * live state is drawn by leaves; here nothing is drawn by React at all, so the right leaf is no
-   * component. Same arrangement as the chains renderer's cable canvas (`activeTrackIds` is
-   * deliberately not a hook, for this reason).
-   *
-   * The driver's rAF loop interpolates between frames, and `EngineClock.feed` decides for itself
-   * whether one was a seek.
-   */
+  /** Feed the clock every engine state frame, off a RAW subscription that renders nothing — here the right leaf is no component at all. */
   useEffect(() => {
     const feed = (): void => {
       const s = store.getSnapshot();
       clockRef.current?.feed(s.playing, s.playhead);
-      // …and the shaders' `uAudio`, off the SAME frame. The engine's `levels` are indexed against
-      // its track list, so the lookup needs both and neither is worth a second subscription. A
-      // song that shades nothing does one property read and stops.
+      // …and the shaders' `uAudio`, off the SAME frame: `levels` is indexed against the track list, so the lookup needs both.
       const sources = sourcesRef.current;
       if (!sources || !Object.keys(sources).length) return;
       levelsRef.current = smoothLevels(

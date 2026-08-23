@@ -34,12 +34,7 @@ export function Gate() {
   }, []);
 
   const pick = useCallback((r: RankedEngine<PublicEngine>) => {
-    // Remembered before opening, and the failure is quiet: a save that did not land costs
-    // the choice surviving the session, not the project about to open.
-    // `patchPrefs`, and here it is load-bearing: this writes into pl8's document, which is not
-    // ours and has a second field — where the médiathèque's playback comes out. A PUT of
-    // `{engineId}` alone erased it, so choosing a machine in this editor silently reset the
-    // médiathèque's audio destination.
+    // PATCH, never PUT: pl8's document has a second field, and a whole-body write erased it.
     void engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "ready", engine: r });
   }, []);
@@ -60,8 +55,7 @@ export function Gate() {
   }, [findEngine]);
 
   if (phase.k === "ready")
-    // Keyed on the engine: switching machines rebuilds everything rather than reusing a
-    // workspace that belongs to the old one.
+    // Keyed on the engine, so switching machines rebuilds rather than reusing the old workspace.
     return <ProjectShell key={phase.engine.engine.id} engine={phase.engine} />;
 
   if (phase.k === "checking" || phase.k === "looking")

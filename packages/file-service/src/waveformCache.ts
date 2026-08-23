@@ -15,6 +15,7 @@ export const CACHE_EXT = ".cache";
 export const cachePath = (source: string): string => source + CACHE_EXT;
 
 // --- content fingerprint (MUST byte-for-byte match engine/engine/Waveform.cpp) -----
+
 // FNV-1a/64 over the file size + up to HEAD/TAIL bytes from each end — see docs/waveformCache.md.
 const HEAD = 65536;
 const TAIL = 65536;
@@ -79,14 +80,7 @@ interface CacheFile {
 /** The default transient threshold — mirrors `kDefaultTransientSensitivity` in EngineHost.h. */
 export const DEFAULT_TRANSIENT_SENSITIVITY = 2;
 
-/**
- * The oldest sidecar shape still usable. v2 added `transients` + `sensitivity`, v3 added `bpm`, v4 added the
- * three band envelopes a coloured waveform is drawn from.
- *
- * Gating on this is load-bearing, not tidiness: an older sidecar carries a MATCHING fingerprint — the audio has
- * not changed — so every freshness check would pass and the file would never get whatever the bump added.
- * Raise it with every field added on the engine side, or the field silently never arrives.
- */
+/** The oldest sidecar shape still usable; raise it with every field the engine adds (docs/waveformCache.md). */
 const MIN_CACHE_VERSION = 4;
 
 function readSidecar(source: string): FileEnvelope | null {
@@ -110,8 +104,7 @@ function readSidecar(source: string): FileEnvelope | null {
         sensitivity: c.sensitivity ?? DEFAULT_TRANSIENT_SENSITIVITY,
         // 0 is the engine's "no tempo found", and it stays 0 rather than becoming a guess.
         bpm: c.bpm ?? 0,
-        // Absent rather than empty when the engine did not write them: a surface reads "not
-        // analysed that way" and draws a plain envelope, where [] would read as silence.
+        // Absent rather than empty when the engine did not write them, since [] would read as silence.
         ...(c.low ? { low: c.low } : {}),
         ...(c.mid ? { mid: c.mid } : {}),
         ...(c.high ? { high: c.high } : {}),
@@ -122,12 +115,7 @@ function readSidecar(source: string): FileEnvelope | null {
   return null;
 }
 
-/**
- * The sensitivity a source's sidecar was last built with, or null when there is no readable one.
- *
- * Read even from a sidecar whose fingerprint has gone STALE, which is the whole point: rebuilding the envelope of
- * a re-recorded take must not silently reset a threshold somebody tuned for it.
- */
+/** The sensitivity a sidecar was last built with, read even when its fingerprint has gone STALE. */
 export function storedSensitivity(source: string): number | null {
   try {
     const c = JSON.parse(readFileSync(cachePath(source), "utf8")) as CacheFile;
@@ -144,13 +132,7 @@ interface Memo {
 }
 const memo = new Map<string, Memo>();
 
-/**
- * A fresh envelope: the memo, a matching sidecar, else the engine decodes it. Throws with no binary — no JS decoder.
- *
- * `sensitivity` asks for the transient threshold. Omitted, whatever the sidecar already carries is kept — that is
- * what makes the setting per-source and sticky. Given and different, the envelope is rebuilt: the onsets live in
- * the same file as the peaks, so changing one means writing both.
- */
+/** A fresh envelope: the memo, a matching sidecar, else the engine decodes it — see docs/waveformCache.md. */
 export async function ensureFileEnvelope(
   source: string,
   engineBin: string | null,
@@ -213,16 +195,7 @@ function pairStamp(source: string): string | null {
   }
 }
 
-/**
- * Sources judged fresh, against the stamp of the two files that were compared. Only YES is
- * remembered: a stale one is about to be rebuilt anyway, and remembering NO would need clearing.
- *
- * The check itself reads the whole sidecar and 128 kB of the audio to hash it, so a project of
- * 110 takes spent ~190 ms answering "nothing to do" — and st0's browser asks on every command,
- * on the same single process that is compiling the answer to that command. The fingerprint is
- * still what DECIDES; this only skips asking again about two files neither of which has moved,
- * which is the gate `ensureFileEnvelope`'s memo right below already stands on.
- */
+/** Sources judged fresh, against the stamp of the two files compared; only YES is remembered. */
 const freshMemo = new Map<string, string>();
 
 // Is `source`'s sidecar present and still matching the file's current content?
@@ -294,8 +267,7 @@ export function runWaveformBatch(
       resolve();
     });
     child.stdin.on("error", () => {}); // a dead child racing our write — surfaced via close/error
-    // `<path>` or `<path>\t<sensitivity>`: a file whose previous sidecar carried a tuned threshold is rebuilt
-    // with it, so a prewarm never quietly resets one. The default is left to the engine.
+    // `<path>` or `<path>\t<sensitivity>`, so a prewarm never quietly resets a tuned threshold.
     child.stdin.write(
       sources
         .map((s) => {

@@ -3,8 +3,7 @@
 // Its own document rather than a section of ProjectDoc, which is what keeps the frame out of
 // everything the C++ engine is handed. Full rationale: docs/picture.md.
 
-// A placed shot. `source` is ABSOLUTE — the same rule a ClipDoc's is: whoever renders knows
-// nothing about where the project folder sits.
+// A placed shot; `source` is ABSOLUTE, since whoever renders knows nothing about the project folder.
 export interface VideoClipDoc {
   id: string;
   name: string;
@@ -36,9 +35,7 @@ export type ShapeDoc =
       color: string;
     };
 
-/** A shader's two stages, read off the module's `shaders/<name>/` and carried INLINE — the
- *  browser cannot open a folder, and a page of GLSL is smaller than the route that would serve
- *  it. See docs/shaders.md. */
+/** A shader's two stages, read off `shaders/<name>/` and carried INLINE — see docs/shaders.md. */
 export interface ShaderSourceDoc {
   name: string;
   vertex: string;
@@ -52,24 +49,13 @@ export interface VideoPluginDoc {
   name: string; // the module NODE's name — what the graph calls this card
   enabled: boolean; // chain step `enabled`; false == bypassed by the renderer
   params: Record<string, number>;
-  /**
-   * A SHADER's program, already read. Absent on the other two types, and absent on a shader node
-   * with nothing picked — or one whose folder has not synced — which the renderer draws as a pass
-   * that lets its picture through.
-   */
+  /** A SHADER's program, already read — absent means a pass that lets its picture through. */
   shader?: ShaderSourceDoc;
-  /**
-   * The LANE whose live level drives this shader's `uAudio`, when one is wired to its audio port.
-   *
-   * A name and not a number, because the level is not in this document: the engine pushes it at
-   * ~20 Hz against the track list, and the surface holding that stream is the one that can look
-   * it up. Compiling a value here would freeze a moving number into a cached document.
-   */
+  /** The LANE whose live level drives this shader's `uAudio` — a NAME, not a number; docs/shaders.md. */
   audioFrom?: string;
 }
 
-// A lane: "video" links picture and places it at (x,y,w,h), "shape" draws parametric shapes.
-// @studio/ui-eyes is the only consumer. Already in project.layers draw order.
+// A lane: "video" places picture at (x,y,w,h), "shape" draws parametric shapes, in layer draw order.
 export interface VideoTrackDoc {
   id: string;
   name: string;
@@ -82,8 +68,7 @@ export interface VideoTrackDoc {
   h: number;
   clips: VideoClipDoc[]; // "video" tracks only
   shapes: ShapeDoc[]; // "shape" tracks only
-  // This lane's own video run, compiled — applied to the layer BEFORE it is composited. Absent on
-  // a lane no run starts at, which is every lane in a project that draws no shaders.
+  // This lane's own video run, applied to the layer BEFORE it is composited; absent when it has none.
   plugins?: VideoPluginDoc[];
 }
 
@@ -94,14 +79,7 @@ export interface VideoMarker {
   tc: string;
 }
 
-/**
- * A song's compiled PICTURE.
- *
- * Deliberately NOT a section of ProjectDoc, and not a ProjectDoc with the audio left empty.
- * There is no tempo here, so there is no beat, no time signature and no sample rate — three
- * fields that would have to be invented and then ignored. The two documents describe one
- * folder, share their lanes' SHAPE, and agree on nothing else.
- */
+/** A song's compiled PICTURE — deliberately not a section of `ProjectDoc`, see docs/picture.md. */
 export interface VideoProjectDoc {
   uuid?: string; // stable project id; absent until something writes one
   name: string;
@@ -109,12 +87,6 @@ export interface VideoProjectDoc {
   fps: number; // frame-by-frame export only — realtime follows the transport's own clock
   videoTracks: VideoTrackDoc[]; // ALREADY in project.layers draw order — no consumer re-sorts
   markers: VideoMarker[]; // sorted by second
-  /**
-   * The `RENDER -> VIDEO_OUT` run: passes over the frame the lanes were composited INTO.
-   *
-   * The picture's `masterPlugins`, and named for the same distinction — a lane's own plugins work
-   * that layer, these work the sum. Always present and empty by default, unlike a lane's
-   * `plugins`, because this one is a property of the project rather than of anything in it.
-   */
+  /** The `RENDER -> VIDEO_OUT` run — the picture's `masterPlugins`, always present; docs/shaders.md. */
   framePlugins: VideoPluginDoc[];
 }

@@ -8,8 +8,7 @@ export interface User {
   email: string | null;
 }
 
-// One stem of a multitrack version — a single audio file (one rendered track).
-// Mirrors SheetFile: the id is the file's handle for the download endpoint.
+// One stem of a multitrack version; like SheetFile, the id is its download handle.
 export interface ReleaseTrack {
   id: string;
   name: string;
@@ -49,9 +48,7 @@ export interface Page {
   releases?: Release[]; // resolved on the detail endpoint
 }
 
-// A single file backing a song's sheet music. A sheet is not text — it is a PDF
-// or a set of images, so a song carries an ordered list of these. The `id` is
-// the file's stable handle for the download / delete endpoints.
+// One file of a song's sheet music, which is a PDF or images rather than text.
 export interface SheetFile {
   id: string;
   name: string;
@@ -82,13 +79,11 @@ export interface Annotation {
   createdAt: string;
 }
 
-// A moment as a standalone entity (its own view), independent of the session it
-// was captured in — which may since have been deleted.
+// A moment stands alone, in its own view, and outlives the session it was captured in.
 export interface Moment {
   id: string;
   sessionUid: string | null;
-  // The originating session's recording date/time (its createdAt), for display —
-  // sessions have no name. Null when that session has since been deleted.
+  // That session's own createdAt, since sessions have no name; null once it is deleted.
   sessionCreatedAt: string | null;
   sessionAvailable: boolean;
   startSec: number;
@@ -97,8 +92,7 @@ export interface Moment {
   tags: string[];
   validated: boolean;
   createdAt: string;
-  // Present on the detail endpoint (not on the list): the clip's own waveform
-  // envelope and its markers, on a clip-relative timeline starting at 0.
+  // Detail endpoint only: the clip's own envelope and markers, on a timeline starting at 0.
   envelope?: Envelope | null;
   markers?: Marker[];
 }

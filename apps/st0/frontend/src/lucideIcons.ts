@@ -20,8 +20,7 @@ export function loadIcons(): Promise<IconSet> {
   if (cache) return Promise.resolve(cache);
   pending ??= import("lucide-react").then((mod) => {
     const out: IconSet = {};
-    // Components only: the module also exports helpers, an `icons` map and an alias per name
-    // ending in "Icon". A picker offering `createLucideIcon` would be absurd.
+    // Components only: the module also exports helpers, an `icons` map and an alias per name — a picker offering `createLucideIcon` would be absurd.
     for (const [name, v] of Object.entries(mod as Record<string, unknown>))
       if (
         /^[A-Z]/.test(name) &&
@@ -38,13 +37,7 @@ export function loadIcons(): Promise<IconSet> {
 /** What is loaded right now — null until it is. Synchronous, for a render that cannot await. */
 export const iconsNow = (): IconSet | null => cache;
 
-/**
- * The icon set for a component that draws user-chosen icons.
- *
- * Starts the load on mount and re-renders once when it lands. A menu opened before the chunk
- * arrives draws its labels and no icons, which is the honest degradation: the label is what the
- * entry MEANS, and an icon is how you recognise it faster the second time.
- */
+/** The icon set for a component that draws user-chosen icons — a menu opened before the chunk lands draws labels and no icons, which is honest. */
 export function useIcons(): IconSet | null {
   const [icons, setIcons] = useState<IconSet | null>(iconsNow);
   useEffect(() => {

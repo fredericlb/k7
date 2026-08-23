@@ -15,10 +15,7 @@ import { MAX_RECENT } from "./recentCommands";
 import { PANES } from "./shellMeta";
 import type { CommandInfo } from "./types";
 
-// Everything whose ONLY effect is on the shell lives under `ui` — the namespace promises it touches nothing of
-// the PROJECT and never moves the transport. Not "writes no file": a pin, a language and the vim flag are
-// remembered (localStorage, the account's preferences), and remembering how you like to work is not editing a
-// song. `locate`, `loop`, `record`, `event move`, the `selection` pair and the file-tree verbs keep bare names.
+// Everything whose ONLY effect is on the shell lives under `ui` — not 'writes no file': a pin and a language are remembered, which is not editing a song.
 export const LOCAL_COMMANDS = [
   "ui file", // open a file in the editor by fuzzy name (completes against the project)
   "ui global", // the layout view — the default, and the only one a project does not derive
@@ -29,13 +26,10 @@ export const LOCAL_COMMANDS = [
   "ui slot close", // put the graph back where a grid, a clip or a take had taken its place
   "ui edit sequence", // open a MIDI sequence's file in the editor
   "ui edit clip", // open an audio clip's file in the editor
-  // A sequence's notes where the graph is, until the × puts the graph back. Bare-named: they
-  // name a sequence and open an editor that WRITES to it, which is the line `ui` draws.
+  // A sequence's notes where the graph is. Bare-named: they open an editor that WRITES to the sequence they name.
   "sequence edit roll",
   "sequence edit tracker",
-  // Arm MIDI learn on a module's param: the next control change from any attached controller
-  // binds to it, and the binding is then written by `module cc`. A UI command because the
-  // LISTENING is the browser's; the map it ends up writing is the brain's.
+  // Arm MIDI learn on a module's param — a UI command because the LISTENING is the browser's; `module cc` writes the map.
   "ui midi learn",
   // The timeline's selection, zoom, loop and move: the state lives in TimelineTab and these reach it via its handle.
   "ui select", // caret <-> selection rectangle
@@ -46,17 +40,7 @@ export const LOCAL_COMMANDS = [
   "transport loop", // set/clear the transport loop from the selection
   "transport record", // the global record enable (engine session state, over the wire)
   "transport replay", // back to where playback last started, and roll again (shift+space)
-  /**
-   * The RECTANGLE's own two, beside the catalogue's `selection consolidate` — one head for the
-   * three verbs that take a region rather than a named thing.
-   *
-   * They were `ui copy` and a bare `events paste` / `sequence notes paste`, split by the rule at
-   * the head of this list: the copy only fills a slot in this shell, the paste WRITES. That rule
-   * still holds everywhere else, and here it cut one gesture in half — the same rectangle, put
-   * aside and put back, under two namespaces and three names. `selection` is the better subject,
-   * and it takes the paste's plural with it: each name said which material it put down so as to
-   * name its surface, and the held rectangle answers that itself (App's `runLocalCommand`).
-   */
+  /** The RECTANGLE's own two, beside the catalogue's `selection consolidate` — one head for the three verbs that take a region. */
   "selection copy", // the selected rectangle onto the shell's clipboard (events or notes)
   "selection paste", // put it down at the caret — on the timeline, or in the open grid
   "event move", // pick up the clip under the caret and nudge it; commits to disk
@@ -71,9 +55,7 @@ export const LOCAL_COMMANDS = [
   "ui ruler", // the timeline's ruler: bars or seconds
   "ui lanes", // tall lanes, showing each clip's waveform or notes
   "ui logs clear",
-  // The three RIGHT-HAND panels, and the settings tabs. All of them leave the project alone,
-  // which is why they are `ui` — `ui share` opens the panel; the verbs inside it are `project`
-  // ones and write. The bare lines toggle, which is what their buttons do.
+  // The three RIGHT-HAND panels and the settings tabs: all leave the project alone, and the bare lines toggle.
   "ui settings",
   "ui settings editor",
   "ui settings io",
@@ -81,8 +63,7 @@ export const LOCAL_COMMANDS = [
   "ui settings commands", // the one that is still a PAGE — see components/SettingsPanel.tsx
   "ui playlists", // the workspace's set lists — docs/playlists.md
   "ui share", // commit, pull, export, publish — docs/shell.md
-  // The LINK to a surface, for another device to open it on — docs/external.md. `ui` because
-  // it copies an address and changes nothing: the surface it names is not even opened here.
+  // The LINK to a surface, for another device to open it on (docs/external.md) — `ui`, since it copies an address and changes nothing.
   "ui external",
   "ui vim", // the editor's modality — the toggle on the settings screen
   "ui engine", // back to the engine picker
@@ -91,21 +72,10 @@ export const LOCAL_COMMANDS = [
   "ui language",
   "ui pin", // a file to the top of the tree, or off it
   "ui copy path", // the tree's other entry — the path onto the clipboard
-  // Bare-named, because they WRITE — the line `ui` draws (see the head of this list). The undo
-  // journal, the mixdown, the k7 publish, and the file tree's own right-click verbs.
+  // Bare-named, because they WRITE: the undo journal, the mixdown, the k7 publish, and the file tree's own right-click verbs.
   "project undo",
   "project redo",
-  /**
-   * The header meter's Fix button, as a verb: the OUT node's Volume down, until the last pass
-   * would have peaked at -6 dB.
-   *
-   * WEB-LOCAL although it only runs a `node param` line, and the reason is the measurement. The
-   * pass's peak exists nowhere but in the browser that watched it go by — the engine reports a
-   * level per frame and keeps no maximum, and by the time anything is clicked the transport has
-   * stopped and the meter reads silence. So the shell holds it (`MasterMeter`'s fold) and this
-   * spends it; a backend verb would have nothing to compute a trim from. Give it a number and it
-   * uses that instead, which is what makes the act nameable from a CLI that never saw the pass.
-   */
+  /** The header meter's Fix button as a verb — WEB-LOCAL because the pass's peak exists nowhere but in the browser that watched it. */
   "project master fix",
   "project export",
   "project share k7",
@@ -117,20 +87,11 @@ export const LOCAL_COMMANDS = [
   "fs file move",
   "fs file delete",
   "fs file upload",
-  // The rack builder popin: a 4×4 pad grid that ends in a `modules/instruments/<name>` on
-  // disk. Web-local because the building is the browser's (drops, audition); the create
-  // writes through the file routes like the tree's own verbs.
+  // The rack builder popin — web-local because the building is the browser's; the create writes through the file routes.
   "module create rack",
 ];
 
-/**
- * What the shell's OWN commands do, as a sentence, in each language.
- *
- * The backend's carry theirs in `commands.yaml`; these exist only in this app, so this is their
- * catalogue entry. Same rules: imperative, no example, no full stop, and **60 characters at
- * most** in each language — the palette lists them side by side and a reader cannot tell which
- * half a row came from, nor should they. `palette.test.ts` holds this half to all of it.
- */
+/** What the shell's OWN commands do, as a sentence, in each language — imperative, no example, no full stop, 60 characters at most. */
 export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
   "ui file": {
     en: "Open a file of this project in the editor",
@@ -232,8 +193,7 @@ export const LOCAL_READABLE: Record<string, { en: string; fr: string }> = {
     en: "Play again from where playback last started",
     fr: "Rejouer depuis le dernier départ de lecture",
   },
-  // Also in the backend's catalogue, and filtered out of the list when it is reachable. Kept
-  // here so the row is still described when it is not — an undescribed row is an unfindable one.
+  // Also in the backend's catalogue and filtered out when it is reachable — kept so the row is still described when it is not.
   "event move": {
     en: "Move a clip to another position or track",
     fr: "Déplacer un clip à une autre position ou piste",
@@ -418,17 +378,14 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "sequence edit tracker": [
     { name: "sequence", kind: "file", hint: "a sequence of this project" },
   ],
-  // The four fixed sets below are completed in makeCompleteArg: none of them is a project's,
-  // so there is nothing for the backend to answer and no round trip to spend asking.
+  // The four fixed sets below are completed in makeCompleteArg: none is a project's, so there is no round trip to spend.
   "ui panel": [{ name: "panel", kind: "choice", hint: "graph · logs" }],
   "ui surface": [
     { name: "surface", kind: "choice", hint: "a surface of this project" },
   ],
   "ui language": [{ name: "language", kind: "choice", hint: "en · fr" }],
   "project export": [{ name: "format", kind: "choice", hint: "wav · mp3" }],
-  // Optional, and the blank is the ordinary answer: the meter holds the pass's peak and the
-  // button sends nothing. A number is for the case the meter cannot serve — another tab, a CLI,
-  // a level read somewhere else.
+  // Optional, and the blank is the ordinary answer: a number is for the case the meter cannot serve — another tab, a CLI.
   "project master fix": [
     {
       name: "peak",
@@ -440,8 +397,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
   "ui builder": [
     { name: "module", kind: "module", hint: "a module of this project" },
   ],
-  // `file` is the class a clip is drawn in — see ArgClass, where a clip, a sequence and an asset
-  // are all files. The completion below narrows it to clips/ and hands back the ID, not the path.
+  // `file` is the class a clip is drawn in (see ArgClass); the completion below narrows it to clips/ and hands back the ID.
   "ui review": [
     { name: "clip", kind: "file", hint: "a clip of this project — a take" },
   ],
@@ -456,8 +412,7 @@ export const LOCAL_ARGS: Record<string, PaletteArg[]> = {
       hint: "a .dawproject or .als of this workspace",
     },
   ],
-  // The file verbs take TREE ENTRIES — folders included, and binaries kept. `ui file`'s `path`
-  // above is the narrower list of what the editor can open: renaming a .wav is not opening it.
+  // The file verbs take TREE ENTRIES, folders included and binaries kept — `ui file`'s `path` above is the narrower list.
   "fs file new": [
     { name: "folder", kind: "file", hint: "the folder it goes in" },
     { name: "name", kind: "text", hint: "the new file's name" },
@@ -496,17 +451,7 @@ const ENTRY_COMMANDS = new Set([
   "project import",
 ]);
 
-/**
- * The palette's full catalogue: the backend's commands plus the shell's own.
- *
- * `locale` resolves each description ONCE, here, so the bar holds a sentence and not a table to
- * choose from — matching, listing and the popin's title all read the same string, and a command
- * whose language changed simply arrives as a new catalogue.
- *
- * A command with no description falls back to its own name. That is a catalogue bug (the
- * commands package fails its tests without one), and showing the name is how it stays visible
- * rather than becoming an unfindable blank row.
- */
+/** The palette's full catalogue: the backend's commands plus the shell's own, each description resolved ONCE by `locale`. */
 export function buildPaletteCommands(
   backendCmds: CommandInfo[],
   locale: string,
@@ -521,8 +466,7 @@ export function buildPaletteCommands(
     label: commandLabel(canonical),
     names: commandTranslations(canonical),
     readable: readable?.[lang] || canonical,
-    // The whole table too, for the one screen that offers a field per language. Everything else
-    // reads `readable` above — resolved once, so nothing downstream has to choose.
+    // The whole table too, for the one screen that offers a field per language; everything else reads `readable` above.
     ...(readable ? { readableBy: { ...readable } } : {}),
     args,
   });
@@ -533,19 +477,7 @@ export function buildPaletteCommands(
   return [...backend, ...locals];
 }
 
-/**
- * The catalogue, ranked against what has been typed. THE list the bar draws.
- *
- * Matched on the SENTENCE and on the command's name, best of the two: a person who knows the
- * verb types the verb, and a person who knows what they want types what they want. Both roads
- * lead to the same row, which is the whole reason the descriptions exist.
- *
- * `fuzzyScore` is the shell's one matcher (fuzzy.ts) — the same subsequence rule the file
- * picker and the module search use, so "type a few letters" behaves the same everywhere.
- *
- * An empty query keeps the catalogue's own order: it groups by area (tracks, then modules, then
- * transport), which is more useful to scan than an alphabet.
- */
+/** The catalogue, ranked against what has been typed — matched on the SENTENCE and on the name, best of the two (fuzzy.ts). */
 export function rankCommands(
   commands: readonly PaletteCommand[],
   query: string,
@@ -564,9 +496,7 @@ export function rankCommands(
           fuzzyScore(q, c.canonical) + 0.5,
         ),
       }))
-      // Filtered BEFORE the bonus, and that order is the whole safety of it: `fuzzyScore` says
-      // "no match" with -1, and a recent command given four points for nothing would surface on a
-      // query it does not match at all. History reorders what matched; it never invents a match.
+      // Filtered BEFORE the bonus, and that order is the safety of it: history reorders what matched, and never invents a match.
       .filter((x) => x.score >= 0)
       .map((x) => ({
         ...x,
@@ -581,18 +511,7 @@ export function rankCommands(
   );
 }
 
-/**
- * What having used a command lately is worth, added to its match score.
- *
- * A NUDGE and not an override, which is the whole design of it. `fuzzyScore` gives roughly four
- * points per matched character, so four points is about one letter's worth: enough to lift a
- * command you use daily above an equally good match you have never run, and not nearly enough
- * to put a poor match above a good one. A palette that answered with your history instead of
- * with your query would be worse than one with no history at all.
- *
- * It decays down the list, so the thing you just did outranks the thing you did ten commands
- * ago, and the twelfth is worth almost nothing — which is how it forgets without a clock.
- */
+/** What having used a command lately is worth — a NUDGE of about one letter's worth, decaying down the list, which is how it forgets. */
 function recencyBonus(canonical: string, recent: readonly string[]): number {
   const i = recent.indexOf(canonical);
   return i < 0 ? 0 : RECENT_BONUS * (1 - i / MAX_RECENT);
@@ -600,13 +519,7 @@ function recencyBonus(canonical: string, recent: readonly string[]): number {
 
 const RECENT_BONUS = 4;
 
-/**
- * Which command a canonical LINE runs — the longest name that prefixes it, or null.
- *
- * Longest, exactly as the dispatcher picks it (`runCommand` in commandSpec.ts), or a `system
- * plugins` would claim a line that `system plugins list` is going to run and the history would
- * remember the wrong one.
- */
+/** Which command a canonical LINE runs — the longest name that prefixes it, exactly as the dispatcher picks it. */
 export function commandNameOf(
   line: string,
   commands: readonly PaletteCommand[],
@@ -638,29 +551,13 @@ export function rankValues(
     .map((x) => x.v);
 }
 
-/**
- * One param's WHOLE vocabulary, given the params before it. `file`'s paths come from the open
- * project (the `files` getter); everything else asks the backend for the assembled line and
- * lifts out the token at this position.
- *
- * The list is fetched whole and ranked in the browser (`rankValues`), rather than asking the
- * backend to narrow it on every keystroke. Two things come of that. The match is FUZZY, like
- * everywhere else the shell searches — the backend's `completions` narrows by prefix, which
- * cannot find `ge.rythm` from "rythm". And a field costs one round trip instead of one per
- * letter, on a service that is a single Node process and queues what it is asked.
- */
+/** One param's WHOLE vocabulary, given the params before it — fetched whole and ranked in the browser, so the match is fuzzy and costs one round trip. */
 export function makeListArg(shell: {
   /** What the editor can OPEN — `ui file`'s vocabulary. */
   files: () => string[];
   /** Every path the tree draws, folders included — what a `file …` verb may name. */
   entries: () => string[];
-  /**
-   * The surfaces this project declares, by id — `ui external`'s vocabulary.
-   *
-   * It answered `ui surface <id>` once, went when every surface became a pane and its name
-   * joined the fixed `ui <pane>` list, and is back for a different question: an EXTERNAL link
-   * names a surface by its filename, and only this app can enumerate one project's.
-   */
+  /** The surfaces this project declares, by id — `ui external`'s vocabulary, and only this app can enumerate one project's. */
   surfaces: () => string[];
   /** The languages the shell is compiled for. */
   locales: () => string[];
@@ -669,8 +566,7 @@ export function makeListArg(shell: {
     const canonical = canonicalizeCommand(command);
     const partial = ""; // the whole vocabulary; the ranking is the browser's
     const first = priorArgs.length === 0;
-    // The shell's other fixed sets. Each is the shell's OWN vocabulary — a panel, a language,
-    // an output format — so asking the backend for it would be a round trip for a literal.
+    // The shell's other fixed sets, each the shell's OWN vocabulary — asking the backend would be a round trip for a literal.
     if (canonical === "ui panel" && first) return ["graph", "logs"];
     if (canonical === "ui language" && first) return shell.locales();
     if (canonical === "project export" && first) return ["wav", "mp3"];
@@ -680,27 +576,21 @@ export function makeListArg(shell: {
     if (canonical === "ui file" && first) return shell.files();
     if (canonical === "ui builder" && first)
       return shell.files().filter((f) => /(^|\/)module\.ya?ml$/i.test(f));
-    // The review takes a clip ID, not a path — `clip process` and `clip onset` name it
-    // that way too, and the panel passes it straight to them. So the tree is filtered to clips/ and
-    // the basename handed back, which is what the id IS (see recordTake: the filename is the id).
+    // The review takes a clip ID, not a path, so the tree is filtered to clips/ and the basename handed back, which is what the id IS.
     if (canonical === "ui review" && first)
       return shell
         .files()
         .filter((f) => /(^|\/)clips\/[^/]+\.ya?ml$/i.test(f))
         .map((f) => (f.split("/").pop() ?? f).replace(/\.ya?ml$/i, ""));
     if (ENTRY_COMMANDS.has(canonical)) {
-      // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, right above.
-      // Reading it here is what stops a NAME field — `fs file rename`'s second — being answered
-      // with the whole tree.
+      // WHICH of this command's arguments names a path is declared in LOCAL_ARGS, which is what stops a NAME field being answered with the tree.
       const arg = LOCAL_ARGS[canonical]?.[priorArgs.length];
       return arg?.kind === "file" ? shell.entries() : [];
     }
-    // The line MUST end with a space, even for an empty partial: that space is how `completions` tells "complete the
-    // next argument" from "still typing a command name", and without it the palette offered commands, not values.
+    // The line MUST end with a space, even for an empty partial: that is how `completions` tells an argument from a command name.
     const line = [canonical, ...priorArgs, partial].join(" ");
     const full = await api.complete(line).catch(() => [] as string[]);
-    // `completions` answers with whole LINES, so strip the prefix we sent rather than indexing tokens: a command name
-    // is often several words, and a fixed index handed back part of the COMMAND. It also keeps spaces in values.
+    // `completions` answers with whole LINES, so strip the prefix we sent rather than indexing tokens, which also keeps spaces in values.
     const prefix = `${[canonical, ...priorArgs].join(" ")} `;
     return [
       ...new Set(

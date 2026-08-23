@@ -28,8 +28,7 @@ import { NewProject } from "./NewProject";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 
-/** The folder's name without its suffix: `chansons/hiver.st0` shows as "hiver", with the path
- *  that places it in the workspace beside it. */
+/** The folder's name without its suffix, with the path that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
   projectLabel(p.path.split("/").pop() ?? p.path);
 
@@ -59,14 +58,12 @@ export function RepoList({
   workspaces: MachineWorkspace[];
   busy: boolean;
   error: string | null;
-  /** Where the running clone is, in git's own words, or null. Adding a repository CLONES it now:
-   *  otherwise it would be registered with pl8 and invisible here. */
+  /** Where the running clone is, in git's own words, or null — adding a repository CLONES it, or it would be registered and invisible here. */
   adding: string | null;
   hasMachine: boolean;
   onAdd: (uri: string) => void;
   onOpen: (ws: MachineWorkspace) => void;
-  /** Why create and delete are impossible, or "". Both go through the machine, which is also what
-   *  READS this list — see ../../docs/projects.md. */
+  /** Why create and delete are impossible, or "" — both go through the machine, which is also what READS this list (../../docs/projects.md). */
   blocked: string;
   onCreate: (
     ws: MachineWorkspace,
@@ -80,17 +77,13 @@ export function RepoList({
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** The pl8-registered repository behind this workspace, or null. It is what makes the portable
-   *  `/<repo>/<project>` address resolvable — and what can be removed. */
+  /** The pl8-registered repository behind this workspace, or null — what makes the portable address resolvable, and what can be removed. */
   repoFor: (ws: MachineWorkspace) => RepoSummary | null;
-  /** Take the repository out of the register. The folder stays: removing a name from a list
-   *  deletes nobody's files. */
+  /** Take the repository out of the register — the folder stays: removing a name from a list deletes nobody's files. */
   onForget: (repo: RepoSummary) => void;
-  /** A project's address in ITS app. An address and not an action: the row is a link, opening in
-   *  a new tab. */
+  /** A project's address in ITS app — an address and not an action: the row is a link, opening in a new tab. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
-  /** Every share of the account. Each row takes its own (`sharesOf`) — pl8 returns the whole list
-   *  in one call, and cutting it here avoids a request per project. */
+  /** Every share of the account, cut per row here (`sharesOf`) — pl8 returns the whole list, which saves a request per project. */
   shares: ShareSummary[];
   /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
@@ -132,8 +125,7 @@ export function RepoList({
         </Button>
       </div>
 
-      {/* Les mots de git pendant le clone, pas les nôtres : « Receiving objects », « Resolving
-          deltas ». Une attente de trente secondes qui ne dit rien ressemble à un écran figé. */}
+      {/* Git's own words during the clone, not ours: a silent thirty-second wait reads as a frozen screen. */}
       {adding !== null && (
         <span className="text-xs text-muted-foreground">{adding}</span>
       )}
@@ -145,8 +137,7 @@ export function RepoList({
       )}
 
       {!hasMachine ? (
-        // The price of the move, said where it is paid: with no machine there is no list to show,
-        // and pretending otherwise — an empty list, an invitation — would read as a new account.
+        // The price of the move, said where it is paid: with no machine there is no list, and an empty one would read as a new account.
         <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           <ServerOff className="h-5 w-5 text-amber-500" />
           <span>
@@ -184,8 +175,7 @@ export function RepoList({
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                   onClick={() => onOpen(w)}
                 >
-                  {/* Un clone et un dossier fait à la main ne sont pas la même chose, et
-                      l'icône est ce qui le dit avant qu'on lise l'URI dessous. */}
+                  {/* A clone and a hand-made folder are not the same thing, and the icon says so before the URI below is read. */}
                   {w.origin ? (
                     <FolderGit2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : (
@@ -205,17 +195,14 @@ export function RepoList({
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1">
-                  {/* Dans le bloc de l'espace, à côté de son contenu : créer un projet est une
-                      opération SUR celui-ci, pas sur la liste. */}
+                  {/* Inside the workspace's block, beside its contents: creating a project acts ON it, not on the list. */}
                   <NewProject
                     blocked={blocked}
                     onCreate={(folder, onStep, shape) =>
                       onCreate(w, folder, onStep, shape)
                     }
                   />
-                  {/* Seulement quand il y a un dépôt inscrit à retirer. Le libellé dit ce qui se
-                      passe et ce qui ne se passe pas : c'est la liste qu'on quitte, pas le
-                      disque. */}
+                  {/* Only when there is a registered repository to remove; the label says the list is what is left, not the disk. */}
                   {repoFor(w) && (
                     <Button
                       variant="ghost"
@@ -232,15 +219,11 @@ export function RepoList({
                 </div>
               </div>
 
-              {/* Les projets, en retrait sous leur espace de travail : c'est ce qu'on vient
-                  chercher ici, et un clic va droit dans l'application qui l'ouvre — dans un
-                  nouvel onglet, cette liste restant ce à quoi on revient. Le nom de l'espace
-                  reste cliquable pour l'arborescence, qui montre tout le reste. */}
+              {/* The projects, indented under their workspace: a click goes straight into the app that opens one, in a new tab. */}
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
                   {w.projects.map((p) => (
-                    // The row holds the link AND the buttons: the link stretches, the buttons stay
-                    // at the end, and each one's `preventDefault` stops it opening.
+                    // The row holds the link AND the buttons: the link stretches, and each button's `preventDefault` stops it opening.
                     <li key={p.path} className="flex items-center gap-1">
                       <a
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"
@@ -260,9 +243,7 @@ export function RepoList({
                           </span>
                         )}
                       </a>
-                      {/* Avant « Supprimer » : voir ce qu'on a publié est une lecture, et
-                          elle passe devant l'action destructrice. Sans machine, cette liste
-                          n'existe pas — voir ../../docs/projects.md. */}
+                      {/* Before Supprimer: reading what you published comes ahead of the destructive act, and needs a machine (../../docs/projects.md). */}
                       <ProjectShares
                         label={p.path === "." ? w.name : nameOf(p)}
                         shares={sharesOf(shares, w.name, p.path)}
@@ -279,9 +260,7 @@ export function RepoList({
                 </ul>
               )}
 
-              {/* Un espace dont l'adresse portable ne se résout pas s'ouvre par `@local`, qui
-                  nomme un dossier de CETTE machine et rien ailleurs. Dit ici plutôt que
-                  découvert en collant le lien à quelqu'un. */}
+              {/* A workspace whose portable address does not resolve opens through `@local`, which names a folder on THIS machine alone. */}
               {w.origin && !w.uniqueName && (
                 <span className="mt-2 flex items-start gap-1 text-xs text-amber-500">
                   <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />

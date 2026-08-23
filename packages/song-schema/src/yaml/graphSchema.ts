@@ -6,40 +6,14 @@
 
 import { z } from "zod";
 
-/**
- * The project's graph file, by name.
- *
- * `graph.yaml` and not `chains.yaml`: what it holds is the whole TOPOLOGY — which nodes exist,
- * what feeds what, which are silenced, and where each one sits. Chains are DERIVED from its
- * `modules:` map (chainsGraph.ts), so naming the file after one of the things read out of it
- * had it wearing the name of its own output. Positions live here for the same reason: where a
- * node sits is a fact about the graph, not about the node.
- *
- * `.yaml` like every other file in a project. The resolver takes `.yml` too
- * (yaml/moduleIO.ts's EXTS), so a hand-written one still reads; this is what gets WRITTEN.
- */
+/** The project's graph file: `graph.yaml`, since what it holds is the whole TOPOLOGY — see docs/graphEdits.md. */
 export const GRAPH_FILE = "graph.yaml";
 /** The base the resolver looks up — matches `graph.yaml`, and a `graph.yml` written by hand. */
 export const GRAPH_BASE = "graph";
 
-// A library CHAIN uses this same name. It is not a second kind of document that happens to look
-// like a graph — it IS one: a folder holding this file and a `nodes/` beside it, differing only in
-// having no `project.yaml` and in naming its ends `@in`/`@out`. It carried `chains.yaml` and an
-// `instances/` folder until both were migrated to these; nothing needs a second spelling now.
-// See @studio/mediatek's docs/chains.md.
+// A library CHAIN uses this same name, and IS one of these documents — see docs/graphEdits.md.
 
-/**
- * Where one node's signal goes — module node names, or an io sink like `OUT`. Empty == unwired.
- *
- * A destination may name a PORT on its target: `crossfade#b` feeds the input called `b`. Bare, it
- * feeds the FIRST input, which is what every chains file written so far says and what a
- * one-input module means. See `@studio/song`'s docs/ports.md.
- *
- * The port is not validated here — this schema knows nothing about modules, and whether `b`
- * exists is a question for `validate()`, which has the module map. What IS refused is a ref that
- * is all separator (`#b`, `x#`): those are typos with no reading, and letting them through would
- * make the node name empty.
- */
+/** Where one node's signal goes, `#port` and all, empty meaning unwired — the port is checked by validate(). */
 export const DestsSchema = z.array(
   z
     .string()
@@ -52,22 +26,11 @@ export const DestsSchema = z.array(
 
 export const GraphFileSchema = z
   .object({
-    // Each module's next hop(s) — LANES INCLUDED, since a lane is where a run starts and
-    // nothing else about it is different. A key with `[]` is a node in the graph that is
-    // wired to nothing yet, which is how a module exists before it is placed.
+    // Each module's next hop(s), LANES INCLUDED; a key with `[]` is a node wired to nothing yet.
     modules: z.record(z.string().min(1), DestsSchema).optional(),
-    // Modules the signal passes through untouched. A flat list, so a bypass is one name
-    // appearing or disappearing — and since a module is named ONCE in this file, there is
-    // only ever one thing to toggle.
-    //
-    // On a LANE it reads as "produces nothing" rather than "passes through": a source has no
-    // input to pass through. That is what a lane's mute is, and it is why mute stopped being
-    // a field on the lane — one state, one place.
+    // Modules the signal passes through untouched, and a LANE's mute — one state, one place (docs/graphEdits.md).
     bypassed: z.array(z.string().min(1)).optional(),
-    // Where a node SITS on the graph, world px — written when someone drags its header, absent
-    // for every node the layout still places (dagre lays out only what has no entry here).
-    // Cosmetic on purpose: nothing about the signal reads it, so a file without it is the same
-    // song — which is why it is a sibling of `modules:` and not a field inside it.
+    // Where a node SITS on the graph in world px, cosmetic and absent for whatever dagre still places.
     positions: z
       .record(
         z.string().min(1),

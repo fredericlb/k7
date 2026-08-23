@@ -50,8 +50,7 @@ const findUseRack = (doc: string): string | null => {
   return m ? m[1].trim() || null : null;
 };
 
-// Turn a note list into grid DOM; `onChange` persists the whole next list, `rack` lets it work in symbols,
-// and `win` is the file's own from/to — the span that plays, drawn as the grid's ground.
+// Turn a note list into grid DOM, where `win` is the file's own from/to drawn as the grid's ground.
 type GridFactory = (
   notes: Note[],
   onChange: (next: Note[]) => void,
@@ -59,12 +58,7 @@ type GridFactory = (
   win: WindowSpan | null,
 ) => HTMLElement;
 
-/**
- * The window the document states, in beats, resolved against the notes — null when it states none.
- *
- * At 4/4, like the rest of these grids: their bar lines, their rulers and their PageUp all assume
- * it already, and reading the meter here alone would put the band on a grid drawn to another one.
- */
+/** The window the document states, in beats, at 4/4 like the rest of these grids — see docs/noteGrids.md. */
 function docWindow(doc: string, notes: Note[]): WindowSpan | null {
   const win = seqWindowFromText(doc);
   if (!win) return null;
@@ -74,12 +68,10 @@ function docWindow(doc: string, notes: Note[]): WindowSpan | null {
   return windowSpan(win, extent);
 }
 
-// What identifies a window for a widget's `eq`: editing `from:` leaves the notes array untouched,
-// so without this the band would keep whatever value it was first built with.
+// What identifies a window for a widget's `eq`, since editing `from:` leaves the notes array untouched.
 const winKeyOf = (w: WindowSpan | null) => (w ? `${w.from}:${w.to}` : "");
 
-// What the fullscreen frame must keep clear, in viewport px — a callback, measured at toggle time, so this
-// package never learns what the shell around it looks like.
+// What the fullscreen frame must keep clear, in viewport px — a callback measured at toggle time.
 export interface RackHint {
   rackType?: "samples" | "slice";
   source?: string;
@@ -130,16 +122,14 @@ class GridWidget extends WidgetType {
     );
   }
   toDOM(view: EditorView): HTMLElement {
-    // Two layers: `wrap` keeps the inline height so CodeMirror's line layout never sees the toggle, while `frame`
-    // holds the grid and, fullscreen, floats over the shell between the insets the app measured.
+    // Two layers: `wrap` keeps the inline height so the line layout never sees the toggle, `frame` holds the grid.
     const wrap = document.createElement("div");
     wrap.style.cssText = `display:block;position:relative;height:${this.height}px;margin:2px 0`;
 
     const frame = document.createElement("div");
     const btn = document.createElement("button");
 
-    // Fullscreen esc means "back to inline" first: a window CAPTURE listener, outranking the tracker's own Escape and
-    // the shell's bindings, and needing no focus. Attached only while fullscreen; destroy covers a rebuild mid-flight.
+    // Fullscreen esc means "back to inline" first: a window CAPTURE listener outranking every other Escape.
     const esc = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       this.full.on = false;
@@ -283,9 +273,8 @@ export function trackerPlugin(opts: GridFrameOptions = {}): Extension {
 }
 
 // --- Standalone grid pane (replaces the whole editor, not an inline widget) -----------
-// mountSeqGrid renders the same grids into a plain FILLING container, so the editor can replace the file view.
-// A grid edit hands the WHOLE next content to onChange, and re-render is driven from OUTSIDE (controller.update),
-// so an edit and an external reformat share one path with no re-entrant rebuild mid-event.
+
+// The same grids in a plain FILLING container, re-rendered from OUTSIDE so an edit and a reformat share one path.
 
 export interface SeqGridController {
   update(content: string): void; // re-render for new content (a grid edit or a save reformat)

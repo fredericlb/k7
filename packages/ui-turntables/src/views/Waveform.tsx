@@ -17,13 +17,11 @@ import {
   xOf,
 } from "../waveform";
 
-/** Yellow for the grid, grey for what the engine actually heard. The beats are inferred and
- *  the transients are measured, so the louder colour goes to the thing you mix on. */
 /** What a column with no band analysis is drawn in — the envelope as it always was. */
 const PLAIN = "rgb(148,163,184)";
+/** Yellow for the inferred grid, grey for the measured transients — the louder colour is what you mix on. */
 const BEAT = "#facc15";
-/** The downbeat, and deliberately a different HUE rather than a brighter yellow: at a
- *  glance you are counting bars, not reading which yellow is which. */
+/** The downbeat, a different HUE rather than a brighter yellow: at a glance you are counting bars. */
 const BAR = "#f97316";
 const TRANSIENT = "rgba(148,163,184,0.55)";
 const PLAYHEAD = "#f8fafc";
@@ -31,38 +29,21 @@ const PLAYHEAD = "#f8fafc";
 export function Waveform({
   envelope,
   drawNow,
-  /**
-   * This deck's stretch and placement — what turns the transport into a position in the FILE.
-   *
-   * The envelope is measured in source seconds and the playhead counts timeline ones, and the
-   * two have never been the same number: a stretched deck runs at its own rate, a synced one
-   * is delayed, and every deck's clip starts a `TIMELINE_BASE` in. Drawing the raw playhead
-   * against the envelope drew the wrong part of the song, silently and only once a deck had
-   * been touched. `sourceAt` is the same conversion the record's dial and every cue use.
-   */
+  /** This deck's stretch and placement — what turns the transport into a position in the FILE (`sourceAt`). */
   tempo,
-  /** Said out loud while the engine is computing a sidecar — several seconds for a long
-   *  track, and an empty box would read as "this song has no waveform". */
+  /** Said out loud while the engine computes a sidecar — an empty box would read as "no waveform". */
   analysing,
-  /** Why there is none, when there will not be one. Shown rather than swallowed: the strip
-   *  cannot draw the difference between "failed" and "none", so it has to say it. */
+  /** Why there is none, when there will not be one — the strip cannot draw "failed" against "none". */
   problem,
   height,
 }: {
   envelope: Envelope | null;
-  /** Where to draw the transport — steered, so this canvas does not carry the frames'
-   *  arrival jitter at 60 fps. See Deck.drawNow. */
+  /** Where to draw the transport — steered, so this canvas carries no arrival jitter. See Deck.drawNow. */
   drawNow: () => number;
   tempo: DeckTempo | undefined;
   analysing: boolean;
   problem: string | null;
-  /**
-   * How tall to draw, in pixels — the deck's own answer from `deskLayout`, which grows this
-   * when the record is not drawn.
-   *
-   * The canvas needs no other change to follow it: `draw` reads `clientHeight` every frame and
-   * re-sizes the backing store when it moves, which is the same path a window resize takes.
-   */
+  /** How tall to draw, from `deskLayout` — `draw` reads `clientHeight` every frame, so nothing else follows it. */
   height: number;
 }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -76,9 +57,7 @@ export function Waveform({
 
     const draw = () => {
       frame = requestAnimationFrame(draw);
-      // The canvas is sized in CSS pixels and drawn in device pixels; doing it here rather
-      // than on mount is what makes it survive a resize and a monitor change without a
-      // ResizeObserver of its own.
+      // Sized in CSS pixels, drawn in device pixels — done per frame, so a resize needs no observer.
       const ratio = globalThis.devicePixelRatio || 1;
       const w = el.clientWidth;
       const h = el.clientHeight;
@@ -93,9 +72,7 @@ export function Waveform({
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       ctx.clearRect(0, 0, w, h);
 
-      // Where we are NOW. The clock behind `drawNow` holds still while stopped by itself —
-      // an extrapolation there would slide a waveform nobody is playing — so this no longer
-      // asks, and the two cannot disagree about what "stopped" means.
+      // Where we are NOW: the clock behind `drawNow` holds still while stopped, so this never asks.
       const at = sourceAt(drawNow(), tempo);
 
       const mid = Math.round(h / 2) + 0.5;
@@ -108,11 +85,7 @@ export function Waveform({
       const [from, to] = viewWindow(at);
       const xPx = (s: number) => xOf(s, at) * w;
 
-      // --- the envelope, one column per pixel, COLOURED BY WHAT IS IN IT ---------------
-      // Red where the bass is, green through the voice, blue at the cymbals, and the blends in
-      // between — the vocabulary a DJ player draws in. The colour is set per column because
-      // that IS the information; a file analysed before the bands existed keeps the plain grey,
-      // which reads as "not analysed that way" rather than as silence. See spectrumColour.ts.
+      // --- one column per pixel, COLOURED BY WHAT IS IN IT; no bands is plain grey (spectrumColour.ts) ---
       for (let px = 0; px < w; px++) {
         const seconds = from + (px / w) * WINDOW_SECONDS;
         const i = bucketAt(envelope, seconds);
@@ -134,9 +107,7 @@ export function Waveform({
       for (const b of beatsIn(envelope, from, to))
         ctx.fillRect(Math.round(xPx(b)), 0, 1, h);
 
-      // --- and the BARS over those, wider: what you count is bars, not beats -----------
-      // Drawn after, so a downbeat is orange rather than a yellow line with orange either
-      // side of it. Two pixels and centred on the beat it replaces.
+      // --- and the BARS over those, wider and drawn AFTER, so a downbeat is orange and not flanked ---
       ctx.fillStyle = BAR;
       for (const b of barsIn(envelope, from, to))
         ctx.fillRect(Math.round(xPx(b)) - 1, 0, 2, h);
@@ -145,10 +116,7 @@ export function Waveform({
       ctx.fillStyle = PLAYHEAD;
       ctx.fillRect(Math.round(w / 2), 0, 1, h);
 
-      // --- elapsed and remaining, in the corners --------------------------------------
-      // A deck wants both. They also make the playhead's MOVEMENT visible, which a quiet
-      // intro hides completely: a strip that is flat because the music has not started and
-      // one that is flat because nothing is advancing are the same picture without a clock.
+      // --- elapsed and remaining: they also make MOVEMENT visible, which a quiet intro hides ---
       ctx.font = "10px ui-monospace, monospace";
       ctx.fillStyle = "rgba(148,163,184,0.9)";
       ctx.textBaseline = "bottom";
@@ -159,11 +127,7 @@ export function Waveform({
 
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-    // `drawNow` is stable and `envelope` is read fresh on each frame through the closure this
-    // effect rebuilds — so the loop restarts only when it or the deck's stretch changes.
-    //
-    // `playing` was a dependency and a prop, and is neither now: the clock behind `drawNow`
-    // holds still while stopped, so this canvas no longer has an opinion about the transport.
+    // The loop restarts only when the envelope, the reader or the deck's stretch changes.
   }, [envelope, drawNow, tempo]);
 
   return (
@@ -178,9 +142,7 @@ export function Waveform({
         </span>
       ) : null}
       {problem ? (
-        // The reason, on the strip that has none. Truncated to one line with the whole thing
-        // in the tooltip: a 200-character stack has no business across a deck, and a message
-        // nobody can read has no business being kept at all.
+        // The reason, truncated to one line with the whole of it in the tooltip.
         <span
           className="absolute inset-x-2 top-1/2 -translate-y-1/2 truncate text-center text-[11px] text-destructive"
           title={problem}
@@ -189,8 +151,7 @@ export function Waveform({
         </span>
       ) : null}
       {envelope && !envelope.bpm ? (
-        // No tempo means no grid, and that is worth saying: yellow lines missing could
-        // otherwise read as a bug rather than as "the engine found no tempo".
+        // No tempo means no grid, said out loud: missing yellow lines would otherwise read as a bug.
         <span className="absolute right-2 top-1 text-[10px] text-muted-foreground">
           tempo inconnu
         </span>

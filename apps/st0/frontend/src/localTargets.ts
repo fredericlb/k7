@@ -17,13 +17,7 @@ export function bestMatch(arg: string, pool: readonly string[]): string | null {
   );
 }
 
-/**
- * The tree entry a name means — any of them, folders included.
- *
- * Deliberately not narrowed to files: `fs file move`, `fs file delete` and `ui pin` are offered on a
- * folder by the right-click menu, so a command that could not name one would be the narrower
- * of the two ways to do the same thing.
- */
+/** The tree entry a name means, folders included — the right-click menu offers `fs file move` and `ui pin` on one. */
 export const resolveEntry = (
   arg: string,
   entries: readonly string[],
@@ -32,11 +26,7 @@ export const resolveEntry = (
 /** A module folder's own `module.yaml` — what the builder opens on. */
 const MODULE_FILE = /(^|\/)module\.ya?ml$/i;
 
-/**
- * The module file a name means. MODULES FIRST, then the whole project, the way
- * `resolveSequence` reads a sequence name: `ui builder ampli` names a module, so a `clips/ampli`
- * must not win — and the fallback is what still lets a full path be pasted in.
- */
+/** The module file a name means — MODULES FIRST, then the whole project, so `ui builder ampli` cannot land on `clips/ampli`. */
 export function resolveModuleFile(
   arg: string,
   files: readonly string[],
@@ -60,11 +50,7 @@ export const parentDir = (path: string): string => {
 export const baseName = (path: string): string =>
   path.replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop() ?? path;
 
-/**
- * Split a line into its leading N tokens and the rest, so `fs file rename <path> <new name>` can
- * take a name with spaces in it while the path before it stays one token. Fewer tokens than
- * asked for answers what there is — the caller reports the usage line, not this.
- */
+/** Split a line into its leading N tokens and the rest, so a name with spaces survives while the path before it stays one token. */
 export function headTokens(rest: string, n: number): string[] {
   const out: string[] = [];
   let s = rest.trim();

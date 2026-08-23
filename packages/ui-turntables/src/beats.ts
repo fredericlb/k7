@@ -8,20 +8,7 @@ export interface BeatGrid {
   phase: number;
   /** 0 when the onsets say nothing about a grid, ~1 when they all land on one. */
   strength: number;
-  /**
-   * Is `phase` a MEASUREMENT or a shrug?
-   *
-   * `strength` alone cannot answer that, because what counts as high depends on how many
-   * onsets there were: scattering `n` of them at random still leaves a resultant of about
-   * `0.886/√n` — 0.04 for 400 onsets, 0.09 for 100 — so a bare threshold would call one
-   * song confident and the other noise for no reason but its length.
-   *
-   * This is the RAYLEIGH test, which is that comparison done properly: `n·R²` against 4.6,
-   * roughly p < 0.01 against "the onsets are spread evenly and there is no grid". Measured
-   * on this machine's cache, it separates cleanly rather than marginally — 141 for a
-   * four-on-the-floor house track, 17 for a pop song, 0.2 for one whose detected tempo is
-   * simply wrong. Only the first two have a downbeat worth moving a record onto.
-   */
+  /** Is `phase` a MEASUREMENT or a shrug? The RAYLEIGH test decides — see ../docs/bpm.md. */
   confident: boolean;
 }
 
@@ -31,23 +18,7 @@ export const RAYLEIGH_Z = 4.6;
 /** Nothing to go on: a grid at zero, and saying so. */
 export const NO_GRID: BeatGrid = { phase: 0, strength: 0, confident: false };
 
-/**
- * Where the beat grid starts, from the onsets and the tempo.
- *
- * This is a CIRCULAR MEAN, not a first-onset guess. Fold every transient onto one beat
- * period — a time becomes an angle, `2π·t/P` — and average the unit vectors. Onsets that
- * fall on the beat point the same way and add up; everything else spreads around the circle
- * and cancels. The resulting angle is the phase, and the resulting LENGTH is how much the
- * onsets agreed, which is what `strength` reports.
- *
- * It replaces `transients[0]`, which the waveform used to anchor its beat lines on. One
- * onset is one measurement: a breath, a click, or a quiet intro hit half a beat early moved
- * the whole grid and every line drawn from it. Averaging 400 of them does not care.
- *
- * A tempo the analysis got wrong is still wrong here — this answers "where", never "how
- * often" — but it fails visibly: onsets scattered against the wrong period give a strength
- * near zero rather than a confident answer.
- */
+/** Where the beat grid starts — a CIRCULAR MEAN of every onset, not `transients[0]`. See ../docs/bpm.md. */
 export function beatPhase(
   transients: readonly number[],
   bpm: number,
@@ -65,10 +36,7 @@ export function beatPhase(
   const strength = Math.hypot(x, y) / transients.length;
   // atan2 gives (-π, π]; the grid is a position in [0, period), so bring it round.
   let phase = ((Math.atan2(y, x) / (2 * Math.PI)) * period + period) % period;
-  // A grid that starts ON zero answers a hair either side of it, and a hair BELOW wraps to a
-  // whole period — the same grid, described as maximally late. Snapping it back matters
-  // because that number becomes a clip's `start`: a beat of silence at the top of a deck,
-  // from a rounding error.
+  // A hair BELOW zero wraps to a whole period, and that number becomes a clip's `start`.
   if (period - phase < period * 1e-9) phase = 0;
   return {
     phase,
@@ -77,12 +45,7 @@ export function beatPhase(
   };
 }
 
-/**
- * The FIRST beat at or after `from`, given a grid — the anchor the waveform draws from.
- *
- * Kept here rather than in waveform.ts so the lines you see and the alignment you hear come
- * from one definition of where a beat is.
- */
+/** The FIRST beat at or after `from` — here rather than in waveform.ts, so lines and alignment agree. */
 export function firstBeatAfter(
   from: number,
   phase: number,
@@ -92,41 +55,10 @@ export function firstBeatAfter(
   return phase + Math.ceil((from - phase) / period) * period;
 }
 
-/**
- * How far to delay the SLAVE so its beats land on the master's.
- *
- * Sync is two facts, and matching the tempos is only the first: two decks at 128 BPM whose
- * downbeats sit 200 ms apart are not synced, they are flamming. This is the second — the
- * offset that closes that gap.
- *
- * The arithmetic, in REAL seconds because that is the only clock the two share:
- *
- *   a source second `s` plays at `s · natural / target`, so a grid starting at `phase` in the
- *   file starts at `phase · natural / target` on the deck, and its beats then repeat every
- *   `60 / target`.
- *
- * Both decks are at the same `target` when this is asked (that is what sync did first), so
- * their beat PERIODS already match and only the offsets differ. The answer is their
- * difference, wrapped into one beat: never more than a beat of delay, and never negative,
- * which a clip start could not express anyway.
- *
- * Returned in TIMELINE beats, the unit `ClipDoc.start` is in — the document's own tempo, not
- * either song's.
- */
-/**
- * The metre everything here assumes, and nowhere measures.
- *
- * Nothing in the sidecar says where a bar begins — the analysis finds a tempo, not a time
- * signature — so the grid's first beat is taken for a downbeat and one in four after it. On
- * the four-to-the-floor a deck plays most of the time that is right, or right up to a
- * rotation, and a rotation still gives a bar line every bar.
- *
- * ONE number, because the waveform's bar lines and the metronome's accent are the same claim
- * about the same music: two constants could drift apart and draw a bar the click disagreed
- * with.
- */
+/** The metre everything here ASSUMES and nowhere measures — one number, so no two can drift apart. */
 export const BEATS_PER_BAR = 4;
 
+/** How far to delay the SLAVE so its beats land on the master's, in TIMELINE beats — ../docs/bpm.md. */
 export function alignDelay(
   master: { natural: number; target: number; phase?: number },
   slave: { natural: number; target: number; phase?: number },

@@ -7,17 +7,7 @@ import { closeSync, fstatSync, openSync, readSync } from "node:fs";
 /** As much of a header as any sane file spends before `data` — a `LIST`/`bext` block and change. */
 const HEAD_BYTES = 8192;
 
-/**
- * The duration of a RIFF/WAVE file in seconds, or null when it cannot be read.
- *
- * Null rather than a throw, and null rather than 0: every caller here has something better to do
- * than fail — the bounce that asks writes the render either way, and a length it could not
- * establish means "leave the map alone", which is the safe half of that decision.
- *
- * The `data` size is taken as the FILE says it, clamped to what is actually there: a render
- * killed mid-write leaves a header claiming more than the disk holds, and believing it would
- * stretch a clip's map onto seconds that do not exist.
- */
+/** The duration of a RIFF/WAVE file in seconds, or NULL when it cannot be read — docs/rendering.md. */
 export function wavSeconds(path: string): number | null {
   let fd: number | null = null;
   try {
@@ -41,8 +31,7 @@ export function wavSeconds(path: string): number | null {
       if (id === "data") {
         const frameBytes = (channels * bits) / 8;
         if (!(frameBytes > 0) || !(rate > 0)) return null;
-        // Through the same descriptor, so a file replaced between the open and the stat cannot
-        // give a size from one and bytes from the other.
+        // Through the SAME descriptor, so a replaced file cannot mix one file's size with another's bytes.
         const onDisk = Math.max(0, fstatSync(fd).size - (off + 8));
         return Math.min(size, onDisk) / (frameBytes * rate);
       }

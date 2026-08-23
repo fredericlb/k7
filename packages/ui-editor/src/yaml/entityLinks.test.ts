@@ -5,16 +5,7 @@ import { describe, expect, it } from "vitest";
 import { linkTargets } from "./entityLinks";
 import { keyTokens, valueTokens } from "./entityValues";
 
-// Ctrl-click on a name in chains.yaml opens the file it names. The file used to spell its references as fields
-// — `{ track: vo.jo }, { module: eq_dj:vox }` — so "which fields link" was a table of field names. It declares
-// SEGMENTS now:
-//
-//   tracks:  { vo.jo: [ eq_dj:vox ] }      the key is a track, the values are modules
-//   modules: { eq_dj:vox: [ OUT ] }        the key is a module, and so are the values
-//   bypassed: [ eq_dj:vox ]
-//
-// so the key above a value is itself an entity name, which no table can enumerate. The SECTION answers instead.
-// A module wired to nothing appears ONLY as a key, which is why keys link here and nowhere else.
+// Ctrl-click on a name in chains.yaml opens the file it names, resolved per SECTION — see docs/completion.md.
 
 const HINTS = {
   projectRoot: "/ws/song",
@@ -49,9 +40,7 @@ const CHAINS = [
 ].join("\n");
 
 describe("chains.yaml", () => {
-  // The whole file at once, in document order. Asserted as ONE list rather than a handful of `toContain`s,
-  // because every module here is named both as a key and as a destination: a check that only asks "is it linked
-  // somewhere" passes on the key alone and would not notice the destinations going dark, which is the bug.
+  // Asserted as ONE list in document order: a `toContain` would pass on the key alone and miss the destinations going dark.
   it("links every key and every destination, and nothing else", () => {
     expect(links(CHAINS)).toEqual([
       "vo.jo -> /ws/song/tracks/vo.jo.yaml", //            tracks: the key is a track

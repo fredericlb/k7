@@ -21,8 +21,7 @@ import type { Manifest } from "./manifest.ts";
 import type { LibrarySource } from "./remote.ts";
 import type { Family } from "./types.ts";
 
-// A library source with no server: `download` writes the bytes it was given. The sync is
-// written against the port precisely so this is possible — see remote.ts.
+// A library source with no server, which is what `LibrarySource` being a port is for.
 function fakeOwner(
   files: Record<string, { body: string; mtime: number }>,
   opts: { failOn?: string; revision?: string } = {},
@@ -89,8 +88,7 @@ describe("syncing a family", () => {
   });
 
   it("re-fetches a file the owner changed, on mtime alone", async () => {
-    // The local copy has its own mtime and its own size may be identical; only the OWNER's
-    // description moves, which is exactly what the remembered manifest exists to see.
+    // Only the OWNER's description moves, which is what the remembered manifest exists to see.
     const owner = fakeOwner({ "samples/a.yaml": { body: "a\n", mtime: 1 } });
     await syncFamily(owner, "samples");
     const moved = fakeOwner({ "samples/a.yaml": { body: "b\n", mtime: 9 } });
@@ -127,8 +125,7 @@ describe("syncing a family", () => {
   });
 
   it("never drops what is merely out of scope", async () => {
-    // The trap the scope has to avoid: narrowing `want` alone makes everything else look
-    // like a file the owner deleted, and the first narrow sync empties the cache.
+    // The trap: narrowing `want` alone makes everything else look deleted (docs/sync.md).
     const owner = fakeOwner({
       "samples/audio/a/module.yaml": { body: "a\n", mtime: 1 },
       "samples/audio/b/module.yaml": { body: "b\n", mtime: 1 },
@@ -184,8 +181,7 @@ describe("syncing a family", () => {
   });
 
   it("keeps its bookkeeping out of the library's own content", async () => {
-    // Under .cache/, which both the family walk and the revision token skip — otherwise
-    // writing the manifest would invalidate the very token it was written for.
+    // Under .cache/, which the walk and the token skip, or writing it would invalidate the token.
     const owner = fakeOwner({ "samples/a.yaml": { body: "a\n", mtime: 1 } });
     await syncFamily(owner, "samples");
     expect(existsSync(join(root, ".cache", "manifest", "samples.json"))).toBe(

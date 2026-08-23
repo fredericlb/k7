@@ -15,14 +15,7 @@ import { projectHints } from "./hints";
 import { compileNodeProject } from "./nodeProject";
 import { insertChainStepAfter, replaceChainStep } from "./testSupport";
 
-// A chain step used to name only a module of the project's OWN modules/ folder. An
-// inherited one — the workspace's shared _modules, reachable through
-// project.modules_from — could be `extends`ed but never used directly, so borrowing a
-// reverb meant writing a one-line local module that extended it and nothing else.
-//
-// These pin that a step may name it by its ref instead: it resolves (merged through
-// `extends`, like a local module), it compiles into the track, and it is offered as a
-// completion. The ref is quoted because YAML reserves a leading `@`.
+// A step may name an INHERITED module by its ref, which once took a one-line local module.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -88,17 +81,12 @@ describe("a chain step naming an inherited module by ref", () => {
     const h = projectHints(dir);
     expect(h.modules).toContain(REF);
     expect(h.modules).toContain("lead"); // the local names are still there
-    // io is offered too — both roles are chain nodes now: an "out" ends a chain, an
-    // "in" feeds one. (An inherited NODE is nameable as well, which is the whole
-    // point for io/IN: `module populate` files one per physical input.)
+    // io is offered too, and so is an inherited NODE — which is the point for io/IN.
     expect(h.modules).toContain("@workspace/io/desk");
     expect(h.ioSinks).toContain("@workspace/io/desk");
   });
 
-  // The chain's LAST node is its sink, parsed out of the steps — a different lookup, so
-  // it needs its own proof that a ref reaches it. The lane ends at MIX, the mixer's sum:
-  // `OUT` is the device now, and the run between the two is the master chain
-  // (docs/masterChain.md).
+  // The sink is a different lookup, so a ref reaching it needs its own proof.
   it("works in the sink position too, not only as a step", () => {
     replaceChainStep(dir, "MIX", { module: "@workspace/io/desk" });
     const g = loadGraph(dir);
@@ -107,9 +95,7 @@ describe("a chain step naming an inherited module by ref", () => {
   });
 });
 
-// The `/` vs `:` slip: a node sits BESIDE a module.yaml, so its ref is the module's
-// with `:node` — but on disk it reads like a folder, and the two spellings look the
-// same. "is not a module" is true and useless there; the fix is one character.
+// A node's ref takes `:node`, but on disk it reads like a folder: "is not a module" is useless there.
 describe("a ref that spells a node with a slash", () => {
   it("is told which character to change", () => {
     const ws = mkdtempSync(join(tmpdir(), "td-slash-"));

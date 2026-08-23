@@ -1,9 +1,4 @@
-// Switching an event's WARP off — `event status warp`, and the file it writes.
-//
-// The polarity is the interesting part and is the opposite of `disabled`'s: a warp belongs to the
-// CLIP, so every placement of it stretches by default and `warp: false` is a placement declining
-// that. Which means `false` is the written value and `true` is the one that DELETES the field —
-// switching it off and back on has to leave the file exactly as it was.
+// Switching an event's WARP off: the polarity is the opposite of `disabled`'s — docs/trackMix.md.
 
 import {
   mkdirSync,
@@ -57,8 +52,7 @@ describe("setTrackPlacementWarp", () => {
   });
 
   it("DELETES the field when warping is turned back on", () => {
-    // The round trip has to leave the file byte-identical, or every event anybody ever touched
-    // would carry a `warp: true` saying what its absence already said.
+    // The round trip must leave the file byte-identical, or every event grows a `warp: true`.
     const dir = trackDir(LANE);
     setTrackPlacementWarp(dir, "drums", at("2:1"), NUM, DEN, false);
     setTrackPlacementWarp(dir, "drums", at("2:1"), NUM, DEN, true);

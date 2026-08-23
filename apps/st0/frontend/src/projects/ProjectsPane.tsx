@@ -33,25 +33,16 @@ export function ProjectsPane({
   onOpen,
   onChanged,
 }: {
-  /** What the machine holds, projects included — the only source, since a project is a folder
-   *  there and pl8 keeps nothing but the register of repositories. */
+  /** What the machine holds, projects included — the only source, a project being a folder there. */
   workspaces: MachineWorkspace[];
-  /** pl8's register — not a list to draw, but the other half of "does this address resolve":
-   *  `/<repo>/<project>` goes through `by-name`, and a copy the register ignores opens `@local`. */
+  /** pl8's register — not a list to draw, but the other half of 'does this address resolve': a copy it ignores opens `@local`. */
   repos: RepoSummary[];
-  /** Frozen snapshots published by `project share link`. The account's WHOLE list, not one call
-   *  per row: pl8 cannot filter, and the rows cut it up themselves with `sharesOf`. */
+  /** Frozen snapshots published by `project share link` — the account's WHOLE list, cut up by the rows with `sharesOf`. */
   shares: ShareSummary[];
   busy: boolean;
   /** The unfolded workspace's name, taken from the address, or null for the list. */
   openWs: string | null;
-  /**
-   * The chosen machine, or null when none answers.
-   *
-   * It no longer only writes: it is what READS the list. Projects are its folders, and the bare
-   * mirror pl8 kept to answer in its place was a second copy of them — one `git fetch` behind,
-   * and blind to a committed project whose push had not gone through.
-   */
+  /** The chosen machine, or null when none answers — it is what READS the list, projects being its folders. */
   machine: Machine | null;
   onOpen: (name: string | null) => void;
   /** Call after any write, so the page reloads without waiting for the poll. */
@@ -78,20 +69,13 @@ export function ProjectsPane({
     ? ""
     : "aucune machine moteur joignable — un projet est un dossier sur la machine, et c'est elle qui les fait";
 
-  /** The machine, or a refusal that reads. Reaching here at all means it vanished between the
-   *  dialog opening and the click, since the buttons are already grey without one. */
+  /** The machine, or a refusal that reads — reaching here means it vanished between the dialog opening and the click. */
   const chosen = useCallback((): Machine => {
     if (!machine) throw new Error(blocked);
     return machine;
   }, [machine, blocked]);
 
-  /**
-   * Adding a repository means registering it with pl8 AND THEN cloning it here.
-   *
-   * Both, in that order. pl8 holds the register — a repository belongs to a person rather than a
-   * machine, which is what lets `/<repo>/<project>` resolve from any of them. The clone is what
-   * makes it APPEAR here, since this page lists only what the machine holds.
-   */
+  /** Adding a repository means registering it with pl8 AND THEN cloning it here — the clone is what makes it APPEAR. */
   const add = useCallback(
     async (uri: string) => {
       setError(null);
@@ -130,13 +114,7 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /**
-   * Remove a repository from pl8's register — and nothing else.
-   *
-   * The row does NOT disappear: it shows a folder this machine holds, and taking something out of
-   * a list must not delete somebody's files. What changes is the address — `/<repo>/<project>`
-   * stops resolving, so this workspace's projects fall back to `@local`.
-   */
+  /** Remove a repository from pl8's register and nothing else: the row stays, and what changes is the address. */
   const forgetRepo = useCallback(
     (r: RepoSummary) => {
       setError(null);
@@ -166,8 +144,7 @@ export function ProjectsPane({
     [chosen, onChanged],
   );
 
-  /** The unfolded workspace's tree, read off the machine. One request, no retry: it is a `readdir`
-   *  on a disk that is there. The loop that used to be here waited on a mirror that is gone. */
+  /** The unfolded workspace's tree, read off the machine — one request, no retry: it is a `readdir` on a disk that is there. */
   useEffect(() => {
     if (!openWs || !machine) {
       setNodes(null);
@@ -222,7 +199,7 @@ export function ProjectsPane({
             shares={shares}
             onChanged={onChanged}
           />
-          {/* La clé de déploiement reste tout en bas : réglée une fois, sur le compte. */}
+          {/* The deploy key stays right at the bottom: set once, on the account. */}
           <div className="mt-auto">
             <SshKeyCard />
           </div>

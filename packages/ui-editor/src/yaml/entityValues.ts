@@ -12,13 +12,7 @@ export interface ValueToken {
   to: number;
   /** The key whose value this is — inherited through sequences. Null at the root. */
   field: string | null;
-  /**
-   * Every key above it, outermost first (`["tracks", "vo.jo"]`), field included.
-   *
-   * Needed because a key is not always a FIELD NAME. chains.yaml keys its sections by entity — `tracks:` holds
-   * one entry per track id, `modules:` one per module ref — so "what may this value name" is answered by the
-   * SECTION it sits in, not by the key immediately above it, which is itself an entity.
-   */
+  /** Every key above it, outermost first, field included — needed because a key is not always a FIELD NAME. */
   keyPath: string[];
   /** The text, with quotes stripped. */
   value: string;
@@ -43,12 +37,7 @@ const unquote = (s: string): string =>
     ? s.slice(1, -1)
     : s;
 
-/**
- * Every scalar VALUE in the document (never a key), with its field.
- *
- * A key's own text is skipped: `module: module` would otherwise offer its key as a value
- * and link the wrong half of the line.
- */
+/** Every scalar VALUE in the document with its field, a key's own text skipped so `module: module` links one half. */
 export function valueTokens(state: EditorState): ValueToken[] {
   const out: ValueToken[] = [];
   const tree = parsedTree(state);
@@ -90,13 +79,7 @@ export function valueTokens(state: EditorState): ValueToken[] {
   return out;
 }
 
-/**
- * Every mapping KEY in the document, with the keys above it.
- *
- * The mirror of valueTokens, and separate from it on purpose: everywhere else a key is a FIELD NAME and linking
- * it would open the wrong half of the line (see the test). chains.yaml is the exception — its keys are track ids
- * and module refs — so the caller decides, per section, whether keys mean anything.
- */
+/** Every mapping KEY with the keys above it, separate from valueTokens so the caller decides per section. */
 export function keyTokens(state: EditorState): KeyToken[] {
   const out: KeyToken[] = [];
   parsedTree(state).iterate({

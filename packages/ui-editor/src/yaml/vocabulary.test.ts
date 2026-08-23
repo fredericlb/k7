@@ -26,8 +26,7 @@ const at = (path: string, keyPath: string[], field: string, hints?: Hints) =>
 
 describe("the chains vocabulary", () => {
   it("offers the modules and sinks a node can feed", () => {
-    // The key is the node's own name (`amp`), so what is being completed is where its
-    // signal goes: a module of the project, an inherited one, or an io sink.
+    // The key is the node's own name, so what is completed is where its signal goes.
     expect(at("chains.yaml", ["modules"], "amp", HINTS)).toEqual(
       expect.arrayContaining([
         "synth:lead",
@@ -41,8 +40,7 @@ describe("the chains vocabulary", () => {
     ).toEqual(["OUT"]);
   });
 
-  // A live input is the node its run STARTS at, and what it feeds is a track. So a
-  // segment leaving a module has one more kind of destination than a track's does.
+  // A live input is the node its run STARTS at, so a segment leaving a module has one destination more.
   it("offers the tracks too, for a segment leaving a module", () => {
     expect(at("chains.yaml", ["modules"], "@engine/io/IN:in-1", HINTS)).toEqual(
       expect.arrayContaining(["melody", "pad", "OUT", "synth:lead"]),
@@ -62,54 +60,45 @@ describe("the chains vocabulary", () => {
   });
 
   it("does NOT offer a chain name as a destination", () => {
-    // A bus is reached by naming the module it starts at. Offering the derived chain name
-    // too would be two spellings for one arrow, and only one of them resolves.
+    // A bus is reached by naming the module it starts at — see docs/completion.md.
     expect(at("chains.yaml", ["modules"], "amp", HINTS)).not.toContain(
       "reverb",
     );
   });
 
   it("offers modules for `bypassed`, and nothing else", () => {
-    // A track cannot be switched out of its own chain, and a sink has nothing to pass
-    // through — so neither belongs in a list of things the signal skips.
+    // Neither a track nor a sink belongs in a list of things the signal skips.
     const v = at("chains.yaml", [], "bypassed", HINTS);
     expect(v).toEqual(HINTS.modules);
     expect(v).not.toContain("melody");
   });
 
   it("says nothing without hints, rather than guessing", () => {
-    // The editor mounts before the first hints arrive; an empty list means "free text",
-    // which is the honest answer then.
+    // The editor mounts before the first hints arrive, and an empty list means "free text".
     expect(at("chains.yaml", ["modules"], "amp")).toEqual([]);
   });
 
   it("offers what a module may extend", () => {
-    // The schema deliberately says nothing here — a base ref is whatever this machine's
-    // engine scanned plus whatever anybody wrote — so without this layer `extends:` was the
-    // one reference field in the whole vocabulary that completed against nothing.
+    // The schema deliberately says nothing here, so without this layer `extends:` completed against nothing.
     const path = "modules/audio/amp/module.yaml";
     expect(at(path, [], "extends", HINTS)).toEqual([
       "@engine/de-rez",
       "@st0/audio/utility/mixer",
     ]);
-    // Only at the top level, and only for that field: `params:` is a free map, and a rack's
-    // `clip` names a clip.
+    // Only at the top level and only for that field, since `params:` is a free map.
     expect(at(path, ["rack"], "extends", HINTS)).toEqual([]);
     expect(at(path, [], "docs", HINTS)).toEqual([]);
   });
 
   it("does not spill the chain vocabulary into another kind of file", () => {
-    // A module.yaml has its own `type`/`io` enums and must keep them: a project value may
-    // only ever fill a field a schema left open.
+    // A module.yaml keeps its own enums: a project value may only ever fill a field a schema left open.
     expect(
       schemaVocabulary("modules/audio/amp/module.yaml", HINTS).valuesAt?.(
         [],
         "type",
       ),
     ).toEqual(["plugin", "rack", "video_effect", "video_transition"]);
-    // A NODE file, which is what a lane is now — `tracks/melody.yaml` stood here and is not a
-    // kind of file at all any more (packages/song/docs/trackModules.md), so the assertion was
-    // reading `undefined` off a vocabulary nobody had built.
+    // A NODE file, which is what a lane is now (packages/song/docs/trackModules.md).
     expect(
       schemaVocabulary("nodes/melody.yaml", HINTS).valuesAt?.(
         ["modules"],

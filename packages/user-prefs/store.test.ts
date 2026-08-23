@@ -13,8 +13,7 @@ describe("fileFor", () => {
     expect(fileFor("dev-user")).toMatch(/^dev-user-[0-9a-f]{12}\.json$/);
   });
 
-  // The one that matters: a sub is an opaque IdP string, and these would be a path escape,
-  // an invalid Windows name, or a name longer than the filesystem allows.
+  // A sub is an opaque IdP string: a path escape, an illegal Windows name, an overlong one.
   it("never lets a subject become a path", () => {
     for (const sub of ["../../etc/passwd", "a/b", "c:\\x", "a".repeat(500)]) {
       const name = fileFor(sub);
@@ -25,8 +24,7 @@ describe("fileFor", () => {
     }
   });
 
-  // Two subjects that slug identically MUST NOT share a file — the slug is for reading, the
-  // hash is what makes it unique. Without this, "a/b" and "a_b" are the same user.
+  // Without the hash, "a/b" and "a_b" would be the same user: the slug is only for reading.
   it("separates subjects that slug the same", () => {
     expect(fileFor("a/b")).not.toEqual(fileFor("a_b"));
     expect(fileFor("a".repeat(60))).not.toEqual(fileFor("a".repeat(61)));
@@ -54,8 +52,7 @@ describe("prefsStore", () => {
     expect(prefsStore(dir).read("nobody")).toBeNull();
   });
 
-  // A hosted service must not 500 because a volume is missing; an unmounted directory is
-  // the same answer as a first login.
+  // An unmounted directory answers as a first login: a missing volume must not be a 500.
   it("reads null rather than throwing on an absent directory", () => {
     expect(prefsStore(join(dir, "not-mounted")).read("alice")).toBeNull();
   });

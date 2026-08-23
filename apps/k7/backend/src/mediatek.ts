@@ -16,14 +16,12 @@ const cfg = (): RemoteConfig => ({
   token: env.mediatek.token,
 });
 
-/** The extension the médiathèque will accept these bytes under. `mp4` is the trap: Safari records
- *  `audio/mp4`, which the zone files as VIDEO and refuses — a mp4 with no picture is a `.m4a`. */
+/** The extension the zone accepts these bytes under; `mp4` is the trap (../../docs/audio.md). */
 export function zoneExt(ext: string): string {
   return ext === "mp4" ? "m4a" : ext;
 }
 
-/** Push a recording; the médiathèque picks the name. `at` is when the session was RECORDED, not
- *  when it was uploaded — otherwise one fetched the next day files under the wrong date. */
+/** Push a recording; the zone picks the name. `at` is when it was RECORDED, not uploaded. */
 export async function push(
   bytes: Uint8Array,
   ext: string,
@@ -37,8 +35,7 @@ export async function push(
   return path;
 }
 
-/** Push a MOMENT: the same day folder as recordings, named as an excerpt. `at` is when it was
- *  PLAYED — session start plus its offset — not when somebody annotated it days later. */
+/** Push a MOMENT into the same day folder, named as an excerpt; `at` is when it was PLAYED. */
 export async function pushMoment(
   bytes: Uint8Array,
   ext: string,
@@ -54,21 +51,13 @@ export async function pushMoment(
   return path;
 }
 
-/**
- * Push a PUBLISHED version into the songs, under the `K7` artist.
- *
- * `songs/` no longer files by provenance, so a published version lands exactly where a manual
- * upload does; `source: k7` in the sidecar is what says where it came from. `replace` is true
- * because republishing is a deliberate overwrite — the 409 protects a person uploading twice,
- * not a service republishing.
- */
+/** Push a PUBLISHED version into the songs, under the `K7` artist — ../../docs/audio.md. */
 export async function pushVersion(
   bytes: Uint8Array,
   ext: string,
   tags: { album: string; title: string },
 ): Promise<string> {
-  // The MASTER's path, not the folder's: it is what a caller has to fetch to play the
-  // version, and the folder is one `dirname` away when the stems need it.
+  // The MASTER's path, not the folder's: the folder is one `dirname` away when stems need it.
   const { master } = await pushSong(cfg(), {
     filename: `mixdown.${zoneExt(ext)}`,
     bytes,
@@ -81,12 +70,10 @@ export async function pushVersion(
   return master;
 }
 
-/** The one artist k7 publishes under: the zone files by artist, and who played is release
- *  metadata rather than a folder name. */
+/** The one artist k7 publishes under; who actually played is release metadata. */
 export const ARTIST = "K7";
 
-/** Write a file at a chosen path — a version's stems, a sidecar a rename made wrong. Reserved
- *  for what this service created itself. */
+/** Write a file at a chosen path, reserved for what this service created itself. */
 export async function putFile(
   path: string,
   body: Uint8Array | string,
@@ -99,8 +86,7 @@ export async function removeTree(path: string): Promise<void> {
   await remoteWriter(cfg()).removeTree(path);
 }
 
-/** Overwrite an EXISTING recording in place: a session being extended is still one session, and
- *  a second file would leave two takes where there is one recording. */
+/** Overwrite an EXISTING recording in place: an extended session is still one session. */
 export async function replace(path: string, bytes: Uint8Array): Promise<void> {
   await remoteWriter(cfg()).put(path, bytes);
 }

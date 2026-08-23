@@ -47,23 +47,18 @@ const lead = () =>
 
 describe("an offline module in the graph", () => {
   it("carries NO pluginId, because the document will carry no plugin", () => {
-    // The whole point. `offline` means realised outside the graph — a pass that writes files,
-    // or the player warping the clip it feeds — and the address of that is the track, not a
-    // plugin the engine was never given.
+    // `offline` means realised outside the graph, and the address of that is the TRACK.
     expect(lead()?.pluginId).toBeUndefined();
   });
 
   it("is still not flagged as a plugin the engine cannot load", () => {
-    // The colour and the address are separate facts, and this is the one jsdsp got wrong in
-    // the other direction: drawing it red would call a module that works exactly as written
-    // broken. It loads nothing BY DESIGN.
+    // The colour and the address are separate facts: this module loads nothing BY DESIGN.
     expect(lead()?.unknownPlugin).toBeUndefined();
     expect(lead()?.notSupported).toBeUndefined();
   });
 
   it("still carries its declared params, which are all it can show", () => {
-    // Nothing live will ever arrive for them: `liveParams` is keyed by plugin id and there is
-    // no plugin. What the panel draws is what the file says.
+    // `liveParams` is keyed by plugin id and there is none, so the panel draws what the file says.
     expect(lead()?.params).toMatchObject({ "Target BPM": 0 });
   });
 });

@@ -11,17 +11,14 @@ import {
 } from "./routes";
 import { stateForLocation, urlForState } from "./useLibraryRoute";
 
-// The address is what you are looking at: the section, and the file the builder has open.
-// Both directions are here because the hazard is the LOOP between them — the app writing the
-// URL, the URL writing the app — and a sequence is the only way to catch it.
+// Both directions are here because the hazard is the LOOP between them (../docs/routing.md).
 
 const st = (p: Partial<RouteState> = {}): RouteState => ({
   section: DEFAULT_SECTION,
   file: null,
   ...p,
 });
-/** The section you land on with nothing to go on. Named here so the round-trips below read
- *  as "wherever the default is" rather than baking it in twice. */
+/** The section you land on with nothing to go on, named so a round-trip reads "wherever the default is". */
 const songs = (p: Partial<RouteState> = {}): RouteState =>
   st({ section: "songs", ...p });
 
@@ -48,17 +45,14 @@ describe("fromLocation", () => {
   });
 
   it("lands on the default section rather than 404ing inside the app", () => {
-    // The URL bar is user-editable, and a typo should not be a dead screen. The bare origin
-    // opens on the catalogue's first family — the repositories are st0's home page now.
+    // The URL bar is user-editable, and a typo should not be a dead screen.
     expect(fromLocation("/")).toEqual(st());
     expect(fromLocation("/")).toEqual(st({ section: "songs" }));
     expect(fromLocation("/nope/deep/path")).toEqual(st());
   });
 
   it("no longer knows the repositories, which moved to st0's home", () => {
-    // Not a section any more, so it is an unknown first segment like any other typo — and a
-    // bookmark on the old address lands somewhere usable rather than on a blank screen.
-    // See apps/st0/frontend/docs/projects.md.
+    // An unknown first segment like any other typo — see apps/st0/frontend/docs/projects.md.
     expect(fromLocation("/projects")).toEqual(st());
     expect(fromLocation("/projects/3f9a1c2b7e40")).toEqual(st());
   });
@@ -74,10 +68,7 @@ describe("fromLocation", () => {
   });
 
   it("survives a song folder named like a song", () => {
-    // The tags become path segments through `segment()`, which keeps spaces, parentheses and
-    // `&` — all legal in a folder name and all things the browser encodes on its way into the
-    // URL bar. Read back raw, "Back%20in%20Black" matches no entry and the screen opens on
-    // nothing, so the two directions have to encode and decode symmetrically.
+    // The tags become path segments, so the two directions have to encode and decode symmetrically.
     const s = songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" });
     expect(toPath(s)).toBe(
       "/songs/AC-DC/Back%20in%20Black/Hells%20Bells/song.yaml",
@@ -89,21 +80,16 @@ describe("fromLocation", () => {
       "Nirvana/Unplugged/The Man Who Sold The World (Live)/song.yaml",
     ])
       expect(fromLocation(toPath(songs({ file })))).toEqual(songs({ file }));
-    // A hand-typed escape that decodes to nothing valid is left as it stands rather than
-    // throwing: it names no entry, which is exactly what a typo in the URL bar should do.
+    // A hand-typed escape that decodes to nothing valid is left as it stands rather than throwing.
     expect(fromLocation("/songs/%zz/song.yaml").file).toBe("%zz/song.yaml");
   });
 
   it("opens a song from the address", () => {
-    // The regression this guards is not the deep link but the LOOP: a section that opens an
-    // editor and cannot read its own address writes a URL, reads back the bare section, and
-    // shuts the editor a tick later. `chains` did exactly that, and is gone; the shape of the
-    // mistake is why the one survivor is still tested here.
+    // What this guards is the LOOP rather than the deep link — see ../docs/routing.md.
     expect(
       fromLocation("/songs/AC-DC/Back in Black/Hells Bells/song.yaml"),
     ).toEqual(songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }));
-    // A section that carries nothing drops what follows it rather than 404ing inside the app:
-    // `playlists` is st0's now, and an old bookmark lands on the default section.
+    // A section that carries nothing drops what follows it rather than 404ing inside the app.
     expect(fromLocation("/playlists/ete-2026.yaml")).toEqual(st());
     // A lone file name has no folder in front of it, which is the null `folderOf` answers.
     expect(folderOf("ete-2026.yaml")).toBeNull();
@@ -119,16 +105,14 @@ describe("fromLocation", () => {
       songs({ file: "AC-DC/Back in Black/Hells Bells/song.yaml" }),
       // The cog's engine-status page: a section with no tab, and no file to carry.
       st({ section: "engine" }),
-      // « Trouver des morceaux », the other tabless one — a PAGE rather than a dialogue,
-      // because its history grows. See ../../docs/hunt.md.
+      // « Trouver des morceaux », the other tabless one — a PAGE, since its history grows.
       st({ section: "find" }),
     ])
       expect(fromLocation(toPath(s))).toEqual(s);
   });
 
   it("garde une adresse pour la recherche de morceaux, donc rechargeable", () => {
-    // What the dialog could not offer: a page that reloads, bookmarks, and whose back button
-    // returns to the songs.
+    // What the dialog could not offer: a page that reloads, bookmarks and answers the back button.
     expect(fromLocation("/find")).toEqual({ section: "find", file: null });
     // Nothing to carry in the second half: the page opens no item, it IS the screen.
     expect(fromLocation("/find/whatever")).toEqual({
@@ -138,12 +122,7 @@ describe("fromLocation", () => {
   });
 
   it("keeps the new section clear of the paths the proxy claims on the origin", () => {
-    // This mattered when pl8 WAS the origin's catch-all: a section named after another service
-    // would never have reached this app at all, the edge matching `/st0`, `/m9`, `/k7`, `/z0`,
-    // `/dev`, `/console` and `/dev-status` first. Under `/pl8` these ids are out of reach of the
-    // origin's routing entirely, so the property is free rather than load-bearing — kept
-    // because it costs nothing and records what the names had to avoid. The live version of the
-    // same hazard is now a REPOSITORY name in st0; see docs/routing.md.
+    // Free rather than load-bearing since the move under `/pl8`, and kept — see ../docs/routing.md.
     for (const taken of [
       "st0",
       "m9",
@@ -171,8 +150,7 @@ describe("splitting an open file", () => {
   });
 });
 
-// The two effects, as a sequence. Each returns null for "leave it alone", and getting that
-// wrong is either a screen that snaps back or a history entry per click.
+// The two effects as a SEQUENCE: each returns null for "leave it alone" (../docs/routing.md).
 describe("keeping the two in step", () => {
   it("writes the URL when the APP moved the screen", () => {
     const next = st({ section: "samples" });
@@ -184,8 +162,7 @@ describe("keeping the two in step", () => {
   });
 
   it("writes nothing when the URL already says so — the deep-link case", () => {
-    // The commit where URL→state fires hands this side the OLD state and the NEW location,
-    // which looks exactly like the app having moved away from the address. It hasn't.
+    // That commit hands this side the OLD state and the NEW location, which looks like a move.
     const arriving = st({ section: "songs", file: "Miles/So-What/song.yaml" });
     expect(
       urlForState(arriving, songs(), "/songs/Miles/So-What/song.yaml"),

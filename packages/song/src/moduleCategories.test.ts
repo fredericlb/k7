@@ -45,11 +45,9 @@ describe("shared module folder: category level", () => {
   afterEach(() => rmSync(ws, { recursive: true, force: true }));
 
   it("keys a categorised module with the category in its ref", () => {
-    // No engine catalogue: this asks what the FILES define, and the machine's scanned
-    // plugins would drown a vocabulary of three.
+    // No engine catalogue: the machine's scanned plugins would drown a vocabulary of three.
     const refs = loadModuleRefs(project, {});
-    // Minus `@studio/…`, for the same reason the catalogue is `{}`: this asks what the FILES
-    // define, and the built-in doc module answers whatever is on disk.
+    // Minus `@studio/…`: the built-in doc module answers whatever is on disk.
     expect(
       Object.keys(refs)
         .filter((r) => !r.startsWith("@studio/"))
@@ -62,9 +60,7 @@ describe("shared module folder: category level", () => {
   });
 
   it("descends exactly one level, and only past a folder with no module.yaml", () => {
-    // A category is a filing convenience, not a nesting the format lets recurse: a
-    // module.yaml two categories deep is NOT a module, or the ref space would be open
-    // ended and `extends` could name something the writer never files.
+    // A category does not recurse, or the ref space is open ended and `extends` names anything.
     module_(shared, "audio/delay/tape/vintage");
     const refs = loadModuleRefs(project);
     expect(Object.keys(refs)).not.toContain(
@@ -79,8 +75,7 @@ describe("shared module folder: category level", () => {
   });
 
   it("still finds the preset beside a categorised module", () => {
-    // The preset is named for the module's own FOLDER, not for its ref — getting that
-    // wrong would look for `delay/adt.vstpreset`.
+    // Named for the module's own FOLDER, not its ref, which would seek `delay/adt.vstpreset`.
     writeFileSync(join(shared, "audio/delay/adt/adt.vstpreset"), "x", "utf8");
     const refs = loadModuleRefs(project);
     const preset = refs["@workspace/audio/delay/adt"]?.preset;

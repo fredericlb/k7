@@ -7,33 +7,14 @@ import { RECORDINGS_DIR } from "@studio/mediatek/types";
 import { Disc3, type LucideIcon, Mic, Waves } from "lucide-react";
 import type { SectionId } from "./routes";
 
-/**
- * The sections: the three families, plus the raw captures zone.
- *
- * THREE left together, for one reason: they were about WRITING, and writing happens in st0.
- * Modules and chains went with the editing — a module is authored against a project where the
- * plugin it names is actually LOADED. Projects led the way and the app used to start there; the
- * repositories are st0's home page now, that being the level above a project.
- *
- * RECORDINGS is not a family either — a root folder with no catalogue entry and no listing to
- * ask `/list` for. It is here because the screen is organised by what you are looking at.
- * See packages/mediatek/docs/recordings.md and apps/st0/frontend/docs/projects.md.
- */
+/** The three families plus the raw captures zone, which is not one (../docs/routing.md). */
 export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "songs", label: "Morceaux", icon: Disc3 },
   { id: "samples", label: "Samples", icon: Waves },
   { id: RECORDINGS_DIR, label: "Enregistrements", icon: Mic },
 ];
 
-/**
- * The sections, in the shape the shared bar consumes.
- *
- * The COUNT goes on `trailing` rather than into the label: the label is the string the menu ticks
- * and `aria-current` announces, and a number folded into it would read as part of the page's name
- * and change whenever the catalogue does.
- *
- * A function and not an array: `counts` and `section` change, the list does not.
- */
+/** The sections as the shared bar consumes them, count on `trailing` (../docs/responsive.md). */
 export function sectionItems(
   section: SectionId,
   counts: Partial<Record<string, number>>,
@@ -56,7 +37,6 @@ export function sectionItems(
   }));
 }
 
-/** The name of the section you are in — the bar's subtitle. A hamburger alone does not say where
- *  you are, which is the first thing a phone screen is asked. */
+/** The name of the section you are in: a hamburger alone does not say where you are. */
 export const sectionLabel = (section: SectionId): string | undefined =>
   SECTIONS.find((s) => s.id === section)?.label;

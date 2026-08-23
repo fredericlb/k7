@@ -19,8 +19,7 @@ describe("levelToUnit", () => {
   });
 
   it("floors silence and anything under the window", () => {
-    // The engine reports -100 for silence. Mapping the full range would leave every useful level
-    // crammed into the top tenth.
+    // The engine reports -100 for silence, and mapping the full range would leave every useful level crammed into the top tenth.
     expect(levelToUnit(-100)).toBe(0);
     expect(levelToUnit(-Infinity)).toBe(0);
     expect(levelToUnit(Number.NaN)).toBe(0);
@@ -110,8 +109,7 @@ describe("levelsForPasses", () => {
   });
 
   it("gives 0 for a lane the engine does not know about", () => {
-    // Not yet loaded, renamed, muted out of the document. A shader's uniform exists whatever
-    // happened, and 0 is the honest value for "no signal".
+    // Not yet loaded, renamed, muted out of the document: a shader's uniform exists whatever happened, and 0 is honest for 'no signal'.
     expect(levelsForPasses({ "main:0": "ghost" }, ["gtr"], [0])).toEqual({
       "main:0": 0,
     });
@@ -126,8 +124,7 @@ describe("levelsForPasses", () => {
 
 describe("smoothLevels", () => {
   it("rises fast and falls slowly — a visual jumps on a transient", () => {
-    // Symmetric smoothing gives you either a mushy attack or a flickering decay, and there is no
-    // constant that avoids both.
+    // Symmetric smoothing gives you either a mushy attack or a flickering decay, and there is no constant that avoids both.
     const up = smoothLevels({ a: 0 }, { a: 1 }).a;
     const down = smoothLevels({ a: 1 }, { a: 0 }).a;
     expect(up).toBeGreaterThan(0.5);

@@ -5,45 +5,27 @@ import {
   LEGACY_DEV_HOSTS,
 } from "../../../scripts/dev-hosts.mjs";
 
-// Served at st0.priv.frediver.se/pl8, against its OWN backend: the library is hosted, so /api
-// goes to :8795 and nothing here talks to a local service. The cache the moteur plays from is a
-// separate concern this app never reads.
-//
-// It answered the ROOT until st0 took it — the front door is now the editor, and the catalogue
-// is what a project draws on, one link away in st0's header. /auth went with the root: this
-// backend mounts no auth routes any more and only verifies the cookie st0 mints, so the `/auth`
-// proxy below points at st0's port rather than at this app's own.
+// Served under /pl8 against its OWN backend, except `/auth`, which is st0's (../docs/routing.md).
 export default defineAppConfig({
   dir: import.meta.url,
   // 5223 is st0; the next free one in that block.
   port: 5224,
   backendPort: 8795,
-  // The public prefix, matching SERVICE_PATHS.pl8. `defineAppConfig` proxies each backend path
-  // twice once a base is set — `/api` and `/pl8/api` — which is exactly what this app needs:
-  // its own calls carry the prefix (BASE_URL), while /auth stays bare for the IdP.
+  // The public prefix: with a base set, `defineAppConfig` proxies each backend path twice.
   base: "/pl8/",
-  // The engine relay. `/api` is proxied already, but only a declared wsPath gets `ws: true`,
-  // and without it an `upgrade` dies here rather than reaching the backend. Invisible behind
-  // the proxy, which routes /pl8/api straight to :8795. See packages/engine-registry/docs/proxy.md.
+  // The engine relay: only a declared wsPath gets `ws: true` (packages/engine-registry/docs/proxy.md).
   wsPaths: ["/api/engine"],
   host: DEV_HOST,
   extend: {
     server: {
       // The old name still reaches these servers — see scripts/dev-hosts.mjs.
       allowedHosts: LEGACY_DEV_HOSTS,
-      // `/auth` is the ONE path this dev server forwards to a backend that is not its own: the
-      // origin's OIDC flow is st0's, being the service with no path prefix. `proxyPaths` cannot
-      // say it — that helper points every path at `backendPort` — so it is spelled here.
-      // Only reached when this server is visited DIRECTLY on its port; behind the LAN proxy
-      // `/auth` never gets this far, because it is at the origin root. See
-      // packages/web-protocol/services.ts.
+      // The ONE path this dev server forwards to a backend that is not its own (../../../docs/dev.md).
       proxy: {
         "/auth": {
           target: `http://localhost:${AUTH_BACKEND_PORT}`,
           changeOrigin: true,
-          // Same reason `defineAppConfig` sets it: changeOrigin overwrites Host, and the backend
-          // derives its own public origin — and so its redirect_uri — from the request. Without
-          // it the browser is handed a callback pointing straight at the backend's port.
+          // changeOrigin overwrites Host, and the backend derives its redirect_uri from the request.
           xfwd: true,
         },
       },

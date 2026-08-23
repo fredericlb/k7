@@ -9,8 +9,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { EngineControl } from "./engineControl.ts";
 
-// `send` is protected — the queue is an implementation detail every verb goes through, so the
-// test reaches it the way a subclass would rather than through twenty public verbs.
+// `send` is protected, so the test reaches it the way a subclass would rather than through twenty public verbs.
 class Probe extends EngineControl {
   say(o: object): void {
     this.send(o);
@@ -57,8 +56,7 @@ it("holds at most ENGINE_OUTBOX_MAX commands, and the oldest is the one that goe
   await new Promise((r) => setTimeout(r, 50));
 
   expect(received.length).toBe(ENGINE_OUTBOX_MAX);
-  // The newest command is the one that still describes what the person wants, so `overflow`
-  // is where the replay starts — not 0.
+  // The newest command is the one that still describes what the person wants, so the replay starts at `overflow` and not at 0.
   expect(JSON.parse(received[0]).n).toBe(overflow);
   expect(JSON.parse(received[received.length - 1]).n).toBe(
     ENGINE_OUTBOX_MAX + overflow - 1,
@@ -90,8 +88,7 @@ it("addresses the replayed command to its own session", async () => {
   c.connect();
   await until(() => received.length >= 1);
 
-  // The bug this guards: a queue that replays without the session leaves the engine applying
-  // one project's command to whatever it holds by default.
+  // The bug this guards: a queue replaying without the session applies one project's command to whatever the engine holds by default.
   expect(JSON.parse(received[0]).session).toBe("deux");
   c.close();
 });

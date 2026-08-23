@@ -70,8 +70,7 @@ describe("fget", () => {
     expect(served).toHaveLength(2);
   });
 
-  // The aliasing this exists to avoid: a surface that writes into the document it was handed
-  // would be writing into another component's state.
+  // The aliasing this exists to avoid — a surface writing into another component's state.
   it("gives each caller its own object", async () => {
     const both = Promise.all([fget("/graph"), fget("/graph")]);
     releaseAll();

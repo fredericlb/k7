@@ -24,8 +24,7 @@ describe("how a file is cut into windows", () => {
   });
 
   it("pulls the last window back to end ON the file's end", () => {
-    // Not past it. The tail is then covered by real audio rather than by padding, which is the
-    // difference between a clean last second and a fade into zeros.
+    // Not past it: the tail is covered by real audio rather than fading into padded zeros.
     const len = SEGMENT * 3 + 12345;
     const starts = windowStarts(len);
     expect(starts[starts.length - 1]).toBe(len - SEGMENT);
@@ -54,8 +53,7 @@ describe("the window shape", () => {
 
 describe("overlap-add", () => {
   it("reconstructs the signal it was fed, seams included", () => {
-    // The real test. A ramp is used rather than noise because a seam shows as a visible kink,
-    // and every sample has a known right answer.
+    // A smooth signal rather than noise: a seam shows as a kink, and every sample has a right answer.
     const len = SEGMENT * 2 + 5000;
     const source = new Float32Array(len);
     for (let i = 0; i < len; i++) source[i] = Math.sin(i / 500);
@@ -109,8 +107,7 @@ describe("the WAV it writes", () => {
     const b = wavPcm24(chans, 44100);
     expect(b.subarray(0, 4).toString("ascii")).toBe("RIFF");
     expect(b.subarray(8, 12).toString("ascii")).toBe("WAVE");
-    // WAVE_FORMAT_PCM, not the 3 a float file carried. Tracktion reads a plain WAV without
-    // building a cached proxy first, which is the whole reason for the change — see wavPcm24.
+    // WAVE_FORMAT_PCM, not the 3 a float file carried — see docs/stemSplit.md.
     expect(b.readUInt16LE(20)).toBe(1);
     expect(b.readUInt16LE(22)).toBe(CHANNELS);
     expect(b.readUInt32LE(24)).toBe(44100);
@@ -136,8 +133,7 @@ describe("the WAV it writes", () => {
   });
 
   it("clamps an overshoot instead of wrapping it", () => {
-    // The failure this stops is not a quiet one: two's complement wrapping turns the loudest
-    // sample of a drum stem into full-scale the OTHER way, which is a click, not a clip.
+    // Two's complement wrapping would turn the loudest sample into full scale the OTHER way.
     const b = wavPcm24([Float32Array.from([2, -2])], 44100);
     const at = (i: number) => {
       const o = 44 + i * 3;

@@ -56,8 +56,7 @@ export function ModuleSidePane({
     write: async (text) => {
       const p = file?.path;
       if (!p) return;
-      // The same fork rule the main editor's write follows: a shared `_modules` file is not
-      // written, a project copy is — and this pane moves onto the copy, which now holds the edit.
+      // The same fork rule the main editor's write follows: a shared `_modules` file is not written, and this pane moves onto the copy.
       const { forked } = await api.write(p, text);
       setSaved(text);
       if (forked) {
@@ -74,16 +73,7 @@ export function ModuleSidePane({
       setStatus(`save error: ${autosave.reason}`);
   }, [autosave.status, autosave.reason, setStatus]);
 
-  /**
-   * The gutter ▶s, auditioning through the engine — the same buttons the main editor puts on
-   * every source/clip/slice line. A rack's source names a file BESIDE the module file, so a
-   * bare name resolves against this pane's own folder — spelled PROJECT-RELATIVE when the
-   * project root is known, so the request is byte-identical to the one the full-screen editor
-   * sends for the same line; the route accepts the absolute fallback too.
-   *
-   * A failure TOASTS: the shell's status line sits under the popin, so an error written only
-   * there was an error nobody saw — which is how "no sound" stayed unexplained.
-   */
+  /** The gutter ▶s, spelled PROJECT-RELATIVE so the request matches the full-screen editor's — and a failure TOASTS, the status line being covered. */
   const onPreview = useCallback(
     (req: PreviewReq) => {
       const norm = (file?.path ?? path).replace(/\\/g, "/");
@@ -108,10 +98,7 @@ export function ModuleSidePane({
     [file?.path, path, hints.projectRoot, setStatus],
   );
 
-  // This pane's own bottom widgets, the ones the main editor would give the same file: a
-  // SLICE-rack module docks its source waveform with every symbol's window in its own colour —
-  // the slicer. The racks hint carries the source ABSOLUTE, so the pane needs no path
-  // arithmetic of its own; the project doc rides along for the strip's tempo grid.
+  // This pane's own bottom widgets: a SLICE-rack module docks its source waveform, the hint carrying the source ABSOLUTE.
   const rack = useMemo(() => {
     const key = rackKeyOf(file?.path ?? path);
     const rk = key ? hints.racks[key] : undefined;
@@ -168,8 +155,7 @@ export function ModuleSidePane({
           vimMode={vimMode}
           audioClip={audioClip}
           onPreview={onPreview}
-          // The slicer's drag rewrites this pane's OWN buffer — the module file is exactly
-          // where the symbols live — and flows through its autosave like a keystroke.
+          // The slicer's drag rewrites this pane's OWN buffer — the module file is where the symbols live — and flows through its autosave.
           onSliceEdit={(symbol, from, to) => {
             if (!file || file.binary) return;
             const next = setSliceWindow(file.content, symbol, from, to);

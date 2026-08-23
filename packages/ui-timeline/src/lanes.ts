@@ -17,12 +17,7 @@ export const RULER_H = 22;
 /** Marker lines and their labels — electric blue, the one colour in these views that means "a place you named". */
 export const MARKER_COLOR = "#2f9bff";
 
-/**
- * Hatching for a lane that cannot hold a clip — a group header, a generated lane.
- *
- * A CSS gradient because neither surface has an SVG layer, and `currentColor` so the lane
- * picks the stripe colour with a text-* class rather than this string knowing any palette.
- */
+/** Hatching for a lane that holds no clip: a CSS gradient, in `currentColor` so it knows no palette. */
 export const HATCH =
   "repeating-linear-gradient(45deg, transparent 0 4px, currentColor 4px 5px)";
 

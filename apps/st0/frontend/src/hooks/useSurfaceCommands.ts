@@ -17,31 +17,10 @@ export interface SurfaceCommands {
   bumpReload: () => void;
 }
 
-/**
- * A command runner for one surface.
- *
- * The reload key here is driven by `/revision` and not only by our own writes, which is the one
- * real difference from the shell's. A tablet is a SECOND screen on a project somebody is also
- * editing on the laptop, so the edits it must follow mostly are not its own; the shell can afford
- * to bump on its own writes because it is where the writes happen. The token moves for both, so
- * one poll answers both questions.
- *
- * That is also why nothing here calls `noteRevision`: adopting the token silently is a promise
- * that everything derived from it has already re-asked, and half of what this screen draws
- * (`useDocument` inside the timeline, the graph fetch beside it) is keyed on the token itself
- * rather than on the counter. The cost is one extra pass per local command, within two seconds,
- * on a screen that is drawing one surface.
- */
+/** A command runner for one surface: its reload key is driven by `/revision`, since a tablet mostly follows edits that are not its own. */
 export function useSurfaceCommands(
   setStatus: (s: string) => void,
-  /**
-   * The lines this screen answers ITSELF, before `/command` is asked — true when it did.
-   *
-   * The same seam `App`'s `runLocalCommand` is, and it exists here for the same two reasons: some
-   * verbs are the SHELL's (a pane, a panel — and out here, a caret or a zoom, which no service can
-   * move), and the transport's four are the engine's own socket, which is a message this screen
-   * already holds against an HTTP round trip that would send the identical one.
-   */
+  /** The lines this screen answers ITSELF, before `/command` is asked — the same seam `App`'s `runLocalCommand` is, for the same two reasons. */
   local?: (line: string) => boolean,
 ): SurfaceCommands {
   const [reloadKey, setReloadKey] = useState(0);
@@ -52,8 +31,7 @@ export function useSurfaceCommands(
     if (rev !== null) bumpReload();
   }, [rev, bumpReload]);
 
-  // In a ref so the runner below keeps one identity: it is a key listener's dependency, and the
-  // handler rebinds whenever the surface's own state moves.
+  // In a ref so the runner below keeps one identity: it is a key listener's dependency, and the handler rebinds as the surface's state moves.
   const localRef = useRef(local);
   localRef.current = local;
 
@@ -61,13 +39,10 @@ export function useSurfaceCommands(
     async (line: string, reload: boolean) => {
       if (localRef.current?.(line.trim())) return;
       try {
-        // `want: []` always: the graph the service can build alongside a command is for the chains
-        // canvas to draw, and this screen has none. What the lane gutter needs of the graph is
-        // fetched on the revision token instead, once, however many commands run.
+        // `want: []` always: the graph a command can build is for the chains canvas, and this screen has none.
         const { output, refused } = await api.command(line, { want: [] });
         const said = output.length ? output.join("  ·  ") : `ran: ${line}`;
-        // A refusal reads as a refusal even here, where there is no colour to say it with: this
-        // screen has one line of chrome, so the word has to be in the sentence.
+        // A refusal reads as a refusal even here: this screen has one line of chrome, so the word has to be in the sentence.
         setStatus(refused ? `refusé — ${said}` : said);
       } catch (e) {
         setStatus(`command error: ${(e as Error).message}`);

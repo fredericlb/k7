@@ -66,9 +66,7 @@ function publicSession(rec) {
     ownerId: f.OwnerId,
     createdAt: f.CreatedAt,
     duration: f.Duration || 0,
-    // The PATH is what says there is audio, not the flag beside it. A row from before the
-    // médiathèque carries `HasRecording: true` and points at nothing, and a session that
-    // announces a recording it cannot play is worse than one that admits it has none.
+    // The PATH says there is audio, not the flag beside it — see ../../docs/audio.md.
     hasRecording: Boolean(f.RecordingPath),
     recordingMime: f.RecordingMime || null,
     gain: f.Gain || 1, // playback normalization gain (max before clipping)
@@ -199,15 +197,12 @@ export async function deleteSession(uid) {
     "Markers",
     markers.map((m) => m.id),
   );
-  // Moments (Comments) intentionally survive — they're standalone entities with
-  // their own extracted clips; they just lose the link back to this session.
-  // The bytes go too, and BEFORE the row: the path lives on that row, so deleting it first
-  // would leave a capture in the zone that nothing points at any more.
+  // Moments (Comments) survive on their own clips; they only lose the link back here.
+
+  // The bytes go BEFORE the row that holds their path — see ../../docs/audio.md.
   if (rec?.fields.RecordingPath)
     await mediatek.remove(rec.fields.RecordingPath).catch(() => {
-      // A library that is down must not block deleting a session. The capture is then
-      // orphaned in the zone, which is visible and removable — unlike a row that refused
-      // to disappear.
+      // A library that is down must not block a deletion; the orphan stays visible.
     });
   if (rec) await grist.deleteRecords("Sessions", [rec.id]);
   invalidate(uid);
@@ -217,26 +212,14 @@ export async function deleteSession(uid) {
 
 // --- Recording + envelope ---------------------------------------------------
 
-/**
- * Put a session's bytes in the médiathèque and answer where they went.
- *
- * One helper for the three ways in — first save, re-save, continued session — because the
- * rule is the same for all three and it has one subtlety: a session that already owns a
- * file of the RIGHT format keeps it, rewritten in place. A session is one recording, so
- * pushing a second capture would show two takes in the zone where there is one session.
- *
- * A format change is the exception: the combined take is always webm, so a session that
- * started in ogg gets a new file and the old one goes — after the new bytes landed, never
- * before, so a failed push leaves the playable one behind.
- */
+/** A session's bytes into the médiathèque, answering where they went — ../../docs/audio.md. */
 async function storeBytes(rec, buffer, ext) {
   const previous = rec.fields.RecordingPath || "";
   if (previous.endsWith(`.${mediatek.zoneExt(ext)}`)) {
     await mediatek.replace(previous, buffer);
     return previous;
   }
-  // The session's OWN moment, not now: a take uploaded after midnight belongs to the
-  // evening it was played, which is the date the zone files it under.
+  // The session's own moment, not now: a take saved after midnight belongs to that evening.
   const at = rec.fields.CreatedAt ? new Date(rec.fields.CreatedAt) : undefined;
   const next = await mediatek.push(
     buffer,
@@ -278,9 +261,7 @@ export async function saveRecording(
   return getSession(uid);
 }
 
-// Continue a saved session: concatenate the new take onto the existing
-// recording (audio + envelope + duration), so the session grows in place. Falls
-// back to a plain save when there's nothing to append to yet.
+// Continue a saved session: the new take is glued onto the old one, so it grows in place.
 export async function appendRecording(
   uid,
   buffer,
@@ -292,8 +273,7 @@ export async function appendRecording(
 ) {
   const rec = await getSessionRecord(uid);
   if (!rec) return null;
-  // Nothing to append TO — including a row from before the médiathèque, whose flag says
-  // there is and whose path says there is not. The path decides.
+  // Nothing to append TO: the path decides, not the flag beside it.
   if (!rec.fields.RecordingPath)
     return saveRecording(uid, buffer, mime, ext, duration, envelope, gain);
 
@@ -311,9 +291,7 @@ export async function appendRecording(
     safeUnlink(newPath);
   }
 
-  // Append the new envelope samples after the existing timeline. Each take is
-  // normalized to its own peak, so the two halves can differ slightly in
-  // vertical scale — acceptable for a loudness overview.
+  // The new samples follow the existing timeline, at their own scale — ../../docs/audio.md.
   const prev = (await getEnvelope(uid)) || {
     intervalMs: envelope.intervalMs,
     samples: [],
@@ -324,8 +302,7 @@ export async function appendRecording(
   ];
   const prevDuration = Number(rec.fields.Duration) || 0;
   const prevGain = Number(rec.fields.Gain) || 1;
-  // gain == 0.9 / truePeak, so the smaller value clears the louder of the two
-  // peaks — keeping combined playback below clipping.
+  // gain is 0.9 / truePeak, so the smaller of the two clears the louder peak.
   const combinedGain = Math.min(prevGain, gain || 1);
   const combinedMime = "audio/webm";
 
@@ -343,8 +320,7 @@ export async function appendRecording(
     }),
   });
 
-  // Refresh the disk cache: the combined file is always webm, so drop any
-  // stale differently-typed cache file before writing the new one.
+  // The combined file is always webm, so drop any stale differently-typed cache file.
   const newCache = path.join(CACHE_DIR, `${uid}.webm`);
   if (oldCache && oldCache !== newCache) safeUnlink(oldCache);
   fs.writeFileSync(newCache, combined);
@@ -352,13 +328,7 @@ export async function appendRecording(
   return getSession(uid);
 }
 
-/**
- * Make sure the recording is on disk so it can be streamed with Range support.
- * Returns { filePath, mime } or null.
- *
- * One source: the médiathèque. A row with no `RecordingPath` has no audio anywhere — see
- * docs/audio.md, "on repart de zéro".
- */
+/** The recording on disk for Range streaming; no path means no audio (../../docs/audio.md). */
 export async function ensureRecordingCached(uid) {
   const rec = await getSessionRecord(uid);
   if (!rec?.fields.RecordingPath) return null;
@@ -416,8 +386,7 @@ export async function addAnnotation(
     tags: normalizeTags(tags),
     createdAt: new Date().toISOString(),
   };
-  // OwnerId is stored on the moment itself so it stays owner-addressable even
-  // after its session is deleted; fall back to the session's owner if omitted.
+  // OwnerId sits on the moment itself so it stays addressable after its session goes.
   const owner = ownerId || (await getOwner(uid));
   const [{ id }] = await grist.addRecords("Comments", [
     {
@@ -430,9 +399,7 @@ export async function addAnnotation(
       CreatedAt: ann.createdAt,
     },
   ]);
-  // Extract the standalone clip right away so every saved moment is immediately
-  // playable on its own. Best-effort: a session without a recording yet (or a
-  // missing ffmpeg) just leaves the moment unextracted.
+  // Extract now so a saved moment plays on its own; best-effort, a failure leaves it be.
   const validated = await extractMomentClip(uid, {
     id,
     fields: { StartSec: ann.startSec, EndSec: ann.endSec },
@@ -457,8 +424,7 @@ export async function updateAnnotation(uid, annId, patch) {
     fields.Tags = normalizeTags(patch.tags).join(",");
   await grist.patchRecord("Comments", Number(annId), fields);
 
-  // If the timespan moved, the previously extracted clip no longer matches —
-  // drop it and re-extract the new range.
+  // A moved timespan makes the extracted clip wrong — drop it and re-extract.
   const rangeChanged =
     (fields.StartSec !== undefined &&
       fields.StartSec !== Number(before.fields.StartSec)) ||
@@ -522,15 +488,13 @@ export async function deleteMarker(_uid, markerId) {
 }
 
 // --- Standalone moments -----------------------------------------------------
-// Moments have their own owner-addressable view, independent of the session
-// they were captured in (which may since have been deleted).
 
+// A moment has its own owner-addressable view, independent of the session it came from.
 function publicMoment(rec, createdAtByUid) {
   const uid = rec.fields.SessionUid;
   return {
     ...mapComment(rec),
-    // Sessions have no name — surface the originating session's date/time so the
-    // client can label the moment with it. Null once that session is deleted.
+    // Sessions have no name, so the client labels a moment with its session's date.
     sessionCreatedAt: createdAtByUid.get(uid) ?? null,
     sessionAvailable: createdAtByUid.has(uid),
   };
@@ -553,8 +517,7 @@ export async function listMoments(ownerId) {
     );
 }
 
-/** A moment by its own id, scoped to (and verified against) its owner. Includes
- *  its own waveform envelope and markers so its view can render a full player. */
+/** A moment by its own id, owner-scoped, with the envelope and markers its player needs. */
 export async function getMoment(ownerId, momentId) {
   const recs = await grist.listRecords("Comments", { OwnerId: [ownerId] });
   const rec = recs.find((r) => r.id === Number(momentId));
@@ -562,8 +525,7 @@ export async function getMoment(ownerId, momentId) {
   const createdAtByUid = await ownerSessionCreatedAt(ownerId);
   const base = publicMoment(rec, createdAtByUid);
 
-  // Envelope: the stored slice, or sliced live from the session if it's still
-  // around (covers moments extracted before envelopes were stored).
+  // The stored slice, or one cut live from the session for moments extracted before it.
   let envelope: Envelope | null = null;
   if (rec.fields.Envelope) {
     try {
@@ -592,9 +554,7 @@ export async function deleteMoment(ownerId, momentId) {
   return true;
 }
 
-/** Take a moment's clip out of the zone. Before the row goes, since the row is what holds
- *  the path — and never fatal: an orphan in the zone is visible and removable, a moment
- *  that refuses to disappear is not. */
+/** A moment's clip out of the zone, before the row that holds its path; never fatal. */
 async function forgetClip(rec) {
   if (!rec?.fields.ClipPath) return;
   await mediatek.remove(rec.fields.ClipPath).catch(() => {});
@@ -612,9 +572,8 @@ export async function ensureMomentClipCached(ownerId, momentId) {
 }
 
 // --- Moment markers ---------------------------------------------------------
-// Pins on a moment's own clip timeline, stored in the shared Markers table but
-// keyed by MomentId (session markers use SessionUid instead), owner-scoped.
 
+// Pins on a moment's clip timeline: the shared Markers table, keyed by MomentId not SessionUid.
 export async function listMomentMarkers(ownerId, momentId) {
   const recs = await grist.listRecords("Markers", {
     MomentId: [String(momentId)],
@@ -672,11 +631,7 @@ export async function deleteMomentMarker(ownerId, momentId, markerId) {
 
 // --- Moment validation (extract a standalone clip) --------------------------
 
-// Cut a moment's exact timespan out of the session recording into a standalone
-// audio clip (stored as the moment's own attachment + disk cache). The moment
-// keeps its link back to the session via SessionUid + StartSec. Shared by the
-// automatic extraction on save/edit and the manual re-extract below. Returns
-// false when the session has no recording yet (nothing to clip).
+// A moment's timespan cut out of the session recording into its own clip — ../../docs/audio.md.
 async function extractMomentClip(sessionUid, rec) {
   const info = await ensureRecordingCached(sessionUid);
   if (!info) return false;
@@ -685,13 +640,11 @@ async function extractMomentClip(sessionUid, rec) {
   const end = Number(rec.fields.EndSec);
   const clip = await extractClip(info.filePath, start, end);
 
-  // Store the moment's own envelope (the session envelope sliced to its span) so
-  // its standalone view can draw a full waveform even after the session is gone.
+  // The moment's own envelope, so its view still draws a waveform once the session is gone.
   const sessionEnv = await getEnvelope(sessionUid);
   const sliced = sessionEnv ? sliceEnvelope(sessionEnv, start, end) : null;
 
-  // The clip goes in the zone, beside the session it was cut from. Re-extracting replaces
-  // it: the span or the name may have moved, so the old file's name is now a lie.
+  // Re-extracting replaces: the span or the name may have moved, so the old name is a lie.
   const previous = rec.fields.ClipPath;
   const clipPath = await mediatek.pushMoment(clip, "webm", {
     at: momentPlayedAt(await getSessionRecord(sessionUid), start),
@@ -709,9 +662,7 @@ async function extractMomentClip(sessionUid, rec) {
   return true;
 }
 
-/** When a moment was PLAYED: the session's start plus its offset inside it. Not the
- *  annotation's own CreatedAt, which is when somebody listened back — possibly days later,
- *  and under a date the zone would then file it by. */
+/** When a moment was PLAYED: session start plus offset, not the annotation's CreatedAt. */
 function momentPlayedAt(sessionRec, startSec) {
   const started = sessionRec?.fields.CreatedAt
     ? new Date(sessionRec.fields.CreatedAt)
@@ -720,8 +671,7 @@ function momentPlayedAt(sessionRec, startSec) {
   return new Date(started.getTime() + Math.max(0, startSec) * 1000);
 }
 
-// The session envelope samples covering [startSec, endSec], re-based to a clip
-// timeline that starts at 0.
+// The session envelope over [startSec, endSec], re-based to a clip timeline starting at 0.
 function sliceEnvelope(env, startSec, endSec) {
   const per = (env.intervalMs || 200) / 1000;
   const i0 = Math.max(0, Math.floor(startSec / per));
@@ -732,8 +682,7 @@ function sliceEnvelope(env, startSec, endSec) {
   };
 }
 
-// Manual re-extract, kept as a fallback for when auto-extraction couldn't run
-// (e.g. the moment was created before its recording existed, or ffmpeg failed).
+// Manual re-extract, for a moment whose automatic one could not run.
 export async function validateMoment(sessionUid, momentId) {
   const moments = await grist.listRecords("Comments", {
     SessionUid: [sessionUid],
@@ -762,15 +711,13 @@ function clipCachePath(momentId) {
   return path.join(CACHE_DIR, `clip-${momentId}.webm`);
 }
 
-// Concatenate several audio files into one webm/opus buffer using ffmpeg's
-// concat filter (re-encodes, so mismatched source codecs/params are fine).
+// Several audio files into one webm/opus buffer, through ffmpeg's concat filter.
 function concatRecordings(paths) {
   return new Promise<Buffer>((resolve, reject) => {
     const outPath = path.join(CACHE_DIR, `tmp-${randomUUID()}.webm`);
     const args = ["-y", "-hide_banner", "-loglevel", "error"];
     for (const p of paths) args.push("-i", p);
-    // The concat filter needs identical parameters across segments — coerce each
-    // input to a common format first so takes from different devices still join.
+    // The concat filter needs identical parameters, so each input is coerced to one format.
     const fmt =
       "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
     const pre = paths.map((_, i) => `[${i}:a]${fmt}[a${i}]`).join(";");
@@ -831,8 +778,7 @@ function extractClip(srcPath, start, end) {
       "-t",
       String(duration),
       "-vn",
-      // EBU R128 loudness normalization so the standalone clip sits at a
-      // consistent, healthy level (target -14 LUFS, true peak -1 dBTP).
+      // EBU R128 normalization, so a standalone clip sits at -14 LUFS, true peak -1 dBTP.
       "-af",
       "loudnorm=I=-14:TP=-1.0:LRA=11",
       "-c:a",
@@ -886,8 +832,7 @@ function publicRelease(rec) {
   };
 }
 
-// TrackMeta is a JSON array of { id, attachmentId, name, mime } — one per stem,
-// in order. Tolerate a missing/garbled value. Mirrors sheetsOf.
+// TrackMeta is a JSON array of { id, path, name, mime }, one per stem, in order.
 function tracksOf(rec) {
   try {
     const parsed = JSON.parse(rec.fields.TrackMeta || "[]");
@@ -965,8 +910,7 @@ export async function createRelease(ownerId, fields, firstVersion) {
   return getRelease(uid);
 }
 
-// Find the release for a st0 song id, scoped to its owner so ids from
-// different users can't collide. Returns the public release or null.
+// The release for a st0 song id, owner-scoped so two users' ids cannot collide.
 export async function getReleaseBySongUuid(ownerId, songUuid) {
   if (!songUuid) return null;
   const recs = await grist.listRecords("Releases", {
@@ -1015,9 +959,7 @@ function invalidateVersions(releaseUid) {
   versionsCache.delete(releaseUid);
 }
 
-// A version carries a mixdown ({buffer,mime} — the single playable file) and,
-// optionally, per-track stems ([{buffer,mime,name}]). Web uploads pass no
-// stems; the st0 CLI import passes both.
+// A version carries a mixdown and, optionally, per-track stems; a web upload passes none.
 export async function addVersion(
   releaseUid,
   { name, isDefault },
@@ -1028,9 +970,7 @@ export async function addVersion(
   const createdAt = new Date().toISOString();
   const versionName = name || "Version";
 
-  // The published version becomes a SONG: songs/K7/<release>/<version>/.
-  // The release is the album level and the version the title, because that is what they
-  // are — one song, several mixes, each with its own audio and its own folder.
+  // A published version becomes a song under songs/K7/ — see ../../docs/audio.md.
   const release = await getReleaseRecord(releaseUid);
   const master = await mediatek.pushVersion(
     mixdown.buffer,
@@ -1041,9 +981,7 @@ export async function addVersion(
     },
   );
 
-  // Stems live under the song, in `stems/`. A subfolder and not beside the master:
-  // the scan takes the first audio file in the folder for the master and does not descend,
-  // so a stem sitting next to it could be picked to play.
+  // Stems go in a `stems/` subfolder, out of reach of the scan that picks the master.
   const folder = dirOf(master);
   const stems: {
     id: string;
@@ -1093,8 +1031,7 @@ export async function addVersion(
   };
 }
 
-/** Take a published version out of the médiathèque: the whole song folder — master,
- *  stems, sidecar — since the folder IS the version. Never fatal, like a moment's clip. */
+/** The whole song folder out of the médiathèque, since the folder IS the version; never fatal. */
 async function forgetVersionFolder(v) {
   if (!v?.fields.AudioPath) return;
   await mediatek.removeTree(dirOf(v.fields.AudioPath)).catch(() => {});
@@ -1119,10 +1056,7 @@ export async function renameVersion(releaseUid, versionUid, name) {
   const v = versions.find((x) => x.fields.Uid === versionUid);
   if (!v) return null;
   await grist.patchRecord("Versions", v.id, { Name: String(name) });
-  // The song's FOLDER keeps its old name, and its sidecar gets the new one — the same
-  // rule the médiathèque's own mirror follows. A folder path is an entry id and a cache's
-  // manifest key, so churning it would cost every machine a re-download of bytes that did
-  // not change; the sidecar is where the displayed title lives anyway.
+  // The folder keeps its old name and only the sidecar is rewritten — ../../docs/audio.md.
   if (v.fields.AudioPath) {
     const release = await getReleaseRecord(releaseUid);
     await mediatek
@@ -1178,9 +1112,7 @@ function versionCachePath(uid) {
   return path.join(CACHE_DIR, `version-${uid}`);
 }
 
-/** The extension a version's mixdown is FILED under. `bin` is not a thing the médiathèque
- *  will take — it files by extension and would not see it as audio — and a version whose
- *  mime says nothing is already served as audio/mpeg, so mp3 is the honest guess. */
+/** The extension a version's mixdown is FILED under; `bin` is not audio to the zone, so mp3. */
 function versionExt(mime) {
   const ext = audioExtFor(mime);
   return ext === "bin" ? "mp3" : ext;
@@ -1209,19 +1141,15 @@ function audioExtFor(mime) {
   return "bin";
 }
 
-// Per-stem cache key — attachment id keeps files from colliding; the ext lets
-// the browser sniff the type. Mirrors sheetCachePath.
+// Per-stem cache key: the stem's rank in the version, plus an ext the browser can sniff.
 function versionTrackCachePath(versionUid, entry) {
-  // Keyed by the stem's rank in the version, which is unique within it — all a cache file
-  // name needs.
   return path.join(
     CACHE_DIR,
     `version-${versionUid}-${entry.id}.${audioExtFor(entry.mime)}`,
   );
 }
 
-/** Make sure a version's stem is on disk, fetching it from the médiathèque.
- *  Returns { filePath, mime, name } or null. */
+/** A version's stem on disk, fetched from the médiathèque; { filePath, mime, name } or null. */
 export async function ensureVersionTrackCached(
   releaseUid,
   versionUid,
@@ -1338,8 +1266,7 @@ function invalidateSong(uid) {
 }
 
 function sheetsOf(rec) {
-  // SheetMeta is a JSON array of { id, name, mime }, one entry per attachment in
-  // the SheetFiles column, in display order. Tolerate a missing/garbled value.
+  // SheetMeta is a JSON array of { id, name, mime }, one per SheetFiles attachment, in order.
   try {
     const parsed = JSON.parse(rec.fields.SheetMeta || "[]");
     return Array.isArray(parsed) ? parsed : [];
@@ -1431,9 +1358,7 @@ export async function deleteSong(uid) {
 
 // --- Song sheets (PDF / image attachments) ----------------------------------
 
-// Persist the sheet file list back to Grist: the Attachments column keeps the
-// raw ids (so the files show up in the Grist UI), and SheetMeta the parallel
-// {id,name,mime} records that carry order + original filename + type.
+// SheetFiles keeps the raw ids, for Grist's own UI; SheetMeta the order, name and type.
 async function writeSheets(rec, sheets) {
   await grist.patchRecord("Songs", rec.id, {
     SheetFiles: ["L", ...sheets.map((s) => Number(s.attachmentId))],
@@ -1441,8 +1366,7 @@ async function writeSheets(rec, sheets) {
   });
 }
 
-// Upload one or more files onto a song's sheet, appended after any existing
-// ones. Each file is { buffer, mime, name }. Returns the updated public song.
+// Upload { buffer, mime, name } files onto a song's sheet, after the existing ones.
 export async function addSheetFiles(uid, files) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
@@ -1491,8 +1415,7 @@ export async function deleteSheetFile(uid, fileId) {
   return getSong(uid);
 }
 
-/** Make sure a sheet file is on disk (fetching from Grist if needed) so it can
- *  be streamed. Returns { filePath, mime, name } or null. */
+/** A sheet file on disk, fetched from Grist if need be, so it can be streamed. */
 export async function ensureSheetFileCached(uid, fileId) {
   const rec = await getSongRecord(uid);
   if (!rec) return null;
@@ -1545,8 +1468,7 @@ function sheetExtFor(mime) {
   return m[1] === "svg+xml" ? "svg" : m[1] === "jpeg" ? "jpg" : m[1];
 }
 
-// Cache path for one sheet file — keyed by its attachment id so files never
-// collide, with an extension that lets the OS / browser sniff the type.
+// One sheet file's cache path: keyed by attachment id, with a sniffable extension.
 function sheetCachePath(uid, entry) {
   return path.join(
     CACHE_DIR,

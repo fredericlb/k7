@@ -9,17 +9,7 @@ export type PluginRef =
   | { format: string; id: string }
   | { status: number; error: string };
 
-/**
- * Two ways to name a plugin, resolved to the one the engine takes.
- *
- * `ref` is an `@engine/<slug>` — what a module's `extends:` carries — and only this side can turn
- * it into a binary, because the scan cache is here; a browser holding the ref would otherwise have
- * to fetch the whole catalogue to send back one path. `engineModuleOf` is the shared rule, so the
- * plugin found is the one a compiled document would load.
- *
- * Only EXTERNALS are in that cache, which is the filter as well as the lookup: a built-in resolves
- * to nothing here and never should, since it needs no engine to answer for it and draws no window.
- */
+/** Two ways to name a plugin, resolved here because the scan cache is; only EXTERNALS are in it. */
 export function resolvePlugin(
   ref: string,
   format: string,

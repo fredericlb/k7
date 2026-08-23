@@ -61,8 +61,7 @@ function song(): string {
 }
 
 const logs: string[] = [];
-// `node automate` reads the compiled plugins to tell a TRIGGER from a curve — the last word is the
-// curve unless the one before it is also a known module. So the fake project has to carry one.
+// `node automate` reads the compiled plugins to tell a TRIGGER from a curve, so the fake carries one.
 const host = () =>
   ({
     songPath: dir,
@@ -119,14 +118,12 @@ describe("node automate", () => {
   });
 
   it("binds a param whose name has SPACES — the case the old split mangled", async () => {
-    // "osc Filter Freq sweep" is the example in the command's own usage text, and it was the
-    // one that produced module `o` and curve `weep`.
+    // The example in the command's own usage text, and the one that produced `o` and `weep`.
     await runCommand("node automate osc Filter Freq sweep", host(), "cli");
     const text = moduleText();
     expect(text).toContain("param: Filter Freq");
     expect(text).toContain("curve: sweep");
-    // …and nothing was written under the mangled reading. (`not.toContain("weep")` would be the
-    // obvious assertion and is useless: "sweep" contains it.)
+    // `not.toContain("weep")` would be the obvious assertion and is useless: "sweep" contains it.
     expect(text).not.toContain("curve: weep");
     expect(text).not.toContain("param: c Filter Freq");
   });

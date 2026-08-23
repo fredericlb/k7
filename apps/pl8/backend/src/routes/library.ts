@@ -42,17 +42,14 @@ import express, { Router } from "express";
 
 export const libraryRouter: Router = Router();
 
-// The family guard, the refusal and the content types come from @studio/mediatek: this shell and
-// the file service's both used to carry their own, and the MIME tables drifted until each served
-// as octet-stream what the other could play.
+// Guard, refusal and content types come from @studio/mediatek — see its docs/mime.md.
 const badFamily = { error: FAMILY_ERROR };
 
 /** Is there a library on this volume, and how much is in it. */
 libraryRouter.get(
   "/",
   wrap((_req, res) => {
-    // The root is a server path and stays one — a client has no use for it and every
-    // reason not to be told where this service keeps its disk.
+    // The root is a server path and stays one — a client is never told where the disk is.
     const { present, counts } = summary();
     res.json({ present, counts });
   }),
@@ -76,12 +73,7 @@ libraryRouter.get(
   }),
 );
 
-/**
- * One family's files as (path, bytes, mtime) — what a cache diffs against.
- *
- * Distinct from `/list`, which describes ENTRIES: a song is one entry and several
- * files, and a cache has to fetch files.
- */
+/** One family's FILES as (path, bytes, mtime) — `/list` describes entries, and a song is many. */
 libraryRouter.get(
   "/manifest",
   wrap((req, res) => {
@@ -91,8 +83,7 @@ libraryRouter.get(
   }),
 );
 
-/** Filter across families. What a query MEANS — including why `limit` is clamped — belongs to
- *  the catalogue, not to either shell over it: see parseQuery. */
+/** Filter across families. What a query MEANS belongs to the catalogue, not here: see parseQuery. */
 libraryRouter.get(
   "/search",
   wrap((req, res) => {
@@ -100,12 +91,7 @@ libraryRouter.get(
   }),
 );
 
-/**
- * One file's bytes, with Range so a browser can seek in a take without pulling all of it.
- *
- * `safePath` is the only thing between the query string and the disk here — a hosted
- * service has no workspace wall to hide behind, unlike the local one.
- */
+/** One file's bytes, with Range; `safePath` is the ONLY wall between the query string and disk. */
 libraryRouter.get(
   "/file",
   wrap((req, res) => {
@@ -138,13 +124,7 @@ function writeError(e: unknown, res: import("express").Response): boolean {
   return false;
 }
 
-/**
- * Put one file into the library.
- *
- * Raw body, one file per request, rather than multipart: the two callers are a module
- * editor saving YAML and a machine pushing a folder up file by file. Neither wants a form,
- * and a stream of one file each keeps a 400 MB video from ever being a field in a parse.
- */
+/** Put one file in. Raw body rather than multipart: a 400 MB video is never a field in a parse. */
 libraryRouter.put(
   "/file",
   express.raw({ type: "*/*", limit: "512mb" }),
@@ -161,22 +141,7 @@ libraryRouter.put(
   }),
 );
 
-/**
- * One uploaded audio file as a filed song.
- *
- * Its own route rather than a PUT /file, because the CALLER DOES NOT CHOOSE THE PATH here:
- * it sends three tags and the library derives `songs/<artiste>/<album>/<titre>/
- * original.<ext>` from them. That is the whole point — `songs/` has a shape, and a client
- * free to name the folder would be free to name any folder.
- *
- * There is no `kind` parameter any more. It used to carry the provenance folder and was
- * validated here, against a list this route could reach and the browser-safe naming module
- * could not; `songs/` no longer files by provenance, so both the parameter and the check
- * are gone. `source` still says who filed it, and it is a line in the sidecar.
- *
- * Raw body for the same reason PUT /file uses one: a 400 MB master should never be a field
- * in a form parse. The tags ride in the query string, where they are short and text.
- */
+/** One upload as a filed song: three tags in, the LIBRARY derives the path — mediatek's songs.md. */
 libraryRouter.post(
   "/song",
   express.raw({ type: "*/*", limit: "512mb" }),
@@ -196,16 +161,14 @@ libraryRouter.post(
           artist: s("artist"),
           album: s("album"),
           title: s("title"),
-          // Who filed it. k7 pushes its published versions through here and says so,
-          // which is what tells a human reading the folder that it is not somebody's drop.
+          // Who filed it — k7 says so here, which is what marks a folder as not somebody's drop.
           source: s("source") || undefined,
         },
         replace: s("replace") === "1",
       });
       res.json({ ok: true, ...r });
     } catch (e) {
-      // Already there is a 409 and not a 400: the request is well formed, and the fix is a
-      // decision — replace it or file it elsewhere — not a correction.
+      // Already there is a 409, not a 400: the request is well formed and the fix is a decision.
       if (e instanceof SongExistsError)
         return res.status(409).json({ error: e.message, exists: true });
       if (e instanceof NotAudioError)
@@ -216,15 +179,7 @@ libraryRouter.post(
   }),
 );
 
-/**
- * One uploaded audio file as a VARIANT of a song that already exists.
- *
- * The caller names the folder here, where `POST /song` refuses to let it name anything: the
- * rule is that nobody invents a place in `songs/`, and this one has to be a song already —
- * `addSongVariant` refuses a folder holding neither master nor sidecar. What it cannot name
- * is the FILE, which is derived from the upload's own stem, so a `ref` and the bytes beside
- * it can never disagree. See packages/mediatek/docs/variants.md.
- */
+/** An upload as a VARIANT: the folder is named, the file never — mediatek's docs/variants.md. */
 libraryRouter.post(
   "/variant",
   express.raw({ type: "*/*", limit: "512mb" }),
@@ -250,8 +205,7 @@ libraryRouter.post(
         }),
       });
     } catch (e) {
-      // Both refusals are the caller's to fix: aim at a song, or repair a sidecar whose
-      // `variants:` is not a mapping. Neither is a retry of the same request.
+      // Both refusals are the caller's to fix, and neither is a retry of the same request.
       if (e instanceof VariantRefusedError || e instanceof NotAudioError)
         return res.status(400).json({ error: e.message });
       if (writeError(e, res)) return;
@@ -260,17 +214,7 @@ libraryRouter.post(
   }),
 );
 
-/**
- * Seed a song's detected tempo. Sent by the machine that analysed it, never by a browser
- * typing a number — that is an edit of `song.yaml`, which the file routes already do.
- *
- * This service cannot detect a tempo itself: it has no engine, and the engine is what decodes
- * audio. The machine holding one downloads the master, analyses it, pushes the waveform cache
- * back, and calls this with what it found. See packages/file-service/src/routes/mediatek.ts.
- *
- * An existing `bpm:` always wins — `setSongBpm` refuses to overwrite — so re-analysing a song
- * never undoes a correction. `set: false` says so rather than pretending it wrote.
- */
+/** Seed a detected tempo, from the machine that has an engine — mediatek's docs/songs.md. */
 libraryRouter.post(
   "/bpm",
   express.json(),
@@ -289,10 +233,7 @@ libraryRouter.post(
   }),
 );
 
-/**
- * The raw capture zone, day by day. Its own listing because these files enter no
- * catalogue: `/list?family=songs` will never mention one. See docs/recordings.md.
- */
+/** The raw capture zone, day by day — its own listing, since no catalogue reaches it. */
 libraryRouter.get(
   "/recordings",
   wrap((_req, res) => {
@@ -300,17 +241,7 @@ libraryRouter.get(
   }),
 );
 
-/**
- * Push one capture in.
- *
- * The route the machines use, and the reason the zone exists. It is behind the same
- * `bearerOrSession` as everything else here, so a headless recorder authenticates with an
- * API token and needs no cookie jar — see server.ts.
- *
- * `at` is the moment it was CAPTURED, ISO, and optional: a recorder posting live has
- * nothing to say that the server clock does not already know, while a batch pushed the
- * morning after would otherwise land, whole, under the wrong day.
- */
+/** Push one capture in — the route the machines use; see packages/mediatek/docs/recordings.md. */
 libraryRouter.post(
   "/recording",
   express.raw({ type: "*/*", limit: "512mb" }),
@@ -325,13 +256,11 @@ libraryRouter.post(
     let at: Date | undefined;
     if (s("at")) {
       at = new Date(s("at"));
-      // Refused rather than silently falling back to now: a caller that bothered to send a
-      // timestamp cares where the file lands, and today is the one answer it did not mean.
+      // Refused rather than falling back to now: today is the one answer the caller did not mean.
       if (Number.isNaN(at.getTime()))
         return res.status(400).json({ error: `at: not a date: ${s("at")}` });
     }
-    // Present == the caller is pushing a MOMENT, a span cut out of a session, which the
-    // zone names differently: moment-<HH-MM-SS>--<durée>--<nom>.
+    // Present == a MOMENT cut out of a session, which the zone names differently.
     const duration = s("duration") ? Number(s("duration")) : undefined;
     if (duration !== undefined && !Number.isFinite(duration))
       return res
@@ -357,13 +286,7 @@ libraryRouter.post(
   }),
 );
 
-/**
- * Move or rename, in one syscall, folders included.
- *
- * A POST and not a PUT on /file: this carries no bytes, and a folder has none to carry.
- * The client used to compose it from read + write + delete, which could not touch a folder
- * at all and left a duplicate whenever the delete failed after the write.
- */
+/** Move or rename in one syscall, folders included — see packages/mediatek/docs/index.md. */
 libraryRouter.post(
   "/move",
   express.json(),
@@ -381,10 +304,7 @@ libraryRouter.post(
   }),
 );
 
-// `POST /engine-faces` stood here: one pass turning a machine's whole plugin scan into
-// library modules that give `@engine/…` refs a name and a folder. It went with the `modules`
-// family — this volume holds none. The capability itself is worth having and belongs in st0,
-// where a plugin is actually loaded; it is not ported yet.
+// `POST /engine-faces` stood here and went with the `modules` family; st0 is where it belongs.
 
 /** An empty folder — somewhere to drop into before the first file exists. */
 libraryRouter.post(
@@ -403,8 +323,7 @@ libraryRouter.post(
   }),
 );
 
-/** A whole subtree. Separate from DELETE /file so removing a folder is never something a
- *  caller can do by accident while meaning to remove one entry. */
+/** A whole subtree — separate from DELETE /file, so it is never done while meaning one entry. */
 libraryRouter.delete(
   "/folder",
   wrap((req, res) => {

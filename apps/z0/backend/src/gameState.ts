@@ -7,8 +7,7 @@ import type { SessionProgress } from "./session/progress.ts";
 import type { WsHub } from "./ws.ts";
 
 export const gameState: {
-  // Registration is open at boot — the server starts in the registration
-  // phase, so buzzers can join immediately (mirrors main.go).
+  // Open at boot: the server starts in the registration phase, so a buzzer can join at once.
   registrationStarted: boolean;
   registrationComplete: boolean;
   sessionProgress: SessionProgress | null;

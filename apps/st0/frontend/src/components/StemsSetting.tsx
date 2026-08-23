@@ -14,16 +14,14 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 
 export function StemsSetting({
-  /** Dispatches `system stems <ref>` — the verb that writes the preference, so this control and
-   *  the command bar are one road. */
+  /** Dispatches `system stems <ref>` — the verb that writes the preference, so this control and the command bar are one road. */
   onRun,
 }: {
   onRun: (line: string) => Promise<void>;
 }) {
   /** What the machine remembers: a ref, `null` for "never told", `undefined` while reading. */
   const [chain, setChain] = useState<string | null | undefined>(undefined);
-  /** The library's chains, as `@st0/…` refs. Empty for an account with no library repository,
-   *  which is a fact rather than an error — the select says so. */
+  /** The library's chains, as `@st0/…` refs — empty for an account with no library repository, which the select says out loud. */
   const [chains, setChains] = useState<string[]>([]);
   const [error, setError] = useState("");
 
@@ -44,18 +42,10 @@ export function StemsSetting({
       .catch(() => setChains([]));
   }, []);
 
-  /**
-   * Set it, then RE-READ it.
-   *
-   * The command is what writes, and it can refuse — a chain that treats rather than separates is
-   * turned down by name (`system.stems`). So the control does not assume it won: it asks the
-   * machine again, and a refused pick snaps back to what is actually stored rather than showing a
-   * choice nothing kept.
-   */
+  /** Set it, then RE-READ it: the command can refuse, so a refused pick snaps back to what is actually stored. */
   const choose = async (ref: string) => {
     setError("");
-    // `""` is how the verb is told to clear it — quotes and all, since an empty argument is what
-    // asks the verb for its usage instead.
+    // `""` is how the verb is told to clear it, quotes and all: an empty argument asks the verb for its usage instead.
     await onRun(`system stems ${ref || '""'}`);
     read();
   };
@@ -77,8 +67,7 @@ export function StemsSetting({
           aria-label="la chaîne qui sépare un morceau en stems"
         >
           <option value="">— aucune : cette machine ne sépare rien —</option>
-          {/* What is stored, even when the library no longer holds it. Dropping it would make a
-              chain somebody renamed look like "nothing is set", which is the wrong repair. */}
+          {/* What is stored, even when the library no longer holds it: a renamed chain must not read as "nothing is set". */}
           {(chains.includes(chain ?? "") || !chain
             ? chains
             : [chain, ...chains]
@@ -94,8 +83,7 @@ export function StemsSetting({
           être sur cette machine.
         </p>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
-        {/* An empty list is a real state — an account whose library holds no chain yet — and it
-            reads as a broken screen unless it says so. */}
+        {/* An empty list is a real state — a library with no chain yet — and reads as a broken screen unless it says so. */}
         {chains.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Votre dépôt de bibliothèques ne contient aucune chaîne. Écrivez-en

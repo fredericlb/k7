@@ -16,8 +16,7 @@ describe("input(n)", () => {
   });
 
   it("leaves the first port unwritten, so no existing graph moves", () => {
-    // The engine's fallback auto-wah is a pasted copy of the emitted JSON and the committed graphs/*.json are
-    // what actually run: a stray `port: 0` would be a diff in three files for a default that changed nothing.
+    // A stray `port: 0` would be a diff in three committed artifacts for a default that changed nothing.
     for (const g of [autoWah(), echo(), flanger()])
       for (const n of g.nodes)
         if (n.type === "ain") expect(n).not.toHaveProperty("port");

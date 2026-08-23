@@ -11,12 +11,7 @@ import { writeModule, writeYaml } from "@studio/song/testSupport";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Workspace } from "./workspace.ts";
 
-// The file tree's right-click "New node…" hands the Workspace whatever node was
-// clicked. That is normally the module FOLDER, but the same menu is reachable from the
-// files inside it — so the path handling has to take either and land on the same module.
-//
-// What is clicked says WHICH module is being used; it no longer says where the file goes.
-// Every node lands in the project's flat `nodes/`, whatever it is a node of.
+// What is clicked says WHICH module, never where the file goes: every node lands in the flat `nodes/`.
 
 let root: string;
 let ws: Workspace;

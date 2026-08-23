@@ -40,9 +40,7 @@ export function AlternativePicker({
     };
   }, [reloadKey]);
 
-  // Registered while open so the shell's Esc stops at this menu: it closes itself below, and
-  // without the registration the same keypress would go on to close whatever the graph slot was
-  // holding behind it. Closing twice is closing once. See popins.ts.
+  // Registered while open so the shell's Esc stops at this menu rather than also closing what the graph slot held (popins.ts).
   usePopin(open, () => setOpen(false));
 
   useEffect(() => {
@@ -62,8 +60,7 @@ export function AlternativePicker({
     };
   }, [open]);
 
-  // Nothing to choose between is nothing to show: a workspace with one branch gets no
-  // control at all rather than a menu of one.
+  // Nothing to choose between is nothing to show: a workspace with one branch gets no control rather than a menu of one.
   if (!alts?.current || alts.branches.length < 2) return null;
 
   return (
@@ -112,8 +109,7 @@ export function AlternativePicker({
               <span className="min-w-0 flex-1 truncate font-mono">
                 {b.name}
               </span>
-              {/* Where it came from — what `apply` would merge into, and what tells a
-                  root branch from an alternative at a glance. */}
+              {/* Where it came from — what `apply` would merge into, and what tells a root branch from an alternative at a glance. */}
               {b.parent && (
                 <span className="shrink-0 text-[10px] text-muted-foreground">
                   ← {b.parent}

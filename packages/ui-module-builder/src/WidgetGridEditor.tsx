@@ -64,9 +64,7 @@ const BUTTON_PLACEHOLDER_LABEL = "B";
 const hasOwnLabel = (w: Widget) =>
   !!w.label && !(w.type === "button" && w.label === BUTTON_PLACEHOLDER_LABEL);
 
-// Which widget kinds carry a `bind` — a label shows fixed text, tabs/waveform aren't parameter controls.
-// Exported because it is also the answer to "why did that drop bounce": the three kinds below are the
-// only ones a dragged parameter is refused by, and the refusal has no other cause worth looking for.
+// Which widget kinds carry a `bind`, and so the only three a dragged parameter can bounce off.
 export const bindable = (w: Pick<Widget, "type">) =>
   w.type !== "label" && w.type !== "tabs" && w.type !== "waveform";
 
@@ -81,6 +79,7 @@ const ranged = (w: Widget) =>
 const isDiscrete = (p: ParamDrag) => !!p.meta?.states?.length;
 
 // Changing type must CLEAR the fields the new type lacks: a leftover fails validation and takes the graph down.
+
 // Returns the type plus explicit undefineds; the caller merges, and writeUi drops undefined fields.
 function retype(w: Widget, type: WidgetType): Partial<Widget> {
   const next: Widget = { ...w, type };
@@ -106,9 +105,7 @@ const covers = (w: Widget, c: number, r: number) =>
   r >= w.row &&
   r < w.row + span(w.rowSpan);
 
-// The first cell (row-major) no widget covers — where a freshly added widget lands. It takes a
-// MAP rather than the panel, because the grid may be editing one page of a tabs widget: a cell
-// is free with respect to what is drawn beside it, and a page's widgets are drawn alone.
+// The first free cell, row-major; it takes a MAP because a page's widgets are drawn alone.
 function firstFree(
   widgets: Record<string, Widget>,
   cols: number,
@@ -129,14 +126,7 @@ export function widgetsAt(ui: ModuleUI, at: PageRef): Record<string, Widget> {
   return at ? (ui.widgets[at.tabs]?.pages?.[at.name] ?? {}) : ui.widgets;
 }
 
-/**
- * `ui` with the map at `at` replaced — the one write path, so no operation has to know
- * whether it is editing the panel or a page.
- *
- * The nesting is spread at every level on purpose: writing `pages: { [name]: next }` would
- * drop the tabs widget's OTHER pages, and there is nothing on screen that would say so until
- * the file is saved and a page you were not looking at has gone.
- */
+/** `ui` with the map at `at` replaced, spread at EVERY level so a tabs widget keeps its other pages. */
 export function writeWidgetsAt(
   ui: ModuleUI,
   at: PageRef,
@@ -167,44 +157,18 @@ export function WidgetGridEditor({
   onChange,
 }: {
   ui: ModuleUI;
-  // The params that take a FILE rather than a number (moduleTypes.FILE_PARAMS) — a dropdown
-  // bound to one offers the module's own assets/ instead of the param's settings.
+  // The params taking a FILE, whose dropdown offers the module's own assets/ instead of settings.
   assetParams?: string[];
-  /**
-   * Every parameter this module can bind, as the Parameters pane lists them — what **Auto
-   * organize** proposes a whole panel from (autoLayout.ts).
-   *
-   * The same list the pane offers for dragging, and it has to be: a panel proposed from a
-   * shorter one would quietly leave parameters out, and the point of the button is that a
-   * plugin with a hundred and fifty of them gets somewhere to start.
-   */
+  /** Every parameter this module can bind — the SAME list the pane drags from; see docs/builder.md. */
   params?: readonly AutoParam[];
-  /**
-   * Why the grid takes no gesture — false when it does.
-   *
-   * A REASON and not a boolean, because the two do not mean the same thing to the person reading
-   * the screen even though they mean the same thing to the grid. `unparsable` is a FAULT in the
-   * file, and the note below says how to fix it. `locked` is everything else — a shared module
-   * opened read-only, or a path with no panel to edit — which is an ordinary way to arrive here
-   * and has nothing to warn about.
-   *
-   * They were one boolean, and the note spoke for both: every module in a library announced that
-   * its panel would not parse, about files that parse perfectly.
-   */
+  /** WHY the grid takes no gesture: a reason, not a boolean, since only a FAULT warrants a warning. */
   disabled?: false | "unparsable" | "locked";
   onChange: (ui: ModuleUI) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  /**
-   * WHICH widget map the grid is editing: the panel itself (`null`), or one PAGE of a tabs
-   * widget. A tabs widget's pages are real widget maps — the renderer draws one at a time,
-   * over the panel's own grid — so placing a widget "on a page" is writing into that map and
-   * nowhere else. Until this existed the builder could make pages and never fill them.
-   */
+  /** WHICH widget map the grid edits: the panel (`null`), or one PAGE of a tabs widget — docs/pages.md. */
   const [page, setPage] = useState<PageRef>(null);
-  // …and the same thing checked against the document, so a page whose tabs widget or name has
-  // gone (deleted, renamed, or the file re-read from disk) takes the grid back to the panel
-  // instead of writing into a map that is not there any more.
+  // …checked against the document, so a page that has gone takes the grid back to the panel.
   const at: PageRef =
     page && ui.widgets[page.tabs]?.pages?.[page.name] ? page : null;
   /** The map being edited — the panel's widgets, or the page's. */
@@ -240,8 +204,7 @@ export function WidgetGridEditor({
   const setGrid = (d: Partial<Pick<ModuleUI, "cols" | "rows">>) =>
     onChange({ ...ui, ...d });
 
-  // Adopt a dropped param's range only while the widget still sits on the placeholder 0..1 — an edited one is the
-  // author's. The range is written into the `ui:` block, so the module opens the same with no engine running.
+  // Adopt a dropped param's range only on the placeholder 0..1: an edited one is the author's.
   const bindParam = (id: string, w: Widget, p: ParamDrag) => {
     const untouched = ranged(w) && (w.min ?? 0) === 0 && (w.max ?? 1) === 1;
     patch(id, {
@@ -281,9 +244,7 @@ export function WidgetGridEditor({
 
   const addWidget = (type: WidgetType) => {
     if (disabled) return;
-    // One level of pages, deliberately: the format nests, but a grid that could descend
-    // forever would need a breadcrumb nobody could read at a glance. The button is disabled
-    // rather than silently doing nothing — see the palette below.
+    // One level of pages deliberately, the button disabled rather than silently doing nothing.
     if (type === "tabs" && at) return;
     const id = nextId(widgets);
     const { col, row } = firstFree(widgets, ui.cols, ui.rows);
@@ -319,17 +280,7 @@ export function WidgetGridEditor({
     setSelected(id);
   };
 
-  /**
-   * Replace the whole panel with one proposed from the parameter list — see autoLayout.ts.
-   *
-   * It REPLACES, and asks first when there is something to lose. A module whose panel is still
-   * empty is the case this exists for — a plugin just scanned, a hundred and fifty parameters
-   * and nowhere to put them — and a dialog there would be a question with one answer. Over drawn
-   * work it is a different act, and the grid has no undo of its own to fall back on.
-   *
-   * Back to the panel afterwards: the page the grid was on belonged to the old tabs widget, and
-   * the proposal's pages are not the same pages even where they share a name.
-   */
+  /** Replace the whole panel with a proposal, asking first only when there is something to lose — docs/autoLayout.md. */
   const organize = () => {
     if (disabled || !params?.length) return;
     if (
@@ -434,8 +385,7 @@ export function WidgetGridEditor({
           </Button>
         ))}
         <div className="ml-auto flex items-center gap-3">
-          {/* Not one of the Add buttons, and set apart from them: those place ONE widget where
-              there is room, this one throws the panel away and draws another. */}
+          {/* Set apart from the Add buttons: this one throws the panel away and draws another. */}
           <Button
             size="sm"
             variant="secondary"
@@ -467,8 +417,7 @@ export function WidgetGridEditor({
         </div>
       </div>
 
-      {/* Where the grid is writing. Only drawn once the panel HAS a tabs widget: until then
-          there is one map and a breadcrumb would name it for nothing. */}
+      {/* Where the grid is writing, drawn only once the panel HAS a tabs widget — ../docs/pages.md. */}
       {tabsWidgets.length > 0 && (
         <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1">
           <button
@@ -530,10 +479,7 @@ export function WidgetGridEditor({
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
         >
-          {/* Empty cell guides — and drop targets: a parameter dropped on bare grid
-              creates the widget for it, rather than making you add one first and then
-              bind it. A cell under a widget is covered by that widget (later in the DOM,
-              so it takes the drop), which is what keeps the two paths from overlapping. */}
+          {/* Empty cell guides, and drop targets: a parameter dropped on bare grid creates its widget. */}
           {Array.from({ length: ui.cols * ui.rows }).map((_, i) => {
             const col = i % ui.cols;
             const row = Math.floor(i / ui.cols);
@@ -566,10 +512,7 @@ export function WidgetGridEditor({
             );
           })}
 
-          {/* The PANEL behind the page: its widgets are drawn whichever page is showing, so
-              editing a page against a blank grid would hide every collision. Inert and dim —
-              they belong to the other map, and one click of "Panel" reaches them. The tabs
-              widget itself is left out: it is the bar, not content beside it. */}
+          {/* The PANEL behind the page, inert and dim, minus the tabs widget — ../docs/pages.md. */}
           {at &&
             Object.entries(ui.widgets)
               .filter(([id]) => id !== at.tabs)
@@ -631,12 +574,7 @@ export function WidgetGridEditor({
                 }}
                 title={w.type === "label" ? w.text : w.bind}
               >
-                {/* The glyph and the caption take no pointer, so every drag event over the tile
-                    targets the TILE. They are what a tile is made of and they fill it, so a
-                    parameter dragged onto a widget is nearly always over one of them — and each
-                    crossing fired `dragleave` on the tile, cleared the highlight and let the
-                    cursor fall back to "no". The empty cells never had the problem because they
-                    have no children, which is why dropping on bare grid always worked. */}
+                {/* The glyph and the caption take no pointer, or they steal the tile's drag — ../docs/builder.md. */}
                 <Icon className="pointer-events-none h-4 w-4 text-muted-foreground" />
                 <span className="pointer-events-none mt-0.5 max-w-full truncate text-[10px] leading-tight text-foreground">
                   {w.type === "label"
@@ -654,9 +592,7 @@ export function WidgetGridEditor({
             );
           })}
         </div>
-        {/* Only the FAULT gets a warning. A locked module says so in the header, beside the
-            button that unlocks it, and repeating it here in amber would read as something
-            being wrong with a file that is perfectly fine. */}
+        {/* Only the FAULT gets a warning: a locked module already says so in the header. */}
         {disabled === "unparsable" && (
           <p className="mt-3 text-xs text-amber-500">
             This panel couldn't be parsed for visual editing — edit it as text
@@ -738,18 +674,14 @@ function Inspector({
   assetParams?: string[];
   disabled?: boolean;
   onPatch: (w: Partial<Widget>) => void;
-  /** Bind a dropped parameter — the SAME path a drop on the grid takes, range and all. Not
-   *  `onPatch({ bind })`: that would set the name and leave the widget without the settings or
-   *  the range that travelled with it, which is most of what the gesture is for. */
+  /** Bind a dropped parameter, the SAME path a drop on the grid takes — range and settings and all. */
   onBind: (p: ParamDrag) => void;
   onDelete: () => void;
 }) {
   const isLabel = w.type === "label";
   const isTabs = w.type === "tabs";
   const isWaveform = w.type === "waveform";
-  // A file picker's `bind` names a file-valued param, chosen from the File select below rather
-  // than dragged from the plugin's numeric params — so the bind chip steps aside for both it and
-  // the older `dropdown` + `library` spelling of the same widget.
+  // A file picker's `bind` is chosen from the File select below, so the bind chip steps aside.
   const isLibrary =
     w.type === "filepicker" || (w.type === "dropdown" && !!w.library);
   const numeric = ranged(w); // same predicate the drop path uses to adopt a range
@@ -828,13 +760,7 @@ function Inspector({
             />
           </Field>
         ) : isTabs || isWaveform || isLibrary ? null : (
-          // Not a text field: a binding is made by dragging a row from the Parameters list, onto
-          // this or onto the widget in the grid. The chip names it, and clears it.
-          //
-          // Both halves are the SAME drop target, because the empty half says "drag a parameter
-          // here" and was for a long time the one place in the builder that meant it as a
-          // picture: it carried no handlers at all, so a drop onto the words asking for one was
-          // refused by the browser with a forbidden cursor and nothing to say why.
+          // Not a text field: a binding is DRAGGED, and both halves are the same drop target.
           <Field label="Bound param">
             <div
               onDragOver={(e) => {
@@ -852,8 +778,7 @@ function Inspector({
                 e.preventDefault();
                 onBind(p);
               }}
-              // The children take no pointer, so every drag event lands on this div rather than on
-              // the chip inside it — same reason the widget tiles in the grid do it.
+              // The children take no pointer, so every drag event lands on this div, not the chip.
               className={cn(
                 "[&_*]:pointer-events-none",
                 over && "rounded ring-2 ring-primary",
@@ -898,9 +823,7 @@ function Inspector({
         </Field>
 
         {w.type === "filepicker" && (
-          // WHICH file-valued param this picker sets. It is the whole configuration: the param
-          // names the key written, the command that writes it, and the extension offered — so
-          // there is one choice to make and nothing that can disagree with itself.
+          // WHICH file-valued param this picker sets — the whole configuration, so nothing can disagree.
           <Field label="File">
             <select
               className={FIELD_CLS}
@@ -924,9 +847,7 @@ function Inspector({
         )}
 
         {w.type === "dropdown" && !!w.library && (
-          // The older spelling of a file picker, kept editable so a panel already written can be
-          // read and moved off it — `library` and `bind` name the same param. New ones are made
-          // with the File widget; see packages/song/docs/filePicker.md.
+          // The older spelling of a file picker, kept editable — packages/song/docs/filePicker.md.
           <Field label="Files (legacy)">
             <select
               className={FIELD_CLS}

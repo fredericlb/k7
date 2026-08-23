@@ -24,8 +24,7 @@ let open: { dir: string | null; invalidated: number }[] = [];
 vi.mock("./workspaces.ts", () => ({
   liveWorkspaces: () =>
     open.map((w) => ({
-      // The workspace ROOT, which the scope needs as well as the project directory: a set's
-      // playlist lives at the top of the repository rather than inside the project.
+      // The workspace ROOT as well as the project dir: a set's playlist lives at the top of the repository.
       root: ws,
       activeProjectPath: () => w.dir,
       invalidateProjectDoc: () => {
@@ -67,15 +66,7 @@ let home: string;
 let realHome: { HOME?: string; USERPROFILE?: string };
 let set: string;
 
-/**
- * A SET whose desk points at a playlist naming songs the library holds — what this loop
- * exists for.
- *
- * TWO files in two places, which is the shape worth pinning here: the surface is the project's
- * (`<project>/surfaces/desk.yaml`) and the playlist is the WORKSPACE's (`_playlists/…`), beside
- * the project rather than inside it. A set list belongs to the repository — see
- * @studio/song/docs/playlists.md — and this loop is the one thing that has to walk both.
- */
+/** A SET whose desk points at a playlist: TWO files in two places, and this loop walks both. */
 function project(...refs: string[]): string {
   const dir = join(ws, "set");
   mkdirSync(join(dir, "surfaces"), { recursive: true });
@@ -90,8 +81,7 @@ function project(...refs: string[]): string {
     "utf8",
   );
   mkdirSync(join(ws, "_playlists"), { recursive: true });
-  // The playlist's lines carry no family — `artist/album/title`, the médiathèque id with its
-  // `songs/` taken off. The refs the callers pass are the full ones, so they are trimmed here.
+  // The playlist's lines carry no family, so the full refs the callers pass are trimmed here.
   writeFileSync(
     join(ws, "_playlists", "ce-soir.yaml"),
     `items:\n${refs.map((r) => `  - ${r.replace(/^@st0\/songs\//, "")}\n`).join("")}`,
@@ -103,9 +93,7 @@ function project(...refs: string[]): string {
 beforeEach(() => {
   cache = mkdtempSync(join(tmpdir(), "fs-pull-cache-"));
   ws = mkdtempSync(join(tmpdir(), "fs-pull-ws-"));
-  // A scratch HOME, because "no library configured" now also means "none advertised on this
-  // machine" — and the developer running these tests has one advertised. Both variables:
-  // `homedir()` reads one or the other. See mediatekLink.ts.
+  // A scratch HOME, so the developer's own advertised library cannot count as "one configured".
   home = mkdtempSync(join(tmpdir(), "fs-pull-home-"));
   realHome = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
   process.env.HOME = home;
@@ -148,9 +136,7 @@ describe("pulling the médiathèque", () => {
   });
 
   it("never fetches modules — git owns that folder now", async () => {
-    // The rule this loop had to give up. Two writers on one tree is the whole problem:
-    // `syncFamily` drops whatever the owner's manifest omits, which over a checkout means
-    // deleting files somebody committed.
+    // Two writers on one tree: `syncFamily` drops whatever the owner's manifest omits.
     await pullOnce();
     expect(asked).not.toContain("modules");
     expect(cached("modules/audio/filter/auto-wah/module.yaml")).toBe(false);
@@ -179,8 +165,7 @@ describe("pulling the médiathèque", () => {
   });
 
   it("syncs again when a set starts naming something new, at the same revision", async () => {
-    // The case a change token cannot see: nothing moved on the server, but this machine now
-    // needs a song it never held.
+    // The case a change token cannot see: this machine now needs a song it never held.
     await pullOnce();
     rmSync(set, { recursive: true, force: true });
     open = [{ dir: project("@st0/songs/lemo/mante/aube"), invalidated: 0 }];

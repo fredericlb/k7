@@ -7,13 +7,10 @@ import { songIdOf } from "../songRef";
 import { MARKER_SLOTS, type MixFile, MixFileSchema } from "./mixSchema";
 import type { ModuleIssue } from "./moduleFile";
 
-/** The cue sheet's filename, at the root of the project. Named once — every reader takes it
- *  from here rather than spelling it, which is what `views/mix.yaml` is NOT (see mixViewFile). */
+/** The cue sheet's filename, at the root of the project — named once, see docs/deskFiles.md. */
 export const MIX_BASE = "mix";
 
-// YAML 1.2 for the reason every other file here pins it (moduleFile.ts): a scalar shaped like
-// `5:1:1` stays a string. A ref carries no colon today, and the day one does it must not
-// silently become a number.
+// YAML 1.2 for the reason every other file here pins it: a scalar shaped like `5:1:1` stays a string.
 const OPTS = { version: "1.2" as const };
 
 export interface ParsedMix {
@@ -32,9 +29,7 @@ export function parseMix(text: string): ParsedMix {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // A bare sequence at the root — `- "@st0/songs/…"` with no `cues:` key. Named precisely
-  // rather than reported as "expected object": it is the first thing anyone writes, and the
-  // fix is one line.
+  // A bare sequence at the root is named precisely, being the first thing anyone writes (docs/deskFiles.md).
   if (Array.isArray(raw))
     return {
       value: null,
@@ -60,13 +55,7 @@ export function parseMix(text: string): ParsedMix {
   return { value: result.data, issues: [] };
 }
 
-/**
- * Every song the sheet names, deduplicated and SORTED.
- *
- * Sorted because the list is unordered and something has to decide what a reader sees first.
- * The file's own line order is therefore not meaningful, which is the point — a set's running
- * order is decided at the desk, not in git.
- */
+/** Every song the sheet names, deduplicated and SORTED — its line order means nothing (docs/deskFiles.md). */
 export function cueRefs(file: MixFile | null | undefined): string[] {
   const refs = (file?.cues ?? []).map((s) =>
     typeof s === "string" ? s : s.ref,
@@ -74,12 +63,7 @@ export function cueRefs(file: MixFile | null | undefined): string[] {
   return [...new Set(refs)].sort();
 }
 
-/**
- * Every song's cue points, by ref — the slot list exactly as the file wrote it.
- *
- * Positional: index 0 is button 1, and a `null` is an empty slot. Trailing empties are absent
- * rather than null, so a caller reads a missing index as an empty button too.
- */
+/** Every song's cue points by ref, positional — index 0 is button 1 (docs/deskFiles.md). */
 export function cueMarkers(
   file: MixFile | null | undefined,
 ): Record<string, (number | null)[]> {
@@ -89,21 +73,7 @@ export function cueMarkers(
   return out;
 }
 
-/**
- * Set one song's cue points, IN the text — comments, order and every other entry untouched.
- *
- * A round trip through `toJS()` and a dump would rewrite the file: the scaffold's comments are
- * the one worked example a reader of a set gets, and a desk that ate them the first time
- * somebody dropped a cue would be a desk nobody forgives. So this edits the parsed document
- * and re-prints it, which is what the `yaml` package's Document exists for.
- *
- * A ref the file does not name is APPENDED. That is not a courtesy: a deck can be playing a
- * song somebody removed from the playlist a moment ago, and refusing the cue would lose a
- * gesture the DJ has already made.
- *
- * Trailing empties are trimmed, and a song whose last cue is cleared goes back to a bare ref —
- * so a sheet nobody has cued reads exactly as it did before any of this existed.
- */
+/** Set one song's cue points IN the text, appending a ref the file does not name — docs/deskFiles.md. */
 export function withMarkers(
   text: string,
   ref: string,

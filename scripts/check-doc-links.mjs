@@ -11,28 +11,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 
-/**
- * What counts as "a path into this repo".
- *
- * Anchored on the four TOP folders, and deliberately not on `docs/` or `scripts/`. Those two are
- * written relative to the zone a page is talking about — the root AGENTS.md says `docs/picture.md`
- * meaning st0's, and moteur's protocol.md says `scripts/two-sessions.ts` meaning its own — so a
- * check anchored on them would report a hundred sentences that are perfectly clear to a reader.
- *
- * The lookbehind is what keeps `[stems.md](../../ui-turntables/docs/stems.md)` from being read as
- * a reference to `docs/stems.md`: a match may open on `../`, never in the middle of a path.
- */
+/** What counts as "a path into this repo" — the four TOP folders only (../docs/lints.md). */
 const REF =
   /(?<![\w.-])(?:\.\.\/)*(?:packages|apps|engine|commons)\/[\w./-]*\.\w{1,5}\b/g;
 
-/**
- * Paths a page may legitimately name although this checkout has not got them.
- *
- * Two kinds, and both are real: a page inside `engine/moteur` writes `engine/EditBuilder.cpp`
- * relative to its own app, and a page may name a file of `@frediverse/*`, which is the commons
- * submodule and may not be checked out. Kept short and explained — a growing list here is the
- * check going soft.
- */
+/** Paths a page may name although this checkout has not got them — kept short (../docs/lints.md). */
 const ALLOW = [
   // Written relative to engine/moteur, whose own docs are the only ones that do it.
   /^engine\/(?!moteur\/|capot\/)/,
@@ -40,17 +23,7 @@ const ALLOW = [
   /^packages\/(http|oidc|pkg|a)\//,
 ];
 
-/**
- * PIERRES TOMBALES — a page names a file precisely because it is gone.
- *
- * This repo records what it removed and why, which is the opposite of a broken link: the reader
- * is not being sent anywhere, they are being told what used to be there. Refusing these would
- * make the check fight the method it exists to protect.
- *
- * Listed one by one rather than detected, because "the sentence around it says it went" is not
- * something a regex can be trusted with — and because a list somebody has to add to is a moment
- * to ask whether the page is recording a removal or has simply gone stale.
- */
+/** PIERRES TOMBALES — a page names a file precisely because it is gone (../docs/lints.md). */
 const TOMBSTONES = new Set([
   // apps/k7/docs/audio.md — « Le miroir de la médiathèque a été retiré ».
   "apps/pl8/backend/src/mirror/k7.ts",
@@ -86,8 +59,7 @@ for (const file of files) {
       const ref = hit[0];
       cited += 1;
       if (TOMBSTONES.has(ref) || ALLOW.some((r) => r.test(ref))) continue;
-      // From the repo root first — how nearly every page writes one — then relative to the page,
-      // which is how a link like `../../packages/song/src/x.ts` resolves.
+      // From the repo root first, then relative to the page (../docs/lints.md).
       if (existsSync(ref) || existsSync(normalize(join(dirname(file), ref))))
         continue;
       dead.push({ file, line: i + 1, ref });

@@ -13,8 +13,7 @@ import type { StrudelLink } from "./strudel";
 let dir = "";
 let pattern = "";
 
-// 120 bpm in 4/4: one cycle is one bar is two seconds, so the clock's 1 s look-ahead is half a
-// cycle — small enough that most 150 ms ticks fall entirely between two events.
+// 120 bpm in 4/4: one cycle is two seconds, so most 150 ms ticks fall between two events.
 const base = (): ProjectDoc =>
   emptyDoc({
     name: "p",
@@ -26,8 +25,7 @@ const base = (): ProjectDoc =>
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "pattern-clock-"));
   pattern = join(dir, "beat.strudel");
-  // ONE event per cycle, at its very top: every window that does not contain a cycle boundary
-  // is empty, which is the case under test.
+  // ONE event per cycle, at its very top, so a window with no boundary in it is empty.
   writeFileSync(pattern, 's("bd ~ ~ ~")\n');
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -39,8 +37,7 @@ const link = (): StrudelLink => ({
   key: "beat",
 });
 
-// Drive one tick at an explicit playhead, so the test owns the window instead of racing the
-// clock's own 150 ms interval.
+// Drive one tick at an explicit playhead, so the test owns the window rather than racing it.
 function tickAt(clock: PatternClock, sec: number): void {
   clock.onState(true, sec);
   (clock as unknown as { tick(): void }).tick();
@@ -62,9 +59,7 @@ describe("PatternClock", () => {
     clock.dispose();
   });
 
-  // The regression this file exists for. Before, `tick` emitted on every window it advanced
-  // over, so a sparse pattern re-sent the whole ProjectDoc ~6.7×/s — a stringify here, a parse
-  // and a full ProjectDiff in the engine — for a document that had not changed.
+  // The regression this file exists for — see docs/patternClock.md.
   it("says nothing over windows that hold none", async () => {
     const sent: ProjectDoc[] = [];
     const clock = new PatternClock((d) => sent.push(d));
@@ -72,15 +67,13 @@ describe("PatternClock", () => {
     await clock.refreshPatterns([link()], dir);
 
     const before = sent.length;
-    // Six 150 ms ticks: the first window reaches cycle 0.5, the last cycle 0.875. Only the
-    // first contains an event, and none is far enough along for a clip to be pruned.
+    // Six 150 ms ticks reaching cycle 0.875, of which only the first contains an event.
     for (const sec of [0, 0.15, 0.3, 0.45, 0.6, 0.75]) tickAt(clock, sec);
     expect(sent.length).toBe(before + 1);
     clock.dispose();
   });
 
-  // …and the window still MOVES while it says nothing: the silence must not be the clock
-  // failing to read the pattern, or the next event would never be scheduled either.
+  // …and the window still MOVES while it says nothing, or the next event never gets scheduled.
   it("keeps reading the pattern across the quiet windows", async () => {
     const sent: ProjectDoc[] = [];
     const clock = new PatternClock((d) => sent.push(d));
@@ -95,9 +88,7 @@ describe("PatternClock", () => {
   });
 });
 
-// What goes on the WIRE. The whole document is 137 KB on a real project and the lanes that move
-// are 3.7, so a tick sends the tracks — but only while that is honestly the same document with
-// different clips in two lanes. Every test here is about when it must NOT.
+// What goes on the WIRE: every test here is about when a delta must NOT be sent, docs/patternClock.md.
 describe("PatternClock deltas", () => {
   interface Sent {
     docs: number;
@@ -130,10 +121,7 @@ describe("PatternClock deltas", () => {
     clock.dispose();
   });
 
-  // A lane appearing CHANGES the track set, and a delta can neither add nor remove one — so
-  // whatever introduces one has to put a whole document out first. Loading a second pattern is
-  // the reachable way to do that: `refreshPatterns` pre-resolves eight cycles, so a file's lanes
-  // are known the moment it loads rather than appearing mid-stream.
+  // A lane appearing CHANGES the track set, which a delta can neither add to nor remove from.
   it("sends the whole document when a pattern adds lanes", async () => {
     const { clock, sent } = spy();
     clock.setBaseProject(base());
@@ -153,8 +141,7 @@ describe("PatternClock deltas", () => {
     clock.dispose();
   });
 
-  // A fresh compile may have moved anything in the song, which is precisely what a delta cannot
-  // carry. The base change is what sends the document; the tick after it is a delta again.
+  // A fresh compile may have moved anything in the song, which a delta cannot carry.
   it("sends the whole document on a new base", async () => {
     const { clock, sent } = spy();
     clock.setBaseProject(base());
@@ -166,8 +153,7 @@ describe("PatternClock deltas", () => {
     clock.dispose();
   });
 
-  // The engine may have restarted holding nothing, and a delta aimed at a document that is not
-  // there is a lane that never sounds with no error anywhere.
+  // The engine may have restarted holding nothing, and a delta at nothing is a silent lane.
   it("sends the whole document again after forgetSent", async () => {
     const { clock, sent } = spy();
     clock.setBaseProject(base());
@@ -182,8 +168,7 @@ describe("PatternClock deltas", () => {
     clock.dispose();
   });
 
-  // A caller that wired no delta channel keeps getting documents — the CLI, a test, anything
-  // older than this. The fast path is an addition, not a replacement.
+  // A caller that wired no delta channel keeps getting documents: the fast path is an addition.
   it("sends documents when nobody wired a delta channel", async () => {
     const sent: ProjectDoc[] = [];
     const clock = new PatternClock((d) => sent.push(d));

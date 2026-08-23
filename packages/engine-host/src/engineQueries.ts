@@ -5,8 +5,7 @@
 
 import { once } from "node:events";
 import { rmSync } from "node:fs";
-// engineCONTROL, not engineClient: the supervisor never sends a project, and the full client would drag the
-// song compiler and Strudel into this bundle for nothing.
+// engineCONTROL, not engineClient: the supervisor sends no project, and the full client would drag the song compiler in for nothing.
 import {
   type AudioDeviceInfo,
   type EditPluginInfo,
@@ -70,12 +69,7 @@ export class EngineQueries {
     return client;
   }
 
-  /**
-   * Run `fn` with exclusive use of the connection.
-   *
-   * The chain is never broken by a failure: each link swallows the previous one's
-   * rejection before running, so one timed-out call cannot wedge every later call.
-   */
+  /** Run `fn` with exclusive use of the connection; each link swallows the previous one's rejection, so one timeout cannot wedge the rest. */
   private run<T>(fn: (client: EngineControl) => Promise<T>): Promise<T | null> {
     const result = this.queue.then(
       () => this.exclusive(fn),
@@ -110,15 +104,7 @@ export class EngineQueries {
     );
   }
 
-  /**
-   * The audio interfaces the engine offers.
-   *
-   * NOTE the field rename. The engine reports `type`, which `engineClient` surfaces as
-   * `AudioDeviceInfo.type`, but `setAudioDevice` SENDS it as `deviceType` and the tray's
-   * label reads `{name} [{deviceType}]`. Getting this backwards produces a menu of
-   * devices with blank backends that still switch correctly — which is exactly the kind
-   * of bug that survives a review.
-   */
+  /** The audio interfaces the engine offers; NOTE the rename — it reports `type`, the tray's label reads `deviceType`. */
   listAudioDevices(): Promise<HostAudioDevice[] | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<AudioDeviceInfo[]>(
@@ -131,8 +117,7 @@ export class EngineQueries {
     });
   }
 
-  /** Switch the engine to a named interface; resolves with the updated device list
-   *  (the engine answers a set with the same `audio-devices` frame). */
+  /** Switch the engine to a named interface, resolving with the updated list — the engine answers a set with the same `audio-devices` frame. */
   setAudioDevice(
     name: string,
     deviceType: string,
@@ -148,14 +133,7 @@ export class EngineQueries {
     });
   }
 
-  /**
-   * How many plugins the engine knows about. Null until its scan finishes.
-   *
-   * The COUNT, from the engine, deliberately — not a local cache file's key count. An
-   * empty cache means "unknown, don't judge"; null here means "the engine hasn't
-   * answered yet", which is what the tray's spinner is for. The two are not the same
-   * fact and must not be conflated.
-   */
+  /** How many plugins the engine knows about, from the ENGINE and not a cache file; null means "hasn't answered yet", which is the spinner. */
   pluginCount(): Promise<number | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<PluginInfo[]>(
@@ -168,8 +146,7 @@ export class EngineQueries {
     });
   }
 
-  /** The plugin INSTANCES across EVERY session the engine holds, each naming its own. Engine-global
-   *  on purpose: this client drives no session, so asking per-session would ask about an empty one. */
+  /** The plugin INSTANCES across EVERY session, each naming its own; engine-global because this client drives no session of its own. */
   listEditPlugins(): Promise<HostEditPlugin[] | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<EditPluginInfo[]>(
@@ -187,13 +164,7 @@ export class EngineQueries {
     });
   }
 
-  /**
-   * The projects this engine is holding — one per app driving it.
-   *
-   * Asked on the DEFAULT session, like every query here, and that is not an oversight: the
-   * supervisor drives no project, and this is the one question whose answer is about the
-   * others. Every other query in this class is engine-global for the same reason.
-   */
+  /** The projects this engine is holding, one per app driving it, asked on the DEFAULT session like every query here. */
   listSessions(): Promise<HostSession[] | null> {
     return this.run(async (client) => {
       const p = EngineQueries.reply<SessionInfo[]>(
@@ -213,8 +184,7 @@ export class EngineQueries {
     });
   }
 
-  /** Forget a session. Fire-and-forget: the sessions poll shows it gone within two seconds,
-   *  and waiting for the ack would only make the menu feel slower than the truth. */
+  /** Forget a session, fire-and-forget: the sessions poll shows it gone within two seconds, and waiting for an ack only feels slower. */
   dropSession(session: string): Promise<unknown> {
     return this.run(async (client) => {
       client.dropSession(session);
@@ -222,8 +192,7 @@ export class EngineQueries {
     });
   }
 
-  /** Open a plugin's native editor window. Fire-and-forget: the engine acknowledges by
-   *  drawing the window, not over the wire. */
+  /** Open a plugin's native editor window, fire-and-forget: the engine acknowledges by drawing it, not over the wire. */
   showNativePluginUI(id: string, session?: string): Promise<unknown> {
     return this.run(async (client) => {
       client.showNativePluginUI(id, session);
@@ -231,17 +200,7 @@ export class EngineQueries {
     });
   }
 
-  /**
-   * Ask the engine to re-scan installed plugins.
-   *
-   * THE UNLINK IS NOT OPTIONAL. `ensurePluginsScanned` loads `~/.studio/exts.json`
-   * when it exists and returns the stale list immediately — so without deleting it
-   * first, "Rescan plugins" appears to work and changes nothing. The cache belongs to
-   * the engine, not to the client, which is why this can't live in EngineControl.
-   *
-   * Fire-and-forget beyond that: the scan runs on a detached thread inside the engine
-   * and the result arrives via the plugin-count poll.
-   */
+  /** Ask the engine to re-scan installed plugins; THE UNLINK IS NOT OPTIONAL — with the cache in place the rescan returns the stale list. */
   rescanPlugins(): Promise<unknown> {
     try {
       rmSync(extsCachePath(), { force: true });

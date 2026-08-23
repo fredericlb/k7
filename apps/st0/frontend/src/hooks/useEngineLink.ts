@@ -50,8 +50,7 @@ export function useEngineLink(
   const [connected, setConnected] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
   const [engineBusy, setEngineBusy] = useState(false);
-  // Load problems the engine reported, by SUBJECT — a PluginDoc id ("chain:module"), which
-  // is what a graph node carries as `pluginId`. Latest message per subject wins.
+  // Load problems the engine reported, by SUBJECT — a PluginDoc id, which is what a node carries as `pluginId`; latest per subject wins.
   const [engineWarnings, setEngineWarnings] = useState<Record<string, string>>(
     {},
   );
@@ -62,23 +61,14 @@ export function useEngineLink(
   const [presets, setPresets] = useState<Record<string, PresetInfo[]>>({});
 
   useEffect(() => {
-    // The client is app-agnostic; the stall breadcrumbs are st0' own instrumentation, so
-    // the shell hands its watchdog in rather than the package importing one.
-    // Per SERVICE and per PERSON. The service half stops pl8's module previews and a
-    // m9 deck from overwriting this song; the person half matters now that an engine
-    // is chosen per account, so two people can pick the same machine — and on a bare
-    // "st0" they would drive one project between them.
-    //
-    // The file service derives the identical id from the workspace's owner slug. Both
-    // spell it through sessionFor, so neither can drift from the other.
+    // The session id is per SERVICE and per PERSON, spelled through `sessionFor` so the file service cannot derive a different one.
     const engine = new EngineClient(
       engineUrl,
       beginActivity,
       sessionFor(SESSIONS.st0, userEmail),
     );
     engineRef.current = engine;
-    // "Ready" is a one-way latch, so it is set ONCE. React bails out on the identical value, but
-    // it still entered the scheduler 20 times a second to get there.
+    // 'Ready' is a one-way latch, so it is set ONCE: React bails out on the identical value, but it still entered the scheduler 20 times a second.
     let ready = false;
     const offState = engine.onState((s) => {
       store.set(s); // external store — subscribers re-render on the slice they read
@@ -88,30 +78,23 @@ export function useEngineLink(
     });
     const offParams = engine.onPluginParams(({ id, params, meta }) => {
       pluginParamsStore.set(id, params);
-      // Ranges are stable while a plugin is loaded, so they live in ordinary state — pluginParamsStore is rewritten
-      // wholesale by the 20 Hz feed, which carries no meta and would drop them on the next frame.
+      // Ranges are stable while a plugin is loaded, so they live in ordinary state — the 20 Hz store carries no meta and would drop them.
       if (meta) setPluginParamMeta((m) => ({ ...m, [id]: meta }));
     });
     const offLiveParams = engine.onPluginParamsLive(({ id, params }) =>
       pluginParamsStore.set(id, params),
     );
-    // Kept by MODULE, since that is what was asked for and what the answer names. Replacing
-    // rather than merging: this arrives in reply to one question about one module, so a stale
-    // list for a module nobody is looking at costs nothing and a merged one would be wrong the
-    // moment two modules share a plugin name.
+    // Kept by MODULE and REPLACED rather than merged: this answers one question about one module.
     const offPresets = engine.onPresets((module, list) =>
       setPresets((p) => ({ ...p, [module]: list })),
     );
     const offBusy = engine.onBusy((b) => {
-      // A new apply rebuilds every plugin, so the previous load's complaints are stale —
-      // a model you just fixed must not keep its badge until the page reloads.
+      // A new apply rebuilds every plugin, so the previous load's complaints are stale — a model you just fixed must lose its badge.
       if (b) setEngineWarnings({});
       engineBusyRef.current = b;
       setEngineBusy(b);
     });
-    // Engine trouble goes to the log panel AND the status bar: it is usually the only
-    // explanation for something that looks like it worked (a plugin in the chain doing
-    // nothing to the sound), so it must not be somewhere you have to think to open.
+    // Engine trouble goes to the log panel AND the status bar: it is usually the only explanation for something that looks like it worked.
     const offWarning = engine.onWarning(({ subject, message }) => {
       if (subject) setEngineWarnings((w) => ({ ...w, [subject]: message }));
       const text = subject ? `${subject}: ${message}` : message;
@@ -152,8 +135,7 @@ export function useEngineLink(
 
   const transport = useCallback(
     (a: Parameters<EngineClient["transport"]>[0]) => {
-      // Dropped, not queued: a Play sent while the engine is applying fires seconds later, together with every other
-      // click made meanwhile — which is how one press became three plays, a stop and a rewind. The status bar says why.
+      // Dropped, not queued: a Play sent while the engine is applying fires seconds later with every other click made meanwhile.
       if (engineBusyRef.current) return;
       engineRef.current?.transport(a);
     },
@@ -167,14 +149,7 @@ export function useEngineLink(
     (id: string) => engineRef.current?.getPluginParams(id),
     [],
   );
-  /**
-   * A module's FACTORY presets — the plugin's own program list and its `.vstpreset` files.
-   *
-   * Keyed by module NAME rather than plugin id, because that is what the engine's `list-presets`
-   * takes: it resolves the name to a live instance. Which is the whole constraint — there are no
-   * presets to list for a module this project does not instantiate, since a preset is a fact
-   * about a loaded plugin and nothing else. The builder shows none rather than guessing.
-   */
+  /** A module's FACTORY presets, keyed by module NAME because that is what `list-presets` takes: it resolves the name to a live instance. */
   const listPresets = useCallback((module: string) => {
     engineRef.current?.listPresets(module);
   }, []);

@@ -33,12 +33,7 @@ const runColdStep: RunColdStep = async ({ step, source, outDir }) => {
   );
 };
 
-/** `null` is a host with no way to run one — passing `undefined` would take the default, which
- *  is the JS trap this signature exists to avoid.
- *
- *  `stemsChain` is what the machine remembers (`system stems`), and it is INJECTED for the reason
- *  the host carries it at all: read from `~/.studio/preferences.yaml` it would make these tests
- *  pass or fail by whether whoever runs them has set one. */
+/** `null` means no way to run one; `stemsChain` is injected so no real preferences file decides. */
 const host = (cold: RunColdStep | null = runColdStep, stemsChain = "") =>
   testHost({
     songPath: join(root, "song"),
@@ -49,8 +44,7 @@ const host = (cold: RunColdStep | null = runColdStep, stemsChain = "") =>
     stemsChain,
   });
 
-/** A song in the machine's cache, with its master beside it. `original.wav` is what an upload
- *  names one; the scan takes the FIRST audio file in the folder either way. */
+/** A song in the machine's cache; the scan takes the FIRST audio file in the folder. */
 const song = (ref: string, master = "original.wav"): void =>
   put(media, join("songs", ...ref.split("/"), master), "not really audio");
 
@@ -136,8 +130,7 @@ describe("playlist stems", () => {
       ),
       join(media, "songs", "Nirvana", "Nevermind", "Lithium", "original.wav"),
     ]);
-    // Beside the master, never next to it — the médiathèque's scan does not descend, so a stem
-    // left alongside could be played in place of the mixdown.
+    // Under `stems/`: the scan does not descend, so a stem alongside could play as the mixdown.
     expect(asked[0].outDir).toBe(
       join(media, "songs", "AC-DC", "Back in Black", "Hells Bells", "stems"),
     );
@@ -145,8 +138,7 @@ describe("playlist stems", () => {
   });
 
   it("SKIPS a song whose stems are already there, and says how many", async () => {
-    // Thirty songs, a laptop, and an evening: re-running a half-finished preparation must cost
-    // the songs that are left and nothing else.
+    // Re-running a half-finished preparation must cost the songs that are left and nothing else.
     setList("Nirvana/Nevermind/Lithium");
     song("Nirvana/Nevermind/Lithium");
     put(media, "songs/Nirvana/Nevermind/Lithium/stems/bass.wav", "done");
@@ -215,8 +207,7 @@ describe("playlist stems", () => {
   });
 
   it("says what is wrong with the line rather than guessing", async () => {
-    // No chain on the line and none remembered: named as the thing to go and set, not as a
-    // usage error about an argument that is optional.
+    // Nothing on the line and nothing remembered: named as the thing to set, not as a usage error.
     await runCommand("playlist stems ete", host(), "cli");
     expect(refusals.join(" ")).toMatch(/system stems/);
     await runCommand("playlist stems", host(), "cli");
@@ -227,14 +218,7 @@ describe("playlist stems", () => {
   });
 });
 
-/**
- * The verb that WRITES the machine's answer.
- *
- * Only its refusals are exercised, and that is a limit rather than an oversight: succeeding means
- * writing the real `~/.studio/preferences.yaml`, which `homedir()` will not let a test move on
- * Windows. What is worth pinning is what it turns down BEFORE writing — a chain that treats rather
- * than separates, checked here because this is the cheap moment to find that out.
- */
+// Refusals only, and deliberately: succeeding writes the real `~/.studio/preferences.yaml`.
 describe("system stems", () => {
   it("refuses a chain that does not separate, and says what it wants", async () => {
     await runCommand("system stems @st0/warm", host(), "cli");

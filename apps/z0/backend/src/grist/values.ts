@@ -21,10 +21,7 @@ export function asBool(v: unknown): boolean {
   return false;
 }
 
-/**
- * Distinguish "missing" from "explicitly set" for nullable Int columns (used
- * by OrderEntry.from/.to). Returns null when the cell is unset.
- */
+/** Null for an unset cell, so a nullable Int tells "missing" from "explicitly set". */
 export function optInt(v: unknown): number | null {
   return typeof v === "number" ? Math.trunc(v) : null;
 }
@@ -38,10 +35,7 @@ export function parseChoiceList(v: unknown): string[] {
   return out;
 }
 
-/**
- * Decode a RefList cell (also ["L", id1, id2, …]) into the ordered row ids.
- * Order is preserved; callers rely on it for child-collection ordering.
- */
+/** A RefList cell as row ids, in order — which is how every child collection is ordered. */
 export function parseRefList(v: unknown): number[] {
   if (!Array.isArray(v) || v.length < 2 || v[0] !== "L") return [];
   const out: number[] = [];
@@ -73,9 +67,7 @@ export function parseEffects(
   return out;
 }
 
-// asciiFold maps common Latin accented letters to their unaccented ASCII
-// equivalent so slugify produces readable filenames for French/European titles
-// (e.g. "Édith Piaf" → "edith_piaf"). Mirrors grist_load.go's replacer.
+// Folded so slugify keeps a French title readable: "Édith Piaf" → "edith_piaf".
 const ASCII_FOLD: Record<string, string> = {
   à: "a",
   á: "a",
@@ -114,10 +106,7 @@ const ASCII_FOLD: Record<string, string> = {
   đ: "d",
 };
 
-/**
- * Filesystem-safe lowercase token: ASCII alphanumerics pass through; runs of
- * anything else collapse to one underscore; trimmed; capped at 60 chars.
- */
+/** A filesystem-safe token: alphanumerics through, everything else one underscore, 60 chars max. */
 export function slugify(s: string): string {
   let folded = "";
   for (const ch of s.toLowerCase()) folded += ASCII_FOLD[ch] ?? ch;
@@ -137,25 +126,16 @@ export function slugify(s: string): string {
   return out;
 }
 
-// How long a cached snippet runs when a track has `from` but no `to` — high
-// enough to cover the reveal phase with slack.
+// A track with `from` and no `to`, long enough to cover the reveal phase with slack.
 export const DEFAULT_TRIM_DURATION_SEC = 90;
 
-/**
- * Normalize a track's [from, to] window: an unset/invalid `to` (≤ from)
- * defaults to from + DEFAULT_TRIM_DURATION_SEC. The filename and the ffmpeg
- * invocation both use this, so open-ended tracks land at one cache entry.
- */
+/** The filename AND the ffmpeg call both go through here, so an open-ended track caches once. */
 export function resolveTrim(fromSec: number, toSec: number): [number, number] {
   if (toSec <= fromSec) return [fromSec, fromSec + DEFAULT_TRIM_DURATION_SEC];
   return [fromSec, toSec];
 }
 
-/**
- * Compose the on-disk cache name for a transcoded Grist audio attachment:
- * `{artist}-{title}-s{songID}-{fromMs}-{toMs}-{ident-stem}.webm` (see
- * grist_load.go's buildAudioFilename for the rationale of each component).
- */
+/** The cache name: `{artist}-{title}-s{songID}-{fromMs}-{toMs}-{ident-stem}.webm`. */
 export function buildAudioFilename(
   songId: number,
   artist: string,

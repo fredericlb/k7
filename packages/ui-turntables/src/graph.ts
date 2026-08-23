@@ -20,28 +20,15 @@ export interface DeckModule {
 const playable = (m: DeckModule): boolean =>
   !!m.plugin?.type && m.plugin.type !== OFFLINE_TYPE;
 
-/**
- * The deck's signal path, as the graph draws it.
- *
- * `WebGraph` is a WIRE type, not a compiler output — every field is plain data and nothing
- * in it names a file. st0 happens to produce one from a compiled project folder because
- * that is where st0' truth lives; nothing says the compiler is its only producer.
- *
- * That retires the plan's own tension #3, which held that a pl8 or m9 chain with no YAML folder
- * could not produce a WebGraph, and proposed that for v1 those apps write a throwaway project
- * folder — ugly, but immediate. There is no folder here, throwaway or otherwise: m9's state IS
- * the graph, and the same buildGraph → layout → DomChains pipeline draws it.
- */
+/** The deck's signal path as the graph draws it — `WebGraph` is a WIRE type, so no folder is needed. */
 export function deckGraph(
   song: string | null,
   modules: DeckModule[],
-  /** WHICH deck. There are two now, each with its own chain, so this can no longer be a
-   *  constant — a panel drawing deck B's effects must not label them deck A's. */
+  /** WHICH deck — a parameter, since a panel drawing deck B's effects must not label them deck A's. */
   deck: DeckId = DECKS[0],
 ): WebGraph {
   return {
-    // One track, standing for the deck's source. The graph resolves a chain's `from`
-    // against this list, so a chain naming a track absent from it draws detached.
+    // One track for the deck's source: a chain whose `from` is absent from this list draws detached.
     tracks: [deck],
     trackSignals: { [deck]: "audio" },
     chains: {
@@ -50,37 +37,19 @@ export function deckGraph(
         use: modules.map((m) => ({
           module: m.name,
           category: m.category,
-          // Everything downstream of a source is audio here: m9 carries no MIDI and
-          // no video, so a module's own emission is never anything else.
+          // Everything downstream of a source is audio here: m9 carries no MIDI and no video.
           emits: "audio" as const,
           enabled: m.enabled,
-          // The engine address, so a node can be bypassed and its params addressed — the
-          // same `chain:module` the ProjectDoc uses. Without it a node is decorative.
-          //
-          // Only for a module the engine actually LOADS. An `offline` one is recognised by
-          // the compiler and then emits no plugin at all, so an id here names something the
-          // engine has never heard of: the knob moved, `set-plugin-param` went out to
-          // nothing, and no error came back. The server-side producer was fixed for exactly
-          // this (see file-service/src/graphDoc.ts and docs/graphFlags.md); this producer is
-          // the browser-side twin that had not been.
+          // The engine address, and ONLY for a module it loads — see `file-service/src/graphDoc.ts`.
           pluginId: playable(m) ? `${deck}:${m.name}` : undefined,
         })),
         out: [{ to: "OUT", gain: 1 }],
       },
     },
-    // Not an error state: a deck with nothing loaded is the ordinary one before a pick, and
-    // the graph still draws — the track, the chain, the sink — which is what makes it
-    // useful for arranging a chain BEFORE choosing a song.
+    // Not an error state: an empty deck still draws, so a chain can be arranged before a song.
     warnings: song ? [] : [],
   };
 }
 
-/**
- * A médiathèque module path as its type folder.
- *
- * The shared one, not a local copy. This was a weakened twin of it: a fixed `parts[1]`, which
- * is right for `modules/<type>/<name>` and wrong for `_modules/…` and for a workspace holding
- * several projects; and a list missing `midi`, so a transformer authored under the legacy name
- * drew as audio here and correctly everywhere else.
- */
+/** A médiathèque module path as its type folder — the SHARED one; the local twin got `_modules/` wrong. */
 export { moduleCategoryOf as categoryOf } from "@studio/ui-chains/modulePreview";

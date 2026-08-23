@@ -12,8 +12,7 @@ export interface Note {
   v?: number; // velocity 0..1 (omitted == default 1)
 }
 
-// A resolved rack: the symbol<->note maps the grids use. Defined in this leaf module, so neither side depends
-// on the other. Null means no rack.
+// A resolved rack: the symbol<->note maps the grids use, defined in this leaf module so neither side depends on the other.
 export interface RackInfo {
   toSymbol: Map<number, string>; // MIDI note -> symbol (for display)
   toNote: Map<string, number>; // symbol -> MIDI note (for entry)
@@ -27,10 +26,7 @@ export interface NotesSpan {
   indent: string;
 }
 
-/**
- * Locate the `notes:` list. Returns the span of its VALUE (the items, not the key) plus
- * their indentation, or null when the file has no notes list.
- */
+/** Locate the `notes:` list: the span of its VALUE plus the indentation, or null when the file has none. */
 export function findNotesArray(doc: string): NotesSpan | null {
   let parsed: ReturnType<typeof parseDocument>;
   try {
@@ -94,13 +90,7 @@ function reindent(text: string): string {
 // Round to 6 decimals: onsets come from drags, and an exact float would churn the file on every no-op write.
 const num = (v: number): string => String(Math.round(v * 1e6) / 1e6);
 
-/**
- * Serialize notes for a span, one per line at `indent`. `v` is written only when present
- * (default 1 stays implicit).
- *
- * The FIRST line carries no indent: the text it replaces began after the indentation
- * already sitting in the document.
- */
+/** Serialize notes one per line at `indent`, the FIRST line bare since the text it replaces began after the indentation. */
 export function renderNotes(notes: Note[], indent = "  "): string {
   if (!notes.length) return "[]";
   return notes

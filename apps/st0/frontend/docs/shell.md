@@ -97,6 +97,28 @@ The other thing st0 asks the bar for is the padding: it is `px-5 py-3` by defaul
 it through the inner box — every row of chrome is a row the panes don't get, and a phone in
 landscape is about 400 px tall.
 
+#### The transport in the middle, and what a SET drops from it
+
+Play/pause, stop, the clock, then record — and each **drops focus on click** (`blurOnClick`).
+These are the buttons a mouse is most likely to land on right before reaching for Space, and a
+focused one eats the keypress. On play/pause the theft is invisible, because the button does what
+Space would; on stop and record it is not.
+
+A **set** gets the two that mean something and not the other two, **in the same place**: this is
+the bar you reach for whichever project is open, so play and stop must not move around. What it
+drops is the clock and record. A set declares no tempo and no time signature (`project.yaml` says
+so outright), so the clock would count bars nothing is written against, and record would arm a
+lane with nowhere to put a take.
+
+The cluster is absent altogether only where there is **neither** — a project with no timeline and
+no desk. Every control here addresses a position in something, and that project has nothing to
+address; sound still reaches the engine, played by whatever is wired in the graph. See
+[packages/song/docs/surfaces.md](../../../../packages/song/docs/surfaces.md).
+
+The status bar's **Q badge** sits beside it for a related reason: Q1/Q2/Q3 off the measured
+latency is a property of the SESSION rather than of a screen — it decides what you can do here
+(`@studio/web-protocol/quality`) — and it is the same line the médiathèque shows.
+
 ### On a phone, one menu holds everywhere there is to go
 
 There was a **bottom tab bar**, one tab per pane. It is gone and its contents are in `MobileMenu`:

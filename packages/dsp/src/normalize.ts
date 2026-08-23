@@ -7,18 +7,7 @@ import { type GraphJson, graph } from "./index";
 /** Where the peak is put, by default: 1 dB of headroom, the usual answer for a master. */
 export const DEFAULT_TARGET_DB = -1;
 
-/**
- * Peak normalisation, as a graph.
- *
- * **The graph is trivial, and that is the whole point.** Applying the gain is one node; knowing
- * WHICH gain is the hard part, and no per-block graph can answer it — a streaming node sees the
- * samples it has, and the loudest one may be the last. So the measurement is not here: `Peak` is
- * an input to this graph, filled in by the cold pass that reads the file end to end, and what is
- * left to describe is the arithmetic.
- *
- * That is exactly what makes the module cold rather than merely expensive: it is not that
- * measuring costs too much to do live, it is that live there is nothing to measure yet.
- */
+/** Peak normalisation. The graph is trivial and that is the point — see ../docs/catalogue.md. */
 export function normalize(): GraphJson {
   return graph((g) => {
     const target = g.param("Target", {
@@ -27,15 +16,10 @@ export function normalize(): GraphJson {
       default: DEFAULT_TARGET_DB,
     });
 
-    // The measured peak of the WHOLE input, in dBFS, written by the analysis pass. A parameter
-    // because that is how a measured fact reaches a graph — same shape as a knob, different
-    // author. Its default is 0 dBFS: with no pass having run, the gain is `Target` and the
-    // module simply attenuates, which is the harmless direction to be wrong in.
+    // The WHOLE input's peak in dBFS, written by the cold pass; 0 by default, so it only attenuates.
     const peak = g.param("Peak", { min: -100, max: 0, default: 0 });
 
-    // Clamped, because the arithmetic has one degenerate case with a very loud answer: near
-    // silence measures -100 dBFS and would ask for +99 dB, turning a hiss into a full-scale
-    // roar. +30 is generous for anything worth normalising and finite for everything else.
+    // Clamped: near silence measures -100 dBFS and would otherwise ask for +99 dB.
     const gainDb = g.clamp(g.sub(target, peak), -60, 30);
     g.gain(g.fromdb(gainDb));
   });

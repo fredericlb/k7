@@ -37,19 +37,14 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
   const [sessions, setSessions] = useState<EngineSessionInfo[]>([]);
   const [devices, setDevices] = useState<EngineAudioDevice[]>([]);
   const [editPlugins, setEditPlugins] = useState<EngineEditPlugin[]>([]);
-  // null = the engine has not answered yet — the tray's spinner state, kept distinct
-  // from 0, which would read as "no plugins" about a scan that simply isn't done.
+  // null is "has not answered yet", kept distinct from 0, which would read as "no plugins".
   const [pluginCount, setPluginCount] = useState<number | null>(null);
   const [maintenance, setMaintenance] = useState<string | null>(null);
-  // The interface the MACHINE remembers, which is not the one the engine is on: the second
-  // is live state off the socket, the first a file that decides what the next engine opens.
+  // The interface the MACHINE remembers, which is a file rather than the engine's live state.
   const [pinned, setPinned] = useState<string | null>(null);
   const [pinNote, setPinNote] = useState<string | null>(null);
   const [logLines, setLogLines] = useState<string[] | null>(null);
-  // The APP's socket, borrowed. This page used to build one of its own, which held while the
-  // section replaced every other screen — it does not any more: a song keeps playing while you
-  // look at this page, and its transport is on the connection below. Two clients on one
-  // session is the thing that arrangement exists to prevent.
+  // The APP's socket, BORROWED: this page used to build one of its own (../../docs/engine.md).
   const engine = useEngine();
   const client = engine.client;
   const connected = engine.connected;
@@ -66,8 +61,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
       client.onEditPlugins(setEditPlugins),
       client.onPlugins((list) => setPluginCount(list.length)),
     ];
-    // Asked on mount rather than from `onConnected`: the socket is usually open long before
-    // this page is looked at, and that callback does not replay the state it already has.
+    // Asked on MOUNT: the socket is usually open already, and `onConnected` does not replay.
     client.listSessions();
     client.listAudioDevices();
     client.listEditPlugins();
@@ -82,8 +76,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
     };
   }, [client, connected]);
 
-  // Read what the machine remembers, once the machine is known. Separate from the socket
-  // effect above: this outlives a reconnect, and a dropped engine says nothing about the file.
+  // Separate from the socket effect: a dropped engine says nothing about the file on disk.
   useEffect(() => {
     setPinned(null);
     setPinNote(null);
@@ -94,14 +87,7 @@ export function EnginePage({ choice }: { choice: EngineChoice }) {
       .catch(() => setPinNote("préférences de la machine illisibles"));
   }, [choice.fileBase, choice.token]);
 
-  /**
-   * Switch now, and be on it again after the next restart.
-   *
-   * Both halves, because the engine deliberately keeps no memory of its interface (its
-   * AGENTS.md explains what that memory used to wedge). Telling only the engine is what left
-   * this machine back on the Windows endpoint after every rebuild — and a bad interface is
-   * inaudible on playback, so nothing but recording latency ever reported it.
-   */
+  /** Switch now AND survive the next restart — both halves are needed (../../docs/api.md). */
   const pickDevice = (d: EngineAudioDevice) => {
     client?.setAudioDevice(d.name, d.type);
     if (!choice.fileBase || !choice.token) {

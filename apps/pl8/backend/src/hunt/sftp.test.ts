@@ -24,8 +24,7 @@ describe("localPathFor", () => {
   });
 
   it("cannot be walked out of the downloads directory", () => {
-    // This string comes off the Soulseek network, where a file name is whatever a stranger
-    // typed — slskd's own docs warn that these values are hostile.
+    // A file name off Soulseek is whatever a stranger typed, and slskd's docs say so.
     for (const nasty of [
       "@u\\..\\..\\etc\\passwd",
       "../../../../etc/shadow",
@@ -83,9 +82,7 @@ describe("flattenTransfers", () => {
   });
 
   it("takes a bare list as readily as a nested one", () => {
-    // The nesting is slskd's to change, and a client that hard-coded one path through it
-    // would report "no transfers" — which reads exactly like one that never started, and
-    // would burn all ten switches for nothing.
+    // The nesting is slskd's to change, and "no transfers" reads like one that never started.
     expect(
       flattenTransfers([{ id: "x", filename: "a.mp3", state: "Queued" }]),
     ).toHaveLength(1);
@@ -101,8 +98,7 @@ describe("flattenTransfers", () => {
 describe("fetchDownload — ce qui part dans les journaux", () => {
   let lines: string[] = [];
 
-  /** A fake SFTP server: `at` is where the file REALLY is, `tree` what each directory holds (a
-   *  name ending in `/` is a folder). */
+  /** A fake server: `at` is where the file REALLY is, `tree` what each directory holds. */
   const fake = (at: string, tree: Record<string, string[]>): SftpLike => ({
     connect: async () => undefined,
     exists: async (p: string) => (p === at ? ("-" as const) : false),
@@ -138,8 +134,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
   });
 
   it("écrit le chemin visé ET le contenu du dossier de téléchargement", async () => {
-    // The two questions asked when nothing arrives, answered while the answer is to hand — that
-    // is, during the connection, not after.
+    // The two questions asked when nothing arrives, answered during the connection, not after.
     const remote = "@ann\\Music\\Nirvana\\Nevermind\\05 Lithium.flac";
     await fetchDownload(remote, () =>
       fake("/downloads/Nevermind/05 Lithium.flac", {

@@ -9,16 +9,11 @@ import { GristClient, type GristRecord } from "../grist/client.ts";
 import { authMiddleware, cors } from "../middleware.ts";
 import { registerRoutes } from "../routes.ts";
 
-// Editor flows against the stub Grist: id-preserving load, the save
-// reconciler (temp-id resolution bottom-up, RefList stamping, stale
-// OrderEntry deletion), duplication with shared songs.
+// Editor flows against a stub Grist: the id-preserving load, the save reconciler, duplication.
 
 const SECRET = "editor-test-secret-0123456789abcdef";
 
-// Defaults for a bare environment; a local env.yaml overrides both (its values
-// win over process.env). Set before the config is read, then mint from the
-// RESOLVED values — so this holds either way instead of silently disagreeing
-// with the server about the secret or which group is admin.
+// Set first, then minted from the RESOLVED config, so a local env.yaml cannot disagree with us.
 process.env.SESSION_SECRET = SECRET;
 process.env.AUTH_ADMIN_GROUPS = "blindtest-admins";
 const authConfig = loadAppConfig().auth;
@@ -249,8 +244,7 @@ describe("editor load", () => {
 
 describe("editor save reconciler", () => {
   it("creates temp-id rows bottom-up, updates existing ones, deletes stale order", async () => {
-    // Add a new track to the existing song, a whole new category+song+track,
-    // update the session name, and drop the pause entry.
+    // A new track on the old song, a whole new category, a rename, and the pause dropped.
     const save = await post("/editor/sessions/1", {
       name: "Renamed",
       guestPassword: "pw2",
@@ -359,8 +353,7 @@ describe("editor save reconciler", () => {
     expect(order[1]).toBe(10);
     expect(order[2]).toBe(result.idMap["new-order-1"]);
 
-    // The existing song's tracks RefList now carries the resolved new track,
-    // and its effect update landed (fx_speed 2 → 3).
+    // The old song's RefList carries the resolved new track, and fx_speed went 2 → 3.
     const song30 = tables.Songs.find((r) => r.id === 30)!;
     expect(song30.fields.tracks).toEqual([
       "L",

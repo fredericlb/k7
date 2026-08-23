@@ -10,10 +10,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clearYamlCache, parsedYaml } from "./yamlCache";
 
-// The cache serves a parse it has already done, and its whole correctness is knowing when it
-// may. An mtime alone is not a key: on this dev machine, 3000 same-size rewrites issued as fast
-// as Node can manage shared an (mtime, size) with the write before them 76% of the time, at a
-// granularity of 0.52 ms. So a stamp is trusted only once it is too old to be stamped again.
+// An mtime is not a key — 76% of fast rewrites share one — so a stamp is trusted only once it is old.
 
 let dir: string;
 const file = (): string => join(dir, "clip.yaml");
@@ -40,12 +37,7 @@ describe("parsedYaml", () => {
     expect(b).toBe(a); // identity is the only proof the parse was skipped
   });
 
-  /**
-   * THE regression test. The settle window does not stop two writes from sharing a stamp —
-   * nothing can — it stops the cache from ever HOLDING an entry whose stamp a later write could
-   * still reproduce. That is the invariant, and it is the one that can be checked without
-   * racing the machine's clock: verified red by setting SETTLE_MS to -1.
-   */
+  /** THE regression: the cache never HOLDS an entry whose stamp a later write could reproduce. */
   it("does not cache a file it read while the file was still fresh", () => {
     writeFileSync(file(), "source: kick.wav\n");
     const a = parsedYaml(file());
@@ -55,10 +47,7 @@ describe("parsedYaml", () => {
   });
 
   it("sees an edit rewritten to the SAME SIZE straight after a read", () => {
-    // End to end, on the machine's real clock: the shape of an actual edit — one clip file
-    // rewritten to the same length. Deliberately NOT the proof above: whether these two writes
-    // land in one file-time tick is up to the clock, so this passes either way and is a sanity
-    // check, not a regression test.
+    // A sanity check on the real clock, not a regression test: it passes either way.
     writeFileSync(file(), "source: kick.wav\nfrom: 0.25\n");
     expect(parsedYaml(file())).toEqual({ source: "kick.wav", from: 0.25 });
     writeFileSync(file(), "source: kick.wav\nfrom: 0.26\n");
@@ -81,16 +70,13 @@ describe("parsedYaml", () => {
   });
 
   it("hands out a value the caller may keep — the cache is not re-entered by mutating it", () => {
-    // The rule this cache lives by: what it holds never leaves the loader. `readYamlEntities`
-    // runs the entity schema over this raw on every call, and zod rebuilds the structure, so a
-    // caller mutating its result cannot reach in here. Pinned so that stays true.
+    // What the cache holds never leaves the loader: zod rebuilds the structure on every call.
     writeFileSync(file(), "notes:\n  - { t: 0, d: 1, k: 60 }\n");
     settle(file());
     const first = parsedYaml(file()) as { notes: unknown[] };
     first.notes.push({ t: 4, d: 1, k: 62 });
     const second = parsedYaml(file()) as { notes: unknown[] };
-    // Same object, so the mutation IS visible here — which is exactly why the raw must never be
-    // handed out unvalidated. `readYamlEntities` only caches kinds that have a schema.
+    // Same object, so the mutation IS visible: which is why the raw is never handed out.
     expect(second.notes).toHaveLength(2);
   });
 });

@@ -177,22 +177,7 @@ function parseCompileError(msg: string): Diagnostic[] {
   return out;
 }
 
-/**
- * A project is any directory whose NAME claims an app — `mysong.st0`, `party.z0`.
- *
- * The name, not a `project.yaml` inside, because pl8 has to answer the same question from a
- * bare blobless mirror it has never checked out, where no file can be opened. One rule on both
- * sides, so what the médiathèque lists and what this tree marks cannot disagree. See
- * packages/web-protocol/projects.ts and apps/pl8/docs/projects.md.
- *
- * `isProjectFolder` (a `project.yaml` exists) is still the COMPILER's question, and
- * `@studio/song` still asks it: a `.st0` folder with no project file opens and then fails to
- * compile, with the loader's own error saying so.
- *
- * It must EXIST, though — the name rule on its own answers "yes" for a folder that is not
- * there, and pl8 names one out of a mirror that can be a fetch behind this machine's clone.
- * See docs/activeProject.md.
- */
+/** A directory whose NAME claims an app and that EXISTS — the name rule, see docs/activeProject.md. */
 export const isProjectDir = (dir: string): boolean => {
   if (projectApp(basename(dir)) === null) return false;
   try {
@@ -202,21 +187,7 @@ export const isProjectDir = (dir: string): boolean => {
   }
 };
 
-/**
- * Every project folder under `root`, workspace-relative, at any depth.
- *
- * Directories only, and `skip()`ped the same way the tree is, so what this answers and what a
- * tree draws cannot disagree. Its own scan rather than collecting a `FileNode` walk: that built
- * an object per FILE and threw the tree away to keep a handful of directory paths — 30.7 ms a
- * pass on a real workspace against 5.3 here.
- *
- * **A project inside a project is descended into and reported.** Nesting one is not the ordinary
- * arrangement, but a `.m9` set living inside a `.st0` song is a real one, and picking an
- * outermost winner would hide the inner one with nothing on screen to say so.
- *
- * Sorted by name at each level, which is what makes two calls comparable — a listing that
- * reordered itself between polls would redraw for nothing.
- */
+/** Every project folder under `root`, workspace-relative, at any depth — see docs/workspace.md. */
 export function projectDirsUnder(
   root: string,
   abs = root,
@@ -226,8 +197,7 @@ export function projectDirsUnder(
   try {
     entries = readdirSync(abs, { withFileTypes: true });
   } catch {
-    // Unreadable: no projects here rather than a throw. Raising failed a whole poll over one
-    // folder nobody could have opened anyway.
+    // Unreadable: no projects here rather than a throw, which failed a whole poll over one folder.
     return out;
   }
   const dirs = entries
@@ -268,9 +238,7 @@ const RECYCLE_DIR = "_recycle_bin";
 // A project FILE by name — every "file or folder?" test asks this rather than naming an extension.
 const PROJECT_FILE = /\.ya?ml$/i;
 
-// Hidden files and deps are never shown/edited — and, exported, never WATCHED either: the
-// strudel watcher prunes the same names, so "what this service considers part of a project"
-// is one list rather than two that drift.
+// Hidden files and deps are never shown, edited or WATCHED — the strudel watcher prunes this same list.
 export const skip = (name: string): boolean =>
   name.startsWith(".") ||
   name === "node_modules" ||
@@ -278,19 +246,7 @@ export const skip = (name: string): boolean =>
   isHistoryDir(name) || // the undo/redo journal, never listed or diffed
   name.endsWith(".cache"); // engine-written waveform sidecars ({source}.cache)
 
-/**
- * One file found by `Workspace.walkProject` — everything the three readers of the tree want,
- * gathered by the single `statSync` they used to do one apiece.
- *
- * `binary` and `source` are not the same question and neither implies the other: a `.yaml` is a
- * source and text, a `.md` is text and not a source, a `.wav` is neither.
- *
- * No workspace-relative path here, deliberately, though both journal readers want one: computing
- * it is `relative()` plus a separator pass, and the token wants none of it. Putting it in cost
- * the two-second poll ~1 ms of arithmetic for 186 files it was only going to count. `textOf` and
- * `binOf` take one half of the walk each, so between them they still work it out exactly once
- * per file — which is what the two separate walks used to do.
- */
+/** One file found by `walkProject`, from a single `statSync` — see docs/workspace.md. */
 interface WalkedFile {
   abs: string;
   size: number;
@@ -299,29 +255,13 @@ interface WalkedFile {
   source: boolean;
 }
 
-/**
- * What a journalled mutation answers: whatever the mutation returned, and the revision token
- * either side of it.
- *
- * The tokens ride along because `recordChange` is the one thing that BRACKETS a write, and it
- * walked the tree twice to do its diff anyway — naming the two instants costs it a filter over a
- * list it already has. Its caller would otherwise walk twice more to learn the same two facts,
- * which is exactly what `POST /command` did.
- */
+/** What a journalled mutation answers, tokens included — see docs/workspace.md. */
 export interface Recorded<T> {
   value: T;
   /** Before the mutation. `after !== before` is what "this command changed the project" means. */
   before: string;
   after: string;
-  /**
-   * …and WHICH files moved, project-relative — `null` when the diff could not be taken.
-   *
-   * Free for the same reason the tokens are: the two images are already compared to build the
-   * undo entry. `null` is a distinct answer from `[]` and the distinction is load-bearing: a
-   * caller skipping work on "nothing of that kind changed" must not read a failed diff as one.
-   *
-   * Project-relative, unlike the journal's own paths — see `ChangedFile`.
-   */
+  /** …and WHICH files moved, project-relative; `null` when the diff could not be taken. */
   files: ChangedFile[] | null;
 }
 
@@ -358,13 +298,7 @@ async function renameWithRetry(
   }
 }
 
-// The strip a track's surfaces read: the mixer module at the end of its chain, flattened to the two numbers a
-// fader panel needs plus the module ref an edit has to address. Spread into the WebTrack, so a track with no
-// strip simply has no `mixer` key rather than one full of zeroes that look like settings.
-//
-// Level and pan only. The mixer's three tone bands are still its params — nothing about the plugin or the
-// module changed — but they are not lifted onto the track: they are read and written where the module's other
-// params are, which is the one place that cannot disagree with itself.
+// The strip a track's surfaces read — level and pan only, spread in. See docs/workspace.md.
 function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
   const p = trackMixer(t);
   if (!p) return {};
@@ -372,17 +306,7 @@ function mixerOf(t: TrackDoc): { mixer?: WebMixer } {
   return { mixer: { module: p.name, volume: v("Volume"), pan: v("Pan") } };
 }
 
-/**
- * How long a source is, in seconds — memoised on the file's IDENTITY, not its name.
- *
- * The key is size + mtime, so a re-render at the same path is a different file and gets measured
- * again, while the ordinary case — sixty clips, polled every two seconds, none of them touched —
- * costs one `stat` each and no read at all.
- *
- * Not the `{source}.cache` sidecar, which holds this number and is right next door: that one is an
- * ENVELOPE, kept against a fingerprint the engine refreshes on its own schedule, and a duration
- * taken from a stale one would be the old file's. The header is the truth and it is 44 bytes in.
- */
+/** How long a source is, memoised on the file's IDENTITY rather than its name — docs/workspace.md. */
 const durations = new Map<string, { key: string; secs: number | null }>();
 function sourceSeconds(abs: string): number | null {
   let key: string;
@@ -399,23 +323,7 @@ function sourceSeconds(abs: string): number | null {
   return secs;
 }
 
-/**
- * The extent a clip DRAWS at, in beats, for one whose document states none.
- *
- * `length: 0` on a ClipDoc means "to the end of the source" — a duration the compiler will not
- * open a wav to learn, and which the ENGINE fills in from the file it holds. That 0 used to reach
- * the browser unchanged, where it means nothing anyone can act on: a browser may not resolve a
- * path on this machine, let alone read a header. So the timeline fell back to drawing one bar, and
- * a consolidated event played its three bars while being drawn as one.
- *
- * Answered HERE because this is the only side that can: the service runs on the machine with the
- * audio. Nothing is written into the song for it — the file's length is the file's, and copying it
- * into a `to:` would be a cache that goes stale the moment `clip process` repoints `source:` at a
- * processed wav of a different length.
- *
- * From the in-point, since that is where the drawing starts. 0 when it cannot be measured, which
- * leaves the old behaviour exactly.
- */
+/** The extent a clip DRAWS at, for one whose document states none — see docs/workspace.md. */
 function naturalBeats(c: TrackDoc["clips"][number], tempo: number): number {
   if (c.type !== "audio" || !c.source || tempo <= 0) return 0;
   const secs = sourceSeconds(c.source);
@@ -424,13 +332,10 @@ function naturalBeats(c: TrackDoc["clips"][number], tempo: number): number {
   return rest > 0 ? (rest * tempo) / 60 : 0;
 }
 
-// One clip as the browser reads it. Named, rather than written inline where the lane's clips are
-// mapped, because a lane's TAKES hold the same thing and a take should draw identically to the
-// arrangement it was — two copies of this is how the two would come to differ.
+// One clip as the browser reads it, named so a TAKE draws identically to the arrangement it was.
 function toWebClip(
   c: TrackDoc["clips"][number],
-  // The extent to draw when the document states none — see naturalBeats. Absent for lanes with no
-  // files behind them (Strudel's live orbits), where 0 is the honest answer and stays.
+  // The extent to draw when the document states none — absent for a lane with no files behind it.
   natural?: (c: TrackDoc["clips"][number]) => number,
 ) {
   return {
@@ -438,8 +343,7 @@ function toWebClip(
     type: c.type,
     name: c.name,
     start: c.start,
-    // `|| natural`, not `??`: 0 is precisely the value that means "unstated", and the browser
-    // must never be handed one — it has no file to measure and would draw a single bar.
+    // `|| natural`, not `??`: 0 is precisely the value that means "unstated" — docs/workspace.md.
     length: c.length || natural?.(c) || 0,
     // The window of material this placement draws — what the browser's envelope cache keys on.
     offset: c.offset,
@@ -449,28 +353,22 @@ function toWebClip(
     sourceName: c.source ? basename(c.source) : undefined,
     loopStart: c.loopStart,
     loopEnd: c.loopEnd,
-    // `warped` is "there is a map at play here", which a declined one is not — so an event with
-    // warping switched off draws the icon CROSSED rather than lit: `warpOff` is what says which.
+    // `warped` is "there is a map at play here"; `warpOff` is what draws the icon CROSSED.
     warped: c.warp || c.warpOff ? true : undefined,
     warpOff: c.warpOff ? true : undefined,
     disabled: c.disabled ? true : undefined,
-    // The fades, which the compiler has always produced and this mapping has always dropped.
-    // `|| undefined` rather than a copy: a zero fade is no fade, and sending one would make every
-    // untouched event carry two explicit zeroes on a document polled every two seconds.
+    // The fades, `|| undefined` rather than copied: a zero fade is no fade — docs/workspace.md.
     fadeIn: c.fadeIn || undefined,
     fadeOut: c.fadeOut || undefined,
     // A render standing in for a frozen lane, told by the suffix the compiler reserves for one.
     frozen: isFrozenClipId(c.id) ? true : undefined,
-    // The placement's own words, straight through — the one part of this object that is NOT the
-    // placement and its material resolved together, and so the only part a paste can write back.
+    // The placement's own words, straight through — the only part a paste can write back.
     event: c.event,
     notes: c.notes.map((n) => ({
       time: n.time,
       duration: n.duration,
       key: n.key,
-      // Only when the file SAID one: the compiler defaults `vel` to 1, and passing that through
-      // would make every note look explicitly full — which is what a roll's velocity line has to
-      // tell apart from a note that states nothing. See WebNote.
+      // Only when the file SAID one: the compiler defaults `vel` to 1 — see docs/workspace.md.
       ...(n.vel !== undefined && n.vel !== 1 ? { vel: n.vel } : {}),
       // The pad's effects, unexpanded — what the sequencer draws its icon from.
       ...(n.repeat ? { repeat: n.repeat } : {}),
@@ -479,13 +377,7 @@ function toWebClip(
   };
 }
 
-/**
- * TrackDoc[] -> the flat WebTrack[] the Timeline draws, root-independent so live lanes share it.
- *
- * `tempo` is what turns a source's SECONDS into the beats a clip is drawn at, for the clips whose
- * document states no extent (see naturalBeats). Omitted — Strudel's live orbits, which have no
- * files behind them — nothing is measured and a stated 0 stays 0.
- */
+/** TrackDoc[] -> the flat WebTrack[] the Timeline draws; `tempo` turns seconds into beats. */
 export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
   const natural =
     tempo === undefined
@@ -502,8 +394,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
     mute: t.mute,
     solo: t.solo,
     clips: t.clips.map((c) => toWebClip(c, natural)),
-    // The takes, through the same mapping — absent when the lane has none, exactly as the
-    // compiled doc leaves it. See packages/song/docs/takes.md.
+    // The takes, through the same mapping — packages/song/docs/takes.md.
     ...(t.takes?.length
       ? {
           takes: t.takes.map((k) => ({
@@ -517,9 +408,7 @@ export function toWebTracks(tracks: TrackDoc[], tempo?: number): WebTrack[] {
       type: pl.type,
       name: pl.name,
     })),
-    // `docs`/`todos` were copied here for the Docs panel. Gone with it — a note is a doc
-    // module on the graph now. See packages/song/docs/docModules.md. `frozen`, `alternatives`
-    // and `alternative` followed, with the fields they came from (docs/trackModules.md).
+    // `docs`/`todos`, `frozen` and the alternatives went to the graph — packages/song/docs/docModules.md.
   }));
 }
 
@@ -543,20 +432,15 @@ export function setVim(on: boolean): boolean {
   return setEditorVim(on).editor.vim;
 }
 
-// Remember which interface this machine plays through. The engine itself forgets — see
-// docs/audioDevice.md — so this file is what re-selects it, replayed by engineLink on
-// every connect. An empty name clears the pick and hands the machine back to the default.
+// Remember which interface this machine plays through; the engine forgets, so engineLink replays this.
 export function setAudioDevicePref(name: string, type?: string): string | null {
   const p = setAudioDevice(name, type);
   return p.audioDevice ? formatAudioDevice(p.audioDevice) : null;
 }
 
-// `setInputPairPref` was here, under `PUT /preferences/input-pair`. The grouping is written by
-// `system channel type` now, which tells the engine in the same breath — see @studio/commands.
+// `setInputPairPref` was here; the grouping is written by `system channel type` now.
 
-// The per-workspace active-project marker; a dotfile, so skip() hides it from the tree.
-// Exported for the listings in workspaces.ts, which read it WITHOUT opening a Workspace — a
-// listing that instantiated one per row would build every cache it has to answer one filename.
+// The per-workspace active-project marker, a dotfile — exported so workspaces.ts can read it bare.
 export const ACTIVE_MARKER = ".studio-active";
 
 // Text files that differ between two snapshots — a null side means the file was absent then.
@@ -573,43 +457,28 @@ function diffText(
   return changes;
 }
 
-/**
- * The two diffs above, said in the vocabulary a client thinks in: project-relative, and
- * appeared / edited / disappeared rather than a pair of contents.
- *
- * `base` is the project's own workspace-relative path (`.` when the project IS the workspace
- * root, which a lone-project clone gives). Stripping it here rather than at the route is what
- * keeps the conversion in the one place that holds both halves.
- */
+/** The two diffs above, project-relative and said as appeared / edited / disappeared. */
 function changedFiles(
   base: string,
-  // Both diffs, read only for their SHAPE: a path, and which side was absent. `diffBin` carries
-  // bytes and `diffText` carries strings, and nothing here looks at either.
+  // Both diffs, read only for their SHAPE: a path, and which side was absent.
   ...diffs: { path: string; before: unknown; after: unknown }[][]
 ): ChangedFile[] {
   const head = base === "." || base === "" ? "" : `${base}/`;
   const out = new Map<string, ChangedFile>();
   for (const c of diffs.flat()) {
-    // A path outside the project cannot happen — both images come from a walk of it — but a
-    // prefix that did not match would otherwise be reported as an absolute-looking path.
+    // A prefix that did not match would otherwise be reported as an absolute-looking path.
     if (head && !c.path.startsWith(head)) continue;
     const path = head ? c.path.slice(head.length) : c.path;
     const kind =
       c.before === null ? "added" : c.after === null ? "removed" : "edited";
-    // A file in both lists (a text file the render also snapshotted) is one change, and the
-    // stronger fact wins: appearing or disappearing outranks being rewritten.
+    // A file in both lists is one change, and appearing or disappearing outranks being rewritten.
     const seen = out.get(path);
     if (!seen || seen.kind === "edited") out.set(path, { path, kind });
   }
   return [...out.values()];
 }
 
-// Binary files that were created or overwritten. A newly created file is caught by presence
-// (absent before, present after) and undone by deleting it. An overwrite is caught by the
-// pre-image the mutation captured via snapshot() — bytes are compared directly, so a same-size
-// overwrite (which size+mtime can miss on a coarse-mtime filesystem) still registers. A binary
-// that existed and changed but was never snapshotted can't be restored, so it is left out
-// rather than wrongly deleted on undo.
+// Binary files created or overwritten, by presence and by the snapshotted pre-image — docs/workspace.md.
 function diffBin(
   base: string, // the workspace root, since paths are root-relative
   before: Map<string, string>,
@@ -631,10 +500,7 @@ function diffBin(
     ...pre.keys(),
   ])) {
     const existedBefore = before.has(path);
-    // Read the bytes only where they can end up in the journal — a file the mutation created,
-    // or one it snapshotted. Reading first and deciding after meant every command read every
-    // binary in the project: a song with 650 MB of takes in `clips/` paid all of it to journal
-    // one rewritten line of YAML, and paid it again on the next command.
+    // Read the bytes only where they can end up in the journal — see docs/workspace.md.
     if (!existedBefore) {
       const afterBytes = after.has(path) ? readBytes(path) : null;
       if (afterBytes) blobs.push({ path, before: null, after: afterBytes }); // created
@@ -649,18 +515,7 @@ function diffBin(
   return blobs;
 }
 
-/**
- * `@engine` as a library: what this machine's plugin scan offers, grouped by type folder.
- *
- * The odd one, and it is worth saying exactly how. Every other level is a FOLDER; this one is
- * not — `engineCatalogue` synthesises it from `~/.studio/exts.json`, so there is no path, no
- * file to open and nothing to write. The rows are a vocabulary a chain can name.
- *
- * The type folders are synthesised too: a ref is flat (`@engine/nam`), and two hundred and
- * fifty plugins in one list is a level nobody can find anything in. So the folder rows carry a
- * made-up path and the LEAVES carry the real ref, which is the one string anything downstream
- * would want. Null when the machine has never scanned — an empty `@engine` says nothing true.
- */
+/** `@engine` as a library — synthesised, not a folder. See docs/workspace.md. */
 function engineLibrary(): ModuleLibrary | null {
   const byType = new Map<string, FileNode[]>();
   for (const [ref, m] of Object.entries(engineModules()) as [
@@ -669,9 +524,7 @@ function engineLibrary(): ModuleLibrary | null {
   ][]) {
     const type = String(m.category ?? "audio");
     const list = byType.get(type) ?? [];
-    // A LEAF, and deliberately: `foldModules` turns a folder holding `module.yaml` into an
-    // openable module row, and this has no such file. A leaf it cannot fold is a row that
-    // draws the name and opens nothing, which is the truth about a scanned plugin.
+    // A LEAF deliberately: a row that draws the name and opens nothing is the truth about a scan.
     list.push({
       name: String(m.file ?? ref),
       path: ref,
@@ -744,21 +597,7 @@ export class Workspace {
     return abs === this.root || abs.startsWith(this.root + sep);
   }
 
-  /**
-   * Resolve `rel` inside the workspace, or throw.
-   *
-   * TWO gates, both needed:
-   *  1. the lexical one — `resolve` + prefix — which catches `../` without a syscall;
-   *  2. a realpath check, because `resolve` does NOT follow symlinks. A symlink planted
-   *     in the workspace (by an unzip, a git checkout, a CLI run) pointing at ~/.ssh
-   *     passes gate 1 happily, and `GET /file?path=link/id_rsa` would read straight
-   *     through it.
-   *
-   * The trap in gate 2 is that `realpathSync` throws ENOENT for a path being CREATED,
-   * which would break every write to a new file. So realpath the nearest ancestor that
-   * exists and re-attach the rest: a component that doesn't exist yet cannot be a
-   * symlink, so nothing is lost by not resolving it.
-   */
+  /** Resolve `rel` inside the workspace, or throw — TWO gates, both needed, docs/workspace.md. */
   private safePath(rel: string): string {
     const abs = rel === "." ? this.root : resolve(this.root, rel);
     if (abs !== this.root && !abs.startsWith(this.root + sep))
@@ -832,10 +671,7 @@ export class Workspace {
     const abs = this.safePath(rel);
     if (this.isRecycled(abs))
       throw new Error(`project is in the recycle bin: ${rel}`);
-    // Said apart from the name rule below because it is the one that actually happens: a
-    // bookmark, or a link somebody sent, naming a folder that has been renamed or is on
-    // somebody else's machine. It used to name a THIRD cause — pl8 linking here out of a mirror
-    // that could be behind this clone — and that one is gone: the listing is this machine's own.
+    // Said apart from the name rule below because it is the one that actually happens: a stale link.
     if (!existsSync(abs))
       throw new Error(
         `no project '${rel}' in this workspace — it may have been renamed, removed, or ` +
@@ -853,22 +689,7 @@ export class Workspace {
     return abs;
   }
 
-  /**
-   * A project that declares a viewport and has no `RENDER: [ VIDEO_OUT ]` run gains one, here.
-   *
-   * The picture's two outputs are ADDED rather than warned about, which is the one place they
-   * differ from `MIX`/`OUT` — those were retrofitted by a script somebody had to run, and the
-   * projects that never got it are still out there. Doing it on OPEN means every project with a
-   * frame has the run by the time anything reads its graph, including the ones written before
-   * either name existed. See packages/song/docs/videoOutputs.md.
-   *
-   * Before `invalidateProjectDoc`, deliberately: the write must land before the doc that reads it
-   * is rebuilt, or the first read of a repaired project is of the file as it was.
-   *
-   * Silent on failure and silent when there is nothing to do. `ensureVideoRun` already leaves a
-   * project alone that has no graph, no `modules:` map, or a read-only checkout — and none of
-   * those is a reason to refuse to open it.
-   */
+  /** A project declaring a viewport gains its VIDEO_OUT run on open — packages/song/docs/videoOutputs.md. */
   private repairVideoOutputs(abs: string): void {
     try {
       const declaresViewport = projectSurfaces(abs).surfaces.some(
@@ -880,18 +701,7 @@ export class Workspace {
     }
   }
 
-  /**
-   * Delete a project: move its folder into the workspace's _recycle_bin, returning the
-   * recycled workspace-relative path. Not a destructive erase — recycled projects are
-   * hidden from the tree (skip) and refused by setActiveProject, so they can't be
-   * started, but the files survive for a manual restore.
-   *
-   * `beforeMove` runs with the project's ABSOLUTE path while it is still in place: the
-   * caller unloads the engine and stops file watchers there, which on Windows must
-   * happen before the directory can be renamed out from under them. If the project was
-   * the active one, its active pointer + marker are cleared (the workspace then has no
-   * active project until one is picked).
-   */
+  /** Move a project into _recycle_bin; `beforeMove` releases handles first — see docs/workspace.md. */
   async deleteProject(
     rel: string,
     beforeMove?: (projectAbs: string) => void | Promise<unknown>,
@@ -906,7 +716,7 @@ export class Workspace {
       );
 
     const wasActive = this.activeProject === abs;
-    // Release every handle inside the folder before renaming (Windows EPERM): the prewarm, the engine and the watcher.
+    // Release every handle inside the folder before renaming, or Windows answers EPERM.
     this.cancelPrewarm();
     await beforeMove?.(abs);
 
@@ -954,35 +764,14 @@ export class Workspace {
     return r;
   }
 
-  /**
-   * A project folder appeared or went: the list `workspaceInfo` serves must be re-scanned NOW.
-   *
-   * The three places that move one say so, rather than the list being invalidated by the
-   * mutation counter — which every file write bumps and which would therefore throw the scan
-   * away thirty times while you type, to re-find the same five folders.
-   */
+  /** A project folder appeared or went, so the list must be re-scanned NOW — docs/workspace.md. */
   private forgetProjects(): void {
     this.projectsCache = null;
   }
 
   // --- compiled-project cache ------------------------------------------------
-  /**
-   * The compiled project, memoised against the REVISION rather than against our own writes.
-   *
-   * It used to be invalidated only by edits this service made, which meant a project changed
-   * any other way served a stale compile until the process restarted: a `git pull`, an editor
-   * on the same disk, a tool writing the folder directly. The symptom is the worst kind —
-   * every derived view (the graph, the engine's document, the errors) is confidently wrong,
-   * and the files on screen say otherwise.
-   *
-   * `revision()` is the token built for exactly this question, and clients already poll it
-   * rather than the derivations; using it here applies the same rule on this side of the wire
-   * instead of trusting that nobody else touches the disk. It is the trade `graphDoc()` made
-   * first, and measured: a 4.8 ms directory walk against the ~280 ms it saves.
-   *
-   * The token describes the ACTIVE project, which every caller passes — `dir` is there because
-   * loading takes one, not because a second project can be cached beside it.
-   */
+
+  /** The compiled project, memoised against the REVISION rather than our own writes — docs/workspace.md. */
   cachedProjectDoc(dir: string): ProjectDoc {
     const rev = this.revision().rev;
     if (this.docCache && this.docCache.dir === dir && this.docCache.rev === rev)
@@ -997,36 +786,13 @@ export class Workspace {
   invalidateProjectDoc(): void {
     this.docCache = null;
     this.mutations++;
-    // …and tell the module watcher, which cannot learn this in time on its own: `fs.watch`
-    // delivers on a later tick, so a command that writes a module file and then rebuilds the
-    // graph in the same request would be told nothing had moved. See moduleWatch.ts.
+    // …and tell the module watcher, which `fs.watch` would only reach a tick later — moduleWatch.ts.
     moduleFoldersMoved();
   }
 
-  /**
-   * The token, held for the duration of ONE derivation.
-   *
-   * `graphDoc()` asked for it, then called `clipExtents()` → `cachedProjectDoc()`, which asked
-   * again — two full walks of the project per `GET /graph`, on a total cache HIT. `POST /command`
-   * managed four. Each is the 4.8 ms this file's own comment quotes, spent proving nothing had
-   * changed since the last one, microseconds earlier.
-   *
-   * Re-entrant rather than plumbed through the request: the nesting is already synchronous, so
-   * the outermost derivation opens the scope and the inner ones find it open. Exactly the shape
-   * `withModuleStamp` has in `@studio/song`, and for the same reason.
-   *
-   * `/revision` itself is unaffected — it is polled outside any scope and still walks.
-   */
+  /** The token, held for the duration of ONE derivation — re-entrant, see docs/workspace.md. */
   private revScope: string | null = null;
-  /**
-   * `seed` is a token the caller ALREADY holds, taken microseconds earlier and after the same
-   * write — `POST /command` gets one out of `recordChange`, which walked the tree to journal the
-   * mutation and can name the instant it finished for nothing. Opening the scope on it rather
-   * than on a fresh walk is the difference between one walk per phase and two.
-   *
-   * Only ever a token this class produced. A caller inventing one would be keying every memo
-   * under it on a lie.
-   */
+  /** `seed` is a token the caller already holds, and only ever one this class produced. */
   withRevision<T>(fn: () => T, seed?: string): T {
     if (this.revScope !== null) return fn(); // already inside one
     this.revScope = seed ?? this.freshRevision();
@@ -1037,27 +803,14 @@ export class Workspace {
     }
   }
 
-  // A cheap token that changes when the project's sources do, so clients poll it instead of the derivations.
-  // See docs/workspace.md for why it is a mutation counter plus a walk, and deliberately not a content hash.
+  // A cheap token that changes when the project's sources do — see docs/workspace.md.
   revision(): { rev: string } {
     return { rev: this.revScope ?? this.freshRevision() };
   }
 
   // --- the walk the three readers of the tree share --------------------------
-  /**
-   * ONE walk of the project, shared by everything that needs the shape of the tree at one
-   * instant — `withWalk` opens it, `revisionOf` / `textOf` / `binOf` read it.
-   *
-   * They were three walks, and a command that writes took six of them: the token before, the
-   * journal's two images before, the same two after, the token after. All of the same tree, with
-   * the same `skip()`, microseconds apart. Measured on the reference song (39 directories, 284
-   * files after `skip`): the readdir sweep is 2,1 ms and the stats on top of it 6,2 — so the
-   * three readers cost 16,4 ms per phase, of which two thirds was proving, twice over, what the
-   * first pass had just established.
-   *
-   * `sourcesOnly` is what keeps `/revision` as cheap as it was: polled every two seconds per
-   * tab, it wants the `.yaml` files alone and has no reason to stat a folder of wavs.
-   */
+
+  /** ONE walk of the project, opened by `withWalk` and read by three — see docs/workspace.md. */
   private walkScope: WalkedFile[] | null = null;
   private walkProject(dir: string, sourcesOnly = false): WalkedFile[] {
     const out: WalkedFile[] = [];
@@ -1096,14 +849,7 @@ export class Workspace {
     return out;
   }
 
-  /**
-   * Run `fn` over ONE walk of the active project, shared by everything inside it.
-   *
-   * Re-entrant and synchronous-only, exactly like `withRevision` above and for the same reason:
-   * the readers nest already, so the outermost opens the scope and the inner ones find it open.
-   * Nothing inside may WRITE — the whole promise is that every reader is describing the same
-   * instant, and a write in the middle would make half of them describe a different one.
-   */
+  /** Run `fn` over ONE walk of the active project; nothing inside may WRITE — docs/workspace.md. */
   private withWalk<T>(dir: string, fn: (files: WalkedFile[]) => T): T {
     if (this.walkScope !== null) return fn(this.walkScope);
     this.walkScope = this.walkProject(dir);
@@ -1118,27 +864,13 @@ export class Workspace {
   private freshRevision(): string {
     const dir = this.activeProject;
     if (!dir) return `none:${this.mutations}`;
-    // The walk a mutation already has open, when there is one — see `withWalk`. Otherwise its
-    // own, and a NARROW one: the token counts sources, so an unscoped poll never stats a folder
-    // of media. That is the whole reason `walkProject` takes the flag rather than always
-    // reporting everything — `/revision` is asked for every two seconds, per tab.
+    // The walk a mutation already has open, else its own and a NARROW one — see docs/workspace.md.
     return this.revisionOf(this.walkScope ?? this.walkProject(dir, true));
   }
 
-  /**
-   * The token, from a walk: the mutation counter, how many SOURCES there are, and the newest
-   * thing among them.
-   *
-   * One derivation whichever walk fed it, which is the half that must not drift — a token
-   * computed two ways is two answers to "has this project moved", and every memo in this file is
-   * keyed on it.
-   */
+  /** The token from a walk: the mutation counter, the SOURCE count, and the newest mtime. */
   private revisionOf(files: WalkedFile[]): string {
-    // …and the two files OUTSIDE the project that a derived view still reads: the engine's scan
-    // cache (`@engine/…` modules come out of it) and the machine's preferences (a channel's
-    // label). Two stats on a walk of hundreds, and without them the views memoised on this token
-    // were wrong after a plugin rescan or a `system channel set` until the next edit — which
-    // `hints()` already was, quietly, before anything else was keyed here.
+    // …and the two files OUTSIDE the project a derived view still reads — see docs/workspace.md.
     let newest = mtimeOf(EXTS_PATH);
     const prefsAt = mtimeOf(PREFS_PATH);
     if (prefsAt > newest) newest = prefsAt;
@@ -1152,6 +884,7 @@ export class Workspace {
   }
 
   // --- undo/redo journal -----------------------------------------------------
+
   // One ProjectHistory per active project, cached so the on-disk journal is read once.
   private history(dir: string): ProjectHistory {
     if (this.historyCache?.dir !== dir)
@@ -1159,23 +892,14 @@ export class Workspace {
     return this.historyCache.h;
   }
 
-  /**
-   * Run a project mutation and journal what it changed, so Ctrl+Z can undo it.
-   *
-   * The diff is taken by snapshotting the project's text files (small YAML) before and
-   * after and comparing — so it catches an edit however it was written, whether the editor
-   * PUT it or a command rewrote it. Binary files (a process bounce) are handled by the
-   * `snapshot(abs)` callback the mutation calls before overwriting one: it stashes the
-   * pre-image bytes, and the after-image is read from disk once the mutation returns.
-   */
+  /** Run a project mutation and journal what it changed, so Ctrl+Z can undo it — docs/workspace.md. */
   async recordChange<T>(
     label: string,
     mutate: (snapshot: (abs: string) => void) => T | Promise<T>,
   ): Promise<Recorded<T>> {
     const dir = this.activeProject;
     if (!dir) {
-      // No project, no journal — and no walk either: the token is `none:<mutations>`.
-      // `files: null` and not `[]`: nothing was diffed, so nothing is known.
+      // No project, no journal, no walk — and `files: null`, since nothing was diffed.
       const rev = this.revision().rev;
       return {
         value: await mutate(() => {}),
@@ -1197,8 +921,7 @@ export class Workspace {
     const before = this.treeShot(dir);
     const result = await mutate(snapshot);
     const after = this.treeShot(dir);
-    // Null until the diff has actually been taken — a throw below leaves it null, which is the
-    // client's "I don't know, re-ask everything" and never a false "nothing changed".
+    // Null until the diff is taken: a throw below must never read as a false "nothing changed".
     let files: ChangedFile[] | null = null;
     try {
       const changes = diffText(before.text, after.text);
@@ -1212,15 +935,7 @@ export class Workspace {
     return { value: result, before: before.rev, after: after.rev, files };
   }
 
-  /**
-   * The project at one instant, from ONE walk: the two images a diff compares, and the token
-   * that names the moment they were taken.
-   *
-   * The token comes back with them because it is free here and expensive anywhere else — the
-   * walk it needs is the walk that has just happened. `POST /command` used to take two of its
-   * own around this call, one either side, and each was a second pass over the tree this one had
-   * already crossed. See `withRevision`'s `seed`.
-   */
+  /** The project at one instant from ONE walk: two images and the token naming the moment. */
   private treeShot(dir: string): {
     text: Map<string, string>;
     bin: Map<string, string>;
@@ -1233,22 +948,7 @@ export class Workspace {
     }));
   }
 
-  /**
-   * Every text file's content, keyed by workspace-relative path — the before/after images a diff
-   * compares.
-   *
-   * Only files that MOVED are re-read: each one's size+mtime is checked against the last walk's,
-   * and the content is carried over when it matches. Every command takes two of these images —
-   * one before the mutation and one after — so a song of 180 small YAML files would read 360 of
-   * them to journal the one line a command rewrote, and the "before" image is almost always the
-   * "after" image of the command before it.
-   *
-   * The gate is the one `binOf` already trusts for binaries: a write that kept both the size and
-   * the sub-millisecond mtime would be missed, which no real write does.
-   *
-   * It takes the walk rather than doing one — it and `binOf` split the same tree between them
-   * (text here, binaries there) and used to cross it separately to do it. See `withWalk`.
-   */
+  /** Every text file's content, re-reading only what MOVED — see docs/workspace.md. */
   private textOf(files: WalkedFile[]): Map<string, string> {
     const out = new Map<string, string>();
     // Built fresh so a deleted file leaves the cache with it, rather than lingering for ever.
@@ -1328,9 +1028,7 @@ export class Workspace {
             path,
             dir: true,
             project: isProjectDir(childAbs) || undefined,
-            // WHICH app opens it, beside the flag that says one does. The home page's tree
-            // draws a departure per project and needs the name of where it leads — a `.z0`
-            // in an st0 workspace opens somewhere else, and that row must not guess.
+            // WHICH app opens it, beside the flag that says one does — that row must not guess.
             app: (isProjectDir(childAbs) && projectApp(e.name)) || undefined,
             children: this.walk(childAbs),
           }
@@ -1342,57 +1040,17 @@ export class Workspace {
           };
     });
   }
-  /**
-   * The file tree an editor draws: the ACTIVE PROJECT's own files, not the workspace's.
-   *
-   * A workspace is one git clone, and a clone holds whatever else the repository holds —
-   * other songs, a `_modules` library, mixdowns, an `orig/` full of foreign sessions. An app is
-   * opened ON one project and picks nothing itself, so showing all of that is
-   * showing the repository rather than the song. See docs/activeProject.md.
-   *
-   * Paths stay workspace-relative, because that is what every other route takes: only the
-   * ROOT of the walk moves, and `/file`, `/rename`, `/move` are unchanged. With no active
-   * project (nothing opened yet) it is the workspace, which is also what a lone-project
-   * workspace gives, its root being the project.
-   */
+  /** The file tree an editor draws: the ACTIVE PROJECT's own files — see docs/activeProject.md. */
   tree(): FileNode[] {
     return this.walk(this.activeProject ?? this.root);
   }
 
-  /**
-   * The WHOLE workspace as a tree — everything `tree()` deliberately leaves out.
-   *
-   * Its own method rather than a flag on `tree()`, because they answer different questions and
-   * only one of them is the editor's. This one is the home page's 'look inside' pane: the
-   * repository around the song, which is exactly what an editor must not draw and what
-   * somebody choosing a project wants.
-   *
-   * It replaces pl8's `/api/projects/:id/tree`, which read the same shape out of a bare mirror.
-   * Same `FileNode`, same `project` flag, same `skip()` — so the rows did not change when the
-   * source did.
-   */
+  /** The WHOLE workspace as a tree — the home page's 'look inside', not the editor's. */
   workspaceTree(): FileNode[] {
     return this.walk(this.root);
   }
 
-  /**
-   * The module libraries this project can reach, in precedence order, each as a tree.
-   *
-   * Its own answer and not a corner of `tree()`, because `tree()` deliberately shows the SONG
-   * and not the repository around it (see above): `_modules` and `_libraries` are outside the
-   * active project and are excluded from it on purpose. Reading them out of that tree is
-   * impossible, which is exactly the bug this replaced.
-   *
-   * The roots come from `@studio/song` — the project's own `modules/`, then `moduleLibraryDirs`
-   * — so this lists what the LOADER resolves against and cannot drift from it. Each carries the
-   * namespace `moduleNamespaceOf` gives it, which is the word a chain writes.
-   *
-   * A root that is not there is still REPORTED, with `exists: false` and no nodes. A level you
-   * could put a module in is a real answer, and the surface offers to create one; leaving it out
-   * would make "no library" and "an empty library" look the same when only one of them can be
-   * fixed by adding a module. `@st0` is the exception — it is a git submodule somebody has to
-   * mount, so an absent one is not a folder to fill in.
-   */
+  /** The module libraries this project can reach, in precedence order — see docs/workspace.md. */
   moduleLibraries(): ModuleLibrary[] {
     const dir = this.activeProject ?? this.root;
     const own = join(dir, "modules");
@@ -1417,26 +1075,11 @@ export class Workspace {
     return out;
   }
 
-  /**
-   * The CHAINS the account's library repository holds — what the chains builder lists.
-   *
-   * A chain is a folder holding a `graph.yaml`, at any depth under `chains/`, and nothing
-   * inside one is another: the médiathèque's own rule, and the same walk `processChain`'s
-   * `libraryChains` does for `@st0/…` refs. Restated rather than imported because that one is
-   * bound to a command's argument and this answers a browser — but the rule is one rule, and if
-   * it ever gains a case both have to learn it.
-   *
-   * `ref` is what the chain is CALLED (`process/normalize`), `path` where it is, workspace-
-   * relative, because that is the only address a browser may hand back. A missing submodule is
-   * an empty list, never a throw: an account with no library yet has no chains, which is a fact
-   * and not an error.
-   */
+  /** The CHAINS the account's library repository holds — see docs/workspace.md. */
   libraryChains(): { ref: string; path: string; nodes: string[] }[] {
     const root = librariesDirFor(this.activeProject ?? this.root, "chains");
     const out: { ref: string; path: string; nodes: string[] }[] = [];
-    // A chain's node files, by NAME — the folder holding them is fixed, and the caller addresses
-    // them under the chain's own `path`. A chain with no `nodes/` yet is a real state (one just
-    // created), so an unreadable folder is an empty list rather than a throw.
+    // A chain's node files by NAME; a chain with no `nodes/` yet is a real state, so never a throw.
     const nodesIn = (at: string): string[] => {
       try {
         return readdirSync(join(at, "nodes"), { withFileTypes: true })
@@ -1466,23 +1109,7 @@ export class Workspace {
     return out.sort((a, b) => a.ref.localeCompare(b.ref));
   }
 
-  /**
-   * The playlists this workspace holds — `_playlists/**\/*.yaml`, at any depth.
-   *
-   * Its own answer for the reason `moduleLibraries` is: `tree()` shows the active PROJECT, and
-   * `_playlists` sits at the workspace root beside `_modules`, so no amount of walking the song's
-   * own tree could ever find it (`docs/activeProject.md`).
-   *
-   * The workspace ROOT and not `../_playlists` beside the project, which is where the two module
-   * libraries live. A set list belongs to the repository rather than to one song in it — you
-   * build one once and open it against whichever project you are working in — and rooting it at
-   * the project would give a workspace of four songs four separate playlist folders.
-   *
-   * `title` and `count` come from PARSING each file, which is the whole of what a listing needs
-   * to draw a row. A file that does not parse is listed anyway, with `ok: false`: it is on the
-   * disk, and a listing that hid it would leave you unable to click the thing you have to go and
-   * repair — the same rule the médiathèque's scan followed for the family this replaced.
-   */
+  /** The playlists this workspace holds, at the ROOT and at any depth — see docs/workspace.md. */
   playlists(): {
     path: string;
     name: string;
@@ -1531,27 +1158,12 @@ export class Workspace {
     return out.sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  // `createPlaylist` was here, behind `POST /playlists`. Making a set list is `playlist new` now
-  // — a command, so it is in the palette, in the log and in the undo journal like every other act
-  // on that screen — and its handler holds the same three rules this had: the stub rather than an
-  // empty file, the extension added, an existing one refused. See @studio/commands.
+  // `createPlaylist` was here; making a set list is the `playlist new` command now.
 
-  /**
-   * Make an empty module in one of those libraries, and answer where its file landed.
-   *
-   * The folder is created on the way, which is what makes a level with `exists: false` an
-   * offer rather than a dead row: `_modules` need not be there for you to put the first module
-   * in it. Refuses an existing module rather than opening it — "create" that quietly returned
-   * somebody else's file is how you edit the wrong one.
-   *
-   * The stub is deliberately the smallest thing the loader will read: a module with no plugin
-   * yet is a folder you then fill in, and writing a fake `plugin.type` would be a guess that
-   * compiles into a real refusal later.
-   */
+  /** Make an empty module in one of those libraries, creating the folder on the way. */
   createModule(root: string, rel: string): { path: string; dir: string } {
     const segs = rel.split("/").filter(Boolean);
-    // At least a TYPE folder and a name: `audio/reverb` is the shortest thing the loader will
-    // key, and a folder dropped straight under a library is not a module however it is named.
+    // At least a TYPE folder and a name: `audio/reverb` is the shortest thing the loader will key.
     if (segs.length < 2)
       throw new Error(
         `a module is named <type>/<name> — '${rel}' names no type folder`,
@@ -1573,19 +1185,7 @@ export class Workspace {
     return { path: this.toRel(file), dir: this.toRel(dir) };
   }
 
-  /**
-   * The named bases the module at `rel` may be set to — its own `base/`, then every module it
-   * extends, nearest first.
-   *
-   * Off the LOADED refs rather than by listing `base/` here, because the ancestry is the whole
-   * value of the answer: the bases are snapshotted onto the shared module that names the plugin,
-   * and a song points at it through a thin local module whose own folder holds none. Listing that
-   * folder would offer nothing on exactly the module built to be chosen from — the mistake
-   * `moduleAssetChoices` exists to have stopped making for assets.
-   *
-   * An unreadable project is an empty list, never a throw: a builder asking what a module offers
-   * must not be the thing that reports a broken song somewhere else in it.
-   */
+  /** The named bases the module at `rel` may be set to, ancestors included — docs/workspace.md. */
   moduleBases(rel: string): string[] {
     const abs = this.safePath(rel);
     const dir = this.activeProject ?? this.root;
@@ -1594,8 +1194,7 @@ export class Workspace {
         string,
         { extends?: unknown; folderAbs?: unknown }
       >;
-      // The module being edited is addressed by its FILE, so its folder is that file's — and its
-      // `extends` is read from the same map, by whichever ref names this folder.
+      // The module is addressed by its FILE, so its folder is that file's, and its `extends` the map's.
       const folderAbs = dirname(abs);
       const self = Object.values(refs).find((m) => m.folderAbs === folderAbs);
       return moduleBaseChoices({ folderAbs, extends: self?.extends }, refs);
@@ -1604,31 +1203,13 @@ export class Workspace {
     }
   }
 
-  /**
-   * Where a named BASE goes: `base/<name>.vstpreset` beside the module file.
-   *
-   * A base is an opaque `.vstpreset` blob kept with the module, for the plugins whose sound is not
-   * in their automatable parameters — an Arturia patch is not, so `presets.yaml` (numbers only)
-   * cannot hold one. `base/` is its own folder rather than more files loose in the module folder,
-   * because the loader already reads `<name>.vstpreset` THERE as the module's single default and a
-   * second spelling in the same directory would be two rules over one namespace.
-   *
-   * Resolved HERE and not by the caller, twice over: the builder is forbidden from constructing a
-   * path at all (see `ModuleStore`), and a name that arrives from a browser is not a path component
-   * until something has said so. `basename` plus the separator strip is `renameEntry`'s rule, for
-   * the same reason — this name only ever names a file in one directory.
-   *
-   * Returns both spellings because both are needed and neither is derivable by its consumer: the
-   * ENGINE writes the absolute one (it is a different process), the browser is told the relative
-   * one (it has no idea where the workspace lives).
-   */
+  /** Where a named BASE goes: `base/<name>.vstpreset` beside the module file — docs/workspace.md. */
   baseSnapshotPath(rel: string, name: string): { abs: string; path: string } {
     const moduleAbs = this.safePath(rel);
     const clean = basename(name).replace(/[\\/]/g, "").trim();
     if (!clean || clean === "." || clean === "..")
       throw new Error(`invalid name: ${name}`);
-    // Spelt once, whether or not the user typed it — a base called `warm.vstpreset` and one
-    // called `warm` are the same base, and two files would be the surprise.
+    // Spelt once whether or not the user typed it: `warm` and `warm.vstpreset` are one base.
     const leaf = clean.endsWith(".vstpreset") ? clean : `${clean}.vstpreset`;
     const dir = this.safePath(this.toRel(join(dirname(moduleAbs), "base")));
     const abs = this.safePath(this.toRel(join(dir, leaf)));
@@ -1636,33 +1217,11 @@ export class Workspace {
     return { abs, path: this.toRel(abs) };
   }
 
-  /**
-   * The project list, re-scanned at most this often — see `workspaceInfo`.
-   *
-   * The same shape as engineLink's `RECONCILE_EVERY_MS`, and for the same reason: a poll asking
-   * a question whose answer almost never changes needs a floor under how often it may ask.
-   */
+  /** The project list, re-scanned at most this often — see `workspaceInfo` and docs/workspace.md. */
   private static readonly PROJECTS_RESCAN_MS = 5_000;
   private projectsCache: { at: number; list: string[] } | null = null;
 
-  /**
-   * What the workspace holds, and which project is open.
-   *
-   * Polled every two seconds by every tab, and what the poll actually WANTS is `activeProject`
-   * (another tab switched) and `lastTake` (a recording landed) — both free. `projects` is the
-   * expensive field by three orders of magnitude: 721 directories on a real workspace, 26 ms,
-   * to answer a question whose answer changes when somebody creates a project.
-   *
-   * So it is rescanned when this service MOVED one — `forgetProjects`, said by the three
-   * methods that create, import or recycle a project — and otherwise at most every five
-   * seconds. Not the revision token: that one describes the ACTIVE project, and a project
-   * appearing beside it does not move it.
-   *
-   * The window is what covers what those three cannot see: a folder created on disk by a hand
-   * outside this process, or arriving in a `git pull`. `cachedProjectDoc` refused that trade
-   * and had to — a stale COMPILE is confidently wrong about a song. A project list five seconds
-   * behind is a picker that has not noticed a folder yet, which is a wait, not a lie.
-   */
+  /** What the workspace holds and which project is open — polled every 2 s, docs/workspace.md. */
   workspaceInfo(): WorkspaceInfo {
     return {
       root: this.root,
@@ -1677,9 +1236,7 @@ export class Workspace {
     const hit = this.projectsCache;
     if (hit && Date.now() - hit.at < Workspace.PROJECTS_RESCAN_MS)
       return hit.list;
-    // From the ROOT, not `tree()`: this lists every project the workspace holds, and the
-    // tree now shows only the open one. The walk itself is shared with the home page's
-    // listing (`projectDirsUnder`), which asks the same question about every workspace at once.
+    // From the ROOT, not `tree()`, and through the walk the home page's listing shares.
     const list = projectDirsUnder(this.root);
     if (this.rootIsProject) list.unshift(".");
     this.projectsCache = { at: Date.now(), list };
@@ -1693,16 +1250,7 @@ export class Workspace {
     return { path: rel, binary: false, content: readFileSync(abs, "utf8") };
   }
 
-  /**
-   * Save a file — except in the shared module library, where the save lands on a project-local copy instead
-   * and the chains are repointed at it (see moduleFork.ts). `forked` is what the editor needs to follow the
-   * file it is now editing; a plain save returns nothing.
-   *
-   * ONE exception, and only one: a module's `ui.yaml`. A panel is drawn for the plugin, not for the song — every
-   * project that reaches for the same compressor wants the same face — so it is written where the module is, and
-   * forking a whole module to move a knob is precisely the copy nobody wanted. Everything a module IS stays
-   * read-only here: the fork is what "read-only" does instead of refusing. See docs/uiLibrary.md.
-   */
+  /** Save a file, forking a `_modules` one instead of refusing it — see docs/workspace.md. */
   write(
     rel: string,
     content: string,
@@ -1712,17 +1260,7 @@ export class Workspace {
     // The active project ABSOLUTE, which is how it is held.
     const active = this.activeProject;
 
-    /**
-     * A shared module used to need an exception here — the bench's `modules/` was a mirror of a
-     * machine-wide cache, so a save had to be pushed to the hosted médiathèque or the next open
-     * would discard it. There is no mirror and no push any more: the libraries are a git
-     * submodule inside the workspace, so `_libraries/…` is an ORDINARY path and falls through
-     * to the plain write below. What publishes it is `project commit`, which is somebody's
-     * decision rather than a side effect of typing. See `@studio/song`'s docs/sharedFolders.md.
-     *
-     * `_modules` is untouched by all of that and still forks: it is the WORKSPACE's own library,
-     * one copy backing every project beside it, and nothing has given it a way back.
-     */
+    // `_libraries/…` is an ORDINARY path now; only `_modules` still forks — docs/workspace.md.
     if (isInSharedModules(this.toRel(abs)) && basename(abs) !== UI_FILE) {
       const dir = this.requireActive();
       const forked = forkSharedModule(dir, abs, content);
@@ -1737,22 +1275,7 @@ export class Workspace {
     writeFileSync(abs, content, "utf8");
     this.invalidateProjectDoc();
 
-    /**
-     * The CHAIN bench's write-through, after the ordinary write rather than instead of it.
-     *
-     * A chain bench is a view of one chain in the library submodule (bench.ts), so the two files
-     * that ARE the chain go back to it: `graph.yaml`, translated at the edges the way it was
-     * translated on the way in, and the flat `nodes/` beside it. Everything else in the folder —
-     * the project, the scaffold's furniture — is the bench's own and stays here.
-     *
-     * The bench's LANE is in `nodes/` too, and is furniture: it is somewhere to put material
-     * while you listen, and has no business in a chain other projects load. It is kept back by
-     * NAME, which is the only thing that tells it apart — `chainToBench` puts `@in` under that
-     * name on the way in, and `chainFromBench` turns it back.
-     *
-     * A plain write into the submodule, where this used to also push to the hosted médiathèque.
-     * Committing is `project commit`.
-     */
+    // The CHAIN bench's write-through, after the ordinary write — see docs/workspace.md.
     const chain = active && benchChainOf(this.root, this.toRel(active));
     if (chain) {
       const rel = relative(active, abs).split(sep).join("/");
@@ -1768,14 +1291,7 @@ export class Workspace {
     return {};
   }
 
-  /**
-   * Drop a file into `dir` under `name`. Binary-safe, and throws EEXIST rather than clobbering.
-   *
-   * `name` may carry FOLDERS — `audio/reverb/module.yaml`. It could not, once, and that was fine while a drop
-   * was a flat list of files; a module is a folder of three files now, so "add this module" is a folder drop
-   * and a single segment cannot express it. Every segment is still checked: `..` is the only one that could
-   * escape, and `safePath` below refuses it too. Belt and braces, because this is a public write route.
-   */
+  /** Drop a file into `dir` under `name`, which may carry FOLDERS. Binary-safe, EEXIST rather than clobber. */
   uploadFile(dir: string, name: string, bytes: Buffer): { path: string } {
     const segs = name
       .split(/[\\/]+/)
@@ -1799,14 +1315,7 @@ export class Workspace {
     return { path: this.toRel(abs) };
   }
 
-  /**
-   * Make an empty folder `name` inside `dir`. Same shape as uploadFile — one path segment, no traversal, no
-   * clobber — because it is the same kind of act: putting something new into a folder the user pointed at.
-   *
-   * No guardMutable: that one asks "may this ENTRY be moved or destroyed", and creating inside the active
-   * project is the ordinary case, not the dangerous one. The recycle bin is still off-limits, since a folder
-   * made in there would be invisible and would look like a silent failure.
-   */
+  /** Make an empty folder `name` inside `dir` — uploadFile's shape, and no guardMutable. */
   createFolder(dir: string, name: string): { path: string } {
     const clean = basename(name).replace(/[\\/]/g, "").trim();
     if (!clean || clean === "." || clean === "..")
@@ -1823,22 +1332,12 @@ export class Workspace {
       throw err;
     }
     mkdirSync(abs, { recursive: true });
-    // An empty folder changes nothing the compiler reads, but the cached doc is also what the revision token is
-    // derived from — without this the tree would not refresh until something else touched the project.
+    // The compiler reads nothing new, but the token is what refreshes the tree.
     this.invalidateProjectDoc();
     return { path: this.toRel(abs) };
   }
 
-  /**
-   * The shared module library is read-only to every route.
-   *
-   * `_modules` is shared by every project in the workspace, so a save made while mixing one song would silently
-   * change the others. `module populate` rebuilds it from the plugin scan and writes it directly, not through
-   * here — which is what makes it the only writer. A UI edit lands as a project-local node instead
-   * (see routes/files.ts).
-   *
-   * Enforced HERE and not in the UI because the routes are reachable without it.
-   */
+  /** The shared module library is read-only to every route — see docs/workspace.md. */
   private guardShared(abs: string, verb: string): void {
     if (isInSharedModules(this.toRel(abs)))
       throw new Error(
@@ -1886,18 +1385,7 @@ export class Workspace {
     return { path: this.toRel(destAbs) };
   }
 
-  /**
-   * Move an entry into another folder — the file tree's drag-and-drop.
-   *
-   * The same move as renameEntry, aimed at a different parent instead of a different name, so it inherits the
-   * same three concerns: the workspace sandbox, no clobber, and Windows handles (a folder holding a wav the
-   * engine has mapped, or one the watcher is walking, fails with EPERM until they let go — hence cancelPrewarm
-   * and the retry).
-   *
-   * The tree already refuses to drop a folder into itself or its own descendant, but that check is re-done here:
-   * the route is reachable without the tree, and the filesystem's own answer to that move is either an obscure
-   * error or, worse, a folder that has swallowed itself.
-   */
+  /** Move an entry into another folder — renameEntry's three concerns, plus the self-descent check. */
   async moveEntry(rel: string, toDir: string): Promise<{ path: string }> {
     const abs = this.safePath(rel);
     this.guardMutable(abs, "move");
@@ -1956,12 +1444,7 @@ export class Workspace {
     return { path: newPath };
   }
 
-  /**
-   * Add one USE of a module. `rel` names the module being used — its folder or any file in it,
-   * same path handling as cloneModule — but the file lands in the project's flat `nodes/`,
-   * so what comes back is NOT under `rel`. Callers that reveal the new path in a tree must read
-   * the returned path rather than assume it sits beside what was clicked.
-   */
+  /** Add one USE of a module; the file lands in the project's flat `nodes/`, NOT under `rel`. */
   createNode(rel: string, node?: string): { path: string } {
     const abs = this.safePath(rel);
     let modDir = abs;
@@ -1969,8 +1452,7 @@ export class Workspace {
     const category = basename(dirname(modDir));
     const name = basename(modDir);
     const dir = this.requireActive();
-    // Unnamed is the ordinary case: the file tree's "new node" asks for a module and nothing
-    // else, so the name is `<module>_<n>`. No lane prefix — this one is not born in a chain.
+    // Unnamed is the ordinary case, so `<module>_<n>` — no lane prefix, this one is not born in a chain.
     const newPath = createNode(
       dir,
       category,
@@ -1981,14 +1463,7 @@ export class Workspace {
     return { path: newPath };
   }
 
-  /**
-   * The `ui.yaml` panel for a module file — the one the module editor's grid actually edits.
-   *
-   * The two files are siblings (see uiLibrary.ts), so this is `dirname` and nothing more; `rel` may be either
-   * of them, which is what lets a click on `ui.yaml` open the same builder as a click on `module.yaml`. The
-   * panel may not exist yet: this answers the path it WOULD take plus a scaffold, so a first save creates it
-   * through the ordinary write route rather than needing one of its own.
-   */
+  /** The `ui.yaml` panel beside a module file, or the path it WOULD take plus a scaffold. */
   moduleUi(rel: string): {
     ref: string;
     path: string;
@@ -2005,12 +1480,7 @@ export class Workspace {
     );
   }
 
-  /**
-   * Give a module the ENGINE provides a folder in this project, and repoint the chains at it.
-   *
-   * The one way a module without files gets some. A panel and a shelf are FILES in a module's folder, so
-   * wanting either for a scanned plugin is the moment it stops being ambient — see moduleFork.ts.
-   */
+  /** Give an ENGINE module a folder in this project and repoint the chains — see moduleFork.ts. */
   materialiseModule(ref: string): ForkedModule {
     const dir = this.requireActive();
     const out = materialiseEngineModule(dir, ref);
@@ -2018,13 +1488,7 @@ export class Workspace {
     return { ...out, path: this.toRel(join(dir, out.path)) };
   }
 
-  /**
-   * The `presets.yaml` for a module file — its named settings (see presets.ts).
-   *
-   * The module's third file, answered exactly like its panel: `rel` may name any of the three, an absent shelf
-   * comes back as the path it would take plus a header, and the first save creates it through the ordinary
-   * write route.
-   */
+  /** The `presets.yaml` for a module file — the third file, answered exactly like its panel. */
   modulePresets(rel: string): {
     ref: string;
     path: string;
@@ -2059,37 +1523,16 @@ export class Workspace {
   private localModuleRef(dir: string, abs: string): string | null {
     const segs = relative(dir, abs).split(sep);
     if (segs.length < 4 || segs[0] !== "modules") return null;
-    // Everything between the TYPE and the file is the module's name: `audio/reverb` keys as
-    // "reverb", `audio/amps/neural-amp-modeler` as "amps/neural-amp-modeler". One level of
-    // filing, which is what `loadModules` walks and what the médiathèque's catalogue uses.
-    //
-    // This was pinned at exactly four segments, so a filed module was "not a module file" —
-    // a 400 from /module-ui and /module-presets for a file plainly sitting in the tree. It
-    // could not happen while a project's own modules were always flat; the bench, whose
-    // `modules/` IS the catalogue, is the first project where they are not.
+    // Everything between the TYPE and the file is the name, so a FILED module keys too.
     return moduleRefOf(segs[1], segs.slice(2, -1).join("/"));
   }
 
-  /**
-   * Read the file back after a save. Formats NOTHING: the writers already emit canonical
-   * YAML, and reformatting a file a person hand-edited is exactly the reflow this format
-   * was chosen to avoid.
-   *
-   * Kept as an endpoint because both editors call it on save and use what comes back.
-   */
+  /** Read the file back after a save, formatting NOTHING — both editors call it and use the reply. */
   fmt(rel: string): FileContent {
     return this.read(rel);
   }
 
-  /**
-   * A derived view, memoised on the revision token — the rule `hints`, `graphDoc` and
-   * `projectDoc` each state for themselves, said once for the three below that had no cache
-   * at all and read the whole module vocabulary on every request.
-   *
-   * Same token and therefore the same guarantee: it moves for an edit made outside this service
-   * as well as for one of ours. `build` may only READ — everything keyed here is a projection of
-   * the folder, and a builder that wrote would be memoising its own side effect away.
-   */
+  /** A derived view memoised on the revision token; `build` may only READ — docs/workspace.md. */
   private derived = new Map<
     string,
     { dir: string; rev: string; value: unknown }
@@ -2104,8 +1547,7 @@ export class Workspace {
       this.derived.set(key, { dir, rev, value });
       return value;
     } catch {
-      // No project open, or a folder that will not read: the empty answer, never a cached one.
-      return empty;
+      return empty; // no project open, or a folder that will not read — never a cached answer
     }
   }
 
@@ -2114,12 +1556,7 @@ export class Workspace {
     return this.onRevision("ioPorts", (dir) => ioPorts(dir), []);
   }
 
-  /**
-   * The shared `_modules` catalogue — what the module builder lists.
-   *
-   * The paths come back workspace-relative, like every other path on the wire: a catalogue
-   * sits beside the projects, not inside one, and that is the only space the editor speaks.
-   */
+  /** The shared `_modules` catalogue, with workspace-relative paths like everything on the wire. */
   moduleCatalogue(): CatalogueModule[] {
     return this.onRevision(
       "moduleCatalogue",
@@ -2133,25 +1570,12 @@ export class Workspace {
     );
   }
 
-  /**
-   * Just the base-module refs — what the graph's `+` picker browses.
-   *
-   * Its own route because the picker used to wait on the whole of `hints()`: a click paid for the tracks, the
-   * clips, the plugin scan and the path map to show a list of modules. This is a fraction of that work and a
-   * fraction of the payload, and the shell prefetches it, so opening the picker awaits nothing.
-   */
+  /** Just the base-module refs — its own route so the graph's `+` picker never waits on `hints()`. */
   baseModules(): string[] {
     return this.onRevision("baseModules", (dir) => listBaseModules(dir), []);
   }
 
-  /**
-   * The editor's completion vocabulary, memoised on the revision exactly as the graph is.
-   *
-   * A pure read of the project folder, and st0 asks for it after EVERY command — the editor pane
-   * is mounted in every layout and refreshes with the tree — so a track's alternative switch was
-   * paying a full rebuild of the tracks, clips, params and path map for a pane that may not even
-   * be on screen. Same token as `graphDoc`, so an out-of-band edit still moves it.
-   */
+  /** The editor's completion vocabulary, memoised on the revision like the graph — docs/workspace.md. */
   private hintsCache: { dir: string; rev: string; hints: Hints } | null = null;
 
   hints(): Hints {
@@ -2202,11 +1626,8 @@ export class Workspace {
   }
 
   // --- export / share -------------------------------------------------------
-  //
-  // The four acts live in `shareOps.ts` and go only through the host below — the same seam as
-  // `projectLifecycle`, and for the same reason: `safePath` and `requireActive` need not become
-  // public API for a neighbouring module to render a mixdown.
 
+  // The four acts live in `shareOps.ts` and reach the workspace only through the host below.
   private shareHost(): ShareHost {
     return {
       root: this.root,
@@ -2228,31 +1649,19 @@ export class Workspace {
     return exportMix(this.shareHost(), format);
   }
 
-  /** The frozen snapshot `project share link` sends to pl8 — which three documents it carries,
-   *  and which three it deliberately leaves out, is shareOps.ts. */
+  /** The frozen snapshot `project share link` sends to pl8 — what it carries is shareOps.ts. */
   buildShare(): ShareBundle {
     return buildShare(this.shareHost());
   }
 
-  /**
-   * Render the snapshot and send it to pl8. Answers the secret the link is built from.
-   *
-   * The credential is NOT k7's `.settings.json` pair but the machine's own pl8 bearer —
-   * `mediatekBase()` / `mediatekToken()`, the `service:st0` token `npm run tokens` already writes
-   * into the supervisor's settings for the library pull. Sharing needed no new plumbing: this
-   * service has been talking to pl8 with it all along.
-   *
-   * A service token has no person of its own, so the user is named on every call (`?user=`) —
-   * the same arrangement, and the same accepted cost, that `/ssh-key/private` documents.
-   */
+  /** Render the snapshot and send it to pl8 on the machine's own bearer — see docs/mediatekLink.md. */
   async shareLink(
     userEmail: string,
   ): Promise<{ token: string; bytes: number }> {
     return shareLink(this.shareHost(), userEmail);
   }
 
-  /** Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for
-   *  artist and title — see shareOps.ts. */
+  /** Publish to k7; an unknown song throws NEEDS_META, which the route turns into a prompt. */
   async shareK7(opts: { artist?: string; title?: string }): Promise<K7Result> {
     return shareK7(this.shareHost(), opts);
   }
@@ -2290,9 +1699,7 @@ export class Workspace {
     };
     if (req.kind === "clip") {
       const p = this.cachedProjectDoc(dir);
-      // The grid, so a TIMECODE `from:`/`to:` becomes seconds here as it does in the compiler —
-      // the same pair waveformOps passes, and for the same reason: an imported song writes nearly
-      // all of its windows that way, and without it the definition comes back with none.
+      // The grid, so a TIMECODE `from:`/`to:` becomes seconds here as it does in the compiler.
       const grid = {
         tempo: p.tempo,
         num: p.timeSigNumerator,
@@ -2305,19 +1712,7 @@ export class Workspace {
       if (!clip) throw new Error(`no clip '${req.clip}'`);
       if (clip.type !== "audio")
         throw new Error(`'${req.clip}' is not an audio clip`);
-      /**
-       * The clip's own WINDOW, not the whole file — auditioning has to play what the clip plays.
-       *
-       * This returned `{0, 0}` and so played the file end to end, which for a take trimmed down to
-       * one bar of a five-minute pass meant the ▶ said nothing about the clip you were looking at.
-       * `sourceFrom`/`sourceTo` are the compiler's own answer in file seconds, timecode spelling
-       * already resolved (see AudioClipSchema), and on a placement they are the material's window
-       * already narrowed by the event's.
-       *
-       * A `to` that is absent — or not past the in-point, which is what an empty intersection
-       * leaves — stays a length of 0: the engine reads that as "to the end of the file", and it is
-       * the only honest thing to say about an extent no one here has opened the wav to measure.
-       */
+      // The clip's own WINDOW, not the whole file — see docs/workspace.md.
       const start = Math.max(0, clip.sourceFrom ?? 0);
       const to = clip.sourceTo ?? 0;
       return {
@@ -2367,8 +1762,7 @@ export class Workspace {
       y: t.y,
       w: t.w,
       h: t.h,
-      // Workspace-RELATIVE on the way out: the compiled doc holds absolute paths, and the
-      // browser fetches every byte back through this service's own media route.
+      // Workspace-RELATIVE on the way out: the browser fetches every byte back through /media.
       clips: t.clips.map((c) => ({
         id: c.id,
         name: c.name,
@@ -2379,24 +1773,14 @@ export class Workspace {
       })),
       // Shapes carry no media path — each variant's fields pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
-      // …and this lane's own video run. Nothing to rewrite: a shader's GLSL travels INLINE
-      // precisely so there is no path here for the browser to fetch back.
+      // …and this lane's own video run — a shader's GLSL travels INLINE, so there is no path here.
       ...(t.plugins?.length
         ? { plugins: t.plugins.map((p) => ({ ...p })) }
         : {}),
     }));
   }
 
-  /**
-   * Everything wrong with the project, from ONE layer — the compile itself, reusing the cache
-   * and parsing its throw.
-   *
-   * Wrapped in BOTH scopes, and it is the route that needed them most. It reads and writes
-   * nothing, which is the whole permission `withModuleStamp` asks for; without it,
-   * `notSupportedModules` and `libraryModuleIssues` each reached `loadModuleRefs` and each paid
-   * the module stamp walk over again. Measured on a real song: 48.5 ms became 29, and the 19 ms
-   * saved is one walk, not one read — both reads were already cache hits.
-   */
+  /** Everything wrong with the project, from the compile itself, in BOTH scopes — docs/workspace.md. */
   projectErrors(): { errors: string[]; diagnostics: Diagnostic[] } {
     return this.onRevision(
       "projectErrors",
@@ -2413,19 +1797,14 @@ export class Workspace {
   } {
     try {
       this.cachedProjectDoc(dir);
-      // Clean — but two things are non-blocking WARNINGS, so they surface here or nowhere: a
-      // "not_supported" plugin, and a library module that would not read. The second has no
-      // other symptom at all while nothing names it, which is exactly how it goes unnoticed
-      // until a song that used to play stops.
+      // Clean — but the non-blocking WARNINGS below surface here or nowhere at all.
       return {
         errors: [],
         diagnostics: [
           ...notSupportedModules(dir),
           ...libraryModuleIssues(dir),
           ...deadProjectFields(dir),
-          // A `surfaces/` file that will not read. The folder is optional and its absence is
-          // silent, but a surface that is THERE and malformed draws nothing — and a blank
-          // screen where a desk should be says less than the line that would not parse.
+          // A `surfaces/` file that is THERE and malformed draws nothing, and says nothing either.
           ...surfaceIssues(dir),
         ],
       };
@@ -2438,30 +1817,12 @@ export class Workspace {
     }
   }
 
-  /**
-   * The compiled document itself, for an app that drives the engine over its own socket.
-   *
-   * The same memoised compile every other view is built from — `withGroupMix`/`withoutVideo`
-   * are NOT applied, deliberately: those are the folds a SENDER does on the way to the engine
-   * (see docs/mixFolding.md), and doing them here would mean this route decided something the
-   * sender owns. The caller sends; the caller folds.
-   */
+  /** The compiled document itself, UNFOLDED — the caller sends, the caller folds. */
   engineDoc(): ProjectDoc {
     return this.cachedProjectDoc(this.requireActive());
   }
 
-  /**
-   * The compiled song as the BROWSER wants it, memoised on the revision.
-   *
-   * The compile underneath was already cached; this projection of it was not — the only one of
-   * the three derived views (`graphDoc`, `hints`, this) that rebuilt on every request. And it is
-   * the most asked-for: three components are mounted for the app's life and each fetches it on
-   * the same `reloadKey`, so one command meant three full re-maps of every track, clip and note
-   * per tab, plus three `JSON.stringify` of the whole song.
-   *
-   * Same token, same rule, same reason as the other two: it moves for an edit made outside this
-   * service as well as for one of ours.
-   */
+  /** The compiled song as the BROWSER wants it, memoised on the revision — docs/workspace.md. */
   private webDocCache: { dir: string; rev: string; doc: WebProject } | null =
     null;
 
@@ -2501,16 +1862,7 @@ export class Workspace {
     });
   }
 
-  /**
-   * The same folder read as PICTURE. Memoised on the revision, exactly as the song compile is and
-   * for the same reason: every other way of invalidating it serves a confidently wrong view
-   * after a `git pull`.
-   *
-   * A SECOND cache rather than a branch inside `cachedProjectDoc`, because the two compiles
-   * return different documents from the same folder — a song has a tempo, its picture has a
-   * viewport. Both are warm at once for a song that carries video, which is the ordinary case
-   * now that picture is a song's own and not a separate kind of project.
-   */
+  /** The same folder read as PICTURE, in a SECOND cache on the same token — docs/workspace.md. */
   cachedVideoDoc(dir: string): VideoProjectDoc {
     const rev = this.revision().rev;
     if (
@@ -2524,17 +1876,7 @@ export class Workspace {
     return doc;
   }
 
-  /**
-   * The project's picture, or an EMPTY one when it has none.
-   *
-   * Empty rather than a 400, and that is the whole reason this reads `video_tracks/` first: every
-   * song may carry picture now, so the editor asks every project for its frame and must be able
-   * to tell "this song has no picture" from "this song's picture will not compile". A throw for
-   * the ordinary case would make the second unreadable — the shell would show a compile error to
-   * anyone who ever opened a song without video.
-   *
-   * `viewport:` stays REQUIRED the moment there IS a lane, which is what the compile still says.
-   */
+  /** The project's picture, or an EMPTY one when it has none — never a throw, since every song may carry one. */
   videoProjectDoc(): WebVideoProject {
     const dir = this.requireActive();
     if (!isVideoProject(dir))
@@ -2573,42 +1915,16 @@ export class Workspace {
     }
   }
 
-  /**
-   * The routing graph the Chains tab draws — see graphDoc.ts. Memoised on `revision()`.
-   *
-   * Building it reads every chain, module, track, clip, sequence and curve in the song: ~280 ms on a real one,
-   * paid on EVERY fetch, and the Chains tab refetches after any command. That is most of the second a bypass
-   * click used to take, and it was spent re-deriving a picture that had not changed.
-   *
-   * Keyed on the revision token rather than on invalidateProjectDoc, which is what the compiled doc uses. The
-   * token is `mutations:fileCount:newestMtime` — so it moves for our own writes AND for an edit made outside the
-   * service (a git pull, another editor), where the mutation counter alone would sit still and serve a stale
-   * picture. Computing it costs a directory walk: 4.8 ms against the 278 ms it saves, and the frontend already
-   * polls it anyway.
-   */
+  /** The routing graph the Chains tab draws — graphDoc.ts, memoised on `revision()`, docs/workspace.md. */
   private graphCache: { dir: string; rev: string; graph: WebGraph } | null =
     null;
 
-  /**
-   * The project's declared surfaces, parsed, with whatever would not read.
-   *
-   * Not cached, unlike the graph beside it: a project has none or a handful of small files, so
-   * the walk is nothing, and a surface is edited exactly while somebody is looking at it — a
-   * cache keyed on the revision would be right and would still be a thing to get wrong for no
-   * measurable gain.
-   */
+  /** The project's declared surfaces, parsed, and deliberately NOT cached — docs/workspace.md. */
   surfaces(): ReturnType<typeof projectSurfaces> {
     return projectSurfaces(this.requireActive());
   }
 
-  /**
-   * The clip extents the graph draws its mini timelines from, or nothing.
-   *
-   * Off the MEMOISED compile, so this costs a map on a hit and a compile only when the project
-   * has moved — the same document the timeline is already served from. Failure is not fatal and
-   * is not reported here: a project that will not compile still has a graph, and the graph is
-   * the screen you fix it from. It simply loses the clip widths, which the node draws without.
-   */
+  /** The clip extents the graph draws its mini timelines from, off the MEMOISED compile, or nothing. */
   private clipExtents(dir: string): ClipExtents | undefined {
     try {
       return clipExtentsOf(this.cachedProjectDoc(dir));
@@ -2617,15 +1933,9 @@ export class Workspace {
     }
   }
 
-  // `at` builds the graph of a folder OTHER than the open project — a library chain, for the
-  // builder. The cache below already refuses to key on anything but the active project, which is
-  // why passing one costs nothing to explain: it takes the branch that was there for it.
+  // `at` builds the graph of a folder OTHER than the open project — a library chain, for the builder.
   graphDoc(at?: string): WebGraph {
-    // TWO scopes for the whole derivation, and both are the same idea one level apart. The
-    // revision token, because `clipExtents` below reaches `cachedProjectDoc`, which asks for it
-    // again. And the module stamp, because on a rebuild this compiles the project (one walk) and
-    // then builds the graph (another) — 19 ms each, both proving the module folders had not
-    // moved since the line before. Nothing here writes, which is the permission the stamp asks.
+    // TWO scopes for the whole derivation, one level apart — see docs/workspace.md.
     return this.withRevision(() =>
       withModuleStamp(at ?? this.activeProject ?? this.root, () =>
         this.graphDocIn(at),

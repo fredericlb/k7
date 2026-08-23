@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ampToDb, trimWindow } from "./trimGate";
 
-// Where a take starts and stops SOUNDING. A recorded take begins with the tail of a count-in and
-// the player settling, and ends with a room and a hand leaving a string: `event trim` cuts both by
-// asking where the envelope crosses a gate. The whole decision is here, so it is the whole test.
-//
-// Ten buckets over ten seconds: one bucket is one second, which keeps the arithmetic readable.
+// Where a take starts and stops SOUNDING, ten buckets over ten seconds — docs/trimGate.md.
 
 const db = (v: number) => 10 ** (v / 20); // dBFS → linear amplitude
 const LOUD = db(-6);
@@ -19,8 +15,7 @@ describe("finding the sound", () => {
   });
 
   it("keeps a bucket of margin, so the attack that crossed the gate is not clipped", () => {
-    // The gate says where sound BEGINS; cutting exactly there shaves the transient that crossed
-    // it, which is audible where a few silent milliseconds are not.
+    // Cutting exactly at the gate shaves the transient that crossed it — docs/trimGate.md.
     expect(trimWindow([0, LOUD, 0], 3, -40)).toEqual({ from: 0, to: 3 });
   });
 
@@ -49,8 +44,7 @@ describe("bounded to the clip's own window", () => {
   });
 
   it("clamps the margin to the interval, not to the file", () => {
-    // Sound in the interval's first bucket: the one-bucket widening would land at 2s, before the
-    // clip's own `from` — the cage holds it at 3s.
+    // The one-bucket widening would land at 2s, before the clip's `from`; the cage holds it at 3s.
     const env = [0, 0, 0, LOUD, 0, 0, 0, 0, 0, 0];
     expect(trimWindow(env, 10, -40, { from: 3, to: 7 })).toEqual({
       from: 3,
@@ -87,8 +81,7 @@ describe("bounded to the clip's own window", () => {
 
 describe("when there is nothing to keep", () => {
   it("answers null rather than trimming to nothing", () => {
-    // A take entirely below the gate is either silence or a gate set too high. Both are things to
-    // SAY; applying them would leave a clip of zero length that plays nothing.
+    // A take entirely below the gate is silence or a gate set too high — both are things to SAY.
     expect(trimWindow([0, 0, 0], 3, -40)).toBe(null);
     expect(trimWindow([QUIET, QUIET], 2, -40)).toBe(null);
   });
@@ -101,8 +94,7 @@ describe("when there is nothing to keep", () => {
 
 describe("the dB scale", () => {
   it("puts a zero bucket at the floor rather than at minus infinity", () => {
-    // Comparisons have to be total: -Infinity > gate is false, but so is NaN, and one of those is
-    // a bug waiting to happen.
+    // Comparisons have to be TOTAL: `-Infinity > gate` is false, but so is `NaN`.
     expect(ampToDb(0)).toBe(-100);
     expect(ampToDb(1)).toBeCloseTo(0, 6);
     expect(ampToDb(db(-20))).toBeCloseTo(-20, 6);

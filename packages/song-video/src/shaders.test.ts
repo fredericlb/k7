@@ -41,8 +41,7 @@ describe("moduleShaderChoices", () => {
   });
 
   it("skips a folder missing a stage — half a shader is not one", () => {
-    // Offering it would compile a program with no vertex stage and fail inside the compositor,
-    // where the message is about GL rather than about a file somebody has not finished.
+    // Offering it would fail inside the compositor, with a message about GL rather than a file.
     const folderAbs = shaderModule("glow", {
       pulse: "both",
       half: "fragment-only",
@@ -51,8 +50,7 @@ describe("moduleShaderChoices", () => {
   });
 
   it("walks the ANCESTRY — a thin local module offers the shared one's shaders", () => {
-    // The normal shape, and the mistake moduleAssetChoices exists to have stopped making: a song
-    // points at a shared module through one that `extends` it and carries nothing itself.
+    // The normal shape: a song points at a shared module through a thin local one.
     const shared = shaderModule("lib", { ripple: "both" });
     const local = shaderModule("local", {});
     expect(
@@ -96,15 +94,13 @@ describe("readShader", () => {
   });
 
   it("returns null for a name the module does not carry", () => {
-    // Null and not a throw: a song committed with a shader whose folder has not synced still
-    // opens, still draws, and loses the effect rather than the project.
+    // Null and not a throw: an unsynced shader folder loses the effect, not the project.
     const folderAbs = shaderModule("glow", { pulse: "both" });
     expect(readShader(root, { folderAbs }, {}, "ripple")).toBeNull();
   });
 
   it("refuses a ref that climbs out of the module", () => {
-    // Checked before any path is built. The value comes out of a YAML file, and `../` is exactly
-    // how a shared module's containment would be escaped.
+    // Checked before any path is built, `../` being how a module's containment is escaped.
     const folderAbs = shaderModule("glow", { pulse: "both" });
     expect(
       readShader(root, { folderAbs }, {}, "../glow/shaders/pulse"),

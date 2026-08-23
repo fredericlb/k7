@@ -79,9 +79,7 @@ import {
 } from "./yaml/moduleIO";
 import { parsedYaml } from "./yaml/yamlCache";
 
-// The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine
-// catalogue can share it without importing this file. Re-exported here because this is
-// where every consumer already looks for it.
+// The module vocabulary lives in moduleTypes.ts, a leaf with no filesystem; re-exported here where every consumer looks.
 export {
   categoryForRole,
   FILE_PARAMS,
@@ -106,13 +104,7 @@ export const isVideoSource = (source: string): boolean =>
 export const exportSub = (dir: string, sub: string): any =>
   readYamlEntities(dir, sub).values;
 
-/**
- * The YAML entities in `sub`, keyed by id (the filename), plus any problems.
- *
- * Validated against the kind's schema when there is one — clips, sequences, curves and
- * video tracks all have one now (yaml/entitySchemas.ts). A folder this doesn't know is
- * read but not checked, rather than refused.
- */
+// The YAML entities in `sub` keyed by id, validated against the kind's schema when there is one (yaml/entitySchemas.ts).
 export function readYamlEntities(
   dir: string,
   sub: string,
@@ -123,10 +115,7 @@ export function readYamlEntities(
   if (!existsSync(folder)) return { values, issues };
   const schema = (ENTITY_SCHEMAS as Record<string, ZodType | undefined>)[sub];
   for (const { id, file } of entityFiles(folder, sub)) {
-    // Cached only when a schema is going to rebuild the result: with one, `r.data` below is
-    // zod's own fresh structure and the cached parse never leaves this loop. Without one the
-    // raw itself is what the caller gets, and a cached object handed out is a shared object.
-    // `tracks` is the only kind with no schema, and no compile path reads it.
+    // Cached only when a schema will rebuild the result, since a cached object handed out raw is a shared object.
     const raw = schema
       ? parsedYaml(file.path)
       : parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" });
@@ -151,8 +140,7 @@ export function resolveRackAudio(
   folderAbs: string,
 ): RawRack | undefined {
   if (!rack || typeof rack !== "object") return rack;
-  // `assets/` first when the file is actually there, so a rack's samples follow the same
-  // convention as `ir`/`nam` — and a shelf laid out the old way, beside module.yaml, still loads.
+  // `assets/` first when the file is there, so a rack's samples follow the `ir`/`nam` convention and an old layout still loads.
   const at = (f: unknown) =>
     typeof f === "string" && f
       ? isAbsolute(f)
@@ -167,14 +155,7 @@ export function resolveRackAudio(
 
 // --- a module's own assets (see docs/moduleAssets.md) ----------------------------
 
-/**
- * A module's ports: its OWN when it declares them, else its type folder's defaults.
- *
- * One rule, one place. `inputs`/`outputs` used to come straight off MODULE_TYPES at three call
- * sites, which is exactly the shape a rule drifts in — and it made a module's port count a
- * property of its FOLDER, so "two audio inputs" could not be said at all. The two lists are
- * independent: a module may name its inputs and inherit its outputs. See docs/ports.md.
- */
+// A module's ports: its OWN when it declares them, else its type folder's defaults, the two lists independent (docs/ports.md).
 function portsOf(
   value: Record<string, unknown> | null | undefined,
   meta: (typeof MODULE_TYPES)[keyof typeof MODULE_TYPES],
@@ -189,24 +170,13 @@ function portsOf(
   };
 }
 
-/** Where a module keeps the files it loads, inside its own folder. Defined in assetPath.ts,
- *  the leaf the ancestry fold shares, and re-exported here where every caller already looks. */
+/** Where a module keeps the files it loads: defined in assetPath.ts, re-exported here where every caller already looks. */
 export { MODULE_ASSETS_DIR };
 
 /** What an asset folder holds — one extension per file-valued param, see FILE_PARAMS. */
 const ASSET_EXT = [".nam", ".onnx"];
 
-/**
- * A module's own `assets/<ref>`, or undefined. Confined to that folder — a `../..` reference
- * is refused rather than resolved, so a module cannot reach outside itself for its sound.
- *
- * Falling back to the machine's model cache is the ONE exception, and it is not a hole in that
- * rule: the ref is still a plain name under `assets/`, still refused if it climbs out, and the
- * cache is only consulted for the name that survived the check. What it buys is a model too big
- * to travel — `moduleAssets.md` argues a module carries its material so it survives a fork, and
- * that argument inverts past a few hundred megabytes, where `forkSharedModule`'s recursive copy
- * would duplicate the file per fork, per médiathèque upload and per machine synced to.
- */
+// A module's own `assets/<ref>`, confined to that folder, with the machine's model cache as the ONE fallback (docs/moduleAssets.md).
 export function resolveModuleAsset(
   ref: unknown,
   folderAbs: string | undefined,
@@ -214,20 +184,7 @@ export function resolveModuleAsset(
   return resolveModuleAssetIn(ref, [folderAbs]);
 }
 
-/**
- * The file-valued params a module names, resolved absolute, plus `assets` keeping what was
- * AUTHORED for validate() to report against.
- *
- * They are read out of `params:`, because that is what they are: a .nam model is one of the
- * plugin's controls, sitting in the panel beside Input and Output. Its own top-level field made
- * it a second kind of thing to find, edit and merge — and `params` merges per key, so a
- * node overriding just the model is now the same edit as overriding a gain.
- *
- * Everything resolves inside the module's OWN folder. A module that carries its amp profile is
- * self-contained: it travels through a fork, an upload to the médiathèque and a sync onto
- * another machine with its sound intact, the way its `.vstpreset` and its jsdsp source already
- * do. There is no shared library to fall through to any more.
- */
+// The file-valued params a module names, resolved absolute inside its OWN folder — see docs/moduleAssets.md.
 export function resolveAssets(
   m: Record<string, unknown> | null | undefined,
   folderAbs?: string,
@@ -246,15 +203,7 @@ export function resolveAssets(
   };
 }
 
-/**
- * The files a module carries, as `assets/`-relative POSIX paths — what its file-valued params
- * may be set to, and what the panel's dropdown offers.
- *
- * Walked RECURSIVELY and kept nested, because that is how these arrive: a NAM pack is a folder
- * per amp. Flattening a hundred models into one list is what made the old library picker
- * unusable. Depth-capped and symlink-blind (readdirSync does not follow them for isDirectory),
- * so a pathological tree cannot hang a UI request.
- */
+// The files a module carries, as `assets/`-relative POSIX paths, walked recursively and kept NESTED (docs/moduleAssets.md).
 export function listModuleAssets(folderAbs: string): string[] {
   const MAX_DEPTH = 6;
   const out: string[] = [];
@@ -287,11 +236,7 @@ function readModuleTree(
   root: string,
   key: (type: string, name: string) => string,
   out: Record<string, LoadedModule>,
-  // Where a module file that would not READ is reported. A library's modules used to be
-  // dropped in silence here, and the shape of that failure is the problem: the ref simply
-  // stops existing, so every symptom downstream describes something else — "extends unknown
-  // module" about a file sitting right there, a catalogue three rows short, a module that
-  // stopped making a sound. The file's own complaint is the answer to all three.
+  // Where a module file that would not READ is reported, because dropping one silently makes every symptom describe something else.
   issues: Diagnostic[] = [],
 ): void {
   // `relDir` is the folder's PARENT, `leaf` names the preset/IR, `sub` is the ref suffix ("adt" or "delay/adt").
@@ -308,14 +253,12 @@ function readModuleTree(
     const read = readModuleFile(file);
     if (read.issues.length)
       issues.push({
-        // Named by its REF, not by a path: the file is outside the project, so a
-        // project-relative path would point at nothing, and the ref is what a chain says.
+        // Named by its REF, not by a path: the file is outside the project, and the ref is what a chain says.
         file: `${key(type, sub)}/${basename(file.path)}`,
         line: 1,
         col: 1,
         severity: "warning",
-        // Phrased to read on its own AND inside a sentence, since the ref check quotes it
-        // ("extends 'x', which did not load — …").
+        // Phrased to read on its own AND inside a sentence, since the ref check quotes it.
         message: `did not load — ${read.issues.join("; ")}`,
       });
     const m = read.value;
@@ -333,16 +276,13 @@ function readModuleTree(
           : undefined,
         kind: meta.kind,
         ...portsOf(value, meta),
-        // The type FOLDER and the module's own folder, as loadModules records them — what
-        // says whether a midi-input module gives back audio or midi (see graph's toModule).
+        // The type FOLDER and the module's own folder, which is what says whether a midi-input module gives back audio or midi.
         category: type,
         file: leaf,
         node,
-        // What state this module loads: the `base:` it chose, else a node's own .vstpreset, else
-        // the folder's default. See presetFor.
+        // What state this module loads: its chosen `base:`, else a node's own .vstpreset, else the folder's default.
         preset: presetFor(folder, leaf, node, value.base),
-        // …and its DSP source, resolved against ITS OWN folder — unlike an asset, which follows the opened song.
-        // A shared module carries its source the way it carries its preset: the folder is the module.
+        // …and its DSP source, resolved against ITS OWN folder rather than the opened song: the folder IS the module.
         ...dspSourceFor(value, folder),
         // …and the files its params name, out of its OWN assets/ — a borrowed module brings its own.
         ...resolveAssets(value, folder),
@@ -351,9 +291,7 @@ function readModuleTree(
       }) as LoadedModule;
 
     out[key(type, sub)] = decorate(m);
-    // The nodes beside module.yaml, keyed like a local one ("IN:in-1") under the ref.
-    // Without these an inherited node is unnameable: `module populate` files one io/IN
-    // per interface input, and a chain has to be able to say WHICH input it takes.
+    // The nodes beside module.yaml, keyed like a local one under the ref; without these an inherited node is unnameable.
     for (const { node, file: ifile } of nodeFiles(
       folder,
       `${relDir}/${leaf}`,
@@ -406,20 +344,7 @@ function readModules(dir: string): ModulesRead {
   for (const [type, meta] of Object.entries(MODULE_TYPES)) {
     const abs = join(bdir, type);
     if (!existsSync(abs) || !statSync(abs).isDirectory()) continue;
-    /**
-     * The module folders under one type, ONE level of filing allowed — `audio/reverb` and
-     * `audio/amps/neural-amp-modeler` both, with the second keyed `amps/neural-amp-modeler`.
-     *
-     * `readModuleTree` has always done exactly this for the shared libraries, and the
-     * médiathèque files its catalogue that way. A project's own `modules/` did not, and a
-     * folder with no `module.yaml` in it was simply skipped — so a nested module was not an
-     * error, it just was not there. Every symptom then described something else: a chain
-     * naming a module "this project doesn't have", a catalogue short a few rows, and — for
-     * the module bench, whose `modules/` IS the catalogue — a builder answering 400 for a
-     * file sitting right in the tree.
-     *
-     * Two walkers over one vocabulary had to agree; this is the one that was behind.
-     */
+    // The module folders under one type, ONE level of filing allowed — see docs/graphModel.md.
     const folders: { name: string; folder: string }[] = [];
     for (const entry of readdirSync(abs)) {
       const folder = join(abs, entry);
@@ -445,8 +370,7 @@ function readModules(dir: string): ModulesRead {
     }
     for (const { name, folder } of folders) {
       const relDir = `modules/${type}/${name}`;
-      // A module folder is its `module.yaml` and nothing else now. Uses of a module are
-      // files in the project's flat `nodes/` — see the pass below and docs/nodes.md.
+      // A module folder is its `module.yaml` and nothing else now; uses live in the flat `nodes/` (docs/nodes.md).
       const generic = moduleFileFor(folder, relDir, "module");
       let module: Record<string, unknown> | null = null;
       if (generic) {
@@ -462,12 +386,9 @@ function readModules(dir: string): ModulesRead {
         value: Record<string, unknown>,
         node?: string,
       ): LoadedModule => {
-        // The module's OWN folder name, which is the last segment of `name` — a filed module
-        // is keyed `amps/neural-amp-modeler` and its preset sits beside its module.yaml as
-        // `neural-amp-modeler.vstpreset`, not under a further `amps/` that is not there.
+        // The module's OWN folder name, the last segment of `name`, since its preset sits beside its module.yaml.
         const leaf = name.slice(name.lastIndexOf("/") + 1);
-        // The chosen `base:` first, then this node's own, then the generic — so a UI edit on one
-        // node never touches a sibling's, and a named base beats both. See presetFor.
+        // The chosen `base:` first, then this node's own, then the generic, so a UI edit never touches a sibling's.
         const preset = presetFor(folder, leaf, node, value.base);
         // Seam cast: `value` passed the module schema (or a merge of two structs that did).
         return {
@@ -499,15 +420,7 @@ function readModules(dir: string): ModulesRead {
   return { out, raw, yamlIssues };
 }
 
-/**
- * A fresh map of fresh modules, so a cached read never leaves this file.
- *
- * Callers ADD to the map they are handed (`ioPorts` files the project's own io modules into it),
- * and both loaders STAMP panels onto the modules they hand back — `applyUiLibrary` writes `ui`
- * and `cc` in place, by two different rules. Sharing either would let one caller's overlay decide
- * what the next one sees. Aliases survive: a module filed under two refs stays one object, which
- * is what `loadModuleRefs` has always keyed a bare and a `@project/` ref as.
- */
+// A fresh map of fresh modules, so a cached read never leaves this file — see docs/graphModel.md.
 function cloneModules(
   src: Record<string, LoadedModule>,
 ): Record<string, LoadedModule> {
@@ -524,25 +437,10 @@ function cloneModules(
   return out;
 }
 
-/**
- * One module-stamp walk for a series of reads — moduleCache.ts's, re-exported here.
- *
- * Here rather than through a subpath of its own because a caller that wants it is, by
- * definition, a caller making several of the calls below in a row, and this is the door it
- * already came through. `compileNodeProject` and `loadGraph` wrap themselves; a caller that
- * makes two of THOSE, or two diagnostics, has to say so — and may only say it if it writes
- * nothing, since a stale stamp would serve a module under a name nobody wrote.
- */
+// One module-stamp walk for a series of reads, re-exported from moduleCache.ts — usable only by a caller that WRITES nothing.
 export { withModuleStamp };
 
-/**
- * A project's modules, keyed by the name a chain writes.
- *
- * The READ is memoised on the module folders' stamp (moduleCache.ts); `validate` is not, because
- * it is a judgement on what was read and costs nothing once the files are parsed. That is also
- * why the two flavours share one cache entry: they load exactly the same thing and differ only
- * in whether a bad file is fatal here or reported downstream.
- */
+// A project's modules keyed by the name a chain writes; the READ is memoised on the folders' stamp, the validation is not.
 export function loadModules(
   dir: string,
   validate = false, // off by default — see docs/loader.md ("loadModules internals")
@@ -560,23 +458,7 @@ export function loadModules(
 /** The project's uses of modules: `nodes/<name>.yaml`, flat, filename IS the name. */
 export const NODES_DIR = "nodes";
 
-/**
- * Load `nodes/` into `out`, keyed by the bare filename — the name a chain writes.
- *
- * FLAT, and that is the point: a node no longer mirrors the tree of what it uses, so a
- * project's uses are one folder you can read at a glance instead of leaves scattered under
- * `modules/<type>/<name>/`. The file is a module file — the same schema as `module.yaml`,
- * which is what lets a node be self-contained.
- *
- * The loader deliberately does NOT decorate these with `category`, `kind` or `inputs`. A flat
- * folder has no type folder to read them off, so they arrive from whatever the node
- * `extends`, through resolveModule — leaving them absent here is what lets that inheritance
- * happen (see moduleResolve's OWN_ONLY). A node that extends nothing has no ports, and
- * `validate` is what says so.
- *
- * `preset`, `jsdsp` and `assets/` resolve against `nodes/` itself: what belongs to a use
- * of a module sits beside that use.
- */
+// Load `nodes/` into `out`, keyed by the bare filename, undecorated so inheritance can fill it — see docs/nodes.md.
 function loadNodes(
   dir: string,
   out: Record<string, LoadedModule>,
@@ -590,8 +472,7 @@ function loadNodes(
     yamlIssues.push(...read.issues);
     const value = read.value;
     if (!value || typeof value !== "object") continue;
-    // A module folder and a node file cannot both answer to one name: a chain naming it
-    // would be ambiguous, and silently letting one win is how a project plays the wrong thing.
+    // A module folder and a node file cannot both answer to one name, since letting one silently win plays the wrong thing.
     if (node in out) {
       yamlIssues.push(
         `${file.rel}: '${node}' is already a module in this project — a node cannot take its name`,
@@ -599,8 +480,7 @@ function loadNodes(
       continue;
     }
     raw.push({ rel: file.rel, module: value });
-    // A node picks its base like anything else it overrides — `base: warm` in its own file — and
-    // that is what makes the choice PER INSTANCE: two nodes of one module can sit on two bases.
+    // A node picks its base like anything else it overrides, which is what makes the choice PER INSTANCE.
     const preset = presetFor(folder, node, node, value.base);
     out[node] = {
       ...value,
@@ -621,30 +501,16 @@ function loadNodes(
   }
 }
 
-/**
- * The refs a local module's OWN FILES may be filed under, best first.
- *
- * Its own — a module this project wrote has its own face. Then the module it DERIVES
- * from: a folder of nodes is one use of something the engine or the library provides,
- * and a panel is drawn for the thing, not for each use of it. Without the fallback, moving
- * a project off the generated catalogue orphaned every panel that had been drawn for a
- * shared module — the same "No Options over a panel that is right there" as before, one
- * level further out.
- *
- * Exported because WRITING one of those files has to land where reading looks: `module cc`
- * resolves a chain's module name to a folder through exactly this list (see controller.ts).
- */
+// The refs a local module's OWN FILES may be filed under, best first — its own, then what it derives from (docs/graphModel.md).
 export function moduleOwnRefs(m: LoadedModule): string[] {
   const from = typeof m.extends === "string" ? m.extends : "";
-  // A project's own module answers to two refs — bare and "@project/…" — and a node may
-  // have been written with either. Both are tried, so a panel drawn once is found either way.
+  // A project's own module answers to two refs, bare and "@project/…", so both are tried and a panel drawn once is found.
   const spellings = from
     ? from.startsWith("@project/")
       ? [from, from.slice("@project/".length)]
       : [from, `@project/${from}`]
     : [];
-  // A node has no type folder, so it has no ref of its own to be filed under: its panel
-  // is the panel of what it uses. Without this it asked for "undefined/<name>" and got nothing.
+  // A node has no type folder and so no ref of its own: its panel is the panel of what it uses.
   if (!m.category)
     return spellings.length ? spellings : [engineRef(String(m.file))];
   const own = moduleRefOf(String(m.category), String(m.file));
@@ -653,30 +519,18 @@ export function moduleOwnRefs(m: LoadedModule): string[] {
     : [own, engineRef(String(m.file))];
 }
 
-/**
- * Overlay the panels found beside the modules onto a module map, by ref.
- *
- * Applied at the SOURCE — here and in readModuleTree — so every consumer (the graph, the engine doc, hints,
- * the web) sees the panel without knowing the library exists. A panel replaces the module's own `ui:` whole,
- * for the same reason an inherited grid does: half of one author's layout inside another's is a grid nobody
- * drew.
- *
- * Nodes share their generic's ref, so a panel drawn once shows on every node — which is what the
- * generic-wins rule already said, back when panels lived in the module file.
- */
+// Overlay the panels found beside the modules onto a module map, by ref, replacing a module's own `ui:` WHOLE (docs/uiLibrary.md).
 function applyUiLibrary(
   dir: string,
   out: Record<string, LoadedModule>,
-  // One ref, or several to try in order — a module may answer to its own and to the one it
-  // is a use of. First hit wins, so the specific beats the general.
+  // One ref, or several tried in order, first hit winning — so the specific beats the general.
   refOf: (m: LoadedModule, key: string) => string | string[],
 ): void {
   applyByRef(out, refOf, loadUiLibrary(dir).byRef, "ui", (e) => e.ui);
   applyByRef(out, refOf, loadControllerLibrary(dir).byRef, "cc", (e) => e.cc);
 }
 
-/** Stamp a folder-keyed sibling file onto every module that answers to its ref. The panel and the
- *  MIDI map are found the same way and land the same way; only the field differs. */
+/** Stamp a folder-keyed sibling file onto every module that answers to its ref; the panel and the MIDI map differ only in field. */
 function applyByRef<E>(
   out: Record<string, LoadedModule>,
   refOf: (m: LoadedModule, key: string) => string | string[],
@@ -741,36 +595,14 @@ export interface Diagnostic {
   severity?: "error" | "warning";
 }
 
-/**
- * The modules of the libraries this project inherits that would not READ.
- *
- * A library module that fails its schema is dropped from the ref map — it has to be, the
- * value is null — and until now that was the end of it. Nothing said so anywhere, and the
- * failure wears three different disguises depending on who asks next: the compiler reports
- * "extends unknown module" about a file that is plainly on disk, the builder's catalogue is
- * quietly short a row, and a song that played yesterday loses a sound. Two real bugs hid
- * behind exactly that silence, in the same afternoon.
- *
- * A WARNING and not an error: a library holds modules this project may never name, and one
- * of them being unreadable is not this project's failure to compile. It becomes an error the
- * moment something references it — see nodeProject's ref check, which reads these to say
- * "failed to load" rather than "unknown".
- */
+// The modules of the inherited libraries that would not READ — a warning, becoming an error only once named (docs/graphModel.md).
 export function libraryModuleIssues(dir: string): Diagnostic[] {
   const issues: Diagnostic[] = [];
   loadModuleRefs(dir, undefined, issues);
   return issues;
 }
 
-/**
- * Fields a project still declares that nothing reads any more.
- *
- * `modules_from` and `libraries_from` listed the shared folders; those are found by location
- * now, and the list could only ever have named the same two places. The schema still ACCEPTS
- * them — every song already written carries them, and refusing the key would turn a working
- * project into one that will not open — so this is what stops "accepted" from meaning
- * "silently ignored", which is the failure mode this codebase keeps paying for.
- */
+// Fields a project still declares that nothing reads any more, so "accepted" never quietly means "ignored" (docs/sharedFolders.md).
 export function deadProjectFields(dir: string): Diagnostic[] {
   let root: RawProjectRoot;
   try {
@@ -779,8 +611,7 @@ export function deadProjectFields(dir: string): Diagnostic[] {
     return []; // an unreadable header is the compile's error, not this
   }
   const project = root.project as Record<string, unknown> | undefined;
-  // Project-RELATIVE, like every other Diagnostic: `rel` comes back rooted ("/project.yaml")
-  // for a file at the top, and the editor matches these against its own tree paths.
+  // Project-RELATIVE, like every other Diagnostic, because the editor matches these against its own tree paths.
   const file = (
     entityFileFor(dir, "", "project")?.rel ?? "project.yaml"
   ).replace(/^\/+/, "");
@@ -827,21 +658,14 @@ export function notSupportedModules(dir: string): Diagnostic[] {
   return out;
 }
 
-/**
- * A project's LANES, keyed by node name — what `loadTracks` used to hand back.
- *
- * There is no `tracks/` folder to open: a lane is a node of a `@studio/…-track` module, read
- * by `loadNodes` with every other node, so the whole of this is fold the `extends` chains
- * and keep the ones that came out a lane. See docs/trackModules.md.
- */
+// A project's LANES keyed by node name: there is no `tracks/` folder, only the nodes that fold out to one (docs/trackModules.md).
 export function loadLanes(dir: string, validate = false): Record<string, Lane> {
   return lanesOf(
     resolveModuleMap(loadModules(dir, validate), loadModuleRefs(dir)),
   );
 }
 
-// Video lanes, a flat-per-file layout of their own (video_tracks/<id>.yaml) — still an entity,
-// deliberately: picture shares nothing with a song's lanes but the folder it sits in.
+// Video lanes, still an ENTITY of their own (video_tracks/<id>.yaml): picture shares nothing with a song's lanes.
 export function loadVideoTracks(
   dir: string,
   validate = false,
@@ -876,8 +700,7 @@ export function loadSettings(
   return r.success ? r.data : {};
 }
 
-// Read one entity file. Nothing validates here any more — the one kind that did was the track,
-// and a lane is a module now, vetted by `parseModule` like every other node.
+// Read one entity file; nothing validates here any more, since the one kind that did was the track and a lane is a module.
 function readEntityFile(
   file: { path: string; rel: string },
   _sub: string,
@@ -909,10 +732,7 @@ function loadEntities<T>(
   return out;
 }
 
-/**
- * The project's ROOT — `project`, `trackOrder`, `markers` — from `project.yaml`.
- * `chains` is read separately (see loadChains).
- */
+// The project's ROOT — `project`, `trackOrder`, `markers` — from `project.yaml`; `chains` is read separately.
 export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
   const file = entityFileFor(dir, "", "project");
   if (!file) return {};
@@ -934,11 +754,7 @@ export function loadProjectRoot(dir: string, validate = false): RawProjectRoot {
   return r.data;
 }
 
-/**
- * The project's routing segments, from `graph.yaml` when it exists, else from
- * `root.chains` (a project may inline them in project.yaml). The chains themselves are
- * derived from this — see chainsGraph.ts.
- */
+// The project's routing segments, from `graph.yaml` when it exists, else inlined in project.yaml (chainsGraph.ts derives the runs).
 export function loadChains(
   dir: string,
   root: RawProjectRoot,
@@ -956,19 +772,7 @@ export function loadChains(
   return value;
 }
 
-/**
- * The songs the desk's CUE SHEET names, from `mix.yaml` — deduplicated and sorted. Empty for a
- * project that has no such file, which is every st0 song: the sheet belongs to a set, and its
- * absence is not a fault.
- *
- * It is NOT the set list, and has not been since the playlist took that job: a song is here
- * because somebody dropped a cue on it, not because the evening plays it. See docs/mixFile.md.
- *
- * The refs are NOT resolved here. What a ref names lives in the médiathèque, whose catalogue
- * this package cannot read and should not learn to — and a ref that resolves to nothing is
- * exactly the one worth reporting, so resolution belongs where the catalogue is (the cache
- * sync fetches it, the surface says it is missing). Same reasoning as mediatekRefs.ts.
- */
+// The songs the desk's CUE SHEET names, from `mix.yaml`, deduplicated and sorted but NOT resolved — see docs/mixFile.md.
 export function loadCuedSongs(dir: string, validate = false): string[] {
   const file = entityFileFor(dir, "", MIX_BASE);
   if (!file) return [];
@@ -982,20 +786,7 @@ export function loadCuedSongs(dir: string, validate = false): string[] {
   return cueRefs(value);
 }
 
-/**
- * The DSP source of a module, resolved against its own folder — `{}` when it has none.
- *
- * The PLUGIN TYPE decides: `plugin.type: jsdsp` means the sound comes from `jsdsp.ts` in this
- * module's own folder, `plugin.type: faust` from the `dsp.dsp` beside it. It used to be a
- * `jsdsp:` field naming the file, beside a `plugin: {type: internal, name: DSP Graph}` that said
- * nothing about it — two things to keep in step, and the interesting one was the one nobody read.
- * One statement now says both, and a module with the type but no file is a module whose source is
- * missing rather than one that silently loads a graph host with nothing in it.
- *
- * ONE function for the two languages, and it returns the FIELD rather than a path, so the mapping
- * from a type to a filename lives here alone. A second copy of it is how the two would drift the
- * day a third language turns up.
- */
+// The DSP source of a module, resolved against its own folder, with the PLUGIN TYPE deciding the filename (docs/graphModel.md).
 function dspSourceFor(
   value: Record<string, unknown>,
   folder: string,
@@ -1008,24 +799,12 @@ function dspSourceFor(
   return {};
 }
 
-/**
- * Every module referenceable by REF — keyed "type/name", "@namespace/type/name", or a bare io name.
- *
- * Memoised on the module folders' stamp (moduleCache.ts), because this is the expensive half of
- * every compile: a project on this machine reads ~700 YAML files here, and both `loadProject` and
- * `loadGraph` want it, as do the errors and the hints behind one command. An INJECTED catalogue is
- * never cached — that is a test naming its own vocabulary, and it is the argument the stamp cannot
- * see. `issues` is cached with the map and replayed, so a caller that reports still reports.
- */
+// Every module referenceable by REF, memoised on the module folders' stamp because it reads ~700 YAML files (docs/moduleCache.md).
 export function loadModuleRefs(
   dir: string,
-  // The ENGINE's own modules — injected so a test can ask for a project's vocabulary and
-  // nothing else. It is AMBIENT state: what this machine's engine offers, read from its
-  // scan cache. The same reason ioPorts takes its preferences rather than loading them.
+  // The ENGINE's own modules, injected because what this machine offers is AMBIENT state a test must be able to withhold.
   catalogue?: Record<string, LoadedModule>,
-  // Where a library module that would not read is reported — see readModuleTree and
-  // libraryModuleIssues. Optional because almost every caller wants the vocabulary and
-  // nothing else; the ones that REPORT pass an array.
+  // Where a library module that would not read is reported; optional, since only a caller that REPORTS passes an array.
   issues: Diagnostic[] = [],
 ): Record<string, LoadedModule> {
   if (catalogue === undefined) {
@@ -1047,24 +826,14 @@ function readModuleRefs(
   catalogue: Record<string, LoadedModule>,
   issues: Diagnostic[],
 ): Record<string, LoadedModule> {
-  // The built-ins first, then the catalogue, so anything on disk overrides both: a project or
-  // a library may define `@engine/x`, and the thing you can edit should win over the thing you
-  // cannot. The `@studio/…` modules are seeded HERE rather than folded into the catalogue
-  // argument because they are not the engine's — callers that pass their own catalogue (tests,
-  // scripts) still get them, which is what "built-in" has to mean for a ref every project may
-  // name. Six of them: the note, and the five lanes.
+  // The built-ins first, then the catalogue, so anything on disk overrides both — see docs/graphModel.md.
   const out: Record<string, LoadedModule> = {
     ...studioModules(),
     ...trackModules(),
     ...catalogue,
   };
 
-  // Re-key by ref; NODES are skipped, since one would silently replace its own generic's key.
-  //
-  // TWO keys for one module, and the second is the point: a project's own modules were named bare
-  // (`audio/reverb`) before the levels were spelled out, and every graph.yaml already written says
-  // them that way. `@project/audio/reverb` is the same module under its explicit level — the form
-  // new files are written in — so both resolve and nothing had to be migrated.
+  // Re-key by ref under TWO keys, bare and `@project/…`, skipping NODES — see docs/moduleNamespaces.md.
   for (const m of Object.values(loadModules(dir))) {
     if (m.node) continue;
     const ref =
@@ -1073,9 +842,7 @@ function readModuleRefs(
     out[`@project/${ref}`] = m;
   }
 
-  // The shared roots, found by location — the workspace's `_modules` beside the project, then
-  // the médiathèque. Neither is declared, and neither can fail: a folder that is not there is
-  // simply not a root, where a declaration naming it used to take the whole project down.
+  // The shared roots, found by LOCATION rather than declared, so a missing folder is simply not a root (docs/sharedFolders.md).
   for (const root of moduleLibraryDirs(dir)) {
     // The level comes from WHERE the root is, not from anything it declares — see moduleNamespaceOf.
     const ns = moduleNamespaceOf(root);
@@ -1088,33 +855,16 @@ function readModuleRefs(
     );
   }
 
-  // Panels come from the `ui.yaml` beside each module, keyed by these very refs — so a shared module drawn once
-  // is drawn for every project that inherits it. loadModules already overlaid the local half; this catches the
-  // inherited ones, and re-overlaying the locals is a no-op.
-  //
-  // Minus the NODE: a panel is drawn for a module, and a node is one use of it. This map keys an
-  // inherited node as "@engine/io/IN:in-2", which no panel answers to — so `IN`'s grid never reached the
-  // twenty inputs `module populate` files, and every one of them drew "No Options". A local node never had
-  // the problem, because loadModules keys those by FOLDER, which a generic and its nodes already share.
+  // Panels come from the `ui.yaml` beside each module, keyed by these refs MINUS the node — see docs/uiLibrary.md.
   applyUiLibrary(dir, out, (_m, ref) => splitModuleKey(ref).module);
   return out;
 }
 
-/** The ref map for a project — its own modules plus every shared root it inherits.
- *  A thin alias since the roots stopped being declared: there is nothing left to read off the
- *  header first, and nothing left that can throw. */
+/** The ref map for a project — its own modules plus every shared root it inherits; a thin alias since roots stopped being declared. */
 export const projectModules = (dir: string): Record<string, LoadedModule> =>
   loadModuleRefs(dir);
 
-/**
- * The plugin refs a new module can `extends`, out of a ref map.
- *
- * io modules are usable directly but are not `extends` targets, and neither is an
- * NODE — you extend a module, then instantiate. Two routes ask this: the picker's
- * own `/base-modules` (so a click does not pay for the whole of hints()) and the command
- * completions. They differ in what they already have loaded, never in the answer, which
- * is why the RULE lives here and not twice.
- */
+// The plugin refs a new module can `extends`: not an io module and not a node, since you extend a module and then instantiate.
 export function baseModuleRefs(
   byRef: Record<string, { kind?: string; node?: string }>,
 ): string[] {
@@ -1129,11 +879,7 @@ export function listBaseModules(dir: string): string[] {
   return baseModuleRefs(projectModules(dir));
 }
 
-// The modules a chain step may name: the project's own by bare name, plus each SHARED
-// module a step names by its ref ("@engine/audio/amp/nam"), resolved through `extends` so
-// it arrives merged exactly like a local one and every consumer keyed on `step.module`
-// finds it unchanged. Only refs the chains USE join the map — an inherited library you
-// never name stays vocabulary (moduleRefs), not one of this project's modules.
+// The modules a chain step may name: the project's own, plus only those SHARED refs the chains actually USE.
 export function withChainModuleRefs(
   modules: Record<string, LoadedModule>,
   byRef: Record<string, LoadedModule>,
@@ -1143,9 +889,7 @@ export function withChainModuleRefs(
   >,
 ): Record<string, LoadedModule> {
   const out = { ...modules };
-  // A chain's LAST node is its sink, parsed out of `use` into `out` — and isSink() looks
-  // it up in this same map, so a ref has to arrive here from both or it works as a step
-  // and not as an output.
+  // A chain's LAST node is its sink, parsed into `out`, so a ref must arrive here from both or it works only as a step.
   const add = (raw: unknown): void => {
     const name = String(raw ?? "");
     if (!name || out[name] || !byRef[name]) return;
@@ -1158,25 +902,7 @@ export function withChainModuleRefs(
   return out;
 }
 
-// Create modules/<category>/<module>/module.yaml, optionally extending another; throws verbatim for the user.
-/**
- * Create `nodes/<id>.yaml` — a LANE, and nothing else.
- *
- * `track new` used to build a ProjectDoc in memory and hand it to the engine, which put a strip
- * in the mixer and wrote NOTHING: the track was gone on the next reload, because a track IS its
- * file. This is that file.
- *
- * No kind. It wrote `tracks/<id>.yaml` with a `type:` and a `contentType:`, in two flavours — an
- * audio one and a MIDI one that also seeded a sequence to play. Both words are gone: a lane is a
- * node of `@studio/track`, and it is not typed by what it carries (docs/trackModules.md). Seeding
- * material is `createSequenceFile` beside this, which is the half of `track new midi` that was
- * really about a sequence.
- *
- * Appends to `trackOrder` only when the project HAS one — buildDoc reads
- * `trackOrder ?? Object.keys(tracksMap)` and then filters, so a project that orders its
- * tracks explicitly would simply not show a track missing from the list, while one that
- * doesn't order them needs no entry at all.
- */
+// Create `nodes/<id>.yaml` — a LANE and nothing else, with no kind, appending to `trackOrder` only when there is one.
 export function createTrackFile(dir: string, id: string): string[] {
   // The filename is the id, and the id is what a chain's key names.
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
@@ -1206,17 +932,7 @@ export function createTrackFile(dir: string, id: string): string[] {
   return [rel];
 }
 
-/**
- * Create `sequences/<id>.yaml` — four empty bars, ready for the piano roll.
- *
- * This was the second half of `track new midi`, which made a lane AND the sequence it played
- * because a lane could only hold one kind of thing and a MIDI one with nothing on it had nowhere
- * to record into. A lane holds either kind now, so the two are two actions: make a lane, put
- * something on it.
- *
- * Four empty bars said as the sequence's own window: with no notes there is nothing to measure,
- * and a sequence with no extent draws as a clip of no width.
- */
+// Create `sequences/<id>.yaml` — four empty bars said as the sequence's own window, since no notes means nothing to measure.
 export function createSequenceFile(dir: string, id: string): string[] {
   if (!/^[A-Za-z0-9_.-]+$/.test(id))
     throw new Error(
@@ -1275,18 +991,7 @@ export function createModuleFile(
   return rel;
 }
 
-/**
- * What to call a new use of `module`, when nobody said: `<lane>_<module>_<n>`.
- *
- * `lane` is the track whose chain will play it, and it is dropped when there is none — a node
- * born on the bare canvas belongs to no run yet. The same rule a forked module is named by, and
- * the same function: see instanceName.ts for why the counter is always written.
- *
- * FREE across the whole project, not merely in `nodes/`, because that is what `createNode`
- * refuses on: the name is the key a chain writes, so a module already answering to it would be
- * shadowed. Both halves of that check are asked here, so the name this proposes is one that
- * function will accept.
- */
+// What to call a new use of `module` when nobody said — `<lane>_<module>_<n>`, free across the WHOLE project (instanceName.ts).
 export function freeNodeName(
   dir: string,
   module: string,
@@ -1295,36 +1000,19 @@ export function freeNodeName(
   return instanceName(module, lane, nodeNameTaken(dir));
 }
 
-/**
- * Is this name already spoken for — as a module, or as a file in `nodes/`?
- *
- * Both halves, because `createNode` refuses on both: the name is the one flat key a chain writes,
- * so a module already answering to it would be shadowed. Built once and handed to whoever is
- * choosing a name, so proposing one and accepting one cannot come to disagree.
- */
+// Is this name already spoken for, as a module OR as a file in `nodes/` — built once so proposing and accepting cannot disagree.
 export function nodeNameTaken(dir: string): (name: string) => boolean {
   const taken = loadModules(dir);
   return (n) => n in taken || existsSync(join(dir, NODES_DIR, `${n}.yaml`));
 }
 
-/**
- * Create one USE of a module: `nodes/<node>.yaml`.
- *
- * FLAT, whatever it is a use of. `category`/`module` say WHAT is being instantiated, not where
- * the file lands — a node no longer mirrors the tree of the thing it uses, so the two are
- * now separate questions. A local module is named with `extends`; a module the engine provides
- * is inlined as `plugin:`, because the scan is a discovery aid and not the project's memory of
- * what it uses. Either way the file is a module file, so anything a `module.yaml` may say, a
- * node may say too. See docs/nodes.md.
- */
+// Create one USE of a module: `nodes/<node>.yaml`, FLAT whatever it is a use of — see docs/nodes.md.
 export function createNode(
   dir: string,
   category: string,
   module: string,
   node: string,
-  // Injected for the same reason loadModuleRefs takes it: what the engine offers is
-  // AMBIENT, and a test asking "does this refuse an unknown name" must not depend on
-  // what happens to be installed here.
+  // Injected for the same reason loadModuleRefs takes it: what the engine offers is AMBIENT, and a test must not depend on it.
   catalogue: Record<string, LoadedModule> = engineModules(),
 ): string {
   if (!(category in MODULE_TYPES))
@@ -1346,8 +1034,7 @@ export function createNode(
       `module '${category}/${module}' is neither in this project nor one the engine offers — ` +
         `create it first, or name one of the engine's`,
     );
-  // The name is the KEY a chain writes, so it has to be free across the whole project, not
-  // merely within a folder — a module already answering to it would be shadowed.
+  // The name is the KEY a chain writes, so it has to be free across the whole project rather than within a folder.
   if (node in loadModules(dir))
     throw new Error(`'${node}' already names a module or node in this project`);
   const rel = `${NODES_DIR}/${node}.yaml`;

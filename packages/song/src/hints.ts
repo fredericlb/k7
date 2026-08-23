@@ -39,38 +39,25 @@ import { loadPreferences } from "./preferences";
 export interface Hints {
   baseModules: string[]; // plugin module refs a module can `extends` ("type/name", "@ns/type/name")
   ioSinks: string[]; // io module names a chain can route TO ("OUT")
-  // Chain `use` references: a module's bare name for the generic module.yaml, plus
-  // "<name>:<node>" for each `<node>.yaml` beside it (see loader.ts NODE_SEP),
-  // then the inherited modules by ref ("@ns/type/name").
+  // The chain `use` vocabulary: bare names, "<name>:<node>", inherited refs — see docs/hints.md.
   modules: string[];
   tracks: string[];
-  // Input-channel labels from the MACHINE's preferences, not the project — an io
-  // "in" module's `channel` names one of these (see preferences.resolveInput).
+  // Input-channel labels from the MACHINE's preferences, not the project — see docs/hints.md.
   channels: string[];
   clips: string[]; // every clip id (audio + video) — for the editor's link map
   audioClips: string[]; // clips whose source is NOT a video file
   videoClips: string[]; // clips whose source IS a video file
-  // Video track ids (video_tracks/<id>.yaml) — what an audio track's `video_source` may
-  // name to inherit that track's placements and play their audio.
+  // Video track ids an audio track's `video_source` may name — see docs/hints.md.
   videoTracks: string[];
   sequences: string[];
   chains: string[];
   curves: string[]; // automation curve ids (curves/<id>.yaml) — for pinning a module's automations
-  // What each module's file-valued params may be set to — its own `assets/` walked, as
-  // assets-relative paths ("Two-Rock/Clean.nam"), keyed by the chain `use` ref. What the
-  // panel's dropdown offers, and what a `node param <node> nam …` is checked against. One with none is
-  // absent rather than empty.
+  // What each module's file-valued params may be set to, keyed by the chain `use` ref — see docs/hints.md.
   moduleAssets: Record<string, string[]>;
   paramsByBase: Record<string, string[]>; // base ref -> known param names (open — new ones still allowed)
-  // …and what those params SPAN, for the bases whose plugin is a built-in we define (see builtinParams.ts). Only
-  // a plugin knows its own range, and a widget bound without one is drawn 0..1 — wrong for a -60..+6 dB fader.
-  // Absent for everything else: an external plugin reports its ranges live, and that report wins where it exists.
+  // …and what those params SPAN, for the built-in plugins we define — see docs/hints.md.
   paramMetaByBase: Record<string, Record<string, ParamRange>>;
-  // Rack modules -> their effective (base+module) rack. Lets the note editors relabel
-  // notes as symbols (and enter by symbol) when a sequence names the module via
-  // use_rack, and — for a slice rack — draw the source clip's waveform with each
-  // symbol's [from,to] window. Keyed by the chain `use` ref (so a node appears under
-  // its own "<name>:<node>" key, with its own symbol overrides); only racks appear.
+  // Rack modules -> their effective (base+module) rack, for the note editors — see docs/hints.md.
   racks: Record<
     string,
     {
@@ -80,17 +67,11 @@ export interface Hints {
     }
   >;
   keywords: string[]; // words YAML gives meaning to
-  // Scanned plugin names grouped by format (lowercased key). E.g. `{ vst3: ["Serum"],
-  // au: ["Massive"] }`. Populated by the file service from the engine's scan cache
-  // (~/.studio/exts.json); the brain's projectHints() returns an empty record.
+  // Scanned plugin names by format, filled by the file service from ~/.studio/exts.json.
   pluginNames: Record<string, string[]>;
-  // "kind:name" -> the project-relative file that defines the entity, so the
-  // editor can turn a known reference into a link. kind ∈ module|base|sink|
-  // track|clip|sequence|chain (chains all live in graph.yaml).
+  // "kind:name" -> the project-relative file that defines the entity — see docs/hints.md.
   paths: Record<string, string>;
-  // Audio files in the project, keyed by their project-relative FOLDER ("" = the root) —
-  // so a rack's `source:` (or a samples symbol's `clip:`) completes against the audio
-  // sitting beside it. Filenames only (what the field holds).
+  // Audio filenames keyed by their project-relative FOLDER ("" = the root) — see docs/hints.md.
   media: Record<string, string[]>;
 }
 
@@ -105,9 +86,7 @@ const AUDIO_EXT = [
   ".opus",
 ];
 
-// Every audio file in the project, grouped by its project-relative folder. A shallow raw-fs
-// walk (names, not contents) — separate from the entity gathers above because these files
-// aren't entities; they live beside them (a rack's samples, a clip's source).
+// Every audio file in the project, grouped by its project-relative folder — see docs/hints.md.
 function scanMedia(dir: string): Record<string, string[]> {
   const media: Record<string, string[]> = {};
   const walk = (abs: string, rel: string): void => {
@@ -130,9 +109,7 @@ function scanMedia(dir: string): Record<string, string[]> {
   return media;
 }
 
-// The words YAML itself gives meaning to, offered so they can be completed rather than
-// mistyped — `on`/`off`/`yes`/`no` are the ones that bite, since YAML 1.1 read them as
-// booleans and a plugin called "on" has to be quoted.
+// The words YAML gives meaning to, offered so they are completed rather than mistyped — see docs/hints.md.
 const YAML_KEYWORDS = ["true", "false", "null", "on", "off", "yes", "no"];
 
 const safe = <T>(f: () => T, dflt: T): T => {
@@ -144,9 +121,7 @@ const safe = <T>(f: () => T, dflt: T): T => {
   }
 };
 
-// The entities of the project at `dir`, sorted. Reference names (modules, sources,
-// targets, base module refs) plus the param names seen per base module. Reads the module
-// vocabulary twice, so one stamp walk covers the pair — see moduleCache.ts.
+// The entities of the project at `dir`, sorted; one stamp walk covers the two module reads (moduleCache.ts).
 export function projectHints(dir: string): Hints {
   return withModuleStamp(dir, () => projectHintsIn(dir));
 }
@@ -154,8 +129,7 @@ export function projectHints(dir: string): Hints {
 function projectHintsIn(dir: string): Hints {
   const moduleRefs = safe(() => loadModuleRefs(dir), {} as Record<string, any>);
   const modules = safe(() => loadModules(dir), {} as Record<string, any>);
-  // The completion/link vocabulary is the names the chains DERIVE to — a track's id for
-  // a run it feeds, a module's name for a run that starts at it (see chainsGraph.ts).
+  // The vocabulary is the names the chains DERIVE to, not the ones written down (chainsGraph.ts).
   const chains = safe(
     () => {
       const named: Record<string, true> = {};
@@ -166,8 +140,7 @@ function projectHintsIn(dir: string): Hints {
     {} as Record<string, true>,
   );
   const tracks = safe(() => loadLanes(dir), {} as Record<string, any>);
-  // Read schema-free like everything else here: a project with a broken video track
-  // should still complete its audio ones.
+  // Read schema-free: a project with a broken video track should still complete its audio ones.
   const videoTracks = safe(
     () => loadVideoTracks(dir),
     {} as Record<string, any>,
@@ -179,17 +152,7 @@ function projectHintsIn(dir: string): Hints {
   const sorted = (m: Record<string, any>): string[] =>
     Object.keys(m ?? {}).sort();
   const baseRefs = baseModuleRefs(moduleRefs as Record<string, any>);
-  // Sinks only: an io module is one unless it declares itself a source (io: "in", a
-  // live interface input). A source is not somewhere a chain can route TO, so leaving
-  // it in here would offer `out: ["IN"]` as a valid target.
-  // The two BUILT-IN outputs come first and always: neither is a module on disk, so neither
-  // appears in `moduleRefs` — and a completion list that offered every declared sink but not
-  // `MIX`, where every lane actually ends, would be a vocabulary missing its commonest word.
-  // MIX is the mixer's sum, OUT the device; the run between them is the master chain
-  // (docs/masterChain.md).
-  // The picture's pair follows them, and ONLY on a project that has picture: they are written
-  // onto a project with a viewport and onto no other, so offering `VIDEO_OUT` to a song with no
-  // frame would complete a name that would then fail to resolve. See docs/videoOutputs.md.
+  // Sinks only, the two built-in outputs first, the picture's pair only on a project that has one — docs/hints.md.
   const ioSinks = [
     MIX_NODE,
     OUT_NODE,
@@ -205,45 +168,15 @@ function projectHintsIn(dir: string): Hints {
     .filter(([, b]) => (b as any)?.kind === "io" && (b as any)?.io === "in")
     .map(([k]) => k)
     .sort();
-  // Inherited modules a chain node may name, by ref. Namespaced only: a LOCAL module is
-  // already offered by its bare name, and listing it twice under two spellings is noise.
-  // io is IN here: an "in" module is a step (it feeds the chain it sits in) and an "out"
-  // one is what the last node names.
-  //
-  // …and `@engine` is OUT: the plugin scan is browsed in the Libraries tab, not completed here,
-  // or a rig's whole vendor catalogue buries the handful of modules the song has (`isEngineRef`
-  // says why). It is still the vocabulary for `extends:`, which `baseRefs` above answers — a
-  // chain step naming one remains legal and remains typable, it is simply not suggested.
+  // Inherited modules a chain node may name: namespaced only, io in, `@engine` out — see docs/hints.md.
   const sharedRefs = Object.keys(moduleRefs)
     .filter((k) => k.startsWith("@") && !isEngineRef(k))
     .sort();
 
-  // Per-base param names: what the plugin DEFINES, then the base module's own defaults, then any overrides on
-  // modules that extend it or are nodes of it.
-  //
-  // The first source is the only complete one. The other two are learned from what somebody wrote down, so a
-  // built-in nobody has authored a param on yet — the mixer, on the day it shipped — has an empty bind list and
-  // no panel can be built for it. `paramMetaByBase` carries the ranges alongside, and only the plugin knows those.
-  //
-  // Nodes count, and they arrive as ORDINARY extenders: one use of `mixer` is a file in
-  // `nodes/` that extends it. Leaving them out meant every param on every strip in a real
-  // song was invisible here.
+  // Per-base params: what the plugin defines, the base's defaults, then its extenders' — see docs/hints.md.
   const paramsByBase: Record<string, string[]> = {};
   const paramMetaByBase: Record<string, Record<string, ParamRange>> = {};
-  /**
-   * What each base ref's EXTENDERS have written on it — indexed once, in one pass.
-   *
-   * This was a scan of every module inside the loop over every base ref, with a fresh
-   * `Object.values(modules)` per turn. On `01.danse.st0` that is 573 base refs × 395 modules —
-   * 226 000 comparisons and 573 allocations of the same array — and it was most of the 55 ms
-   * `/hints` costs, paid after every command in the app.
-   *
-   * A node needs no case of its own: it names what it uses with `extends`, like any other
-   * extender. Both spellings of a LOCAL ref land in the same bucket — a project's own module
-   * answers to the bare `<category>/<file>` and to `@project/<category>/<file>`, and new files
-   * write the second (see loadModuleRefs). A namespaced ref (`@st0/…`) has no second spelling
-   * and is kept whole, which is what the old `=== ref` arm did for it.
-   */
+  // What each base ref's EXTENDERS have written on it, indexed once in one pass — see docs/hints.md.
   const PROJECT_NS = "@project/";
   const byExtends = new Map<string, Set<string>>();
   for (const b of Object.values<any>(modules)) {
@@ -266,10 +199,7 @@ function projectHintsIn(dir: string): Hints {
       }
       paramMetaByBase[ref] = meta;
     }
-    // The ref is normalised on the way IN too: `loadModuleRefs` registers a local module under
-    // both spellings, so `baseRefs` holds `audio/amp` AND `@project/audio/amp`. Folding only the
-    // module side left the second one reading an empty bucket — 238 entries where there were 239,
-    // which is exactly the kind of off-by-one a rewrite of a nested loop is for.
+    // The ref is normalised on the way IN too, or the `@project/` spelling reads an empty bucket.
     const bucket = ref.startsWith(PROJECT_NS)
       ? ref.slice(PROJECT_NS.length)
       : ref;
@@ -277,9 +207,7 @@ function projectHintsIn(dir: string): Hints {
     if (keys.size) paramsByBase[ref] = [...keys].sort();
   }
 
-  // Where each entity is defined, for editor "open the file" links. Derived by the
-  // folder conventions (modules/<type>/, tracks/, …) and only kept when the file
-  // actually exists (external "@ns/…" modules are skipped).
+  // Where each entity is defined, for editor "open the file" links — see docs/hints.md.
   const paths: Record<string, string> = {};
   // Both spellings are tried and the one on disk wins.
   const addPath = (kind: string, name: string, stem: string) => {
@@ -291,19 +219,14 @@ function projectHintsIn(dir: string): Hints {
       }
     }
   };
-  // "module:" keys by the chain `use` ref, pointing at the file that IS that thing: a module
-  // is `modules/<type>/<name>/module.yaml`, a node is `nodes/<name>.yaml`. An
-  // node carries its own folder in `home` precisely because it is no longer under the
-  // module it uses. "base:" keys by "type/name" — an `extends` ref, always a module.
+  // "module:" keys by the chain `use` ref and "base:" by "type/name" — see docs/hints.md.
   for (const [key, b] of Object.entries<any>(modules))
     if (b?.home) addPath("module", key, `${b.home}/${key}`);
     else if (b?.category)
       addPath("module", key, `modules/${b.category}/${b.file ?? key}/module`);
   for (const ref of baseRefs)
     if (!ref.startsWith("@")) {
-      // The FIRST segment is the type and the rest is the name, filing included: a module may
-      // sit at `modules/audio/amps/neural-amp-modeler/`, so destructuring two segments sent
-      // "go to this module" at the category folder — a path with no `module.yaml` in it.
+      // The FIRST segment is the type and the rest is the name, filing included — see docs/hints.md.
       const cut = ref.indexOf("/");
       if (cut > 0) {
         addPath(
@@ -311,9 +234,7 @@ function projectHintsIn(dir: string): Hints {
           ref,
           `modules/${ref.slice(0, cut)}/${ref.slice(cut + 1)}/module`,
         );
-        // The `@project/` spelling is the SAME module — loadModuleRefs registers both, and a
-        // real file's `extends` may use either. Without the alias, a ctrl-click and the popin's
-        // module pane go blind on exactly the files written the explicit way.
+        // The `@project/` spelling is the SAME module, and without this alias a ctrl-click goes blind.
         const rel = paths[`base:${ref}`];
         if (rel) paths[`base:@project/${ref}`] = rel;
       }
@@ -335,10 +256,7 @@ function projectHintsIn(dir: string): Hints {
     [] as string[],
   );
 
-  // Split clips by kind so the generated overlays can keep the two references
-  // apart: an audio track (and any chain source) may name only an audioClip, a
-  // video track only a videoClip. Without this an audio track could reference an
-  // .mp4 and it would silently compile into a Tracktion audio clip.
+  // Split by kind so the overlays keep an audio and a video reference apart — see docs/hints.md.
   const audioClips = Object.entries<any>(clips ?? {})
     .filter(([, c]) => !isVideoSource(String(c?.source ?? "")))
     .map(([id]) => id)
@@ -348,16 +266,13 @@ function projectHintsIn(dir: string): Hints {
     .map(([id]) => id)
     .sort();
 
-  // What each module's file-valued params may be set to: the contents of its own `assets/`,
-  // keyed by the chain `use` ref like `racks` below. Per module, because a module carries the
-  // files it loads — there is no project-wide library to list any more.
+  // What each module's file-valued params may be set to, keyed by the chain `use` ref — see docs/hints.md.
   const moduleAssets: Hints["moduleAssets"] = {};
   // One walk for every module, not one per module — see assetLookup.
   const assets = assetLookup(dir);
   for (const [name, m] of Object.entries<any>(modules ?? {})) {
     if (!m?.category || !m?.file) continue;
-    // Its own assets AND its ancestors' — a thin local module extending a shared amp carries
-    // none of its own, and offering nothing there is what made the picker open empty.
+    // Its own assets AND its ancestors', or a thin module extending a shared amp opens the picker empty.
     const files = safe(
       () => moduleAssetChoices(dir, m, moduleRefs ?? {}, assets),
       [] as string[],
@@ -365,8 +280,7 @@ function projectHintsIn(dir: string): Hints {
     if (files.length) moduleAssets[name] = files;
   }
 
-  // Rack modules: a `type: rack` module carries a rack. Resolved first, so a module that
-  // inherits its flavour, its source or half its symbols reports the whole thing.
+  // Resolved first, so a module inheriting its flavour, its source or half its symbols reports the whole rack.
   const racks: Hints["racks"] = {};
   for (const [name, m] of Object.entries<any>(
     resolveModuleMap(modules ?? {}, moduleRefs),
@@ -392,11 +306,7 @@ function projectHintsIn(dir: string): Hints {
   return {
     baseModules: baseRefs,
     ioSinks,
-    // Hidden ones dropped, favourites first — the module's own `status:`, which is the only
-    // thing that field does (moduleTypes' MODULE_STATUSES). Applied HERE rather than in the
-    // editor, so the command bar and the YAML pane cannot come to offer two different lists.
-    // Read off the AUTHORED module: a base being hidden is a statement about the base, and a
-    // module extending it has its own answer or takes the default.
+    // Hidden ones dropped and favourites first, off the AUTHORED module's `status:` — see docs/hints.md.
     modules: completionOrder([...sorted(modules), ...sharedRefs], (name) =>
       moduleStatusOf(modules[name] ?? moduleRefs[name]),
     ),

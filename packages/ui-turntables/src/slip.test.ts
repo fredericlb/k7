@@ -31,8 +31,7 @@ const heard = (t: DeckTempo, transport: number) => sourceAt(transport, t);
 
 describe("the slip a tempo change takes on", () => {
   it("keeps the same music under the playhead when a deck is sped up", () => {
-    // The measured defect this exists for: without it, one step of a +8 % drag ate 980 ms of
-    // the track. The whole test is that `heard` comes out the same number twice.
+    // Without it, one step of a +8 % drag ate 980 ms — so `heard` must come out the same twice.
     const before = deck(120, 120);
     const transport = TIMELINE_BASE + 60;
     const at = heard(before, transport);
@@ -58,8 +57,7 @@ describe("the slip a tempo change takes on", () => {
   });
 
   it("composes over a whole drag, which is where the drift used to accumulate", () => {
-    // Eight steps of a drag, each holding the position. Without the correction these summed to
-    // a full second of skipped music; here the error must not grow with the number of steps.
+    // Eight steps summed to a full second of skipped music, so the error must not grow with them.
     let t = deck(120, 120);
     const transport = TIMELINE_BASE + 90;
     const first = heard(t, transport);
@@ -72,9 +70,7 @@ describe("the slip a tempo change takes on", () => {
   });
 
   it("is barely troubled by a STALE playhead, which is the whole reason it is shaped this way", () => {
-    // The correction is `source × (before − after)`, so an error in `source` is multiplied by
-    // the ratio change — about a hundredth of a step. Seeking the transport to a computed
-    // position instead would have paid the same staleness back at full size.
+    // `source × (before − after)`, so an error enters multiplied by a ratio change of a hundredth.
     const before = deck(120, 120);
     const transport = TIMELINE_BASE + 60;
     const truth = heard(before, transport);
@@ -91,9 +87,7 @@ describe("the slip a tempo change takes on", () => {
   });
 
   it("absorbs the align a MASTER drag moves under a synced slave", () => {
-    // Sync delays the slave to meet the master's beats, and that delay is a function of the
-    // tempo — so dragging the master moves it. A delay that changes under a deck is a deck that
-    // jumps, unless the slip takes the change on.
+    // Sync's delay is a function of the tempo, so dragging the master moves it under the slave.
     const before = deck(174, 128, { align: 0.8 });
     const transport = TIMELINE_BASE + 40;
     const at = heard(before, transport);
@@ -127,8 +121,7 @@ describe("moving one fader", () => {
   });
 
   it("slips the SLAVE too when the master is dragged", () => {
-    // A synced slave is handed the master's number, so it is re-stretched by a gesture that
-    // never touched it — and a re-stretch nothing corrects is a deck that jumps.
+    // A synced slave is re-stretched by a gesture that never touched it, and must be corrected too.
     const synced: DeckTempos = {
       deckA: deck(120, 120, { phase: 0.1 }),
       deckB: deck(174, 174, { phase: 0.3 }),
@@ -136,16 +129,12 @@ describe("moving one fader", () => {
     const out = nudgedTempos(synced, "deckA", "deckA", "deckA", 126, sourceOf);
     expect(out.deckB?.slip).toBeDefined();
     expect(out.deckB?.slip).not.toBe(0);
-    // …and its own fader is left where it was: `target` on a slave is the master's, handed
-    // over by the derivation, and storing it would strand the slave there when sync is let go.
+    // …and its own fader stays put: storing the master's number would strand it there.
     expect(out.deckB?.target).toBe(174);
   });
 
   it("reads the BEFORE with sync still on when a hand on the slave cancels it", () => {
-    // Grabbing the slave's fader is how you leave a sync, and the fader hands over the value
-    // the knob was showing — the SYNCED one. Reading the before-state with sync already off
-    // would compute the slip against a tempo that deck was never playing at, which is a jump
-    // of exactly the difference between the two numbers.
+    // The fader hands over the SYNCED value, so the before-state must be read with sync still on.
     const synced: DeckTempos = {
       deckA: deck(120, 128), // the master
       deckB: deck(174, 174), // its own fader, parked; playing at 128 while synced
@@ -175,8 +164,7 @@ describe("moving one fader", () => {
   });
 
   it("leaves the cues on the deck it moved", () => {
-    // The point of holding the position, stated as the user meets it: press a cue after a drag
-    // and it is still the drop. The cue is a source second; only its transport number moves.
+    // The invariant as a user meets it: press a cue after a drag and it is still the drop.
     const cue = 42;
     const out = nudgedTempos(faders, null, null, "deckA", 126, () => 60);
     const t = out.deckA as DeckTempo;

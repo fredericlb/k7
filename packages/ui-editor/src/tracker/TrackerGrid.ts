@@ -80,8 +80,7 @@ export function makeTrackerCtx(): TrackerCtx {
   return { row: 0, ch: 0, octave: 4, focused: false };
 }
 
-// Greedily spread notes over channel columns so none overlap. Derived per render and deterministic, the file
-// having no channel field — so a given note list always lays out the same way.
+// Greedily spread notes over channel columns so none overlap: derived per render and deterministic, the file having none.
 export function assignChannels(notes: Note[]): {
   channels: number;
   cell: Map<Note, { ch: number; row: number }>;
@@ -244,12 +243,10 @@ export function renderTrackerGrid(
     const onBeat = r % 4 === 0;
     const onBar = r % STEPS_PER_BAR === 0;
     const rowEl = document.createElement("div");
-    // The window is the row's own GROUND, one step lighter than the beat shading it sits on rather
-    // than a band over the top: these rows carry text, and a tint above them would dim it.
+    // The window is the row's own GROUND rather than a band over the top, since these rows carry text.
     const inWin = !!winRows && r >= winRows.first && r <= winRows.last;
     const shade = (onBar ? 0.05 : onBeat ? 0.02 : 0) + (inWin ? 0.06 : 0);
-    // The two edges as INSET shadows, not borders: a border would add to a row of fixed height and
-    // walk the whole grid a pixel down.
+    // The two edges as INSET shadows: a border would add to a row of fixed height and walk the grid a pixel down.
     const edge =
       inWin && winRows
         ? [

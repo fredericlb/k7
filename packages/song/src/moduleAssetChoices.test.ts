@@ -52,8 +52,7 @@ describe("moduleAssetChoices", () => {
   });
 
   it("INHERITS the assets of what it extends, wherever that library is", () => {
-    // The guitar case: the project's module is a shell, and the one in the workspace's
-    // `_libraries/modules` submodule — the `@st0` level — carries the profiles.
+    // The guitar case: the project's module is a shell and the `@st0` one carries the profiles.
     mkModule(
       join(libraries, "audio", "amps", "guitar"),
       "plugin: { type: internal, name: NAM }\n",
@@ -63,8 +62,7 @@ describe("moduleAssetChoices", () => {
       join(project, "modules", "audio", "guitar"),
       'extends: "@st0/audio/amps/guitar"\n',
     );
-    // Through the real loaders, because the FOLDER each module lives in is something they
-    // stamp — reading it off the ref map is what keeps this from walking the libraries again.
+    // Through the real loaders, since they stamp the FOLDER each module lives in.
     const refs = loadModuleRefs(project, {}, []);
     const mod = loadModules(project).guitar;
     const choices = moduleAssetChoices(project, mod, refs);
@@ -139,10 +137,7 @@ describe("moduleAssetChoices", () => {
 
 describe("a file the module INHERITS", () => {
   it("resolves against the folder that holds it, not the one that named it", () => {
-    // Picking a profile for a shared amp writes the ref into the LOCAL module, whose own
-    // assets/ is empty. Resolved against that folder alone it came back undefined, and the
-    // merge then kept the PARENT's path — the panel showed the chosen name while the engine
-    // loaded the inherited file. Silently the wrong sound.
+    // Resolved against the local folder alone, the merge kept the PARENT's path: the wrong sound.
     mkModule(
       join(libraries, "audio", "amps", "guitar"),
       "plugin: { type: internal, name: NAM }\n",
@@ -177,8 +172,7 @@ describe("a file the module INHERITS", () => {
   });
 
   it("still refuses a ref that climbs out, rather than trying the next folder up", () => {
-    // Escaping is a property of the REF. Walking the ancestry must not turn `../` into a way
-    // through — a module that arrives from a shared catalogue was written by somebody else.
+    // Walking the ancestry must not turn `../` into a way out: a shared module is somebody else's.
     mkModule(
       join(libraries, "audio", "amps", "shared"),
       "plugin: { type: internal, name: NAM }\n",

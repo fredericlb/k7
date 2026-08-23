@@ -78,8 +78,7 @@ export function SessionDetailView({
   const [currentTime, setCurrentTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selection, setSelection] = useState<Selection | null>(null);
-  // The moment whose time range is being adjusted (drag handles on the waveform
-  // + nudge controls in its row). Held as a live draft; committed on Apply.
+  // The moment whose range is being adjusted, as a live draft committed on Apply.
   const [editing, setEditing] = useState<{
     id: string;
     start: number;
@@ -175,9 +174,7 @@ export function SessionDetailView({
     audioRef.current.addEventListener("timeupdate", stopAt);
   };
 
-  // Moments are saved immediately with the start timestamp as their default
-  // name and no tags — the user renames/tags them afterwards, inline in the
-  // Moments list.
+  // Saved at once, named by their start and untagged; renaming happens inline afterwards.
   const saveMoment = async (startSec: number, endSec: number) => {
     await onAddAnnotation({
       startSec,
@@ -211,8 +208,7 @@ export function SessionDetailView({
     await onUpdateAnnotation(editing.id, { startSec: start, endSec: end });
   };
 
-  // Saved moments and detected (unsaved) candidates in one time-sorted list. A
-  // detected span drops out once a moment with the same span has been saved.
+  // Saved moments and detected candidates in one sorted list; a span leaves it once saved.
   const detectedEvents = eventsResult?.events ?? [];
   const isSavedSpan = (ev: DetectedEvent) =>
     session.annotations.some(
@@ -510,8 +506,7 @@ function MomentRow({
     if (t !== ann.text) onUpdate(ann.id, { text: t });
   };
 
-  // The session envelope sliced to this moment's span — the shape shown in the
-  // extracted-clip waveform player (no separate clip envelope needed).
+  // The session envelope sliced to this span, so the clip player needs no envelope of its own.
   const clipSamples = useMemo(() => {
     if (!envelope) return [];
     const per = envelope.intervalMs / 1000;

@@ -53,8 +53,7 @@ export function EditorPane({
       to: number;
       hollow?: boolean;
     }[];
-    // What the strip's ▶ sends. Carried rather than derived, because a strip's `clip.id` is not
-    // always a clip id: a rack's dock synthesises one from a bare filename (see EditorTab).
+    // What the strip's ▶ sends, carried rather than derived: a rack's dock synthesises its id from a bare filename.
     play?: PreviewReq;
   } | null;
   // A gutter-auditioned sound takes the strip over from `audioClip` until dismissed (onClosePreview).
@@ -77,19 +76,11 @@ export function EditorPane({
   onOpenEntity?: (path: string) => void;
   // Audition a sample from a gutter play button on a source/clip/slice line.
   onPreview?: (req: PreviewReq) => void;
-  /**
-   * Audition the STRIP — its ▶, sending the request the strip carries and answering the WINDOW
-   * the service resolved it to, in file seconds (`length: 0` == to the end of the file).
-   *
-   * Separate from `onPreview` and not a convenience: that one resolves a gutter's raw `source`
-   * against the open file, and a strip's is already resolved, so re-running it would prefix a
-   * rack's directory a second time. Two callers, two states of the same field, two doors.
-   */
+  /** Audition the STRIP, answering the WINDOW the service resolved — separate from `onPreview`, whose request is not yet resolved. */
   onPlayStrip?: (
     req: PreviewReq,
   ) => Promise<{ start: number; length: number } | null>;
-  // The docked slicer's drag: rewrite one symbol's from/to in THIS pane's buffer. Passed only
-  // when the buffer is the file the slices live in — with it, the dock's windows grow handles.
+  // The docked slicer's drag: rewrite one symbol's from/to in THIS pane's buffer, passed only when the buffer holds the slices.
   onSliceEdit?: (symbol: string, from: number, to: number) => void;
   // This file's load findings, already filtered, drawn inline as squiggles and refreshed on each poll.
   diagnostics?: LintItem[];
@@ -139,9 +130,7 @@ export function EditorPane({
       if (onOpenEntity) ext.push(projectEntityLinks(hints, onOpenEntity));
       // A ▶ in the gutter on every source/clip/slice line auditions that sample.
       if (onPreview) ext.push(projectPreviewGutter(onPreview));
-      // A slice-rack file: its symbol names painted in their slice's colour — the link to the
-      // docked waveform's windows, made by hue. Any other file decorates nothing (see
-      // sliceSymbols.ts; the inline per-symbol waveforms this replaced are gone).
+      // A slice-rack file: its symbol names painted in their slice's colour — the link to the docked waveform, made by hue.
       ext.push(sliceSymbolColors());
     } else if (isStrudel) ext.push(javascript()); // Strudel patterns are JS + mini-notation strings
     return ext;
@@ -188,8 +177,7 @@ export function EditorPane({
     />
   );
 
-  // An audio clip's waveform docks HERE, pinned to the bottom of the code pane (the editor is position:relative).
-  // A dismissable gutter preview takes it over; with neither, there is no strip and the editor fills the pane.
+  // An audio clip's waveform docks HERE, pinned to the bottom of the code pane; a dismissable gutter preview takes it over.
   const strip = preview ?? audioClip;
   // A local, so the closure below narrows it: `strip` is a union and its field would stay optional.
   const playReq = strip?.play;
@@ -203,12 +191,10 @@ export function EditorPane({
             clip={strip.clip}
             whole={strip.whole}
             sliceRanges={strip.sliceRanges}
-            // The slicer's edit gesture — only for the dock, never a dismissable preview: a
-            // preview shows some OTHER file's sound, and its windows are not this buffer's.
+            // The slicer's edit gesture — only for the dock: a preview shows some OTHER file's sound, whose windows are not this buffer's.
             onSliceEdit={preview ? undefined : onSliceEdit}
             onClose={preview ? onClosePreview : undefined}
-            // ▶ only when there is something to send it through AND a request describing the
-            // strip — a video clip's dock has neither, and a button that refused would be worse.
+            // ▶ only when there is something to send it through AND a request describing the strip — a video clip's dock has neither.
             onPlay={
               onPlayStrip && playReq ? () => onPlayStrip(playReq) : undefined
             }

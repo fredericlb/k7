@@ -5,15 +5,10 @@
 import type { Envelope } from "@studio/ui-waveform";
 import { library } from "./api";
 
-/** The sidecar's name, mirroring `CACHE_EXT` in @studio/file-service's waveformCache.ts. It is
- *  written through the ordinary file route, so to this app it is just a file beside the audio. */
+/** The sidecar's name, mirroring `CACHE_EXT`: to this app it is a file beside the audio. */
 export const CACHE_EXT = ".cache";
 
-/** The fields of the engine's `FileEnvelope` this pane reads — a subset, on purpose: the rest
- *  (fingerprint, channels, sensitivity) exists to invalidate and re-detect, which is the
- *  writer's business, not the drawer's. Kept structural rather than imported from
- *  @studio/commands, whose module pulls in `@studio/song`'s project types for a slicer this
- *  never calls. */
+/** A structural SUBSET of the engine's `FileEnvelope`: the rest is the writer's business. */
 export interface SongEnvelope {
   seconds: number;
   /** Per-bucket RMS, 0..1 linear — exactly what Envelope.samples wants. */
@@ -32,8 +27,7 @@ export interface SongShape {
   bpm: number;
 }
 
-/** Structural check rather than a cast: the sidecar is a file anyone can overwrite, and a
- *  waveform drawn from a half-parsed one is worse than none. */
+/** A structural check and not a cast: the sidecar is a file anyone can overwrite. */
 function shapeOf(raw: unknown): SongShape | null {
   const e = raw as SongEnvelope | null;
   if (!e || !Array.isArray(e.rms) || !e.rms.length) return null;
@@ -46,8 +40,7 @@ function shapeOf(raw: unknown): SongShape | null {
   };
 }
 
-/** Read the sidecar beside `masterPath`, or null when there is none yet — an ABSENCE, not a
- *  failure: a song filed while no machine was reachable simply has not been analysed. */
+/** Read the sidecar beside `masterPath`, or null — an ABSENCE rather than a failure. */
 export async function readSongShape(
   masterPath: string,
 ): Promise<SongShape | null> {

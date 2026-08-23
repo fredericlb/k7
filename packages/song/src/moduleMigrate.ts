@@ -73,8 +73,7 @@ function classify(
   const doc = (parseYaml(readFileSync(file.path, "utf8"), { version: "1.2" }) ??
     {}) as Record<string, unknown>;
   const keys = Object.keys(doc);
-  // A wrapper is a file that says only which plugin to load. Anything else — a jsdsp
-  // source, a rack, params someone tuned — is authored, and authored things stay.
+  // A wrapper says ONLY which plugin to load; anything else is authored, and authored things stay.
   const wrapper = keys.length > 0 && keys.every((k) => k === "plugin");
   return { kind: wrapper ? "wrapper" : "library", doc };
 }
@@ -113,14 +112,7 @@ function under(
   return out;
 }
 
-/**
- * Rewrite one project's modules.
- *
- * Every folder whose `module.yaml` extends the old catalogue becomes a folder of
- * nodes. A module that was used BARE gains one called `default` — its chain step goes
- * from `reverb` to `reverb:default`, which is the one visible change and the reason this
- * returns the renames rather than only doing them.
- */
+/** Rewrite one project's modules; a module used BARE gains a `default` node, hence the renames returned. */
 export function migrateProjectModules(
   dir: string,
   catalogue: Record<
@@ -132,8 +124,7 @@ export function migrateProjectModules(
   const modulesDir = join(dir, "modules");
   if (!existsSync(modulesDir)) return out;
   const lib = libraryRoot(dir);
-  // Which modules the chains name WITHOUT a node. Those are the ones that have to
-  // gain a name, and the chains that name them have to follow.
+  // The modules the chains name WITHOUT a node: those gain a name, and the chains follow.
   const bare = bareChainSteps(dir);
 
   for (const type of Object.keys(MODULE_TYPES)) {
@@ -162,9 +153,7 @@ export function migrateProjectModules(
       const { extends: _drop, ...rest } = doc;
       const base: Record<string, unknown> = { ...rest };
       if (kind === "wrapper") {
-        // The plugin, named in the project so it no longer depends on this machine's
-        // scan. Preferred from the engine's own catalogue — the wrapper's copy mislabelled
-        // every VST3 instrument as `internal` (see engineCatalogue).
+        // From the engine's own catalogue by preference: the wrapper's copy mislabelled every VST3 instrument.
         const slug = String((catDoc?.plugin as { name?: string })?.name ?? "")
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
@@ -194,10 +183,7 @@ export function migrateProjectModules(
         }) ?? {}) as Record<string, unknown>;
         write(file.path, under(base, own), `${name}:${node}`);
       }
-      // A module the chains name BARE needs a name of its own now — and it needs one
-      // whether or not nodes already sit beside it. `neural-amp-modeler` had a
-      // node nothing used and a bare step that did: making the node and stopping
-      // there dropped the plugin the song actually plays.
+      // A BARE step needs its own node whether or not others sit beside it, or the song loses its plugin.
       if (bare.has(name)) {
         const path = join(folder, `${DEFAULT_NODE}.yaml`);
         write(path, base, `${name}:${DEFAULT_NODE}`);
@@ -250,13 +236,7 @@ export interface LibraryMigration {
   errors: string[];
 }
 
-/**
- * Purge the generated wrappers from `_modules` and rename its namespace to `library`.
- *
- * A folder is a wrapper when its module file says ONLY which plugin to load and nothing
- * sits beside it — the same test `module populate reset` used, which is what keeps a
- * hand-written module safe even when it happens to be a thin one.
- */
+/** Purge the generated wrappers from `_modules` and rename its namespace to `library`. */
 export function migrateLibrary(root: string): LibraryMigration {
   const out: LibraryMigration = {
     changed: false,
@@ -273,18 +253,11 @@ export function migrateLibrary(root: string): LibraryMigration {
       if (!e.isDirectory()) continue;
       const abs = join(dir, e.name);
       const at = rel ? `${rel}/${e.name}` : e.name;
-      // DESCEND FIRST, judge after. A folder can be both a module and a category —
-      // `populate` filed the "Sampler" plugin at instruments/sampler and then filed
-      // another plugin under instruments/sampler/halion-sonic, because its declared
-      // category slugged to the same word. Judging the parent first and deleting it
-      // recursively would take the child with it, authored or not.
+      // DESCEND FIRST, judge after: a folder can be both a module and a category, and the child is authored.
       walk(abs, at);
       const file = moduleFileFor(abs, "", "module");
       if (!file) continue; // a category folder — nothing of its own to judge
-      // What sits beside the module file. Sub-MODULES do not count: they were just
-      // walked and answered for themselves. A `.presets` folder does — somebody saved
-      // into it — as does any plain file: a node, a .vstpreset, a jsdsp .ts, a
-      // rack's audio.
+      // What sits beside the module file — sub-MODULES do not count, having just answered for themselves.
       const others = readdirSync(abs, { withFileTypes: true }).filter(
         (f) =>
           f.name !== basename(file.path) &&
@@ -302,8 +275,7 @@ export function migrateLibrary(root: string): LibraryMigration {
         out.kept.push(at);
         continue;
       }
-      // Only the module file goes when a sub-module survives below it, so the folder can
-      // stay a category for its children.
+      // Only the module file goes when a sub-module survives, so the folder stays a category.
       const children = readdirSync(abs).filter(
         (f) => f !== basename(file.path),
       );
@@ -313,8 +285,7 @@ export function migrateLibrary(root: string): LibraryMigration {
       out.changed = true;
     }
   };
-  // io lives in the projects now — one IN and one OUT come from the engine, and the
-  // nodes that carry a channel belong to the song recording through it.
+  // io lives in the projects now: IN and OUT come from the engine, and a channel belongs to a song.
   const io = join(root, "io");
   if (existsSync(io)) {
     rmSync(io, { recursive: true, force: true });

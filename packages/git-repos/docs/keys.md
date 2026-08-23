@@ -87,6 +87,29 @@ The public half is written when it is sent, but it is not required: an OpenSSH-f
 key carries its own public half, so `ssh -i` works without a `.pub` beside it. It is written
 so that `publicKey()` answers on the receiving side too.
 
+## The URI vocabulary — `uri.ts`
+
+**SSH only.** The per-user key above is what carries the privilege, so an https URI would
+sidestep it entirely and then hang on a credential prompt. Two spellings are accepted,
+`git@host:path` and `ssh://host/path`, and both patterns anchor on an alphanumeric first
+character — a URI must never reach `git` looking like an option.
+
+`normalizeGitUri` folds those two spellings into one comparison key, `host[:port]/path`, with
+no `.git` and no SSH user, port 22 dropped, host lowercased. It matters because
+`git@host:me/repo.git` and `ssh://git@host/me/repo` are the **same repository**, and the two
+sides of this feature learn about it by different routes: pl8 from what a person pasted, the
+file service from a checkout's `remote.origin.url`, which git may have rewritten. Comparing the
+raw strings would clone a repository that is already there
+(`apps/st0/frontend/docs/projects.md`).
+
+It **throws** on anything `assertSshGitUri` refuses: a key derived from an unvalidated string
+would be a key for something that must never be fetched.
+
+`repoNameOfKey` exists as its own door because a normalized key is `host/path` and is *not an
+SSH URI any more* — handing it back to `repoName` throws. That is correct of the validator: one
+that accepted its own output would accept a bare hostname as a repository. Callers holding a
+normalized origin — the file service reads one off every checkout — need this door instead.
+
 ## The ssh invocation
 
 `sshCommand` builds the `GIT_SSH_COMMAND` every git subprocess runs with, and each option is

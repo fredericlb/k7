@@ -22,11 +22,10 @@ export interface Cubic {
   p1: Pt;
 }
 
-// The cubic segments a polyline becomes (Catmull-Rom → Bezier). Split out of smoothPath so the wobble samples the
-// SAME curve the still cable is drawn along — sampling the raw polyline snapped a live cable to a polygon.
+// The cubics a polyline becomes, split out so the wobble samples the SAME curve. See docs/wobble.md.
 export function cubicSegments(pts: Pt[]): Cubic[] {
   if (pts.length < 2) return [];
-  // Two points draw as a straight line; expressed as a degenerate cubic so callers have one shape to handle.
+  // Two points draw straight, expressed as a degenerate cubic so callers have one shape to handle.
   if (pts.length === 2)
     return [{ p0: pts[0], c1: pts[0], c2: pts[1], p1: pts[1] }];
   const out: Cubic[] = [];
@@ -57,7 +56,7 @@ export const cubicAt = (c: Cubic, t: number): Pt => {
   };
 };
 
-// The curve's derivative: the wobble displaces along its perpendicular, so a ripple stays square through a bend.
+// The curve's derivative: the wobble displaces along its perpendicular, so a ripple stays square.
 export const cubicTangent = (c: Cubic, t: number): Pt => {
   const u = 1 - t;
   return {
@@ -92,21 +91,14 @@ export interface CableSample {
   s: number;
 }
 
-// A cable's geometry: the base polyline, the evenly-spaced samples the wobble displaces, and the arc length.
+// A cable's geometry: the base polyline, the samples the wobble displaces, and the arc length.
 export interface CableGeom {
   base: Pt[];
   samples: CableSample[];
   len: number;
 }
 
-/**
- * Resample a routed polyline into evenly-spaced points carrying a per-sample normal and
- * arc-length, for a travelling-wave wobble to displace. The base points are kept
- * verbatim for the idle (still) draw.
- *
- * `step` is the target spacing (world px); `maxSamples` caps the count so a very long
- * cable can't explode it.
- */
+/** Resample a polyline into evenly-spaced points carrying a normal and arc-length, base kept verbatim. */
 export function buildCableGeom(
   pts: Pt[],
   step = 8,
@@ -115,8 +107,7 @@ export function buildCableGeom(
   const base = pts.map((p) => ({ x: p.x, y: p.y }));
   const segs = cubicSegments(base);
 
-  // Walk the CURVE, not the polyline: each cubic is subdivided finely, then resampled at the wobble's spacing, with
-  // `s` accumulating real distance — so the travelling wave keeps an even wavelength through a bend.
+  // Walk the CURVE, not the polyline, `s` accumulating real distance so a wavelength stays even.
   const SUB = 16;
   const segLens = segs.map((c) => {
     let l = 0;
@@ -149,7 +140,7 @@ export function buildCableGeom(
       samples.push({ x: pt.x, y: pt.y, nx: -tan.y / m, ny: tan.x / m, s });
     }
   }
-  // The endpoint closes the curve: without it a live cable stops short and the arrowhead's angle comes out wrong.
+  // The endpoint closes the curve, or a live cable stops short and its arrowhead's angle is wrong.
   const last = segs[segs.length - 1];
   if (last) {
     const pt = cubicAt(last, 1);
@@ -168,27 +159,9 @@ export function midByArc(g: CableGeom): Pt {
   return g.base[g.base.length - 1];
 }
 
-// `arrowPoints` (the SVG arrowhead string) is gone: the automation cables draw on the
-// canvas now, and the head is traced there from the last drawn segment — see drawCables.
+// `arrowPoints` (the SVG arrowhead string) is gone: the head is traced in drawCables now.
 
-/**
- * Which cables carry a signal right now (a Set of edge ids). Liveness starts at the
- * tracks the engine meters above silence and flows FORWARD along edges — a fixpoint
- * loop so a feedback send can't wedge it.
- *
- * The SUM is a second seed, and has to be. No cable is drawn INTO `MIX` — the mixer's sum is
- * implicit (docs/graphBuild.md) — so a forward walk from the tracks arrives nowhere near it, and
- * the master run was left the one still cable on a playing graph: the one carrying every note in
- * the song. Seeding it is exact rather than a stand-in, because every track feeds the master bus
- * whatever its chain names (@studio/song's docs/masterChain.md) — so any metered track means the
- * sum carries signal, and no metered track means it carries none.
- *
- * The PICTURE arrives as its own list, because it is arrived at its own way: nothing METERS a
- * video lane, so which lanes are showing a frame is derived from the shots and the playhead
- * (`liveVideoLanes`) rather than read off the engine. Past that the two are the same rule — the
- * lanes seed their nodes, and `RENDER` is seeded beside them for the reason `MIX` is: no cable is
- * drawn into the compositor's sum either.
- */
+/** Which cables carry a signal now, walked FORWARD from the metered lanes and both SUMS. See docs/graphBuild.md. */
 export function computeLive(
   edges: { id: string; source: string; target: string }[],
   activeTracks: string[],
@@ -216,31 +189,13 @@ export function computeLive(
   return live;
 }
 
-/**
- * A stretch of time one video lane is putting a picture on screen, in SECONDS — the unit every
- * time in the picture document is written in, a shot being cut against the wall clock.
- *
- * `to` may be `Infinity`: a shot with no length runs until the next one, or forever, and a shape
- * lane draws for as long as it is unhidden. See `activeAt` in @studio/ui-eyes.
- */
+/** A stretch of time one video lane is on screen, in SECONDS; `to` may be `Infinity`. See @studio/ui-eyes. */
 export interface LaneSpan {
   from: number;
   to: number;
 }
 
-/**
- * Which VIDEO lanes carry a picture at `t` — the meters' opposite number, and the reason it is
- * spelled out rather than read off a frame.
- *
- * The engine measures sound. It knows nothing of the frame (@studio/song's docs/picture.md), so a
- * video lane's cables had no way to ripple and stayed still through a playing song — the one part
- * of the graph that never came alive. What the browser HAS is the shots and the playhead, which is
- * the same bargain st0 already strikes for a rack's lit pads: derive it rather than observe it.
- *
- * Half-open, like the compositor's own `activeAt`: a cut belongs to the LATER shot, so two shots
- * meeting at a boundary never both count. The spans are the host's to compute, from the same
- * document the viewport draws.
- */
+/** Which VIDEO lanes carry a picture at `t`, half-open as `activeAt` is. See docs/graphBuild.md. */
 export function liveVideoLanes(
   spans: Readonly<Record<string, readonly LaneSpan[]>>,
   t: number,
@@ -251,15 +206,7 @@ export function liveVideoLanes(
   return ids;
 }
 
-/**
- * Whether an arrow maps to an insert, and the two ends it would carry: offered whenever
- * at least one end is a module.
- *
- * It used to also demand that both ends belong to the same CHAIN, because the command
- * took a chain name and an index into it. chains.yaml states its edges outright now, so
- * an arrow IS the address — and the cases the same-chain rule quietly refused (a track
- * feeding a bus, a split's branch) are ordinary arrows like any other.
- */
+/** Whether an arrow maps to an insert: offered whenever at least one end is a module. */
 export function insertFor(
   sourceId: string,
   targetId: string,
@@ -274,11 +221,7 @@ export function insertFor(
   return { before: name(s), after: name(t) };
 }
 
-/**
- * The chains.yaml name a JACK click has in hand: the node as the chains spell it — the same
- * resolution insertFor uses — plus `#port` when the jack names one. What the patch-cable
- * gesture hands the host, so `graph chain connect` receives addresses the file already speaks.
- */
+/** The chains.yaml name a JACK click has in hand — `insertFor`'s resolution, plus `#port`. */
 export function jackRef(n: GraphNode, port?: string): string {
   const name = n.kind === "module" ? (n.module ?? n.label) : n.label;
   return port ? `${name}#${port}` : name;
@@ -303,9 +246,7 @@ export function autoTarget(
   if (!src || !tgt || !a) return null;
   return {
     id: edge.id,
-    // Out of the curve's own socket, like every other cable. It KEEPS its arrowhead, unlike a
-    // signal cable: it does not plug into anything — it lands on a knob in the middle of a card,
-    // and a headless line pointing into a widget grid says nothing about which knob it means.
+    // Out of the curve's own socket, and it KEEPS its arrowhead: it lands on a knob, not in a hole.
     from: jackPoint(src, "out", 0),
     to: a.widget
       ? { x: tgt.x + a.widget.x, y: tgt.y + a.widget.y }

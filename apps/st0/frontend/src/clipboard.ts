@@ -9,24 +9,12 @@ export interface CopiedNote {
   t: number;
   d: number;
   v?: number;
-  // A PAD's effects ride along, for the reason an event's window does: a copy is of the thing you
-  // copied. See @studio/song docs/padEffects.md.
+  // A PAD's effects ride along, for the reason an event's window does: a copy is of the thing you copied.
   repeat?: number;
   skip?: number;
 }
 
-/**
- * One copied event. `row` is lanes below the rectangle's top, `start` beats from its left edge.
- *
- * Everything after those is the placement's OWN words, carried whole so a paste puts down the
- * event you copied rather than a bare `ref` at a new position. They were dropped until they were
- * on the wire to be copied: a compiled clip is a placement and its material already merged, so
- * `ref` and `start` were the only two fields that survived being read back off one. A trimmed,
- * faded, four-pass event pasted as an untrimmed single pass of the whole material.
- *
- * `loop` was declared here throughout and never once set — `laneEvents` had no repeat count to
- * give it — which is worth knowing before trusting a field that merely exists.
- */
+/** One copied event: `row` and `start` from the rectangle's corner, then the placement's OWN words, carried whole. */
 export interface CopiedEvent {
   row: number;
   ref: string;
@@ -52,13 +40,7 @@ export interface EventAttrs {
   warp?: boolean;
 }
 
-/**
- * The authored fields worth carrying, with the absent ones left out.
- *
- * Rebuilt key by key rather than spread wholesale: what arrives is a wire object, and copying it
- * in one go would carry any field a newer producer added into a `events add` payload that has not
- * been taught to check it. The vocabulary a paste can write is stated once, here.
- */
+/** The authored fields worth carrying, rebuilt key by key: a wholesale spread would carry a newer producer's field into an `events add`. */
 function attrsOf(e: EventAttrs | undefined): EventAttrs {
   if (!e) return {};
   return {
@@ -72,14 +54,7 @@ function attrsOf(e: EventAttrs | undefined): EventAttrs {
   };
 }
 
-/**
- * The shell's one clipboard, holding either kind.
- *
- * One slot rather than one per surface: copying is a single gesture with a single memory, and two
- * clipboards would make "what does paste put down" a question about which pane you copied from
- * three minutes ago. Pasting the wrong KIND is refused by name instead — notes into an arrangement
- * is not a coercion anybody wants guessed at.
- */
+/** The shell's one clipboard, holding either kind — one slot, and the wrong KIND refused by name rather than coerced. */
 export type Clipboard =
   | {
       kind: "notes";
@@ -100,18 +75,7 @@ export type Clipboard =
 /** Nothing to put down — an empty rectangle copies as `null` rather than as an empty clipboard. */
 export type MaybeClipboard = Clipboard | null;
 
-/**
- * The notes inside `[loKey..hiKey] × [from, to)`, relative to that corner.
- *
- * A note is IN when it STARTS inside — the rule `stepGrid`'s cells already follow, and the only
- * one that makes a rectangle's contents well defined: a note crossing the right edge belongs to
- * the beat it begins on, and taking it by overlap instead would copy the same note into two
- * adjacent rectangles.
- *
- * Its length is carried whole, uncut. A copy is of the MATERIAL, and a note trimmed to the
- * rectangle would come back shorter than the one you selected — the rectangle says which notes,
- * not how long they are.
- */
+/** The notes inside the rectangle, relative to its corner: a note is IN when it STARTS inside, and its length is carried uncut. */
 export function copyNotes(
   notes: readonly {
     key: number;
@@ -151,14 +115,7 @@ export function copyNotes(
   };
 }
 
-/**
- * …and back out, at a caret: absolute notes for `sequence note add`.
- *
- * `topKey` is the pitch of the caret's row and `at` its beat, so what was the rectangle's top-left
- * lands exactly under the caret. Anything the offset pushes off the keyboard is DROPPED rather
- * than clamped: a chord squashed onto key 0 is not the chord you copied, and a silently
- * transposed note is worse than a missing one. The caller reports the count.
- */
+/** …and back out at a caret: the rectangle's top-left lands under it, and anything pushed off the keyboard is DROPPED, not clamped. */
 export function pasteNotes(
   clip: Clipboard,
   topKey: number,
@@ -178,20 +135,14 @@ export function pasteNotes(
       t: at + n.t,
       d: n.d,
       ...(n.v === undefined ? {} : { v: n.v }),
-      // Unchanged by the offset: `repeat` counts inside the note's own duration and `skip` counts
-      // passes, so neither means anything about where the pad was put down.
+      // Unchanged by the offset: `repeat` counts inside the note's own duration and `skip` counts passes.
       ...(n.repeat ? { repeat: n.repeat } : {}),
       ...(n.skip ? { skip: n.skip } : {}),
     }))
     .filter((n) => n.k >= 0 && n.k <= 127 && n.t >= 0);
 }
 
-/**
- * The events inside a rectangle of lanes × beats, relative to its corner.
- *
- * `rows` is the lanes the rectangle covers, top first, each with the placements it holds. Taken by
- * START like the notes, and for the same reason.
- */
+/** The events inside a rectangle of lanes × beats, relative to its corner — taken by START like the notes, and for the same reason. */
 export function copyEvents(
   rows: readonly {
     events: readonly { ref: string; start: number; event?: EventAttrs }[];
@@ -213,14 +164,7 @@ export function copyEvents(
   return { kind: "events", events, rows: rows.length, beats: to - from };
 }
 
-/**
- * …and back out onto real lanes: the payload `events add` takes.
- *
- * `lanes` is the tracks from the caret's row DOWNWARDS — as many as the paste can reach. A
- * rectangle three lanes tall pasted onto the last lane has nowhere to put its lower two, and they
- * are dropped rather than folded onto the last one: stacking material nobody asked to stack is a
- * worse answer than putting down what fits and saying so.
- */
+/** …and back out onto real lanes: as many as the paste can reach, the rest dropped rather than folded onto the last one. */
 export function pasteEvents(
   clip: Clipboard,
   lanes: readonly string[],
@@ -232,9 +176,7 @@ export function pasteEvents(
     if (!track) return [];
     const start = at + e.start;
     if (start < 0) return [];
-    // The window and the fades ride along UNCHANGED while only `start` moves: they measure into
-    // the material, not into the arrangement, so a paste four bars later plays the same slice of
-    // the same file. It is the one pair of coordinates a paste must NOT offset.
+    // The window and the fades ride along UNCHANGED while only `start` moves: they measure into the material, not the arrangement.
     return [{ track, ref: e.ref, start, ...attrsOf(e) }];
   });
 }

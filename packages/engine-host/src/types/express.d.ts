@@ -1,8 +1,6 @@
 import type { SessionUser } from "@frediverse/oidc";
 
-// setupAuth's requireAuth attaches the logged-in user — the same augmentation the other
-// frediverse backends carry. The supervisor is no Express app, but it calls into @frediverse/oidc
-// for API tokens, and consuming that package as raw source means typechecking it here too.
+// The same augmentation the other frediverse backends carry: this is no Express app, but consuming @frediverse/oidc as raw source typechecks it here.
 declare global {
   namespace Express {
     interface Request {

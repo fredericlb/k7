@@ -21,9 +21,7 @@ const PORT = 8797; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8
 const SCROLLBACK_CAP = 1 << 20; // ~1 MiB of raw PTY output per tab, enough for a post-mortem
 const MAX_TABS = 12; // a runaway "+" should not fork-bomb the machine
 const MAX_NAME = 24; // a tab label the bar can still show
-// Git Bash is wherever Git is (machine- or user-level install), so it is derived
-// from the git.exe on PATH rather than guessed at fixed paths. NOT `where bash`:
-// System32\bash.exe is WSL's, and WindowsApps' is a Store alias.
+// Derived from the git.exe on PATH, never `where bash`: System32's is WSL's (../../docs/remote.md).
 function findGitBash() {
   const r = spawnSync("where.exe", ["git.exe"], { encoding: "utf8" });
   for (const line of (r.stdout ?? "").split(/\r?\n/)) {
@@ -40,9 +38,7 @@ function findGitBash() {
   return null;
 }
 
-// Every shell found on the machine is offered as a tab flavor, spawned DIRECTLY
-// (file + args, no cmd.exe in between: a quoted path through `cmd /c` is a quoting
-// lottery). All start in the user's home (see CWD below).
+// Every shell on the machine is a tab flavor, spawned DIRECTLY: `cmd /c` is a quoting lottery.
 function detectShells() {
   if (process.platform !== "win32") {
     const sh = process.env.SHELL ?? "/bin/sh";
@@ -62,6 +58,7 @@ function detectShells() {
 }
 const SHELLS = detectShells();
 // Overridable (tests, or pointing the page at something other than a plain shell).
+
 // biome-ignore lint/suspicious/noUndeclaredEnvVars: this server never runs under turbo
 const customCmd = process.env.STUDIO_CONSOLE_CMD;
 if (customCmd)
@@ -79,8 +76,7 @@ const DEFAULT_SHELL = customCmd
 // Where every tab starts: the user's home.
 const CWD = homedir();
 
-// A session is one shared PTY: every attached client sees and types into the same
-// shell. Sizes are shared too — the last device to (re)attach or resize wins.
+// A session is one shared PTY, sizes included — the last device to attach or resize wins.
 const sessions = new Map();
 let nextId = 1;
 const clients = new Set(); // each ws carries .attached, the id of the tab it views
@@ -149,8 +145,7 @@ function start(s) {
   broadcastTabs();
 }
 
-// Ctrl-C first, and patiently, in case the shell is running something that cleans up
-// on the way out. The hard kill is only for a process that no longer listens.
+// Ctrl-C first and patiently; the hard kill is only for a process that no longer listens.
 function stop(s) {
   if (!s.child) return;
   s.child.write("\x03");
@@ -166,8 +161,7 @@ function resize(s, cols, rows) {
   s.child?.resize(s.size.cols, s.size.rows);
 }
 
-// An alt-screen TUI repaints fully on a resize, so one row of jiggle gives a client
-// that joined mid-session a clean screen, at the cost of a flicker for the others.
+// An alt-screen TUI repaints on a resize, so one row of jiggle gives a late joiner a clean screen.
 function nudge(s) {
   if (!s.child) return;
   s.child.resize(s.size.cols, s.size.rows + 1);
@@ -197,8 +191,7 @@ function closeSession(s) {
   clearTimeout(s.killTimer);
   s.child?.kill();
   if (sessions.size === 0) createSession(); // there is always a tab to land on
-  // No forced reattach: the tabs broadcast tells clients their tab is gone, and
-  // each one re-attaches itself to the first tab left (the page owns `current`).
+  // No forced reattach: each client re-attaches itself, since the page owns `current`.
   broadcastTabs();
 }
 
@@ -266,8 +259,7 @@ wss.on("connection", (ws) => {
     else if (m.t === "stop") stop(s);
     else if (m.t === "close") closeSession(s);
     else if (m.t === "rename") {
-      // The name lives with the session, so it survives a restart and every viewer
-      // sees it; an empty one falls back to id·shell.
+      // The name lives with the SESSION, so it survives a restart and every viewer sees it.
       s.name =
         String(m.name ?? "")
           .trim()
@@ -293,9 +285,7 @@ http.on("error", (e) => {
   process.exit(1);
 });
 
-// 0.0.0.0, NOT loopback: the LAN proxy (traefik, on another machine) reaches this
-// port over the network — a 127.0.0.1 bind answers it "connection refused". The LAN
-// is the trust boundary, per the no-auth decision in docs/remote.md.
+// 0.0.0.0 and NOT loopback: the LAN proxy is on another machine (../../docs/remote.md).
 http.listen(PORT, "0.0.0.0", () => {
   console.log(
     `  console → https://console.priv.frediver.se/  (shells: ${Object.keys(SHELLS).join(", ")}; cwd: ${CWD})`,

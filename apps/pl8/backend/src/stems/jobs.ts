@@ -10,13 +10,7 @@ const MAX_LINES = 50;
 
 const jobs = new Map<string, SeparateJob & { at: number }>();
 
-/**
- * Keyed by the WORK — who, which song, which chain — exactly as the engine keys its own.
- *
- * The thing worth not doing twice is the separation, so a second deck, a retry or a remount
- * joins the run in flight instead of starting another quarter of an hour of arithmetic. It is
- * the property `service.prepareStems` already promises its callers.
- */
+/** Keyed by the WORK, as the engine keys its own, so a retry joins the run already in flight. */
 export function jobIdFor(user: string, song: string, chain: string): string {
   return createHash("sha256")
     .update(`${user}\0${song}\0${chain}`)
@@ -40,15 +34,7 @@ export function runningJob(id: string): SeparateJob | null {
   return j && !j.done ? snapshot(j) : null;
 }
 
-/**
- * Register a run and hand back the callbacks that move it.
- *
- * A registry rather than a promise the route awaits, and that is a correction: the desk plays the
- * record immediately and watches the separation catch up (`ui-turntables`'s docs/stems.md), so a
- * route that only answered when the work finished would give it nothing to draw for a quarter of
- * an hour. The engine's `/process` is start-then-poll for the same reason, and this mirrors it so
- * the browser cannot tell which service is doing the work.
- */
+/** Register a run and hand back the callbacks that move it — a registry, ../../docs/stems.md. */
 export function startJob(
   id: string,
   source: string,
@@ -72,8 +58,7 @@ export function startJob(
   jobs.set(id, job);
   return {
     progress: (patch) => {
-      // `lines` ACCUMULATE where everything else is replaced: they are a log, and the engine
-      // sends the tail it holds rather than the whole of it.
+      // `lines` ACCUMULATE where everything else is replaced: the engine sends only its tail.
       const { lines, ...rest } = patch;
       Object.assign(job, rest);
       if (lines?.length) {
@@ -88,8 +73,7 @@ export function startJob(
   };
 }
 
-// A copy, so a caller cannot hold a reference that keeps changing under it mid-response — the
-// same reason `separateJobs.ts` snapshots.
+// A copy, so no caller holds a reference that keeps changing under it mid-response.
 function snapshot(j: SeparateJob): SeparateJob {
   return {
     id: j.id,

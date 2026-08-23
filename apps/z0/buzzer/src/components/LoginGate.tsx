@@ -7,9 +7,7 @@ import { login, loginAsGuest, useAuth } from "../lib/auth";
 export const NAME_KEY = "buzzer_player_name";
 export const NAME_CONFIRMED_KEY = "buzzer_name_confirmed";
 
-// Entry gate (port of the buzzer's LoginGate.vue). JOIN behaviour depends on
-// auth state: authenticated → persist the name and continue; unauthenticated
-// + guestEnabled + password → guest-login with name+password.
+// JOIN keeps the name for an account, and guest-logs in with name plus password otherwise.
 export function LoginGate({ message }: { message?: string }) {
   const { status: authStatus, guestEnabled, registrationOpen } = useAuth();
   const [playerName, setPlayerName] = useState(

@@ -108,8 +108,7 @@ sessionsRouter.post(
       gain,
     );
 
-    // Re-detect highlights over the stored envelope (the full timeline after an
-    // append), falling back to the uploaded segment if it isn't readable back.
+    // Re-detect over the STORED envelope, which is the whole timeline after an append.
     const stored = (await store.getEnvelope(req.params.id)) || envelope;
     const { events } = detectEvents(stored, {});
     await store.replaceHighlights(req.params.id, events);

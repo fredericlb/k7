@@ -156,6 +156,162 @@ exactly once keeps its settings in `module.yaml` and gets no node file at all.
 No schema file: a project is validated in process against the loader's own schemas
 (`packages/song/src/yaml/`), so there is nothing to ship alongside it.
 
+### What the emitter decides, and why
+
+These are the choices `src/emit.ts` makes that a reader would otherwise have to reconstruct.
+
+**Every timing field is a `#Timecode` STRING, never a bare number.** A bare `4` parses as BARS
+and lands the clip at beat 12. And a timecode is written QUOTED: bare, `25:1` is a YAML 1.1
+sexagesimal. The shape decisions in the emitters match what st0 itself writes — a placement, a
+chain node or a note stays on ONE line.
+
+**A placement does not carry the clip's extent.** That belongs to the material, as a `from`/`to`
+window in the clip's or sequence's own file (`materialWindow`). All the placement adds is how many
+times that window is played. A window starting at the material's own beginning says so by
+omission, which is how a hand would write it.
+
+**A lane file has no `name:` field.** The FILE names the lane and the track's name drives the
+slug, so the display name is that slug. A lane is a NODE of `@studio/track` and is not typed, so
+an imported track's clips carry their own kind — one holding both audio and MIDI, which used to
+have no shape here at all and was counted as `mixedTracks`, is now the ordinary case. Its mute is
+its module's bypass and goes to `graph.yaml`. The lane file's own key is `events:`, not `clips:`:
+a clip is the material in `clips/<id>.yaml`, and these are placements of it. See
+[trackModules.md](../../song/docs/trackModules.md).
+
+**One module per PLUGIN, one insert per use.** Modules are keyed by the plugin rather than by its
+settings, so a plugin used several times becomes nodes rather than the `reverb_2, reverb_3` pile
+imports used to make. Each insert gets its OWN node even when identically set: they are separate
+slots, and sharing one would make tweaking the vocal's reverb silently retune the drums'. A plugin
+used in exactly ONE place then folds back into `module.yaml`, so the common import reads exactly as
+it did before nodes existed — which means an import only pays for nodes where settings really
+differ.
+
+Because a node is flat (`nodes/<name>.yaml`, named by its file alone), a node shares ONE namespace
+with the lanes and the modules a chain step may equally name, and uniqueness has to hold across all
+three. A module whose sole use folded back has its own name taken as far as a node is concerned.
+
+**A plugin's type folder comes from its role, and `transformers` is written rather than the legacy
+alias `midi`.** An import creates fresh folders, so writing the old name gave every imported song a
+legacy layout on day one.
+
+**Text params capture state when they are complete or when there is no preset**; otherwise the
+opaque `.vstpreset` is kept and the partial params are skipped. The preset is written beside the
+file whose state it is: `nodes/<node>.vstpreset` for a node, and the module's own folder for the
+sole use that stayed in `module.yaml`.
+
+**A plugin the cache does not know is written as a stub** — no `type`, which is what makes it one:
+the brain skips instantiating it and the chain simply routes through. With no scan cache at all
+there is nothing to check against and the verification is skipped entirely.
+
+**Audio and no MIDI means a bounced track**, so its instrument and note FX are dropped (the frozen
+remains) and the audio FX kept.
+
+**Dead return buses are dropped, and the drop cascades**, since one may feed another bus that is
+now itself unfed. An orphaned insert must not count towards "used more than once", so only the
+module refs a SURVIVING chain names are counted before the sole-insert fold.
+
+### The graph is SEGMENTS, and sends lose their level
+
+`graph.yaml` holds who feeds whom, and that is where the imported sends survive: the old list
+format gave a chain ONE sink, so a track that was dry to master AND feeding a bus had to lose one
+of the two, while a node here simply lists both destinations. A `to` naming another chain resolves
+to the module that chain starts at, since a chain is no longer something to route to by name.
+
+The send LEVELS are still lost. A destination list says WHERE the signal goes, not how much of it,
+so a weighted send arrives at full strength — the emitter counts them and writes a `NOTE:` comment
+at the top of the file saying so, with the remedy (trim them on the bus's own module).
+
+There is ONE map in that file, lanes first, because a lane is a module too and putting the runs'
+sources at the top is what makes the file read the way the signal flows. A lane the import found
+MUTED is listed under `bypassed:`, which is where a lane's mute lives now.
+
+### Reading a Live set: the traps
+
+The `.als` schema is undocumented and version-drifting, and every one of these fails **silently**
+when read wrong. `src/ableton.test.ts` pins each against a real Live 12.4 set, in hand-written XML
+rather than a fixture — a `.als` is a binary carrying personal paths.
+
+**`<Loop>` holds two different things depending on the brace.** With the loop ON, playback begins
+at `StartRelative` and `LoopStart`/`LoopEnd` is the brace around the whole clip; with it OFF,
+`LoopStart`/`LoopEnd` IS the region and `StartRelative` is 0. Reading only one of them misplaces
+half the clips in a real set.
+
+**An unwarped clip's region is in SECONDS, a warped one's in beats**, and Live writes both into
+the same `<Loop>` fields. The only thing telling them apart is `IsWarped` — miss it and every
+unwarped clip lands off by tempo/60, which is 1.83× at 110 bpm. Verified across a real set: the
+ratio is exact.
+
+**A MIDI clip's loop brace is deliberately not carried.** Live leaves a full-clip brace (0..244) on
+clips that play eight beats of it, and passing that region to `materialWindow` would slice the
+window from the brace instead of the clip's own start, dropping every note.
+
+**The pitch lives on the `KeyTrack`, not on the event** — the one structural surprise of Live's
+MIDI.
+
+**`Speaker` is the track's ON state**, so mute is its inverse; and Live pans −1..1 where the model
+wants 0..1.
+
+**The time signature is packed into one integer**: 201 → 4/4, the denominators being the powers of
+two with 99 numerators each. `RemoteableTimeSignature` exists too, but only inside a clip.
+
+**`MinorVersion` leads with the real product version** (`"12.0_12402"`); `MajorVersion` is the
+schema's and stuck at 5. Live 12 renamed the master track to `MainTrack`; 11 still says
+`MasterTrack`. A v1 set carries neither sends nor groups, so their tracks would arrive as orphans
+and the reader says so instead.
+
+**Where a track's clips live moved between versions AND between track kinds** — audio under
+`MainSequencer/Sample`, MIDI under `MainSequencer/ClipTimeable`. Rather than hard-code either
+path, the reader walks the track and picks clips up wherever they are, using the enclosing tag to
+tell Arrangement from Session.
+
+**Only a `<SampleRef>`'s `FileRef` is audio.** A bare `<FileRef>` elsewhere in a set points at a
+device preset (`.adv`/`.adg`) or even a VST binary, so scanning for `FileRef` generally would pull
+in nonsense. And Live's `<Buffer>` hex is wrapped across lines and indented, so everything non-hex
+is stripped before decoding.
+
+**Live's own devices carry no portable state.** There is no VST to load them into, so they are
+reported and skipped rather than written as chain nodes that could never resolve. `MixerDevice` is
+excluded on purpose: it is the track's own mixer, not something the user placed in a chain. Racks
+are containers — the plugins inside DO cross over, and only the rack's own structure is lost, so
+the reader walks into a rack's nested `Devices` node and flattens the rack away.
+
+**Live gives no explicit instrument/FX role**, so the first device on a MIDI track is taken as the
+instrument and the rest as audio FX — the same approximation the DAWproject mapper makes for
+cross-type ordering.
+
+**VST3 keeps its state in `ProcessorState`, VST2 in `Preset/VstPreset/Buffer`**; both are hex text.
+Live also exposes the automatable parameters by name, but only a SUBSET — a real set lists 384 of
+a plugin's 2276 — so `paramsComplete` is never set for it. `emit.ts` then keeps the preset and
+drops those partials by design; they are the fallback for a plugin whose state blob would not
+decode.
+
+### Reading a DAWproject: the shapes that occur
+
+**A clip list flattens into absolute-positioned leaves**: `<Notes>` is MIDI, an `<Audio>` file is
+audio, and a nested `<Clips>` is a container establishing a child timeline. Leaves are clamped to
+their container's window, and a clip matching none of these is dropped — reported through
+`ctx.warn` so it is not silent.
+
+**The `<Audio>` of an audio leaf occurs in three places in the wild**: directly under the `<Clip>`,
+inside a `<Warps>` when time-stretched, or that same pair nested in a `<Lanes>` lane. A bounced
+clip has no `<Warps>` at all, and a `<Warps>` with fewer than two markers means the same as "not
+warped" — one marker cannot define a stretch.
+
+### Asking the engine for a plugin's parameters
+
+`src/params.ts` asks the engine to enumerate a plugin's parameters so `emit.ts` can write diffable
+text params instead of an opaque `.vstpreset`. The preset is dropped only when the engine reports
+that the params fully reproduce the state; the whole step is a no-op without an engine binary, and
+a failure returns a human-readable reason so a kept-as-preset plugin is never silent.
+
+**Locating the engine is the CALLER's job.** This is a library, so it takes the binary rather than
+guessing where the repo is. A copy of that search used to live here and broke the moment the
+package moved — it should not come back.
+
+**The dump cache is keyed by the STATE FILE as well as the plugin.** Two instances carrying
+different presets must not share a dump, or the second inherits the first's values and `emit.ts`
+then collapses them into one module.
+
 ### Mapping a DAWproject (track-based) onto the node model
 
 - each source track becomes a `nodes/` lane carrying its arrangement;

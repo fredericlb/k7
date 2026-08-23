@@ -18,15 +18,13 @@ describe("the stem cut graph", () => {
 
   it("has one control, and it starts at NOTHING REMOVED", () => {
     expect(g.params.map((p) => p.name)).toEqual(["Cut"]);
-    // The whole promise of the subtraction design: a deck that has loaded a song and been left
-    // alone must sound like the disc, so this lane must contribute silence until asked.
+    // A deck loaded and left alone must sound like the disc, so this lane contributes silence.
     expect(g.params[0].default).toBe(DEFAULT_CUT);
     expect(DEFAULT_CUT).toBe(0);
   });
 
   it("is a proportion, 0..1, not a level in dB", () => {
-    // Full removal has to be reachable. A dB fader's floor is −60 and its "off" is −∞, neither of
-    // which is a position; asking for "half the bass" is asking for a proportion of it.
+    // Full removal has to be reachable, and −∞ dB is not a fader position — ../docs/stemcut.md.
     expect(g.params[0].min).toBe(0);
     expect(g.params[0].max).toBe(1);
   });
@@ -42,24 +40,20 @@ describe("the stem cut graph", () => {
   });
 
   it("applies a gain and nothing else — no filter, no envelope, no blend", () => {
-    // A stem cut that shaped the stem on its way out would stop cancelling: what is subtracted
-    // has to be exactly what the separator wrote, or the sum leaves a coloured residue.
+    // What is subtracted has to be exactly what the separator wrote, or the residue is coloured.
     expect(g.nodes.some((n) => n.type === "biquad")).toBe(false);
     expect(g.nodes.some((n) => n.type === "envelope")).toBe(false);
     expect(g.nodes.some((n) => n.type === "mix")).toBe(false);
   });
 
   it("reads ONE port — the stem, and nothing beside it", () => {
-    // The mix is summed on the way out (the lane's `out`), never fed in here: a second input
-    // would make this a mixer, and the subtraction would then depend on what it was handed.
+    // The mix is summed on the way out, never fed in: a second input would make this a mixer.
     const ports = g.nodes.filter((n) => n.type === "ain");
     expect(ports).toEqual([]);
   });
 
   it("is what the MODULE carries, which is the copy that actually runs", () => {
-    // A module is a FOLDER you can copy: it holds its own `jsdsp.ts` rather than pointing at this
-    // library, so the graph exists twice on purpose. Two copies of one thing is a drift waiting
-    // to happen — the same reason crossfade.test.ts reads the module's committed graph.
+    // A module is a FOLDER you can copy, so the graph exists twice on purpose — hence this check.
     expect(graph(moduleGraph)).toEqual(g);
   });
 

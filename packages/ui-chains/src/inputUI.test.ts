@@ -1,14 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { inputUI } from "./graph";
 
-// The panel a live INPUT node draws. Synthesised like TRACK_UI and rackUI — these are not the
-// module's opinion but what it IS — and here for a harder reason too: `@engine/IN` is a built-in
-// with no folder in any library, so a `ui.yaml` for it cannot even be KEYED (see @studio/song's
-// uiLibrary.ts). Every input in every project drew "No Options" until this existed.
-//
-// Everything is a dropdown because a module FIELD is written by a command naming a state: only a
-// widget carrying `options` can commit one. And every option's `arg` is what gets WRITTEN, which is
-// the half that has to be right — the label is only what you read.
+// The panel a live INPUT node draws — synthesised, all dropdowns, `arg` WRITTEN. docs/graphBuild.md.
 
 const mono = (n: number) => ({ name: `Input ${n}`, channels: [n] });
 const RIG = [1, 2, 3, 4].map(mono);
@@ -47,8 +40,7 @@ describe("the socket dropdown", () => {
 
 describe("the width dropdown", () => {
   it("writes the channel field too — mono and stereo are one setting's width", () => {
-    // Not a field of its own anywhere: it binds `@channel` like the socket does, so there is no
-    // second verb to keep in step and no state that can disagree with the file.
+    // Not a field of its own: it binds `@channel` like the socket does, so nothing can disagree.
     const ui = inputUI(RIG, [2]);
     expect(ui.widgets.width.bind).toBe("@channel");
     expect(opt(ui, "width")).toEqual([
@@ -84,9 +76,7 @@ describe("the panel as a whole", () => {
   });
 
   it("offers no gain knob, which could not commit", () => {
-    // A knob bound to a module FIELD draws, drags and writes nothing: the renderer commits the
-    // picked OPTION's `arg`, and a continuous trim has no options. (The verb is no longer the
-    // obstacle — `node param <node> @gain <db>` exists.) Absent beats present-and-dead.
+    // A knob bound to a module FIELD writes nothing, so `@gain` is absent. See docs/graphBuild.md.
     expect(Object.keys(inputUI(RIG, [1]).widgets).sort()).toEqual([
       "channel",
       "monitor",

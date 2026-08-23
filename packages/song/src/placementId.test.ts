@@ -34,8 +34,7 @@ const lane = (events: string) => {
 
 describe("two placements of one material", () => {
   it("get DIFFERENT ids — which is what a split leaves behind", () => {
-    // Exactly the file `splitTrackPlacement` writes: the head gains a `to` at the cut, the tail
-    // is the same placement opening there. Both play `bass`; they are not the same clip.
+    // What `splitTrackPlacement` writes: both play `bass`, and they are not the same clip.
     const t = lane(
       '  - { ref: bass, start: "1:1:1", to: 2 }\n' +
         '  - { ref: bass, start: "2:1:1", from: 2 }\n',
@@ -43,9 +42,7 @@ describe("two placements of one material", () => {
     const ids = t?.clips.map((c) => c.id) ?? [];
     expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
-    // The engine indexes clips by this. A duplicate made `emplace` keep the first and drop the
-    // rest — "only the first is diffed, so edits to the other will not be heard" — so the second
-    // half could not be moved, retimed or retrimmed once the engine was up. See ProjectDiff.cpp.
+    // The engine indexes clips by this, and a duplicate makes `emplace` drop all but the first.
   });
 
   it("still NAME the material, which is the half that is shared", () => {
@@ -53,8 +50,7 @@ describe("two placements of one material", () => {
       '  - { ref: bass, start: "1:1:1", to: 2 }\n' +
         '  - { ref: bass, start: "2:1:1", from: 2 }\n',
     );
-    // `name` is what every reader that wants the FILE goes through — `clips/<ref>.yaml`, the
-    // onset corrections, the waveform. Those are properties of the material, shared by both.
+    // `name` is what every reader wanting the FILE goes through, and the material is shared.
     expect(t?.clips.map((c) => c.name)).toEqual(["bass", "bass"]);
   });
 
@@ -72,8 +68,7 @@ describe("materialRefOf", () => {
   });
 
   it("returns a bare material name unchanged", () => {
-    // The waveform route is handed both: a placement id for a clip on a lane, a material name
-    // for the whole-file view. One function has to answer for both.
+    // The waveform route is handed a placement id or a material name, so one function answers both.
     expect(materialRefOf("bass")).toBe("bass");
   });
 

@@ -22,13 +22,9 @@ export type TabNode =
   | { type: "text"; text: string }
   | { type: "system"; strings: TabString[]; bars: number[]; cols: number };
 
-// Characters that may appear in tab content (after an optional string label):
-// dashes, bar lines, digits, whitespace, and the common technique letters —
-// h/p (hammer/pull), b/r (bend/release), s (slide), t (tap), v (vibrato),
-// g (grace/legato), l/L (let ring), x (dead note), o (harmonic), plus symbols.
+// Every character tab content may hold, technique letters included — ../../../docs/tablature.md.
 const TAB_BODY = /^[-|0-9\shHpPbBrRsStTvVgGlLxXoO/\\~^()*.=<>]+$/;
-// Leading string label like "e", "B", "A#". The `|` that usually follows is left
-// in the body so it renders as a start-of-measure bar line at column 0.
+// A leading string label; the `|` after it stays in the body, as a column-0 bar line.
 const LABEL = /^\s*([A-Ga-g][#b]?)?\s*/;
 // Whole-line section label (mirrors chordSheet's section detection).
 const BRACKET_SECTION = /^\s*[[({]\s*([^\])}]+?)\s*[\])}]\s*$/;
@@ -43,8 +39,7 @@ export function looksLikeTabLine(line: string): boolean {
   return dashes >= 3 && dashes / Math.max(nonSpace.length, 1) >= 0.3;
 }
 
-// Extract the string label and the column where tab content starts, so bodies
-// across a system align on the same column grid.
+// The label and where content starts, so a system's strings share one column grid.
 function splitLabel(line: string): { label: string; bodyStart: number } {
   const m = LABEL.exec(line);
   const raw = m ? m[0] : "";
@@ -100,15 +95,7 @@ function buildSystem(lines: string[]): Extract<TabNode, { type: "system" }> {
   };
 }
 
-/**
- * Split raw tab text into classified nodes.
- *
- * A system is a maximal run of consecutive string lines; blank or non-tab lines
- * end it. Label-based splitting is deliberately avoided: standard tuning labels
- * both the 1st and 6th string `E`, so a repeated-label rule would chop the last
- * string into its own system. (Trade-off: two systems with no blank line between
- * them merge into one tall block — rare, since tab exports blank-separate them.)
- */
+/** Raw tab text into classified nodes; a SYSTEM is a run of lines — ../../../docs/tablature.md. */
 export function parseTablature(text: string): TabNode[] {
   const lines = text.split(/\r?\n/);
   const nodes: TabNode[] = [];

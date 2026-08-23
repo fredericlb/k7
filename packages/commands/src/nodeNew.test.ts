@@ -91,8 +91,7 @@ describe("node new", () => {
   });
 
   it("names the node in the chains under its OWN name, not the module's", async () => {
-    // A chain step names the node file, so a `hall` that appeared as `amp` would be a step
-    // pointing at the module — which is a different thing, and shared by every other use.
+    // A chain step names the NODE file, so a `hall` appearing as `amp` would point at the module.
     await runCommand("node new audio/amp hall", host(), "cli");
     const lines = chains()
       .split("\n")

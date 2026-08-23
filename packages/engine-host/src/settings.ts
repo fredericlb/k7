@@ -8,31 +8,19 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { settingsPath, studioDir } from "@studio/engine-client/paths";
 
 export interface Settings {
-  /** The registries the user pinned via "Add web UI…". Overrides every other tier.
-   *
-   *  A LIST because each hosted service holds its own registry now — an engine has to be
-   *  listed in st0 AND in the médiathèque to be pickable in both. See
-   *  packages/engine-registry/docs/shared.md. */
+  /** The registries the user pinned via "Add web UI…", overriding every other tier; a LIST, because each service holds its own. */
   registryUrls: string[];
   /** The engine's WebSocket port. */
   port: number;
   /** The engine-side file service's HTTP port. */
   filePort: number;
-  /** The interface the user picked. Remembered so it can be RE-selected when it comes
-   *  back: unplugging an interface makes the engine fall to whatever it can find, and
-   *  replugging it should not require another trip to the menu. */
+  /** The interface the user picked, remembered so replugging it restores it with no trip back to the menu. */
   audioDevice: string | null;
-  /** Where to go when `audioDevice` isn't present (or nothing is selected at all).
-   *  Typically the built-in output — the point is to never end up on no device. */
+  /** Where to go when `audioDevice` isn't present, typically the built-in output — the point is to never end up on no device. */
   audioFallback: string | null;
-  /** The media library's root. null == `~/.studio/mediatek`. Here rather than in the UI for
-   *  the same reason the ports are: it is set once, on a machine whose media lives on a
-   *  second drive, and never again. Passed down to the file service as $STUDIO_MEDIATEK. */
+  /** The media library's root, null meaning `~/.studio/mediatek`; hand-edited like the ports, and passed down as $STUDIO_MEDIATEK. */
   mediatekDir: string | null;
-  /** The token this machine syncs its cache with. A headless service has no cookie jar,
-   *  which is the whole reason the token exists; `scripts/tokens.mjs` writes it (see
-   *  docs/tokens.md). The library's URL is NOT here — pl8 serves the studio origin ROOT,
-   *  so it IS `<studio origin>`, which is fixed and never was anything to choose. */
+  /** The token this machine syncs its cache with, since a headless service has no cookie jar; the library's URL is derived, not stored. */
   mediatekToken: string | null;
 }
 
@@ -56,13 +44,7 @@ function port(v: unknown, fallback: number): number {
     : fallback;
 }
 
-/**
- * The registry list, reading the singular `registryUrl` this used to be.
- *
- * Migration in the READER and not a rewrite pass: settings.ts already validates every field
- * alone so one bad key cannot lose the others, and a machine that never opens the menu again
- * keeps working off its old file forever. The new key wins when both are present.
- */
+/** The registry list, also reading the singular `registryUrl` this used to be: migration in the READER, with the new key winning. */
 function urls(raw: Record<string, unknown>): string[] {
   const list = Array.isArray(raw.registryUrls)
     ? raw.registryUrls.filter(
@@ -100,7 +82,6 @@ export function saveSettings(s: Settings): void {
     mkdirSync(studioDir(), { recursive: true });
     writeFileSync(settingsPath(), `${JSON.stringify(s, null, 2)}\n`, "utf8");
   } catch {
-    /* unwritable home — the pick holds for this session and is lost on the next one,
-       which is better than failing the click the user just made */
+    /* Unwritable home: the pick holds for this session only, rather than failing the click. */
   }
 }

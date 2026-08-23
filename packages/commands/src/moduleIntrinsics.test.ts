@@ -79,15 +79,13 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("@monitor", () => {
   it("writes a QUOTED value, because `on` is a YAML 1.1 boolean", async () => {
-    // We parse 1.2, where it stays a word — but the file is read by people and by other
-    // tools, and `monitor: on` meaning `true` somewhere else is found exactly once.
+    // We parse 1.2, where it stays a word; another tool reading `monitor: on` as `true` does not.
     await runCommand(`node param ${IN} @monitor on`, host(), "cli");
     expect(shared()).toContain('monitor: "on"');
   });
 
   it("keeps what else the file says", async () => {
-    // The node's `channel:` is the whole reason it exists; a write that lost it would
-    // silently move the input to another socket.
+    // A write that lost the node's `channel:` would silently move the input to another socket.
     await runCommand(`node param ${IN} @monitor off`, host(), "cli");
     expect(shared()).toContain("channel:");
     expect(shared()).toContain("2");
@@ -105,10 +103,7 @@ describe("@monitor", () => {
   });
 
   it("takes a NODE whose name has a space, quoted, as it has always taken the param", async () => {
-    // The regex stopped the ref at `\S+`, so the whole line failed to match and the answer was
-    // the usage string — a node named "front desk" could not be addressed at all. It matters now
-    // that the graph's fader names the mixer node it FOUND rather than a name someone typed:
-    // see apps/st0/frontend/src/hooks/useTrackControls.ts.
+    // The regex stopped the ref at `\S+`, so a node named "front desk" could not be addressed.
     await runCommand('node param "front desk" @monitor off', host(), "cli");
     expect(readFileSync(spacedFile(), "utf8")).toContain('monitor: "off"');
   });
@@ -140,8 +135,7 @@ describe("@channel", () => {
   });
 
   it("refuses what could never be a set of interface inputs", async () => {
-    // `findWaveInput` matches a device on its exact channel list, so a set the rig cannot
-    // offer resolves to nothing and plays as silence. These shapes could never be one.
+    // `findWaveInput` matches on the exact channel list, so a set no rig offers plays as silence.
     for (const bad of ["0", "x", "1,2,3"]) {
       const before = shared();
       await runCommand(`node param ${IN} @channel ${bad}`, host(), "cli");
@@ -158,8 +152,7 @@ describe("@gain", () => {
   });
 
   it("had no verb of its own before, and needed none to gain one", async () => {
-    // The point of the table: `@gain` is bindable in the builder and was reachable from no
-    // command at all — a widget bound to it sent `module gain …`, which does not exist.
+    // The point of the table: a widget bound to `@gain` sent `module gain …`, which never existed.
     await runCommand(`node param ${IN} @gain 6`, host(), "cli");
     expect(logs.join(" ")).not.toMatch(/unknown command/);
     expect(sharedDoc().gain).toBe(6);
@@ -185,8 +178,7 @@ describe("an intrinsic nobody implemented", () => {
 
 describe("a plain param is still a PLUGIN's", () => {
   it("goes nowhere near the field writers", async () => {
-    // No plugin module of that name in this fixture, so the plugin path reports exactly that —
-    // which is the proof it took the plugin path and not the intrinsic one.
+    // The fixture has no plugin module of that name, so its complaint proves which path ran.
     await runCommand(`node param ${IN} "Filter Freq" 69`, host(), "cli");
     expect(logs.join(" ")).toMatch(/no plugin module/);
   });

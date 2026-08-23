@@ -4,12 +4,10 @@
 import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
 import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
 
-/** How much of an instrument to REMOVE: none of it, or all of it. The `stemcut` module's own
- *  `Cut` param, so a binding cannot offer a range the module refuses. */
+/** How much of an instrument to REMOVE — the `stemcut` module's own `Cut` param, so the range is its. */
 const CUT_RANGE = [0, 1] as const;
 
-/** What each stem is called on the desk. The model's four, in French like the rest of it —
- *  `other` being everything the three named ones are not, which is what "reste" says. */
+/** What each stem is called on the desk — `other` is everything the three named ones are not. */
 const STEM_LABELS: Record<Stem, string> = {
   drums: "Batterie",
   bass: "Basse",
@@ -17,15 +15,7 @@ const STEM_LABELS: Record<Stem, string> = {
   vocals: "Voix",
 };
 
-/**
- * One control on the desk.
- *
- * `range` is the point of the whole file. A binding has to turn "where this control is" into
- * "what that param should be", and the only way to do that without inventing a scale is to
- * normalise the control to 0..1 and let the target widget's own min/max expand it — which is
- * exactly the journey a MIDI CC's 0..127 already makes in st0's `useMidiControl`. A control
- * that did not state its range would force every consumer to guess one.
- */
+/** One control on the desk — `range` is the point of the whole file, see ../docs/controls.md. */
 export interface MixControl {
   id: string;
   /** What it is called on screen, and in a "bind to…" menu. French, like the rest of m9. */
@@ -35,33 +25,11 @@ export interface MixControl {
   range: readonly [number, number];
   /** Where it sits with nothing done to it — what a reset returns to. */
   home: number;
-  /**
-   * What KIND of module this control expects to drive, in one word, for a scaffolded surface to
-   * say beside the line you have to fill in.
-   *
-   * A hint and not a check. Nothing verifies it — a set is free to wire a fader to whatever it
-   * likes, and `resolveBindings` only asks whether the named module EXISTS. It is here because
-   * `deckA.eqLow:` on its own tells you nothing about what belongs on the other side, and the
-   * answer is a fact about the desk rather than about any one project.
-   *
-   * Absent for the controls that drive no param at all — `transport`, `sync`, `listen` — which
-   * is the same line `REQUIRED_CONTROLS` draws, from the same fact.
-   */
+  /** What KIND of module this expects to drive — a HINT for a scaffolded surface, never checked. */
   wants?: string;
 }
 
-/**
- * The ids are ABSOLUTE — `deckA.tempo`, not a relative `deck.tempo`.
- *
- * They were relative for one turn, and the reason is worth keeping because it says what
- * changed: a `controller.yaml` belongs to a MODULE and is shared by every node of it, so
- * a set with a tempo module on each deck has ONE map for both, and `deckA.tempo` in it would
- * have driven deck B's stretch from deck A's fader.
- *
- * The bindings live in the PROJECT now (`views/mix.yaml`), which can name each node
- * outright — `tempoA` and `tempoB` are different lines. So there is nothing left to resolve,
- * and an id that means exactly one control beats one that means "whichever deck you are".
- */
+/** The ids are ABSOLUTE — `deckA.tempo`, not a relative `deck.tempo`. See ../docs/controls.md. */
 const perDeck = (deck: string, letter: string): MixControl[] => [
   {
     id: `${deck}.tempo`,
@@ -69,9 +37,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     kind: "fader",
     // The module's own knob, so a binding cannot offer a range the panel refuses to draw.
     range: BPM_RANGE,
-    // No sensible home in BPM: a deck's rest position is ITS SONG's tempo, which is a fact
-    // about what is loaded rather than about the control. 0 is the tempo module's own "leave
-    // it alone", which is the honest stand-in.
+    // No sensible home in BPM: a deck rests at ITS SONG's tempo, and 0 is the module's "leave alone".
     home: 0,
     wants: "tempo",
   },
@@ -82,9 +48,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     range: [0, 1],
     home: 0,
   },
-  // The channel EQ, in DECIBELS and not 0..1. Same rule as the mixer strip's Volume: a
-  // control that sent 0.5 for "half" would look right and be six decibels wrong. The range is
-  // the module's knob, so 0 dB — flat — lands exactly at the middle of the travel.
+  // The channel EQ, in DECIBELS and not 0..1 — the module's knob, so flat lands mid-travel.
   ...(
     [
       ["eqLow", "Grave"],
@@ -97,46 +61,31 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     kind: "fader" as const,
     range: EQ_DB,
     home: 0,
-    // One EQ module per deck, three bands on it — so all three lines name the same module and
-    // differ by their param, which is what a skeleton has to make obvious.
+    // One EQ module per deck, three bands on it: all three lines name it and differ by their param.
     wants: "eq",
   })),
   {
     id: `${deck}.filter`,
     label: `Filtre platine ${letter}`,
     kind: "fader",
-    // The module's own knob. Signed, so a control at the middle of its travel is a filter that
-    // is doing nothing — the same reading an EQ gain gets.
+    // The module's own knob, signed — so a control mid-travel is a filter doing nothing.
     range: FILTER_RANGE,
     home: 0,
     wants: "filter",
   },
-  // The STEMS: one knob per separated instrument, in the same shape as the EQ's three. A
-  // PROPORTION rather than decibels — what you ask for here is a part of the instrument, and
-  // taking it away completely has to be a position on the travel, which −∞ dB is not.
-  //
-  // Each names its own node (`cutBassA`), unlike the EQ's three which share one: a stem is
-  // removed by a module of its own, because the removal is a negative gain on the lane playing
-  // that stem. See packages/dsp/docs/stemcut.md.
+  // The STEMS: one knob per instrument, a PROPORTION, each naming its OWN node — see ../docs/stems.md.
   ...STEMS.map((stem) => ({
     id: stemControl(deck, stem),
     label: `${STEM_LABELS[stem]} platine ${letter}`,
     kind: "fader" as const,
     range: CUT_RANGE,
-    // 0 is the record untouched. A stem knob at rest must leave the disc alone, which is the
-    // whole promise of subtracting rather than summing four stems.
+    // 0 is the record untouched — the whole promise of subtracting rather than summing four stems.
     home: 0,
     wants: "stem",
   })),
 ];
 
-/**
- * Every control, DERIVED from the decks rather than listed.
- *
- * A third deck is a third track and a second meeting point in the file format, and nothing in
- * m9 hardcodes two — so the desk's controls must not either, or adding a deck would silently
- * leave it unbindable.
- */
+/** Every control, DERIVED from the decks rather than listed, so a third deck is not unbindable. */
 export const MIX_CONTROLS: readonly MixControl[] = [
   {
     id: "crossfade",
@@ -165,17 +114,10 @@ export const MIX_CONTROLS: readonly MixControl[] = [
 
 const BY_ID = new Map(MIX_CONTROLS.map((c) => [c.id, c]));
 
-/** The control an id names, or undefined. A binding to an unknown id is a typo, and the
- *  caller reports it rather than silently doing nothing. */
+/** The control an id names, or undefined — an unknown id is a typo, and the caller reports it. */
 export const mixControl = (id: string): MixControl | undefined => BY_ID.get(id);
 
-/**
- * A control's position as 0..1, which is what a binding hands on.
- *
- * Clamped, and deliberately: a value from outside the control's range is a caller's mistake,
- * and letting it through would push a param past the ends of the widget that draws it — a
- * knob pinned at its limit while the number says something else.
- */
+/** A control's position as 0..1 — clamped, or a param would go past the ends of the widget drawing it. */
 export function normalise(control: MixControl, value: number): number {
   const [lo, hi] = control.range;
   if (!(hi > lo)) return 0;

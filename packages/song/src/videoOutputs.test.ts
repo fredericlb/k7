@@ -50,8 +50,7 @@ const read = (dir: string) => readFileSync(join(dir, "graph.yaml"), "utf8");
 
 describe("the run itself", () => {
   it("derives a chain named after the sum, the way MIX does", () => {
-    // RENDER has to be a "lane" in the derivation or the run headed by it is indistinguishable
-    // from an ordinary bus — and, worse, the last video chain to arrive absorbs it.
+    // RENDER must be a "lane" or its run reads as an ordinary bus and gets absorbed.
     const chains = deriveChains({
       modules: { blur: ["VIDEO_OUT"], RENDER: ["blur"] },
     });
@@ -61,8 +60,7 @@ describe("the run itself", () => {
   });
 
   it("is not absorbed by the video lane that feeds it", () => {
-    // The trap MIX was given lane status for: every lane feeds the sum, so without it the last
-    // one to arrive swallows the whole master run as its own next steps.
+    // The trap MIX has lane status for: the last lane to arrive swallows the whole master run.
     const chains = deriveChains(
       { modules: { main: ["RENDER"], RENDER: ["VIDEO_OUT"] } },
       (n) => n === "main",
@@ -72,8 +70,7 @@ describe("the run itself", () => {
   });
 
   it("does not warn that RENDER is neither a track nor a chain", () => {
-    // The exact failure MIX had: the line is written onto every project with a viewport, so
-    // leaving the exemption out would warn on all of them at once.
+    // The line is written onto every project with a viewport, so a missing exemption warns on all.
     const dir = project("modules:\n  RENDER: [ VIDEO_OUT ]\n");
     expect(validate(loadGraph(dir))).toEqual([]);
   });
@@ -86,8 +83,7 @@ describe("the run itself", () => {
   });
 
   it("compiles to NOTHING, and changes no audio document", () => {
-    // The honest state today: VideoPluginDoc is modelled and nothing bakes it, so the video run
-    // has no owner and its steps drop. Pinned so the day it DOES compile, this test says so.
+    // Nothing bakes VideoPluginDoc yet, so the run has no owner and its steps drop.
     const dir = join(root, "compiled.st0");
     mkdirSync(dir, { recursive: true });
     writeFileSync(
@@ -112,8 +108,7 @@ describe("the run itself", () => {
 
 describe("hasVideoRun", () => {
   it("wants the KEY, not a destination naming it", () => {
-    // `main: [ RENDER ]` names the sum without saying where the sum goes — that project still
-    // needs the line.
+    // `main: [ RENDER ]` names the sum without saying where it goes, so the line is still needed.
     expect(hasVideoRun("modules:\n  main: [ RENDER ]\n")).toBe(false);
     expect(hasVideoRun("modules:\n  RENDER: [ VIDEO_OUT ]\n")).toBe(true);
   });
@@ -171,8 +166,7 @@ describe("ensureVideoRun", () => {
 
 describe("where it is added from", () => {
   it("`project surface new viewport` brings the pair with it", () => {
-    // The surface and its outputs in one breath: the command reads back a project whose frame
-    // has somewhere to leave by, rather than one a later open will fix.
+    // Surface and outputs in one breath, so the frame has somewhere to leave by straight away.
     const dir = project("modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n", false);
     createSurfaceFile(dir, "viewport");
     expect(read(dir)).toContain("  RENDER: [ VIDEO_OUT ]");
@@ -189,8 +183,7 @@ describe("where it is added from", () => {
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "vid", "video");
     expect(read(vid)).toContain("  RENDER: [ VIDEO_OUT ]");
-    // …and the note above the map, which is this repo's half of the job: the splice writes a
-    // line, not a reason.
+    // …and the note above the map, since the splice writes a line and not a reason.
     expect(read(vid)).toContain("videoOutputs.md");
 
     const arr = join(root, "arr.st0");
@@ -200,8 +193,7 @@ describe("where it is added from", () => {
   });
 
   it("the scaffolded video graph still parses, and still declares the audio run", () => {
-    // The archetype ADDS to the song's map rather than restating it, so the thing worth pinning
-    // is that the sound's run survived the splice that added the picture's.
+    // The archetype ADDS to the song's map, so the sound's run must survive the picture's splice.
     const vid = join(root, "both.st0");
     mkdirSync(vid, { recursive: true });
     scaffold(vid, "both", "video");

@@ -26,8 +26,7 @@ describe("the line the + builds", () => {
     // `node new` and not `module new`: the latter stopped making nodes, and a chain names one.
     const line = createForGraphCommand("audio", "adt");
     expect(line).toBe("node new audio/adt ");
-    // The trailing space is load-bearing: it is the join `nodeNameFor`'s answer lands on, and
-    // where the cursor sits on the one path that still opens the bar (no catalogue to pick from).
+    // The trailing space is load-bearing: it is the join the name lands on, and where the cursor sits on the one path that opens the bar.
     expect(line.endsWith(" ")).toBe(true);
     // Three tokens written; the derived name becomes the fourth and last.
     expect(line.trim().split(/\s+/)).toHaveLength(3);
@@ -60,8 +59,7 @@ describe("the line the shell runs after it", () => {
   });
 
   it("only PINS it when the pick was made on bare canvas", () => {
-    // `node new` already put it in the graph, so all that is left is where it sits. `node
-    // position` takes x and y as separate words, unlike the spawn token's comma pair.
+    // `node new` already put it in the graph, so all that is left is where it sits — x and y as separate words, not the spawn token's pair.
     expect(wireCommand("adt1", null, { x: 12, y: 8 })).toBe(
       "graph move adt1 12 8",
     );
@@ -84,15 +82,13 @@ describe("the line the shell runs after it", () => {
 });
 
 describe("reading the node's name back off what was typed", () => {
-  // A node is named by its FILE alone, so this answers that name and nothing about the module
-  // behind it — the old `module:node` key would name a node nothing answers to.
+  // A node is named by its FILE alone, so this answers that name and nothing about the module behind it.
   it("takes the node from a `node new` line", () => {
     expect(chainRefFromCreate("node new audio/adt a1")).toBe("a1");
   });
 
   it("answers null for a `module new` — it makes no node to wire", () => {
-    // It used to take a trailing node name and make one, which is why this read it too. A
-    // module is not something a chain names, so there is nothing here for the shell to wire.
+    // It used to take a trailing node name and make one; a module is not something a chain names, so there is nothing to wire.
     expect(chainRefFromCreate("module new audio/adt")).toBeNull();
     expect(
       chainRefFromCreate("module new audio/adt @engine/audio/delay/adt"),
@@ -107,11 +103,8 @@ describe("reading the node's name back off what was typed", () => {
 });
 
 // --- naming the node the pick will create ------------------------------------------
-//
-// The one thing that has to be decided HERE and cannot be decided by the file service: the lane
-// is read off the arrow, and the arrow only means something with the chains around it. The rule
-// itself is `@studio/song`'s and is tested there — what is pinned below is which lane an arrow
-// belongs to, and that the name dodges every name the graph already spells.
+
+// The one thing that must be decided HERE: the lane is read off the arrow, and the arrow means nothing without the chains around it.
 
 const g = (
   chains: WebGraph["chains"],

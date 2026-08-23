@@ -12,15 +12,9 @@ import type { ArgClass, ArgProvider, CommandInfo } from "./types";
 export type MenuCtx =
   | { kind: "track"; id: string }
   | { kind: "group"; id: string }
-  // A "block" in the graph. `missing` means no file, no plugin and no param — the menu shrinks to what still
-  // applies. `ambient` means the ENGINE provides it and nothing is on disk: it can be given a folder.
+  // A 'block' in the graph: `missing` is no file, no plugin and no param; `ambient` is the ENGINE's, and can be given a folder.
   | { kind: "module"; id: string; missing?: boolean; ambient?: boolean }
-  // A placed clip. `track` + `tc` say WHICH placement, so the `event …` family can be offered; both optional.
-  //
-  // `sel` is the RECTANGLE the click landed in, when there is one. The range verbs —
-  // `selection consolidate` and `events move` — take a span, and the clicked placement only answers where
-  // it STARTS: derived from that alone they arrived one argument short and the bar asked for the
-  // end the rectangle was already holding. The same three values the palette reads (commandFill).
+  // A placed clip — `track` + `tc` say WHICH placement, and `sel` is the RECTANGLE the click landed in, which the range verbs need.
   | {
       kind: "clip";
       id: string;
@@ -28,8 +22,7 @@ export type MenuCtx =
       tc?: string;
       sel?: { tracks: string; from: string; to: string } | null;
     }
-  // One control on a module, right-clicked: `param` is the widget's `bind`, `cc` what is already
-  // mapped to it. A binding is per param, so this is its own kind rather than part of "module".
+  // One control on a module: `param` is the widget's `bind`, `cc` what is mapped to it — its own kind, a binding being per param.
   | {
       kind: "param";
       id: string;
@@ -39,34 +32,18 @@ export type MenuCtx =
     }
   // A TAKE row under a lane: the track it belongs to, and which take it is (1-based).
   | { kind: "take"; track: string; n: number }
-  // Right-click on an AUTOMATION row: the curve it draws, and the moment under the pointer. Both
-  // are needed — the curve is what the verbs address and `tc` is where a point would go.
+  // Right-click on an AUTOMATION row: the curve the verbs address, and the moment a point would go at.
   | { kind: "curve-point"; curve: string; param: string; tc: string }
-  // A pass-through node — a chain with no modules. It carried the track it belonged to, for the
-  // one reader that took one; nothing is offered on it now, so the id is all it needs to say.
+  // A pass-through node — a chain with no modules; nothing is offered on it now, so the id is all it needs to say.
   | { kind: "chain"; id: string }
   | { kind: "sink"; id: string }
-  // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the
-  // pointer snapped to the ruler's drawn grid (the timeline resolves it).
+  // Right-click on the timeline ruler — offer to drop a marker at `tc`, the beat under the pointer snapped to the drawn grid.
   | { kind: "marker-add"; tc: string }
   // Right-click on an existing marker — offer to delete it by name.
   | { kind: "marker"; name: string }
-  /**
-   * Right-click on a STRETCH POINT in the clip editor's warp view.
-   *
-   * `src` is the FILE second the point pins, already spelled — the one thing `clip warp remove`
-   * addresses one by, and a string for the reason `tc` is: the rounding is the caller's, since it
-   * is the caller that drew the point and has to be able to name the same one twice.
-   */
+  /** Right-click on a STRETCH POINT in the warp view: `src` is the FILE second it pins, already spelled, the rounding being the caller's. */
   | { kind: "warp-point"; clip: string; src: string }
-  /**
-   * A PAD in the step sequencer: the sequence it belongs to, the key it sits on, and the beat it
-   * starts at — the same (key, start) every `sequence note` verb addresses a note by.
-   *
-   * `repeat`/`skip` are what it ALREADY carries, so the menu can offer the value it is not on and
-   * an `off` row only when there is something to turn off. A menu that offered `×2` on a pad
-   * already repeating twice would be a row that does nothing.
-   */
+  /** A PAD in the step sequencer — sequence, key and start beat, plus what it ALREADY carries, so a row is offered only when it does something. */
   | {
       kind: "pad";
       sequence: string;
@@ -76,16 +53,10 @@ export type MenuCtx =
       skip?: number;
     };
 
-/**
- * The values a pad's effects are offered at — a closed set, so the menu is a choice rather than a
- * question. The SCHEMA takes any whole number from 2 up, so a three-against-four feel can still be
- * typed; these are the two that earn a row.
- */
+/** The values a pad's effects are offered at — a closed set, so the menu is a choice; the schema still takes any whole number from 2 up. */
 export const PAD_EFFECT_VALUES = [2, 4] as const;
 
-// A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is still owed.
-// `help` overrides the catalogue's line — only the shell's OWN commands need it, having none there.
-// `name` overrides what is DRAWN — only an entry sharing its verb with another needs one.
+// A canonical entry: `verb` the command, `arg` its entity, `needsMore` a trailing space when a value is owed; `help` and `name` override the catalogue.
 interface Entry {
   verb: string;
   arg?: string;
@@ -94,67 +65,31 @@ interface Entry {
   name?: string;
 }
 
-/**
- * A displayable menu item: what the command is CALLED, what it does, and the line it stands for.
- *
- * `complete` says every argument is already filled from what was clicked — so there is nothing
- * for the bar to collect, and the host RUNS the line instead of pre-writing it. Read it here
- * rather than sniffing the trailing space off `command`: the space is a caret position, and
- * two different questions must not share one accident of formatting.
- */
+/** A displayable menu item: what the command is CALLED, what it does, and the line it stands for — `complete` says the host RUNS it. */
 export interface MenuItem {
   /** The command's NAME, minus the word that names the thing you clicked — see `shortName`. */
   label: string;
-  /**
-   * What it DOES, as one sentence in the language being read: the catalogue's `readable`, else
-   * its `help` with the `(e.g. …)` tail off, else "" for a verb nothing describes.
-   *
-   * Not drawn in the row — the host puts it in the STATUS BAR while the pointer is on the entry.
-   * A menu is scanned by name and read one row at a time, and those are two different places.
-   */
+  /** What it DOES, as one sentence in the language being read — put in the STATUS BAR rather than drawn in the row. */
   description: string;
   command: string;
   complete: boolean;
-  /**
-   * The VERB this entry stands for — `node bypass`, `event remove` — without the entity it was
-   * built for, and untranslated.
-   *
-   * That string is exactly what `commandPrefs` is keyed by, so it is what lets the renderer draw
-   * the icon and the name this person chose. Kept apart from `command`, which carries the entity
-   * and is localized: two menu entries for the same verb on two different tracks are the same
-   * command wearing the same icon.
-   */
+  /** The VERB this entry stands for, without the entity it was built for and untranslated — exactly what `commandPrefs` is keyed by. */
   verb: string;
 }
 
-/**
- * One argument the clicked thing can answer, in the order the command asks them.
- *
- * `provider` is the precise type — a `tracks` value, a `modules` one. The argument's CLASS is
- * only its colour and is too coarse to match on: `file` is a clip and a sequence and a module
- * asset, `module` is also a category. `kind` is for the scalars, which have no provider.
- */
+/** One argument the clicked thing can answer, in the order the command asks: `provider` is the precise type, `kind` is for the scalars. */
 interface Slot {
   provider?: ArgProvider;
   kind?: ArgClass;
-  // The argument's own name, when even the provider cannot tell two commands apart. One case:
-  // `node param <node> <param>` and `module clone <module> <newName>` are the SAME shape —
-  // a module then free text — and a right-clicked param is one of those and not the other.
+  // The argument's own name, when even the provider cannot tell two commands apart — `node param` and `module clone` are one shape.
   name?: string;
   value: string;
 }
 
-// An argument that must survive as ONE token. Plugins name their params "Filter Freq", and the
-// dispatcher splits on whitespace — so anything with a space is quoted, and nothing else is.
+// An argument that must survive as ONE token: the dispatcher splits on whitespace, so anything with a space is quoted and nothing else is.
 const quoteArg = (s: string): string => (/\s/.test(s) ? JSON.stringify(s) : s);
 
-/**
- * Every catalogue command whose LEADING arguments are exactly what this thing can answer.
- *
- * This is the whole mechanism: a track offers its sixteen commands without the menu listing one
- * of them, and a command added to commands.yaml appears here the day it is written. Catalogue
- * order is kept, which already reads as grouped by subject.
- */
+/** Every catalogue command whose LEADING arguments are exactly what this thing can answer — which is the whole mechanism (docs/contextMenu.md). */
 function fromCatalogue(commands: CommandInfo[], slots: Slot[]): Entry[] {
   return commands.flatMap((c) => {
     if (c.args.length < slots.length) return [];
@@ -167,71 +102,43 @@ function fromCatalogue(commands: CommandInfo[], slots: Slot[]): Entry[] {
       {
         verb: c.command,
         arg: slots.map((s) => quoteArg(s.value)).join(" "),
-        // Anything left is still to type. The trailing space is where the caret lands, and it is
-        // also what tells the bar to complete the next ARGUMENT rather than the command name.
+        // Anything left is still to type: the trailing space is where the caret lands, and what tells the bar to complete an ARGUMENT.
         needsMore: c.args.length > slots.length,
       },
     ];
   });
 }
 
-/**
- * The catalogue's help line, as the sentence a row reports to the status bar.
- *
- * The `(e.g. …)` tail is dropped. It answers "how do I type this", which the pre-written line
- * answers better by being the line; every other parenthetical — a value list, an aside — says
- * what the command DOES and is kept.
- */
+/** The catalogue's help line, as the sentence a row reports to the status bar — the `(e.g. …)` tail dropped, every other parenthetical kept. */
 const readable = (help: string): string =>
   help.replace(/\s*\(e\.g\.[^)]*\)/g, "").trim();
 
-/**
- * The word that names the thing you right-clicked, dropped off the front of every row that
- * starts with it: on an event, `event remove` is drawn "remove".
- *
- * You knew what you clicked — you aimed at it — so repeating it on all ten rows is a column of
- * noise between the eye and the only word that differs. What is NOT dropped is a head that names
- * something else: `ui file`, `events move` and `selection consolidate` keep theirs on an event's
- * menu, because there the head is the very thing that says this row is about something other than
- * this one placement — the file behind it, the whole rectangle, every event in a span.
- *
- * One word per context, and not "the head most rows share": a track's menu is nine `event …`
- * rows against six `track …` ones, and the commonest head there is the wrong one.
- */
+/** The word that names the thing you right-clicked, dropped off the front of every row that starts with it — one word per context (docs/contextMenu.md). */
 const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   track: "track",
   group: "track",
-  // What you clicked is the NODE — the use of a module. `module clone` and `module cc` are on
-  // the same menu and keep their head, which is what says they follow the module everywhere.
+  // What you clicked is the NODE — the use of a module; `module clone` and `module cc` keep their head, following it everywhere.
   module: "node",
   clip: "event",
-  // Nothing: a param's verbs are `node param`, `module cc` and `ui midi learn`, three heads
-  // naming three different subjects, and none of them is the control you clicked.
+  // Nothing: a param's three verbs name three different subjects, and none of them is the control you clicked.
   param: "",
   take: "track",
-  // "curve": the row IS the curve, so its three rows read "point add", "point move", "point
-  // remove". `track automation remove` would keep its head — it names the LANE, which is the one
-  // thing that row is not.
+  // 'curve': the row IS the curve, so its three read 'point add', 'point move', 'point remove'.
   "curve-point": "curve",
   chain: "",
   sink: "",
   "marker-add": "project",
   marker: "project",
-  // "clip": the row reads "warp remove", which is what the point under the pointer IS about. The
-  // clip is named by the picture you are looking at, not by the row.
+  // 'clip': the row reads 'warp remove', which is what the point under the pointer is about.
   "warp-point": "clip",
-  // "sequence note": a pad's rows are already named for the value they set (`repeat ×2`,
-  // `skip 1/4`), and the head is the two words every one of them shares.
+  // 'sequence note': a pad's rows are named for the value they set, and the head is what every one of them shares.
   pad: "sequence note",
 };
 
 const shortName = (name: string, head: string): string =>
   head && name.startsWith(`${head} `) ? name.slice(head.length + 1) : name;
 
-// The ONE place every entry passes through, whichever context built it — so the person's
-// "not on the right-click" is applied once and cannot be forgotten by a new `case` below. It
-// filters rather than being consulted at each source: the hand-written entries (`ui file` on a
-// lane, `track mute` on a group) are not in the catalogue and would otherwise escape it.
+// The ONE place every entry passes through, so 'not on the right-click' is applied once and cannot be forgotten by a new `case` below.
 const build = (
   commands: CommandInfo[],
   entries: Entry[],
@@ -244,20 +151,15 @@ const build = (
   const kept = entries.filter((e) => inMenu(e.verb, prefs));
   const full = kept.map((e) => e.name ?? localizeCommand(e.verb));
   const short = full.map((n, i) => (kept[i].name ? n : shortName(n, head)));
-  // All or nothing, and the check is the point: the list is DERIVED, so the command written
-  // tomorrow lands here without anyone looking, and two rows reading alike is worse than a head
-  // repeated ten times. When shortening would make a pair indistinguishable, nothing is dropped.
+  // All or nothing: the list is DERIVED, so when shortening would make a pair indistinguishable nothing is dropped.
   const distinct = new Set(short).size === short.length;
   return kept.map((e, i) => {
     const line = e.arg ? `${e.verb} ${e.arg}` : e.verb;
     const c = commands.find((cmd) => cmd.command === e.verb);
     return {
-      // What it is CALLED. What it does is `description`, which the status bar draws on hover —
-      // the label used to be that sentence, and a menu of ten sentences is read rather than
-      // scanned, so finding the one verb you came for meant reading all ten.
+      // What it is CALLED; what it does is `description`, which the status bar draws on hover — a menu of sentences is read, not scanned.
       label: distinct ? short[i] : full[i],
-      // The entry's OWN line wins outright: `module cc … none` is the unbind, and the
-      // catalogue's sentence for `module cc` says the opposite of what that row does.
+      // The entry's OWN line wins outright: `module cc … none` is the unbind, which the catalogue's sentence contradicts.
       description: e.help
         ? readable(e.help)
         : (c?.readable as Record<string, string> | undefined)?.[locale] ||
@@ -269,14 +171,7 @@ const build = (
   });
 };
 
-// The verbs that still mean something on a node NOTHING answers to. Each acts on graph.yaml
-// alone, which is why they survive; the catalogue cannot say this, since it describes arguments
-// and this is about what the handler touches.
-//
-// `node replace` used to be here, as the repair that created the missing module and pointed
-// the chains at it. It repoints an `extends:` now — there is no file behind a dangling name to
-// repoint — so offering it would be offering a verb that can only answer "no such module".
-// What is left for one is to take it out (`graph unlink`) or to write the file it names.
+// The verbs that still mean something on a node NOTHING answers to — each acts on graph.yaml alone, which the catalogue cannot say.
 const SURVIVES_MISSING = new Set(["node bypass", "graph unlink"]);
 
 /** What the ⋮ bubble is opened ON: a lane's node, as the graph and the timeline both hold it. */
@@ -287,32 +182,14 @@ export interface NodeMenuTarget {
   frozen?: "at" | "inside";
 }
 
-/**
- * The ⋮ bubble on a node: what it can be, and what it can be replaced BY — its module's other
- * attribute SETS, and its freeze.
- *
- * Not derived from the catalogue like everything else in this file, because the ROWS are the
- * node's alternatives rather than the commands that apply to it: what you are choosing from is
- * this project's data. It still answers in `MenuItem`, so the same `ContextMenu` draws it and the
- * same host rule decides — `complete` runs on the spot, the two that owe a name go to the bar.
- *
- * Here rather than in the shell because it has two hosts now: the editor's timeline and graph, and
- * a timeline surface alone on a second device, which has the same lanes and the same nodes.
- * Empty for a node with no module — there is nothing to name.
- *
- * See packages/song/docs/alternatives.md and packages/song/docs/freeze.md.
- */
+/** The ⋮ bubble on a node: its module's other attribute SETS, and its freeze — this project's data rather than the catalogue (packages/song/docs/alternatives.md). */
 export function nodeMenu(n: NodeMenuTarget): MenuItem[] {
   const module = n.module;
   if (!module) return [];
   const names = n.alternatives ?? [];
   const current = n.alternative ?? "1";
   return [
-    // A dot marks the one that is on. The module's own fields are "1" and are listed like any
-    // other — they ARE an alternative, and hiding them would leave no way back to them.
-    //
-    // The gap on the rows without a dot is two NON-BREAKING spaces, and has to be: this label is
-    // drawn as HTML text, which collapses ordinary ones — the list would go ragged under the dot.
+    // A dot marks the one that is on, and the gap on the other rows is two NON-BREAKING spaces, HTML collapsing ordinary ones.
     ...names.map((name) => ({
       label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
       description:
@@ -338,10 +215,7 @@ export function nodeMenu(n: NodeMenuTarget): MenuItem[] {
       complete: false,
       verb: "node alternative copy",
     },
-    // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it will
-    // go is exactly what the label says. A node INSIDE somebody else's render is offered none —
-    // thawing it means thawing the point downstream of it, and an entry here would name the wrong
-    // module. The command refuses that case too; this only stops it being offered.
+    // Freeze: one entry, run on the click, and none at all on a node INSIDE somebody else's render.
     ...(n.frozen === "inside"
       ? []
       : [
@@ -362,12 +236,7 @@ export function nodeMenu(n: NodeMenuTarget): MenuItem[] {
   ];
 }
 
-/**
- * A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what
- * says so: the namespace is the catalogue's own and nothing on disk declares it. Derived at the
- * point of use rather than carried as a flag through the graph doc, the graph model and the
- * renderer — four files for one menu entry is a worse trade than one string test here.
- */
+/** A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so — derived at the point of use. */
 export const withAmbient = (ctx: MenuCtx): MenuCtx =>
   ctx.kind === "module" && ctx.id.startsWith("@engine/")
     ? { ...ctx, ambient: true }
@@ -383,16 +252,14 @@ export function contextMenu(
   locale = "en",
 ): MenuItem[] {
   const from = (slots: Slot[]): Entry[] => fromCatalogue(commands, slots);
-  // Bound once, so no `case` below can forget the prefs or the head — which is the failure this
-  // would have: a menu that quietly ignores what someone turned off, in one context out of nine.
+  // Bound once, so no `case` below can forget the prefs or the head — which would ignore what someone turned off, in one context out of nine.
   const offer = (entries: Entry[]): MenuItem[] =>
     build(commands, entries, prefs, CLICKED_HEAD[ctx.kind], locale);
   switch (ctx.kind) {
     case "track":
       return offer([
         ...from([{ provider: "tracks", value: ctx.id }]),
-        // The shell's own, and last: everything above acts on the track, this one opens the file
-        // that spells it. It is not in the catalogue, so it carries its own line.
+        // The shell's own, and last: everything above acts on the track, this one opens the file that spells it.
         {
           verb: "ui file",
           arg: ctx.id,
@@ -400,23 +267,13 @@ export function contextMenu(
         },
       ]);
     case "group":
-      // NOT derived, and this is the one place that is deliberate: a group answers to `track
-      // mute` and `track solo` (their help says "or group's"), but it is not a value the `tracks`
-      // provider lists — so asking the catalogue for "commands on this type" would offer a group
-      // a freeze, a gain and four `event` verbs, none of which reach it.
+      // NOT derived, deliberately: a group answers `track mute` and `track solo` but is not a value the `tracks` provider lists.
       return offer([
         { verb: "track mute", arg: ctx.id },
         { verb: "track solo", arg: ctx.id },
       ]);
     case "module": {
-      /**
-       * A block in the graph is BOTH, and the menu offers both families.
-       *
-       * It is a NODE — one use of a module, which is what the chains name and what `node
-       * bypass`, `node param`, `node freeze` and the rest address — and it resolves to the
-       * MODULE behind it, which `module clone` and `module cc` act on. Two
-       * providers, one click, in that order: what you right-clicked is the use.
-       */
+      /** A block in the graph is BOTH a node and the module behind it, so the menu offers both families — the use first. */
       const own = [
         ...from([{ provider: "nodes", value: ctx.id }]),
         ...from([{ provider: "modules", value: ctx.id }]),
@@ -425,9 +282,7 @@ export function contextMenu(
         return offer(own.filter((e) => SURVIVES_MISSING.has(e.verb)));
       return offer([
         ...own,
-        // A module the engine merely reports IS a base-module ref, which is what `module own`
-        // takes — so the catalogue answers this one too, rather than the menu knowing it. With
-        // no file anywhere, `ui file` would open nothing, so it is offered INSTEAD.
+        // A module the engine merely reports IS a base-module ref, which `module own` takes; with no file anywhere, it replaces `ui file`.
         ...(ctx.ambient
           ? from([{ provider: "baseModules", value: ctx.id }])
           : [
@@ -440,8 +295,7 @@ export function contextMenu(
       ]);
     }
     case "clip": {
-      // Every verb the rectangle can answer whole, and the set of their names — so the
-      // placement-shaped derivation below does not offer the same verb again, one argument short.
+      // Every verb the rectangle can answer whole, and their names — so the derivation below does not offer the same verb one argument short.
       const range = ctx.sel
         ? from([
             { provider: "tracks", value: ctx.sel.tracks },
@@ -450,25 +304,16 @@ export function contextMenu(
           ])
         : [];
       const ranged = new Set(range.map((e) => e.verb));
-      // Deliberately NOT the `clip …` family (`clipTargets`): what was right-clicked is an
-      // EVENT — a placement on a lane — and the material it references may sit on other lanes
-      // too. Offering `clip process` here read as "process this event" while acting on every
-      // placement of the file. The material's own verbs stay reachable from the bar and the
-      // clip's editor, where the clip is what you are looking at.
+      // Deliberately NOT the `clip …` family: what was right-clicked is an EVENT, and the material it references may sit on other lanes too.
       return offer([
         {
           verb: "ui file",
           arg: ctx.id,
           help: "open the clip's own definition in the editor",
         },
-        // The RANGE verbs first, from the rectangle: three slots rather than two, so a command
-        // that takes a span arrives with its span. Without this they still appeared — the pair
-        // below matches their leading arguments too — but one short, and the bar asked for an end
-        // the rectangle already knew. See docs/contextMenu.md.
+        // The RANGE verbs first, from the rectangle: three slots rather than two, so a command that takes a span arrives with its span.
         ...range,
-        // The `event …` family addresses a PLACEMENT — a track plus a timecode — which is only
-        // offered when the caller said where this one sits. Anything the rectangle already
-        // answered in full is dropped here rather than offered twice, half-filled.
+        // The `event …` family addresses a PLACEMENT, offered only when the caller said where this one sits.
         ...(ctx.track && ctx.tc
           ? from([
               { provider: "tracks", value: ctx.track },
@@ -478,12 +323,7 @@ export function contextMenu(
       ]);
     }
     case "param": {
-      // A param name may contain spaces ("Filter Freq"), and every command here takes it as one
-      // argument — the quoting is `fromCatalogue`'s, so no call site has to remember.
-      // Two shapes, one control: `node param <node> <param>` sets it and `module cc <module>
-      // <param>` binds a knob to it. The first names a USE, the second the module the map
-      // follows into every project — so the pair is asked for under both providers, with the
-      // same id, which is what a block in the graph is.
+      // Two shapes, one control: `node param` names a USE and `module cc` the module the map follows — the quoting is `fromCatalogue`'s.
       const target: Slot[] = [
         { provider: "nodes", value: ctx.id },
         { kind: "text", name: "param", value: ctx.param },
@@ -494,8 +334,7 @@ export function contextMenu(
       ];
       const quoted = `${ctx.id} ${quoteArg(ctx.param)}`;
       return offer([
-        // Learn is a UI command, not a brain one: it arms the browser's Web MIDI and waits for a
-        // knob. It still goes through the bar like everything else, so the gesture is typeable.
+        // Learn is a UI command, not a brain one: it arms the browser's Web MIDI, and still goes through the bar like everything else.
         {
           verb: "ui midi learn",
           arg: quoted,
@@ -503,16 +342,13 @@ export function contextMenu(
         },
         ...from(target),
         ...from(onModule),
-        // The unbind, only worth offering when there is one to remove. It is `module cc` with a
-        // value the catalogue cannot express as an argument shape.
+        // The unbind, only worth offering when there is one to remove — `module cc` with a value no argument shape can express.
         ...(ctx.cc
           ? [
               {
                 verb: "module cc",
                 arg: `${quoted} none`,
-                // Named, because the bind is on this same menu under the same verb: `none` is a
-                // literal the entry writes, not an argument you are being asked for, so it
-                // belongs in the name the way `none` does, rather than being asked for.
+                // Named, because the bind is on this same menu under the same verb: `none` is a literal the entry writes.
                 name: "module cc none",
                 help: "remove the MIDI binding on this param",
               },
@@ -521,27 +357,13 @@ export function contextMenu(
       ]);
     }
     case "take":
-      // Written out rather than derived. `<track> <number>` was ALSO the shape of `track
-      // normalize`, so asking the catalogue for "commands taking these two" would have offered to
-      // normalise a take; that command is gone, but the list stays explicit — a take's two verbs
-      // are a menu somebody chose, and the next command to take a track and a number would join
-      // it silently.
+      // Written out rather than derived: `<track> <number>` was also `track normalize`'s shape, and the next such command would join silently.
       return offer([
         { verb: "track take select", arg: `${ctx.track} ${ctx.n}` },
         { verb: "track take delete", arg: `${ctx.track} ${ctx.n}` },
       ]);
     case "curve-point":
-      /**
-       * An automation row's three verbs, written out for the reason a take's two are.
-       *
-       * `<curve> <timecode>` is a shape the catalogue would happily match against anything taking
-       * those two, and the point of this menu is the three that edit the shape under the pointer —
-       * plus the way OUT of automating, which is a different verb on a different noun and would
-       * never be derived from a curve id at all.
-       *
-       * `add` is left needing its value: a point placed at whatever height the last one happened
-       * to have is not a thing anybody meant, and it is the one argument the pointer cannot give.
-       */
+      /** An automation row's three verbs, written out for the reason a take's two are — `add` is left needing its value. */
       return offer([
         {
           verb: "curve point add",
@@ -556,12 +378,7 @@ export function contextMenu(
         { verb: "curve point remove", arg: `${ctx.curve} ${ctx.tc}` },
       ]);
     case "chain":
-      /**
-       * A chain answers no command's first argument — `track process` and `clip process` take
-       * one SECOND, and a line cannot be pre-written with a hole in the middle. Its one offer
-       * was `project inspect graph`, a READER, and that verb is gone: what it printed is what
-       * the pane you right-clicked in is already drawing. So this opens no menu, like `sink`.
-       */
+      /** A chain answers no command's FIRST argument, and its one reader verb is gone — so this opens no menu, like `sink`. */
       return [];
     case "sink":
       return []; // OUT — nothing per-entity to do
@@ -569,36 +386,15 @@ export function contextMenu(
       // A bare timecode: `project marker new <tc> `, leaving the TEXT cursor where the name is typed.
       return offer(from([{ kind: "timecode", value: ctx.tc }]));
     case "marker":
-      // Through `offer` like every other case: going straight to `build` skipped the prefs, so a
-      // verb somebody had taken off the right-click came back on this one menu out of nine.
+      // Through `offer` like every other case: going straight to `build` skipped the prefs, in one menu out of nine.
       return offer(from([{ provider: "markerNames", value: ctx.name }]));
     case "warp-point":
-      /**
-       * Written out rather than derived, for the reason a take's two verbs are: `<clip> <number>`
-       * is a shape the catalogue would match against anything taking those two, and what this
-       * menu is about is the one point under the pointer.
-       *
-       * One entry, and `clip warp` is deliberately NOT beside it: placing and moving are the
-       * gestures — a double-click and a drag — and offering them here would be a second way to do
-       * what your hand is already on, worded as a command that then asks for a beat.
-       */
+      /** Written out rather than derived, for the reason a take's two verbs are; `clip warp` is deliberately not beside it — placing is the gesture. */
       return offer([
         { verb: "clip warp remove", arg: `${ctx.clip} ${ctx.src}` },
       ]);
     case "pad": {
-      /**
-       * A pad's effects, written out for the reason a take's two verbs are: `<sequence> <note>
-       * <start>` is the shape of every `sequence note` verb, so asking the catalogue for "commands
-       * taking these three" would offer to remove the note, move it and set its velocity — the
-       * things the pad is already under your hand for.
-       *
-       * One row per VALUE rather than one per verb needing a number. The set is closed and short,
-       * the menu is where you choose from a closed set, and `repeat ` left waiting in the command
-       * bar would ask for a number nothing on screen tells you the range of.
-       *
-       * `name` on every row because two rows share a verb — without it the menu would read
-       * "repeat" twice — and the value is what tells them apart.
-       */
+      /** A pad's effects, written out for the reason a take's two verbs are — one row per VALUE, each named, since two rows share a verb. */
       const where = `${ctx.sequence} ${ctx.note} ${ctx.start}`;
       const rows: Entry[] = [];
       for (const n of PAD_EFFECT_VALUES)

@@ -2,11 +2,7 @@ import { f } from "./api";
 import type { AudioPlayback } from "./audioPlayback";
 import type { Player, WSMessage, WSSubscriber } from "./monitor";
 
-// Framework-free port of composables/useGameState.ts. Pure side-effect
-// module: it consumes WS traffic (next / phase_change / player_buzz /
-// remote_action) and drives reveal audio, buzzer locks, the politeness
-// bonus, and multi-track state broadcasts. Nothing here renders — the
-// monitor UI shows phase/players from MonitorClient — so no snapshot store.
+// Side effects only — reveal audio, buzzer locks, politeness, multi state; nothing here renders.
 
 export interface GameStateDeps {
   subscribe: (fn: WSSubscriber) => () => void;
@@ -80,11 +76,7 @@ export class GameState {
     });
   }
 
-  // Local-only phase setter. Phase ownership lives on the remote — every
-  // other client (monitor, presenter, buzzer) consumes phase_change but
-  // does not publish it. We still track phase so monitor-internal logic
-  // (audio timing, buzz gating) reacts immediately; the remote will
-  // broadcast its own phase_change in response to the same remote_action.
+  // Local only, so audio timing reacts at once; the authoritative phase_change still comes back.
   private setPhase(p: string): void {
     this.phase = p;
   }
@@ -102,11 +94,7 @@ export class GameState {
     );
   }
 
-  /**
-   * Reveal + politeness side-effects. The caller (remote/presenter) is
-   * responsible for POSTing `/api/score`; monitor-web just drives audio,
-   * reveal state, and the politeness bonus.
-   */
+  /** Reveal and politeness only: the CALLER is the one that POSTs /api/score. */
   private handleScoreAndReveal(playerName: string): void {
     this.revealForPlayer(playerName);
   }
@@ -194,8 +182,7 @@ export class GameState {
       if (song?.path)
         void audio.preloader.playReversed(song.path, songFrom, songTo);
     } else if (mode === "fusion") {
-      // Re-trigger fusion alternation by replaying via 'next'-style logic.
-      // We only have play/playReversed exposed; resume the first track.
+      // Only play/playReversed are exposed here, so fusion resumes on its first track alone.
       const tracks = song?.tracks ?? [];
       if (tracks.length >= 1 && tracks[0].path) {
         void audio.preloader.play(
@@ -294,9 +281,7 @@ export class GameState {
     if (this.pendingPoliteness) {
       const pp = this.pendingPoliteness;
       this.pendingPoliteness = null;
-      // The player list may not include the new device yet when the `next`
-      // event lands (player_added races it) — defer one tick like the Vue
-      // version's nextTick did.
+      // Deferred a tick: player_added races `next`, so the device may not be listed yet.
       queueMicrotask(() => {
         const deviceId = this.findDeviceId(pp.playerName);
         if (deviceId) {

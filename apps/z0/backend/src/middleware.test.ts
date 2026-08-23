@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isPublicPath } from "./middleware.ts";
 
-// Mirrors auth.go's isPublicPath table — these must stay in lockstep with the
-// Go server until the port is complete.
+// The public-path table, pinned: adding a route here is adding one nobody has to sign in for.
 describe("isPublicPath", () => {
   it.each([
     ["/hello", true],

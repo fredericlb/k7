@@ -63,6 +63,23 @@ to deregister, so the registry keeps a stale entry until the fresh instance re-r
 seconds later. On Unix the same `process.kill` sends SIGTERM, which the signal task in
 `main.rs` does turn into the clean shutdown.
 
+**Stop every ENGINE too, not only the trays.** `stopAll` was tray-only, and there are two ways an
+engine outlives the tray that is supposed to take it down:
+
+1. **The job object teardown is asynchronous.** Killing the tray returns as soon as the tray is
+   gone; the OS unwinds the rest of the job afterwards. Waiting only for the tray let a build start
+   while the engine was still up.
+2. **An ADOPTED engine is in no job at all.** Job membership is inherited at creation, so an engine
+   started by an earlier tray and adopted by this one (`engineProcess.ts`: *"It is NOT ours — Stop
+   must leave it alone"*) belongs to the DEAD tray's job, and nothing takes it down. `devReload.ts`
+   makes that routine in dev: every edit under `packages/engine-host/src` restarts the supervisor
+   and has the engine adopted.
+
+Either way the survivor keeps `studio-moteur.exe` open for execute and the next relink cannot
+replace the image — silently, which is what makes it expensive. Every engine is stopped, whoever
+started it, for the same reason every tray is: a survivor wins, and here it wins by making your
+build a no-op.
+
 ## How it knows the tray is alive
 
 A tray that starts and supervises nothing looks exactly like a healthy one from the

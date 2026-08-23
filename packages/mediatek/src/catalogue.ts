@@ -18,20 +18,10 @@ import {
 const memory = new Map<Family, FamilyListing>();
 let warmed = false;
 
-/**
- * The shape of a persisted listing. **Bump this whenever what the scan PRODUCES changes** —
- * a new field, a different rule about what counts as an entry.
- *
- * The revision token tracks the FILES, not the code: a listing written by an older build
- * matches a token computed by a newer one, so the cache served yesterday's answer to today's
- * question. That is how a two-level module tree kept coming back one level deep after the fix
- * — nothing on disk had changed, so nothing asked for a re-walk. A cache is never
- * load-bearing here (see docs/index.md), so dropping it on a mismatch costs one walk.
- */
+/** The shape of a persisted listing — **bump it whenever what the scan PRODUCES changes**, see docs/index.md. */
 const INDEX_VERSION = 4;
 
-/** Pull whatever the last process left behind. Any problem — absent, truncated, written by
- *  an older shape — just means a cold start, so nothing here throws or logs. */
+/** Pull whatever the last process left behind; any problem at all just means a cold start. */
 function warm(): void {
   if (warmed) return;
   warmed = true;
@@ -56,8 +46,7 @@ function warm(): void {
   }
 }
 
-/** Best-effort persist. A library on a read-only or full disk still WORKS — it just walks
- *  again next time — so a failure here must not reach the caller. */
+/** Best-effort persist — a library on a full or read-only disk still works, it just walks again. */
 function persist(): void {
   try {
     mkdirSync(cacheDir(), { recursive: true });
@@ -74,13 +63,7 @@ function persist(): void {
   }
 }
 
-/**
- * One family's listing, rescanned only when its revision moved.
- *
- * The walk is the expensive half and it is what the token exists to avoid: `/graph` in the
- * file service already costs more than this and is polled at 700 ms, so a walk skipped on
- * an unchanged family is the whole point.
- */
+/** One family's listing, rescanned only when its revision moved — the walk is what the token avoids. */
 export function listFamily(family: Family): FamilyListing {
   warm();
   const rev = familyRevision(family);
@@ -112,22 +95,10 @@ export interface Query {
   limit?: number;
 }
 
-/** The ceiling on `limit`. Applied when the number arrives from a caller, never inside `search`:
- *  `search({})` with no limit legitimately returns everything, and clamping in there would
- *  silently truncate an in-process caller to 1000. */
+/** The ceiling on `limit`, applied where a caller's number arrives and never inside `search`. */
 export const SEARCH_LIMIT_MAX = 1000;
 
-/**
- * A `Query` out of untrusted URL parameters.
- *
- * `limit` is clamped rather than trusted: this walks an array in memory, but an unbounded one
- * asked for by a caller is still a caller's decision about our memory. Anything that is not a
- * positive finite number — absent, zero, negative, a word, an array from a repeated parameter —
- * becomes undefined, which means "no limit" rather than "limit zero".
- *
- * Takes a plain record so express's ParsedQs assigns to it and no HTTP type enters this package.
- * Both shells parsed this identically, sixteen lines each, comment included.
- */
+/** A `Query` out of untrusted URL parameters, `limit` clamped and anything unusable becoming undefined. */
 export function parseQuery(q: Record<string, unknown>): Query {
   const rawLimit = Number(q.limit);
   return {
@@ -141,11 +112,7 @@ export function parseQuery(q: Record<string, unknown>): Query {
   };
 }
 
-/**
- * Filter in memory. This is what `ModulesPage` already does client-side over the module
- * catalogue; it moves server-side here only because the corpus is bigger — the mechanism
- * is the same, and it is still a scan over an array, not an index lookup.
- */
+/** Filter in memory — a scan over an array, not an index lookup, because there is no index. */
 export function search(query: Query = {}): MediatekEntry[] {
   const families = query.family ? [query.family] : FAMILIES;
   const needle = query.q?.trim().toLowerCase();
@@ -165,13 +132,7 @@ export function search(query: Query = {}): MediatekEntry[] {
   return out;
 }
 
-/**
- * How many of each family, and whether there is a library at all. What a surface shows
- * before anything is picked — and `present: false` is a real answer, not an error.
- *
- * The capture zone is counted here too, though it is no family: the tab bar shows four
- * numbers and would otherwise show three plus a zero until someone clicked the fourth.
- */
+/** How many of each family plus the capture zone, and whether there is a library at all. */
 export function summary(): {
   present: boolean;
   counts: Record<string, number>;
@@ -179,8 +140,7 @@ export function summary(): {
   if (!exists())
     return {
       present: false,
-      // Derived from FAMILIES rather than spelled out, so adding one cannot leave the tab bar
-      // one number short before anybody clicks it.
+      // Derived from FAMILIES, so adding one cannot leave the tab bar a number short.
       counts: {
         ...Object.fromEntries(FAMILIES.map((f) => [f, 0])),
         [RECORDINGS_DIR]: 0,

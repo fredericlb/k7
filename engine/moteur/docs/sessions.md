@@ -112,6 +112,43 @@ A warning raised outside any scope — the audio thread's prepare, startup, a de
 out unstamped, which is correct: it belongs to no project, and is exactly the case
 pass-on-absence covers.
 
+## The two harnesses that check all this
+
+`scripts/two-sessions.ts` and `scripts/list-sessions.ts` are the only coverage these rules have,
+and they are worth reading before changing anything above.
+
+`two-sessions.ts` drives two projects at once and then opens a **raw socket** that counts `state`
+frames BY the session they name. The ordinary clients cannot show that: `forSession` drops another
+project's frames before the event fires, so a client sees the same thing whether the engine
+addressed its frames or shouted them at everyone. What the wire costs — a decode and a discard per
+frame, per tab, per session on the machine — is only visible on the raw socket. It sends `hello`
+exactly as the browser client does, since that is what declares a session; a socket that sends
+nothing declares nothing, which is the probe case its last count covers.
+
+Three regressions it exists for:
+
+- **Record-enable is SESSION state.** It was a process-global for a while, so arming st0 lit pl8's
+  record light and made rolling either one record into both.
+- **Only ONE of them plays.** Before sessions the second project tore the first down; before the
+  client half, the silent one saw the playing one's state frames as its own.
+- **What was SENT, not what was kept.** A state frame is a per-track level array plus whatever
+  waveform envelopes are subscribed, at 20 Hz: shouted at every socket, each tab decoded every
+  other project's meters to throw them away, and one session playing kept every other session's
+  tabs awake past their own idle divider.
+
+Its body is wrapped in a function rather than using top-level await, because `engine/moteur`
+declares no `"type": "module"` and tsx transforms it to CJS, where a bare await is a syntax error.
+
+`list-sessions.ts` is **read-only against a REAL engine**: it must not send projects or drop
+anyone's session, which is the difference between a diagnostic and a way to lose the song somebody
+is working on. It connects the way the supervisor does — on the DEFAULT session, driving nothing
+and asking about everyone — which is why `list-sessions` carries no session field at all. It asks
+everything the tray polls BEFORE listing, because that is the regression it guards: reading used to
+CREATE, so those very queries conjured a `""` session which then appeared in the tray's own
+Sessions submenu, reported by the process that had just invented it. It imports `engineQueries` by
+relative path rather than as a subpath, since that module is internal to `@studio/engine-host` and
+its `exports` says so — widening a package's public surface for a probe is the wrong trade.
+
 ## When a session goes away
 
 Three layers, and only the first two are required.

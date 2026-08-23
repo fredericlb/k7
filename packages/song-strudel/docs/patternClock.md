@@ -75,6 +75,13 @@ one out falls back to its orbit key and keeps playing under the generated name. 
 tracks the clock MINTS, which are typed because it types them; a declared lane is not, and takes
 both by wiring both outputs.
 
+## `tick` only emits when the document MOVED
+
+A tick whose window held no event, and whose prune dropped nothing, rebuilds a doc identical to
+the one already sent — and sending it costs a stringify here, a parse there, and a full
+`ProjectDiff` in the engine, six or seven times a second for nothing. The window still advances:
+`scheduledCycle` is what says the pattern was read, and it is set whatever came out.
+
 ## `emit`
 
 The doc the engine gets: the compiled project with its declared strudel lanes' clips

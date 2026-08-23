@@ -33,8 +33,7 @@ function Meter({ level, live }: { level: number; live: boolean }) {
       <div
         className={cn(
           "absolute inset-y-0 left-0 origin-left",
-          // Hot is worth seeing before it clips, so the bar changes colour rather than
-          // relying on a peak mark nobody watches.
+          // Hot is worth seeing before it clips, so the bar changes colour rather than relying on a peak mark nobody watches.
           level > 0.94
             ? "bg-red-500"
             : level > 0.8
@@ -48,8 +47,7 @@ function Meter({ level, live }: { level: number; live: boolean }) {
   );
 }
 
-// Sharps throughout, rather than mixing in a flat: which spelling is "right" depends on a key the tuner does
-// not know, so the consistent one is the one that never looks like a mistake.
+// Sharps throughout: which spelling is right depends on a key the tuner does not know, so the consistent one never looks like a mistake.
 const NOTE_NAMES = [
   "C",
   "C♯",
@@ -69,12 +67,7 @@ const A4_HZ = 440;
 /** Within this many cents reads as in tune, which is the tolerance a tuner's centre band conventionally means. */
 const IN_TUNE_CENTS = 5;
 
-/**
- * The nearest note to a frequency, and how far off it is in cents.
- *
- * Exported for the test: the engine reports Hz and nothing else, so every wrong note a
- * user could see would be born here.
- */
+/** The nearest note to a frequency, and how far off it is in cents — exported for the test: the engine reports Hz and nothing else. */
 export function noteOf(
   hz: number,
 ): { name: string; octave: number; cents: number } | null {
@@ -107,8 +100,7 @@ function Tuner({ hz, clarity }: { hz: number; clarity: number }) {
   return (
     <div
       className="flex w-24 shrink-0 items-center gap-1.5"
-      // A weak reading fades rather than disappearing: a note flickering in and out is harder
-      // to tune against than one that is visibly uncertain.
+      // A weak reading fades rather than disappearing: a note flickering in and out is harder to tune against than a visibly uncertain one.
       style={{ opacity: 0.4 + 0.6 * Math.max(0, Math.min(1, clarity)) }}
       title={`${hz.toFixed(1)} Hz`}
     >
@@ -150,8 +142,7 @@ function PortRow({
   hz: number;
   clarity: number;
 }) {
-  // A generic declares no channel — its nodes carry them — so it is listed (it is
-  // what a chain may name) but never pretends to meter anything.
+  // A generic declares no channel — its nodes carry them — so it is listed but never pretends to meter anything.
   const live = port.channels.length > 0;
   return (
     <div className="flex items-center gap-3 px-2 py-1.5">
@@ -175,9 +166,7 @@ function PortRow({
                 : "no channel"}
       </span>
       <Meter level={level} live={live} />
-      {/* The tuner sits beside the level, not instead of it: you want to see that a string is
-          loud enough to read AND what it reads as. Only inputs have one — an output carries the
-          master mix, which has no single note to find. */}
+      {/* The tuner sits beside the level, not instead of it, and only on inputs: an output carries a mix with no single note to find. */}
       {port.dir === "in" && (
         <Tuner hz={live ? hz : 0} clarity={live ? clarity : 0} />
       )}
@@ -213,9 +202,7 @@ export function IoPanel({
     };
   }, []);
 
-  // Escape belongs to the PANEL now, which closes whichever tab is showing — see SettingsPanel.
-  // Two listeners for one key would have closed it twice, which is the same as once until
-  // something else wants the key.
+  // Escape belongs to the PANEL now, which closes whichever tab is showing — two listeners for one key would close it twice.
 
   const inputs = useMemo(
     () => (ports ?? []).filter((p) => p.dir === "in"),
@@ -226,9 +213,7 @@ export function IoPanel({
     [ports],
   );
 
-  // The channel sets, in the order the reply is indexed by. Held in a ref as well: the
-  // poll closes over it, and rebuilding the interval on every level frame would restart
-  // the timer forever.
+  // The channel sets, in the order the reply is indexed by, and held in a ref: rebuilding the interval per level frame would restart the timer.
   const sets = useMemo(() => inputs.map((p) => p.channels), [inputs]);
   const setsRef = useRef(sets);
   setsRef.current = sets;
@@ -249,8 +234,7 @@ export function IoPanel({
     icon: React.ReactNode,
     rows: IoPort[],
     levelOf: (p: IoPort, i: number) => number,
-    // The pitch arrays are indexed by INPUT position, so only the input section can index them; the output
-    // section passes nothing rather than reading a row that means something else.
+    // The pitch arrays are indexed by INPUT position, so the output section passes nothing rather than reading a row that means something else.
     tuned = false,
   ) => (
     <div>
@@ -294,17 +278,14 @@ export function IoPanel({
               (_p, i) => norm(levels.inputs[i] ?? -100),
               true, // …and their tuners
             )}
-            {/* Every out sink shares one meter: what leaves is the master mix, and
-                Tracktion gives an output DEVICE no measurer to tell them apart. */}
+            {/* Every out sink shares one meter: what leaves is the master mix, and Tracktion gives an output DEVICE no measurer. */}
             {section(
               "outputs",
               <ArrowUpFromLine className="h-3 w-3" />,
               outputs,
               () => norm(levels.master),
             )}
-            {/* Not a port, and it earns its place here anyway: this tab is what this MACHINE
-                does with audio, and which chain it separates a record with is the same kind of
-                standing answer as which interface it opens. */}
+            {/* Not a port, and here anyway: which chain this MACHINE separates with is the same standing answer as which interface it opens. */}
             <StemsSetting onRun={onRun} />
           </>
         )}

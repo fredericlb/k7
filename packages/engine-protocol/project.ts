@@ -8,11 +8,7 @@
 // YAML compiler in behind it. `@studio/song` re-exports these and owns the code that
 // PRODUCES them; `./build` has constructors for callers that have no song folder.
 
-// `ProjectMode` was here — "arrangement" or "live", the shape a folder declared in
-// `project.yaml`'s `project_type`. It is gone, and so is `ProjectDoc.mode` below: what a project
-// draws is what its `surfaces/` folder says (packages/song/docs/surfaces.md), which is a better
-// answer to the same question because it is the one the screen actually reads. The engine never
-// looked at either — it is handed tracks and plays them.
+// `ProjectMode` and `ProjectDoc.mode` were here: what a project draws is now what its `surfaces/` folder says (packages/song/docs/surfaces.md).
 
 // A named timeline marker from project.yaml's `markers` map; `beat` is that timecode in timeline beats.
 export interface Marker {
@@ -24,13 +20,7 @@ export interface Marker {
 // Project-level playback/recording settings, carried on every ProjectDoc and defaulted when the file is absent.
 export interface SettingsDoc {
   metronome: boolean; // the project's stored click-track default (the engine also has a live toggle)
-  /**
-   * How loud the click is, 0.2 … 1 — `settings.yaml`'s `metronome_level`.
-   *
-   * Never 0: silencing the click is `metronome: false`, and this range is Tracktion's own
-   * (`Edit::setClickTrackVolume` clamps to it). A level that could reach zero would be a second
-   * way to switch it off, and the two would disagree the moment one was set and the other read.
-   */
+  /** How loud the click is, 0.2 … 1 (`settings.yaml`'s `metronome_level`); never 0, because silencing it is `metronome: false`. */
   metronomeLevel: number;
   countIn: number; // BARS the transport rolls before an armed track records; 0 == immediately
 }
@@ -42,18 +32,7 @@ export interface NoteDoc {
   vel: number; // 0..1
   channel: number;
   rel: number; // release velocity 0..1
-  /**
-   * A step sequencer PAD's two effects, carried UNREALISED — see @studio/song docs/padEffects.md.
-   *
-   * `repeat` retriggers the note that many times inside its own duration; `skip` silences it on
-   * every Nth pass of the pattern. Both are expanded by the ENGINE (`insertMidiClip`), not by the
-   * compiler, and that split is the point: expanding `skip` needs the passes unrolled, and a
-   * document with four passes of notes in it is a document the sequencer would draw four times
-   * over. The pattern the surface edits and the notes the engine plays are not the same list.
-   *
-   * It also keeps a render and live playback identical for free, since both build their edit
-   * through the same EditBuilder.
-   */
+  /** A step sequencer PAD's two effects, carried UNREALISED and expanded by the ENGINE — see @studio/song docs/padEffects.md. */
   repeat?: number;
   skip?: number;
 }
@@ -64,21 +43,7 @@ export interface WarpDoc {
   markers: [number, number][]; // [timeline beat, source second]
 }
 
-/**
- * A placement's OWN words, carried through the compiler unmerged — `from`/`to`/`fadeIn`/… exactly
- * as `nodes/<lane>.yaml` spells them, minus the `ref` and `start` every clip states anyway.
- *
- * The rest of `ClipDoc` is the placement and its MATERIAL resolved together, which is what playing
- * it needs and what DUPLICATING it cannot use: `sourceFrom`/`sourceTo` are already the
- * intersection of the two windows, a sequence's window went into `loopStart`/`loopEnd`, and the
- * repeat count was multiplied into `length`. Copying an event off a compiled document therefore
- * lost its trim, its fades and its passes — see apps/st0/frontend/docs/clipEditors.md.
- *
- * The ENGINE has no use for any of it (it is handed the merged answer, as ever) — this is the
- * third fact carried for a SURFACE alone, beside `warpOff` and `disabled`. As AUTHORED rather
- * than normalised, because what reads it writes it straight back out: a window spelled `"2:1"`
- * should come back `"2:1"` and not the seconds it happens to mean at today's tempo.
- */
+/** A placement's OWN words as AUTHORED, unmerged, for the surface that writes them back out — see apps/st0/frontend/docs/clipEditors.md. */
 export interface EventDoc {
   from?: number | string; // seconds into a clip's file, or a timecode into a sequence's notes
   to?: number | string;
@@ -97,12 +62,7 @@ export interface ClipDoc {
   start: number; // beats
   length: number; // beats, 0 == natural length
   offset: number; // audio: source in-point; midi: playStart (beats)
-  // The clip file's own window into its SOURCE, in seconds — `from`/`to` in clips/<id>.yaml. Every placement of
-  // the clip plays that slice and no more. In seconds, unlike everything around them, because they measure into
-  // a file: see AudioClipSchema.
-  //
-  // Optional, like `disabled`: a clip SYNTHESISED by the compiler — a freeze render, a pattern's clip — has no
-  // clip file to be trimmed by, and absent says that better than a zero that has to be read as "no window".
+  // The clip file's own window into its SOURCE, in seconds because it measures into a file; absent on a clip the compiler synthesised.
   sourceFrom?: number; // seconds into the file; absent == from its start
   sourceTo?: number; // seconds into the file; absent == to its end
   fadeIn: number; // beats
@@ -111,18 +71,9 @@ export interface ClipDoc {
   loopEnd: number; // midi (beats); 0 == no loop
   notes: NoteDoc[]; // midi only
   warp?: WarpDoc; // audio only: time-stretch settings, when the clip carries a `warp`
-  /**
-   * The clip HAS a stretch map and this event declines it (`warp: false` on the placement).
-   *
-   * `warp` above is already absent when that happens — the engine is handed a document, not a
-   * question, and an event that does not warp simply has no map. This is the second fact the
-   * ENGINE has no use for and a SURFACE does: the timeline draws the stretch icon crossed, which
-   * it could not do from an absence indistinguishable from "never warped".
-   */
+  /** The clip HAS a stretch map and this event declines it; carried for the timeline, which draws the stretch icon crossed. */
   warpOff?: boolean;
-  // Silenced without being removed — a track's `mute`, at the level of one event. It is
-  // carried to the engine rather than filtered out here, because the timeline still has
-  // to DRAW it: a disabled event you can't see is a deleted one.
+  // Silenced without being removed, and carried rather than filtered out because the timeline still has to DRAW it.
   disabled?: boolean;
   // What the placement itself said, unmerged, for anything that has to write it out again.
   event?: EventDoc;
@@ -144,15 +95,11 @@ export interface PluginDoc {
   path: string; // resolved .vstpreset to LOAD (the module's own, else the extended module's); '' if none
   irFile?: string; // convolution modules only — an audio file the project owns, unlike `path`'s opaque blob
   namFile?: string; // amp-modeller modules only (a .nam model) — see irFile
-  // A DSP-graph module's description, INLINE as JSON rather than a path: the compiler has already read it, and
-  // the engine parses no files. Its parameters come from it, so it must reach the plugin's constructor.
+  // A DSP-graph module's description, INLINE as JSON because the engine parses no files and the plugin's constructor needs it.
   dspGraph?: string;
-  // A Faust module's source, INLINE for the same reason — except that here the engine is what
-  // compiles it, so what travels is the `.dsp` text itself rather than something already chewed.
+  // A Faust module's source, INLINE for the same reason — except the ENGINE compiles it, so the `.dsp` text itself travels.
   faustDsp?: string;
-  // The TRACK id feeding this module's SECOND input port — what a chains file writes as `crossfade#b`
-  // (see @studio/song docs/ports.md), resolved to the lane the engine can route from. Absent when the
-  // module has one input, or when a declared port is left unwired, which is a legitimate state.
+  // The TRACK id feeding this module's SECOND input port (@studio/song docs/ports.md); absent when unwired, which is legitimate.
   sidechainFrom?: string;
   presetSave: string; // absolute path where a UI edit saves THIS module's .vstpreset ('' if n/a)
   role: string; // "instrument" | "audioFX" | "noteFX"
@@ -175,15 +122,7 @@ export interface AutomationDoc {
   points: [number, number][]; // [beat, output]
 }
 
-/**
- * A TAKE: what a lane was playing, set aside when something was recorded over it.
- *
- * The same list of clips a lane holds, compiled the same way — so a surface can draw one without
- * knowing it is looking at a take. **The engine never receives these**: `withoutTakes` strips them
- * at the one place a document is sent (see @studio/song's project.ts). They are compiled here
- * rather than beside the drawing code so that a take's clips get their real extents from the one
- * compiler, and stay identical to the arrangement they were.
- */
+/** A TAKE: what a lane was playing, set aside when something was recorded over it — the engine never receives one (`withoutTakes` strips them). */
 export interface TakeDoc {
   name?: string;
   clips: ClipDoc[];
@@ -197,10 +136,7 @@ export interface TrackDoc {
   group: string; // the group this belongs to ('' == none) — a group is never a lane, only this pointer plus an entry in `groups`
   generated: boolean; // true for a lane a pattern streams onto: its clips are the scheduler's look-ahead, rewritten every tick
   color: string;
-  // No volume and no pan. They were the one part of a track's sound that lived outside its chain — nothing could
-  // be placed after them and the graph could not show where they applied. They are a MODULE now (see
-  // MixerPlugin), one instance at the end of each track's chain, so a level is a thing you can see and reorder.
-  // Mute and solo stay: they are mixer-wide relationships between tracks, not a stage in one track's signal.
+  // No volume and no pan: they are a MODULE now (MixerPlugin) at the end of each chain, while mute and solo stay, being mixer-wide.
   mute: boolean;
   solo: boolean;
   disabled: boolean;
@@ -213,12 +149,7 @@ export interface TrackDoc {
   plugins: PluginDoc[];
   sends: SendDoc[];
   automation: AutomationDoc[];
-  // `docs` / `todos` were here — authored notes carried through for a panel that listed them.
-  // Gone with that panel: a note is a doc module on the graph (`@studio/doc`), which is not a
-  // track's business and never reaches the engine. See packages/song/docs/docModules.md.
-  // `frozen`, `alternatives` and `alternative` were here, all three ignored by the engine and
-  // carried only so a surface could draw them. They are gone with the fields they came from, to
-  // be replaced by another mechanism later — see packages/song/docs/trackModules.md.
+  // `docs`/`todos` were here (packages/song/docs/docModules.md), and `frozen`/`alternatives`/`alternative` too (packages/song/docs/trackModules.md).
 }
 
 // A group track: it holds no material, so the engine plays no lane for it, but surfaces draw it over its members.
@@ -230,10 +161,7 @@ export interface GroupDoc {
   solo: boolean;
 }
 
-// PICTURE IS NOT HERE. It belongs to whoever draws it, as @studio/song's videoDoc.ts (compiled)
-// and @studio/web-protocol's WebVideoProject (browser) — a SECOND compile of the same song
-// folder, which is what keeps the frame out of this one and off the wire. See
-// packages/song/docs/picture.md.
+// PICTURE IS NOT HERE: it is a SECOND compile of the same song folder, which keeps the frame off this wire — packages/song/docs/picture.md.
 
 export interface ProjectDoc {
   uuid?: string; // stable song id, generated on first `st0 export`; absent until then
@@ -242,28 +170,9 @@ export interface ProjectDoc {
   sampleRate: number;
   timeSigNumerator: number;
   timeSigDenominator: number;
-  /**
-   * The song's output level in dB, applied to the master fader — 0 is unity.
-   *
-   * Always sent, defaulted rather than optional, because the engine DIFFS documents: an absent
-   * field would read as "unchanged" against a doc that carried one, and a master returned to
-   * unity would never come back down. +6 is the ceiling — Tracktion's fader curve, not a policy
-   * (see @studio/song's docs/masterVolume.md).
-   */
+  /** The song's output level in dB on the master fader, 0 unity and +6 the ceiling; always sent, because the engine DIFFS documents. */
   masterVolume: number;
-  /**
-   * The MASTER CHAIN — plugins over the summed mix, in order, before it reaches the interface.
-   *
-   * The song's graph has two built-in outputs: `MIX`, where every lane's chain ends, and `OUT`,
-   * the device. A chain wired between them compiles to this list; a song with no such chain
-   * sends an empty one and sounds exactly as it did when the two were one node.
-   *
-   * They sit BEFORE the master meter and the broadcast tap, and therefore before
-   * `masterVolume` — these process the mix, that trims the delivery. Always sent, defaulted
-   * rather than optional, because the engine DIFFS documents: an absent list would read as
-   * "unchanged" and a deleted master chain would never come off the bus.
-   * See @studio/song's docs/masterChain.md.
-   */
+  /** The MASTER CHAIN — plugins over the summed mix, before the meter and `masterVolume`; always sent, for the same diffing reason. */
   masterPlugins: PluginDoc[];
   // Where a live take lands ('' for a single-file song, which the engine refuses to arm) — the ONE path it is told.
   recordDir: string;

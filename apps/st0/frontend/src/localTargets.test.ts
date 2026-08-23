@@ -28,8 +28,7 @@ describe("resolveEntry", () => {
   });
 
   it("is fuzzy, like every other name the shell resolves", () => {
-    // The same subsequence rule the file picker uses: `rythm` finds `clips/rythm.yaml`, which
-    // a prefix filter could not.
+    // The same subsequence rule the file picker uses: `rythm` finds `clips/rythm.yaml`, which a prefix filter could not.
     expect(resolveEntry("rythm", TREE)).toBe("clips/rythm.yaml");
   });
 

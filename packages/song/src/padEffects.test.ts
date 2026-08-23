@@ -48,11 +48,7 @@ describe("the file's vocabulary", () => {
     expect(parse({ skip: 3 })).toBe(true); // not offered by the menu, still legal to type
   });
 
-  /**
-   * 1 and 0 are refused, and that is the schema carrying the rule rather than the UI: a pad that
-   * plays once on every pass is a pad with NEITHER key, so those two values would be a second
-   * spelling of the default — and `repeat: 1` in a file would read as a decision somebody made.
-   */
+  /** 1 and 0 would be a second spelling of the default, and read as a decision somebody made. */
   it("refuses the values that would restate the default", () => {
     expect(parse({ repeat: 1 })).toBe(false);
     expect(parse({ skip: 0 })).toBe(false);
@@ -61,8 +57,7 @@ describe("the file's vocabulary", () => {
 });
 
 describe("compiling a pad's effects", () => {
-  // Carried, never resolved — the whole point of the split. A compiler that expanded `skip` would
-  // hand the sequencer four copies of its own pattern to draw.
+  // Carried, never resolved: expanding `skip` hands the sequencer four copies to draw.
   it("puts them on the note UNEXPANDED", () => {
     const n = noteOf(project("both", { repeat: 4, skip: 2 }));
     expect(n.repeat).toBe(4);
@@ -76,8 +71,7 @@ describe("compiling a pad's effects", () => {
     expect(n.skip).toBeUndefined();
   });
 
-  // One note in, one note out. A grid drawing four notes where the file has one would light four
-  // cells for a pad somebody pressed once.
+  // One note in, one note out: four cells would light for a pad somebody pressed once.
   it("still compiles to ONE note per pad", () => {
     const clip = compileNodeProject(
       project("count", { repeat: 4 }),
@@ -96,8 +90,7 @@ describe("writing one", () => {
     expect(out.match(/repeat:/g)).toHaveLength(1);
   });
 
-  // Off DELETES, as the velocity drag going back to full does: the alternative is writing a value
-  // that says what its own absence already said.
+  // Off DELETES: the alternative is a value saying what its own absence already said.
   it("DELETES the key when the effect is turned off", () => {
     const on = setNoteEffect(seq, 38, 1, "skip", 2);
     expect(on).toContain("skip: 2");
@@ -122,8 +115,7 @@ describe("writing one", () => {
     expect(() => setNoteEffect(seq, 36, 0, "repeat", 1)).toThrow(/2 or more/);
   });
 
-  // Addressed by (key, start) like every other note edit, and a miss is named rather than
-  // silently doing nothing — a surface pointing at a note that is not there is out of date.
+  // A miss is named rather than silent: a surface pointing at a missing note is out of date.
   it("throws where there is no such note", () => {
     expect(() => setNoteEffect(seq, 36, 9, "repeat", 2)).toThrow(/no note/);
   });

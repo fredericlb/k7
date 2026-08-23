@@ -9,13 +9,7 @@
 // checked by the compiler, loops and helpers for the repetitive parts, and reuse — a `wah()` you call twice with
 // different bounds rather than a file you copy.
 
-// Scalars and audio wires are DIFFERENT TYPES, and that is not decoration.
-//
-// They were one `Signal` at first, and the first feedback graph written with the library was silently wrong:
-// `amul(fb, Feedback)` read the Feedback PARAMETER as an audio wire — a wire nothing writes, so it was zero,
-// so the loop never closed and the echo repeated once. The engine cannot catch that (both are just names in a
-// text file) and the render looked plausible. Making the two types distinct moves it to a compile error, which
-// is the only reason to have a library rather than write the JSON by hand.
+// Scalar, Audio and Midi are DIFFERENT TYPES, and that is not decoration — see ../docs/builder.md.
 
 /** A control-rate value: a parameter, a literal, or the output of a once-per-block node. */
 export interface Scalar {
@@ -32,14 +26,7 @@ export interface Audio {
 /** Anything a control input accepts. */
 export type Input = Scalar | number;
 
-/**
- * The note stream. There is exactly ONE of these in a graph — the buffer the plugin handed over — and every MIDI
- * node rewrites it in place, so this type carries no name and cannot be forked or mixed.
- *
- * It is a distinct type for the same reason Scalar and Audio are: without it `transpose(dry, Semitones)` would
- * typecheck against an audio wire and emit a node the MIDI plugin silently ignores. Making the three kinds
- * distinct moves that to a compile error, which is the only reason to have a library at all.
- */
+/** The note stream. Exactly ONE per graph, rewritten in place, so it carries no name and cannot be forked. */
 export interface Midi {
   readonly rate: "midi";
 }
@@ -76,18 +63,12 @@ export interface GraphJson {
 /** The sample rate, readable inside a graph — a Nyquist limit needs it and no literal can express it. */
 export const sr: Scalar = { name: "sr", rate: "control" };
 
-/**
- * Build a graph. Every node helper is a method on the builder rather than a free function, because a node has to
- * be RECORDED as well as returned: a graph is an ordered list, and its order is its evaluation order.
- */
+/** Build a graph. Every helper is a method because a node is RECORDED as well as returned — ../docs/builder.md. */
 export class GraphBuilder {
   private readonly json: GraphJson = { params: [], nodes: [] };
   private counter = 0;
 
-  /**
-   * The sample rate. On the BUILDER, not just as a module-level export, because a module's source imports
-   * nothing at runtime — everything it needs has to arrive through this object.
-   */
+  /** The sample rate. On the BUILDER too, because a module's source imports nothing at runtime. */
   readonly sr: Scalar = sr;
 
   /** Declare a parameter. The returned signal reads it; the module exposes it as a knob or a dropdown. */
@@ -121,12 +102,14 @@ export class GraphBuilder {
   }
 
   // --- analysis: per sample over the input ---------------------------------
+
   /** Peak envelope of the incoming audio, in linear gain. Times in milliseconds. */
   envelope(attackMs: Input, releaseMs: Input): Scalar {
     return this.node("envelope", [attackMs, releaseMs]);
   }
 
   // --- control: once per block ----------------------------------------------
+
   /** Linear gain -> dB, floored at -100. */
   todb(x: Input): Scalar {
     return this.node("todb", [x]);
@@ -143,17 +126,7 @@ export class GraphBuilder {
   linmap(x: Input, lo: Input, hi: Input): Scalar {
     return this.node("linmap", [x, lo, hi]);
   }
-  /**
-   * Geometric interpolation — the one to use for anything measured in Hz, where a linear map crawls then races.
-   *
-   * `lo` must be the LOW end. The engine's node sorts the two before interpolating (`jmin`/`jmax`, so a graph
-   * cannot ask for a negative ratio), which means a descending pair does not fail — it silently reads as its own
-   * mirror. A filter written `geolerp(20000, 200, t)` therefore sits at 200 Hz when `t` is 0 and OPENS as `t`
-   * rises: the exact opposite of what it says, with nothing on screen to suggest it.
-   *
-   * So it is refused here, where the author is, rather than absorbed there. To sweep DOWN, keep the pair
-   * ascending and invert the journey: `geolerp(200, 20000, g.sub(1, t))`.
-   */
+  /** Geometric interpolation, for Hz. `lo` must be the LOW end: a descending pair is refused — ../docs/builder.md. */
   geolerp(lo: Input, hi: Input, t: Input): Scalar {
     if (typeof lo === "number" && typeof hi === "number" && lo > hi)
       throw new Error(
@@ -200,32 +173,15 @@ export class GraphBuilder {
   }
 
   // --- sample rate: audio wires, and the feedback the block phases cannot express -------------------------
-  //
-  // These carry AUDIO, not scalars, and they run inside one per-sample loop in declared order. Reading a wire
-  // written by a LATER node yields the previous sample — the unit delay a feedback loop is built on — which is
-  // why `delay()` can be fed something that depends on its own output.
 
-  /**
-   * Name a wire before anything writes it — how a feedback loop is drawn. Reading it earlier in the list than
-   * its writer is exactly what yields the previous sample, so this reserves nothing and checks nothing: the
-   * name is the whole mechanism.
-   */
+  // One per-sample loop in declared order, so reading a LATER node's wire is the unit delay — ../docs/builder.md.
+
+  /** Name a wire before anything writes it — how a feedback loop is drawn; the name is the whole mechanism. */
   wire(name: string): Audio {
     return { name, rate: "audio" };
   }
 
-  /**
-   * An incoming signal, as a wire. `port` is an index into the module's OWN input ports (module.yaml's
-   * `inputs:`): 0 is the chain's flow, 1 the first side input, and so on — see packages/song/docs/ports.md.
-   *
-   * It is an index and not a name because the graph and the module file are two documents: the graph is
-   * generated JSON the engine reads with no module in sight, and a name would have to be matched across the
-   * gap by something. Position is what the port list already is (validate() checks its sources positionally),
-   * so the index is the one fact both sides can hold on their own.
-   *
-   * A port nothing feeds reads silence rather than failing: `mandatory: false` says wiring one side and
-   * leaving the other quiet is a legitimate state, and this is what that sounds like.
-   */
+  /** An incoming signal, as a wire. `port` indexes the module's own inputs — packages/song/docs/ports.md. */
   input(port = 0): Audio {
     const out = `n${this.counter++}`;
     // The first port emits no field at all, so every graph written before ports existed is byte-identical.
@@ -233,12 +189,7 @@ export class GraphBuilder {
     return { name: out, rate: "audio" };
   }
 
-  /**
-   * A low-frequency oscillator, -1..1, running at SAMPLE rate — scale it with `amul`/`aadd`.
-   *
-   * Sample rate and not control rate on purpose: a scalar changes once per block, and on a delay time that is a
-   * ~10 ms staircase, audible as a zipper on exactly the effects modulation exists for.
-   */
+  /** A low-frequency oscillator, -1..1, at SAMPLE rate so it cannot zipper — scale it with `amul`/`aadd`. */
   lfo(shape: "sine" | "triangle" | "saw" | "square", rateHz: Input): Audio {
     const out = `n${this.counter++}`;
     this.json.nodes.push({
@@ -269,10 +220,7 @@ export class GraphBuilder {
   saturate(x: Audio, drive: Input = 1): Audio {
     return this.anode("atanh", [x], [drive]);
   }
-  /**
-   * A delay line. `maxMs` is allocated once at prepare, so it is a ceiling, not a suggestion; `timeMs` may be a
-   * parameter or any control signal, and the read is interpolated so moving it does not zipper.
-   */
+  /** A delay line. `maxMs` is allocated once at prepare, so it is a ceiling rather than a suggestion. */
   delay(x: Audio, timeMs: Input | Audio, maxMs: number, into?: Audio): Audio {
     const out = into ? into.name : `n${this.counter++}`;
     // A modulating WIRE goes in the audio slot (read per sample); a fixed time stays a scalar.
@@ -300,18 +248,15 @@ export class GraphBuilder {
   }
 
   // --- MIDI ---------------------------------------------------------------
-  //
-  // These run once per block over the note list, before any audio phase. They are METHODS on the same builder
-  // rather than a separate one because a MIDI module still declares parameters, and still maps them with the
-  // control-rate arithmetic above — a transposer driven by an LFO is the same `param` and the same `lerp`.
+
+  // Once per block over the note list, on the SAME builder because a MIDI module still declares parameters.
 
   /** The incoming note stream. */
   midi(): Midi {
     return { rate: "midi" };
   }
 
-  /** Shift every note by `semitones`, rounded. Notes pushed past the keyboard's ends are clamped, not dropped:
-   *  dropping one would strand its note-off and hang the voice. */
+  /** Shift every note by `semitones`, rounded. Notes past the keyboard's ends are clamped, never dropped. */
   transpose(m: Midi, semitones: Input): Midi {
     this.mnode("transpose", semitones);
     return m;
@@ -329,11 +274,9 @@ export class GraphBuilder {
     return m;
   }
 
-  // A MIDI node takes SCALARS and no wires: the stream it acts on is the plugin's buffer, not a value it reads.
-  // Hence no `out` — there is nothing to name.
+  // A MIDI node takes SCALARS and no wires, hence no `out`: it acts on the plugin's buffer, not on a value.
   private mnode(type: string, k: Input): void {
-    // A literal goes through as a NUMBER, not its text: the engine's ref() gives a number its own preloaded
-    // register and a string a named one, so "2" would look up a register nothing writes.
+    // A literal goes through as a NUMBER, not its text — ../docs/builder.md on the engine's ref().
     this.json.nodes.push({ type, in: [typeof k === "number" ? k : k.name] });
   }
 

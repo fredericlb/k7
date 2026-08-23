@@ -33,14 +33,7 @@ interface Candidate {
   label: string; // what a report calls it
 }
 
-/**
- * Every module file under `root` that could hold a panel.
- *
- * Two shapes, because the two trees differ: a project's `modules/<type>/<name>/module.yaml` (ref
- * `<type>/<name>`) and a shared `_modules/<type>/[<category>/]<leaf>/module.yaml` (ref `@<ns>/<type>/<sub>`).
- * Nodes are left out — their `ui:` never had an effect, so migrating one would CREATE a panel that never
- * showed, and give it the generic's ref.
- */
+/** Every module file under `root` that could hold a panel — two tree shapes, and NODES left out. */
 function candidatesIn(
   base: string,
   ns: string | null,
@@ -74,27 +67,14 @@ function candidatesIn(
   return out;
 }
 
-/**
- * Move every inline `ui:` under this project's workspace into the `ui.yaml` beside its module, and delete it
- * from the module file.
- *
- * Both halves are covered: the project's own `modules/`, and the shared `_modules/` beside it. The shared one
- * is written to even though the library is read-only through the file service — this is the same kind of
- * operation as `module populate`, run deliberately and not as a side effect of a save.
- *
- * The module file is edited with setModuleValue, so removing the block is a one-key diff: every comment, key
- * order and layout choice around it survives.
- */
+/** Move every inline `ui:` into the `ui.yaml` beside its module, as a one-key diff — docs/uiLibrary.md. */
 export function migrateModuleUis(dir: string): UiMigration {
   const out: UiMigration = { moved: [], skipped: [], errors: [] };
 
   const roots: { base: string; ns: string | null; label: string }[] = [
     { base: join(dir, "modules"), ns: null, label: "modules" },
   ];
-  // The workspace's library is `@workspace` because of where it sits. It used to have to declare
-  // that in a config.yaml, and a folder without one was reported here and skipped — a real
-  // migration refusing to run over a real library. There is nothing left to declare, so the
-  // folder existing is the whole condition.
+  // Nothing left to declare, so the folder existing is the whole condition (docs/sharedFolders.md).
   const shared = join(dir, "..", "_modules");
   if (existsSync(shared))
     roots.push({
@@ -115,8 +95,7 @@ export function migrateModuleUis(dir: string): UiMigration {
         out.errors.push(`${c.label}: ${(e as Error).message}`);
         continue;
       }
-      // Read the block out of the PARSED file rather than the text, so an anchor or a flow map arrives as a
-      // value and not as a substring to be re-parsed.
+      // Read out of the PARSED file, so an anchor or a flow map arrives as a value, not a substring.
       const raw = readInlineUi(text);
       if (!raw) {
         out.skipped.push(c.label);
@@ -148,12 +127,7 @@ export function migrateModuleUis(dir: string): UiMigration {
   return out;
 }
 
-/**
- * The file's own `ui:` block as a plain value, or null when it has none.
- *
- * Read schema-free, on purpose: a module file that fails validation for an unrelated reason still has a panel
- * worth rescuing, and refusing to migrate it would strand that panel in a file nothing reads.
- */
+/** The file's own `ui:` block, read SCHEMA-FREE so an otherwise invalid module's panel is still rescued. */
 function readInlineUi(text: string): unknown {
   const doc = parseYaml(text, { version: "1.2" }) as { ui?: unknown } | null;
   return doc?.ui ?? null;

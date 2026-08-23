@@ -11,8 +11,7 @@ const writeFrame: (chunk: string) => boolean = process.stdout.write.bind(
   process.stdout,
 ) as (chunk: string) => boolean;
 
-// Everything that thought it wrote to stdout now goes to stderr, which the tray merges. Deliberately not a
-// no-op: swallowing our own diagnostics would make a misbehaving host silent as well as broken.
+// Everything that thought it wrote to stdout now goes to stderr, which the tray merges; not a no-op, or a misbehaving host would go silent.
 process.stdout.write = ((
   chunk: string | Uint8Array,
   encoding?: unknown,
@@ -32,15 +31,7 @@ export function emit(event: HostEvent): void {
   writeFrame(`${JSON.stringify(event)}\n`);
 }
 
-/**
- * Read commands from the tray until stdin ends, then call `onEnd`.
- *
- * The END is as important as the messages. On Unix there is no job-object equivalent,
- * so this is the whole teardown mechanism: when the tray dies — quit, crash, or
- * `kill -9` — the OS closes the write end of the pipe, `end` fires here, and the host
- * tears the stack down instead of becoming a ghost engine in the picker with no UI left
- * to stop it.
- */
+/** Read commands from the tray until stdin ends, then call `onEnd` — on Unix that END is the whole teardown mechanism. */
 export function listen(
   onCommand: (cmd: HostCommand) => void,
   onEnd: () => void,

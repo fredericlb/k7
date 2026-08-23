@@ -33,8 +33,7 @@ const player = (
 
 describe("mapping the sliders onto engine plugins", () => {
   it("builds nothing at all when every slider is off", () => {
-    // Off is ABSENT, not "applied at zero": a chain of seven neutral plugins would cost
-    // seven instantiations and colour the sound for nothing.
+    // Off is ABSENT: seven neutral plugins would colour the sound for nothing.
     expect(planEffects("d", {}).plugins).toEqual([]);
     expect(
       planEffects("d", { lowpass: 0, speed: 10, pitch: 0 }).plugins,
@@ -42,8 +41,7 @@ describe("mapping the sliders onto engine plugins", () => {
   });
 
   it("knows speed's neutral is 10, not 0", () => {
-    // The slider runs 1..30 for 0.1x..3.0x, so zero is not its off position — reading it
-    // as one would apply a "speed" effect to every round that never asked for one.
+    // The slider runs 1..30 for 0.1x..3.0x, so zero would apply an effect nobody asked for.
     expect(planEffects("d", { speed: 10 }).unsupported).toEqual([]);
     expect(planEffects("d", { speed: 14 }).unsupported).toEqual(["speed"]);
   });
@@ -55,8 +53,7 @@ describe("mapping the sliders onto engine plugins", () => {
   });
 
   it("orders the chain by the mapping, not by the caller's object", () => {
-    // A chain's order is audible, and object key order is an accident of how the game
-    // happened to build the map.
+    // A chain's order is audible, and object key order is an accident of how the map was built.
     const a = planEffects("d", { overdrive: 5, lowpass: 5 }).plugins.map(
       (x) => x.name,
     );
@@ -77,9 +74,7 @@ describe("mapping the sliders onto engine plugins", () => {
   });
 });
 
-// The heart of it. In a blind test, an effect that silently does nothing means the players
-// heard an easier song than the round claimed — and nobody finds out, because clean audio
-// sounds correct.
+// The heart of it: an effect that silently does nothing is a round nobody can catch (../docs/moteurPlayer.md).
 describe("saying what it cannot do", () => {
   it("reports speed and pitch as unsupported rather than approximating them", () => {
     const { plugins, unsupported } = planEffects("d", { speed: 20, pitch: 5 });
@@ -120,8 +115,7 @@ describe("saying what it cannot do", () => {
   });
 
   it("refuses to play reversed instead of playing forwards", async () => {
-    // Playing a reversed round forwards is one every player answers instantly, and nothing
-    // in the game would show why.
+    // A reversed round played forwards is one every player answers instantly.
     const [p] = player();
     await expect(p.playReversed()).rejects.toThrow(/reversed/);
   });
@@ -153,8 +147,7 @@ describe("playing", () => {
   });
 
   it("refuses a song this machine has not cached", async () => {
-    // The engine opens files; it cannot fetch z0's URL. Sending the path anyway would
-    // have it warn once and then play silence, which reads as a working round.
+    // The engine opens files and cannot fetch z0's URL; sending it anyway plays silence.
     const [p] = player([]);
     await expect(p.play("absent.wav")).rejects.toThrow(/not cached/);
     expect(p.getState().failedPaths).toEqual(["absent.wav"]);

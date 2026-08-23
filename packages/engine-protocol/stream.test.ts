@@ -39,16 +39,14 @@ describe("the broadcast frame round-trips", () => {
   });
 
   it("carries the samples back bit-for-bit", () => {
-    // Not "close to": a float32 written and read as float32 must be identical, and a
-    // rounding difference here would mean the payload took a conversion it should not.
+    // Not "close to": a rounding difference here would mean the payload took a conversion it should not have.
     const f = frame({ frames: 64 });
     const got = decodeStreamFrame(encodeStreamFrame(f));
     expect(Array.from(got?.samples ?? [])).toEqual(Array.from(f.samples));
   });
 
   it("puts the payload where a Float32Array view can be taken", () => {
-    // The whole reason the header is 32 bytes: 32 % 4 === 0, so the view is zero-copy.
-    // A header that grew to 30 would still decode here but throw in the browser.
+    // The whole reason the header is 32 bytes: a header of 30 would still decode here and throw in the browser.
     expect(STREAM_HEADER_BYTES % 4).toBe(0);
     const buf = encodeStreamFrame(frame({ frames: 8, channels: 2 }));
     expect(buf.byteLength).toBe(STREAM_HEADER_BYTES + 8 * 2 * 4);
@@ -68,10 +66,7 @@ describe("the broadcast frame round-trips", () => {
   });
 });
 
-// Everything below is the same question: this decoder runs on whatever lands on a socket
-// that also carries JSON and, one day, other people's binary. Anything it does not fully
-// recognise has to come back null — a frame played on a guess is a burst of noise into
-// somebody's monitors.
+// This decoder runs on whatever lands on a shared socket, so anything it does not fully recognise has to come back null.
 describe("the decoder rejects rather than guesses", () => {
   it("ignores a buffer that is not ours", () => {
     expect(
@@ -90,8 +85,7 @@ describe("the decoder rejects rather than guesses", () => {
   });
 
   it("ignores a codec it cannot decode", () => {
-    // The day Opus lands, an old client must go quiet rather than play compressed bytes
-    // as PCM — which is exactly what a magic-and-version-only check would have done.
+    // The day Opus lands, an old client must go quiet rather than play compressed bytes as PCM.
     const buf = encodeStreamFrame(frame());
     new DataView(buf).setUint8(20, 1);
     expect(decodeStreamFrame(buf)).toBeNull();
@@ -122,9 +116,7 @@ describe("the decoder rejects rather than guesses", () => {
   });
 });
 
-// A gap means the sender DECIDED to drop, since TCP loses nothing in flight. Getting the
-// wrap wrong would report ~4 billion dropped frames once every 1.4 years at 100 fps — and
-// a player that reacts to a gap by resetting would then reset for no reason.
+// A gap means the sender DECIDED to drop; getting the wrap wrong would report ~4 billion dropped frames every 1.4 years at 100 fps.
 describe("counting what the sender dropped", () => {
   it("is zero for consecutive frames", () => {
     expect(seqGap(41, 42)).toBe(0);

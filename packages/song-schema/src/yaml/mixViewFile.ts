@@ -5,8 +5,7 @@ import { LineCounter, parseDocument } from "yaml";
 import { type MixView, MixViewSchema } from "./mixViewSchema";
 import type { ModuleIssue } from "./moduleFile";
 
-// YAML 1.2 for the reason every other file here pins it: a scalar shaped like `5:1:1` stays a
-// string. A param name is arbitrary text and must not be reinterpreted on the way in.
+// YAML 1.2 for the reason every other file here pins it: a scalar shaped like `5:1:1` stays a string.
 const OPTS = { version: "1.2" as const };
 
 /** The folder a project keeps its per-view files in, and the Mix desk's own. */
@@ -29,8 +28,7 @@ export function parseMixView(text: string): ParsedMixView {
   if (issues.length) return { value: null, issues };
 
   const raw = doc.toJS() ?? {};
-  // An empty file is a desk with nothing bound, which is the state every project starts in —
-  // not something to report.
+  // An empty file is a desk with nothing bound, the state every project starts in (docs/deskFiles.md).
   if (raw === null || raw === undefined) return { value: {}, issues: [] };
   if (typeof raw !== "object" || Array.isArray(raw))
     return {

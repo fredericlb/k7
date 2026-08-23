@@ -10,9 +10,7 @@ import {
   seedDefault,
 } from "./webOrigins.ts";
 
-// Ported from engine/capot/src-tauri/src/weburi.rs. These are not formatting tests:
-// the value `normalise` returns is compared against a browser's `Origin` header to
-// decide whether the file service answers, so every case here is a boundary case.
+// Not formatting tests: what `normalise` returns is compared against a browser's `Origin` header, so every case here is a boundary case.
 
 describe("normaliseUserOrigin", () => {
   it("keeps scheme, host and port only", () => {
@@ -52,9 +50,7 @@ describe("normaliseUserOrigin", () => {
   });
 
   it("elides the default port so it matches what a browser sends", () => {
-    // A browser NEVER puts the default port in `Origin`: from https://daw.test:443 it
-    // still sends `https://daw.test`. Storing the explicit form would create an entry
-    // that can never match.
+    // A browser NEVER puts the default port in `Origin`, so storing the explicit form would create an entry that can never match.
     expect(normaliseUserOrigin("https://daw.test:443")).toBe(
       "https://daw.test",
     );
@@ -73,8 +69,7 @@ describe("normaliseUserOrigin", () => {
 
   // New, beyond the Rust set: the two ways Node's URL is not enough on its own.
   it("rejects a wildcard hidden in a punycode host", () => {
-    // `*` is not a forbidden host code point, so URL parses these happily and their
-    // .origin comes back looking like an authorised pattern. Nothing expands it.
+    // `*` is not a forbidden host code point, so URL parses these happily and nothing ever expands the pattern they look like.
     expect(normaliseUserOrigin("https://*.café.test")).toBeNull();
     expect(normaliseUserOrigin("https://xn--caf-dma.test:*")).toBeNull();
   });
@@ -88,9 +83,7 @@ describe("normaliseBrowserOrigin", () => {
   });
 
   it("rejects credentials in a STORED entry rather than dropping them", () => {
-    // This is the read-path hole: `new URL(o).origin` silently returns
-    // "https://daw.test" for this, so a hand-edited file would grant an origin whose
-    // written form nobody would have approved.
+    // The read-path hole: `.origin` silently drops them, so a hand-edited file would grant an origin whose written form nobody approved.
     expect(normaliseBrowserOrigin("https://user:pw@daw.test")).toBeNull();
   });
 
@@ -155,8 +148,7 @@ describe("seedDefault", () => {
   });
 
   it("never touches an existing file, even an empty list", () => {
-    // An empty list is a choice (the user removed everything) — re-seeding it would
-    // make removal impossible.
+    // An empty list is a choice — the user removed everything — and re-seeding it would make removal impossible.
     writeFileSync(path, '{"origins": []}', "utf8");
     seedDefault(path);
     expect(readFileSync(path, "utf8")).toBe('{"origins": []}');

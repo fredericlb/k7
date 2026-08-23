@@ -1,13 +1,7 @@
 import { Button } from "@frediverse/ui/button";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 
-// Full-screen OIDC gate (port of shared/components/LoginGate.vue). The
-// @frediverse/ui Button supplies behavior/focus handling; the retro styling comes
-// from the ported .login-* classes.
-//
-// The editor and buzzer deliberately don't use this: the editor renders a
-// plain <button> its blue/grey .login-btn styles depend on, and the buzzer's
-// gate is a guest-join form rather than a single login action.
+// The editor and buzzer do NOT use this: one needs its own styles, the other a guest-join form.
 export function LoginGate({
   onLogin,
   title = "BLIND-TEST",

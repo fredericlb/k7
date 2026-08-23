@@ -68,8 +68,7 @@ describe("videoSpans", () => {
   });
 
   it("agrees with it on shots written out of order too", () => {
-    // Authored order is whatever somebody typed, and activeAt reads it as typed — including the
-    // length-0 shot whose "next" one starts BEFORE it, which shows nothing at all.
+    // Authored order is whatever somebody typed and activeAt reads it as typed — including a length-0 shot whose next one starts before it.
     const t = lane({ clips: [clip(6, 0), clip(1, 2)] });
     const spans = videoSpans(doc([t]));
     const l = layer(t);

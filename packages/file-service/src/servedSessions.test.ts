@@ -108,18 +108,14 @@ afterEach(async () => {
 
 describe("a socket coming back", () => {
   it("re-sends what ITS OWN session was serving, not the last workspace to open one", async () => {
-    // The stranding. With one global pair, the check on `open` compared the reconnecting socket
-    // to whoever opened most recently: Ana's socket came back, found the note naming Bo, declined
-    // to re-send, and left her project loaded here and absent from the engine — with nothing to
-    // unstick it but an /open of her own.
+    // The stranding: with one global pair, Ana's reconnecting socket found a note naming Bo and declined to re-send.
     vi.useFakeTimers();
     try {
       const ana = wsFor("ana@x.org", "ana-song");
       const bo = wsFor("bo@x.org", "bo-song");
       startEngineForActive(ana);
       startEngineForActive(bo); // Ana is no longer "current" — and never was the point
-      // A baseline rather than a count: dialling sends once into the outbox and once more from
-      // the socket's own `open`, which is the very mechanism under test here.
+      // A baseline rather than a count: dialling sends once into the outbox and once from `open`.
       const n = clientFor(ana).sent.length;
       const m = clientFor(bo).sent.length;
 
@@ -143,8 +139,7 @@ describe("a socket coming back", () => {
 
 describe("a take the engine reports", () => {
   it("lands in the project the RECORDING session is serving", () => {
-    // The take used to be addressed through the same global: after a restart it was null and the
-    // take was dropped with a console line, and with two people it went to the wrong song.
+    // Through the same global, a take was dropped after a restart and went to the wrong song with two people.
     const ana = wsFor("ana@x.org", "ana-song");
     const bo = wsFor("bo@x.org", "bo-song");
     startEngineForActive(ana);
@@ -165,8 +160,7 @@ describe("a take the engine reports", () => {
     ];
     expect(dir).toBe(ana.activeProjectPath()); // hers, though Bo opened last
     expect(doc.name).toBe("ana-song");
-    // And it is offered back to HER poll only: one shared `lastTake` handed the clip to whoever
-    // asked next, which for a shared service is a take appearing in a song it was not made in.
+    // Offered back to HER poll only: one shared `lastTake` handed the clip to whoever asked next.
     expect(takeJustRecorded(ana)).toEqual({ clip: "take-1", track: "gtr" });
     expect(takeJustRecorded(bo)).toBeNull();
   });

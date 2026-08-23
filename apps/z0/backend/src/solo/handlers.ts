@@ -6,9 +6,7 @@ import { listGristSessions, loadSessionFromGrist } from "../grist/load.ts";
 import { asFloat, asInt, asString } from "../grist/values.ts";
 import type { Session } from "../session/model.ts";
 
-// Solo endpoints (solo.go): any authenticated user — the global auth
-// middleware is the only gate. They never touch the global sessionProgress;
-// the multiplayer engine keeps running whatever the operator scheduled.
+// Solo play never touches the global sessionProgress: the operator's multiplayer run keeps going.
 
 /** Wire form of a SoloProgress row — the resume shape the SPA replays from. */
 interface SoloProgress {
@@ -27,10 +25,7 @@ const progressFromFields = (f: Record<string, unknown>): SoloProgress => ({
   total: asInt(f.total),
 });
 
-/**
- * The in-progress row for (user, session): [progress, rowId] — [null, 0] when
- * none exists. The row id lets callers patch/delete without re-listing.
- */
+/** The in-progress row for (user, session), with its id so a caller can patch without re-listing. */
 async function loadSoloProgress(
   g: GristClient,
   userSubject: string,
@@ -92,8 +87,7 @@ const sessionIdParam = (req: Request, res: Response): number => {
   return id;
 };
 
-// GET /solo/sessions — the catalogue plus the caller's saved score and resume
-// marker per session, so the picker renders both without extra requests.
+// GET /solo/sessions — catalogue, saved score and resume marker in one, so the picker asks once.
 export async function handleSoloListSessions(
   req: Request,
   res: Response,
@@ -127,9 +121,7 @@ export async function handleSoloListSessions(
   });
 }
 
-// POST /solo/sessions/:id/score — record the final score. First completion
-// wins: an existing Scores row is never overwritten; the canonical value is
-// returned either way. Completing (either path) deletes the in-progress row.
+// POST /solo/sessions/:id/score — first completion wins; an existing Scores row is never overwritten.
 export async function handleSoloSaveScore(
   req: Request,
   res: Response,
@@ -138,8 +130,7 @@ export async function handleSoloSaveScore(
   if (!g) return;
   const u = currentUser(req);
   if (!u?.sub) {
-    // Buzzer guests have no subject → excluded from the scoreboard. 403 (not
-    // 401) makes the distinction explicit client-side.
+    // A buzzer guest has no subject, so 403 rather than 401 — the client must tell the two apart.
     res
       .status(403)
       .json({ error: "score saving requires a non-guest account" });
@@ -168,8 +159,7 @@ export async function handleSoloSaveScore(
     return;
   }
 
-  // Either path marks the run complete — clear the in-progress row so the
-  // next load returns no resume. Errors are logged-and-swallowed.
+  // Either path completes the run, so the in-progress row goes and the next load offers no resume.
   const clearProgress = async () => {
     try {
       const [, rowId] = await loadSoloProgress(g, u.sub!, sessionId);
@@ -183,8 +173,7 @@ export async function handleSoloSaveScore(
 
   if (existing.length > 0) {
     const canonical = asFloat(existing[0].fields.value);
-    // One-shot backfill: legacy rows written before the userName column
-    // existed get patched so the leaderboard stops showing "?".
+    // One-shot backfill for rows written before the userName column, which show "?" otherwise.
     if (asString(existing[0].fields.userName) === "" && u.name) {
       await g
         .updateRecords(
@@ -215,9 +204,7 @@ export async function handleSoloSaveScore(
   res.json({ score, persisted: true, sessionId });
 }
 
-// GET /solo/sessions/:id/leaderboard — every recorded final score, highest
-// first, standard competition ranking (ties share a rank, the next skips).
-// Empty userName values fall back to the Guests table, then "?".
+// GET /solo/sessions/:id/leaderboard — highest first, an empty name falling back to Guests then "?".
 export async function handleSoloLeaderboard(
   req: Request,
   res: Response,
@@ -287,9 +274,7 @@ export async function handleSoloLeaderboard(
   res.json({ sessionId, entries: out });
 }
 
-// GET /solo/sessions/:id — the full Session JSON for client-side playback.
-// Blocks until the attachment cache is warm; paths come back /audio/-prefixed.
-// Includes the caller's in-progress run as `resume` when one exists.
+// GET /solo/sessions/:id — the whole Session, blocking until the attachment cache is warm.
 export async function handleSoloLoadSession(
   req: Request,
   res: Response,
@@ -320,8 +305,7 @@ export async function handleSoloLoadSession(
   res.json(resp);
 }
 
-// POST /solo/sessions/:id/progress — upsert the caller's in-progress state.
-// Fire-and-forget on the frontend.
+// POST /solo/sessions/:id/progress — an upsert the frontend fires and forgets.
 export async function handleSoloSaveProgress(
   req: Request,
   res: Response,
@@ -382,10 +366,7 @@ export async function handleSoloSaveProgress(
   res.json({ ok: true });
 }
 
-/**
- * Rewrite bare relative audio paths into /audio/-prefixed URLs across a whole
- * Session, in place — the solo twin of the multiplayer handlers' prefixing.
- */
+/** Rewrite bare relative audio paths to /audio/ URLs in place, across a whole Session. */
 export function prefixSessionAudioPaths(s: Session): void {
   const pfx = (p: string | undefined): string | undefined => {
     if (p && !p.startsWith("/") && !p.startsWith("http")) return `/audio/${p}`;

@@ -14,8 +14,7 @@ const ws = new WebSocket(url);
 let frames = 0;
 let min = Number.POSITIVE_INFINITY;
 let max = 0;
-// dB, and SILENCE is a large negative — so the accumulator starts below anything real rather
-// than at 0, which is a loud signal and would read as "there was sound" for ever.
+// dB, so the accumulator starts below anything real: 0 is a LOUD signal, not an empty one.
 let peak = Number.NEGATIVE_INFINITY;
 let everPlaying = false;
 const levels: Record<string, number> = {};

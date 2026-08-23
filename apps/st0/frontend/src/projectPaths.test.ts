@@ -12,9 +12,7 @@ import {
   readScalarField,
 } from "./projectPaths";
 
-// The reported bug, exactly: the gutter ▶ on a migrated rack sent a bare filename, the
-// backend resolved it against the project root, and the user got
-// `ENOENT … LEMO - DANSE\md-shots_norm.wav` for a file sitting in the module's own folder.
+// The reported bug: the gutter ▶ on a migrated rack sent a bare filename, and the backend resolved it against the project root.
 
 describe("which kind of file a path is", () => {
   it("recognises a rack module", () => {
@@ -69,8 +67,7 @@ describe("which kind of file a path is", () => {
 
 describe("reading a scalar field out of a file's text", () => {
   it("reads an unquoted scalar", () => {
-    // The one that was silently returning null: CUE always quotes, YAML usually doesn't, so
-    // a quote-demanding regex read every migrated clip as having no source at all.
+    // The one that was silently returning null: CUE always quotes and YAML usually does not, so a quote-demanding regex saw no source.
     expect(readScalarField("source: md-shots_norm.wav\n", "source")).toBe(
       "md-shots_norm.wav",
     );
@@ -139,8 +136,7 @@ describe("entityFile", () => {
 });
 
 describe("rackKeyOf", () => {
-  // The key `hints.racks` files a rack under: the chain `use` ref — a module's folder name, or
-  // a NODE's stem, since the hint folds a node's `extends` in under the node's own name.
+  // The key `hints.racks` files a rack under: a module's folder name, or a NODE's stem, the hint folding `extends` in under it.
   it("answers a module's folder name, filing included", () => {
     expect(rackKeyOf("modules/instruments/drum_1/module.yaml")).toBe("drum_1");
     expect(rackKeyOf("song.st0/modules/instruments/drum_1/module.yml")).toBe(

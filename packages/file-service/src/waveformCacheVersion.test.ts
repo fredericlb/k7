@@ -43,9 +43,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("the sidecar version gate", () => {
   it("treats every superseded version as stale, fingerprint or no fingerprint", () => {
-    // v3 is the case that matters today: it has a bpm but none of the band envelopes a
-    // coloured waveform is drawn from, and a matching fingerprint — so nothing else would ever
-    // ask for it to be rebuilt, and every track would stay grey for ever.
+    // v3 matters today: it has a matching fingerprint but no bands, so every track would stay grey.
     for (const v of [1, 2, 3]) {
       sidecar({ v, transients: [0.05], sensitivity: 2 });
       expect(staleWaveformSources([audio]), `v${v}`).toEqual([audio]);

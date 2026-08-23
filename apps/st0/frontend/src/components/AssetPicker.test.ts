@@ -24,8 +24,7 @@ const FILES = [
 
 describe("the asset tree", () => {
   it("nests one level per folder", () => {
-    // Folders sort before files: a folder is a place to go, a file is the answer, and
-    // interleaving them alphabetically buries the structure.
+    // Folders sort before files: a folder is a place to go and a file is the answer, and interleaving them buries the structure.
     const t = buildAssetTree(FILES, "nam");
     expect(t.map((n) => n.label)).toEqual(["Marshall", "Two-Rock", "flat"]);
     const marshall = t[0].children ?? [];
@@ -53,9 +52,7 @@ describe("the asset tree", () => {
   });
 
   it("lists a real module's assets, which carry NO library prefix", () => {
-    // The médiathèque's audio/amps/guitar, as listModuleAssets returns it. Filtering these on a
-    // `nam/` prefix — which is what the library picker did — produced an empty tree, so the one
-    // module in the catalogue built to be picked from opened with nothing in it.
+    // The médiathèque's amp folder as listModuleAssets returns it: filtering on a `nam/` prefix opened the one module built to be picked from empty.
     const guitar = [
       "fender super reverb/Fender Super Reverb_ EQ Flat, Volume 3, sm57.nam",
       "roland jc 120b/Roland JC 120B Jazz Chorus_ Bright On, SM57.nam",

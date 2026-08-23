@@ -23,11 +23,7 @@ import { resolveModuleMap } from "./moduleResolve";
 import { compileNodeProject } from "./nodeProject";
 import { writeModule, writeNode } from "./testSupport";
 
-// Module NODES: one USE of a module, as `nodes/<name>.yaml` — a FLAT folder at the
-// project root, where the file names the node and chains name it by that alone. Which
-// module it uses is `extends` and nothing else, so a node no longer mirrors the folders
-// of the thing it uses. These check the whole path — the loader, the compiler, the hints the
-// editor completes from, and the overlay that pins a chain step to the real set.
+// A node is one USE of a module, filed FLAT in `nodes/`, naming what it uses by `extends` alone.
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/song/src
 const SONG = join(
@@ -74,8 +70,7 @@ describe("module nodes", () => {
   });
 
   it("takes its type from what it extends, having no type folder of its own", () => {
-    // The whole reason a flat folder can work. `kind`, `inputs` and `category` used to come
-    // from `modules/<type>/…`; a node has no such path, so they arrive through extends.
+    // Why a flat folder works: `kind`, `inputs` and `category` arrive through extends, not a path.
     const resolved = resolveModuleMap(
       loadModules(dir),
       loadModuleRefs(dir, {}),
@@ -90,8 +85,6 @@ describe("module nodes", () => {
     const refs = loadModuleRefs(dir, {});
     const resolved = resolveModuleMap(modules, refs);
     // synth-pad.yaml overrides two params and empties the inherited automation list.
-    // (Named for the lane it serves rather than after it: `pad` is the LANE's node now,
-    // and one flat name space means one name, one node.)
     expect(resolved["synth-pad"].params).toEqual({
       "Filter Freq": 40,
       Level: -12,
@@ -105,11 +98,9 @@ describe("module nodes", () => {
   });
 
   it("keeps nodes out of the `extends` vocabulary, which names MODULES", () => {
-    // No engine catalogue here: this asks what the project's FILES define, and the
-    // machine's scanned plugins would drown a vocabulary of two.
+    // No engine catalogue: the machine's scanned plugins would drown a vocabulary of two.
     const refs = loadModuleRefs(dir, {});
-    // A node is a USE. Offering one as an `extends` target would invite a second use
-    // to inherit the first one's overrides, which is not what "extends the synth" means.
+    // Offering a USE as an `extends` target would make a second use inherit its overrides.
     expect(Object.keys(refs)).not.toContain("lead");
     expect(refs["instruments/synth"].node).toBeUndefined();
     expect(refs["instruments/synth"].params?.["Filter Freq"]).toBeUndefined();
@@ -125,8 +116,7 @@ describe("module nodes", () => {
     const doc = compileNodeProject(dir);
     const lead = doc.tracks
       .find((t) => t.id === "melody")
-      // "melody", not "lead": a chain is called after its track now — the `as:` alias
-      // that renamed it went with the list format.
+      // "melody", not "lead": a chain is called after its track since the `as:` alias went.
       ?.plugins.find((p) => p.id === "melody:lead");
     const pad = doc.tracks
       .find((t) => t.id === "pad")
@@ -138,8 +128,7 @@ describe("module nodes", () => {
     expect(pad?.type).toBe("4osc");
     expect(lead?.params?.["Filter Freq"]).toBe(90);
     expect(pad?.params?.["Filter Freq"]).toBe(40);
-    // Each saves its own opaque state BESIDE ITS OWN FILE, so a UI edit on one leaves the
-    // other — and the module they share — alone.
+    // Each saves its opaque state beside ITS OWN FILE, so a UI edit leaves the other alone.
     expect(lead?.presetSave.replace(/\\/g, "/")).toMatch(
       /nodes\/lead\.vstpreset$/,
     );
@@ -177,8 +166,7 @@ describe("module nodes", () => {
   });
 
   it("names a node by itself when nobody said — and proposes only free names", () => {
-    // No lane: a node born here is in the graph wired to nothing, so there is no run for it to
-    // be named after. The `+` on an arrow knows one and spells the whole name out.
+    // A node born wired to nothing has no run to be named after, so it is named by itself.
     expect(freeNodeName(dir, "synth")).toBe("synth_1");
     expect(freeNodeName(dir, "synth", "vo.jo")).toBe("vo_jo_synth_1");
     // What it proposes, `createNode` accepts — which is the whole contract between the two.
@@ -194,10 +182,7 @@ describe("module nodes", () => {
   });
 
   it("steps over a name a MODULE holds, not just a node", () => {
-    // The name is one flat key: a chain saying "vo_eq_1" must not be able to mean two things,
-    // and `createNode` refuses such a collision — so what this proposes has to dodge BOTH
-    // spaces, not just the `nodes/` folder. A fork names its module the same way, which is
-    // exactly how a module comes to hold a name a node would otherwise reach for.
+    // One flat key, so a proposal has to dodge the module space as well as the `nodes/` folder.
     expect(freeNodeName(dir, "eq", "vo")).toBe("vo_eq_1");
     writeModule(dir, "audio", "vo_eq_1", {
       plugin: { type: "internal", name: "EQ" },
@@ -209,8 +194,7 @@ describe("module nodes", () => {
     expect(() => createNode(dir, "instruments", "synth", "lead")).toThrow(
       /already names a module or node/,
     );
-    // The name is one flat key now, so a MODULE's name is taken too — a chain saying
-    // "synth" must not be able to mean two things.
+    // One flat key, so a MODULE's name is taken too: "synth" must not mean two things.
     expect(() => createNode(dir, "instruments", "synth", "synth")).toThrow(
       /already names a module or node/,
     );
@@ -222,8 +206,7 @@ describe("module nodes", () => {
   it("refuses to shadow a module with a node of the same name", () => {
     // Written by hand rather than through createNode, which refuses it earlier.
     writeNode(dir, "synth", { params: { Level: -3 } });
-    // The module wins and the node is REPORTED, rather than one silently replacing
-    // the other — a chain naming "synth" would otherwise play whichever loaded last.
+    // Reported rather than silently replaced: a chain would otherwise play whichever loaded last.
     expect(() => loadModules(dir, true)).toThrow(
       /'synth' is already a module in this project/,
     );
@@ -231,9 +214,7 @@ describe("module nodes", () => {
 
   // --- a node is an ordinary extender now ----------------------------
   it("merges a ui written in a node, like any other extends", () => {
-    // It used to be dropped whole: a node had no `extends`, so the loader special-cased
-    // taking the generic's grid. A node is a plain module that extends one now, so its
-    // `ui:` follows the same per-widget merge every other `extends` gets.
+    // A node's `ui:` used to be dropped whole; it follows the ordinary per-widget merge now.
     const knob = (col: number, row: number, label: string) => ({
       a: { type: "knob", col, row, bind: "Level", label },
     });
@@ -265,8 +246,7 @@ describe("module nodes", () => {
     });
     const lead = loadModules(dir).lead;
     expect(lead.params?.["Filter Freq"]).toBe(90);
-    // The per-key override, on a plain scalar field. It is what makes a NOTE work: every doc
-    // node is a node of `@studio/doc`, and its own `content` is exactly this.
+    // The per-key override on a scalar is what makes a NOTE work: a doc node's own `content`.
     expect(lead.content).toBe("the lead voice");
   });
 });

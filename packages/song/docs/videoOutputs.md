@@ -85,6 +85,17 @@ L'écriture est **textuelle** et non un YAML relu-réémis, pour la raison habit
 `graph.yaml` est commenté et édité à la main, et le re-sérialiser reformaterait tout le fichier pour
 ajouter une ligne. La ligne va à la **fin** de la carte `modules:`, où arrive le signal.
 
+Une carte en bloc s'étend sur « les lignes indentées sous la clé » : un commentaire indenté avec la
+carte lui appartient et est enjambé, seule la ligne non indentée suivante la termine. Et `null` pour
+un graphe sans `modules:` du tout — inventer la carte pour y loger une ligne serait écrire un fichier
+que le projet n'a jamais eu, le même refus que `migrateMixOut.ts`.
+
+`ensureVideoRun` **ne demande pas** si le projet a un viewport : l'appelant l'a déjà décidé, et les
+deux appelants le savent différemment — `createSurfaceFile` est celui qui écrit la surface, le
+service de fichiers ouvre un projet dont il vient de lire les surfaces. Le redemander ici imposerait
+d'importer `surfaces.ts`, qui importe ce fichier, et le cycle servirait à réexaminer une question
+tranchée.
+
 `ensureVideoRun` est **best-effort** de bout en bout : pas de `graph.yaml`, pas de carte `modules:`,
 un dossier en lecture seule — le projet est laissé tel quel et s'ouvre quand même. Gagner une
 commodité n'est pas une condition pour ouvrir un morceau.

@@ -63,8 +63,7 @@ describe("a fader on a module's grid", () => {
   });
 
   it("refuses the fields a fader has no meaning for", () => {
-    // Same contract as the rest: a leftover field from a retype fails validation rather than being ignored, which
-    // is what stops a half-converted widget reaching the renderer.
+    // A leftover field from a retype FAILS rather than being ignored, stopping a half-converted widget.
     const bad = UISchema.safeParse({
       cols: 1,
       rows: 4,

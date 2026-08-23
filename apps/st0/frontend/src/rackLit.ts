@@ -18,24 +18,10 @@ export interface Hit {
   key: number;
 }
 
-/**
- * The shortest a pad stays lit, in beats.
- *
- * A drum hit is often written a thirty-second long, and a pad lit for 30 ms at 20 frames a second
- * is a pad that flashes on some passes and not others. This is a floor on the DISPLAY, not on the
- * note: what is played is untouched.
- */
+/** The shortest a pad stays lit, in beats — a floor on the DISPLAY, not on the note, so a thirty-second hit does not flicker. */
 export const MIN_FLASH_BEATS = 0.25;
 
-/**
- * Every note reaching each rack node, keyed by module — computed once per project + graph.
- *
- * A rack hears what the lane feeding its CHAIN plays: `graph.chains[chain].from` is that lane, and
- * its clips carry the notes. Precomputed because the alternative is walking every clip of every
- * lane on every frame, twenty times a second, for a picture.
- *
- * Only MIDI material counts — an audio clip has no notes and contributes none.
- */
+/** Every note reaching each rack node, keyed by module and computed once per project + graph — only MIDI material counts. */
 export function rackHits(
   project: WebProject | null,
   graph: WebGraph | null,
@@ -46,8 +32,7 @@ export function rackHits(
   for (const [chainName, chain] of Object.entries(graph.chains)) {
     const lane = chain.from ? byLane.get(chain.from) : undefined;
     if (!lane) continue;
-    // Which modules of this chain are racks. A chain may hold several — two kits in series is
-    // odd but sayable — and each hears the same lane.
+    // Which modules of this chain are racks: a chain may hold several, and each hears the same lane.
     const racks = chain.use.filter((s) => s.rack?.length);
     if (!racks.length) continue;
     const hits: Hit[] = [];
@@ -59,19 +44,11 @@ export function rackHits(
           key: nt.key,
         });
     if (!hits.length) continue;
-    // Keyed by MODULE and not by chain: a pad knows which module it is drawn on, and a module
-    // shared by two chains hears both. `chainName` is only how we got here.
+    // Keyed by MODULE and not by chain: a pad knows which module it is drawn on, and one shared by two chains hears both.
     void chainName;
     for (const s of racks) out[s.module] = [...(out[s.module] ?? []), ...hits];
   }
-  /**
-   * Sorted AFTER the merge, and that is the bug this line fixes rather than a tidiness.
-   *
-   * Each chain's own hits used to be sorted before being concatenated, which is not the same
-   * thing: a module reached from TWO chains ended up with two sorted runs back to back, so the
-   * whole array was unsorted. `litAt` stops at the first note that has not begun — so it stopped
-   * at the end of the first run and never saw the second chain's notes at all.
-   */
+  /** Sorted AFTER the merge: per-chain sorting left two sorted runs back to back, and `litAt` stopped at the end of the first. */
   for (const hits of Object.values(out)) hits.sort((a, b) => a.from - b.from);
   return out;
 }
@@ -99,19 +76,7 @@ function firstAfter(hits: readonly Hit[], beat: number): number {
   return lo;
 }
 
-/**
- * The keys sounding at `beat`.
- *
- * `maxSpan` is the longest note in the list, and passing it is what makes this cost the number of
- * notes AROUND the playhead rather than the number BEFORE it. Without it the walk ran from index 0
- * every frame, so a five-minute lane of sixteenths cost ~2400 comparisons per rack, twenty times a
- * second, and the cost grew as the song played — the comment here used to say "a few hundred at
- * worst", which is true of a pattern and not of an arrangement.
- *
- * The bound is exact rather than a heuristic: a note sounding at `beat` has `to > beat` and
- * `to - from <= maxSpan`, so `from > beat - maxSpan`. Anything earlier cannot still be ringing.
- * Absent, it defaults to Infinity and this is the old full walk — which is what the tests use.
- */
+/** The keys sounding at `beat` — `maxSpan` is what makes this cost the notes AROUND the playhead rather than every one before it. */
 export function litAt(
   hits: readonly Hit[],
   beat: number,
@@ -133,13 +98,7 @@ function same(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return true;
 }
 
-/**
- * The store the pads subscribe to.
- *
- * Per MODULE, so a kit firing re-renders that kit's pads and nothing else, and the listener set is
- * only poked when that module's sounding keys actually CHANGED — a playhead moving through silence
- * notifies nobody, twenty times a second.
- */
+/** The store the pads subscribe to, per MODULE — a playhead moving through silence notifies nobody, twenty times a second. */
 export class LiveRackLit implements RackLitStore {
   private lit: Record<string, ReadonlySet<number>> = {};
   private listeners = new Map<string, Set<() => void>>();
@@ -170,16 +129,7 @@ export class LiveRackLit implements RackLitStore {
 
 const EMPTY: ReadonlySet<number> = new Set<number>();
 
-/**
- * The store, wired to the engine's frames — what both graph hosts mount.
- *
- * `engineStore.subscribe` and NOT `useEngineState`: a selector here would re-render the component
- * holding the graph twenty times a second, which is exactly what the external-store pattern is
- * here to avoid. Only a pad whose own note changed re-renders, through its own subscription.
- *
- * The notes are recomputed only when the project or the graph changes; a frame costs one walk of
- * the hits per rack, which is a few hundred comparisons on a busy song.
- */
+/** The store, wired to the engine's frames off a RAW subscription: a selector here would re-render the whole graph at frame rate. */
 export function useLiveRackLit(
   project: WebProject | null | undefined,
   graph: WebGraph | null | undefined,

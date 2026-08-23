@@ -70,8 +70,7 @@ const command = (body: Record<string, unknown>) =>
     body: JSON.stringify(body),
   }).then((r) => r.json() as Promise<{ graph?: unknown; rev?: string }>);
 
-// A verb that WRITES — the same one the mixer's toggle runs. Anything that leaves the project
-// untouched takes the `rev === before` branch and would prove nothing about `want`.
+// A verb that WRITES: anything leaving the project untouched takes the `rev === before` branch.
 const WRITES = "track mute gtr";
 
 describe("POST /command — want", () => {
@@ -87,8 +86,7 @@ describe("POST /command — want", () => {
     const r = await command({ line: WRITES, want: [] });
     expect(built).not.toHaveBeenCalled(); // the point: not built, not merely not sent
     expect(r.graph).toBeUndefined();
-    // …and the command really wrote. Without this the test passes for the wrong reason: a line
-    // that changed nothing takes the `rev === before` branch and skips the build on its own.
+    // …and the command really wrote, or the test would pass for the wrong reason.
     expect(r.rev).toBeTruthy();
   });
 

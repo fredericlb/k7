@@ -50,8 +50,7 @@ function pump(): void {
     active++;
     waiting.shift()!();
   }
-  // Nothing can start right now but work is queued — retry once the oldest
-  // timestamp falls out of the window.
+  // Work is queued but nothing can start: retry once the oldest timestamp leaves the window.
   if (waiting.length > 0 && active < MAX_CONCURRENT && recent.length > 0) {
     const wait = WINDOW_MS - (now - recent[0]) + 5;
     setTimeout(pump, Math.max(wait, 10));
@@ -65,10 +64,7 @@ function release(): void {
 
 // ─── transport ──────────────────────────────────────────────────────────────
 
-/**
- * GET a Deezer endpoint as JSON. Deezer signals failures with HTTP 200 plus an
- * `error` object, so both shapes are folded into one thrown Error.
- */
+/** GET as JSON; Deezer signals failure with HTTP 200 plus an `error`, folded in here. */
 async function deezerGet<T>(path: string): Promise<T> {
   await acquire();
   let res: Response;
@@ -109,8 +105,7 @@ function toTrack(r: RawTrack): DeezerTrack | null {
   return {
     id,
     artist: r.artist?.name ?? "",
-    // title_short drops the "(feat. …)" / "- Remastered" noise that makes the
-    // answer impossible to type; the full title stays out of the game.
+    // title_short drops the "(feat. …)" noise that makes an answer impossible to type.
     title: r.title_short || r.title || "",
     cover: r.album?.cover_medium ?? r.album?.cover_small ?? "",
     durationSec: typeof r.duration === "number" ? r.duration : 0,
@@ -202,11 +197,7 @@ function expiryOf(url: string): number {
   return Number(m[1]) * 1000 - EXPIRY_MARGIN_MS;
 }
 
-/**
- * A currently-valid 30 s preview URL for a Deezer track. Cached until the
- * signature is about to expire, so a whole game costs roughly one API call per
- * track rather than one per play.
- */
+/** A valid 30 s preview URL, cached until its signature nears expiry — one call per track. */
 export async function previewUrl(trackId: number): Promise<string | null> {
   const hit = previewCache.get(trackId);
   if (hit && hit.expiresAt > Date.now()) return hit.url;

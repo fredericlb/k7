@@ -12,12 +12,7 @@ import { setYaml, writeLane, writeModule, writeYaml } from "./testSupport";
 
 let dir = "";
 
-/**
- * gtr and keys meet at a bus, the bus runs verb then plate.
- *
- * Both shapes of freeze are in this one project: a point INSIDE a lane's run (`amp`) and a bus
- * several lanes meet at (`verb`), so the two tests differ only in where they freeze.
- */
+/** Both shapes of freeze in one project: a point inside a lane's run, and a bus lanes meet at. */
 function project(name: string): string {
   const p = join(dir, `${name}.st0`);
   writeYaml(join(p, "project.yaml"), { project: { name } });
@@ -46,8 +41,7 @@ function project(name: string): string {
       plate: ["OUT"],
     },
   });
-  // The render itself. Its CONTENT never matters here — the compiler only asks whether the file
-  // is there, and an engine is what would read it.
+  // The CONTENT never matters: the compiler only asks whether the file is there.
   mkdirSync(join(p, "renders"), { recursive: true });
   writeFileSync(join(p, "renders", "r.wav"), "");
   return p;
@@ -106,8 +100,7 @@ describe("a freeze at a bus", () => {
       "renders/r.wav",
     );
     const doc = compileNodeProject(p);
-    // Both lanes are inside the render, so both fall silent — playing them again would be the
-    // take twice.
+    // Both lanes are inside the render, so playing them again would be the take twice.
     expect(trackOf(doc, "gtr")?.clips).toEqual([]);
     expect(trackOf(doc, "keys")?.clips).toEqual([]);
     expect(pluginModules(trackOf(doc, "gtr"))).toEqual([]);

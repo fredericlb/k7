@@ -44,8 +44,7 @@ function song(): string {
 const read = (name: string) =>
   readFileSync(join(dir, "nodes", `${name}.yaml`), "utf8");
 
-// The generated lane has NO file in nodes/ on purpose: `all` must skip it without looking,
-// and a named refusal must come before any write — either slip would throw or corrupt.
+// The generated lane has NO file in nodes/ on purpose: `all` must skip it without looking.
 const proj = () =>
   emptyDoc({
     name: "t",

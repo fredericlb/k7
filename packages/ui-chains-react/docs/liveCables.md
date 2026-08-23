@@ -48,6 +48,44 @@ Three things hold this together, and all three are load-bearing:
   keyed by EDGE id, so new edges mean it has to be recomputed even though the track ids did not
   move.
 
+It is the ONE subscription in `DomChains.tsx` that is not a leaf's, and the picture rides along on
+the same frame rather than taking a second: the playhead arrives in it, and subscribing twice
+would recompute liveness twice for one engine tick. The store it subscribes to is the HOST's own —
+read once here and once at the bottom, where it also decides which store the meters get — and an
+inert one simply never notifies.
+
+## The canvas layer's own geometry
+
+`.dgx-cablecv` is the cables' layer, and three of its declarations are load-bearing:
+
+- **It is never a pointer target.** Hit testing stays on `.dgx-hit`, which is SVG and follows the
+  cable at rest.
+- **`width`/`height` are not redundant with `inset:0`.** A canvas is a REPLACED element, so with an
+  `auto` width the insets are over-constrained and its INTRINSIC size — the `width`/`height`
+  attributes, which we set in DEVICE px — wins. `@studio/ui-chains`'s docs/wobble.md is the page.
+- **`z-index:2` puts it OVER the cards.** A patch bay's cables lie on top of the rack, not behind
+  it, and the shadow each cable already strokes is what seats it visually on the card face it
+  crosses. Safe because the layer takes no pointer: the SVG's hit paths, labels and inserts stay
+  below the nodes, so nothing a card offers becomes unclickable under a cable.
+
+## What stays on the SVG layer above it
+
+The cable is on the canvas; its NAME is not. Text is the one thing a canvas draws worse, so the
+labels — a signal cable's, and an automation cable's param — stay in SVG. The automation label sits
+at the chord midpoint on purpose: the hang sags below it, so the label sits clear of its own cable.
+The insert affordance is there too: a transparent hit path over each eligible arrow, plus the blue
+recolour and circled `+` while it is hovered.
+
+There is **no arrowhead**, and never was one here. A cable ends in a PLUG, and the plug is the
+socket it disappears into — the nodes paint over this layer, so the last few pixels are hidden by
+the plate and the cable reads as seated. An arrow was the right mark while the cable pointed at a
+card and had nowhere in particular to land. Direction is not lost with it: the graph is laid out top
+to bottom, inputs on a card's top edge and outputs on its bottom, so which way a cable runs is read
+off where it lands.
+
+Automation cables draw on the canvas with all the others, hanging and swaying the same way — a curve
+is a node, and its cables are cables.
+
 ## The ripple loop follows the same rule as the camera
 
 It is mounted once and steered by `liveRef`, rather than being an effect with `[live]` as a

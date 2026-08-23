@@ -4,8 +4,7 @@
 // (ModulePicker), so "type a few letters of what you want" behaves the same wherever it
 // is offered rather than being re-invented per feature.
 
-// Fuzzy subsequence match, higher score is better and -1 is no match: contiguous runs and post-separator hits
-// score higher, so "syn" surfaces sequences/synth.yaml; shorter strings win ties.
+// Fuzzy subsequence match, -1 for no match: contiguous runs and post-separator hits score higher, and shorter strings win ties.
 export function fuzzyScore(q: string, s: string): number {
   const t = s.toLowerCase();
   let score = 0;

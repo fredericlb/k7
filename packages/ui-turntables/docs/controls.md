@@ -62,6 +62,31 @@ C'est aussi pourquoi `deckA.tempo` porte la plage du **knob du module** (10..300
 plage à lui : une liaison ne doit pas pouvoir demander un tempo que le panneau refuse de
 dessiner.
 
+### C'est `widgetDenorm` qui déploie, pas une interpolation écrite ici
+
+La seconde moitié du trajet appartient à `@studio/ui-chains/graph`. Écrite à la main —
+`min + unit × (max − min)` — elle n'est juste que pour un widget **linéaire sans `step`** : un
+paramètre `curve: log` bougé depuis le pupitre atterrissait ailleurs que le même paramètre bougé
+sur le graphe, dans la même app, sur le même plugin. st0 appelle la fonction partagée ; le
+pupitre aussi, désormais.
+
+## Une ligne qui ne résout pas est DITE
+
+Trois façons pour une liaison d'échouer, et les trois sont **rapportées** plutôt que jetées.
+C'est là que ce fichier se sépare de la jointure MIDI de st0 : là-bas une map voyage avec un
+module vers des projets qui le dessinent autrement, donc une liaison inapplicable est un état
+normal qu'on saute en silence. Ici le fichier appartient à CE set et nomme les nœuds de CE set —
+une ligne qui ne résout pas est une faute de frappe sur son propre projet, et le dire est la
+différence entre un fader mort et un fader réparable.
+
+Le WIDGET manquant est le seul cas non fatal : sans lui il n'y a pas de `min`/`max`, donc rien à
+mettre à l'échelle — mais la cible existe, et la déclarer cassée serait faux. La liaison résout
+sans widget et l'appelant décide (m9 envoie les unités du contrôle).
+
+Un contrôle **nommé et non câblé** — ce dont un squelette de surface est fait — est sauté sans
+un mot ici : `unmappedControls` le rapporte une fois, en portail au-dessus de tout le pupitre.
+Le dire deux fois donnerait deux phrases pour une seule ligne à remplir.
+
 ## Les deux chemins
 
 Le crossfader et les six potards d'EQ passent par leur liaison vers un PARAMÈTRE : m9 joue le

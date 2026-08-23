@@ -3,10 +3,7 @@ import { Card, CardContent } from "@frediverse/ui/card";
 import { FrediverseMark } from "@frediverse/ui/frediverse-mark";
 import { login } from "../lib/auth";
 
-// Full-screen OIDC gate, styled with @frediverse/ui like the rest of the
-// network's apps (calepin, routine, …) rather than z0-shared's
-// terminal-look LoginGate — that shared component still backs the other five
-// z0 frontends, which keep their own retro identity.
+// Styled with @frediverse/ui; the other five keep z0-shared's terminal-look gate on purpose.
 export function LoginGate({
   title = "Z0",
   message,

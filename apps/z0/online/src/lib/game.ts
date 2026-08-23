@@ -55,19 +55,7 @@ export interface Slot {
   songs: Song[];
 }
 
-/**
- * A shuffled copy — Fisher–Yates, with the rng injectable so a caller can pin
- * a permutation.
- *
- * Deliberately NOT `sort(() => Math.random() - 0.5)`. A comparator has to be
- * consistent and that one isn't, so the result is biased — and for short
- * arrays V8's sort leaves it close to the original order, which for a playlist
- * means roughly the same tracks first every time. Nothing about the code would
- * ever look wrong.
- *
- * A copy, not in place: `session.categories` is state React holds, and
- * reordering it under the component is how a list re-renders wrong.
- */
+/** A shuffled COPY — Fisher–Yates with an injectable rng; a random comparator barely shuffles. */
 export function shuffled<T>(
   items: readonly T[],
   rng: () => number = Math.random,
@@ -80,10 +68,7 @@ export function shuffled<T>(
   return out;
 }
 
-/**
- * Flatten a Session into linear slots: pauses dropped (no analogue in solo),
- * liveOnly categories/songs filtered, order from/to slicing applied.
- */
+/** A Session as linear slots: pauses dropped, liveOnly filtered, the order's from/to sliced. */
 export function buildSlots(session: Session): Slot[] {
   const out: Slot[] = [];
   const skipped: string[] = [];
@@ -127,8 +112,7 @@ export function buildSlots(session: Session): Slot[] {
   return out;
 }
 
-// Letters that don't decompose under NFD — pre-expand so accent-insensitive
-// matching survives (e.g. "Straße" → "strasse", not "stra").
+// Letters NFD does not decompose, pre-expanded so "Straße" normalises to "strasse", not "stra".
 const NON_DECOMPOSABLE_LETTERS: Record<string, string> = {
   ß: "ss",
   ẞ: "ss",
@@ -151,11 +135,7 @@ const NON_DECOMPOSABLE_LETTERS: Record<string, string> = {
 // Articles + the loose "x" are near-universal fluff — dropped symmetrically.
 const STOP_WORDS = new Set(["the", "le", "la", "x"]);
 
-/**
- * Fuzzy normalization: lowercase, strip diacritics, tokenize on non-alnum,
- * drop stop-words, concatenate. "AC/DC — Highway to Hell" ≡ "ac dc highway
- * to hell"; "Beatles" ≡ "The Beatles".
- */
+/** Lowercase, undiacriticked, stop-words dropped, concatenated: "The Beatles" ≡ "Beatles". */
 export function normalize(s: string): string {
   let expanded = "";
   for (const ch of s) expanded += NON_DECOMPOSABLE_LETTERS[ch] ?? ch;
@@ -172,8 +152,7 @@ export function normalize(s: string): string {
     .join("");
 }
 
-// Duet artists are authored "ARTIST1 x ARTIST2"; accept every ordering and
-// the common separators ("feat", "et", "avec", or nothing).
+// A duet is authored "ARTIST1 x ARTIST2"; every ordering and separator is accepted back.
 const DUET_SPLIT = /\s+x\s+/i;
 export function artistVariants(artist: string): string[] {
   const parts = artist
@@ -203,8 +182,7 @@ export function artistVariants(artist: string): string[] {
   return [...variants];
 }
 
-// Damerau-Levenshtein ≤ 1 (substitution, insert/delete, adjacent swap).
-// Targets shorter than MIN_FUZZY_LEN require an exact match ("U2" ≠ "U3").
+// Damerau-Levenshtein ≤ 1, but below MIN_FUZZY_LEN an exact match is required ("U2" ≠ "U3").
 const MIN_FUZZY_LEN = 5;
 export function withinOneEdit(a: string, b: string): boolean {
   if (a === b) return true;
@@ -256,10 +234,7 @@ export type AnswerAlt =
   | { kind: "pair"; artist: string; title: string }
   | { kind: "plain"; text: string };
 
-/**
- * Parse the song's `answer` field: top-level commas separate alternatives,
- * `[A|B]` becomes a pair, anything else a plain full-string match.
- */
+/** Top-level commas separate alternatives, `[A|B]` is a pair, anything else a plain match. */
 export function parseAnswerSpec(answer: string): AnswerAlt[] {
   const out: AnswerAlt[] = [];
   let depth = 0;
@@ -318,10 +293,7 @@ export function altDisplay(alt: AnswerAlt): string {
   return [alt.artist, alt.title].filter(Boolean).join(" · ");
 }
 
-/**
- * Points for a fully-correct guess `elapsedSec` after song start (mirrors
- * multiplayer's buzzer formula: 1000 + a speed kicker decaying over 20s).
- */
+/** The multiplayer buzzer formula: 1000 plus a speed kicker decaying over 20 s. */
 export function songScoreAt(elapsedSec: number): number {
   const speedBonus = Math.max(0, Math.round(100 * (1 - elapsedSec / 20)));
   return 1000 + speedBonus;

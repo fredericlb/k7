@@ -37,8 +37,7 @@ describe("the definition a render files", () => {
   });
 
   it("is a document the loader accepts", () => {
-    // The whole of the guarantee: whatever this writes has to load, or a verb that succeeded
-    // leaves a project that will not compile.
+    // The whole of the guarantee: whatever this writes has to load.
     expect(() =>
       parsed(renderedClipYaml("consolidate", "a.b_2608")),
     ).not.toThrow();

@@ -7,30 +7,18 @@ import { watch } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-/**
- * The exit code that means "I stopped on purpose, start me again now".
- *
- * Mirrored in engine/capot/src-tauri/src/host.rs, which uses it to relaunch WITHOUT the
- * crash backoff — otherwise two quick edits would put a dev on a 4s, then 8s wait. Any
- * value outside Node's own reserved 0–13 range works; this one is arbitrary.
- */
+/** The exit code meaning "I stopped on purpose, start me again now"; the tray mirrors it to relaunch WITHOUT the crash backoff. */
 export const RELOAD_EXIT_CODE = 77;
 
 /** Coalesce the burst of events an editor produces when it saves. */
 const DEBOUNCE_MS = 150;
 
-/**
- * True when we are running from TypeScript source (the dev tier of hostcmd.rs) rather
- * than from the esbuild'd `engine-host.mjs` a packaged app ships.
- */
+/** True when running from TypeScript source rather than from the esbuild'd bundle a packaged app ships. */
 function isDevSource(url: string): boolean {
   return url.endsWith(".ts");
 }
 
-/**
- * Watch this package's `src/` and exit on any change. A no-op unless running from
- * source. Returns whether the watch was armed, so the caller can say so in the log.
- */
+/** Watch this package's `src/` and exit on any change, a no-op unless running from source; returns whether the watch was armed. */
 export function armDevReload(onReload: () => void): boolean {
   if (!isDevSource(import.meta.url)) return false;
   const dir = dirname(fileURLToPath(import.meta.url));

@@ -5,8 +5,7 @@
 
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-// Where a separation's four files land, beside the master. `@studio/song`'s, because the graph
-// of a set names the same folder and neither package can hold the word alone.
+// Where a separation's four files land, beside the master — shared, because a set's graph names it too.
 import { STEMS_DIR } from "@studio/song-schema/stems";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
@@ -23,18 +22,14 @@ import {
 /** The file that makes a folder a module — the same name a project's `modules/` uses. */
 export const MODULE_FILE = "module.yaml";
 
-/** Its two siblings: the module's PANEL and its named settings. Neither is the generic, and neither is one
- *  of its nodes — see `@studio/song`'s docs/uiLibrary.md and docs/userPresets.md. */
+/** Its two siblings: the module's PANEL and its named settings — see `@studio/song`'s docs/uiLibrary.md. */
 export const UI_FILE = "ui.yaml";
 export const PRESETS_FILE = "presets.yaml";
 
-/** Where a module keeps what it LOADS — samples, impulse responses, amp profiles — as opposed to
- *  what it IS. The same folder `@studio/song`'s loader resolves a module's own `ir`/`nam`/rack
- *  files out of (MODULE_ASSETS_DIR there), so a module dropped here plays on any machine. */
+/** Where a module keeps what it LOADS rather than what it IS — `@studio/song`'s MODULE_ASSETS_DIR. */
 export const ASSETS_DIR = "assets";
 
-// A chain's two names and a song's sidecar live in types.ts — the browser needs all three
-// words and this file opens `node:fs`. Re-exported because this is where every importer looks.
+// Those three words live in types.ts, which a browser may import; re-exported where importers look.
 export { CHAINS_FILE, NODES_DIR, SONG_FILE };
 
 function dirents(abs: string): Dirent[] {
@@ -63,8 +58,7 @@ function sizeOf(abs: string): number | undefined {
   }
 }
 
-/** The newest mtime anywhere under a folder — what "recently touched" means for an entry
- *  whose payload is several files. */
+/** The newest mtime under a folder — "recently touched" for an entry whose payload is several files. */
 function newestUnder(abs: string): number {
   let newest = mtimeOf(abs);
   for (const e of dirents(abs)) {
@@ -75,8 +69,7 @@ function newestUnder(abs: string): number {
   return newest;
 }
 
-/** A song's sidecar, read for display only. Unparseable is not fatal: the folder is
- *  still a song and still worth listing, just under its folder name. */
+/** A song's sidecar, read for display only — unparseable still lists, under the folder name. */
 function readSong(abs: string): Record<string, unknown> {
   try {
     const v = parseYaml(readFileSync(join(abs, SONG_FILE), "utf8"), {
@@ -91,25 +84,13 @@ function readSong(abs: string): Record<string, unknown> {
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v ? v : undefined;
 
-// A hand-edited `bpm: 128` is a number; `bpm: "128"` is what somebody quoting it writes. Both
-// are meant, and neither NaN nor 0 is — 0 is the engine's "none found" and never reaches here.
+// `bpm: 128` and `bpm: "128"` are both meant; NaN and 0 — the engine's "none found" — are not.
 const num = (v: unknown): number | undefined => {
   const n = typeof v === "string" ? Number(v) : v;
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : undefined;
 };
 
-/**
- * The `variants:` mapping of a sidecar, classified against what is actually in the folder.
- *
- * A value naming a file that IS there is a file variant; anything else names a chain. The
- * check runs one way only — see SongVariant on why a chain is not verified here — so an
- * entry that names a chain nobody wrote still reads as a chain, and the surface holding both
- * listings is what says it is missing. Getting that backwards would file a typo'd chain name
- * as a missing FILE, which sends you looking in the wrong folder.
- *
- * A non-string value is dropped rather than coerced: `variants: {a: [x]}` is a malformed
- * sidecar, and inventing "[object Object]" as a ref would put an unfollowable row on screen.
- */
+/** The sidecar's `variants:`, classified against what is in the folder and one way only — see docs/variants.md. */
 function readVariants(
   meta: Record<string, unknown>,
   entries: Dirent[],
@@ -132,15 +113,7 @@ function readVariants(
   return out;
 }
 
-/**
- * Songs: a folder anywhere under `songs/` holding a `song.yaml`, or — for one dropped in by
- * hand — any audio file. Both are listed, because a library you can't see the contents of is
- * the problem this is here to fix; the sidecar is what turns one into a catalogued thing.
- *
- * The walk starts at the family root and not at a fixed set of subfolders, because `songs/`
- * has none: whatever tree the caller built is the tree. `kind` is therefore "" — this family
- * does not divide, and an entry saying so is honest where a borrowed word would not be.
- */
+/** Songs: any folder under `songs/` holding a `song.yaml` or, dropped by hand, any audio — see docs/songs.md. */
 function scanSongs(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
   const visit = (abs: string): void => {
@@ -163,25 +136,14 @@ function scanSongs(): MediatekEntry[] {
         ...(variants.length ? { variants } : {}),
         meta: {
           catalogued: hasSidecar, // false == found on disk, never filed
-          // The playable file's NAME inside the folder. `path` is the folder — a song
-          // is a folder with a sidecar — so without this a consumer that has to OPEN the
-          // audio (the moteur, which takes file paths) has nothing to open. Absent when
-          // the folder is catalogued but carries no audio yet.
+          // The playable file's NAME inside the folder, since `path` is the folder itself.
           ...(master ? { master: master.name } : {}),
-          // Has this song been SEPARATED — is there a `stems/` beside its master? The desk asks,
-          // because a deck can only subtract an instrument from a record whose stems exist
-          // (packages/dsp/docs/stemcut.md), and the browser shows it so a set can be prepared.
-          //
-          // Read off the dirents already in hand: the folder, not its contents. Descending would
-          // be a syscall per song for a fact the directory entry itself carries — and the same
-          // "is it there" the preparation command asks before skipping a song.
+          // Has this song been SEPARATED? Read off the dirents in hand, so no syscall per song.
           ...(entries.some((e) => e.isDirectory() && e.name === STEMS_DIR)
             ? { stems: true }
             : {}),
           ...(artist ? { artist } : {}),
-          // Detected at upload and then EDITABLE — see setSongBpm. Surfaced because a surface
-          // that lines a song up to a grid needs it, and re-reading the sidecar would be a
-          // second source of truth.
+          // Detected at upload and then EDITABLE — see setSongBpm and docs/songs.md.
           ...(num(meta.bpm) ? { bpm: num(meta.bpm) as number } : {}),
           ...(str(meta.uuid) ? { uuid: str(meta.uuid) as string } : {}),
         },
@@ -194,9 +156,7 @@ function scanSongs(): MediatekEntry[] {
   return out;
 }
 
-/** Samples: every media FILE under `samples/<kind>/<pack>/…`. The first segment below the
- *  kind is the pack, which is all the grouping a sample gets — it has no title or artist to
- *  carry, unlike a song. */
+/** Samples: every media FILE under `samples/<kind>/<pack>/…`, the pack being all the grouping there is. */
 function scanSamples(): MediatekEntry[] {
   const out: MediatekEntry[] = [];
   const root = familyDir("samples");
@@ -228,43 +188,21 @@ function scanSamples(): MediatekEntry[] {
   return out;
 }
 
-// `scanModules` was here, and `scanChains` below it. Both left with their families: a module
-// and a chain are authored in st0 and committed to the account's LIBRARY REPOSITORY, which is
-// a git repository somebody owns rather than a folder on this volume. See ../docs/index.md.
+// `scanModules`, `scanChains` and `scanPlaylists` stood here; all three left the volume, for two different reasons — see ../docs/index.md.
 
-// `scanPlaylists` stood here. Playlists left the volume too, and for a reason of their own
-// rather than the one above: a playlist holds no BYTES. It is pure reference — names of songs
-// filed elsewhere — so hosting it bought nothing, while costing the account a document it could
-// not version alongside the work it was written for. A set list lives in the workspace's
-// `_playlists/` now, in the repository, and st0 is the app that opens one
-// (`@studio/song/docs/playlists.md`).
-
-/** Read one family off disk. Sorted by name so a listing is stable between scans — readdir
- *  order is not, and a list that reshuffles on every poll is unusable. */
+/** Read one family off disk, sorted by name — readdir order is not stable between scans. */
 export function scanFamily(family: Family): MediatekEntry[] {
   const entries = family === "songs" ? scanSongs() : scanSamples();
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * The paths under a family that NO entry accounts for — an empty folder, a loose file.
- *
- * A tree draws itself from the entry paths, which works right up to the thing that is not an
- * entry: the folder `POST /folder` just made ("somewhere to drop into before the first file"),
- * or a file dropped where no catalogue reaches. Both answered 200 and appeared nowhere, which
- * reads as the call having done nothing at all.
- *
- * An ENTRY's own folder is never descended into. A song and a module ARE folders and their
- * insides are theirs — a module's files travel on the entry (`files`), because a tree drawing
- * one has to know which of the three canonical names are missing, not merely what is there.
- */
+/** The paths under a family that NO entry accounts for — an empty folder, a loose file; see docs/index.md. */
 export function scanUnlisted(
   family: Family,
   entries: MediatekEntry[],
 ): string[] {
   const root = familyDir(family);
-  // An entry's own path, and every folder on the way to one: the first stops the walk, the
-  // second is already drawn. Conflating them would either hide a library or descend into a module.
+  // An entry's own path stops the walk; a folder on the way to one is drawn but still descended.
   const isEntry = new Set<string>();
   const onTheWay = new Set<string>();
   for (const e of entries) {

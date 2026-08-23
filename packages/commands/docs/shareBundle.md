@@ -39,6 +39,14 @@ audio/s0.mp3 …       one per audible track
 clip is called without saying where anything lives on this machine. `WebGraph` carries the chains
 and the parameter values the files author: that **is** the feature.
 
+`media.video` is **`false` stated rather than left out**. A project may declare a viewport surface,
+and `surfaces.json` goes up verbatim so the snapshot never lies about the project; what the manifest
+must say instead is which of those surfaces it CARRIES media for.
+
+The renders are **moved, not copied** — they are already in the same temp directory, and a snapshot
+of a long song is gigabytes. The caller owns `cleanup` and must call it, because the upload streams
+from those files and they cannot go until it is done.
+
 Three documents are missing on purpose. `video-doc` carries workspace-relative media paths
 (`toWebVideoTracks`); `project-errors` quotes file paths and lines of YAML; `/tree` and `/file`
 are the source itself. A share shows the song, not the folder it was made in.

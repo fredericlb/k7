@@ -45,8 +45,7 @@ describe("a built-in's params are known without a project having authored one", 
   });
 
   it("carries the RANGES, which no learned name ever has", () => {
-    // A widget bound without a range is drawn 0..1. On a -60..+6 dB fader that is not a cosmetic problem: the
-    // knob writes the wrong number into the file.
+    // A widget bound without a range is drawn 0..1, so a -60..+6 dB fader writes the wrong number.
     const meta = projectHints(dir).paramMetaByBase["audio/mixer"];
     expect(meta.Volume).toEqual({ min: -60, max: 6, def: 0 });
     expect(meta.Pan).toEqual({ min: -1, max: 1, def: 0 });
@@ -55,12 +54,7 @@ describe("a built-in's params are known without a project having authored one", 
   });
 
   it("keeps the C++ plugin and this table naming the same five params", () => {
-    // The half that breaks silently: a rename in MixerPlugin.cpp leaves every existing binding pointing at a
-    // name the plugin no longer answers to, and nothing else in the build would notice.
-    //
-    // Sharper now than when the table was typed out by hand: it is GENERATED from a real instance of the
-    // plugin, so this compares MixerPlugin.cpp against the vocabulary the rest of the repo spells out —
-    // and it fails when the generator has not been re-run after a rename, which is the thing that rots.
+    // A rename in MixerPlugin.cpp breaks every binding silently, and nothing else in the build sees it.
     expect(
       builtinParamsFor({ type: "internal", name: MIXER_PLUGIN })?.map(
         (p) => p.name,
@@ -69,19 +63,13 @@ describe("a built-in's params are known without a project having authored one", 
   });
 });
 
-/**
- * The table is generated (`builtinParams.generated.ts`) by asking a real engine. These pin the parts a
- * regeneration must not quietly change — a plugin dropping out of the list is a module builder that goes
- * blank for it, which is the failure this whole table was added to fix.
- */
+/** The generated table's parts a regeneration must not change: a plugin dropping out goes blank. */
 describe("the generated built-in table", () => {
   it("has 4OSC, and it is the one with a real instrument's worth of params", () => {
-    // The report that started this: 4OSC registers its 68 parameters in its CONSTRUCTOR, so nothing short
-    // of an instance can list them — and before the table existed the builder offered none at all.
+    // 4OSC registers its 68 parameters in its CONSTRUCTOR, so only an instance can list them.
     const p = builtinParamsFor({ type: "internal", name: "4OSC" });
     expect(p?.length).toBeGreaterThan(60);
-    // The engine's own spelling, not a plausible one: `Filter Freq`, and four oscillators each with
-    // their own `Tune n`. Guessing "Filter Frequency" here is what this assertion caught first.
+    // The engine's own spelling: guessing "Filter Frequency" is what this assertion caught first.
     expect(p?.map((x) => x.name)).toContain("Filter Freq");
     expect(p?.map((x) => x.name)).toContain("Tune 4");
     // The range is the half a learned name never carries — a knob drawn 0..1 writes the wrong number.
@@ -91,12 +79,7 @@ describe("the generated built-in table", () => {
     });
   });
 
-  /**
-   * A wave shape is not an automatable parameter — it is a `CachedValue<int>` on the ValueTree, like
-   * Chorus's whole control set. The state table used to be a FALLBACK, reached only when a plugin
-   * registered nothing at all, so 4OSC's 68 automatable params hid it: a synth whose oscillators could
-   * be tuned and not chosen. It is a supplement now.
-   */
+  /** A wave shape is ValueTree state, so the state table supplements rather than falls back. */
   it("carries a control that is NOT an automatable parameter, beside ones that are", () => {
     const p = builtinParamsFor({ type: "internal", name: "4OSC" });
     const names = p?.map((x) => x.name) ?? [];
@@ -107,9 +90,7 @@ describe("the generated built-in table", () => {
   });
 
   it("gives a wave shape its SETTINGS, so it draws as a list and not a sweep", () => {
-    // Six shapes in an order nobody would guess from a 0..6 knob, and `None` is a real one — it is
-    // how an oscillator is switched off. The VALUE rides with each label because the mapping is the
-    // plugin's, not index/(n-1).
+    // The VALUE rides with each label because the mapping is the plugin's, not index/(n-1).
     const shape = builtinParamsFor({ type: "internal", name: "4OSC" })?.find(
       (x) => x.name === "Wave Shape 1",
     );
@@ -123,8 +104,7 @@ describe("the generated built-in table", () => {
       "Random",
     ]);
     expect(shape?.states?.find((s) => s.label === "Sine")?.value).toBe(1);
-    // Oscillator one starts on a sine and the other three at none — which is what makes a fresh
-    // 4OSC one sine rather than four stacked.
+    // Oscillator one starts on a sine and the other three at none, so a fresh 4OSC is one sine.
     expect(shape?.def).toBe(1);
     expect(
       builtinParamsFor({ type: "internal", name: "4OSC" })?.find(
@@ -134,9 +114,7 @@ describe("the generated built-in table", () => {
   });
 
   it("says 4OSC is POLYPHONIC, in the vocabulary the plugin uses for it", () => {
-    // `isMono/isLegato/isPoly` are three predicates in FourOscPlugin.h, not an enum — which is why
-    // "is there an enum" was the wrong question to stop at. Poly is the default, and `Voices`
-    // means something only there: the other two modes reduce the pool to one whatever it says.
+    // `isMono/isLegato/isPoly` are three predicates in FourOscPlugin.h, not an enum, and poly is the default.
     const p = builtinParamsFor({ type: "internal", name: "4OSC" });
     const mode = p?.find((x) => x.name === "Voice Mode");
     expect(mode?.states).toEqual([
@@ -153,15 +131,12 @@ describe("the generated built-in table", () => {
   });
 
   it("names the filter's types after the calls they select", () => {
-    // `makeLowPass`, `makeHighPass`, `makeBandPass`, `makeNotchFilter` in `updateFilter`, and 0 is
-    // the branch that skips the filter entirely. Read off the code that consumes the value, which
-    // is how this table's RANGES have always been derived.
+    // Read off `updateFilter`'s own calls, where 0 is the branch that skips the filter entirely.
     const p = builtinParamsFor({ type: "internal", name: "4OSC" });
     expect(
       p?.find((x) => x.name === "Filter Type")?.states?.map((s) => s.label),
     ).toEqual(["Off", "Low-pass", "High-pass", "Band-pass", "Notch"]);
-    // Two poles or four — `filterSlopeValue == 24` is the test that cascades the second pair, so
-    // the values are the dB/octave themselves and not an index.
+    // `filterSlopeValue == 24` cascades the second pair, so the values are dB/octave, not an index.
     expect(p?.find((x) => x.name === "Filter Slope")?.states).toEqual([
       { label: "12 dB/oct", value: 12 },
       { label: "24 dB/oct", value: 24 },
@@ -182,16 +157,10 @@ describe("the generated built-in table", () => {
     ).toEqual(["Depth", "Rate", "Feedback"]);
   });
 
-  /**
-   * The file the report was actually about, verbatim from
-   * `_libraries/modules/instruments/4osc/module.yaml`. It declares no plugin — the whole file is
-   * one `extends:` — so reading only a `plugin:` block found nothing and the list stayed empty
-   * even after this table existed.
-   */
+  /** A library module declares no plugin, only `extends:`, so reading `plugin:` alone found nothing. */
   it("resolves the `@engine/<slug>` ref a library module is written as", () => {
     expect(builtinPluginForRef("@engine/4osc")?.name).toBe("4OSC");
-    // The slug is `slugifyPluginName(displayName)`, so a multi-word plugin lands too — which is
-    // the case a bare lower-casing would have missed.
+    // The slug is `slugifyPluginName(displayName)`, which a bare lower-casing would have missed.
     expect(builtinPluginForRef("@engine/neural-amp-modeler")?.name).toBe(
       "Neural Amp Modeler",
     );
@@ -199,8 +168,7 @@ describe("the generated built-in table", () => {
   });
 
   it("resolves ONLY the engine namespace — every other ref names a file", () => {
-    // A `@st0/…` or a project-local ref has to be read and resolved; this seam exists for the
-    // case where there is nothing to read.
+    // A `@st0/…` or project-local ref has to be read; this seam is for when there is no file.
     expect(builtinPluginForRef("@st0/instruments/4osc")).toBeUndefined();
     expect(builtinPluginForRef("instruments/fourosc")).toBeUndefined();
     expect(builtinPluginForRef("@engine/nope")).toBeUndefined();
@@ -208,8 +176,7 @@ describe("the generated built-in table", () => {
   });
 
   it("answers to the human form and the internal id alike", () => {
-    // The engine's `resolveBuiltInType` matches on either, case-insensitively. This is its twin, and the
-    // two disagreeing would be a module that plays perfectly with an empty parameter list.
+    // The twin of the engine's `resolveBuiltInType`: disagreeing means a module with no params.
     const byId = builtinParamsFor({ type: "internal", name: "4osc" });
     const byName = builtinParamsFor({ type: "internal", name: "4OSC" });
     expect(byId).toBe(byName);
@@ -227,22 +194,13 @@ describe("the generated built-in table", () => {
   });
 
   it("keeps a parameterless built-in as an EMPTY list, not a missing one", () => {
-    // Patch Bay's state is its routing, not parameters. "It has none" and "we never asked" are different
-    // answers, and only the first lets a panel say so instead of looking unfinished.
+    // "It has none" and "we never asked" are different answers, and only the first can be drawn.
     expect(builtinParamsFor({ type: "internal", name: "Patch Bay" })).toEqual(
       [],
     );
   });
 
-  /**
-   * The AirWindows set — 186 of the plugins a project can name, and they were all missing.
-   *
-   * They are registered from their own X-macro, in a list beside the built-ins rather than in
-   * it, so a dump that walked only `builtInPlugins()` produced a table where seven eighths of
-   * the engine's catalogue had no parameters. The symptom was an empty panel on
-   * `@engine/chorus-ensemble`, which reads as "the generator does not work" rather than as
-   * "that plugin was never asked".
-   */
+  /** The 186 AirWindows plugins sit beside `builtInPlugins()`, so a dump of it alone missed them all. */
   it("carries the AirWindows effects too, not just the Tracktion built-ins", () => {
     expect(builtinPluginForRef("@engine/chorus-ensemble")?.name).toBe(
       "Chorus Ensemble",
@@ -257,8 +215,7 @@ describe("the generated built-in table", () => {
   });
 
   it("carries every plugin the engine can create", () => {
-    // A count rather than a list: the point is that regenerating after adding a built-in is not optional,
-    // and a table that lost entries is the silent version of this feature not working.
+    // A count rather than a list: a table that lost entries is this feature failing silently.
     expect(Object.keys(BUILTIN_PLUGINS).length).toBeGreaterThanOrEqual(26);
     for (const [type, info] of Object.entries(BUILTIN_PLUGINS)) {
       expect(info.name, type).toBeTruthy();
@@ -274,8 +231,7 @@ describe("the generated built-in table", () => {
 
 describe("a node counts as much as an extender", () => {
   it("picks up a param authored only on one strip", () => {
-    // A node IS an extender now — `vox` extends `audio/mixer` and gives it its own values.
-    // Leaving nodes out made every param on every strip of a real song invisible to the builder.
+    // A node IS an extender, and leaving nodes out hid every param of every strip in a real song.
     writeNode(dir, "vox", {
       extends: "@project/audio/mixer",
       params: { Drive: 3 },

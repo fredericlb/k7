@@ -54,16 +54,7 @@ function edit(
   report.removed += removed;
 }
 
-/**
- * Insert (or delete) `lenBeats` of time at `atBeats`.
- *
- * The rule for an event straddling the point is the house one — **by its `start`** — and it is
- * applied identically to every kind of thing here, which is the only way the parts stay in step.
- * See docs/insertTime.md for what moves, what deliberately does not, and why.
- *
- * Returns what it touched rather than throwing on an empty result: inserting time into a song
- * with nothing after the point is a legitimate no-op, and the caller says so in its own words.
- */
+/** Insert (or delete) `lenBeats` of time at `atBeats`, everything judged by its `start`. */
 export function spliceProjectTime(
   dir: string,
   atBeats: number,
@@ -100,8 +91,7 @@ export function spliceProjectTime(
       report,
     );
 
-  // 2. The CURVES. Only a `custom` one is positioned; the others are returned untouched, which is
-  //    the honest answer rather than a refusal — an LFO is periodic and an ADSR is per-trigger.
+  // 2. The CURVES: only a `custom` one is positioned, an LFO being periodic and an ADSR per-trigger.
   for (const f of yamlIn(dir, "curves"))
     edit(
       dir,
@@ -110,8 +100,7 @@ export function spliceProjectTime(
       report,
     );
 
-  // 3. The VIDEO lanes, in SECONDS. Exact, because there is one tempo and no tempo map — the one
-  //    place that absence is a simplification rather than a limit.
+  // 3. The VIDEO lanes, in SECONDS, and exact because there is one tempo and no tempo map.
   const atSec = (atBeats * 60) / tempo;
   const lenSec = (lenBeats * 60) / tempo;
   for (const f of yamlIn(dir, "video_tracks"))
@@ -122,8 +111,7 @@ export function spliceProjectTime(
       report,
     );
 
-  // 4. The MARKERS, which live in one map at project.yaml's root and are rewritten whole — the
-  //    shape `project marker new` already writes.
+  // 4. The MARKERS, one map at project.yaml's root, rewritten whole as `project marker new` writes it.
   const markers = parseMarkers(root.markers, num, den);
   if (markers.length) {
     const kept = markers.filter(

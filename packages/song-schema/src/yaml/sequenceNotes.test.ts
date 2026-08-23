@@ -99,8 +99,7 @@ describe("setNoteVelocity", () => {
   });
 
   it("CLEARS the key rather than writing the default", () => {
-    // Dragged back to full, a note loses a field it never had — the schema's default is 1, and a
-    // file that never mentions velocity should stay byte-identical.
+    // Dragged back to full, a note loses a field it never had — the schema's default is 1.
     const after = setNoteVelocity(AUTHORED, 64, 1, undefined);
     expect(notesOf(after)[1]).toEqual({ t: 1, d: 0.5, k: 64 });
     expect(after).not.toContain("v:");
@@ -122,9 +121,7 @@ notes:
   });
 });
 
-// Moving a note to another pad of the step sequencer — ctrl-drag. What matters is what it does
-// NOT touch: the note keeps its length and its velocity, because it is the same note put
-// somewhere else. Remove-then-add would have lost both (`sequence note new` takes no velocity).
+// Moving a note to another pad keeps its length and its velocity — it is the same note (docs/noteEdits.md).
 describe("moveNote", () => {
   it("carries the note's length and velocity to the new key and start", () => {
     const after = moveNote(AUTHORED, 64, 1, 60, 2.5);

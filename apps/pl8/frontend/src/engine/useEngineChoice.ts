@@ -14,22 +14,15 @@ export interface EngineChoice {
   ranked: RankedEngine<PublicEngine>[];
   /** The remembered id, or undefined before the first load / when nothing is remembered. */
   chosenId: string | undefined;
-  /** The list and the remembered choice have both come back at least once. Distinct from
-   *  "nothing is chosen", which before this was indistinguishable from "we have not looked
-   *  yet" — and a gate that cannot tell the two apart flashes in everybody's face on load. */
+  /** Both have come back at least once, which is NOT "nothing is chosen" (../../docs/engine.md). */
   loaded: boolean;
-  /** The remembered engine, reachable from THIS browser. What anything needing an engine to
-   *  work asks for: a choice pointing at a machine that is off is not one. */
+  /** The remembered engine, REACHABLE from this browser: a choice pointing at a dead machine is not one. */
   ready: boolean;
-  /** The chosen engine's file service — `http://<host>:<filePort>` — or null when there is no
-   *  reachable choice. The engine machine's per-MACHINE facts live behind it: what it has
-   *  scanned, what it can render. Null for an engine that answered no probe. */
+  /** The chosen engine's file service, behind which every per-MACHINE fact lives (../../docs/engine.md). */
   fileBase: string | null;
   /** The chosen engine's token, from its whoami — what the file service's header gate wants. */
   token: string | null;
-  /** What the link to it MEASURED — the status bar's Q badge. It comes from the probe this
-   *  hook already ran, so the bar costs no socket and no lease of its own: the whole reason
-   *  this hook exists is that a second connection from one tab is one too many. */
+  /** What the link MEASURED — the Q badge, off the probe this hook already ran (../../docs/engine.md). */
   latency: EngineLatency | null;
   choose: (id: string) => void;
   refresh: () => void;
@@ -41,8 +34,7 @@ export function useEngineChoice(): EngineChoice {
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const relook = useRelook();
-  // In a ref rather than in the dependencies: re-measuring must READ the current choice without
-  // choosing an engine triggering a full measurement.
+  // In a REF and not in the dependencies, so choosing does not re-measure (../../docs/engine.md).
   const chosen = useRef<string | undefined>(undefined);
   chosen.current = chosenId;
 
@@ -50,13 +42,7 @@ export function useEngineChoice(): EngineChoice {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      // The list, the preference and the measurement in one call. The POLICY it also applies
-      // is ignored here on purpose: this hook draws a picker, so it shows what the account
-      // remembered even when that engine did not answer — `ready` below is what says whether
-      // it can be driven.
-      // The CURRENT choice is passed as the preference, and that is what makes re-measuring safe:
-      // `find` returns `preferId ?? prefs.engineId`, so an optimistic `choose()` whose save has
-      // not landed yet is not overwritten by the server's value.
+      // One call for the list, the preference and the measurement — see ../../docs/engine.md.
       const { ranked: r, rememberedId } = await engines.find(chosen.current);
       if (cancelled) return;
       setChosenId(rememberedId);
@@ -66,18 +52,11 @@ export function useEngineChoice(): EngineChoice {
     return () => {
       cancelled = true;
     };
-    // `relook` brings us back here every fifteen seconds and when the tab returns: a probe is a
-    // snapshot, and one missed race marked the engine unreachable until the page was reloaded.
-    // See packages/engine-browser/src/relook.ts.
+    // `relook` brings us back every fifteen seconds and on tab return: a probe is a snapshot.
   }, [attempt, relook]);
 
   const choose = useCallback((id: string) => {
-    // Optimistic, then persisted: the tick moves under the cursor rather than after a round
-    // trip. A failed save is not surfaced — see packages/user-prefs/docs/store.md for why
-    // that failure is deliberately quiet — but the choice still holds for this session.
-    //
-    // Through `patchPrefs` and never `savePrefs`: the route REPLACES the document, so a PUT
-    // of `{engineId}` alone would clear the playback destination beside it.
+    // Optimistic then persisted, and through `patchPrefs` never `savePrefs` (../../docs/engine.md).
     setChosenId(id);
     void patchPrefs({ engineId: id });
   }, []);

@@ -5,10 +5,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import type { LoadProgress, SessionRow } from "z0-shared/types";
 import { m } from "../paraglide/messages.js";
 
-// Session picker, styled with @frediverse/ui — an online-only reimplementation
-// of z0-shared/session-picker's presentational contract (same props),
-// kept local so restyling this app doesn't change `remote`'s picker, which
-// keeps its own terminal-styled shared component on purpose.
+// z0-shared/session-picker's props, kept local so restyling here never touches remote's picker.
 export function SessionList({
   sessions,
   activeId = 0,

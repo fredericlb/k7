@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { barBeat, recordingFrom, takeCounter } from "./takeCounter";
 
-// The counter in the clip panel's header. The bug it replaces: the start beat was captured once per
-// MOUNT and the panel outlives its take, so from the second take onward it measured against the
-// first take's start — while the playhead it compared to is an absolute position in the song. A
-// take punched in at bar 15 read 56 beats the instant it began.
-//
-// 4/4: one bar is four beats, so a one-bar count-in is a pre-roll of 4.
+// The counter in the clip panel's header, and the bug it replaces: a start beat captured once per MOUNT measured every later take against the first.
 
 describe("the pre-roll", () => {
   it("counts down whole beats to the take", () => {
@@ -27,8 +22,7 @@ describe("the pre-roll", () => {
   });
 
   it("can never show more than the pre-roll it is counting", () => {
-    // A playhead that jumped BACKWARDS — the transport relocating, a stale start beat surviving
-    // some future refactor — used to print the difference. It now stops at the pre-roll's length.
+    // A playhead that jumped BACKWARDS used to print the difference; it now stops at the pre-roll's length.
     expect(takeCounter(500, 4, 4)).toEqual({ phase: "count-in", beats: 4 });
   });
 });
@@ -57,10 +51,7 @@ describe("bar:beat", () => {
   });
 });
 
-// Where a take's MATERIAL begins — the one number two surfaces have to agree on: the growing
-// clip on the lane and the live envelope in the clip panel. `startBeat` is the TRANSPORT's
-// start, so drawing from it put a block on screen the instant Play was pressed, and let it
-// reach back over count-in bars the placement that lands on Stop does not cover.
+// Where a take's MATERIAL begins — the one number the growing clip and the live envelope must agree on, and not the TRANSPORT's start.
 describe("recordingFrom", () => {
   it("is the transport's start plus the count-in", () => {
     expect(recordingFrom(16, 4)).toBe(20);

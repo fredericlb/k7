@@ -9,13 +9,7 @@ import { pipeline } from "node:stream/promises";
 import type { Manifest } from "./manifest.ts";
 import type { Family, FamilyListing } from "./types.ts";
 
-/**
- * What a cache needs from whatever owns the library.
- *
- * `download` takes a destination rather than returning bytes: a sample pack is one thing,
- * a video is another, and a port that hands back a buffer makes holding a whole file in
- * memory the only option. The owner decides how the bytes travel.
- */
+/** What a cache needs from whatever owns the library; `download` takes a destination so a video never sits in memory. */
 export interface LibrarySource {
   revisions(): Promise<Record<Family, string>>;
   manifest(family: Family): Promise<Manifest>;
@@ -23,9 +17,7 @@ export interface LibrarySource {
 }
 
 export interface RemoteConfig {
-  /** The library's fixed address — `https://studio.frediver.se/pl8` in production. Derived by
-   *  every caller and never typed, which is what let it survive the médiathèque moving off the
-   *  origin root: see `@studio/web-protocol/services` and docs/tokens.md. */
+  /** The library's fixed address, DERIVED by every caller and never typed — `@studio/web-protocol/services`. */
   base: string;
   /** A personal access token — a headless service has no cookie jar. */
   token?: string;
@@ -33,16 +25,7 @@ export interface RemoteConfig {
 
 export class RemoteError extends Error {}
 
-/**
- * Everything an `Error` knows, including what it is WRAPPING.
- *
- * `fetch` reports a transport failure as `TypeError: fetch failed` or `TypeError: terminated`
- * and puts the actual reason — a refused connection, an untrusted certificate, a body that
- * stopped arriving — in `cause`. Those two words are all that reaches a caller otherwise, and
- * they name nothing: `terminated` was a real bug report, and it could have been any of six
- * things. So the chain is flattened into the message, which is the only field that survives
- * the trip back through HTTP and into a browser.
- */
+/** Everything an `Error` knows, its `cause` chain flattened into the message — see docs/sync.md. */
 function why(e: unknown): string {
   const parts: string[] = [];
   let cur: unknown = e;
@@ -68,8 +51,7 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
     try {
       res = await fetch(url(path), { headers });
     } catch (e) {
-      // The ADDRESS, not just the path: this one is derived rather than typed, so "which
-      // library did it even try" is half the answer whenever it is the wrong one.
+      // The ADDRESS, not just the path: it is derived, so which library it tried is half the answer.
       throw new RemoteError(`mediatek GET ${url(path)}: ${why(e)}`);
     }
     if (!res.ok)
@@ -94,15 +76,7 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
         ).json()) as { files: Manifest }
       ).files,
 
-    /**
-     * One file onto the disk, through a TEMPORARY name.
-     *
-     * A download that breaks halfway used to leave its bytes at `dest` — and `dest` is this
-     * machine's médiathèque cache, the very files the decks open and the engine decodes. A
-     * truncated master there is worse than no master at all: nothing says it is short, so it
-     * plays until it stops. The rename is atomic on one filesystem, so what appears under the
-     * real name has always arrived whole.
-     */
+    /** One file onto the disk, through a TEMPORARY name so a truncated master never appears — docs/sync.md. */
     async download(path, dest) {
       const res = await get(`/file?path=${encodeURIComponent(path)}`);
       if (!res.body) throw new RemoteError(`mediatek ${path}: empty response`);
@@ -114,8 +88,7 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
         renameSync(part, dest);
       } catch (e) {
         rmSync(part, { force: true }); // never leave half a file to be mistaken for a whole one
-        // `terminated` on its own says only "the body stopped"; the cause says whether that was
-        // the far end closing, a timeout, or a certificate nobody trusts.
+        // `terminated` alone says only "the body stopped"; the cause says which of six things it was.
         throw new RemoteError(
           `mediatek GET ${url(`/file`)} ${path}: ${why(e)}`,
         );
@@ -124,16 +97,11 @@ export function remoteLibrary(cfg: RemoteConfig): LibrarySource {
   };
 }
 
-/**
- * Where a library's content is PUT. Separate from `LibrarySource` on purpose: a cache
- * only ever reads, and giving it a port it could write through would make "which side
- * owns this" a question the type system stops answering.
- */
+/** Where a library's content is PUT — separate from `LibrarySource`, because a cache only ever reads. */
 export interface LibrarySink {
   put(path: string, body: Uint8Array | string): Promise<void>;
   remove(path: string): Promise<void>;
-  /** A whole subtree. Its own method for the same reason it is its own route: removing a
-   *  folder must never be something a caller does while meaning to remove one entry. */
+  /** A whole subtree — its own method, so removing a folder is never done while meaning one entry. */
   removeTree(path: string): Promise<void>;
 }
 
@@ -156,8 +124,7 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
     try {
       res = await fetch(
         at,
-        // Octet-stream regardless of what it is: the library files by extension, and a
-        // guessed content type here would be a second, quieter opinion about the same thing.
+        // Octet-stream regardless: the library files by extension, and a guess here would be a second opinion.
         {
           method,
           headers: body
@@ -168,8 +135,7 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
         },
       );
     } catch (e) {
-      // Same reason the reader says the address: a write that cannot reach the library is
-      // most often pointed at the wrong one.
+      // Same reason the reader says the address: a write that cannot reach is usually aimed wrong.
       throw new RemoteError(`mediatek ${method} ${at}: ${why(e)}`);
     }
     if (!res.ok)
@@ -185,15 +151,7 @@ export function remoteWriter(cfg: RemoteConfig): LibrarySink {
   };
 }
 
-/**
- * Push one audio file in as a SONG. Like `pushRecording`, the caller sends what it knows —
- * the three tags — and the library builds the path.
- *
- * `source` is the only provenance left, and it is a note rather than a location: it says
- * `k7` for a published version, `upload` for the médiathèque's own button, `mirror` for one
- * pulled. There is no `kind`, because `songs/` no longer files by where a master came from
- * — see `songFolder`.
- */
+/** Push one audio file in as a SONG: the caller sends the three tags, the library builds the path (docs/songs.md). */
 export async function pushSong(
   cfg: RemoteConfig,
   opts: {
@@ -230,14 +188,7 @@ export async function pushSong(
   };
 }
 
-/**
- * Push one capture into the raw zone. The library names the file; the caller does not.
- *
- * Separate from `LibrarySink` deliberately: a sink writes to a path it chose, and this is
- * the opposite arrangement — bytes plus the moment they were captured, from which the
- * library derives `recordings/<YYYY-MM-DD>/<HH-MM-SS>.<ext>`. `filename` is read for its
- * EXTENSION only. See docs/recordings.md.
- */
+/** Push one capture into the raw zone: bytes plus a moment, and the library names the file — docs/recordings.md. */
 export async function pushRecording(
   cfg: RemoteConfig,
   opts: {
@@ -250,8 +201,7 @@ export async function pushRecording(
   },
 ): Promise<{ path: string; day: string; name: string }> {
   const q = new URLSearchParams({ filename: opts.filename });
-  // Omitted rather than defaulted to now: the server's clock is the better answer when the
-  // caller has none, and it already applies that rule.
+  // Omitted rather than defaulted to now: the server's clock is the better answer, and it applies it.
   if (opts.at) q.set("at", opts.at.toISOString());
   if (opts.durationSec !== undefined)
     q.set("duration", String(opts.durationSec));
@@ -264,8 +214,7 @@ export async function pushRecording(
         ...(cfg.token ? { authorization: `Bearer ${cfg.token}` } : {}),
         "content-type": "application/octet-stream",
       },
-      // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it,
-      // and a service typechecked without the DOM lib has no `BodyInit` to name either.
+      // Uint8Array is a valid body for undici's fetch; TS's lib types just predate it.
       body: opts.bytes as unknown as string,
     },
   );
@@ -276,14 +225,7 @@ export async function pushRecording(
   return (await res.json()) as { path: string; day: string; name: string };
 }
 
-/**
- * Tell the library a song's detected tempo, for it to seed `song.yaml` with.
- *
- * One way only, and from the machine that did the analysing: the hosted service has no engine
- * and cannot decode audio, so this is how a number it could not compute reaches it. It never
- * overwrites an edited value — `set: false` is the ordinary answer for a song somebody has
- * already corrected. See apps/pl8/docs/… and packages/file-service/docs/waveformCache.md.
- */
+/** Tell the library a song's detected tempo, one way and never overwriting — see docs/songs.md. */
 export async function pushSongBpm(
   cfg: RemoteConfig,
   folder: string,

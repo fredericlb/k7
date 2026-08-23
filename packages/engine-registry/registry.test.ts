@@ -64,8 +64,7 @@ describe("the engine claim", () => {
     expect(second.ok).toBe(true);
     expect(grant(second).tookOver).toEqual({ holder: "alice", project: "p" });
 
-    // The whole reason a claim carries a secret: alice renewing must NOT win it back, or the
-    // two trade the project every five seconds for ever.
+    // The whole reason a claim carries a secret: alice renewing must NOT win it back, or the two trade the project for ever.
     const refused = reg.claim("e1", {
       project: "p",
       holder: "alice",
@@ -103,8 +102,7 @@ describe("the engine claim", () => {
     );
     grant(reg.claim("e1", { project: "band/leclip.st0", holder: "b" }));
 
-    // Not tidiness: `engineLink.ts` keeps a single active project per machine and says so
-    // ("several browser tabs share it — last write wins"). A second one clobbers.
+    // Not tidiness: the file service keeps a single active project per machine, so a second one clobbers it.
     const refused = reg.claim("e1", {
       project: "band/winter.st0",
       holder: "a",
@@ -117,9 +115,7 @@ describe("the engine claim", () => {
     const editor = grant(
       reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
-    // The tablet, on `<projet>/@external/desk`. Same account, same engine, so the same session
-    // and the same loaded project: there is nothing for rule 1 to protect, and enforcing it
-    // threw the editor out of its own song the moment a second screen opened.
+    // The tablet: same account and same engine, so the same session and the same loaded project, which rule 1 has nothing to protect.
     const surface = grant(
       reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
@@ -149,8 +145,7 @@ describe("the engine claim", () => {
   });
 
   it("still moves that project when the SAME account opens it on another engine", () => {
-    // The exemption is same account AND same engine: a second machine is a second engine
-    // session, so the project really does move and the first screen really has lost it.
+    // The exemption is same account AND same engine: a second machine is a second session, so the project really does move.
     const onE1 = grant(reg.claim("e1", { project: "p", holder: "alice" }));
     grant(reg.claim("e2", { project: "p", holder: "alice" }));
     const refused = reg.claim("e1", {
@@ -163,8 +158,7 @@ describe("the engine claim", () => {
   });
 
   it("still evicts a DIFFERENT project of the same account on one engine", () => {
-    // Rule 2 is untouched by the exemption: one project per engine is what the file service's
-    // single active project requires, whoever is asking.
+    // Rule 2 is untouched by the exemption: one project per engine is what the file service requires, whoever is asking.
     const winter = grant(
       reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
@@ -185,8 +179,7 @@ describe("the engine claim", () => {
     const song = grant(
       reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
     );
-    // pl8 drives an engine and opens no project. Looking at the catalogue used to be enough to
-    // take the song away from the st0 tab on the same machine.
+    // pl8 drives an engine and opens no project, so looking at the catalogue must not take the song away from the st0 tab beside it.
     const catalogue = grant(reg.claim("e1", { project: null, holder: "a" }));
 
     expect(
@@ -225,9 +218,7 @@ describe("the engine claim", () => {
     const alice = grant(reg.claim("e1", { project: "p", holder: "alice" }));
     const bob = grant(reg.claim("e1", { project: "p", holder: "bob" })); // takes it from alice
 
-    // Alice's tab closes and beacons its goodbye — with a secret that is no longer the holder's.
-    // If release took the engine token instead, this would drop BOB's claim and he would read
-    // free in every picker while still driving.
+    // Alice's tab beacons its goodbye with a stale secret; taking the engine token instead would drop BOB's claim while he is driving.
     reg.release("e1", alice.secret);
     expect(reg.engineForProject("p")).toBe("e1");
     reg.release("e1", bob.secret);
@@ -241,11 +232,7 @@ describe("the engine claim", () => {
     expect(row?.heldProject).toBe("band/winter.st0");
   });
 
-  /**
-   * The three refusals are three different sentences on screen, and telling them apart is the
-   * whole point of `lost`: st0 used to say "this project was opened elsewhere" for all three,
-   * which is false twice out of three. See docs/claim.md.
-   */
+  /** The three refusals are three different sentences on screen, which is the whole point of `lost` — see docs/claim.md. */
   describe("says WHY the claim is gone", () => {
     it("`project` — the same project, taken by somebody else", () => {
       const mine = grant(reg.claim("e1", { project: "p", holder: "alice" }));
@@ -313,8 +300,7 @@ describe("the engine claim", () => {
       });
       expect(r.ok).toBe(false);
       if (r.ok) return;
-      // NOT `engine`: pl8 sitting beside a song is legal, so that song never took anything
-      // from it. Only the TTL did. Telling pl8 a project evicted it would be an invented cause.
+      // NOT `engine`: pl8 sitting beside a song is legal, so that song took nothing from it and only the TTL did.
       expect(r.lost).toBe("lapsed");
     });
 

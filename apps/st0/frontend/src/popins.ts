@@ -27,13 +27,7 @@ export function registerPopin(close: () => void): () => void {
   };
 }
 
-/**
- * Close the topmost overlay, and answer whether there was one.
- *
- * It does not pop: the overlay deregisters through its own effect cleanup when it actually
- * goes away. Popping here as well would drop an entry whose owner never closed — a closer
- * that is refused (an unsaved dialog, say) must leave the stack as it found it.
- */
+/** Close the topmost overlay, and answer whether there was one — it does not POP: a refused closer must leave the stack as it found it. */
 export function closeTopPopin(): boolean {
   const top = stack[stack.length - 1];
   if (!top) return false;
@@ -57,12 +51,7 @@ export function useAnyPopin(): boolean {
   );
 }
 
-/**
- * Declare this component an overlay while `open`, closing through `close`.
- *
- * The closer is read through a ref so a fresh callback on every render does not
- * re-register — which would reorder the stack under an overlay that never moved.
- */
+/** Declare this component an overlay while `open` — the closer is read through a ref, or a fresh callback would reorder the stack. */
 export function usePopin(open: boolean, close: () => void): void {
   const ref = useRef(close);
   ref.current = close;

@@ -10,8 +10,7 @@ const BOUNCED = "k7.signin-bounced";
 /** Leave for pl8's login, remembering the trip so we only make it once. */
 export function signIn(): void {
   sessionStorage.setItem(BOUNCED, "1");
-  // replace, not assign: the anonymous URL must not sit in history, or Back
-  // lands on it and bounces again.
+  // replace, not assign: in history, the anonymous URL would bounce again on Back.
   window.location.replace(api.loginUrl);
 }
 

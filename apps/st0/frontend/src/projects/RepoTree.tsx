@@ -65,9 +65,7 @@ function Row({
             {node.name}
           </span>
         </button>
-        {/* Le seul départ de tout l'écran : un projet s'ouvre dans SON application, pas ici, et
-            c'est le suffixe du dossier qui la nomme (packages/web-protocol/projects.ts). Une
-            ancre et un nouvel onglet, pour les raisons de ../../docs/projects.md. */}
+        {/* The one way off this screen: a project opens in ITS app, named by the folder's suffix, through an anchor in a new tab (../../docs/projects.md). */}
         {node.app && (
           <Button size="sm" variant="secondary" asChild>
             <a
@@ -110,12 +108,9 @@ export function RepoTree({
 }) {
   // Reading order, at every level: folders first, then by name.
   const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
-  // The folders open at the start: the ones to cross to see a project would be the right answer;
-  // the first level is enough, and a workspace opening fully collapsed hides behind a click the
-  // one thing anybody comes here for.
+  // The folders open at the start: the first level is enough, and a workspace opening fully collapsed hides what anybody comes here for.
   const [open, setOpen] = useState<Set<string>>(new Set());
-  // Once per workspace, when the tree arrives: after that the folds are the person's own,
-  // including the ones they closed again.
+  // Once per workspace, when the tree arrives: after that the folds are the person's own, including the ones they closed again.
   const seeded = useRef<string | null>(null);
   useEffect(() => {
     if (!rows || seeded.current === workspace.name) return;

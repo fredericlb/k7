@@ -1,9 +1,4 @@
-// `<owner>_<what>_<n>` — the one rule three places mint a name by: a forked module, a node the
-// graph's `+` drops on an arrow, and a node created with no name at all.
-//
-// Pure and pinned here because the two halves that can go wrong are invisible at a glance: what
-// a lane called `vo.jo` becomes, and that the counter finds the first FREE number rather than
-// counting how many there are.
+// `<owner>_<what>_<n>` — the one rule three places mint a name by (docs/names.md).
 
 import { describe, expect, it } from "vitest";
 import { instanceName, namePart, renamedInstance } from "./instanceName";
@@ -47,9 +42,7 @@ describe("instanceName", () => {
   });
 
   it("writes the counter on the FIRST one too", () => {
-    // `vo_reverb` and `vo_reverb_2` would read as different kinds of thing rather than as the
-    // first and second of a series — and renaming the first to make room breaks every chain
-    // that spelled it.
+    // `vo_reverb` beside `vo_reverb_2` would read as two KINDS of thing (docs/names.md).
     expect(instanceName("reverb", "vo", free)).toBe("vo_reverb_1");
   });
 
@@ -72,11 +65,7 @@ describe("instanceName", () => {
   });
 });
 
-// --- following the module a node now extends ----------------------------------------
-//
-// `node replace` swaps what a node extends, and a node still called `vo_jo_reverb_1` while it
-// extends a delay is a name that lies about the one thing a name here carries. The judgement is
-// which names are OURS to move: a name this convention made, and no other.
+// --- following the module a node now extends: only a name this convention made is ours to move ---
 
 describe("renamedInstance", () => {
   it("follows the module, keeping the lane", () => {
@@ -86,16 +75,14 @@ describe("renamedInstance", () => {
   });
 
   it("keeps the SHAPE it had — a node born with no lane stays without one", () => {
-    // It was dropped on the bare canvas and spliced in afterwards. Following the module is what
-    // was asked for; growing a prefix it never had would be a second change nobody asked for.
+    // Growing a prefix it never had would be a second change nobody asked for (docs/names.md).
     expect(renamedInstance("reverb_1", "reverb", "delay", "vo.jo", free)).toBe(
       "delay_1",
     );
   });
 
   it("leaves a name somebody chose completely alone", () => {
-    // The whole point of the null. Renaming `wash` would rewrite every chain that spells it in
-    // order to undo a decision.
+    // The whole point of the null: renaming `wash` would rewrite every chain to undo a decision.
     expect(
       renamedInstance("wash", "reverb", "delay", "vo.jo", free),
     ).toBeNull();
@@ -112,17 +99,14 @@ describe("renamedInstance", () => {
   });
 
   it("refuses a name built from a DIFFERENT module, however conventional it looks", () => {
-    // `vo_jo_amp_1` is one of ours, but not one made from `reverb` — so replacing `reverb` on it
-    // says nothing about what it should be called.
+    // `vo_jo_amp_1` is one of ours, but not one made from `reverb`.
     expect(
       renamedInstance("vo_jo_amp_1", "reverb", "delay", "vo.jo", free),
     ).toBeNull();
   });
 
   it("does nothing when the module's NAME did not change", () => {
-    // Replacing `@st0/audio/reverb` with `@project/audio/reverb` is a different module and the
-    // same word. Without this the counter would walk up by one and the chains would be rewritten
-    // to say exactly what they said before.
+    // A different module and the same word; without this the counter walks up and says nothing.
     expect(
       renamedInstance("vo_jo_reverb_1", "reverb", "reverb", "vo.jo", free),
     ).toBeNull();

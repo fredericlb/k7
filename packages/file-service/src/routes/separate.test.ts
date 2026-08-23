@@ -19,8 +19,7 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "separate-"));
   const app = express();
   app.use(express.json());
-  // The real server mounts this behind requireEngineToken/resolveUser; the router itself only
-  // ever reads `req.userEmail`, so a stub is enough to exercise its own decisions.
+  // The router only ever reads `req.userEmail`, so a stub stands in for the real gate.
   app.use((req, _res, next) => {
     (req as { userEmail?: string }).userEmail = "fred@parapluie.org";
     next();
@@ -46,8 +45,7 @@ const post = (body: unknown) =>
 
 describe("what /separate refuses before spending anything", () => {
   it("wants absolute paths, because it has no workspace to resolve against", () => {
-    // This router is mounted BEFORE resolveWorkspace — a relative path here would have nothing
-    // to be relative TO, so it is refused rather than guessed at.
+    // Mounted BEFORE resolveWorkspace, so a relative path has nothing to be relative TO.
     return Promise.all([
       post({ source: "songs/x.wav", model: "/m.onnx" }).then((r) =>
         expect(r.status).toBe(400),
@@ -66,9 +64,7 @@ describe("what /separate refuses before spending anything", () => {
   });
 
   it("503s a missing MODEL, and says where to put one", async () => {
-    // Not a 404 and not a 500. A machine without the model is a real, fixable state — the same
-    // shape as "no engine on this machine" — and reporting it as a failed separation would
-    // send the reader looking at their audio file.
+    // Not a 404 and not a 500: a machine without the model is a real, fixable state.
     const source = join(dir, "mix.wav");
     writeFileSync(source, "riff");
     const r = await post({ source, model: join(dir, "absent.onnx") });
@@ -79,8 +75,7 @@ describe("what /separate refuses before spending anything", () => {
 
 describe("what /separate/:id says about a job it never had", () => {
   it("404s rather than inventing a finished one", async () => {
-    // cloneJobs' rule: a job this service has forgotten cannot be waited on, and the caller's
-    // real question — are the stems on disk? — is one it can ask the disk.
+    // cloneJobs' rule: a job this service has forgotten cannot be waited on.
     const r = await fetch(`${base}/separate/deadbeefdeadbeef`);
     expect(r.status).toBe(404);
   });

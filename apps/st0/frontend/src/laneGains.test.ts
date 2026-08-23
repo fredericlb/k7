@@ -27,8 +27,7 @@ describe("laneGains", () => {
   });
 
   it("makes solo a fact about the WHOLE set, not about one lane", () => {
-    // The half that cannot be worked out lane by lane: `b` and `c` say nothing about themselves
-    // and both go silent, because `a` said something.
+    // The half that cannot be worked out lane by lane: `b` and `c` say nothing about themselves and both go silent, because `a` did.
     expect(laneGains(lanes({ a: "s", b: "", c: "" }))).toEqual({
       a: 1,
       b: 0,
@@ -45,8 +44,7 @@ describe("laneGains", () => {
   });
 
   it("mutes a lane that is also soloed", () => {
-    // Soloing then muting is something people do while listening, and the reading where the
-    // last gesture did something is the one that makes it silent.
+    // Soloing then muting is something people do while listening, and the reading where the last gesture did something is the silent one.
     expect(laneGains(lanes({ a: "ms", b: "" }))).toEqual({ a: 0, b: 0 });
   });
 
@@ -55,21 +53,13 @@ describe("laneGains", () => {
   });
 });
 
-/**
- * The crossing rule, which was wrong and was audible.
- *
- * A snapshot's mixdown is rendered FROM the document, so a lane the document mutes is already
- * absent from it. Reading that as "the visitor silenced something" moved every project that
- * mutes anything onto a set of stems before a single click — and stems are several media
- * elements, which do not start together.
- */
+/** The crossing rule, which was wrong and was audible: a lane the document mutes is already absent from the mixdown (docs/shared.md). */
 describe("matchesMixdown", () => {
   const doc = lanes({ drums: "", bass: "m", gtr: "" });
   const rendered = laneGains(doc);
 
   it("says nothing to do when the visitor has changed nothing", () => {
-    // Bass is muted in BOTH — because it is muted in the document, which is why it is not in
-    // the mixdown either. The mixdown keeps playing, and one file cannot be out of sync.
+    // Bass is muted in BOTH — because the document mutes it, which is why it is not in the mixdown either.
     expect(matchesMixdown(laneGains(doc), rendered)).toBe(true);
   });
 
@@ -102,15 +92,13 @@ describe("matchesMixdown", () => {
   });
 
   it("treats a lane the render never mentioned as sounding", () => {
-    // An unmentioned lane is one a mix plays; the alternative would cross to the stems for
-    // every lane the engine skipped, which is every silent one.
+    // An unmentioned lane is one a mix plays; the alternative would cross to the stems for every lane the engine skipped.
     expect(matchesMixdown({ extra: 1 }, {})).toBe(true);
     expect(matchesMixdown({ extra: 0 }, {})).toBe(false);
   });
 
   it("is true for no lanes at all — the doc has not landed yet", () => {
-    // The first render, before `/project-doc` answers. Crossing there would start the stems
-    // against a mixdown position of zero, for a screen with no lanes drawn on it.
+    // The first render, before `/project-doc` answers: crossing there would start the stems for a screen with no lanes drawn.
     expect(matchesMixdown({}, {})).toBe(true);
   });
 });

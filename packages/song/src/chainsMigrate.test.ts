@@ -3,17 +3,9 @@ import { describe, expect, it } from "vitest";
 import { deriveChains } from "./chainsGraph";
 import { migrateChainsText } from "./chainsMigrate";
 
-// A migration is only as good as what it PRESERVES, so the tests are written against the
-// derived chains rather than the text: the question is never "does the new file look
-// right", it is "does the song still route the same way".
+// Written against the derived chains rather than the text: the question is how the song routes.
 
-/**
- * The chains a migrated file derives to — the shape every consumer downstream reads.
- *
- * The lanes come back FROM the migration: the new file is one `modules:` map, so only what a
- * name extends tells a lane from a reverb, and the old `{ track: … }` heads are the last place
- * that is written down (docs/trackModules.md).
- */
+/** The chains a migrated file derives to, with the lanes coming back FROM the migration. */
 const routed = (old: string) => {
   const { text, tracks } = migrateChainsText(old);
   const { value, issues } = parseGraph(text);
@@ -57,9 +49,7 @@ describe("a chain survives as the same signal path", () => {
   });
 
   it("re-points a send at the bus's first module", () => {
-    // The old file routed to a chain by NAME; there are no chain names now, so the arrow
-    // has to land on the module that chain started with — the same node, differently
-    // spelled. Getting this wrong would leave the send pointing at nothing.
+    // With no chain names left, the arrow has to land on the module that chain started with.
     const g = routed(
       `chains:\n` +
         `  - [ { track: a }, { module: verb } ]\n` +
@@ -72,9 +62,7 @@ describe("a chain survives as the same signal path", () => {
   });
 
   it("folds a bus only ONE chain fed back into that chain", () => {
-    // Not a loss: a bus with a single sender was a chain split in two because the old
-    // format needed a name to route to. Nothing routes by name now, so the two halves are
-    // one run again — and the signal passes through exactly the same modules, in order.
+    // Not a loss: a one-sender bus was a split the old format needed only to have a name.
     const g = routed(
       `chains:\n` +
         `  - [ { track: a }, { module: verb } ]\n` +
@@ -85,8 +73,7 @@ describe("a chain survives as the same signal path", () => {
   });
 
   it("loses only the chain's ALIAS, which nothing outlives", () => {
-    // `as:` renamed a chain; a chain is now called after its track, full stop. The path
-    // is untouched — only the label is gone, and with it the `lead:` plugin-id prefix.
+    // Only the label goes, and with it the `lead:` plugin-id prefix; the path is untouched.
     const g = routed(
       `chains:\n  - [ { track: melody, as: lead }, { module: synth }, { module: OUT } ]\n`,
     );
@@ -102,10 +89,7 @@ describe("a module the old file used twice", () => {
     `  - [ { track: pad }, { module: synth }, { module: OUT } ]\n`;
 
   it("becomes one node per chain", () => {
-    // The old format compiled this to TWO plugins (ids `lead:synth` and `pad:synth`).
-    // A segment file names a module once, so leaving it shared would collapse it into a
-    // single node fed by both tracks — one instrument summing two lanes. That is a
-    // different song, so the migration splits it instead.
+    // Left shared, two plugins collapse into one instrument summing both lanes: a different song.
     const r = migrateChainsText(SHARED);
     expect(r.split).toEqual([
       { module: "synth", nodes: ["synth:lead", "synth:pad"] },
@@ -118,8 +102,7 @@ describe("a module the old file used twice", () => {
   });
 
   it("names the node so the module loader will take it", () => {
-    // Node names allow letters, digits, '_' and '-' only, and plenty of track ids
-    // (`da.main`) do not. An unusable name would leave the split module unloadable.
+    // Node names take letters, digits, '_' and '-' only, which `da.main` is not.
     const r = migrateChainsText(
       `chains:\n` +
         `  - [ { track: da.main }, { module: comp }, { module: OUT } ]\n` +

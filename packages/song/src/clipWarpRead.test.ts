@@ -19,8 +19,7 @@ import { loadAudioClipDoc } from "./project";
 
 let dir: string;
 
-// The fixture shape placementId.test.ts uses — a lane named for its material, and a real file
-// behind the source, which is what keeps `compileNodeProject` from reporting an unresolved ref.
+// A real file behind the source, which keeps `compileNodeProject` from reporting an unresolved ref.
 const CLIP = `source: clips/bass.wav
 warp:
   algorithm: elastique

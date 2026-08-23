@@ -64,11 +64,9 @@ export function ExternalTimeline({
   /** The runner and the reload key the whole surface shares — hooks/useSurfaceCommands.ts. */
   commands: SurfaceCommands;
   setStatus: (s: string) => void;
-  /** The song's picture, fetched ONCE by the host — the frame composites it and this draws its
-   *  lanes, exactly as the shell splits it between the same two panes. */
+  /** The song's picture, fetched ONCE by the host — the frame composites it and this draws its lanes. */
   videoDoc: WebVideoProject | null;
-  /** This person's layer over the catalogue, and the catalogue — both the host's, since the
-   *  keymap it also feeds belongs to the whole screen rather than to this pane. */
+  /** This person's layer over the catalogue, and the catalogue — both the host's, the keymap belonging to the whole screen. */
   prefs: CommandPrefs;
   catalogue: CommandInfo[];
   /** Put a half-written line in the host's command line. See its own note there. */
@@ -80,25 +78,13 @@ export function ExternalTimeline({
 }) {
   const { reloadKey, runCommand, quietCommand, bumpReload } = commands;
 
-  /**
-   * The engine's live take state, exactly as the shell reads it — so an armed lane draws the take
-   * as it is played here too. Read at the `rolling` EDGE rather than subscribed to: the playhead
-   * moves 20 times a second and this number changes once per take.
-   */
+  /** The engine's live take state, read at the `rolling` EDGE rather than subscribed to: it changes once per take. */
   const playing = useStoreState(store, (s) => s.playing);
   const recordEnabled = useStoreState(store, (s) => s.recordEnabled);
   const rolling = recordEnabled && playing;
   const [takeStart, setTakeStart] = useState(0);
 
-  /**
-   * The compiled document's shell-side slice. `TimelineTab` fetches the document itself; what is
-   * wanted here is the three projections around it — the tempo a take's start is converted with,
-   * the lanes the mixer controls act on, and whether this song has patterns worth polling for.
-   *
-   * `onMidiSeqs` is a no-op and MIDI capture is not offered: recording into a sequence is done by
-   * the browser holding the keyboard, and this one is across the room. `transport arm` still
-   * works, being the ENGINE's arm — see useTrackControls.
-   */
+  /** The compiled document's shell-side slice — the tempo, the lanes the mixer acts on, and whether patterns are worth polling for. */
   const noMidiSeqs = useCallback(() => {}, []);
   const { recInfo, docTracks, hasStrudel, midiSeqRef } = useProjectDoc(
     reloadKey,
@@ -125,13 +111,7 @@ export function ExternalTimeline({
     bumpReload,
   });
 
-  /**
-   * What the graph knows about each lane's node — its alternatives, its freeze, its automation.
-   *
-   * Fetched HERE, on the revision token, where the shell takes it from the chains pane: there is
-   * no chains pane on this device, and the gutter would otherwise draw no ⋮ and no curve. The
-   * same call `SurfaceTab` and `MasteringTab` make, on the same token, for the same reason.
-   */
+  /** What the graph knows about each lane's node, fetched HERE on the revision token: there is no chains pane on this device. */
   const rev = useRevision();
   const [graph, setGraph] = useState<WebGraph | null>(null);
   useEffect(() => {
@@ -139,8 +119,7 @@ export function ExternalTimeline({
     let alive = true;
     api
       .graph()
-      // A project that will not compile still has an arrangement worth drawing; the gutter simply
-      // has nothing to add to it.
+      // A project that will not compile still has an arrangement worth drawing; the gutter simply has nothing to add to it.
       .then((g) => alive && setGraph(g))
       .catch(() => alive && setGraph(null));
     return () => {
@@ -160,10 +139,8 @@ export function ExternalTimeline({
   );
 
   // ── the menus ──────────────────────────────────────────────────────────────────
-  //
-  // The catalogue, this person's layer over it and the language, all read at OPEN time through a
-  // ref: a menu handler that depended on them would be rebuilt the moment any of the three landed,
-  // and the timeline takes it as a prop. The same three the shell holds, and for the same reasons.
+
+  // The catalogue, this person's layer and the language, read at OPEN time through a ref — a handler depending on them would be rebuilt as each landed.
   const { locale } = useLocale();
   const cmdCatalogue = useRef<CommandInfo[]>([]);
   cmdCatalogue.current = catalogue;
@@ -203,14 +180,7 @@ export function ExternalTimeline({
     [runCommand, prewrite],
   );
 
-  /**
-   * What the caret is over, reported up for the conditional bindings.
-   *
-   * `m`, `s`, `r` name the lane the caret is on and `z` / ⇧L need a rectangle; without this they
-   * would resolve to a command with an empty argument, or to none at all. The shell builds the
-   * same object out of its own state — this is the surface's share of it, which on a screen
-   * holding one arrangement is all of it. See keys.ts.
-   */
+  /** What the caret is over, reported up for the conditional bindings — the surface's share of what the shell builds (keys.ts). */
   const onCaret = useCallback(
     (c: { trackId: string | null }) =>
       onConditions((prev) => {
@@ -242,8 +212,7 @@ export function ExternalTimeline({
       <div className="flex min-h-0 min-w-0 flex-1">
         <TimelineTab
           ref={ref}
-          // Alone on the screen, so it always has the keys — there is no other pane to give them
-          // to. `active` is the shell's answer to a ring of panes this device has not got.
+          // Alone on the screen, so it always has the keys — there is no other pane to give them to.
           active
           reloadKey={reloadKey}
           rolling={rolling}
@@ -253,8 +222,7 @@ export function ExternalTimeline({
           videoTracks={videoTracks}
           onVideoEdit={applyVideoEdit}
           setStatus={setStatus}
-          // The shell's other panes asking to be pointed somewhere — the editor at the clip under
-          // the caret. Not mounted here, so the caret simply moves.
+          // The shell's other panes asking to be pointed somewhere; not mounted here, so the caret simply moves.
           onEditTarget={NOOP}
           onCaret={onCaret}
           onView={onView}
@@ -264,9 +232,7 @@ export function ExternalTimeline({
           onSetLoop={(start, end, enabled) =>
             engineRef.current?.loop(start, end, enabled)
           }
-          // The writing gestures, each the same command line the shell sends. Spelled here rather
-          // than shared with it: what they have in common is the VERB, which is @studio/commands',
-          // and a wrapper over four one-line callbacks would be indirection over the thing itself.
+          // The writing gestures, each the same command line the shell sends — what they share is the VERB, which is @studio/commands'.
           onMoveEvent={(trackId, fromTc, toTc, toTrackId) =>
             void runCommand(
               `event move ${trackId} ${fromTc} ${toTc}${toTrackId ? ` ${toTrackId}` : ""}`,
@@ -277,8 +243,7 @@ export function ExternalTimeline({
               `event resize ${trackId} ${fromTc} ${startTc} ${endTc}`,
             )
           }
-          // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein`
-          // in commands.yaml for why the pair cannot be swapped.
+          // `lenTc` is a LENGTH, and the verb's name is the end it applies to — see `event fadein` in commands.yaml.
           onFadeEvent={(trackId, fromTc, which, lenTc) =>
             void runCommand(
               `event ${which === "fadeIn" ? "fadein" : "fadeout"} ${trackId} ${fromTc} ${lenTc}`,
@@ -305,8 +270,7 @@ export function ExternalTimeline({
   );
 }
 
-/** Whether two condition sets say the same thing — so reporting up on every caret move does not
- *  re-bind the key listener, which takes the object as a dependency. */
+/** Whether two condition sets say the same thing — so reporting up on every caret move does not re-bind the key listener. */
 const sameConditions = (a: ConditionCtx, b: ConditionCtx): boolean => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
   for (const k of keys) if (a[k] !== b[k]) return false;

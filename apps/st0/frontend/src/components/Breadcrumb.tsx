@@ -25,19 +25,7 @@ export function dirPrefixes(path: string): string[] {
   return ["", ...parts.map((_, i) => parts.slice(0, i + 1).join("/"))];
 }
 
-/**
- * A workspace-relative path in the TREE's own space, or null when it is outside the tree.
- *
- * The two are not the same space, and mixing them is what made every menu here answer "empty".
- * `Workspace.tree()` moves the root of its WALK onto the active project while leaving every
- * `path` workspace-relative — so the tree's top-level nodes are the song's own `modules`,
- * `project.yaml`…, and the open file is `songs/first.st0/modules/…`. Walking that by segment
- * looked for a top-level `songs`, found nothing, and stopped. Only a workspace whose root IS
- * the project — where `root` is "" — happened to work, which is why this survived.
- *
- * So: menus are keyed in the tree's space, and the two boundaries that LEAVE — `onOpen` and the
- * active-project comparison — keep the workspace-relative path the rest of the app speaks.
- */
+/** A workspace-relative path in the TREE's own space, or null when it is outside it — mixing the two is what made every menu answer 'empty'. */
 export function underRoot(path: string, root: string): string | null {
   if (!root) return path;
   if (path === root) return "";
@@ -79,9 +67,7 @@ export function Breadcrumb({
   // A file opened elsewhere moves the breadcrumb under us, and a menu left open would describe the old path.
   useEffect(() => setMenu(null), [path]);
 
-  // In the tree's space from here down. A file OUTSIDE it — a library module, which `tree()`
-  // excludes on purpose — keeps its own path: its segments then draw, and their menus are
-  // honestly empty rather than wrong.
+  // In the tree's space from here down; a file OUTSIDE it keeps its own path, so its segments draw with honestly empty menus.
   const rel = useMemo(
     () => (path === null ? null : (underRoot(path, root) ?? path)),
     [path, root],
@@ -131,16 +117,14 @@ export function Breadcrumb({
               <div key={n.path} className="flex items-center">
                 <button
                   onClick={() => {
-                    // A folder drills in, a file is the destination — staying open on a folder is what makes this a navigator.
-                    // `n.path` is workspace-relative: a menu key is in the tree's space, an open is not.
+                    // A folder drills in and a file is the destination; `n.path` is workspace-relative, where a menu key is in the tree's space.
                     if (n.dir) setMenu(underRoot(n.path, root) ?? n.path);
                     else {
                       onOpen(n.path);
                       setMenu(null);
                     }
                   }}
-                  // Compared in the WORKSPACE's space, like `activeProject` below: both props
-                  // arrive that way, and only the menu keys were ever moved.
+                  // Compared in the WORKSPACE's space, like `activeProject` below: both props arrive that way, and only the menu keys moved.
                   className={`flex min-w-0 flex-1 items-center gap-1.5 truncate rounded px-2 py-1 text-left font-mono hover:bg-accent ${
                     n.path === path ? "bg-accent" : ""
                   }`}

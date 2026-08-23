@@ -43,9 +43,7 @@ describe("which map the grid is on", () => {
   });
 
   it("…and an empty map for a page that is not there AT ALL — never the panel's", () => {
-    // This is what the `?? {}` is for, and the case the one above does not reach: `Filtre`
-    // exists and answers `{}` on its own. Falling back to the panel here would draw its
-    // widgets as if they were the page's, and the first edit would move somebody else's.
+    // What the `?? {}` is for: falling back to the panel would draw its widgets as the page's.
     const stale: PageRef = { tabs: "t1", name: "renamed away" };
     expect(widgetsAt(ui(), stale)).toEqual({});
     expect(widgetsAt(ui(), { tabs: "gone", name: "General" })).toEqual({});
@@ -87,8 +85,7 @@ describe("writing a map back", () => {
   });
 
   it("refuses a page whose tabs widget has gone, rather than inventing one", () => {
-    // The grid guards this too, but a stale ref reaching here must not grow a widget map under
-    // an id that is not in the panel — that would be a widget nothing draws and nobody can find.
+    // A stale ref must not grow a widget map under an id nothing draws and nobody can find.
     const before = ui();
     expect(writeWidgetsAt(before, { tabs: "gone", name: "x" }, {})).toBe(
       before,

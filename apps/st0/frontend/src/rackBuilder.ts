@@ -10,19 +10,11 @@ export const GRID = 4;
 /** The bottom-left pad's note. 36 is C1, where every pad convention starts. */
 export const FIRST_NOTE = 36;
 
-/**
- * The MIDI note a pad fires. The grid READS like a drum machine: bottom row first, left to
- * right, then the row above — so bottom-left is 36 and top-right is 51. `row` counts from the
- * TOP (the order the grid renders in), `col` from the left.
- */
+/** The MIDI note a pad fires: the grid READS like a drum machine, bottom-left 36 to top-right 51, with `row` counting from the TOP. */
 export const padNote = (row: number, col: number): number =>
   FIRST_NOTE + (GRID - 1 - row) * GRID + col;
 
-/**
- * Every cell in NOTE order — bottom-left first. The order the symbols are WRITTEN in, so the
- * hints, the slice colours and the sequencer's rows read the grid the way it plays; and the
- * order a multi-file drop fills cells in.
- */
+/** Every cell in NOTE order — the order the symbols are WRITTEN in, so the hints, the colours and the sequencer read the grid as it plays. */
 export function cellsInNoteOrder(): { row: number; col: number }[] {
   const out: { row: number; col: number }[] = [];
   for (let row = GRID - 1; row >= 0; row--)
@@ -30,8 +22,7 @@ export function cellsInNoteOrder(): { row: number; col: number }[] {
   return out;
 }
 
-/** A pad's default symbol: the file's stem, upper-cased, squeezed to the characters a symbol
- *  is comfortable being addressed by (letters, digits, _ and -). Empty in, "PAD" out. */
+/** A pad's default symbol: the file's stem, upper-cased and squeezed to the characters a symbol is addressed by. Empty in, 'PAD' out. */
 export function defaultSymbol(fileName: string): string {
   const stem = fileName.replace(/\.[^.]*$/, "");
   const clean = stem
@@ -47,11 +38,7 @@ export interface RackPad {
   note: number;
 }
 
-/**
- * What stops a CREATE, as sentences — empty means go. The name becomes a folder and the
- * symbols become addresses, so both are held to the identifier charset; duplicates are refused
- * because a symbol is how a note edit finds its sound.
- */
+/** What stops a CREATE, as sentences — the name becomes a folder and the symbols become addresses, and a symbol is how a note finds its sound. */
 export function rackIssues(
   name: string,
   pads: readonly RackPad[],
@@ -80,11 +67,7 @@ export function rackIssues(
   return out;
 }
 
-/**
- * The module.yaml a samples rack is. `clip` is the bare file name — the file sits BESIDE
- * module.yaml, the layout every rack in a real song already loads (resolveRackAudio joins the
- * module's own folder). Symbols in the order given, which the caller hands over in NOTE order.
- */
+/** The module.yaml a samples rack is: `clip` is the bare file name, the file sitting BESIDE module.yaml, symbols in the order given. */
 export function buildRackModuleYaml(
   name: string,
   pads: readonly RackPad[],

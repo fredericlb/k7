@@ -55,9 +55,7 @@ describe("a clip's warp", () => {
   });
 
   it("reaches none of them with `disable: true`, and says so", () => {
-    // No map on the doc — the engine's whole answer. `warpOff` beside it is the SURFACE's: the
-    // timeline crosses the icon rather than not drawing one, which is a different statement from
-    // a clip that was never warped at all.
+    // No map is the ENGINE's answer; `warpOff` beside it is the surface's crossed-out icon.
     const clips = clipsOf(project("off", { ...MAP, disable: true }));
     expect(clips).toHaveLength(2);
     for (const c of clips) {
@@ -78,8 +76,7 @@ describe("the schema", () => {
     AudioClipSchema.safeParse({ source: "a.wav", warp });
 
   it("accepts `disable` beside the map it switches off", () => {
-    // WarpSchema is `.strict()`, so this is the half that makes the field exist at all: without
-    // it a file carrying the word fails to load, and the compiler below never runs.
+    // WarpSchema is `.strict()`, so without this a file carrying the word fails to load.
     expect(clip({ ...MAP, disable: true }).success).toBe(true);
   });
 

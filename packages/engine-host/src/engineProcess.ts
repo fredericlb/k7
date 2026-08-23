@@ -25,27 +25,12 @@ export type StartResult =
   | { kind: "missing" }
   | { kind: "error"; message: string };
 
-/**
- * Bring an engine up, or take over the one that is already there.
- *
- * ADOPTING rather than refusing is the whole difference from the old standalone host,
- * which exited with "an engine is already running — stop it first". Under a tray that
- * is wrong twice over: a force-killed tray leaves its engine and pidfile behind, and
- * refusing to start would make every launch after a crash a dead end.
- */
+/** Bring an engine up, or ADOPT the one already there — refusing would make every launch after a crash a dead end. See docs/supervisorPolicy.md. */
 export async function start(
   identity: EngineIdentity,
   port: number,
 ): Promise<StartResult> {
-  // A pid is not an identity. `engineRunning()` only asks whether that number is a live
-  // process, and a pidfile outlives the engine that wrote it: overnight the engine died, the
-  // OS handed 25096 to an unrelated node, and the next supervisor adopted it. Nothing then
-  // spawned an engine, nothing complained, and every app listed a machine that answered
-  // nothing — the heartbeat kept going, because it asks the same wrong question.
-  //
-  // So the port is asked too. Confirming here is free of the risk the same check would carry
-  // in the crash watch: this runs at startup, before anything is playing, so a probe that is
-  // wrong costs a spare engine rather than somebody's audio.
+  // A pid is not an identity, so the PORT is asked too — and asked here, where a wrong probe costs a spare engine rather than audio.
   if (engineRunning()) {
     if (await isServing(port)) {
       line("host", "adopting the engine already on the pidfile");
@@ -55,8 +40,7 @@ export async function start(
       "host",
       `pidfile names a live process but nothing answers :${port} — stale, starting a fresh engine`,
     );
-    // Cleared, or `ensureEngineDaemon` refuses on the very same check and we adopt the ghost
-    // all over again. The process itself is left alone: it is somebody else's now.
+    // Cleared, or `ensureEngineDaemon` refuses on the same check and adopts the ghost again; the process itself is somebody else's now.
     rmSync(ENGINE_PID, { force: true });
   }
   const bin = findEngineBinary();
@@ -66,8 +50,7 @@ export async function start(
     const started = ensureEngineDaemon(bin, {
       port,
       host: "0.0.0.0", // reachable on the LAN for Tier 2; loopback still works for Tier 1
-      // PIPED, not a log file: the old host wrote to cwd, where nothing reads — the Logs panel looks in ~/.studio,
-      // so the web UI's log view was simply empty. Piping puts it in the merged log.
+      // PIPED, not a log file: the Logs panel reads the merged log in ~/.studio, and a file in cwd is read by nothing.
       stdio: "pipe",
       env: {
         STUDIO_ENGINE_ID: identity.id,
@@ -92,13 +75,7 @@ export async function start(
 /** Is an engine up? (pidfile exists AND that process is alive.) */
 export { engineRunning };
 
-/**
- * Stop the engine and clear the pidfile. Reaches the whole tree on both platforms —
- * see engineDaemon's stopEngineDaemon.
- *
- * Called for an engine we OWN, and on quit for an adopted one too: closing the app is
- * terminal, and an engine left listening holds the audio device and both ports.
- */
+/** Stop the engine and clear the pidfile, reaching the whole tree; called on quit even for an ADOPTED engine, which would hold the device. */
 export function stop(): void {
   stopEngineDaemon();
 }

@@ -184,6 +184,22 @@ remotely. Both are their own origins, routed by hostname on the LAN proxy, and b
 start in the **user's home** with Git Bash as the default shell. The whole design —
 and why ttyd was rejected — is in [remote.md](remote.md).
 
+## One port every config names that is not its own
+
+`scripts/dev-hosts.mjs` exports `AUTH_PORT` — st0's backend, which serves `/auth/*` for the WHOLE
+origin. It lives there rather than in each vite config because it is the one port a config names
+that is **not** its own backend: every SPA on this origin carries one session minted by one
+service, and in dev each dev server has to forward `/auth` there itself when it is visited directly
+on its port. `defineAppConfig`'s `proxyPaths` cannot express it — that helper points every path at
+the caller's `backendPort`, which is right for `/api` and wrong for exactly this one.
+
+It moved once already, from the médiathèque's 8795, and the whole cost of that move was finding the
+three configs that had a copy of it. Hence one export.
+
+st0 owns the flow because it is the service with NO path prefix: `redirectUriFor` builds
+`<origin>/auth/callback`, and that is the single `redirect_uri` the IdP has registered. See
+`packages/web-protocol/services.ts`.
+
 ## The native task — `scripts/dev-native.mjs`
 
 It is `engine/moteur`'s `dev` script, which is what gives it a pane in the TUI beside the
@@ -236,6 +252,24 @@ it is what guarantees `out/dev` matches `src-tauri/src` — but rebuilds the eng
 there is no binary, or if the sources are newer than the one in `engine/moteur/build`. A
 session should not pay a cmake run to be told there is nothing to do, and should not
 silently run the engine you had before a `git pull`.
+
+### A build that succeeds without replacing the image
+
+MSBuild prints `studio-moteur.vcxproj -> …exe` and exits **0** when a running engine holds the
+file, so the session goes on running the code you just changed away from. It cost an evening once,
+and `buildEngine` now checks the binary's mtime afterwards.
+
+The test is deliberately *"is the binary at least as new as its sources"* and **not** *"did it
+change"*. A watcher event can fire with nothing actually edited — Windows reports odd names for
+changes under the build tree — and a no-op build is then the correct outcome. Demanding a change
+made that harmless case a hard failure that left the tray stopped, which is worse than the bug
+being guarded. Measured, not assumed: it fired on the very first spurious event.
+
+The watch roots filter by BASE name, because a recursive `fs.watch` reports a path relative to the
+root. Anything unmatched is ignored, which is what keeps the engine's own `build/` output — and
+every editor swap file — from triggering a rebuild. The rebuild order is engine first: the tray's
+`--dev` build stages nothing from the engine, but building the slow one first means a broken C++
+never costs a cargo run.
 
 ### On exit
 

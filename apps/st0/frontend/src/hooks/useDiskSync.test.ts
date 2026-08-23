@@ -16,8 +16,7 @@ const decide = (
 
 describe("a file that changed on disk", () => {
   it("refreshes a clean buffer without asking", () => {
-    // Nothing to lose. Asking here would be a dialog about a file the user has not touched — and NOT refreshing
-    // is worse: the editor would keep showing a version that no longer exists, which is what it used to do.
+    // Nothing to lose, and NOT refreshing is worse: the editor would keep showing a version that no longer exists.
     expect(decide("new", "old", false)).toBe("adopt");
   });
 
@@ -36,8 +35,7 @@ describe("a file that changed on disk", () => {
   });
 
   it("clears a stale dirty flag when the file already matches disk", () => {
-    // Someone saved exactly what was in the buffer — from another tab, or our own save round-tripping. Leaving
-    // `dirty` on would keep offering to write bytes that are already there.
+    // Someone saved exactly what was in the buffer: leaving `dirty` on would keep offering to write bytes that are already there.
     expect(decide("same", "same", true)).toBe("clean");
   });
 
@@ -51,8 +49,7 @@ describe("a file that changed on disk", () => {
   });
 
   it("asks AGAIN when disk moves past the dismissed version", () => {
-    // Dismissing is about one version, not about the file. A further change is a new question — otherwise a
-    // dismissal silently opts out of every future warning for that file.
+    // Dismissing is about one version, not the file: otherwise it silently opts out of every future warning for that file.
     expect(decide("theirs2", "mine", true, "theirs")).toBe("conflict");
   });
 

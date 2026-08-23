@@ -79,8 +79,7 @@ describe("a take recorded on a lane running its FIRST set", () => {
 
 describe("a take recorded while an ALTERNATIVE is running", () => {
   it("lands on the set the lane is actually playing", () => {
-    // THE bug: appended to the top-level `events:` instead, the take is on disk, declared, named
-    // after the right bar — and absent from the lane, because the running set replaced that list.
+    // THE bug: appended to the top-level `events:`, the take is on disk and absent from the lane.
     lane(
       'extends: "@studio/track"\nevents: []\nalternatives:\n  - name: b\n    events: []\nalternative: b\n',
     );

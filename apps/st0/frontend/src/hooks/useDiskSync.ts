@@ -10,11 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "./useRevision";
 
-/**
- * What to do about a file that has changed underneath the editor. Pure, and separated out for the same reason
- * fileDrop.ts is: the branch that matters here is the one that DISCARDS someone's typing, and a rule that can
- * only be exercised by clicking through the app is a rule nobody checks.
- */
+/** What to do about a file that has changed underneath the editor — pure, since the branch that matters DISCARDS someone's typing. */
 export type DiskAction =
   | "adopt" // no unsaved edits — take the new text, say nothing
   | "clean" // the buffer already equals disk; whatever made it dirty has been written by someone else
@@ -62,12 +58,10 @@ export function useDiskSync({
 }): DiskSync {
   const [conflict, setConflict] = useState<string | null>(null);
 
-  // Read by the poll, which must not re-arm every keystroke — an interval that resets on each character never
-  // fires. Refs are what keep the timer stable while the values under it move.
+  // Read by the poll, which must not re-arm every keystroke: an interval that resets on each character never fires.
   const state = useRef({ path, content, dirty, onAdopt, onClean });
   state.current = { path, content, dirty, onAdopt, onClean };
-  // The version the user already said "keep editing" about. Dismissing must not re-prompt for the SAME text on
-  // the next tick, but a further change on disk is a new question.
+  // The version the user already said 'keep editing' about: dismissing must not re-prompt for the SAME text, but a further change is new.
   const dismissed = useRef<string | null>(null);
 
   const rev = useRevision();
@@ -119,8 +113,7 @@ export function useDiskSync({
     return () => {
       alive = false;
     };
-    // reloadKey is a dependency deliberately: a command just ran, and its write should be noticed now rather than
-    // waiting for the token to move — an action can change the answer without changing a source.
+    // reloadKey is a dependency deliberately: an action can change the answer without changing a source, and waiting for the token is late.
   }, [rev, reloadKey]);
 
   // A different file is a different question — never carry a decision across.

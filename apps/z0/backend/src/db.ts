@@ -1,9 +1,7 @@
 import { gameState } from "./gameState.ts";
 import { loadAllPersistedStates, savePersistedState } from "./state/persist.ts";
 
-// In-memory game store (database.go). Memory is the source of truth; the
-// write-behind worker in state/persist.ts mirrors mutations to the Grist
-// Games/GamePlayers tables, and a fresh boot rehydrates from them.
+// Memory IS the source of truth; state/persist.ts write-behinds it to Grist and rehydrates on boot.
 
 export interface Player {
   name: string;
@@ -137,10 +135,7 @@ export class Database {
     savePersistedState();
   }
 
-  /**
-   * Assign a device to an existing player whose slot is empty, refusing if
-   * another player already holds that device.
-   */
+  /** Fill an empty device slot, refusing if another player already holds that device. */
   rebindPlayerDevice(gameId: string, name: string, deviceId: string): void {
     const game = this.games.get(gameId);
     if (!game) throw new Error(`game not found: ${gameId}`);

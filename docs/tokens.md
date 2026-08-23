@@ -53,6 +53,25 @@ service — spawned by the supervisor beside the engine — and that credential 
 machine, not to a deployment. `env.yaml` is committed-adjacent and per checkout; the two are
 different scopes and the script writes to both accordingly.
 
+**`devUrl` is the one URL anything here still writes,** and only into a checkout. A service sits at
+a FIXED path under one origin, which is what every caller defaults to — but in a checkout that
+origin goes out to the LAN proxy and straight back for nothing, so a server-to-server hop takes the
+loopback port instead and the script writes it so nobody types a URL. It is written only when the
+file has none and is **never** overwritten: a checkout pointed somewhere deliberate is a checkout
+somebody set up on purpose. The st0 → pl8 link needs none, since the file service derives its URL
+from the registries the supervisor already announces to.
+
+**A token that still verifies is left alone.** Re-minting one has a real cost: every machine
+holding the old one keeps it and they all keep working, so a "refresh" that changes nothing
+anywhere is only noise in two config files. `--force` overrides that, and a freshly generated
+secret voids every old token whether or not it verified.
+
+The token scheme is duplicated byte for byte from `commons/packages/oidc/apiToken.ts` rather
+than imported: this is a plain node script with no TypeScript loader, and booting tsx to sign 100
+bytes buys nothing. The pair is pinned by a test that mints here and verifies with the real one,
+`packages/engine-host/src/tokensScript.test.ts`, which lives there because that package owns the
+consumer half. `env.yaml` is edited as a yaml DOCUMENT, so its comments survive.
+
 ## Rotation and revocation
 
 There is no per-token revocation, by construction. Rotate `API_TOKEN_SECRET` and every token

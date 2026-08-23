@@ -16,9 +16,7 @@ import {
 } from "./commandSpec";
 import type { CommandHost } from "./commands";
 
-// A host whose project just exposes the given track ids — enough for the `tracks`
-// completion provider (it reads `project().tracks.map(t => t.id)`). Every engine op
-// is a no-op; completion never calls them.
+// A host exposing the given track ids and nothing else: completion calls no engine op.
 function host(trackIds: string[]): CommandHost {
   const tracks: TrackDoc[] = trackIds.map((id) => trackDoc(id));
   const project = (): ProjectDoc => emptyDoc({ name: "test", tracks });
@@ -47,9 +45,7 @@ describe("completions (against the real commands.yaml)", () => {
   });
 
   it("uses the LONGEST matching command so `track mute` isn't shadowed by a shorter one", () => {
-    // Getting track-completed lines proves the full `track mute` won rather than
-    // some shorter prefix. No command name prefixes another today — `system channel set`
-    // closed the last one — so this guards the rule, not a live collision.
+    // No name prefixes another today, so this guards the rule — see docs/completions.md.
     const got = completions("track mute ", host(["melody", "bass"]), "cli");
     expect(got).toEqual(["track mute melody", "track mute bass"]);
   });
@@ -60,10 +56,7 @@ describe("completions (against the real commands.yaml)", () => {
   });
 });
 
-// The command palette fills one field at a time, so it asks for the values of ONE
-// argument and gets whole runnable lines back. This mirrors what web/frontend's
-// App.completeArg does with them — the two ends have to agree, and they didn't:
-// the palette offered COMMAND NAMES where it should have offered values.
+// The palette fills one field at a time, and the two ends must agree — docs/completions.md.
 describe("the palette's one-field view of completions()", () => {
   // Verbatim from App.completeArg (minus the local-only special cases).
   const completeArg = (
@@ -85,18 +78,14 @@ describe("the palette's one-field view of completions()", () => {
   };
 
   it("offers an argument's values as soon as its field opens (empty partial)", () => {
-    // The line has to keep the empty partial so it ends with a SPACE — that space is
-    // what tells completions() the command is settled and its args are being filled.
-    // Dropping it left the bare command name, which reads as "still typing a name".
+    // The line has to keep the empty partial so it ends with a SPACE — docs/completions.md.
     expect(
       completeArg("track take select", [], "", ["melody", "bass"]),
     ).toEqual(["melody", "bass"]);
   });
 
   it("works for a MULTI-WORD command name", () => {
-    // The regression: the value was pulled out by token INDEX, which assumed the
-    // command was one word — so "track mute melody" handed back "mute", and the
-    // palette looked like it was completing commands instead of arguments.
+    // The regression: the value was pulled out by token INDEX — see docs/completions.md.
     expect(completeArg("track mute", [], "", ["melody"])).toEqual(["melody"]);
     expect(completeArg("module new", [], "")).toContain("instruments/");
     expect(completeArg("node new", [], "")).toContain("instruments/");
@@ -118,16 +107,13 @@ describe("the palette's one-field view of completions()", () => {
 
 describe("node new", () => {
   it("is a verb of its own, not one of `module`'s", () => {
-    // It was `module instance new`, and the test here was that the shared `module ` prefix did
-    // not shadow `module new`. There is no shared prefix any more: a node is its own thing, so
-    // its verbs sit at the top level and `module ` offers none of them.
+    // It was `module instance new`; a node is its own thing, so `module ` offers none of its verbs.
     expect(completions("node ", host([]), "cli")).toContain("node new");
     expect(completions("module ", host([]), "cli")).not.toContain("node new");
   });
 
   it("completes its category/name arg", () => {
-    // The static category provider, the same one `new module` uses — it lands you
-    // right after the slash, ready to type the module's name.
+    // The static category provider, which lands you right after the slash.
     expect(completions("node new inst", host([]), "cli")).toEqual([
       "node new instruments/",
     ]);
@@ -140,9 +126,7 @@ describe("node new", () => {
 
 describe("commands.yaml is well-formed against the providers", () => {
   it("names only providers that exist", () => {
-    // The guard the TYPE can't give us: commands.yaml is parsed at runtime, so a typo
-    // in `complete:` used to survive as an argument that silently completed nothing.
-    // The loader drops an unknown one (and logs); this fails the build instead.
+    // The guard the TYPE can't give: the loader drops an unknown one, this fails the build.
     const bad = loadCommandSpecs().flatMap((c) =>
       (c.args ?? [])
         .filter((a) => a.complete && !PROVIDER_NAMES.has(a.complete))
@@ -152,8 +136,7 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 
   it("gives every argument at most one vocabulary", () => {
-    // `complete` and `values` answer the same question; carrying both would make which
-    // one wins an implementation detail of completions().
+    // `complete` and `values` answer one question; both would make the winner an implementation detail.
     const both = loadCommandSpecs().flatMap((c) =>
       (c.args ?? [])
         .filter((a) => a.complete && a.values)
@@ -172,12 +155,10 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 
   it("only types arguments that are a single token", () => {
-    // A typed argument is matched POSITIONALLY, so it must not be one that swallows the
-    // rest of the line — those are always last, and anything after them is free text.
+    // A typed argument is matched POSITIONALLY — see docs/completions.md.
     const spec = (name: string) =>
       loadCommandSpecs().find((c) => c.command === name);
-    // `project marker new <timecode> <name>`: the name may contain spaces, so only the timecode
-    // carries a type, and a spaced name must not make the timecode fail.
+    // Only the timecode carries a type here: `<name>` may contain spaces.
     expect(spec("project marker new")?.args?.map((a) => a.type)).toEqual([
       "timecode",
       undefined,
@@ -185,8 +166,7 @@ describe("commands.yaml is well-formed against the providers", () => {
     expect(
       validateArgs(spec("project marker new")!, "5:1:1 Verse two"),
     ).toBeNull();
-    // `node param <node> <param> <value>` is re-split by its handler (a param name
-    // has spaces), so nothing in it is typed.
+    // `node param` is re-split by its handler (a param name has spaces), so nothing in it is typed.
     expect((spec("node param")?.args ?? []).every((a) => !a.type)).toBe(true);
   });
 
@@ -209,8 +189,7 @@ describe("commands.yaml is well-formed against the providers", () => {
     const of = (name: string) => specs.find((c) => c.command === name)!;
     for (const tc of ["5", "5:1", "5:1:1"])
       expect(validateArgs(of("project marker new"), `${tc} Chorus`)).toBeNull();
-    // Negative and fractional numbers, notes as names or as MIDI numbers. A trim gate is in dB,
-    // so a negative one is the ordinary case rather than an edge.
+    // A trim gate is in dB, so a negative number is the ordinary case rather than an edge.
     expect(validateArgs(of("event trim"), "vox 24:1 -6.5")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody F#3 0 1")).toBeNull();
     expect(validateArgs(of("sequence note new"), "melody 60 0 1")).toBeNull();
@@ -219,15 +198,12 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 
   it("classes every argument, and says the same thing on the wire", () => {
-    // The palette colours a field by its class, so an argument with no class would be
-    // an uncoloured hole in the line.
+    // An argument with no class would be an uncoloured hole in the line.
     for (const c of loadCommandSpecs())
       for (const a of c.args ?? [])
         expect(ARG_CLASSES, `${c.command} <${a.name}>`).toContain(argClass(a));
 
-    // web-protocol/types.ts writes the same list out for the browser (which can't import
-    // this module — it reads commands.yaml off disk). Adding a class here without adding
-    // it there would ship a kind the palette has no colour for.
+    // web-protocol/types.ts writes the same list out for the browser — docs/completions.md.
     const contract = readFileSync(
       join(
         dirname(fileURLToPath(import.meta.url)),
@@ -243,9 +219,7 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 
   it("names every completion provider on the wire too", () => {
-    // A class says what COLOUR a field is; the provider says what the argument actually names,
-    // and that is what st0's right-click menu matches on to offer a track its own commands and
-    // not a sequence's. A provider added here and not there is one the menu can never see.
+    // A provider added here and not there is one st0's right-click menu can never see.
     const contract = readFileSync(
       join(
         dirname(fileURLToPath(import.meta.url)),
@@ -263,10 +237,7 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 
   it("tells you what every argument accepts", () => {
-    // The palette shows this clue beside the field. A provider-backed or scalar argument
-    // gets one for free; a free-text one has to write its own `hint`, because "text" on
-    // its own answers nothing — which is exactly the field you'd otherwise have to run
-    // the command to understand.
+    // A free-text argument has to write its own `hint:`, because "text" answers nothing.
     const mute = loadCommandSpecs().flatMap((c) =>
       (c.args ?? [])
         .filter((a) => !argHint(a))
@@ -276,12 +247,7 @@ describe("commands.yaml is well-formed against the providers", () => {
   });
 });
 
-/**
- * The palette LISTS these sentences and matches on them, so a command without one is a command
- * nobody can find by describing what they want — which is the whole point of the surface. The
- * catalogue is the only place that knows a command exists, so it is the only place that can
- * notice the sentence is missing.
- */
+// The catalogue is the only place that can notice a sentence is missing — docs/completions.md.
 describe("readable descriptions", () => {
   const specs = loadCommandSpecs();
 
@@ -293,8 +259,7 @@ describe("readable descriptions", () => {
   });
 
   it("are sentences rather than the command name again", () => {
-    // A description that merely echoes the name teaches nothing and matches the same letters
-    // the name already matches — two rows saying one thing.
+    // An echo of the name matches the same letters the name does — two rows saying one thing.
     const echoes = specs
       .filter((c) => c.readable?.en.toLowerCase() === c.command.toLowerCase())
       .map((c) => c.command);
@@ -306,10 +271,7 @@ describe("readable descriptions", () => {
   });
 
   it("fit on the palette's row — 60 characters at most, in both languages", () => {
-    // The row is `sentence … name`, and the name has to stay readable at the right of it. A
-    // longer sentence is not a longer row: it is a truncated one, or a list that wraps into a
-    // wall over the minimap. The cap is also what keeps a description from drifting back into
-    // `help` — every line that ran past it was carrying a caveat or an example, not an action.
+    // A longer sentence is not a longer row but a truncated one — see docs/completions.md.
     const long = specs.flatMap((c) =>
       (["en", "fr"] as const)
         .filter((lang) => (c.readable?.[lang] ?? "").length > 60)
@@ -322,8 +284,7 @@ describe("readable descriptions", () => {
   });
 
   it("carry no example and no full stop, unlike `help`", () => {
-    // `help` is the CLI's fuller line and carries "(e.g. …)"; this one is scanned in a list,
-    // where an example is noise and a trailing stop is a row of ragged dots.
+    // `help` is the CLI's fuller line; this one is scanned in a list — docs/completions.md.
     for (const c of specs)
       for (const text of [c.readable?.en ?? "", c.readable?.fr ?? ""]) {
         expect(text, c.command).not.toMatch(/e\.g\.|\(ex/i);

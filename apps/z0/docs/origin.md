@@ -51,9 +51,50 @@ z0's own `SESSION_SECRET` override had to go, and that is the whole configuratio
 What keeps a guest cookie from being renamed into an account is not a second key but the
 signature itself, which covers the cookie's name; [auth.md](auth.md) shows it.
 
+## Nothing durable on disk
+
+`backend/src/state.ts` names a **fresh temp directory per launch**, and that is the whole
+storage story: the only thing written under it is the Grist attachment cache
+(`backend/src/grist/load.ts`) — downloaded attachments and their ffmpeg-transcoded copies, every
+one of which can be fetched again. Game state never touches the disk; `backend/src/state/persist.ts`
+write-behinds it to Grist's `Games` / `GamePlayers` tables and a fresh boot rehydrates from there.
+
+The trade is deliberate: each boot starts cold and re-downloads everything the session needs, in
+exchange for no stale cache, no volume to manage, and no invalidation to get wrong. The cost is
+startup work proportional to the session's audio.
+
+Two details that look like oversights and are not:
+
+- **It only NAMES the directory, never creating it.** Every writer already does
+  `mkdir(..., { recursive: true })`, and `routes.ts` asks for the path merely to mount
+  `express.static`, which tolerates a missing root and 404s until something fills it. Creating on
+  read would leave an empty directory behind for every process that so much as imports
+  `routes.ts` — which is every test run.
+- **Cleanup is best-effort.** The OS reaps its own temp directory (and a container takes the
+  whole layer), so one leaked directory after a hard kill is acceptable.
+
+## The one engine nobody chooses
+
+`backend/src/render.ts` is the exception to the per-account engine story the rest of the repo
+tells, and three details follow from the same fact — **nobody here is sitting at an interface**.
+
+- **`Z0_RENDER_ENGINE` is configuration, not a choice.** A render has no audience, so "which of
+  my machines" is a deployment fact; asking a player would be asking them about somebody else's
+  hardware.
+- **It names the file service's base URL** on that machine (`http://192.168.1.20:8770`), not the
+  engine's own WebSocket. The socket has no render verb and never will: an offline bounce is a
+  one-shot `studio-moteur --render`, and letting the live server spawn one would put a second
+  engine inside the process that holds the audio device.
+- **The wav comes back whole, in memory.** z0's clips are seconds long, and a temp file this
+  container then has to clean up on every failure path is more machinery than the bytes are
+  worth. A full-length master would need a stream; this is the line to revisit if one appears.
+
 ## The seam that surfaces a rename last
 
 `backend/src/render.ts` sends `x-studio-engine-token` and friends to a file service. It is the
 only consumer of those headers outside `packages/`, so a header rename that is otherwise
 complete will still break here — and only when somebody renders, which is rare enough that
 the failure arrives long after the change. Check it explicitly when touching the header names.
+
+Server-to-server there is no `Origin` header, so CORS lets the call through outright: that
+token is the only thing making it deliberate.

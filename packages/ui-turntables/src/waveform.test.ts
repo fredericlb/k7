@@ -35,9 +35,7 @@ describe("the window follows the playhead", () => {
   });
 
   it("does NOT slide to stay inside the song", () => {
-    // At the top of a track the left half is before zero, and it is drawn empty. A window
-    // that clamped would move the playhead off centre — which is the one promise this view
-    // makes — and would hide that you are at the beginning.
+    // A window that clamped would move the playhead off centre, the one promise this view makes.
     const [from, to] = window(0);
     expect(from).toBeLessThan(0);
     expect(to).toBe(WINDOW_SECONDS / 2);
@@ -55,8 +53,7 @@ describe("the window follows the playhead", () => {
 
 describe("finding a bucket", () => {
   it("scales by the song's OWN length, not a fixed rate", () => {
-    // 8192 buckets whatever the duration, so seconds-per-bucket differs per song. Assuming
-    // otherwise would draw one track's waveform at another's speed.
+    // 8192 buckets whatever the duration, so a fixed rate draws one track at another's speed.
     const short = env({ seconds: 100 });
     const long = env({ seconds: 200 });
     expect(bucketAt(short, 50)).toBe(4096);
@@ -64,8 +61,7 @@ describe("finding a bucket", () => {
   });
 
   it("answers null outside the file rather than clamping to an end", () => {
-    // Clamping would smear the last bucket across the whole run-out, which reads as audio
-    // that is not there.
+    // Clamping would smear the last bucket across the run-out, reading as audio that is not there.
     expect(bucketAt(env(), -1)).toBe(null);
     expect(bucketAt(env(), 120)).toBe(null);
     expect(bucketAt(env(), 119.9)).not.toBe(null);
@@ -78,11 +74,7 @@ describe("finding a bucket", () => {
 
 describe("the beat grid", () => {
   it("is anchored on the first transient, not on zero", () => {
-    // A tempo says the SPACING; nothing in the médiathèque says where beat one is. The first
-    // onset is the best guess available, and a grid from 0 would be wrong for any lead-in.
-    //
-    // The anchor is 1 s and the beats land on it — AND the grid runs backwards from there
-    // through the lead-in, because those two seconds are part of the track too.
+    // A tempo says the SPACING only, so a grid from 0 would be wrong for any lead-in.
     expect(beatsIn(env(), 0, 3)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3]);
     // Shift the first onset by a quarter beat and the whole grid shifts with it.
     expect(beatsIn(env({ transients: [1.25] }), 0.9, 2)).toEqual([1.25, 1.75]);
@@ -96,8 +88,7 @@ describe("the beat grid", () => {
   });
 
   it("draws NOTHING when the tempo is unknown", () => {
-    // 0 is the engine's "no tempo found". A grid at a guessed 120 would be a confident lie;
-    // no yellow lines reads correctly as "we do not know".
+    // 0 is the engine's "no tempo found", and a grid at a guessed 120 would be a confident lie.
     expect(beatsIn(env({ bpm: 0 }), 0, 60)).toEqual([]);
   });
 
@@ -157,8 +148,7 @@ describe("the bar lines", () => {
     }) as Envelope;
 
   it("falls on every fourth beat", () => {
-    // 4/4 is ASSUMED — nothing in the sidecar carries a metre — so the first beat of the grid
-    // is taken as a downbeat and every fourth after it follows.
+    // 4/4 is ASSUMED, so the grid's first beat is taken as a downbeat and every fourth follows.
     const bars = barsIn(env(), 0, 8);
     expect(bars).toHaveLength(5); // 0, 2, 4, 6, 8
     for (const [i, b] of bars.entries())
@@ -166,16 +156,14 @@ describe("the bar lines", () => {
   });
 
   it("sits ON beats, never between them", () => {
-    // The one way this could look right and be wrong: a bar grid with its own anchor would
-    // drift against the yellow lines it is supposed to pick out.
+    // A bar grid with its own anchor would drift against the yellow lines it picks out.
     const beats = beatsIn(env(), 0, 8);
     for (const b of barsIn(env(), 0, 8))
       expect(beats.some((x) => Math.abs(x - b) < 1e-6)).toBe(true);
   });
 
   it("draws none at all without a tempo", () => {
-    // Same rule as the beats: a grid at a guessed 120 would be a confident lie, and no lines
-    // reads correctly as "the tempo is not known".
+    // Same rule as the beats: no lines reads correctly as "the tempo is not known".
     expect(barsIn(env({ bpm: 0 }), 0, 8)).toEqual([]);
   });
 

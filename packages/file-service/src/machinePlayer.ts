@@ -9,14 +9,12 @@ import { isAbsolute, join, normalize, relative, sep } from "node:path";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 import { rootDir, slugify } from "./slug.ts";
 
-/** `--ao=alsa` by default: with no graphical session PipeWire and PulseAudio do not start on
- *  their own, and a dedicated player needs no sound server. */
+/** `--ao=alsa` by default, since a headless session starts no sound server — see docs/machinePlayer.md. */
 const AO = process.env.STUDIO_PLAYER_AO || "alsa";
 
 const bin = (): string => process.env.MPV_BIN || "mpv";
 
-/** An IPC command silent past this is lost: mpv answers in microseconds over a unix socket, so
- *  anything longer means the process is gone. */
+/** An IPC command silent past this is lost: mpv answers in microseconds, so longer means it is gone. */
 const IPC_TIMEOUT_MS = 2000;
 
 /** What the bottom bar needs to know. */
@@ -39,13 +37,7 @@ const EMPTY: PlayerState = {
   idle: true,
 };
 
-/**
- * The absolute path of a track on THIS machine, from the relative one asked for.
- *
- * The client sends relative and never absolute, and that is the guarantee: it can only name what
- * this machine's médiathèque holds. A `..` is refused rather than normalised — it is an attempt,
- * not a typo, and naming it beats correcting it in silence.
- */
+/** The absolute path of a track here, from a RELATIVE one; a `..` is refused rather than normalised. */
 export function resolveInMediatek(rel: string): string {
   if (!rel || isAbsolute(rel)) throw new Error("chemin relatif attendu");
   const root = mediatekRoot();
@@ -75,8 +67,7 @@ const socketFor = (slug: string): string => {
   return join(dir, `${slug}.sock`);
 };
 
-/** Open — or reopen — the IPC connection. `null` when mpv is not there, which is what makes the
- *  caller start it, and is also what happens on the very first call. */
+/** Open — or reopen — the IPC connection; `null` when mpv is not there, which makes the caller start it. */
 function dial(p: Player): Promise<Socket | null> {
   return new Promise((resolve) => {
     const s = connect(p.socketPath);
@@ -181,8 +172,7 @@ function playerFor(userEmail: string): Player {
   return p;
 }
 
-/** One command and its answer. `undefined` when mpv has nothing to say — an absent property is
- *  not an error, it is "not yet". */
+/** One command and its answer; `undefined` is "not yet" rather than an error. */
 async function command(p: Player, args: unknown[]): Promise<unknown> {
   const s = await ensure(p);
   const id = p.nextId++;

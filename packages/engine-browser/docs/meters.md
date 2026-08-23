@@ -101,6 +101,39 @@ The floor is 4 Hz rather than nothing so that a change made from another tab sti
 250 ms. Neither half delays a real change: the moment anything is happening, the idle test fails
 and the frame differs, so both gates open on the same tick.
 
+## Metering the interface: channel SETS, never raw numbers
+
+`ioLevels` is request/reply rather than a field on the state frame, because asking for it
+**enables the input devices it measures**. A surface therefore asks only while the I/O panel is
+on screen.
+
+What comes back carries `devices`, the interface's own grouping — `EngineInputDevice`. The
+engine has ridden that along all this time and the browser was dropping it, which is a shame,
+because it is the one thing that explains a channel that exists and meters nothing.
+
+`channels` on such a device is 1-based and is the set `findWaveInput` matches **exactly**: a rig
+that pairs its inputs has no device for channel 2 alone, so asking for channel 2 on its own
+resolves to nothing and reads as silence. Anything offering a choice of input has to offer these
+sets and not raw numbers.
+
+`setInputStereo(channel, stereo)` is what makes and unmakes a pair. `channel` names the PAIR,
+not one side: the interface pairs even/odd hardware channels and nothing else, so 1 and 2 name
+the same pair and 2 can never be paired with 3. Nothing comes back — the device layout rides on
+`ioLevels`, the only message that carries it, so ask for that again to see the result; the
+engine forces the rebuild through before it answers. And the merge **destroys** the two mono
+devices, which is the same rule read from the other side: a module still asking for one of those
+channels alone now matches no device.
+
+## Waveform taps carry no track index
+
+`subscribeWaveform(id, side)` names a module and a side, and nothing else: the engine finds the
+plugin by id and the track from the plugin.
+
+A track index used to be required, and since the graph has none to give, this client sent `0`.
+An engine older than the change that dropped the field still **honours** that 0 — and meters the
+song's first track, quietly, whatever module you asked about. Omitting the field makes such an
+engine refuse the subscription instead, which is the failure you want.
+
 ## The O(n²) that isn't worth fixing
 
 `useInputLevel` and `useTrackLevel` each do `order.indexOf(trackId)` inside the selector. Every

@@ -7,11 +7,7 @@ interface Props {
   onBack: () => void;
 }
 
-/**
- * Calls out a random chord for the player to fret. There's nothing to check —
- * the "reveal" simply shows the fingering so the player can verify themselves
- * before moving on to the next chord.
- */
+/** Calls out a random chord; nothing is checked, the reveal only shows the fingering. */
 export function RandomChordsExercise({ onBack }: Props) {
   const [prompt, setPrompt] = useState<ChordPrompt>(() => randomChord());
   const [revealed, setRevealed] = useState(false);

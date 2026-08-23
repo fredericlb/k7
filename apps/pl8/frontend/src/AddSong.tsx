@@ -24,13 +24,11 @@ import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { engineMachine, library, SongExists } from "./api";
 
-/** The file's tags, or what its name lets us guess. An unreadable file is not an error: it is a
- *  form to fill in by hand, which the dialog already allows. */
+/** The file's tags, or a guess from its name: an unreadable file is a form to fill in, not an error. */
 async function readTags(file: File): Promise<SongTags> {
   const guess = tagsFromFilename(file.name);
   try {
-    // Dynamic import: music-metadata parses a dozen containers and is heavy, for a button nobody
-    // clicks on every visit.
+    // Dynamic import: music-metadata is heavy, for a button nobody clicks on every visit.
     const { parseBlob } = await import("music-metadata");
     const { common } = await parseBlob(file, { duration: false });
     return {
@@ -48,8 +46,7 @@ export function AddSong({
   engine,
 }: {
   onDone: () => void;
-  /** The chosen machine, for the analysis pass. Null when none is reachable — the upload
-   *  still lands, and the analysis is simply deferred (see `send`). */
+  /** The chosen machine, for the analysis pass; null still uploads and simply defers it. */
   engine: { fileBase: string | null; token: string | null };
 }) {
   const input = useRef<HTMLInputElement>(null);
@@ -58,8 +55,7 @@ export function AddSong({
   const [reading, setReading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // The folder is taken. Keep the question open rather than closing on an error: replacing is a
-  // decision, and this is the only screen where it makes sense.
+  // The folder is taken: the question stays open, because replacing is a decision made here.
   const [occupied, setOccupied] = useState(false);
 
   const close = () => {
@@ -94,11 +90,7 @@ export function AddSong({
       );
       close();
       onDone();
-      // The waveform cache, the onsets and the tempo, computed on the machine that has an
-      // engine — this app cannot decode audio. Fired AFTER closing, and never awaited: it
-      // decodes a whole file, and holding the dialogue open for it would make an upload feel
-      // as slow as an analysis. With no reachable machine nothing happens here, and the first
-      // surface that needs the cache computes it then.
+      // Fired AFTER closing and never awaited, since the first surface that needs it computes it anyway.
       if (engine.fileBase && engine.token)
         void engineMachine
           .analyse(engine.fileBase, engine.token, added.master)
@@ -114,8 +106,7 @@ export function AddSong({
     }
   };
 
-  // Exactly what the server will build: the same functions, imported from the package, and not a
-  // second copy of the rule that would drift from it.
+  // Exactly what the server will build: the same functions, never a second copy of the rule.
   const folder = songFolder(tags);
   const master = file && isAudio(file.name) ? masterName(file.name) : "";
 
@@ -132,8 +123,7 @@ export function AddSong({
         placeholder={placeholder}
         onChange={(e) => {
           setTags((t) => ({ ...t, [key]: e.target.value }));
-          // The edited field aims at another folder: the remembered "Replace" would then apply to
-          // a song nobody looked at.
+          // The edited field aims elsewhere, so a remembered "Replace" would hit a song nobody saw.
           setOccupied(false);
         }}
       />
@@ -156,8 +146,7 @@ export function AddSong({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          // Cleared at once: otherwise re-picking the same file after an error emits no change
-          // and the button looks dead.
+          // Cleared at once, or re-picking the same file after an error emits no change.
           e.target.value = "";
           if (f) void pick(f);
         }}
@@ -190,8 +179,7 @@ export function AddSong({
               {folder}/{master}
             </code>
           ) : (
-            // `accept` is only the picker's default filter: "all files" stays one click away, and
-            // an upload refused silently is worse than a refusal.
+            // `accept` is only the picker's default filter — "all files" stays one click away.
             <div className="text-xs text-destructive">
               {file?.name} n'est pas un fichier audio que la médiathèque sait
               lire.

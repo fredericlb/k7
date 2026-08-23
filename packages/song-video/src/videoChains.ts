@@ -22,17 +22,7 @@ export interface VideoChainDocs {
   frame: VideoPluginDoc[];
 }
 
-/**
- * The four knobs, read off the module and clamped to the range the panel offers.
- *
- * Clamped rather than passed through, and the reason is that the value leaves TypeScript for
- * GLSL: a `P1: 4` authored by hand reaches a shader that has every right to assume 0..1, and what
- * comes out is not a wrong picture but an unrecognisable one. Refusing the project over it would
- * be worse — it is one knob — so the value is brought into range where the range is known.
- *
- * A param the module never mentions is 0. Not absent: the uniform exists in the program whatever
- * the file says, and leaving it unset would hand the shader whatever GL last had there.
- */
+/** The four knobs, clamped to 0..1 because the value leaves TypeScript for GLSL — docs/shaders.md. */
 function shaderParams(module: Module | undefined): Record<string, number> {
   const out: Record<string, number> = {};
   const authored = (module?.params ?? {}) as Record<string, unknown>;
@@ -44,30 +34,13 @@ function shaderParams(module: Module | undefined): Record<string, number> {
   return out;
 }
 
-/**
- * The lane feeding this step's AUDIO port, if anything does.
- *
- * A shader's audio input is a side input, so it is never the chain flow: it arrives as one of the
- * step's `in:` sources, which is what `gtr: [ glow#audio ]` compiles to. The NODE is what comes
- * back and the port is dropped — what the renderer needs is a name to look a level up by, and
- * which jack it landed on is already settled by having reached this port at all.
- *
- * The first one only. A step's sources fill its ports in order and a shader declares exactly one
- * audio port, so a second source is a wiring mistake the port check already reports; picking the
- * first here means this function does not report it a second time in a different vocabulary.
- */
+/** The lane feeding this step's AUDIO port — a side input, and the first one only; docs/shaders.md. */
 function audioSourceOf(step: Step): string | undefined {
   const first = (Array.isArray(step.in) ? step.in : [])[0];
   return first ? splitPort(String(first)).node : undefined;
 }
 
-/**
- * One step -> one plugin doc, or null when the module behind it is not a picture module at all.
- *
- * Null rather than a throw for a module that IS missing: `validate()` already reports that, by
- * name, on the line that names it. Compiling the picture is not the place a broken reference is
- * discovered, and throwing here would take the whole frame down over one step.
- */
+/** One step -> one plugin doc, or null when it is no picture module — never a throw, docs/shaders.md. */
 function stepDoc(
   dir: string,
   g: GraphDoc,
@@ -82,13 +55,7 @@ function stepDoc(
   const enabled = step.enabled !== false;
 
   if (category === SHADER_CATEGORY) {
-    // The GLSL is INLINED rather than served behind a URL, and that is a size judgement rather
-    // than a principle: a shader is a page of text, the video doc is already revision-keyed and
-    // cached, and a second route would mean the picture could draw before its programs arrived.
-    //
-    // A `shader:` naming a folder that is not there compiles to a pass with no source — see
-    // readShader on why that is null and not an error. The node keeps its card, its knobs and its
-    // dropdown; what it loses is the effect.
+    // The GLSL is INLINED, and a folder that is not there compiles to a pass with no source.
     const name = typeof module.shader === "string" ? module.shader : "";
     const src = name ? readShader(dir, module, g.moduleRefs, name) : null;
     return {
@@ -107,22 +74,18 @@ function stepDoc(
       type: category === "video_effects" ? "video_effect" : "video_transition",
       name: step.module,
       enabled,
-      // Numbers only: `params:` may hold a file-valued string, and none of those means anything
-      // to a renderer. The same lift `nodeProject` does before the audio wire.
+      // Numbers only: a file-valued param means nothing to a renderer — docs/shaders.md.
       params: Object.fromEntries(
         Object.entries((module.params ?? {}) as Record<string, unknown>).filter(
           (e): e is [string, number] => typeof e[1] === "number",
         ),
       ),
     };
-  // Anything else on a video wire — an audio effect somebody dragged in — is not compiled and not
-  // reported here either: the port check refuses picture into an audio module already, and it
-  // says so about the wire rather than about a frame that failed to draw.
+  // Anything else on a video wire is not compiled and not reported here — docs/shaders.md.
   return null;
 }
 
-/** The steps of one run, compiled and with the bypassed ones kept: the renderer needs to DRAW a
- *  bypassed pass as off rather than be handed a shorter list it cannot tell from a shorter chain. */
+/** The steps of one run, compiled and with the bypassed ones KEPT — see docs/shaders.md. */
 const runDocs = (
   dir: string,
   g: GraphDoc,
@@ -133,18 +96,7 @@ const runDocs = (
     .map((s, i) => stepDoc(dir, g, owner, s, i))
     .filter((d): d is VideoPluginDoc => d !== null);
 
-/**
- * Every video run in the project, compiled.
- *
- * Two shapes and one loop, which is the answer to "where may a shader go": a run out of a video
- * LANE shades that layer before it is composited, and the run out of `RENDER` shades the frame
- * they were composited into. Neither is a special case of the other and both are ordinary chains
- * — the only thing that differs is where the result is filed. See docs/videoOutputs.md.
- *
- * A whole-chain bypass (`enabled: false` on the run) drops it entirely rather than marking every
- * step off: the run is what was switched out, and a list of disabled passes would draw as a stack
- * of controls for something that is not there.
- */
+/** Every video run in the project, compiled — two shapes and one loop, see docs/shaders.md. */
 export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
   const byLane: Record<string, VideoPluginDoc[]> = {};
   let frame: VideoPluginDoc[] = [];
@@ -152,9 +104,7 @@ export function compileVideoChains(dir: string, g: GraphDoc): VideoChainDocs {
     if (c.enabled === false) continue;
     if (!c.from) continue;
     if (c.from === RENDER_NODE) {
-      // Only the run that actually LEAVES for the device. A run out of the sum that ends
-      // somewhere else is not the frame's chain, and treating it as one would apply a pass the
-      // picture never reaches.
+      // Only the run that actually LEAVES for the device is the frame's chain.
       if (c.out.some((o) => splitPort(o.to).node === VIDEO_OUT_NODE))
         frame = runDocs(dir, g, RENDER_NODE, c);
       continue;

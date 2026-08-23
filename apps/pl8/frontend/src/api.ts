@@ -14,21 +14,10 @@ import {
   WORKSPACE_HEADER,
 } from "@studio/web-protocol";
 import type { HuntList, HuntRecord } from "@studio/web-protocol/hunt";
-// Type only, so the cycle with prefs.ts (which needs `engines` from here) never reaches the
-// bundle: the preference SHAPE belongs beside the code that merges it.
+// Type only, so the cycle with prefs.ts never reaches the bundle — see ../docs/api.md.
 import type { Pl8Prefs } from "./prefs";
 
-// The app is mounted under a path (st0.priv.frediver.se/pl8), so every backend path below
-// carries it. BASE_URL is vite's `base`; it ends in a slash, trimmed here so the literals keep
-// reading as paths. It was the EMPTY string for as long as this app served the origin root, so
-// every one of those literals was already written to concatenate — which is why moving under a
-// prefix cost this file nothing.
-//
-// The exception is `/auth/*` below, spelled BARE on purpose: it is not this backend's at all —
-// the flow belongs to st0, the service with no prefix, because the IdP has one prefixless
-// redirect_uri. This backend only verifies the cookie. `${BASE}/auth/me` would 404 into what
-// reads like a broken login. See packages/web-protocol/services.ts.
-// Exported because the engine probe needs it too: the relay answers under this same prefix.
+// This app's prefix, which every backend path below concatenates and `/auth/*` must not (../docs/api.md).
 export const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export interface AuthUser {
@@ -37,18 +26,10 @@ export interface AuthUser {
   email?: string;
 }
 
-/** The folder a song would land in already holds one. Its own type so the dialogue can
- *  offer to replace instead of showing a status code. */
+/** The folder a song would land in already holds one — its own type so the dialogue can offer to replace. */
 export class SongExists extends Error {}
 
-/**
- * The error a failed response carries, or a status code when it carries none.
- *
- * Every write route answers `{ error }` with a sentence that says WHAT was refused — a path
- * outside the library, a name that is the library's own. Throwing `mkdir 400` instead threw
- * that sentence away, which is how you end up staring at a number: the server knew, and the
- * client dropped it on the floor.
- */
+/** The sentence a failed response carries, or a status code when it carries none (../docs/api.md). */
 async function failed(
   res: Response,
   what: string,
@@ -57,8 +38,7 @@ async function failed(
   const e: Error & { status?: number } = new Error(
     detail.error ?? `${what} ${res.status}`,
   );
-  // Carried, because ONE caller has to tell "there is nothing there" from "it went wrong":
-  // a module folder with no module.yaml yet is a state, a dead backend is not.
+  // Carried, because ONE caller has to tell "there is nothing there" from "it went wrong".
   e.status = res.status;
   return e;
 }
@@ -71,22 +51,12 @@ async function json<T>(res: Response, what: string): Promise<T> {
 const get = async <T>(path: string, what: string): Promise<T> =>
   json(await fetch(`${BASE}/api/mediatek${path}`), what);
 
-/**
- * Who is signed in, held at module level for the SESSION id.
- *
- * Module state rather than a prop threaded through three components, because this SPA has
- * exactly one gate and therefore exactly one user for its whole life. It is set once, by
- * that gate, before anything below it renders.
- */
+/** Who is signed in, at module level because this SPA has exactly one gate (../docs/api.md). */
 let signedInAs = "";
 export const currentUser = (): string => signedInAs;
 
 export const auth = {
-  // A GETTER, not a constant: evaluated at import it captures whatever page happened to load
-  // the module, so every later click returned you there instead of where you were. `return_to`
-  // is the name the OIDC package reads; `redirect` was silently ignored, which only looked
-  // fine while this app owned the origin root — the fallback is st0's home page now, so a
-  // missing `return_to` sends you to the other application entirely.
+  // A GETTER and not a constant, and `return_to` is the name the OIDC package reads (../docs/api.md).
   get loginUrl(): string {
     const here = window.location.pathname + window.location.search;
     return `/auth/login?return_to=${encodeURIComponent(here)}`;
@@ -102,16 +72,14 @@ export const auth = {
     return user;
   },
 
-  /** Ends the session for the WHOLE origin — studio.sid is shared, so this signs
-   *  you out of st0 and m9 too. See apps/st0/AGENTS.md. */
+  /** Ends the session for the WHOLE origin — studio.sid is shared. See apps/st0/AGENTS.md. */
   logout: async (): Promise<void> => {
     await fetch("/auth/logout", { method: "POST" });
     window.location.reload();
   },
 };
 
-/** What a machine's player reports about itself. The path is the one ASKED FOR, relative to the
- *  médiathèque: mpv knows only absolutes, and returning one would expose the machine's tree. */
+/** What a machine's player reports about itself, with the path it was ASKED FOR (../docs/api.md). */
 export interface MachinePlayerState {
   path: string | null;
   playing: boolean;
@@ -121,39 +89,15 @@ export interface MachinePlayerState {
   idle: boolean;
 }
 
-/** What the file service's gate wants on every call: who is asking, and the machine's token.
- *  Written once — the calls added for projects were repeating it six times. */
+/** What the file service's gate wants on every call: who is asking, and the machine's token. */
 const machineHeaders = (token: string): Record<string, string> => ({
   [USER_HEADER]: currentUser(),
   [ENGINE_TOKEN_HEADER]: token,
 });
 
-/**
- * The engine MACHINE's own file service, reached cross-origin and directly — the same seam
- * st0 uses, and the only way to learn a fact about that machine rather than about the
- * library. This app's backend is hosted: it has no scan cache and never will.
- *
- * The origin has to be trusted on that machine (`~/.studio/web-origins.json`, offered by the
- * tray), exactly as st0' is; a refusal reads as a network error here, which is why the
- * caller treats an empty list as "cannot say" and not as "no plugins".
- *
- * It is also the only thing that can WRITE into a repository — create or delete a project —
- * because it alone holds a working copy. See projects/machine.ts.
- */
+/** The engine MACHINE's own file service, cross-origin and the only side that knows a disk (../docs/api.md). */
 export const engineMachine = {
-  /**
-   * Ask that machine to analyse a library file: waveform envelope, transient onsets, tempo.
-   *
-   * THIS service cannot: it has no engine, and the engine is what decodes audio. So the
-   * machine downloads the file from here, runs its engine, pushes the `.cache` sidecar back
-   * beside the audio, and seeds `song.yaml` with the tempo it found. See
-   * packages/file-service/src/routes/mediatek.ts.
-   *
-   * The one route here worth CANCELLING, hence the signal: it answers nothing until the whole
-   * decode is done, so a caller that has moved on would otherwise hold a request open for
-   * minutes. Cancelling does not stop the work on the far machine — nothing propagates that —
-   * but it does stop this tab waiting on an answer it will throw away.
-   */
+  /** Ask that machine to analyse a library file, and CANCEL when the tab moves on (../docs/api.md). */
   analyse: async (
     fileBase: string,
     token: string,
@@ -173,8 +117,7 @@ export const engineMachine = {
     return json(res, "analyse");
   },
 
-  /** Wipe that machine's waveform cache — the tray's « Clear waveform cache », the same
-   *  file-service route the supervisor calls. Returns how many entries were removed. */
+  /** Wipe that machine's waveform cache — the tray's « Clear waveform cache ». Returns how many went. */
   clearWaveforms: async (fileBase: string, token: string): Promise<number> => {
     const res = await fetch(`${fileBase}/waveforms/clear`, {
       method: "POST",
@@ -187,18 +130,7 @@ export const engineMachine = {
     return removed ?? 0;
   },
 
-  /**
-   * Remember the interface that machine should play through, for the next engine too.
-   *
-   * TWO calls make one pick: the engine's own `set-audio-device` switches the running one,
-   * this makes it survive a restart. They are separate because they are separate facts — a
-   * live engine and a file on a disk — and the engine holds no memory of its device by
-   * design (engine/moteur/docs/audioDevice.md). Sending only the first is how a machine
-   * ends up back on the Windows endpoint after every rebuild, monitoring at four times the
-   * latency, with nothing on screen saying so.
-   */
-  /** Which interface that machine is REMEMBERING — "(system default)" spelled as null when
-   *  nothing is pinned, which is the state that leaves the engine on the Windows endpoint. */
+  /** Which interface that machine is REMEMBERING, with null for "(system default)" (../docs/api.md). */
   audioDevicePref: async (
     fileBase: string,
     token: string,
@@ -238,8 +170,7 @@ export const engineMachine = {
     return audioDevice ?? null;
   },
 
-  /** The tail of that machine's merged log (engine + supervisor + file service) — what the
-   *  tray's « Show logs » opens, minus the text editor. */
+  /** The tail of that machine's merged log — what the tray's « Show logs » opens, minus the editor. */
   logs: async (
     fileBase: string,
     token: string,
@@ -255,18 +186,9 @@ export const engineMachine = {
     return lines ?? [];
   },
 
-  // The machine's channel LABELS ("arm", "overheads") were read here, for the one screen that
-  // routed a live input: the module builder's audition. Both are gone — a module is auditioned
-  // in st0 now, where the input belongs to the project's own track and the file service already
-  // reads `~/.studio/preferences.yaml` for it. Nothing here asked for that file for any other
-  // reason, so the route is simply not called from the médiathèque any more.
+  // The machine's channel LABELS and its `plugins` scan were read here, for the builder (../docs/api.md).
 
-  // `plugins` stood here: the machine's whole plugin scan, fetched so every one of them could
-  // be given a module in the library. That pass is gone with the `modules` family; nothing on
-  // this screen asks a machine what it can load any more.
-
-  /** Which of this machine's workspaces already holds that repository, or `null`. pl8 names a
-   *  repository by URI and knows nothing of that machine's folders. */
+  /** Which of this machine's workspaces already holds that repository, or `null` — pl8 names it by URI. */
   workspaceForRepo: async (
     fileBase: string,
     token: string,
@@ -283,8 +205,7 @@ export const engineMachine = {
     return workspace ?? null;
   },
 
-  /** Start the clone and return the job to poll: a real repository takes tens of seconds, longer
-   *  than a request should stay open. */
+  /** Start the clone and return the job to poll: a real repository outlasts a request (../docs/api.md). */
   startClone: async (
     fileBase: string,
     token: string,
@@ -302,8 +223,7 @@ export const engineMachine = {
       "clone",
     ),
 
-  /** …and poll it. `null` for a job the machine has forgotten: nothing can wait on state that
-   *  nobody holds any more. */
+  /** …and poll it. `null` for a job the machine has forgotten: nothing can wait on state nobody holds. */
   cloneJob: async (
     fileBase: string,
     token: string,
@@ -317,16 +237,7 @@ export const engineMachine = {
     return json(res, "clone");
   },
 
-  /**
-   * Create a project in this machine's workspace.
-   *
-   * `name` ALREADY carries its suffix (`hiver.st0`) and the service takes it as the folder name.
-   * `shape` is the ARCHETYPE — `arrangement`, `mix` or `video` — and cannot travel in the name,
-   * which is why it is a field of its own. See `PROJECT_SHAPES` in @studio/song.
-   *
-   * A file service older than those three names answers 400 on its `z.enum`, which is the right
-   * failure: "unknown archetype" beats a template guessed wrong.
-   */
+  /** Create a project: `name` carries its suffix, and `shape` is a field of its own (../docs/api.md). */
   createProject: async (
     fileBase: string,
     token: string,
@@ -349,8 +260,7 @@ export const engineMachine = {
     return project;
   },
 
-  /** Unload the project and recycle its folder. The service bins it rather than erasing it — the
-   *  commit that follows is what removes it from the repository. */
+  /** Unload the project and BIN its folder — the commit that follows is what removes it from the repository. */
   deleteProject: async (
     fileBase: string,
     token: string,
@@ -371,9 +281,7 @@ export const engineMachine = {
     );
   },
 
-  /** THIS machine's player: mpv on its own outputs, without the engine. The path is RELATIVE to
-   *  the médiathèque and never absolute, so a client can only name what this machine caches.
-   *  See packages/file-service/docs/machinePlayer.md. */
+  /** THIS machine's player: mpv on its own outputs, without the engine (packages/file-service/docs/machinePlayer.md). */
   player: {
     state: async (
       fileBase: string,
@@ -444,8 +352,7 @@ export const engineMachine = {
     },
   },
 
-  /** This machine's command line, for the one verb needed here: `commit`, which stages, commits
-   *  and pushes with the person's deploy key. */
+  /** This machine's command line, for the one verb needed here: `commit`, which pushes with the deploy key. */
   command: async (
     fileBase: string,
     token: string,
@@ -468,48 +375,20 @@ export const engineMachine = {
   },
 };
 
-/**
- * The engines this service knows about, and what it remembers about you.
- *
- * Its OWN registry, not st0's. Each hosted service holds one — see
- * packages/engine-registry/docs/shared.md — so an engine appears here only once it has been
- * pointed at the médiathèque too.
- *
- * The five routes, the probe, the policy and the lease all come from
- * @studio/engine-browser/access, bound to this service's prefix — `/pl8` here, which `BASE`
- * derives from vite's `base` rather than spelling. See that package's docs/access.md.
- *
- * Typed on `Pl8Prefs` because this service remembers more than an engine id — the preference
- * document is the host's, not the registry's. Nothing here should call `savePrefs` directly:
- * the route replaces wholesale, so `prefs.ts` owns the merge.
- */
+/** This service's OWN registry, bound to its prefix and typed on the host's prefs (../docs/api.md). */
 export const engines = engineAccess<PublicEngine, Pl8Prefs>(BASE, json);
 
-/**
- * `/api/projects` and `/api/shares` were both clients here — the repositories, the libraries,
- * the deploy key and the frozen snapshots. The ROUTES are untouched and still this service's:
- * it owns the volume they are stored on, and it is the one side that outlives every engine.
- * What left is the drawing, to st0's home page, which now calls them across the origin. See
- * apps/st0/frontend/docs/projects.md.
- */
+// `/api/projects` and `/api/shares` were clients here; the routes stayed, the drawing went (../docs/api.md).
 
-/** `/api/hunt`, its own prefix like the projects one, and for the same reason: it is not the
- *  médiathèque's volume that answers but a daemon on another machine. */
+/** `/api/hunt`, its own prefix: what answers is a daemon on another machine, not this volume. */
 const hget = async <T>(path: string, what: string): Promise<T> =>
   json(await fetch(`${BASE}/api/hunt${path}`), what);
 
-/**
- * Finding a song on the Soulseek network — the "Trouver des morceaux" screen.
- *
- * Starting one ANSWERS AT ONCE with the row: the work runs for minutes on the backend, and a
- * request held open for it would die on the first proxy timeout and take the search's only
- * handle with it. The screen polls this list instead, which is also what survives a reload.
- */
+/** Finding a song on Soulseek. Starting one ANSWERS AT ONCE with the row — see ../docs/hunt.md. */
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  /** A hunt files the song into the médiathèque and stops there. It used to target a playlist too;
-   *  those live in the workspace repository now, out of this service's reach. See hunt/hunt.ts. */
+  /** A hunt files the song into the médiathèque and stops there; a playlist is out of this service's reach. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt`, {
@@ -520,8 +399,7 @@ export const hunt = {
       "hunt",
     ),
 
-  /** The fallback on a failed row: retry THAT hunt through YouTube. The same row and not a new
-   *  one — it already carries the tags, so the song files in the same place. */
+  /** The fallback on a failed row: retry THAT hunt through YouTube, so the tags file it in the same place. */
   youtube: async (id: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}/youtube`, {
@@ -554,24 +432,13 @@ export const library = {
   list: (family: string) =>
     get<FamilyListing>(`/list?family=${encodeURIComponent(family)}`, "list"),
 
-  // `baseModules` and `addEngineFaces` stood here. Both went with the `modules` family: the
-  // first listed what a sibling's `extends:` could name, the second turned a machine's whole
-  // plugin scan into modules. A module is authored in st0 now, against a project where the
-  // plugin is actually loaded, and committed to the account's library repository.
+  // `baseModules` and `addEngineFaces` stood here; both went with the `modules` family (../docs/api.md).
 
   /** A file's bytes, for an <audio>/<video> src. Served with Range, so seeking works. */
   fileUrl: (path: string) =>
     `${BASE}/api/mediatek/file?path=${encodeURIComponent(path)}`,
 
-  /**
-   * Does the library hold this file? One BYTE, not the file — the same `Range: bytes=0-0`
-   * trick `cachedOnMachine` uses on the engine's side, for the same reason: asking costs a
-   * request, and downloading a master to find out it is there costs the master.
-   *
-   * For what the catalogue cannot answer: a song's listing carries no file list (a song is a
-   * folder the scan stops at), so a render written beside the master — `<variante>.mp3` — is
-   * invisible to it. Any refusal reads as absent; the caller's next move is the same either way.
-   */
+  /** Does the library hold this file? One BYTE, not the file, and a refusal reads as absent (../docs/api.md). */
   exists: async (path: string): Promise<boolean> => {
     try {
       const res = await fetch(library.fileUrl(path), {
@@ -594,30 +461,16 @@ export const library = {
     return { path, content: await res.text() };
   },
 
-  // The three sidecars — the panel, the shelf and the DSP source — were derived HERE, then moved
-  // to a shared store, which nothing ever called: see the tombstone at the bottom of this file,
-  // which this note used to point at while claiming the opposite of what it said.
+  // The three module sidecars and `hints` were derived here, for the builder (../docs/api.md).
 
-  // `hints` stood here: the completion vocabulary the module builder asked this backend for,
-  // of which one field was real — the library's own modules, as refs a sibling could extend.
-  // The builder left for st0, which fills the same shape from the open PROJECT.
-
-  /** Drop OS files into `dir`. The File goes as the body: writeFile takes a string, which
-   *  would corrupt every sample the moment one is dropped. */
+  /** Drop OS files into `dir`. The File goes as the BODY: writeFile takes a string and would corrupt a sample. */
   upload: async (dir: string, files: File[]): Promise<void> =>
     library.uploadTree(
       dir,
       files.map((file) => ({ path: file.name, file })),
     ),
 
-  /**
-   * Drop OS files into `dir`, FOLDERS INCLUDED — each carries the path it sat at.
-   *
-   * A module is a folder of three files now (`module.yaml`, `ui.yaml`, `presets.yaml`), so
-   * "add a module" is a folder drop and a flat file list could not express it. The server
-   * creates the intermediate directories (`putFile` in `@studio/mediatek/write`), so one PUT
-   * per file is all this has to do; a path with a `..` in it is refused there, not here.
-   */
+  /** Drop OS files into `dir`, FOLDERS INCLUDED — each carries the path it sat at (../docs/api.md). */
   uploadTree: async (
     dir: string,
     files: { path: string; file: File }[],
@@ -636,21 +489,10 @@ export const library = {
     }
   },
 
-  /**
-   * The raw capture zone, day by day.
-   *
-   * Its own call and not a family listing: a capture enters no catalogue, so
-   * `/list?family=songs` will never mention one. See packages/mediatek/docs/recordings.md.
-   */
+  /** The raw capture zone, day by day — its own call, since a capture enters no catalogue (packages/mediatek/docs/recordings.md). */
   recordings: () => get<{ days: RecordingDay[] }>("/recordings", "recordings"),
 
-  /**
-   * Push captures in, one request each.
-   *
-   * Every file carries its OWN moment — its mtime, which for a capture is when it was
-   * recorded. A session dragged in the morning after would otherwise land under today,
-   * whole, which is the one day it certainly does not belong to.
-   */
+  /** Push captures in, one request each, so every file carries its OWN mtime (../docs/api.md). */
   addRecordings: async (files: File[]): Promise<void> => {
     for (const file of files) {
       const q = new URLSearchParams({
@@ -666,11 +508,7 @@ export const library = {
     }
   },
 
-  /**
-   * File one audio file as a song. The THREE TAGS go up, never a path: the library
-   * derives `songs/<artiste>/<album>/<titre>/original.<ext>` itself. See
-   * packages/mediatek/docs/songs.md.
-   */
+  /** File one audio file as a song: the THREE TAGS go up and never a path (packages/mediatek/docs/songs.md). */
   addSong: async (
     file: File,
     tags: { artist: string; album: string; title: string },
@@ -688,23 +526,14 @@ export const library = {
         error?: string;
         exists?: boolean;
       };
-      // Told apart from every other refusal, because it is the one the UI can offer to
-      // resolve rather than only report.
+      // Told apart from every other refusal: it is the one the UI can offer to resolve.
       if (res.status === 409) throw new SongExists(detail.error ?? "");
       throw new Error(detail.error ?? `song ${res.status}`);
     }
     return json(res, "song");
   },
 
-  /**
-   * One audio file as a VARIANT of a song that is already there — the bytes beside the
-   * master, and the line in `song.yaml` that makes them one.
-   *
-   * Its own route rather than an `upload` into the folder, which is what the chain renderer
-   * does: that one writes bytes the sidecar ALREADY names, and this one is what puts the name
-   * there. Dropping a file in without it declares nothing, and the scan reads a song's
-   * versions from the sidecar and from nowhere else.
-   */
+  /** One audio file as a VARIANT: the bytes, and the line in `song.yaml` that names them (../docs/api.md). */
   addVariant: async (
     folder: string,
     file: File,
@@ -732,8 +561,7 @@ export const library = {
     if (!res.ok) throw await failed(res, "delete");
   },
 
-  /** Move/rename — one server-side syscall, so it works on a folder and can never leave a
-   *  duplicate. Replaced a read+write+delete dance that could do neither. */
+  /** Move/rename — one server-side syscall, so it works on a folder and can never leave a duplicate. */
   move: async (from: string, to: string): Promise<void> => {
     const res = await fetch(`${BASE}/api/mediatek/move`, {
       method: "POST",
@@ -752,8 +580,7 @@ export const library = {
     if (!res.ok) throw await failed(res, "mkdir");
   },
 
-  /** A whole subtree. Its own route, so removing a folder is never something a caller does
-   *  by accident while meaning to remove one entry. */
+  /** A whole subtree, on its own route so no caller removes a folder while meaning to remove one entry. */
   removeTree: async (path: string): Promise<void> => {
     const res = await fetch(
       `${BASE}/api/mediatek/folder?path=${encodeURIComponent(path)}`,
@@ -776,7 +603,4 @@ export const library = {
   },
 };
 
-// `moduleStore` stood here: this backend's three calls handed to `@studio/ui-module-builder`'s
-// shared store, so the médiathèque's Modules section and st0's Libraries tab drew the same
-// builder over the same volume. The section is gone and so is the volume's `modules/`; st0's
-// tab reads the account's library repository through its own file service instead.
+// `moduleStore` stood here, handing this backend's three calls to the shared builder (../docs/api.md).

@@ -12,16 +12,11 @@ import { registerRoutes } from "../routes.ts";
 import { SessionProgress } from "../session/progress.ts";
 import { WsHub } from "../ws.ts";
 
-// End-to-end game flow over real WebSockets: two buzzers register, the admin
-// closes registration and advances the session, both players race a buzz into
-// the 150ms window, the earliest wins, the remote judges, a score lands.
+// A whole game over real WebSockets: two buzzers race the 150 ms window, the earliest wins, judged.
 
 const SECRET = "game-test-secret-0123456789abcdef";
 
-// Defaults for a bare environment; a local env.yaml overrides both (its values
-// win over process.env). Set before the config is read, then mint from the
-// RESOLVED values — so this holds either way instead of silently disagreeing
-// with the server about the secret or which group is admin.
+// Set first, then minted from the RESOLVED config, so a local env.yaml cannot disagree with us.
 process.env.SESSION_SECRET = SECRET;
 process.env.AUTH_ADMIN_GROUPS = "blindtest-admins";
 const authConfig = loadAppConfig().auth;

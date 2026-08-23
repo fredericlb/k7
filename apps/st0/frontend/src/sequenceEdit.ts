@@ -10,12 +10,7 @@ export type SeqView = "roll" | "tracker";
 
 const HEAD = /^sequence\s+edit\s+(roll|tracker)\b\s*(.*)$/i;
 
-/**
- * Read `sequence edit roll <name>`; null when the line is not one of the two.
- *
- * The name may be empty — the command bar sends a bare `sequence edit roll ` while it is still
- * collecting the argument, and the caller answers with a usage line rather than a match failure.
- */
+/** Read `sequence edit roll <name>`; null when the line is not one of the two, and the name may be empty while the bar is filling it. */
 export function parseSeqEdit(
   line: string,
 ): { view: SeqView; name: string } | null {
@@ -24,16 +19,7 @@ export function parseSeqEdit(
   return { view: m[1].toLowerCase() as SeqView, name: m[2].trim() };
 }
 
-/**
- * The sequence file a typed name means.
- *
- * SEQUENCES FIRST, then the whole project. `sequence edit roll intro` names a sequence — so an
- * `intro` that is also a clip or a track must not win, and it would on a bare fuzzy match over
- * every path. Falling back to the rest is what still lets a full path be pasted in.
- *
- * Null means nothing matched, which the caller reports: the alternative is opening a grid on a
- * file with no `notes:` in it, which draws an empty pane and explains nothing.
- */
+/** The sequence file a typed name means — SEQUENCES FIRST, then the whole project; null is reported rather than opening an empty grid. */
 export function resolveSequence(arg: string, files: string[]): string | null {
   if (!arg) return null;
   if (files.includes(arg)) return arg;

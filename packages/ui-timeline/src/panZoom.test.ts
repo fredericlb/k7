@@ -21,8 +21,7 @@ describe("one wheel event on an arrangement", () => {
   });
 
   it("tracks the FINGERS on a pinch instead of stepping", () => {
-    // The delta a trackpad reports for one frame of a pinch is small and continuous. Given the
-    // notch's 15% step, a second of that was several hundred percent.
+    // A pinch frame's delta is small and continuous: at the notch's 15% step, a second was hundreds.
     expect(wheelFactor(-2, true)).toBeLessThan(wheelFactor(-2, false));
     expect(wheelFactor(-2, true)).toBeCloseTo(1.02, 2);
   });
@@ -48,15 +47,7 @@ describe("one wheel event on an arrangement", () => {
   });
 });
 
-/**
- * Which DEVICE turned the wheel, which is what decides whether an arrangement zooms or scrolls.
- *
- * A mouse wheel zooms these panes — a detent is a discrete decision, and zooming is the natural
- * thing for it to do over a timeline. A trackpad slide still pans, because it is the only way a
- * trackpad can say "scroll" and zooming there made every attempt to pan zoom instead. Same three
- * signals the graph reads (`@studio/ui-chains-react`'s `camera.ts`), pinned on both sides so the
- * two copies cannot drift.
- */
+/** Which DEVICE turned the wheel, which decides whether the pane zooms or scrolls — docs/panZoom.md. */
 describe("telling a wheel from a surface", () => {
   const ev = (o: Partial<Parameters<typeof isMouseWheel>[0]>) => ({
     deltaX: 0,
@@ -71,8 +62,7 @@ describe("telling a wheel from a surface", () => {
   });
 
   it("separates a MOUSE from a TRACKPAD by the legacy 120s", () => {
-    // Chrome and Safari still carry wheelDeltaY: a detent is a multiple of 120, where a trackpad
-    // reports three times its pixel delta and lands there only by accident.
+    // A detent is a multiple of 120; a trackpad reports 3× its pixel delta and lands there by accident.
     expect(isMouseWheel(ev({ deltaY: 100, wheelDeltaY: -120 }))).toBe(true);
     expect(isMouseWheel(ev({ deltaY: 4, wheelDeltaY: -12 }))).toBe(false);
     expect(isMouseWheel(ev({ deltaY: 1.5, wheelDeltaY: -4.5 }))).toBe(false);
@@ -87,16 +77,12 @@ describe("telling a wheel from a surface", () => {
   });
 
   it("errs towards the SURFACE, which is the only safe direction", () => {
-    // A trackpad that zooms when you meant to pan is a broken trackpad; a mouse that pans is
-    // merely a mouse that does not zoom yet. So an unrecognised device keeps the old behaviour.
+    // A trackpad that zooms is broken; a mouse that pans merely does not zoom yet.
     expect(isMouseWheel(ev({}))).toBe(false);
   });
 });
 
-/**
- * …and the whole rule the pane applies, which the hook cannot be asked for: it is an effect on a
- * DOM node and nothing in this repo mounts one, so written inline it could only be checked by hand.
- */
+/** …and the whole rule, which the hook cannot be asked for, being an effect on a DOM node. */
 describe("what one wheel event over an arrangement means", () => {
   const ev = (o: Partial<Parameters<typeof wheelZooms>[0]>) => ({
     ctrlKey: false,
@@ -124,8 +110,7 @@ describe("what one wheel event over an arrangement means", () => {
   });
 
   it("gives SHIFT back to the browser, so a mouse keeps a scroll gesture", () => {
-    // Every browser reads Shift+wheel as "sideways", and after this change it is the only scroll
-    // a mouse has left on this pane.
+    // Every browser reads Shift+wheel as "sideways", and it is the only scroll a mouse has left here.
     expect(wheelZooms(ev({ ...NOTCH, shiftKey: true }))).toBe(false);
   });
 
@@ -136,9 +121,7 @@ describe("what one wheel event over an arrangement means", () => {
   });
 });
 
-// The ceiling used to be a flat 32, which is a number and not a reason — and it is the one people
-// MET: the wheel stopped, with nothing on screen to say why. It is derived now, from the only
-// limit that is really there.
+// The ceiling was a flat 32, a number and not a reason; it is DERIVED now — see docs/panZoom.md.
 describe("how far a pane may zoom", () => {
   it("is what the browser can still lay out, not a constant", () => {
     // A laptop pane: thousands of times, which nobody reaches by turning a wheel.

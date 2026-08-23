@@ -61,45 +61,24 @@ import { sectionItems, sectionLabel } from "./SectionNav";
 import { SongEditor } from "./SongEditor";
 import { useLibraryRoute } from "./useLibraryRoute";
 
-/** The five that ARE families — the only ids `/list` and `/manifest` accept. Subtracted rather
- *  than listed, so a new family is one entry in `SECTION_IDS`; the cost is that every section
- *  which is NOT one has to be named here, or it silently becomes a family the poll would ask
- *  the server for. */
+/** The five that ARE families, by subtraction — a section missing here becomes one silently (../docs/library.md). */
 type FamilyId = Exclude<SectionId, typeof RECORDINGS_DIR | "engine" | "find">;
 
-/** Poll interval for the revision map. Cheap on the server (a walk per family, only when
- *  something moved) and slow enough that a library nobody is touching costs nothing. */
+/** Poll interval for the revision map — cheap on the server, slow enough to cost an idle library nothing. */
 const POLL_MS = 3000;
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-// The three files a module is, the `PANE_OF` map from the address to the builder's pane, and
-// `holdsModuleFile` / `holdsChainsFile` — the two rows that were a folder on disk and a leaf in
-// the tree — all stood here. They went with the families.
+// The three files a module is, `PANE_OF` and the two `holds…File` rows all stood here; they went with the families.
 
-/** Is this entry a SONG? The family alone answers, unlike the two above: a song folder is
- *  what the scan stopped at, so every entry in the family is one — sidecar or not. A folder
- *  with no `song.yaml` is `catalogued: false`, which is a song nobody filed, not a category. */
+/** Is this entry a SONG? The family alone answers — the scan stopped at the folder (../docs/library.md). */
 const isSong = (e: MediatekEntry): boolean => e.family === "songs";
 
-/**
- * What `revealed` starts on, so a section opens SHOWING its first level instead of collapsed
- * onto the one root row it synthesises below.
- *
- * `reveal` opens a target's ancestors, and the synthesised root's empty path is the ancestor of
- * every path there is (see commons's file-tree.tsx) — so any target at all unfolds the top
- * level. This one names no row, because NUL is the one byte no path can hold, so the top level
- * is all it unfolds: what is below stays folded until something is actually revealed.
- */
+/** What `revealed` starts on: a NUL byte names no row, so only the top level unfolds (../docs/library.md). */
 const TOP_LEVEL = "\u0000";
 
-/**
-};
-
-/** …and for a SONG, which is a folder on disk and a leaf in the tree like a chain, and the
- *  ONLY row of that family a menu may act on: everything above it is an artist or an album,
- *  a segment the scan deduced from tags rather than a thing anyone made. */
+/** …and for a SONG, the one row of that family a menu may act on (../docs/library.md). */
 const isSongFolder = (
   entries: MediatekEntry[] | null,
   path: string,
@@ -108,13 +87,7 @@ const isSongFolder = (
   return !!e && isSong(e);
 };
 
-/**
- * The VARIANT a tree row stands for, and the song it belongs to — or null for every other row.
- *
- * A variant row's path is its song's plus the name the sidecar files it under (see treeOf), so
- * this cuts at the last slash and asks the listing whether what is left is a song. Nothing else
- * in the tree has that shape: a song is a leaf-shaped folder, so it has no other children.
- */
+/** The VARIANT a tree row stands for, and the song it belongs to — or null for every other row (../docs/library.md). */
 const variantAt = (
   entries: MediatekEntry[] | null,
   path: string,
@@ -127,28 +100,13 @@ const variantAt = (
   return variant ? { song, variant } : null;
 };
 
-/**
- * The family's entries as a folder tree, from their paths alone — the service hands out a flat
- * list, and the shape is already in the strings. Directories are synthesised on the way down, so
- * a folder holding only folders still appears.
- *
- * Except what no entry can stand for — an empty folder, a loose file: those arrive as their own
- * list and are walked in first (see scanUnlisted). Without them, creating a folder answered 200
- * and showed nothing, which is the one thing a "create" must never do.
- *
- * A MODULE's children are its ASSETS and nothing else — what it loads, not what it is. Its
- * definition (module.yaml, the panel, the shelf, its nodes) stays behind one row that opens the
- * builder: rows were once drawn per file, and each one opened the same screen a different way,
- * while a row for a file that is not there lied about the disk. What a module carries is the
- * opposite case — bytes nothing can create for you, that have to be visible to be dropped on.
- */
+/** The family's entries as a folder tree, from their paths alone (../docs/library.md). */
 function treeOf(
   entries: MediatekEntry[] | null,
   unlisted: string[],
 ): TreeNode[] {
   const roots: TreeNode[] = [];
-  // What no entry accounts for goes in FIRST — an empty folder, a loose file. `folderAt` walks
-  // a path into place either way, so an entry arriving later finds its folder already there.
+  // What no entry accounts for goes in FIRST, so an entry arriving later finds its folder already there.
   for (const rel of unlisted) {
     const cut = rel.lastIndexOf("/");
     const isFile = /\.[^./]+$/.test(rel);
@@ -167,33 +125,13 @@ function treeOf(
       const leaf = i === parts.length - 1;
       let node = level.find((n) => n.name === part);
       if (!node) {
-        // A CHAIN is a LEAF, folder though it is on disk: its file is its definition, not
-        // contents to browse. A MODULE is the one row that is both — you open it, and it holds
-        // the assets it loads — so it stays a folder and `opensOnName` gives the tree the two
-        // targets that needs (see the FileTree below).
-        //
-        // Everything else keeps the shape it had. In `modules/` that matters: an entry with no
-        // module file is a CATEGORY — or a folder you just made — and folding it would leave
-        // you unable to open it, let alone put a module in it.
-        // A SONG is the third of that kind, and folds for neither reason: it holds its
-        // variants, and a file dropped on it becomes one — which needs a row that is a drop
-        // target, and the shared tree only makes folders into those.
-        // A SONG folds for neither reason: it holds its variants, and a file dropped on it
-        // becomes one — which needs a row that is a drop target, and the shared tree only
-        // makes folders into those.
+        // A SONG is the one leaf that stays a folder: it holds its variants and a drop on it makes one (../docs/library.md).
         const folds = leaf && e.family !== "songs";
         node = folds
           ? { name: part, path: sofar }
           : { name: part, path: sofar, dir: true, children: [] };
         level.push(node);
-        // A module's children: what its `assets/` folder holds, nested as it is on disk — a NAM
-        // pack is a folder per amp. Named at their real path, so a drop, a rename and a delete
-        // all address the file that is actually there. See assetTree.ts.
-        // A song's children: the versions its sidecar declares. Named by that sidecar and NOT
-        // by a file, because half of them are not files — a chain variant names a template in
-        // another family — so the name is the one thing every variant has and the only one
-        // that is unique within a song. The path is therefore an identity, the way the
-        // synthesised root's is, and nothing addresses it as a file. See variantAt.
+        // A song's children are the versions its SIDECAR declares, named by it and not by a file (../docs/library.md).
         if (leaf && isSong(e))
           node.children = (e.variants ?? []).map((v) => ({
             name: v.name,
@@ -206,13 +144,7 @@ function treeOf(
   return roots;
 }
 
-/**
- * The capture zone as tree rows: one folder per day, one row per capture.
- *
- * Its own function and not `treeOf`, which reads `MediatekEntry.path` — there are no
- * entries here to read. Paths are zone-relative, mirroring how a family's rows drop their
- * family segment, so the root row the tree synthesises names the zone exactly once.
- */
+/** The capture zone as tree rows: one folder per day, one row per capture (../docs/library.md). */
 function dayNodes(days: RecordingDay[]): TreeNode[] {
   return days.map((d) => ({
     name: d.day,
@@ -225,8 +157,7 @@ function dayNodes(days: RecordingDay[]): TreeNode[] {
   }));
 }
 
-/** A tree path (family-relative) back to the entry it came from. Keyed on the FULL path,
- *  not a suffix: two families can hold the same name, and so can two folders. */
+/** A tree path (family-relative) back to its entry, keyed on the FULL path — two families can hold the same name. */
 function entryAt(
   entries: MediatekEntry[] | null,
   path: string,
@@ -247,8 +178,7 @@ function bytes(n: number | undefined): string {
 }
 
 export function Library() {
-  // The screen is mirrored in the URL both ways, and the URL is the one that holds it: the
-  // section, and the file the builder has open. See routes.ts.
+  // The screen is mirrored in the URL both ways, and the URL is the one that holds it — see routes.ts.
   const [section, setSection] = useState<SectionId>(DEFAULT_SECTION);
   const [file, setFile] = useState<string | null>(null);
   useLibraryRoute(
@@ -258,56 +188,36 @@ export function Library() {
       setFile(next.file);
     }, []),
   );
-  // The capture zone is a section without a family behind it: no `/list`, no entries, no
-  // module pane. Everything below reads this rather than testing the string twice.
+  // The capture zone is a section with no family behind it: no `/list`, no entries, no module pane.
   const isZone = section === RECORDINGS_DIR;
-  // The cog's engine-status page — a section with no tab, no tree and no library poll:
-  // everything it shows comes from the engine's own socket. See engine/EnginePage.tsx.
+  // The cog's engine-status page: no tab, no tree, no library poll — see engine/EnginePage.tsx.
   const isEngine = section === "engine";
-  // "Trouver des morceaux" — same shape as the engine page: a tabless section reached by a
-  // button, drawing edge to edge. Nothing it shows is on the volume. See ../../docs/hunt.md.
+  // « Trouver des morceaux » — a tabless section reached by a button, showing nothing on the volume (../docs/hunt.md).
   const isFind = section === "find";
-  /** Is there a tree beside it? Derived here rather than in the branch that renders it, because
-   *  the HEADER needs it: the drawer button is up there. */
+  /** Is there a tree beside it? Derived here because the HEADER needs it: the drawer button is up there. */
   const hasTree = !isEngine && !isFind;
   // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
-  // Whether the TREE may write. Two sections say no, for two different reasons: `songs/`
-  // has a shape deduced from tags — a folder made by hand there is not a badly filed
-  // song, it is an invisible one — and a capture is named by the clock, so a renamed one
-  // would be a capture at an hour it was not made. Both have a header button instead; see
-  // packages/mediatek/docs/songs.md and docs/recordings.md.
+  // Two sections refuse the tree's writes, and each has a header button instead (../docs/library.md).
   const editable = section !== "songs" && !isZone;
   const [present, setPresent] = useState<boolean | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [entries, setEntries] = useState<MediatekEntry[] | null>(null);
-  // What no entry accounts for — an empty folder, a loose file. It cannot be inferred from
-  // the entry paths, which is the whole point, so the service lists it and the tree draws it.
+  // What no entry accounts for — an empty folder, a loose file — which the service lists separately.
   const [unlisted, setUnlisted] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  // What a bulk action just DID. An outcome and not a fault, so it must not be said in the
-  // destructive card next door — "les 252 greffons ont déjà un module ici" is the ordinary
-  // second run of an idempotent pass, and reading it in red would say the opposite.
+  // What a bulk action just DID: an outcome and not a fault, so never said in the destructive card next door.
   const [notice, setNotice] = useState<string | null>(null);
-  // The capture zone's own listing. Held APART from `entries` because it is apart: nothing
-  // here is a catalogue entry, and it arrives from its own route.
+  // The capture zone's own listing, held apart from `entries` because nothing here is a catalogue entry.
   const [recordings, setRecordings] = useState<RecordingDay[]>([]);
-  // Derived, not stored: the tree IS the entry list in another shape, so a second copy
-  // could only ever disagree with it.
-  //
-  // The zone's own row is SYNTHESISED here, as a real node. `rootLabel` looks like it
-  // would do this and does not — the shared component uses it only to name the target of
-  // the background context menu, never to draw a row (see file-tree.tsx). Wrapping the
-  // nodes is the only way to get a visible root, and it also gives the zone somewhere to
-  // drop onto when the family is still empty.
+  // Derived, never stored, and it synthesises the zone's own root row (../docs/library.md).
   const tree = useMemo<TreeNode[]>(
     () => [
       {
         name: section.toUpperCase(),
         path: "",
         dir: true,
-        // Alphabetical, all the way down and whichever builder made the rows: a listing arrives
-        // in the order the scan walked it, which is an order nobody can look something up in.
+        // Alphabetical all the way down: a listing arrives in scan order, which nobody can look something up in.
         children: sortNodes(
           isZone ? dayNodes(recordings) : treeOf(entries, unlisted),
         ),
@@ -315,26 +225,15 @@ export function Library() {
     ],
     [entries, isZone, recordings, section, unlisted],
   );
-  // …and the one being EDITED, which takes over the middle of the screen — the tree stays,
-  // so the next module is one click away instead of a trip back through the catalogue. Only
-  // the médiathèque is editable, so this is the one place in the repo a module can be written
-  // from.
-  //
-  // DERIVED from the route, not held beside it. The address names a file; the entry it belongs
-  // to comes from a listing that arrives later, so a deep link would otherwise have to be
-  // replayed once the entries land. Here it simply resolves the moment they do, and `null`
-  // covers both "nothing open" and "not loaded yet" — the catalogue shows through until then.
+  // DERIVED from the route rather than held beside it, so a deep link needs no replay — see ../docs/routing.md.
   const editingSong = useMemo(() => {
     const dir = folderOf(file);
     const entry = dir ? entryAt(entries, dir) : null;
     return entry && isSong(entry) ? entry : null;
   }, [entries, file]);
-  /** What is open. What the tree marks active and opens down to, and what the middle of the
-   *  screen is showing — three questions with one answer. A playlist was the other answer here
-   *  until it moved to the workspace and to st0 (see routes.ts). */
+  /** What is open: what the tree marks active, opens down to, and what the middle of the screen shows. */
   const opened = editingSong;
-  /** Where a drop lands, family-relative. It used to re-root a drop onto a MODULE into that
-   *  module's `assets/`; nothing on this volume is a module any more. */
+  /** Where a drop lands, family-relative. It used to re-root a drop onto a MODULE into that module's `assets/`. */
   const assetsTarget = useCallback(
     (dir: string): string => (dir ? `${section}/${dir}` : section),
     [section],
@@ -345,46 +244,26 @@ export function Library() {
     // The drawer closes on what was just opened: it covers the screen it was asked to reveal.
     setTreeOpen(false);
   }, []);
-  /**
-   * What the tree is opened down to. STICKY, and that is the point: `reveal` re-seeds the whole
-   * expansion whenever its value CHANGES, so letting it fall back to null on closing the editor
-   * would collapse the tree the person had just been browsing. It only ever moves to a new
-   * target.
-   *
-   * It also has to survive the listing arriving late. A deep link names a file before `entries`
-   * has come back, so `editing` is null on the first render and resolves a poll later — the
-   * effect is what carries the reveal across that gap.
-   *
-   * It starts on TOP_LEVEL rather than on nothing, which is what unfolds a freshly opened
-   * section down to its first level and no further.
-   */
+  /** What the tree is opened down to. STICKY, and it starts on TOP_LEVEL — see ../docs/library.md. */
   const [revealed, setRevealed] = useState<string | null>(TOP_LEVEL);
   const target = opened ? relative(opened.path) : null;
   useEffect(() => {
     if (target) setRevealed(target);
   }, [target]);
-  // No socket of its own — it only lists and remembers. PlaybackProvider holds the tab's one
-  // connection, and two hooks opening one would be two clients on one session.
+  // No socket of its own: PlaybackProvider holds the tab's one connection, and two hooks would be two clients.
   const choice = useEngineChoice();
-  // Where sound comes out. Held here, beside the engine pick, because both belong to the
-  // account and both are drawn in this header — and because the editors below need it: a
-  // destination that could only be read where it is drawn would not reach the player.
+  // Where sound comes out. Held here beside the engine pick because the editors below need it too.
   const playback = usePlaybackTarget();
-  // Held HERE because this component RENDERS the provider, so it is above the context and carries
-  // the tree whose right-click fills the queue. See playback/usePlayQueue.ts.
+  // Held HERE because this component RENDERS the provider — see playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
-  // The machine's plugin scan was read here, so every scanned plugin could be given a
-  // module in the library. That pass went with the `modules` family.
+  // The machine's plugin scan was read here, to give every scanned plugin a module; that pass went with `modules`.
 
   // The revision each family's listing was fetched at — the refetch condition.
   const seen = useRef<Record<string, string>>({});
 
-  // The folder PICKER, beside the drag: a drag-and-drop that fails does so silently, which is a
-  // bad only-way-in. `webkitdirectory` is the input's property, not the click's, hence a
-  // dedicated hidden input; `webkitRelativePath` is what it fills.
+  // The folder PICKER beside the drag: `webkitdirectory` is the input's property, not the click's (../docs/library.md).
   const pickRef = useRef<HTMLInputElement>(null);
-  // The RESOLVED target, not the row that was clicked: a module's row means its `assets/`, and
-  // mapping it here keeps the picker and the drop landing in the same place.
+  // The RESOLVED target, not the row that was clicked, so the picker and the drop land in the same place.
   const pickInto = useRef<string>("");
   const pickFolder = (dir: string) => {
     pickInto.current = assetsTarget(dir);
@@ -392,29 +271,20 @@ export function Library() {
     pickRef.current?.click();
   };
 
-  // After a write of our own. Forgetting the revision is what forces the next poll to
-  // reload: waiting for the server's token to move would leave the tree stale for a beat,
-  // and the person who just dropped a file is looking straight at it.
+  // After a write of our own: forgetting the revision is what forces the next poll to reload (../docs/library.md).
   const refresh = useCallback(() => {
     seen.current[section] = "";
     setError(null);
   }, [section]);
 
-  // A module's `ui.yaml` is DRAWN, never generated. There was a pass here that built one from
-  // the plugin's parameter list; it went, because a generated panel can only ever be knobs and
-  // dropdowns — `fader`, `meter`, `filepicker`, a rowSpan, an arrangement that means something —
-  // are all things a person puts there and a parameter list cannot imply. Run over a library it
-  // turned a mixer's channel strip into five knobs in a row. The builder's grid is the way in.
+  // A module's `ui.yaml` is DRAWN, never generated; the pass that built one from a plugin went (../docs/library.md).
 
-  /** Reload SONGS whatever section is open: `refresh` invalidates the current one, which is right
-   *  everywhere but the hunt page, whose finds land in `songs`. Stable, since FindSongs polls on it. */
+  /** Reload SONGS whatever section is open, since the hunt page's finds land there. Stable — FindSongs polls on it. */
   const refreshSongs = useCallback(() => {
     seen.current.songs = "";
   }, []);
 
-  // The variant PICKER, beside the drop — the same pairing the folder picker has above, and
-  // for the same reason: a drag that lands on the wrong row fails silently, so the menu says
-  // out loud which song it is adding to.
+  // The variant PICKER beside the drop, so the menu says out loud which song it is adding to.
   const variantRef = useRef<HTMLInputElement>(null);
   const variantInto = useRef<string>("");
   const pickVariant = useCallback((song: string) => {
@@ -423,14 +293,7 @@ export function Library() {
     variantRef.current?.click();
   }, []);
 
-  /**
-   * Audio files filed as VERSIONS of a song — dropped on its row, or picked from its menu.
-   *
-   * One request each, because each one writes a line in the sidecar and the second must read
-   * the first's: sending them at once would have two writers deciding independently that
-   * `instrumental` was free. The refusals are collected rather than thrown, so a folder
-   * holding one PDF still files its four takes.
-   */
+  /** Audio filed as VERSIONS of a song — one request each, refusals collected (../docs/library.md). */
   const addVariants = useCallback(
     async (songPath: string, files: File[]) => {
       const refused: string[] = [];
@@ -451,9 +314,7 @@ export function Library() {
       // Before the errors below: it clears the message, and what it clears must be the OLD one.
       refresh();
       if (refused.length) setError(refused.join(" · "));
-      // The waveform, the onsets and the tempo, on the machine that has an engine — a file
-      // variant is a file in the library and nothing about it is special (docs/variants.md).
-      // Never awaited, and best effort: the version is filed either way.
+      // The waveform, the onsets and the tempo, never awaited and best effort (packages/mediatek/docs/variants.md).
       if (choice.fileBase && choice.token)
         for (const path of added)
           void engineMachine
@@ -463,21 +324,7 @@ export function Library() {
     [choice.fileBase, choice.token, refresh],
   );
 
-  /**
-   * The right-click menu the SONGS family gets: add a version, or remove the morceau.
-   *
-   * `editable` is false there and stays false — creating, renaming and moving in `songs/` are
-   * what the tags decide, and a folder made by hand at the wrong level is an invisible song
-   * (see packages/mediatek/docs/songs.md). Neither of these touches that shape: one writes
-   * INSIDE a song that already exists, the other takes a whole one away.
-   *
-   * `when` accepts a row only when the listing calls it a song, so the artist and the album
-   * above it are offered neither — a variant of an album is not a thing, and one click there
-   * would delete every morceau underneath. The tree opens no menu at all when nothing passes,
-   * which is how those rows keep the browser's own.
-   *
-   * Empty for the capture zone too, which has no entries to match.
-   */
+  /** The right-click menu the SONGS family gets, and the only one it gets (../docs/library.md). */
   const songActions = useMemo<TreeAction<TreeNode>[]>(
     () =>
       section !== "songs"
@@ -485,19 +332,16 @@ export function Library() {
         : [
             {
               key: "add-variant",
-              // The same gesture as the drop onto this row, said in words — a drag is not
-              // discoverable, and this is the family whose tree refuses every other write.
+              // The same gesture as the drop onto this row, said in words — a drag is not discoverable.
               label: "Ajouter une variante…",
               when: (t) => isSongFolder(entries, t.path),
               run: (t) => pickVariant(t.path),
             },
             {
               key: "queue-song",
-              // The bottom bar's queue, not a playlist: what is being listened to in this tab,
-              // as against the YAML file a playlist is. See ../docs/miniPlayer.md.
+              // The bottom bar's queue, not a playlist — see ../docs/miniPlayer.md.
               label: "Ajouter à la liste de lecture",
-              // Only what actually has a master: queueing an empty folder makes a row that
-              // playback would skip in silence.
+              // Only what actually has a master: an empty folder would make a row playback skips in silence.
               when: (t) => {
                 const e = entryAt(entries, t.path);
                 return !!e && takesOf(e).some((k) => k.kind === "master");
@@ -509,19 +353,16 @@ export function Library() {
             },
             {
               key: "delete-song",
-              // Named, and named as a folder: what goes is the master and its sidecar, not
-              // just the row. There is no confirmation, as everywhere else in this menu.
+              // Named as a folder: what goes is the master and its sidecar, not just the row. No confirmation.
               label: (t) => `Supprimer ${t.name}`,
               when: (t) => isSongFolder(entries, t.path),
               danger: true,
-              // A song is a folder on disk though a leaf in the tree — the single-file route
-              // would leave the folder, and with it a song the scan still finds.
+              // A song is a folder on disk though a leaf in the tree — the single-file route would leave the folder.
               run: (t) =>
                 void library
                   .removeTree(`${section}/${t.path}`)
                   .then(() => {
-                    // Close the editor when it is showing what just went. It would empty
-                    // itself once the poll lands, but on an address naming a deleted file.
+                    // Close the editor when it shows what just went, or it empties itself on a dead address.
                     if (folderOf(file) === t.path) openFile(null);
                     refresh();
                   })
@@ -570,16 +411,7 @@ export function Library() {
     }
   }, []);
 
-  /**
-   * Changing section drops what was held — AND the token claiming it was current.
-   *
-   * `entries` holds ONE section at a time, so on switching, the new section's revision token lies:
-   * it says nothing moved, which is true of the VOLUME and false of the screen, which now holds
-   * nothing. The poll below then did not reload and the spinner span forever.
-   *
-   * On `section` and not in the tab's click, because the back button and a deep link change
-   * section without going through it (see useLibraryRoute).
-   */
+  /** Changing section drops what was held AND the token claiming it was current (../docs/library.md). */
   useEffect(() => {
     setEntries(null);
     setUnlisted([]);
@@ -588,10 +420,7 @@ export function Library() {
     seen.current[section] = "";
   }, [section]);
 
-  // One poll drives every section OF THE LIBRARY: fetch the token map, and reload the
-  // SELECTED one only if its token moved. A section nobody is looking at just updates its
-  // count on switch. The zone is in that map beside the families, so there is still exactly
-  // one poll for everything the volume holds.
+  // One poll drives every section OF THE LIBRARY, the capture zone included (../docs/library.md).
   useEffect(() => {
     if (isEngine || isFind) return; // not on the volume — nothing of theirs to poll here
     let stop = false;
@@ -615,16 +444,10 @@ export function Library() {
     };
   }, [isEngine, isFind, isZone, load, loadZone, section]);
 
-  // The repositories had a SECOND poll here, on `/api/projects` and `/api/shares`, running on
-  // every section because the tab's badge had to hold a number at all times. Both are st0's home
-  // page now, so this screen is back to one poll for one volume — which is the shape the comment
-  // above always claimed. The routes are untouched and still this service's; only the caller
-  // moved. See apps/st0/frontend/docs/projects.md.
+  // A SECOND poll for the repositories stood here; both are st0's home page now (../docs/library.md).
 
   return (
-    /* Wrapping the whole shell, because what plays must outlive every screen inside it — and
-       because it holds this tab's ONE engine socket, which the editors below borrow rather
-       than each opening their own. */
+    /* Wrapping the whole shell, and holding this tab's ONE engine socket (../docs/playback.md). */
     <PlaybackProvider
       engineId={choice.chosenId}
       playQueue={playQueue}
@@ -632,23 +455,16 @@ export function Library() {
       machine={{ fileBase: choice.fileBase, token: choice.token }}
     >
       <div className="flex h-full flex-col bg-background text-foreground">
-        {/* The families moved from the side to the header, where st0 puts its views: the side is
-          worth more as the current zone's tree than as three fixed buttons. The bar itself is
-          @frediverse/ui's; what stays here is what pl8 puts in it. The SECTION name is the
-          subtitle — on a narrow screen, where you are beats which app you are looking at. */}
+        {/* The families sit in the header, where st0 puts its views; the bar is @frediverse/ui's. */}
         <AppHeader
-          // No `variant`: the house look, the accent tinted over the page. It was `plain`
-          // when the alternative was a solid accent bar — see @frediverse/ui's docs/app-header.md.
+          // No `variant`: the house look, the accent tinted over the page.
           title="pl8"
           subtitle={sectionLabel(section)}
           items={sectionItems(section, counts, setSection)}
           className="z-20"
           actions={
             <>
-              {/* L'arborescence, sur écran étroit seulement : elle occupe 240 px fixes, ce qui ne
-              laisse rien au contenu sur un téléphone. Elle devient un tiroir, et ce bouton est
-              la seule façon de l'ouvrir. Absent là où il n'y en a pas — les dépôts, le moteur
-              et la recherche dessinent toute la largeur eux-mêmes. */}
+              {/* The tree's drawer button, on a narrow screen only — see ../docs/responsive.md. */}
               {hasTree ? (
                 <Button
                   variant="ghost"
@@ -660,24 +476,17 @@ export function Library() {
                   <FolderTree className="h-5 w-5" />
                 </Button>
               ) : null}
-              {/* Chaque section que l'arbre ne sait pas écrire a son bouton ici : les morceaux
-            parce que leur arborescence est déduite des tags, les enregistrements parce qu'un
-            enregistrement est nommé par l'horloge. Voir docs/songs.md et docs/recordings.md.
-            Plus de `ml-auto` : la barre partagée pousse déjà ses actions à droite. */}
+              {/* Every section the tree cannot write has its button here — see ../docs/library.md. */}
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 {section === "songs" ? (
                   <>
-                    {/* À côté d'« Ajouter », pas à sa place : déposer un fichier qu'on a déjà et
-                    aller en chercher un qu'on n'a pas sont deux gestes, et celui-ci ne
-                    remplace pas l'autre. Il MÈNE à une page — l'historique s'allonge — au
-                    lieu d'ouvrir un dialogue. Voir docs/hunt.md. */}
+                    {/* Beside « Ajouter » and not in its place: it LEADS to a page — see ../docs/hunt.md. */}
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => setSection("find")}
                     >
-                      {/* L'icône seule quand la place manque : le bouton reste atteignable, et
-                      c'est la phrase qui coûte les cent pixels dont l'en-tête manque. */}
+                      {/* The icon alone when the room runs out: the sentence is what costs the hundred pixels. */}
                       <Search className="h-4 w-4 sm:mr-1" />
                       <span className="hidden sm:inline">
                         Trouver des morceaux
@@ -689,28 +498,20 @@ export function Library() {
                 {isZone ? (
                   <AddRecording onDone={refresh} onError={setError} />
                 ) : null}
-                {/* La version part avant tout le reste : c'est la seule chose ici dont on n'a
-                jamais besoin dans l'instant. */}
+                {/* The version goes first: it is the only thing here nobody ever needs in the moment. */}
                 <span className="hidden text-xs tabular-nums text-muted-foreground lg:inline">
                   {VERSION}
                 </span>
               </div>
-              {/* The way out to the studio's other apps. First of the three icon buttons because
-            it is the only one that LEAVES: the two beside it change how this page behaves. */}
+              {/* The way out to the studio's other apps — first of the three because it is the only one that LEAVES. */}
               <OtherApps />
-              {/* Where sound comes out, beside the cog rather than inside it: it is changed while
-            listening — you hear it on the wrong machine and reach for it — whereas the cog
-            holds things you set once. Its own button so it is one click, and its icon says
-            the current answer without opening anything. */}
+              {/* Where sound comes out, beside the cog: it is changed while listening — see ../docs/playbackTarget.md. */}
               <PlaybackPicker
                 target={playback.target}
                 engineReady={choice.ready}
                 onChoose={playback.choose}
               />
-              {/* One cog for the two things that belong to the person rather than the library:
-            which engine auditions a module, and signing out. One place, and it stays
-            reachable while the editor is open — which is why the pick is threaded into it
-            rather than read once: see useModuleEngine. */}
+              {/* One cog for the two things that belong to the person: which engine auditions, and signing out. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" aria-label="Réglages">
@@ -751,8 +552,7 @@ export function Library() {
           <div className="flex min-h-0 flex-1 flex-col overflow-auto">
             <EnginePage choice={choice} />
           </div>
-        ) : /* La recherche de morceaux dessine sa propre page, pour la même raison : son
-          historique ne vient pas du volume, et il peut être long. */
+        ) : /* The hunt page draws its own, for the same reason and because its history can be long. */
         isFind ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <FindSongs
@@ -762,12 +562,8 @@ export function Library() {
           </div>
         ) : (
           <div className="relative flex min-h-0 flex-1">
-            {/* An engine gate stood here, over the Modules section: a module is what a plugin
-            is, and only a loaded plugin can say what its parameters are called. The gate went
-            when the builder did, the read-only view went with the family, and now the section
-            itself is gone. Modules are st0's, in the Libraries tab of whatever project is open. */}
-            {/* Le voile du tiroir. Il ferme au clic, et il n'existe qu'ouvert : un élément
-                invisible qui couvre l'écran est un élément qui avale les clics. */}
+            {/* An engine gate stood here over the Modules section; the section itself is gone (../docs/library.md). */}
+            {/* The drawer's veil, which exists only while it is open: an invisible cover swallows clicks. */}
             {treeOpen && (
               <button
                 type="button"
@@ -776,13 +572,7 @@ export function Library() {
                 onClick={() => setTreeOpen(false)}
               />
             )}
-            {/* The zone being explored, as a tree: /songs or /samples. Same
-            component st0 uses for a workspace, fed from the entry paths.
-
-            En colonne dès qu'il y a la place, en TIROIR quand il n'y en a pas : 240 px fixes
-            ne laissent rien au contenu sur un téléphone. Le même balisage dans les deux cas —
-            l'extraire dans un composant à part pour le rendre deux fois aurait dupliqué les
-            deux cents lignes d'actions qu'il porte. */}
+            {/* A column when there is room and a DRAWER when there is not, same markup — see ../docs/responsive.md. */}
             <aside
               className={`shrink-0 overflow-auto border-r p-2 md:static md:z-auto md:block md:w-60 md:translate-x-0 ${
                 treeOpen
@@ -805,8 +595,7 @@ export function Library() {
                       file,
                     }),
                   );
-                  // Already section-prefixed and already mapped through `assetsTarget` — see
-                  // `pickFolder`, which is the only writer.
+                  // Already section-prefixed and mapped through `assetsTarget` — `pickFolder` is the only writer.
                   const target = pickInto.current;
                   e.target.value = "";
                   if (files.length)
@@ -816,8 +605,7 @@ export function Library() {
                       .catch((err: Error) => setError(err.message));
                 }}
               />
-              {/* …and the one the variant menu opens. Its own input and not the folder picker's:
-                  that one names a directory, and a variant is one audio file. */}
+              {/* …and the one the variant menu opens: that one names a directory, a variant is one audio file. */}
               <input
                 ref={variantRef}
                 type="file"
@@ -833,23 +621,17 @@ export function Library() {
               />
               <FileTree
                 nodes={tree}
-                // The family IS the root: rootPath is what a drop onto empty space and the
-                // background menu target, and every node path below is relative to it.
+                // The family IS the root: every node path below is relative to it.
                 rootPath=""
                 rootLabel={section.toUpperCase()}
-                // The entry being edited outranks the merely selected one: it is what the middle
-                // of the screen is showing, and the tree is now beside it rather than replaced.
-                // Same value `revealed` follows, so the marked row and the opened branch agree.
+                // The entry being edited outranks the merely selected one — same value `revealed` follows.
                 activePath={target}
-                // Open down to it, so a reloaded deep link lands on a tree showing where it is
-                // rather than one collapsed to the root. Sticky — see `revealed`.
+                // Open down to it, so a reloaded deep link lands on a tree showing where it is. Sticky.
                 reveal={revealed}
-                // A SONG is a folder row you OPEN: its chevron unfolds its versions, its name
-                // opens its sidecar. Anything else just selects.
+                // A SONG is a folder row you OPEN: its chevron unfolds its versions, its name opens its sidecar.
                 opensOnName={(n) => isSongFolder(entries, n.path)}
                 onOpen={(n) => {
-                  // A VARIANT row opens its SONG: it is a line of that sidecar, and the editor
-                  // showing the sidecar is where it can be renamed, re-pointed or removed.
+                  // A VARIANT row opens its SONG: the sidecar is where it is renamed, re-pointed or removed.
                   const v = variantAt(entries, n.path);
                   if (v)
                     return openFile(`${relative(v.song.path)}/${SONG_FILE}`);
@@ -858,9 +640,7 @@ export function Library() {
                   // A song names its sidecar, which is the left half of what opens.
                   if (isSong(entry)) openFile(`${n.path}/${SONG_FILE}`);
                 }}
-                // A song wears the glyph of its own tab. Without one the row would read as a
-                // plain file, which is the one thing it is not. A variant wears the two
-                // SongVariants draws, for the same reason it draws them.
+                // A song wears the glyph of its own tab, and a variant the two SongVariants draws.
                 icon={(n) => {
                   const v = variantAt(entries, n.path);
                   if (v)
@@ -874,21 +654,7 @@ export function Library() {
                     return <Disc3 className="h-4 w-4 shrink-0" />;
                   return null;
                 }}
-                // Absent for songs, which is why the header has a button instead: a file
-                // dropped here would land where it fell, and that family's shape is deduced
-                // from tags rather than chosen. Undefined and not a no-op — the shared tree
-                // reads these props to decide whether a row is even a drop target.
-                // onDropTree and not onDropFiles: a module IS a folder, so dropping one has to
-                // arrive as a folder. `dataTransfer.files` cannot carry that — see the shared
-                // tree's lib/droppedEntries.ts for why, and for the two traps it works around.
-                // A drop ONTO a module is a drop into what it carries: the module folder itself holds
-                // its definition, and a sample landing beside module.yaml is neither a node nor a
-                // panel — it is material, and `assets/` is where the loader looks for it.
-                // A drop in SONGS is a variant, and only onto the morceau itself: the rows above
-                // it are an artist and an album, which are deduced from tags and hold nothing.
-                // The shared tree decides whether a row is a target from this prop alone — it
-                // has no per-row test — so those rows do highlight, and this says why nothing
-                // landed instead of swallowing the drop.
+                // Undefined rather than a no-op where nothing may be dropped, and a tree drop for songs (../docs/library.md).
                 onDropTree={
                   editable
                     ? (dir, files) =>
@@ -908,17 +674,14 @@ export function Library() {
                               ))
                       : undefined
                 }
-                // Present, so rows are draggable — the shared tree decides that from this prop
-                // alone. Folders included: `moveEntry` renames a directory as readily as a file,
-                // and a folder is a real row now rather than a shared prefix across entry paths.
+                // Present, so rows are draggable — folders included, since `moveEntry` renames a directory too.
                 onMove={
                   editable
                     ? (from, toDir) =>
                         void library
                           .move(
                             `${section}/${from}`,
-                            // Through the same mapping a drop goes through: dragging a sample onto a
-                            // module has to mean what dropping one there means.
+                            // Through the same mapping a drop goes through, or the two would disagree.
                             `${assetsTarget(toDir)}/${from.split("/").pop()}`,
                           )
                           .then(refresh)
@@ -926,15 +689,7 @@ export function Library() {
                     : undefined
                 }
                 cancelLabel="Annuler"
-                // Every target needs at least one action that passes its `when`, or the menu
-                // does not open AT ALL — the shared tree returns early rather than showing an
-                // empty one. Folders and the root would otherwise have none, since the two
-                // below are file-only. The capture zone leans on that same early return: no
-                // menu opens at all there.
-                //
-                // SONGS get one action and only one — see `songActions`. That family's tree
-                // still cannot write, which is what `editable` says and why the branch is not
-                // simply `editable ? all : none`.
+                // Every target needs one action whose `when` passes, or no menu opens at all (../docs/library.md).
                 actions={
                   !editable
                     ? songActions
@@ -942,20 +697,14 @@ export function Library() {
                         {
                           key: "upload-folder",
                           label: "Téléverser un dossier…",
-                          // Through `assetsTarget`, exactly like the drop: a folder dragged onto
-                          // a module becomes material under its `assets/`, and the picker is
-                          // there because a drag that fails does so silently. The two must not
-                          // disagree about where the same folder lands.
+                          // Through `assetsTarget`, exactly like the drop: the two must land in the same place.
                           when: (t) => t.dir || t.root,
                           run: (t) => pickFolder(t.path),
                         },
                         {
                           key: "new-folder",
                           label: "Nouveau dossier…",
-                          // On a module too, and it means `assets/` — a NAM pack is a folder per
-                          // amp, so somewhere to drop into before the first file is a thing this
-                          // menu has to be able to make. Never beside module.yaml: what a module
-                          // IS is three files and its nodes, and the builder writes those.
+                          // Somewhere to drop into before the first file, and never beside a module's definition.
                           when: (t) => t.dir || t.root,
                           prompt: { placeholder: "nom", submit: "Créer" },
                           run: (t, value) =>
@@ -978,11 +727,7 @@ export function Library() {
                               .then(refresh)
                               .catch((e: Error) => setError(e.message)),
                         },
-                        // Two entries stood here: "Ajouter les N greffons du moteur", which
-                        // turned a machine's whole plugin scan into library modules, and
-                        // "Nouveau module depuis un greffon…" for one at a time. Both went
-                        // with the `modules` family; the capability belongs in st0 and is not
-                        // ported yet.
+                        // Two entries that made library modules out of a machine's plugin scan stood here.
                         {
                           key: "rename",
                           label: "Renommer…",
@@ -1006,9 +751,7 @@ export function Library() {
                           label: (t) => `Supprimer ${t.name}`,
                           when: (t) => !t.root,
                           danger: true,
-                          // A SONG is the row that is a folder on disk and a leaf in the tree, so
-                          // asking `t.dir` alone would delete it with the single-file route and
-                          // leave the folder behind.
+                          // `t.dir` alone would delete a song with the single-file route and leave its folder.
                           run: (t) =>
                             void (
                               t.dir || isSongFolder(entries, t.path)
@@ -1023,9 +766,7 @@ export function Library() {
               />
             </aside>
 
-            {/* A module view and a chain editor stood at the head of this chain of screens.
-            Both went with their families: what a plugin's parameters are called is a fact about
-            a LOADED plugin, and the médiathèque has no project to load one into. */}
+            {/* A module view and a chain editor stood at the head of this chain of screens (../docs/library.md). */}
             {editingSong ? (
               <main className="flex min-h-0 min-w-0 flex-1 flex-col">
                 <SongEditor
@@ -1053,9 +794,7 @@ export function Library() {
                     La médiathèque est vide pour l'instant.
                   </Card>
                 ) : isZone ? (
-                  // The zone's own view: the captures by day, newest first. No entry columns —
-                  // a capture has no title, no artist and no kind, which is exactly why it is
-                  // not a catalogue entry. See packages/mediatek/docs/recordings.md.
+                  // The zone's own view: the captures by day, and no entry columns (packages/mediatek/docs/recordings.md).
                   recordings.length === 0 ? (
                     <Card className="p-6 text-sm text-muted-foreground">
                       Aucun enregistrement pour l'instant. Les machines poussent
@@ -1102,10 +841,7 @@ export function Library() {
                       <li
                         key={e.id}
                         className="flex items-baseline gap-3 rounded-md px-3 py-2 hover:bg-accent/40"
-                        // A song OPENS, the way its tree row does — the middle list and the tree
-                        // are the same rows twice, and a click that meant two things depending on
-                        // which copy you hit is the one thing they must not do. Everything else
-                        // still just selects, which is what the panes beside this read.
+                        // A song OPENS, the way its tree row does: the two copies must not mean different things.
                         onClick={() =>
                           isSong(e)
                             ? openFile(`${relative(e.path)}/${SONG_FILE}`)
@@ -1115,9 +851,7 @@ export function Library() {
                         <span className="min-w-0 flex-1 truncate">
                           {e.name}
                         </span>
-                        {/* Not filed: found on disk with no sidecar. Worth SAYING rather than hiding.
-                        Never a module now — a folder without a module.yaml is a folder, and the
-                        catalogue holds only modules (see scan.ts). */}
+                        {/* Not filed: found on disk with no sidecar, and worth SAYING rather than hiding. */}
                         {e.meta?.catalogued === false ? (
                           <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                             non catalogué
@@ -1146,23 +880,14 @@ export function Library() {
               </main>
             )}
 
-            {/* A third column stood here, for a picked MODULE: its name, a way into its text,
-            and a line saying where modules are built. It went with the family. */}
+            {/* A third column for a picked MODULE stood here; it went with the family. */}
 
-            {/* A song's variants used to be a fourth column here, shown only while nothing was
-            open. Clicking a song now OPENS it, so that condition could never be met again —
-            they moved under the player in SongEditor, which is where they belonged anyway:
-            the master and its alternative versions are the same question. */}
+            {/* A song's variants were a fourth column until clicking a song began to OPEN it (../docs/library.md). */}
           </div>
         )}
 
-        {/* What is playing. It belongs to the TAB rather than to any screen, which is why it is
-          drawn here and not inside a song's editor: absent until something plays, and it stays
-          after the song ends. Above the status bar, which stays the app's last line — one is a
-          thing you act on, the other a line you read. See docs/miniPlayer.md. */}
-        {/* Ne dessine rien : c'est l'enchaînement de la file. DANS le provider, parce qu'il
-            lui faut le transport, et ici parce qu'il lui faut aussi la machine choisie et la
-            destination — c'est ce couple qui dit OÙ un fichier se joue. */}
+        {/* What is playing belongs to the TAB rather than to any screen — see ../docs/miniPlayer.md. */}
+        {/* Draws nothing: it is the queue's advance, and it needs the machine and the destination alike. */}
         <QueueAdvance
           machine={{
             fileBase: choice.fileBase,
@@ -1173,9 +898,7 @@ export function Library() {
         />
         <MiniPlayer />
 
-        {/* The status bar. Outside the row above so it spans the whole width, under the tree
-          and the editor alike: what it says — which engine, and how good the link is — is a
-          property of the session, not of whichever pane is open. */}
+        {/* The status bar, outside the row above so it spans the whole width: it is a property of the session. */}
         <EngineStatusBar choice={choice} />
       </div>
     </PlaybackProvider>

@@ -8,33 +8,18 @@ export interface Clock {
   isPlaying(): boolean;
 }
 
-/**
- * A Clock that can also announce a DISCONTINUITY — a seek, or a play/pause edge.
- *
- * The realtime driver needs this and the compositor does not: drawing a frame only asks what
- * second it is, while chasing one with a `<video>` has to know when the answer stopped being
- * continuous, so it can hard-seek instead of nudging a playbackRate towards a target that
- * moved. Stated as an interface because there are two implementations with nothing else in
- * common: one FOLLOWS an engine, one IS the transport.
- */
+/** A Clock that also announces a DISCONTINUITY — a seek or a play/pause edge, which only the realtime driver needs. See docs/realtime.md. */
 export interface SeekingClock extends Clock {
   onSeek?: (sec: number, playing: boolean) => void;
 }
 
-// Follow the engine's ~20 Hz frames with a wall clock between them: 50 ms of jitter is a visible stutter at 30 fps,
-// so a frame sets an anchor and wall time carries it forward. Same interpolation patternClock does in the brain.
-// This is the one place in eyes that reads a clock.
-//
-// `performance.now()`, never `Date.now()`: the latter is the WALL clock, which an NTP correction or a daylight
-// step can move backwards under a running transport — and every reader here subtracts two readings, so a
-// backwards step reads as the picture jumping. It is also coarser. Monotonic is the whole requirement.
+// Follow the engine's ~20 Hz frames with a monotonic clock between them — the one place in eyes that reads a clock, see docs/realtime.md.
 export class EngineClock implements SeekingClock {
   private playing = false;
   private anchorSec = 0; // the playhead the last frame reported
   private anchorWallMs = 0; // performance.now() when it did
 
-  // A frame contradicting the prediction by more than this is a SEEK, not drift — nudging playbackRate would take
-  // minutes to converge, so drivers hard-seek on onSeek instead.
+  // A frame contradicting the prediction by more than this is a SEEK, not drift: drivers hard-seek on onSeek rather than nudge.
   static readonly SEEK_EPS = 0.3;
 
   // Fired when a frame reveals a discontinuity, with the authoritative playhead; drivers hard-seek every layer.
@@ -62,8 +47,7 @@ export class EngineClock implements SeekingClock {
   }
 }
 
-// A deterministic clock for export — frame n / fps, always playing. No wall clock, which is what makes a render
-// reproducible.
+// A deterministic clock for export — frame n / fps, always playing; no wall clock, so a render is reproducible.
 export class FrameClock implements Clock {
   private frame = 0;
   constructor(private readonly fps: number) {}
@@ -78,23 +62,7 @@ export class FrameClock implements Clock {
   }
 }
 
-/**
- * The transport ITSELF, for a surface with no engine to follow.
- *
- * The other two clocks answer to something: EngineClock chases a playhead reported over a
- * socket, FrameClock is stepped by an exporter. This one is the authority — for a host with no
- * device whose sample position the picture must agree with, where inventing an engine to keep
- * time would be a whole process running to hold a number.
- *
- * UNUSED in this repo: st0 hosts the renderer and has an engine, so the picture follows
- * `EngineClock`. Kept because the seam is the point — the compositor cannot tell which clock it
- * has, which is what keeps the renderer independent of where its time comes from.
- *
- * A monotonic clock and nothing else: the drift this cannot have is against an audio clock that
- * is not there. What it MUST still do is announce its own discontinuities, which is why
- * seeking and the play/pause edge both fire `onSeek` — the realtime driver hard-seeks every
- * `<video>` on those, and a seek that stayed quiet would leave the picture on the old frame.
- */
+/** The transport ITSELF, for a surface with no engine to follow — UNUSED here, kept as the seam; see docs/realtime.md. */
 export class TransportClock implements SeekingClock {
   private playing = false;
   private anchorSec = 0; // the position at the last edge

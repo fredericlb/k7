@@ -1,9 +1,6 @@
 import type { Category, OrderEntry, Session, Song } from "./model.ts";
 
-// Port of session.go's SessionProgress — the play-order state machine that
-// walks the effective order, emitting a category intro then its songs, then
-// the next slot's intro, etc. Node is single-threaded so the Go mutex
-// collapses away; the logic is otherwise 1:1.
+// The play-order machine: a category intro, then its songs, then the next slot's intro.
 
 /** Lightweight preview of what the next item will be (session.go PeekInfo). */
 export interface PeekInfo {
@@ -55,20 +52,14 @@ export class SessionProgress {
     return this.session.categories.find((c) => c.name === name) ?? null;
   }
 
-  /**
-   * The order used for progression: the explicit session order, or one
-   * synthesized entry per category for legacy sessions without one.
-   */
+  /** The session's own order, or one synthesized entry per category when it has none. */
   private effectiveOrder(): OrderEntry[] {
     if (this.session.order && this.session.order.length > 0)
       return this.session.order;
     return this.session.categories.map((cat) => ({ cat: cat.name }));
   }
 
-  /**
-   * Resolve an order entry into a playable slot: a pause, or a category with
-   * its songs after from/to slicing (session.go resolveSlot).
-   */
+  /** An entry as a playable slot: a pause, or a category sliced by its from/to. */
   private resolveSlot(entry: OrderEntry): {
     isPause: boolean;
     cat: Category | null;
@@ -244,10 +235,7 @@ export class SessionProgress {
     return this.resolveSlot(order[this.orderIndex]).songs;
   }
 
-  /**
-   * Jump to the beginning of the next slot; the next next() emits its intro.
-   * Returns false when the session is finished.
-   */
+  /** Jump to the next slot, so the following next() emits its intro; false once finished. */
   skipToNextCategory(): boolean {
     if (this.finished) return false;
     const order = this.effectiveOrder();

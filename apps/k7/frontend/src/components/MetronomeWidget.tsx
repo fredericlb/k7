@@ -6,16 +6,14 @@ const MIN = 40;
 const MAX = 240;
 const clamp = (v: number) => Math.min(MAX, Math.max(MIN, Math.round(v)));
 
-// A floating metronome for practising along with a song. Reuses the recorder's
-// Web-Audio click track (drift-free); collapses to a small button when idle.
+// A floating metronome on the recorder's own drift-free click track.
 export function MetronomeWidget() {
   const { metronome, start, stop } = useMetronome();
   const [bpm, setBpm] = useState(120);
   const [open, setOpen] = useState(false);
   const running = metronome != null;
 
-  // Live tempo change while running: restart the click track a beat after the
-  // last change so dragging the slider doesn't thrash the AudioContext.
+  // A live tempo change restarts the click a beat later, so a slider drag spares the context.
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {

@@ -7,10 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emitFolder } from "./emit";
 import type { PluginOut, Song, TrackOut } from "./model";
 
-// A DAWproject routinely puts the same plugin on several tracks with different settings.
-// Those are one instrument set differently, so the import writes ONE module and a
-// node per use — not the "reverb", "reverb_2", "reverb_3" pile it used to. A plugin
-// used once keeps its settings in module.yaml and gets no node at all.
+// One plugin on several tracks writes ONE module and a node per use — see docs/import.md.
 
 const fx = (name: string, params?: Record<string, number>): PluginOut => ({
   type: "vst3",
@@ -86,8 +83,7 @@ describe("import: one module per plugin, one node per use", () => {
   });
 
   it("separates two uses on the SAME track", () => {
-    // Identical settings too: they're distinct slots in the source DAW, so tweaking one
-    // must not retune the other.
+    // Identical settings too: they are distinct slots, so tweaking one must not retune the other.
     emitFolder(dir, song([track("vox", [fx("EQ"), fx("EQ")])]), {});
     expect(existsSync(join(dir, "nodes/eq_vox.yaml"))).toBe(true);
     expect(existsSync(join(dir, "nodes/eq_vox_2.yaml"))).toBe(true);
@@ -97,8 +93,7 @@ describe("import: one module per plugin, one node per use", () => {
   });
 
   it("doesn't count a dropped insert towards 'used more than once'", () => {
-    // An audio-source track loses its instrument plugins (the frozen remains of a
-    // rendered instrument track), so that use must not force the other into a node.
+    // An audio-source track loses its instrument plugins, so that use must not force the other into a node.
     const bounced: TrackOut = {
       ...track("bounce", [
         { type: "vst3", name: "Synth", role: "instrument", enabled: true },
@@ -119,10 +114,7 @@ describe("import: one module per plugin, one node per use", () => {
   });
 });
 
-// The test that says the converter's output is a SONG rather than a folder of text: it
-// emits, then loads the result through the real loader. It was skipped while emit.ts still
-// wrote CUE — and before that, silently, because the whole file was gated on the `cue`
-// binary being installed, which hid five stale assertions too.
+// The output is a SONG rather than a folder of text: emit, then load it through the real loader.
 describe("the emitted folder is a loadable project", () => {
   it("round-trips through the real loader, nodes and all", () => {
     emitFolder(
@@ -133,9 +125,7 @@ describe("the emitted folder is a loadable project", () => {
       ]),
       {},
     );
-    // graph.yaml must be SEGMENTS — an import that wrote a format the loader doesn't
-    // take produced a project that wouldn't open at all. One node per line, as the app
-    // writes them.
+    // graph.yaml must be SEGMENTS, one node per line: any other format is a project that will not open.
     expect(read("graph.yaml")).toMatch(/modules:\n\s+\S+: \[ /);
     const g = loadGraph(dir);
     expect(Object.keys(g.chains).sort()).toEqual(["drums", "vox"]);
@@ -150,10 +140,7 @@ describe("the emitted folder is a loadable project", () => {
   });
 });
 
-// The other half of "it imported": not just that the folder LOADS, but that what comes out
-// is the arrangement that went in. A converter can emit a valid project and still put every
-// clip in the wrong bar — and the way to do that is a timecode, which is why the quoting has
-// its own assertion here rather than only in the brain's tests.
+// Not just that the folder LOADS but that the arrangement survives: a valid project can still misplace every clip.
 describe("what comes out is the arrangement that went in", () => {
   const clipTrack = (): TrackOut =>
     ({
@@ -177,8 +164,7 @@ describe("what comes out is the arrangement that went in", () => {
     }) as never;
 
   it("places each clip at the beat it came from", () => {
-    // The imported clip is 8 beats long starting 0.5 beats into its source. Only the START is the arrangement's
-    // business now: the extent moves to the clip file as a window, and at 120bpm a beat is half a second.
+    // Only the START is the arrangement's business now; the extent moves to the clip file as a window.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
     const doc = compileNodeProject(dir);
     const vox = doc.tracks.find((t) => t.id === "vox");
@@ -191,9 +177,7 @@ describe("what comes out is the arrangement that went in", () => {
   });
 
   it("QUOTES every timecode it writes", () => {
-    // Unquoted, `2:1` is a YAML 1.1 sexagesimal: bar 2 would reload as beat 121. The
-    // emitter shares the brain's quoter so the two can't disagree about which fields —
-    // including the window, which is timecodes in a file that also holds bare numbers.
+    // Unquoted, `2:1` is a YAML 1.1 sexagesimal: bar 2 would reload as beat 121.
     emitFolder(dir, song([clipTrack()]), { "a.wav": new Uint8Array([82]) });
     const track = read("nodes/vox.yaml");
     expect(track).toMatch(/start: "[\d:]+"/);

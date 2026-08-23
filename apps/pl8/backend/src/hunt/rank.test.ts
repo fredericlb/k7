@@ -52,8 +52,7 @@ describe("artistMatches", () => {
   });
 
   it("matches whole words, so one band is not taken for another", () => {
-    // `includes("air")` would hand every Airbourne file to a search for Air. A hunt that
-    // finds nothing says so; a hunt that files the wrong band does not.
+    // `includes("air")` would hand every Airbourne file to a search for Air.
     expect(
       artistMatches("Air", "@bob\\Music\\Airbourne\\Runnin' Wild\\01 x.mp3"),
     ).toBe(false);
@@ -73,8 +72,7 @@ describe("artistMatches", () => {
 
 describe("titleMatches", () => {
   it("reads the file name and not the album folder", () => {
-    // Every track on Nevermind lives under a folder naming Lithium's album; only one of
-    // them is Lithium.
+    // Every track lives under a folder naming Lithium's album; only one of them is Lithium.
     const inLithiumsAlbum =
       "@ann\\Nirvana\\Nevermind - Lithium sessions\\04 Breed.mp3";
     expect(titleMatches("Lithium", inLithiumsAlbum)).toBe(false);
@@ -121,8 +119,7 @@ describe("qualityOf", () => {
   });
 
   it("puts an unmeasurable lossy file BELOW every known rate", () => {
-    // Otherwise a file that said nothing about itself would outrank a measured 320 by
-    // being uninformative.
+    // Otherwise a file that said nothing about itself would outrank a measured 320.
     expect(qualityOf(file("a.mp3"))).toBeLessThan(
       qualityOf(file("a.mp3", { bitRate: 128 })),
     );
@@ -153,8 +150,7 @@ describe("rankCandidates", () => {
   });
 
   it("refuses what the library could not file, even when it is lossless", () => {
-    // `.ape` is all over Soulseek and `masterName` throws on it — taking it would mean a
-    // download that cannot be put away.
+    // `.ape` is all over Soulseek and `masterName` throws on it, so it cannot be put away.
     const responses: SlskdResponse[] = [
       {
         username: "ann",
@@ -211,8 +207,7 @@ describe("rankCandidates", () => {
   });
 
   it("breaks a tie on who will actually send it", () => {
-    // Same tier means the same audio; the only thing left to choose on is the queue. A peer
-    // three hundred deep is worth nothing when the attempt is abandoned after 60 s.
+    // Same tier is the same audio, and a peer three hundred deep never starts within 60 s.
     const f = "Nirvana\\Nevermind\\Lithium.flac";
     const responses: SlskdResponse[] = [
       { username: "busy", queueLength: 300, files: [file(`@busy\\${f}`)] },
@@ -230,8 +225,7 @@ describe("rankCandidates", () => {
   });
 
   it("gives one entry per peer, keeping that peer's best file", () => {
-    // "Change user" is what the 60 s rule does, so a peer sharing a discography must not
-    // fill the first ten places and make ten switches land on one unmoving queue.
+    // A peer sharing a discography must not fill all ten places the switching operates on.
     const responses: SlskdResponse[] = [
       {
         username: "ann",

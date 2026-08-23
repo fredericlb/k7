@@ -35,13 +35,7 @@ ws.binaryType = "arraybuffer";
 
 ws.on("open", () => {
   console.log(`connected to ${url}, listening for ${seconds}s`);
-  // A project FIRST: enableBroadcast needs an Edit to hang the tap on, and an engine that
-  // never got one has no master plugin list at all.
-  //
-  // And it has to make a SOUND. An empty track proves only that silence is silent — "the
-  // tap sees the master" and "the tap sees nothing" produce identical all-zero frames. A
-  // 4OSC holding a long note is a signal with no file and no plugin scan behind it, so
-  // `frames with signal` becomes a real answer.
+  // A project FIRST, and one that makes a SOUND: silence and a missing tap look identical.
   ws.send(
     JSON.stringify({
       type: "project",
@@ -84,9 +78,7 @@ ws.on("open", () => {
 
 ws.on("message", (data, isBinary) => {
   if (!isBinary) return; // the JSON state frames are not what this measures
-  // Either shape, depending on binaryType: an ArrayBuffer outright, or a Buffer that is a
-  // WINDOW into a shared pool — hence the explicit slice, without which the header offsets
-  // would be read from whatever else that allocation holds.
+  // A Buffer is a WINDOW into a shared pool, hence the explicit slice before reading offsets.
   const buf =
     data instanceof ArrayBuffer
       ? data

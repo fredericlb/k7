@@ -25,6 +25,29 @@ ligne, en quatre fichiers ; `stemcut` en retire un du mix d'origine, en direct, 
 utilitaires parce qu'ils ne servent à rien l'un sans l'autre — et parce que c'est là que le dépôt
 de bibliothèques range déjà `stemsplit`, qui est la référence depuis qu'il n'y a plus de graine.
 
+Trois d'entre eux ont leur propre page, parce que leurs nombres se justifient plutôt qu'ils ne se
+lisent : `sweep` (`docs/sweep.md`), `stemcut` (`docs/stemcut.md`) et le wurlitzer
+(`docs/wurlitzer.md`). Ce que la bibliothèque elle-même impose à tous — les trois taux, l'indice de
+port, la garde de `geolerp` — est dans `docs/builder.md`.
+
+## `normalize` — le graphe est trivial, et c'est tout le sujet
+
+`packages/dsp/src/normalize.ts` applique un gain, un nœud, et rien d'autre. Savoir **quel** gain est
+la partie difficile, et aucun graphe par bloc ne peut y répondre : un nœud en flux ne voit que les
+échantillons qu'il a, et le plus fort peut être le dernier. La mesure n'est donc pas là — `Peak` est
+une **entrée** du graphe, remplie par la passe froide qui lit le fichier de bout en bout
+(`packages/song/docs/coldModules.md`), et ce qui reste à décrire est l'arithmétique.
+
+C'est exactement ce qui rend le module *froid* plutôt que simplement coûteux : ce n'est pas que
+mesurer coûte trop cher en direct, c'est qu'en direct il n'y a encore rien à mesurer.
+
+Deux détails tiennent le reste. `Peak` vaut **0 dBFS** par défaut : sans passe, le gain se réduit à
+`Target` et le module ne fait qu'atténuer, ce qui est la direction inoffensive pour se tromper. Et
+la différence est **bornée** avant le passage en linéaire, parce que l'arithmétique a un cas
+dégénéré très bruyant : un quasi-silence mesure −100 dBFS et demanderait +99 dB, transformant un
+souffle en rugissement pleine échelle. +30 est généreux pour tout ce qui vaut d'être normalisé et
+fini pour le reste.
+
 Le premier segment est le **dossier de type**, qui décide de ce qu'un module est (`audio`,
 `instruments`, `transformers`, `io`… — voir `@studio/song`'s `docs/loader.md`). Le second est sa
 **catégorie**, qui décide seulement de son rangement dans un sélecteur. C'est pourquoi l'EQ est

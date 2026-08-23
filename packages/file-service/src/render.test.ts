@@ -12,22 +12,12 @@ const scratch = () =>
 const before = new Set(scratch());
 
 afterEach(() => {
-  // A failed render must not leave its scratch directory behind: the caller only gets a
-  // `dir` to clean up on SUCCESS, so every other path has to clean up after itself. This
-  // hook is what caught renderProject leaking one per attempt.
+  // The caller only gets a `dir` on SUCCESS, so every other path has to clean up after itself.
   expect(scratch().filter((d) => !before.has(d))).toEqual([]);
 });
 
 describe("renderProject", () => {
-  /**
-   * An empty document reaches the two ways this fails, and WHICH one depends on the machine:
-   * with no engine built it is "no binary", with one it is "exit 0, nothing written". Both
-   * are a RenderError, and asserting only that is what keeps this test from meaning
-   * different things on a dev box and in CI — the first draft asserted the message, passed
-   * here, and failed the moment it ran beside a real build.
-   *
-   * A resolved empty result is what must never happen.
-   */
+  /** Which of the two failures an empty document hits depends on the machine, so only RenderError is asserted. */
   it("rejects rather than resolving empty", async () => {
     await expect(
       renderProject({

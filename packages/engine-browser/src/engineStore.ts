@@ -31,9 +31,7 @@ export class EngineStore {
     };
   };
 
-  // Called on every state frame: replace the snapshot and poke subscribers, whose selectors decide
-  // on re-rendering — unless the frame says exactly what the last one said, which is what an idle
-  // engine sends 20 times a second. See docs/meters.md.
+  // Called on every state frame, except one saying exactly what the last one said — which is what an idle engine sends 20 times a second.
   set = (s: EngineState): void => {
     if (sameFrame(this.state, s)) return;
     this.state = s;
@@ -41,16 +39,7 @@ export class EngineStore {
   };
 }
 
-/**
- * Whether two frames say the same thing.
- *
- * The engine pushes one every 50 ms whether or not anything is happening, and every subscriber's
- * selector then runs to conclude nothing changed — N selector runs, 20 times a second, for a
- * stopped transport over silent tracks. One pass over the frame replaces all of them.
- *
- * Deliberately not deep on the envelopes: a waveform tap sends fresh arrays whenever it sends
- * anything at all, so comparing their contents would be work spent proving they differ.
- */
+/** Whether two frames say the same thing — one pass here replacing every subscriber's, and not deep on the envelopes. See docs/meters.md. */
 function sameFrame(a: EngineState, b: EngineState): boolean {
   if (a === b) return true;
   if (
@@ -87,14 +76,12 @@ export function useEngineStore(): EngineStore {
   return s;
 }
 
-/** The host's store, or null when there is none — for a component that can PROVIDE one rather
- *  than demand it. See DomChains, which draws meters for hosts that have no engine at all. */
+/** The host's store, or null when there is none — for a component that can PROVIDE one rather than demand it. */
 export function useEngineStoreOrNull(): EngineStore | null {
   return useContext(EngineStoreContext);
 }
 
-// Subscribe to a SLICE: re-renders only when the selector's result changes under `isEqual` (pass `arrayEq` for
-// the armed/levels arrays, which arrive fresh each frame). The selection is cached so the reference stays stable.
+// Subscribe to a SLICE, re-rendering only when the selector's result changes under `isEqual` — pass `arrayEq` for the per-frame arrays.
 export function useStoreState<T>(
   store: EngineStore,
   selector: (s: EngineState) => T,
@@ -132,24 +119,12 @@ const ACTIVE_FLOOR_DB = -60;
 export const INPUT_VU_MIN_DB = -60;
 export const INPUT_VU_MAX_DB = 6;
 
-/**
- * Quantise a 0..1 meter position to 200 steps.
- *
- * These selectors return a FRACTION, and an unrounded one differs on essentially every frame,
- * so `Object.is` never stopped a re-render and a silent track cost exactly as much as a loud
- * one. 200 steps is finer than half a percent of the tallest bar any of these draw — the
- * number is unchanged on screen, and a steady signal now re-renders nothing. TimelineTab's
- * LaneMeter has rounded its dB for this reason all along; the graph's meters did not. Round
- * HERE and not in the component — this result is what Object.is compares. See docs/meters.md.
- */
+/** Quantise a 0..1 meter position to 200 steps, HERE in the selector rather than in the component — see docs/meters.md. */
 const vuStep = (t: number): number => Math.round(t * 200) / 200;
 
-// The `order.indexOf` in both hooks below is O(n) per subscriber per frame, and measured not to
-// matter — including against the memoised position map, which LOSES under ~50 tracks. Don't
-// re-flag it; the numbers are in docs/meters.md ("The O(n²) that isn't worth fixing").
+// The `order.indexOf` in both hooks below is O(n) per subscriber per frame and measured not to matter — don't re-flag it, see docs/meters.md.
 
-// ONE track's live input level, or null when unarmed — a per-node subscription, so a moving input re-renders the
-// bar rather than the graph. Returning a plain number|null keeps Object.is steady while it doesn't change.
+// ONE track's live input level, or null when unarmed: a per-node subscription, so a moving input re-renders the bar rather than the graph.
 export function useInputLevel(trackId: string, order: string[]): number | null {
   return useEngineState((s) => {
     if (!s.armed.includes(trackId)) return null;
@@ -161,10 +136,7 @@ export function useInputLevel(trackId: string, order: string[]): number | null {
   });
 }
 
-// ONE track's live OUTPUT level as 0..1, or null when the track isn't in the order — the signal a channel strip
-// meters, so a fader widget and the Mix panel read the same number over the same range. Same per-node
-// subscription as useInputLevel, and for the same reason: this arrives every frame, and it must move a 12px bar
-// rather than the whole graph.
+// ONE track's live OUTPUT level as 0..1, or null when it isn't in the order — the signal a strip meters, on the same per-node subscription.
 export function useTrackLevel(trackId: string, order: string[]): number | null {
   return useEngineState((s) => {
     const i = order.indexOf(trackId);
@@ -176,14 +148,7 @@ export function useTrackLevel(trackId: string, order: string[]): number | null {
   });
 }
 
-/**
- * The ids above the silence floor, as a PURE function of a frame.
- *
- * Deliberately not a hook. Its one consumer is the chains renderer's cable canvas, which reads
- * it 20 times a second off a raw subscription and repaints — a hook would have made every
- * crossing of the floor a re-render of the whole graph, and on percussive material tracks cross
- * it several times a second. See ui-chains-react/docs/liveCables.md.
- */
+/** The ids above the silence floor, as a PURE function of a frame and deliberately not a hook — see ui-chains-react/docs/liveCables.md. */
 export function activeTrackIds(
   s: EngineState,
   trackOrder: readonly string[],

@@ -9,14 +9,7 @@ import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
 import { writeYaml } from "./testSupport";
 
-// `from`/`to` window the SOURCE FILE, at TWO levels. The clip's own file carries the material's
-// window — the slice it is, shared by every placement — and a placement may carry the same two
-// words for ITSELF. The effective window is the most restrictive pair: the larger `from`, the
-// smaller `to`. So an event can only narrow what its material plays, never reach outside it —
-// which is what lets `event resize` be one event's edit (see docs/clipResize.md).
-//
-// Seconds in their bare-number spelling, because they measure into a file, which knows nothing
-// of the tempo; a timecode spelling is musical and converted at the project's grid.
+// `from`/`to` window the SOURCE FILE at two levels, and the effective pair is the most restrictive.
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SONG = join(
@@ -58,8 +51,7 @@ describe("a clip's window into its source", () => {
   });
 
   it("leaves them off entirely when the clip trims nothing", () => {
-    // Absent, not zero: a synthesised clip (a freeze render, a pattern's clip) has no file to be trimmed by, and
-    // a doc full of zeroes would make "no window" and "a window starting at 0" the same thing to read.
+    // Absent, not zero: zeroes make "no window" and "a window starting at 0" read the same.
     clip({ source: "clips/kick.wav" });
     const c = kick()!;
     expect(c.sourceFrom).toBeUndefined();
@@ -80,13 +72,7 @@ describe("a clip's window into its source", () => {
     });
   });
 
-  /**
-   * The window is also the clip's EXTENT, and the doc says so in beats.
-   *
-   * Not just for the engine, which could measure it from the file — for the surfaces, which cannot. A doc that
-   * left this at 0 gave the timeline nothing to draw with, and every audio clip in the song came out one bar
-   * wide whatever it held. `to` is the only edge that decides it: an absent `from` is the file's start.
-   */
+  /** The extent in beats is for the SURFACES: left at 0, every audio clip drew one bar wide. */
   it("gives the clip its extent in beats, so the timeline can draw it", () => {
     // node-demo is 120bpm 4/4: a beat is 0.5s, so a 1.5s window is three beats.
     clip({ source: "clips/kick.wav", to: 1.5 });
@@ -96,15 +82,13 @@ describe("a clip's window into its source", () => {
   });
 
   it("leaves the extent at 0 when only the FILE knows it", () => {
-    // No `to` means "to the end of the source", a duration this compiler would have to open the wav to learn.
-    // 0 is the engine's word for "measure it yourself", and the only honest answer here.
+    // 0 is the engine's word for "measure it yourself", which is the only honest answer here.
     clip({ source: "clips/kick.wav", from: 0.25 });
     expect(kick()!.length).toBe(0);
   });
 
   it("does not disturb where the placement puts it", () => {
-    // The placement says only WHERE, in beats; the window says WHICH PART of the wav, in seconds. Neither is
-    // expressed in the other's units, and an open-ended window leaves `length` at 0 for the engine to measure.
+    // The placement says WHERE in beats and the window WHICH PART in seconds: two units, never mixed.
     clip({ source: "clips/kick.wav", from: 0.25 });
     const c = kick()!;
     expect(c.start).toBe(0);
@@ -146,8 +130,7 @@ describe("the EVENT's own window, on the placement", () => {
   });
 
   it("does not reach the OTHER placements of the clip", () => {
-    // The snare placement carries no window, and the kick's event window is the kick's alone —
-    // the material file still says nothing, so nothing else in the song changed.
+    // An event's window is that event's alone: the material file still says nothing.
     clip({ source: "clips/kick.wav" });
     place(", from: 0.25");
     const snare = compileNodeProject(dir)
@@ -157,17 +140,9 @@ describe("the EVENT's own window, on the placement", () => {
   });
 });
 
-// Every other time field in a track file is a timecode, so that is what a hand reaches for — and a take played
-// to the click really does want "drop the first two bars" rather than a number of seconds nobody counted.
+// Every other time field in a track file is a timecode, so that is what a hand reaches for.
 describe("a window written as a timecode", () => {
-  /**
-   * A timecode edge is a POSITION IN THE FILE, read exactly like the `start:` beside it — `"2:1"` is bar 2,
-   * beat 1 of the sample, and `"1:1"` is its beginning.
-   *
-   * Not a duration. "2 bars and a beat IN" is a plausible reading of the same string and lands a whole bar
-   * late, which is inaudible as a *kind* of error — it just sounds like the wrong take. Positions are also the
-   * only reading under which a waveform's bar ruler and the number in the file agree.
-   */
+  /** A timecode edge is a POSITION in the file, not a duration: reading it as one lands a bar late. */
   it("reads as a POSITION in the file, like `start:` does", () => {
     // node-demo is 120bpm 4/4: a beat is 0.5s, a bar 2s. Bar 2 beat 1 is 4 beats in = 2s.
     clip({ source: "clips/kick.wav", from: "2:1" });
@@ -192,15 +167,7 @@ describe("a window written as a timecode", () => {
     expect(kick()!.sourceTo).toBeUndefined();
   });
 
-  /**
-   * …and it reaches the UNPLACED doc too, but only with the grid, because that is the only thing
-   * that can turn a bar number into seconds.
-   *
-   * This is the half that was missing. `mapClip` read `Number(c.from)`, which is `NaN` for every
-   * timecode, so the definition an editor draws from came back with NO window — while the compiled
-   * placement had one. An imported song writes nearly all of its edges this way, so the surfaces
-   * that shade the window had nothing to shade on almost every clip in a real project.
-   */
+  /** `mapClip` read `Number(c.from)`, `NaN` for every timecode, so the unplaced doc had no window. */
   it("reaches the UNPLACED clip doc, given the project's grid", () => {
     clip({ source: "clips/kick.wav", from: "2:1", to: "3:1" });
     const c = loadAudioClipDoc(dir, "kick", { tempo: 120, num: 4, den: 4 })!;
@@ -249,8 +216,7 @@ describe("a window that cannot be played", () => {
       expect(ClipSchema.safeParse(c).success).toBe(true);
   });
 
-  // The schema runs when the folder is read, so the report names the FILE and the field — which is the whole
-  // point of refusing here rather than letting it compile to a clip that plays nothing.
+  // The schema runs when the folder is read, so the report names the FILE and the field.
   it("is reported against its own file when the project is read", () => {
     clip({ source: "clips/kick.wav", from: 2, to: 1 });
     expect(readYamlEntities(dir, "clips").issues).toEqual([
@@ -258,13 +224,7 @@ describe("a window that cannot be played", () => {
     ]);
   });
 
-  /**
-   * …and the COMPILE says the same thing, rather than "clip not found".
-   *
-   * A clip the schema rejects is dropped from the map, so the track's ref stops resolving and the only symptom
-   * used to be `clip/sequence 'x' not found` — which sends you hunting for a file that is sitting right there,
-   * with a bad line in it. Every unreadable clip behaved this way, whatever the fault.
-   */
+  /** A rejected clip leaves the map, so the compile used to say "not found" about a file that is there. */
   it("does not masquerade as a missing clip", () => {
     clip({ source: "clips/kick.wav", from: "nonsense" });
     let msg = "";

@@ -55,8 +55,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("a live input's monitor", () => {
   it("comes through as the module's own field", () => {
-    // Not a param — there is no plugin to hold one — so it rides on the step itself, which
-    // is what lets a widget bound to `@monitor` show anything at all.
+    // Not a param — there is no plugin to hold one — so it rides on the step itself.
     expect(inputStep()?.monitor).toBe("auto");
     expect(inputStep()?.params).toEqual({});
   });
@@ -81,16 +80,13 @@ describe("a live input's monitor", () => {
 
 describe("a live input's waveform", () => {
   it("listens to the INPUT of the first module on the lane it feeds", () => {
-    // The input has no plugin of its own, so there is nothing on it to tap. Its signal
-    // arrives one step downstream, at the lane's first module — the same audio, and the
-    // only place the engine can be asked for it.
+    // The input has no plugin to tap; its signal arrives one step downstream, at the lane's first module.
     expect(inputStep()?.pluginId).toBe(undefined);
     expect(inputStep()?.tap).toEqual({ id: "gtr:amp", side: "input" });
   });
 
   it("names an id the engine really has", () => {
-    // The tap borrows a pluginId, so it has to be one that was actually assigned — a step
-    // that earned no id (a stub, an unknown format) would be a key nothing ever fills.
+    // The tap borrows a pluginId, so it must be one actually assigned, not a key nothing ever fills.
     const g = buildGraphDoc(proj);
     const ids = Object.values(g.chains)
       .flatMap((c) => c.use)
@@ -100,8 +96,7 @@ describe("a live input's waveform", () => {
   });
 
   it("has none when the lane runs no plugins", () => {
-    // Better than pointing at a plugin that isn't there: the widget draws its empty box,
-    // which is honest, instead of listening to a key nothing writes.
+    // The widget draws its empty box, which is honest, instead of listening to a key nothing writes.
     chains(`modules:\n  gtr: [ OUT ]\n  "${IN}": [ gtr ]\n`);
     expect(inputStep()?.tap).toBe(undefined);
   });

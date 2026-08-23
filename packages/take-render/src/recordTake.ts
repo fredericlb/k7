@@ -21,13 +21,7 @@ export interface RecordedTake {
   length: number; // seconds
 }
 
-/**
- * A wall-clock stamp for a filename — `260814T194357`, the spelling every dated file in a project
- * already uses. Exported because a bounce needs the same one: two runs of one chain over one clip
- * must not land on one name, for the same reason two takes of one bar must not.
- *
- * The date is an ARGUMENT, so a caller can be tested. Nothing but a test ever passes one.
- */
+/** A wall-clock stamp for a filename — `260814T194357`, shared with a bounce; docs/rendering.md. */
 export function fileStamp(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return (
@@ -36,16 +30,7 @@ export function fileStamp(d = new Date()): string {
   );
 }
 
-/**
- * Declare `id` as a clip sourced from `wav` unless already declared — one file per clip, as hand-written ones
- * are. The window is written out in full, `from` included, even though "1:1" to the take's end is exactly what
- * an absent window already means.
- *
- * Because that is the file you open to trim the take, and the two numbers you came to change should be sitting
- * there, at their real values, rather than having to be conjured from a blank file. It also pins the extent at
- * the length the engine reported: the wav on disk is the only other record of it, and a take does not want its
- * end to be a property of how a decoder rounds.
- */
+/** Declare `id` as a clip sourced from `wav`, its window written out in FULL — docs/rendering.md. */
 function writeClipDecl(
   dir: string,
   id: string,
@@ -81,13 +66,7 @@ function overlaps(
   );
 }
 
-/**
- * Declare a finished take and place it on its track. Returns the clip id.
- *
- * Throws if the take's file isn't where it says (a clip whose wav is missing makes
- * the whole project fail to compile — better to refuse the edit than to write a
- * song that no longer loads).
- */
+/** Declare a finished take and place it on its track; throws if its file is not where it says. */
 export function addTakeToTrack(
   dir: string,
   doc: ProjectDoc,
@@ -96,17 +75,14 @@ export function addTakeToTrack(
   if (!existsSync(take.file))
     throw new Error(`recorded file is missing: ${take.file}`);
 
-  // Seconds -> quarter notes, then to timecodes. Every one of these is a POSITION (1-based): where the take
-  // lands on the timeline, and where its window opens and closes IN THE FILE. `to` is the take's length read as
-  // a position from the file's start, which is what "1:1" for `from` makes it — not a duration.
+  // Seconds -> quarter notes -> timecodes; every one of these is a POSITION, docs/rendering.md.
   const beats = (s: number) => (s * doc.tempo) / 60;
   const at = (b: number) =>
     beatsToPosition(b, doc.timeSigNumerator, doc.timeSigDenominator);
   const start = at(beats(take.start));
   const window = { from: at(0), to: at(beats(take.length)) };
 
-  // Rename the take to {trackId}_{bar.beat}_{stamp}: the engine wrote a temporary name, the brain owns the final
-  // one. Colons never leave here (not filesystem-safe), and the clip id IS the basename, so this renames both.
+  // Rename the take to {trackId}_{bar.beat}_{stamp} — the engine wrote only a temporary name.
   const trackTok = take.track.replace(/[^A-Za-z0-9._-]/g, "-");
   const barBeat = start.split(":").slice(0, 2).join(".");
   const ext = extname(take.file);
@@ -117,10 +93,7 @@ export function addTakeToTrack(
 
   writeClipDecl(dir, id, wavName, window);
 
-  // Recording OVER something sets it aside rather than stacking on top of it (docs/takes.md).
-  // The overlap is read off the COMPILED doc, so what counts is what the lane actually plays —
-  // windows and loops folded in — and the caller recompiles between takes, which is what makes
-  // a loop record one take per pass: pass 2 finds pass 1's clip and puts it away in its turn.
+  // Recording OVER something sets it aside rather than stacking — see docs/rendering.md.
   if (overlaps(doc, take, beats)) pushTrackClipsToTake(dir, take.track);
 
   // Declare the clip BEFORE placing it: a placement naming no clip fails the compile, so the order keeps it loadable.

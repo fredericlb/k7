@@ -3,8 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Envelope } from "./types";
 
 const SAMPLE_INTERVAL_MS = 200; // one loudness sample every 200ms
-// Auto-gain targets the loudest moment just below full scale (~ -1 dBFS) — the
-// most level we can add before the signal would obviously saturate (clip).
+// Auto-gain aims the loudest moment just under full scale, ~ -1 dBFS.
 const TARGET_PEAK = 0.9;
 const MAX_GAIN = 32;
 
@@ -17,12 +16,7 @@ export interface RecordingResult {
 
 export type RecStatus = "idle" | "recording" | "paused" | "stopped";
 
-/**
- * Records microphone/line-in audio while building a loudness (RMS) envelope in
- * real time via the Web Audio API. Supports pause/resume so the user can stop
- * to listen to a highlight and then continue the same take. The live `samples`
- * array feeds on-the-go highlight detection.
- */
+/** Record audio while building its loudness envelope live — see ../../../docs/audio.md. */
 export function useRecorder() {
   const [status, setStatus] = useState<RecStatus>("idle");
   const [elapsed, setElapsed] = useState(0); // recorded seconds (excludes pauses)
@@ -52,9 +46,7 @@ export function useRecorder() {
     sampleTimer.current = null;
   }, []);
 
-  // Keeps the screen awake while recording so a long take doesn't get cut off
-  // by the device locking. Best-effort: unsupported/denied contexts just
-  // record without it.
+  // Keep the screen awake, so a device locking cannot cut a long take short.
   const acquireWakeLock = useCallback(async () => {
     if (!("wakeLock" in navigator)) return;
     try {
@@ -69,9 +61,7 @@ export function useRecorder() {
     wakeLock.current = null;
   }, []);
 
-  // The OS revokes the wake lock whenever the tab/app is backgrounded and
-  // never re-grants it automatically — re-request it when the app comes back
-  // to the foreground if we're still recording.
+  // The OS revokes that lock on backgrounding and never re-grants it, so ask again on return.
   useEffect(() => {
     const onVisibility = () => {
       if (
@@ -134,15 +124,12 @@ export function useRecorder() {
 
         const ctx = new AudioContext();
         audioCtx.current = ctx;
-        // We auto-start after navigation, so the context can be created outside a
-        // direct user gesture and start "suspended". Resume it, otherwise the
-        // analyser would read silence (dead meter / no highlights).
+        // Auto-started outside a user gesture, a context starts suspended and reads silence.
         await ctx.resume().catch(() => {});
 
         const source = ctx.createMediaStreamSource(media);
 
-        // Analyse the raw input; gain is derived from the observed peak and
-        // applied uniformly at stop, so the stored envelope stays consistent.
+        // Analyse the RAW input: gain comes from the observed peak, applied once at stop.
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
         source.connect(analyser);
@@ -168,9 +155,7 @@ export function useRecorder() {
         setGainState(MAX_GAIN);
 
         const mime = pickMimeType();
-        // Record the raw mic track directly — independent of the audio graph and
-        // the context state, so a suspended context can never yield an empty
-        // recording. Input level is handled by getUserMedia's autoGainControl.
+        // The raw mic track, not the graph, so a suspended context cannot yield an empty take.
         const recorder = new MediaRecorder(
           media,
           mime ? { mimeType: mime } : undefined,
@@ -231,11 +216,7 @@ export function useRecorder() {
     [],
   );
 
-  /**
-   * Playback normalization for listening back while recording — brings the
-   * loudest sample so far to just under full scale, matching the gain the
-   * finished session will be played at.
-   */
+  /** The gain the finished session will play at, for listening back mid-take. */
   const getPlaybackGain = useCallback(
     () =>
       truePeak.current > 0 ? Math.min(MAX_GAIN, 0.9 / truePeak.current) : 1,
@@ -257,9 +238,7 @@ export function useRecorder() {
         let blob = new Blob(chunks.current, {
           type: recorder.mimeType || "audio/webm",
         });
-        // MediaRecorder omits the duration from the WebM header, which makes the
-        // file non-seekable (duration reports Infinity, currentTime assignments
-        // are ignored). Write the real duration so playback can seek by time.
+        // MediaRecorder leaves the WebM duration out, which makes the file unseekable.
         if (blob.type.includes("webm")) {
           try {
             blob = await fixWebmDuration(blob, durationSec * 1000, {
@@ -269,14 +248,12 @@ export function useRecorder() {
             /* fall back to the unfixed blob */
           }
         }
-        // Normalize the envelope (RMS) so the waveform fills to just below the
-        // top — visual "max before saturation".
+        // Normalize the RMS envelope, so the waveform fills to just below the top.
         const factor = autoGain();
         const samples = samplesRef.current.map((s) =>
           round(Math.min(1, s * factor)),
         );
-        // Playback gain: bring the loudest actual sample to just under full
-        // scale so playback is as loud as possible without clipping.
+        // Playback gain: the loudest actual sample brought to just under full scale.
         const playbackGain =
           truePeak.current > 0 ? Math.min(MAX_GAIN, 0.9 / truePeak.current) : 1;
         cleanup();
@@ -311,9 +288,7 @@ export function useRecorder() {
   };
 }
 
-// Try the preferred (unprocessed) constraints first, then progressively fall
-// back. Safari in particular rejects some constraint combinations with a
-// NotFoundError ("The object can not be found here.") even when a mic exists.
+// Unprocessed constraints first, then a fallback: Safari answers NotFoundError to some.
 export async function acquireMicrophone(): Promise<MediaStream> {
   const attempts: MediaStreamConstraints[] = [
     {

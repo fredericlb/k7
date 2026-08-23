@@ -1,5 +1,4 @@
-// The rule these all serve: a correction outlives the detection it corrects. Everything the engine found can
-// be re-found at another sensitivity; what somebody said by hand must still be true afterwards.
+// The rule these all serve: a correction outlives the detection it corrects.
 
 import { describe, expect, it } from "vitest";
 import { addOnset, moveOnset, removeOnset, resolveOnsets } from "./onsets";
@@ -53,8 +52,7 @@ describe("editing", () => {
   });
 
   it("keeps a move true after the detector answers differently", () => {
-    // The whole point: re-detect at another sensitivity and the hand-placed one is still where it was put,
-    // and the one refused is still refused.
+    // Re-detect at another sensitivity: the hand-placed one holds and the refused one stays refused.
     const moved = moveOnset(undefined, [1.0], 1.0, 1.25);
     expect(resolveOnsets([0.4, 1.006, 1.9], moved)).toEqual([0.4, 1.25, 1.9]);
   });

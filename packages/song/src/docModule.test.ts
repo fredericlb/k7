@@ -50,16 +50,14 @@ afterEach(() => {
 
 describe("the built-in doc module", () => {
   it("resolves with no file anywhere", () => {
-    // The second module in the repo that exists without a file, after `@engine/…`. A note must
-    // cost one file — its node — so there is nothing to scaffold and nothing to forget.
+    // A note must cost ONE file, its node, so there is nothing to scaffold and nothing to forget.
     const refs = loadModuleRefs(project());
     expect(refs[DOC_REF]).toBeDefined();
     expect(isDoc(refs[DOC_REF])).toBe(true);
   });
 
   it("takes ONE input and gives no output", () => {
-    // The shape that makes it a note. An output would let a run continue THROUGH a comment,
-    // which is documentation feeding audio.
+    // An output would let a run continue THROUGH a comment: documentation feeding audio.
     const meta = MODULE_TYPES.docs;
     expect(meta.inputs).toHaveLength(1);
     expect(meta.outputs).toEqual([]);
@@ -67,8 +65,7 @@ describe("the built-in doc module", () => {
   });
 
   it("is neither an io module nor a plugin", () => {
-    // The third `kind` earns itself here: folding a doc into either would make every "is this a
-    // sink" or "does this load a plugin" test answer wrongly about a note.
+    // The third `kind` earns itself: folding it into either makes every sink test lie about a note.
     expect(MODULE_TYPES.docs.kind).not.toBe("io");
     expect(MODULE_TYPES.docs.kind).not.toBe("plugin");
   });
@@ -84,9 +81,7 @@ describe("a note in a project", () => {
   });
 
   it("inherits the doc SHAPE from what it extends", () => {
-    // The node declares ONLY `content`: it has no type folder to read `kind` or its ports
-    // off, which is precisely why `kind` is in moduleResolve's OWN_ONLY — absent on the child,
-    // so it arrives from the parent. Unresolved it therefore says nothing…
+    // The node declares ONLY `content`, so unresolved it says nothing about `kind` or its ports…
     const raw = loadModules(project()).notes;
     expect(raw.kind).toBeUndefined();
     // …and resolved — which is what every consumer sees — it is a doc with no output.
@@ -105,8 +100,7 @@ describe("a note in a project", () => {
   });
 
   it("does not make the project complain", () => {
-    // A note is wired INTO from a module, which is an ordinary destination. If the graph
-    // treated it as a dangling reference or an unknown module this would say so.
+    // A note is an ordinary destination, not a dangling reference or an unknown module.
     expect(loadGraph(project()).warnings).toEqual([]);
   });
 });

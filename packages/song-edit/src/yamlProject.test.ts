@@ -24,17 +24,7 @@ import {
   setModuleParam,
 } from "./projectEdit";
 
-// A YAML project, end to end: the loader, the compiler, the writers, and the "is this a
-// project" checks every surface asks.
-//
-// This was mixedFormat.test.ts — the tests that had to pass before the CUE→YAML move could
-// be wired in. The half that only ever described the TRANSITION (a .cue and a .yaml in one
-// folder, the migration's own output, the .cue kept as a backup) went with the transition;
-// what is left is the behaviour a song still relies on, and no longer mentions a format it
-// only has one of.
-//
-// The fixture is a shipped demo song, copied per test, so these read the same files a user's
-// song is made of rather than a minimal thing built to pass.
+// A YAML project end to end — the loader, the compiler, the writers, over a shipped demo song.
 
 const here = dirname(
   new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1"),
@@ -61,8 +51,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe("loading", () => {
   it("reports a bad module with its file and the offending key", () => {
-    // Closed, like the CUE structs were: a module that silently ignored `paramz:` would be
-    // a knob that does nothing, with nothing to read that says why.
+    // Closed: a module silently ignoring `paramz:` would be a knob that does nothing.
     writeFileSync(join(dir, ...SYNTH, "module.yaml"), "paramz: {}\n", "utf8");
     expect(() => loadModules(dir, true)).toThrow(/invalid module\(s\)/);
     expect(() => loadModules(dir, true)).toThrow(/module\.yaml/);
@@ -85,8 +74,7 @@ describe("loading", () => {
   });
 
   it("wants a source a clip can actually play", () => {
-    // An empty source is a clip the timeline draws and the engine can't sound — the failure
-    // would be silence with nothing to read.
+    // An empty source is a clip the timeline draws and the engine cannot sound.
     expect(ClipSchema.safeParse({ source: "kick.wav" }).success).toBe(true);
     expect(ClipSchema.safeParse({ source: "" }).success).toBe(false);
   });
@@ -101,8 +89,7 @@ describe("the writers", () => {
 
     setModuleParam(dir, "synth", "Mix", 0.5);
     const after = readFileSync(file, "utf8");
-    // The comment survives, and exactly one line differs — which is what keeps a knob drag
-    // to a one-line diff instead of a reformatted file.
+    // The comment survives and exactly one line differs, so a knob drag is a one-line diff.
     expect(after).toContain("# the lead");
     expect(after).toContain("Mix: 0.5");
     expect(
@@ -123,8 +110,7 @@ describe("the writers", () => {
     expect(readFileSync(join(folder, "module.yaml"), "utf8")).toContain(
       "ir: ir/marshall.wav",
     );
-    // Cleared, not emptied: a convolver with no IR is a legitimate state, and `ir: ""`
-    // would be a value that means nothing.
+    // Cleared, not emptied: `ir: ""` would be a value that means nothing.
     setModuleAsset(dir, "cab", "ir", null);
     expect(readFileSync(join(folder, "module.yaml"), "utf8")).not.toContain(
       "ir:",
@@ -139,8 +125,7 @@ describe("the writers", () => {
     expect(
       loadGraph(dir).chains[chain].use.find((s) => s.module === step)?.enabled,
     ).toBe(false);
-    // …and off-then-on returns the file to what it was, which is the property the graph's
-    // bypass button relies on: clicking twice leaves no diff.
+    // …and off-then-on returns the file to what it was, so clicking twice leaves no diff.
     const file = join(dir, "graph.yaml");
     const bypassed = readFileSync(file, "utf8");
     setModuleBypass(dir, step, false);
@@ -163,9 +148,7 @@ describe("the writers", () => {
 
 describe("a song is still a song", () => {
   it("is recognised as a project by every check that asks", () => {
-    // These all used to look for `project.cue` BY NAME. A converted song dropped out of the
-    // workspace picker and the file tree's project markers — present on disk, invisible to
-    // the app — until each of them was taught to ask for the project FILE.
+    // These all used to look for `project.cue` BY NAME, so a converted song went invisible.
     expect(existsSync(join(dir, "project.yaml"))).toBe(true);
     expect(isProjectFolder(dir)).toBe(true);
     expect(isFolderProject(dir)).toBe(true);

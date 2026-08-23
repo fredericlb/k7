@@ -46,8 +46,7 @@ describe("reading the window", () => {
   });
 
   it("ignores a `from` nested inside another block", () => {
-    // A slice rack's symbols and a warp's markers both live under indented keys; only a top-level
-    // edge is this clip's own, and rewriting a nested one would corrupt something else entirely.
+    // A slice rack's symbols and a warp's markers live under indented keys; only a top-level edge is this clip's own.
     const nested = `source: a.wav\nslices:\n  x: { from: 9, to: 10 }\n`;
     expect(scanClipWindow(nested)).toEqual({});
     expect(clipWindowBand(nested, G)).toBeUndefined();
@@ -58,8 +57,7 @@ describe("reading the window", () => {
   });
 
   it("offers HOLLOW edges on an untrimmed clip when the buffer can be edited", () => {
-    // Nothing to shade — but the edges are the handles, and without them a clip that has never
-    // been trimmed could never be trimmed by dragging, only by having been trimmed already.
+    // Nothing to shade — but the edges are the handles, and without them an untrimmed clip could never be trimmed by dragging.
     expect(clipWindowBand(FILE, G, true)).toEqual([
       {
         symbol: "clip",
@@ -86,8 +84,7 @@ describe("writing a dragged edge", () => {
   });
 
   it("keeps a TIMECODE as a timecode, quoted, at the same position", () => {
-    // The whole point: this edge was pinned to bar 3 beat 1 and stays pinned to a bar, so a tempo
-    // change still moves it. Written back through the grid it came in on.
+    // The whole point: this edge was pinned to a bar and stays pinned to one, so a tempo change still moves it.
     const out = setClipWindowText(`${FILE}to: "3:1"\n`, 0, 3 * BAR, G);
     expect(out).toContain('to: "4:1"');
     expect(out).not.toMatch(/to: [0-9]/);
@@ -114,8 +111,7 @@ describe("writing a dragged edge", () => {
   });
 
   it("DELETES `from` when it is dragged back to the start", () => {
-    // Absent already means the material's start; a written 0 makes "not trimmed" and "trimmed to
-    // the beginning" read alike, and the file service's writer follows the same rule.
+    // Absent already means the material's start; a written 0 makes 'not trimmed' and 'trimmed to the beginning' read alike.
     const out = setClipWindowText(`${FILE}from: 1.32\nto: 4.36\n`, 0, 4.36, G);
     expect(out).not.toContain("from:");
     expect(out).toContain("to: 4.36");
@@ -155,8 +151,7 @@ describe("writing a dragged edge", () => {
   });
 
   it("writes nothing at all when a hollow band is released unmoved", () => {
-    // Dragging neither edge of an untrimmed clip must leave the file alone: `from` 0 is deleted
-    // (it was never there) and an infinite `to` is the file's end, said by saying nothing.
+    // Dragging neither edge of an untrimmed clip must leave the file alone: a `from` of 0 is deleted and an infinite `to` says nothing.
     const band = clipWindowBand(FILE, G, true)?.[0];
     const out = setClipWindowText(FILE, band?.from ?? 0, band?.to ?? 0, G);
     expect(out).toBe(FILE);

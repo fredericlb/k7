@@ -34,10 +34,7 @@ describe("the deduced tree", () => {
   });
 
   it("opens no provenance level — three segments, never four", () => {
-    // `songs/<imported|recorded>/…` is gone: raw capture is the `recordings/` zone, and
-    // what reaches this function is catalogued work whichever surface sent it. The guard is
-    // the SEGMENT COUNT, because a fourth level would come back as a nested folder, which
-    // an equality check on one example path would not notice.
+    // The guard is the SEGMENT COUNT: a returning fourth level is a nested folder equality misses.
     const folder = songFolder({
       artist: "K7",
       album: "Sous la pluie",
@@ -57,8 +54,7 @@ describe("the deduced tree", () => {
   });
 
   it("keeps a tag from becoming a path", () => {
-    // The whole point: a client sends tags, never a path. A slash in a title must not open
-    // a folder, and `..` must not climb one.
+    // A client sends tags, never a path: a slash must not open a folder, nor `..` climb one.
     expect(segment("AC/DC", "x")).toBe("AC DC");
     expect(songFolder({ artist: "../../etc", title: "x" })).toBe(
       "songs/.. .. etc/Album inconnu/x",
@@ -117,8 +113,7 @@ describe("filing an upload", () => {
     album: "Kind of Blue",
     title: "So What",
   };
-  // A function: `root` is a fresh temp dir per test, so a constant would capture the
-  // previous one — or, for the first test, nothing at all.
+  // A function: `root` is a fresh temp dir per test, so a constant would capture the previous one.
   const folder = () => join(root, "songs/Miles Davis/Kind of Blue/So What");
 
   it("creates the tree and the sidecar", () => {
@@ -135,9 +130,7 @@ describe("filing an upload", () => {
   });
 
   it("files a published version beside every other song, saying who filed it", () => {
-    // k7's published versions used to land under `recorded/`, apart from an upload. They
-    // land in the same shape now; `source` is what still says where one came from, and it
-    // is a line in the sidecar rather than a level in the path.
+    // `source` is a line in the sidecar, where a `recorded/` level in the path used to be.
     const r = addSong({
       filename: "mixdown.mp3",
       bytes: Buffer.from("MIX"),
@@ -235,16 +228,14 @@ describe("adding a variant to a song", () => {
     expect(readFileSync(join(folder(), "instrumental.wav"), "utf8")).toBe(
       "RIFF",
     );
-    // …and the scan reads it back as a FILE variant, which is the whole point: it decides
-    // that by looking for `ref` among the folder's files, so the two must agree exactly.
+    // …and the scan reads it back as a FILE variant, matching `ref` among the folder's files.
     expect(scanFamily("songs")[0].variants).toEqual([
       { name: "instrumental", ref: "instrumental.wav", kind: "file" },
     ]);
   });
 
   it("keeps the comments the sidecar was written with", () => {
-    // The reason this edits text instead of round-tripping the parser: those two lines say
-    // how the tree is derived, and a serialiser would drop them.
+    // Why this edits text rather than round-tripping the parser, which would drop those lines.
     song();
     add("instrumental.wav");
     expect(sidecar()).toContain("# Voir packages/mediatek/docs/songs.md.");
@@ -275,8 +266,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("finds a free name rather than shadowing one", () => {
-    // Two files with the same stem in different formats: the refs differ, so both are real
-    // variants, but the sidecar is a MAPPING and the second key would replace the first.
+    // Two formats of one stem: both are real variants, but the second KEY would replace the first.
     song();
     add("instrumental.wav");
     expect(add("instrumental.mp3").name).toBe("instrumental 2");
@@ -284,8 +274,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("files one into a folder nobody catalogued, sidecar and all", () => {
-    // A song dropped on the volume by hand: audio, no sidecar. Adding a version is the
-    // moment it gets one — there is nowhere else a variant can be declared.
+    // A song dropped by hand has no sidecar, and adding a version is the moment it gets one.
     putFile("songs/loose/whatever/original.mp3", "ID3");
     const r = addSongVariant({
       folder: "songs/loose/whatever",
@@ -299,8 +288,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("refuses a folder that is not a song", () => {
-    // Nobody invents a place in `songs/`: the shape is derived from tags, and a drop that
-    // created one would be the hand-made folder at the wrong level docs/songs.md refuses.
+    // Nobody invents a place in `songs/`, whose shape is derived from tags (docs/songs.md).
     expect(() =>
       addSongVariant({
         folder: "songs/Miles Davis",
@@ -318,8 +306,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("refuses a sidecar whose variants: is not a mapping, rather than breaking it", () => {
-    // Inserting a `  "a": "b"` line under a LIST makes the whole file unparseable — and an
-    // unparseable sidecar costs the song its title everywhere.
+    // A `key: value` line under a LIST makes the file unparseable, which costs the song its title.
     song();
     putFile(`${rel}/${SONG_FILE}`, "title: So What\nvariants:\n  - a\n  - b\n");
     expect(() => add("instrumental.wav")).toThrow(VariantRefusedError);
@@ -327,8 +314,7 @@ describe("adding a variant to a song", () => {
   });
 
   it("refuses a block written inline, which only the text can tell", () => {
-    // `variants: {instru: a.wav}` parses as a perfectly good mapping, so the check above
-    // passes it — and a line pushed under it would break the file just the same.
+    // An inline mapping parses fine, so only the TEXT can tell a line cannot be pushed under it.
     song();
     putFile(
       `${rel}/${SONG_FILE}`,

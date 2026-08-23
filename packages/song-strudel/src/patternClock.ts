@@ -66,8 +66,7 @@ function loadInstruments(dir: string | null): Map<string, PluginDoc> {
   let modules: Record<string, any>;
   let moduleRefs: Record<string, any>;
   try {
-    // Both reads under one stamp walk: this runs on every `refreshPatterns`, which a watcher
-    // fires on any `.strudel` save. See moduleCache.ts.
+    // Both reads under one stamp walk, since a watcher fires this on any `.strudel` save.
     [modules, moduleRefs] = withModuleStamp(dir, () => [
       loadModules(dir),
       loadModuleRefs(dir),
@@ -140,23 +139,11 @@ export class PatternClock {
     private send: (doc: ProjectDoc) => void,
     private log: (line: string) => void = () => {},
     private onOrbits: (tracks: TrackDoc[]) => void = () => {}, // reports the live orbit tracks; [] when inactive
-    /**
-     * Replace just these tracks in the document the engine holds — the fast path out of `emit`.
-     *
-     * Optional: without it every tick sends a whole document, which is what this did and what a
-     * caller with no delta channel still gets. See `emit`.
-     */
+    /** Replace just these tracks in the document the engine holds — optional, docs/patternClock.md. */
     private sendTracks?: (doc: ProjectDoc, ids: string[]) => void,
   ) {}
 
-  /**
-   * Forget what the engine is believed to hold, so the next emit sends a WHOLE document.
-   *
-   * Called when the link is (re)established: a fresh socket can mean a fresh engine, holding
-   * nothing, and a delta aimed at a document that is not there would be a lane that never sounds
-   * and no error anywhere. Cheap and deterministic, which is why it is said explicitly rather
-   * than inferred from a reply.
-   */
+  /** Forget what the engine is believed to hold, so the next emit sends a WHOLE document. */
   forgetSent(): void {
     this.sentBase = null;
     this.sentIds = "";
@@ -216,9 +203,7 @@ export class PatternClock {
       }
     }
     this.patterns = loaded;
-    // Keyed by the compiled track id, which is the lane's — or one per HALF when the lane wired
-    // both outputs. `emit` fills the clips of everything in here, so both halves have to be in it
-    // or the midi half of a split lane would never receive what the scheduler put on it.
+    // Keyed by compiled track id, one per HALF when the lane wired both outputs — both must be here.
     this.declared = new Map();
     for (const p of loaded)
       for (const lane of p.lanes.values())
@@ -273,8 +258,7 @@ export class PatternClock {
     this.timer = null;
   }
 
-  // --- internals ---
-  // Route an event and decide how it sounds (note, sample, or nothing). See docs/patternClock.md.
+  // --- internals: route an event and decide how it sounds, see docs/patternClock.md ---
   private resolve(
     e: StrudelEvent,
     p: LivePattern,
@@ -282,22 +266,12 @@ export class PatternClock {
     const s = e.s;
     const lane = e.label ? p.lanes.get(labelKey(e.label)) : undefined;
 
-    /**
-     * A declared lane, read exactly like an undeclared one: the EVENT's sound says what it is.
-     *
-     * It used to be the lane's `contentType` that settled this — `s` was a sample name on an
-     * audio lane and a waveform on a sequences one — so a pattern and the lane it was declared
-     * on could not disagree. A detyped lane has no such word to hold them to, and does not need
-     * one: a name that resolves to a sample IS a sample, anything else is a waveform, and each
-     * leaves by the output its own kind fits. One pattern may now be half drums and half melody
-     * on one lane, which is what a pattern usually is.
-     */
+    // A declared lane is read like an undeclared one: the EVENT's sound says what it is.
     if (lane) {
       const src = s ? resolveSample(this.projectDir, s, e.n ?? 0) : null;
       const half = this.laneHalf(lane.track, src ? "audio" : "notes");
       if (!half) {
-        // The lane's other output is not wired, so there is nowhere for this event to go. Say so
-        // once per sound: silence with a graph that looks right is the hardest kind to chase.
+        // The lane's other output is not wired, so say so once per sound rather than go silent.
         const key = `${lane.track}:${src ? "audio" : "notes"}`;
         if (!this.warned.has(key)) {
           this.warned.add(key);
@@ -358,14 +332,7 @@ export class PatternClock {
     };
   }
 
-  /**
-   * The compiled track a declared lane's event lands on, by what the event carries.
-   *
-   * A lane is one engine track, or two when its `audio` and `midi` outputs were wired
-   * separately (`melody#audio`, `melody#midi` — see nodeProject's halvesOf). Which is which is
-   * already on the wire: `contentType` says what each half takes, and a bare-wired lane says
-   * "audio notes", meaning either. So the base document answers this and no new field is needed.
-   */
+  /** The compiled track a declared lane's event lands on, answered by `contentType` — docs/patternClock.md. */
   private laneHalf(lane: string, want: "audio" | "notes"): string | null {
     const prefix = `${lane}#`;
     for (const t of this.base?.tracks ?? [])
@@ -510,11 +477,7 @@ export class PatternClock {
           });
         }
         this.scheduledCycle = to;
-        // Only when the document actually MOVED. A tick whose window held no event, and whose
-        // prune dropped nothing, rebuilds a doc identical to the one already sent — and sending
-        // it costs a stringify here, a parse there, and a full ProjectDiff in the engine, six or
-        // seven times a second for nothing. The window still advances: `scheduledCycle` is what
-        // says the pattern was read, and it is set above whatever came out.
+        // Only when the document actually MOVED — see docs/patternClock.md.
         if (added || pruned) this.emit();
         return;
       }
@@ -564,19 +527,7 @@ export class PatternClock {
     this.onOrbits(liveTracks); // surfaces list lanes NOT in the project's own tracks; a declared one already is
     const doc = { ...this.base, tracks: [...tracks, ...liveTracks] };
 
-    /**
-     * A DELTA when only the lanes' clips moved, which is what a tick is.
-     *
-     * Everything but the strudel lanes is `base.tracks` verbatim — same objects, tick after tick
-     * — while the engine was handed the whole song six or seven times a second to be told about
-     * eight notes: 137 KB against 3.7 on a real project, plus a `docFromJson` and a diff that
-     * rebuilds four maps over every track, clip and plugin in it.
-     *
-     * The guard is the TRACK SET, not the content. A delta replaces tracks by id and can neither
-     * add nor remove one, so it is only honest while the ids are the ones the engine was last
-     * given — and the base must be the same object, since anything else in the song moving is
-     * exactly what a delta cannot carry. Either changes: send the document, and remember it.
-     */
+    // A DELTA when only the lanes' clips moved, guarded on the TRACK SET — docs/patternClock.md.
     const ids = doc.tracks.map((t) => t.id).join("\n");
     if (
       this.sendTracks &&

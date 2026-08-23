@@ -27,10 +27,7 @@ export function SeqGridFile({
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Read ONCE per file. Deliberately not on the reload poll: the content here is what the grid
-  // is editing, and refetching under a hand mid-edit is how a cursor and a half-typed note are
-  // lost. An edit made elsewhere therefore needs the grid reopening — which switching view or
-  // closing the pane makes cheap.
+  // Read ONCE per file, deliberately not on the reload poll: refetching under a hand mid-edit loses a cursor and a half-typed note.
   useEffect(() => {
     let done = false;
     setContent(null);
@@ -48,12 +45,7 @@ export function SeqGridFile({
     };
   }, [path]);
 
-  // Every edit is written. A grid edit is one whole gesture — a note drawn, a step typed — so
-  // there is nothing a Save button would batch, and this has no buffer to lose it from.
-  //
-  // Straight to the file, where the sequencer and the roll write through `sequence note …`
-  // commands. Both land in the same YAML; only the tracker's undo is the editor's rather than
-  // the shell's journal, which is what typing into a grid of text already means.
+  // Every edit is written, straight to the file: a grid edit is one whole gesture, so there is nothing a Save button would batch.
   const write = (next: string) => {
     setContent(next);
     api

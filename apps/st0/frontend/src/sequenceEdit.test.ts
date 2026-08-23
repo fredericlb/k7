@@ -16,8 +16,7 @@ describe("parseSeqEdit", () => {
   });
 
   it("answers with an empty name while the bar is still collecting one", () => {
-    // The bar sends the head with a trailing space as you fill the argument; this has to be a
-    // MATCH with nothing in it, so the caller prints a usage line instead of "unknown command".
+    // The bar sends the head with a trailing space while filling the argument: this must MATCH with nothing in it, so the caller prints a usage line.
     expect(parseSeqEdit("sequence edit roll ")).toEqual({
       view: "roll",
       name: "",
@@ -46,8 +45,7 @@ const FILES = [
 
 describe("resolveSequence", () => {
   it("prefers a SEQUENCE over a clip or a track of the same name", () => {
-    // The whole reason this is not the editor's generic resolver: `intro` is three files here,
-    // and only one of them has notes to draw.
+    // The whole reason this is not the editor's generic resolver: `intro` is three files here, and only one has notes to draw.
     expect(resolveSequence("intro", FILES)).toBe("sequences/intro.yaml");
   });
 

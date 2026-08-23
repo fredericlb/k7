@@ -12,13 +12,11 @@ export interface RawPlacement {
   fadeIn?: string | number;
   fadeOut?: string | number;
   loop?: number; // how many times the material's window is played (see PlacementSchema)
-  // The EVENT's own window into the material — intersected with the material's, most
-  // restrictive edge wins (see PlacementSchema). Same spellings as the material's pair.
+  // The EVENT's own window, intersected with the material's — most restrictive edge wins (PlacementSchema).
   from?: unknown;
   to?: unknown;
   disabled?: boolean; // silenced, but still placed — the event-level `mute`
-  // Whether this event plays the material's stretch map. Absent ⇒ yes; `false` is the only value
-  // that says anything, because the default is the other way round (see PlacementSchema).
+  // Whether this event plays the material's stretch map; absent means yes, so only `false` says anything.
   warp?: boolean;
 }
 
@@ -47,8 +45,7 @@ export interface RawClip {
   source?: string;
   name?: unknown;
   gain?: unknown;
-  // The window into the source. `unknown` because the SPELLING is the unit: a bare number is
-  // seconds into the file, a timecode is musical — see AudioClipSchema.
+  // The window into the source; `unknown` because the SPELLING is the unit (see AudioClipSchema).
   from?: unknown;
   to?: unknown;
   // `disable` switches the map off without deleting it (AudioClipSchema's WarpSchema).
@@ -98,10 +95,7 @@ export interface RawRackSound {
   to?: unknown;
 }
 
-/**
- * A rack as authored (`rack_type`) — or already normalized (`rackType`), since
- * effectiveRack merges the raw per-file shape with the typed graph model.
- */
+/** A rack as authored (`rack_type`) or already normalized (`rackType`) — effectiveRack merges both. */
 export interface RawRack {
   rack_type?: unknown;
   rackType?: unknown;
@@ -116,14 +110,7 @@ export interface RawPlugin {
   [key: string]: unknown;
 }
 
-/**
- * A module as `loadModules` / `readModuleTree` return it: the authored struct
- * (Zod-validated by moduleSchema) plus the fields the LOADER adds — kind/inputs from
- * the type folder, resolved preset/asset paths, and (for a local module) its identity.
- *
- * `name`/`category`/`file` are optional because an INHERITED module (`modules_from`,
- * read by readModuleTree) is keyed by ref and carries no local identity.
- */
+/** The authored module struct plus what the LOADER adds; an INHERITED one has no local identity. */
 export interface LoadedModule {
   // -- authored -----------------------------------------------------------------
   extends?: string;
@@ -133,19 +120,15 @@ export interface LoadedModule {
   // Numbers, except the file-valued ones (moduleTypes.FILE_PARAMS) — see moduleSchema.
   params?: Record<string, number | string>;
   rack?: RawRack;
-  // Only usable on material already on disk — it needs the WHOLE input before it can produce
-  // any of it. Inherited like `plugin`, so a use of a cold module is cold. See docs/coldModules.md.
+  // Needs the WHOLE input before producing any of it, and is inherited — see docs/coldModules.md.
   cold?: boolean;
-  // shaders only — which folder under the module's `shaders/` this node runs. Inherited like
-  // `base`, so a node of a shader module picks its own program. See packages/song-video/docs/shaders.md.
+  // shaders only — which folder under the module's `shaders/` this node runs (song-video's docs/shaders.md).
   shader?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
-  // The module's MIDI map, from the `controller.yaml` in its folder (controller.ts). Stamped on
-  // beside `ui` and by the same rule, so every node of the module carries it.
+  // The module's MIDI map from its folder's `controller.yaml`, stamped on beside `ui` and by the same rule.
   cc?: unknown;
   channel?: unknown; // io "in" only
-  // io "file" only — the audio it reads, project-relative. NOT `file`: the loader writes the
-  // module's folder name to that one, and would overwrite an authored value. See moduleSchema.
+  // io "file" only — the audio it reads, project-relative; NOT `file`, which the loader owns (moduleSchema).
   source?: unknown;
   track?: unknown; // io "in" only
   monitor?: unknown; // io "in" only
@@ -153,13 +136,10 @@ export interface LoadedModule {
   // A NOTE's text, on a doc module. `docs`/`todos` were here and are gone — see moduleSchema.
   content?: unknown;
   automations?: unknown;
-  // The module's other attribute SETS, and which is on. Its own fields ARE the first, so these
-  // are the ones after it — see docs/alternatives.md. They survive resolution deliberately: what
-  // a surface lists is what the file says, not what it was collapsed to.
+  // The attribute SETS after the module's own fields, surviving resolution — see docs/alternatives.md.
   alternatives?: unknown;
   alternative?: unknown;
-  // FROZEN at this module: the render standing in for everything upstream of it, itself
-  // included, project-relative. See docs/freeze.md.
+  // FROZEN here: the render standing in for everything upstream, itself included — see docs/freeze.md.
   frozen?: unknown;
   // -- lanes only (a track module; see docs/trackModules.md) ---------------------
   events?: unknown; // the placements on this lane — where its material goes, and how many times
@@ -170,18 +150,14 @@ export interface LoadedModule {
   strudel?: unknown; // a GENERATED lane's pattern file (algo/<name>.strudel)
   // -- added by the loader ------------------------------------------------------
   kind: ModuleKind; // from the type folder (MODULE_TYPES)
-  // The module's ports: its OWN when it declares them, else its type folder's defaults. Both
-  // resolved by the loader, so nothing downstream has to know which of the two it got.
-  // See docs/ports.md.
+  // The module's ports, its own or its type folder's, resolved by the loader — see docs/ports.md.
   inputs: {
     name: string;
     type: "audio" | "midi" | "video";
     mandatory?: boolean;
   }[];
   outputs?: { name: string; type: "audio" | "midi" | "video" }[];
-  // A lane whose clips are STREAMED rather than written down. Stamped on the two strudel built-ins
-  // and inherited by every node of them, which is the whole mechanism — it is deliberately NOT
-  // in moduleSchema, so it cannot be authored and cannot disagree with what the lane extends.
+  // A lane whose clips are STREAMED: stamped on the strudel built-ins and inherited, never authored.
   generated?: boolean;
   preset?: string; // resolved .vstpreset path, if any
   nam?: string; // a file-valued param resolved against the module's assets/ (undefined when unresolvable)…
@@ -189,17 +165,14 @@ export interface LoadedModule {
   jsdsp?: string; // resolved ABSOLUTE path to the module's JS/TS DSP source, when it declares one
   faust?: string; // …and to its Faust source, the other language a module's DSP can be written in
   assets?: Record<string, string>; // …and the name it was authored with
-  // The ABSOLUTE folder this module's files live in, whichever library that is. Written by the
-  // loader on every module it decorates, and read by the ancestry fold: a module may name a file
-  // its PARENT carries, so resolving one needs the folders of the whole chain. See assetPath.ts.
+  // The ABSOLUTE folder this module's files live in — the ancestry fold needs the whole chain's (assetPath.ts).
   folderAbs?: string;
   // -- local modules only (loadModules) -----------------------------------------
   name?: string; // the chain `use` key ("<name>" or "<name>:<node>")
   category?: string; // the type folder (io|instruments|audio|transformers|…)
   file?: string; // the module's folder name
   node?: string; // undefined for the generic
-  // The folder this module's own files live in, PROJECT-RELATIVE. Set for a flat node,
-  // whose location is `nodes/` and therefore cannot be rebuilt out of category + file.
+  // The PROJECT-RELATIVE folder, set for a flat node whose `nodes/` location category + file cannot rebuild.
   home?: string;
 }
 
@@ -261,10 +234,7 @@ export interface AssembledTrack {
   automation?: { param?: unknown; points?: unknown }[];
 }
 
-/**
- * The plain { project, tracks[] } doc project.ts's mapDoc consumes — produced by a
- * single-file YAML song or by folder.ts's assembler.
- */
+/** The plain { project, tracks[] } mapDoc consumes — from a single-file song or folder.ts's assembler. */
 export interface AssembledDoc {
   project?: {
     uuid?: unknown;
@@ -290,12 +260,9 @@ export interface RawProjectRoot {
     libraries_from?: string[];
     [key: string]: unknown;
   };
-  // The dialect a folder used to declare, when there were two. A root sibling, accepted and
-  // ignored like `project_type` below — `deadProjectFields` names the line to delete.
+  // The dialect a folder used to declare, accepted and ignored — `deadProjectFields` names the line to delete.
   type?: string;
-  // Accepted and ignored — see projectSchema.ts. Typed as `string` because nothing narrows it:
-  // no reader is left, and the key only survives so a folder written before the notion went away
-  // still parses against a `.strict()` schema.
+  // Accepted and ignored, kept only so a folder written before the notion went still parses (projectSchema.ts).
   project_type?: string;
   trackOrder?: string[];
   // The soloed lanes — solo as project state, resolved by the engine (see projectSchema.ts).

@@ -27,14 +27,10 @@ import { SHADER_CATEGORY } from "@studio/song-schema/moduleTypes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { moduleShaderChoices } from "@studio/song-video/shaders";
 
-// The formats with a native editor the engine can open. Re-exported, not restated: it
-// was declared here a second time, identically, and docs/loader.md's list of copies to
-// keep in step did not even mention this one.
+// The formats with a native editor, re-exported rather than restated — see docs/graphFlags.md.
 export { EXTERNAL_PLUGIN_FORMATS };
 
-/** The assets a module may name — its own and its ancestors', so a thin local module that
- *  extends a médiathèque amp offers that amp's profiles. Nothing for a module the engine
- *  merely reports: it has no folder anywhere. */
+/** The assets a module may name — its own and its ancestors'. See docs/graphFlags.md. */
 function assetChoicesFor(
   dir: string,
   module: { category?: string; file?: string; extends?: string } | undefined,
@@ -49,9 +45,7 @@ function assetChoicesFor(
   }
 }
 
-/** The named bases a module may be set to — its own `base/` and its ancestors', so a thin local
- *  module that extends a médiathèque synth offers that synth's sounds. Undefined rather than an
- *  empty array on a module with none: absent is what every surface reads as "no base control". */
+/** The named bases a module may be set to — its own `base/` and its ancestors'. See docs/graphFlags.md. */
 function baseChoicesFor(
   module: { extends?: unknown; folderAbs?: unknown } | undefined,
   refs: Readonly<Record<string, { extends?: unknown; folderAbs?: unknown }>>,
@@ -64,10 +58,7 @@ function baseChoicesFor(
   }
 }
 
-/** …and the third of the same shape: the shaders a shader module carries, its ancestors' included.
- *  Undefined on every module that is not one, which is what the graph reads as "no shader control
- *  here" — so this is not asked at all unless the folder says `shaders`. See
- *  packages/song-video/docs/shaders.md. */
+/** …and the shaders a `shaders` module carries, its ancestors' included — packages/song-video/docs/shaders.md. */
 function shaderChoicesFor(
   dir: string,
   module:
@@ -89,24 +80,7 @@ function shaderChoicesFor(
   }
 }
 
-/**
- * A rack module's sounds, flattened for the pads its node draws — or undefined for anything else.
- *
- * `resolvedRack` is what the COMPILER asks too (nodeProject's sampler branch), so the pads are the
- * sounds the engine will really have, base module folded in and per-symbol overrides applied. The
- * two flavours flatten into one row shape: a samples symbol names its own `clip`, a slice symbol
- * names the rack's shared `source` and its window. See packages/song/docs/racks.md.
- *
- * Sorted by symbol, so a pad does not move because a YAML key was retyped in another order.
- */
-/**
- * An input's channels when the file states them as NUMBERS, else undefined.
- *
- * A `channel:` may instead name a label from the machine's preferences, and resolving that needs
- * the preferences — which this service has, but the graph deliberately does not spend: a label is
- * the rig's own naming and rewriting it into numbers on the way to a panel would make the panel
- * disagree with the file. Absent reads as "no selection to show", which is the honest answer.
- */
+/** An input's channels when the file states them as NUMBERS, else undefined — docs/graphFlags.md. */
 function numericChannels(channel: unknown): number[] | undefined {
   if (!Array.isArray(channel)) return undefined;
   const ns = channel
@@ -115,6 +89,7 @@ function numericChannels(channel: unknown): number[] | undefined {
   return ns.length ? ns : undefined;
 }
 
+/** A rack's sounds, flattened for the pads its node draws — packages/song/docs/racks.md. */
 function rackSounds(
   module: { rack?: Rack } | undefined,
 ): WebRackSound[] | undefined {
@@ -133,27 +108,14 @@ function rackSounds(
         : { ...(s?.clip ? { clip: String(s.clip) } : {}) }),
     }))
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
-  // A rack with no symbols is a rack nobody has loaded a sound into: no pads rather than an
-  // empty row, so the node keeps the size it had.
+  // No pads rather than an empty row, so a rack nobody has filled keeps the size it had.
   return out.length ? out : undefined;
 }
 
-/**
- * Beats drawn for a clip whose compiled `length` is 0 — "the source's natural length".
- *
- * The same number st0's timeline draws for the same case (`NATURAL` in TimelineTab), and
- * deliberately so: neither side knows how long the audio really is, and two different guesses
- * would put a clip at one width on the lane and another on the graph.
- */
+// Beats drawn for a clip whose compiled `length` is 0 — the timeline's number too, docs/graphFlags.md.
 const NATURAL_BEATS = 4;
 
-/**
- * Where each track's clips START and how long they RUN, from the compiled project.
- *
- * Handed in rather than compiled here: `buildGraphDoc` is called on every graph poll, and the
- * workspace already holds this document memoised on the revision — compiling it again would
- * double the cost of a build this file has already been trimmed once for.
- */
+/** Where each track's clips START and how long they RUN — handed in, not compiled, docs/graphFlags.md. */
 export type ClipExtents = Record<string, { start: number; length: number }[]>;
 
 /** The extents of a compiled project, keyed by track — what `buildGraphDoc` takes. */
@@ -178,24 +140,19 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
       return {}; // a broken curve file shouldn't take the whole graph down
     }
   })();
-  // The `extends` vocabulary comes off the graph, which has already read it — calling
-  // loadModuleRefs again here doubled the cost of every graph build (~1.8s on a project this
-  // size), and a graph is polled. Each entry carries the folder its files live in.
+  // The `extends` vocabulary off the graph, which has already read it — see docs/graphFlags.md.
   const moduleRefs = g.moduleRefs;
-  // …and the `assets/` listings, memoised for this whole build: ancestors repeat, so every
-  // module inheriting one shared amp would otherwise re-read that amp's folder.
+  // …and the `assets/` listings, memoised for this whole build because ancestors repeat.
   const assets = assetLookup();
   const usedCurves: WebGraph["curves"] = {};
   const chains: WebGraph["chains"] = {};
   for (const [name, c] of Object.entries(g.chains))
     chains[name] = {
       from: c.from,
-      // Which of the lane's outputs this run left by, when the lane wired both. The renderer
-      // draws the cable from that jack and colours it accordingly — see trackSignals below.
+      // Which of the lane's outputs this run left by, when the lane wired both.
       ...(c.fromPort ? { fromPort: c.fromPort } : {}),
       use: c.use.map((s) => {
-        // Already RESOLVED by buildGraph — what it extends is folded in, so every read
-        // below is the module's own. See moduleResolve.ts.
+        // Already RESOLVED by buildGraph, so every read below is the module's own — moduleResolve.ts.
         const module = g.modules[s.module];
         const plugin = module?.plugin;
         const isPlugin = module?.kind === "plugin";
@@ -204,17 +161,6 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         // A stub is a plugin slot with no plugin — not a rack, which legitimately carries a sampler instead.
         const stub = isPlugin && type !== "rack" && !plugin;
         // A plugin st0 can't load: "not_supported" (amber) or unknown to the engine (red). See docs/graphFlags.md.
-        //
-        // `jsdsp` is known: the engine loads its built-in graph host and is handed the graph
-        // (see enginePlugin). Missing here it cost the node BOTH its colour and its values —
-        // red, and no `pluginId`, which is the address the panel asks the engine for a
-        // parameter by. A module that plays perfectly drew as one that could not load.
-        // `offline` is known for the same reason `jsdsp` is: the compiler recognises it, so a
-        // node drawn red — the colour for "the engine cannot load this" — would be a lie about a
-        // module that is working exactly as written. It loads nothing BY DESIGN.
-        // `faust` is known on the same grounds as `jsdsp`: a built-in host, handed the module's
-        // own source. Whether that source COMPILES is the engine's answer and arrives as a
-        // warning — not something to guess at here and paint the node red for.
         const known =
           fmt === "internal" ||
           fmt === JSDSP_TYPE ||
@@ -235,31 +181,24 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
           usedCurves[a.curve] = {
             type: cv.type,
             shape: cv.type === "lfo" ? cv.shape : undefined,
-            // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points —
-            // this is what a timeline automation row is built from.
+            // A drawn curve's points travel; a parameterised one's do not. See WebCurve.points.
             points: cv.type === "custom" ? cv.points : undefined,
           };
           return true;
         });
         return {
           module: s.module,
-          // …and WHICH module it is a use of. Authored, so it survives the resolution above —
-          // the fold merges what the base declares INTO this module and leaves the ref saying
-          // where that came from. Absent on a module that names itself, which is the case the
-          // header reads as "there is only one name here".
+          // …and WHICH module it is a use of — the authored `extends`, see docs/graphFlags.md.
           ...(module?.extends ? { uses: String(module.extends) } : {}),
           // Everything below already reads `undefined` off a missing module; this flag is what lets the graph SAY so.
           missing: module ? undefined : true,
-          // Only when there is more than one: a single flow input is what every node already
-          // draws, and sending the list for all of them would put a field on every step to say
-          // what its absence already says.
+          // Only past one: a single flow input is what every node already draws.
           inputs:
             module && module.inputs.length > 1
               ? module.inputs.map((i) => ({
                   name: i.name,
                   type: i.type,
-                  // Only when false: absent means mandatory on both sides, so the common port
-                  // costs no field. It is what decides whether a socket shows before it is fed.
+                  // Only when false: absent means mandatory on both sides, so the common port costs no field.
                   ...(i.mandatory === false ? { mandatory: false } : {}),
                 }))
               : undefined,
@@ -270,34 +209,21 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
               : undefined,
           // As authored (inherited like params), so an asset dropdown can show what's loaded without asking the engine.
           assets: module?.assets,
-          // …and what it may choose from: the module's OWN assets/, walked. Per module rather
-          // than once for the graph, because there is no shared library any more — the choices
-          // ARE the folder's contents. An unreadable folder is an empty one, never a failure.
+          // …and what it may choose from: the module's OWN assets/, walked — docs/graphFlags.md.
           assetChoices: assetChoicesFor(dir, module, moduleRefs, assets),
-          // Which base this module is on, and the ones it could be on. The choice is the MODULE's
-          // own field (a node has its own file, so it is per instance); the list is the folder's.
+          // Which base this module is on (the MODULE's own field) and the ones it could be on (the folder's).
           base:
             typeof module?.base === "string" && module.base
               ? module.base
               : undefined,
           bases: baseChoicesFor(module, moduleRefs),
-          // …and the same pair for a SHADER node: which GLSL program it runs, and the ones its
-          // folder offers. Only a `shaders` module answers either, so every other node is
-          // unchanged by this.
+          // …and the same pair for a SHADER node, which only a `shaders` module answers at all.
           shader:
             typeof module?.shader === "string" && module.shader
               ? module.shader
               : undefined,
           shaders: shaderChoicesFor(dir, module, moduleRefs),
-          /**
-           * The EVENTS this module announces. One for now — an instrument's note-on, which is
-           * what an envelope is fired by.
-           *
-           * Read off the module's TYPE FOLDER, exactly as its icon is: an instrument is a thing
-           * that is played, so it has note-ons by being one. Nothing is authored, which is the
-           * point of testing with this one — the day a second event is worth having, this is
-           * where a module gets to declare its own.
-           */
+          // The EVENTS this module announces, read off its TYPE FOLDER — see docs/graphFlags.md.
           events: module?.category === "instruments" ? ["note-on"] : undefined,
           // Its type folder — the node's icon. From the module itself, never its base: a kind comes from where IT lives.
           category: module?.category as WebChainStep["category"],
@@ -315,27 +241,15 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
             !unknownPlugin &&
             EXTERNAL_PLUGIN_FORMATS.has(fmt),
           ui: module?.ui,
-          // A RACK's loaded sounds, so its node can draw a pad per sound. The EFFECTIVE rack —
-          // `resolvedRack` has folded the `extends` base in — because that is what the module
-          // plays. Absent for everything else, which is nearly every module.
+          // A RACK's loaded sounds, the EFFECTIVE rack, so its node can draw a pad per sound.
           rack: rackSounds(module),
-          // Which CC plays which param, from the module folder's `controller.yaml`. Rides beside
-          // `ui` because it is keyed the same way — by the widget's `bind` — and read in the same
-          // place: the graph is where a knob is drawn, so it is where a knob learns its control.
+          // Which CC plays which param, from `controller.yaml`, keyed like `ui` — docs/graphFlags.md.
           cc: module?.cc,
-          // The other attribute sets this module could be switched to. Absent unless there is a
-          // choice — `graph.ts` only fills them past one. See packages/song/docs/alternatives.md.
+          // The other attribute sets this module could be switched to — packages/song/docs/alternatives.md.
           alternatives: module?.alternatives,
           alternative: module?.alternative,
           params: module?.params ?? {},
-          // The engine's address for this step — and ONLY when the engine will really have
-          // one. `offline` is the exception `known` above hides: the compiler recognises it
-          // and then emits no plugin at all (`if (rawType === OFFLINE_TYPE) continue`), so an
-          // id here would name something no document contains. It named one for a while, and
-          // everything downstream believed it: m9's tempo faders were classed as plugin
-          // params and sent `set-plugin-param` to `deckA:tempoA` for ever, the panel drew a
-          // knob that moved and changed nothing, and the input tap below — which promises an
-          // id "the engine really has" — could land on it too. See docs/graphFlags.md.
+          // The engine's address, ONLY when the engine will really have one — see docs/graphFlags.md.
           pluginId:
             isPlugin &&
             !stub &&
@@ -344,21 +258,16 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
             fmt !== OFFLINE_TYPE
               ? `${name}:${s.module}`
               : undefined,
-          // A live input's own field, so a widget can show and set it. Not a param: it is
-          // not the plugin's (there is no plugin), it is the module's.
+          // A live input's own field, not a param: there is no plugin, so it is the module's.
           monitor: module?.io === "in" ? (module.monitor ?? "auto") : undefined,
-          // …and which socket it is on, for the same reason and on the same terms. Numbers only:
-          // a `channel:` naming a preferences label is the rig's vocabulary, and this service does
-          // not resolve it — an unresolved one arrives absent, so the panel shows no selection
-          // rather than the wrong one.
+          // …and which socket it is on, NUMBERS only — a preferences label stays absent, docs/graphFlags.md.
           channel:
             module?.io === "in" ? numericChannels(module.channel) : undefined,
           automations: automations.length ? automations : undefined,
         };
       }),
       enabled: c.enabled,
-      // `fromPort` only when there is one: a module with the single output most have says
-      // nothing, and the wire stays what it was for every chain drawn before.
+      // `fromPort` only when there is one, so the wire stays what it was for every chain drawn before.
       out: c.out.map((o) => ({
         to: o.to,
         gain: o.gain,
@@ -366,17 +275,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
       })),
     };
 
-  /**
-   * Where each live input's waveform listens.
-   *
-   * An input carries no plugin, so there is nothing ON it to tap; the signal it sends arrives at the INPUT of
-   * the first module on the lane it feeds — the same audio, one step downstream, and the only place the engine
-   * can be asked for it without a new kind of tap. Being the lane's input it also carries whatever clips the
-   * lane plays, which while overdubbing is what you wanted to see anyway.
-   *
-   * A second pass, over the built steps rather than the model: the id has to be one the engine really has, and
-   * the only thing that knows which steps earned a `pluginId` is the loop that just assigned them.
-   */
+  // Where each live input's waveform listens — a second pass over the built steps, docs/graphFlags.md.
   const isTrack = (id: string) => !!g.tracks[id];
   for (const [name, c] of Object.entries(g.chains)) {
     const track = inputLandingTrack(c, isTrack);
@@ -386,23 +285,14 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     for (const s of chains[name].use)
       if (g.modules[s.module]?.io === "in") s.tap = { id, side: "input" };
   }
-  // A note's TEXT, per module, so the renderer can draw it on the node. It used to be
-  // `{docs, todos}` for a bottom panel that aggregated everybody's notes; a note is its own
-  // node now (a node of `@studio/doc`), and only a doc module ever carries one.
-  // Keyed by DOC modules and nothing else, so its keys ARE the project's notes — which is what
-  // lets a surface find them without a second field saying "this one is a note". `content ?? ""`
-  // rather than skipping an empty one: a note somebody has not written yet is still a note, and
-  // dropping it here would make it vanish from the graph instead of drawing empty.
+  // A note's TEXT, keyed by DOC modules and nothing else — see docs/graphFlags.md.
   const modules: WebGraph["modules"] = {};
   for (const [name, m] of Object.entries(g.modules))
     if (m.kind === "doc") modules[name] = { content: m.content ?? "" };
   const trackColors: Record<string, string> = {};
   // What a track puts on the wire: a sequences track feeds MIDI to the chain's instrument, an audio one audio.
   const trackSignals: WebGraph["trackSignals"] = {};
-  // What is baked, by node name. The compiler asks `activeFreezePlans` the same question with the
-  // same two arguments, which is what keeps the badge on the node and the silence in the engine
-  // from ever disagreeing. `"at"` last, so a point that is also inside a wider freeze still reads
-  // as the one the file says can be thawed. See packages/song/docs/freeze.md.
+  // What is baked, by node name, from the compiler's own question — packages/song/docs/freeze.md.
   const frozen: NonNullable<WebGraph["frozen"]> = {};
   for (const p of activeFreezePlans(
     g.chains,
@@ -413,26 +303,18 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     for (const n of [...p.lanes, ...p.modules]) frozen[n] = "inside";
     frozen[p.at] = "at";
   }
-  // A lane's other attribute sets, from the module it IS. Only past one: a list of one is not a
-  // choice, and a node with nothing to pick from should grow no menu.
+  // A lane's other attribute sets, from the module it IS — only past one, docs/graphFlags.md.
   const trackAlternatives: NonNullable<WebGraph["trackAlternatives"]> = {};
-  // The song's meter, for spelling a clip's position. Defaulted the way every other reader of
-  // this field defaults it: a header that says nothing is 4/4.
+  // The song's meter, for spelling a clip's position: a header that says nothing is 4/4.
   const [sigNum, sigDen] = (() => {
     const m = /^(\d+)\/(\d+)$/.exec(g.project.timeSignature ?? "");
     return m ? [Number(m[1]), Number(m[2])] : [4, 4];
   })();
-  // What each lane HOLDS, so its node can list it. Sorted by position, which is the order it
-  // plays in and the order a reader expects — `placements` is authored order, and a track file
-  // may perfectly well name a clip at bar 9 before one at bar 3.
+  // What each lane HOLDS, sorted by position rather than by authored order — docs/graphFlags.md.
   const trackClips: NonNullable<WebGraph["trackClips"]> = {};
   for (const [id, t] of Object.entries(g.tracks)) {
     if (t.color) trackColors[id] = t.color;
-    // What the lane puts on a wire when a run leaves it BARE — which is what it holds: midi if
-    // every event names a sequence, audio otherwise, including the mixed case, where the one
-    // cable really does carry both and audio is the colour a reader expects. A run that named a
-    // port carries its own answer instead (`WebChain.fromPort`), so this is only ever the
-    // fallback. There is no `contentType` to read: a lane is not typed (docs/trackModules.md).
+    // What the lane puts on a wire when a run leaves it BARE — see docs/graphFlags.md.
     trackSignals[id] =
       t.placements.length && t.placements.every((p) => p.kind === "midi")
         ? "midi"
@@ -443,13 +325,9 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
         alternatives: lane.alternatives,
         alternative: lane.alternative,
       };
-    // Only what a lane really holds: a group has members and a strudel lane streams, and both
-    // carry an empty `placements` — so an entry for either would be a promise of a list that
-    // is always empty.
+    // Only what a lane really holds: a group and a strudel lane both carry an empty `placements`.
     if (t.placements.length) {
-      // The compiled extents of THIS lane, matched to a placement by where it sits. `start` is
-      // the one thing both sides compute the same way (`parsePosition` into beats), and it is
-      // what identifies a placement — a track may hold the same clip twice, at two positions.
+      // The compiled extents of THIS lane, matched to a placement by `start` — docs/graphFlags.md.
       const byStart = new Map(
         (extents?.[id] ?? []).map((c) => [c.start, c.length]),
       );
@@ -481,15 +359,7 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
     ...(Object.keys(trackAlternatives).length ? { trackAlternatives } : {}),
     ...(Object.keys(frozen).length ? { frozen } : {}),
     modules,
-    /**
-     * EVERY curve the project has, not only the bound ones.
-     *
-     * It was the bound ones, and an unreferenced curve drew nothing — which made `curve new`
-     * a verb whose result you could not see. A curve is a node like everything else here, so
-     * one that drives nothing yet is a card waiting to be wired, exactly as a module with no
-     * cable is. `usedCurves` is still what records each SHAPE, so a bound curve's label is
-     * unchanged; the rest are added beside it.
-     */
+    // EVERY curve the project has, not only the bound ones — see docs/graphFlags.md.
     curves: (() => {
       const all: WebGraph["curves"] = { ...usedCurves };
       for (const [id, cv] of Object.entries(allCurves))

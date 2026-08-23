@@ -17,21 +17,12 @@ import {
   USER_HEADER,
 } from "@studio/web-protocol";
 
-/** How often the engine is asked where a cut got to. A separation is minutes, so this is not a
- *  hot loop — it is slow enough to cost nothing and quick enough to feel finished. */
+/** How often the engine is asked where a cut got to — a separation is minutes, not a hot loop. */
 const POLL_MS = 2000;
-/** Past any honest run, and only here to stop a wedged engine holding a request for ever. The
- *  engine has its own, shorter, cap; this one catches an engine that stopped answering at all. */
+/** Past any honest run: this only catches an engine that stopped answering at all. */
 const GIVE_UP_MS = 90 * 60 * 1000;
 
-/**
- * Where a registered engine's file service answers.
- *
- * Loopback FIRST, and on this dev machine that is the only one that means anything — pl8 and the
- * engine are the same box. A LAN address is what a hosted pl8 would need, and it is tried in
- * turn rather than chosen cleverly: an engine advertises the addresses it has, and the first that
- * answers is the one that works.
- */
+/** Where an engine's file service answers — loopback first, then each LAN address in turn. */
 export function fileServiceBases(engine: EngineEntry): string[] {
   const { loopback, lanIps, filePort } = engine.addresses;
   return [loopback, ...lanIps]
@@ -41,14 +32,7 @@ export function fileServiceBases(engine: EngineEntry): string[] {
 
 export class CutError extends Error {}
 
-/**
- * The stems this song already has, by filename — empty when it has none.
- *
- * Asked of the FOLDER rather than of a record somewhere, for the reason every freshness question
- * in this repo is asked that way: the files are the truth, and a record beside them is a second
- * one that can disagree. Exported because the route answers "already done" BEFORE it looks for an
- * engine — a prepared song needs no machine at all.
- */
+/** The stems this song already has — asked of the FOLDER, since the files are the truth. */
 export function heldStems(song: string): string[] {
   const outDir = join(dirname(safePath(song)), STEMS_DIR);
   return existsSync(outDir) ? readdirSync(outDir).filter(isAudio) : [];
@@ -65,19 +49,7 @@ function headersFor(
   };
 }
 
-/**
- * Cut one song into stems and keep them beside it.
- *
- * `song` is volume-relative — `songs/<artiste>/<album>/<titre>/original.mp3`, the same string
- * every other route here takes — and `safePath` is what confines it. The stems land in
- * `stems/` under the song's own folder, never beside the master: the scan takes the FIRST audio
- * file in a folder and does not descend, so a stem alongside could be played in place of the mix
- * (@studio/song's stems.ts holds that rule for everyone).
- *
- * Already done is not an error and not work: a folder with audio in it answers immediately. Asked
- * of the FOLDER rather than of a record somewhere, for the reason every freshness question in
- * this repo is — the files are the truth.
- */
+/** Cut one song into stems and keep them in `stems/` under its folder — ../../docs/stems.md. */
 export async function cutStems(opts: {
   engine: EngineEntry;
   userEmail: string;
@@ -89,8 +61,7 @@ export async function cutStems(opts: {
   const source = safePath(song);
   if (!existsSync(source)) throw new CutError(`${song} is not on this volume`);
 
-  // `dirname`, not a slice on "/": `safePath` answers in the platform's separators, and on
-  // Windows that is a backslash — a hand-rolled split would put `stems/` at the volume root.
+  // `dirname`, not a slice on "/": `safePath` answers in the platform's own separators.
   const outDir = join(dirname(source), STEMS_DIR);
   const held = heldStems(song);
   if (held.length) return { ready: true, files: held };
@@ -99,9 +70,7 @@ export async function cutStems(opts: {
   if (!bases.length)
     throw new CutError("that engine advertises no address to reach it on");
 
-  // The BYTES, in the request body. The engine holds no copy of this library — that is the whole
-  // point of driving the cut from here — so the master travels once, per job, and is thrown away
-  // with the scratch directory when the files have been collected.
+  // The BYTES, in the body: the engine holds no copy, so the master travels once per job.
   const audio = await readFile(source);
   const name = song.slice(song.lastIndexOf("/") + 1);
 
@@ -122,9 +91,7 @@ export async function cutStems(opts: {
         },
       );
       if (!res.ok) {
-        // A refusal is the engine ANSWERING — a chain that is not there, a model nobody
-        // downloaded — so it is reported rather than treated as an address that did not work.
-        // Trying the next address would turn a fixable sentence into "no engine responded".
+        // A refusal is the engine ANSWERING, so it is reported, not tried at the next address.
         const said = (
           (await res.json().catch(() => ({}))) as { error?: string }
         ).error;
@@ -154,19 +121,15 @@ export async function cutStems(opts: {
     if (!res.ok)
       throw new CutError(`the engine forgot this cut (${res.status})`);
     job = (await res.json()) as SeparateJob;
-    // Forwarded VERBATIM — phase, percent and the worker's own lines. What the desk draws is the
-    // engine's progress, and this service is a pipe for it rather than a second opinion.
+    // Forwarded VERBATIM: this service is a pipe for the engine's progress, not a second opinion.
     opts.onProgress?.(job);
   }
   if (job.failed) throw new CutError(job.error ?? "the separation failed");
 
-  // A phase of our own, and the only one: the engine is finished and the bytes are still there.
-  // Named because it is minutes for a long song over a LAN, and an unlabelled gap at 100% reads
-  // as a hang.
+  // A phase of our own, and the only one — an unlabelled gap at 100% reads as a hang.
   opts.onProgress?.({ ...job, phase: "collecting", percent: null });
 
-  // Collected one at a time and streamed to disk: four stems of a long song are hundreds of
-  // megabytes, and this process serves everybody else's requests while it happens.
+  // One at a time and streamed: four stems of a long song are hundreds of megabytes.
   mkdirSync(outDir, { recursive: true });
   for (const file of job.files) {
     const res = await fetch(
@@ -181,8 +144,7 @@ export async function cutStems(opts: {
     );
   }
 
-  // …and tell the engine it may drop the scratch. Best-effort: the files are HERE now, and an
-  // engine that never hears this sweeps on its own an hour later.
+  // …and tell the engine to drop the scratch. Best-effort: it sweeps on its own an hour later.
   await fetch(`${base}/process/${job.id}`, {
     method: "DELETE",
     headers: headersFor(engine, userEmail),

@@ -21,13 +21,7 @@ export function basesIn(folder: string | null | undefined): string[] {
   }
 }
 
-/**
- * The file a `base:` names, or undefined when it names nothing this folder has.
- *
- * Undefined rather than a path that does not exist, because the caller's next move differs: a
- * missing base must fall back to the module's plain `<name>.vstpreset` default, not load nothing
- * and leave the plugin at whatever a fresh instance happens to be.
- */
+/** The file a `base:` names, or undefined so the caller falls back to the module's default. */
 export function basePresetIn(
   folder: string,
   base: unknown,
@@ -37,17 +31,7 @@ export function basePresetIn(
   return existsSync(file) ? file : undefined;
 }
 
-/**
- * The `.vstpreset` a module actually loads, in precedence order.
- *
- * 1. the `base:` it CHOSE, if that base exists — an explicit answer beats every default;
- * 2. this node's own `<node>.vstpreset` — a per-placement state, so a UI edit on one node never
- *    touches a sibling's;
- * 3. the module's `<leaf>.vstpreset` — the folder's default.
- *
- * A chosen base sits above both because it is the only one somebody asked for by name. The other
- * two are where a state ends up when nobody said.
- */
+/** The `.vstpreset` a module loads: the chosen `base:`, then the node's, then the module's own. */
 export function presetFor(
   folder: string,
   leaf: string,
@@ -73,17 +57,7 @@ interface BaseOwner {
   folderAbs?: unknown;
 }
 
-/**
- * Every base this module may be set to: its own `base/`, plus that of every module it extends.
- *
- * Inherited for the same reason assets are, and it is the normal shape rather than a nicety: the
- * bases are snapshotted onto the SHARED module — the one that names the plugin and travels with
- * its sounds — and a song points at it through a thin local module that `extends` it. Listing
- * only the local folder would offer nothing on the one module built to be chosen from.
- *
- * A nearer base shadows an inherited one of the same name, matching `presetFor`, which looks in
- * the module's own folder and stops.
- */
+/** Every base this module may be set to, its ancestors' included — see docs/userPresets.md. */
 export function moduleBaseChoices(
   module: BaseOwner | undefined,
   refs: Readonly<Record<string, BaseOwner>>,

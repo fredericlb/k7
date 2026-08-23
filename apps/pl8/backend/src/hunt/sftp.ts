@@ -4,12 +4,10 @@
 
 import SftpClient from "ssh2-sftp-client";
 
-/** The library's own upload route stops at 512 MB; a download it could not then file would be
- *  an hour of transfer spent on nothing. */
+/** The library's own upload route stops here, so anything past it is a transfer spent on nothing. */
 const MAX_BYTES = 512 * 1024 * 1024;
 
-/** How deep to look for a file slskd did not put where we expected. Two is the shape it
- *  documents (`<downloads>/<album folder>/<file>`); more would be a directory crawl. */
+/** How deep to look for a file slskd did not file where documented — more would be a crawl. */
 const SEARCH_DEPTH = 3;
 
 export interface SftpConfig {
@@ -22,8 +20,7 @@ export interface SftpConfig {
   downloadsDir: string;
 }
 
-/** Read per call, like `slskdConfig` and for the same reason: `env.yaml` is layered into
- *  `process.env` at boot, after this module is loaded. */
+/** Read per call: `env.yaml` is layered into `process.env` at boot, after this module loads. */
 export function sftpConfig(): SftpConfig {
   const host = process.env.SLSKD_SFTP_HOST || "";
   const username = process.env.SLSKD_SFTP_USER || "";
@@ -37,8 +34,7 @@ export function sftpConfig(): SftpConfig {
     port: Number(process.env.SLSKD_SFTP_PORT || 22),
     username,
     password: process.env.SLSKD_SFTP_PASSWORD || undefined,
-    // The key ITSELF, not a path: this service already keeps its git identity as bytes it
-    // holds rather than a file on disk, and a container gets its secrets as environment.
+    // The key ITSELF, not a path: a container gets its secrets from the environment.
     privateKey: process.env.SLSKD_SFTP_KEY || undefined,
     passphrase: process.env.SLSKD_SFTP_PASSPHRASE || undefined,
     downloadsDir: downloadsDir.replace(/\/+$/, ""),
@@ -53,17 +49,7 @@ export function sftpConfigured(): boolean {
   );
 }
 
-/**
- * Where slskd will have put a download, from the path the PEER used.
- *
- * slskd files `@bob\Music\Nirvana\Nevermind\05 Lithium.flac` as
- * `<downloads>/Nevermind/05 Lithium.flac` — the containing folder and the name, nothing above.
- *
- * The two segments are taken after `.` and `..` have been dropped, so whatever the remote path
- * says the result is always UNDER the downloads directory. That is not a formality: this string
- * comes off the Soulseek network, where a file name is whatever a stranger typed, and slskd's
- * own documentation warns that these values are hostile.
- */
+/** Where slskd will have put a download — two segments, `.` and `..` dropped; ../../docs/hunt.md. */
 export function localPathFor(remote: string, downloadsDir: string): string {
   const parts = remote
     .split(/[\\/]/)
@@ -90,18 +76,10 @@ export interface SftpLike {
   end(): Promise<unknown>;
 }
 
-/**
- * What this step saw and what it tried, in the service's logs.
- *
- * Always, not only on failure: this is where two machines meet, and the two questions asked when
- * nothing arrives — what is actually in that folder, and which path was tried — can only be
- * answered while the answers are still to hand. A download lasts minutes; a few lines per
- * download are not noise.
- */
+/** Always, not only on failure — this is where two machines meet; see ../../docs/hunt.md. */
 const log = (msg: string): void => console.log(`⇣ sftp ${msg}`);
 
-/** How many directory entries to print. A download folder can hold thousands, and a log line of
- *  ten thousand names is not a log line. */
+/** How many entries to print: a log line of ten thousand names is not a log line. */
 const MAX_LISTED = 40;
 
 /** A directory's contents as they are, with the type — `d` folder, `-` file. */
@@ -124,9 +102,7 @@ async function show(sftp: SftpLike, dir: string): Promise<number> {
   return rows.length;
 }
 
-/** Look for the file by name when it is not where the layout says. slskd can be configured to
- *  place downloads differently, and a hunt that failed for THAT would be indistinguishable
- *  from one nobody would seed. */
+/** By name, when it is not where the layout says — slskd's placement is configurable. */
 async function findByName(
   sftp: SftpLike,
   dir: string,
@@ -144,8 +120,7 @@ async function findByName(
     if (r.type === "-" && r.name === name) return `${dir}/${r.name}`;
   for (const r of rows)
     if (r.type === "d") {
-      // Every level descended is printed: the only way to see WHERE slskd filed it, when that is
-      // not where the documented layout said.
+      // Every level is printed: the only way to see WHERE slskd actually filed it.
       log(`descente dans ${dir}/${r.name}`);
       await show(sftp, `${dir}/${r.name}`);
       const hit = await findByName(sftp, `${dir}/${r.name}`, name, depth - 1);
@@ -154,21 +129,14 @@ async function findByName(
   return null;
 }
 
-/**
- * Fetch a completed download off the slskd machine.
- *
- * Opens a connection, takes the one file, closes. Not a pool: a hunt fetches once, minutes
- * after the last one, and a connection held open across that would be a socket to keep alive
- * for nothing.
- */
+/** Fetch a completed download: connect, take the one file, close — never a pool. */
 export async function fetchDownload(
   remoteFilename: string,
   make: () => SftpLike = () => new SftpClient() as unknown as SftpLike,
 ): Promise<{ bytes: Buffer; path: string }> {
   const cfg = sftpConfig();
   const sftp = make();
-  // BEFORE connecting: if the connection is what fails, these are the values to re-read, and a
-  // `connect` exception does not carry them. Neither the key nor the password, obviously.
+  // BEFORE connecting, since a `connect` exception carries none of it. Never the key itself.
   log(
     `→ ${cfg.username}@${cfg.host}:${cfg.port} (${cfg.privateKey ? "clé" : cfg.password ? "mot de passe" : "sans identifiant !"})`,
   );
@@ -183,16 +151,13 @@ export async function fetchDownload(
       readyTimeout: 20_000,
     });
     log(`connecté, dossier ${cfg.downloadsDir}`);
-    // Both ends of the reasoning, side by side: what the PEER named, and what is deduced from it
-    // on THIS machine. With both in the log, an unexpected slskd layout reads at a glance instead
-    // of being worked out.
+    // Both ends side by side: what the PEER named, and what is deduced from it on THIS machine.
     log(`nom chez le pair : ${remoteFilename}`);
     const guess = localPathFor(remoteFilename, cfg.downloadsDir);
     log(`chemin visé      : ${guess}`);
     await show(sftp, cfg.downloadsDir);
 
-    // `exists` can throw as easily as answer false — a missing folder, missing rights — and both
-    // mean the same thing here: not where it was expected.
+    // `exists` throws as readily as it answers false, and both mean "not where expected".
     const kind = await sftp.exists(guess).catch(() => false as const);
     let path: string | null = null;
     if (kind === "-") {
@@ -228,8 +193,7 @@ export async function fetchDownload(
     log(`${(got.length / 1024 / 1024).toFixed(1)} Mo lus depuis ${path}`);
     return { bytes: got, path };
   } finally {
-    // Always, including after a throw: a connection left open would hold a session on the
-    // other machine until its own timeout, and a hunt that failed would leak one each time.
+    // Always, throw included: a failed hunt would otherwise leak a session on the other machine.
     await sftp.end().catch(() => {});
   }
 }

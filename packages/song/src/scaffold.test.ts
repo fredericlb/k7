@@ -7,10 +7,7 @@ import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
 
-// A new project is the one worked example a reader gets, and the only project st0
-// writes from scratch — so "does it load and play" is the whole contract. Nothing covered
-// it while the template was CUE, which made rewriting it in YAML riskier than it needed to
-// be: a mistyped field would have surfaced as an unopenable project on someone's machine.
+// The only project st0 writes from scratch, so "does it load and play" is the whole contract.
 
 let dir: string;
 beforeEach(() => {
@@ -34,8 +31,7 @@ describe("a scaffolded project", () => {
       "melody",
       "pad",
     ]);
-    // Two lane runs, and the empty `MIX -> OUT` every scaffold writes — the master chain's
-    // place, declared so the graph has an output node without anything on it yet.
+    // Two lane runs plus the empty `MIX -> OUT`: the master chain's place, declared and bare.
     expect(Object.keys(g.chains).length).toBe(3);
     // A warning here means the template references something it didn't write.
     expect(g.warnings).toEqual([]);
@@ -52,8 +48,7 @@ describe("a scaffolded project", () => {
   });
 
   it("quotes the timecodes, so a placement isn't read as a number", () => {
-    // `1:1:1` unquoted is a YAML 1.1 sexagesimal — the trap this format has to be written
-    // around, and the reason the template states them quoted.
+    // `1:1:1` unquoted is a YAML 1.1 sexagesimal, which is why the template quotes them.
     scaffold(dir, "demo");
     const track = readFileSync(join(dir, "nodes", "melody.yaml"), "utf8");
     expect(track).toContain('start: "1:1:1"');
@@ -69,10 +64,7 @@ describe("a scaffolded project", () => {
   });
 });
 
-// The two timeline archetypes, and the line between them. `arrangement` is the sound; `video` is
-// the same sound plus a frame to composite into. The risk the pair carries is DRIFT — a fix made
-// to one map and not the other — so what is pinned here is that the second is the first plus
-// picture, entry for entry, rather than a second copy that happens to agree today.
+// The risk the pair carries is DRIFT, so `video` is pinned as `arrangement` plus picture, entry for entry.
 describe("arrangement vs video", () => {
   it("gives an arrangement no picture at all — not a frame, not a shot, not the sample", () => {
     scaffold(dir, "demo");
@@ -81,8 +73,7 @@ describe("arrangement vs video", () => {
     expect(files).not.toContain("surfaces/viewport.yaml");
     expect(files.filter((f) => f.startsWith("video_tracks/"))).toEqual([]);
     expect(files.filter((f) => f.startsWith("clips/"))).toEqual([]);
-    // And nothing in the header promising one: `loadVideoProject` REQUIRES a viewport, so a
-    // project carrying the line but no lane would fail on a file it never wrote.
+    // `loadVideoProject` REQUIRES a viewport, so the line without a lane fails on a missing file.
     expect(readFileSync(join(dir, "project.yaml"), "utf8")).not.toContain(
       "viewport:",
     );
@@ -105,14 +96,10 @@ describe("arrangement vs video", () => {
   });
 
   it("keeps the shared half identical, byte for byte", () => {
-    // The one that catches drift: `videoProjectFiles` is built by ADDING to the song map, and a
-    // day someone restates an entry instead, this fails on that entry rather than on a symptom
-    // a project only shows once it is opened.
+    // Catches drift: restating an entry instead of ADDING to the song map fails on that entry.
     const audio = projectFiles("demo");
     const video = videoProjectFiles("demo");
-    // The two files the picture is ADDED INTO rather than beside: the viewport is a line inside
-    // the header, and the picture's outputs are a line inside the one `modules:` map — sound and
-    // picture being one folder and one graph. Both are checked below instead.
+    // The two files the picture is added INTO rather than beside; both are checked below instead.
     const merged = new Set(["project.yaml", GRAPH_FILE]);
     for (const [rel, content] of Object.entries(audio)) {
       if (merged.has(rel)) continue;
@@ -120,8 +107,7 @@ describe("arrangement vs video", () => {
     }
     // …and the header differs by exactly the picture block, nothing else.
     expect(video["project.yaml"].startsWith(audio["project.yaml"])).toBe(true);
-    // The graph differs by exactly two things: a note, and the run it describes. Every segment
-    // the song had is still there, in order — which is what "added to" has to mean.
+    // The graph differs by a note and the run it describes; every song segment stays, in order.
     const kept = audio[GRAPH_FILE]
       .split("\n")
       .filter((l) => !l.startsWith("#"));

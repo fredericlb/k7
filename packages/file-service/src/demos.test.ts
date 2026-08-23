@@ -89,9 +89,7 @@ describe("mirrorDemos", () => {
 
   it("is a no-op (no throw) when there is no bundle", () => {
     delete process.env.STUDIO_DEMOS;
-    // Point the walk-up at a dir with no capot/songs by using a bare temp path:
-    // demosDir() returns null and mirrorDemos returns []. (In this repo the walk-up
-    // could still find the real songs, so only assert it doesn't throw.)
+    // A bare temp path makes `demosDir()` null; in this repo the walk-up may still find the real songs.
     expect(() => mirrorDemos(join(work, "nope"))).not.toThrow();
   });
 });

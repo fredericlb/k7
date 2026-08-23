@@ -10,17 +10,7 @@ import {
 import type { WebVideoPlugin, WebVideoProject } from "@studio/web-protocol";
 import { mediaUrl } from "./api";
 
-/**
- * A compiled video plugin -> the pass eyes runs, or null when there is nothing to run.
- *
- * Two ways to be null and both are ordinary. A `video_effect` or `video_transition` carries no
- * source at all — those are still modelled and uncompiled (packages/song/docs/picture.md) — and a
- * SHADER with nothing picked, or whose folder has not synced, arrives without its GLSL. Either
- * way the layer keeps its card on the graph and its picture on screen, minus the effect.
- *
- * `audio` starts at 0 and is replaced per frame by the driver: the level is not in the document,
- * and compiling one into it would freeze a moving number. See shaderAudio.ts.
- */
+/** A compiled video plugin → the pass eyes runs, or null — two ordinary ways to be null, and `audio` is replaced per frame by the driver. */
 function passOf(p: WebVideoPlugin): ScenePass | null {
   if (p.type !== "shader" || !p.shader) return null;
   return {
@@ -55,8 +45,7 @@ export function sceneOf(proj: WebVideoProject): VideoScene {
         length: c.length,
         sourceFrom: c.sourceFrom,
       })),
-      // A shape lane carries no media — the compositor rasterizes it; a per-shape id is
-      // synthesised, since the file gives its shapes no names.
+      // A shape lane carries no media — the compositor rasterizes it, and a per-shape id is synthesised, the file naming none.
       shapes: t.shapes.map((s, i) => ({ id: `${t.id}:${i}`, ...s })),
       // …and this lane's own GLSL chain, run over the layer before it is composited.
       passes: passesOf(t.plugins),

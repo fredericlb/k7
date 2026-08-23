@@ -15,8 +15,7 @@ import { clipLoop, visibleRepeats } from "../clipLoop";
 import { m } from "../paraglide/messages.js";
 import type { WebClip, WebProject, WebWaveform } from "../types";
 
-// What `api.waveform` defaults to. Stated here because it is part of the envelope's identity, and
-// a key computed at one resolution for a fetch made at another would be a key that quietly lies.
+// What `api.waveform` defaults to, stated here because a key computed at one resolution for a fetch made at another would quietly lie.
 const WAVEFORM_BUCKETS = 1000;
 
 export function WaveformView({
@@ -30,16 +29,9 @@ export function WaveformView({
 }: {
   project: WebProject;
   clip: WebClip;
-  // Span the whole SOURCE rather than the clip's placed region — how a clips/*.yaml shows its material, so the
-  // pane fits the file end to end and `from`/`to` can be judged against all of it.
+  // Span the whole SOURCE rather than the clip's placed region — how a clips/*.yaml shows its material, so `from`/`to` can be judged against it.
   whole?: boolean;
-  // Slice-rack windows over the waveform (source seconds): one symbol's [from,to], so you see
-  // where each sound sits. `color` is the slice's own hue (sliceSymbols.ts), shared with the
-  // symbol's painted name in the editor; absent, the window is the colourless band a clip's
-  // `from`/`to` draws — the two uses of this overlay that must not look alike.
-  // `hollow` is the clip band with NOTHING trimmed: edges only, no wash. It is drawn so the edges
-  // can be grabbed — a clip that has never been trimmed still has to be trimmable — while saying
-  // nothing about a window it does not have. See clipWindowText.ts.
+  // Slice-rack windows over the waveform, in source seconds: `color` is the slice's own hue, `hollow` the clip band with nothing trimmed (clipWindowText.ts).
   sliceRanges?: {
     symbol: string;
     from: number;
@@ -51,33 +43,12 @@ export function WaveformView({
   onSliceEdit?: (symbol: string, from: number, to: number) => void;
   // Docked in the editor there is nothing to close (the strip lives and dies with the file), so the header drops it.
   onClose?: () => void;
-  /**
-   * Audition what this strip is showing — the header's ▶ — answering the WINDOW that was sent, in
-   * file seconds, or null when nothing played.
-   *
-   * A callback rather than a request built here, because only the host knows what the strip IS:
-   * the dock is a clip file, a gutter preview is some other source or a slice of one, and the
-   * three are three different `PreviewReq`s. The window (`from`/`to`) is resolved SERVER-side,
-   * where the compiler already turns a timecode edge into seconds — see workspace's resolvePreview
-   * — and comes back so the playhead below is drawn over the span that is actually sounding.
-   *
-   * One shot and no Stop: the engine fires a voice through a sampler, independent of the transport
-   * (EngineHost::previewSample). There is nothing to stop, so a toggle would be drawing a state
-   * this side cannot know.
-   */
+  /** Audition what this strip is showing — a callback, since only the host knows what the strip IS; one shot and no Stop. */
   onPlay?: () => Promise<{ start: number; length: number } | null>;
 }) {
   const [wf, setWf] = useState<WebWaveform | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /**
-   * The span the last ▶ is sounding, and WHEN it was sent — the audition's playhead, which is a
-   * different mark from the transport's and has to be told apart from it.
-   *
-   * A span rather than a position: the position is the child's business, sixty times a second, and
-   * this pane deliberately keeps the transport's subscription down in `ClipWaveform` so a moving
-   * mark does not re-render the slice handles and the warp marks with it. Set twice per audition —
-   * on the reply, and never again — so the same rule holds for this one.
-   */
+  /** The span the last ▶ is sounding, and WHEN it was sent — a span rather than a position, the position being the child's business. */
   const [audition, setAudition] = useState<{
     from: number;
     to: number;
@@ -89,9 +60,7 @@ export function WaveformView({
   const [zoomX, setZoomX] = useHZoom(scrollRef, { gutter: 0 });
   usePanScroll(scrollRef);
 
-  // The waveform fills the pane's height, so a short bottom strip never scrolls vertically. The
-  // width comes along because the loop marks ask how many pixels a pass is worth before drawing
-  // one line per repeat — see visibleRepeats.
+  // The waveform fills the pane's height; the width comes along because the loop marks ask what a pass is worth in pixels.
   const [body, setBody] = useState({ w: 0, h: 0 });
   useEffect(() => {
     const el = scrollRef.current;
@@ -105,6 +74,7 @@ export function WaveformView({
   const bodyH = body.h;
 
   // --- slice-handle dragging -------------------------------------------------
+
   // The content layer the slices overlay; a handle's screen X maps to a source-second by its fraction across it.
   const contentRef = useRef<HTMLDivElement>(null);
   // The edge being dragged, with its LIVE [from,to] preview, so the window resizes before the edit lands.
@@ -164,9 +134,7 @@ export function WaveformView({
     setDrag(null);
   };
 
-  // The MATERIAL's identity, not the clip's: `clip trim` rewrites the window and leaves the id
-  // alone, so depending on the id alone held this pane on the pre-trim picture. Same key as the
-  // timeline's envelope cache — src/clipEnvelope.ts.
+  // The MATERIAL's identity, not the clip's: `clip trim` rewrites the window and leaves the id alone (src/clipEnvelope.ts).
   const materialKey = clipEnvelopeKey(clip, project, WAVEFORM_BUCKETS);
   useEffect(() => {
     let cancelled = false;
@@ -174,10 +142,7 @@ export function WaveformView({
     setError(null);
     // A different region: whatever was sounding is about someone else's picture now.
     setAudition(null);
-    // A different region opens at FIT, like the roll's: the zoom multiplier belonged to the clip
-    // being left, and the pane's width is `zoomX * 100%` — so without this the next clip arrives
-    // stretched to whatever the last one was examined at. A trim IS a different region, so it
-    // re-fits too.
+    // A different region opens at FIT, like the roll's: the zoom belonged to the clip being left, and a trim IS a different region.
     setZoomX(1);
     api
       .waveform(clip.id, WAVEFORM_BUCKETS, whole)
@@ -188,22 +153,13 @@ export function WaveformView({
     };
   }, [clip.id, materialKey, whole, setZoomX]);
 
-  // One identity per decode: Waveform is memoised, and an inline literal here would be a new
-  // object on every render of this pane, which is exactly what memo cannot see through.
+  // One identity per decode: Waveform is memoised, and an inline literal would be a new object on every render of this pane.
   const envelope = useMemo(
     () => (wf ? { intervalMs: wf.intervalMs, samples: wf.rms } : null),
     [wf],
   );
 
-  /**
-   * The clip's loop, on this region's axis — and NOT in `whole` mode.
-   *
-   * A loop belongs to a PLACEMENT: `clipLoop` puts an audio window at 0 because the placed region
-   * is drawn from the in-point, which is where the window starts. `whole` spans the source file
-   * instead, so the same 0 would mark the head of the file rather than the loop, and every mark
-   * would be wrong by the in-point. What that view is for is the material's own `from`/`to`, which
-   * `sliceRanges` already draws.
-   */
+  /** The clip's loop, on this region's axis — and NOT in `whole` mode, where the same 0 would mark the head of the file. */
   const loop = whole ? null : clipLoop(clip);
   // Pixels one beat is drawn at: the content is `zoomX` times the pane, spanning the whole region.
   const pxPerBeat =
@@ -218,8 +174,7 @@ export function WaveformView({
             onClick={() => {
               void onPlay().then((w) => {
                 if (!w) return;
-                // `length: 0` is the service saying "to the end of the file" — a duration only the
-                // decoded audio knows, and this pane is the one place that has it.
+                // `length: 0` is the service saying 'to the end of the file' — a duration only the decoded audio knows.
                 const to =
                   w.length > 0 ? w.start + w.length : (wf?.seconds ?? 0);
                 if (to > w.start)
@@ -320,8 +275,7 @@ export function WaveformView({
                       style={{
                         left: `${clampF * 100}%`,
                         width: `${width * 100}%`,
-                        // The slice's own hue — border at full, fill at ~10% ("1A"), the same
-                        // weight the colourless band carries.
+                        // The slice's own hue — border at full, fill at about 10%, the same weight the colourless band carries.
                         ...(r.color
                           ? {
                               borderColor: r.color,
@@ -341,10 +295,7 @@ export function WaveformView({
                       )}
                       {onSliceEdit && (
                         <>
-                          {/* Edge handles — drag to change from/to. A generous 12px-wide
-                              `pointer-events-auto` grab zone (straddling the border) makes
-                              them easy to catch; pointer CAPTURE keeps the drag on the
-                              handle wherever the cursor goes. */}
+                          {/* Edge handles for from/to, in a 12px grab zone straddling the border, with pointer CAPTURE holding the drag. */}
                           <div
                             title={`${r.symbol} — drag to set 'from'`}
                             onPointerDown={(e) => onHandleDown(r, "from", e)}
@@ -374,9 +325,7 @@ export function WaveformView({
                 })}
               </div>
             )}
-            {/* Transient markers: dashed yellow vertical bars at detected transient onsets.
-                Drawn as an SVG overlay so they scale with the zoom like gridlines and
-                slices. Only rendered when transients exist. */}
+            {/* Transient markers at detected onsets, an SVG overlay so they scale with the zoom like the gridlines and slices. */}
             {wf.transients.length > 0 && wf.seconds > 0 && (
               <svg
                 className="pointer-events-none absolute inset-0 h-full w-full"
@@ -400,10 +349,7 @@ export function WaveformView({
                 })}
               </svg>
             )}
-            {/* Stretch marks: for each warp marker a dashed line at the source point
-                (original) and a blue line at its beat (target), with an arrow from one
-                to the other. Positioned as a fraction of the region — same axis as the
-                slices and grid — so they track the zoom. */}
+            {/* Stretch marks: a dashed line at each warp marker's source and a blue one at its beat, placed as a fraction of the region. */}
             {wf.warpMarks.length > 0 && wf.seconds > 0 && (
               <svg
                 className="pointer-events-none absolute inset-0 h-full w-full"
@@ -462,13 +408,7 @@ export function WaveformView({
                 })}
               </svg>
             )}
-            {/* The LOOP: the window that repeats, and a line where each later pass begins.
-                Positioned by BEAT fraction of the region — `clipBeats` spans it, the same axis
-                the playhead is placed on — so the marks hold at any zoom.
-
-                This is what explains the pane's width: the region spans the clip's placed length,
-                and the material only fills the first pass (`regionWaveform` draws silence past
-                the source window), so a 3× loop is one third of a picture and two thirds flat. */}
+            {/* The LOOP: the repeating window and a line per later pass, placed by BEAT fraction of the region, which is what explains the pane's width. */}
             {loop && wf.clipBeats > 0 && (
               <svg
                 className="pointer-events-none absolute inset-0 h-full w-full"
@@ -520,24 +460,7 @@ export function WaveformView({
   );
 }
 
-/**
- * The AUDITION's playhead — the ▶'s own mark, amber, over the span the service said it sent.
- *
- * Driven by the CLOCK and not by the engine, which is the honest description of it: a preview is a
- * one-shot voice through a sampler (`EngineHost::previewSample`), and nothing about a sampler voice
- * rides the state frame. What is known exactly is the window — the service answers it — and that a
- * sample plays at its own rate, so elapsed time since the trigger IS the position. The one error
- * term is the engine's: the first play of a file loads it asynchronously and fires a turn later, so
- * that mark can run a little ahead. Every play after it is immediate.
- *
- * A LEAF, for the reason `ClipWaveform` below is one: this moves sixty times a second, and the
- * slice handles, the warp marks and the loop lines have no business re-rendering with it. It stops
- * itself at the end of the span rather than telling the parent, which keeps that one render away
- * too — a new ▶ makes a new span, and a new span restarts it.
- *
- * Amber, where the transport's is near-white: the two can be on screen together, and "where the
- * song is" and "where the audition is" are not the same claim about the same picture.
- */
+/** The AUDITION's playhead — amber, driven by the CLOCK rather than the engine, and a LEAF, since it moves sixty times a second. */
 function AuditionPlayhead({
   span,
   seconds,
@@ -582,14 +505,7 @@ function AuditionPlayhead({
   );
 }
 
-/**
- * The canvas, and the only thing in this pane that knows the transport.
- *
- * `currentTime` has to reach the canvas — the progress fill and the playhead are drawn on it —
- * so the subscription cannot leave for a sibling the way the timeline's did. What it CAN do is
- * stop dragging the rest of the pane with it: the slice windows, the transient markers and the
- * warp marks are all above this canvas and none of them move with the transport.
- */
+/** The canvas, and the only thing in this pane that knows the transport — the slice windows and the marks above it do not move with it. */
 function ClipWaveform({
   envelope,
   duration,

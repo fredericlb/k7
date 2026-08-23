@@ -7,10 +7,7 @@ import {
   searchModules,
 } from "./ModulePicker";
 
-// Refs in the shape scanModules actually writes (loader.ts): a namespaced folder, then
-// <type>/<category>/<slug>, with the category level dropped for a plugin that declared
-// nothing usable. Sampled from a real _modules tree (namespace "engine", 250 modules —
-// 205 with a category, 45 without).
+// Refs in the shape scanModules actually writes (loader.ts), sampled from a real _modules tree of 250 modules, 45 without a category.
 const CATALOGUE = [
   "@engine/audio/delay/adt",
   "@engine/audio/delay/hombre",
@@ -68,8 +65,7 @@ describe("buildTree", () => {
   });
 
   it("hangs an uncategorised module directly off its type", () => {
-    // No "Other" bucket inside a type: 4osc declares no category, so it sits beside the
-    // category submenus rather than one level deeper than everything else.
+    // No 'Other' bucket inside a type: 4osc declares no category, so it sits beside the category submenus.
     const instruments = buildTree(CATALOGUE)[0].children?.find(
       (c) => c.label === "instruments",
     );
@@ -80,8 +76,7 @@ describe("buildTree", () => {
   });
 
   it("groups the project's own base modules under `current`, first", () => {
-    // A ref with no namespace is one this project defines. It is a real choice — you
-    // node it rather than creating anything — so it leads the first level.
+    // A ref with no namespace is one this project defines — a real choice, so it leads the first level.
     const tree = buildTree(["instruments/synth", ...CATALOGUE]);
     expect(tree.map((n) => n.label)).toEqual(["current", "@engine"]);
     const synth = tree[0].children?.find((t) => t.label === "instruments")
@@ -99,8 +94,7 @@ describe("buildTree", () => {
   });
 });
 
-// The shape the ENGINE answers in: no folders, so no filing inside the ref. What an ADT
-// is comes from the module, and the picker is handed it rather than parsing it out.
+// The shape the ENGINE answers in: no folders, so no filing inside the ref — what an ADT is comes from the module.
 const ENGINE: PickerModule[] = [
   { ref: "@engine/adt", category: "audio" },
   { ref: "@engine/4osc", category: "instruments" },
@@ -109,8 +103,7 @@ const ENGINE: PickerModule[] = [
 
 describe("a module whose ref does not spell out its filing", () => {
   it("files it under the category it declares", () => {
-    // The regression this covers: with the engine's modules keyed `@engine/adt`, the
-    // parser reports no type and every one of the 253 vanished from the picker.
+    // The regression this covers: keyed `@engine/adt`, the parser reported no type and all 253 vanished from the picker.
     const ns = buildTree(ENGINE)[0];
     expect(ns.label).toBe("@engine");
     expect(ns.children?.map((c) => c.label)).toEqual([
@@ -132,8 +125,7 @@ describe("a module whose ref does not spell out its filing", () => {
   });
 
   it("still reads a ref that DOES say it — a library module is a folder", () => {
-    // `@library/audio/wah/auto-wah` is on disk, so its path is its filing and the
-    // category the catalogue reports must not override it.
+    // `@library/audio/wah/auto-wah` is on disk, so its path is its filing and the catalogue's category must not override it.
     const tree = buildTree([
       { ref: "@library/audio/wah/auto-wah", category: "audio" },
     ]);
@@ -154,19 +146,15 @@ describe("searchModules", () => {
     searchModules(CATALOGUE, q).map((n) => n.entry?.ref);
 
   it("finds a module wherever it sits in the tree", () => {
-    // The point of the search: one query reaches across every namespace, type and
-    // category, so a module you can name doesn't cost four hovers to reach.
+    // The point of the search: one query reaches across every namespace, type and category.
     expect(refs("adt")).toEqual(["@engine/audio/delay/adt"]);
     expect(refs("4osc")).toEqual(["@engine/instruments/4osc"]);
   });
 
   it("drops the fuzzy noise once something matches as written", () => {
-    // "adt" is ALSO a subsequence of @engine/audio/distortion/drive (and, in the real
-    // 273-module catalogue, of 39 others). A module actually called `adt` exists, so the
-    // scattered ones are dropped rather than listed under it.
+    // 'adt' is ALSO a subsequence of other refs; a module actually called `adt` exists, so the scattered ones are dropped.
     expect(refs("adt")).not.toContain("@engine/audio/distortion/drive");
-    // With nothing matching literally, the subsequence hits are all there is — that is
-    // what makes the search forgive a half-remembered name.
+    // With nothing matching literally, the subsequence hits are all there is — what makes the search forgive a half-remembered name.
     expect(refs("ado")).toContain("@engine/audio/delay/adt");
   });
 
@@ -179,9 +167,7 @@ describe("searchModules", () => {
       "@engine/instruments/4osc",
       "@engine/instruments/analog-lab-v",
     ]);
-    // A slashed query narrows level by level: each part has to hit a DIFFERENT segment
-    // of the ref, so "engine/dist" means the engine namespace then the distortions, and
-    // not "these letters, anywhere".
+    // A slashed query narrows level by level: each part has to hit a DIFFERENT segment of the ref.
     expect(refs("engine/dist")).toEqual(["@engine/audio/distortion/drive"]);
     expect(refs("audio/delay")).toEqual([
       "@engine/audio/delay/adt",
@@ -190,8 +176,7 @@ describe("searchModules", () => {
   });
 
   it("puts a name match above a path-only one", () => {
-    // "drive" IS a module and is also a subsequence of several paths. The one actually
-    // called that has to come first, or the search is useless for the case it exists for.
+    // 'drive' IS a module and also a subsequence of several paths; the one actually called that has to come first.
     expect(refs("drive")[0]).toBe("@engine/audio/distortion/drive");
   });
 

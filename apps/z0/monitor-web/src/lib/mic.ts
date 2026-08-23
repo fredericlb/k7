@@ -1,9 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { WSMessage, WSSubscriber } from "./monitor";
 
-// Framework-free port of composables/useMic.ts: mic passthrough to the
-// speakers with an RMS-driven duck factor fed into the audio engine so
-// songs dip when the presenter is speaking.
+// Mic passthrough with an RMS-driven duck factor, so a song dips while the presenter speaks.
 
 export interface MicDeps {
   subscribe: (fn: WSSubscriber) => () => void;
@@ -18,8 +16,7 @@ export interface MicState {
   error: string | null;
 }
 
-// RMS thresholds: below THRESHOLD the mic is silent; at KNEE we hit the max
-// attenuation (factor 0.5, ~−6 dB).
+// Below THRESHOLD the mic reads silent; at KNEE the duck is at its max, 0.5 or about -6 dB.
 const DUCK_THRESHOLD = 0.02;
 const DUCK_KNEE = 0.2;
 const DUCK_MAX_ATTEN = 0.5;
@@ -134,8 +131,7 @@ export class Mic {
       this.gainNode.gain.value = this.state.gainPct / 100;
       this.source.connect(this.gainNode);
       this.gainNode.connect(this.ctx.destination);
-      // Tap pre-gain source for level detection so the slider doesn't change
-      // duck aggressiveness.
+      // Tapped PRE-gain, so moving the slider does not change how hard the duck bites.
       this.analyser = this.ctx.createAnalyser();
       this.analyser.fftSize = 1024;
       this.analyser.smoothingTimeConstant = 0.2;

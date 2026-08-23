@@ -13,12 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 /** One session the engine claims to hold; only `id` and `loaded` are ever read. */
 type Held = { id: string; loaded: boolean };
 
-/**
- * A stand-in engine that answers `list-sessions` with whatever the test set.
- *
- * `answer: null` is the case with no other symptom — the engine says NOTHING, which is what a
- * link that is established, `ready` and inert looks like from here.
- */
+/** A stand-in engine; `answer: null` is the inert link — established, `ready` and saying nothing. */
 const built: FakeClient[] = [];
 class FakeClient {
   static answer: Held[] | null = [];
@@ -109,9 +104,7 @@ beforeEach(async () => {
   built.length = 0;
   FakeClient.answer = [];
   setSelectedEngine(`ws://127.0.0.1:1/${later()}`);
-  // Forget the previous test's project, so this session starts serving nothing. `null` is the
-  // right workspace to name: a temp dir outside the users root falls back to the bare session,
-  // which is the one every case in this file lands on.
+  // Forget the previous test's project; `null` names the bare session every case here lands on.
   await unloadEngine(null);
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -155,8 +148,7 @@ describe("the poll's engine upkeep", () => {
   });
 
   it("re-sends the project when the engine turns out to be holding nothing", async () => {
-    // The stranding this exists for: the note says we are serving, the engine says loaded=false,
-    // and before this nothing anywhere compared the two.
+    // The stranding: the note says serving, the engine says `loaded=false`, and nothing compared the two.
     const ws = wsWith(root, "song");
     startEngineForActive(ws);
     FakeClient.answer = [];
@@ -175,8 +167,7 @@ describe("the poll's engine upkeep", () => {
   });
 
   it("re-dials a link that does not answer at all", async () => {
-    // A re-send cannot land on an inert socket, however many times it is tried — the only cure
-    // is a new one, and its `open` carries the project back.
+    // A re-send cannot land on an inert socket; only a new one, whose `open` carries the project back.
     vi.useFakeTimers();
     try {
       const ws = wsWith(root, "song");
@@ -194,8 +185,7 @@ describe("the poll's engine upkeep", () => {
   });
 
   it("leaves a poll for ANOTHER project in the same session alone", async () => {
-    // Reconciling it would re-assert the project being left. The session is the unit here —
-    // a different session has its own engine edit and its own note, and reconciles on its own.
+    // Reconciling it would re-assert the project being left; the SESSION is the unit here.
     const other = mkdtempSync(join(tmpdir(), "td-reconcile-b-"));
     try {
       startEngineForActive(wsWith(root, "song"));

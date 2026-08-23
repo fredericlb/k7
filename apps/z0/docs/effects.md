@@ -120,6 +120,93 @@ l'exprime avec deux repères `warp:` (`{ algorithm: elastique, markers: [[beat, 
 voir `packages/song/src/nodeProject.ts`) — qui étire le temps *sans* descendre la hauteur, là
 où z0 faisait les deux d'un coup. Le duo « warp + Pitch Shift » reproduit l'original.
 
+## La phase appartient au backend
+
+Une deuxième chose que la lecture du code laisse deviner trop tard : **la phase de la partie
+est décidée sur le serveur**, et `backend/src/game/phase.ts` est le seul endroit qui la change.
+`setServerPhase` est le point de passage unique — `flushBuzzes`, la dépêche des `remote_action`,
+`handleNext`, le verrou d'inscription y passent tous — et il fait trois choses d'un coup :
+
+1. il **dérive le verrou des buzzers** de la nouvelle phase. `phaseAcceptsBuzzes` est la seule
+   définition : `song` et `registration` sont ouverts, tout le reste est fermé. Personne ne
+   pose `buzzersLocked` à la main ;
+2. il **persiste** l'état ;
+3. il **diffuse** `phase_change` à tous les clients, écran principal et buzzers.
+
+Faire autrement — laisser un écran poser sa phase et l'annoncer — casse dès qu'il y a deux
+télécommandes ou deux buzzers en course, ce qui est le cas normal.
+
+Le déverrouillage n'est pas symétrique du verrouillage, et c'est voulu : rouvrir les buzzers
+**réémet un `locked: true` ciblé** aux appareils encore en pénitence, avec le temps qu'il leur
+reste. Sans ça, une mauvaise réponse punie d'un cooldown serait pardonnée par la question
+suivante.
+
+Enfin, un buzz n'est pas traité tout de suite : les buzz sont **collectés pendant 150 ms** et le
+plus ancien horodatage gagne. C'est ce qui rend la course jouable sur des téléphones dont la
+latence réseau varie ; c'est aussi pourquoi `flushBuzzes` est le seul endroit qui fait passer
+`song` → `answering`.
+
+## Qui joue le son, et qui le dessine
+
+Une seule des six SPA tient un `AudioContext` : **`monitor-web`**. `audioPlayback.ts` y possède
+le `SongPreloader` de `@studio/player-web` et le pilote depuis le WebSocket (`next`,
+`phase_change`, `audio_command`). Le presenter ne joue plus rien du tout — il ne lui reste que
+son bip de buzz et le tic des trois dernières secondes, deux `<audio>` ordinaires.
+
+C'est ce qui explique une demi-douzaine de bizarreries qui, lues une par une, passent pour des
+oublis :
+
+- **Le presenter ne précharge pas.** `preloadCategory` lui est passé en no-op : `monitor-web`
+  réagit au *même* `next` et fait le préchargement pour de bon. Le presenter n'en voit que le
+  reflet, par les diffusions `preload_progress` / `preload_failed`, qui alimentent sa barre.
+- **Il n'a jamais besoin d'un geste utilisateur.** Un `AudioContext` ne démarre qu'après un
+  clic ; sans contexte, il n'y a rien à débloquer, donc l'écran reprend la partie tout seul au
+  chargement au lieu d'afficher un « cliquez pour commencer ».
+- **Son timecode reste à `0:00`.** L'heure de lecture est sur l'autre machine ; l'afficher
+  demanderait une diffusion par frame pour un chiffre décoratif.
+- **La machine à états score/reveal/multi est chez `monitor-web`.** Le presenter reçoit
+  `reveal_state` et `multi_state` et les dessine, un point c'est tout — d'où des champs comme
+  `multiRemovedTracks` qui ne sont écrits par aucune logique locale.
+- **Les intentions partent en `audio_command`** (`play`, `pause`, `stop`, `set_gain`,
+  `set_playback_rate`, `set_duck`, `mute_multi_track`…). C'est le seul vocabulaire par lequel
+  un écran demande quelque chose au son.
+
+Et une conséquence sur l'ordre des messages : le backend diffuse `phase_change` **avant**
+`next`. L'écouteur de phase écrit donc en premier, et la phase de rendu propre au presenter
+(scoreboard, pause, mystery-question) que pose le gestionnaire de `next` gagne sur le même
+tick. Inverser les deux diffusions ferait clignoter la phase.
+
+### Le mode playlist joue autrement
+
+`online/src/lib/playlistPlayer.ts` n'est pas un `SongPreloader` : c'est **deux `<audio>` qui
+tournent**, l'un qui joue pendant que l'autre précharge la piste suivante. Le motif est la
+mémoire — un extrait de 30 s stéréo décodé coûte ~10 Mo de RAM, donc cinquante pistes
+dépasseraient le demi-gigaoctet. Le prix à payer est qu'**aucun effet WebAudio ne s'applique**,
+ce qui tombe bien : une playlist n'en porte aucun, et toutes ses catégories sont en mode `""`.
+
+**Le tirage se fait ici, pas dans le backend.** `/playlists/:id/tracks` répond à la question
+« qu'y a-t-il dans cette playlist » ; un point d'entrée qui renverrait un ordre différent à
+chaque appel mentirait sur ce qu'il décrit. Dans quel ordre on est *interrogé* est une
+propriété de la partie, et `sessionFromPlaylist` est la couture où une playlist en devient une.
+Le tirage a lieu **une fois par sélection**, donc il tient toute la manche et ne change qu'en
+re-choisissant la playlist — et rien n'est perdu à le refaire, puisqu'une manche de playlist
+ne garde aucun point de reprise. Une session préparée, elle, garde son ordre écrit : celui-là
+est composé, et le `from`/`to` de `order` le découpe par index.
+
+Le `path` de chaque morceau vise la redirection du backend plutôt qu'une URL de CDN, pour la
+même raison que ci-dessus : une signature Deezer meurt au bout d'un quart d'heure, et une
+partie un peu longue calerait en son milieu.
+
+Deux conséquences dans ce fichier : le préchargement ne **rejette jamais** (il se résout sur
+`canplaythrough`, sur erreur, ou sur un délai de 15 s), parce que la porte d'entrée de la partie
+l'attend et qu'une piste morte ne doit pas figer le jeu ; et `resumeContext()` doit être appelé
+**synchroniquement** depuis le clic de démarrage, avant tout `await`, sinon le navigateur refuse
+le `play()` programmatique qui suit.
+
+Enfin, `monitor-web` sait **reprendre après un rechargement** : le backend ne rediffuse pas le
+`next` courant à la connexion, alors la page va chercher `/api/game` elle-même et le rejoue,
+catégorie préchargée d'abord pour que l'évènement `song` trouve ses tampons en cache.
+
 ## Où vivent les sources
 
 Sur le volume de la médiathèque, `modules/audio/<catégorie>/<nom>/`, qui est le seul catalogue

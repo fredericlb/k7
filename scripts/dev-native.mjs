@@ -23,15 +23,13 @@ const DEBOUNCE_MS = 500;
 const log = (msg) => console.log(`native | ${msg}`);
 
 // ── what each target is, and how it is rebuilt ────────────────────────────────
-// `dirs` are watch roots; `match` filters by BASE name, because a recursive fs.watch reports
-// a path relative to the root. Anything not matched is ignored, which is what keeps the
-// engine's own build/ output — and every editor swap file — from triggering a rebuild.
+
+// `dirs` are watch roots and `match` filters by BASE name — see ../docs/dev.md.
 
 const isCxx = (base) => /\.(cpp|h|hpp|mm)$/.test(base);
 
 const TARGETS = {
-  // The C++ that ends up in studio-moteur. tests/ is deliberately out: it links a binary of
-  // its own, and rebuilding it would double the wait for something the tray never runs.
+  // The C++ that ends up in studio-moteur; tests/ is deliberately out (../docs/dev.md).
   moteur: {
     dirs: [
       { path: join(engineDir, "engine"), recursive: true, match: isCxx },
@@ -45,8 +43,7 @@ const TARGETS = {
     ],
     build: buildEngine,
   },
-  // The tray. build.rs and tauri.conf.json are in because both are build inputs cargo
-  // re-runs on, and the dev config is assembled from the latter.
+  // The tray; build.rs and tauri.conf.json are in because cargo re-runs on both.
   capot: {
     dirs: [
       {
@@ -67,8 +64,7 @@ const TARGETS = {
   },
 };
 
-// Rebuild order, and the order a cycle builds in: the tray's --dev build stages nothing from
-// the engine, but building the slow one first means a broken C++ never costs a cargo run.
+// Rebuild order: the slow one first, so a broken C++ never costs a cargo run (../docs/dev.md).
 const ORDER = ["moteur", "capot"];
 
 /** Delegated to the moteur's own build:* scripts, so this holds no CMake knowledge. */
@@ -89,16 +85,7 @@ function buildEngine() {
   if (r.status !== 0)
     throw new Error(`the engine build failed (exit ${r.status})`);
 
-  // A build reporting SUCCESS without replacing the image is the failure this guards, and it
-  // is the expensive one: MSBuild prints `studio-moteur.vcxproj -> …exe` and exits 0 when a
-  // running engine holds the file, so the session goes on running the code you just changed
-  // away from. It cost an evening once.
-  //
-  // The test is "is the binary at least as new as its sources", NOT "did it change": a
-  // watcher event can fire with nothing actually edited (Windows reports odd names for
-  // changes under the build tree), and a no-op build is then the CORRECT outcome. Demanding a
-  // change made that harmless case a hard failure that left the tray stopped — worse than the
-  // bug being guarded. Measured, not assumed: it fired on the very first spurious event.
+  // A build reporting SUCCESS without replacing the image is what this guards (../docs/dev.md).
   const after = engineBinary();
   if (after && statSync(after).mtimeMs < newestSource("moteur"))
     throw new Error(
@@ -108,8 +95,8 @@ function buildEngine() {
 }
 
 // ── is the engine binary older than the sources it came from? ────────────────
-// Only asked once, at startup. A session should not pay a cmake run to be told there is
-// nothing to do, but it should also not silently run the engine you had before a git pull.
+
+// Asked once, at startup, and only then — see ../docs/dev.md.
 
 /** The freshest built engine binary, Debug last (mirrors build-engine.mjs's findEngineBinary). */
 function engineBinary() {
@@ -169,8 +156,7 @@ function touch(target, file) {
   timer = setTimeout(kick, DEBOUNCE_MS);
 }
 
-// One cycle at a time. A save during a build just re-arms this timer, so the work is picked
-// up as soon as the current cycle frees the tray rather than racing it.
+// One cycle at a time: a save during a build re-arms this timer rather than racing it.
 function kick() {
   if (busy) {
     timer = setTimeout(kick, DEBOUNCE_MS);
@@ -244,7 +230,7 @@ for (const [target, { dirs }] of Object.entries(TARGETS))
           touch(target, basename(filename));
       }).unref(); // the signal handlers hold the loop open, not the watchers
     } catch {
-      // No recursive watch on this platform (Linux). Dev convenience, not a feature.
+      // No recursive watch on this platform (Linux) — dev convenience, not a feature.
       log(`cannot watch ${path} on this platform — no auto-rebuild for it`);
     }
   }

@@ -22,8 +22,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
 
-/** Fast enough that a peer change shows, slow enough that a screen left open for half an hour
- *  does not hammer the backend. A hunt lasts minutes, not seconds. */
+/** Fast enough that a peer change shows, slow enough for a screen left open: a hunt lasts minutes. */
 const POLL_MS = 2000;
 
 /** Three colours for four states: searching and downloading both read as "running" to a watcher. */
@@ -42,8 +41,7 @@ function Icon({ status }: { status: HuntStatus }) {
   return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sky-500" />;
 }
 
-/** What the row says about itself, in a sentence. The useful detail differs by state: while
- *  downloading it is WHO is sending, on failure why, once filed where. */
+/** What the row says about itself: who is sending while it downloads, why on failure, where once filed. */
 function detail(h: HuntRecord): string {
   if (h.status === "failed") return h.error ?? "échec";
   if (h.status === "searching") return "recherche du morceau…";
@@ -58,8 +56,7 @@ function detail(h: HuntRecord): string {
   return `${from}${h.error ?? h.path ?? "rangé"}`;
 }
 
-/** The format obtained, said plainly: a 128 kbps that announces itself will not be mistaken for
- *  a mixing reference six months later. */
+/** The format obtained, said plainly: a 128 kbps that announces itself is not a mixing reference. */
 function quality(h: HuntRecord): string | null {
   if (!h.format) return null;
   const ext = h.format.replace(/^\./, "").toUpperCase();
@@ -73,8 +70,7 @@ function Row({
   onYoutube,
 }: {
   h: HuntRecord;
-  /** Is yt-dlp there? If not the fallback is offered greyed out, saying why — a button that
-   *  failed on click would teach nothing more. */
+  /** Is yt-dlp there? If not, the fallback is greyed out and says why rather than failing on click. */
   youtube: boolean;
   onForget: (id: string) => void;
   onYoutube: (id: string) => void;
@@ -107,10 +103,7 @@ function Row({
           {detail(h)}
         </span>
       </span>
-      {/* The fallback, only once Soulseek is EXHAUSTED — not on every red row. A service restart
-          or a file missing over SFTP say nothing about the song's availability, and answering
-          them with YouTube would hide the real fault behind a worse file. Never automatic
-          either: it is another bargain, and which song deserves it is a judgement on the song. */}
+      {/* The fallback, only once Soulseek is EXHAUSTED and never automatically (../docs/hunt.md). */}
       {canFallBackToYoutube(h) && (
         <Button
           variant="secondary"
@@ -148,8 +141,7 @@ export function FindSongs({
   onFiled,
 }: {
   onBack: () => void;
-  /** Called when a row has just turned green, so the catalogue behind reloads instead of waiting
-   *  for its own poll. */
+  /** Called when a row turns green, so the catalogue behind reloads without waiting for its poll. */
   onFiled: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -158,12 +150,10 @@ export function FindSongs({
   const [youtube, setYoutube] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // WHICH rows were already filed, not how many: removing one would lower a counter, and the
-  // next song would bring it back to the same number without refreshing the catalogue.
+  // WHICH rows were filed, not how many: a counter would return to its old value on the next song.
   const filed = useRef<Set<string> | null>(null);
 
-  // Runs only while the page is mounted, which is exactly "the section is open": a hunt lives on
-  // the server, and polling for a screen nobody watches pays a round trip for nothing.
+  // Only while the page is mounted: a hunt lives on the server, so polling for nobody costs a round trip.
   useEffect(() => {
     let stop = false;
     const tick = () =>
@@ -198,8 +188,7 @@ export function FindSongs({
     setError(null);
     void hunt
       .start(q)
-      // Cleared at once: building a library means one title after another, and clearing the
-      // field by hand between each would be the gesture too many.
+      // Cleared at once: a library is built one title after another, and clearing by hand is one gesture too many.
       .then((h) => {
         setQuery("");
         setRows((r) => [h, ...(r ?? [])]);
@@ -228,16 +217,13 @@ export function FindSongs({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* The field stays AT THE TOP and does not scroll: building a library means one title
-          after another, and a field to go hunting for after thirty history rows would be a
-          round trip per song. */}
+      {/* The field stays AT THE TOP and does not scroll: a library is built one title after another. */}
       <div className="shrink-0 border-b border-border px-6 py-4">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Morceaux
           </Button>
-          {/* Focus on load: this page exists only for this field, and the click that opened it
-              is already the request to type. */}
+          {/* Focus on load: the click that opened this page is already the request to type. */}
           <Input
             autoFocus
             className="h-12 flex-1 text-base"
@@ -261,8 +247,7 @@ export function FindSongs({
           </Button>
         </div>
 
-        {/* Said rather than hidden: an unconfigured deployment is its normal state, and a field
-            failing on every keystroke would teach nothing. */}
+        {/* Said rather than hidden: an unconfigured deployment is this page's normal state. */}
         {reason && (
           <p className="mx-auto mt-3 max-w-4xl rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             {reason}

@@ -36,13 +36,7 @@ export interface SongInfo {
 
 export type Catalogue = Map<string, SongInfo>;
 
-/**
- * Every song the médiathèque holds, by id.
- *
- * One request for the whole family rather than one per song: a category is fifteen songs and a
- * session is fifteen categories, so per-song lookups would be a few hundred round trips to
- * draw one list. The listing is metadata only — no audio moves here.
- */
+/** Every song by id, in ONE metadata request: per-song lookups would be hundreds of round trips. */
 export async function loadCatalogue(): Promise<Catalogue> {
   const res = await fetch(`${PL8}/api/mediatek/list?family=songs`, {
     credentials: "include",
@@ -63,14 +57,7 @@ export async function loadCatalogue(): Promise<Catalogue> {
   return map;
 }
 
-/**
- * What to show for a track whose address the catalogue knows — "Artist — Title".
- *
- * Falls back to the last segment of the id, which is the title the folder is named for: a song
- * present in the session but not in this médiathèque still reads as itself rather than as a
- * blank row. That case is real — a `.z0` travels in a git repository and the machine that opens
- * it may hold a different library.
- */
+/** "Artist — Title", falling back to the id's last segment: another machine holds another library. */
 export function label(id: string | undefined, cat: Catalogue): string {
   if (!id) return "";
   const info = cat.get(id);
@@ -78,13 +65,7 @@ export function label(id: string | undefined, cat: Catalogue): string {
   return info.artist ? `${info.artist} — ${info.title}` : info.title;
 }
 
-/**
- * The file a category actually PLAYS for one song, as a médiathèque-relative path.
- *
- * `variant` is the category's — `stems`, `8bit`, `deformees`. The rule is the loader's, written
- * down in apps/z0/docs/projects.md: the requested version if it exists, otherwise the master.
- * Null when the song has no audio at all, which the caller shows rather than plays.
- */
+/** The file a category PLAYS: the requested version, else the master — ../../docs/editing.md. */
 export function audioPath(
   id: string | undefined,
   variant: string | undefined,
@@ -113,13 +94,7 @@ function fold(s: string): string {
     .toLowerCase();
 }
 
-/**
- * The songs matching a typed query, artist and title alike, capped.
- *
- * Over the listing already in memory rather than pl8's `/search`: the catalogue is loaded for
- * the labels anyway, so a picker that re-asked the network per keystroke would be slower and
- * would stop working the moment the médiathèque did.
- */
+/** Over the listing already in memory, not pl8's `/search` — ../../docs/editing.md. */
 export function search(q: string, cat: Catalogue, limit = 40): SongInfo[] {
   const needle = fold(q.trim());
   if (!needle) return [];

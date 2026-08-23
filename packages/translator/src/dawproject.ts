@@ -107,7 +107,8 @@ export function parseDawproject(
     notes = 0;
 
   // --- arrangement: flatten each track's lanes into clips ---
-  // `Lanes` is array-forced, so Arrangement.Lanes is a one-element array; its `.Lanes` are the per-track groups.
+
+  // `Lanes` is array-forced, so Arrangement.Lanes is one element whose `.Lanes` are the per-track groups.
   for (const outer of asArray<any>(project.Arrangement?.Lanes))
     for (const laneGroup of asArray<any>(outer.Lanes)) {
       const trackId = str(laneGroup["@_track"]);
@@ -212,9 +213,7 @@ interface CollectCtx {
   warn: (msg: string) => void;
 }
 
-// Flatten a clip list into absolute-positioned leaves: <Notes> is MIDI, an <Audio> file audio, nested <Clips> a
-// container establishing a child timeline. Leaves are clamped to their container's window, and a clip matching
-// none of these is dropped — reported via ctx.warn so it isn't silent.
+// Flatten a clip list into absolute-positioned leaves, clamped to their container — see docs/import.md.
 function collectClips(
   clips: any[],
   baseStart: number,
@@ -294,8 +293,7 @@ function collectClips(
   }
 }
 
-// Locate the <Audio> in an audio leaf. Three shapes occur in the wild: directly under the <Clip>, inside a
-// <Warps> when time-stretched, or that same pair nested in a <Lanes> lane.
+// Locate the <Audio> in an audio leaf: three shapes occur in the wild — see docs/import.md.
 function findAudio(clip: any): any | undefined {
   if (clip.Audio) return clip.Audio;
   if (clip.Warps?.Audio) return clip.Warps.Audio;
@@ -313,8 +311,7 @@ function findWarps(clip: any): any | undefined {
   return undefined;
 }
 
-// A <Warps> block -> a WarpOut: the source DAW's algorithm plus its [timeline beat, source second] markers.
-// Undefined below two markers — one can't define a stretch, so it means the same as "not warped".
+// A <Warps> block -> a WarpOut; undefined below two markers, one being unable to define a stretch.
 function warpOf(warps: any, audio: any): WarpOut | undefined {
   if (!warps) return undefined;
   const markers = asArray<any>(warps.Warp).map((w): [number, number] => [

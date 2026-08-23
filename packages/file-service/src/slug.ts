@@ -15,8 +15,7 @@ export function userRoot(slug: string): string {
   return join(rootDir(), slug);
 }
 
-// A workspace name must be one ordinary path segment, checked by ALLOWLIST: the old denylist let "." through,
-// and join(userRoot, ".") is the user root — a workspace named "." held a handle over every other one.
+// One ordinary path segment, by ALLOWLIST: the old denylist let "." through, which IS the user root.
 const WORKSPACE_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]*$/;
 
 export function assertWorkspaceName(name: string): void {

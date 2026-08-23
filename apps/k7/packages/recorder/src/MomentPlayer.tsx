@@ -13,13 +13,7 @@ const EDGE = 3; // px kept clear top/bottom
 const BAR_STEP = 3; // px between bars
 const BAR_WIDTH = 2;
 
-/**
- * Compact waveform player for an extracted moment clip. Replaces the native
- * audio element: a play/pause button plus a mirrored bar waveform that fills
- * with the accent colour as it plays and can be clicked to scrub. The shape
- * comes from the session envelope sliced to the moment's span, so no separate
- * clip envelope is needed.
- */
+/** A compact waveform player for a moment's clip, in place of the native audio element. */
 export function MomentPlayer({ src, samples, intervalMs }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);

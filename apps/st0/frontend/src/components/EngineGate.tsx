@@ -23,9 +23,7 @@ type Phase =
   | { k: "loading" }
   | { k: "picking" }
   | { k: "chosen"; engine: RankedEngine }
-  // Somebody else opened this project. A terminal state on purpose: see ProjectTakenOver.
-  // Only reached when a PERSON took it — a claim that merely lapsed is re-opened by the hold
-  // loop and never lands here, so there is no screen for it.
+  // Somebody else opened this project — a terminal state on purpose, and only reached when a PERSON took it (see ProjectTakenOver).
   | {
       k: "taken";
       heldBy: string;
@@ -34,11 +32,7 @@ type Phase =
     };
 
 export function EngineGate({
-  /**
-   * The surface this tab was opened on, when the address named one — see
-   * `@studio/web-protocol/projects`. Forwarded, not acted on: this gate's job is the engine,
-   * and an external surface needs exactly the same one for exactly the same reasons.
-   */
+  /** The surface this tab was opened on, when the address named one — forwarded, not acted on: this gate's job is the engine. */
   external,
 }: {
   external?: string | null;
@@ -46,14 +40,7 @@ export function EngineGate({
   const [phase, setPhase] = useState<Phase>({ k: "loading" });
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [busy, setBusy] = useState(false);
-  /**
-   * The session fell asleep, and this gate draws one consequence from it: DROP THE LEASE.
-   *
-   * It is not a phase. The chosen engine does not change, and `ProjectGate` stays mounted — it
-   * draws the resume screen and knows how to reopen. Here, going idle does one thing, the only
-   * one this level owns: stop renewing the claim every five seconds. A tab with no socket, no
-   * loaded project, that would still keep the machine to itself is not disconnected; it squats.
-   */
+  /** The session fell asleep, and this gate draws one consequence: DROP THE LEASE, since a tab with no socket would only squat the machine. */
   const [asleep, setAsleep] = useState(false);
 
   // Re-measure and redraw the picker, for the Refresh button and the way back from a switch.
@@ -66,17 +53,7 @@ export function EngineGate({
     }
   }, []);
 
-  /**
-   * The list re-measures itself AS LONG AS the picker is on screen.
-   *
-   * A probe is a snapshot, and `unreachable` is not slow latency but a state of its own: one
-   * missed race froze "out of reach" until the page was reloaded. Looking at this list is
-   * exactly how one waits for it to change its mind.
-   *
-   * Only while `picking`: once the engine is chosen, re-measuring could pull the screen backwards
-   * under the fingers of somebody working. And without touching `busy` — the Refresh button owns
-   * that, and seeing it blink on its own would say a click had landed.
-   */
+  /** The list re-measures itself AS LONG AS the picker is on screen — only while `picking`, and without touching `busy`. */
   const relook = useRelook();
   // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` is a trigger, not a value read here — it says WHEN to re-measure.
   useEffect(() => {
@@ -93,14 +70,7 @@ export function EngineGate({
     };
   }, [relook, phase.k]);
 
-  /**
-   * Which project this tab is claiming, read from the address exactly as the router's basename is.
-   *
-   * Never null in practice any more: `main.tsx` only mounts this gate when `parseLaunch` found a
-   * project, and draws the home page otherwise. The null branch stays because the rule behind it
-   * does — a screen with no project must NOT claim, or it would fight the real tabs for an
-   * engine — and it is now enforced one level up, where the home page probes without holding.
-   */
+  /** Which project this tab is claiming, read from the address exactly as the router's basename is; the null branch keeps a rule `main.tsx` now enforces. */
   const claimProject = useMemo(() => {
     const target = parseLaunch(
       window.location.pathname,
@@ -112,28 +82,14 @@ export function EngineGate({
 
   const pick = useCallback(async (r: RankedEngine): Promise<boolean> => {
     if (!r.wsUrl || !r.fileBase || r.token === null) return false;
-    // No `select` here any more. `holdEngine` renews immediately on mount, so this was a second
-    // claim in the same tick (docs/audit-moteur.md, C3) — and now that a claim mints a secret,
-    // an extra one would hand out a secret nobody keeps and then be taken over by our own hold.
-    // Remembered on the ACCOUNT, not in this tab. sessionStorage meant a second tab was
-    // back at the picker and a second browser had never chosen anything — while the whole
-    // premise is that an engine belongs to a person, changeable in settings.
-    // Fire-and-forget: failing the pick because a preference did not save would take the
-    // engine away too, and the user is trying to open their song.
-    // `patchPrefs` even though st0's document holds only this field today — see m9's Gate.
+    // Remembered on the ACCOUNT rather than in this tab, and fire-and-forget: failing the pick because a preference did not save would take the engine away.
     engines.patchPrefs({ engineId: r.engine.id }).catch(() => {});
     setPhase({ k: "chosen", engine: r });
     return true;
   }, []);
 
-  // The claim is a LEASE this tab keeps alive, ON THIS PROJECT. The loop is shared — see
-  // @studio/engine-browser/docs/lease.md — and nothing here but when to start it and what to do
-  // when it is lost. Losing it is not an error to retry: somebody opened the project, and this
-  // tab stops driving. `phase.k` rather than `phase` in the deps, or the state we set inside
-  // would restart the very hold that reported the loss.
-  // Asleep, the loop stops: the effect's cleanup releases, and the machine is free in the pickers
-  // again. Waking restarts it, which is a deliberate reopening — a proper resume, refused by
-  // `onLost` if somebody moved in meanwhile.
+  // The claim is a LEASE this tab keeps alive ON THIS PROJECT (@studio/engine-browser/docs/lease.md); asleep, the cleanup releases it.
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen", and depending on the whole object would re-hold on every phase change.
   useEffect(() => {
     if (phase.k !== "chosen" || asleep) return;
@@ -154,15 +110,12 @@ export function EngineGate({
     // StrictMode runs this twice in dev; both probes are harmless, and a ref guard would strand us on the spinner.
     let cancelled = false;
     void (async () => {
-      // List, preference, probe and policy in one call — the same four steps in the same
-      // order as pl8 and m9, from @studio/engine-browser/access rather than three copies.
+      // List, preference, probe and policy in one call — the same four steps in the same order as pl8 and m9.
       const { ranked: r, chosen } = await engines.find();
       if (cancelled) return;
       setRanked(r);
       if (chosen && (await pick(chosen))) return;
-      // Nothing remembered and reachable, or several to choose between. The picker is the honest
-      // answer; the preference is left alone, so coming back on the right network still works
-      // without choosing again.
+      // Nothing remembered and reachable, or several to choose between: the picker is the honest answer, and the preference is left alone.
       if (!cancelled) setPhase({ k: "picking" });
     })();
     return () => {
@@ -177,8 +130,7 @@ export function EngineGate({
         key={phase.engine.wsUrl!}
         engine={phase.engine}
         external={external}
-        // Re-probe on the way back: the list behind the picker is minutes old by now, and
-        // showing a stale one would offer engines that have since gone.
+        // Re-probe on the way back: the list behind the picker is minutes old, and a stale one would offer engines that have gone.
         onChangeEngine={() => {
           setPhase({ k: "picking" });
           void refresh();
@@ -197,9 +149,7 @@ export function EngineGate({
             ? m["project.engineTakenTitle"]()
             : m["project.takenTitle"]()
         }
-        // One wording per REASON, and within the first, one per whether there is a name. Saying
-        // "this project was opened elsewhere" for both was false once: opening a DIFFERENT
-        // project on the same engine displaces this one, and the honest advice is the opposite.
+        // One wording per REASON: opening a DIFFERENT project on the same engine displaces this one, and the honest advice is the opposite.
         body={(heldBy) =>
           phase.why === "engine"
             ? m["project.engineTakenBody"]({

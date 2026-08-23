@@ -9,8 +9,7 @@ const collator = new Intl.Collator("fr", {
   sensitivity: "base",
 });
 
-/** Sort a level and everything under it. Returns new arrays and new nodes — what comes in is
- *  React state, and a sort in place would mutate it. */
+/** Sort a level and everything under it, into NEW arrays: what comes in is React state. */
 export function sortNodes<N extends { name: string; children?: N[] }>(
   nodes: N[],
 ): N[] {

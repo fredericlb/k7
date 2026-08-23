@@ -14,12 +14,7 @@ import { dirname, join } from "node:path";
 const PORT = 8798; // free: the proxy routes 3001-3006, 5173, 5223-5225, 8080, 8787-8796
 const HOME = homedir();
 
-/**
- * Check the port before spawning.
- *
- * `serve-web` prints "could not start server on the given host/port" and then exits **0**,
- * so without this a busy port looks like success with nothing serving.
- */
+/** Check the port before spawning: `serve-web` exits 0 on a busy one, so it looks like success. */
 function portFree(port) {
   return new Promise((resolve) => {
     const probe = createServer();
@@ -29,10 +24,7 @@ function portFree(port) {
   });
 }
 
-// Busy is reported and treated as SUCCESS, not failure: this runs inside `npm run dev`, and an
-// editor already serving at that URL is the goal met — failing here would paint a red task in
-// a session that is otherwise fine. A killed instance can leave a child holding the socket, so
-// this also fires when nothing useful is listening; the message says where to look.
+// Busy is reported and treated as SUCCESS: an editor already serving that URL is the goal met.
 if (!(await portFree(PORT))) {
   console.log(
     `  port ${PORT} is already in use — not starting a second editor.\n` +
@@ -42,9 +34,7 @@ if (!(await portFree(PORT))) {
   process.exit(0);
 }
 
-// The integrated terminal defaults to Git Bash. serve-web reads the server's own
-// Machine settings (~/.vscode-server/data/Machine/settings.json), so the choice is
-// made there — merged, not overwritten: the file may hold hand-made settings too.
+// Git Bash as the terminal, written into the server's own Machine settings and MERGED, never overwritten.
 const machineSettings = join(
   HOME,
   ".vscode-server",
@@ -69,12 +59,7 @@ console.log(
   `  VS Code web → https://code.priv.frediver.se/  (folder: ${HOME})\n`,
 );
 
-// No connection token. That is a decision, not an oversight: this is a dev-only config on an
-// open-source repo, and the owner accepts that anyone who can reach code.priv.frediver.se gets an editor
-// — which is a shell on this machine. `--host 0.0.0.0` because the LAN proxy (traefik)
-// is another machine and reaches this port over the network; the LAN is the trust boundary.
-// To put auth back: drop `--without-connection-token` and add
-// `--connection-token-file <path>`; serve-web then trades `?tkn=` for a 7-day cookie.
+// No connection token, and 0.0.0.0 for the LAN proxy — a decision, not an oversight (../docs/remote.md).
 const code = spawn(
   "code",
   [

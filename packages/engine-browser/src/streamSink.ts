@@ -5,18 +5,7 @@
 
 import type { StreamSink } from "./streamPlayer";
 
-/**
- * The processor, as source.
- *
- * A string, and a Blob URL, because `addModule` takes a URL and every alternative pushes
- * work onto the apps: `new URL("./x.js", import.meta.url)` needs a bundler that emits the
- * worklet as its own chunk, and these packages are consumed as raw TypeScript with no build
- * step at all. The cost is real and worth naming — nothing type-checks or lints inside this
- * string, so it is kept small enough to read in one screen.
- *
- * Everything in it obeys the audio thread's two rules: allocate nothing, block on nothing.
- * The ring is preallocated at construction; `process` only copies.
- */
+/** The processor, as a source string for a Blob URL, allocating nothing and blocking on nothing — see docs/streaming.md. */
 const PROCESSOR_SOURCE = `
 class StudioStreamProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -28,8 +17,7 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     this.ring = [];
     for (let c = 0; c < this.channels; c++)
       this.ring.push(new Float32Array(this.capacity));
-    // Monotonic frame counters, never wrapped: at 48 kHz a double stays exact for
-    // millennia, so the only modulo is the one that indexes the ring.
+    // Monotonic frame counters, never wrapped: at 48 kHz a double stays exact for millennia.
     this.w = 0;
     this.r = 0;
     this.playing = false;
@@ -48,8 +36,7 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     const s = msg;
     if (!s || !s.length) return;
     const n = (s.length / this.channels) | 0;
-    // A listener that fell behind wants to catch up to LIVE, not to replay: drop the
-    // oldest frames rather than refuse the newest.
+    // A listener that fell behind wants to catch up to LIVE: drop the oldest frames rather than refuse the newest.
     const free = this.capacity - (this.w - this.r);
     if (n > free) {
       this.r = this.w + n - this.capacity;
@@ -69,16 +56,14 @@ class StudioStreamProcessor extends AudioWorkletProcessor {
     const n = out[0].length;
     const avail = this.w - this.r;
 
-    // Hold silence until the cushion is there. Starting on the first sample would
-    // underrun on the very next block for any jitter at all.
+    // Hold silence until the cushion is there: starting on the first sample underruns on the very next block for any jitter at all.
     if (!this.playing) {
       if (avail < this.startFrames) return this.report(avail, true);
       this.playing = true;
     }
 
     if (avail < n) {
-      // SILENCE, not a repeat of the last block: a repeat sounds smoother and hides the
-      // very fault this whole exercise exists to measure.
+      // SILENCE, not a repeat of the last block: a repeat sounds smoother and hides the fault this exercise exists to measure.
       this.underruns++;
       this.playing = false;
       for (let c = 0; c < out.length; c++) out[c].fill(0);
@@ -119,30 +104,11 @@ export interface WorkletSinkOptions {
   channels: number;
   /** Ring size in frames. Default ~2 s at 48 kHz: big enough to ride out a stall. */
   capacity?: number;
-  /**
-   * The cushion, in frames, before playback starts. Default 7200 — **150 ms** at 48 kHz.
-   *
-   * It was 50 ms, which arrival jitter alone said was ample: the sender's spread measured
-   * 2.2 ms. Then a headless-Chrome run measured what actually matters, which is not the
-   * network but the LISTENER'S MAIN THREAD: a 66 ms spread over 110 s, one stall deep
-   * enough to leave 64 frames in the ring, and one underrun. The engine was never the
-   * problem — a browser tab is, because it also runs everything else.
-   *
-   * 150 ms is a deliberate trade against latency, and an easy one here: broadcast is for
-   * listening to a room, not for monitoring your own playing. Anything that needs tighter
-   * should pass its own value and expect to hear the stalls.
-   */
+  /** The cushion, in frames, before playback starts — 7200, i.e. 150 ms at 48 kHz, and the measurement is in docs/streaming.md. */
   startFrames?: number;
 }
 
-/**
- * Build the sink for a context whose sampleRate ALREADY matches the stream's.
- *
- * It does not resample, so the caller must construct its `AudioContext` at the rate the
- * first frame reported — `new AudioContext({ sampleRate })`. Playing 44.1 kHz material
- * into a 48 kHz context is a pitch shift, not a glitch, and it would be inaudible as a
- * fault while being obvious as "the engine sounds wrong".
- */
+/** Build the sink for a context whose sampleRate ALREADY matches the stream's: it does not resample, and a mismatch is a pitch shift. */
 export async function createWorkletSink(
   ctx: AudioContext,
   opts: WorkletSinkOptions,
@@ -176,9 +142,7 @@ export async function createWorkletSink(
   return {
     node,
     push(samples: Float32Array) {
-      // A copy, and transferred: the frame's samples are a view onto the socket's buffer,
-      // which the next message reuses. Sending the view itself would hand the audio thread
-      // memory that is about to change underneath it.
+      // A copy, and transferred: the frame's samples are a view onto a socket buffer the next message reuses.
       const copy = samples.slice();
       node.port.postMessage(copy, [copy.buffer]);
     },

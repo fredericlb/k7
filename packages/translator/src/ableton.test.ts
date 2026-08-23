@@ -2,10 +2,7 @@ import { materialWindow } from "@studio/song-edit/materialWindow";
 import { describe, expect, it } from "vitest";
 import { decodeTimeSignature, mapLiveSet } from "./ableton";
 
-// The .als schema is undocumented and version-drifting, so these cases pin the readings that fail
-// SILENTLY when they are wrong — an inverted mute, a pan off by half, notes an octave adrift, a clip
-// window read from the wrong field. Each was checked against a real Live 12.4 set before being frozen
-// here. Hand-written XML rather than a fixture: a .als is a binary carrying personal paths.
+// These pin the .als readings that fail SILENTLY when wrong — see docs/import.md.
 
 const live = (body: string, version = "12.0_12402"): string =>
   `<?xml version="1.0" encoding="UTF-8"?>
@@ -185,8 +182,7 @@ describe("MIDI notes", () => {
 });
 
 describe("clip windows", () => {
-  // Live puts two different things in <Loop> depending on the brace, and reading only one of them
-  // misplaces half the clips in a real set. These two cases are lifted from an actual arrangement.
+  // <Loop> holds two different things by the brace; these cases are lifted from an actual arrangement.
   it("reads the material start from StartRelative when the loop is ON", () => {
     const xml = live(
       midiTrack(
@@ -238,8 +234,7 @@ describe("audio clips", () => {
      </AudioClip>`;
 
   it("converts an UNWARPED region from seconds to beats", () => {
-    // Live writes an unwarped clip's region in seconds. At 110bpm the ratio is exactly 110/60:
-    // 52.363636s of source is 96 beats, so missing this puts every unwarped clip 1.83x off.
+    // An unwarped region is in seconds: 52.363636s is 96 beats at 110bpm, so missing it is 1.83x off.
     const xml = live(
       audioTrack(
         1,

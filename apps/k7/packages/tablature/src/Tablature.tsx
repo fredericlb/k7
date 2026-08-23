@@ -6,8 +6,7 @@ interface Props {
   text: string;
 }
 
-// Layout constants (px). COL_W matches the monospace column width so events land
-// under the same columns they occupy in the source ASCII.
+// Layout in px: COL_W is the monospace column width, so events land where the ASCII put them.
 const COL_W = 9;
 const ROW_H = 18;
 const GUTTER = 24;

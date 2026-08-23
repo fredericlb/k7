@@ -114,6 +114,16 @@ or offers one it does not require. What the boundary protects against is the cop
 only the enforcement moved. Each note is checked against the control's own `wants`, so an
 expectation that changes takes the scaffold's sentence with it.
 
+### A mapping holds a node's NAME, so a rename asks first
+
+`surfacesNaming(dir, module)` lists the surfaces whose `mapping` names a module — empty for almost
+every project, and asked before a node is RENAMED. A mapping is the only place outside `graph.yaml`
+where a node's name is a reference, and nothing writes one back: a desk pointing at a name that has
+moved loses the knob silently, with a screen that draws and a control that does nothing. So the
+rename declines instead, and says which file is holding the name. A surface that would not parse
+contributes nothing, deliberately — it is already reported by `surfaceIssues`, and a file the
+reader cannot understand is not evidence that a name is free.
+
 ## The three fields
 
 | field | what it says | validated |
@@ -179,6 +189,25 @@ arrangement to draw. `hasMaterial` is what makes them silent: a folder with no `
 `sequences/` and no `video_tracks/` holds nothing a timeline would have drawn. `project_type:
 live` used to answer this, and answered it worse — it was a second declaration, free to
 disagree with the folder it described.
+
+`hasMaterial` is cheap on purpose, like `isVideoProject` beside it: three `existsSync` calls and no
+parse. A folder is asked what it HOLDS rather than what it calls itself, which is the whole point of
+the mode going away — the two could disagree, and only one of them was ever true. Material and not
+placement, deliberately: reading every lane for an `events:` key would be the exact answer and would
+cost a load of the whole `nodes/` folder on a path that runs beside the other diagnostics. An entity
+folder gives the same answer for every project anyone writes, and differs only for one somebody
+emptied out — which warns about a timeline they can delete rather than staying silent about one they
+need.
+
+`isVideoProject` lives in `@studio/song` rather than beside the compiler it guards
+(`@studio/song-video`) because it is a folder probe and nothing more: asking it must not cost the
+reader the video document model, and that is also what keeps this package from depending on the one
+that compiles a picture.
+
+The missing-surface warnings name the COMMAND rather than the file to write. They used to spell the
+two lines out, which meant reading a diagnostic, opening a folder that may not exist, and typing a
+pair the schema is about to check — for a file whose whole content is derivable from the word
+`timeline`.
 
 ## …and so is the frame
 

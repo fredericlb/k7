@@ -13,14 +13,7 @@ import { resolveModule } from "./moduleResolve";
 import type { LoadedModule } from "./rawDoc";
 import { loadUiLibrary } from "./uiLibrary";
 
-// Giving a SCANNED PLUGIN a face, the way docs/moduleNamespaces.md says it happens: not by copying it into
-// every project that plays it, but by a `@st0` module that EXTENDS the `@engine` ref and holds the panel.
-//
-// The point these tests pin down is where the resolution happens. A médiathèque module's `extends` is not
-// resolved by the médiathèque — a library has no project.yaml, no modules_from, and no engine to ask. It is
-// resolved by the PROJECT that loads it, whose ref map holds the scanned catalogue and the library at once.
-// That is what makes the arrangement work with a library that is somebody else's repository, mounted in the
-// workspace at `_libraries/modules` and carrying no idea of the project it will be read by.
+// A scanned plugin's face is a `@st0` module extending `@engine`, resolved by the PROJECT that loads it.
 
 const SLUG = "@engine/serum";
 
@@ -76,24 +69,21 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   });
 
   it("inherits the plugin from the engine ref it extends", () => {
-    // The médiathèque module declares no `plugin:` of its own — the scan is what knows it. If this
-    // resolved to nothing the project would draw a face over a module that loads no plugin at all.
+    // The library module declares no `plugin:`, so failing here draws a face over nothing.
     const all = refs();
     const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.plugin).toMatchObject({ type: "vst3", name: "Serum" });
   });
 
   it("keeps the level it is filed at, rather than the one it inherits from", () => {
-    // `category` is OWN_ONLY: the folder a module sits in decides its icon and its ports, and an
-    // inherited category would file the médiathèque's copy wherever the engine happened to report.
+    // `category` is OWN_ONLY, or the library's copy is filed wherever the engine happened to report.
     const all = refs();
     const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.category).toBe("instruments");
   });
 
   it("draws the panel the médiathèque holds, for a plugin with no folder of its own", () => {
-    // The face is the reason the module exists. `@engine/serum` can carry no ui.yaml — writeUiFile
-    // refuses it, having no folder to write into — so it is the library module that holds one.
+    // `@engine/serum` has no folder to write a ui.yaml into, so the library module holds the panel.
     const panel = loadUiLibrary(dir).byRef["@st0/instruments/serum"];
     expect(panel?.ui.widgets.cutoff).toMatchObject({ bind: "Cutoff" });
   });
@@ -107,10 +97,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
   });
 
   it("resolves the library ref on a project header that says nothing at all", () => {
-    // The reason this matters: `modules_from` was only ever written by the scaffold, so every
-    // project older than that line saw the médiathèque as a dangling ref — "extends unknown
-    // module '@st0/…'" about a module sitting right there on disk. The level's folder is
-    // fixed, so the declaration stated nothing the loader did not already know, and it is gone.
+    // `modules_from` came from the scaffold only, so every older project saw a dangling `@st0/…`.
     writeFileSync(
       join(dir, "project.yaml"),
       "project:\n  name: song\n  tempo: 120\n",
@@ -118,14 +105,12 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
     );
     const all = loadModuleRefs(dir, CATALOGUE);
     expect(all["@st0/instruments/serum"]).toBeTruthy();
-    // …and its face comes with it: a module the loader keys but whose panel is only reached
-    // through the declaration would resolve and then draw nothing.
+    // …and its face comes with it, or the module resolves and then draws nothing.
     expect(loadUiLibrary(dir).byRef["@st0/instruments/serum"]).toBeTruthy();
   });
 
   it("survives a machine that has never scanned", () => {
-    // The catalogue is ambient. With none, the `extends` names nothing — and that must cost the
-    // inheritance, not the project: validate() is what reports a dangling ref, not the loader.
+    // An unresolved `extends` costs the inheritance, not the project: validate() reports it.
     const all = loadModuleRefs(dir, {});
     const m = resolveModule(all["@st0/instruments/serum"], all);
     expect(m.plugin).toBeUndefined();
@@ -135,8 +120,7 @@ describe("a scanned plugin's face lives in the médiathèque", () => {
 
 describe("scaffolding that module", () => {
   it("writes nothing but the ref it inherits from", () => {
-    // The scan already knows what the plugin is. A `plugin:` block copied in here would be a second
-    // copy of that, staler the moment the plugin is updated.
+    // A `plugin:` block copied in here is a second copy of the scan, stale on the next update.
     const f = engineFaceModule("Serum", "instruments");
     expect(f.base).toBe("@engine/serum");
     expect(f.path).toBe("instruments/serum/module.yaml");
@@ -145,8 +129,7 @@ describe("scaffolding that module", () => {
   });
 
   it("produces exactly what the loader then resolves", () => {
-    // The pair that must not drift: this writes the file, and the test above loads one written by
-    // hand. Writing the scaffold into the library proves they are the same file.
+    // The pair that must not drift: the test above loads the same file written by hand.
     const f = engineFaceModule("Serum", "instruments");
     const at = join(media, "modules", f.path);
     mkdirSync(join(at, ".."), { recursive: true });
@@ -160,16 +143,14 @@ describe("scaffolding that module", () => {
   });
 
   it("keeps the plugin's real name where a reader can find it", () => {
-    // The slug is lossy: "Pro-Q 3" and "Pro Q3" slug alike, and a year later the folder name is not
-    // enough to say which plugin this file stands for.
+    // The slug is lossy — "Pro-Q 3" and "Pro Q3" slug alike — so the folder name cannot say which.
     expect(engineFaceModule("FabFilter Pro-Q 3", "audio").text).toContain(
       "FabFilter Pro-Q 3",
     );
   });
 
   it("refuses a category a plugin cannot be filed under", () => {
-    // `io` is the engine's own IN/OUT — a scanned plugin is never one, and a module filed there
-    // would take io's ports and load nothing.
+    // `io` is the engine's own IN/OUT: a module filed there takes io's ports and loads nothing.
     expect(() => engineFaceModule("Serum", "io")).toThrow(/not a category/);
     expect(() => engineFaceModule("Serum", "nonsense")).toThrow(
       /not a category/,
@@ -184,9 +165,7 @@ describe("scaffolding that module", () => {
 
 describe("filing a whole scan at once", () => {
   it("puts a plugin on the axis the library already files by", () => {
-    // The scan's own category, LAST segment: the first repeats the type folder — every effect
-    // says `Fx` — and what tells them apart is what follows. `audio/distortion` and
-    // `audio/filter` are folders somebody made by hand before any of this existed.
+    // The LAST segment: the first only repeats the type folder, since every effect says `Fx`.
     expect(faceFolder("Fx|Delay")).toBe("delay");
     expect(faceFolder("instrument|synth")).toBe("synth");
     expect(faceFolder("dynamics")).toBe("dynamics");
@@ -210,9 +189,7 @@ describe("filing a whole scan at once", () => {
   });
 
   it("skips a plugin the library already has a face for", () => {
-    // By REF and not by path: `audio/distortion/bitcrush` extending `@engine/de-rez` is that
-    // plugin's face under a name somebody chose, and a second one at the default path would give
-    // one plugin two names a chain could reach it by.
+    // By REF and not by path, or a renamed face plus a default one give one plugin two names.
     const faces = engineFaces(
       [
         { name: "de-rez", category: "distortion" },
@@ -224,8 +201,7 @@ describe("filing a whole scan at once", () => {
   });
 
   it("collapses two scans of one plugin, and drops what cannot be slugged", () => {
-    // The identical rule `engineModules` applies to the catalogue these refs point INTO — it has
-    // to be identical, or a face would name a ref nothing synthesises.
+    // The same rule `engineModules` applies, or a face names a ref nothing synthesises.
     const faces = engineFaces([
       { name: "Chorus", category: "modulation" },
       { name: "chorus", category: "modulation" },

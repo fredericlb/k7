@@ -8,9 +8,7 @@ import {
   moduleStatusOf,
 } from "./moduleTypes";
 
-// Which refs belong to the ENGINE — the plugin scan, the one namespace with no folder anywhere.
-// It decides what the module-name completions leave out (see commandSpec's `modules` provider
-// and hints.ts's `sharedRefs`), so a ref wrongly called the engine's disappears from the palette.
+// Which refs belong to the ENGINE, since one wrongly called so disappears from the palette (docs/moduleTypes.md).
 
 describe("isEngineRef", () => {
   it("claims the namespace and everything under it", () => {
@@ -20,9 +18,7 @@ describe("isEngineRef", () => {
   });
 
   it("does NOT claim a namespace that merely starts with the same letters", () => {
-    // The reason this is a function and not a `startsWith("@engine")` at each call site: a
-    // library called `@engineering` is somebody's shared folder, and swallowing it here would
-    // take every module in it out of the completions with no way to tell why.
+    // Why this is a function and not a `startsWith("@engine")`: `@engineering` is somebody's folder.
     expect(isEngineRef("@engineering/audio/eq")).toBe(false);
     expect(isEngineRef("@engines/x")).toBe(false);
   });
@@ -39,8 +35,7 @@ describe("isEngineRef", () => {
   });
 });
 
-// `status:` — the one module field that changes no sound, only how the completions treat it.
-// The ordering is what a person notices, so it is pinned rather than left to a comment.
+// `status:` changes no sound, only how the completions treat a module — the ordering is what shows.
 
 describe("moduleStatusOf", () => {
   it("defaults to listed, for everything that does not say", () => {
@@ -55,8 +50,7 @@ describe("moduleStatusOf", () => {
     expect(moduleStatusOf({ status: "favorite" })).toBe("favorite");
   });
 
-  // Losing a module from the palette with nothing on screen to say why is the one failure this
-  // field must not have — so anything unrecognisable is listed, not hidden.
+  // Losing a module from the palette with nothing to say why is the one failure this must not have.
   it("is forgiving: a word it does not know is listed", () => {
     expect(moduleStatusOf({ status: "FAVORITE" })).toBe("listed");
     expect(moduleStatusOf({ status: 3 })).toBe("listed");
@@ -78,8 +72,7 @@ describe("completionOrder", () => {
     ).toEqual(["fav-bass", "amp", "verb"]);
   });
 
-  // The contract callers depend on: they hand this an alphabetical list and expect it back
-  // alphabetical, in two blocks. A sort here would be a second ordering rule competing with theirs.
+  // The contract: an alphabetical list comes back alphabetical, in two blocks (docs/moduleTypes.md).
   it("is STABLE within each group — the caller's order survives", () => {
     expect(
       completionOrder(["fav-a", "b", "fav-c", "d", "fav-e"], status),

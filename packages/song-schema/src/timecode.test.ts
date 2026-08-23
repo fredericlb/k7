@@ -8,9 +8,7 @@ import {
   TICKS_PER_QUARTER,
 } from "./timecode";
 
-// The model measures time in beats = quarter notes. A metrical beat is 4/den
-// quarter notes; a bar is num such beats. Positions are 1-based ("1:1:1" == start),
-// durations 0-based ("1:0:0" == one bar).
+// Time is beats = quarter notes; positions are 1-based and durations 0-based (docs/timecode.md).
 
 describe("parsePosition", () => {
   it("reads a 1-based MESURE:NOIRE:CROCHE:DOUBLECROCHE in 4/4", () => {
@@ -81,21 +79,12 @@ describe("bad input", () => {
   });
 
   it("reads `1.5` as a bar and five ticks, not as a number", () => {
-    // It used to be refused. It is a legal timecode now, and that is the one thing this format
-    // change costs: the notation overlaps a plain YAML float, which is why TIMECODE_KEYS are
-    // written quoted and why the schema had to learn the dot at the same time as the parser.
+    // The notation overlaps a plain YAML float, which is why TIMECODE_KEYS are written quoted.
     expect(parsePosition("1.5", 4, 4)).toBeCloseTo(5 / TICKS_PER_QUARTER, 9);
   });
 });
 
-// --- the tick form ------------------------------------------------------------
-//
-// The colon used to nest to arbitrary depth: each field past the beat divided the last by four, so
-// an off-grid time came out as `3:2:2:4:2:3:1:3` — eight place values nobody can read, and no two
-// of them the same size. The chain now stops at the SEMIQUAVER, halving as it goes, and whatever
-// is left is written as ticks, at 960 to the quarter note.
-//
-// 4/4 throughout: a beat is one quarter, a quaver is 480 ticks, a semiquaver 240.
+// --- the tick form, 4/4 throughout: a quaver is 480 ticks, a semiquaver 240 (docs/timecode.md) ---
 
 describe("ticks", () => {
   it("writes what is left below the semiquaver as a tick count", () => {
@@ -111,17 +100,13 @@ describe("ticks", () => {
   });
 
   it("writes the quaver even at its origin when a semiquaver follows it", () => {
-    // A level is only droppable when everything BELOW it is at the origin too: "1:1:2" already
-    // means half a beat, so a semiquaver written without its quaver would say twice what it is.
+    // A level is only droppable when everything BELOW it is at the origin too (docs/timecode.md).
     expect(beatsToPosition(0.25, 4, 4)).toBe("1:1:1:2");
     expect(beatsToPosition(0.75, 4, 4)).toBe("1:1:2:2");
   });
 
   it("carries a remainder that rounds up to a whole beat instead of overflowing a level", () => {
-    // Real data: `"32:3:4:4:4:4:4:4"` in 01.danse.st0 is 126.999755 beats, and its sub-beat
-    // remainder rounds to 960 ticks — a whole beat. Rounding the remainder on its own wrote
-    // `"32:3:3"`: a quaver field holding TWO quavers. It played right and read wrong, and the old
-    // ÷4 rule takes that spelling half a beat earlier.
+    // Real data: rounding the sub-beat remainder on its own wrote `"32:3:3"` (docs/timecode.md).
     expect(beatsToPosition(126.999755859375, 4, 4)).toBe("32:4");
     // Every level stays inside its own range, whatever the input.
     for (const b of [0.9999, 3.9999, 126.999755859375, 0.4999, 0.2499]) {
@@ -133,8 +118,7 @@ describe("ticks", () => {
   });
 
   it("hangs the ticks off the beat when there is no whole sub", () => {
-    // Absolute, so no zero sub is needed to disambiguate: 1/960 of a quarter is 1/960 of a quarter
-    // wherever it is written.
+    // Absolute, so no zero sub is needed to disambiguate them.
     expect(beatsToPosition(10 / TICKS_PER_QUARTER, 4, 4)).toBe("1:1.10");
     // Half a sub is a 32nd, and there is still no whole sub to write.
     expect(beatsToPosition(0.125, 4, 4)).toBe("1:1.120");
@@ -157,8 +141,7 @@ describe("ticks", () => {
   });
 
   it("still reads a DEEP chain by the old ÷4 rule — five fields or more cannot be the new one", () => {
-    // Refusing these would make the songs on disk unreadable, and the length is what tells them
-    // apart: the current notation never writes past the semiquaver.
+    // Refusing these would make the songs on disk unreadable — the LENGTH tells them apart.
     expect(parseDuration("0:0:0:0:0:1:3:2", 4, 4)).toBeGreaterThan(0);
     expect(parsePosition("1:1:1:1:3", 4, 4)).toBeCloseTo(
       parseLegacyPosition("1:1:1:1:3", 4, 4),
@@ -166,14 +149,7 @@ describe("ticks", () => {
     );
   });
 
-  /**
-   * A SHORT chain is legal in both notations and does not always mean the same thing, and no syntax
-   * separates them — which is why `migrateTimecodes` exists and why it reads with `legacy` on.
-   *
-   * It matters less than it sounds: every short deep chain in the repo's songs sits at its own
-   * level's origin (`"1:1:1"`, `"2:1:1"`), and an origin is 0 under either rule. Three values in one
-   * imported song were not, and they were rewritten.
-   */
+  // A SHORT chain is legal in both notations, which is why `migrateTimecodes` exists (docs/timecode.md).
   it("reads a short chain by the NEW rule, which the old one disagrees with", () => {
     expect(parsePosition("1:1:3", 4, 4)).toBe(1); // two quavers
     expect(parseLegacyPosition("1:1:3", 4, 4)).toBe(0.5); // two semiquavers, as it used to
@@ -183,8 +159,7 @@ describe("ticks", () => {
   });
 
   it("counts ticks from zero in a position, as in a duration", () => {
-    // They are a REMAINDER, not an index — the 1-based rule applies to fields, not to what is
-    // left over after them.
+    // They are a REMAINDER and not an index: the 1-based rule applies to fields alone.
     expect(parsePosition("1:1.0", 4, 4)).toBe(0);
     expect(parseDuration("0:0.0", 4, 4)).toBe(0);
   });

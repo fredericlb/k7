@@ -17,10 +17,7 @@ export interface YamlVocabulary {
 /** The characters YAML gives a meaning to at the START of a plain scalar. */
 const INDICATORS = "-?:,[]{}#&*!|>'\"%@`";
 
-// A name carrying one of those, or a `: ` inside it, is only legal quoted — a value the user
-// picked from the list must not be the thing that stops the file parsing. The LABEL stays
-// bare: the quotes are punctuation, and showing them in the list would be showing YAML rather
-// than names.
+// A name carrying one of those is only legal quoted, and the LABEL stays bare — see docs/completion.md.
 const quoteIfReserved = (label: string): string =>
   INDICATORS.includes(label[0] ?? "") ||
   label.includes(": ") ||
@@ -28,23 +25,16 @@ const quoteIfReserved = (label: string): string =>
     ? JSON.stringify(label)
     : label;
 
-/**
- * Complete field names and values in a YAML document.
- *
- * The word being typed is matched by CodeMirror against the labels, so this only has to
- * say WHICH labels apply — which is the part that needed a 250-line scanner before.
- */
+/** Complete field names and values in a YAML document: CodeMirror matches the word, this says WHICH labels apply. */
 export function yamlCompletions(vocab: YamlVocabulary): CompletionSource {
   return (ctx) => {
     const at = cursorContext(ctx.state, ctx.pos);
 
-    // On a `- ` item the key above introduced the LIST, so that is the field its scalars
-    // belong to and the mapping holding it is the one above that. `entityValues` reads a
-    // document by the same rule — `in: [melody, pad]` resolves like `track: melody`.
+    // On a `- ` item the key above introduced the LIST, which is the rule `entityValues` reads documents by.
     const seqField = at.inSeqItem ? at.path[at.path.length - 1] : undefined;
     const fields = at.inKey ? vocab.fieldsAt(at.path) : [];
-    // Such an item may still turn into a mapping (`- song: x`), so both vocabularies are
-    // offered at once: nothing on the line has decided which it is.
+
+    // Such an item may still turn into a mapping, so both vocabularies are offered at once.
     const values =
       (seqField !== undefined
         ? vocab.valuesAt?.(at.path.slice(0, -1), seqField)
@@ -53,15 +43,10 @@ export function yamlCompletions(vocab: YamlVocabulary): CompletionSource {
           : []) ?? []; // free text — offering nothing beats offering noise
     if (!fields.length && !values.length) return null;
 
-    // The token being typed: a bare word, or nothing (a fresh line, or just after `, `).
-    // `@ / : .` are part of it, because a value can be one name — `@engine/audio/amp/nam`,
-    // `synth:lead` — and a token stopping at the `@` would have CodeMirror replace only
-    // its tail, completing `@engine/au` into `@engine/au@engine/audio/amp/nam`.
+    // The token being typed, `@ / : .` included, since a value can be one name like `@engine/audio/amp/nam`.
     const word = ctx.matchBefore(/[@A-Za-z_][\w\-./:]*$/);
-    // …except where a value may carry SPACES. A song's folder is made from its tags, so
-    // `AC-DC/Back in Black/Hells Bells` is ONE value; the word above stops at the last space,
-    // and picking mid-phrase would splice the ref into the middle of itself. Only then, so
-    // every other file keeps the token it has always had.
+
+    // …except where a value may carry SPACES, and only then, so every other file keeps its token — docs/completion.md.
     const spacey = values.some((v) => v.includes(" "));
     const span = spacey ? valueSpan(ctx.state, ctx.pos) : null;
     const from = span ? span.from : (word?.from ?? ctx.pos);
@@ -81,21 +66,13 @@ export function yamlCompletions(vocab: YamlVocabulary): CompletionSource {
     return {
       from,
       options,
-      // Same alphabet as the token: a stricter validFor closes the list on the first `/`.
-      // Where a value may hold a space, the space is in it too, or the list would shut
-      // halfway through a title.
+      // Same alphabet as the token, space included where a value may hold one, or the list shuts mid-title.
       validFor: spacey ? /^[^:{}[\]]*$/ : /^[@\w\-./:]*$/,
     };
   };
 }
 
-/**
- * Where the value on the cursor's line begins, and whether a quote was already opened for it.
- *
- * Structural rather than lexical — past the `- ` of a sequence item, the `: ` of a mapping
- * entry, or the `[`/`{`/`,` of a flow collection — because that is the only way to know where
- * a value starts when the value itself may contain spaces.
- */
+/** Where the value on the cursor's line begins, structurally rather than lexically — see docs/completion.md. */
 function valueSpan(
   state: EditorState,
   pos: number,
@@ -105,8 +82,7 @@ function valueSpan(
   let start = 0;
   for (const m of text.matchAll(/^\s*-\s+|:\s+|[[{,]\s*/g))
     start = (m.index ?? 0) + m[0].length;
-  // Only bites when nothing above matched — a fresh indented line — where taking the indent
-  // as part of the token would have the pick eat it.
+  // Only bites on a fresh indented line, where taking the indent as part of the token would have the pick eat it.
   while (text[start] === " " || text[start] === "\t") start++;
   const quoted = text[start] === '"' || text[start] === "'";
   return { from: line.from + start + (quoted ? 1 : 0), quoted };

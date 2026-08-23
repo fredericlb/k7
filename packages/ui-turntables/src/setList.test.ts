@@ -2,11 +2,7 @@ import type { MediatekEntry } from "@studio/mediatek/types";
 import { describe, expect, it } from "vitest";
 import { browseSongs, NO_PLAYLIST, resolveSet, type SetEntry } from "./setList";
 
-// The browser's list comes from the PLAYLIST the surface names, so this is the function that
-// decides what a desk draws. The case worth pinning is the third state: a song the playlist
-// names and the cache has not got. It is ordinary — the sync fetches what the open project
-// names, so a set edited a minute ago is briefly ahead of the disk — and a list that quietly
-// dropped it would look like a set that never had it.
+// The browser's list comes from the PLAYLIST the surface names — see ../docs/setList.md.
 
 const entry = (
   id: string,
@@ -63,8 +59,7 @@ describe("the song browser's list", () => {
   });
 
   it("files an accented artist where a reader looks for it", () => {
-    // `Alizée` between `Alain` and `Daft`. Comparing code points would file every accented
-    // artist after Z, which is where half this médiathèque would go.
+    // `Alizée` between `Alain` and `Daft` — comparing code points files every accent after Z.
     const order = browseSongs(LIBRARY, "").map((s) => s.artist);
     expect(order.indexOf("Alizée")).toBeGreaterThan(
       order.indexOf("Alain Bashung"),
@@ -73,8 +68,7 @@ describe("the song browser's list", () => {
   });
 
   it("finds an accented name typed without accents", () => {
-    // The case that decides whether the search is usable at a desk: nobody stops to compose
-    // an é mid-set.
+    // What decides whether the search is usable at a desk: nobody composes an é mid-set.
     expect(browseSongs(LIBRARY, "alizee").map((s) => s.name)).toEqual([
       "Moi Lolita",
     ]);
@@ -82,8 +76,7 @@ describe("the song browser's list", () => {
   });
 
   it("matches terms in ANY order, across artist and title", () => {
-    // `bashung nuit` without knowing which field holds which word — a single substring over
-    // the joined string could not do this, and one field at a time could not either.
+    // `bashung nuit` without knowing which field holds which word — neither naive search does this.
     expect(browseSongs(LIBRARY, "bashung nuit").map((s) => s.name)).toEqual([
       "La nuit je mens",
     ]);
@@ -99,8 +92,7 @@ describe("the song browser's list", () => {
   });
 
   it("leaves the caller's array alone", () => {
-    // `sort` mutates in place, and the set list is state — sorting it would reorder the
-    // middle pane every time somebody typed a letter.
+    // `sort` mutates in place, and the set list is state: it would reorder on every keystroke.
     const before = LIBRARY.map((s) => s.name);
     browseSongs(LIBRARY, "");
     expect(LIBRARY.map((s) => s.name)).toEqual(before);
@@ -122,24 +114,20 @@ describe("a playlist resolved against the cache", () => {
     expect(set.entries[0].entry).toBe(null);
     // The folder the médiathèque filed it under is the best name available before the sync.
     expect(set.entries[0].name).toBe("hiver");
-    // …and the id the sync WILL file it under, which is what a cue is keyed by. The playlist
-    // writes a ref without the family; the id carries it.
+    // …and the id the sync WILL file it under: the ref has no family, the id carries it.
     expect(set.entries[0].id).toBe("songs/lemo/mante/hiver");
     expect(set.entries[0].file).toBe(null);
   });
 
   it("resolves a line that names a song by its bare title", () => {
-    // The short form somebody types. Only the catalogue knows the path, so the id comes off
-    // the resolved entry rather than off the ref — see `entryOf`.
+    // Only the catalogue knows the path, so the id comes off the resolved entry — see `entryOf`.
     const set = resolveSet(playlist("Danse"), CACHE);
     expect(set.entries[0].id).toBe("songs/lemo/mante/danse");
     expect(set.entries[0].entry).not.toBeNull();
   });
 
   it("plays the VARIANT a line asks for, not the master", () => {
-    // The regression this guards: reading `meta.master` directly can only ever play the
-    // original, so a set list saying `instrumental` would put the wrong record on in front
-    // of an audience.
+    // The regression this guards: reading `meta.master` directly can only ever play the original.
     const withVariant = entry("songs/lemo/mante/danse", "Danse", {
       variants: [{ name: "instrumental", ref: "instru.wav", kind: "file" }],
     } as Partial<MediatekEntry>);
@@ -166,8 +154,7 @@ describe("a playlist resolved against the cache", () => {
     ]);
     expect(tagged.entries[0].artist).toBe("Lemo Mante");
 
-    // Not in the cache, so there are no tags to read: the id's second segment is the artist
-    // FOLDER the médiathèque filed it under, which is a fact and not a guess.
+    // No cache entry means no tags: the id's second segment is the artist FOLDER, not a guess.
     const untagged = resolveSet(
       playlist("'Alain Bashung/Album inconnu/La nuit je mens'"),
       [],
@@ -177,8 +164,7 @@ describe("a playlist resolved against the cache", () => {
   });
 
   it("drops a song the playlist names twice", () => {
-    // A browser, not a document: two identical rows are two chances to pick the same record
-    // and no way to tell which you got. st0's screen draws both, because there you are editing.
+    // A browser, not a document: two identical rows are two chances to pick the same record.
     const set = resolveSet(
       playlist("lemo/mante/danse", "lemo/mante/danse"),
       CACHE,
@@ -187,8 +173,7 @@ describe("a playlist resolved against the cache", () => {
   });
 
   it("keeps a master and its variant apart", () => {
-    // The variant is part of the identity: these are two records, and folding them by ref
-    // would drop one of the two things the set list asked for.
+    // The variant is part of the identity: folding these by ref would drop one of two records.
     const withVariant = entry("songs/lemo/mante/danse", "Danse", {
       variants: [{ name: "instrumental", ref: "instru.wav", kind: "file" }],
     } as Partial<MediatekEntry>);
@@ -210,9 +195,7 @@ describe("a playlist resolved against the cache", () => {
   });
 
   it("tells a playlist that is MISSING from one that is empty", () => {
-    // Three states, three sentences, and the fix differs each time. `null` is "the surface
-    // names one and it is not on disk"; `items: []` is a set list somebody is still filling;
-    // `NO_PLAYLIST` is a desk that names none at all.
+    // Three states, three sentences, and the fix differs each time — see ../docs/setList.md.
     const missing = resolveSet(null, CACHE);
     expect(missing.entries).toEqual([]);
     expect(missing.absent).toBe(false);

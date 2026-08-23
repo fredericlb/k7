@@ -1,13 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { PreloaderState, SongEntry } from "./songPreloader";
 
-// The playback surface SoloGame drives, so it can run on either engine:
-// SongPreloader (Web Audio, effects, prepared sessions) or PlaylistPlayer
-// (<audio>, streaming, playlist mode). SongPreloader satisfies this
-// structurally — it predates the interface and needs no change.
-//
-// It is the seam a third engine arrives through: an implementation backed by
-// engine/moteur, once the engine can stream to a browser at all.
+// The playback surface SoloGame drives, satisfied structurally by three engines (../docs/moteurPlayer.md).
 
 export interface Player {
   subscribe: (cb: () => void) => () => void;

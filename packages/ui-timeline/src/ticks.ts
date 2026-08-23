@@ -3,13 +3,7 @@
 // that is where the two READINGS of one ruler differ — bars halve, and seconds walk a
 // 1/2/5/10 decimal ladder. Full rationale: docs/ticks.md.
 
-/**
- * The coarsest candidate whose ticks are at least `minPx` apart, at `pxPerUnit`.
- *
- * Coarsest and not finest: a ruler is unreadable when its labels touch, and legible when they
- * are merely sparse. `candidates` must be sorted ascending; the finest is returned when even
- * it is too wide, so this never fails to answer.
- */
+/** The COARSEST candidate at least `minPx` apart: touching labels are unreadable, sparse ones are not. */
 export function chooseTick(
   candidates: readonly number[],
   pxPerUnit: number,
@@ -19,14 +13,7 @@ export function chooseTick(
   return candidates[candidates.length - 1] ?? 1;
 }
 
-/**
- * A wall-clock ruler's ladder, in seconds — 1/2/5/10 per decade, plus the minute steps a
- * viewer actually reads (15s, 30s, 1m, 2m, 5m…).
- *
- * Not powers of two, which is what a musical ruler uses: bars halve, and time does not. A
- * 0.25s step is a legitimate zoom on a cut, but `16s` between labels is not a thing anyone
- * reads a duration in.
- */
+/** A wall-clock ladder in seconds, NOT powers of two: bars halve and time does not — docs/ticks.md. */
 export const SECOND_TICKS: readonly number[] = [
   0.04, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600,
 ];
@@ -47,8 +34,7 @@ export function formatClock(sec: number, step = 1): string {
 export function ticksUpTo(end: number, step: number): number[] {
   if (!(step > 0) || !(end >= 0)) return [];
   const out: number[] = [];
-  // Counted rather than accumulated: adding 0.1 four hundred times lands at 40.000000000000255,
-  // and a ruler whose labels are one ulp off its grid lines is a bug you find with a screenshot.
+  // Counted, not accumulated: adding 0.1 four hundred times lands at 40.000000000000255.
   for (let i = 0; i * step <= end + 1e-9; i++) out.push(i * step);
   return out;
 }

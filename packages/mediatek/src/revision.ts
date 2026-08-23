@@ -7,8 +7,7 @@ import { join } from "node:path";
 import { familyDir, RECORDINGS_DIR, recordingsDir } from "./layout.ts";
 import { FAMILIES, type Family } from "./types.ts";
 
-/** What can carry a token: the three families, plus the raw capture zone — which is not a
- *  family but moves, and has a surface polling it. See docs/recordings.md. */
+/** What can carry a token: the families, plus the raw capture zone — see docs/recordings.md. */
 export type RevisionKey = Family | typeof RECORDINGS_DIR;
 
 /** Derived, hidden or per-machine junk: none of it is the library's content. */
@@ -16,8 +15,7 @@ function skip(name: string): boolean {
   return name.startsWith(".") || name === "node_modules";
 }
 
-/** Count + newest mtime under a directory. Unreadable dirs count as empty rather than
- *  failing the poll — a permission problem must not look like an emptied library. */
+/** Count + newest mtime under a directory, an unreadable one counting as empty rather than failing. */
 function walk(dir: string): { count: number; newest: number } {
   let count = 0;
   let newest = 0;
@@ -48,15 +46,7 @@ function walk(dir: string): { count: number; newest: number } {
   return { count, newest };
 }
 
-/**
- * Our OWN writes, per family.
- *
- * The walk alone cannot see a change that preserves both its ingredients — files replaced
- * in place inside one filesystem-timestamp tick, none added or removed. That is exactly
- * the shape of "import a library, then list it", so a write we caused has to say so
- * rather than wait to be noticed. Same two ingredients as file-service's workspace
- * revision, and for the same reason.
- */
+/** Our OWN writes, per family — the walk alone cannot see an in-place replacement; docs/index.md. */
 const mutations: Partial<Record<RevisionKey, number>> = {};
 
 /** Record that this family or zone was written to. Called by whatever did the writing. */
@@ -64,27 +54,19 @@ export function bumped(key: RevisionKey): void {
   mutations[key] = (mutations[key] ?? 0) + 1;
 }
 
-/**
- * One family's change token.
- *
- * PER FAMILY, not one for the whole library: importing a song must not invalidate the
- * module list, and the families move at wildly different rates — a sample pack is dropped
- * in once, modules are edited all afternoon.
- */
+/** One family's change token, PER FAMILY and not one for the whole library — see docs/index.md. */
 export function familyRevision(family: Family): string {
   const { count, newest } = walk(familyDir(family));
   return `${mutations[family] ?? 0}:${count}:${newest}`;
 }
 
-/** The capture zone's own token. It used to ride on the songs family, which cost it a
- *  pointless refetch on every capture; a zone at the root answers for itself. */
+/** The capture zone's own token — it used to ride on the songs family and refetch it per capture. */
 export function recordingsRevision(): string {
   const { count, newest } = walk(recordingsDir());
   return `${mutations[RECORDINGS_DIR] ?? 0}:${count}:${newest}`;
 }
 
-/** Every token at once — what a listing is stamped with. The zone is in here beside the
- *  families because one poll drives the whole screen, tabs included. */
+/** Every token at once, zone included, because one poll drives the whole screen and its tabs. */
 export function revisions(): Record<RevisionKey, string> {
   return {
     ...(Object.fromEntries(

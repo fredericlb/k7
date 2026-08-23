@@ -51,8 +51,7 @@ describe("movedTheVocabulary", () => {
       movedTheVocabulary(at(["modules/audio/amp/module.yaml", "edited"])),
     ).toBe(true);
   });
-  // The anchoring, which is why the test is a path and not a folder name: a module may be
-  // CALLED clips, and its own file is module vocabulary.
+  // The anchoring, which is why the test is a path and not a folder name: a module may be CALLED clips, and its file is module vocabulary.
   it("does not read a module named `clips` as a clip", () => {
     expect(
       movedTheVocabulary(at(["modules/audio/clips/module.yaml", "edited"])),

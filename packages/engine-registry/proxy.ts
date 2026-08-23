@@ -14,19 +14,11 @@ import type { RequestHandler } from "express";
 import { WebSocket, WebSocketServer } from "ws";
 import type { EngineEntry, EngineRegistry } from "./registry.ts";
 
-/**
- * Per PROCESS, and deliberately not configured.
- *
- * A ticket lives a minute and is minted by the same process that verifies it, so there is
- * nothing to share between machines and no secret to plumb through three backends. A restart
- * invalidates the outstanding ones, which costs a browser one refetch of a list it polls
- * anyway.
- */
+/** Per PROCESS and deliberately not configured: nothing to share between machines — see docs/proxy.md. */
 const SECRET = randomBytes(32);
 const TICKET_TTL_MS = 60_000; // a ticket only needs to survive the handshake it was minted for
 
-/** Where the relay listens, under each service's `/api`. The id is in the path so a ticket
- *  cannot be replayed against a different engine. */
+/** Where the relay listens, under each service's `/api`; the id is in the path so a ticket cannot be replayed elsewhere. */
 export const ENGINE_PROXY_PATH = "/api/engine";
 const WS_ROUTE = /^\/api\/engine\/([^/]+)\/ws$/;
 
@@ -69,27 +61,13 @@ export function verifyEngineTicket(ticket: string): string | null {
   }
 }
 
-/** Every address the SERVER may reach this engine on, nearest first — the same list the
- *  browser used to try itself, tried here instead because here it is not a secure context. */
+/** Every address the SERVER may reach this engine on, nearest first — tried here because here it is not a secure context. */
 const hostsFor = (e: EngineEntry): string[] => [
   e.addresses.loopback,
   ...e.addresses.lanIps,
 ];
 
-/**
- * Open the first address that answers, in order — within ONE budget for the whole list.
- *
- * Sequential rather than raced: the list is two or three long, loopback wins it whenever the
- * backend shares the engine's machine, and a race would leave losing sockets half-open against
- * an audio process.
- *
- * The deadline is what sequential costs if nobody imposes it. The browser measures its
- * candidates in PARALLEL and gives up at ENGINE_REACH_BUDGET_MS; this side spent that PER
- * address, so a machine advertising two dead LAN interfaces — a VPN, a Docker bridge — took
- * three times the browser's patience and was called unreachable while the engine sat there
- * answering on loopback. Now both stop at the same wall clock, and a dead first address can
- * eat at most ENGINE_DIAL_TIMEOUT_MS of it.
- */
+/** Open the first address that answers, in order and sequentially, within ONE budget for the whole list — see docs/proxy.md. */
 async function dial(e: EngineEntry): Promise<WebSocket | null> {
   const deadline = Date.now() + ENGINE_REACH_BUDGET_MS;
   for (const host of hostsFor(e)) {
@@ -114,8 +92,7 @@ async function dial(e: EngineEntry): Promise<WebSocket | null> {
       });
       ws.once("error", () => {
         clearTimeout(timer);
-        // Terminate too: an error AFTER the handshake leaves a socket behind, and only the
-        // timeout path above was cleaning up.
+        // Terminate too: an error AFTER the handshake leaves a socket behind, and only the timeout path above cleaned up.
         try {
           ws.terminate();
         } catch {
@@ -129,8 +106,7 @@ async function dial(e: EngineEntry): Promise<WebSocket | null> {
   return null;
 }
 
-// Frames each way, and either close ends both. The relay reads nothing: what travels is the
-// engine protocol, which is the browser's business and not the registry's.
+// Frames each way, either close ending both; the relay reads nothing, since what travels is the browser's business.
 function pipe(client: WebSocket, upstream: WebSocket): void {
   const shut = (ws: WebSocket) => {
     try {
@@ -158,31 +134,11 @@ const deny = (socket: Socket, status: string): void => {
   socket.destroy();
 };
 
-/**
- * Relay `/api/engine/<id>/ws` to the engine itself.
- *
- * Attached to the HTTP SERVER rather than mounted as a route, because an upgrade never reaches
- * Express's middleware chain — which is also why the session cookie cannot gate it, and why
- * there is a ticket at all (the same reason k7's signaling has one; see apps/k7/backend/src/rtc.ts).
- *
- * The target comes from the REGISTRY, never from the request: a `?host=&port=` would have made
- * every backend an open relay to anything it can reach.
- */
+/** Relay `/api/engine/<id>/ws` to the engine itself, attached to the HTTP SERVER because an upgrade skips Express — see docs/proxy.md. */
 export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   const wss = new WebSocketServer({ noServer: true });
 
-  /**
-   * Hand an upgrade we do not serve to whoever else might, or close it.
-   *
-   * Passing is a real convention — k7 and z0 both attach their own signalling to one server —
-   * and the reason a bare `return` was written here. But Node only destroys an unclaimed
-   * upgrade socket when there is NO `'upgrade'` listener at all: register one, and the cleanup
-   * becomes the listeners' job. In the three engine backends this is the only listener, so
-   * every `Upgrade:` to any other path leaked a socket that nothing would ever close.
-   *
-   * Counted per request, not once at attach time: a service may add its own listener later,
-   * and then passing is right again.
-   */
+  /** Hand an upgrade we do not serve to whoever else might, or close it — Node cleans up an unclaimed socket only when NO listener exists. */
   const notOurs = (socket: Socket): void => {
     if (server.listenerCount("upgrade") <= 1) socket.destroy();
   };
@@ -204,9 +160,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
     if (!engine) return deny(socket, "404 Not Found");
 
     wss.handleUpgrade(req, socket, head, (client) => {
-      // Buffered, because the browser sends `whoami` the instant the socket opens and the
-      // upstream one is still being dialled. Dropping it would make every probe time out —
-      // the relay would be "reachable" and answer nothing, which is worse than unreachable.
+      // Buffered, because the browser sends `whoami` before the upstream socket is dialled — see docs/proxy.md.
       const pending: { data: WebSocket.RawData; binary: boolean }[] = [];
       const hold = (data: WebSocket.RawData, binary: boolean) =>
         pending.push({ data, binary });
@@ -229,13 +183,7 @@ export function attachEngineProxy(server: Server, reg: EngineRegistry): void {
   });
 }
 
-/**
- * What a body parser mounted in FRONT of this route already swallowed, ready to send again —
- * or null when the stream is still ours to pipe.
- *
- * All three backends mount `express.json()` app-wide, before the router that carries this
- * relay. See docs/proxy.md, "The body a parser already took", for what that cost.
- */
+/** What a body parser in FRONT of this route already swallowed, ready to send again, or null when the stream is still ours — see docs/proxy.md. */
 function replayBody(req: {
   readableEnded: boolean;
   body?: unknown;
@@ -248,14 +196,7 @@ function replayBody(req: {
   return Buffer.from(JSON.stringify(b));
 }
 
-/**
- * Relay `/api/engine/<id>/files/*` to the engine machine's file service.
- *
- * The same wall as the WebSocket: the file service answers on `http://<lan-ip>:<filePort>`, and
- * an HTTPS page may not fetch that either. An ordinary Express route this time — a plain
- * request needs no upgrade — so the session middleware already in front of `/api/engine`
- * gates it, and it carries no ticket.
- */
+/** Relay `/api/engine/<id>/files/*` to the engine machine's file service — an ordinary route, so the session middleware gates it and it needs no ticket. */
 export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
   return (req, res) => {
     const engine = reg.get(String(req.params.id));
@@ -275,16 +216,11 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
         ...(req.headers as Record<string, string | string[]>),
         host: `${host}:${engine.addresses.filePort}`,
       };
-      // `host` comes from what an ENGINE announced on the open heartbeat route, so it is not a
-      // name this server chose. The browser's session credentials must not travel to it: the
-      // file service authenticates on `x-studio-{user,workspace,engine-token}` and never reads
-      // either of these, so dropping them costs nothing and stops a relayed request from
-      // carrying `studio.sid` to an address someone else supplied.
+      // `host` came from an ENGINE on the open heartbeat route, so the browser's session credentials must not travel to it.
       delete headers.cookie;
       delete headers.authorization;
       if (body) {
-        // Re-serialized bytes are not the bytes we were sent, so the original length is a lie —
-        // and a chunked encoding beside a length is a second one.
+        // Re-serialized bytes are not the bytes we were sent, so the original length is a lie, and a chunked encoding beside it a second.
         headers["content-length"] = String(body.length);
         delete headers["transfer-encoding"];
       }
@@ -298,8 +234,7 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           timeout: ENGINE_DIAL_TIMEOUT_MS,
         },
         (upRes) => {
-          // Belt and braces: the timer is dropped on connect below, and again here for a socket
-          // that was already open (a keep-alive reuse never fires `connect`).
+          // Belt and braces: the timer is dropped on connect below, and again here, since a keep-alive reuse never fires `connect`.
           up.setTimeout(0);
           res.status(upRes.statusCode ?? 502);
           for (const [k, v] of Object.entries(upRes.headers))
@@ -308,33 +243,12 @@ export function engineFilesProxy(reg: EngineRegistry): RequestHandler {
           upRes.pipe(res);
         },
       );
-      /**
-       * Drop the timer the moment the socket is UP, not the moment the answer starts.
-       *
-       * `timeout` on an http.request is a socket IDLE timeout — it fires whenever nothing has
-       * crossed the wire for that long, connected or not. Disarming it in the response callback
-       * therefore bounds far more than the dial: it bounds how long the engine's machine may
-       * think before its first byte. That is 1.5 s, and `POST /mediatek/analyse` says nothing
-       * for as long as it takes to download a master and run the engine over it — so every
-       * analysis of a song through the relay was destroyed a second and a half in, retried on
-       * the next address, destroyed again, and finally answered 502. The work itself kept
-       * running on the other machine, once per attempt.
-       *
-       * A connected socket gets no bound at all, deliberately, and for the reason the old
-       * comment gave: a mixdown export and a slow `/media` read are both legitimately silent.
-       */
+      /** Drop the timer the moment the socket is UP, not when the answer starts; a connected socket gets no bound — see docs/proxy.md. */
       up.on("socket", (s) => {
         if (s.connecting) s.once("connect", () => up.setTimeout(0));
         else up.setTimeout(0); // a pooled socket is already open — nothing to dial
       });
-      // Only a host that never answered is worth retrying on the next one — once bytes are
-      // flowing the response is committed and a second attempt would write it twice. A PIPED
-      // body cannot be retried either: the stream is spent, and the next host would get the
-      // headers with nothing behind them, which is the very failure this function had.
-      //
-      // With the bound above this now means what it says: an error here is a host that could
-      // not be REACHED, so retrying costs nothing. It used to include "answered too slowly",
-      // which made the retry re-send a request the upstream had already accepted and started.
+      // Only a host that never answered is worth retrying: a committed response would be written twice, and a piped body is spent.
       up.on("error", () => {
         if (res.headersSent) return void res.end();
         if (body || !req.readableEnded) return attempt(i + 1);

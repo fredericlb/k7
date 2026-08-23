@@ -15,3 +15,9 @@ carry their own copy of this, comments included. One copy now, in the lowest pac
 that needs it.
 
 Both platforms need their own mechanism, and neither is optional.
+
+- **Windows** has no signals and no process groups, so `taskkill /T` walks the parent links
+  itself and `/F` forces it.
+- **Unix** gets the same reach from the process GROUP, which is why every child in this repo is
+  spawned `detached: true`: that makes it a group leader, so negating its pid signals the whole
+  group. It falls back to the bare pid when the group is already gone.

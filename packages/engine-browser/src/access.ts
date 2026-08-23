@@ -28,60 +28,19 @@ export interface EngineAccess<
   E extends ProbeTarget,
   P extends EnginePrefs = EnginePrefs,
 > extends RegistryClient<E, P> {
-  /** Measure every engine in the list, through this service's relay when the direct link is
-   *  refused. Curried on `base`, which is the whole point of this file. */
+  /** Measure every engine in the list, through this service's relay when the direct link is refused; curried on `base`. */
   probe(engines: E[]): Promise<RankedEngine<E>[]>;
-  /**
-   * List, read the preference, measure, and apply the policy — the four steps every gate runs
-   * in this order.
-   *
-   * `preferId` wins over the stored preference: it is the same value, but it arrives already
-   * updated when someone changes it from a picker beside the screen, whereas the fetch would
-   * still answer with what was saved a moment ago.
-   *
-   * A registry that does not answer reads as NO ENGINE, not as an error. That is the honest
-   * state — a service whose registry is down genuinely cannot be driven right now — and it is
-   * a screen, where a rejected promise inside a gate's effect is an eternal spinner.
-   */
+  /** List, read the preference, measure, apply the policy — and a silent registry reads as NO ENGINE. See docs/access.md. */
   find(preferId?: string): Promise<EngineLookup<E>>;
-  /**
-   * Claim a measured engine for a project and keep it. Returns the goodbye, for unmount.
-   *
-   * `opts.project` is what makes "one engine per project" true: opening a project somebody else
-   * has open takes it from them, and their `onLost` fires. A surface that opens on no project at
-   * all — pl8 — passes null and never competes for one.
-   */
+  /** Claim a measured engine for a project and keep it, returning the goodbye; `opts.project` is what makes "one engine per project" true. */
   hold(chosen: RankedEngine<E>, opts?: HoldOptions): () => void;
-  /**
-   * Where to reach ONE engine, asked again — what `EngineClient` calls before reconnecting.
-   *
-   * Not the address kept from the first measurement, and that is the point twice over. The
-   * relayed URL carries a ticket good for a minute, so the old one is refused outright after
-   * that; and the best route may simply have moved — a laptop carried onto the engine's own
-   * network stops needing the relay. Null when that engine is no longer listed or no longer
-   * answers, which the client reads as "not now" rather than as a failure.
-   */
+  /** Where to reach ONE engine, asked AGAIN rather than kept, since a relayed URL's ticket lives a minute — see docs/access.md. */
   wsUrlFor(id: string): Promise<string | null>;
-  /**
-   * What to hand `new EngineClient(...)`: the address just measured, then a fresh one.
-   *
-   * The first connection has no reason to measure again — the gate did it a moment ago, and
-   * `wsUrlFor` costs a registry round trip plus a probe. Every connection AFTER it has every
-   * reason to, because the ticket in that first URL has a minute to live. One function so the
-   * three surfaces cannot each get half of it right.
-   */
+  /** What to hand `new EngineClient(...)`: the address just measured, then a fresh one on every reconnect after it. */
   linkUrl(chosen: RankedEngine<E>): () => string | Promise<string | null>;
 }
 
-/**
- * Everything one service's browser needs, bound to that service's origin prefix.
- *
- * `base` is the app's own prefix — "" for st0, "/pl8", "/m9". It used to be passed separately
- * to `registryClient(base, …)` and to `probeEngines(list, base)`, which is one fact written
- * twice: an app could hold the registry client and still measure without the relay, and for
- * months every app did, because `probeEngines` had no second argument to forget yet. Once it
- * is a constructor argument there is nothing left to keep in step.
- */
+/** Everything one service's browser needs, bound to that service's origin prefix ONCE — see docs/access.md. */
 export function engineAccess<
   E extends ProbeTarget,
   P extends EnginePrefs = EnginePrefs,
@@ -93,8 +52,7 @@ export function engineAccess<
     ...reg,
     probe,
     async find(preferId) {
-      // Both at once: a remembered id is only a hint that still has to be probed, so waiting
-      // for one before starting the other would add a round trip to every load.
+      // Both at once: a remembered id is only a hint that still has to be probed, so serialising them would cost a round trip per load.
       const [list, prefs] = await Promise.all([
         reg.list().catch(() => [] as E[]),
         reg.prefs().catch(() => ({}) as P),
@@ -121,8 +79,7 @@ export function engineAccess<
       };
     },
     async wsUrlFor(id) {
-      // Through the registry rather than from a cache: the ticket is minted by that call, so
-      // there is no fresh URL to be had without it.
+      // Through the registry rather than a cache: the ticket is minted by that call, so there is no fresh URL to be had without it.
       const list = await reg.list().catch(() => [] as E[]);
       const engine = list.find((e) => e.id === id);
       if (!engine) return null;

@@ -8,8 +8,7 @@ import { defaultExclude, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // Kept alongside the defaults, not replacing them — dropping `**/node_modules/**` here would be worse than
-    // the problem being fixed.
+    // Kept ALONGSIDE the defaults: dropping `**/node_modules/**` would be worse than the problem.
     exclude: [
       ...defaultExclude,
       "engine/moteur/build/**",

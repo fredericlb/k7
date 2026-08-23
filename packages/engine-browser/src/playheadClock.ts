@@ -7,15 +7,7 @@
 /** A frame contradicting the estimate by more than this is a SEEK, not latency. */
 export const SEEK_EPS = 0.3; // seconds — the same figure ui-eyes' EngineClock uses
 
-/**
- * How far back the offset estimate looks, in ms.
- *
- * Bounded for one reason: the engine's playhead advances on the AUDIO clock (the interface's
- * crystal) and `performance.now()` is the system one. They differ by tens of ppm, so the true
- * offset creeps. Ageing samples out is what absorbs that — at 100 ppm, four seconds of creep is
- * 0.4 ms, which is nothing, whereas an unbounded window would hold a stale best sample for the
- * length of a set.
- */
+/** How far back the offset estimate looks, bounded because the audio and system clocks creep apart by tens of ppm. */
 export const WINDOW_MS = 4000;
 
 /** The most the drawn offset may creep per second of real time while chasing the estimate. */
@@ -41,16 +33,7 @@ export interface PlayheadClock {
   drawnAt: number;
 }
 
-/**
- * The window starts EMPTY: the estimate is built only from frames that actually arrived.
- *
- * Seeding it from the caller's snapshot is tempting and is not a measurement — the snapshot is
- * whatever the store last received, so its transit time is unknown and already spent. In
- * practice such a sample UNDERSTATES the offset, which a max filter discards the moment a real
- * frame lands, so seeding is harmless rather than wrong. It is left out because it was not
- * harmless in a BENCH: constructed with a perfect value it made the clock measure 2.5 ms more
- * accurate than it is, which is the sort of thing that gets quoted later.
- */
+/** The window starts EMPTY: the estimate is built only from frames that actually arrived, never seeded from a snapshot. */
 export const newPlayheadClock = (
   seconds = 0,
   playing = false,
@@ -64,34 +47,14 @@ export const newPlayheadClock = (
   drawnAt: now,
 });
 
-/**
- * The best offset the window supports: the LARGEST sample.
- *
- * A frame is sampled by the engine and then reaches us — serialised, sent, parsed — so its
- * arrival is always later than the moment it describes. Every sample therefore UNDERSTATES the
- * true offset, by exactly its own transit time, and the largest one is the frame that got here
- * fastest. Taking the max is taking the least-delayed measurement and discarding the rest; it is
- * the same reasoning NTP applies to round trips, and it is only available because the rate is
- * known — with an unknown rate these samples would have to be regressed, noise and all.
- */
+/** The best offset the window supports is the LARGEST sample: every one understates by its own transit time, so the max is the least delayed. */
 const estimateOf = (window: Sample[]): number => {
   let best = -Infinity;
   for (const s of window) if (s.offset > best) best = s.offset;
   return best;
 };
 
-/**
- * Take one engine frame.
- *
- * ROLLBACK is the interesting half. A frame further from the estimate than `SEEK_EPS` is not a
- * late packet, it is the transport having moved — a seek, a loop wrap, a play from elsewhere —
- * and every sample in the window is now evidence about a position that no longer exists.
- * Keeping them would hold the drawn line at the old offset for a whole window; worse, the max
- * filter would prefer them, because a backwards seek makes every new sample smaller. So the
- * window is thrown away and re-seeded from this frame alone, and the drawn offset goes with it.
- *
- * A play/pause edge is the same event by another name.
- */
+/** Take one engine frame; past `SEEK_EPS` the transport MOVED, so the window is thrown away rather than kept as stale evidence. */
 export function feedPlayhead(
   c: PlayheadClock,
   playing: boolean,
@@ -101,8 +64,7 @@ export function feedPlayhead(
   if (!playing)
     return { ...c, playing, window: [], anchorSec: seconds, drawnAt: now };
   const sample: Sample = { offset: seconds - now / 1000, at: now };
-  // An empty window is a seed, not a rollback — but it takes the same path: one sample, and the
-  // drawn offset set to it rather than eased towards it.
+  // An empty window is a seed rather than a rollback, but it takes the same path: one sample, and the drawn offset set to it.
   const edge = !c.playing || c.window.length === 0;
   const jumped =
     c.window.length > 0 && Math.abs(sample.offset - c.offset) > SEEK_EPS;
@@ -125,16 +87,7 @@ export function feedPlayhead(
   };
 }
 
-/**
- * Where to draw, at `now`.
- *
- * `drawnOffset + now` and nothing else — a straight line in local time, which is what makes it
- * smooth: there is no per-frame correction to see, because the frames only ever move the
- * OFFSET, and the offset barely moves. What movement it has is slewed, so even a re-estimate is
- * absorbed at 2% of real time rather than stepped.
- *
- * Monotonic while rolling: local time only increases and the slew cannot outrun it.
- */
+/** Where to draw at `now`: a straight line in local time, with even a re-estimate slewed in rather than stepped, so it stays monotonic. */
 export function advancePlayhead(c: PlayheadClock, now: number): PlayheadClock {
   if (!c.playing) return { ...c, drawnAt: now };
   const dt = Math.max(0, now - c.drawnAt) / 1000;

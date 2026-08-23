@@ -59,8 +59,7 @@ describe("presetFor", () => {
   });
 
   it("falls back rather than loading nothing when the base has gone missing", () => {
-    // The failure that matters: a `base:` naming a file this machine does not have must leave the
-    // module on its default state, not on whatever a fresh plugin instance happens to be.
+    // A `base:` naming a missing file must leave the module on its DEFAULT state.
     const folder = join(root, "m");
     touch("m", "m.vstpreset");
     expect(presetFor(folder, "m", undefined, "gone")).toBe(
@@ -96,9 +95,7 @@ describe("moduleBaseChoices", () => {
   });
 
   it("offers the ancestor's on a thin local module that carries none", () => {
-    // The shape this exists for: bases are snapshotted onto the SHARED module, and a song points
-    // at it through a local module whose own folder holds nothing. Listing only its own would
-    // offer nothing on exactly the module built to be chosen from.
+    // Bases sit on the SHARED module, so listing only the local folder offers nothing.
     touch("shared", "base", "warm.vstpreset");
     mkdirSync(join(root, "local"), { recursive: true });
     const refs = { "@st0/audio/shared": { folderAbs: join(root, "shared") } };

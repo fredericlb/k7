@@ -17,6 +17,32 @@ mirrored in the C++ engine.
    to switch an audio device are all made in the supervisor; the tray only compares a
    signature against what it last drew.
 
+## `HostOwnership` — the staging mechanism, on the wire
+
+The refactor moved subsystems from the Rust tray to the supervisor one at a time, and
+`HostOwnership` is that made explicit: each stage flips one more flag and deletes the Rust that
+used to do that job. The tray merges only the parts of a snapshot whose flag is set, so a
+half-migrated build has exactly **one owner per subsystem** instead of two writers racing.
+
+When all three are permanently true this collapses to "the tray replaces its state wholesale" and
+the type can go.
+
+Identity, settings, the registry and the web-origins allowlist are deliberately **not** in it:
+they moved in one step and have no half-owned state, so their snapshot fields are always
+authoritative.
+
+## Why a snapshot is emitted only when it changed
+
+`HostSnapshot` is read field by field by the tray's `refresh()` and its three submenu builders,
+and the host emits one only when its **serialisation** differs from the last. The arrays are
+re-serialised on every emit, so a field that flapped at loop cadence would put the whole snapshot
+on the wire several times a second to redraw nothing.
+
+That is why `sessionsSig`, `audioMenuSig` and `editPluginsSig` exist beside the data they
+summarise: they change exactly when the corresponding submenu's content would, and the tray
+compares them against what it last drew. The playhead, which moves 20 times a second, is in the
+sessions data and out of the signature.
+
 ## Why stdio and not a localhost socket
 
 The tray is the process the user kills, and a socket-attached host that outlives a

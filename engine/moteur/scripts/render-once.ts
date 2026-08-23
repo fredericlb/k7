@@ -41,8 +41,7 @@ async function main() {
   const bytes = out.files.map((f) => statSync(f).size);
   console.log("fichiers :", out.files);
   console.log("octets   :", bytes);
-  // Two seconds of stereo 48 kHz float is hundreds of kB. A wav header alone is 44 bytes,
-  // and "wrote a header and no samples" is the failure this number is here to exclude.
+  // Hundreds of kB for two seconds: what this excludes is "wrote a 44-byte header and no samples".
   const ok = bytes.length === 1 && bytes[0] > 100_000;
   console.log(
     ok ? "OK — le rendu produit de l'audio" : "ECHEC — fichier trop petit",

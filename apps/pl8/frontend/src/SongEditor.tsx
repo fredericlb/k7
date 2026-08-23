@@ -15,15 +15,7 @@ import { SaveState } from "./SaveState";
 import { SongPlayer } from "./SongPlayer";
 import { SongVariants } from "./SongVariants";
 
-/**
- * What a song with no sidecar opens on. Not a blank file: `title` is what the catalogue shows,
- * so a first save that names the song is the one edit this screen exists to make easy. A folder
- * found on disk with nothing filing it is exactly that case (`catalogued: false`).
- *
- * Built from the FOLDER and not from the entry, deliberately — see the load effect below.
- * Its last segment is the title tag, which for an unfiled song is the only name there is;
- * `MediatekEntry.name` falls back to the same string.
- */
+/** What a song with no sidecar opens on — a stub carrying `title`, built from the FOLDER. */
 const stub = (folder: string) =>
   `# ${folder}\ntitle: ${folder.split("/").pop() ?? ""}\n`;
 
@@ -38,8 +30,7 @@ export function SongEditor({
 }: {
   entry: MediatekEntry;
   vimMode: boolean;
-  /** The chosen machine's file service — the player needs it to have the master analysed.
-   *  WHICH engine is no longer a prop: the app holds one and this screen asks for it. */
+  /** The chosen machine's file service, which the player needs to have the master analysed. */
   fileBase?: string | null;
   engineToken?: string | null;
   /** Where the account wants sound to come out. See ../docs/playbackTarget.md. */
@@ -47,23 +38,15 @@ export function SongEditor({
   onBack: () => void;
   onSaved: () => void;
 }) {
-  // The app's engine used to be read here and handed to the variants pane, which auditioned
-  // a chain against this song. That pane draws a list of files now, so nothing on this
-  // screen needs a socket: `PlaybackProvider` holds the one the player uses.
-  // Two STRINGS, and that is the point: the listing is re-polled every three seconds, so
-  // `entry` is a fresh object on every tick. An effect that depended on it would reload the
-  // file — and throw away whatever had been typed into it — three times a minute.
+  // Two STRINGS, since the listing is re-polled and `entry` is a fresh object every tick.
   const folder = entry.path;
   const path = `${folder}/${SONG_FILE}`;
   const [content, setContent] = useState<string | null>(null);
-  // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
-  // could leave lying.
+  // What is on disk: dirty is derived from it, never a flag a failed write could leave lying.
   const [saved, setSaved] = useState("");
   const [status, setStatus] = useState("");
 
-  // Absent is NOT an error, the way a module's missing panel is not: the editor opens on what
-  // the file WOULD say, and the first EDIT creates it through the ordinary write route. The
-  // stub is `saved` too, deliberately — opening a song must not file it by itself.
+  // Absent is NOT an error: the stub is `saved` too, so opening a song does not file it.
   useEffect(() => {
     let alive = true;
     setContent(null);
@@ -121,8 +104,7 @@ export function SongEditor({
         <SaveState autosave={autosave} className="ml-auto shrink-0" />
       </header>
 
-      {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un écran
-          de téléphone font deux colonnes où rien ne tient. */}
+      {/* Side by side when there is room and STACKED when there is not (../docs/responsive.md). */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <div className="min-h-0 h-1/2 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
           {content == null ? (
@@ -139,9 +121,7 @@ export function SongEditor({
             />
           )}
         </div>
-        {/* The player, and under it the versions the sidecar declares — they belong to the same
-            half of the screen because they are the same question, "what does this song sound
-            like". They used to be a fourth column, which only existed while nothing was open. */}
+        {/* The player and the versions under it: one half of the screen, one question. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1">
             <SongPlayer

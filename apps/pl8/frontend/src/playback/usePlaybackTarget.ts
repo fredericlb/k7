@@ -13,9 +13,7 @@ import {
 export interface PlaybackChoice {
   /** What the account asked for. NOT necessarily what will play — see `effectiveTarget`. */
   target: PlaybackTarget;
-  /** The preference has come back at least once. Before it, `target` is the default, which
-   *  is indistinguishable from a default that was actually chosen; a menu can draw either,
-   *  but anything that would ANNOUNCE the destination should wait for this. */
+  /** The preference has come back once: before it, a default is indistinguishable from a choice. */
   loaded: boolean;
   choose: (t: PlaybackTarget) => void;
 }
@@ -36,9 +34,7 @@ export function usePlaybackTarget(): PlaybackChoice {
     };
   }, []);
 
-  // Optimistic, then persisted — the tick moves under the cursor rather than after a round
-  // trip, exactly as the engine pick does. `patchPrefs` is what keeps this from clearing the
-  // engine id: the route replaces the whole document.
+  // Optimistic then persisted, through `patchPrefs` so the engine id survives (../../docs/engine.md).
   const choose = useCallback((t: PlaybackTarget) => {
     setTarget(t);
     void patchPrefs({ playbackTarget: t });

@@ -63,8 +63,7 @@ describe("applying one", () => {
   });
 
   it("does NOT rename the module to the name of its variant", () => {
-    // `name` is in OWN_ONLY, so leaving it in the merge would rewrite the key a chain calls
-    // this module by. Silent, and it would repoint every step naming it.
+    // `name` is OWN_ONLY: merging it would silently rewrite the key every chain step names.
     const m = mod({
       name: "ampli",
       alternative: "crunch",
@@ -113,8 +112,7 @@ describe("against `extends`", () => {
   });
 
   it("picks from a list its PARENT declared", () => {
-    // How a shared module offers named variants and each use chooses. The parent's own choice
-    // is NOT applied first — `base + clean + crunch` is not what `alternative: crunch` says.
+    // The parent's own choice is NOT applied first: `base + clean + crunch` is not what it says.
     const refs = {
       "audio/amp": mod({
         params: { Gain: 1 },
@@ -160,8 +158,7 @@ alternatives:
   it("switches by ADDING one line, keeping every other byte", () => {
     const after = setAlternative(AUTHORED, "crunch");
     expect(after).toContain("alternative: crunch");
-    // The whole claim, in one line: take the selection back out and the file is what it was —
-    // the comment, the flow spacing and the key order included.
+    // Take the selection back out and the file is what it was, comments and key order included.
     expect(after.replace("alternative: crunch\n", "")).toBe(AUTHORED);
   });
 
@@ -189,8 +186,7 @@ alternatives:
   it("copies the set that is CURRENTLY on, not the module's own", () => {
     const on = setAlternative(AUTHORED, "crunch");
     const { text } = addAlternative(on, "crunchier", { copy: true });
-    // crunch's OWN fields, not the merged result: baking Tone in would stop later edits to the
-    // module's own params from reaching the copy.
+    // crunch's OWN fields: baking Tone in would cut the copy off from later edits to the module.
     expect(text).toContain("Gain: 9");
     expect(text).not.toMatch(/name: crunchier[\s\S]*Tone/);
   });

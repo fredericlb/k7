@@ -19,15 +19,7 @@ import { api, mediatek } from "../api";
 import { playlistVocabulary } from "../playlistVocabulary";
 import { PlaylistPane } from "./PlaylistPane";
 
-/**
- * Is this text a playlist?
- *
- * A workspace file the project-file router that autosave defaults to knows nothing about —
- * `_playlists/x.yaml` is not a document of the open song. `parsePlaylist` is what does know,
- * and it already answers null for anything it cannot read. Reported as a schema failure rather
- * than malformed text so the escape hatch applies: a playlist already unreadable on disk stays
- * editable.
- */
+/** Is this text a playlist? `parsePlaylist` is what knows, and a failure is reported as a SCHEMA one, so the escape hatch applies. */
 const playlistValidity = (text: string): Validity =>
   parsePlaylist(text) === null
     ? {
@@ -38,8 +30,7 @@ const playlistValidity = (text: string): Validity =>
       }
     : { ok: true, issues: [], depth: "schema", malformed: false };
 
-/** What the header says where the Save button was — the same five words EditorTab uses, and
- *  "clean" says nothing for the same reason: a saved file is the ordinary state. */
+/** What the header says where the Save button was — the same five words EditorTab uses, and 'clean' says nothing for the same reason. */
 const SAVE_LABEL: Record<string, string> = {
   clean: "",
   pending: "edited",
@@ -48,9 +39,7 @@ const SAVE_LABEL: Record<string, string> = {
   error: "save failed",
 };
 
-/** How often the médiathèque's songs are re-read while a playlist is open. A morceau filed in
- *  another tab should appear here too, and a playlist is exactly the screen where you notice
- *  one is missing. Slower than pl8's own poll: this is a cross-app call from an editor. */
+/** How often the médiathèque's songs are re-read while a playlist is open — slower than pl8's own poll, this being a cross-app call. */
 const SONGS_POLL_MS = 10_000;
 
 export function PlaylistEditor({
@@ -67,54 +56,24 @@ export function PlaylistEditor({
   /** What the header calls it — the title the listing parsed, else the file's stem. */
   name: string;
   vimMode: boolean;
-  /**
-   * Draw as the right-hand PANEL rather than as the page: no header of its own (the panel's
-   * carries the dropdown that chose this file) and no YAML half — there is no room for the text
-   * beside the songs at 24rem, and the panel offers the page as an escape hatch for the edits
-   * that need it.
-   *
-   * A mode on this component rather than a second one, because everything under the layout is
-   * the same: the same load, the same buffer, the same autosave, the same resolved list. Two
-   * components would be two documents to keep in step, which is the bug this file's own header
-   * is about. See ../docs/playlists.md.
-   */
+  /** Draw as the right-hand PANEL rather than as the page: no header, no YAML half — a mode, everything under the layout being the same (../docs/playlists.md). */
   panel?: boolean;
   /** Back to the listing. Unused in `panel` mode, where there is nothing to go back to. */
   onBack?: () => void;
   /** The file has reached disk: the listing behind this screen is one row out of date. */
   onSaved: () => void;
-  /**
-   * Dispatch a command line. Passed straight through to the songs pane, whose stem bar opens the
-   * settings with one (`ui settings io`) rather than reaching into `App`'s state.
-   *
-   * Optional so the page and the panel can both mount this without either inventing a shell: the
-   * pane draws the sentence and drops the button when it has nowhere to send you.
-   */
+  /** Dispatch a command line, passed straight through to the songs pane — optional, so neither host has to invent a shell. */
   onRun?: (line: string) => Promise<void>;
 }) {
   const [content, setContent] = useState<string | null>(null);
-  // What is on disk. Dirty is `content !== saved`, derived rather than a flag a failed write
-  // could leave lying.
+  // What is on disk; dirty is `content !== saved`, derived rather than a flag a failed write could leave lying.
   const [saved, setSaved] = useState("");
   const [status, setStatus] = useState("");
 
-  /**
-   * The médiathèque's songs, polled beside the file.
-   *
-   * This screen holds BOTH listings, which is what makes it the only place where "no such
-   * morceau" is answerable at all: the playlist is a workspace file and the songs are another
-   * service's catalogue, and nothing else in this app has both.
-   */
+  /** The médiathèque's songs, polled beside the file — this screen holds BOTH listings, which is what makes 'no such morceau' answerable. */
   const [songs, setSongs] = useState<MediatekEntry[] | null>(null);
   const [songsError, setSongsError] = useState("");
-  /**
-   * Ask the catalogue again.
-   *
-   * A callback and not a counter in the effect's dependencies: the pane calls this the moment
-   * it has filed a song (`onFiled`), so the line it just wrote resolves to something instead of
-   * sitting on "morceau introuvable" until the next tick. Threading that through a state bump
-   * would restart the interval as well, which is a different thing to want.
-   */
+  /** Ask the catalogue again — a callback and not a dependency, since a state bump would restart the interval as well. */
   const refreshSongs = useCallback(
     () =>
       mediatek
@@ -123,8 +82,7 @@ export function PlaylistEditor({
           setSongs(entries);
           setSongsError("");
         })
-        // Left as it was rather than emptied: an unreachable catalogue for one tick must not
-        // turn every line of the playlist into "introuvable". Said in the footer, once.
+        // Left as it was rather than emptied: an unreachable catalogue for one tick must not make every line 'introuvable'.
         .catch((e: Error) => setSongsError(e.message)),
     [],
   );
@@ -134,14 +92,10 @@ export function PlaylistEditor({
     return () => clearInterval(t);
   }, [refreshSongs]);
 
-  // Memoised on the listing itself: the poll hands back a fresh array every time, and the pane
-  // holds this in a ref precisely so a new one does not reconfigure the editor — but rebuilding
-  // the ref lists on every tick would still be work for nothing.
+  // Memoised on the listing itself: the poll hands back a fresh array every time, and rebuilding the ref lists per tick is work for nothing.
   const vocabulary = useMemo(() => playlistVocabulary(songs), [songs]);
 
-  // Absent is NOT an error: the editor opens on what the file WOULD say, and the first EDIT
-  // creates it through the ordinary write route. An EMPTY file is the same case. The gabarit is
-  // `saved` too, deliberately: opening a playlist must not write it by itself.
+  // Absent is NOT an error: the editor opens on what the file WOULD say, and the gabarit is `saved` too, so opening writes nothing.
   useEffect(() => {
     let alive = true;
     setContent(null);
@@ -175,19 +129,12 @@ export function PlaylistEditor({
     };
   }, [path]);
 
-  /**
-   * The lines, as the text CURRENTLY says — not as the last save did.
-   *
-   * That is the whole point of the split: the right-hand pane follows the keystrokes.
-   */
+  /** The lines, as the text CURRENTLY says — not as the last save did, which is the whole point of the split. */
   const [items, setItems] = useState<PlaylistItem[]>([]);
   useEffect(() => {
     if (content == null) return setItems([]);
     const parsed = parsePlaylist(content);
-    // Only ever REPLACED by something readable. Half-typed YAML fails to parse on nearly every
-    // keystroke — a closing bracket you have not got to yet — and a pane that emptied itself
-    // each time would flicker its way through every line you write. The footer says when what
-    // is showing is behind the text.
+    // Only ever REPLACED by something readable: half-typed YAML fails on nearly every keystroke, and the footer says when the pane is behind.
     if (parsed) setItems(parsed.items);
   }, [content]);
   const broken = useMemo(
@@ -195,30 +142,16 @@ export function PlaylistEditor({
     [content],
   );
 
-  /**
-   * A morceau picked in the search — or one just uploaded — as a line at the end of the file.
-   *
-   * The EDIT is the text, not a list this component holds beside it: the pane on the right is
-   * drawn from the buffer, so writing the line into the buffer is what makes the row appear.
-   * Anything else would be two sources of truth for one document, and the YamlPane on the left
-   * would go on showing the old one.
-   *
-   * Adding is an edit like typing is, so it reaches disk the way typing does: on its own, once
-   * the buffer reads as a playlist. A half-typed line elsewhere in the file holds BOTH back,
-   * which is the point — the file is written whole or not at all.
-   */
+  /** A morceau picked in the search, as a line at the end of the file: the EDIT is the TEXT, so the row appears because the buffer changed. */
   const addItem = useCallback((item: PlaylistItem) => {
     setContent((cur) => {
       if (cur == null) return cur;
-      // `addRefusal` keeps the button disabled for the shapes this cannot extend, so getting
-      // here means the file changed shape under us. Leaving the text alone is the honest
-      // answer; the pane goes on saying why.
+      // `addRefusal` keeps the button disabled for the shapes this cannot extend, so getting here means the file changed shape under us.
       return appendPlaylistItem(cur, item) ?? cur;
     });
   }, []);
 
-  /** Why the search cannot write a line right now — computed HERE, because it is a fact about
-   *  the text and the pane has never seen it. */
+  /** Why the search cannot write a line right now — computed HERE, being a fact about the text the pane has never seen. */
   const addRefusal = useMemo(() => {
     if (content == null) return "fichier pas encore chargé";
     return appendPlaylistItem(content, { song: "x" }) === null
@@ -259,9 +192,7 @@ export function PlaylistEditor({
               {path}
             </div>
           </div>
-          {/* Where the Save button was. It says nothing while the file is saved — that is the
-              normal state — and stays amber, with the reason, for as long as it is not. The same
-              two words EditorTab's toolbar uses, so "not saved" reads the same on both screens. */}
+          {/* Where the Save button was: silent while saved, amber with the reason otherwise, in EditorTab's own two words. */}
           <span
             className={`ml-auto flex min-w-0 shrink-0 items-center gap-1 text-xs ${
               autosave.status === "held" || autosave.status === "error"
@@ -284,17 +215,13 @@ export function PlaylistEditor({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-          {/* Côte à côte dès qu'il y a la place, EMPILÉ sinon : deux moitiés d'un
-              écran de téléphone font deux colonnes où rien ne tient. Absent dans le PANNEAU,
-              où il n'y a de place ni pour l'un ni pour l'autre — voir `panel`. */}
+          {/* Side by side when there is room, STACKED otherwise, and absent in the panel, where neither half fits — see `panel`. */}
           {panel ? null : (
             <div className="h-1/2 min-h-0 shrink-0 border-b border-border md:h-auto md:w-1/2 md:border-r md:border-b-0">
               <YamlPane
                 path={path}
                 content={content}
-                // The path cannot say what this file is — a playlist is not one of the project's
-                // documents — so the vocabulary comes from the catalogue polled above. See
-                // ../playlistVocabulary.ts.
+                // The path cannot say what this file is, so the vocabulary comes from the catalogue polled above (../playlistVocabulary.ts).
                 vocabulary={vocabulary}
                 vimMode={vimMode}
                 onChange={setContent}
@@ -316,8 +243,7 @@ export function PlaylistEditor({
       )}
 
       <footer className="flex shrink-0 items-center gap-3 border-t px-3 py-1 text-xs text-muted-foreground">
-        {/* Said here and not over the list: text stops parsing on nearly every keystroke while
-            you are typing a line, and a pane that emptied itself each time would flicker. */}
+        {/* Said here and not over the list: text stops parsing on nearly every keystroke, and a pane emptying itself each time would flicker. */}
         {broken ? (
           <span className="text-destructive">
             le YAML ne parse pas — la liste montre la dernière version lisible
