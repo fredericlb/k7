@@ -38,7 +38,7 @@ import chokidar from "chokidar";
 import { guard } from "./background.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
 import { separateJob, startSeparate } from "./separateJobs.ts";
-import { rootDir } from "./slug.ts";
+import { rootDir, slugify } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import { skip, type Workspace } from "./workspace.ts";
 
@@ -141,6 +141,37 @@ export function sessionOf(ws: { root: string } | null): string {
   const slug = rel.split(/[\\/]/)[0];
   if (!slug || slug.startsWith("..")) return SESSIONS.st0;
   return `${SESSIONS.st0}:${slug}`;
+}
+
+/**
+ * What this person's st0 session is loaded into on the engine — the note above, read from
+ * outside and spelled in addresses rather than in absolute paths.
+ *
+ * Asked by a caller with no workspace in hand (st0's `/external` menu), so the session is built
+ * from the SLUG the same way `sessionOf` builds it from a workspace root: both are
+ * `slugify(email)`, which is the whole reason the two halves agree without being told
+ * (docs/activeProject.md). The bare id is the fallback for a service opened on a folder that is
+ * not under the users root — one machine, one person, the case that shape exists for.
+ *
+ * A belief about another process, like every other read of `served`: the engine can have
+ * restarted under us. It is not worth asking `list-sessions` here — the poll that owns that
+ * question is `prewarmEngineForActive`, throttled and running anyway, and a menu that briefly
+ * names a project the engine has just dropped is corrected within one tick.
+ */
+export function servedProject(
+  userEmail: string,
+): { workspace: string; path: string } | null {
+  const slug = slugify(userEmail);
+  const s =
+    served.get(`${SESSIONS.st0}:${slug}`) ?? served.get(SESSIONS.st0) ?? null;
+  if (!s) return null;
+  const ws = relative(rootDir(), s.ws.root).split(/[\\/]/);
+  // Under the users root this is `<slug>/<workspace>`; anything else is a workspace this
+  // machine cannot name in an address, and a row nobody could follow is worse than no row.
+  if (ws.length < 2 || !ws[1]) return null;
+  const rel = relative(s.ws.root, s.project).replace(/\\/g, "/");
+  // `.` for a lone-project clone, which is how the surface listing spells it too.
+  return { workspace: ws[1], path: rel === "" ? "." : rel };
 }
 
 function wireEngine(session: string, e: EngineClient): void {

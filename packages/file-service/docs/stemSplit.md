@@ -92,29 +92,28 @@ reconstructing the mix, so nothing holds its output inside ±1; `peakOf` measure
 before it is written and the job's `lines` say when one was clamped. Silence would be worse:
 the alternative way to learn about it is a click at the loudest moment of the record.
 
-## `POST /stems` — and why it takes no chain
+## The second door is `POST /process`, and `/stems` is GONE
 
-There are two doors, and the second one is what a browser uses. `POST /separate` is per MACHINE
-and takes absolute paths, including the model's: a caller that already knows both. `POST /stems`
-is workspace-scoped, takes one cache-relative song, and **nothing else**.
+There are two doors. `POST /separate` is per MACHINE and takes absolute paths, including the
+model's: a caller that already knows both. The other one used to be `POST /stems` —
+workspace-scoped, taking one **cache-relative** song — and that is exactly why it went: it resolved
+into a médiathèque mirror this machine no longer keeps.
 
-The chain it runs is `~/.studio/preferences.yaml`'s `stemsChain`, written once by
-`system stems <chaîne>`. That is the shape rather than a shortcut. Which module separates and which
-model it wants is one answer for the machine — it does not vary by set list, by project or by
-record — so a caller that named one would be asking the same question of the same person at each
-use, and the three callers there are (the playlist panel's button, a desk catching up, the verb)
-would be three places to get it wrong. A browser cannot resolve it in any case: it has no idea
-which `.onnx` this machine holds or where.
+`POST /process` replaces it ([processChain.md](processChain.md)). The audio ARRIVES in the request
+body rather than being looked up, because the caller is pl8, which holds the masters and drives the
+cut. Nothing about the worker, the registry or `stems/` below changed — only where the bytes come
+from and who is waiting.
 
-The ORDER inside the route is deliberate and testable:
+**The chain is still the machine's answer.** `~/.studio/preferences.yaml`'s `stemsChain`, written
+once by `system stems <chaîne>`, is what `/process` falls back to when the caller names none. That
+is the shape rather than a shortcut: which module separates and which model it wants does not vary
+by set list, by project or by record, so a caller made to name one would be asked the same question
+at every use. What changed is that a caller MAY now name one, because pl8 knows which song and this
+machine knows how it cuts — the default carries the old rule without forbidding the other.
 
-1. confine the path (`safePath`), 404 a song this machine has not pulled;
-2. **ask the disk** — a song whose `stems/` already holds audio answers `ready` and starts nothing;
-3. *then* read the preference (409 naming `system stems` when there is none);
-4. *then* resolve the chain against the open project.
-
-Step 2 before steps 3 and 4 is what lets a machine that has never been told how to separate still
-light the knobs on the songs somebody prepared with `playlist stems`.
+The freshness check moved with the work: **pl8 asks its own disk first**, and a song whose `stems/`
+already holds audio never reaches this machine at all. That is what lets a machine which has never
+been told how to separate still light the knobs on songs somebody prepared earlier.
 
 ## Why a worker thread
 

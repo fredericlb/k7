@@ -28,8 +28,6 @@ import type {
   ModuleUiFile,
   ProjectErrors,
   ProjectInfo,
-  SeparateJob,
-  StemsReply,
   UndoResult,
   WebPreferences,
   WebProject,
@@ -108,24 +106,11 @@ export const projectApi = {
     fsend<WorkspaceInfo>("POST", "/open", { path, libraries }),
   unloadEngine: () => fsend<{ ok: true }>("POST", "/engine/unload", {}),
 
-  /**
-   * Separate ONE song of the médiathèque's cache, so a deck's stem knobs have something to
-   * subtract. `song` is the cache-relative audio (`songs/<artiste>/<album>/<titre>/<fichier>`),
-   * and it is the whole request.
-   *
-   * No chain travels: which module separates and which model it wants is one answer for the
-   * machine, kept in its preferences by `system stems`. A caller that named one would be a second
-   * place to spell it — and the browser cannot resolve it anyway.
-   *
-   * Cheap on a song already prepared — the reply says `ready` and nothing starts — and cheap
-   * twice over, because the job id hashes the WORK: a second caller joins the run in flight
-   * rather than starting another hour of arithmetic. See the file service's docs/stemSplit.md.
-   */
-  prepareStems: (song: string) => fsend<StemsReply>("POST", "/stems", { song }),
-  /** How one is getting on. 404s once the machine has swept a finished job, which the caller
-   *  reads as "ask the disk" rather than as a failure. */
-  separation: (id: string) =>
-    fget<SeparateJob>(`/separate/${encodeURIComponent(id)}`),
+  // `prepareStems` and `separation` stood here, against the file service's `/stems`. They are
+  // pl8's now: the library holds the masters, so it owns the cut and keeps the results, and the
+  // engine only lends its model over `/process`. This client speaks to ONE machine and pl8 is not
+  // it — the two calls live where the library's other routes do (st0's `api.ts`'s `mediatek`).
+  // See apps/pl8/docs/stems.md.
   /**
    * Play a document this browser built — the turntables surface's decks, filled into the
    * project's own compile.

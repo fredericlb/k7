@@ -13,6 +13,7 @@ import {
 import { ensureLayout } from "@studio/mediatek/layout";
 import type {
   MachineWorkspaceList,
+  ServedProjectReply,
   SurfacedProjectList,
   WorkspaceList,
 } from "@studio/web-protocol";
@@ -34,6 +35,7 @@ import { syncAllRepos } from "./demos.ts";
 import {
   pluginParams,
   pruneIdleLinks,
+  servedProject,
   setSelectedEngine,
   showNativePluginUIOf,
 } from "./engineLink.ts";
@@ -44,9 +46,9 @@ import { resolvePlugin } from "./pluginRef.ts";
 import { filesRouter } from "./routes/files.ts";
 import { mediatekRouter } from "./routes/mediatek.ts";
 import { playerRouter } from "./routes/player.ts";
+import { processRouter } from "./routes/process.ts";
 import { renderRouter } from "./routes/render.ts";
 import { separateRouter } from "./routes/separate.ts";
-import { stemsRouter } from "./routes/stems.ts";
 import { rootDir, slugify, workspaceRoot } from "./slug.ts";
 import {
   assertSshGitUri,
@@ -219,6 +221,28 @@ app.get(
 );
 
 /**
+ * …and which ONE of those the engine is actually holding for this person.
+ *
+ * The menu above lists every project on the disk that declares a surface; this says which of them
+ * a second device can reach without moving the engine off something. A session is per service and
+ * per person, so the answer is one project for the whole account — not one per workspace, which is
+ * what the `.studio-active` markers are and why they cannot answer this
+ * (packages/engine-protocol/docs/sessions.md).
+ *
+ * Workspace-less like its two neighbours, and for the same reason: the caller is a tablet with no
+ * project open, and the user is the whole question. See apps/st0/frontend/docs/external.md.
+ */
+app.get(
+  "/engine/served",
+  wrap(async (req, res) => {
+    const reply: ServedProjectReply = {
+      project: servedProject(req.userEmail!),
+    };
+    res.json(reply);
+  }),
+);
+
+/**
  * Which workspace already holds a repository, if any. pl8 names a repo by its URI and knows
  * nothing about this machine's folders, so this is the question st0 asks before deciding
  * whether anything needs cloning at all.
@@ -335,6 +359,12 @@ app.use(renderRouter);
 // and produces four files. See docs/stemSplit.md.
 app.use(separateRouter);
 
+// …and the same work for a caller that holds the audio and no workspace: pl8 POSTs a master's
+// bytes, names a library chain, and collects the files. Beside `/separate` rather than under
+// `/stems` because it names no cache path — there is no médiathèque cache on this machine.
+// See docs/processChain.md.
+app.use(processRouter);
+
 // What this machine's engine has SCANNED, grouped by format. Per machine like the two above and
 // for the same reason — the scan cache is `~/.studio/exts.json`, which belongs to no workspace and
 // no project. `/hints` has carried the same list for a long time, but only alongside a compiled
@@ -449,10 +479,10 @@ app.get(
 // one deploy key and shows it to you — and this machine fetches a copy when it first needs to
 // clone (sshKeys.ts). See packages/git-repos/docs/keys.md.
 
-// Preparing ONE record for the desk's stem knobs. Workspace-scoped, unlike /separate above,
-// because what it takes is a CHAIN ref and that only means something against an open project —
-// the separation itself is the same registry and the same worker. See docs/stemSplit.md.
-app.use(resolveWorkspace, stemsRouter);
+// `/stems` stood here — workspace-scoped, resolving a cache-relative song path into this
+// machine's médiathèque mirror. It is GONE with the mirror: pl8 holds the masters, so pl8 drives
+// the cut and asks this machine for the arithmetic over `/process` above. See docs/processChain.md
+// and apps/pl8/docs/stems.md.
 
 // Everything else needs a resolved workspace on req.ws.
 app.use(resolveWorkspace, filesRouter);

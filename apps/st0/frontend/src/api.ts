@@ -14,6 +14,7 @@ import type { FamilyListing, MediatekEntry } from "@studio/mediatek/types";
 import { cfg, fget, fileHeaders, fsend } from "@studio/project-shell/fileApi";
 import { projectApi } from "@studio/project-shell/project";
 import type { ModuleStore } from "@studio/ui-module-builder/store";
+import type { SeparateJob, StemsReply } from "@studio/web-protocol";
 import { serviceUrl } from "@studio/web-protocol/services";
 import type { CommandPrefs } from "./commandPrefs";
 import { libraryModuleRef } from "./libraryTree";
@@ -399,6 +400,16 @@ export const api = {
  */
 const PL8 = serviceUrl(globalThis.location?.origin ?? "", "pl8");
 
+/**
+ * …and pl8's API root, for the one caller that is not in this file: the DESK.
+ *
+ * `@studio/ui-turntables` asks the library to separate a record (`apps/pl8/docs/stems.md`), and
+ * it is a package with three hosts, so it takes the base as a prop rather than deriving one. This
+ * is the same `PL8` every route below is built on, exported so the desk's host is not a second
+ * place the prefix is spelled.
+ */
+export const PL8_API = `${PL8}/api`;
+
 export const mediatek = {
   /** The whole songs family. One call, no paging: the catalogue is a few hundred entries and
    *  the search over it is done in the browser, where a keystroke costs nothing. */
@@ -411,6 +422,46 @@ export const mediatek = {
   /** One file's bytes, as an address rather than a fetch — this is what a row plays. */
   songUrl: (path: string) =>
     `${PL8}/api/mediatek/file?path=${encodeURIComponent(path)}`,
+
+  /**
+   * Separate one song of the library, so a deck's stem knobs have something to subtract.
+   *
+   * pl8's, not the file service's — which is the whole of what moved. pl8 holds the master, so it
+   * owns the cut: it borrows the named engine's model over `/process` and keeps the stems on its
+   * own volume (`apps/pl8/docs/stems.md`). It used to be `projectApi.prepareStems`, separating out
+   * of a médiathèque cache mirrored onto the engine's machine, and that cache is gone.
+   *
+   * `engineId` travels because pl8 has no opinion about which machine is yours. A CHAIN still does
+   * not: which module separates and which model it wants is that machine's one answer, given once
+   * to `system stems`.
+   *
+   * Cheap on a song already prepared — the reply says `ready` and nothing starts — and cheap twice
+   * over, because the job id hashes the WORK.
+   */
+  prepareStems: async (song: string, engineId: string): Promise<StemsReply> => {
+    const res = await fetch(`${PL8}/api/stems`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ song, engineId }),
+    });
+    if (!res.ok) {
+      const said = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(said.error ?? `stems ${res.status}`);
+    }
+    return (await res.json()) as StemsReply;
+  },
+
+  /** How one is getting on. 404s once pl8 has swept a finished job, which the caller reads as
+   *  "ask the disk" rather than as a failure — the contract the file service's `/separate/:id`
+   *  had, now answered by whoever owns the work. */
+  separation: async (id: string): Promise<SeparateJob> => {
+    const res = await fetch(`${PL8}/api/stems/${encodeURIComponent(id)}`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error(`separation ${res.status}`);
+    return (await res.json()) as SeparateJob;
+  },
 
   /**
    * File one audio file as a song. The THREE TAGS go up and never a path: the médiathèque

@@ -33,8 +33,12 @@ export function Turntables({
   stems,
   /** The surface's own file, so the message can name what to edit. */
   file,
+  library,
 }: {
-  engine: { fileBase: string | null };
+  engine: { fileBase: string | null; id: string };
+  /** pl8's API base, for the one thing the library owns — separating a record. Passed straight
+   *  through; see MixView's `library`. */
+  library?: { base: string };
   deck: Deck;
   set: DeckSet;
   mapping: Mapping | undefined;
@@ -69,6 +73,7 @@ export function Turntables({
   return (
     <MixView
       engine={engine}
+      library={library}
       deck={deck}
       set={set}
       playlist={playlist}

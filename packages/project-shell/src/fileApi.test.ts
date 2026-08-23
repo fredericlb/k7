@@ -38,6 +38,7 @@ beforeEach(() => {
     userEmail: "a@b.c",
     workspace: "w",
     engineToken: "t",
+    engineId: "e1",
   });
   heldFetch();
 });

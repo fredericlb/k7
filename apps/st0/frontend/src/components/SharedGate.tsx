@@ -175,6 +175,10 @@ export function SharedGate({
           userEmail: "",
           workspace: "",
           engineToken: "",
+          // …and no engine either, which is the same emptiness: a snapshot borrows no machine.
+          // Nothing on a share can reach the one route that reads it (pl8's `/api/stems`), for
+          // the reason `frozen` states below — a share writes nothing anywhere.
+          engineId: "",
           frozen: {
             why: "this is a shared copy — it is frozen, and nothing here can be changed",
             canned: Object.fromEntries(

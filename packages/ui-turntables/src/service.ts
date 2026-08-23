@@ -30,6 +30,21 @@ export function fileLink(engine: { fileBase: string | null }): FileLink | null {
 }
 
 /**
+ * WHERE the hosted library answers — pl8's API, on the ORIGIN this desk is served from.
+ *
+ * The package's second seam, and it was one until the stem cut moved. It exists because pl8
+ * holds the masters and therefore owns the work done to them, where the file service holds a
+ * machine and lends it: two services, two questions, two links.
+ *
+ * A base rather than a derived path, because the prefix differs by host — pl8 answers at `/api`
+ * on its own origin and at `/pl8/api` from st0's — and a package that guessed would be wrong for
+ * one of them. Supplied by the host, exactly as `engine` is.
+ */
+export interface LibraryLink {
+  base: string;
+}
+
+/**
  * The headers a file-service call needs — the SHARED set, not a second dialect.
  *
  * There are three, and this file used to send one. The two missing ones are not optional:
@@ -59,22 +74,48 @@ async function get<T>(s: FileLink, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** The same shape, for a body. One function per verb rather than a `method` argument, so the
- *  three headers and the error handling above are written once and cannot diverge. */
-async function post<T>(s: FileLink, path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${s.base}${path}`, {
+// `post` stood here — the file-service counterpart of `get`, and the only thing that used it was
+// `prepareStems`. The cut moved to the library, so the file service is a read-only surface for
+// this package now: the catalogue, an envelope, a module's text. Nothing here writes to a
+// machine. The library's own pair is below, and it carries a cookie rather than the headers.
+
+/**
+ * The same pair again, for the LIBRARY — and the difference is the credential.
+ *
+ * pl8 verifies the session cookie every studio service shares; the file service gates on the
+ * three `x-studio-*` headers instead, because it sits on a machine that has no cookie jar. So
+ * these cannot route through `get`/`post` above: sending `fileHeaders()` at pl8 would be a 401
+ * carrying an engine token nobody there can check, and `credentials` is what a cross-prefix call
+ * from st0's origin needs.
+ */
+async function libraryGet<T>(l: LibraryLink, path: string): Promise<T> {
+  const res = await fetch(`${l.base}${path}`, { credentials: "include" });
+  if (!res.ok) throw new Error((await said(res)) || `${path} → ${res.status}`);
+  return (await res.json()) as T;
+}
+
+async function libraryPost<T>(
+  l: LibraryLink,
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await fetch(`${l.base}${path}`, {
     method: "POST",
-    headers: { ...fileHeaders(), "content-type": "application/json" },
+    credentials: "include",
+    headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const said = await res
-      .json()
-      .then((b: { error?: string }) => b?.error)
-      .catch(() => undefined);
-    throw new Error(said || `${path} → ${res.status}`);
-  }
+  if (!res.ok) throw new Error((await said(res)) || `${path} → ${res.status}`);
   return (await res.json()) as T;
+}
+
+/** The SERVER's sentence out of an error body, or nothing. The same reading `get` does, written
+ *  once now that four functions want it — a surface can only be as honest as its error. */
+async function said(res: Response): Promise<string | undefined> {
+  return res
+    .json()
+    .then((b: { error?: string }) => b?.error)
+    .catch(() => undefined);
 }
 
 export interface CacheSummary {
@@ -107,22 +148,28 @@ export const service = {
   /**
    * Separate one song, so this deck's stem knobs have something to subtract.
    *
-   * `song` is the CACHE-relative master — the same string the envelope is asked for — and that is
-   * the WHOLE request. No chain travels: which module separates and which `.onnx` this machine
-   * holds is a question only the machine can answer, and it answered it once, when somebody ran
-   * `system stems`. A desk that sent one would be a third place to spell it.
+   * On the LIBRARY, not on the file service, and that is the whole of what changed here: pl8
+   * holds the masters, so pl8 owns the cut. It borrows the named engine's model over `/process`
+   * and keeps the stems on its own volume — nothing of the library is mirrored onto a machine
+   * any more. See apps/pl8/docs/stems.md.
+   *
+   * `engineId` travels because the library has no opinion about which machine is yours; it is
+   * the engine this desk is already on. A CHAIN still does not travel: which module separates
+   * and which `.onnx` a machine holds is that machine's one answer, given once to
+   * `system stems`, and a desk that sent one would be a third place to spell it.
    *
    * Cheap to call on a record that is already prepared: the reply says `ready` and nothing
    * starts. Cheap to call twice, too — the job id hashes the WORK, so a second tab joins the
-   * run in flight (docs/stemSplit.md).
+   * run in flight (apps/pl8/docs/stems.md).
    */
-  prepareStems: (s: FileLink, song: string) =>
-    post<StemsReply>(s, "/stems", { song }),
+  prepareStems: (l: LibraryLink, song: string, engineId: string) =>
+    libraryPost<StemsReply>(l, "/stems", { song, engineId }),
 
-  /** How a separation is getting on. 404s once the machine has forgotten a finished job, which
-   *  the caller reads as "look at the disk" rather than as a failure. */
-  separation: (s: FileLink, id: string) =>
-    get<SeparateJob>(s, `/separate/${encodeURIComponent(id)}`),
+  /** How a separation is getting on. 404s once the library has forgotten a finished job, which
+   *  the caller reads as "look at the disk" rather than as a failure — the same contract the
+   *  file service's `/separate/:id` had, answered by whoever now owns the work. */
+  separation: (l: LibraryLink, id: string) =>
+    libraryGet<SeparateJob>(l, `/stems/${encodeURIComponent(id)}`),
 
   /** One cached file's text. The deck needs a module's `plugin:` block, and the catalogue
    *  carries where a module IS, never what it runs. */

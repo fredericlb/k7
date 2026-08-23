@@ -167,13 +167,26 @@ export async function syncMediatekFamily(family: Family): Promise<void> {
   }
 }
 
-/** Start the loop. A no-op with no hosted library configured — the local folder is then not a
- *  cache of anything, which is a working state (see fileServiceProcess.ts). */
+/**
+ * Start the loop. A no-op with no hosted library configured — the local folder is then not a
+ * cache of anything, which is a working state (see fileServiceProcess.ts).
+ *
+ * STOPPED, and this guard is a stopgap rather than the design: the médiathèque cache is being
+ * removed (the stem cut moves to pl8, which already holds the bytes), and until it goes this
+ * loop must not run.
+ *
+ * What it did on this machine, measured 2026-08-22: `STUDIO_MEDIATEK` for pl8's backend is
+ * `~/.studio/mediatek` — the very directory this cache writes into (`env.yaml`) — so every tick
+ * downloaded each scoped file ONTO ITSELF and renamed the copy over the original while the
+ * server was still serving it. Three songs came back as pure zeros, 3.4 MB and 37 MB of `0x00`,
+ * and no other copy of them existed on the machine.
+ *
+ * It could not settle, either: `syncFamily` records the manifest entry's mtime, and its own
+ * rename gives the file a NEW one, so the next diff always mismatched. Nine files rewritten
+ * every sixty seconds, indefinitely.
+ */
 export function startMediatekPuller(): void {
-  if (timer || !mediatekBase()) return;
-  setTimeout(() => void pullOnce(), FIRST_MS).unref();
-  timer = setInterval(() => void pullOnce(), EVERY_MS);
-  timer.unref();
+  return;
 }
 
 /** Stop the loop and forget what was seen — for tests, which must not share state. */

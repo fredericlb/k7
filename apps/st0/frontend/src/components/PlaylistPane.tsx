@@ -16,6 +16,7 @@ import {
 } from "@studio/mediatek/playlistItems";
 import { tagsFromFilename } from "@studio/mediatek/song";
 import type { MediatekEntry } from "@studio/mediatek/types";
+import { cfg } from "@studio/project-shell/fileApi";
 import type { PlaylistItem } from "@studio/song/playlist";
 import {
   AudioLines,
@@ -331,7 +332,7 @@ export function PlaylistPane({
       if (stopRef.current) break;
       say(t.label, null);
       try {
-        const first = await api.prepareStems(t.path);
+        const first = await mediatek.prepareStems(t.path, cfg().engineId);
         if (first.ready) {
           skipped += 1;
           done += 1;
@@ -343,12 +344,12 @@ export function PlaylistPane({
           await new Promise((r) => setTimeout(r, PREP_POLL_MS));
           if (stopRef.current) break;
           try {
-            job = await api.separation(job.id);
+            job = await mediatek.separation(job.id);
           } catch {
             // The registry sweeps a finished job after five minutes, so a poll that 404s is
             // usually a run that landed. The question underneath — are the stems on disk — is
             // the other route's, so one trip back through it answers it properly.
-            const again = await api.prepareStems(t.path);
+            const again = await mediatek.prepareStems(t.path, cfg().engineId);
             if (again.ready) break;
             job = again.job;
           }

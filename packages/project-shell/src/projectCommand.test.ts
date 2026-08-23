@@ -18,6 +18,7 @@ beforeEach(() => {
     userEmail: "a@b.c",
     workspace: "w",
     engineToken: "t",
+    engineId: "e1",
   });
   vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
     bodies.push(JSON.parse(String(init.body)));

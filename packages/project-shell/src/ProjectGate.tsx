@@ -63,6 +63,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface GateEngine {
   fileBase: string | null | undefined;
   token: string | null | undefined;
+  /**
+   * The engine ITSELF, for its id — a call to another service has to name which machine it is
+   * borrowing (see `FileCfg.engineId`), and pl8's `/api/stems` is the first that does.
+   *
+   * Nested rather than flattened to `id`, which is the shape `RankedEngine` already has: both
+   * hosts pass one of those straight through, so asking for the field where it actually lives
+   * costs neither of them an edit. That is the same rule the two fields above follow — the gate
+   * declares what it needs, structurally, and does not care how each app models an engine.
+   */
+  engine: { id: string };
 }
 
 export interface ProjectGateStrings {
@@ -212,10 +222,11 @@ export function ProjectGate({
         base: engine.fileBase!,
         userEmail,
         engineToken: engine.token!,
+        engineId: engine.engine.id,
         workspace,
       });
     },
-    [engine.fileBase, engine.token],
+    [engine.fileBase, engine.token, engine.engine.id],
   );
 
   /** Leave: let the app go first, then go back to where projects live. Nothing to forget —

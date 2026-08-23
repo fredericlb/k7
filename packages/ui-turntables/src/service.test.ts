@@ -23,6 +23,7 @@ beforeEach(() => {
     userEmail: "dj@studio.test",
     workspace: "lemo_mante",
     engineToken: "tok",
+    engineId: "e1",
   });
   sent = undefined;
   vi.stubGlobal(

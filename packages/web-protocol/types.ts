@@ -504,6 +504,26 @@ export type WebShape =
       w?: number;
       color: string;
     };
+/**
+ * One pass over the picture (mirrors VideoPluginDoc) — a video chain's step, compiled.
+ *
+ * A `shader` carries its GLSL INLINE: the browser cannot open the module's `shaders/` folder, and
+ * a page of text is smaller than the route that would serve it. Absent when the node has nothing
+ * picked, which draws as a pass that lets its picture through.
+ *
+ * `audioFrom` names a LANE rather than carrying a number, because the number moves: the engine
+ * pushes levels at ~20 Hz and the surface holding that stream is the one that can look one up.
+ * See @studio/song's docs/shaders.md.
+ */
+export interface WebVideoPlugin {
+  id: string;
+  type: "video_effect" | "video_transition" | "shader";
+  name: string;
+  enabled: boolean;
+  params: Record<string, number>;
+  shader?: { name: string; vertex: string; fragment: string };
+  audioFrom?: string;
+}
 // A video-mode lane (mirrors VideoTrackDoc): places picture, or draws `shapes`. In draw order (bottom first).
 export interface WebVideoTrack {
   id: string;
@@ -517,6 +537,9 @@ export interface WebVideoTrack {
   h: number;
   clips: WebVideoClip[];
   shapes: WebShape[];
+  // This lane's own run, applied to the layer BEFORE it is composited. Absent on a lane no run
+  // starts at, which is every lane in a project that draws no shaders.
+  plugins?: WebVideoPlugin[];
 }
 // GET /commands — the palette's catalogue; `args` are the trailing params in the order the palette asks them.
 // The class list mirrors ARG_CLASSES in packages/commands/src/commandSpec.ts, where a test fails if they drift.
@@ -634,6 +657,9 @@ export interface WebVideoProject {
   markers: WebVideoMarker[];
   /** Already in `layers:` draw order, bottom first — no consumer re-sorts. */
   videoTracks: WebVideoTrack[];
+  /** The `RENDER -> VIDEO_OUT` run: passes over the frame the lanes were composited INTO — the
+   *  picture's `masterPlugins`. Always sent, empty by default. */
+  framePlugins: WebVideoPlugin[];
 }
 
 // --- Project errors: whether the project even compiles --------------------------
@@ -814,6 +840,31 @@ export interface SurfacedProject {
  *  diagnostics from reading them, and this is the machine's list of the projects that have any. */
 export interface SurfacedProjectList {
   projects: SurfacedProject[];
+}
+
+/**
+ * Reply to GET /engine/served on the file service — the project this person's st0 session is
+ * actually loaded into on the engine, or `null` when it is holding none.
+ *
+ * Not the same question as `SurfacedProject.active`, and the difference is the point. That flag is
+ * a workspace's `.studio-active` marker, one per workspace and written by whoever opened last; this
+ * is the file service's note of what it SENT, one project for the whole account, because a session
+ * is per service and per person (packages/engine-protocol/docs/sessions.md). A machine with three
+ * markers is still an engine holding one song.
+ *
+ * `workspace` + `path` rather than an absolute path: those are the two strings every address on
+ * this side is built from, and the engine's disk layout is nobody else's business.
+ */
+export interface ServedProject {
+  workspace: string;
+  /** Workspace-relative, `.` for a lone-project clone — `SurfacedProject.path`'s spelling. */
+  path: string;
+}
+
+/** Reply to GET /engine/served. `project: null` means the engine holds nothing for this person —
+ *  no project has been opened since the service came up, or the last one was unloaded. */
+export interface ServedProjectReply {
+  project: ServedProject | null;
 }
 
 /** Reply to GET/POST /api/projects/ssh-key on pl8 — the user's PUBLIC deploy key, the one

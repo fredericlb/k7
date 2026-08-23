@@ -15,6 +15,15 @@ export interface FileCfg {
   workspace: string; // the folder on that machine holding the repository
   engineToken: string; // the light LAN gate (from the whoami probe)
   /**
+   * WHICH engine this is, by id — beside the token because it comes from the same probe.
+   *
+   * Not used to reach the file service, which is addressed by `base`: it is what a call to
+   * ANOTHER service must name when it is going to borrow this machine. pl8's `/api/stems` is
+   * the first — it holds the master and asks an engine to cut it (apps/pl8/docs/stems.md) — and
+   * the desk had no other way to say which machine it was on.
+   */
+  engineId: string;
+  /**
    * A FROZEN document — a shared snapshot pl8 serves, with no file service behind it at all.
    *
    * The whole read-only mode is this one field, and that is deliberate: `fsend` is the only way

@@ -71,6 +71,7 @@ const PREP_POLL_MS = 2000;
 
 export function MixView({
   engine,
+  library,
   deck,
   set: decks,
   playlist,
@@ -86,7 +87,16 @@ export function MixView({
    * probe reply would have forced any host without one to fabricate the other fifteen fields,
    * which is the difference between a seam and a shape m9 happened to have.
    */
-  engine: { fileBase: string | null };
+  engine: { fileBase: string | null; id: string };
+  /**
+   * WHERE the hosted library answers — pl8's API base on this origin.
+   *
+   * The second seam, and the reason it appeared: separating a record is pl8's work now, because
+   * pl8 holds the master (apps/pl8/docs/stems.md). Optional, so a host that has no library to
+   * point at still draws a desk — the knobs then say a record has no stems, which is true, rather
+   * than the view failing to render.
+   */
+  library?: { base: string };
   /** The engine link, held by the host so every view shares one. */
   deck: Deck;
   /** The playlist this surface declares, by name — for the two messages that have to say
@@ -190,9 +200,12 @@ export function MixView({
    * subtracts nothing — so the catch-up costs the record nothing but the knobs being grey while
    * it runs (see ../../docs/stems.md).
    */
-  const prepare = async (deckId: DeckId, s: SetEntry, at: FileLink) => {
+  const prepare = async (deckId: DeckId, s: SetEntry, _at: FileLink) => {
     const song = s.entry && cacheRelPath(s.entry, s.file);
-    if (!song || !stems) return;
+    // …and a library to ask. A host that passes none has nowhere to separate: the knobs stay
+    // grey, which is what an unprepared record already looks like, rather than a failure card
+    // about a service this desk was never given.
+    if (!song || !stems || !library) return;
     const token = (prepFor.current[deckId] ?? 0) + 1;
     prepFor.current[deckId] = token;
     const mine = () => prepFor.current[deckId] === token;
@@ -204,7 +217,7 @@ export function MixView({
     };
 
     try {
-      const first = await service.prepareStems(at, song);
+      const first = await service.prepareStems(library, song, engine.id);
       if (!mine()) return;
       // Already on disk. The flag this was decided from is a scan snapshot, so the machine gets
       // asked again and a prepared record simply lights its knobs, with no job at all.
@@ -216,13 +229,13 @@ export function MixView({
         await new Promise((r) => setTimeout(r, PREP_POLL_MS));
         if (!mine()) return;
         try {
-          job = await service.separation(at, job.id);
+          job = await service.separation(library, job.id);
         } catch {
           // Usually the registry having swept a job this tab was still watching — it keeps a
           // finished one for five minutes. The question underneath is "are the stems on disk",
           // which the other route answers directly, so one trip back through it turns that into
           // `ready` rather than into a failure about a record that is prepared.
-          const again = await service.prepareStems(at, song);
+          const again = await service.prepareStems(library, song, engine.id);
           if (!mine()) return;
           if (again.ready) return landed();
           job = again.job;

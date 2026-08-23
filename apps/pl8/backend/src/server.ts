@@ -22,6 +22,7 @@ import { libraryRouter } from "./routes/library.ts";
 import { projectsRouter } from "./routes/projects.ts";
 import { publicShareRouter } from "./routes/publicShare.ts";
 import { sharesRouter } from "./routes/shares.ts";
+import { stemsRouter } from "./routes/stems.ts";
 
 // Dev config from the root env.yaml, layered INTO process.env — not read into a value.
 // Everything downstream resolves the library through `process.env.STUDIO_MEDIATEK`, so a
@@ -113,6 +114,12 @@ app.use("/api/hunt", requireAuth, huntRouter);
 // offer either. Same mounting rule as st0: the browser routes need a session, the
 // engine-facing heartbeat stays open because a machine authenticates with its own token.
 const engine = mountEngineRegistry(app, { service: "pl8", requireAuth });
+
+// Cutting a song into stems, driven from HERE because the bytes are here. It borrows an
+// engine's model over `/process` and writes the stems back onto this volume — nothing of this
+// library is mirrored onto anybody's machine any more. Mounted after the registry, which it
+// reads to find the engine the caller named. See docs/stems.md.
+app.use("/api/stems", requireAuth, stemsRouter(engine));
 
 // The engine this user auditions modules through. Same shape as st0', a different store:
 // a person's médiathèque engine and their st0 engine are two choices, and this service is

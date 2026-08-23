@@ -256,8 +256,10 @@ serait le trouver trop tard.
 **Ce bouton ne dispatche pas `playlist stems`**, et c'est la même exception que « Ajouter un
 morceau » avec une raison à elle. Le verbe existe et fait le même travail — c'est lui qu'on
 utilise depuis la palette ou le CLI. Mais une commande rend ses lignes **quand elle a fini**, et
-finir, pour trente morceaux, c'est une heure d'écran vide. Le bouton fait donc un `POST /stems`
-par ligne et sonde le job entre les deux, ce qui est la seule forme qui ait une barre. Ce que la
+finir, pour trente morceaux, c'est une heure d'écran vide. Le bouton fait donc un
+`POST /pl8/api/stems` par ligne et sonde le job entre les deux, ce qui est la seule forme qui ait
+une barre. Sur **pl8** : c'est lui qui détient les masters, donc c'est lui qui mène la découpe et
+qui garde les stems, en empruntant le modèle du moteur (`apps/pl8/docs/stems.md`). Ce que la
 règle exige reste vrai : l'ACTE est atteignable depuis la barre de commandes.
 
 ## Le transport est à nous, et il est minuscule

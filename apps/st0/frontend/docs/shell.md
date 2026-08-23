@@ -1315,7 +1315,7 @@ Where the two would otherwise be two copies of one behaviour, the behaviour move
 | the master meter's *fix* | `project master fix` | `fixClipping` in `App`, over `MasterMeterHandle` |
 | the channel strip's mono/stereo pairing | `system channel type <ch> <mono\|stereo>` | `@studio/commands` — the rig's file AND the engine |
 | the Playlists panel's *＋* | `playlist new <name>` | `@studio/commands`, in `_playlists/` |
-| the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | `POST /stems`, see [playlists.md](playlists.md) |
+| the Playlists panel's *Séparer les stems* | `playlist stems <playlist>` — the same work, song by song | pl8's `POST /api/stems`, see [playlists.md](playlists.md) |
 | the I/O tab's *séparation des stems* | `system stems <chaîne>` | `@studio/commands` — `~/.studio/preferences.yaml`, read by every screen that could start one |
 
 Two of those handles exist only for this: `EditorHandle` grew the tree's own verbs, and
@@ -1355,7 +1355,7 @@ exists and does the same thing — it is the button that takes the short way.
 Two of the Playlists panel's buttons take a road of their own for a different reason each, and
 both are in [playlists.md](playlists.md): *Ajouter un morceau* writes into the OPEN BUFFER rather
 than the file, because a command writing the file underneath a modified buffer would race the
-autosave; and *Séparer les stems* drives `POST /stems` once per line rather than dispatching
+autosave; and *Séparer les stems* drives pl8's `POST /api/stems` once per line rather than dispatching
 `playlist stems`, because that verb reports its lines when it is finished and finishing takes an
 hour. The rule this bends is worth stating exactly: what must be reachable from the bar is the
 ACT, and it is — the verb does the same work headless. What the button adds is a bar you can

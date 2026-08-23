@@ -60,8 +60,11 @@ stems: true              # ce pupitre rattrape un disque non préparé
 ```
 
 Elle transforme « ce morceau n'a pas de stems » d'une impasse en un travail : le disque part sur la
-platine **immédiatement** et la séparation démarre derrière, `POST /stems` puis un sondage toutes
-les deux secondes. Le pourcentage s'affiche **par-dessus** les potards éteints — pas au-dessus : la
+platine **immédiatement** et la séparation démarre derrière, `POST /api/stems` sur **pl8** puis un
+sondage toutes les deux secondes. Sur pl8 et non sur le service de fichiers : c'est pl8 qui détient
+les masters, donc c'est lui qui mène la découpe, en empruntant le modèle du moteur nommé
+(`apps/pl8/docs/stems.md`). Le pupitre n'a changé que d'adresse — les deux formes de réponse sont
+les mêmes, et `library` est le second seam de ce paquet pour cette seule raison. Le pourcentage s'affiche **par-dessus** les potards éteints — pas au-dessus : la
 colonne emprunte l'échelle de tailles de la tranche et n'a que sept pixels de marge au cran le plus
 serré (`stemStripHeight`), donc une ligne de texte la ferait déborder.
 
