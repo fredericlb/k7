@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { RunColdStep } from "./coldPass";
 import { runCommand } from "./commandSpec";
+import { testHost } from "./testHost.ts";
 
 let root: string; // the workspace: the project, its libraries, and `_playlists/`
 let media: string; // the machine's médiathèque cache — where the songs are
@@ -39,17 +40,14 @@ const runColdStep: RunColdStep = async ({ step, source, outDir }) => {
  *  the host carries it at all: read from `~/.studio/preferences.yaml` it would make these tests
  *  pass or fail by whether whoever runs them has set one. */
 const host = (cold: RunColdStep | null = runColdStep, stemsChain = "") =>
-  ({
+  testHost({
     songPath: join(root, "song"),
     repoDir: root,
-    project: () => ({ tracks: [], groups: [] }),
-    baseModules: [],
     log: (l: string[]) => logs.push(...l),
     refuse: (l: string[]) => refusals.push(...l),
-    reload: () => {},
     runColdStep: cold ?? undefined,
     stemsChain,
-  }) as never;
+  });
 
 /** A song in the machine's cache, with its master beside it. `original.wav` is what an upload
  *  names one; the scan takes the FIRST audio file in the folder either way. */

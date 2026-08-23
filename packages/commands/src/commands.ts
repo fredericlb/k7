@@ -56,6 +56,13 @@ import {
 } from "@studio/song/materialCut";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
+import {
+  isBuiltinOutput,
+  MIX_NODE,
+  OUT_NODE,
+  RENDER_NODE,
+  VIDEO_OUT_NODE,
+} from "@studio/song/moduleTypes";
 import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
 import {
   appendPlaylistItem,
@@ -107,6 +114,7 @@ import {
   setModuleInputGain,
   setModuleMonitor,
   setModuleParam,
+  setModuleShader,
   unlinkChainNode,
 } from "@studio/song/projectEdit";
 import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
@@ -191,7 +199,7 @@ import {
   setNoteVelocity,
   splitNote,
 } from "@studio/song/yaml/sequenceFile";
-import { isSurfaceType } from "@studio/song/yaml/surfaceSchema";
+import { isSurfaceType, SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
 import { coldOutDir, type RunColdStep, runColdPasses } from "./coldPass";
 import {
   applyAlternative,
@@ -211,6 +219,11 @@ import {
 } from "./processChain";
 import { freezeUpstreamRender } from "./render";
 import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
+// Les groupes de verbes qui ont quitté ce fichier. Ils importent des TYPES d'ici, ce qui est
+// effacé à la compilation — donc pas de cycle à l'exécution. Voir verbs/shared.ts.
+import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
+import { splitWords } from "./verbs/shared.ts";
+import { SYSTEM_VERBS } from "./verbs/system.ts";
 import { wavSeconds } from "./wavLength";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
@@ -218,12 +231,6 @@ import { wavSeconds } from "./wavLength";
 // and a module from a catalogue has a folder shared by every song. A render belongs to THIS
 // project, so it lives where the project can see all of them at once.
 const FROZEN_DIR = "renders";
-
-// What the playlist verbs say with no workspace under them. They act on `repoDir` and never fall
-// back to `songPath` the way the git verbs do: `_playlists/` at the project root would be a
-// second, invisible set of set lists — one per song, which is the shape they exist to avoid.
-const NO_WORKSPACE =
-  "no workspace here — a playlist lives in the repository's _playlists/";
 
 export type TransportAction = "play" | "stop" | "toggle" | "rewind";
 
@@ -473,39 +480,9 @@ function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   return { x: Number(m[1]), y: Number(m[2]) };
 }
 
-/**
- * A playlist NAME as the file it is, or null with the refusal already said.
- *
- * Both playlist verbs go through this, so "where does `live/repet` live" is answered once. Two
- * things have to be true and each is refused by name: there is a workspace to hold it, and the
- * name stays INSIDE `_playlists/`.
- *
- * That second check is not `playlistPathOf`'s job done twice. It rejects a `..` SEGMENT, splitting
- * on `/` — which is the whole of the rule on a machine whose separator is `/`, and half of it on
- * Windows, where `..\..\x` is one segment to that function and three to `join`. The file service's
- * `safePath` says the same thing for every path a browser sends; this is the same sentence for a
- * path a command line supplies.
- */
-function playlistFile(
-  name: string,
-  h: CommandHost,
-): { rel: string; abs: string } | null {
-  const root = h.repoDir;
-  if (!root) {
-    h.refuse([NO_WORKSPACE]);
-    return null;
-  }
-  const rel = playlistPathOf(name);
-  const dir = resolve(root, PLAYLISTS_DIR);
-  const abs = rel ? resolve(root, rel) : "";
-  if (!rel || !(abs.startsWith(dir + sep) || abs === dir)) {
-    h.refuse([
-      `'${name}' is not a playlist name — it would leave ${PLAYLISTS_DIR}/`,
-    ]);
-    return null;
-  }
-  return { rel, abs };
-}
+// `playlistFile` was here, and is `verbs/shared.ts` — it belongs to the group of verbs that
+// moved out with it, and a helper left behind would have made those files import back into this
+// one, which is the cycle the split exists to avoid.
 
 // `splitOptionals` was here — it told an `[extends-ref]` from a `[node-name]` by SHAPE, because
 // `module new` took both and they were positional. `module new` writes a module and nothing else
@@ -595,17 +572,10 @@ export function collectPluginModules(project: ProjectDoc): PluginModule[] {
   return out;
 }
 
-/**
- * An argument line as words. One function, because getting it wrong is silent.
- *
- * `node automate` split on `/s+/` — the LETTER `s`, not whitespace. "osc Filter Freq sweep" came
- * apart as `["o", "c Filter Freq ", "weep"]`, and a line containing no `s` at all yielded one word
- * and was refused with the usage text. The verb failed for essentially every input, and nothing
- * tested it. Named here so the next handler that needs words borrows this rather than a regex.
- */
-export function splitWords(a: string): string[] {
-  return a.trim().split(/\s+/).filter(Boolean);
-}
+// An argument line as words — defined in `verbs/shared.ts`, where the verb groups that moved out
+// can reach it without importing this file back. Imported AND re-exported: a bare `export … from`
+// would not bring the name into this module's own scope, and seven handlers below call it.
+export { splitWords };
 
 function uniqueId(base: string, project: ProjectDoc): string {
   const ids = new Set(project.tracks.map((t) => t.id));
@@ -1552,6 +1522,22 @@ const INTRINSICS: Record<
    * `presetFor` falls back to the module's default rather than loading nothing. Refusing here
    * would mean a name could not be typed before the file it names is synced.
    */
+  /**
+   * Which SHADER a shader node runs — a folder under the module's `shaders/`.
+   *
+   * `none` clears it, spelt like `base`'s and the file-valued params' clear for the reason those
+   * give: a dropdown needs an entry meaning "back to nothing", and a surface should not have to
+   * send an empty argument to say so. A shader node with none passes its picture through.
+   *
+   * Not checked against the disk, for the same reason `base` is not — see setModuleShader.
+   */
+  shader: (dir, module, raw) => {
+    const name = raw.trim() === "none" ? "" : raw.trim();
+    return {
+      path: setModuleShader(dir, module, name),
+      said: name ? `shader ${name}` : "no shader",
+    };
+  },
   base: (dir, module, raw) => {
     const name = raw.trim() === "none" ? "" : raw.trim();
     return {
@@ -1652,6 +1638,85 @@ async function setIntrinsic(
   } catch (e) {
     h.refuse([`node param @${field} failed: ${(e as Error).message}`]);
   }
+}
+
+/**
+ * The OUT node's one parameter — the song's output level, written to `project.masterVolume`.
+ *
+ * `OUT` is a built-in NAME rather than a module on disk (moduleTypes.ts), so its param has no
+ * `module.yaml` to land in and lands in `project.yaml` instead. That is a storage detail and not
+ * a second control: the level is the OUT node's, which is why the header fader and the Fix button
+ * both spell it `node param "OUT" Volume` and why `project master` is the same write under
+ * another name. See @studio/song's docs/masterVolume.md.
+ *
+ * UNITY IS NOT WRITTEN. 0 dB deletes the key rather than writing a zero — the rule `type:` and a
+ * module's `status:` already follow.
+ *
+ * Patched into the running engine rather than reloaded, like every other `node param`: the diff
+ * answers `MasterVolumeChanged` and sets the gain in place, so moving the fader does not stop the
+ * song. Returns false when it refused, so a caller can stop.
+ */
+async function writeMasterVolume(h: CommandHost, db: number): Promise<boolean> {
+  if (db > MASTER_MAX_DB || db < MASTER_MIN_DB) {
+    h.refuse([
+      `${db} dB is outside the fader — it runs ${MASTER_MIN_DB}..+${MASTER_MAX_DB} dB`,
+      ...(db > MASTER_MAX_DB
+        ? [
+            "a mix that needs more than +12 on its output has its headroom in the STRIPS — see packages/song/docs/masterVolume.md",
+          ]
+        : []),
+    ]);
+    return false;
+  }
+  const file = join(h.songPath, "project.yaml");
+  if (db === 0) deleteFileValue(file, ["project", "masterVolume"]);
+  else setFileValue(file, ["project", "masterVolume"], db);
+  await h.applyProject({ ...h.project(), masterVolume: db });
+  return true;
+}
+
+/**
+ * `node param` on one of the four built-in outputs — `OUT`, and the three near misses.
+ *
+ * `OUT` carries exactly one param, `Volume`, and it is the song's output level: the graph reads
+ * `MIX -> [chain] -> OUT`, so the last thing the signal meets before the interface is this gain.
+ * The header's fader and its Fix button both send this line. It is the ONLY one of the four with
+ * a param on it.
+ *
+ * The other three are refused BY NAME rather than left to the generic message, because each is
+ * what somebody will type. `MIX` because a sum is a place the signal passes through and a level
+ * belongs to what leaves. `RENDER` and `VIDEO_OUT` because they look like `MIX` and `OUT` and the
+ * symmetry stops exactly here: a frame has no level, so the picture's pair is pure routing
+ * (packages/song/docs/videoOutputs.md).
+ */
+async function setBuiltinOutParam(
+  h: CommandHost,
+  node: string,
+  param: string,
+  value: number,
+): Promise<void> {
+  if (node === MIX_NODE) {
+    h.refuse([
+      `${MIX_NODE} is the mixer's sum and carries no level — the output level is ${OUT_NODE}'s`,
+      `try: node param "${OUT_NODE}" Volume ${value}`,
+    ]);
+    return;
+  }
+  if (node === RENDER_NODE || node === VIDEO_OUT_NODE) {
+    h.refuse([
+      `${node} carries no param — the picture's outputs are routing only, and a frame has no level`,
+      `the one built-in param is ${OUT_NODE}'s Volume, the song's output level in dB`,
+    ]);
+    return;
+  }
+  if (param !== "Volume") {
+    h.refuse([
+      `${OUT_NODE} has one param, Volume — the song's output level in dB`,
+    ]);
+    return;
+  }
+  if (await writeMasterVolume(h, value))
+    h.log([`${OUT_NODE}: Volume = ${value}`]);
 }
 
 /**
@@ -3128,15 +3193,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
 
   // Add or move a named marker, stored under a CANONICAL timecode so `5` and `5:1:1` are the same marker.
   /**
-   * project master <dB> — the song's output level, on the fader after everything else.
+   * project master <dB> — the song's output level, which is the OUT node's `Volume`.
    *
-   * UNITY IS NOT WRITTEN. `project master 0` deletes the key rather than writing a zero, the rule
-   * `type:` and a module's `status:` already follow: a file with nothing to say about its output
-   * level should stay a file that says nothing.
-   *
-   * The ceiling is refused rather than clamped. Tracktion's fader curve tops out at +6 dB — above
-   * it `decibelsToVolumeFaderPosition` returns the same position — so accepting 12 would set 6 and
-   * report 12, and the file would then disagree with the sound for ever. See the catalogue entry.
+   * The SAME write as `node param "OUT" Volume <dB>`, kept as a verb of its own because it is the
+   * line a person types and the one the catalogue documents. `writeMasterVolume` is the single
+   * implementation, so the two spellings cannot drift about the range, the unity rule, or how the
+   * engine learns it.
    */
   "project.master": async (a, h) => {
     const raw = a.trim();
@@ -3145,26 +3207,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse(["usage: project master <dB>  (0 is unity, -100..+6)"]);
       return;
     }
-    if (db > MASTER_MAX_DB || db < MASTER_MIN_DB) {
-      h.refuse([
-        `${db} dB is outside the fader — it runs ${MASTER_MIN_DB}..+${MASTER_MAX_DB} dB`,
-        ...(db > MASTER_MAX_DB
-          ? [
-              "a mix that needs more than +12 on its output has its headroom in the STRIPS — see packages/song/docs/masterVolume.md",
-            ]
-          : []),
-      ]);
-      return;
-    }
-    const file = join(h.songPath, "project.yaml");
-    if (db === 0) deleteFileValue(file, ["project", "masterVolume"]);
-    else setFileValue(file, ["project", "masterVolume"], db);
+    if (!(await writeMasterVolume(h, db))) return;
     h.log([
       db === 0
         ? "master at unity (0 dB) — the line is removed, which is what unity means"
         : `master ${db > 0 ? "+" : ""}${db} dB`,
     ]);
-    await h.reload();
   },
 
   "project.marker.create": async (arg, h) => {
@@ -3223,335 +3271,16 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  // The MACHINE's plugin cache, not this song's modules — hence `system`. The optional word is
-  // a format filter, which is what `module list vst` used to be as a verb of its own.
-  "system.plugins.list": async (a, h) => {
-    await h.listPlugins(a.trim() || undefined);
-  },
-  "system.plugins.scan": async (_a, h) => {
-    h.log(["rescanning plugins… (first scan can take a while)"]);
-    await h.rescanPlugins();
-  },
-
-  // --- channel labels (global user preferences) -------------------------------
-  // The interface in use is shown here but CHOSEN in the médiathèque's « État du moteur »,
-  // which both switches the engine and writes this file (engine/moteur/docs/audioDevice.md).
-  "system.channel.list": (_a, h) => {
-    const p = loadPreferences();
-    const f = formatChannels(p);
-    h.log([
-      `audio device: ${formatAudioDevice(p.audioDevice)}  (change: médiathèque → État du moteur)`,
-      `in:  ${f.in || "(none — set with: channel in <ch> <label>)"}`,
-      `out: ${f.out || "(none — set with: channel out <ch> <label>)"}`,
-    ]);
-  },
-  "system.channel.set": (a, h) => {
-    // channel <in|out> <chans> <label…>   e.g. channel in 3+4 synth
-    const m = a.trim().match(/^(in|out)\s+(\S+)\s+(.+)$/i);
-    if (!m)
-      return h.refuse([
-        "usage: system channel set <in|out> <chans> <label>   e.g. system channel set in 3+4 synth",
-      ]);
-    const dir = m[1].toLowerCase() as "in" | "out";
-    const ch = parseChannels(m[2]);
-    if (!ch.length)
-      return h.refuse([`bad channels '${m[2]}' — use e.g. 1 or 3+4`]);
-    setChannelLabel(dir, ch, m[3].trim());
-    h.log([`${dir} ${ch.join("+")} = ${m[3].trim()}`]);
-  },
-  "system.channel.clear": (a, h) => {
-    // system channel clear <in|out> <chans>
-    const m = a.trim().match(/^(in|out)\s+(\S+)/i);
-    if (!m) return h.refuse(["usage: system channel clear <in|out> <chans>"]);
-    const dir = m[1].toLowerCase() as "in" | "out";
-    const ch = parseChannels(m[2]);
-    if (!ch.length) return h.refuse([`bad channels '${m[2]}'`]);
-    clearChannelLabel(dir, ch);
-    h.log([`cleared ${dir} ${ch.join("+")}`]);
-  },
-  /**
-   * `system channel type <channel> <mono|stereo>` — two inputs heard as one device, or not.
-   *
-   * TWO writes for one act, and both are needed: the preference is what makes it survive (the
-   * engine forgets its grouping across a restart as surely as it forgets which interface to open,
-   * and `engineLink` replays this file on every connect), the engine message is what makes it true
-   * now. Written first, so a rig that answers slowly still remembers what was asked of it.
-   *
-   * Either half of the pair names it — `setInputPair` stores the odd one — because the interface
-   * pairs even/odd hardware channels and there is no pair 2+3 to describe. Which is also why
-   * there is no `in|out` here: an output pair is what a mix already is.
-   */
-  "system.channel.type": (a, h) => {
-    const [chArg, modeArg] = splitWords(a);
-    const mode = (modeArg ?? "").toLowerCase();
-    if (!chArg || (mode !== "mono" && mode !== "stereo"))
-      return h.refuse([
-        "usage: system channel type <channel> <mono|stereo>   e.g. system channel type 3 stereo",
-      ]);
-    const channel = Number(chArg);
-    if (!Number.isInteger(channel) || channel < 1)
-      return h.refuse([
-        `'${chArg}' is not a channel — they count from 1, and either half names the pair`,
-      ]);
-    const stereo = mode === "stereo";
-    const first = channel % 2 === 1 ? channel : channel - 1;
-    setInputPair(channel, stereo);
-    const heard = h.setInputStereo?.(channel, stereo) ?? false;
-    h.log([
-      `in ${first}+${first + 1} is ${stereo ? "one stereo device" : "two mono devices"}` +
-        // No engine has still done the durable half, and saying so is the difference between
-        // "it did nothing" and "it will be there when the engine is".
-        (heard ? "" : " — remembered; the engine hears it on its next connect"),
-    ]);
-  },
-
-  /**
-   * `system stems <chaîne>` — which chain separates a record, remembered once.
-   *
-   * The ONE place that answer lives. It was asked for at each use — by `playlist stems`, by a
-   * desk's surface, by the playlist panel's button — and it is the same answer every time: which
-   * module separates and which model it wants is a fact about the library and about this
-   * machine's `~/.studio/models`, not about the set list in front of you.
-   *
-   * Checked while it is set, which is the cheap moment: a chain that does not separate is refused
-   * here rather than thirty songs into a set list. A machine with no project open stores it
-   * unchecked and says so — a `@st0/…` ref has nothing to resolve against without one.
-   */
-  "system.stems": (a, h) => {
-    const ref = a.trim();
-    if (!ref)
-      return h.refuse([
-        "usage: system stems <chaîne>   e.g. system stems @st0/stems",
-        h.stemsChain
-          ? `currently: ${h.stemsChain} — pass "" to clear it`
-          : "nothing is set, so nothing on this machine will separate a record",
-      ]);
-    // `""` on the line, quotes and all: the way to say "separate nothing" without a second verb.
-    if (ref === '""' || ref === "''") {
-      setStemsChain("");
-      return h.log(["the separating chain is cleared"]);
-    }
-
-    let checked = "";
-    if (h.songPath) {
-      try {
-        const chain = resolveChain(h.songPath, h.project(), ref);
-        if (!chain.cold.length)
-          return h.refuse([
-            `'${ref}' does not separate — this wants a chain whose step is an offline module`,
-          ]);
-        checked = ` — separates with ${chain.cold.map((c) => c.step).join(", ")}`;
-      } catch (e) {
-        return h.refuse([`system stems: ${(e as Error).message}`]);
-      }
-    } else {
-      // Not a failure: `system` verbs work with no project, and this one is worth setting from a
-      // shell that has not opened one. What it cannot do is prove the chain is there.
-      checked = " — not checked: no project is open to resolve it against";
-    }
-    setStemsChain(ref);
-    h.log([`stems are separated with ${ref}${checked}`]);
-  },
-
-  // --- the workspace's set lists ---------------------------------------------
+  // --- ce qu'est cette MACHINE, et ce que le DÉPÔT tient -----------------------
   //
-  // `_playlists/` sits at the workspace ROOT, beside `_modules`, so these two act on `repoDir`
-  // and not on `songPath`: a playlist belongs to the repository and is the same one whichever
-  // project is open. They are therefore the only verbs here that work with none.
-  "playlist.new": (a, h) => {
-    const name = a.trim();
-    if (!name) return h.refuse(["usage: playlist new <name>"]);
-    const found = playlistFile(name, h);
-    if (!found) return;
-    // Refused rather than opened: a "create" that quietly hands back somebody else's set list is
-    // how you edit the wrong one.
-    if (existsSync(found.abs))
-      return h.refuse([`${found.rel} is already there`]);
-    try {
-      mkdirSync(dirname(found.abs), { recursive: true });
-      // The STUB rather than an empty file: the screen draws its right-hand pane from the text,
-      // so an empty one would open on a parse failure for a playlist nobody has got wrong yet.
-      writeFileSync(
-        found.abs,
-        playlistStub(basename(found.rel).replace(/\.ya?ml$/i, "")),
-        "utf8",
-      );
-    } catch (e) {
-      return h.refuse([`playlist new: ${(e as Error).message}`]);
-    }
-    h.log([`+ playlist ${found.rel}`]);
-  },
-  /**
-   * `playlist stems <playlist> [chain]` — separate every song of a set list, before the evening.
-   *
-   * The preparation half of cutting a stem live: a deck subtracts a stem from the mix it came out
-   * of (packages/dsp/docs/stemcut.md), and it can only do that over files that already exist.
-   * Minutes per song, so this is a command you run the night before rather than mid-set.
-   *
-   * The chain is OPTIONAL and defaults to the machine's — `system stems`. Which module separates
-   * and which model it wants is the same answer every time, so it is asked once and kept in
-   * preferences.yaml; naming one here is the override, for the run that wants a different model.
-   * A chain that treats rather than separates is refused either way, rather than quietly bouncing
-   * thirty songs.
-   *
-   * The songs are the MACHINE's copies, under the médiathèque cache: a deck opens file paths, so
-   * what matters is what is on this disk. Writing into that cache is safe — `syncFamily` drops
-   * what it once fetched (`heldManifest`), never what it finds beside it.
-   *
-   * Sequential and resumable: a song whose `stems/` already holds something is skipped, and the
-   * separation registry hashes the WORK, so even a re-run of an interrupted pass costs nothing
-   * twice. Both halves matter for thirty songs on one machine.
-   */
-  "playlist.stems": async (a, h) => {
-    const [first, ...rest] = splitWords(a);
-    // Named on the line, else the machine's standing answer. One question, asked once.
-    const chainRef = rest.join(" ") || h.stemsChain || "";
-    if (!first)
-      return h.refuse([
-        "usage: playlist stems <playlist> [chain]",
-        "       (e.g. playlist stems ete-2026 @st0/stems)",
-      ]);
-    if (!chainRef)
-      return h.refuse([
-        "no separating chain: name one, or set this machine's with `system stems <chaîne>`",
-      ]);
-    const found = playlistFile(first.replace(/^"(.*)"$/s, "$1"), h);
-    if (!found) return;
-    let items: PlaylistItem[];
-    try {
-      items = parsePlaylist(readFileSync(found.abs, "utf8"))?.items ?? [];
-    } catch {
-      return h.refuse([
-        `no playlist ${found.rel} — make one with: playlist new <name>`,
-      ]);
-    }
-    if (!items.length) return h.refuse([`${found.rel} names no song`]);
+  // Deux groupes qui s'écrivaient ici, trois cents lignes durant. Ce sont les premiers à partir
+  // parce que ce sont les plus faciles à lever : `system …` ne demande aucun projet, et
+  // `playlist …` agit sur `repoDir` et non sur `songPath` — donc ni l'un ni l'autre n'attrape
+  // les outils que le reste de ce fichier partage. Voir verbs/shared.ts pour ce que la découpe
+  // a laissé entre les deux.
+  ...SYSTEM_VERBS,
+  ...PLAYLIST_VERBS,
 
-    // Resolved against the OPEN PROJECT's module vocabulary, like every other cold step: that is
-    // where a `@st0/…` ref becomes a module and a model becomes a path on this machine. The one
-    // playlist verb that needs a project, and it says so rather than throwing NO_PROJECT.
-    let chain: ResolvedChain;
-    try {
-      chain = resolveChain(h.songPath, h.project(), chainRef);
-    } catch (e) {
-      return h.refuse([`playlist stems: ${(e as Error).message}`]);
-    }
-    if (!chain.cold.length)
-      return h.refuse([
-        `'${chainRef}' does not separate — this verb runs a chain whose step is an offline module`,
-      ]);
-    if (!h.runColdStep)
-      return h.refuse(["this host cannot run an offline step"]);
-
-    const songs = familyDir("songs");
-    const lines: string[] = [];
-    let done = 0;
-    let skipped = 0;
-    for (const item of items) {
-      const folder = join(songs, ...item.song.split("/"));
-      // The master is the FIRST audio file in the folder and the scan does not descend — the
-      // médiathèque's own rule (`scanSongs`), restated here because this reads the cache directly
-      // rather than through a scan of every song on the disk.
-      let master: string | undefined;
-      try {
-        master = readdirSync(folder, { withFileTypes: true }).find(
-          (e) => e.isFile() && isAudio(e.name),
-        )?.name;
-      } catch {
-        lines.push(`${item.song}: not on this machine`);
-        continue;
-      }
-      if (!master) {
-        lines.push(`${item.song}: no audio in its folder`);
-        continue;
-      }
-      // Already done is a question about the FOLDER, not a flag anybody keeps — the same rule
-      // every "is this fresh" question in this repo asks. A half-finished pass costs nothing to
-      // redo: the registry hashes the work and hands back the run already in flight.
-      const out = coldOutDir(join(folder, master));
-      const held = existsSync(out) ? readdirSync(out).filter(isAudio) : [];
-      if (held.length) {
-        skipped += 1;
-        continue;
-      }
-      try {
-        const wrote = await runColdPasses(
-          [join(folder, master)],
-          chain.cold,
-          h.runColdStep,
-        );
-        done += 1;
-        lines.push(
-          `${item.song}: ${wrote.reduce((n, d) => n + d.files.length, 0)} stem(s)`,
-        );
-      } catch (e) {
-        // Per song, and the loop goes on: one unreadable file must not cost the other twenty
-        // nine their preparation, and the line says which one it was.
-        lines.push(`${item.song}: ${(e as Error).message.split("\n")[0]}`);
-      }
-    }
-    h.log([
-      `${found.rel} through '${chain.ref}': ${done} separated` +
-        (skipped ? `, ${skipped} already done` : ""),
-      ...lines,
-    ]);
-  },
-  /**
-   * `playlist song add <playlist> <song> [variant]` — one more line at the end of a set list.
-   *
-   * The song is the REST of the line, spaces included, because a song's ref is a path through
-   * the médiathèque's folders (`AC-DC/Back in Black/Hells Bells`) and asking for quotes around
-   * the common case would be asking for them every time. QUOTE it and a variant may follow —
-   * one rule, and the only one that can tell "a song with spaces" from "a song and a version".
-   *
-   * The ref is kept verbatim and nothing checks it: the catalogue is another service's, and a
-   * playlist that refused a song you are about to upload would be a playlist you cannot write
-   * ahead of a gig. The screen says "morceau introuvable" against the same line, which is where
-   * the two listings meet (apps/st0/frontend/docs/playlists.md).
-   */
-  "playlist.song.add": (a, h) => {
-    const m = /^("[^"]*"|\S+)\s+(.+)$/.exec(a.trim());
-    if (!m)
-      return h.refuse([
-        "usage: playlist song add <playlist> <song> [variant]  (quote the song to name a variant)",
-      ]);
-    const found = playlistFile(m[1].replace(/^"(.*)"$/s, "$1"), h);
-    if (!found) return;
-    const { rel, abs } = found;
-    let text: string;
-    try {
-      text = readFileSync(abs, "utf8");
-    } catch {
-      return h.refuse([
-        `no playlist ${rel} — make one with: playlist new <name>`,
-      ]);
-    }
-    const quoted = /^"([^"]*)"\s*(.*)$/.exec(m[2].trim());
-    const song = quoted ? quoted[1] : m[2].trim();
-    const variant = quoted ? quoted[2].trim() : "";
-    if (!song) return h.refuse(["a playlist line names a song"]);
-    const next = appendPlaylistItem(text, {
-      song,
-      ...(variant ? { variant } : {}),
-    });
-    // Null is the file's shape refusing the append — a flow `items: [` spread over lines, say.
-    // The same refusal the screen's button wears, and for the same reason: inventing a second
-    // `items:` key lower down would write a file whose two halves disagree.
-    if (next === null)
-      return h.refuse([
-        `${rel}: the way \`items:\` is written there is not a shape this can extend — add the line by hand`,
-      ]);
-    try {
-      h.snapshot?.(abs);
-      writeFileSync(abs, next, "utf8");
-    } catch (e) {
-      return h.refuse([`playlist song add: ${(e as Error).message}`]);
-    }
-    const count = parsePlaylist(next)?.items.length;
-    h.log([
-      `${rel}: + ${song}${variant ? ` (${variant})` : ""}${count ? ` — ${count} song${count > 1 ? "s" : ""}` : ""}`,
-    ]);
-  },
   // The external UI of ONE INSTANCE: the plugin's own window, drawn by the plugin on the
   // engine's machine. The argument names a node in this project's chains, which is what a
   // window can be opened for — a module with no instance loaded has none.
@@ -3824,6 +3553,13 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`"${rawValue}" is not a number — a param value is numeric`]);
       return;
     }
+    // …and one of the four BUILT-IN outputs, whose param has no plugin behind it. Answered before
+    // the lookup below, which would otherwise refuse `OUT` with "no plugin module" and list every
+    // module in the song — a message pointing nowhere near the truth. See setBuiltinOutParam.
+    if (isBuiltinOutput(module)) {
+      await setBuiltinOutParam(h, module, param, value);
+      return;
+    }
     const p = h.project();
     const modules = collectPluginModules(p);
     const matches = modules.filter((b) => b.module === module);
@@ -3986,8 +3722,10 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
    * refused by the schema a moment later. See createSurfaceFile.
    */
   "project.surface.create": async (a, h) => {
-    const usage =
-      "usage: project surface new <turntables|timeline|viewport> [id]  (e.g. project surface new turntables desk)";
+    // Spelled from the enum, not by hand: this line listed three of the four for as long as it
+    // took a fourth kind to arrive, and a usage string that omits the word you wanted is worse
+    // than none — it reads as "that is not a surface".
+    const usage = `usage: project surface new <${SURFACE_TYPES.join("|")}> [id]  (e.g. project surface new turntables desk)`;
     const [type, id] = a.trim().split(/\s+/);
     // Narrowed here rather than cast: the word came off a command line, and `isSurfaceType` is
     // the schema's own answer to "is this one of them" — so the list in the message cannot drift
