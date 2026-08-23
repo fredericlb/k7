@@ -27,51 +27,33 @@
     {
       "type": "amul",
       "out": "n1",
-      "in": [
-        "fb"
-      ],
-      "k": [
-        "Feedback"
-      ]
+      "in": ["fb"],
+      "k": ["Feedback"]
     },
     {
       "type": "aadd",
       "out": "n2",
-      "in": [
-        "n0",
-        "n1"
-      ]
+      "in": ["n0", "n1"]
     },
     {
       "type": "adelay",
-      "in": [
-        "n2"
-      ],
-      "k": [
-        "Time"
-      ],
+      "in": ["n2"],
+      "k": ["Time"],
       "out": "fb",
       "maxMs": 1000
     },
     {
       "type": "aadd",
       "out": "n3",
-      "in": [
-        "n0",
-        "fb"
-      ]
+      "in": ["n0", "fb"]
     },
     {
       "type": "aout",
-      "in": [
-        "n3"
-      ]
+      "in": ["n3"]
     },
     {
       "type": "mix",
-      "in": [
-        "Mix"
-      ]
+      "in": ["Mix"]
     }
   ]
 }

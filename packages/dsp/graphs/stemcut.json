@@ -10,17 +10,12 @@
   "nodes": [
     {
       "type": "sub",
-      "in": [
-        0,
-        "Cut"
-      ],
+      "in": [0, "Cut"],
       "out": "n0"
     },
     {
       "type": "gain",
-      "in": [
-        "n0"
-      ]
+      "in": ["n0"]
     }
   ]
 }
