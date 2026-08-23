@@ -132,7 +132,7 @@ Every loop snapshots the state under a short lock and **drops the guard before a
 
 ## Paths (`paths.rs`)
 
-The layout is no longer defined in the tray. `packages/engine-host/src/paths.ts` owns it,
+The layout is no longer defined in the tray. `packages/engine-client/src/paths.ts` owns it,
 and the three paths the tray opens for the user (workspaces root, merged log, origins file)
 arrive in the supervisor's snapshot rather than being recomputed. What is left belongs to
 subsystems the tray has not handed over yet, and goes with them.

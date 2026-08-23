@@ -76,20 +76,21 @@ Or **le signal existe déjà** : le moteur pousse une trame `state` ~20 fois par
 surface ne s'aperçoit de son absence. Un chien de garde sur ce flux ne coûte pas une ligne de
 protocole.
 
-### A4 — m9 ne remarque jamais qu'il a perdu le moteur
+### A4 — ~~m9 ne remarque jamais qu'il a perdu le moteur~~ — CLOS, l'app a disparu
 
-`apps/m9/frontend/src/useEngine.ts` ne s'abonne pas à `onConnected`. `phase: {k:"ready"}` est
-posé juste après `connect()` et n'est jamais remis en cause : socket morte, le deck continue
-d'afficher « en lecture ». st0 est propre sur ce point (`useEngineLink.ts:103-116`, qui force
-même `engineBusy` à false — « a socket that drops mid-apply never delivers `busy:false` ») ;
-pl8 branche `onConnected` mais n'en fait qu'un booléen d'affichage.
+**m9 n'existe plus** : le pupitre est une surface de st0 (`@studio/ui-turntables`, montée par
+`SurfaceTab`) et partage donc le lien de st0, qui est propre sur ce point —
+`useEngineLink.ts:103-116` force même `engineBusy` à false, « a socket that drops mid-apply never
+delivers `busy:false` ». pl8 branche `onConnected` mais n'en fait qu'un booléen d'affichage, et
+c'est tout ce qui reste de ce constat.
 
 ### A5 — l'état n'est jamais resynchronisé après une reconnexion
 
 Le `ProjectDoc` n'est **jamais** renvoyé après une reconnexion, sur aucune surface. Seules les
 souscriptions le sont (`engine.ts:179-193` : `watched`, `waveformSubs`, `broadcast`).
 Conséquence : si le moteur redémarre, st0 pilote un projet vide et le seul symptôme est « le
-moteur ignore Play ». m9 se reconnecte sur un moteur vide sans rien lui renvoyer.
+moteur ignore Play ». Le pupitre se reconnecte sur un moteur vide sans rien lui renvoyer, et
+c'est le même défaut : il envoie un document entier (`sendDecks`) et jamais après coup.
 
 Le correctif est bon marché : `EngineHost::apply` diffe contre une baseline qui survit à la
 coupure, donc un client qui renvoie son document obtient un diff correct.
@@ -186,16 +187,20 @@ la liste des chemins gardés. Les autres (A9) sont de la dérive.
 À noter : `ENGINE_PROXY_PATH` est exporté par le paquet et **personne ne l'importe** — le
 chemin est réécrit en dur côté navigateur (`probe.ts:170`).
 
-### C2 — les sélecteurs de moteur, quatre copies
+### C2 — les sélecteurs de moteur, ~~quatre~~ trois copies
 
-`apps/m9/frontend/src/Gate.tsx` et `apps/z0/editor/src/Gate.tsx` partagent **102 lignes non
-vides strictement identiques** : structure `Phase`, `findEngine`, `pick`, l'effet `auth.me`,
-les trois branches de rendu, la boucle `ranked.map`. Le `diff` ne montre qu'un bandeau de
-commentaire, l'import `useRelook`, et quatre chaînes de texte.
+**Relevé quand m9 existait ; il en reste TROIS.** La quatrième était
+`apps/m9/frontend/src/Gate.tsx`, dont les 102 lignes non vides étaient strictement identiques à
+celles d'`apps/z0/editor/src/Gate.tsx` : structure `Phase`, `findEngine`, `pick`, l'effet
+`auth.me`, les trois branches de rendu, la boucle `ranked.map`. Le `diff` ne montrait qu'un
+bandeau de commentaire, l'import `useRelook`, et quatre chaînes de texte. Le pupitre étant
+devenu une surface de st0, cette copie-là est partie avec l'app — pas parce qu'on l'a
+factorisée.
 
-Ailleurs : l'effet `useRelook` est dupliqué mot pour mot entre st0 et m9, `biome-ignore`
-compris (26 lignes pour un `useEngineList(actif)` de ~12) ; le spinner plein écran existe en
-4 copies ; la carte « Se connecter » en 3 ; la rangée de moteur en 4 (~102 lignes).
+Ailleurs : le spinner plein écran, la carte « Se connecter », la rangée de moteur, et l'effet
+`useRelook` dupliqué mot pour mot avec son `biome-ignore` (26 lignes pour un
+`useEngineList(actif)` de ~12). À revérifier une par une : les nombres ci-dessous datent d'un
+relevé à quatre gates.
 
 Un `@studio/engine-gate` portant la machine à phases, l'effet relook paramétré, `<EngineRow>`,
 le spinner et la carte anon ramènerait **770 lignes à environ 400**. Surtout, il rendrait

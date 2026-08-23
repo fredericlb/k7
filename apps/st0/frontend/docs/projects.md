@@ -87,7 +87,7 @@ rend inouvrable un dépôt qui s'appellerait `pl8`, `k7`, `z0`, `api` ou `auth` 
 revendique ces préfixes avant st0, et la requête n'arrive jamais jusqu'ici
 (`apps/studio/docker/nginx.conf`). Le dépôt déplié
 voyage dans la **query**, qui est exactement ce qu'un routeur de SPA possède — c'est l'argument
-de [packages/project-shell/docs/launch.md](../../../packages/project-shell/docs/launch.md) pris
+de [packages/project-shell/docs/launch.md](../../../../packages/project-shell/docs/launch.md) pris
 dans l'autre sens. Et elle se met en signet, se recopie, et répond au bouton « précédent ».
 
 `?ws=` est posé en `replace` : parcourir trois espaces pour voir ce qu'il y a dedans n'est pas
@@ -221,7 +221,7 @@ un clic plus tard est le même fait, dit trop tard.
 
 Un seul, pas une liste : il est monté à un chemin fixe dans chaque espace de travail
 (`<espace>/_libraries`, voir
-[packages/song/docs/sharedFolders.md](../../../packages/song/docs/sharedFolders.md)), et deux
+[packages/song/docs/sharedFolders.md](../../../../packages/song/docs/sharedFolders.md)), et deux
 dépôts qui réclament ce chemin est une question sans réponse. Une deuxième bibliothèque est un
 dossier DANS ce dépôt, pas un deuxième dépôt.
 
@@ -394,11 +394,11 @@ changer la source n'a pas changé une ligne du dessin.
 5. Puis elle demande au file service `GET /workspaces/by-repo?uri=` : cette machine
    connaît-elle ce dépôt ?
 6. Sinon, elle le clone, **avec la progression de git à l'écran**
-   ([cloneJobs.md](../../../packages/file-service/docs/cloneJobs.md)), puis ouvre le projet.
+   ([cloneJobs.md](../../../../packages/file-service/docs/cloneJobs.md)), puis ouvre le projet.
 
 Les étapes 4 à 6 sont `@studio/project-shell`, montée à l'identique par st0 et par l'éditeur de
 z0 : une divergence là serait un clone en double ou un 404. Voir
-[launch.md](../../../packages/project-shell/docs/launch.md).
+[launch.md](../../../../packages/project-shell/docs/launch.md).
 
 **Une seule pile pour les deux applications, toujours.** z0 revient ici aussi en quittant un
 projet — cette liste tient les dossiers `.z0` autant que les `.st0`, et un deuxième sélecteur de
@@ -526,7 +526,7 @@ copie et le sert à des gens sans compte.
 
 Que la révocation ait vécu dans la médiathèque était le dernier morceau d'une chose coupée en
 deux. Ce que le paquet contient et pourquoi est dans
-[packages/commands/docs/shareBundle.md](../../../packages/commands/docs/shareBundle.md) ; ce que
+[packages/commands/docs/shareBundle.md](../../../../packages/commands/docs/shareBundle.md) ; ce que
 pl8 en fait, y compris pourquoi héberger ça ne contredit pas « pl8 ne fait jamais de copie de
 travail », est dans [apps/pl8/docs/shares.md](../../pl8/docs/shares.md).
 

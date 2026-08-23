@@ -111,8 +111,8 @@ them the same way round: a knob for the one you choose (10..300 BPM), a meter fo
 that is read. The knob cannot express 0, which is the untouched state; the panel draws it at
 the floor until the pass measures a tempo or somebody asks for one.
 
-It is what m9 puts on each deck — a deck's source being a file is precisely what makes the
-placement legal. See `packages/song/docs/m9Project.md`.
+It is what the desk puts on each deck — a deck's source being a file is precisely what makes the
+placement legal. See `packages/song/docs/setProject.md`.
 
 ### What `offline` actually promises
 

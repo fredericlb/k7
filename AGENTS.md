@@ -87,6 +87,14 @@ when you don't yet know which of the four specialised pages you need.
 [inventaire.md](docs/inventaire.md) is the standing inventory of dead and duplicated code —
 read it before deleting anything that merely *looks* unused, and note it now has a TOOL:
 `npm run lint:dead` (knip), non-blocking, scoped to the audio axis.
+
+Two other checks guard what no test would: `npm run lint:bytes` refuses a NUL byte in a tracked
+source file (ripgrep skips such a file whole, so it stops existing for every sweep), and
+**`npm run lint:docs` refuses a `.md` that names a source file which is not there**. That second
+one exists because the method of this repo is that the WHY lives in the prose — a page pointing at
+a file two renames ago sends the reader into a wall, and twenty-two of them had built up. It knows
+about TOMBSTONES: a page naming a file precisely *because* it went is listed in the script, with
+the reason, rather than rewritten.
 [audit-moteur.md](docs/audit-moteur.md) is the standing audit of everything that links a
 surface to `engine/moteur` — what is shared, what is copied, where the connections give way,
 and the plan by lots. Read it before touching the registry, the relay or a gate.

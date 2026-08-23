@@ -301,7 +301,11 @@ qui a rendu la sortie de knip lisible.
 **`packages/engine-client/frame.mjs`** — trouvé par knip à son tout premier passage. Neuf lignes,
 un chemin ABSOLU en dur vers `C:/Users/flb/.studio/engine-id.json`, aucun appelant. **Suivi par
 git, et committé dans `a4808e35`** — le dernier commit au moment du relevé. Un brouillon de sonde
-qui a suivi un commit. Non supprimé : il vient d'atterrir, donc c'est à son auteur de trancher.
+qui a suivi un commit. Non supprimé alors : il venait d'atterrir, donc c'était à son auteur de
+trancher.
+
+> **Tranché depuis : le fichier a été supprimé.** `npm run lint:docs` est ce qui l'a fait
+> remarquer, en refusant ce paragraphe-ci — qui promettait un fichier qui n'est plus là.
 
 ### Un garde-fou qui était rouge, et que personne ne lançait
 

@@ -78,5 +78,5 @@ records the time just before launching and ignores the file until its mtime move
 Before that file exists there is still a window — a Rust panic in `main` — which is why
 `start-engine.mjs` now redirects the tray's own stdout to `.cache/dev/tray.log` instead of
 dropping it. That path is deliberately not under `~/.studio`: the layout there is a
-contract owned by `packages/engine-host/src/paths.ts`, and a dev script has no business
+contract owned by `packages/engine-client/src/paths.ts`, and a dev script has no business
 adding to it.
