@@ -7,11 +7,11 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { UISchema, WIDGET_TYPES } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
 import { scaffold } from "./scaffold";
 import { writeModule } from "./testSupport";
-import { UISchema, WIDGET_TYPES } from "./yaml/moduleSchema";
 
 let dir: string;
 

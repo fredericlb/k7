@@ -6,8 +6,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { RunColdStep } from "@studio/audio-passes/coldPass";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { RunColdStep } from "./coldPass";
 import { runCommand } from "./commandSpec";
 import { testHost } from "./testHost.ts";
 

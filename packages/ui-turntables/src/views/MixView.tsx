@@ -8,8 +8,8 @@
 
 import { Button } from "@frediverse/ui/button";
 import { Card } from "@frediverse/ui/card";
-import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song/playlist";
-import type { Stem } from "@studio/song/stems";
+import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
+import type { Stem } from "@studio/song-schema/stems";
 import {
   AudioLines,
   Headphones,

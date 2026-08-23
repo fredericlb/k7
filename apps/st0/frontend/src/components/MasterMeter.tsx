@@ -7,7 +7,7 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { useEngineState } from "@studio/engine-browser/store";
-import { MASTER_MAX_DB } from "@studio/song/yaml/projectSchema";
+import { MASTER_MAX_DB } from "@studio/song-schema/yaml/projectSchema";
 import {
   type Ref,
   useEffect,

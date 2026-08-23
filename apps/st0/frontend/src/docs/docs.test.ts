@@ -8,18 +8,18 @@ import {
   CurveSchema,
   SequenceSchema,
   VideoTrackSchema,
-} from "@studio/song/yaml/entitySchemas";
-import { GraphFileSchema } from "@studio/song/yaml/graphSchema";
+} from "@studio/song-schema/yaml/entitySchemas";
+import { GraphFileSchema } from "@studio/song-schema/yaml/graphSchema";
 import {
   ModuleConfigSchema,
   ModuleSchema,
   UiFileSchema,
-} from "@studio/song/yaml/moduleSchema";
+} from "@studio/song-schema/yaml/moduleSchema";
 import {
   ProjectFileSchema,
   SettingsSchema,
-} from "@studio/song/yaml/projectSchema";
-import { SurfaceSchema } from "@studio/song/yaml/surfaceSchema";
+} from "@studio/song-schema/yaml/projectSchema";
+import { SurfaceSchema } from "@studio/song-schema/yaml/surfaceSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import type { z } from "zod";

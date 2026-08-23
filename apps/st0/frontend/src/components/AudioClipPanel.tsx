@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@frediverse/ui/dropdown-menu";
 import { cn } from "@frediverse/ui/lib/utils";
-import { DEFAULT_TRIM_DB, trimWindow } from "@studio/commands/trim-gate";
+import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 import { useEngineState } from "@studio/engine-browser/store";
 import { projectApi } from "@studio/project-shell/project";
 import { wheelFactor } from "@studio/ui-timeline/panZoom";

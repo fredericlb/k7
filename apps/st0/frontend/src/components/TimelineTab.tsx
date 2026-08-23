@@ -10,8 +10,8 @@ import {
   beatsToDuration,
   beatsToPosition,
   parsePosition,
-} from "@studio/song/timecode";
-import { trackLabel } from "@studio/song/trackKind";
+} from "@studio/song-schema/timecode";
+import { trackLabel } from "@studio/song-schema/trackKind";
 import {
   GUTTER_DESKTOP,
   GUTTER_MOBILE,

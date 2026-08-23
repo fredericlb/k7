@@ -8,8 +8,8 @@
 
 import { DEFAULT_METRONOME_LEVEL } from "@studio/engine-protocol/build";
 import type { WebGraph } from "@studio/graph-model";
-import { seqWindowFromText, windowSpan } from "@studio/song/seqWindow";
-import { beatsToPosition } from "@studio/song/timecode";
+import { seqWindowFromText, windowSpan } from "@studio/song-schema/seqWindow";
+import { beatsToPosition } from "@studio/song-schema/timecode";
 import { findNotesArray, parseNotes } from "@studio/ui-editor/tracker/notes";
 import { type RefObject, useEffect, useMemo, useState } from "react";
 import { api } from "../api";

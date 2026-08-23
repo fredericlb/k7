@@ -10,14 +10,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { parseSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import { loadGraph } from "./graph";
 import { loadLanes } from "./loader";
 import { mediatekRefs, mediatekSongRefs } from "./mediatekRefs";
 import { compileNodeProject } from "./nodeProject";
 import { scaffoldSet } from "./scaffoldSet";
-import { parseSurface } from "./yaml/surfaceFile";
 
 // Compiling this set means compiling TWO jsdsp graphs — the crossfade and the sweep filter —
 // and each shells out to esbuild. That is seconds, not milliseconds, and under a full parallel

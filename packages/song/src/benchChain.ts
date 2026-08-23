@@ -8,9 +8,9 @@
 // The pair has to be exactly reversible or saving damages the chain, so both directions live here,
 // beside each other, under one set of round-trip tests. See apps/pl8/docs/banc.md.
 
-import { MIX_NODE, OUT_NODE } from "./moduleTypes";
-import { formatChains, parseGraph } from "./yaml/graphFile";
-import type { GraphFile } from "./yaml/graphSchema";
+import { MIX_NODE, OUT_NODE } from "@studio/song-schema/moduleTypes";
+import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
+import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 
 /** The boundary nodes a shared chain is written between. */
 export const CHAIN_IN = "@in";
@@ -18,7 +18,7 @@ export const CHAIN_OUT = "@out";
 
 /** The file this translates, named once — a chain folder and an st0 project both hold one. */
 // The bench writes the project's graph file, same name as any project's.
-export { GRAPH_FILE as CHAIN_FILE } from "./yaml/graphSchema";
+export { GRAPH_FILE as CHAIN_FILE } from "@studio/song-schema/yaml/graphSchema";
 
 /** What the bench scaffold calls its own furniture — see scaffoldBench. */
 export interface BenchEdges {

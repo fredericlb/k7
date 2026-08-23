@@ -3,7 +3,7 @@
 // is keyed by; `@studio/song` accepts any key and this is the list that is actually drawn.
 // See ../../docs/mastering.md.
 
-import type { MixView } from "@studio/song/yaml/mixViewSchema";
+import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 
 /** The three appliances inside one quick-master node, in the order the signal meets them. */
 export const MASTER_PARTS = ["comp", "spread", "limiter"] as const;

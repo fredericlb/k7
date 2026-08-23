@@ -86,8 +86,8 @@ read-only — drawn from a value it cannot change, rather than a knob that turns
 nothing. That distinction is the whole point of the pair; a single prop would have brought
 back the lie the missing `pluginId` removed.
 
-A host that passes neither is unaffected: st0 and pl8 draw those widgets inert, exactly as
-before.
+A host that passes neither is unaffected: it draws those widgets inert, exactly as before. That
+was st0 and pl8; the médiathèque stopped drawing a graph, so st0 is the only host left.
 
 ## What it emits
 

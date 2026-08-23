@@ -1,8 +1,8 @@
 // Binding a curve to a param — the file half of a cable dropped on a knob. Surgical, keyed by
 // param, and reversible: those three are what a gesture needs from a writer it cannot inspect.
 
+import { setModuleAutomation } from "@studio/song-schema/yaml/moduleFile";
 import { describe, expect, it } from "vitest";
-import { setModuleAutomation } from "./yaml/moduleFile";
 
 const MOD = `# a synth
 plugin:

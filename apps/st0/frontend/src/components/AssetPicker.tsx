@@ -9,7 +9,7 @@
 // `nam/Marshall/jcm800.nam`; that library is gone (packages/song/docs/moduleAssets.md), and the
 // prefix filter matched nothing a module actually carries.
 
-import { assetsForParam } from "@studio/song/moduleTypes";
+import { assetsForParam } from "@studio/song-schema/moduleTypes";
 import { fuzzyScore } from "../fuzzy";
 import { type TreeNode, TreePicker } from "./TreePicker";
 

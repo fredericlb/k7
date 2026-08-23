@@ -3,10 +3,10 @@
 // module with its map, so controller.ts must not import the loader back: the resolution that needs
 // both lives here, where the dependency runs one way.
 
+import type { CcBinding } from "@studio/song-schema/yaml/moduleSchema";
 import { moduleFolderForRef, setCcBinding } from "./controller";
 import { loadModules, moduleOwnRefs } from "./loader";
 import type { LoadedModule } from "./rawDoc";
-import type { CcBinding } from "./yaml/moduleSchema";
 
 /**
  * Bind (or, with `null`, unbind) a CC on a module named by a chain.

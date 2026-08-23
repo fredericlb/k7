@@ -2,7 +2,7 @@
 // test holds the RULE rather than a copy of it. What it decides is one path out of what the tree
 // holds; opening it, and revealing the pane, are the shell's.
 
-import { materialRefOf } from "@studio/song/placementId";
+import { materialRefOf } from "@studio/song-schema/placementId";
 import { fuzzyScore } from "./fuzzy";
 
 /**

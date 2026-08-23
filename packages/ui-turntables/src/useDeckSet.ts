@@ -6,9 +6,13 @@ import { usePluginParams } from "@studio/engine-browser/params";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 import { projectApi as api } from "@studio/project-shell/project";
-import { STEMS, type Stem, stemControl } from "@studio/song/stems";
-import { cueMarkers, parseMix, withMarkers } from "@studio/song/yaml/mixFile";
-import type { MixView as MixViewFile } from "@studio/song/yaml/mixViewSchema";
+import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
+import {
+  cueMarkers,
+  parseMix,
+  withMarkers,
+} from "@studio/song-schema/yaml/mixFile";
+import type { MixView as MixViewFile } from "@studio/song-schema/yaml/mixViewSchema";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DECKS,

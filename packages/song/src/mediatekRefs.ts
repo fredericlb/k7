@@ -5,6 +5,10 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { splitModuleKey } from "@studio/song-schema/moduleTypes";
+import { parsePlaylist, playlistPathOf } from "@studio/song-schema/playlist";
+import { songRefOf } from "@studio/song-schema/songRef";
+import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import {
   loadChains,
   loadModules,
@@ -12,11 +16,7 @@ import {
   projectModules,
 } from "./loader";
 import { MEDIATEK_REF } from "./mediatekRoot";
-import { splitModuleKey } from "./moduleTypes";
-import { parsePlaylist, playlistPathOf } from "./playlist";
-import { songRefOf } from "./songRef";
 import { projectSurfaces } from "./surfaces";
-import type { GraphFile } from "./yaml/graphSchema";
 
 const PREFIX = `${MEDIATEK_REF}/`;
 

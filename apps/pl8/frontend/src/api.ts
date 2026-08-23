@@ -5,7 +5,7 @@
 import { engineAccess } from "@studio/engine-browser/access";
 import type { RecordingDay } from "@studio/mediatek/recordings";
 import type { FamilyListing } from "@studio/mediatek/types";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,

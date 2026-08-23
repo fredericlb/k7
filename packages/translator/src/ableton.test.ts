@@ -1,4 +1,4 @@
-import { materialWindow } from "@studio/song/materialWindow";
+import { materialWindow } from "@studio/song-edit/materialWindow";
 import { describe, expect, it } from "vitest";
 import { decodeTimeSignature, mapLiveSet } from "./ableton";
 

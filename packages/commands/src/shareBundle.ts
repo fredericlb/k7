@@ -20,7 +20,7 @@ import {
   type RenderManifest,
   renderMixdown,
   transcode,
-} from "./render.ts";
+} from "@studio/take-render/render";
 
 /** The bundle format. Bumped when a viewer would read an older one wrong — never for an addition. */
 export const SHARE_SCHEMA = 1;

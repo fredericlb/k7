@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createModuleFile } from "@studio/song/loader";
+import { ModuleSchema } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import {
@@ -19,7 +20,6 @@ import {
   replaceChainStep,
   writeModule,
 } from "./testSupport";
-import { ModuleSchema } from "./yaml/moduleSchema";
 
 // A module needn't extend anything — it can carry its rack inline, or stand as a bare
 // routing node. These check the three enforcement points that used to require a base: the

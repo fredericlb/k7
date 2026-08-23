@@ -3,7 +3,10 @@
 // would be wrong silently — the size of the trim — can be pinned without an engine.
 // See apps/st0/frontend/docs/masterMeter.md.
 
-import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
+import {
+  MASTER_MAX_DB,
+  MASTER_MIN_DB,
+} from "@studio/song-schema/yaml/projectSchema";
 
 /**
  * Where a fixed mix should peak.

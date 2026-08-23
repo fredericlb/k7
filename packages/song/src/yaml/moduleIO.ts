@@ -11,7 +11,11 @@ import {
   statSync,
 } from "node:fs";
 import { basename, extname, join } from "node:path";
-import { formatIssue, type ModuleIssue, parseModule } from "./moduleFile";
+import {
+  formatIssue,
+  type ModuleIssue,
+  parseModule,
+} from "@studio/song-schema/yaml/moduleFile";
 
 export interface ModuleFile {
   /** Absolute path to the file that exists. */

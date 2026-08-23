@@ -9,8 +9,8 @@
 import { mkdtempSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { writeProjectFiles } from "./scaffold";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 
 /** How big a synthetic song is: lanes, and notes on each. */
 export interface BenchSize {

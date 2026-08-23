@@ -2,10 +2,14 @@
 // no file anywhere: one doc module for the whole studio, so a note costs its node and
 // nothing else. Full rationale: docs/docModules.md.
 
-import { DOC_CATEGORY, DOC_REF, MODULE_TYPES } from "./moduleTypes";
+import {
+  DOC_CATEGORY,
+  DOC_REF,
+  MODULE_TYPES,
+} from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 
-export { DOC_CATEGORY, DOC_REF } from "./moduleTypes";
+export { DOC_CATEGORY, DOC_REF } from "@studio/song-schema/moduleTypes";
 
 /**
  * The built-in, as the ref map holds it.

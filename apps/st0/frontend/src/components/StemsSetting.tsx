@@ -8,7 +8,7 @@
 // asked the same question of the same person every time, and three surfaces asking would be three
 // places to get it wrong. See ../docs/playlists.md.
 
-import { MEDIATEK_REF } from "@studio/song/songRef";
+import { MEDIATEK_REF } from "@studio/song-schema/songRef";
 import { Split } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";

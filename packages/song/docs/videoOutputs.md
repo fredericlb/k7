@@ -39,7 +39,7 @@ chaîne ni un puits io ». Ce lot rend le nom réel ; il ne l'invente pas.
 Ce lot est né en **notation** — le trajet dessiné, vérifié et complété, mais qu'aucun module ne
 traversait vraiment. Ce n'est plus vrai pour un type de module : un **`shaders`** posé sur
 `RENDER -> VIDEO_OUT` traite bel et bien la trame composée, en GLSL, jusqu'au pixel
-([shaders.md](shaders.md)). Le chemin manquant entre un `graph.yaml` et `@studio/ui-eyes` est
+([shaders.md](../../song-video/docs/shaders.md)). Le chemin manquant entre un `graph.yaml` et `@studio/ui-eyes` est
 `src/videoChains.ts`, et il a été écrit pour lui.
 
 Les deux **autres** formes de `VideoPluginDoc` restent modélisées et jamais compilées :
@@ -48,7 +48,7 @@ module de ces types-là est dessiné et vérifié sans rien changer à l'image.
 
 Rien de tout cela ne touche le son : les deux compilations d'un dossier ne partagent aucun champ —
 `loadProject` produit le `ProjectDoc` que lit le moteur C++, où nulle image n'arrive jamais, et
-`loadVideoProject` produit le `VideoProjectDoc` que lit le compositeur ([picture.md](picture.md)).
+`loadVideoProject` produit le `VideoProjectDoc` que lit le compositeur ([picture.md](../../song-video/docs/picture.md)).
 Le run vidéo n'a donc **aucun propriétaire** dans `nodeProject.ts`, et ce qu'il porte ne peut pas
 atterrir sur un bus audio par accident.
 

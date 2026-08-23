@@ -6,11 +6,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { assetExtFor, assetsForParam } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModuleRefs, loadModules } from "./loader";
 import { moduleAssetChoices } from "./moduleAssetChoices";
 import { resolveModuleMap } from "./moduleResolve";
-import { assetExtFor, assetsForParam } from "./moduleTypes";
 
 let root: string;
 let project: string;

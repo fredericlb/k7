@@ -14,7 +14,6 @@ import {
 } from "@studio/commands/commandSpec";
 import type { CommandHost, TransportAction } from "@studio/commands/commands";
 import type { GitEnv } from "@studio/commands/git";
-import { addTakeToTrack } from "@studio/commands/recordTake";
 import {
   type AudioDeviceInfo,
   EngineClient,
@@ -25,10 +24,15 @@ import {
 import type { SessionInfo } from "@studio/engine-client/engineControl";
 import { SESSIONS } from "@studio/engine-protocol/sessions";
 import { listBaseModules } from "@studio/song/loader";
-import { PatternClock } from "@studio/song/patternClock";
 import { loadPreferences } from "@studio/song/preferences";
 import type { ProjectDoc, TrackDoc } from "@studio/song/project";
-import { strudelPatterns } from "@studio/song/strudel";
+import { PatternClock } from "@studio/song-strudel/patternClock";
+import { strudelPatterns } from "@studio/song-strudel/strudel";
+import {
+  separateJob,
+  startSeparate,
+} from "@studio/stem-separation/separateJobs";
+import { addTakeToTrack } from "@studio/take-render/recordTake";
 import {
   type ChangedFile,
   type CommandInfo,
@@ -37,7 +41,6 @@ import {
 import chokidar from "chokidar";
 import { guard } from "./background.ts";
 import { closeModuleWatch, watchModuleFolders } from "./moduleWatch.ts";
-import { separateJob, startSeparate } from "./separateJobs.ts";
 import { rootDir, slugify } from "./slug.ts";
 import { sshCommand } from "./sshKeys.ts";
 import { skip, type Workspace } from "./workspace.ts";

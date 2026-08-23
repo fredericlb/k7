@@ -9,8 +9,8 @@ import {
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
-} from "@studio/song/playlist";
-import type { Validity } from "@studio/song/yaml/validate";
+} from "@studio/song-schema/playlist";
+import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
 import { ArrowLeft, ListMusic, Loader2 } from "lucide-react";

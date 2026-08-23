@@ -5,11 +5,11 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { ProjectFileSchema } from "@studio/song-schema/yaml/projectSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { BENCH_EDGES, benchFiles, scaffoldBench } from "./scaffoldBench";
-import { ProjectFileSchema } from "./yaml/projectSchema";
 
 describe("the module bench", () => {
   let dir: string;

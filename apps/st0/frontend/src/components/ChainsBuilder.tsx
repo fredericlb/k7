@@ -4,7 +4,7 @@
 
 import { cn } from "@frediverse/ui/lib/utils";
 import { projectApi } from "@studio/project-shell/project";
-import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";

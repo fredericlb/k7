@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { engineModuleOf } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   engineModules,
@@ -8,7 +9,6 @@ import {
   scannedPluginNames,
   scannedPlugins,
 } from "./engineCatalogue";
-import { engineModuleOf } from "./moduleTypes";
 
 // The engine's plugin scan, read as a catalogue of modules — what replaces the folder of
 // generated wrappers `module populate` used to write into `_modules`.

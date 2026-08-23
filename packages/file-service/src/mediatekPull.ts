@@ -11,7 +11,7 @@ import {
   mediatekRefs,
   mediatekSongRefs,
 } from "@studio/song/mediatekRefs";
-import { songPathPrefix } from "@studio/song/songRef";
+import { songPathPrefix } from "@studio/song-schema/songRef";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { liveWorkspaces } from "./workspaces.ts";
 

@@ -8,7 +8,7 @@ import {
   resolveItems,
 } from "@studio/mediatek/playlistItems";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { parsePlaylist } from "@studio/song/playlist";
+import { parsePlaylist } from "@studio/song-schema/playlist";
 
 /** One line of the set list: what the playlist named, and what this machine can play of it. */
 export interface SetEntry {

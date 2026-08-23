@@ -8,13 +8,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { loadModuleRefs, loadModules } from "./loader";
 import { writeLibraries, writeLibrary, writeYaml } from "./testSupport";
 import { loadUiLibrary, uiFileText, uiPathFor, writeUiFile } from "./uiLibrary";
 import { migrateModuleUis } from "./uiMigrate";
-import { UISchema } from "./yaml/moduleSchema";
 
 // A module's panel is the `ui.yaml` in its own folder, beside `module.yaml`: the plugin scan can rewrite what a
 // module IS without touching how it is DRAWN, and one panel serves every project that inherits the module.

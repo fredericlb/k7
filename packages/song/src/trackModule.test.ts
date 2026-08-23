@@ -6,10 +6,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { MODULE_TYPES, TRACK_CATEGORY } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { loadLanes, loadModuleRefs } from "./loader";
-import { MODULE_TYPES, TRACK_CATEGORY } from "./moduleTypes";
 import { compileNodeProject } from "./nodeProject";
 import { isTrack, TRACK_REFS, trackModules } from "./trackModule";
 

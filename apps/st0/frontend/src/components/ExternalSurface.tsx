@@ -19,7 +19,7 @@ import {
 } from "@studio/engine-browser/store";
 import type { TransportAction } from "@studio/engine-protocol";
 import { externalIndexUrl } from "@studio/project-shell/launch";
-import type { ProjectSurface } from "@studio/song/yaml/surfaceFile";
+import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import type { Deck } from "@studio/ui-turntables/engine";
 import type { WebVideoProject } from "@studio/web-protocol";
 import { ChevronLeft, Loader2, Terminal, Unplug } from "lucide-react";

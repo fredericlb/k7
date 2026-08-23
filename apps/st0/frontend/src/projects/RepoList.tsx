@@ -5,7 +5,7 @@
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   MachineWorkspace,
   RepoProject,

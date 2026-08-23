@@ -8,7 +8,7 @@ import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scaffold } from "@studio/song/scaffold";
 import { scaffoldSet } from "@studio/song/scaffoldSet";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
 import { emitFolder } from "@studio/translator/emit";

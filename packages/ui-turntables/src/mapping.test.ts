@@ -1,11 +1,14 @@
 // Which components a turntables surface must have wired, and which a given mapping is missing.
 // The desk's own vocabulary — @studio/song validates the SHAPE of a mapping and not its ids.
 
-import { type MixView, MixViewSchema } from "@studio/song/yaml/mixViewSchema";
+import {
+  type MixView,
+  MixViewSchema,
+} from "@studio/song-schema/yaml/mixViewSchema";
 // The BROWSER-SAFE half of @studio/song. `./surfaces` would be the disk walk, and importing it
 // here drags `node:fs` into a package that draws a screen and has no node types — which is the
 // same boundary this describe block is about.
-import { SURFACE_MAPPING_SKELETON } from "@studio/song/yaml/surfaceSchema";
+import { SURFACE_MAPPING_SKELETON } from "@studio/song-schema/yaml/surfaceSchema";
 import { describe, expect, it } from "vitest";
 import { mixControl } from "./controls";
 import { DECKS } from "./deck";

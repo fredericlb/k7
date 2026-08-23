@@ -20,14 +20,14 @@ import type {
   SettingsDoc,
   TrackDoc,
 } from "@studio/engine-protocol/project";
+import { parsePosition } from "@studio/song-schema/timecode";
+import { readClipWarp } from "@studio/song-schema/warpPoints";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml } from "yaml";
 import { assembleFolder, isFolderProject } from "./folder";
 import { exportSub, isVideoSource } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import type { AssembledClip, AssembledDoc } from "./rawDoc";
-import { parsePosition } from "./timecode";
-import { readClipWarp } from "./warpPoints";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 
 export type * from "@studio/engine-protocol/project";
 
@@ -100,7 +100,7 @@ export {
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
 // …and the one plugin type that is NOT on the wire, so it stays in song's own vocabulary.
-export { OFFLINE_TYPE } from "./moduleTypes";
+export { OFFLINE_TYPE } from "@studio/song-schema/moduleTypes";
 
 // Fold each group's mute/solo onto its members on the way to the engine, which resolves
 // both per audio track and knows nothing about groups. OR, not override — see
@@ -135,8 +135,8 @@ export function withoutTakes(doc: ProjectDoc): ProjectDoc {
 }
 
 // A ProjectDoc carries no picture, so nothing here strips one on the way to the engine.
-// Picture is its own document, from its own compile of the same folder — videoDoc.ts, and
-// docs/picture.md for why.
+// Picture is its own document, from its own compile of the same folder — @studio/song-video's
+// videoDoc.ts, and packages/song-video/docs/picture.md for why.
 
 // Read a single-file source into the { project, tracks } shape. Folder projects
 // are handled earlier (in loadProject); here the only supported file is YAML.

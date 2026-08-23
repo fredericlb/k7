@@ -6,13 +6,13 @@
 
 import { readdirSync, unlinkSync } from "node:fs";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import { beatGrid, regionWaveform } from "@studio/commands/waveform";
+import { beatGrid, regionWaveform } from "@studio/audio-probe/waveform";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { materialRefOf } from "@studio/song/nodeProject";
-import { resolveOnsets } from "@studio/song/onsets";
 import type { ClipDoc, ProjectDoc } from "@studio/song/project";
 import { loadAudioClipDoc } from "@studio/song/project";
-import { clipOnsets } from "@studio/song/projectEdit";
+import { resolveOnsets } from "@studio/song-edit/onsets";
+import { clipOnsets } from "@studio/song-edit/projectEdit";
 import type { WaveformStatus, WebWaveform } from "@studio/web-protocol";
 import {
   CACHE_EXT,

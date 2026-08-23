@@ -5,8 +5,8 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { RENDER_NODE, VIDEO_OUT_NODE } from "./moduleTypes";
-import { GRAPH_FILE } from "./yaml/graphSchema";
+import { RENDER_NODE, VIDEO_OUT_NODE } from "@studio/song-schema/moduleTypes";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 
 /** The line itself, indented for a block mapping — one spelling, shared by the scaffold. */
 export const VIDEO_RUN_LINE = `  ${RENDER_NODE}: [ ${VIDEO_OUT_NODE} ]`;

@@ -4,7 +4,7 @@
 
 import { BEATS_PER_BAR, beatPhase, firstBeatAfter } from "./beats";
 
-/** What the file service hands back for one cached song (@studio/commands/waveform's shape). */
+/** What the file service hands back for one cached song (@studio/audio-probe/waveform's shape). */
 export interface Envelope {
   sampleRate: number;
   channels: number;

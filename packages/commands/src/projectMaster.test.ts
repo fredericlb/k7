@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProject } from "@studio/song/project";
-import { MASTER_MAX_DB } from "@studio/song/yaml/projectSchema";
+import { MASTER_MAX_DB } from "@studio/song-schema/yaml/projectSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runCommand } from "./commandSpec";
 

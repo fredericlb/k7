@@ -20,7 +20,7 @@ import { join, resolve } from "node:path";
  * DEFINED in songRef.ts, a leaf with no imports, and re-exported here: this file opens
  * `node:os`, and a browser drawing a set list needs the token and not the layout.
  */
-export { MEDIATEK_REF } from "./songRef";
+export { MEDIATEK_REF } from "@studio/song-schema/songRef";
 
 /**
  * `~/.studio/mediatek`, or `$STUDIO_MEDIATEK` when the user moved it off the system drive

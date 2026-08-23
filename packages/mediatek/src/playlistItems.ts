@@ -10,7 +10,7 @@
 // the `PlaylistItem` type comes the other way — from a file in @studio/song that opens nothing.
 // See @studio/song/docs/playlists.md.
 
-import type { PlaylistItem } from "@studio/song/playlist";
+import type { PlaylistItem } from "@studio/song-schema/playlist";
 import { type Take, takesOf } from "./takes.ts";
 import type { MediatekEntry } from "./types.ts";
 

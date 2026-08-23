@@ -17,18 +17,9 @@
     "yaml",
     "onnxruntime-node"
   ],
-  "ignoreBinaries": ["cmake", "ctest", "ffmpeg", "tilt", "where.exe"],
+  "ignoreBinaries": ["cmake", "ctest", "ffmpeg", "tilt", "where.exe", "rustc"],
   "ignore": ["scripts/dev-hosts.d.mts"],
-  "ignoreWorkspaces": [
-    "commons/**",
-    "apps/z0",
-    "apps/z0/**",
-    "apps/k7",
-    "apps/k7/**",
-    "apps/pl8",
-    "apps/pl8/**",
-    "engine/capot"
-  ],
+  "ignoreWorkspaces": ["commons/**"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.mjs", "scripts/**/*.mjs"]
@@ -36,22 +27,40 @@
     "engine/moteur": {
       "entry": ["scripts/*.{ts,mjs}"]
     },
+    "engine/capot": {
+      "entry": ["scripts/*.mjs", "songs/**/jsdsp.ts"]
+    },
     "apps/st0/frontend": {
       "entry": ["src/docs/examples.ts"]
     },
+    "apps/k7/backend": {
+      "ignoreDependencies": ["@types/multer"]
+    },
+    "apps/z0/backend": {
+      "entry": ["src/render.ts"]
+    },
     "packages/song": {
       "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
+    },
+    "packages/song-edit": {
+      "entry": ["scripts/*.ts"]
+    },
+    "packages/song-schema": {
+      "entry": ["src/builtinParams.generated.ts"]
     },
     "packages/dsp": {
       "entry": ["modules/**/jsdsp.ts"]
     },
     "packages/file-service": {
-      "entry": ["src/separateWorker.ts", "src/render.ts"]
+      "entry": ["src/render.ts"]
+    },
+    "packages/stem-separation": {
+      "entry": ["src/separateWorker.ts"]
     },
     "packages/engine-host": {
       "entry": ["src/main.ts", "src/engineQueries.ts"]
     },
-    "packages/commands": {
+    "packages/take-render": {
       "entry": ["src/timeline.ts"]
     },
     "packages/ui-turntables": {

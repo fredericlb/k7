@@ -18,7 +18,6 @@ import type {
   PluginInfo,
 } from "@studio/engine-client/engineClient";
 import { METRONOME_MIN } from "@studio/engine-protocol/build";
-import { builtinParamsFor } from "@studio/song/builtinParams";
 import { bindModuleCc } from "@studio/song/controllerBind";
 import {
   createCurveFile,
@@ -33,8 +32,6 @@ import {
   loadGraph,
   parseChains,
 } from "@studio/song/graph";
-import { spliceProjectTime } from "@studio/song/insertTime";
-import { renamedInstance } from "@studio/song/instanceName";
 import {
   cloneModuleFile,
   createModuleFile,
@@ -50,28 +47,8 @@ import {
   moduleRefOf,
   nodeNameTaken,
 } from "@studio/song/loader";
-import {
-  consolidateSequenceMaterial,
-  splitSequenceMaterial,
-} from "@studio/song/materialCut";
 import { moduleAssetChoices } from "@studio/song/moduleAssetChoices";
 import { materialiseEngineModule } from "@studio/song/moduleFork";
-import {
-  isBuiltinOutput,
-  MIX_NODE,
-  OUT_NODE,
-  RENDER_NODE,
-  VIDEO_OUT_NODE,
-} from "@studio/song/moduleTypes";
-import { addOnset, moveOnset, removeOnset } from "@studio/song/onsets";
-import {
-  appendPlaylistItem,
-  PLAYLISTS_DIR,
-  type PlaylistItem,
-  parsePlaylist,
-  playlistPathOf,
-  playlistStub,
-} from "@studio/song/playlist";
 import {
   clearChannelLabel,
   formatAudioDevice,
@@ -84,6 +61,13 @@ import {
 } from "@studio/song/preferences";
 import type { ClipDoc, ProjectDoc, TrackDoc } from "@studio/song/project";
 import { loadAudioClipDoc, trackMixer } from "@studio/song/project";
+import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
+import { spliceProjectTime } from "@studio/song-edit/insertTime";
+import {
+  consolidateSequenceMaterial,
+  splitSequenceMaterial,
+} from "@studio/song-edit/materialCut";
+import { addOnset, moveOnset, removeOnset } from "@studio/song-edit/onsets";
 import {
   clearChainNodePositions,
   clipFilePath,
@@ -116,14 +100,7 @@ import {
   setModuleParam,
   setModuleShader,
   unlinkChainNode,
-} from "@studio/song/projectEdit";
-import { createSurfaceFile, surfacesNaming } from "@studio/song/surfaces";
-import {
-  beatsToDuration,
-  beatsToPosition,
-  parseDuration,
-  parsePosition,
-} from "@studio/song/timecode";
+} from "@studio/song-edit/projectEdit";
 import {
   addTrackPlacement,
   addTrackPlacements,
@@ -140,11 +117,34 @@ import {
   setTrackPlacementWarp,
   setTrackPlacementWindow,
   trackTakes,
-} from "@studio/song/trackMix";
+} from "@studio/song-edit/trackMix";
+import { builtinParamsFor } from "@studio/song-schema/builtinParams";
+import { renamedInstance } from "@studio/song-schema/instanceName";
+import {
+  isBuiltinOutput,
+  MIX_NODE,
+  OUT_NODE,
+  RENDER_NODE,
+  VIDEO_OUT_NODE,
+} from "@studio/song-schema/moduleTypes";
+import {
+  appendPlaylistItem,
+  PLAYLISTS_DIR,
+  type PlaylistItem,
+  parsePlaylist,
+  playlistPathOf,
+  playlistStub,
+} from "@studio/song-schema/playlist";
+import {
+  beatsToDuration,
+  beatsToPosition,
+  parseDuration,
+  parsePosition,
+} from "@studio/song-schema/timecode";
 import {
   type Placement,
   PlacementSchema,
-} from "@studio/song/yaml/placementSchema";
+} from "@studio/song-schema/yaml/placementSchema";
 
 /**
  * Everything a placement may say beyond WHERE it goes — what `events add` forwards to
@@ -165,29 +165,44 @@ const EVENT_FIELDS = [
   "warp",
 ] as const;
 
+import {
+  coldOutDir,
+  type RunColdStep,
+  runColdPasses,
+} from "@studio/audio-passes/coldPass";
+import {
+  processWithChain,
+  type ResolvedChain,
+  resolveChain,
+  type Scope,
+} from "@studio/audio-passes/processChain";
+import { DEFAULT_TRIM_DB, trimWindow } from "@studio/audio-probe/trim-gate";
 // The MACHINE's copy of the médiathèque — where a set's songs are, and therefore where their
 // stems go. A deck opens file paths, so what matters is this disk and not the hosted volume.
 import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
 import {
+  deleteFileValue,
+  setFileValue,
+  setQuotedKeyMap,
+} from "@studio/song/yaml/edit";
+import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
+import {
   removeWarpPoint,
   seedWarp,
   setWarpPoint,
-} from "@studio/song/warpPoints";
+} from "@studio/song-schema/warpPoints";
 import {
   curvePoints,
   moveCurvePoint,
   removeCurvePoint,
   setCurvePoint,
-} from "@studio/song/yaml/curveFile";
+} from "@studio/song-schema/yaml/curveFile";
+import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
 import {
-  deleteFileValue,
-  setFileValue,
-  setQuotedKeyMap,
-} from "@studio/song/yaml/edit";
-import type { GraphFile } from "@studio/song/yaml/graphSchema";
-import { moduleFileFor, readModuleFile } from "@studio/song/yaml/moduleIO";
-import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
+  MASTER_MAX_DB,
+  MASTER_MIN_DB,
+} from "@studio/song-schema/yaml/projectSchema";
 import {
   appendNotes,
   isPlayableNote,
@@ -198,9 +213,17 @@ import {
   setNoteTimeRange,
   setNoteVelocity,
   splitNote,
-} from "@studio/song/yaml/sequenceFile";
-import { isSurfaceType, SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
-import { coldOutDir, type RunColdStep, runColdPasses } from "./coldPass";
+} from "@studio/song-schema/yaml/sequenceFile";
+import {
+  isSurfaceType,
+  SURFACE_TYPES,
+} from "@studio/song-schema/yaml/surfaceSchema";
+import {
+  consolidateAudioMaterial,
+  splitAudioMaterial,
+} from "@studio/take-render/materialRender";
+import { freezeUpstreamRender } from "@studio/take-render/render";
+import { wavSeconds } from "@studio/take-render/wavLength";
 import {
   applyAlternative,
   cancelAlternative,
@@ -210,21 +233,11 @@ import {
   pull,
   switchAlternative,
 } from "./git";
-import { consolidateAudioMaterial, splitAudioMaterial } from "./materialRender";
-import {
-  processWithChain,
-  type ResolvedChain,
-  resolveChain,
-  type Scope,
-} from "./processChain";
-import { freezeUpstreamRender } from "./render";
-import { DEFAULT_TRIM_DB, trimWindow } from "./trimGate";
 // Les groupes de verbes qui ont quitté ce fichier. Ils importent des TYPES d'ici, ce qui est
 // effacé à la compilation — donc pas de cycle à l'exécution. Voir verbs/shared.ts.
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
-import { wavSeconds } from "./wavLength";
 
 // Where a freeze render lands: one folder for the lot, at the project root. NOT beside the
 // module's own file — a node's folder is `nodes/`, shared by every node in the song,

@@ -147,7 +147,7 @@ deviner ne l'a pas.
 
 Tout ce qu'un projet st0 peut ÊTRE tient dans les **surfaces** qu'il déclare à l'intérieur de
 `.st0`, plutôt que dans une sorte de dossier : un `viewport` et des pistes vidéo pour l'image
-(`packages/song/docs/picture.md`), une surface `turntables` et la playlist qu'elle nomme pour un set
+(`packages/song-video/docs/picture.md`), une surface `turntables` et la playlist qu'elle nomme pour un set
 (`packages/song/docs/setProject.md`). C'est pour ça que les trois archétypes du menu de création
 portent le nom de leur surface — plus bas.
 

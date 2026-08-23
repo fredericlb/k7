@@ -11,14 +11,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
-  type K7Result,
-  MP3_CODEC,
-  readK7Config,
-  renderMixdown,
-  shareToK7,
-  transcode,
-} from "@studio/commands/render";
-import {
   buildShareBundle,
   type ShareBundle,
   uploadShare,
@@ -27,6 +19,14 @@ import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import type { WebGraph } from "@studio/graph-model";
 import type { ProjectDoc } from "@studio/song/project";
 import type { projectSurfaces } from "@studio/song/surfaces";
+import {
+  type K7Result,
+  MP3_CODEC,
+  readK7Config,
+  renderMixdown,
+  shareToK7,
+  transcode,
+} from "@studio/take-render/render";
 import type { WebProject } from "@studio/web-protocol";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 

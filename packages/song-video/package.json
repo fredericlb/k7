@@ -1,0 +1,32 @@
+{
+  "name": "@studio/song-video",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The PICTURE half of a song: the video document model, the lane and chain compile, the shader catalogue, and the folder → VideoProjectDoc read that @studio/ui-eyes composites. Split out of @studio/song because a song's sound compiles without any of it. Consumed as source.",
+  "exports": {
+    "./videoDoc": "./src/videoDoc.ts",
+    "./videoTracks": "./src/videoTracks.ts",
+    "./videoProject": "./src/videoProject.ts",
+    "./shaders": "./src/shaders.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@studio/song": "*",
+    "@studio/song-schema": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

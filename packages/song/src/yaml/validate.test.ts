@@ -1,6 +1,10 @@
+import {
+  firstIssue,
+  parserFor,
+  validateFile,
+} from "@studio/song-schema/yaml/validate";
 import { describe, expect, it } from "vitest";
 import { MODULE_OWN_BASES } from "./moduleIO";
-import { firstIssue, parserFor, validateFile } from "./validate";
 
 describe("validateFile", () => {
   it("passes a module file the loader would accept", () => {

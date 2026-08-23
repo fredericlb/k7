@@ -1,7 +1,7 @@
 import { trackDoc, VOLUME_DB } from "@studio/engine-protocol/build";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { MediatekEntry } from "@studio/mediatek/types";
-import { STEMS, stemLane } from "@studio/song/stems";
+import { STEMS, stemLane } from "@studio/song-schema/stems";
 import { describe, expect, it } from "vitest";
 import {
   BPM_RANGE,

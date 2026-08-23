@@ -13,6 +13,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { coldOutDir, runColdPasses } from "@studio/audio-passes/coldPass";
+import {
+  type ResolvedChain,
+  resolveChain,
+} from "@studio/audio-passes/processChain";
 import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
 import {
@@ -20,10 +25,8 @@ import {
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
-} from "@studio/song/playlist";
-import { coldOutDir, runColdPasses } from "../coldPass.ts";
+} from "@studio/song-schema/playlist";
 import type { SidHandler } from "../commands.ts";
-import { type ResolvedChain, resolveChain } from "../processChain.ts";
 import { playlistFile, splitWords } from "./shared.ts";
 
 export const PLAYLIST_VERBS: Record<string, SidHandler> = {

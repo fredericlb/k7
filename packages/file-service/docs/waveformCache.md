@@ -9,7 +9,7 @@ fingerprint.
 This module is the Node side: it computes the SAME fingerprint to tell whether a
 sidecar is still valid, spawns the engine to (re)build a missing/stale one, and reads
 the envelope back. The clip-region slicing and the tempo grid stay in
-`@studio/commands/waveform` — this only produces the `FileEnvelope` those consume.
+`@studio/audio-probe/waveform` — this only produces the `FileEnvelope` those consume.
 
 Sidecars sit next to the audio rather than in a central store, so they travel with the
 file and the engine can write one during an offline decode. They're hidden from the file
@@ -33,7 +33,7 @@ String form: `"<size>-<hex16>"`.
 
 ## Transients live here too, and that moved them
 
-They used to be detected in `@studio/commands/waveform`, per CLIP REGION, on the envelope
+They used to be detected in `@studio/audio-probe/waveform`, per CLIP REGION, on the envelope
 freshly resampled to that region. Two things were wrong with it and one was not a
 performance problem:
 
@@ -71,7 +71,7 @@ changing `length` would change what is played.
 
 ### The detector MUST match too
 
-`detectTransients` in `@studio/commands/waveform` is the **reference implementation**, and
+`detectTransients` in `@studio/audio-probe/waveform` is the **reference implementation**, and
 `Waveform.cpp` mirrors it. Nothing in production calls the TypeScript one any more — it stays
 as the written spec, and `waveform.test.ts` is the contract both are held to. Same
 arrangement as the fingerprint above. Change one, change the other, and bump the version.

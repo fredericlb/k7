@@ -5,8 +5,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { parsePosition } from "@studio/song-schema/timecode";
 import { exportSub } from "./loader";
-import { parsePosition } from "./timecode";
 
 export type Polarity = "unipolar" | "bipolar";
 export type LfoShape = "sine" | "triangle" | "saw" | "square";

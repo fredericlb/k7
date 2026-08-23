@@ -14,7 +14,7 @@ const OUT = join(
   "..",
   "..",
   "packages",
-  "song",
+  "song-schema",
   "src",
   "builtinParams.generated.ts",
 );

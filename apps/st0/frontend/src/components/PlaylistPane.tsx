@@ -17,7 +17,7 @@ import {
 import { tagsFromFilename } from "@studio/mediatek/song";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { cfg } from "@studio/project-shell/fileApi";
-import type { PlaylistItem } from "@studio/song/playlist";
+import type { PlaylistItem } from "@studio/song-schema/playlist";
 import {
   AudioLines,
   Disc3,

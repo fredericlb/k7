@@ -5,22 +5,21 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { Diagnostic } from "./loader";
-import { ensureVideoRun } from "./videoOutputs";
-import { isVideoProject } from "./videoProject";
-import { entityFiles } from "./yaml/moduleIO";
 import {
   type ProjectSurface,
   type ProjectSurfaces,
   parseSurface,
   SURFACES_DIR,
-} from "./yaml/surfaceFile";
+} from "@studio/song-schema/yaml/surfaceFile";
 import {
   SURFACE_LAYOUTS_BY_TYPE,
   SURFACE_MAPPING_SKELETON,
   SURFACE_TYPES,
   type SurfaceType,
-} from "./yaml/surfaceSchema";
+} from "@studio/song-schema/yaml/surfaceSchema";
+import type { Diagnostic } from "./loader";
+import { ensureVideoRun } from "./videoOutputs";
+import { entityFiles } from "./yaml/moduleIO";
 
 // The shapes are the WIRE's, declared beside the browser-safe parser and imported back here, so
 // the side that walks the disk and the side that receives the payload cannot drift.
@@ -200,7 +199,7 @@ function mappingSkeleton(type: SurfaceType): string {
  * is asked what it HOLDS rather than what it calls itself, which is the whole point of the mode
  * going away -- the two could disagree, and only one of them was ever true.
  *
- * Picture counts because picture is drawn on the SAME timeline as the sound (docs/picture.md).
+ * Picture counts because picture is drawn on the SAME timeline as the sound (packages/song-video/docs/picture.md).
  * A folder with `video_tracks/` and no timeline surface has both absences at once and is told
  * about both, which is what "can be missing BOTH" pins.
  *
@@ -210,6 +209,17 @@ function mappingSkeleton(type: SurfaceType): string {
  * and differs only for one somebody emptied out -- which warns about a timeline they can delete
  * rather than staying silent about one they need.
  */
+/**
+ * Whether `dir` carries picture at all — the cheap check a caller makes before compiling.
+ *
+ * It lives here rather than beside the compiler it guards (`@studio/song-video`) because it is a
+ * folder probe and nothing more: asking it must not cost the reader the video document model.
+ * That is also what keeps this package from depending on the one that compiles a picture.
+ */
+export function isVideoProject(dir: string): boolean {
+  return existsSync(resolve(dir, "video_tracks"));
+}
+
 function hasMaterial(dir: string): boolean {
   const abs = resolve(dir);
   return (

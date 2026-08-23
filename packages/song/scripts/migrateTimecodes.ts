@@ -13,14 +13,14 @@
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { isMap, isScalar, parseDocument } from "yaml";
 import {
   beatsToPosition,
   parsePosition,
   TICKS_PER_QUARTER,
-} from "../src/timecode";
+} from "@studio/song-schema/timecode";
+import { TIMECODE } from "@studio/song-schema/yaml/placementSchema";
+import { isMap, isScalar, parseDocument } from "yaml";
 import { migrateTimecodes } from "../src/timecodeMigrate";
-import { TIMECODE } from "../src/yaml/placementSchema";
 
 /** Directories whose contents are not the live song. `_history` holds superseded copies. */
 const SKIP_DIRS = new Set(["_history", ".git", "node_modules"]);

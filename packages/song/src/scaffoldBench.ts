@@ -3,10 +3,10 @@
 // else is the catalogue, which is not in the folder. Rationale: apps/pl8/docs/banc.md.
 
 import { MIXER_PLUGIN } from "@studio/engine-protocol/build";
-import { MIX_NODE } from "./moduleTypes";
+import { MIX_NODE } from "@studio/song-schema/moduleTypes";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { DEFAULT_COUNT_IN } from "./project";
 import { writeProjectFiles } from "./scaffold";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 
 const q = (s: string) => JSON.stringify(s);
 

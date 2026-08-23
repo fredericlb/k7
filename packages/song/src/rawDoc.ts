@@ -3,7 +3,7 @@
 // the assemblers coerce. This is the typed seam that used to be `any` end to end, so a mistyped field name in
 // an assembler is now a compile error rather than an `undefined` that flows to the engine.
 
-import type { ModuleKind } from "./moduleTypes";
+import type { ModuleKind } from "@studio/song-schema/moduleTypes";
 
 /** One entry of a lane's `events:` list — a placement of a clip/sequence by ref. */
 export interface RawPlacement {
@@ -137,7 +137,7 @@ export interface LoadedModule {
   // any of it. Inherited like `plugin`, so a use of a cold module is cold. See docs/coldModules.md.
   cold?: boolean;
   // shaders only — which folder under the module's `shaders/` this node runs. Inherited like
-  // `base`, so a node of a shader module picks its own program. See docs/shaders.md.
+  // `base`, so a node of a shader module picks its own program. See packages/song-video/docs/shaders.md.
   shader?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map, from the `controller.yaml` in its folder (controller.ts). Stamped on

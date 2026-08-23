@@ -3,6 +3,7 @@
 // avec laquelle elle sépare un morceau en stems. Tous marchent sans projet ouvert, ce qu'aucun
 // autre groupe ne peut dire.
 
+import { resolveChain } from "@studio/audio-passes/processChain";
 import {
   clearChannelLabel,
   formatAudioDevice,
@@ -14,7 +15,6 @@ import {
   setStemsChain,
 } from "@studio/song/preferences";
 import type { SidHandler } from "../commands.ts";
-import { resolveChain } from "../processChain.ts";
 import { splitWords } from "./shared.ts";
 
 export const SYSTEM_VERBS: Record<string, SidHandler> = {

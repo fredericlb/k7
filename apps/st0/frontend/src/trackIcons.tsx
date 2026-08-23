@@ -3,7 +3,7 @@
 // Icons, inlined rather than fetched at runtime: twelve paths is a few KB against ~880
 // icons of JSON, and an inlined path can't flash in after the row has painted.
 
-import { trackKind } from "@studio/song/trackKind";
+import { trackKind } from "@studio/song-schema/trackKind";
 
 export interface TrackGlyph {
   vb: string;

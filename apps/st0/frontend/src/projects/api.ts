@@ -4,7 +4,7 @@
 // so what projects EXIST — and creating, deleting and opening one — is its answer.
 // See ../../docs/projects.md.
 
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import {
   type CloneJob,
   ENGINE_TOKEN_HEADER,

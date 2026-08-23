@@ -19,7 +19,7 @@ import { showToast } from "@studio/project-shell/toast";
 import {
   listVideoPlacements,
   setVideoPlacementField,
-} from "@studio/song/yaml/videoTrackFile";
+} from "@studio/song-schema/yaml/videoTrackFile";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type { LintItem } from "@studio/ui-editor/lint";
 import { InputChannelBar } from "@studio/ui-module-builder/input-channels";

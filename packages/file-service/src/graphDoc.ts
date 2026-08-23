@@ -17,15 +17,15 @@ import {
   assetLookup,
   moduleAssetChoices,
 } from "@studio/song/moduleAssetChoices";
-import { SHADER_CATEGORY } from "@studio/song/moduleTypes";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
   JSDSP_TYPE,
   OFFLINE_TYPE,
 } from "@studio/song/project";
-import { moduleShaderChoices } from "@studio/song/shaders";
-import { beatsToPosition } from "@studio/song/timecode";
+import { SHADER_CATEGORY } from "@studio/song-schema/moduleTypes";
+import { beatsToPosition } from "@studio/song-schema/timecode";
+import { moduleShaderChoices } from "@studio/song-video/shaders";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
 // was declared here a second time, identically, and docs/loader.md's list of copies to
@@ -66,8 +66,8 @@ function baseChoicesFor(
 
 /** …and the third of the same shape: the shaders a shader module carries, its ancestors' included.
  *  Undefined on every module that is not one, which is what the graph reads as "no shader control
- *  here" — so this is not asked at all unless the folder says `shaders`. See @studio/song's
- *  docs/shaders.md. */
+ *  here" — so this is not asked at all unless the folder says `shaders`. See
+ *  packages/song-video/docs/shaders.md. */
 function shaderChoicesFor(
   dir: string,
   module:

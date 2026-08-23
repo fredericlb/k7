@@ -1,4 +1,4 @@
-import { validateFile } from "@studio/song/yaml/validate";
+import { validateFile } from "@studio/song-schema/yaml/validate";
 import { describe, expect, it } from "vitest";
 import {
   decideAutosave,

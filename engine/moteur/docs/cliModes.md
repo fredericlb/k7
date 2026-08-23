@@ -19,7 +19,7 @@ The sidecar is stamped with a cheap content fingerprint, and the file service re
 the SAME fingerprint to decide whether the cache is stale — see
 `packages/file-service/src/waveformCache.ts`. **The two fingerprint definitions must stay
 byte-for-byte identical**, and so must the two transient detectors: `detectTransients` in
-`@studio/commands/waveform` is the reference this file mirrors, and its unit test is the
+`@studio/audio-probe/waveform` is the reference this file mirrors, and its unit test is the
 contract. Changing either means changing both and bumping `"v"`.
 
 `sensitivity` is the detector's threshold in standard deviations above the mean envelope
@@ -65,7 +65,7 @@ every file back over itself. Its only callers were the brain's `track normalize`
 `clip normalize`, and both were removed: normalising is a TREATMENT, and a treatment in this
 system is a chain. `track process` / `clip process` bounce material through one, and the
 médiathèque ships a `normalize` module — measured by `--peak` above and rendered through
-`--render` like every other treatment. See `packages/commands/docs/processChain.md`.
+`--render` like every other treatment. See `packages/audio-passes/docs/processChain.md`.
 
 What that mode could say and a chain cannot is **one gain across a SET of files**, so a track's
 clips keep their relative levels. A chain renders each source on its own, so a track processed

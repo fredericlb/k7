@@ -3,7 +3,10 @@
 // LOADER resolves against — they sit outside the active project, so the file tree does not and
 // must not contain them. Why the tab exists: apps/st0/frontend/docs/sharedModules.md.
 
-import { LIBRARIES_DIR, SHARED_MODULES_DIR } from "@studio/song/moduleTypes";
+import {
+  LIBRARIES_DIR,
+  SHARED_MODULES_DIR,
+} from "@studio/song-schema/moduleTypes";
 import type { FileNode, ModuleLibrary } from "@studio/web-protocol";
 
 /** How a level is written wherever a person reads one: in a ref, and on a tree row. */

@@ -1,0 +1,33 @@
+{
+  "name": "@studio/song-strudel",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Strudel patterns over a song: resolving a pattern to events, and streaming them onto engine tracks locked to the transport. Split out of @studio/song so that the three @strudel/* packages are pulled in only by what actually plays a pattern — the file service — and not by every screen that reads a song file. Consumed as source.",
+  "exports": {
+    "./strudel": "./src/strudel.ts",
+    "./patternClock": "./src/patternClock.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@strudel/core": "1.1.0",
+    "@strudel/mini": "1.1.0",
+    "@strudel/transpiler": "1.1.0",
+    "@studio/engine-protocol": "*",
+    "@studio/song": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

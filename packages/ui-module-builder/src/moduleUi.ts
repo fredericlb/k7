@@ -10,20 +10,20 @@ import {
   IO_MODULES,
   type ModuleStatus,
   moduleStatusOf,
-} from "@studio/song/moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 import {
   type ModuleUI,
   PresetsFileSchema,
   UISchema,
   type Widget,
-} from "@studio/song/yaml/moduleSchema";
+} from "@studio/song-schema/yaml/moduleSchema";
 import { isMap, parseDocument } from "yaml";
 
 export type {
   ModuleUI,
   Widget,
   WidgetType,
-} from "@studio/song/yaml/moduleSchema";
+} from "@studio/song-schema/yaml/moduleSchema";
 
 const OPTS = { version: "1.2" as const, lineWidth: 0 };
 

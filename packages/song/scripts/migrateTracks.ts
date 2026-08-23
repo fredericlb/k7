@@ -8,7 +8,10 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { LEGACY_TRACK_REFS, STRUDEL_TRACK_REF } from "../src/moduleTypes.ts";
+import {
+  LEGACY_TRACK_REFS,
+  STRUDEL_TRACK_REF,
+} from "@studio/song-schema/moduleTypes";
 
 const args = process.argv.slice(2);
 const write = args.includes("--write");

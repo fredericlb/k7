@@ -19,7 +19,7 @@ aucune contrainte de conservation. Le résidu est petit et jamais nul.
 
 Notre passe, elle, n'ajoute rien : les stems sont écrits en float32 sans le moindre gain, et
 l'overlap-add divise les quatre par **le même** registre de poids
-(`packages/file-service/src/separateAudio.ts`, `OverlapAdd.weight`). L'écart est celui du modèle.
+(`packages/stem-separation/src/separateAudio.ts`, `OverlapAdd.weight`). L'écart est celui du modèle.
 
 Donc une platine qui jouerait les quatre stems sonnerait déjà autrement que le disque, **avant
 qu'on ait touché quoi que ce soit**. En soustrayant, le cas au repos est exact par construction :
@@ -66,4 +66,4 @@ que −∞ dB n'est pas une position pour faire.
 - **Le test qui décide** : tout à zéro, rendre, soustraire la source du rendu — il doit rester le
   silence numérique. Tout le reste de ce montage est une opinion ; celui-là est une mesure.
 
-`packages/file-service/docs/stemSplit.md` est l'autre moitié : d'où viennent les quatre fichiers.
+`packages/stem-separation/docs/stemSplit.md` est l'autre moitié : d'où viennent les quatre fichiers.

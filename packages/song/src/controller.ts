@@ -5,15 +5,15 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { parse as parseYaml } from "yaml";
-import { eachLibrarySibling } from "./moduleSiblings";
-import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
 import {
   type CcBinding,
   CcBindingSchema,
   type ControllerFile,
   ControllerFileSchema,
-} from "./yaml/moduleSchema";
+} from "@studio/song-schema/yaml/moduleSchema";
+import { parse as parseYaml } from "yaml";
+import { eachLibrarySibling } from "./moduleSiblings";
+import { CONTROLLER_BASE, moduleFileFor } from "./yaml/moduleIO";
 
 /** The map file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
 export const CONTROLLER_FILE = `${CONTROLLER_BASE}.yaml`;

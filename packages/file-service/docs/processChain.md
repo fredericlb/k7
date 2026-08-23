@@ -61,7 +61,7 @@ It is dropped three ways, and it needs all three: on `DELETE` (the collector is 
 knows it is finished), on a sweep an hour later (a caller that crashed mid-collection), and
 immediately when the request fails before the job starts.
 
-The job registry itself is `separateJobs.ts`, shared with `/separate` — same worker, same polling,
+The job registry itself is `@studio/stem-separation`'s `separateJobs.ts`, shared with `/separate` — same worker, same polling,
 same hash-of-the-work id. Two callers asking for the same cut therefore share a directory, which is
 right: it is the same files. That is also why the map is keyed by job id rather than derived from
 it — a second request for work already in flight gets the first run's directory, and its own is

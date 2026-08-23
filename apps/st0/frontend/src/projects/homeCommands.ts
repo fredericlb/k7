@@ -3,8 +3,8 @@
 // project, no engine session and no file open, so `LOCAL_COMMANDS` would be a catalogue of
 // things that cannot be done here. Pure but for the acts it is handed. See ../../docs/projects.md.
 
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
-import { PROJECT_SHAPES } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
 import type {
   MachineWorkspace,
   RepoProject,

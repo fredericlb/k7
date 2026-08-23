@@ -7,7 +7,7 @@
 // control of this surface" on a file the tool itself wrote. Neither shows up in a type error —
 // `@studio/song` accepts any key, deliberately (packages/song/docs/viewBindings.md).
 
-import { SURFACE_MAPPING_SKELETON } from "@studio/song/yaml/surfaceSchema";
+import { SURFACE_MAPPING_SKELETON } from "@studio/song-schema/yaml/surfaceSchema";
 import { describe, expect, it } from "vitest";
 import {
   MASTER_CONTROLS,

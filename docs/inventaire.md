@@ -11,13 +11,19 @@ Ce que le dépôt contient et que rien n'atteint. Chaque entrée porte de quoi t
 > péremption : pas des constats faux, mais des chemins qu'un renommage déplace et des comptes
 > qu'un commit fait bouger. `npm run lint:dead` (knip, `knip.json`) fait désormais les passes 1,
 > 2 et 4 en trente secondes. Il est **non bloquant** — le calibrage se lit, il ne se subit pas —
-> et sa liste d'exceptions est le §0 ci-dessous, traduit en configuration. Périmètre actuel :
-> **l'axe audio**. `apps/{z0,k7,pl8}`, `engine/capot` et `commons/` sont dans `ignoreWorkspaces`,
-> et les y remettre est une ligne. Ce qu'il ne verra jamais : le C++ (`biome.json` l'exclut
-> aussi) et tout ce que le §0 décrit — knip croit ce qu'on lui déclare.
+> et sa liste d'exceptions est le §0 ci-dessous, traduit en configuration. Ce qu'il ne verra
+> jamais : le C++ (`biome.json` l'exclut aussi) et tout ce que le §0 décrit — knip croit ce
+> qu'on lui déclare.
 >
 > Sortie au jour du relevé : **1 fichier, 4 dépendances, 1 devDépendance, 58 exports et
 > 17 types** — 81 constats sur l'axe audio.
+>
+> **Périmètre ÉLARGI depuis.** `apps/{z0,k7,pl8}` et `engine/capot` étaient dans
+> `ignoreWorkspaces` ; seul `commons/` y reste, parce que le sous-module porte ses propres docs
+> et sa propre vérité. L'élargissement a immédiatement rendu 15 dépendances inutilisées et
+> 2 fichiers que personne n'avait jamais regardés — voir §0 pour les trois exceptions qu'il a
+> fallu déclarer en même temps, dont `songs/**/jsdsp.ts` : la DSP d'une chanson de démo est une
+> donnée chargée au runtime, exactement comme `packages/dsp/modules/**/jsdsp.ts`.
 
 ## Comment ce relevé est fait
 
@@ -84,7 +90,7 @@ périme des deux côtés sans que personne le voie.
 |---|---|
 | `packages/song/src/dspRunner.mjs` | lancé en **processus fils** par `nodeProject.ts`. Il fait `import { graph } from "@studio/dsp"`, et la dépendance `song → dsp` existe précisément pour que cet import se résolve : un dossier de morceau n'a pas de `node_modules`. |
 | `packages/dsp/modules/{normalize,sweep}/jsdsp.ts` | des DSP de MODULE. Le compilateur les trouve par nom de fichier (`JSDSP_FILE = "jsdsp.ts"`), jamais par import. |
-| `packages/file-service/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
+| `packages/stem-separation/src/separateWorker.ts` | lancé par `separateJobs.ts` via `new URL("./separateWorker.ts", import.meta.url)`. |
 | `packages/engine-host/src/main.ts`, `packages/file-service/src/server.ts` | **entrées esbuild** de `engine/capot/scripts/build-engine.mjs`, qui les bundle dans le tray. Zéro import n'est pas zéro appelant. |
 | `packages/ui-chains-react/src/DomChains.stories.tsx` | ramassé par le glob de `.storybook/main.ts`. |
 | `packages/dsp/src/emit.ts` | le script `build` du paquet (`tsx src/emit.ts`). Une passe qui ne regarde que `bin` et les entrées esbuild le déclare mort ; **un `scripts` de `package.json` est un appelant.** |
@@ -95,7 +101,7 @@ périme des deux côtés sans que personne le voie.
 
 ### `detectTransients` n'est appelé par personne, et doit le rester
 
-`packages/commands/src/waveform.ts` l'exporte, et plus aucun code de production ne l'appelle :
+`packages/audio-probe/src/waveform.ts` l'exporte, et plus aucun code de production ne l'appelle :
 la détection tourne dans le moteur, en C++ (`engine/moteur/engine/Waveform.cpp`), pendant qu'il
 sous-échantillonne déjà l'audio, et le résultat va dans le sidecar `{source}.cache`.
 
@@ -165,7 +171,7 @@ répétés.
 | symbole | où | note |
 |---|---|---|
 | `FrameClock` | `packages/ui-eyes/src/clock.ts` | l'horloge que **l'exporteur** avance — et `export.ts` est déjà mort deux lignes plus haut. Le chemin WebCodecs est mort en entier : le baril, `exportScene`, et l'horloge qui le cadence. À trancher d'un bloc, comme §6. |
-| `isDocRef` | `packages/song/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. (`isFileParam`, avec qui elle était listée, a été **ressuscitée** : cinq sites, dont `commands.ts`.) |
+| `isDocRef` | `packages/song-schema/src/moduleTypes.ts` | une garde de type que plus rien n'interroge. (`isFileParam`, avec qui elle était listée, a été **ressuscitée** : cinq sites, dont `commands.ts`.) |
 | `listAll` | `packages/mediatek/src/catalogue.ts` | |
 | `PATH_SEP` | `packages/file-service/src/machinePlayer.ts` | |
 | `knownPrefs` | `apps/pl8/frontend/src/prefs.ts` | |

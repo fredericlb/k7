@@ -2,7 +2,7 @@
 // the mapping first and draws the missing wiring instead of a desk whose knobs go nowhere.
 // See packages/song/docs/surfaces.md and ../../docs/hosting.md.
 
-import type { MixView as Mapping } from "@studio/song/yaml/mixViewSchema";
+import type { MixView as Mapping } from "@studio/song-schema/yaml/mixViewSchema";
 import { Unplug } from "lucide-react";
 import type { Deck } from "../engine";
 import { unmappedControls } from "../mapping";

@@ -214,7 +214,7 @@ précédent, et il coûtait un `stringify` ici, une analyse là-bas et un `Proje
 le moteur, six à sept fois par seconde. La fenêtre, elle, doit continuer d'avancer —
 `scheduledCycle` dit que le motif a été LU, pas qu'il a produit quelque chose.
 
-**Mesuré** par `packages/song/src/patternClock.test.ts`, sur `s("bd ~ ~ ~")` à 120 bpm : une
+**Mesuré** par `packages/song-strudel/src/patternClock.test.ts`, sur `s("bd ~ ~ ~")` à 120 bpm : une
 mesure entière passait de **14 envois à 2**. Le test échoue avant le correctif (16 au lieu de 4,
 en comptant les deux de l'amorçage), ce qui est ce qui prouve que le constat était réel.
 

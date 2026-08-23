@@ -1,0 +1,12 @@
+// Same pin as @studio/song's: `mediatekRoot()` reads `$STUDIO_MEDIATEK`, and a developer running
+// these tests has a real médiathèque on the machine. patternClock loads songs and samples through
+// the song loader, so it is pinned, once, at a folder that does not exist. A test that wants one
+// writes it and sets the variable itself.
+
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: { env: { STUDIO_MEDIATEK: join(tmpdir(), "studio-song-no-mediatek") } },
+});

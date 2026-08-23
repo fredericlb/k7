@@ -10,7 +10,7 @@ import {
   TRACK_OUTPUTS,
   TRACK_REF,
   TRACK_REFS,
-} from "./moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 import type { LoadedModule, RawPlacement } from "./rawDoc";
 
 export {
@@ -24,7 +24,7 @@ export {
   TRACK_OUTPUTS,
   TRACK_REF,
   TRACK_REFS,
-} from "./moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 
 /**
  * What tells the three apart, and the only thing that does.

@@ -9,10 +9,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { formatChains, parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
-import { formatChains, parseGraph } from "./yaml/graphFile";
 
 // An io "in" module used to name the track it fed, with a `track:` field. That could not
 // survive the module living in a workspace's shared _modules: `module populate` files one

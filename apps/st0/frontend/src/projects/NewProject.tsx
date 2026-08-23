@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@frediverse/ui/dialog";
 import { Input } from "@frediverse/ui/input";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { FolderPlus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { projectFolderName } from "./projectName";

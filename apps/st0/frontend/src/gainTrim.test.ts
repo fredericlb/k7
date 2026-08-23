@@ -3,7 +3,10 @@
 // clipped louder — and a new output level computed ABSOLUTELY, which would forget the fader
 // setting that helped cause the clip and undo it in the same click.
 
-import { MASTER_MAX_DB, MASTER_MIN_DB } from "@studio/song/yaml/projectSchema";
+import {
+  MASTER_MAX_DB,
+  MASTER_MIN_DB,
+} from "@studio/song-schema/yaml/projectSchema";
 import { describe, expect, it } from "vitest";
 import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 

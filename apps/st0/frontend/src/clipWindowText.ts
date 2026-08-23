@@ -4,7 +4,7 @@
 // drawn from what you are typing, and a drag rewrites the two values in place rather than reflowing
 // the file under the cursor. See apps/st0/frontend/docs/clipEditors.md.
 
-import { beatsToPosition, parsePosition } from "@studio/song/timecode";
+import { beatsToPosition, parsePosition } from "@studio/song-schema/timecode";
 
 /** The project grid a timecode edge needs, and the one a dragged edge is written back on. */
 export interface ClipGrid {

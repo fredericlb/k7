@@ -17,7 +17,12 @@ import type {
   ProjectDoc,
   TrackDoc,
 } from "@studio/engine-protocol/project";
-import { STEMS_DIR, type Stem, stemFile, stemLaneOf } from "@studio/song/stems";
+import {
+  STEMS_DIR,
+  type Stem,
+  stemFile,
+  stemLaneOf,
+} from "@studio/song-schema/stems";
 import { alignDelay, BEATS_PER_BAR } from "./beats";
 import type { DeckModule } from "./graph";
 

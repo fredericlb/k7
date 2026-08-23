@@ -1,11 +1,11 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 
 // A new project is the one worked example a reader gets, and the only project st0
 // writes from scratch — so "does it load and play" is the whole contract. Nothing covered

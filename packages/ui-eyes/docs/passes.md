@@ -2,7 +2,7 @@
 
 `compositor.ts` est la **mise en place** : quel quad va où. `passes.ts` est la partie qui exécute
 le code de quelqu'un d'autre. Le vocabulaire (le module `shaders`, les uniformes, d'où vient
-`uAudio`) est dans `packages/song/docs/shaders.md` ; cette page-ci est ce que fait le moteur de
+`uAudio`) est dans `packages/song-video/docs/shaders.md` ; cette page-ci est ce que fait le moteur de
 rendu avec.
 
 Une `ScenePass` est du texte et des nombres. `@studio/ui-eyes` n'a aucune idée de ce qu'est un

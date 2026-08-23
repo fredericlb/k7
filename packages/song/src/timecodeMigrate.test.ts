@@ -1,5 +1,5 @@
+import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
 import { describe, expect, it } from "vitest";
-import { parseDuration, parsePosition } from "./timecode";
 import { migrateTimecodes } from "./timecodeMigrate";
 
 // The notation is MESURE:NOIRE:CROCHE:DOUBLECROCHE, and anything finer is TICKS rather than another

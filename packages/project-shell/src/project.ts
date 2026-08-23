@@ -7,7 +7,7 @@ import type { ProjectDoc } from "@studio/engine-protocol/project";
 import type { WebGraph } from "@studio/graph-model";
 // The wire shape only, from the browser-safe half of @studio/song — `surfaces.ts` beside it
 // walks a disk and is the file service's. A type-only import, so nothing of the parser ships.
-import type { ProjectSurfaces } from "@studio/song/yaml/surfaceFile";
+import type { ProjectSurfaces } from "@studio/song-schema/yaml/surfaceFile";
 import type {
   Alternatives,
   CatalogueModule,

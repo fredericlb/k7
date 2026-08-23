@@ -35,7 +35,7 @@ import { showToast, Toaster } from "@studio/project-shell/toast";
 import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
 // loader in behind it.
-import { moduleKeyFromPath } from "@studio/song/moduleTypes";
+import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 // The desk's rule about where PLAY starts, imported rather than restated here — see

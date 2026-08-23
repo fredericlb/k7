@@ -5,7 +5,6 @@
 // disk and are the one worked example a reader gets.
 // Full rationale: docs/setProject.md.
 
-import { writeProjectFiles } from "./scaffold";
 // The stem vocabulary — which four, what they are called on a lane, and the control that moves
 // each — is `./stems`, because the DESK needs the same names and cannot import a scaffold.
 import {
@@ -15,8 +14,9 @@ import {
   stemCut,
   stemFile,
   stemLane,
-} from "./stems";
-import { GRAPH_FILE } from "./yaml/graphSchema";
+} from "@studio/song-schema/stems";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import { writeProjectFiles } from "./scaffold";
 
 const q = (s: string) => JSON.stringify(s);
 

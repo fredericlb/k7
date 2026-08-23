@@ -5,6 +5,11 @@
 // drifted. Resolving is now a step you pass THROUGH — the brand on ResolvedModule means a
 // consumer cannot take a raw module by accident. See docs/moduleResolve.md.
 
+import { FILE_PARAMS } from "@studio/song-schema/moduleTypes";
+import {
+  type ControllerFile,
+  ControllerFileSchema,
+} from "@studio/song-schema/yaml/moduleSchema";
 import { applyAlternative } from "./alternatives";
 import { resolveModuleAssetIn } from "./assetPath";
 import { basePresetIn } from "./basePreset";
@@ -15,9 +20,7 @@ import type {
   RackSound,
   Widget,
 } from "./graph";
-import { FILE_PARAMS } from "./moduleTypes";
 import type { LoadedModule } from "./rawDoc";
-import { type ControllerFile, ControllerFileSchema } from "./yaml/moduleSchema";
 
 /**
  * A module with its ancestry folded in. The brand is phantom — nothing is written at

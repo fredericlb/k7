@@ -24,7 +24,7 @@ answer that looks like a confirmation.
 ```
 studio-moteur --dump-builtin-params          # what a TYPE has: name, range, default, named states
 node engine/moteur/scripts/gen-builtin-params.mjs
-  → packages/song/src/builtinParams.generated.ts
+  → packages/song-schema/src/builtinParams.generated.ts
 ```
 
 The script instantiates every entry of `builtInPlugins()` — the same list

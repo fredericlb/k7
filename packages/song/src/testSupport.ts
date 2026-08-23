@@ -4,8 +4,12 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  insertBetween,
+  parseGraph,
+  renameNode,
+} from "@studio/song-schema/yaml/graphFile";
 import { stringify } from "yaml";
-import { insertBetween, parseGraph, renameNode } from "./yaml/graphFile";
 
 /**
  * The BENCH fixture, re-exported here rather than published as a subpath of its own.

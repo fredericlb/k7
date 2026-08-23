@@ -1,7 +1,7 @@
+import { parseGraph } from "@studio/song-schema/yaml/graphFile";
 import { describe, expect, it } from "vitest";
 import { deriveChains } from "./chainsGraph";
 import { migrateChainsText } from "./chainsMigrate";
-import { parseGraph } from "./yaml/graphFile";
 
 // A migration is only as good as what it PRESERVES, so the tests are written against the
 // derived chains rather than the text: the question is never "does the new file look

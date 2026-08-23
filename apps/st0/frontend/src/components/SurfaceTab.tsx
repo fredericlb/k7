@@ -12,7 +12,7 @@
 
 import type { WebGraph } from "@studio/graph-model";
 import { cfg } from "@studio/project-shell/fileApi";
-import type { ProjectSurface } from "@studio/song/yaml/surfaceFile";
+import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { useDeckSet } from "@studio/ui-turntables/deck-set";
 import type { Deck } from "@studio/ui-turntables/engine";
 import { Turntables } from "@studio/ui-turntables/surface";

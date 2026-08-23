@@ -2,7 +2,7 @@
 // timeline pane and by a timeline surface alone on a second device, which drag the same clips.
 // See ../../docs/picture.md.
 
-import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
+import { setVideoPlacementField } from "@studio/song-schema/yaml/videoTrackFile";
 import { useCallback } from "react";
 import { api } from "../api";
 import type { VideoEdit } from "../components/TimelineTab";

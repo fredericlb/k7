@@ -2,8 +2,8 @@
 // by one render. Pure graph work over the derived chains, no filesystem, so a browser can ask the
 // same question the compiler does. Full rationale: docs/freeze.md.
 
+import { splitPort } from "@studio/song-schema/moduleTypes";
 import type { Chain } from "./graph";
-import { splitPort } from "./moduleTypes";
 
 /** One node of the signal graph, at the granularity a freeze cares about. */
 type Node = string; // a lane name, or a module (chain step) name

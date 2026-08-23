@@ -2,10 +2,17 @@
 // chains from them. A chain is a maximal linear run: it breaks where the signal splits
 // and where two signals meet. Full rationale: docs/graphFile.md.
 
+import {
+  MIX_NODE,
+  RENDER_NODE,
+  splitPort,
+} from "@studio/song-schema/moduleTypes";
+import { parseGraph } from "@studio/song-schema/yaml/graphFile";
+import {
+  type GraphFile,
+  GraphFileSchema,
+} from "@studio/song-schema/yaml/graphSchema";
 import type { Chain, Out, Step } from "./graph";
-import { MIX_NODE, RENDER_NODE, splitPort } from "./moduleTypes";
-import { parseGraph } from "./yaml/graphFile";
-import { type GraphFile, GraphFileSchema } from "./yaml/graphSchema";
 
 /** The source a chain TEMPLATE starts at — a lane's place, without a lane. A template is
  *  what the médiathèque holds: segments with no song around them. */

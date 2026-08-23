@@ -1,6 +1,6 @@
 # Picture in st0 — one timeline, two units
 
-A song carries video lanes ([packages/song/docs/picture.md](../../../../packages/song/docs/picture.md)).
+A song carries video lanes ([packages/song-video/docs/picture.md](../../../../packages/song-video/docs/picture.md)).
 This page is the st0 half: where they are drawn, how they are edited, and what the ruler does.
 
 Two surfaces are involved, both `split` (`packages/song/docs/surfaces.md`):

@@ -22,10 +22,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { engineModules, engineRef } from "./engineCatalogue";
 import { loadProjectRoot, MODULE_TYPES } from "./loader";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 import { moduleFileFor, nodeFiles } from "./yaml/moduleIO";
 
 /** The node a module used BARE becomes. Its chain step gains this suffix. */

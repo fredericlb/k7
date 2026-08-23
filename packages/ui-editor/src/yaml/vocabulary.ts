@@ -8,8 +8,12 @@
 // them, with a comment in each saying its real place was a package. This is that place —
 // and the @studio/song it reaches for is pure Zod introspection, no node in it.
 
-import type { FileKind } from "@studio/song/yaml/fields";
-import { fieldsAt, fileKindFor, valuesAt } from "@studio/song/yaml/fields";
+import type { FileKind } from "@studio/song-schema/yaml/fields";
+import {
+  fieldsAt,
+  fileKindFor,
+  valuesAt,
+} from "@studio/song-schema/yaml/fields";
 import type { Hints } from "@studio/web-protocol";
 import type { YamlVocabulary } from "./completions";
 

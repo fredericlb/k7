@@ -2,7 +2,7 @@
 // The interesting cases are all collisions — a word two families want — and the family table's
 // order is what settles them, so most of this file is those pairs pinned in place.
 
-import { UISchema } from "@studio/song/yaml/moduleSchema";
+import { UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import {
   type AutoParam,

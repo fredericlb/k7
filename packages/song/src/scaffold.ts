@@ -3,15 +3,15 @@
 // Strudel pattern), and `video`, the same thing with a lane of PICTURE over it. The third
 // archetype, `mix`, is scaffoldSet.ts. Every file is hand-authored, not serialised, because
 // its `#` comments are the one worked example a reader gets.
-// Full rationale: docs/scaffold.md, and docs/picture.md for the video half.
+// Full rationale: docs/scaffold.md, and packages/song-video/docs/picture.md for the video half.
 
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { DEFAULT_COUNT_IN } from "./project";
 import { addVideoRun } from "./videoOutputs";
-import { GRAPH_FILE } from "./yaml/graphSchema";
-import type { ProjectShape } from "./yaml/projectSchema";
 
 /**
  * The archetypes THIS module writes — the two that draw a timeline.
@@ -271,7 +271,7 @@ function videoGraph(base: string): string {
  *
  * The split is what the two archetypes ARE. An `arrangement` is not a video project with its
  * picture deleted — it never had a frame to letterbox into, and `loadVideoProject` says so out
- * loud rather than composing nothing. See docs/picture.md.
+ * loud rather than composing nothing. See packages/song-video/docs/picture.md.
  */
 export function videoProjectFiles(name: string): Record<string, string> {
   const base = projectFiles(name);

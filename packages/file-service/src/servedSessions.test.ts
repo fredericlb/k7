@@ -55,7 +55,7 @@ vi.mock("@studio/engine-client/engineClient", async (orig) => ({
 
 /** The real one writes yaml and refuses a missing wav; what is under test is which project it is handed. */
 const addTakeToTrack = vi.fn(() => "take-1");
-vi.mock("@studio/commands/recordTake", () => ({
+vi.mock("@studio/take-render/recordTake", () => ({
   addTakeToTrack: (...a: unknown[]) => addTakeToTrack(...(a as [])),
 }));
 

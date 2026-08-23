@@ -3,19 +3,12 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "st0's shared command layer — the command specs, CUE edit operations, timeline, mixing and take-recording helpers shared by the TUI, CLI and web. Consumed as source.",
+  "description": "st0's shared command layer — the SID → handler mapping and the command specs, dispatched through by the CLI and the web alike. The work a verb does now lives beside it: @studio/song-edit changes a project, @studio/take-render writes audio, @studio/audio-passes runs the offline chains. Consumed as source.",
   "exports": {
     "./commands": "./src/commands.ts",
     "./commandSpec": "./src/commandSpec.ts",
-    "./coldPass": "./src/coldPass.ts",
-    "./processChain": "./src/processChain.ts",
     "./git": "./src/git.ts",
-    "./recordTake": "./src/recordTake.ts",
-    "./render": "./src/render.ts",
-    "./share-bundle": "./src/shareBundle.ts",
-    "./waveform": "./src/waveform.ts",
-    "./trim-gate": "./src/trimGate.ts",
-    "./wavLength": "./src/wavLength.ts"
+    "./share-bundle": "./src/shareBundle.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",
@@ -27,10 +20,15 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@studio/audio-passes": "*",
+    "@studio/audio-probe": "*",
     "@studio/engine-client": "*",
+    "@studio/take-render": "*",
     "@studio/engine-protocol": "*",
     "@studio/mediatek": "*",
     "@studio/song": "*",
+    "@studio/song-edit": "*",
+    "@studio/song-schema": "*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

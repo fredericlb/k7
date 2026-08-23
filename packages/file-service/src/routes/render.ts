@@ -23,7 +23,7 @@ export const renderRouter: Router = Router();
  * Something asks now — stem separation — and it took the other branch rather than bending
  * this one: `POST /separate`, with the job registry this comment predicted. Still not offered
  * HERE, because per-track bounces of a document the caller already has remain seconds apart
- * from the one file it asked for. See ../separateJobs.ts and docs/stemSplit.md.
+ * from the one file it asked for. See @studio/stem-separation and its docs/stemSplit.md.
  *
  * The temp directory is always removed — here on success, inside renderProject on every
  * failure — because a wedged machine renders repeatedly and each attempt costs a song's

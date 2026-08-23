@@ -9,9 +9,9 @@ import {
   DEFAULT_METRONOME_LEVEL,
   METRONOME_MIN,
 } from "@studio/engine-protocol/build";
+import { SettingsSchema } from "@studio/song-schema/yaml/projectSchema";
 import { describe, expect, it } from "vitest";
 import { parseSettings } from "./project";
-import { SettingsSchema } from "./yaml/projectSchema";
 
 describe("settings.yaml's metronome_level", () => {
   it("is read as written", () => {

@@ -9,7 +9,7 @@
 // pas de cycle. C'est ce qui permet à `CommandHost` de rester là où on le lit.
 
 import { resolve, sep } from "node:path";
-import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song/playlist";
+import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";
 import type { CommandHost } from "../commands.ts";
 
 /** What the playlist verbs say with no workspace under them. They act on `repoDir` and never fall

@@ -33,7 +33,7 @@
     "@studio/graph-model": "*",
     "@studio/mediatek": "*",
     "@studio/project-shell": "*",
-    "@studio/song": "*",
+    "@studio/song-schema": "*",
     "@studio/ui-chains": "*",
     "@studio/ui-chains-react": "*",
     "@studio/web-protocol": "*",

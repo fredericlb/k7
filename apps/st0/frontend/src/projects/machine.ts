@@ -2,7 +2,7 @@
 // de travail qu'on committe, et pl8 n'a jamais tenu que le registre des dépôts. `ensureWorkspace`
 // est ce qui clone, et sert désormais à l'AJOUT d'un dépôt. Voir ../../docs/projects.md.
 
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { engineMachine, type Machine } from "./api";
 import { commitOutcome } from "./commitOutcome";
 

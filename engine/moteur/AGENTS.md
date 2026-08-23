@@ -69,7 +69,7 @@ scripts/               Node harnesses that drive a running engine, not build ste
   list-sessions.ts       what the supervisor sees, and drop-session
   broadcast-sessions.mjs per-session streaming
   gen-builtin-params.mjs ask a real instance of every built-in what its parameters are, and write
-                         packages/song/src/builtinParams.generated.ts. The one script here that is a
+                         packages/song-schema/src/builtinParams.generated.ts. The one script here that is a
                          GENERATOR: run it after bumping Tracktion or adding a built-in, and commit
                          its output. `npm run gen:builtin-params --workspace moteur`. docs/builtinParams.md.
   warp-points.ts         a clip's INTERIOR warp points move the sound — rendered and measured,

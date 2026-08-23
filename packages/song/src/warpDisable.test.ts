@@ -5,11 +5,11 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { AudioClipSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ClipDoc } from "./project";
 import { writeLane, writeModule, writeYaml } from "./testSupport";
-import { AudioClipSchema } from "./yaml/entitySchemas";
 
 let dir = "";
 

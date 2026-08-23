@@ -8,12 +8,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { NoteSchema } from "@studio/song-schema/yaml/entitySchemas";
+import { setNoteEffect } from "@studio/song-schema/yaml/sequenceFile";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import type { ClipDoc } from "./project";
 import { writeLane, writeModule, writeYaml } from "./testSupport";
-import { NoteSchema } from "./yaml/entitySchemas";
-import { setNoteEffect } from "./yaml/sequenceFile";
 
 let dir = "";
 

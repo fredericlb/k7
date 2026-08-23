@@ -1,0 +1,35 @@
+{
+  "name": "@studio/audio-passes",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "The offline passes a chain runs over audio: processing a chain to a file, measuring a peak, and the cold pass a module declares. The RUNNING is handed in by the host (see docs/processChain.md) — the 166 MB separation model lives in @studio/file-service, which depends on this, so importing it back would be a cycle. Consumed as source.",
+  "exports": {
+    "./processChain": "./src/processChain.ts",
+    "./coldPass": "./src/coldPass.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@studio/engine-client": "*",
+    "@studio/engine-protocol": "*",
+    "@studio/mediatek": "*",
+    "@studio/song": "*",
+    "@studio/song-schema": "*",
+    "@studio/take-render": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

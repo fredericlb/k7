@@ -1,0 +1,35 @@
+{
+  "name": "@studio/take-render",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Audio files a song PRODUCES: filing a recorded take onto its lane, rendering a mixdown or a stem, and reading back how long a wav is. The half of @studio/commands that writes audio rather than editing a document. Consumed as source.",
+  "exports": {
+    "./recordTake": "./src/recordTake.ts",
+    "./render": "./src/render.ts",
+    "./materialRender": "./src/materialRender.ts",
+    "./wavLength": "./src/wavLength.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@studio/engine-protocol": "*",
+    "@studio/song": "*",
+    "@studio/song-edit": "*",
+    "@studio/song-schema": "*",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

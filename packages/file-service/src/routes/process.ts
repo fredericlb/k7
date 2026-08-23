@@ -13,12 +13,15 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { wrap } from "@frediverse/http/route";
-import { resolveChain } from "@studio/commands/processChain";
+import { resolveChain } from "@studio/audio-passes/processChain";
 import { emptyDoc } from "@studio/engine-protocol/build";
 import { loadPreferences } from "@studio/song/preferences";
+import {
+  separateJob,
+  startSeparate,
+} from "@studio/stem-separation/separateJobs";
 import { Router } from "express";
 import { librariesAnchor } from "../librariesAnchor.ts";
-import { separateJob, startSeparate } from "../separateJobs.ts";
 
 export const processRouter: Router = Router();
 

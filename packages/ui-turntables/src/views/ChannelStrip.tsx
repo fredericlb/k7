@@ -2,7 +2,7 @@
 // knobs and the filter under them. ROTARY, unlike the tempo fader on the other edge — a knob's
 // neutral is its middle, and a round one shows that at a glance. See ../../docs/eq.md.
 
-import { STEMS, type Stem } from "@studio/song/stems";
+import { STEMS, type Stem } from "@studio/song-schema/stems";
 import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
 import type { StripLayout } from "../deskLayout";
 

@@ -87,10 +87,14 @@ already repaints the canvas every frame, and already stops itself when nothing i
 
 ## Where it is off
 
-`motion={false}` on **pl8's chain view**, whose layout is rebuilt on every keystroke. A node is
-identified by its name, so typing `reverb` is six nodes arriving and five leaving, and the
-picture would never be still long enough to read. st0's graph redraws after a *command*, which is
-the change worth animating.
+**Nowhere, today — no host passes the prop at all.** The one that did was pl8's chain view, and
+the médiathèque stopped drawing a graph: it declares neither `@studio/ui-chains` nor
+`@studio/ui-chains-react` any more. The prop and its default survive because the REASON does —
+that view rebuilt its layout on every keystroke, and a node is identified by its name, so typing
+`reverb` was six nodes arriving and five leaving, a picture never still long enough to read.
+Any host that redraws per keystroke rather than per *command* wants `motion={false}` again.
+
+st0's graph, the only one left, redraws after a command — which is the change worth animating.
 
 `prefers-reduced-motion: reduce` overrules the prop. Nothing here is load-bearing, so the
 reduced answer is simply the old one: everything lands at once.

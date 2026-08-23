@@ -8,7 +8,7 @@ import {
   type ModuleIssue,
   type Validity,
   validateFile,
-} from "@studio/song/yaml/validate";
+} from "@studio/song-schema/yaml/validate";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** How long the keystrokes must stop before the buffer is written. A second, and not less: in

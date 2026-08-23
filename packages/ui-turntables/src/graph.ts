@@ -2,7 +2,7 @@
 // throwaway project folder; it does not, and that is the finding. See docs/chains.md.
 
 import type { WebGraph, WebModuleCategory } from "@studio/graph-model";
-import { OFFLINE_TYPE } from "@studio/song/moduleTypes";
+import { OFFLINE_TYPE } from "@studio/song-schema/moduleTypes";
 import { DECKS, type DeckId } from "./deck";
 
 /** A module the deck runs, as m9 holds it: a médiathèque ref plus what it plays as. */

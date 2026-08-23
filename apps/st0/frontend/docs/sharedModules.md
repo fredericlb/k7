@@ -70,7 +70,7 @@ Absent from the SUGGESTIONS, not forbidden: a chain step may still name `@engine
 typing it works exactly as before — a completion list is an offer, never a validator. And the
 one question where the engine's catalogue *is* the right answer keeps it: `extends:`, and the
 `module new` / `node replace` / `module own` arguments that ask what to inherit from. `isEngineRef`
-in `packages/song/src/moduleTypes.ts` is the predicate, and it is a function rather than a
+in `packages/song-schema/src/moduleTypes.ts` is the predicate, and it is a function rather than a
 `startsWith` at each call site so that a library called `@engineering` is not swallowed with it.
 
 Two things about it are synthesised, and it is worth knowing which:

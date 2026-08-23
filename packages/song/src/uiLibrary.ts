@@ -5,11 +5,14 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  type ModuleUI,
+  UiFileSchema,
+} from "@studio/song-schema/yaml/moduleSchema";
+import { parseUiFile } from "@studio/song-schema/yaml/uiFile";
 import { eachLibrarySibling } from "./moduleSiblings";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { UI_BASE } from "./yaml/moduleIO";
-import { type ModuleUI, UiFileSchema } from "./yaml/moduleSchema";
-import { parseUiFile } from "./yaml/uiFile";
 
 /** The panel file a module folder holds, as it is written. `.yml` is read too (moduleFileFor probes both). */
 export const UI_FILE = `${UI_BASE}.yaml`;

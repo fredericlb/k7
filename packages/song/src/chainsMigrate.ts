@@ -10,10 +10,10 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { formatChains } from "@studio/song-schema/yaml/graphFile";
+import type { GraphFile } from "@studio/song-schema/yaml/graphSchema";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { parse } from "yaml";
-import { formatChains } from "./yaml/graphFile";
-import type { GraphFile } from "./yaml/graphSchema";
-import { GRAPH_FILE } from "./yaml/graphSchema";
 
 /** One module the old file used in several chains, and the nodes it became. */
 export interface SplitModule {

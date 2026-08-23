@@ -7,6 +7,16 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  isBuiltinOutput,
+  MASTER_OWNER,
+  MIX_NODE,
+  OUT_NODE,
+} from "@studio/song-schema/moduleTypes";
+import { materialRefOf, placementId } from "@studio/song-schema/placementId";
+import { parseDuration, parsePosition } from "@studio/song-schema/timecode";
+import { sortTracksByKind } from "@studio/song-schema/trackKind";
+import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { bypassedOf } from "./chainsGraph";
 import { bakeAdsr, bakeCurve, loadCurves } from "./curves";
 import { activeFreezePlans } from "./freeze";
@@ -30,13 +40,6 @@ import {
 } from "./loader";
 import { withModuleStamp } from "./moduleCache";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
-import {
-  isBuiltinOutput,
-  MASTER_OWNER,
-  MIX_NODE,
-  OUT_NODE,
-} from "./moduleTypes";
-import { materialRefOf, placementId } from "./placementId";
 import {
   defaultPreferences,
   loadPreferences,
@@ -65,10 +68,7 @@ import {
   parseSettings,
 } from "./project";
 import type { RawClip, RawPlacement, RawSequence } from "./rawDoc";
-import { parseDuration, parsePosition } from "./timecode";
-import { sortTracksByKind } from "./trackKind";
 import { lanesOf, type Material } from "./trackModule";
-import { readClipWarp } from "./warpPoints";
 
 // A placement's id and its inverse live in ./placementId — two lines of rule with no imports, so
 // the BROWSER can hold them too (the context menu hands the editor a placement id). Re-exported
@@ -563,7 +563,8 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       );
 
   // `video_tracks/` is deliberately unchecked here: the same folder compiles twice, and
-  // `loadVideoProject` is the compile that reads picture (docs/picture.md). This one says
+  // `loadVideoProject` is the compile that reads picture
+  // (packages/song-video/docs/picture.md). This one says
   // nothing about it, which is what keeps the frame out of the document the C++ engine is
   // handed.
 
@@ -604,7 +605,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
    *
    * The PICTURE's equivalent has no branch here and that is deliberate, not an omission: this
    * function builds the audio `ProjectDoc` the C++ engine reads, and no frame ever reaches it
-   * (packages/song/docs/picture.md). A `RENDER -> VIDEO_OUT` run gets no owner, so its steps drop
+   * (packages/song-video/docs/picture.md). A `RENDER -> VIDEO_OUT` run gets no owner, so its steps drop
    * exactly as any unowned chain's do — which is the honest compilation of a video chain today,
    * since `VideoPluginDoc` is modelled and nothing bakes it. See docs/videoOutputs.md.
    */
@@ -1188,7 +1189,7 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
   // PICTURE IS NOT HERE, and that is the point: the SAME folder compiles twice, and this pass
   // is the one whose output reaches the C++ engine. `loadVideoProject` is the other, reading
   // video_tracks.ts against a wall clock this compiler has no use for. Two documents rather
-  // than one with a section stripped on the way out — see docs/picture.md.
+  // than one with a section stripped on the way out — see packages/song-video/docs/picture.md.
   //
   // `video_source` — an audio lane inheriting a video lane's placements, so a shot and its sound
   // cannot drift — is sayable in this shape and is not written.

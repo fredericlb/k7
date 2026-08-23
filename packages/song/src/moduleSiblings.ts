@@ -5,7 +5,7 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
-import { MODULE_TYPES, moduleRefOf } from "./moduleTypes";
+import { MODULE_TYPES, moduleRefOf } from "@studio/song-schema/moduleTypes";
 import { moduleNamespaceOf, modulePanelRoots } from "./sharedFolders";
 import { moduleFileFor } from "./yaml/moduleIO";
 

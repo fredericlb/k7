@@ -55,7 +55,7 @@ une de trop. Ce qui a bougé :
 | `packages/song/src/uiLibrary.ts` | `uiPathFor` → `<type>/<sub>/ui.yaml` ; `loadUiLibrary` parcourt les bibliothèques de **modules** et dérive le ref du dossier ; `writeUiFile` résout le ref vers sa bibliothèque |
 | `packages/song/src/sharedFolders.ts` | `SHARED_UI_PATH`/`SHARED_UI_DIR` supprimés ; `uiLibraryDirs` → `modulePanelRoots` ; `moduleNamespaceOf` extrait (il était dupliqué dans `moduleFork` et `uiMigrate`) |
 | `packages/song/src/yaml/moduleIO.ts` | `nodeFiles` saute `ui.yaml` — **le piège du déplacement** : sans ça le panneau revenait comme un nœud `reverb:ui` |
-| `packages/song/src/yaml/moduleSchema.ts` | `UiFileSchema` n'a plus de `ref` |
+| `packages/song-schema/src/yaml/moduleSchema.ts` | `UiFileSchema` n'a plus de `ref` |
 | `packages/file-service/src/workspace.ts` | `moduleUi()` = `dirname` ; `write()` laisse passer `ui.yaml` sous `_modules/` |
 | `packages/mediatek/src/{ingest,layout}.ts` | plus de mapping `_ui → ui`, plus de `uiDir()` |
 | `apps/pl8/frontend/src/api.ts` | `moduleUi()` = `dirname` ; `refOfUiFile` supprimé |

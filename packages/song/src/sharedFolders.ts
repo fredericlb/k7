@@ -11,16 +11,16 @@ export const SHARED_MODULES_PATH = "../_modules";
 
 // The folder name a shared module library lives under, at the workspace root, is in
 // moduleTypes.ts — a browser names it too. Re-exported so the vocabulary reads as one place.
-export { SHARED_MODULES_DIR } from "./moduleTypes";
+export { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
-import { SHARED_MODULES_DIR } from "./moduleTypes";
+import { SHARED_MODULES_DIR } from "@studio/song-schema/moduleTypes";
 
 // Where the library submodule sits is in moduleTypes.ts, which opens no `node:` module — st0's
 // file tree names that folder to keep it off the Project tab. Re-exported so the vocabulary
 // still reads as one place, exactly as MODULE_NAMESPACES is.
-export { LIBRARIES_DIR, LIBRARIES_PATH } from "./moduleTypes";
+export { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
 
-import { LIBRARIES_DIR, LIBRARIES_PATH } from "./moduleTypes";
+import { LIBRARIES_DIR, LIBRARIES_PATH } from "@studio/song-schema/moduleTypes";
 
 /** The two families the library repository carries. `library/` is not one — a module holds the
  *  files it loads in its own `assets/` (see docs/moduleAssets.md). */
@@ -98,9 +98,12 @@ export function moduleLibraryDirs(dir: string): string[] {
 // asks what a namespace is called (st0's Libraries tab does), and this file cannot be imported
 // there — it reads the disk on the very first line. Re-exported so the vocabulary still reads
 // as one place. Same argument as `moduleKeyFromPath`'s.
-export { MODULE_NAMESPACES, type ModuleNamespace } from "./moduleTypes";
+export {
+  MODULE_NAMESPACES,
+  type ModuleNamespace,
+} from "@studio/song-schema/moduleTypes";
 
-import type { ModuleNamespace } from "./moduleTypes";
+import type { ModuleNamespace } from "@studio/song-schema/moduleTypes";
 
 /**
  * The namespace a module root answers to, decided by WHERE it is and nothing else.

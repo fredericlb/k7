@@ -8,12 +8,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   BUILTIN_PLUGINS,
   builtinParamsFor,
   builtinPluginForRef,
-} from "./builtinParams";
+} from "@studio/song-schema/builtinParams";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { projectHints } from "./hints";
 import { MIXER_PARAMS, MIXER_PLUGIN } from "./project";
 import { writeModule, writeNode, writeYaml } from "./testSupport";

@@ -8,11 +8,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { portRef, splitPort } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deriveChains } from "./chainsGraph";
 import { loadGraph } from "./graph";
 import { loadModules } from "./loader";
-import { portRef, splitPort } from "./moduleTypes";
 import { compileNodeProject } from "./nodeProject";
 
 let dir: string;

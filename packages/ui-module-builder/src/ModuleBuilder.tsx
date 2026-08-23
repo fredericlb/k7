@@ -31,12 +31,12 @@ import {
 import {
   builtinPluginFor,
   builtinPluginForRef,
-} from "@studio/song/builtinParams";
+} from "@studio/song-schema/builtinParams";
 import {
   FILE_PARAMS,
   MODULE_STATUSES,
   type ModuleStatus,
-} from "@studio/song/moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
 import type {
   Hints,

@@ -12,9 +12,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSurfaceFile, projectSurfaces, surfaceIssues } from "./surfaces";
-import { parseSurface } from "./yaml/surfaceFile";
 
 let root: string;
 beforeEach(() => {

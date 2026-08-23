@@ -6,7 +6,19 @@
 
 import { type Dirent, existsSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
-import { builtinParamsFor, type ParamRange } from "./builtinParams";
+import {
+  builtinParamsFor,
+  type ParamRange,
+} from "@studio/song-schema/builtinParams";
+import {
+  completionOrder,
+  isEngineRef,
+  MIX_NODE,
+  moduleStatusOf,
+  OUT_NODE,
+  RENDER_NODE,
+  VIDEO_OUT_NODE,
+} from "@studio/song-schema/moduleTypes";
 import { deriveChains } from "./chainsGraph";
 import {
   baseModuleRefs,
@@ -22,15 +34,6 @@ import {
 } from "./loader";
 import { assetLookup, moduleAssetChoices } from "./moduleAssetChoices";
 import { resolvedRack, resolvedType, resolveModuleMap } from "./moduleResolve";
-import {
-  completionOrder,
-  isEngineRef,
-  MIX_NODE,
-  moduleStatusOf,
-  OUT_NODE,
-  RENDER_NODE,
-  VIDEO_OUT_NODE,
-} from "./moduleTypes";
 import { loadPreferences } from "./preferences";
 
 export interface Hints {

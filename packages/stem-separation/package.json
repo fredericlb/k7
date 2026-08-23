@@ -1,0 +1,30 @@
+{
+  "name": "@studio/stem-separation",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Splitting a mix into stems: the ONNX model, the worker thread it runs on, and the job registry that hashes the work so a re-run costs nothing twice. Split out of @studio/file-service to keep `onnxruntime-node` — the one NATIVE dependency in the tray's bundle closure, and the reason `external` + a staged node_modules exist at all (docs/stemSplit.md) — behind one package rather than loose in the service. Consumed as source.",
+  "exports": {
+    "./separateJobs": "./src/separateJobs.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@studio/song-schema": "*",
+    "@studio/web-protocol": "*",
+    "onnxruntime-node": "^1.20.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

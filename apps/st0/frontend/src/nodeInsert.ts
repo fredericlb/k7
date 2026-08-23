@@ -9,7 +9,7 @@
 // whole reason for the argument order.
 
 import type { WebGraph } from "@studio/graph-model";
-import { instanceName } from "@studio/song/instanceName";
+import { instanceName } from "@studio/song-schema/instanceName";
 
 /** The pending half of a `+` click: the arrow the module is being dropped onto. */
 export interface PendingInsert {

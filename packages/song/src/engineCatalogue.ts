@@ -25,7 +25,7 @@ import {
   IO_MODULES,
   MODULE_TYPES,
   slugifyPluginName,
-} from "./moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 import type { LoadedModule } from "./rawDoc";
 
 /** The scan cache. CONTRACT path — the C++ engine writes and reads this same file (PluginScan.cpp `extsCacheFile()`). */

@@ -14,7 +14,7 @@ import {
   seqWindowFromText,
   type WindowSpan,
   windowSpan,
-} from "@studio/song/seqWindow";
+} from "@studio/song-schema/seqWindow";
 import {
   findNotesArray,
   type Note,

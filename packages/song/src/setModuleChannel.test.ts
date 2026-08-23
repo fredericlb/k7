@@ -1,5 +1,5 @@
+import { setModuleList } from "@studio/song-schema/yaml/moduleFile";
 import { describe, expect, it } from "vitest";
-import { setModuleList } from "./yaml/moduleFile";
 
 // Writing an input's socket into its own file. `channel:` is spelt INLINE everywhere in this repo
 // and in the docs — a two-element block sequence costs three lines to say one thing, and these are

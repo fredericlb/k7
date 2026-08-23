@@ -9,7 +9,7 @@
 // See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
-import { playlistPathOf } from "@studio/song/playlist";
+import { playlistPathOf } from "@studio/song-schema/playlist";
 import {
   ListMusic,
   Loader2,

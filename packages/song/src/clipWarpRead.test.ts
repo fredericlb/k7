@@ -12,10 +12,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readClipWarp } from "@studio/song-schema/warpPoints";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
-import { readClipWarp } from "./warpPoints";
 
 let dir: string;
 

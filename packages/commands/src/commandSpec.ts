@@ -6,18 +6,19 @@
 import { type Dirent, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { alternativesOf } from "@studio/song/alternatives";
+import { chainNames } from "@studio/audio-passes/processChain";
 import { loadCurves } from "@studio/song/curves";
 import { loadModuleRefs, loadModules, MODULE_TYPES } from "@studio/song/loader";
+import { alternativesOf } from "@studio/song-schema/alternatives";
 import {
   completionOrder,
   isEngineRef,
   type ModuleStatus,
   moduleStatusOf,
-} from "@studio/song/moduleTypes";
-import { PLAYLISTS_DIR } from "@studio/song/playlist";
-import { parsePosition } from "@studio/song/timecode";
-import { SURFACE_TYPES } from "@studio/song/yaml/surfaceSchema";
+} from "@studio/song-schema/moduleTypes";
+import { PLAYLISTS_DIR } from "@studio/song-schema/playlist";
+import { parsePosition } from "@studio/song-schema/timecode";
+import { SURFACE_TYPES } from "@studio/song-schema/yaml/surfaceSchema";
 import { parse as parseYaml } from "yaml";
 import {
   type CommandHost,
@@ -26,7 +27,6 @@ import {
   SID_HANDLERS,
 } from "./commands";
 import { alternatives } from "./git";
-import { chainNames } from "./processChain";
 
 // The surfaces a command can appear on. Only one remains — the web backend dispatches under "cli" too — but it
 // stays a type so a future surface needing its own subset has somewhere to hook in.

@@ -35,7 +35,7 @@
     "@codemirror/state": "^6.4.0",
     "@codemirror/view": "^6.34.0",
     "@lezer/highlight": "^1.2.0",
-    "@studio/song": "*",
+    "@studio/song-schema": "*",
     "@studio/web-protocol": "*",
     "yaml": "^2.5.0"
   },

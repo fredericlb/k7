@@ -5,7 +5,21 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { WebOut } from "@studio/graph-model";
-import { alternativesOf, currentAlternative } from "./alternatives";
+import {
+  alternativesOf,
+  currentAlternative,
+} from "@studio/song-schema/alternatives";
+import {
+  isBuiltinOutput,
+  isIoSource,
+  MIX_NODE,
+  type ModuleKind,
+  portRef,
+  RENDER_NODE,
+  splitPort,
+} from "@studio/song-schema/moduleTypes";
+import { parsePosition } from "@studio/song-schema/timecode";
+import type { ControllerFile } from "@studio/song-schema/yaml/moduleSchema";
 import { bypassedOf, deriveChains, isParked } from "./chainsGraph";
 import {
   exportSub,
@@ -29,15 +43,6 @@ import {
   resolveModule,
   resolveModuleMap,
 } from "./moduleResolve";
-import {
-  isBuiltinOutput,
-  isIoSource,
-  MIX_NODE,
-  type ModuleKind,
-  portRef,
-  RENDER_NODE,
-  splitPort,
-} from "./moduleTypes";
 import { loadPreferences, type Preferences, resolveInput } from "./preferences";
 import type {
   LoadedModule,
@@ -47,9 +52,7 @@ import type {
   RawSequence,
   RawVideoTrack,
 } from "./rawDoc";
-import { parsePosition } from "./timecode";
 import { type Lane, laneMaterials, laneSignal, lanesOf } from "./trackModule";
-import type { ControllerFile } from "./yaml/moduleSchema";
 
 // --- model -------------------------------------------------------------------
 
@@ -230,7 +233,7 @@ export interface Module {
   // Which SHADER a shader node runs — a folder under its own `shaders/` or an ancestor's. A field
   // rather than a param for the reason `base` is one: the four knobs steer a program, this picks
   // which program is compiled. Absent on every module that is not one, and on a shader node with
-  // nothing chosen — which passes its picture through. See docs/shaders.md.
+  // nothing chosen — which passes its picture through. See packages/song-video/docs/shaders.md.
   shader?: string;
   ui?: ModuleUI;
   // What this module LOADS, when it is a rack: its symbols, their notes and their material, with
@@ -622,7 +625,7 @@ export function buildGraph(
     cold: b?.cold === true ? true : undefined,
     // Which SHADER a shader node runs. Inherited too, and that is what a node of a shader module
     // is FOR: the module carries the folder of programs and each node picks one. See
-    // docs/shaders.md.
+    // packages/song-video/docs/shaders.md.
     shader: typeof b?.shader === "string" && b.shader ? b.shader : undefined,
     ui: resolvedUI(b),
     // Stamped on by the loader from the folder's file; re-validated here because a map read off a
@@ -757,7 +760,7 @@ export function buildGraph(
   // A VIDEO lane counts, and has to: it lives in `video_tracks/` rather than in `modules`, so it
   // matched neither test and a `main: [ glow ]` was read as a run whose first STEP was a module
   // called `main` — which reported the lane as "not a module or module node", about a file
-  // sitting right there. One map, one name space, both kinds of lane. See docs/shaders.md.
+  // sitting right there. One map, one name space, both kinds of lane. See packages/song-video/docs/shaders.md.
   const chains: Record<string, Chain> = {};
   const isLane = (n: string) =>
     modules[n]?.kind === "track" || !!videoTracks[n];

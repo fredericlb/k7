@@ -3,7 +3,7 @@
 // come back untouched, because nothing on screen would show them going missing until the file is
 // saved and a page nobody was looking at has gone.
 
-import type { ModuleUI, Widget } from "@studio/song/yaml/moduleSchema";
+import type { ModuleUI, Widget } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import { type PageRef, widgetsAt, writeWidgetsAt } from "./WidgetGridEditor";
 

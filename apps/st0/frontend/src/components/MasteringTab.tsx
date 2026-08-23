@@ -11,7 +11,7 @@ import {
   usePluginParamValue,
 } from "@studio/engine-browser/params";
 import type { WebGraph } from "@studio/graph-model";
-import type { ProjectSurface } from "@studio/song/yaml/surfaceFile";
+import type { ProjectSurface } from "@studio/song-schema/yaml/surfaceFile";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useRevision } from "../hooks/useRevision";

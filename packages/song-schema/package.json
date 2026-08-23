@@ -1,0 +1,62 @@
+{
+  "name": "@studio/song-schema",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A song's FILE FORMAT and the value vocabulary around it: one zod schema and one reader/writer per kind of YAML file, plus the small pure modules a surface reads (timecode, moduleTypes, playlist, stems…). Nothing here touches node:fs, which is the whole point — this is the half of @studio/song a browser may import. Consumed as source.",
+  "exports": {
+    "./alternatives": "./src/alternatives.ts",
+    "./builtinParams": "./src/builtinParams.ts",
+    "./instanceName": "./src/instanceName.ts",
+    "./moduleTypes": "./src/moduleTypes.ts",
+    "./placementId": "./src/placementId.ts",
+    "./playlist": "./src/playlist.ts",
+    "./seqWindow": "./src/seqWindow.ts",
+    "./songRef": "./src/songRef.ts",
+    "./stems": "./src/stems.ts",
+    "./timecode": "./src/timecode.ts",
+    "./trackKind": "./src/trackKind.ts",
+    "./warpPoints": "./src/warpPoints.ts",
+    "./yaml/alternativeFile": "./src/yaml/alternativeFile.ts",
+    "./yaml/curveFile": "./src/yaml/curveFile.ts",
+    "./yaml/entitySchemas": "./src/yaml/entitySchemas.ts",
+    "./yaml/fields": "./src/yaml/fields.ts",
+    "./yaml/graphFile": "./src/yaml/graphFile.ts",
+    "./yaml/graphSchema": "./src/yaml/graphSchema.ts",
+    "./yaml/mixFile": "./src/yaml/mixFile.ts",
+    "./yaml/mixViewFile": "./src/yaml/mixViewFile.ts",
+    "./yaml/mixViewSchema": "./src/yaml/mixViewSchema.ts",
+    "./yaml/moduleFile": "./src/yaml/moduleFile.ts",
+    "./yaml/moduleSchema": "./src/yaml/moduleSchema.ts",
+    "./yaml/placementSchema": "./src/yaml/placementSchema.ts",
+    "./yaml/projectSchema": "./src/yaml/projectSchema.ts",
+    "./yaml/sequenceFile": "./src/yaml/sequenceFile.ts",
+    "./yaml/surfaceFile": "./src/yaml/surfaceFile.ts",
+    "./yaml/surfaceSchema": "./src/yaml/surfaceSchema.ts",
+    "./yaml/trackFile": "./src/yaml/trackFile.ts",
+    "./yaml/uiFile": "./src/yaml/uiFile.ts",
+    "./yaml/validate": "./src/yaml/validate.ts",
+    "./yaml/videoTrackFile": "./src/yaml/videoTrackFile.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "tsc --noEmit --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0",
+    "zod": "^4.4.3",
+    "@studio/engine-protocol": "*",
+    "@studio/web-protocol": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

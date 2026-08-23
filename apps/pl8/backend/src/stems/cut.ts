@@ -10,7 +10,7 @@ import { pipeline } from "node:stream/promises";
 import type { EngineEntry } from "@studio/engine-registry";
 import { safePath } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
-import { STEMS_DIR } from "@studio/song/stems";
+import { STEMS_DIR } from "@studio/song-schema/stems";
 import {
   ENGINE_TOKEN_HEADER,
   type SeparateJob,

@@ -27,9 +27,7 @@ import {
   resolve,
   sep,
 } from "node:path";
-import type { K7Result } from "@studio/commands/render";
 import type { ShareBundle } from "@studio/commands/share-bundle";
-import { wavSeconds } from "@studio/commands/wavLength";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
 // WebGraph is graph-model's, not web-protocol's — the graph types were split out so the three apps that draw chains needn't pull in auth and the registry.
@@ -62,9 +60,7 @@ import {
   materialiseEngineModule,
   sharedModuleRef,
 } from "@studio/song/moduleFork";
-import { ENGINE_NS, type ModuleNamespace } from "@studio/song/moduleTypes";
 import { isFrozenClipId, materialRefOf } from "@studio/song/nodeProject";
-import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song/playlist";
 import {
   formatAudioDevice,
   formatChannels,
@@ -87,15 +83,29 @@ import {
   moduleLibraryDirs,
   moduleNamespaceOf,
 } from "@studio/song/sharedFolders";
-import { projectSurfaces, surfaceIssues } from "@studio/song/surfaces";
+import {
+  isVideoProject,
+  projectSurfaces,
+  surfaceIssues,
+} from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
-import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
 import { ensureVideoRun } from "@studio/song/videoOutputs";
-import { isVideoProject, loadVideoProject } from "@studio/song/videoProject";
-import { videoDuration } from "@studio/song/videoTracks";
-import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
 import { PRESETS_BASE } from "@studio/song/yaml/moduleIO";
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import {
+  ENGINE_NS,
+  type ModuleNamespace,
+} from "@studio/song-schema/moduleTypes";
+import { PLAYLISTS_DIR, parsePlaylist } from "@studio/song-schema/playlist";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
+import type {
+  VideoProjectDoc,
+  VideoTrackDoc,
+} from "@studio/song-video/videoDoc";
+import { loadVideoProject } from "@studio/song-video/videoProject";
+import { videoDuration } from "@studio/song-video/videoTracks";
+import type { K7Result } from "@studio/take-render/render";
+import { wavSeconds } from "@studio/take-render/wavLength";
 import type {
   ChangedFile,
   FileContent,

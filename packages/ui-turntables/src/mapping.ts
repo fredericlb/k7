@@ -3,7 +3,7 @@
 // validates the SHAPE of a mapping and deliberately not its ids.
 // See packages/song/docs/surfaces.md.
 
-import type { MixView } from "@studio/song/yaml/mixViewSchema";
+import type { MixView } from "@studio/song-schema/yaml/mixViewSchema";
 import { MIX_CONTROLS, type MixControl } from "./controls";
 import { DECKS } from "./deck";
 

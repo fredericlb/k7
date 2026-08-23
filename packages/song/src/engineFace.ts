@@ -10,7 +10,7 @@ import {
   engineRef,
   MODULE_TYPES,
   slugifyPluginName,
-} from "./moduleTypes";
+} from "@studio/song-schema/moduleTypes";
 
 export interface EngineFace {
   /** The `@engine` ref the module inherits everything from. */

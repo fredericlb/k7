@@ -23,7 +23,6 @@
    height and read as roughly correct, and the graph preview under the grid collapsed to nothing
    at all — no error, no warning, just an invisible panel. */
 @source "../../../../packages/ui-module-builder/src";
-@source "../../../../packages/ui-chains-react/src";
 @source "../../../../packages/ui-waveform/src";
 
 /* @studio/ui-waveform's own stylesheet (imported in main.tsx) colours its wrapper from

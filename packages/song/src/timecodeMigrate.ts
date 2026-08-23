@@ -3,7 +3,6 @@
 // WRITER emits the short form now, so an untouched song drifts into two spellings the moment
 // anything is edited. Driven by scripts/migrateTimecodes.ts. See docs/timecode.md.
 
-import { isScalar, parseDocument, visit } from "yaml";
 import {
   beatsToDuration,
   beatsToPosition,
@@ -11,8 +10,9 @@ import {
   parseLegacyDuration,
   parseLegacyPosition,
   parsePosition,
-} from "./timecode";
-import { TIMECODE } from "./yaml/placementSchema";
+} from "@studio/song-schema/timecode";
+import { TIMECODE } from "@studio/song-schema/yaml/placementSchema";
+import { isScalar, parseDocument, visit } from "yaml";
 
 /**
  * Which fields hold a timecode, and whether it counts from 1 or from 0.

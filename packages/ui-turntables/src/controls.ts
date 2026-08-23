@@ -1,7 +1,7 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
-import { STEMS, type Stem, stemControl } from "@studio/song/stems";
+import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
 import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
 
 /** How much of an instrument to REMOVE: none of it, or all of it. The `stemcut` module's own

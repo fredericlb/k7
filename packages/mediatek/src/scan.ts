@@ -7,7 +7,7 @@ import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 // Where a separation's four files land, beside the master. `@studio/song`'s, because the graph
 // of a set names the same folder and neither package can hold the word alone.
-import { STEMS_DIR } from "@studio/song/stems";
+import { STEMS_DIR } from "@studio/song-schema/stems";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";

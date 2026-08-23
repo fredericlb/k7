@@ -10,9 +10,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { moduleKeyFromPath } from "@studio/song-schema/moduleTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
-import { moduleKeyFromPath } from "./moduleTypes";
 import { writeModule } from "./testSupport";
 
 let dir: string;

@@ -308,7 +308,7 @@ to the module — which is the same feature arriving where it belongs, a lane be
   whose neutralisation pass the new one does not need — gain and pan are a module now, so where
   they sit relative to the freeze point already says whether they bake in.
 
-`video_source` is simply gone: it is sayable — a song carries picture ([picture.md](picture.md)) —
+`video_source` is simply gone: it is sayable — a song carries picture ([picture.md](../../song-video/docs/picture.md)) —
 and nothing reads it.
 
 `contentType` went in two steps, and the second is the interesting one. It came off the FILE first,

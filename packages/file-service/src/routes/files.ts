@@ -10,14 +10,14 @@ import {
   gitStatus,
   pull,
 } from "@studio/commands/git";
-import { NEEDS_META } from "@studio/commands/render";
 import type { ProjectDoc } from "@studio/engine-protocol/project";
 import {
   applyPresetToModule,
   listModulePresets,
   saveModuleAsPreset,
-} from "@studio/song/presets";
-import { PROJECT_SHAPES } from "@studio/song/yaml/projectSchema";
+} from "@studio/song-edit/presets";
+import { PROJECT_SHAPES } from "@studio/song-schema/yaml/projectSchema";
+import { NEEDS_META } from "@studio/take-render/render";
 import express, { Router } from "express";
 import { z } from "zod";
 import { guard } from "../background.ts";

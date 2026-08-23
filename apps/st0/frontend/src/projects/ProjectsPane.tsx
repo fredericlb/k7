@@ -3,7 +3,7 @@
 // présentationnelles à côté. Celui qui est ouvert vient de l'adresse (Home.tsx), pas d'un état
 // local. Voir ../../docs/projects.md.
 
-import type { ProjectShape } from "@studio/song/yaml/projectSchema";
+import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import type {
   FileNode,
   MachineWorkspace,

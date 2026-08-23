@@ -5,9 +5,12 @@
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { wrap } from "@frediverse/http/route";
-import { STEMS_DIR } from "@studio/song/stems";
+import { STEMS_DIR } from "@studio/song-schema/stems";
+import {
+  separateJob,
+  startSeparate,
+} from "@studio/stem-separation/separateJobs";
 import { Router } from "express";
-import { separateJob, startSeparate } from "../separateJobs.ts";
 
 export const separateRouter: Router = Router();
 

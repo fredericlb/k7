@@ -138,7 +138,7 @@ npx tsx engine/moteur/scripts/quick-master.ts   # RENVOIE du son et le mesure
 ```
 
 La deuxième ligne crée le plugin, lit ses dix paramètres et écrit
-`packages/song/src/builtinParams.generated.ts`. Un plugin qui ne s'instancie pas, ou dont
+`packages/song-schema/src/builtinParams.generated.ts`. Un plugin qui ne s'instancie pas, ou dont
 les plages ne sont pas celles qu'on croit, s'y voit tout de suite — et ce fichier est
 committé, donc `git diff` est la comparaison.
 

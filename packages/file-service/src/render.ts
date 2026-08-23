@@ -6,8 +6,8 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MP3_CODEC, transcode } from "@studio/commands/render";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
+import { MP3_CODEC, transcode } from "@studio/take-render/render";
 
 /** How long a bounce may take before it is killed. A three-minute song renders in seconds;
  *  this is the bound on a WEDGED one, which prints nothing and burns no CPU. */
@@ -101,7 +101,7 @@ async function bounce(
 /**
  * The same renders as mp3, where ffmpeg can manage it.
  *
- * BEST-EFFORT, which is the established rule here (see `@studio/commands/render`, which the
+ * BEST-EFFORT, which is the established rule here (see `@studio/take-render/render`, which the
  * CLI path has used for as long as it has offered formats): the engine writes wav and nothing
  * else, ffmpeg is not a dependency of this repo, and a machine without it must still be able to
  * bounce. So a failed transcode costs the FORMAT and never the render — the caller gets the wav

@@ -32,7 +32,7 @@
   "dependencies": {
     "@studio/engine-client": "*",
     "yaml": "^2.5.0",
-    "@studio/song": "*"
+    "@studio/song-schema": "*"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

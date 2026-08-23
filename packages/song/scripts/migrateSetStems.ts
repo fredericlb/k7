@@ -20,10 +20,15 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  STEMS,
+  stemControl,
+  stemCut,
+  stemLane,
+} from "@studio/song-schema/stems";
+import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { type Pair, parseDocument, type YAMLMap, type YAMLSeq } from "yaml";
 import { stemNodeFiles } from "../src/scaffoldSet.ts";
-import { STEMS, stemControl, stemCut, stemLane } from "../src/stems.ts";
-import { GRAPH_FILE } from "../src/yaml/graphSchema.ts";
 
 /** What `yaml/graphFile.ts` pins, restated: 1.2 so a `5:1:1` scalar stays a string, and no
  *  wrapping, which is what keeps `bypassed:` on one line however many lanes it grows. */

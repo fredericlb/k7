@@ -7,7 +7,7 @@
 
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { LEGACY_MEDIATEK_NS } from "../src/moduleTypes.ts";
+import { LEGACY_MEDIATEK_NS } from "@studio/song-schema/moduleTypes";
 
 const FROM = `@${LEGACY_MEDIATEK_NS}/`;
 const TO = "@st0/";

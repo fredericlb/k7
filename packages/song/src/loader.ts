@@ -18,20 +18,7 @@ import {
   JSDSP_FILE,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
-import { parse as parseYaml } from "yaml";
-import type { ZodType } from "zod";
-import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
-import { presetFor } from "./basePreset";
-import { loadControllerLibrary } from "./controller";
-import { studioModules } from "./docModule";
-import { engineModules, engineRef } from "./engineCatalogue";
-import { instanceName } from "./instanceName";
-import { cachedForModules, withModuleStamp } from "./moduleCache";
-import {
-  mergeAuthored,
-  resolveModuleMap,
-  resolveModuleRef,
-} from "./moduleResolve";
+import { instanceName } from "@studio/song-schema/instanceName";
 import {
   categoryForRole,
   FILE_PARAMS,
@@ -46,7 +33,33 @@ import {
   slugifyPluginName,
   splitModuleKey,
   TRACK_REF,
-} from "./moduleTypes";
+} from "@studio/song-schema/moduleTypes";
+import { ENTITY_SCHEMAS } from "@studio/song-schema/yaml/entitySchemas";
+import { parseGraph as parseGraphYaml } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
+import {
+  cueRefs,
+  MIX_BASE,
+  parseMix as parseMixYaml,
+} from "@studio/song-schema/yaml/mixFile";
+import { formatIssue } from "@studio/song-schema/yaml/moduleFile";
+import {
+  ProjectFileSchema,
+  SettingsSchema,
+} from "@studio/song-schema/yaml/projectSchema";
+import { parse as parseYaml } from "yaml";
+import type { ZodType } from "zod";
+import { MODULE_ASSETS_DIR, resolveModuleAssetIn } from "./assetPath";
+import { presetFor } from "./basePreset";
+import { loadControllerLibrary } from "./controller";
+import { studioModules } from "./docModule";
+import { engineModules, engineRef } from "./engineCatalogue";
+import { cachedForModules, withModuleStamp } from "./moduleCache";
+import {
+  mergeAuthored,
+  resolveModuleMap,
+  resolveModuleRef,
+} from "./moduleResolve";
 import type {
   LoadedModule,
   RawProjectRoot,
@@ -57,11 +70,6 @@ import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { type Lane, lanesOf, trackModules } from "./trackModule";
 import { loadUiLibrary } from "./uiLibrary";
 import { setFileValue } from "./yaml/edit";
-import { ENTITY_SCHEMAS } from "./yaml/entitySchemas";
-import { parseGraph as parseGraphYaml } from "./yaml/graphFile";
-import { GRAPH_BASE } from "./yaml/graphSchema";
-import { cueRefs, MIX_BASE, parseMix as parseMixYaml } from "./yaml/mixFile";
-import { formatIssue } from "./yaml/moduleFile";
 import {
   entityFileFor,
   entityFiles,
@@ -69,7 +77,6 @@ import {
   nodeFiles,
   readModuleFile,
 } from "./yaml/moduleIO";
-import { ProjectFileSchema, SettingsSchema } from "./yaml/projectSchema";
 import { parsedYaml } from "./yaml/yamlCache";
 
 // The module vocabulary lives in moduleTypes.ts (a leaf, no filesystem) so the engine

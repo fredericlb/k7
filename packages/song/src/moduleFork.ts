@@ -19,15 +19,15 @@ import {
   resolve,
   sep,
 } from "node:path";
+import { instanceName, namePart } from "@studio/song-schema/instanceName";
+import { parseGraph, renameNode } from "@studio/song-schema/yaml/graphFile";
+import { GRAPH_BASE } from "@studio/song-schema/yaml/graphSchema";
 import { deriveChains } from "./chainsGraph";
 import { engineModules } from "./engineCatalogue";
-import { instanceName, namePart } from "./instanceName";
 import { loadProjectRoot, MODULE_TYPES, moduleRefOf } from "./loader";
 import type { LoadedModule } from "./rawDoc";
 import { moduleLibraryDirs, moduleNamespaceOf } from "./sharedFolders";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
-import { parseGraph, renameNode } from "./yaml/graphFile";
-import { GRAPH_BASE } from "./yaml/graphSchema";
 import { entityFileFor, moduleFileFor } from "./yaml/moduleIO";
 
 export type ForkedModule = {

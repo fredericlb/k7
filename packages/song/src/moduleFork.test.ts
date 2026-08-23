@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { formatChains } from "@studio/song-schema/yaml/graphFile";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadModules } from "./loader";
 import {
@@ -17,7 +18,6 @@ import {
 } from "./moduleFork";
 import { writeLibrary } from "./testSupport";
 import { loadUiLibrary, writeUiFile } from "./uiLibrary";
-import { formatChains } from "./yaml/graphFile";
 
 // Editing a module that lives in the workspace's SHARED `_modules` must never write there — one library backs
 // every project, so a save made while mixing one song would change the others. The edit is copied into the

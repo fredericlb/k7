@@ -119,6 +119,6 @@ Absent is how a lane with no takes reads.
 | the strip | `project.ts`'s `withoutTakes`, applied in `engine-client` |
 | the wire to the browser | `WebTake` in `@studio/web-protocol`, filled by `workspace.ts` |
 | the rows | `apps/st0/frontend/src/rows.ts`, drawn by `TimelineTab.tsx` and `Minimap.tsx` |
-| making one while recording | `packages/commands/src/recordTake.ts` |
+| making one while recording | `packages/take-render/src/recordTake.ts` |
 | the review sidebar | `apps/st0/frontend/src/takeReview.ts` → `AudioClipPanel.tsx` |
 | the three verbs | `commands.yaml` → `track.take.select` / `track.take.keep` / `track.take.delete` |

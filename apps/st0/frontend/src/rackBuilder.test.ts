@@ -1,4 +1,4 @@
-import { ModuleSchema } from "@studio/song/yaml/moduleSchema";
+import { ModuleSchema } from "@studio/song-schema/yaml/moduleSchema";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {

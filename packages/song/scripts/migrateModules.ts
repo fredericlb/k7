@@ -16,13 +16,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { renameNode } from "@studio/song-schema/yaml/graphFile";
 import { engineModules } from "../src/engineCatalogue";
 import {
   DEFAULT_NODE,
   migrateLibrary,
   migrateProjectModules,
 } from "../src/moduleMigrate";
-import { renameNode } from "../src/yaml/graphFile";
 
 const root = process.argv[2];
 if (!root) {

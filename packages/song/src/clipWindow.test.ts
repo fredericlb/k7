@@ -2,12 +2,12 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ClipSchema } from "@studio/song-schema/yaml/entitySchemas";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readYamlEntities } from "./loader";
 import { compileNodeProject } from "./nodeProject";
 import { loadAudioClipDoc } from "./project";
 import { writeYaml } from "./testSupport";
-import { ClipSchema } from "./yaml/entitySchemas";
 
 // `from`/`to` window the SOURCE FILE, at TWO levels. The clip's own file carries the material's
 // window — the slice it is, shared by every placement — and a placement may carry the same two

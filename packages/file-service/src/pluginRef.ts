@@ -2,7 +2,7 @@
 // routes now ask the same question — what it HAS, what it looks like, and what it is holding.
 
 import { scannedPlugins } from "@studio/engine-client/pluginCache";
-import { engineModuleOf } from "@studio/song/moduleTypes";
+import { engineModuleOf } from "@studio/song-schema/moduleTypes";
 
 /** The pair, or the error to send. */
 export type PluginRef =

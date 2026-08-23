@@ -212,7 +212,7 @@ A viewport surface draws the composited picture and nothing else. Where the pict
 *placed* is the timeline's business — the same timeline the song's audio lanes are on, whose
 ruler reads bars or seconds. There is deliberately no second arrangement surface for picture:
 one grid that can be read in two units beats two grids that must be kept in step. See
-[picture.md](picture.md) and `apps/st0/frontend/docs/picture.md`.
+[picture.md](../../song-video/docs/picture.md) and `apps/st0/frontend/docs/picture.md`.
 
 ### `split` was never `view` drawn smaller
 
@@ -305,7 +305,7 @@ two answers to "is this surface valid".
 
 ```
 surfaces/<id>.yaml
-  → SurfaceSchema          packages/song/src/yaml/surfaceSchema.ts   (browser-safe)
+  → SurfaceSchema          packages/song-schema/src/yaml/surfaceSchema.ts   (browser-safe)
   → projectSurfaces(dir)   packages/song/src/surfaces.ts             (the disk walk)
   → GET /surfaces          a derived view, like /graph beside it
   → useSurfaces            apps/st0/frontend/src/hooks/useSurfaces.ts

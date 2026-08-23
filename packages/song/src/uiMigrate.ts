@@ -10,13 +10,13 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, sep } from "node:path";
+import { setModuleValue } from "@studio/song-schema/yaml/moduleFile";
+import { type ModuleUI, UISchema } from "@studio/song-schema/yaml/moduleSchema";
 import { parse as parseYaml } from "yaml";
 import { MODULE_TYPES, moduleRefOf } from "./loader";
 import { moduleNamespaceOf } from "./sharedFolders";
 import { writeUiFile } from "./uiLibrary";
-import { setModuleValue } from "./yaml/moduleFile";
 import { moduleFileFor } from "./yaml/moduleIO";
-import { type ModuleUI, UISchema } from "./yaml/moduleSchema";
 
 export interface UiMigration {
   /** Panels written, as `<ref> → <library>/<path>`. */
