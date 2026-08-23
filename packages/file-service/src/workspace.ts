@@ -141,7 +141,7 @@ import {
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { moduleFoldersMoved } from "./moduleWatch.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
-// Les quatre actes d'export, derrière un hôte de six membres — voir shareOps.ts.
+// The four export acts, behind a host of six members — see shareOps.ts.
 import {
   buildShare,
   exportMix,
@@ -2203,9 +2203,9 @@ export class Workspace {
 
   // --- export / share -------------------------------------------------------
   //
-  // Les quatre actes sont dans `shareOps.ts` et ne passent que par l'hôte ci-dessous — même
-  // couture que `projectLifecycle`, et pour la même raison : `safePath` et `requireActive` n'ont
-  // pas à devenir de l'API publique pour qu'un module voisin rende un mixdown.
+  // The four acts live in `shareOps.ts` and go only through the host below — the same seam as
+  // `projectLifecycle`, and for the same reason: `safePath` and `requireActive` need not become
+  // public API for a neighbouring module to render a mixdown.
 
   private shareHost(): ShareHost {
     return {

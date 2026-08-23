@@ -1,7 +1,6 @@
-// system.ts — les verbes `system …` : ce qui appartient à la MACHINE et non à un projet. Le
-// cache de plugins qu'elle a scanné, les étiquettes et l'appairage de son interface, et la chaîne
-// avec laquelle elle sépare un morceau en stems. Tous marchent sans projet ouvert, ce qu'aucun
-// autre groupe ne peut dire.
+// system.ts — the `system …` verbs: what belongs to the MACHINE rather than to a project. The
+// plugin cache it scanned, its interface's labels and pairing, and the chain it splits a song into
+// stems with. All of them work with no project open, which no other group can claim.
 
 import { resolveChain } from "@studio/audio-passes/processChain";
 import {

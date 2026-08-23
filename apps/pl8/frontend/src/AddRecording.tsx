@@ -1,7 +1,7 @@
-// AddRecording.tsx — le bouton de la section RECORDINGS. Pas de dialogue : un enregistrement
-// n'a rien à confirmer, il se range à son heure. La voie principale reste
-// l'API (voir packages/mediatek/docs/recordings.md) ; ceci en est la porte manuelle, pour
-// un lot rapatrié d'un enregistreur.
+// AddRecording.tsx — the RECORDINGS section's button. No dialog: a recording has nothing to
+// confirm, it is filed by its own time. The main route stays the API (see
+// packages/mediatek/docs/recordings.md); this is the manual door, for a batch brought back off a
+// recorder.
 
 import { Button } from "@frediverse/ui/button";
 import { AUDIO_ACCEPT } from "@studio/mediatek/media";
@@ -25,8 +25,8 @@ export function AddRecording({
       await library.addRecordings(files);
       onDone();
     } catch (e) {
-      // Un envoi partiel est un vrai résultat : les fichiers passés sont dans la zone, et
-      // le rafraîchissement les montre malgré l'erreur.
+      // A partial upload is a real result: the files that made it are in the zone, and the refresh
+      // shows them despite the error.
       onDone();
       onError((e as Error).message);
     } finally {
@@ -57,8 +57,8 @@ export function AddRecording({
         className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
-          // Vidé tout de suite : sans ça, rechoisir le même lot après une erreur n'émet
-          // aucun change et le bouton paraît mort.
+          // Cleared at once: otherwise re-picking the same batch after an error emits no change
+          // and the button looks dead.
           e.target.value = "";
           if (files.length) void send(files);
         }}

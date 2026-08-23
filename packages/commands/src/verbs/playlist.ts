@@ -1,9 +1,9 @@
-// playlist.ts — les verbes `playlist …` : les set lists du DÉPÔT.
+// playlist.ts — the `playlist …` verbs: the REPOSITORY's set lists.
 //
-// `_playlists/` est à la racine de l'espace de travail, à côté de `_modules`, donc ces verbes
-// agissent sur `repoDir` et non sur `songPath` : une playlist appartient au dépôt et reste la
-// même quel que soit le projet ouvert. Ce sont les seuls verbes du catalogue qui marchent sans
-// projet — sauf `playlist stems`, qui en demande un pour résoudre sa chaîne, et le dit.
+// `_playlists/` sits at the workspace root, beside `_modules`, so these verbs act on `repoDir` and
+// not on `songPath`: a playlist belongs to the repository and stays the same whatever project is
+// open. They are the only verbs in the catalogue that work without a project — except
+// `playlist stems`, which needs one to resolve its chain, and says so.
 
 import {
   existsSync,

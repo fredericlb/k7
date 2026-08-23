@@ -20,13 +20,13 @@ describe("enqueue", () => {
   });
 
   it("ne remet pas un morceau déjà en attente", () => {
-    // Deux « ajouter » sont presque toujours un second clic sur la même ligne, et une file qui
-    // joue deux fois le même titre à la suite est un défaut que personne n'attribue au clic.
+    // Two adds are almost always a second click on the same row, and a queue playing the same
+    // title twice in a row is a fault nobody blames on the click.
     expect(ids(enqueue(q("a", "b"), [song("b")]))).toEqual(["a", "b"]);
   });
 
   it("rend la MÊME file quand il n'y a rien à ajouter", () => {
-    // L'identité compte : un nouvel objet à chaque clic ferait re-rendre la barre pour rien.
+    // Identity matters: a new object on every click would re-render the bar for nothing.
     const before = q("a");
     expect(enqueue(before, [song("a")])).toBe(before);
   });
@@ -38,7 +38,7 @@ describe("removeAt", () => {
   });
 
   it("ignore un indice hors bornes", () => {
-    // Ce n'est pas une faute : c'est un clic sur ce qui vient d'être joué et retiré.
+    // Not a fault: it is a click on what has just played and been removed.
     const before = q("a");
     expect(removeAt(before, 3)).toBe(before);
     expect(removeAt(before, -1)).toBe(before);
@@ -51,8 +51,8 @@ describe("moveTo", () => {
   });
 
   it("descend une ligne — l'indice VOULU dans la liste finale", () => {
-    // Le piège : retirer d'abord décale tout ce qui suit, donc insérer à `to` dans la liste
-    // de départ ferait un déplacement d'un cran trop court, et le bouton semblerait mort.
+    // The trap: removing first shifts everything after, so inserting at `to` in the starting list
+    // would move one notch short, and the button would look dead.
     expect(ids(moveTo(q("a", "b", "c"), 0, 1))).toEqual(["b", "a", "c"]);
     expect(ids(moveTo(q("a", "b", "c"), 0, 2))).toEqual(["b", "c", "a"]);
   });

@@ -1,6 +1,6 @@
-// DeleteProject.tsx — le petit bouton texte à côté d'un projet, et sa confirmation. Nommer le
-// projet DANS la question est ce qui rend la confirmation utile : « êtes-vous sûr ? » ne dit
-// pas de quoi. Voir ../../docs/projects.md.
+// DeleteProject.tsx — the small text button beside a project, and its confirmation. Naming the
+// project IN the question is what makes the confirmation useful: "are you sure?" does not say of
+// what. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export function DeleteProject({
-  /** Le chemin du projet dans le dépôt — ce qu'on supprime, et ce que la question nomme. */
+  /** The project's path in the repository — what is deleted, and what the question names. */
   path,
   label,
   blocked,
@@ -54,7 +54,7 @@ export function DeleteProject({
         disabled={Boolean(blocked)}
         title={blocked || `Supprimer ${label}`}
         onClick={(e) => {
-          // La rangée entière est un lien vers le projet : sans ça, supprimer l'ouvrirait.
+          // The whole row is a link to the project: without this, deleting would open it.
           e.preventDefault();
           e.stopPropagation();
           setOpen(true);

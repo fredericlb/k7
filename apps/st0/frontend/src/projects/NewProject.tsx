@@ -1,6 +1,6 @@
-// NewProject.tsx — « Nouveau projet » dans le bloc d'un dépôt : l'archétype, le nom, et le
-// dossier déduit montré AVANT de créer — comme AddSong montre l'arborescence avant l'envoi,
-// parce qu'ici aussi c'est le nom qui décide de tout. Voir ../../docs/projects.md.
+// NewProject.tsx — "Nouveau projet" inside a repository's block: the archetype, the name, and the
+// derived folder shown BEFORE creating — as AddSong shows the tree before uploading, because here
+// too the name decides everything. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -18,22 +18,19 @@ import { useState } from "react";
 import { projectFolderName } from "./projectName";
 
 /**
- * Les trois ARCHÉTYPES — une seule rangée, là où il y en avait deux.
+ * The three ARCHETYPES — one row, where there used to be two.
  *
- * La rangée du dessus choisissait l'APPLICATION, donc le suffixe du dossier : `.st0`, `.m9`.
- * Il n'y en a plus qu'une, donc cette question n'a plus de réponses à départager — et ce qui
- * distingue ces trois-là est un GABARIT, pas une application. Les deux rangées n'en font donc
- * plus qu'une.
+ * The upper row chose the APPLICATION, and so the folder's suffix. There is only one app now, so
+ * that question has no answers left to pick between, and what tells these three apart is a
+ * TEMPLATE rather than an application.
  *
- * Chacun porte le nom de la SURFACE sur laquelle il s'ouvre, parce que c'est exactement ce
- * qu'on choisit ici : un projet ne se distingue plus par ce qu'il EST — tout est un `.st0` — mais
- * par l'écran qu'il déclare (packages/song/docs/surfaces.md). Un quatrième existait, « live » :
- * le graphe seul, aucune surface. Il est parti avec ce nommage, une entrée dont la description
- * entière est « aucune des trois » n'étant pas un choix qu'on fait exprès. Le MODE `live`, lui,
- * reste — c'est ce que déclare un mix.
+ * Each is named after the SURFACE it opens on, because that is exactly what is being chosen: a
+ * project is no longer distinguished by what it IS — everything is a `.st0` — but by the screen
+ * it declares (packages/song/docs/surfaces.md). A fourth existed, `live`: the graph alone, no
+ * surface. It went with this naming, an entry whose whole description is "none of the three"
+ * being nothing anybody picks on purpose. The `live` MODE remains, and a mix declares it.
  *
- * z0 possède bien les dossiers `.z0` et n'a aucun gabarit : il n'a jamais eu sa place ici, et
- * n'en a plus besoin d'une. Voir `PROJECT_SHAPES` dans @studio/song.
+ * See `PROJECT_SHAPES` in @studio/song.
  */
 const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
   {
@@ -54,13 +51,13 @@ const SHAPES: { id: ProjectShape; label: string; what: string }[] = [
 ];
 
 export function NewProject({
-  /** Pourquoi c'est impossible, ou "" — une machine hors ligne est l'état ordinaire. */
+  /** Why it is impossible, or "" — an offline machine is the ordinary state. */
   blocked,
   onCreate,
 }: {
   blocked: string;
-  /** Rend la main quand c'est fait. `onStep` sert à raconter l'attente : cloner un dépôt prend
-   *  des dizaines de secondes, et un écran qui ne dit rien pendant ce temps semble figé. */
+  /** Returns when done. `onStep` narrates the wait: cloning takes tens of seconds, and a screen
+   *  saying nothing for that long looks frozen. */
   onCreate: (
     folder: string,
     onStep: (s: string) => void,
@@ -74,7 +71,7 @@ export function NewProject({
   const [step, setStep] = useState("");
   const [error, setError] = useState("");
 
-  // Un seul suffixe reste, et c'est celui-là : toute forme habite un dossier `.st0`.
+  // One suffix is left, and this is it: every shape lives in a `.st0` folder.
   const { folder, error: badName } = projectFolderName(name, "st0");
 
   const submit = () => {
@@ -117,8 +114,8 @@ export function NewProject({
           </DialogHeader>
 
           <div className="flex flex-col gap-3">
-            {/* L'archétype : il décide du GABARIT écrit dans le dossier. Le suffixe, lui, ne
-                se choisit plus — il n'y en a qu'un. */}
+            {/* The archetype decides the TEMPLATE written in the folder. The suffix is no
+                longer a choice — there is only one. */}
             <div className="flex items-center gap-2">
               {SHAPES.map((sh) => (
                 <Button
@@ -146,8 +143,8 @@ export function NewProject({
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
 
-            {/* Ce qui sera réellement créé, avant de valider. Un nom refusé le dit ici plutôt
-                qu'après un aller-retour jusqu'à la machine. */}
+            {/* What will actually be created, before confirming. A refused name says so here
+                rather than after a round trip to the machine. */}
             <p className="font-mono text-xs text-muted-foreground">
               {badName ? (
                 <span className="text-destructive">{badName}</span>

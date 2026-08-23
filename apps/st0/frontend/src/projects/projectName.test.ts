@@ -3,7 +3,7 @@ import { projectFolderName } from "./projectName";
 
 describe("projectFolderName", () => {
   it("pose le suffixe de l'application choisie", () => {
-    // C'est lui, et rien d'autre, qui décide où le projet s'ouvrira.
+    // It, and nothing else, decides where the project will open.
     expect(projectFolderName("hiver", "st0")).toEqual({
       folder: "hiver.st0",
       error: "",
@@ -20,35 +20,35 @@ describe("projectFolderName", () => {
   });
 
   it("laisse le MENU décider quand les deux se contredisent", () => {
-    // Quelqu'un qui écrit « hiver.z0 » puis choisit st0 a changé d'avis ; « hiver.z0.st0 » ne
-    // serait ni l'un ni l'autre. Le cas se rencontrait surtout entre `.st0` et `.m9`, avant
-    // qu'un set redevienne une forme de projet st0 plutôt qu'un dossier à part.
+    // Somebody typing "hiver.z0" then picking st0 changed their mind; "hiver.z0.st0" would be
+    // neither. It came up mostly between `.st0` and `.m9`, before a set became a shape of st0
+    // project again rather than a folder of its own.
     expect(projectFolderName("hiver.z0", "st0").folder).toBe("hiver.st0");
     expect(projectFolderName("hiver.st0", "z0").folder).toBe("hiver.z0");
   });
 
   it("garde un « v1 » qui fait partie du nom", () => {
-    // Il n'y a plus de suffixe `.v1` — l'image vit dans une chanson — mais « prise v1 » reste
-    // un nom parfaitement ordinaire, et rien ne doit y toucher.
+    // There is no `.v1` suffix any more — picture lives in a song — but "prise v1" is a perfectly
+    // ordinary name, and nothing must touch it.
     expect(projectFolderName("prise v1", "st0").folder).toBe("prise v1.st0");
   });
 
   it("refuse les séparateurs plutôt que de les remplacer en silence", () => {
-    // Le file-service en ferait des « _ » — c'est son contrat — mais un écran qui a la place
-    // de le dire vaut mieux qu'un dossier apparaissant sous un autre nom que celui qu'on a lu.
+    // The file service would turn them into "_" — that is its contract — but a screen with room to
+    // say so beats a folder appearing under a name other than the one that was read.
     expect(projectFolderName("chansons/hiver", "st0").error).toMatch(/\//);
     expect(projectFolderName("a\\b", "st0").error).toMatch(/\\\\|\\/);
   });
 
   it("refuse un nom qui commencerait par un point", () => {
-    // Le projet existerait sans se voir, ni ici ni dans l'arborescence du dépôt.
+    // The project would exist unseen, here and in the repository's tree alike.
     expect(projectFolderName(".caché", "st0").error).toMatch(/point/);
   });
 
   it("refuse le vide et l'espace seul", () => {
     expect(projectFolderName("", "st0").error).toBeTruthy();
     expect(projectFolderName("   ", "st0").error).toBeTruthy();
-    // Et un nom qui n'est QUE le suffixe : il ne resterait rien devant.
+    // And a name that is ONLY the suffix: nothing would be left in front.
     expect(projectFolderName(".st0", "st0").error).toBeTruthy();
   });
 

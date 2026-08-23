@@ -52,17 +52,17 @@ export function isReachable<E extends ProbeTarget>(
 }
 
 /**
- * Combien de temps une adresse a pour répondre `whoami`.
+ * How long an address has to answer `whoami`.
  *
- * Trois secondes et non une et demie, pour deux raisons qui vont ensemble. D'abord le coût :
- * les candidats sont mesurés EN PARALLÈLE, donc un moteur réellement absent coûte UN délai et
- * non un par adresse — l'allonger retarde le verdict de rien du tout dans le cas courant.
+ * Three seconds and not one and a half, for two reasons that go together. First the cost:
+ * candidates are measured IN PARALLEL, so a genuinely absent engine costs ONE timeout rather than
+ * one per address — lengthening it delays the verdict by nothing in the common case.
  *
- * Ensuite ce qu'on mesure. Sur toute machine autre que celle du moteur, les candidats directs
- * sont refusés par le navigateur (une page HTTPS n'ouvre pas de `ws://`), donc la seule voie
- * praticable est le RELAIS : page → proxy → backend → moteur. Juger ce chemin-là au budget
- * d'un aller-retour en loopback, c'est déclarer injoignable ce qui n'est que plus long — et
- * `unreachable` n'est pas une latence lente, c'est un état à part qui cache le moteur.
+ * Then what is being measured. On any machine other than the engine's, the direct candidates are
+ * refused by the browser (an HTTPS page opens no `ws://`), so the only workable route is the
+ * RELAY: page → proxy → backend → engine. Judging that path on a loopback round trip's budget
+ * declares unreachable what is merely longer — and `unreachable` is not slow latency, it is a
+ * state of its own that hides the engine.
  */
 const PROBE_TIMEOUT_MS = 3000;
 

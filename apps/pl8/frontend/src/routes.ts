@@ -5,8 +5,8 @@
 // Pure functions, so both directions can be tested as a sequence; the hook is useLibraryRoute.
 
 /** The three things the header offers, plus two sections with NO TAB, each reached by a button
- *  on the section it belongs to: `engine` (the cog's engine-status page) and `find` (« Trouver
- *  des morceaux », opened from Morceaux). `recordings` is a section and not a family — see
+ *  on the section it belongs to: `engine` (the cog's engine-status page) and `find`
+ *  (« Trouver des morceaux », opened from Morceaux). `recordings` is a section, not a family — see
  *  Library.tsx. Section ids used to have to dodge every path the proxy claimed above this app's
  *  catch-all, because this app WAS the origin root. That constraint is gone — st0 is the front
  *  door now and these live under `/pl8/`, where nothing else on the origin can reach. It moved

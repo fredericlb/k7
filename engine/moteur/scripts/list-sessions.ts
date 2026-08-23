@@ -91,12 +91,12 @@ async function main() {
   const ids = (list: typeof before) => (list ?? []).map((s) => s.id).sort();
   if (ids(before).join() !== "st0,m9")
     problems.push(`sessions attendues st0+m9, vu ${ids(before)}`);
-  // EXACTEMENT deux : une session "" ici veut dire que les requetes du superviseur en creent une.
+  // EXACTLY two: a "" session here means the supervisor's requests are creating one.
   if ((before ?? []).some((s) => s.id === ""))
     problems.push(
       "une session '' existe — une LECTURE a cree une session (cf. engine/moteur/docs/sessions.md)",
     );
-  // edit-plugins est global au moteur : il repond pour les DEUX sessions, chacune nommee.
+  // edit-plugins is engine-wide: it answers for BOTH sessions, each one named.
   const sessionsVues = new Set((plugins ?? []).map((p) => p.session));
   if (!sessionsVues.has("st0") || !sessionsVues.has("m9"))
     problems.push(

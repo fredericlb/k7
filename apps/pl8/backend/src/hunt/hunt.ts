@@ -29,11 +29,11 @@ import { type HuntRecord, listHunts, patchHunt, saveHunt } from "./store.ts";
 import { fetchFromYoutube, youtubeQuery } from "./youtube.ts";
 
 /**
- * L'échec après lequel YouTube a un sens : Soulseek a été interrogé et épuisé.
+ * The failure after which YouTube makes sense: Soulseek was asked and exhausted.
  *
- * Une CLASSE et pas une relecture du message : le texte des erreurs change avec les
- * reformulations, et un `includes("aucun pair")` finirait par ne plus rien reconnaître — donc
- * par ne plus jamais proposer le secours, sans que rien ne le signale.
+ * A CLASS and not a re-reading of the message: error text changes with rewording, and an
+ * `includes("no peer")` would eventually recognise nothing — and so never offer the fallback
+ * again, with nothing to signal it.
  */
 class ExhaustedError extends Error {}
 
@@ -94,12 +94,11 @@ function alreadyFiled(tags: SongTags): string | null {
   }
 }
 
-// `addToPlaylist` était ici : une recherche pouvait viser une playlist, et la ligne y était
-// écrite dès le morceau rangé. Les playlists sont dans le dépôt du workspace maintenant, sur le
-// disque du service de fichiers — ce service-ci n'y a pas accès, et lui en donner ferait de
-// celui qui tient la session et la clé de déploiement un écrivain dans le dépôt de chacun, ce
-// que apps/pl8/docs/projects.md refuse explicitement. La chasse range donc le morceau dans la
-// médiathèque, et l'ajouter à une setlist est un clic dans st0, sur le même catalogue.
+// `addToPlaylist` was here: a hunt could target a playlist, and the line was written as soon as
+// the song was filed. Playlists live in the workspace repository now, on the file service's disk,
+// which this service cannot reach — and giving it that reach would make the holder of the session
+// and the deploy key a writer in everyone's repository, which apps/pl8/docs/projects.md refuses.
+// So a hunt files the song, and adding it to a set list is a click in st0.
 
 /** Everything the network answered, up to the window or until it says it is done. */
 async function gather(searchId: string, signal: AbortSignal) {
@@ -261,8 +260,8 @@ async function run(
   const tried = new Set<string>();
   let taken: Candidate | null = null;
   let why = "";
-  // Le réseau a-t-il vraiment répondu « je ne l'ai pas » ? Posé ici et nulle part ailleurs :
-  // seul ce qui se passe DANS cette boucle dit quelque chose sur la disponibilité du morceau.
+  // Did the network really answer "I do not have it"? Set here and nowhere else: only what
+  // happens INSIDE this loop says anything about the track's availability.
   let exhausted = false;
   for (const text of searchTexts(tags.album, tags.title)) {
     if (tried.size >= MAX_SWITCHES) break;
@@ -280,7 +279,7 @@ async function run(
       }
       taken = await takeFromSomeone(sub, id, candidates, tried, signal);
       if (taken) break;
-      // Des pairs existaient et aucun n'a envoyé : c'est la forme la plus nette d'épuisement.
+      // Peers existed and none sent: the clearest form of exhaustion there is.
       exhausted = true;
       why = `${tried.size} pair${tried.size > 1 ? "s" : ""} essayé${tried.size > 1 ? "s" : ""} pour « ${text} », aucun n'a commencé à envoyer`;
     } finally {
@@ -295,8 +294,7 @@ async function run(
   // sentence about the album.
   if (!taken) {
     const why2 = why || "aucune recherche n'a abouti";
-    // Le TYPE porte l'information, pas le texte : c'est lui que `startHunt` lit pour décider
-    // si la ligne mérite le bouton YouTube.
+    // The TYPE carries the information, not the text: `startHunt` reads it to decide the button.
     throw exhausted ? new ExhaustedError(why2) : new Error(why2);
   }
 
@@ -332,8 +330,7 @@ export function startHunt(sub: string, query: string): HuntRecord {
       patchHunt(sub, rec.id, {
         status: "failed",
         error: message(e),
-        // Seul cet échec-là dit quelque chose sur la disponibilité du morceau, et donc seul
-        // celui-là fait apparaître « DL sur YouTube ».
+        // Only that failure says anything about availability, so only it offers the YouTube button.
         exhausted: e instanceof ExhaustedError,
         endedAt: Date.now(),
       });
@@ -345,15 +342,14 @@ export function startHunt(sub: string, query: string): HuntRecord {
 }
 
 /**
- * Le secours : reprendre une ligne échouée et aller chercher le morceau sur YouTube.
+ * The fallback: take a failed row and fetch the track from YouTube.
  *
- * La MÊME ligne, pas une nouvelle. Elle porte déjà les tags que MusicBrainz a résolus, donc le
- * morceau se range au même endroit qu'il serait allé — et l'historique garde une ligne par
- * morceau voulu plutôt qu'une par tentative, ce qui est la question que quelqu'un se pose en
- * relisant la liste.
+ * The SAME row, not a new one. It already carries the tags MusicBrainz resolved, so the song
+ * files where it would have gone — and the history keeps one row per wanted song rather than one
+ * per attempt, which is the question somebody has when re-reading the list.
  *
- * Renvoie `null` quand la ligne est inconnue ou déjà en cours, ce que la route dit en 404/409 :
- * deux téléchargements écrivant le même dossier gagneraient au hasard.
+ * `null` when the row is unknown or already running, which the route reports as 404/409: two
+ * downloads writing the same folder would race.
  */
 export function startYoutube(sub: string, id: string): HuntRecord | null {
   const row = listHunts(sub).find((h) => h.id === id);
@@ -394,13 +390,11 @@ async function runYoutube(sub: string, rec: HuntRecord): Promise<void> {
       artist: rec.artist,
       title: rec.title || rec.query,
       album: rec.album,
-      // Le sidecar dit d'où ça vient, comme il dit `slskd` ou `upload`. Ce n'est pas une
-      // étiquette de plus : c'est la seule trace, une fois le dossier rangé, qu'on écoute une
-      // piste audio de vidéo et non un disque.
+      // The sidecar says where it came from, as it does for `slskd` or `upload` — the only trace,
+      // once filed, that this is a video's audio track and not a record.
       source: "youtube",
     },
-    // Le secours d'un échec : rien n'est là à écraser, et si quelque chose l'est entre-temps,
-    // `addSong` refuse — ce qui est la bonne réponse, pas un problème à contourner.
+    // Recovering a failure: nothing is there to overwrite, and if something is, `addSong` refuses.
   });
   patchHunt(sub, rec.id, {
     status: "done",

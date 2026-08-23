@@ -316,7 +316,7 @@ function graphForDeck(deck: string): string {
  * instrument disappear from a mix that was never summed with it.
  *
  * Mute says "this lane is not heard on its own", and it works because Tracktion's muting node
- * deliberately still passes clips to aux sends and sidechains: the bus keeps its five signals,
+ * deliberately still passes clips to aux-sends and sidechains: the bus keeps its five signals,
  * the master stops getting duplicates. `engine/capot/songs/crossfade-demo.st0` measured it, and
  * engine/moteur/docs/sidechain.md says why.
  */

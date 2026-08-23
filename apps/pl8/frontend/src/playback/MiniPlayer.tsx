@@ -23,8 +23,8 @@ function albumOf(path: string): string {
   return parts.length >= 4 ? parts[parts.length - 2] : "";
 }
 
-/** La barre réduite à ce qu'elle a à dire quand rien ne joue mais que la file attend : ce
- *  qu'il y a dedans, et de quoi l'ouvrir. */
+/** The bar cut down to what it has to say when nothing plays but the queue waits: what is in it,
+ *  and a way to open it. */
 function QueueOnly() {
   const { queue } = usePlayback();
   return (
@@ -56,11 +56,11 @@ export function MiniPlayer() {
   } = usePlayback();
 
   /**
-   * La barre apparaît aussi pour une file NON VIDE, pas seulement pour un morceau chargé.
+   * The bar also appears for a NON-EMPTY queue, not only for a loaded song.
    *
-   * Sinon le bouton qui montre la file vivrait dans une barre que la file elle-même ne suffit
-   * pas à faire apparaître : on ajouterait un morceau et il n'y aurait nulle part où le voir.
-   * Le cas se produit quand rien n'a encore été lu, ou quand la barre a été fermée.
+   * Otherwise the button that shows the queue would live in a bar the queue itself cannot bring
+   * up: a song would be added with nowhere to see it. That happens when nothing has played yet,
+   * or when the bar was closed.
    */
   if (!now) return queue.length ? <QueueOnly /> : null;
 

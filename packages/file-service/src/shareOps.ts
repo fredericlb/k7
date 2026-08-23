@@ -1,11 +1,11 @@
-// shareOps.ts — sortir un projet de cette machine : le mixdown, l'instantané figé envoyé à pl8,
-// et la publication vers k7. Quatre actes qui n'ont qu'une chose en commun et c'est ce qui en fait
-// un module : chacun RENDRE d'abord, puis remettre le résultat à quelqu'un d'autre.
+// shareOps.ts — getting a project off this machine: the mixdown, the frozen snapshot sent to pl8,
+// and the publish to k7. Four acts with one thing in common, and that is what makes them a module:
+// each RENDERS first, then hands the result to somebody else.
 //
-// Extrait de `workspace.ts` — 2707 lignes, 87 méthodes sur une classe — sur la couture que
-// `projectLifecycle.ts` avait déjà posée : un HÔTE de quelques membres plutôt que la classe
-// entière, pour que `safePath` et le reste ne deviennent pas de l'API publique. Ce groupe part le
-// premier parce qu'il est le plus périphérique : rien d'autre dans la classe ne l'appelle.
+// Extracted from `workspace.ts` — 2707 lines, 87 methods on one class — along the seam
+// `projectLifecycle.ts` had already cut: a HOST of a few members rather than the whole class, so
+// `safePath` and the rest do not become public API. This group left first because it is the most
+// peripheral: nothing else in the class calls it.
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -31,30 +31,30 @@ import type { WebProject } from "@studio/web-protocol";
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 
 /**
- * Ce qu'un export a besoin de savoir du workspace, et rien de plus.
+ * What an export needs to know about the workspace, and nothing more.
  *
- * Six membres au lieu d'une classe : c'est ce qui permet de lire ce fichier sans ouvrir l'autre,
- * et ce qui empêche `safePath` de devenir publique par accident. Même forme que le
- * `lifecycleHost` d'à côté, et pour la même raison.
+ * Six members instead of a class: that is what lets this file be read without opening the other,
+ * and what stops `safePath` becoming public by accident. Same shape as the `lifecycleHost` next
+ * door, and for the same reason.
  */
 export interface ShareHost {
-  /** La racine de l'espace de travail — un dépôt cloné. Nommée dans l'origine d'un partage. */
+  /** The workspace root — a cloned repository. Named in a share's origin. */
   root: string;
-  /** Le dossier du projet actif, ou une exception nommée s'il n'y en a pas. */
+  /** The active project's folder, or a named exception when there is none. */
   requireActive(): string;
-  /** Le document compilé que le moteur prend, mémoïsé par le workspace. */
+  /** The compiled document the engine takes, memoised by the workspace. */
   cachedProjectDoc(dir: string): ProjectDoc;
-  /** Les trois documents qu'un NAVIGATEUR dessine un projet à partir de. */
+  /** The three documents a BROWSER draws a project from. */
   projectDoc(): WebProject;
   graphDoc(): WebGraph;
   surfaces(): ReturnType<typeof projectSurfaces>;
 }
 
 /**
- * Rendre le mixdown. `"mp3"` transcode, ce qui demande ffmpeg.
+ * Render the mixdown. `"mp3"` transcodes, which needs ffmpeg.
  *
- * L'appelant diffuse `path` puis appelle `cleanup` — le fichier vit dans un dossier temporaire
- * qui doit partir même si la diffusion échoue.
+ * The caller streams `path` then calls `cleanup` — the file lives in a temporary folder that must
+ * go even if streaming fails.
  */
 export function exportMix(
   host: ShareHost,

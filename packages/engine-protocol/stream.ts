@@ -36,7 +36,7 @@ export interface StreamFrame extends StreamFrameHeader {
 /**
  * The payload is read as a zero-copy `Float32Array` view, which uses the PLATFORM byte
  * order — so a big-endian consumer would play the stream as noise, silently. Every target
- * that exists is little-endian (x86, ARM in LE mode), so rather than pay a per-sample
+ * that exists is little-endian (x86, ARM in little-endian mode), so rather than pay a per-sample
  * DataView loop for a case that has never occurred, this asserts the assumption once and
  * fails loudly if it is ever wrong.
  */

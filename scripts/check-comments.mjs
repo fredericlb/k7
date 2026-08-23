@@ -24,6 +24,15 @@ const isBlank = (l) => /^\s*$/.test(l);
  * accent test flags prose that is already fine and never reaches zero. Function words are what a
  * language actually is, and they also catch French that happens to carry no accent.
  */
+/**
+ * Quoted spans, dropped before the test.
+ *
+ * The screens are in French, so an English comment naming one quotes it — « Trouver des morceaux »
+ * is the button's name, not prose to translate. Only the guillemet and double-quote forms, because
+ * the apostrophe is a French letter and stripping `'…'` would eat the sentence around it.
+ */
+const QUOTED = /«[^»]*»|"[^"]*"/g;
+
 // `on`, `son`, `plus`, `sa` and `vers` are English words too and are deliberately absent.
 const FRENCH =
   /(^|[\s("'`])(le|les|une|des|du|aux|cet|cette|ces|qui|que|dont|sont|pas|pour|dans|avec|sans|donc|mais|alors|c'est|n'est|qu'il|qu'elle|elle|nous|vous|leur|ses|ainsi|ici|celui|celle|ceux|rien|tout|toute|toutes|tous|entre|chez|depuis|jamais|toujours|lorsque|parce|puisque|d'un|d'une|l'on|n'a|qu'on)([\s,.;:!?)"'`]|$)/i;
@@ -72,7 +81,8 @@ for (const file of files) {
   }
 
   for (const [n, l] of lines.entries())
-    if (isComment(l) && FRENCH.test(l)) french.push({ file, line: n + 1 });
+    if (isComment(l) && FRENCH.test(l.replace(QUOTED, " ")))
+      french.push({ file, line: n + 1 });
 }
 
 const show = (list, label, fmt) => {

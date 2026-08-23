@@ -1,6 +1,6 @@
-// player.ts — jouer un morceau du cache de CETTE machine, sur ses propres sorties, sans le
-// moteur. Par personne et sans espace de travail : ce qu'on écoute n'appartient à aucun projet.
-// Voir ../../docs/machinePlayer.md.
+// player.ts — playing a song from THIS machine's cache, on its own outputs, without the engine.
+// Per person and without a workspace: what one listens to belongs to no project.
+// See ../../docs/machinePlayer.md.
 
 import { validate, wrap } from "@frediverse/http/route";
 import { Router } from "express";
@@ -16,9 +16,9 @@ import {
 
 export const playerRouter: Router = Router();
 
-/** L'état, et de quoi savoir si la destination est seulement possible. Interrogé pendant la
- *  lecture : c'est ce qui donne la position à la barre du bas, mpv étant sur une autre
- *  machine et n'ayant aucun moyen de la pousser jusqu'au navigateur. */
+/** The state, and enough to know whether the destination is possible at all. Polled while playing:
+ *  it is what gives the bottom bar its position, mpv being on another machine with no way to push
+ *  it to the browser. */
 playerRouter.get(
   "/player",
   wrap(async (req, res) => {
@@ -30,8 +30,8 @@ playerRouter.get(
   }),
 );
 
-// Le chemin est RELATIF à la médiathèque, jamais absolu : c'est ce qui fait qu'un client ne
-// peut nommer que ce que cette machine cache. Voir `resolveInMediatek`.
+// The path is RELATIVE to the médiathèque, never absolute: that is what keeps a client naming only
+// what this machine caches. See `resolveInMediatek`.
 const playBody = z.object({
   path: z.string().min(1),
   from: z.number().min(0).optional(),
@@ -45,8 +45,8 @@ playerRouter.post(
       await play(req.userEmail!, path, from ?? 0);
       res.json(await state(req.userEmail!));
     } catch (e) {
-      // Chemin refusé, fichier absent, mpv manquant : tous corrigeables par l'appelant ou par
-      // qui installe la machine, donc 400 et la phrase telle quelle.
+      // Refused path, missing file, missing mpv: all fixable by the caller or by whoever sets the
+      // machine up, so 400 and the sentence as it is.
       res.status(400).json({ error: (e as Error).message });
     }
   }),
@@ -75,8 +75,8 @@ playerRouter.post(
   }),
 );
 
-/** Faire taire. mpv reste en veille — le relancer à chaque morceau coûterait un démarrage de
- *  processus pour rien. */
+/** Silence it. mpv stays idle — restarting it for every song would cost a process launch for
+ *  nothing. */
 playerRouter.post(
   "/player/stop",
   wrap(async (req, res) => {

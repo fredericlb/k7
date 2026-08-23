@@ -1,5 +1,5 @@
-// QueueButton.tsx — la file d'attente, à droite de la barre du bas : ce qui passera ensuite,
-// dans l'ordre, déplaçable et retirable. Voir ../../docs/miniPlayer.md.
+// QueueButton.tsx — the queue, right of the bottom bar: what plays next, in order, movable and
+// removable. See ../../docs/miniPlayer.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -11,8 +11,8 @@ import {
 import { ChevronDown, ChevronUp, ListVideo, X } from "lucide-react";
 import { usePlayback } from "./PlaybackProvider";
 
-/** L'artiste et l'album, que le chemin porte : `songs/<artiste>/<album>/<titre>`. Vide quand
- *  le chemin est plus court que cette forme — un morceau que personne n'a rangé. */
+/** The artist and album, which the path carries: `songs/<artist>/<album>/<title>`. Empty when the
+ *  path is shorter than that shape — a song nobody filed. */
 function under(path: string): string {
   const parts = path.split("/");
   return parts.length >= 4 ? `${parts[1]} · ${parts[2]}` : "";
@@ -61,8 +61,8 @@ export function QueueButton() {
             la liste de lecture ».
           </p>
         ) : (
-          // Une liste et non des DropdownMenuItem : un item se ferme au clic, et déplacer une
-          // ligne demande plusieurs clics d'affilée sur le même panneau.
+          // A list rather than DropdownMenuItems: an item closes on click, and moving a row takes
+          // several clicks in a row on the same panel.
           <ul className="max-h-80 overflow-auto">
             {queue.map((item, i) => (
               <li

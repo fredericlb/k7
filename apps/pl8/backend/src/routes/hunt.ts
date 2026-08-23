@@ -82,8 +82,8 @@ huntRouter.post(
       (h) => h.id === req.params.id,
     );
     if (!row) return res.status(404).json({ error: "recherche inconnue" });
-    // La MÊME règle que celle qui affiche le bouton, prise dans le contrat partagé : un bouton
-    // visible que la route refuserait serait une impasse, et l'inverse une porte dérobée.
+    // The SAME rule that shows the button, taken from the shared contract: a visible button the
+    // route would refuse is a dead end, and the reverse is a back door.
     if (!canFallBackToYoutube(row))
       return res.status(409).json({
         error:

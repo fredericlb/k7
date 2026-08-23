@@ -112,8 +112,8 @@ describe("the scaffold offers every control that must be wired", () => {
     // that does not wire them must not be told it is missing something — which is exactly the
     // difference between "what you may wire" and "what has to be wired before this draws".
     //
-    // What still cannot happen is a line the desk would call "n'est pas un contrôle du
-    // pupitre", so every id is held to being a real control.
+    // What still cannot happen is a line the desk would reject as not being one of its controls,
+    // so every id is held to being a real control.
     for (const id of skeleton) expect(mixControl(id), id).toBeTruthy();
     // …and the stems in particular ARE offered: the scaffold is where somebody finds out the
     // knobs exist at all.

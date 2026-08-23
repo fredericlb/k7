@@ -91,28 +91,26 @@ export interface SftpLike {
 }
 
 /**
- * Ce que cette étape a vu et ce qu'elle a tenté, dans les journaux du service.
+ * What this step saw and what it tried, in the service's logs.
  *
- * Toujours, pas seulement en cas d'échec : c'est ici que deux machines se rencontrent, et les
- * deux questions qu'on se pose quand rien n'arrive — « qu'y a-t-il vraiment dans ce dossier »
- * et « quel chemin as-tu essayé » — ne peuvent être répondues qu'au moment où on les a sous la
- * main. Un téléchargement dure des minutes ; quelques lignes par téléchargement ne sont pas du
- * bruit.
+ * Always, not only on failure: this is where two machines meet, and the two questions asked when
+ * nothing arrives — what is actually in that folder, and which path was tried — can only be
+ * answered while the answers are still to hand. A download lasts minutes; a few lines per
+ * download are not noise.
  */
 const log = (msg: string): void => console.log(`⇣ sftp ${msg}`);
 
-/** Combien d'entrées d'un répertoire écrire. Un dossier de téléchargement peut en tenir des
- *  milliers, et une ligne de journal de dix mille noms n'est plus une ligne de journal. */
+/** How many directory entries to print. A download folder can hold thousands, and a log line of
+ *  ten thousand names is not a log line. */
 const MAX_LISTED = 40;
 
-/** Le contenu d'un répertoire, tel quel, avec son type — `d` dossier, `-` fichier. */
+/** A directory's contents as they are, with the type — `d` folder, `-` file. */
 async function show(sftp: SftpLike, dir: string): Promise<number> {
   let rows: { name: string; type: string }[];
   try {
     rows = await sftp.list(dir);
   } catch (e) {
-    // Illisible est un fait, pas un incident : mauvais chemin, ou droits qui manquent à
-    // l'utilisateur SSH. Le dire ici évite de chercher du côté de slskd.
+    // Unreadable is a fact, not an incident — a wrong path, or rights the SSH user lacks.
     log(`${dir} : ILLISIBLE — ${(e as Error).message}`);
     return 0;
   }
@@ -146,8 +144,8 @@ async function findByName(
     if (r.type === "-" && r.name === name) return `${dir}/${r.name}`;
   for (const r of rows)
     if (r.type === "d") {
-      // Chaque niveau descendu est écrit : c'est la seule façon de voir OÙ slskd a rangé,
-      // quand ce n'est pas là où la mise en page documentée le disait.
+      // Every level descended is printed: the only way to see WHERE slskd filed it, when that is
+      // not where the documented layout said.
       log(`descente dans ${dir}/${r.name}`);
       await show(sftp, `${dir}/${r.name}`);
       const hit = await findByName(sftp, `${dir}/${r.name}`, name, depth - 1);
@@ -169,8 +167,8 @@ export async function fetchDownload(
 ): Promise<{ bytes: Buffer; path: string }> {
   const cfg = sftpConfig();
   const sftp = make();
-  // AVANT la connexion : si c'est elle qui échoue, ce sont ces valeurs-là qu'on veut relire,
-  // et une exception de `connect` ne les porte pas. Ni la clé ni le mot de passe, évidemment.
+  // BEFORE connecting: if the connection is what fails, these are the values to re-read, and a
+  // `connect` exception does not carry them. Neither the key nor the password, obviously.
   log(
     `→ ${cfg.username}@${cfg.host}:${cfg.port} (${cfg.privateKey ? "clé" : cfg.password ? "mot de passe" : "sans identifiant !"})`,
   );
@@ -185,16 +183,16 @@ export async function fetchDownload(
       readyTimeout: 20_000,
     });
     log(`connecté, dossier ${cfg.downloadsDir}`);
-    // Les deux bouts du raisonnement, côte à côte : ce que le PAIR a nommé, et ce qu'on en
-    // déduit sur CETTE machine. Quand les deux sont dans le journal, un rangement inattendu
-    // de slskd se lit d'un coup d'œil au lieu de se déduire.
+    // Both ends of the reasoning, side by side: what the PEER named, and what is deduced from it
+    // on THIS machine. With both in the log, an unexpected slskd layout reads at a glance instead
+    // of being worked out.
     log(`nom chez le pair : ${remoteFilename}`);
     const guess = localPathFor(remoteFilename, cfg.downloadsDir);
     log(`chemin visé      : ${guess}`);
     await show(sftp, cfg.downloadsDir);
 
-    // `exists` peut lever autant que répondre faux — un dossier absent, des droits qui
-    // manquent — et les deux veulent dire la même chose ici : « pas là où on l'attendait ».
+    // `exists` can throw as easily as answer false — a missing folder, missing rights — and both
+    // mean the same thing here: not where it was expected.
     const kind = await sftp.exists(guess).catch(() => false as const);
     let path: string | null = null;
     if (kind === "-") {

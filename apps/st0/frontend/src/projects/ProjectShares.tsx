@@ -1,6 +1,6 @@
-// ProjectShares.tsx — le bouton « Partages » d'une rangée de projet, et la popin qu'il ouvre :
-// les instantanés gelés que CE projet a publiés, avec le seul endroit où l'on en retire un. Le
-// coût en octets est dit là aussi — un partage n'expire jamais. Voir ../../docs/projects.md.
+// ProjectShares.tsx — a project row's "Partages" button and the popin it opens: the frozen
+// snapshots THIS project published, with the one place a share is withdrawn. The cost in bytes is
+// said there too — a share never expires. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -22,7 +22,7 @@ function bytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} Go`;
 }
 
-/** Le jour, sans l'heure : ce qui distingue deux instantanés du même morceau. */
+/** The day, without the hour: what tells two snapshots of the same song apart. */
 const day = (iso: string): string =>
   new Date(iso).toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -35,11 +35,11 @@ export function ProjectShares({
   shares,
   onChanged,
 }: {
-  /** Le nom du projet, tel que la rangée l'affiche — c'est lui que le titre nomme. */
+  /** The project's name as the row shows it — that is what the title names. */
   label: string;
-  /** Les partages de CE projet, révoqués compris (`sharesOf`). */
+  /** THIS project's shares, revoked ones included (`sharesOf`). */
   shares: ShareSummary[];
-  /** Après une révocation, pour que la page relise sans attendre le poll. */
+  /** After a revoke, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -48,9 +48,8 @@ export function ProjectShares({
   const [error, setError] = useState<string | null>(null);
 
   const live = liveCount(shares);
-  // Ce que ça pèse sur le volume, en un nombre. Rien ici n'interdit quoi que ce soit : un
-  // partage n'expire pas, donc la seule chose qui peut décider d'en retirer un est de voir ce
-  // qu'ils coûtent ensemble.
+  // What this weighs on the volume, in one number. Nothing here forbids anything: a share does not
+  // expire, so the only thing that can prompt withdrawing one is seeing what they cost together.
   const total = shares
     .filter((s) => !s.revokedAt)
     .reduce((n, s) => n + s.bytes, 0);
@@ -61,15 +60,15 @@ export function ProjectShares({
         setCopied(s.key);
         setTimeout(() => setCopied(null), 1500);
       },
-      // Un presse-papiers refusé (page non sécurisée, permission) ne doit pas perdre le lien :
-      // il est écrit à côté, sur la ligne, et reste sélectionnable à la main.
+      // A refused clipboard (insecure page, permission) must not lose the link: it is written
+      // beside it, on the row, and stays selectable by hand.
       () => setError("le presse-papiers a refusé — le lien est sur la ligne"),
     );
   };
 
   const revoke = (s: ShareSummary) => {
-    // La phrase nomme ce qui part et ce qui reste, parce que les deux surprennent : les octets
-    // disparaissent tout de suite, et le lien déjà envoyé ne se dé-envoie pas.
+    // The sentence names what goes and what stays, because both surprise: the bytes vanish at
+    // once, and a link already sent cannot be unsent.
     if (
       !window.confirm(
         `Retirer « ${s.name || label} » ?\n\n` +
@@ -104,7 +103,7 @@ export function ProjectShares({
             : `Aucun partage publié pour ${label}`
         }
         onClick={(e) => {
-          // La rangée entière est un lien vers le projet : sans ça, le bouton l'ouvrirait.
+          // The whole row is a link to the project: without this, the button would open it.
           e.preventDefault();
           e.stopPropagation();
           setOpen(true);

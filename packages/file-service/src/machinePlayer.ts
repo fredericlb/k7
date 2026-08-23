@@ -9,25 +9,25 @@ import { isAbsolute, join, normalize, relative, sep } from "node:path";
 import { mediatekRoot } from "@studio/song/mediatekRoot";
 import { rootDir, slugify } from "./slug.ts";
 
-/** `--ao=alsa` par défaut : sur une machine sans session graphique, PipeWire et PulseAudio ne
- *  démarrent pas tout seuls, et un lecteur dédié n'a pas besoin d'un serveur de son. */
+/** `--ao=alsa` by default: with no graphical session PipeWire and PulseAudio do not start on
+ *  their own, and a dedicated player needs no sound server. */
 const AO = process.env.STUDIO_PLAYER_AO || "alsa";
 
 const bin = (): string => process.env.MPV_BIN || "mpv";
 
-/** Une commande IPC qui n'a pas répondu au bout de ça est perdue : mpv répond en microsecondes
- *  sur un socket unix, donc au-delà c'est le processus qui est parti. */
+/** An IPC command silent past this is lost: mpv answers in microseconds over a unix socket, so
+ *  anything longer means the process is gone. */
 const IPC_TIMEOUT_MS = 2000;
 
-/** Ce que la barre du bas a besoin de savoir. */
+/** What the bottom bar needs to know. */
 export interface PlayerState {
-  /** Le chemin relatif à la médiathèque qu'on a demandé, ou null si rien n'est chargé. */
+  /** The médiathèque-relative path that was asked for, or null when nothing is loaded. */
   path: string | null;
   playing: boolean;
-  /** Secondes, ou 0 tant que mpv n'a pas lu l'en-tête. */
+  /** Seconds, or 0 until mpv has read the header. */
   position: number;
   duration: number;
-  /** mpv n'a plus rien à jouer — la fin d'un morceau, ou rien n'a jamais été chargé. */
+  /** mpv has nothing left to play — the end of a track, or nothing was ever loaded. */
   idle: boolean;
 }
 
@@ -40,12 +40,11 @@ const EMPTY: PlayerState = {
 };
 
 /**
- * Le chemin absolu d'un morceau de CETTE machine, à partir du chemin relatif demandé.
+ * The absolute path of a track on THIS machine, from the relative one asked for.
  *
- * Le client envoie du relatif et jamais de l'absolu, et c'est la garantie : il ne peut nommer
- * que ce que la médiathèque de cette machine contient. Un `..` est refusé plutôt que
- * normalisé — c'est une tentative, pas une faute de frappe, et la nommer vaut mieux que la
- * corriger en silence.
+ * The client sends relative and never absolute, and that is the guarantee: it can only name what
+ * this machine's médiathèque holds. A `..` is refused rather than normalised — it is an attempt,
+ * not a typo, and naming it beats correcting it in silence.
  */
 export function resolveInMediatek(rel: string): string {
   if (!rel || isAbsolute(rel)) throw new Error("chemin relatif attendu");
@@ -60,7 +59,7 @@ export function resolveInMediatek(rel: string): string {
 
 interface Player {
   socketPath: string;
-  /** Ce qu'on a demandé, que mpv ne sait pas rendre : il ne connaît que son chemin absolu. */
+  /** What was asked for, which mpv cannot report: it knows only its absolute path. */
   wanted: string | null;
   ipc: Socket | null;
   nextId: number;
@@ -76,8 +75,8 @@ const socketFor = (slug: string): string => {
   return join(dir, `${slug}.sock`);
 };
 
-/** Ouvrir — ou rouvrir — la connexion IPC. Rendue `null` quand mpv n'est pas là : l'appelant
- *  le relance alors, ce qui est aussi ce qui se passe au tout premier appel. */
+/** Open — or reopen — the IPC connection. `null` when mpv is not there, which is what makes the
+ *  caller start it, and is also what happens on the very first call. */
 function dial(p: Player): Promise<Socket | null> {
   return new Promise((resolve) => {
     const s = connect(p.socketPath);
@@ -88,7 +87,7 @@ function dial(p: Player): Promise<Socket | null> {
     };
     s.once("connect", () => {
       p.buffer = "";
-      // Une ligne = un message. mpv découpe sur `\n` et rien d'autre.
+      // One line is one message: mpv splits on `\n` and on nothing else.
       s.on("data", (chunk) => {
         p.buffer += chunk.toString("utf8");
         for (;;) {
@@ -106,17 +105,15 @@ function dial(p: Player): Promise<Socket | null> {
               p.pending.get(msg.request_id)?.(msg.data);
               p.pending.delete(msg.request_id);
             }
-            // Les événements sont ignorés : l'état est LU à la demande, ce qui évite d'avoir
-            // à le tenir à jour des deux côtés du socket.
+            // Events are ignored: state is READ on demand, so neither side has to track it.
           } catch {
-            /* une ligne illisible n'est pas une raison de fermer */
+            /* an unreadable line is no reason to close */
           }
         }
       });
       s.on("close", () => {
         p.ipc = null;
-        // Personne ne répondra plus : libérer ceux qui attendent plutôt que les laisser
-        // expirer un par un.
+        // Nobody will answer now: release the waiters rather than time them out one by one.
         for (const [, r] of p.pending) r(undefined);
         p.pending.clear();
       });
@@ -127,7 +124,7 @@ function dial(p: Player): Promise<Socket | null> {
   });
 }
 
-/** Lancer mpv, en veille : `--idle` le fait attendre un `loadfile` au lieu de sortir. */
+/** Start mpv idle: `--idle` makes it wait for a `loadfile` instead of exiting. */
 function spawnMpv(p: Player): void {
   const child = spawn(
     bin(),
@@ -136,20 +133,19 @@ function spawnMpv(p: Player): void {
       "--no-video",
       "--no-terminal",
       `--ao=${AO}`,
-      // Pas de fichier de configuration ni de scripts de l'utilisateur : ce processus est un
-      // organe de ce service, pas la session mpv de quelqu'un.
+      // No user config or scripts: this process is an organ of the service, not somebody's mpv.
       "--no-config",
       `--input-ipc-server=${p.socketPath}`,
     ],
     { stdio: "ignore", detached: false },
   );
   child.on("error", () => {
-    /* absent du PATH — `command()` le dira au prochain appel */
+    /* not on PATH — `command()` will say so on the next call */
   });
   child.unref();
 }
 
-/** Attendre que le socket réponde, mpv le créant un instant après son démarrage. */
+/** Wait for the socket to answer: mpv creates it a moment after starting. */
 async function ensure(p: Player): Promise<Socket> {
   if (p.ipc && !p.ipc.destroyed) return p.ipc;
   let s = await dial(p);
@@ -185,8 +181,8 @@ function playerFor(userEmail: string): Player {
   return p;
 }
 
-/** Une commande, et sa réponse. `undefined` quand mpv n'a rien à dire — une propriété absente
- *  n'est pas une erreur, c'est « pas encore ». */
+/** One command and its answer. `undefined` when mpv has nothing to say — an absent property is
+ *  not an error, it is "not yet". */
 async function command(p: Player, args: unknown[]): Promise<unknown> {
   const s = await ensure(p);
   const id = p.nextId++;
@@ -206,7 +202,7 @@ async function command(p: Player, args: unknown[]): Promise<unknown> {
 const get = (p: Player, name: string): Promise<unknown> =>
   command(p, ["get_property", name]);
 
-/** Est-ce que mpv existe seulement sur cette machine ? Sondé à la demande, comme yt-dlp. */
+/** Does mpv exist on this machine at all? Probed on demand, like yt-dlp. */
 export async function playerAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const child = spawn(bin(), ["--version"], { stdio: "ignore" });
@@ -222,14 +218,12 @@ export async function play(
 ): Promise<void> {
   const abs = resolveInMediatek(rel);
   const p = playerFor(userEmail);
-  // `replace` et non `append` : une seule chose sort des haut-parleurs, comme partout ailleurs
-  // dans pl8 — la file d'attente vit dans l'onglet, pas ici.
+  // `replace`, not `append`: one thing comes out of the speakers, and the queue lives in the tab.
   await command(p, [
     "loadfile",
     abs,
     "replace",
-    // mpv accepte les options de départ dans le même appel, ce qui évite un seek qui
-    // s'appliquerait avant que le fichier soit ouvert.
+    // mpv takes start options in the same call, avoiding a seek that would land before the open.
     from > 0 ? { start: String(from) } : {},
   ]);
   await command(p, ["set_property", "pause", false]);
@@ -251,8 +245,7 @@ export async function seek(userEmail: string, to: number): Promise<void> {
   ]);
 }
 
-/** Arrêter et oublier. mpv reste en veille : le relancer coûte un démarrage de processus à
- *  chaque morceau, pour rien. */
+/** Stop and forget. mpv stays idle: restarting it would cost a process launch per track. */
 export async function stop(userEmail: string): Promise<void> {
   const p = playerFor(userEmail);
   await command(p, ["stop"]);
@@ -262,8 +255,7 @@ export async function stop(userEmail: string): Promise<void> {
 export async function state(userEmail: string): Promise<PlayerState> {
   const p = playerFor(userEmail);
   if (!p.ipc && !existsSync(p.socketPath)) return EMPTY;
-  // Toutes en même temps sur le même socket : mpv n'a pas de commande groupée, mais rien
-  // n'oblige à les enchaîner — c'est un aller-retour et non cinq.
+  // All at once on the one socket: mpv has no batch command, but nothing forces them to queue.
   const [idle, paused, pos, dur] = await Promise.all([
     get(p, "idle-active"),
     get(p, "pause"),
@@ -272,8 +264,7 @@ export async function state(userEmail: string): Promise<PlayerState> {
   ]);
   const isIdle = idle !== false;
   return {
-    // Ce qu'on a DEMANDÉ : mpv ne connaît que le chemin absolu, et le rendre exposerait
-    // l'arborescence de la machine à un client qui n'en a pas besoin.
+    // What was ASKED FOR: mpv knows only the absolute path, and returning it would expose the tree.
     path: isIdle ? null : p.wanted,
     playing: !isIdle && paused === false && typeof pos === "number",
     position: typeof pos === "number" ? pos : 0,
@@ -282,5 +273,5 @@ export async function state(userEmail: string): Promise<PlayerState> {
   };
 }
 
-/** Exporté pour le test du garde-fou, qui n'a pas à connaître `sep`. */
+/** Exported for the guard's test, which has no business knowing `sep`. */
 export const PATH_SEP = sep;

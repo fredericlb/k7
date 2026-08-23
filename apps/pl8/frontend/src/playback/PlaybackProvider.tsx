@@ -20,8 +20,8 @@ import type { QueueItem } from "./queue";
 import type { PlaybackTarget } from "./targets";
 import type { PlayQueue } from "./usePlayQueue";
 
-/** Deux fois par seconde : assez pour qu'une barre de progression ne saccade pas, assez peu
- *  pour ne pas marteler une machine dont c'est le seul travail. */
+/** Twice a second: enough that a progress bar does not stutter, little enough not to hammer a
+ *  machine whose only job this is. */
 const MACHINE_POLL_MS = 500;
 
 /** What is loaded, wherever it plays. */
@@ -72,27 +72,25 @@ export interface Playback {
   close: () => void;
 
   /**
-   * Ce qui passera ensuite.
+   * What plays next.
    *
-   * Ici, à côté du transport, et pour la même raison que lui : une file d'attente doit
-   * survivre à l'écran qui l'a remplie — on ajoute un morceau depuis l'arbre des Morceaux et
-   * on continue à naviguer. Elle vit dans l'onglet, pas sur le serveur : c'est ce qu'on écoute
-   * maintenant, pas un document. Une playlist, elle, est un fichier du dépôt, écrit en st0
-   * (packages/song/docs/playlists.md).
+   * Here beside the transport and for its reason: a queue must outlive the screen that filled it,
+   * since a song is added from the Morceaux tree and browsing continues. It lives in the tab and
+   * not on the server — it is what is being listened to, not a document. A playlist is a file in
+   * the repository, written in st0 (packages/song/docs/playlists.md).
    */
   queue: QueueItem[];
-  /** Mettre à la suite, sans doublon. */
+  /** Append, without duplicates. */
   enqueue: (entries: MediatekEntry[]) => void;
   removeFromQueue: (i: number) => void;
   moveInQueue: (from: number, to: number) => void;
-  /** Prendre la tête de la file et la retirer, ou `null`. Ce que fait l'avance automatique. */
+  /** Take the head of the queue and drop it, or `null`. What auto-advance does. */
   takeNext: () => QueueItem | null;
 
-  // `claimAdvance`/`advanceClaimed` étaient ici : deux choses savaient enchaîner — le panneau
-  // d'une playlist et cette file — toutes deux regardaient `ended`, aucune ne voyait l'autre, et
-  // sans arbitrage les deux démarraient un morceau sur le même événement. Il n'en reste qu'une :
-  // les playlists sont en st0 (`packages/song/docs/playlists.md`), avec un transport à elles. Un
-  // arbitrage à un seul prétendant n'arbitre rien, et laisserait croire qu'il y en a deux.
+  // `claimAdvance`/`advanceClaimed` were here: two things could advance — a playlist panel and
+  // this queue — both watching `ended`, neither seeing the other, so both started a track on the
+  // same event. Only one is left, playlists having moved to st0, and arbitration between one
+  // claimant arbitrates nothing while suggesting there are two.
 }
 
 /** What the engine calls what we sent it. The version is IN the name because that session is
@@ -132,12 +130,11 @@ export function PlaybackProvider({
 }: {
   /** The account's chosen engine, from the header's picker. */
   engineId?: string;
-  /** La file d'attente, tenue PLUS HAUT — la Library rend ce provider, donc elle est au-dessus
-   *  du contexte, et c'est elle qui porte l'arbre dont le clic droit la remplit. Voir
-   *  ./usePlayQueue.ts. */
+  /** The queue, held HIGHER UP: Library renders this provider, so it sits above the context and
+   *  carries the tree whose right-click fills it. See ./usePlayQueue.ts. */
   playQueue: PlayQueue;
-  /** Le service de fichiers de la machine choisie, pour la destination « machine » : c'est lui
-   *  qui pilote son mpv. Vient du sélecteur, comme `engineId`. */
+  /** The chosen machine's file service, for the "machine" destination — it is what drives that
+   *  mpv. Comes from the picker, like `engineId`. */
   machine: { fileBase: string | null; token: string | null };
   children: ReactNode;
 }) {
@@ -191,13 +188,8 @@ export function PlaybackProvider({
     return () => cancelAnimationFrame(raf);
   }, [viaEngine, browserPlaying]);
 
-  /**
-   * La machine joue toute seule, et on ne le sait qu'en le demandant.
-   *
-   * mpv est sur une autre machine : il n'a aucun moyen de pousser sa position jusqu'ici, donc
-   * elle est interrogée. Deux fois par seconde — assez pour qu'une barre de progression ne
-   * saccade pas, assez peu pour ne pas marteler une machine dont c'est le seul travail.
-   */
+  /** The machine plays on its own, and the only way to know is to ask: mpv is elsewhere and has
+   *  no way to push its position here, so it is polled. */
   const viaMachine = now?.target === "machine";
   const [machineState, setMachineState] = useState<MachinePlayerState | null>(
     null,
@@ -214,8 +206,7 @@ export function PlaybackProvider({
         .then((s) => {
           if (!stop) setMachineState(s);
         })
-        // Silencieux : une machine qui ne répond pas un tour est une machine occupée, pas une
-        // erreur à mettre sous les yeux de quelqu'un qui écoute.
+        // Silent: a machine that misses one tick is busy, not an error to show a listener.
         .catch(() => {});
     tick();
     const t = setInterval(tick, MACHINE_POLL_MS);
@@ -236,13 +227,8 @@ export function PlaybackProvider({
       ? engineAt
       : browserAt;
 
-  /**
-   * La machine arrive au bout.
-   *
-   * mpv passe en veille (`idle`) quand il n'a plus rien : c'est un signal franc, contrairement
-   * au moteur dont il faut inférer la fin. Reste `weStopped`, pour la même raison qu'ailleurs —
-   * un arrêt demandé ressemble à une fin.
-   */
+  /** The machine reaching the end: mpv goes `idle` when it has nothing left, which is a plain
+   *  signal unlike the engine's. `weStopped` stays, since a requested stop looks like an end. */
   const machineWasPlaying = useRef(false);
   useEffect(() => {
     if (!viaMachine) return;
@@ -276,9 +262,8 @@ export function PlaybackProvider({
         audioRef.current?.pause();
         if (ours) engine.stop();
         setLoadedEnginePath(null);
-        // `what.path` est DÉJÀ relatif à la médiathèque, et c'est tout ce qu'il faut : la
-        // machine le résout contre sa propre racine. Pas de `cacheRoot` ni de `playablePath`
-        // comme pour le moteur — cette destination ne demande aucune résolution ici.
+        // `what.path` is ALREADY médiathèque-relative, and the machine resolves it against its
+        // own root — no `cacheRoot` or `playablePath` as the engine target needs.
         if (machine.fileBase && machine.token)
           void engineMachine.player
             .play(machine.fileBase, machine.token, what.path, from)
@@ -331,8 +316,7 @@ export function PlaybackProvider({
     weStopped.current = true; // asked for, either way — see the ref
     if (viaMachine) {
       if (!machine.fileBase || !machine.token) return;
-      // Past the end, mpv est en veille : redemander le fichier plutôt que de le « reprendre »,
-      // puisqu'il n'y a plus rien à reprendre.
+      // Past the end mpv is idle: ask for the file again rather than "resume" nothing.
       if (machineState?.idle)
         void engineMachine.player
           .play(machine.fileBase, machine.token, now.path, 0)
@@ -381,8 +365,8 @@ export function PlaybackProvider({
     (seconds: number) => {
       const at = Math.max(0, seconds);
       if (viaMachine) {
-        // Optimiste : la poignée suit le doigt, et le prochain tour d'interrogation dira la
-        // vérité. Attendre l'aller-retour ferait sauter le curseur en arrière sous la souris.
+        // Optimistic: the handle follows the finger and the next poll tells the truth. Waiting
+        // for the round trip would snap the cursor backwards under the mouse.
         setMachineState((s) => (s ? { ...s, position: at } : s));
         if (machine.fileBase && machine.token)
           void engineMachine.player
@@ -407,8 +391,7 @@ export function PlaybackProvider({
     weStopped.current = true;
     audioRef.current?.pause();
     if (ours) engine.stop();
-    // La machine continuerait sans nous — c'est un processus là-bas, pas un élément de cette
-    // page. Fermer la barre doit faire taire ce qu'elle montrait.
+    // The machine would carry on without us — closing the bar must silence what it showed.
     if (viaMachine && machine.fileBase && machine.token)
       void engineMachine.player.stop(machine.fileBase, machine.token);
     setNow(null);
@@ -424,9 +407,8 @@ export function PlaybackProvider({
       now,
       playing,
       position,
-      // L'`<audio>` reste monté quelle que soit la destination et donne la durée du master,
-      // mais seulement une fois ses métadonnées arrivées — alors que mpv l'a déjà lue. Celle
-      // de la machine gagne quand elle est là : c'est celle du fichier qui sort vraiment.
+      // The `<audio>` gives the master's duration only once its metadata lands, which mpv has
+      // already read — so the machine's wins when present: it is the file actually playing.
       duration:
         viaMachine && machineState?.duration ? machineState.duration : duration,
       error,

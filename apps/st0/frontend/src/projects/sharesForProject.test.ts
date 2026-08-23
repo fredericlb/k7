@@ -20,13 +20,13 @@ const share = (
 
 describe("shareProjectName", () => {
   it("garde le dernier segment, suffixe compris", () => {
-    // `origin.project` est un basename : c'est ce que la machine écrit, pas le chemin.
+    // `origin.project` is a basename: that is what the machine writes, not the path.
     expect(shareProjectName("band", "chansons/hiver.st0")).toBe("hiver.st0");
     expect(shareProjectName("band", "hiver.st0")).toBe("hiver.st0");
   });
 
   it("un projet qui EST son espace prend le nom de l'espace", () => {
-    // `dir === root` chez la machine, donc le même basename des deux côtés.
+    // `dir === root` on the machine, so the same basename on both sides.
     expect(shareProjectName("leclip.st0", ".")).toBe("leclip.st0");
   });
 });
@@ -40,7 +40,7 @@ describe("sharesOf", () => {
   ];
 
   it("ne retient que l'espace ET le projet", () => {
-    // Le même nom de projet dans un autre espace n'est pas le même projet — « c » reste dehors.
+    // The same project name in another workspace is not the same project — "c" stays out.
     expect(
       sharesOf(all, "band", "chansons/hiver.st0").map((s) => s.key),
     ).toEqual(["a", "d"]);

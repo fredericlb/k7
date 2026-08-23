@@ -23,7 +23,7 @@ beforeEach(() => {
     ),
     "x",
   );
-  // Le fichier qu'on ne doit jamais pouvoir atteindre, juste à côté de la racine.
+  // The file that must never be reachable, right beside the root.
   writeFileSync(join(root, "..", "secret-witness.txt"), "x");
 });
 
@@ -41,8 +41,8 @@ describe("resolveInMediatek", () => {
   });
 
   it("refuse tout ce qui sortirait de la médiathèque", () => {
-    // Le client n'envoie que du relatif, et c'est la garantie : il ne peut nommer que ce que
-    // cette machine cache. Un `..` est une tentative, pas une faute de frappe.
+    // The client sends only relative paths, and that is the guarantee: it can name only what this
+    // machine caches. A `..` is an attempt, not a typo.
     for (const nasty of [
       "../secret-witness.txt",
       "songs/../../secret-witness.txt",
@@ -57,8 +57,8 @@ describe("resolveInMediatek", () => {
   });
 
   it("refuse ce qui n'est pas là plutôt que de le passer à mpv", () => {
-    // mpv échouerait de toute façon, mais des minutes plus tard et dans ses mots — alors que
-    // « ce morceau n'est pas sur cette machine » est exactement ce qu'il faut lire.
+    // mpv would fail anyway, but minutes later and in its own words — whereas "that song is not on
+    // this machine" is exactly what should be read.
     expect(() => resolveInMediatek("songs/absent/original.flac")).toThrow(
       /n'est pas sur cette machine/,
     );

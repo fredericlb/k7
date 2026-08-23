@@ -1,6 +1,6 @@
-// SshKeyCard.tsx — la clé de déploiement du studio. Elle est générée ICI, par pl8, parce que
-// c'est ce service qui détient les dépôts ; la machine du moteur en récupère une copie quand
-// elle doit cloner. Une seule clé à coller chez l'hébergeur git. Voir packages/git-repos/docs/keys.md.
+// SshKeyCard.tsx — the studio's deploy key. It is generated THERE, by pl8, because that service
+// holds the repositories; the engine's machine fetches a copy when it has to clone. One key to
+// paste at the git host. See packages/git-repos/docs/keys.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Check, Copy, KeyRound } from "lucide-react";

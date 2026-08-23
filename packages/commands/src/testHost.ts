@@ -15,21 +15,21 @@ import type {
 import type { ProjectDoc } from "@studio/song/project";
 import type { CommandHost } from "./commands.ts";
 
-/** Ce qu'un test lit après coup : les lignes des deux canaux, séparées comme le verbe les sépare. */
+/** What a test reads afterwards: both channels' lines, kept apart as the verb keeps them. */
 export interface HostLog {
   log: string[];
   refuse: string[];
 }
 
 /**
- * Un hôte complet, plus ce que le test veut changer.
+ * A complete host, plus whatever the test wants to change.
  *
- * Les défauts sont INERTES, jamais des espions : ils ne renvoient rien et n'écrivent rien, donc un
- * verbe qui atteint une capacité que le test n'a pas nommée ne fait rien de visible plutôt que de
- * casser. Ce qui compte, ce sont les deux canaux, qui reviennent dans `lines`.
+ * The defaults are INERT, never spies: they return nothing and write nothing, so a verb reaching a
+ * capability the test did not name does nothing visible rather than breaking. What matters is the
+ * two channels, which come back in `lines`.
  *
- * Un projet vide par défaut : c'est ce que la plupart des refus exercent, et un test qui a besoin
- * de pistes passe le sien.
+ * An empty project by default: that is what most refusals exercise, and a test needing tracks
+ * passes its own.
  */
 export function testHost(
   over: Partial<CommandHost> = {},

@@ -63,8 +63,8 @@ export function ProjectGate({
         benchWorkspace: m["project.benchWorkspace"](),
         benchFetching: m["project.benchFetching"](),
         idleTitle: m["project.idleTitle"](),
-        // Le nombre vient de la constante et non de la traduction : deux endroits qui disent
-        // « vingt minutes » finissent par ne plus dire la même chose que le minuteur.
+        // The number comes from the constant rather than from the wording: two places saying
+        // "twenty minutes" end up disagreeing with the timer.
         idleBody: m["project.idleBody"]({
           minutes: Math.round(IDLE_TIMEOUT_MS / 60000),
         }),

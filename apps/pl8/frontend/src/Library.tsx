@@ -264,20 +264,13 @@ export function Library() {
   // The cog's engine-status page — a section with no tab, no tree and no library poll:
   // everything it shows comes from the engine's own socket. See engine/EnginePage.tsx.
   const isEngine = section === "engine";
-  // « Trouver des morceaux » — même forme que la page moteur : une section sans onglet, atteinte
-  // par un bouton depuis Morceaux, qui dessine bord à bord. Rien de ce qu'elle montre n'est sur
-  // le volume non plus : l'historique vient de `/api/hunt`. Voir ../../docs/hunt.md.
+  // "Trouver des morceaux" — same shape as the engine page: a tabless section reached by a
+  // button, drawing edge to edge. Nothing it shows is on the volume. See ../../docs/hunt.md.
   const isFind = section === "find";
-  /**
-   * Y a-t-il un arbre à côté ? Les trois sections ci-dessus dessinent toute la largeur
-   * elles-mêmes, parce que rien de ce qu'elles montrent n'est sur le volume.
-   *
-   * Dérivé ici et non dans la branche qui le rend, parce que l'EN-TÊTE en a besoin : c'est
-   * lui qui porte le bouton du tiroir, et il est au-dessus de la branche.
-   */
+  /** Is there a tree beside it? Derived here rather than in the branch that renders it, because
+   *  the HEADER needs it: the drawer button is up there. */
   const hasTree = !isEngine && !isFind;
-  // Le tiroir de l'arborescence sur écran étroit. Fermé au départ : sur un téléphone, ce
-  // qu'on veut voir en arrivant est le contenu, pas la façon d'y naviguer.
+  // The tree's drawer on a narrow screen. Closed to begin with: arriving, you want the content.
   const [treeOpen, setTreeOpen] = useState(false);
   // Whether the TREE may write. Two sections say no, for two different reasons: `songs/`
   // has a shape deduced from tags — a folder made by hand there is not a badly filed
@@ -349,8 +342,7 @@ export function Library() {
   /** Open the screen on a song's sidecar, or close it. The URL is the only writer. */
   const openFile = useCallback((rel: string | null) => {
     setFile(rel);
-    // Le tiroir se referme sur ce qu'on vient d'ouvrir : il recouvre l'écran, et le laisser
-    // ouvert cacherait exactement ce qu'on a demandé à voir.
+    // The drawer closes on what was just opened: it covers the screen it was asked to reveal.
     setTreeOpen(false);
   }, []);
   /**
@@ -378,8 +370,8 @@ export function Library() {
   // account and both are drawn in this header — and because the editors below need it: a
   // destination that could only be read where it is drawn would not reach the player.
   const playback = usePlaybackTarget();
-  // Tenue ICI parce que ce composant REND le provider — il est donc au-dessus du contexte, et
-  // c'est lui qui porte l'arbre dont le clic droit remplit la file. Voir playback/usePlayQueue.ts.
+  // Held HERE because this component RENDERS the provider, so it is above the context and carries
+  // the tree whose right-click fills the queue. See playback/usePlayQueue.ts.
   const playQueue = usePlayQueue();
   // The machine's plugin scan was read here, so every scanned plugin could be given a
   // module in the library. That pass went with the `modules` family.
@@ -414,14 +406,8 @@ export function Library() {
   // are all things a person puts there and a parameter list cannot imply. Run over a library it
   // turned a mixer's channel strip into five knobs in a row. The builder's grid is the way in.
 
-  /**
-   * Recharger MORCEAUX, quelle que soit la section ouverte.
-   *
-   * `refresh` invalide le jeton de la section courante, ce qui est juste partout sauf sur la
-   * page de recherche : elle est la section `find`, et ce qu'elle vient de ranger est dans
-   * `songs`. Stable (`[]`), parce que FindSongs en dépend pour son intervalle — une fonction
-   * recréée à chaque rendu reconstruirait le poll indéfiniment.
-   */
+  /** Reload SONGS whatever section is open: `refresh` invalidates the current one, which is right
+   *  everywhere but the hunt page, whose finds land in `songs`. Stable, since FindSongs polls on it. */
   const refreshSongs = useCallback(() => {
     seen.current.songs = "";
   }, []);
@@ -507,12 +493,11 @@ export function Library() {
             },
             {
               key: "queue-song",
-              // La file d'attente de la barre du bas, pas une playlist : ce qu'on écoute
-              // maintenant, dans cet onglet, par opposition au fichier YAML qu'est une
-              // playlist. Voir ../docs/miniPlayer.md.
+              // The bottom bar's queue, not a playlist: what is being listened to in this tab,
+              // as against the YAML file a playlist is. See ../docs/miniPlayer.md.
               label: "Ajouter à la liste de lecture",
-              // Seulement ce qui a réellement un master : mettre à la suite un dossier que
-              // personne n'a rempli ferait une ligne que la lecture sauterait en silence.
+              // Only what actually has a master: queueing an empty folder makes a row that
+              // playback would skip in silence.
               when: (t) => {
                 const e = entryAt(entries, t.path);
                 return !!e && takesOf(e).some((k) => k.kind === "master");
@@ -586,16 +571,14 @@ export function Library() {
   }, []);
 
   /**
-   * Changer de section jette ce qu'on tenait — ET le jeton qui prétendait qu'il était à jour.
+   * Changing section drops what was held — AND the token claiming it was current.
    *
-   * `entries` ne contient qu'UNE section à la fois, donc dès qu'on en change, le jeton de
-   * révision de la nouvelle section est un mensonge : il dit « rien n'a bougé depuis la
-   * dernière fois », ce qui est vrai du VOLUME et faux de l'écran, qui ne tient plus rien.
-   * Le poll ci-dessous ne rechargeait alors pas, et le spinner tournait indéfiniment — jusqu'à
-   * un rechargement de page, qui repart avec des jetons vides. C'était le symptôme.
+   * `entries` holds ONE section at a time, so on switching, the new section's revision token lies:
+   * it says nothing moved, which is true of the VOLUME and false of the screen, which now holds
+   * nothing. The poll below then did not reload and the spinner span forever.
    *
-   * Ici, sur `section`, et pas dans le clic d'onglet : le bouton « précédent » et un lien
-   * profond changent de section sans passer par lui (voir useLibraryRoute).
+   * On `section` and not in the tab's click, because the back button and a deep link change
+   * section without going through it (see useLibraryRoute).
    */
   useEffect(() => {
     setEntries(null);
@@ -645,17 +628,14 @@ export function Library() {
     <PlaybackProvider
       engineId={choice.chosenId}
       playQueue={playQueue}
-      // Pour la destination « les enceintes de la machine » : c'est son service de fichiers
-      // qui pilote son mpv. Voir playback/targets.ts.
+      // For the "machine's speakers" target: its file service is what drives its mpv.
       machine={{ fileBase: choice.fileBase, token: choice.token }}
     >
       <div className="flex h-full flex-col bg-background text-foreground">
-        {/* The families moved from the side to the header, where st0 puts its views: the
-          side is worth more as the current zone's tree than as three fixed buttons.
-          La barre elle-même est celle de @frediverse/ui : elle porte la bande d'onglets, le
-          point de bascule et le hamburger. Ce qui reste ici est ce que pl8 met dedans.
-          Le nom de la SECTION est le sous-titre — sur un écran étroit, savoir où l'on est vaut
-          plus que savoir quelle app on regarde, et un hamburger seul ne le dit pas. */}
+        {/* The families moved from the side to the header, where st0 puts its views: the side is
+          worth more as the current zone's tree than as three fixed buttons. The bar itself is
+          @frediverse/ui's; what stays here is what pl8 puts in it. The SECTION name is the
+          subtitle — on a narrow screen, where you are beats which app you are looking at. */}
         <AppHeader
           // No `variant`: the house look, the accent tinted over the page. It was `plain`
           // when the alternative was a solid accent bar — see @frediverse/ui's docs/app-header.md.

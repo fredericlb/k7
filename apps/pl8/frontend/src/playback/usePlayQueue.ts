@@ -1,8 +1,8 @@
-// usePlayQueue.ts — la file d'attente, tenue par la Library et passée au transport.
+// usePlayQueue.ts — the queue, held by the Library and passed to the transport.
 //
-// Là et non dans le provider parce que la Library le REND : elle est au-dessus du contexte, et
-// c'est elle qui porte l'arbre dont le clic droit remplit la file. Une par onglet, au-dessus
-// des écrans, comme le transport lui-même. Voir ../../docs/miniPlayer.md.
+// Here rather than in the provider because the Library RENDERS it: it sits above the context, and
+// it carries the tree whose right-click fills the queue. One per tab, above the screens, like the
+// transport itself. See ../../docs/miniPlayer.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { useCallback, useRef, useState } from "react";
@@ -18,7 +18,7 @@ export interface PlayQueue {
   enqueue: (entries: MediatekEntry[]) => void;
   removeFromQueue: (i: number) => void;
   moveInQueue: (from: number, to: number) => void;
-  /** Prendre la tête et la retirer, ou `null`. */
+  /** Take the head and remove it, or `null`. */
   takeNext: () => QueueItem | null;
 }
 
@@ -36,17 +36,17 @@ export function usePlayQueue(): PlayQueue {
   }, []);
 
   /**
-   * Par une ref, parce que l'appelant est un effet qui réagit à la fin d'un morceau : il doit
-   * lire la file TELLE QU'ELLE EST à cet instant, et une valeur capturée au rendu précédent
-   * lui ferait reprendre un morceau déjà pris.
+   * Through a ref, because the caller is an effect reacting to a song ending: it must read the
+   * queue AS IT IS at that instant, and a value captured on the previous render would have it take
+   * a song already taken.
    */
   const held = useRef(queue);
   held.current = queue;
   const takeNext = useCallback((): QueueItem | null => {
     const head = held.current[0];
     if (!head) return null;
-    // Comparé par identité avant de couper : deux appels rapprochés ne doivent pas retirer
-    // deux morceaux pour un seul qui démarre.
+    // Compared by identity before cutting: two calls close together must not remove two songs for
+    // one that starts.
     setQueue((q) => (q[0]?.id === head.id ? q.slice(1) : q));
     return head;
   }, []);

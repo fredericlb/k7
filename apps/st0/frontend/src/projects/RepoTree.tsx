@@ -1,6 +1,6 @@
-// RepoTree.tsx — l'arborescence d'un espace de travail telle qu'elle est sur la machine, avec un
-// bouton « Ouvrir dans st0 » sur chaque dossier qui est un projet. Lecture seule : ce qui s'écrit
-// dans un projet s'écrit une fois ouvert. Voir ../../docs/projects.md.
+// RepoTree.tsx — a workspace's tree as it is on the machine, with an "Ouvrir dans st0" button on
+// every folder that is a project. Read-only: what is written in a project is written once it is
+// open. See ../../docs/projects.md.
 
 import { Button } from "@frediverse/ui/button";
 import type { FileNode, MachineWorkspace } from "@studio/web-protocol";
@@ -102,20 +102,20 @@ export function RepoTree({
   projectHref,
 }: {
   workspace: MachineWorkspace;
-  /** null tant que la machine n'a pas répondu — ce n'est pas un espace vide. */
+  /** null until the machine has answered — that is not an empty workspace. */
   nodes: FileNode[] | null;
   onBack: () => void;
-  /** L'adresse d'un projet, pas l'action de l'ouvrir : la rangée en fait un vrai lien. */
+  /** A project's address, not the act of opening it: the row makes it a real link. */
   projectHref: (path: string, app: ProjectApp) => string;
 }) {
-  // L'ordre de lecture, à tous les niveaux : dossiers d'abord, puis par nom.
+  // Reading order, at every level: folders first, then by name.
   const rows = useMemo(() => (nodes ? sortNodes(nodes) : null), [nodes]);
-  // Les dossiers dépliés au départ : ceux qu'il faut traverser pour voir un projet seraient
-  // le bon calcul ; le premier niveau suffit, et un espace qui s'ouvre tout replié cache
-  // derrière un clic la seule chose qu'on vient y chercher.
+  // The folders open at the start: the ones to cross to see a project would be the right answer;
+  // the first level is enough, and a workspace opening fully collapsed hides behind a click the
+  // one thing anybody comes here for.
   const [open, setOpen] = useState<Set<string>>(new Set());
-  // Une seule fois par espace, à l'arrivée de l'arbre : ensuite les plis sont ceux de la
-  // personne, y compris ceux qu'elle a refermés.
+  // Once per workspace, when the tree arrives: after that the folds are the person's own,
+  // including the ones they closed again.
   const seeded = useRef<string | null>(null);
   useEffect(() => {
     if (!rows || seeded.current === workspace.name) return;

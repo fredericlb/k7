@@ -132,3 +132,29 @@ resource per server, UI at http://localhost:10350). So never build by hand there
 save (or `tilt trigger <resource>`), wait for Tilt to finish, then read
 `tilt get uiresources` / `tilt logs <resource>` to see if something is wrong. The
 tray is not used in dev: the engine is self-sufficient. See docs/remote.md.
+
+## Shell out through Git Bash, from a FILE
+
+PowerShell is the wrong tool for anything touching this repo's text, and the failure is silent
+rather than loud. Measured here, three times in one session:
+
+- **It corrupts UTF-8.** `Get-Content -Raw` reads as ANSI, so a read-modify-write round trip turns
+  `é` into `Ã©` and `—` into `â€"`. It wrecked two commit messages and a source file before anyone
+  noticed, because the file still parses and the diff still looks plausible.
+- **Accented arguments do not survive the call**, even in single quotes:
+  `bash -lc 'echo "é à ç"'` prints `` — the text is lost between PowerShell and the exe.
+- `--%` does not save you: it swallows the rest of the line, epilogue included.
+- Its parser rejects `&&`, `??`, `?.` and bare `|` in places bash accepts them.
+
+So: **write the script with the file tool, then run `bash script.sh`.** The file tool writes UTF-8
+without a BOM, and nothing accented ever passes through PowerShell's argument encoding.
+
+```bash
+# .tmp-work.sh — written as a file, then: bash .tmp-work.sh
+set -euo pipefail
+grep -rn 'médiathèque' packages/song/src | head
+```
+
+Use PowerShell only for short ASCII commands where none of the above bites — `git status`,
+`npm run test`. **Never for text substitution in a tracked file**: use the edit tool, which is
+what every one of those three corruptions should have used.

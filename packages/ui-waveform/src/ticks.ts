@@ -21,7 +21,7 @@ export const LABEL_GAP_PX = 8;
  * Estimated from the character count rather than measured. Both rulers label in digits and
  * dots, which are single-advance in a monospace, so the count IS the width — and the
  * timeline draws DOM, where measuring means a layout per frame. The 12px monospace is the
- * wider of the two rulers' fonts, so the waveform's 10px sans is covered by the same
+ * wider of the two rulers' fonts, so the waveform's 10px sans-serif is covered by the same
  * number, which is what keeps the two agreeing when stacked. See docs/ticks.md.
  */
 export function labelMinPx(widest: string, charPx = MONO_CHAR_PX): number {

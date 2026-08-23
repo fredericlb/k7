@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { releaseSearch } from "./slskd.ts";
 
-/** Chaque appel vu par le faux fetch, dans l'ordre : « PUT /searches/x ». */
+/** Every call the fake fetch saw, in order: "PUT /searches/x". */
 let calls: string[] = [];
 const realFetch = globalThis.fetch;
 
-/** `done` décide de ce que répond `GET /searches/{id}` — c'est tout ce que la libération lit. */
+/** `done` decides what `GET /searches/{id}` answers — all the release reads. */
 function stub(done: () => boolean) {
   globalThis.fetch = vi.fn(async (url: unknown, init?: RequestInit) => {
     const method = init?.method ?? "GET";
@@ -28,9 +28,9 @@ afterEach(() => {
 
 describe("releaseSearch", () => {
   it("arrête la recherche AVANT de la supprimer", async () => {
-    // Le bug d'origine : supprimer une recherche encore en cours fait lever
-    // DbUpdateConcurrencyException à slskd, qui met à jour la ligne au fil des réponses —
-    // « expected to affect 1 row(s), but actually affected 0 row(s) ».
+    // The original bug: deleting a search still running makes slskd throw
+    // DbUpdateConcurrencyException, since it updates the row as answers come in —
+    // "expected to affect 1 row(s), but actually affected 0 row(s)".
     stub(() => true);
     await releaseSearch("abc");
     expect(calls).toEqual([
@@ -41,12 +41,12 @@ describe("releaseSearch", () => {
   });
 
   it("ne supprime rien tant que la recherche n'est pas terminée", async () => {
-    // Une recherche survit à l'intérêt qu'on lui porte : on classe ce qui est arrivé au bout
-    // de quelques secondes pendant que Soulseek répond encore. Laisser la ligne est le bon
-    // choix — une ligne de trop chez slskd ne coûte rien, une trace de pile si.
+    // A search outlives the interest taken in it: what arrived within a few seconds is filed while
+    // Soulseek is still answering. Leaving the row is the right call — one extra row on slskd
+    // costs nothing, a stack trace does.
     stub(() => false);
-    // Le délai passé en argument : en vrai il est de dix secondes, et l'attendre ici ne
-    // vérifierait rien de plus que la patience de vitest.
+    // The delay is passed in: in production it is ten seconds, and waiting for it here would check
+    // nothing but vitest's patience.
     await releaseSearch("abc", 30);
     expect(calls).toContain("PUT /api/v0/searches/abc");
     expect(calls).not.toContain("DELETE /api/v0/searches/abc");

@@ -1,7 +1,6 @@
-// RepoList.tsx — les espaces de travail de la machine, chacun avec ses projets en retrait : en
-// ajouter un par URI SSH (ce qui l'inscrit chez pl8 ET le clone), ou ouvrir un projet
-// directement, dans un nouvel onglet. Présentationnel : la section détient l'asynchrone et
-// ce fichier dessine. Voir ../../docs/projects.md.
+// RepoList.tsx — the machine's workspaces, each with its projects indented: add one by SSH URI
+// (which registers it with pl8 AND clones it), or open a project straight into a new tab.
+// Presentational — the section holds the async and this file draws. See ../../docs/projects.md.
 
 import { Badge } from "@frediverse/ui/badge";
 import { Button } from "@frediverse/ui/button";
@@ -29,12 +28,12 @@ import { NewProject } from "./NewProject";
 import { ProjectShares } from "./ProjectShares";
 import { sharesOf } from "./sharesForProject";
 
-/** Le nom du dossier, sans son suffixe : `chansons/hiver.st0` s'affiche « hiver », et le
- *  chemin qui la situe dans l'espace de travail est à côté. */
+/** The folder's name without its suffix: `chansons/hiver.st0` shows as "hiver", with the path
+ *  that places it in the workspace beside it. */
 const nameOf = (p: RepoProject): string =>
   projectLabel(p.path.split("/").pop() ?? p.path);
 
-/** Le dossier qui contient le projet, ou null quand il est à la racine de l'espace. */
+/** The folder holding the project, or null when it sits at the workspace root. */
 const parentOf = (p: RepoProject): string | null => {
   const cut = p.path.lastIndexOf("/");
   return cut > 0 ? p.path.slice(0, cut) : null;
@@ -60,21 +59,20 @@ export function RepoList({
   workspaces: MachineWorkspace[];
   busy: boolean;
   error: string | null;
-  /** Où en est le clone en cours, dans les mots de git, ou null. Ajouter un dépôt le CLONE
-   *  maintenant : sans ça il serait inscrit chez pl8 et invisible ici, cette liste ne montrant
-   *  que ce que la machine tient. */
+  /** Where the running clone is, in git's own words, or null. Adding a repository CLONES it now:
+   *  otherwise it would be registered with pl8 and invisible here. */
   adding: string | null;
   hasMachine: boolean;
   onAdd: (uri: string) => void;
   onOpen: (ws: MachineWorkspace) => void;
-  /** Pourquoi créer et supprimer sont impossibles, ou "". Les deux passent par la machine, qui
-   *  est aussi ce qui LIT cette liste — voir ../../docs/projects.md. */
+  /** Why create and delete are impossible, or "". Both go through the machine, which is also what
+   *  READS this list — see ../../docs/projects.md. */
   blocked: string;
   onCreate: (
     ws: MachineWorkspace,
     folder: string,
     onStep: (s: string) => void,
-    /** `arrangement`, `mix` ou `video`. Voir NewProject. */
+    /** `arrangement`, `mix` or `video`. See NewProject. */
     shape: ProjectShape,
   ) => Promise<void>;
   onDelete: (
@@ -82,19 +80,19 @@ export function RepoList({
     project: RepoProject,
     onStep: (s: string) => void,
   ) => Promise<void>;
-  /** Le dépôt inscrit chez pl8 derrière cet espace de travail, ou null. C'est lui qui rend
-   *  l'adresse portable `/<dépôt>/<projet>` résoluble — et lui qu'on peut retirer. */
+  /** The pl8-registered repository behind this workspace, or null. It is what makes the portable
+   *  `/<repo>/<project>` address resolvable — and what can be removed. */
   repoFor: (ws: MachineWorkspace) => RepoSummary | null;
-  /** Retirer le dépôt du registre. Le dossier reste : retirer un nom d'une liste ne supprime
-   *  les fichiers de personne. */
+  /** Take the repository out of the register. The folder stays: removing a name from a list
+   *  deletes nobody's files. */
   onForget: (repo: RepoSummary) => void;
-  /** L'adresse d'un projet dans SON application. Une adresse et non une action : la rangée est
-   *  un lien, qui s'ouvre dans un nouvel onglet. */
+  /** A project's address in ITS app. An address and not an action: the row is a link, opening in
+   *  a new tab. */
   projectHref: (ws: MachineWorkspace, project: RepoProject) => string;
-  /** Tous les partages du compte. Chaque rangée prend les siens (`sharesOf`) — pl8 rend la liste
-   *  entière en un appel, et découper ici évite une requête par projet. */
+  /** Every share of the account. Each row takes its own (`sharesOf`) — pl8 returns the whole list
+   *  in one call, and cutting it here avoids a request per project. */
   shares: ShareSummary[];
-  /** Après une révocation, pour que la page relise sans attendre le poll. */
+  /** After a revocation, so the page re-reads without waiting for the poll. */
   onChanged: () => void;
 }) {
   const [uri, setUri] = useState("");
@@ -147,9 +145,8 @@ export function RepoList({
       )}
 
       {!hasMachine ? (
-        // Le prix du déménagement, dit là où il se paie. Un projet est un dossier sur la machine
-        // du moteur : sans elle il n'y a pas de liste à montrer, et prétendre le contraire — une
-        // liste vide, une invitation à ajouter un dépôt — se lirait comme un compte neuf.
+        // The price of the move, said where it is paid: with no machine there is no list to show,
+        // and pretending otherwise — an empty list, an invitation — would read as a new account.
         <div className="flex flex-col items-center gap-2 rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
           <ServerOff className="h-5 w-5 text-amber-500" />
           <span>
@@ -242,8 +239,8 @@ export function RepoList({
               {w.projects.length > 0 && (
                 <ul className="mt-2 ml-2 flex flex-col border-l border-border pl-3">
                   {w.projects.map((p) => (
-                    // La rangée tient le lien ET les boutons : le lien s'étire, les boutons
-                    // restent au bout, et le `preventDefault` de chacun l'empêche d'ouvrir.
+                    // The row holds the link AND the buttons: the link stretches, the buttons stay
+                    // at the end, and each one's `preventDefault` stops it opening.
                     <li key={p.path} className="flex items-center gap-1">
                       <a
                         className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent/50"

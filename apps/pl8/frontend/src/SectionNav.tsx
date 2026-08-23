@@ -1,6 +1,6 @@
-// SectionNav.tsx — les sections de pl8, en `AppHeaderItem` : la bande d'onglets et le menu
-// hamburger sont ceux de @frediverse/ui, cette liste est celle de pl8. Le compte de chaque
-// section voyage sur le `trailing` de l'item. Voir ../docs/responsive.md.
+// SectionNav.tsx — pl8's sections as `AppHeaderItem`s: the tab strip and the hamburger are
+// @frediverse/ui's, this list is pl8's. Each section's count rides the item's `trailing`.
+// See ../docs/responsive.md.
 
 import type { AppHeaderItem } from "@frediverse/ui/app-header";
 import { RECORDINGS_DIR } from "@studio/mediatek/types";
@@ -8,24 +8,16 @@ import { Disc3, type LucideIcon, Mic, Waves } from "lucide-react";
 import type { SectionId } from "./routes";
 
 /**
- * Les sections : les trois familles, et la zone de captures brutes.
+ * The sections: the three families, plus the raw captures zone.
  *
- * TROIS sont parties ensemble, et pour une seule raison : elles parlaient d'ÉCRITURE, et on
- * écrit dans st0.
+ * THREE left together, for one reason: they were about WRITING, and writing happens in st0.
+ * Modules and chains went with the editing — a module is authored against a project where the
+ * plugin it names is actually LOADED. Projects led the way and the app used to start there; the
+ * repositories are st0's home page now, that being the level above a project.
  *
- * MODULES et CHAÎNES sont parties avec l'édition : un module s'écrit contre un projet où le
- * greffon qu'il nomme est réellement CHARGÉ, et se committe dans le dépôt de bibliothèques du
- * compte. Ce volume n'en tient plus aucun.
- *
- * PROJETS ouvrait la marche, et l'app y démarrait. Les dépôts sont la page d'accueil de st0
- * maintenant — c'était la section la plus éloignée de ce volume, la seule qui n'était pas
- * dessus du tout, et le niveau au-dessus d'un projet appartient à l'éditeur qui en ouvre un.
- * Les routes, elles, n'ont pas bougé d'ici. Voir apps/st0/frontend/docs/projects.md.
- *
- * ENREGISTREMENTS n'est pas une famille non plus — c'est un dossier à la racine, sans entrée
- * de catalogue et sans listing à demander à `/list`. Il est ici parce que l'écran s'organise
- * par ce qu'on regarde, et ce qu'on regarde est une chose de plus.
- * Voir packages/mediatek/docs/recordings.md.
+ * RECORDINGS is not a family either — a root folder with no catalogue entry and no listing to
+ * ask `/list` for. It is here because the screen is organised by what you are looking at.
+ * See packages/mediatek/docs/recordings.md and apps/st0/frontend/docs/projects.md.
  */
 export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
   { id: "songs", label: "Morceaux", icon: Disc3 },
@@ -34,14 +26,13 @@ export const SECTIONS: { id: SectionId; label: string; icon: LucideIcon }[] = [
 ];
 
 /**
- * Les sections, dans la forme que la barre partagée consomme.
+ * The sections, in the shape the shared bar consumes.
  *
- * Le COMPTE part sur `trailing` et non dans le libellé : le libellé est la chaîne que le menu
- * coche et qu'`aria-current` annonce, et un nombre fondu dedans serait lu comme une partie du nom
- * de la page — et changerait à chaque fois que le catalogue change. Atténué et tabulaire, comme il
- * l'a toujours été.
+ * The COUNT goes on `trailing` rather than into the label: the label is the string the menu ticks
+ * and `aria-current` announces, and a number folded into it would read as part of the page's name
+ * and change whenever the catalogue does.
  *
- * Une fonction et non un tableau : `counts` et `section` changent, la liste non.
+ * A function and not an array: `counts` and `section` change, the list does not.
  */
 export function sectionItems(
   section: SectionId,
@@ -65,7 +56,7 @@ export function sectionItems(
   }));
 }
 
-/** Le nom de la section où l'on est — ce que la barre met en sous-titre. Un hamburger seul ne dit
- *  pas où l'on est, et c'est la première chose qu'on demande à un écran de téléphone. */
+/** The name of the section you are in — the bar's subtitle. A hamburger alone does not say where
+ *  you are, which is the first thing a phone screen is asked. */
 export const sectionLabel = (section: SectionId): string | undefined =>
   SECTIONS.find((s) => s.id === section)?.label;

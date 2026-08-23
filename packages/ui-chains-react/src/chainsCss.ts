@@ -1,13 +1,12 @@
-// chainsCss.ts — la feuille de style du graphe des chaînes, portée sur `.dgx`, plus le hook qui
-// l'injecte une fois dans la page.
+// chainsCss.ts — the chains graph's stylesheet, scoped to `.dgx`, plus the hook that injects it
+// once into the page.
 //
-// Quatre cent quinze lignes de CSS vivaient au milieu de `DomChains.tsx`, entre les constantes de
-// couleur et les composants — un fichier de 4981 lignes dont c'était le plus gros bloc et le seul
-// à ne contenir aucune logique. Le sortir ne change rien à l'exécution et rend les deux lisibles.
+// Four hundred and fifteen lines of CSS lived in the middle of `DomChains.tsx`, between the colour
+// constants and the components — the biggest block of a 4981-line file, and the only one holding
+// no logic. Taking it out changes nothing at runtime and makes both readable.
 //
-// Portée sous `.dgx` pour que le composant se pose dans n'importe quel hôte, et injectée une seule
-// fois : l'identifiant du `<style>` est ce qui le garantit quand deux graphes sont montés — le
-// pupitre et l'onglet Chaînes le sont ensemble.
+// Scoped under `.dgx` so the component drops into any host, and injected once: the `<style>`'s id
+// is what guarantees that when two graphs are mounted — the desk and the Chaînes tab are.
 
 import type { WebSignal } from "@studio/graph-model";
 import { PORT_PLATE } from "@studio/ui-chains/graph";

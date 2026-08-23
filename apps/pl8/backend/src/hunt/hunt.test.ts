@@ -10,18 +10,18 @@ describe("searchTexts", () => {
   });
 
   it("ne met JAMAIS l'artiste dans la requête", () => {
-    // Une recherche Soulseek porte sur tout le chemin partagé, et l'artiste est presque
-    // toujours le dossier AU-DESSUS de l'album : il ne restreint rien que l'album n'ait déjà
-    // restreint, et chaque terme ajouté est une façon de plus de rater une copie légitime.
-    // L'artiste reste le filtre sur ce qui revient — voir rankCandidates.
+    // A Soulseek search covers the whole shared path, and the artist is almost always the folder
+    // ABOVE the album: it narrows nothing the album has not already narrowed, and every extra term
+    // is one more way to miss a legitimate copy. The artist stays the filter on what comes back —
+    // see rankCandidates.
     expect(searchTexts("Nevermind", "Lithium").join(" | ")).not.toContain(
       "Nirvana",
     );
     expect(searchTexts("Kind of Blue", "So What").join(" | ")).not.toContain(
       "Miles",
     );
-    // Et rien d'autre non plus : les deux tentatives sont exactement l'album+titre, puis
-    // le titre. Une égalité stricte, parce qu'un terme de trop ne peut que perdre des copies.
+    // And nothing else either: the two attempts are exactly album+title, then title. A strict
+    // equality, because one term too many can only lose copies.
     expect(searchTexts("Kind of Blue", "So What")).toEqual([
       "Kind of Blue So What",
       "So What",
@@ -29,8 +29,8 @@ describe("searchTexts", () => {
   });
 
   it("ne fait qu'une tentative quand il n'y a pas d'album", () => {
-    // Sinon la même recherche partirait deux fois, pour dépenser un second tour de la
-    // patience de quelqu'un.
+    // Otherwise the same search would go out twice, spending a second round of somebody's
+    // patience.
     expect(searchTexts(null, "Lithium")).toEqual(["Lithium"]);
     expect(searchTexts("   ", "Lithium")).toEqual(["Lithium"]);
     expect(searchTexts(undefined, "Lithium")).toEqual(["Lithium"]);

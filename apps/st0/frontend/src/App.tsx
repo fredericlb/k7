@@ -741,14 +741,14 @@ export default function App({
   }, [store]);
 
   /**
-   * Un morceau qui joue est une session ACTIVE, même si personne ne touche rien.
+   * A playing song is an ACTIVE session, even with nobody touching anything.
    *
-   * Sans ça, le minuteur d'inactivité couperait un set de quarante minutes à la vingtième —
-   * en plein milieu, et en déchargeant le projet du moteur, donc en coupant le son. Écouter est
-   * précisément ce qu'on fait de cette application sans bouger la souris.
+   * Without this, the idle timer would cut a forty-minute set at the twentieth — mid-set, and by
+   * unloading the project from the engine, so cutting the sound. Listening is precisely what one
+   * does with this app without moving the mouse.
    *
-   * Un battement plutôt qu'un drapeau : `markActive` est une affectation dans un module, et une
-   * minute est très en dessous des vingt qu'on mesure. Voir @studio/project-shell/docs/idle.md.
+   * A heartbeat rather than a flag: `markActive` is one assignment in a module, and a minute is
+   * far under the twenty being measured. See @studio/project-shell/docs/idle.md.
    */
   useEffect(() => {
     if (!playing) return;

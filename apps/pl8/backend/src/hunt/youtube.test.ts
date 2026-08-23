@@ -4,16 +4,15 @@ import { youtubeQuery, ytdlpArgs } from "./youtube.ts";
 
 describe("youtubeQuery", () => {
   it("met l'artiste ET le titre — l'inverse de la recherche Soulseek", () => {
-    // Un titre de vidéo YouTube s'écrit « Artiste - Titre », donc l'artiste est dans le champ
-    // même qu'on interroge. Chez slskd il était le dossier au-dessus et n'ajoutait rien.
+    // A YouTube video title reads "Artist - Title", so the artist is in the very field being
+    // queried. On slskd it was the folder above and added nothing.
     expect(
       youtubeQuery({ artist: "Nirvana", title: "Lithium", query: "x" }),
     ).toBe("Nirvana Lithium");
   });
 
   it("retombe sur ce qui a été tapé quand MusicBrainz n'a rien reconnu", () => {
-    // C'est tout ce qu'on a, et YouTube est bien plus tolérant qu'un catalogue sur une
-    // orthographe approximative.
+    // It is all we have, and YouTube is far more forgiving of loose spelling than a catalogue.
     expect(youtubeQuery({ query: "  lady gaga telephon  " })).toBe(
       "lady gaga telephon",
     );
@@ -22,8 +21,8 @@ describe("youtubeQuery", () => {
 
 describe("ytdlpArgs", () => {
   it("passe la requête comme UN seul argument, jamais comme une commande", () => {
-    // Ce texte vient de ce que quelqu'un a tapé. Le tableau + execFile sans shell est ce qui
-    // fait qu'un point-virgule ou un $(…) reste des caractères dans une recherche.
+    // This text comes from what somebody typed. The array plus execFile without a shell is what
+    // keeps a semicolon or a $(…) as characters in a search.
     const nasty = 'lithium"; rm -rf /; echo "';
     const args = ytdlpArgs(nasty, "/tmp/out");
     expect(args[0]).toBe(`ytsearch1:${nasty}`);
@@ -37,8 +36,8 @@ describe("ytdlpArgs", () => {
   });
 
   it("garde le codec de la source plutôt que de le convertir", () => {
-    // `--audio-format best` ne convertit pas : il conserve. Ré-encoder l'Opus ~130 kbps de
-    // YouTube en mp3 serait un transcodage lossy vers lossy, pire que l'un ou l'autre.
+    // `--audio-format best` does not convert: it keeps. Re-encoding YouTube's ~130 kbps Opus to
+    // mp3 would be lossy-to-lossy, worse than either.
     const args = ytdlpArgs("x", "/tmp/out");
     expect(args[args.indexOf("--audio-format") + 1]).toBe("best");
     expect(args).toContain("--extract-audio");
@@ -49,9 +48,9 @@ describe("ytdlpArgs", () => {
     const args = ytdlpArgs("x", "/vol/.hunts/tmp/abc");
     expect(args).toContain("--max-filesize");
     expect(args).toContain("--socket-timeout");
-    // Assemblé par `join` comme la production le fait : le serveur est Linux, mais un poste de
-    // développement Windows donne des antislashs — que yt-dlp accepte — et l'attente écrite en
-    // dur faisait échouer la série entière ici, et nulle part ailleurs.
+    // Built with `join` as production does: the server is Linux, but a Windows dev machine gives
+    // backslashes — which yt-dlp accepts — and a hard-coded expectation failed the whole suite
+    // here, and nowhere else.
     expect(args[args.indexOf("--output") + 1]).toBe(
       join("/vol/.hunts/tmp/abc", "%(id)s.%(ext)s"),
     );

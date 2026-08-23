@@ -41,12 +41,12 @@ export function useEngineChoice(): EngineChoice {
   const [loaded, setLoaded] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const relook = useRelook();
-  // Dans une ref et non dans les dépendances : la re-mesure doit LIRE le choix courant sans
-  // que choisir un moteur déclenche une mesure complète.
+  // In a ref rather than in the dependencies: re-measuring must READ the current choice without
+  // choosing an engine triggering a full measurement.
   const chosen = useRef<string | undefined>(undefined);
   chosen.current = chosenId;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` et `relook` sont des déclencheurs, pas des valeurs lues ici — ils disent QUAND relancer.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` and `relook` are triggers, not values read here — they say WHEN to run again.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -54,9 +54,9 @@ export function useEngineChoice(): EngineChoice {
       // is ignored here on purpose: this hook draws a picker, so it shows what the account
       // remembered even when that engine did not answer — `ready` below is what says whether
       // it can be driven.
-      // Le choix COURANT est passé en préférence, et c'est ce qui rend la re-mesure sans
-      // danger : `find` rend `preferId ?? prefs.engineId`, donc un `choose()` optimiste dont
-      // l'enregistrement n'a pas encore atterri n'est pas écrasé par la valeur du serveur.
+      // The CURRENT choice is passed as the preference, and that is what makes re-measuring safe:
+      // `find` returns `preferId ?? prefs.engineId`, so an optimistic `choose()` whose save has
+      // not landed yet is not overwritten by the server's value.
       const { ranked: r, rememberedId } = await engines.find(chosen.current);
       if (cancelled) return;
       setChosenId(rememberedId);
@@ -66,9 +66,9 @@ export function useEngineChoice(): EngineChoice {
     return () => {
       cancelled = true;
     };
-    // `relook` fait revenir ici toutes les quinze secondes et au retour de l'onglet : une
-    // sonde est un instantané, et une seule course ratée marquait le moteur injoignable
-    // jusqu'au rechargement de la page. Voir packages/engine-browser/src/relook.ts.
+    // `relook` brings us back here every fifteen seconds and when the tab returns: a probe is a
+    // snapshot, and one missed race marked the engine unreachable until the page was reloaded.
+    // See packages/engine-browser/src/relook.ts.
   }, [attempt, relook]);
 
   const choose = useCallback((id: string) => {

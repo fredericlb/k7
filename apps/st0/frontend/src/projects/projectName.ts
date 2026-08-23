@@ -1,6 +1,6 @@
-// projectName.ts — le nom de dossier qu'un projet neuf portera. Pur, et à part, parce que ce
-// nom n'est pas une étiquette : c'est le SUFFIXE qui décide quelle application l'ouvrira.
-// Voir packages/web-protocol/projects.ts et ../../docs/projects.md.
+// projectName.ts — the folder name a new project will carry. Pure, and kept apart, because that
+// name is not a label: the SUFFIX is what decides which application opens it.
+// See packages/web-protocol/projects.ts and ../../docs/projects.md.
 
 import {
   PROJECT_SUFFIXES,
@@ -8,27 +8,27 @@ import {
 } from "@studio/web-protocol/projects";
 
 export interface ProjectName {
-  /** Le dossier tel qu'il sera créé, ou "" quand le nom ne convient pas. */
+  /** The folder as it will be created, or "" when the name will not do. */
   folder: string;
-  /** Pourquoi il ne convient pas, ou "". */
+  /** Why it will not do, or "". */
   error: string;
 }
 
 const SUFFIXES = Object.values(PROJECT_SUFFIXES);
 
 /**
- * Le dossier à créer, pour un nom tapé et une application choisie.
+ * The folder to create, for a typed name and a chosen application.
  *
- * Montré AVANT de créer, comme `AddSong` montre l'arborescence déduite avant l'envoi : ici
- * aussi c'est le nom qui décide de tout, et le voir est ce qui permet de le corriger.
+ * Shown BEFORE creating, as `AddSong` shows the derived tree before uploading: here too the name
+ * decides everything, and seeing it is what lets it be corrected.
  *
- * Les séparateurs sont REFUSÉS et non remplacés. Le file-service les remplacerait par des `_`
- * — c'est son contrat, et il a raison de ne pas échouer — mais un écran qui a la place de le
- * dire vaut mieux qu'un dossier qui apparaît sous un autre nom que celui qu'on a lu.
+ * Separators are REFUSED rather than replaced. The file service would turn them into `_` — that is
+ * its contract, and it is right not to fail — but a screen with room to say so beats a folder
+ * appearing under a name other than the one that was read.
  *
- * Un suffixe déjà tapé est retiré avant qu'on pose le sien : quelqu'un qui écrit « hiver.st0 »
- * puis choisit m9 dans le menu a changé d'avis, et « hiver.st0.m9 » ne serait ni l'un ni
- * l'autre. Le menu décide, toujours.
+ * A suffix already typed is stripped before ours is added: somebody writing "hiver.st0" then
+ * picking m9 from the menu changed their mind, and "hiver.st0.m9" would be neither. The menu
+ * decides, always.
  */
 export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
   const name = raw.trim();
@@ -38,8 +38,8 @@ export function projectFolderName(raw: string, app: ProjectApp): ProjectName {
       folder: "",
       error: "pas de « / » ni de « \\ » dans un nom de projet",
     };
-  // Un nom qui commence par un point est un dossier caché : le projet existerait sans se voir,
-  // ni ici ni dans l'arborescence du dépôt.
+  // A name starting with a dot is a hidden folder: the project would exist unseen, here and in
+  // the repository's tree alike.
   if (name.startsWith("."))
     return { folder: "", error: "un nom ne peut pas commencer par un point" };
   const stem = SUFFIXES.reduce(

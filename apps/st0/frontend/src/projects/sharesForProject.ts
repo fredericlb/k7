@@ -1,18 +1,18 @@
-// sharesForProject.ts — quels partages sortent de CE projet. `origin` est écrit par la machine
-// avec deux basenames, pas avec l'adresse portable d'un projet, et c'est cette asymétrie que la
-// page doit franchir pour poser un bouton sur une rangée. Nommé au long plutôt que
-// « projectShares » : sur Windows il se heurterait à ProjectShares.tsx, dont le résolveur de vite
-// ne distingue pas la casse. Voir ../../docs/projects.md, § Les partages.
+// sharesForProject.ts — which shares came out of THIS project. `origin` is written by the machine
+// as two basenames, not as a project's portable address, and that asymmetry is what the page must
+// cross to put a button on a row. Named at length rather than "projectShares": on Windows it would
+// collide with ProjectShares.tsx, whose case vite's resolver ignores.
+// See ../../docs/projects.md, § « Les partages ».
 
 import type { ShareSummary } from "@studio/web-protocol";
 
 /**
- * Le nom sous lequel un projet apparaît dans `origin.project`.
+ * The name a project appears under in `origin.project`.
  *
- * Le service de fichiers écrit `origin: { repo: basename(root), project: basename(dir) }`
- * (`packages/file-service/src/workspace.ts`, `shareLink`) : le DERNIER segment avec son suffixe,
- * jamais le chemin complet. Un projet qui EST son espace de travail a `dir === root`, donc le nom
- * de l'espace des deux côtés — ce que `"."` veut dire ici.
+ * The file service writes `origin: { repo: basename(root), project: basename(dir) }`
+ * (`packages/file-service/src/workspace.ts`, `shareLink`): the LAST segment with its suffix, never
+ * the full path. A project that IS its workspace has `dir === root`, so the workspace name on both
+ * sides — which is what `"."` means here.
  */
 export function shareProjectName(
   workspaceName: string,
@@ -24,14 +24,14 @@ export function shareProjectName(
 }
 
 /**
- * Les partages de ce projet, révoqués compris.
+ * This project's shares, revoked ones included.
  *
- * Les révoqués restent : la ligne datée est ce qui répond « oui, ça a existé et c'est retiré », et
- * la faire disparaître du seul écran qui la montre laisse son auteur se le demander.
+ * The revoked stay: the dated row is what answers "yes, it existed and it is withdrawn", and
+ * removing it from the only screen that shows it leaves its author wondering.
  *
- * **Deux projets du même nom dans deux dossiers d'un même espace sont indiscernables**, parce que
- * `origin` ne porte qu'un basename. Ils voient donc les mêmes lignes. Élargir la comparaison
- * demanderait que la machine écrive le chemin, ce qui se règle là-bas et pas ici.
+ * **Two projects of the same name in two folders of one workspace are indistinguishable**, because
+ * `origin` carries only a basename. They see the same rows. Widening the comparison would need the
+ * machine to write the path, which is settled there and not here.
  */
 export function sharesOf(
   shares: ShareSummary[],
@@ -44,6 +44,6 @@ export function sharesOf(
   );
 }
 
-/** Ce que le bouton affiche : les partages VIVANTS, les seuls qui coûtent des octets. */
+/** What the button shows: the LIVE shares, the only ones costing bytes. */
 export const liveCount = (shares: ShareSummary[]): number =>
   shares.filter((s) => !s.revokedAt).length;

@@ -101,8 +101,8 @@ describe("flattenTransfers", () => {
 describe("fetchDownload — ce qui part dans les journaux", () => {
   let lines: string[] = [];
 
-  /** Un faux serveur SFTP : `at` est le chemin où le fichier se trouve VRAIMENT, `tree` ce que
-   *  chaque répertoire contient (un nom fini par `/` est un dossier). */
+  /** A fake SFTP server: `at` is where the file REALLY is, `tree` what each directory holds (a
+   *  name ending in `/` is a folder). */
   const fake = (at: string, tree: Record<string, string[]>): SftpLike => ({
     connect: async () => undefined,
     exists: async (p: string) => (p === at ? ("-" as const) : false),
@@ -138,8 +138,8 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
   });
 
   it("écrit le chemin visé ET le contenu du dossier de téléchargement", async () => {
-    // Les deux questions qu'on se pose quand rien n'arrive, répondues au moment où la réponse
-    // est sous la main — c'est-à-dire pendant la connexion, pas après.
+    // The two questions asked when nothing arrives, answered while the answer is to hand — that
+    // is, during the connection, not after.
     const remote = "@ann\\Music\\Nirvana\\Nevermind\\05 Lithium.flac";
     await fetchDownload(remote, () =>
       fake("/downloads/Nevermind/05 Lithium.flac", {
@@ -157,7 +157,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
   });
 
   it("dit où il a fini par le trouver quand ce n'est pas là", async () => {
-    // Le cas qui rendait un échec indistinguable d'un morceau que personne ne partage.
+    // The case that made a failure indistinguishable from a song nobody shares.
     await fetchDownload("@ann\\x\\y\\Lithium.flac", () =>
       fake("/downloads/complete/Lithium.flac", {
         "/downloads": ["complete/"],
@@ -177,7 +177,7 @@ describe("fetchDownload — ce qui part dans les journaux", () => {
     );
     const all = lines.join("\n");
     expect(all).not.toContain("SECRET-KEY-MATERIAL");
-    // Le FAIT qu'il y ait une clé est utile pour diagnostiquer, sa valeur ne l'est pas.
+    // The FACT that there is a key helps diagnosis; its value does not.
     expect(all).toContain("(clé)");
   });
 });

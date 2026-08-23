@@ -1,28 +1,28 @@
-// queue.ts — ce qu'on a mis à la suite. Les opérations sont pures et à part : réordonner une
-// liste est exactement le genre de code qui se trompe d'un cran, et un lecteur qui perd la
-// piste qu'on vient de déplacer n'est pas crédible. Voir ../../docs/miniPlayer.md.
+// queue.ts — what was queued up next. The operations are pure and kept apart: reordering a list
+// is exactly the kind of code that goes off by one, and a player that loses the track just moved
+// is not credible. See ../../docs/miniPlayer.md.
 
 import type { MediatekEntry } from "@studio/mediatek/types";
 
 /**
  * Un morceau en attente.
  *
- * L'ENTRÉE et non un chemin résolu : où le fichier se joue dépend de la machine choisie et de
- * son cache, deux choses qui peuvent changer entre le moment où on l'ajoute et celui où il
- * passe. On garde donc ce qui est stable et on résout au dernier moment.
+ * The ENTRY and not a resolved path: where the file plays depends on the chosen machine and its
+ * cache, two things that can change between queueing and playing. So keep what is stable and
+ * resolve at the last moment.
  */
 export interface QueueItem {
-  /** L'identité de la ligne, et ce qui empêche un doublon : le chemin du morceau. */
+  /** The row's identity, and what prevents a duplicate: the song's path. */
   id: string;
   entry: MediatekEntry;
 }
 
 /**
- * Ajouter à la suite, sans doublon.
+ * Queue up next, without duplicates.
  *
- * Un morceau déjà en attente n'est pas remis : « ajouter » deux fois est presque toujours un
- * second clic sur la même ligne, et une file qui joue deux fois le même titre à la suite est
- * un défaut que personne n'attribue au clic.
+ * A song already waiting is not queued again: adding twice is almost always a second click on the
+ * same row, and a queue playing the same title twice in a row is a fault nobody blames on the
+ * click.
  */
 export function enqueue(
   queue: QueueItem[],
@@ -35,8 +35,8 @@ export function enqueue(
   return added.length ? [...queue, ...added] : queue;
 }
 
-/** Retirer la ligne d'indice `i`. Hors bornes rend la même file — un identifiant périmé n'est
- *  pas une faute, c'est un clic sur ce qui vient d'être joué. */
+/** Remove the row at index `i`. Out of bounds returns the same queue — a stale id is not a fault,
+ *  it is a click on what has just played. */
 export function removeAt(queue: QueueItem[], i: number): QueueItem[] {
   if (i < 0 || i >= queue.length) return queue;
   return [...queue.slice(0, i), ...queue.slice(i + 1)];
@@ -45,10 +45,10 @@ export function removeAt(queue: QueueItem[], i: number): QueueItem[] {
 /**
  * Déplacer la ligne `from` à la position `to`.
  *
- * `to` est l'indice VOULU dans la liste finale, pas dans la liste de départ. C'est la
- * différence qui fait qu'un déplacement vers le bas semble ne rien faire quand on la rate :
- * retirer d'abord décale tout ce qui suit, donc l'insertion doit se faire dans la liste déjà
- * amputée. Testé dans les deux sens pour cette raison.
+ * `to` is the WANTED index in the final list, not in the starting one. That difference is what
+ * makes a downward move look like a no-op when it is missed: removing first shifts everything
+ * after it, so the insert must happen in the already-shortened list. Tested both ways for that
+ * reason.
  */
 export function moveTo(
   queue: QueueItem[],

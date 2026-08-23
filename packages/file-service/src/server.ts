@@ -343,9 +343,9 @@ app.get(
 // registered here for the same reason /workspaces is.
 app.use(mediatekRouter);
 
-// Jouer un morceau du cache sur les sorties de CETTE machine, sans le moteur. Per machine et
-// sans espace de travail, comme la médiathèque au-dessus : ce qu'on écoute n'appartient à aucun
-// projet, et c'est justement ce qui permet d'écouter pendant que le moteur sert st0.
+// Play a song from the cache on THIS machine's outputs, without the engine. Per person and with no
+// workspace, like the médiathèque above: what one listens to belongs to no project, and that is
+// exactly what allows listening while the engine serves st0.
 // Voir docs/machinePlayer.md.
 app.use(playerRouter);
 

@@ -233,8 +233,8 @@ import {
   pull,
   switchAlternative,
 } from "./git";
-// Les groupes de verbes qui ont quitté ce fichier. Ils importent des TYPES d'ici, ce qui est
-// effacé à la compilation — donc pas de cycle à l'exécution. Voir verbs/shared.ts.
+// The verb groups that left this file. They import TYPES from here, which are erased at compile
+// time — so no runtime cycle. See verbs/shared.ts.
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
@@ -3284,13 +3284,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     await h.reload();
   },
 
-  // --- ce qu'est cette MACHINE, et ce que le DÉPÔT tient -----------------------
+  // --- what this MACHINE is, and what the REPOSITORY holds ---------------------
   //
-  // Deux groupes qui s'écrivaient ici, trois cents lignes durant. Ce sont les premiers à partir
-  // parce que ce sont les plus faciles à lever : `system …` ne demande aucun projet, et
-  // `playlist …` agit sur `repoDir` et non sur `songPath` — donc ni l'un ni l'autre n'attrape
-  // les outils que le reste de ce fichier partage. Voir verbs/shared.ts pour ce que la découpe
-  // a laissé entre les deux.
+  // Two groups written here for three hundred lines. They left first because they were the
+  // easiest to lift: `system …` needs no project, and `playlist …` acts on `repoDir` rather than
+  // `songPath` — so neither reaches for the tools the rest of this file shares. See
+  // verbs/shared.ts for what the split left between them.
   ...SYSTEM_VERBS,
   ...PLAYLIST_VERBS,
 

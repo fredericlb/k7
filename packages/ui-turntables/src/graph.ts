@@ -27,11 +27,10 @@ const playable = (m: DeckModule): boolean =>
  * in it names a file. st0 happens to produce one from a compiled project folder because
  * that is where st0' truth lives; nothing says the compiler is its only producer.
  *
- * That retires the plan's own tension #3, which read: *"Une chaîne pl8 ou m9 sans
- * dossier YAML ne peut pas produire de WebGraph aujourd'hui. Pour la v1 : ces apps écrivent
- * un dossier de projet jetable — moche, immédiat"*. There is no folder here, jetable or
- * otherwise: m9's state IS the graph, and the same buildGraph → layout → DomChains
- * pipeline draws it.
+ * That retires the plan's own tension #3, which held that a pl8 or m9 chain with no YAML folder
+ * could not produce a WebGraph, and proposed that for v1 those apps write a throwaway project
+ * folder — ugly, but immediate. There is no folder here, throwaway or otherwise: m9's state IS
+ * the graph, and the same buildGraph → layout → DomChains pipeline draws it.
  */
 export function deckGraph(
   song: string | null,

@@ -1,12 +1,12 @@
-// shared.ts — ce dont un GROUPE DE VERBES a besoin et qui n'appartient à aucun d'eux.
+// shared.ts — what a VERB GROUP needs and none of them owns.
 //
-// `commands.ts` a porté 81 verbes et leurs outils dans un seul fichier de 4755 lignes. Le fichier
-// se découpe par entité (`verbs/system.ts`, `verbs/playlist.ts`, …), et ce module est ce que la
-// découpe a fait tomber entre les groupes : un fichier de verbes importe d'ICI, jamais de
-// `commands.ts`, sans quoi le cycle serait réel au moment de l'exécution.
+// `commands.ts` carried 81 verbs and their tools in one 4755-line file. That file splits by entity
+// (`verbs/system.ts`, `verbs/playlist.ts`, …), and this module is what the split dropped between
+// the groups: a verb file imports from HERE, never from `commands.ts`, or the cycle would be real
+// at runtime.
 //
-// Les TYPES, eux, viennent bien de `commands.ts` — un `import type` est effacé, donc il ne fait
-// pas de cycle. C'est ce qui permet à `CommandHost` de rester là où on le lit.
+// The TYPES do come from `commands.ts` — an `import type` is erased, so it makes no cycle. That is
+// what lets `CommandHost` stay where it is read.
 
 import { resolve, sep } from "node:path";
 import { PLAYLISTS_DIR, playlistPathOf } from "@studio/song-schema/playlist";

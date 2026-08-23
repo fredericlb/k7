@@ -1,6 +1,6 @@
-// AddSong.tsx — le bouton d'ajout d'un morceau : on choisit un fichier audio, ses tags
-// sont lus dans le navigateur, et l'arborescence déduite est montrée AVANT l'envoi, parce
-// que c'est elle et non un nom de fichier qui décide où le morceau se range.
+// AddSong.tsx — the add-a-song button: pick an audio file, its tags are read in the browser, and
+// the derived tree is shown BEFORE uploading, because that tree and not a file name is what
+// decides where the song is filed.
 
 import { Button } from "@frediverse/ui/button";
 import {
@@ -24,13 +24,13 @@ import { Loader2, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { engineMachine, library, SongExists } from "./api";
 
-/** Les tags du fichier, ou ce que son nom en laisse deviner. Un fichier illisible n'est pas
- *  une erreur : c'est un formulaire à remplir à la main, ce que le dialogue permet déjà. */
+/** The file's tags, or what its name lets us guess. An unreadable file is not an error: it is a
+ *  form to fill in by hand, which the dialog already allows. */
 async function readTags(file: File): Promise<SongTags> {
   const guess = tagsFromFilename(file.name);
   try {
-    // Import dynamique : music-metadata parse une douzaine de conteneurs et pèse lourd,
-    // pour un bouton qu'on ne clique pas à chaque visite.
+    // Dynamic import: music-metadata parses a dozen containers and is heavy, for a button nobody
+    // clicks on every visit.
     const { parseBlob } = await import("music-metadata");
     const { common } = await parseBlob(file, { duration: false });
     return {
@@ -58,8 +58,8 @@ export function AddSong({
   const [reading, setReading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Le dossier est déjà pris. On garde la question ouverte au lieu de la refermer sur une
-  // erreur : remplacer est une décision, et c'est le seul écran où elle a du sens.
+  // The folder is taken. Keep the question open rather than closing on an error: replacing is a
+  // decision, and this is the only screen where it makes sense.
   const [occupied, setOccupied] = useState(false);
 
   const close = () => {
@@ -114,8 +114,8 @@ export function AddSong({
     }
   };
 
-  // Exactement ce que le serveur construira : les mêmes fonctions, importées du package, et
-  // non une deuxième version de la règle qui finirait par en diverger.
+  // Exactly what the server will build: the same functions, imported from the package, and not a
+  // second copy of the rule that would drift from it.
   const folder = songFolder(tags);
   const master = file && isAudio(file.name) ? masterName(file.name) : "";
 
@@ -132,8 +132,8 @@ export function AddSong({
         placeholder={placeholder}
         onChange={(e) => {
           setTags((t) => ({ ...t, [key]: e.target.value }));
-          // Le champ modifié vise un autre dossier : le « Remplacer » retenu porterait
-          // alors sur un morceau que personne n'a regardé.
+          // The edited field aims at another folder: the remembered "Replace" would then apply to
+          // a song nobody looked at.
           setOccupied(false);
         }}
       />
@@ -156,8 +156,8 @@ export function AddSong({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          // Vidé tout de suite : sans ça, rechoisir le même fichier après une erreur
-          // n'émet aucun change et le bouton paraît mort.
+          // Cleared at once: otherwise re-picking the same file after an error emits no change
+          // and the button looks dead.
           e.target.value = "";
           if (f) void pick(f);
         }}
@@ -190,8 +190,8 @@ export function AddSong({
               {folder}/{master}
             </code>
           ) : (
-            // `accept` n'est qu'un filtre par défaut du sélecteur : « tous les fichiers »
-            // reste à un clic, et un envoi refusé sans rien dire est pire qu'un refus.
+            // `accept` is only the picker's default filter: "all files" stays one click away, and
+            // an upload refused silently is worse than a refusal.
             <div className="text-xs text-destructive">
               {file?.name} n'est pas un fichier audio que la médiathèque sait
               lire.

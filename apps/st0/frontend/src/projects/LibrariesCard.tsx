@@ -1,6 +1,6 @@
-// LibrariesCard.tsx — le dépôt des bibliothèques : les modules et les chaînes que TOUS les
-// projets du compte héritent, montés dans chaque espace de travail en sous-module git. En tête
-// de la section parce que sans lui st0 refuse d'ouvrir quoi que ce soit.
+// LibrariesCard.tsx — the libraries repository: the modules and chains EVERY project on the
+// account inherits, mounted in each workspace as a git submodule. At the head of the section
+// because without it st0 refuses to open anything.
 // Voir packages/song/docs/sharedFolders.md et packages/project-shell/docs/launch.md.
 
 import { Button } from "@frediverse/ui/button";
@@ -11,8 +11,8 @@ import { useEffect, useState } from "react";
 import { projects } from "./api";
 
 export function LibrariesCard() {
-  // `undefined` = pas encore lu, `null` = lu et il n'y en a pas. Les deux se dessinent
-  // différemment : un compte neuf doit lire « il en faut un », pas un vide de chargement.
+  // `undefined` = not read yet, `null` = read and there is none. The two draw differently: a new
+  // account must read "you need one", not a loading blank.
   const [repo, setRepo] = useState<RepoRef | null | undefined>(undefined);
   const [uri, setUri] = useState("");
   const [editing, setEditing] = useState(false);
@@ -60,8 +60,8 @@ export function LibrariesCard() {
     <div
       className={cn(
         "flex flex-col gap-2 border-b px-6 py-4",
-        // Sans dépôt, la carte n'est pas une ligne d'information : c'est la seule chose à
-        // faire sur cet écran, et rien d'autre ici ne marchera tant qu'elle n'est pas faite.
+        // With no repository the card is not an information row: it is the one thing to do on this
+        // screen, and nothing else here works until it is done.
         missing && "border-b-amber-500/40 bg-amber-500/5",
       )}
     >

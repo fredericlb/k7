@@ -127,10 +127,10 @@ describe("fromLocation", () => {
   });
 
   it("garde une adresse pour la recherche de morceaux, donc rechargeable", () => {
-    // Ce que le dialogue ne pouvait pas offrir : une page qu'on recharge, qu'on met en
-    // signet, et dont le bouton « précédent » ramène aux morceaux.
+    // What the dialog could not offer: a page that reloads, bookmarks, and whose back button
+    // returns to the songs.
     expect(fromLocation("/find")).toEqual({ section: "find", file: null });
-    // Rien à porter en seconde moitié : la page n'ouvre pas un élément, elle EST l'écran.
+    // Nothing to carry in the second half: the page opens no item, it IS the screen.
     expect(fromLocation("/find/whatever")).toEqual({
       section: "find",
       file: null,

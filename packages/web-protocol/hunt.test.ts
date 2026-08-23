@@ -11,7 +11,7 @@ const row = (p: Partial<HuntRecord>): HuntRecord => ({
 
 describe("canFallBackToYoutube", () => {
   it("propose le secours quand Soulseek a été interrogé et épuisé", () => {
-    // Les deux formes : personne ne partageait, ou personne n'a envoyé.
+    // Both shapes: nobody was sharing, or nobody sent.
     expect(
       canFallBackToYoutube(
         row({ exhausted: true, error: "personne ne partage « … »" }),
@@ -25,9 +25,9 @@ describe("canFallBackToYoutube", () => {
   });
 
   it("ne le propose PAS pour un échec qui ne vient pas du réseau", () => {
-    // Aucun de ceux-là ne dit quoi que ce soit sur la disponibilité du morceau. Pour le
-    // dernier surtout : le fichier a bien été téléchargé, c'est le SFTP qui n'a pas su le
-    // reprendre — et un fichier YouTube masquerait ce défaut de configuration.
+    // None of these says anything about the song's availability. The last one above all: the file
+    // WAS downloaded, SFTP is what failed to fetch it — and a YouTube file would hide that
+    // configuration fault.
     for (const error of [
       "interrompu par un redémarrage du service",
       "recherche annulée",
@@ -39,7 +39,7 @@ describe("canFallBackToYoutube", () => {
   });
 
   it("ne le propose sur aucune ligne qui n'a pas échoué", () => {
-    // `exhausted` peut rester vrai d'un tour précédent ; c'est l'état qui décide.
+    // `exhausted` can stay true from an earlier round; the status is what decides.
     for (const status of ["searching", "downloading", "done"] as const)
       expect(canFallBackToYoutube(row({ status, exhausted: true }))).toBe(
         false,

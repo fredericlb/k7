@@ -12,7 +12,7 @@ describe("commitOutcome", () => {
   });
 
   it("distingue un push raté d'un commit raté", () => {
-    // Le commit a eu lieu : ça se rattrape en poussant plus tard, pas en recommençant.
+    // The commit happened: it is recovered by pushing later, not by starting over.
     expect(
       commitOutcome([
         "committed a1b2c3d (4 files) — new project hiver.st0",
@@ -22,10 +22,9 @@ describe("commitOutcome", () => {
   });
 
   it("traite comme un ÉCHEC tout ce qui ne prouve pas un commit", () => {
-    // Le bug d'origine : la première version cherchait des mots d'échec connus et rendait
-    // « succès » pour tout le reste. Le verbe était faux, la commande répondait « unknown
-    // command », et l'écran annonçait que tout allait bien — un projet ni committé ni poussé,
-    // sans un mot.
+    // The original bug: the first version looked for known failure words and returned "success"
+    // for everything else. The verb was wrong, the command answered "unknown command", and the
+    // screen said all was well — a project neither committed nor pushed, without a word.
     for (const out of [
       ["unknown command: commit new project hiver.st0"],
       ["no repository"],
@@ -37,7 +36,7 @@ describe("commitOutcome", () => {
   });
 
   it("remonte la sortie brute plutôt qu'un silence", () => {
-    // C'est elle qui nommera la prochaine dérive entre ce verbe et commands.yaml.
+    // It is what will name the next drift between this verb and commands.yaml.
     expect(commitOutcome(["quelque chose d'inattendu"])).toBe(
       "quelque chose d'inattendu",
     );
@@ -45,8 +44,8 @@ describe("commitOutcome", () => {
   });
 
   it("dit pourquoi quand git ne voit rien à committer", () => {
-    // Après avoir créé un dossier, « rien à committer » veut dire qu'il est ignoré — un fait
-    // utile, pas un succès.
+    // After creating a folder, "nothing to commit" means it is ignored — a useful fact, not a
+    // success.
     expect(commitOutcome(["nothing to commit — the project is clean"])).toMatch(
       /ignoré/,
     );

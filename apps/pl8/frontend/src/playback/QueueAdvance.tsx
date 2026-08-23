@@ -1,6 +1,6 @@
-// QueueAdvance.tsx — un composant qui ne dessine rien : il n'existe que pour appeler
-// `useQueueAdvance` DANS le provider, que la Library monte autour de tout. Voir
-// ../../docs/miniPlayer.md.
+// QueueAdvance.tsx — a component that draws nothing: it exists only to call `useQueueAdvance`
+// INSIDE the provider, which the Library mounts around everything.
+// See ../../docs/miniPlayer.md.
 
 import type { PlaybackTarget } from "./targets";
 import { useQueueAdvance } from "./useQueueAdvance";

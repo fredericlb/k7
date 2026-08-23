@@ -205,9 +205,9 @@ function useIcons(): ChainsIcons {
 // to subscribe to, so the hook is unconditional and a host may still pass nothing.
 const EMPTY_PARAMS_STORE = new PluginParamsStore();
 
-// La PALETTE est dans `chainsCss.ts` avec la feuille de style : la moitié de ces couleurs y était
-// interpolée, donc les séparer aurait fait deux fichiers dont l'un ne compile qu'avec l'autre.
-// Réimportée ici parce que le canvas des câbles peint en JavaScript, pas en CSS.
+// The PALETTE lives in `chainsCss.ts` with the stylesheet: half of these colours were interpolated
+// into it, so splitting them would have made two files where one only compiles with the other.
+// Re-imported here because the cable canvas paints in JavaScript, not in CSS.
 
 // A stable empty track order: a fresh `[]` per render would change every Node's props each frame.
 const EMPTY_ORDER: string[] = [];
@@ -224,9 +224,9 @@ const DRAG_SLOP = 4; // px of movement before a press becomes a pan (so a pan ne
 const DRAG_TRAVEL_PX = 150; // screen px of vertical drag that sweep a control's whole range
 const DRAG_FINE = 0.25; // shift-held multiplier for a fine adjustment
 
-// La feuille de style — quatre cent quinze lignes, portée sur `.dgx` — est `chainsCss.ts`, avec
-// le hook qui l'injecte. Elle vivait ici, entre les couleurs ci-dessus et les composants
-// ci-dessous, et c'était le seul bloc de ce fichier à ne contenir aucune logique.
+// The stylesheet — four hundred and fifteen lines, scoped to `.dgx` — is `chainsCss.ts`, with the
+// hook that injects it. It lived here, between the colours above and the components below, and it
+// was the only block in this file holding no logic.
 
 // --- widget targeting + value resolution (ports render.ts's widgetTarget/widgetValue) --
 

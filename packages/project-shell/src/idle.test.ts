@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { IDLE_TIMEOUT_MS, idleForMs, markActive } from "./idle.ts";
 
-// Une horloge tenue à la main : c'est tout le sujet du module, et la seule chose qu'un test node
-// peut voir de lui — le hook monte un composant, ce qu'aucune suite d'ici ne fait.
+// A clock held by hand: that is the module's whole subject, and the only part of it a node test
+// can see — the hook mounts a component, which no suite here does.
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-01-01T10:00:00Z"));
@@ -21,8 +21,8 @@ describe("l'horloge d'inactivité", () => {
   });
 
   it("dit la vérité au réveil d'une machine endormie", () => {
-    // Le cas qui décide de la date contre le `setTimeout` : deux heures pendant lesquelles aucun
-    // minuteur n'a tourné doivent se lire comme deux heures, pas comme « il reste 19 minutes ».
+    // The case that settles the date against `setTimeout`: two hours during which no timer ran
+    // must read as two hours, not as "19 minutes left".
     vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
     expect(idleForMs()).toBe(2 * 60 * 60_000);
     expect(idleForMs()).toBeGreaterThan(IDLE_TIMEOUT_MS);

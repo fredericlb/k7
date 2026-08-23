@@ -44,13 +44,13 @@ export const PLAYBACK_TARGETS: PlaybackTargetInfo[] = [
   {
     id: "machine",
     label: "Les enceintes de la machine",
-    // Ce que ça change vraiment par rapport au moteur : rien ne lui est demandé, donc st0 peut
-    // s'en servir en même temps, et le fichier ne traverse pas le réseau — il est déjà là-bas.
+    // What this really changes against the engine: nothing is asked of it, so st0 can use it at
+    // the same time, and the file does not cross the network — it is already over there.
     hint: "joué par la machine elle-même, sans passer par le moteur",
     icon: Radio,
-    // `true` bien que le moteur ne joue RIEN : c'est par lui que la machine est découverte et
-    // qu'elle livre son jeton (la sonde lui ouvre un WebSocket). Sans moteur joignable, il n'y
-    // a pas d'adresse de service de fichiers à qui parler. Voir ../../docs/machinePlayer.md.
+    // `true` even though the engine plays NOTHING: it is how the machine is discovered and how it
+    // hands over its token (the probe opens a WebSocket to it). With no reachable engine there is
+    // no file-service address to talk to. See ../../docs/machinePlayer.md.
     needsEngine: true,
   },
 ];

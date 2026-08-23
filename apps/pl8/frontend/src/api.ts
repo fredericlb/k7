@@ -110,20 +110,19 @@ export const auth = {
   },
 };
 
-/** Ce que le lecteur d'une machine rend de lui-même. Le chemin est celui qu'on a DEMANDÉ,
- *  relatif à la médiathèque : mpv ne connaît que l'absolu, et le rendre exposerait
- *  l'arborescence de la machine à un client qui n'en a pas besoin. */
+/** What a machine's player reports about itself. The path is the one ASKED FOR, relative to the
+ *  médiathèque: mpv knows only absolutes, and returning one would expose the machine's tree. */
 export interface MachinePlayerState {
   path: string | null;
   playing: boolean;
   position: number;
   duration: number;
-  /** Plus rien à jouer — la fin d'un morceau, ou rien n'a jamais été chargé. */
+  /** Nothing left to play — the end of a track, or nothing was ever loaded. */
   idle: boolean;
 }
 
-/** Ce que le portier du file-service veut sur chaque appel : qui demande, et le jeton de la
- *  machine. Écrit une fois — les appels ajoutés pour les projets le répétaient six fois. */
+/** What the file service's gate wants on every call: who is asking, and the machine's token.
+ *  Written once — the calls added for projects were repeating it six times. */
 const machineHeaders = (token: string): Record<string, string> => ({
   [USER_HEADER]: currentUser(),
   [ENGINE_TOKEN_HEADER]: token,
@@ -138,8 +137,8 @@ const machineHeaders = (token: string): Record<string, string> => ({
  * tray), exactly as st0' is; a refusal reads as a network error here, which is why the
  * caller treats an empty list as "cannot say" and not as "no plugins".
  *
- * Elle est aussi la seule qui puisse ÉCRIRE dans un dépôt — créer ou supprimer un projet —
- * parce qu'elle seule en tient une copie de travail. Voir projects/machine.ts.
+ * It is also the only thing that can WRITE into a repository — create or delete a project —
+ * because it alone holds a working copy. See projects/machine.ts.
  */
 export const engineMachine = {
   /**
@@ -266,12 +265,8 @@ export const engineMachine = {
   // be given a module in the library. That pass is gone with the `modules` family; nothing on
   // this screen asks a machine what it can load any more.
 
-  /**
-   * Quel espace de travail de cette machine tient déjà ce dépôt, ou `null`.
-   *
-   * pl8 nomme un dépôt par son URI et ne sait rien des dossiers de cette machine-là — c'est
-   * exactement la question que st0 pose avant de décider s'il faut cloner quoi que ce soit.
-   */
+  /** Which of this machine's workspaces already holds that repository, or `null`. pl8 names a
+   *  repository by URI and knows nothing of that machine's folders. */
   workspaceForRepo: async (
     fileBase: string,
     token: string,
@@ -288,8 +283,8 @@ export const engineMachine = {
     return workspace ?? null;
   },
 
-  /** Lancer le clone, et rendre le job à interroger : un vrai dépôt prend des dizaines de
-   *  secondes, ce qui est plus long qu'une requête ne doit rester ouverte. */
+  /** Start the clone and return the job to poll: a real repository takes tens of seconds, longer
+   *  than a request should stay open. */
   startClone: async (
     fileBase: string,
     token: string,
@@ -307,8 +302,8 @@ export const engineMachine = {
       "clone",
     ),
 
-  /** …et l'interroger. `null` pour un job que la machine a oublié : on ne peut pas attendre
-   *  ce dont plus personne ne tient l'état. */
+  /** …and poll it. `null` for a job the machine has forgotten: nothing can wait on state that
+   *  nobody holds any more. */
   cloneJob: async (
     fileBase: string,
     token: string,
@@ -323,19 +318,14 @@ export const engineMachine = {
   },
 
   /**
-   * Créer un projet dans l'espace de travail de cette machine.
+   * Create a project in this machine's workspace.
    *
-   * `name` porte DÉJÀ son suffixe (`hiver.st0`) : le service prend le nom brut comme nom de
-   * dossier. Il n'y a plus qu'un suffixe — tout projet est un `.st0` — donc ce que le nom disait
-   * autrefois (quelle application l'ouvre) n'a plus de question à trancher.
+   * `name` ALREADY carries its suffix (`hiver.st0`) and the service takes it as the folder name.
+   * `shape` is the ARCHETYPE — `arrangement`, `mix` or `video` — and cannot travel in the name,
+   * which is why it is a field of its own. See `PROJECT_SHAPES` in @studio/song.
    *
-   * `shape` est ce qui reste, et c'est l'ARCHÉTYPE : `arrangement` (une timeline), `mix` (deux
-   * platines, un crossfade, une liste vide) ou `video` (la timeline et le viewport). Il ne peut
-   * pas voyager par le nom, et c'est pour ça qu'il est un champ. Voir `PROJECT_SHAPES` dans
-   * @studio/song.
-   *
-   * Un service de fichiers plus ancien que ces trois noms répond 400 sur son `z.enum` : c'est le
-   * bon échec — mieux vaut « archétype inconnu » qu'un gabarit deviné à côté.
+   * A file service older than those three names answers 400 on its `z.enum`, which is the right
+   * failure: "unknown archetype" beats a template guessed wrong.
    */
   createProject: async (
     fileBase: string,
@@ -359,8 +349,8 @@ export const engineMachine = {
     return project;
   },
 
-  /** Décharger le projet et recycler son dossier. Le service le met à la corbeille plutôt que
-   *  de l'effacer — le commit qui suit est ce qui le retire du dépôt. */
+  /** Unload the project and recycle its folder. The service bins it rather than erasing it — the
+   *  commit that follows is what removes it from the repository. */
   deleteProject: async (
     fileBase: string,
     token: string,
@@ -381,13 +371,9 @@ export const engineMachine = {
     );
   },
 
-  /**
-   * Le lecteur de CETTE machine : mpv sur ses propres sorties, sans le moteur.
-   *
-   * Le chemin est RELATIF à la médiathèque et jamais absolu — c'est ce qui fait qu'un client ne
-   * peut nommer que ce que cette machine cache. Elle le résout contre sa propre racine.
-   * Voir packages/file-service/docs/machinePlayer.md.
-   */
+  /** THIS machine's player: mpv on its own outputs, without the engine. The path is RELATIVE to
+   *  the médiathèque and never absolute, so a client can only name what this machine caches.
+   *  See packages/file-service/docs/machinePlayer.md. */
   player: {
     state: async (
       fileBase: string,
@@ -458,8 +444,8 @@ export const engineMachine = {
     },
   },
 
-  /** La barre de commandes de cette machine, pour le seul verbe dont on ait besoin ici :
-   *  `commit`, qui indexe, committe et pousse avec la clé de déploiement de la personne. */
+  /** This machine's command line, for the one verb needed here: `commit`, which stages, commits
+   *  and pushes with the person's deploy key. */
   command: async (
     fileBase: string,
     token: string,
@@ -513,7 +499,7 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
   json(await fetch(`${BASE}/api/hunt${path}`), what);
 
 /**
- * Finding a song on the Soulseek network — the « Trouver des morceaux » screen.
+ * Finding a song on the Soulseek network — the "Trouver des morceaux" screen.
  *
  * Starting one ANSWERS AT ONCE with the row: the work runs for minutes on the backend, and a
  * request held open for it would die on the first proxy timeout and take the search's only
@@ -522,9 +508,8 @@ const hget = async <T>(path: string, what: string): Promise<T> =>
 export const hunt = {
   list: () => hget<HuntList>("", "hunt"),
 
-  /** La recherche range le morceau dans la médiathèque, et s'arrête là. Elle visait aussi une
-   *  playlist ; celles-ci vivent dans le dépôt du workspace maintenant, hors de portée de ce
-   *  service — l'ajout se fait dans st0, sur ce même catalogue. Voir hunt/hunt.ts. */
+  /** A hunt files the song into the médiathèque and stops there. It used to target a playlist too;
+   *  those live in the workspace repository now, out of this service's reach. See hunt/hunt.ts. */
   start: async (query: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt`, {
@@ -535,8 +520,8 @@ export const hunt = {
       "hunt",
     ),
 
-  /** Le secours, sur une ligne échouée : reprendre CETTE recherche par YouTube. La même ligne
-   *  et pas une nouvelle — elle porte déjà les tags, donc le morceau se range au même endroit. */
+  /** The fallback on a failed row: retry THAT hunt through YouTube. The same row and not a new
+   *  one — it already carries the tags, so the song files in the same place. */
   youtube: async (id: string): Promise<HuntRecord> =>
     json(
       await fetch(`${BASE}/api/hunt/${encodeURIComponent(id)}/youtube`, {

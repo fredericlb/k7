@@ -47,13 +47,12 @@ export function EngineGate({
   const [ranked, setRanked] = useState<RankedEngine[]>([]);
   const [busy, setBusy] = useState(false);
   /**
-   * La session s'est endormie, et ce gate-ci en tire une conséquence : LÂCHER LE BAIL.
+   * The session fell asleep, and this gate draws one consequence from it: DROP THE LEASE.
    *
-   * Ce n'est pas une phase. Le moteur choisi ne change pas, et `ProjectGate` reste monté — c'est
-   * lui qui dessine l'écran de reprise et qui sait comment rouvrir. Ici, une veille ne fait
-   * qu'une chose, et c'est la seule que ce niveau possède : arrêter de renouveler la
-   * revendication toutes les cinq secondes. Un onglet qui n'a plus de socket, plus de projet
-   * chargé, et qui garderait quand même la machine pour lui n'est pas déconnecté ; il squatte.
+   * It is not a phase. The chosen engine does not change, and `ProjectGate` stays mounted — it
+   * draws the resume screen and knows how to reopen. Here, going idle does one thing, the only
+   * one this level owns: stop renewing the claim every five seconds. A tab with no socket, no
+   * loaded project, that would still keep the machine to itself is not disconnected; it squats.
    */
   const [asleep, setAsleep] = useState(false);
 
@@ -68,18 +67,18 @@ export function EngineGate({
   }, []);
 
   /**
-   * La liste se re-mesure toute seule TANT QUE le sélecteur est à l'écran.
+   * The list re-measures itself AS LONG AS the picker is on screen.
    *
-   * Une sonde est un instantané, et `unreachable` n'est pas une latence lente mais un état à
-   * part : une seule course ratée figeait « hors de portée » jusqu'au rechargement de la page.
-   * C'est justement en regardant cette liste qu'on attend qu'elle change d'avis.
+   * A probe is a snapshot, and `unreachable` is not slow latency but a state of its own: one
+   * missed race froze "out of reach" until the page was reloaded. Looking at this list is
+   * exactly how one waits for it to change its mind.
    *
-   * Seulement en `picking` : une fois le moteur choisi, re-mesurer pourrait ramener l'écran en
-   * arrière sous les doigts de quelqu'un qui travaille. Et sans toucher `busy` — c'est le
-   * bouton Rafraîchir qui le possède, et le voir clignoter tout seul dirait qu'on a cliqué.
+   * Only while `picking`: once the engine is chosen, re-measuring could pull the screen backwards
+   * under the fingers of somebody working. And without touching `busy` — the Refresh button owns
+   * that, and seeing it blink on its own would say a click had landed.
    */
   const relook = useRelook();
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` est un déclencheur, pas une valeur lue ici — il dit QUAND re-mesurer.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `relook` is a trigger, not a value read here — it says WHEN to re-measure.
   useEffect(() => {
     if (phase.k !== "picking") return;
     let cancelled = false;
@@ -132,9 +131,9 @@ export function EngineGate({
   // when it is lost. Losing it is not an error to retry: somebody opened the project, and this
   // tab stops driving. `phase.k` rather than `phase` in the deps, or the state we set inside
   // would restart the very hold that reported the loss.
-  // Endormi, la boucle s'arrête : le nettoyage de l'effet `release`, et la machine redevient
-  // libre dans les sélecteurs. Se réveiller la relance, ce qui est une réouverture délibérée —
-  // donc une reprise en règle, refusée par `onLost` si quelqu'un s'est installé entre-temps.
+  // Asleep, the loop stops: the effect's cleanup releases, and the machine is free in the pickers
+  // again. Waking restarts it, which is a deliberate reopening — a proper resume, refused by
+  // `onLost` if somebody moved in meanwhile.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `phase.engine` is read only while phase.k is "chosen", and depending on the whole object would re-hold on every phase change.
   useEffect(() => {
     if (phase.k !== "chosen" || asleep) return;

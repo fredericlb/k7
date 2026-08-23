@@ -1,6 +1,6 @@
-// FindSongs.tsx — « Trouver des morceaux » : un champ de recherche, et sous lui l'historique
-// de ce qu'on a déjà demandé, vert quand c'est rangé, bleu pendant, rouge quand ça a échoué.
-// Une PAGE et non un dialogue — l'historique s'allonge. Voir ../../docs/hunt.md.
+// FindSongs.tsx — "Trouver des morceaux": one search field, and under it the history of what has
+// been asked for — green once filed, blue while running, red when it failed. A PAGE and not a
+// dialog, because the history grows. See ../../docs/hunt.md.
 
 import { Button } from "@frediverse/ui/button";
 import { Input } from "@frediverse/ui/input";
@@ -9,8 +9,7 @@ import {
   type HuntRecord,
   type HuntStatus,
 } from "@studio/web-protocol/hunt";
-// Clapperboard et non un logo : lucide a retiré ses icônes de marque, et « une vidéo » est de
-// toute façon ce que la source est réellement.
+// Clapperboard and not a logo: lucide dropped its brand icons, and "a video" is what it is.
 import {
   ArrowLeft,
   CheckCircle2,
@@ -23,12 +22,11 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { hunt } from "./api";
 
-/** Assez rapide pour qu'un changement de pair se voie, assez lent pour qu'un écran ouvert une
- *  demi-heure ne martèle pas le backend. Une recherche dure des minutes, pas des secondes. */
+/** Fast enough that a peer change shows, slow enough that a screen left open for half an hour
+ *  does not hammer the backend. A hunt lasts minutes, not seconds. */
 const POLL_MS = 2000;
 
-/** Les trois couleurs demandées, et le fait qu'il n'y en ait que trois pour quatre états :
- *  « on cherche » et « ça télécharge » sont tous deux « en cours » pour qui regarde. */
+/** Three colours for four states: searching and downloading both read as "running" to a watcher. */
 const TONE: Record<HuntStatus, string> = {
   done: "border-l-emerald-500",
   searching: "border-l-sky-500",
@@ -44,14 +42,13 @@ function Icon({ status }: { status: HuntStatus }) {
   return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sky-500" />;
 }
 
-/** Ce que la ligne raconte d'elle-même, en une phrase. Le détail utile diffère selon l'état :
- *  au téléchargement c'est QUI envoie, à l'échec c'est pourquoi, une fois rangé c'est où. */
+/** What the row says about itself, in a sentence. The useful detail differs by state: while
+ *  downloading it is WHO is sending, on failure why, once filed where. */
 function detail(h: HuntRecord): string {
   if (h.status === "failed") return h.error ?? "échec";
   if (h.status === "searching") return "recherche du morceau…";
   if (h.status === "downloading") {
-    // Le secours ne passe par aucun pair : dire « en attente d'un pair » pendant que yt-dlp
-    // travaille décrirait la mauvaise machine.
+    // The fallback goes through no peer: saying "waiting for a peer" would name the wrong machine.
     if (h.via === "youtube") return "téléchargement depuis YouTube…";
     const who = h.peer ? `chez ${h.peer}` : "en attente d'un pair";
     const tries = h.switches ? ` — ${h.switches + 1}ᵉ pair essayé` : "";
@@ -61,8 +58,8 @@ function detail(h: HuntRecord): string {
   return `${from}${h.error ?? h.path ?? "rangé"}`;
 }
 
-/** Le format obtenu, dit sans détour : un 128 kbps qui s'annonce ne sera pas pris pour une
- *  référence de mix six mois plus tard. */
+/** The format obtained, said plainly: a 128 kbps that announces itself will not be mistaken for
+ *  a mixing reference six months later. */
 function quality(h: HuntRecord): string | null {
   if (!h.format) return null;
   const ext = h.format.replace(/^\./, "").toUpperCase();
@@ -76,8 +73,8 @@ function Row({
   onYoutube,
 }: {
   h: HuntRecord;
-  /** yt-dlp est-il là ? Sinon le secours est proposé en grisé, en disant pourquoi — un bouton
-   *  qui échouerait au clic n'apprendrait rien de plus. */
+  /** Is yt-dlp there? If not the fallback is offered greyed out, saying why — a button that
+   *  failed on click would teach nothing more. */
   youtube: boolean;
   onForget: (id: string) => void;
   onYoutube: (id: string) => void;
@@ -110,11 +107,10 @@ function Row({
           {detail(h)}
         </span>
       </span>
-      {/* Le secours, seulement quand Soulseek a été ÉPUISÉ — pas sur toute ligne rouge. Un
-          redémarrage du service ou un fichier introuvable en SFTP ne disent rien sur la
-          disponibilité du morceau, et y répondre par YouTube masquerait le vrai défaut derrière
-          un fichier de moins bonne qualité. Et jamais un repli automatique : c'est un autre
-          marché, et savoir quel morceau le mérite est un jugement sur le morceau. */}
+      {/* The fallback, only once Soulseek is EXHAUSTED — not on every red row. A service restart
+          or a file missing over SFTP say nothing about the song's availability, and answering
+          them with YouTube would hide the real fault behind a worse file. Never automatic
+          either: it is another bargain, and which song deserves it is a judgement on the song. */}
       {canFallBackToYoutube(h) && (
         <Button
           variant="secondary"
@@ -152,8 +148,8 @@ export function FindSongs({
   onFiled,
 }: {
   onBack: () => void;
-  /** Appelé quand une ligne vient de passer au vert, pour que le catalogue derrière soit
-   *  rechargé plutôt que d'attendre son propre tour de poll. */
+  /** Called when a row has just turned green, so the catalogue behind reloads instead of waiting
+   *  for its own poll. */
   onFiled: () => void;
 }) {
   const [query, setQuery] = useState("");
@@ -162,14 +158,12 @@ export function FindSongs({
   const [youtube, setYoutube] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // QUELLES lignes étaient déjà rangées, et non combien : une ligne retirée de l'historique
-  // ferait baisser un compteur, et le morceau suivant le ramènerait au même chiffre sans que
-  // le catalogue soit rafraîchi.
+  // WHICH rows were already filed, not how many: removing one would lower a counter, and the
+  // next song would bring it back to the same number without refreshing the catalogue.
   const filed = useRef<Set<string> | null>(null);
 
-  // Ne tourne que tant que la page est montée, ce qui est exactement « la section est
-  // ouverte » : une recherche vit sur le serveur, et interroger pour un écran que personne ne
-  // regarde paierait un aller-retour pour rien.
+  // Runs only while the page is mounted, which is exactly "the section is open": a hunt lives on
+  // the server, and polling for a screen nobody watches pays a round trip for nothing.
   useEffect(() => {
     let stop = false;
     const tick = () =>
@@ -183,8 +177,7 @@ export function FindSongs({
           const done = new Set(
             l.hunts.filter((h) => h.status === "done").map((h) => h.id),
           );
-          // Le premier tour ne rafraîchit rien : tout y est nouveau, et le catalogue vient
-          // d'être chargé de toute façon.
+          // The first pass refreshes nothing: everything is new and the catalogue just loaded.
           if (filed.current && [...done].some((id) => !filed.current?.has(id)))
             onFiled();
           filed.current = done;
@@ -205,8 +198,8 @@ export function FindSongs({
     setError(null);
     void hunt
       .start(q)
-      // Vidé tout de suite : monter une bibliothèque, c'est enchaîner les titres, et
-      // reprendre le champ à la main entre chacun serait le geste de trop.
+      // Cleared at once: building a library means one title after another, and clearing the
+      // field by hand between each would be the gesture too many.
       .then((h) => {
         setQuery("");
         setRows((r) => [h, ...(r ?? [])]);
@@ -222,8 +215,7 @@ export function FindSongs({
 
   const retryOnYoutube = useCallback((id: string) => {
     setError(null);
-    // La ligne repasse en bleu sans attendre le tour de poll suivant : le clic doit se voir,
-    // sinon on le refait.
+    // The row turns blue without waiting for the next poll: a click must show, or it is repeated.
     setRows((r) =>
       (r ?? []).map((h) =>
         h.id === id
@@ -236,16 +228,16 @@ export function FindSongs({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Le champ reste EN HAUT et ne défile pas : monter une bibliothèque, c'est enchaîner
-          les titres, et un champ qu'il faut aller rechercher après trente lignes d'historique
-          serait un aller-retour par morceau. */}
+      {/* The field stays AT THE TOP and does not scroll: building a library means one title
+          after another, and a field to go hunting for after thirty history rows would be a
+          round trip per song. */}
       <div className="shrink-0 border-b border-border px-6 py-4">
         <div className="mx-auto flex max-w-4xl items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="mr-1 h-4 w-4" /> Morceaux
           </Button>
-          {/* Le focus au chargement : cette page n'existe que pour ce champ, et le clic qui
-              l'a ouverte est déjà la demande de taper. */}
+          {/* Focus on load: this page exists only for this field, and the click that opened it
+              is already the request to type. */}
           <Input
             autoFocus
             className="h-12 flex-1 text-base"
@@ -269,8 +261,8 @@ export function FindSongs({
           </Button>
         </div>
 
-        {/* Dit plutôt que caché : un déploiement pas encore configuré est son état normal,
-            et un champ qui échouerait à chaque frappe n'apprendrait rien. */}
+        {/* Said rather than hidden: an unconfigured deployment is its normal state, and a field
+            failing on every keystroke would teach nothing. */}
         {reason && (
           <p className="mx-auto mt-3 max-w-4xl rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             {reason}
