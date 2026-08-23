@@ -136,6 +136,9 @@ export interface LoadedModule {
   // Only usable on material already on disk — it needs the WHOLE input before it can produce
   // any of it. Inherited like `plugin`, so a use of a cold module is cold. See docs/coldModules.md.
   cold?: boolean;
+  // shaders only — which folder under the module's `shaders/` this node runs. Inherited like
+  // `base`, so a node of a shader module picks its own program. See docs/shaders.md.
+  shader?: unknown;
   ui?: unknown; // the widget grid — normalized downstream (effectiveUI)
   // The module's MIDI map, from the `controller.yaml` in its folder (controller.ts). Stamped on
   // beside `ui` and by the same rule, so every node of the module carries it.

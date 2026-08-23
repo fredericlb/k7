@@ -6,6 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Diagnostic } from "./loader";
+import { ensureVideoRun } from "./videoOutputs";
 import { isVideoProject } from "./videoProject";
 import { entityFiles } from "./yaml/moduleIO";
 import {
@@ -133,6 +134,10 @@ export function createSurfaceFile(
     `type: ${type}\nlayout: ${layout}\n${mappingSkeleton(type)}`,
     "utf8",
   );
+  // A viewport brings the picture's two outputs with it. Here rather than left to the open path
+  // so the graph gains them in the same breath as the surface: `project surface new viewport`
+  // then reads back a project whose frame has somewhere to leave by. See docs/videoOutputs.md.
+  if (type === "viewport") ensureVideoRun(dir);
   return rel;
 }
 

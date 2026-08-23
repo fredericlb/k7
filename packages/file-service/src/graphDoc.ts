@@ -17,12 +17,14 @@ import {
   assetLookup,
   moduleAssetChoices,
 } from "@studio/song/moduleAssetChoices";
+import { SHADER_CATEGORY } from "@studio/song/moduleTypes";
 import {
   EXTERNAL_PLUGIN_FORMATS,
   FAUST_TYPE,
   JSDSP_TYPE,
   OFFLINE_TYPE,
 } from "@studio/song/project";
+import { moduleShaderChoices } from "@studio/song/shaders";
 import { beatsToPosition } from "@studio/song/timecode";
 
 // The formats with a native editor the engine can open. Re-exported, not restated: it
@@ -56,6 +58,31 @@ function baseChoicesFor(
 ): string[] | undefined {
   try {
     const names = moduleBaseChoices(module, refs);
+    return names.length ? names : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** …and the third of the same shape: the shaders a shader module carries, its ancestors' included.
+ *  Undefined on every module that is not one, which is what the graph reads as "no shader control
+ *  here" — so this is not asked at all unless the folder says `shaders`. See @studio/song's
+ *  docs/shaders.md. */
+function shaderChoicesFor(
+  dir: string,
+  module:
+    | {
+        category?: unknown;
+        file?: unknown;
+        extends?: unknown;
+        folderAbs?: unknown;
+      }
+    | undefined,
+  refs: Readonly<Record<string, { extends?: unknown; folderAbs?: unknown }>>,
+): string[] | undefined {
+  if (module?.category !== SHADER_CATEGORY) return undefined;
+  try {
+    const names = moduleShaderChoices(dir, module, refs);
     return names.length ? names : undefined;
   } catch {
     return undefined;
@@ -254,6 +281,14 @@ export function buildGraphDoc(dir: string, extents?: ClipExtents): WebGraph {
               ? module.base
               : undefined,
           bases: baseChoicesFor(module, moduleRefs),
+          // …and the same pair for a SHADER node: which GLSL program it runs, and the ones its
+          // folder offers. Only a `shaders` module answers either, so every other node is
+          // unchanged by this.
+          shader:
+            typeof module?.shader === "string" && module.shader
+              ? module.shader
+              : undefined,
+          shaders: shaderChoicesFor(dir, module, moduleRefs),
           /**
            * The EVENTS this module announces. One for now — an instrument's note-on, which is
            * what an envelope is fired by.

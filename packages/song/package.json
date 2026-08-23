@@ -82,6 +82,9 @@
     "./videoDoc": "./src/videoDoc.ts",
     "./videoTracks": "./src/videoTracks.ts",
     "./videoProject": "./src/videoProject.ts",
+    "./videoOutputs": "./src/videoOutputs.ts",
+    "./videoChains": "./src/videoChains.ts",
+    "./shaders": "./src/shaders.ts",
     "./moduleTypes": "./src/moduleTypes.ts",
     "./builtinParams": "./src/builtinParams.ts",
     "./placementId": "./src/placementId.ts"

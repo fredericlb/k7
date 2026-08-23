@@ -5,8 +5,10 @@
 
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { loadGraph } from "./graph";
 import { loadProjectRoot, loadVideoTracks, readYamlEntities } from "./loader";
 import type { RawClip } from "./rawDoc";
+import { compileVideoChains } from "./videoChains";
 import type { VideoMarker, VideoProjectDoc } from "./videoDoc";
 import { compileVideoTracks, readViewport } from "./videoTracks";
 
@@ -69,14 +71,34 @@ export function loadVideoProject(dir: string): VideoProjectDoc {
     RawClip
   >;
   const videoTracksMap = loadVideoTracks(abs, true);
+  const tracks = compileVideoTracks(abs, proj.layers, videoTracksMap, clipsMap);
+
+  /**
+   * The video CHAINS, which is the one thing here that reads `graph.yaml`.
+   *
+   * Best-effort, and that is the whole of the decision: a graph that will not parse is already
+   * reported by the song compile, in the editor, on the line that broke — and the picture has no
+   * business refusing to draw because of it. Losing the effects is recoverable by looking at the
+   * other error; losing the frame is a black screen with no explanation. See docs/shaders.md.
+   */
+  const chains = (() => {
+    try {
+      return compileVideoChains(abs, loadGraph(abs));
+    } catch {
+      return { byLane: {}, frame: [] };
+    }
+  })();
 
   return {
     ...(typeof proj.uuid === "string" ? { uuid: proj.uuid } : {}),
     name: String(proj.name ?? "untitled"),
     viewport,
     fps,
-    videoTracks: compileVideoTracks(abs, proj.layers, videoTracksMap, clipsMap),
+    videoTracks: tracks.map((t) =>
+      chains.byLane[t.id] ? { ...t, plugins: chains.byLane[t.id] } : t,
+    ),
     markers: parseVideoMarkers(root.markers),
+    framePlugins: chains.frame,
   };
 }
 

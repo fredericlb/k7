@@ -153,9 +153,30 @@ export class RealtimeDriver {
       });
     }
 
+    // The live half of a shader's uniforms, refreshed here rather than in the scene: `uTime` is
+    // the clock this loop already read, and `uAudio` is whatever the host last handed over. Both
+    // move per frame, where a scene is rebuilt per DOCUMENT — folding them in there would
+    // recompile every program at the engine's meter rate.
+    this.comp.setLive(t, this.audio);
     this.comp.draw(visible);
     this.raf = requestAnimationFrame(this.loop);
   };
+
+  /**
+   * The audio level each shader pass is driven by, 0..1, keyed on the pass id.
+   *
+   * PUSHED by the host rather than pulled, and that is the boundary this package keeps: eyes has
+   * no idea what an engine is, what a lane's level means, or how -60..0 dB became 0..1. It is
+   * handed a number per pass and binds it. See @studio/song's docs/shaders.md for the mapping.
+   *
+   * Held on the driver rather than passed to `draw`, because the two run at different rates: the
+   * engine reports ~20 times a second and this loop draws ~60, so most frames reuse the last
+   * report. That reuse IS the smoothing being visible as a hold rather than a stutter.
+   */
+  private audio: Record<string, number> = {};
+  setAudio(byPass: Readonly<Record<string, number>>): void {
+    this.audio = { ...byPass };
+  }
 
   // Park a lane showing nothing this tick — off, hidden or past its source: pause it and leave it out of the composite.
   private park(lane: Lane): void {

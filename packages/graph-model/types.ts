@@ -80,6 +80,10 @@ export const MODULE_CATEGORIES = [
   "midi", // the legacy alias of transformers
   "video_effects",
   "video_transitions",
+  // A GLSL pass over the picture, with an optional audio input driving it. Its own category and
+  // not a flavour of video_effects, because it is the one module whose behaviour is a FILE it
+  // carries rather than a plugin it names — see @studio/song's docs/shaders.md.
+  "shaders",
 ] as const;
 
 export type WebModuleCategory = (typeof MODULE_CATEGORIES)[number];
@@ -137,6 +141,19 @@ export interface WebChainStep {
    *  builder and the graph both read as "no base control here". */
   base?: string;
   bases?: string[];
+  /** Which SHADER a shader node runs, and the ones it may choose FROM — its own `shaders/` folder
+   *  plus every module it extends, nearest first.
+   *
+   *  The third answer of exactly this shape, after `assets`/`assetChoices` and `base`/`bases`, and
+   *  it is here for the third time for the same reason: what a folder holds is a fact only the
+   *  disk side can read, and a dropdown offering a shader the module does not carry would write a
+   *  name that compiles to nothing.
+   *
+   *  `shaders` is absent on every module that is not one, which is almost all of them — that
+   *  absence is what the graph reads as "no shader control here". See @studio/song's
+   *  docs/shaders.md. */
+  shader?: string;
+  shaders?: string[];
   stub?: boolean; // a plugin module that resolved to no plugin (missing on import)
   notSupported?: boolean; // plugin.type is "not_supported" — st0 can't load it; bypassed
   unknownPlugin?: boolean; // plugin.type is an UNKNOWN format (typo / unimported) — bypassed

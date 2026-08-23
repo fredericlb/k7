@@ -1,9 +1,17 @@
 // compositor.ts — the viewport in WebGL2: one texture per layer, one textured quad each,
-// composited bottom-first in a single pass. The ONE renderer both drivers share, because
-// texImage2D takes an HTMLVideoElement and a VideoFrame identically — so it never learns
-// which driver owns it. It OWNS its canvas (a React-owned one races two GL contexts).
+// composited bottom-first. The ONE renderer both drivers share, because texImage2D takes an
+// HTMLVideoElement and a VideoFrame identically — so it never learns which driver owns it.
+// It OWNS its canvas (a React-owned one races two GL contexts). A layer may carry GLSL passes
+// and so may the finished frame: passes.ts runs those, docs/passes.md is the page.
 
-import type { SceneShape, VideoScene } from "./scene";
+import {
+  compilePass,
+  drawPass,
+  type PassProgram,
+  PingPong,
+  RenderTarget,
+} from "./passes";
+import type { ScenePass, SceneShape, VideoScene } from "./scene";
 
 const VERT = `#version 300 es
 in vec2 aUnit;                 // a unit quad, (0,0)..(1,1)
@@ -27,6 +35,10 @@ interface LayerGL {
   tex: WebGLTexture;
   rect: [number, number, number, number]; // clip space, precomputed from the viewport
   hasFrame: boolean; // nothing uploaded yet -> don't draw (avoids a black or garbage quad)
+  // This layer's own passes and their compiled programs, index for index. A pass whose GLSL did
+  // not build is null and is stepped over — see compilePass on why that is not fatal.
+  passes: ScenePass[];
+  programs: (PassProgram | null)[];
 }
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string) {
@@ -97,6 +109,19 @@ export class Compositor {
   private layers: LayerGL[] = [];
   private clear: [number, number, number];
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
+  // The scratch a chain of passes bounces through, and — only when the FRAME is shaded — the
+  // target the layers composite into on the way. Two resources with two lifetimes: the composite
+  // accumulates across a whole frame, a chain's scratch is cleared per pass. Both are created
+  // only when something asks, so a song with no shaders allocates nothing and draws exactly the
+  // path it drew before any of this existed.
+  private pingpong: PingPong | null = null;
+  private frameTarget: RenderTarget | null = null;
+  private framePasses: ScenePass[] = [];
+  private framePrograms: (PassProgram | null)[] = [];
+  // What `uTime` is handed. Set by the host from the transport rather than measured here: the
+  // picture follows the engine's playhead, and a clock of this renderer's own would drift off it
+  // within a bar. See docs/passes.md.
+  private timeSec = 0;
 
   private constructor(
     canvas: HTMLCanvasElement | OffscreenCanvas,
@@ -176,10 +201,50 @@ export class Compositor {
   // (Re)build the per-layer textures and quads. Textures allocate lazily on first upload; this reserves the slots.
   setScene(scene: VideoScene): void {
     const gl = this.gl;
-    for (const l of this.layers) gl.deleteTexture(l.tex);
+    for (const l of this.layers) {
+      gl.deleteTexture(l.tex);
+      for (const p of l.programs) if (p) gl.deleteProgram(p.prog);
+    }
+    for (const p of this.framePrograms) if (p) gl.deleteProgram(p.prog);
     this.canvas.width = scene.viewport[0];
     this.canvas.height = scene.viewport[1];
     const [vw, vh] = scene.viewport;
+
+    /**
+     * The offscreen targets, rebuilt only when the viewport changed and dropped when nothing
+     * needs them.
+     *
+     * Kept across a scene rebuild otherwise, and that is worth the branch: the document is
+     * recompiled on every keystroke in the editor, and reallocating full-frame textures per
+     * keystroke is exactly the kind of churn that shows up as the picture stuttering while you
+     * type.
+     */
+    this.framePasses = scene.framePasses ?? [];
+    const wantsScratch =
+      scene.layers.some((l) => l.passes?.length) || this.framePasses.length > 0;
+    const sized = (t: { width: number; height: number } | null) =>
+      !!t && t.width === vw && t.height === vh;
+
+    if (this.pingpong && (!wantsScratch || !sized(this.pingpong))) {
+      this.pingpong.destroy();
+      this.pingpong = null;
+    }
+    if (wantsScratch && !this.pingpong)
+      this.pingpong = new PingPong(gl, vw, vh);
+
+    // The composite target exists ONLY when the frame itself is shaded. With no frame passes the
+    // layers go straight to the canvas, which is one fewer full-frame copy per frame on the
+    // common case of a song that shades one lane.
+    const wantsFrameTarget = this.framePasses.length > 0;
+    if (this.frameTarget && (!wantsFrameTarget || !sized(this.frameTarget))) {
+      this.frameTarget.destroy();
+      this.frameTarget = null;
+    }
+    if (wantsFrameTarget && !this.frameTarget)
+      this.frameTarget = new RenderTarget(gl, vw, vh);
+
+    this.framePrograms = this.framePasses.map((p) => compilePass(gl, p));
+
     this.layers = scene.layers.map((l) => {
       const tex = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -203,6 +268,8 @@ export class Compositor {
           tex,
           rect: rectToClip(0, 0, vw, vh, vw, vh),
           hasFrame: true,
+          passes: l.passes ?? [],
+          programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
         };
       }
       return {
@@ -210,8 +277,85 @@ export class Compositor {
         tex,
         rect: rectToClip(l.x, l.y, l.w, l.h, vw, vh),
         hasFrame: false,
+        passes: l.passes ?? [],
+        programs: (l.passes ?? []).map((p) => compilePass(gl, p)),
       };
     });
+  }
+
+  /**
+   * The live values a pass is handed, refreshed by the host between frames.
+   *
+   * Separate from `setScene` and that is the whole point: `uAudio` moves at the engine's meter
+   * rate and `uTime` at the transport's, while a scene is rebuilt when the DOCUMENT changes.
+   * Folding these into the scene would mean recompiling every program twenty times a second.
+   *
+   * `audioByPass` is keyed on the pass id — the compiled `<owner>:<index>` — because that is what
+   * survives a rename of anything else. A pass nobody supplied a level for keeps the one it had,
+   * which for a shader with no audio wired is the 0 it was compiled with.
+   */
+  setLive(
+    timeSec: number,
+    audioByPass?: Readonly<Record<string, number>>,
+  ): void {
+    this.timeSec = timeSec;
+    if (!audioByPass) return;
+    for (const l of this.layers)
+      for (const p of l.passes) {
+        const v = audioByPass[p.id];
+        if (v !== undefined) p.audio = v;
+      }
+    for (const p of this.framePasses) {
+      const v = audioByPass[p.id];
+      if (v !== undefined) p.audio = v;
+    }
+  }
+
+  /**
+   * Run a chain of passes over whatever is currently in the ping-pong's front texture.
+   *
+   * Leaves the RESULT as the front texture and the framebuffer unbound, so both callers — a
+   * layer about to be composited, and the finished frame about to be blitted — carry on the same
+   * way. A chain with no working program leaves the input exactly as it found it.
+   */
+  private runPasses(
+    passes: readonly ScenePass[],
+    programs: readonly (PassProgram | null)[],
+  ): void {
+    const pp = this.pingpong;
+    if (!pp) return;
+    const gl = this.gl;
+    const res: [number, number] = [pp.width, pp.height];
+    for (let i = 0; i < passes.length; i++) {
+      const prog = programs[i];
+      if (!prog) continue; // did not compile — this pass is simply not in the chain
+      pp.bindBack();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, pp.frontTexture());
+      // Blending OFF inside a chain: a pass REPLACES the picture it was handed, and leaving the
+      // over-blend on would composite each pass against the last instead of superseding it —
+      // which looks like every effect being applied at half strength.
+      gl.disable(gl.BLEND);
+      drawPass(gl, prog, passes[i], res, this.timeSec);
+      gl.enable(gl.BLEND);
+      pp.swap();
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /** Draw one full-viewport textured quad of `tex` with the plain program — how a shaded result
+   *  gets back onto whatever is bound now. */
+  private blit(
+    tex: WebGLTexture,
+    rect: [number, number, number, number],
+  ): void {
+    const gl = this.gl;
+    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
+    gl.useProgram(this.prog);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.uniform4fv(this.uRect, rect);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
 
   // Upload a frame from a <video> or a VideoFrame; cheap per rAF, and skippable when no new frame was produced.
@@ -224,22 +368,82 @@ export class Compositor {
     layer.hasFrame = true;
   }
 
-  // Draw every visible layer bottom-first. One with no frame yet is skipped, so a lane between clips shows the
-  // background through rather than a stale or black quad.
+  /**
+   * Draw every visible layer bottom-first. One with no frame yet is skipped, so a lane between
+   * clips shows the background through rather than a stale or black quad.
+   *
+   * Three shapes, and the first is still the only one most songs take:
+   *
+   * - no passes anywhere — one quad per layer straight to the canvas, exactly as before;
+   * - a layer with passes — its frame goes through its chain offscreen, and the RESULT is the
+   *   quad that gets composited, blended over the layers under it like any other;
+   * - frame passes — everything composites into the offscreen target instead of the canvas, the
+   *   chain runs over that, and the result is blitted out.
+   *
+   * A layer's own chain runs at VIEWPORT size and is then drawn into the layer's rect, rather than
+   * running at the rect's size. That is what makes a shader's `uResolution` mean the same thing on
+   * a picture-in-picture as on a full-frame lane — an effect does not change character because the
+   * lane it is on was made smaller.
+   */
   draw(visible: Set<string>): void {
     const gl = this.gl;
+    const pp = this.pingpong;
+    const target = this.framePasses.length ? this.frameTarget : null;
+
+    // Where the layers composite: the offscreen target when the frame is shaded, else the canvas.
+    // One closure rather than two branches per layer, because a layer with its own chain has to
+    // come BACK to this after bouncing through the scratch, and the two sites must agree.
+    let first = true;
+    const bindComposite = () => {
+      if (target) {
+        target.bind(first);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        if (first) {
+          gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+      }
+      first = false;
+    };
+    bindComposite();
+
+    for (const layer of this.layers) {
+      if (!layer.hasFrame || !visible.has(layer.id)) continue;
+      if (pp && layer.passes.length) {
+        // The layer's own frame seeds the chain: written into the scratch full-viewport, so a
+        // pass that samples its neighbourhood has the whole picture to sample rather than the
+        // inside of the lane's rect.
+        pp.bindBack();
+        gl.disable(gl.BLEND);
+        this.blit(layer.tex, [-1, -1, 1, 1]);
+        gl.enable(gl.BLEND);
+        pp.swap();
+        this.runPasses(layer.passes, layer.programs);
+        bindComposite();
+        this.blit(pp.frontTexture(), layer.rect);
+        continue;
+      }
+      bindComposite();
+      this.blit(layer.tex, layer.rect);
+    }
+
+    if (!target || !pp) return;
+    // Everything composited; now shade the whole of it and put it on the canvas. The composite is
+    // seeded into the scratch rather than shaded in place, for the reason PingPong exists: a pass
+    // may not sample the attachment it is writing.
+    pp.bindBack();
+    gl.disable(gl.BLEND);
+    this.blit(target.texture, [-1, -1, 1, 1]);
+    gl.enable(gl.BLEND);
+    pp.swap();
+    this.runPasses(this.framePasses, this.framePrograms);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(this.clear[0], this.clear[1], this.clear[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    // biome-ignore lint/correctness/useHookAtTopLevel: gl.useProgram is a WebGL call, not a React hook — the rule misfires on the `use` prefix.
-    gl.useProgram(this.prog);
-    for (const layer of this.layers) {
-      if (!layer.hasFrame || !visible.has(layer.id)) continue;
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, layer.tex);
-      gl.uniform4fv(this.uRect, layer.rect);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
+    this.blit(pp.frontTexture(), [-1, -1, 1, 1]);
   }
 
   // Set the DISPLAY size only: the backing store stays the viewport's, so the model is resolution-independent.
@@ -252,8 +456,17 @@ export class Compositor {
 
   destroy(): void {
     const gl = this.gl;
-    for (const l of this.layers) gl.deleteTexture(l.tex);
+    for (const l of this.layers) {
+      gl.deleteTexture(l.tex);
+      for (const p of l.programs) if (p) gl.deleteProgram(p.prog);
+    }
     this.layers = [];
+    for (const p of this.framePrograms) if (p) gl.deleteProgram(p.prog);
+    this.framePrograms = [];
+    this.pingpong?.destroy();
+    this.pingpong = null;
+    this.frameTarget?.destroy();
+    this.frameTarget = null;
     gl.deleteProgram(this.prog);
     if (this.canvas instanceof HTMLCanvasElement) this.canvas.remove();
   }

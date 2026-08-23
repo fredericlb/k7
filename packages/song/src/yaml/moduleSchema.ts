@@ -256,8 +256,29 @@ const MODULE_FIELDS = {
   inputs: z.array(PortSchema).optional(),
   outputs: z.array(PortSchema).optional(),
   type: z
-    .enum(["plugin", "rack", "video_effect", "video_transition"])
+    .enum(["plugin", "rack", "video_effect", "video_transition", "shader"])
     .optional(), // NOT .default() — the loader applies it (moduleFile.ts) so the file stays as terse as authored
+  /**
+   * Which SHADER this node runs — a folder name under the module's `shaders/`, without a path.
+   *
+   * A field and not a param, and the same distinction `base` draws: `params:` holds numbers the
+   * running thing is steered by, and this decides which program is COMPILED. The four knobs are
+   * params (`P1`..`P4`); the choice of shader is not one of them.
+   *
+   * A bare name, checked as one: a shader is a folder the module carries, so a value with a
+   * separator in it is refused here rather than resolved into somebody else's module.
+   *
+   * Absent is a real state — a shader node with nothing picked passes its picture through
+   * untouched, which is what a node you have just added should do. See docs/shaders.md.
+   */
+  shader: z
+    .string()
+    .min(1)
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      "a shader is a folder name in the module's shaders/ — letters, digits, '_' and '-'",
+    )
+    .optional(),
   // A param is a NUMBER, except the few the plugin steers with a file it loads — `nam` names
   // a .nam model in this module's own `assets/`. It sits in params: because that is what it
   // is, one of the plugin's controls shown in the panel beside Input and Output; its own

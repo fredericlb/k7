@@ -9,6 +9,7 @@ import { EngineClock } from "@studio/ui-eyes/clock";
 import { type LaneDebug, RealtimeDriver } from "@studio/ui-eyes/realtime";
 import type { VideoScene } from "@studio/ui-eyes/scene";
 import { useEffect, useRef } from "react";
+import { levelsForPasses, smoothLevels } from "../shaderAudio";
 
 // Letterbox the viewport's aspect in the host: the backing store keeps its pixel size, only CSS size changes.
 function fit(
@@ -26,9 +27,16 @@ function fit(
 
 export function VideoCanvas({
   scene,
+  audioSources,
+  trackIds,
   onDebug,
 }: {
   scene: VideoScene;
+  /** Which lane drives each shader pass's `uAudio`, by pass id — see shaderAudio.ts. Empty for
+   *  every song that shades nothing, which is the case that costs nothing below. */
+  audioSources?: Readonly<Record<string, string>>;
+  /** The compiled track order — how the engine's nameless `levels` array is indexed. */
+  trackIds?: readonly string[];
   /** Per-lane drift, a few times a second. Omitted unless somebody is profiling — see profiling.ts. */
   onDebug?: (d: LaneDebug[]) => void;
 }) {
@@ -37,6 +45,15 @@ export function VideoCanvas({
   const clockRef = useRef<EngineClock | null>(null);
   const onDebugRef = useRef(onDebug);
   onDebugRef.current = onDebug;
+  // In a ref for the same reason the debug callback is: the subscription below must read a fresh
+  // map without being torn down and rebuilt, which for a GL driver means losing the context.
+  const sourcesRef = useRef(audioSources);
+  sourcesRef.current = audioSources;
+  const trackIdsRef = useRef(trackIds);
+  trackIdsRef.current = trackIds;
+  // The smoothed levels, held across reports. A ref rather than state because nothing React
+  // draws depends on them — they go straight into the driver's uniforms.
+  const levelsRef = useRef<Record<string, number>>({});
   // The store itself, not a slice of it: the playhead is fed to a clock, and feeding a clock is
   // not drawing. See the subscription below.
   const store = useEngineStore();
@@ -93,6 +110,16 @@ export function VideoCanvas({
     const feed = (): void => {
       const s = store.getSnapshot();
       clockRef.current?.feed(s.playing, s.playhead);
+      // …and the shaders' `uAudio`, off the SAME frame. The engine's `levels` are indexed against
+      // its track list, so the lookup needs both and neither is worth a second subscription. A
+      // song that shades nothing does one property read and stops.
+      const sources = sourcesRef.current;
+      if (!sources || !Object.keys(sources).length) return;
+      levelsRef.current = smoothLevels(
+        levelsRef.current,
+        levelsForPasses(sources, trackIdsRef.current ?? [], s.levels ?? []),
+      );
+      driverRef.current?.setAudio(levelsRef.current);
     };
     return store.subscribe(feed);
   }, [store]);

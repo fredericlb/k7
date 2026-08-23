@@ -8,6 +8,7 @@ import type { WebVideoProject } from "@studio/web-protocol";
 import { useMemo, useState } from "react";
 import { PROFILING } from "../profiling";
 import { sceneOf } from "../scene";
+import { audioSources } from "../shaderAudio";
 import { VideoCanvas } from "./VideoCanvas";
 
 // Whether this browser can export (WebCodecs): realtime works everywhere, so say so rather than fail at frame 0.
@@ -16,10 +17,14 @@ const CAN_EXPORT = typeof window !== "undefined" && "VideoEncoder" in window;
 export function ViewportTab({
   doc,
   error,
+  trackIds,
 }: {
   /** The compiled picture, or null when this song carries none — see hooks/useVideoDoc.ts. */
   doc: WebVideoProject | null;
   error: string | null;
+  /** The compiled track order — how the engine's `levels` array is indexed. Only a shader with an
+   *  audio input reads it, so a song without one passes an empty list and nothing looks. */
+  trackIds?: readonly string[];
 }) {
   // NOTHING of the engine's state is read here, and that is the point: `VideoCanvas` takes the
   // frames off a raw subscription and feeds its clock, so this pane commits on a document change
@@ -32,6 +37,9 @@ export function ViewportTab({
   // context and a <video> per layer, and rebuilding it sixty times a second would tear down both
   // sixty times a second.
   const scene = useMemo(() => (doc ? sceneOf(doc) : null), [doc]);
+  // Which lane drives each shader pass, from the same document. Memoised beside the scene because
+  // it changes with it and with nothing else — the LEVELS move at 20 Hz, this map does not.
+  const sources = useMemo(() => audioSources(doc), [doc]);
 
   if (error)
     return (
@@ -53,7 +61,12 @@ export function ViewportTab({
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col">
       <div className="min-h-0 flex-1">
-        <VideoCanvas scene={scene} onDebug={PROFILING ? setDebug : undefined} />
+        <VideoCanvas
+          scene={scene}
+          audioSources={sources}
+          trackIds={trackIds}
+          onDebug={PROFILING ? setDebug : undefined}
+        />
       </div>
       {/* The strip: the format always, and — only while profiling — the per-lane sync error, the
           verification signal that should settle small. It is a 5 Hz poll and a 5 Hz re-render of

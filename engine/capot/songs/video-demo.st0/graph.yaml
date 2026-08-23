@@ -6,5 +6,24 @@
 # `bypassed` lists the modules the signal passes through untouched, and on a lane that is
 # its mute.
 
+# `MIX` is the mixer's sum and `OUT` is the interface; the run between them is the MASTER
+# CHAIN, and `OUT` carries the song's output level as its `Volume`.
+
+# This song has a viewport, so it has the same pair for the PICTURE: `RENDER` is where the
+# three video lanes composite and `VIDEO_OUT` is the frame that leaves. Neither carries a
+# param — a frame has no level — and neither is written by hand: a project declaring a
+# viewport gets the run added when it is opened. See packages/song/docs/videoOutputs.md.
+
+# The video lanes are in this map too, for the same reason the audio ones are: a lane is a
+# module. Only "main" is written here — it runs through the shader on its way to the sum — and
+# the two that are not named still composite, exactly as an unwired audio lane still plays.
+#
+# `glow#audio` is the SIDE input: the drums lane feeds the shader's audio port as well as the
+# mix, and `uAudio` is that lane's live level. The picture moves with the kit.
+
 modules:
-  drums: [ OUT ]
+  drums: [ MIX, glow#audio ]
+  MIX: [ OUT ]
+  main: [ glow ]
+  glow: [ RENDER ]
+  RENDER: [ VIDEO_OUT ]

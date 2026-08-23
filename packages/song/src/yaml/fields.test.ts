@@ -26,6 +26,10 @@ describe("derived module fields", () => {
       "inputs",
       "outputs",
       "type",
+      // Which GLSL program a shader node runs, out of its own `shaders/`. A FIELD and not a param
+      // for the reason `base` is one: the four knobs steer a program, this picks which program is
+      // compiled. See docs/shaders.md.
+      "shader",
       "params",
       "rack",
       // A COLD module works only on audio already on disk — it needs the whole of its input

@@ -17,6 +17,7 @@ effect's `type`):
 | `transformers` | midi → midi |
 | `video_effects` | video → video |
 | `video_transitions` | video → video (the renderer treats consecutive placements as a crossfade pair across cuts) |
+| `shaders` | video → video, **plus an optional AUDIO input** — the one type whose ports carry two signals, because a shader is for a picture that moves with the sound ([shaders.md](shaders.md)) |
 
 `midi` is kept as a LEGACY alias of `transformers` (the rename) so old `modules/midi/`
 folders keep loading until their authors rename them on disk; `module create` proposes,

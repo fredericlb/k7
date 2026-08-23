@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadGraph } from "./graph";
 import { compileNodeProject } from "./nodeProject";
 import { projectFiles, scaffold, videoProjectFiles } from "./scaffold";
+import { GRAPH_FILE } from "./yaml/graphSchema";
 
 // A new project is the one worked example a reader gets, and the only project st0
 // writes from scratch — so "does it load and play" is the whole contract. Nothing covered
@@ -33,7 +34,9 @@ describe("a scaffolded project", () => {
       "melody",
       "pad",
     ]);
-    expect(Object.keys(g.chains).length).toBe(2);
+    // Two lane runs, and the empty `MIX -> OUT` every scaffold writes — the master chain's
+    // place, declared so the graph has an output node without anything on it yet.
+    expect(Object.keys(g.chains).length).toBe(3);
     // A warning here means the template references something it didn't write.
     expect(g.warnings).toEqual([]);
     // The melody plays through the 4OSC the chain routes it into.
@@ -107,12 +110,27 @@ describe("arrangement vs video", () => {
     // a project only shows once it is opened.
     const audio = projectFiles("demo");
     const video = videoProjectFiles("demo");
+    // The two files the picture is ADDED INTO rather than beside: the viewport is a line inside
+    // the header, and the picture's outputs are a line inside the one `modules:` map — sound and
+    // picture being one folder and one graph. Both are checked below instead.
+    const merged = new Set(["project.yaml", GRAPH_FILE]);
     for (const [rel, content] of Object.entries(audio)) {
-      if (rel === "project.yaml") continue; // the viewport lines live INSIDE the header
+      if (merged.has(rel)) continue;
       expect(video[rel]).toBe(content);
     }
     // …and the header differs by exactly the picture block, nothing else.
     expect(video["project.yaml"].startsWith(audio["project.yaml"])).toBe(true);
+    // The graph differs by exactly two things: a note, and the run it describes. Every segment
+    // the song had is still there, in order — which is what "added to" has to mean.
+    const kept = audio[GRAPH_FILE]
+      .split("\n")
+      .filter((l) => !l.startsWith("#"));
+    const got = video[GRAPH_FILE].split("\n").filter((l) => !l.startsWith("#"));
+    expect(got).toEqual([
+      ...kept.slice(0, -1), // every segment the song had, MIX -> OUT included
+      "  RENDER: [ VIDEO_OUT ]",
+      ...kept.slice(-1), // the trailing newline the file ends on
+    ]);
   });
 
   it("still plays, with picture on top of the same worked example", () => {

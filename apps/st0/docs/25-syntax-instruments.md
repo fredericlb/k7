@@ -136,6 +136,55 @@ A chain carries one signal, so the second input has to arrive from somewhere els
 
 On the graph each port is a socket on the node's edge. Mandatory ones are drawn from the start; past those, one free socket appears beyond the last one you have wired, so a module offers its next input without presenting a row of empty holes.
 
+## modules/shaders/<name>/module.yaml — GLSL over the picture
+
+A module in `shaders/` takes an **image**, gives back an image, and accepts an **optional audio input** whose live level reaches the shader as `uAudio`. It is the only module whose ports carry two different signals, and that is what it is for: a picture that moves with the sound.
+
+What it *does* is GLSL, in a `shaders/` folder beside the module file — one folder per shader, each holding a `vertex.glsl` and a `fragment.glsl`. `shader:` picks which one runs. A shader is a folder rather than a file because it is a **pair**: swap the fragment and keep the vertex and you have a different effect on the same geometry. A folder missing one of the two is not offered at all.
+
+```
+modules/shaders/glow/
+  module.yaml
+  ui.yaml
+  shaders/pulse/{vertex,fragment}.glsl
+  shaders/ripple/{vertex,fragment}.glsl
+```
+
+Every shader gets the same uniforms: `uTex` (the picture coming in), `uAudio` (0..1, the wired lane's level over −60..0 dB, and 0 with nothing wired), `uTime` (the transport's position in seconds), `uResolution`, and `uP1`..`uP4` — the four knobs, each 0..1. They are numbered rather than named because the module cannot know what a shader will call its controls; what each one means is written in that shader's `fragment.glsl`.
+
+```yaml schema=Module
+# modules/shaders/glow/module.yaml
+type: shader
+shader: pulse        # a folder under this module's shaders/ — the dropdown writes it
+params:
+  P1: 0.6            # reaches the fragment as uP1
+  P2: 0.35
+```
+
+Its panel's dropdown binds `@shader` and lists **nothing**: which shaders exist is a fact about the folder, so the graph fills the entries from what it finds. Drop a folder in and it is offered, with no file to edit.
+
+```yaml schema=UiFile
+# modules/shaders/glow/ui.yaml
+cols: 4
+rows: 2
+widgets:
+  pick: { type: dropdown, col: 0, row: 0, colSpan: 4, bind: "@shader" }
+  p1: { type: knob, col: 0, row: 1, bind: P1, min: 0, max: 1, step: 0.01 }
+```
+
+Wire it like anything else. A video lane through it shades **that layer** before it is composited; the same module on the `RENDER → VIDEO_OUT` run shades the **whole frame**. The audio input is a side input, so it names the port:
+
+```
+modules:
+  drums:  [ MIX, glow#audio ]   # the kit feeds the mix AND the shader
+  MIX:    [ OUT ]
+  main:   [ glow ]
+  glow:   [ RENDER ]
+  RENDER: [ VIDEO_OUT ]
+```
+
+A node with no shader picked, one naming a folder that is not there, and one whose GLSL will not compile all do the same thing: the picture passes through untouched and the node keeps its card, its knobs and its dropdown. A shader you are halfway through writing does not take the viewport down.
+
 ## modules/<type>/<name>/module.yaml — a COLD module
 
 `cold: true` says the module only works on audio **already on disk**. Not "expensive": a cold module run live would not be slow, it would be *wrong*, because the answer does not exist yet. Normalisation is the plain case — the gain depends on the loudest sample, and the loudest sample may be the last one, so nothing can be produced until the whole input has been read.

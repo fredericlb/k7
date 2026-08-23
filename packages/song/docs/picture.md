@@ -95,8 +95,10 @@ three-hour cut writes `10800`.
 
 - **`video_source`.** An audio lane inheriting a video lane's placements, so a shot and its
   sound could not drift. Nothing reads the key.
-- **Video chains.** `VideoPluginDoc` (`video_effect` / `video_transition`) has a shape in the
-  document and no path from a `graph.yaml` into the renderer. Nothing offers the file, for the
-  reason the `layers` check above exists: a file nothing reads is silent acceptance.
+- **`video_effect` / `video_transition` chains.** Those two shapes of `VideoPluginDoc` are still
+  modelled and still uncompiled: nothing turns one into anything a renderer runs. Their SIBLING
+  does now — a `shaders` module compiles all the way to a GLSL pass on the frame
+  ([shaders.md](shaders.md)), which is also what finally built the `graph.yaml` → renderer path
+  this entry used to say was missing entirely. What is left is a plugin format for the other two.
 - **Export.** `@studio/ui-eyes`'s `exportScene` works frame-by-frame through WebCodecs; no
   surface mounts a button for it.

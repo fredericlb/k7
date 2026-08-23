@@ -36,13 +36,36 @@ export type ShapeDoc =
       color: string;
     };
 
+/** A shader's two stages, read off the module's `shaders/<name>/` and carried INLINE — the
+ *  browser cannot open a folder, and a page of GLSL is smaller than the route that would serve
+ *  it. See docs/shaders.md. */
+export interface ShaderSourceDoc {
+  name: string;
+  vertex: string;
+  fragment: string;
+}
+
 // A video chain's step, folded onto its lane so the renderer applies it per placement; VIDEO_OUT is the sink.
 export interface VideoPluginDoc {
   id: string; // "<trackId>:<stepIndex>" — the renderer's per-instance key
-  type: "video_effect" | "video_transition"; // mirrors the module's `type`
-  name: string; // the module folder name (modules/video_effects/<name>/module.yaml)
+  type: "video_effect" | "video_transition" | "shader"; // mirrors the module's `type`
+  name: string; // the module NODE's name — what the graph calls this card
   enabled: boolean; // chain step `enabled`; false == bypassed by the renderer
   params: Record<string, number>;
+  /**
+   * A SHADER's program, already read. Absent on the other two types, and absent on a shader node
+   * with nothing picked — or one whose folder has not synced — which the renderer draws as a pass
+   * that lets its picture through.
+   */
+  shader?: ShaderSourceDoc;
+  /**
+   * The LANE whose live level drives this shader's `uAudio`, when one is wired to its audio port.
+   *
+   * A name and not a number, because the level is not in this document: the engine pushes it at
+   * ~20 Hz against the track list, and the surface holding that stream is the one that can look
+   * it up. Compiling a value here would freeze a moving number into a cached document.
+   */
+  audioFrom?: string;
 }
 
 // A lane: "video" links picture and places it at (x,y,w,h), "shape" draws parametric shapes.
@@ -59,7 +82,9 @@ export interface VideoTrackDoc {
   h: number;
   clips: VideoClipDoc[]; // "video" tracks only
   shapes: ShapeDoc[]; // "shape" tracks only
-  plugins?: VideoPluginDoc[]; // modelled but not compiled yet — the video-chain -> renderer path
+  // This lane's own video run, compiled — applied to the layer BEFORE it is composited. Absent on
+  // a lane no run starts at, which is every lane in a project that draws no shaders.
+  plugins?: VideoPluginDoc[];
 }
 
 /** A named point on the cut, in seconds. `tc` is the key it is stored under, which is its delete key. */
@@ -84,4 +109,12 @@ export interface VideoProjectDoc {
   fps: number; // frame-by-frame export only — realtime follows the transport's own clock
   videoTracks: VideoTrackDoc[]; // ALREADY in project.layers draw order — no consumer re-sorts
   markers: VideoMarker[]; // sorted by second
+  /**
+   * The `RENDER -> VIDEO_OUT` run: passes over the frame the lanes were composited INTO.
+   *
+   * The picture's `masterPlugins`, and named for the same distinction — a lane's own plugins work
+   * that layer, these work the sum. Always present and empty by default, unlike a lane's
+   * `plugins`, because this one is a property of the project rather than of anything in it.
+   */
+  framePlugins: VideoPluginDoc[];
 }

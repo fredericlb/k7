@@ -9,6 +9,7 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_COUNT_IN } from "./project";
+import { addVideoRun } from "./videoOutputs";
 import { GRAPH_FILE } from "./yaml/graphSchema";
 import type { ProjectShape } from "./yaml/projectSchema";
 
@@ -112,7 +113,8 @@ export function projectFiles(name: string): Record<string, string> {
       `# sound leaves the other's alone.\n` +
       `extends: "@project/instruments/synth"\n`,
 
-    // The graph: who feeds whom. Both lanes run their own synth node out to OUT.
+    // The graph: who feeds whom. Both lanes run their own synth node into the mix, and the mix
+    // leaves by OUT — the run between the two being where a master chain would go.
     [GRAPH_FILE]:
       `# The signal graph, as SEGMENTS: each module says where its signal goes next. The\n` +
       `# chains are DERIVED by following the arrows — a run breaks where the signal splits,\n` +
@@ -127,11 +129,17 @@ export function projectFiles(name: string): Record<string, string> {
       `#\n` +
       `# \`bypassed: [ … ]\` lists the modules the signal passes through untouched — and on a\n` +
       `# lane, which produces rather than passes, that IS its mute.\n` +
+      `#\n` +
+      `# Two built-in outputs: \`MIX\` is the mixer's sum, where every lane ends, and \`OUT\` is\n` +
+      `# the interface — which carries the song's output level as its \`Volume\` (the fader\n` +
+      `# under the header meter). The run between them is the MASTER CHAIN: put a module on\n` +
+      `# this line and it processes the whole mix on its way out.\n` +
       `modules:\n` +
       `  melody: [ synth-melody ]\n` +
       `  pad: [ synth-pad ]\n` +
-      `  synth-melody: [ OUT ]\n` +
-      `  synth-pad: [ OUT ]\n`,
+      `  synth-melody: [ MIX ]\n` +
+      `  synth-pad: [ MIX ]\n` +
+      `  MIX: [ OUT ]\n`,
 
     // The arrangement: one 2-bar MIDI sequence on a lane. A lane is a NODE of one of the three
     // built-in track modules — what it extends says where its events come from, never what they
@@ -225,6 +233,36 @@ export function projectFiles(name: string): Record<string, string> {
 }
 
 /**
+ * The song's graph with the PICTURE's two outputs added — the `video` archetype's whole change
+ * to it, and the reason the map is not restated for this shape.
+ *
+ * `addVideoRun` is the same splice the open path makes on a project that arrives without the run
+ * (videoOutputs.ts), so the archetype and the repair cannot write the line two different ways —
+ * which is exactly how `MIX: [ OUT ]` ended up spelled once in four scaffolds and once in a
+ * migration script. The note above it is this file's job: the splice writes a line, not a reason.
+ *
+ * Throws if the base graph ever loses its `modules:` map. That cannot happen from outside — the
+ * text is three lines up in this same file — and a `video` project silently scaffolded without a
+ * frame's way out is worse than a failed scaffold.
+ */
+function videoGraph(base: string): string {
+  const noted = base.replace(
+    /^modules\s*:/m,
+    `# …and the same pair for the PICTURE, which this project has: \`RENDER\` is where the video\n` +
+      `# lanes composite — every one of them arrives there, as every audio lane arrives at \`MIX\` —\n` +
+      `# and \`VIDEO_OUT\` is the frame that leaves. Put a video_effects module on the run between\n` +
+      `# them and it works the whole composited frame. See packages/song/docs/videoOutputs.md.\n` +
+      `modules:`,
+  );
+  const out = addVideoRun(noted);
+  if (out === null)
+    throw new Error(
+      "scaffold: the base graph has no `modules:` map to add RENDER to",
+    );
+  return out;
+}
+
+/**
  * The files of a `video` project: the arrangement above, plus the picture it composites.
  *
  * Built by ADDING to the song map rather than by restating it, so the graph, the synth and the
@@ -236,9 +274,12 @@ export function projectFiles(name: string): Record<string, string> {
  * loud rather than composing nothing. See docs/picture.md.
  */
 export function videoProjectFiles(name: string): Record<string, string> {
+  const base = projectFiles(name);
   return {
-    ...projectFiles(name),
+    ...base,
     "project.yaml": projectYaml(name, true),
+
+    [GRAPH_FILE]: videoGraph(base[GRAPH_FILE]),
 
     // The FRAME, declared the way the timeline is. A song's picture and a song's sound are one
     // folder, so this archetype gets a lane of each: the alternative was a feature you could
