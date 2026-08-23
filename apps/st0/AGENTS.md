@@ -36,9 +36,10 @@ loopback/private plus the user-trusted origins in `~/.studio/web-origins.json`.
 `AuthGate` → `EngineGate` → `ProjectGate` → editor, when the address names a project.
 When it names none, `main.tsx` mounts `AuthGate` → `Home` instead — the projects page, which
 needs the account and neither an engine nor a project (`frontend/docs/projects.md`). One address
-short-circuits both: `/external`, the menu of surfaces a second device can drive, which is
-`AuthGate` → `ExternalIndex` and probes for a machine without claiming one
-(`frontend/docs/external.md`). It is read BEFORE `parseLaunch`, since a single segment is
+short-circuits both: `/external`, the menu of surfaces a second device can drive — every surface
+of the project the ENGINE is holding, which `GET /engine/served` answers and which is not the same
+question as each workspace's `.studio-active` marker. It is `AuthGate` → `ExternalIndex` and probes
+for a machine without claiming one (`frontend/docs/external.md`). It is read BEFORE `parseLaunch`, since a single segment is
 otherwise a repository — so `external` is a reserved short name. The engine
 picker is unreachable until logged in either way. Auth falls back to a "Dev User" stub when no
 `OIDC_*` env is set, but login is still mandatory.
@@ -78,6 +79,7 @@ matches before changing it:
 | `picture.md` | video lanes on that same timeline, the ruler's two units, the viewport surface |
 | `clipEditors.md` | the piano roll and the waveform over one event — and the loop marks they share |
 | `masterMeter.md` | the header's meter, what it holds across a pass, and the Fix button's trim |
+| `mastering.md` | the `mastering` surface — one quick-master node as three appliances, and why nothing on it normalises |
 | `commandBar.md` | the step-by-step palette and module picker |
 | `moduleBuilder.md` | the shared builder — and why its parameter list comes from the OPEN project |
 | `sharedModules.md` | the file tree's Libraries tab: editing a `@st0` module in place |
@@ -120,7 +122,7 @@ default; the note button sits in the footer beside the mixer. Read
 that moves an old project's prose into comments.
 
 **A project declares its SURFACES.** A `surfaces/` folder, one file per special view — `type`,
-`layout`, and a `mapping` saying which module each of its components moves. Three types, and the
+`layout`, and a `mapping` saying which module each of its components moves. Four types, and the
 PAIR is validated:
 
 | type | layout | what it is |
@@ -128,6 +130,7 @@ PAIR is validated:
 | `timeline` | `split` | the arrangement — a pane, and the reason a song draws one at all |
 | `viewport` | `split` | the frame: the song's video lanes composited by `@studio/ui-eyes` |
 | `turntables` | `split` | the DJ desk, from `@studio/ui-turntables` — what makes a project a SET |
+| `mastering` | `split` | the master strip: ONE `quick-master` node drawn as its three parts (`frontend/docs/mastering.md`) |
 
 **Every surface is a PANE**, in the layout and in the pane ring. Which for the viewport is
 load-bearing (it owns a GL context and a `<video>` per layer), and for the desk is what puts it
@@ -162,9 +165,10 @@ timeline, and the transport and the minimap go with it.
 > and could contradict. Read `packages/song/docs/surfaces.md` before touching any of it.
 
 The vocabulary is two words, and `src/routes.ts` is where they are declared —
-read it before changing layout. A **pane** is one of five (`editor | viewport | timeline |
-turntables | chains`) and is what `full` fullscreens; three of them — `timeline`, `viewport` and
-`turntables` — are mounted only when the project declares the matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
+read it before changing layout. A **pane** is one of six (`editor | viewport | timeline |
+turntables | mastering | chains`) and is what `full` fullscreens; four of them — `timeline`,
+`viewport`, `turntables` and `mastering` — are mounted only when the project declares the
+matching surface. A **panel** is one of three (`graph | docs | logs`) and is what
 the editor column shows. Two things are deliberately NOT panels: the MIXER, a view of the graph
 drawn in the graph's pane, and a clip's CONTENTS, which the graph's own slot draws. Both are URL state (`src/useViewRoute.ts`); see
 `frontend/docs/shellRouting.md`.

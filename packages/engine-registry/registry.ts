@@ -90,7 +90,7 @@ export type ClaimResult =
   | {
       ok: false;
       /**
-       * `project` — somebody opened the same project, here or on another machine.
+       * `project` — somebody ELSE opened the same project, or we did on another machine.
        * `engine`  — another project took this engine. `tookFor` names it.
        * `lapsed`  — nobody took anything; this claim simply aged out (a sleep, a gap).
        */
@@ -149,12 +149,20 @@ export function createRegistry(): EngineRegistry {
     return e;
   };
 
-  /** The holder that has a project on this engine, if any. At most one, by construction. */
-  const projectHolderOn = (
+  /**
+   * A holder on this engine that has a project OTHER than this one, if any.
+   *
+   * At most one, by construction — that is rule 2, and it is what this predicate is for. It used
+   * to be "any holder with a project", which read the same because rule 1 had always cleared the
+   * matching ones first. It no longer does: one account's several screens on one engine share a
+   * session and coexist on one project, so the difference has to be spelled out.
+   */
+  const otherProjectOn = (
     e: EngineEntry,
+    project: string,
     now = Date.now(),
   ): EngineHolder | undefined =>
-    holdersOf(e, now).find((h) => h.project !== null);
+    holdersOf(e, now).find((h) => h.project !== null && h.project !== project);
 
   /**
    * Every live engine, scanned rather than indexed by project.
@@ -210,15 +218,16 @@ export function createRegistry(): EngineRegistry {
      *
      * Two shapes, told apart by `secret`:
      *
-     * - **no secret — an OPEN.** The newcomer always wins. Whoever held this project, wherever
-     *   they held it, and whoever held a *different* project on this engine, is displaced.
+     * - **no secret — an OPEN.** The newcomer always wins. Whoever held this project ELSEWHERE,
+     *   and whoever held a *different* project on this engine, is displaced.
      * - **a secret — a RENEWAL.** Granted only while that secret is still registered. A renewal
      *   must never take over, or a displaced tab wins the project back five seconds later, for
      *   ever.
      *
      * Three rules, and each earns its place:
      *
-     * 1. **One engine per project.** Two people on one project is what the whole change is for.
+     * 1. **One engine per project.** Two people on one project is what the whole change is for —
+     *    two SESSIONS, which is why one account's several screens on one engine are exempt.
      * 2. **One project per engine.** Not tidiness: the file service on that machine holds a
      *    SINGLE active project (`engineLink.ts` — "several browser tabs share it, last write
      *    wins"), so a second project there does not coexist, it clobbers.
@@ -232,22 +241,44 @@ export function createRegistry(): EngineRegistry {
       const now = Date.now();
       holdersOf(e, now); // prune first, so what follows sees only live holders
 
+      /**
+       * Is this holder, on this engine, the SAME instance we are asking about?
+       *
+       * Same account and same machine means one engine session — `sessionFor(<service>, email)`,
+       * one project loaded in it (packages/engine-protocol/docs/sessions.md). So the two are not
+       * two drivers of one project: they are one driver with two screens, which is what an
+       * external surface beside its editor is, and what two tabs of one song have always been.
+       * Rule 1 has nothing to protect there, and enforcing it evicted a person from their own
+       * project the moment they opened a surface on a tablet.
+       */
+      const sameInstance = (entry: EngineEntry, h: EngineHolder): boolean =>
+        entry === e && h.holder === req.holder;
+
       if (req.secret !== undefined) {
         const mine = e.holders.get(req.secret);
         if (!mine) {
           // Gone — and the three ways that happens are three different things to be told.
           // Asked in this order because the first is the one that is about YOUR project.
+          //
+          // Our own other screen is not an answer to any of them: it holds what we hold and took
+          // nothing, so a claim that lapsed beside it reads as `lapsed` — which the hold loop
+          // retries, and which the exemption below then grants without displacing it.
           const onMyProject = req.project
             ? liveEngines(now)
-                .flatMap((x) => holdersOf(x, now))
-                .find((h) => h.project === req.project)
+                .flatMap((x) => holdersOf(x, now).map((h) => ({ x, h })))
+                .find(
+                  ({ x, h }) =>
+                    h.project === req.project && !sameInstance(x, h),
+                )?.h
             : undefined;
           if (onMyProject)
             return { ok: false, lost: "project", heldBy: onMyProject.holder };
-          // Nobody has our project, but somebody has our engine: a different project took it.
+          // Nobody has our project, but somebody has our engine: a DIFFERENT project took it.
           // Only if we HAD a project: a project-less holder is never displaced (the rules below
           // leave it alone), so it can only have lapsed — however busy the engine looks now.
-          const sitting = req.project ? projectHolderOn(e, now) : undefined;
+          const sitting = req.project
+            ? otherProjectOn(e, req.project, now)
+            : undefined;
           if (sitting)
             return {
               ok: false,
@@ -272,12 +303,14 @@ export function createRegistry(): EngineRegistry {
       };
 
       if (req.project !== null) {
-        // Rule 1: the same project, wherever it is open.
+        // Rule 1: the same project, wherever it is open — but not our own other screen on this
+        // very engine, which is the same session driving the same loaded project. See above.
         for (const other of liveEngines(now))
           for (const h of holdersOf(other, now))
-            if (h.project === req.project) displace(other, h);
-        // Rule 2: a different project already on THIS engine.
-        const sitting = projectHolderOn(e, now);
+            if (h.project === req.project && !sameInstance(other, h))
+              displace(other, h);
+        // Rule 2: a DIFFERENT project already on this engine.
+        const sitting = otherProjectOn(e, req.project, now);
         if (sitting) displace(e, sitting);
       }
 

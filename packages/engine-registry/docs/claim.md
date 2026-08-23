@@ -14,6 +14,22 @@ whoever had it. This is the rule people asked for, and the one whose absence pro
 engine is unstable": two browsers driving one project drive one `Edit` through two sessions
 that each believe they own it.
 
+Read that last clause carefully, because it is the whole rule and not a flourish: **two
+sessions**. One account on one engine is ONE session — `sessionFor(<service>, email)`, one
+project loaded in it (`packages/engine-protocol/docs/sessions.md`) — so its screens are not two
+drivers of a project, they are one driver with two windows. Rule 1 exempts them: same account,
+same engine, same project, no displacement.
+
+That exemption is what makes an external surface possible at all. A tablet on
+`<projet>/@external/desk` goes through the same gates as the editor and claims the same project,
+and without it the laptop was thrown out of its own song — *"this project was opened
+elsewhere"* — the moment the second screen opened. Two tabs of one song had always had the same
+problem; the surface is just where it became unmissable.
+
+It is deliberately narrow. A different ACCOUNT on this engine is displaced, because that is two
+people. The same account on a different ENGINE is displaced, because that is a second session and
+the project really has moved machines. Only the two that share one loaded project are spared.
+
 **2. One project per engine.** Not tidiness. The file service on that machine holds a **single**
 active project — `packages/file-service/src/engineLink.ts` says so in its header, *"Several
 browser tabs share it — last write wins"* — so a second project on one machine does not coexist
@@ -39,7 +55,7 @@ So the two are told apart by the presence of `secret`:
 
 | call | means | answer |
 |---|---|---|
-| `select` **without** a secret | an OPEN | always granted; mints a secret; displaces whoever held the project, and whoever held a different project on that engine |
+| `select` **without** a secret | an OPEN | always granted; mints a secret; displaces whoever held the project *elsewhere* (see rule 1's exemption), and whoever held a different project on that engine |
 | `select` **with** a secret | a RENEWAL | granted while that secret is still registered; **409** once it is not |
 
 A 409 is not a fault and must not be retried. It is the answer, and the browser turns it into
@@ -53,7 +69,7 @@ the three ways a renewal comes back refused, and it is the least common:
 
 | `lost` | what happened | body also carries |
 |---|---|---|
-| `project` | the SAME project was opened, here or on another engine | `heldBy` — whose it is now |
+| `project` | the SAME project was opened by somebody else, or by us on another engine | `heldBy` — whose it is now |
 | `engine` | a DIFFERENT project took this engine (the second displacement rule above) | `heldBy`, and `tookFor` naming that project |
 | `lapsed` | nobody took anything: the secret aged out over a sleep or a network gap, or the engine deregistered | nothing — `heldBy` is empty |
 
@@ -68,9 +84,11 @@ quiet re-claim would take a project out from under a person who is driving it �
 back five seconds later, for ever.
 
 `lapsed` is the one that IS retried, by the hold loop itself rather than by any surface. It is
-answered only when nothing holds this project *and* nothing else holds this engine, so re-opening
-displaces nobody by construction — and the tab coming out of sleep is not asking for anything it
-did not already have. `@studio/engine-browser`'s `holdEngine` drops the dead secret and re-opens
+answered only when nobody ELSE holds this project *and* no other project holds this engine, so
+re-opening displaces nobody by construction — and the tab coming out of sleep is not asking for
+anything it did not already have. Our own other screen does not turn that into a `project`: it
+holds what we hold and took nothing, and the exemption above is what then lets the retry land
+beside it rather than on top of it. `@studio/engine-browser`'s `holdEngine` drops the dead secret and re-opens
 on its next tick; see [lease.md](../../engine-browser/docs/lease.md) for why the next tick and
 not at once. This was a dead end on screen until then, telling someone to go and re-open by hand
 a project nobody had taken from them.

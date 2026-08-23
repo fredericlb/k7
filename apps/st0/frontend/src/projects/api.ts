@@ -14,6 +14,8 @@ import {
   type RepoProject,
   type RepoRef,
   type RepoSummary,
+  type ServedProject,
+  type ServedProjectReply,
   type ShareSummary,
   type SshKeyInfo,
   type SurfacedProject,
@@ -279,6 +281,25 @@ export const engineMachine = {
       "surfaces",
     );
     return projects;
+  },
+
+  /**
+   * …and which ONE of those the engine on that machine is holding for this person.
+   *
+   * The list above is what the DISK has; this is what is loaded. A session is per service and per
+   * person, so there is one answer for the whole account — the `.studio-active` flag on each row
+   * is a different thing, one per workspace, and cannot stand in for it. `/external` keeps only
+   * the rows this names, because every other row would move the engine off the song being played.
+   * See ../../docs/external.md.
+   */
+  servedProject: async (m: Machine): Promise<ServedProject | null> => {
+    const { project } = await json<ServedProjectReply>(
+      await fetch(`${m.fileBase}/engine/served`, {
+        headers: machineHeaders(m),
+      }),
+      "served",
+    );
+    return project;
   },
 
   /** One workspace's whole tree — the "look inside" pane. `/workspace-tree` and not `/tree`:

@@ -113,6 +113,74 @@ describe("the engine claim", () => {
     expect(refused.ok).toBe(false);
   });
 
+  it("lets ONE account hold one project twice on one engine — a surface beside its editor", () => {
+    const editor = grant(
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
+    );
+    // The tablet, on `<projet>/@external/desk`. Same account, same engine, so the same session
+    // and the same loaded project: there is nothing for rule 1 to protect, and enforcing it
+    // threw the editor out of its own song the moment a second screen opened.
+    const surface = grant(
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
+    );
+    expect(surface.tookOver).toBeUndefined();
+
+    // Both keep renewing, and neither is told its project was opened elsewhere.
+    for (const secret of [editor.secret, surface.secret])
+      expect(
+        grant(
+          reg.claim("e1", {
+            project: "band/winter.st0",
+            holder: "a",
+            secret,
+          }),
+        ).secret,
+      ).toBe(secret);
+  });
+
+  it("still takes that project from ANOTHER account on the same engine", () => {
+    const mine = grant(reg.claim("e1", { project: "p", holder: "alice" }));
+    const theirs = reg.claim("e1", { project: "p", holder: "bob" });
+    expect(grant(theirs).tookOver).toEqual({ holder: "alice", project: "p" });
+    expect(
+      reg.claim("e1", { project: "p", holder: "alice", secret: mine.secret })
+        .ok,
+    ).toBe(false);
+  });
+
+  it("still moves that project when the SAME account opens it on another engine", () => {
+    // The exemption is same account AND same engine: a second machine is a second engine
+    // session, so the project really does move and the first screen really has lost it.
+    const onE1 = grant(reg.claim("e1", { project: "p", holder: "alice" }));
+    grant(reg.claim("e2", { project: "p", holder: "alice" }));
+    const refused = reg.claim("e1", {
+      project: "p",
+      holder: "alice",
+      secret: onE1.secret,
+    });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.lost).toBe("project");
+  });
+
+  it("still evicts a DIFFERENT project of the same account on one engine", () => {
+    // Rule 2 is untouched by the exemption: one project per engine is what the file service's
+    // single active project requires, whoever is asking.
+    const winter = grant(
+      reg.claim("e1", { project: "band/winter.st0", holder: "a" }),
+    );
+    grant(reg.claim("e1", { project: "band/leclip.st0", holder: "a" }));
+    const refused = reg.claim("e1", {
+      project: "band/winter.st0",
+      holder: "a",
+      secret: winter.secret,
+    });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) {
+      expect(refused.lost).toBe("engine");
+      expect(refused.tookFor).toBe("band/leclip.st0");
+    }
+  });
+
   it("lets a project-less holder sit beside a project — pl8 must not evict st0", () => {
     const song = grant(
       reg.claim("e1", { project: "band/winter.st0", holder: "a" }),

@@ -36,7 +36,6 @@ import { type HistoryDeps, runRedo, runUndo } from "@studio/project-shell/undo";
 // The leaf with no `node:fs` in it — a browser may ask what a path names without dragging the
 // loader in behind it.
 import { moduleKeyFromPath } from "@studio/song/moduleTypes";
-import { setVideoPlacementField } from "@studio/song/yaml/videoTrackFile";
 import { ModulePreview } from "@studio/ui-chains-react/module-preview";
 import { type BuilderPane, ModuleBuilder } from "@studio/ui-module-builder";
 // The desk's rule about where PLAY starts, imported rather than restated here — see
@@ -82,11 +81,11 @@ import { CommandsSettings } from "./components/CommandsSettings";
 import { ContextMenu } from "./components/ContextMenu";
 import { type EditorHandle, EditorTab } from "./components/EditorTab";
 import { EditSharedModuleDialog } from "./components/EditSharedModuleDialog";
-import { isRemotable } from "./components/ExternalSurface";
 import { GraphPanel } from "./components/GraphPanel";
 import { HelpPage } from "./components/HelpPage";
 import { ImportDialog } from "./components/ImportDialog";
 import { LogsPanel } from "./components/LogsPanel";
+import { MasteringTab } from "./components/MasteringTab";
 import { MasterMeter, type MasterMeterHandle } from "./components/MasterMeter";
 import { MetronomeButton } from "./components/MetronomeButton";
 import { Minimap, type MinimapItem } from "./components/Minimap";
@@ -108,16 +107,20 @@ import {
 import { type OpenShare, ShareDownload } from "./components/SharedGate";
 import { SharePanel, shareBadge } from "./components/SharePanel";
 import { SurfaceTab } from "./components/SurfaceTab";
-import {
-  type TimelineHandle,
-  TimelineTab,
-  type VideoEdit,
-} from "./components/TimelineTab";
+import { type TimelineHandle, TimelineTab } from "./components/TimelineTab";
 import { TrackModulesPane } from "./components/TrackModulesPane";
 import { ViewportTab } from "./components/ViewportTab";
-import { contextMenu, type MenuCtx, type MenuItem } from "./contextMenu";
-import { TARGET_DB, trimFor, trimmedStrips } from "./gainTrim";
+import {
+  contextMenu,
+  type MenuCtx,
+  type MenuItem,
+  type NodeMenuTarget,
+  nodeMenu,
+  withAmbient,
+} from "./contextMenu";
+import { fixedMaster, TARGET_DB, trimFor } from "./gainTrim";
 import type { ClipGridHandle } from "./gridCaret";
+import { useCommandKeys } from "./hooks/useCommandKeys";
 import { useEngineLink } from "./hooks/useEngineLink";
 import { useInputDevices } from "./hooks/useInputDevices";
 import { useLogs } from "./hooks/useLogs";
@@ -139,14 +142,13 @@ import { useSurfaces } from "./hooks/useSurfaces";
 import { useTrackControls } from "./hooks/useTrackControls";
 import { useTurntableDeck } from "./hooks/useTurntableDeck";
 import { useVideoDoc } from "./hooks/useVideoDoc";
+import { useVideoEdits } from "./hooks/useVideoEdits";
 import { useLocale } from "./i18n";
 import {
   blurOnClick,
   type ConditionCtx,
   effectiveKeys,
   keyForCommand,
-  keyToken,
-  resolveToken,
 } from "./keys";
 import { laneGains } from "./laneGains";
 import { isLibraryPath, libraryModuleRef } from "./libraryTree";
@@ -170,7 +172,6 @@ import { type Pane, type Panel, viewPanes } from "./routes";
 import type { RowKey, RowTarget } from "./rows";
 import { parseSeqEdit, resolveSequence, type SeqView } from "./sequenceEdit";
 import {
-  DOUBLE_SHIFT_MS,
   MiniTransport,
   MixerIcon,
   PANE_META,
@@ -194,6 +195,7 @@ import type {
 } from "./types";
 import { useIsMobile } from "./useIsMobile";
 import { useViewRoute } from "./useViewRoute";
+import { videoSpans } from "./videoSpans";
 
 // Build stamp baked in by the Dockerfile; "dev" anywhere it wasn't set.
 const VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
@@ -670,7 +672,6 @@ export default function App({
   // Computed once per prefs change — the key listener reads it on every press.
   const effKeys = useMemo(() => effectiveKeys(commandPrefs), [commandPrefs]);
   const lastActive = useRef<string | null>(null);
-  const lastShiftAt = useRef(0); // for the double-tap-Shift palette opener
   const pendingPrewrite = useRef<string | null>(null);
 
   // The Logs panel's buffer + the process-log tail (polled only while it's open).
@@ -798,6 +799,10 @@ export default function App({
   // and the viewport composites them, so it is fetched ONCE here rather than by each.
   const { doc: videoDoc, error: videoError } = useVideoDoc(reloadKey);
   const videoTracks = videoDoc?.videoTracks ?? EMPTY_VIDEO_TRACKS;
+  // When each of those lanes is showing a frame, which is how a picture cable knows to ripple:
+  // the engine meters sound only, so the graph is handed the shots and reads the playhead itself.
+  // Memoised because it is a subscription's input over there — see videoSpans.ts.
+  const videoLaneSpans = useMemo(() => videoSpans(videoDoc), [videoDoc]);
   // Each picture clip ref → the media file it names, for the editor's readers strip. Flattened
   // here because only the COMPILER knows it: the ref names `clips/<ref>.yaml`, and reading that
   // to find the source is exactly what the picture compile did.
@@ -807,38 +812,12 @@ export default function App({
     return out;
   }, [videoTracks]);
 
-  /**
-   * Apply a finished picture drag to the lane's own file.
-   *
-   * A SURGICAL text rewrite, not a re-serialisation: these files carry the comments that
-   * document the format, and a round trip through the parser would delete every one of them.
-   * `setVideoPlacementField` edits by REF, so a placement that moved in the file between render
-   * and drop is still the one that was grabbed.
-   *
-   * Every edit of the gesture is applied to ONE buffer and written once. Trimming a head is two
-   * fields (three on a length-0 shot) describing a single drag; writing them separately would be
-   * two reads of the same file, the second built on the text before the first.
-   *
-   * Not a COMMAND, unlike every audio edit this shell makes: the CLI has no verb for a picture
-   * placement. See apps/st0/frontend/docs/picture.md.
-   */
-  const applyVideoEdit = useCallback(
-    async (trackId: string, edits: VideoEdit[]) => {
-      const ap = ws?.activeProject ?? ".";
-      const path = `${ap === "." ? "" : `${ap}/`}video_tracks/${trackId}.yaml`;
-      try {
-        const { content } = await api.read(path);
-        let next = content;
-        for (const e of edits)
-          next = setVideoPlacementField(next, e.ref, e.field, e.value);
-        if (next === content) return; // no such placement — nothing to write, nothing to say
-        await api.write(path, next);
-        bumpReload();
-      } catch (err) {
-        setStatus((err as Error).message);
-      }
-    },
-    [ws?.activeProject, bumpReload, setStatus],
+  // Commit a finished picture drag — hooks/useVideoEdits.ts, shared with the timeline surface a
+  // second device draws, which drags the same clips into the same files.
+  const applyVideoEdit = useVideoEdits(
+    ws?.activeProject ?? ".",
+    bumpReload,
+    setStatus,
   );
   /**
    * The project's DESK, if it declares one: a `split` surface of type `turntables`.
@@ -858,6 +837,22 @@ export default function App({
   const hasTurntables = !!turntablesSurface;
 
   /**
+   * …and its MASTER STRIP, if it declares one: a `split` surface of type `mastering`.
+   *
+   * Found and drawn exactly as the desk is, and for the same reason it sits beside the graph:
+   * every knob on it is a param on ONE module down there, and a project that wants to check
+   * which module wants both on screen at once. See apps/st0/frontend/docs/mastering.md.
+   */
+  const masteringSurface = useMemo(
+    () =>
+      surfaces.find(
+        (s) => s.surface.type === "mastering" && s.surface.layout === "split",
+      ) ?? null,
+    [surfaces],
+  );
+  const hasMastering = !!masteringSurface;
+
+  /**
    * The addresses this project's surfaces answer on, for the share panel to hand out.
    *
    * Built here rather than in the panel because both halves are here: `surfaces` is the polled
@@ -865,10 +860,9 @@ export default function App({
    * for the origin, as `shareUrl` does — a local checkout, the LAN proxy and the public host are
    * three answers, and the tablet is on the LAN one.
    *
-   * Only the REMOTABLE types, which is a narrower list than "every surface": all of them have an
-   * address, but a timeline opened on a phone can only explain that it is drawn by the editor,
-   * and a row that leads to that is a row worth not drawing. `ui external <id>` stays permissive
-   * — an address you asked for by name is one you get. See docs/external.md.
+   * EVERY surface the project declares. It was only the desks for as long as a desk was the only
+   * type a second device could hold; all four draw there now, so a filter here would be hiding
+   * addresses that work. See docs/external.md.
    */
   const externals = useMemo(() => {
     const at = parseLaunch(
@@ -877,13 +871,11 @@ export default function App({
       import.meta.env.BASE_URL,
     );
     if (!at) return [];
-    return surfaces
-      .filter((s) => isRemotable(s.surface.type))
-      .map((s) => ({
-        id: s.id,
-        type: s.surface.type,
-        url: externalUrl(window.location.href, at, s.id, "st0"),
-      }));
+    return surfaces.map((s) => ({
+      id: s.id,
+      type: s.surface.type,
+      url: externalUrl(window.location.href, at, s.id, "st0"),
+    }));
   }, [surfaces]);
 
   const turntableDeck = useTurntableDeck({
@@ -1000,9 +992,10 @@ export default function App({
         timeline: hasTimeline,
         viewport: hasViewport,
         turntables: hasTurntables,
+        mastering: hasMastering,
         frozen,
       }),
-    [hasTimeline, hasViewport, hasTurntables, frozen],
+    [hasTimeline, hasViewport, hasTurntables, hasMastering, frozen],
   );
   const ringPanes = layout.ring;
 
@@ -1234,14 +1227,20 @@ export default function App({
   );
 
   /**
-   * The header fader: the song's OUTPUT level, written where every other project edit goes.
+   * The header fader: the song's OUTPUT level, which is the OUT node's `Volume`.
+   *
+   * `node param "OUT" Volume`, the same line a mixer knob's release commits on its own node —
+   * the output is a node in the graph like any other, and the fader under the meter is one view
+   * of that param rather than a control of its own. `project master <dB>` is the same write under
+   * the name a person types (@studio/song's docs/masterVolume.md).
    *
    * Quietly and with no reload bump, exactly like a mixer knob's release — the doc it would
    * refetch is the one that answers this fader, and refetching it mid-drag is what fights the
    * next drag. The next edit reconciles it, and until then the fader shows what you set.
    */
   const setMaster = useCallback(
-    (db: number) => void quietCommand(`project master ${db.toFixed(1)}`),
+    (db: number) =>
+      void quietCommand(`node param "OUT" Volume ${db.toFixed(1)}`),
     [quietCommand],
   );
 
@@ -1263,41 +1262,40 @@ export default function App({
   );
 
   /**
-   * The header meter's Fix button: every strip down by one number, until the pass would have
-   * peaked at -6 dB.
+   * The header meter's Fix button: the OUT node's Volume down, until the pass would have peaked
+   * at -6 dB.
    *
-   * The MEASUREMENT is the meter's — it is the only thing that watched the pass — and the faders
-   * are this component's, so the button is a callback and the arithmetic between them is
-   * `gainTrim.ts`, pure and tested. What lands here is the part that needs the project: which
-   * mixer nodes exist, what each one currently reads, and how a level is written.
+   * The MEASUREMENT is the meter's — it is the only thing that watched the pass — and where a
+   * level is written is App's, so the button is a callback and the arithmetic between them is
+   * `gainTrim.ts`, pure and tested.
    *
-   * `node param … Volume`, the same line a fader drag commits (`useTrackControls`), so the trim
-   * goes through the undo journal like any other edit and is one Ctrl+Z per strip. Quietly, and
-   * then ONE reload at the end: a mix of thirty lanes is thirty writes, and bumping the doc on
-   * each would refetch the project thirty times to show a change that is not finished yet.
+   * ONE write, on the same node the fader an inch below it moves: the output IS a node, and
+   * lowering it is the one edit that cannot change a balance anywhere in the song. It went to
+   * every mixer STRIP instead until the output became a param — thirty lanes was thirty
+   * read-modify-writes and thirty undo entries, and a strip already near the floor could not take
+   * the full trim, so the mix it promised to preserve shifted anyway.
    *
-   * Serial rather than `Promise.all`, because each is a read-modify-write of one file through a
-   * single-threaded service — the rule `settledEdits` and the sequencer's chaining already follow.
+   * RELATIVE to what the fader already reads, because the meter is downstream of this gain — see
+   * `fixedMaster`. Then ONE reload, so the fader catches up with the number just written under it.
    */
   // The meter holds the pass — its peak, and whether it clipped — because it is the only thing
   // that watched it go by. `project master fix` asks it through this.
   const masterMeterRef = useRef<MasterMeterHandle | null>(null);
   const fixClipping = useCallback(
     async (peakDb: number) => {
-      const strips = trimmedStrips(docTracks, peakDb);
-      if (!strips.length) {
-        setStatus("rien à baisser — aucune piste n'a de tranche");
+      const now = projectDoc?.masterVolume ?? 0;
+      const db = fixedMaster(now, peakDb);
+      if (db === now) {
+        setStatus("rien à baisser — la sortie est déjà au plancher");
         return;
       }
-      // Quoted: a node ref carries a `:` and may carry spaces, and `node param` splits on them.
-      for (const { node, db } of strips)
-        await quietCommand(`node param "${node}" Volume ${db.toFixed(1)}`);
+      await quietCommand(`node param "OUT" Volume ${db.toFixed(1)}`);
       bumpReload();
       setStatus(
-        `${strips.length} tranche(s) baissée(s) de ${trimFor(peakDb).toFixed(1)} dB — pic visé ${TARGET_DB} dB`,
+        `sortie à ${db > 0 ? "+" : ""}${db.toFixed(1)} dB (${trimFor(peakDb).toFixed(1)} dB) — pic visé ${TARGET_DB} dB`,
       );
     },
-    [docTracks, quietCommand, bumpReload],
+    [projectDoc?.masterVolume, quietCommand, bumpReload],
   );
 
   // A ref because runCommand reads it and is itself a dependency of half the app: making it re-bind on every
@@ -2485,16 +2483,8 @@ export default function App({
   const cmdLocale = useRef(locale);
   cmdLocale.current = locale;
   const openContextMenu = useCallback((ctx: MenuCtx, x: number, y: number) => {
-    // A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what says so:
-    // the namespace is the catalogue's own and nothing on disk declares it. Derived here rather than carried
-    // as a flag through the graph doc, the graph model and the renderer — four files for one menu entry is a
-    // worse trade than one string test at the point of use.
-    const full: MenuCtx =
-      ctx.kind === "module" && ctx.id.startsWith("@engine/")
-        ? { ...ctx, ambient: true }
-        : ctx;
     const items = contextMenu(
-      full,
+      withAmbient(ctx),
       cmdCatalogue.current,
       cmdPrefs.current,
       cmdLocale.current,
@@ -2502,82 +2492,19 @@ export default function App({
     if (items.length) setMenu({ items, x, y });
   }, []);
   /**
-   * The ⋮ bubble on a node: what it can be, and what it can be replaced BY — its module's
-   * other attribute SETS, and its freeze.
+   * The ⋮ bubble on a node — the same ContextMenu the right-click uses, and the same `MenuItem`
+   * shape, so switching runs on the spot while the two that need a name arrive in the command bar
+   * half-typed. That split is what `complete` already means, and reusing it means this menu
+   * inherits the outside-click close, the positioning and the undo journal for nothing.
    *
-   * The same ContextMenu the right-click uses, and the same `MenuItem` shape, so switching runs
-   * on the spot while the two that need a name arrive in the command bar half-typed — that split
-   * is what `complete` already means, and reusing it means this menu inherits the outside-click
-   * close, the positioning and the undo journal for nothing.
-   *
-   * See packages/song/docs/alternatives.md and packages/song/docs/freeze.md.
+   * The ROWS are `nodeMenu`'s, in contextMenu.ts, and not this component's: a timeline surface
+   * alone on a second device opens this same bubble on these same lanes, and two derivations of
+   * one menu is how they come to offer different alternatives for the same node.
    */
   const openNodeMenu = useCallback(
-    (
-      n: {
-        module?: string;
-        alternatives?: string[];
-        alternative?: string;
-        frozen?: "at" | "inside";
-      },
-      at: { x: number; y: number },
-    ) => {
-      const module = n.module;
-      if (!module) return;
-      const names = n.alternatives ?? [];
-      const current = n.alternative ?? "1";
-      const items: MenuItem[] = [
-        // A dot marks the one that is on. The module's own fields are "1" and are listed like
-        // any other — they ARE an alternative, and hiding them would leave no way back to them.
-        ...names.map((name) => ({
-          label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
-          description:
-            name === current
-              ? "The settings this node is playing now"
-              : `Play this node with the "${name}" settings instead`,
-          command: `node alternative select ${module} ${name}`,
-          complete: true,
-          verb: "node alternative select",
-        })),
-        {
-          label: "New alternative…",
-          description:
-            "Add another set of settings, starting from the module's own",
-          command: `node alternative create ${module} `,
-          complete: false,
-          verb: "node alternative create",
-        },
-        {
-          label: "Copy this one…",
-          description: "Add another set of settings, copied from the one on",
-          command: `node alternative copy ${module} `,
-          complete: false,
-          verb: "node alternative copy",
-        },
-        // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it
-        // will go is exactly what the label says. A node INSIDE somebody else's render is offered
-        // none — thawing it means thawing the point downstream of it, and an entry here would
-        // name the wrong module. The command refuses that case too; this only stops it being
-        // offered. See packages/song/docs/freeze.md.
-        ...(n.frozen === "inside"
-          ? []
-          : [
-              {
-                label:
-                  n.frozen === "at"
-                    ? "Unfreeze"
-                    : "Freeze (bake everything upstream)",
-                description:
-                  n.frozen === "at"
-                    ? "Go back to playing this node live"
-                    : "Render everything upstream to a file, and play that",
-                command: `node freeze ${module}`,
-                complete: true,
-                verb: "node freeze",
-              },
-            ]),
-      ];
-      setMenu({ items, x: at.x, y: at.y });
+    (n: NodeMenuTarget, at: { x: number; y: number }) => {
+      const items = nodeMenu(n);
+      if (items.length) setMenu({ items, x: at.x, y: at.y });
     },
     [],
   );
@@ -2855,109 +2782,35 @@ export default function App({
     full,
   ]);
 
-  // Global keys. Every binding names a command and runs through runCommand.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      /**
-       * A settings PAGE or the builder owns the surface: the panes these bindings would act on
-       * are hidden behind it, and Esc must not reach past it to close the slot underneath.
-       *
-       * The settings PANEL is deliberately not in that list, and the distinction arrived with
-       * it: a docked panel leaves the panes on screen, so the keys that drive them must keep
-       * working — Space while you watch a level on the I/O tab is the whole point of the tab
-       * not being a dialog over the thing it meters. Typing is still safe, because the guard
-       * below is about the FOCUSED element rather than about which screen is open: a field in
-       * the panel owns every key it is given, exactly as one in the editor does.
-       */
-      if (commandsPage || builder) return;
-      const el = e.target as HTMLElement | null;
-      // Two different reasons to stand aside, and only one of them holds for Space.
-      //
-      // TYPING — a field or a code editor — owns every key it is given, Space included; that is
-      // what makes it a text editor. Nothing here may touch it.
-      //
-      // A CONTROL with focus (a button, a link, a select) is a different case: it keeps the keys
-      // the platform gives it, but two of them come back here.
-      //
-      // Space, because it has to be the transport wherever the last click landed — a button
-      // reached by pointer keeps focus, and "Space plays" failing because you had just clicked
-      // Mute is the bug this rule exists to kill. Escape, because a focused button does nothing
-      // with it at all, and Esc's first job is now to close the overlay that button is sitting
-      // in. Enter still activates the button, so a control tabbed to is still reachable from the
-      // keyboard. Every other key still belongs to the control — `blurOnClick` (keys.ts) is what
-      // hands those back after a mouse click.
-      const typing =
-        !!el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable);
-      if (typing) return;
-      const control =
-        !!el &&
-        (el.tagName === "BUTTON" ||
-          el.tagName === "A" ||
-          el.tagName === "SELECT");
-      if (control) {
-        // What comes back from a focused control is the TRANSPORT's keys — wherever the person
-        // has put them, so a remapped play key keeps the promise Space's default had — plus
-        // Escape. Enter stays the control's even though its default is transport rewind: it
-        // activates the button, which is what keeps a Tab-focused control operable.
-        const t = keyToken(e);
-        const passes =
-          t === "esc" ||
-          (t !== null &&
-            t !== "enter" &&
-            !!effKeys[t]?.startsWith("transport "));
-        if (!passes) return;
-      }
-      // The command bar: two lone Shift presses within DOUBLE_SHIFT_MS, `e.repeat` filtering a held Shift.
-      // Docked, it FOCUSES the bar that is already there; on the phone it still opens the popin.
-      // (Never the other way: this branch is unreachable from inside the bar, which is an input.)
-      if (
-        e.key === "Shift" &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey &&
-        !e.repeat
-      ) {
-        const now = e.timeStamp;
-        if (now - lastShiftAt.current <= DOUBLE_SHIFT_MS) {
-          lastShiftAt.current = 0;
-          if (docked) cmdRef.current?.focus();
-          else
-            setPaletteOpen((o) => {
-              if (!o) pendingPrewrite.current = null;
-              return !o;
-            });
-        } else {
-          lastShiftAt.current = now;
-        }
-        return;
-      }
-      lastShiftAt.current = 0;
-      const token = keyToken(e);
-      if (!token) return;
-      // ⌃C with text actually SELECTED on the page is the browser's copy, and it is let through.
-      //
-      // The chord is this shell's otherwise (keys.ts's CHORDS), which is the whole reason the
-      // exception has to be here: a log line, a status message or a refusal reads as text and
-      // copying it is what a person means by ⌃C over it. A grid's rectangle is not a DOM
-      // selection at all — the timeline's lanes are `select-none` and the roll's drags
-      // `preventDefault` — so the two cannot be confused, and the app's own copy is unaffected.
-      if (token === "ctrl+c") {
-        const sel = window.getSelection();
-        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
-      }
-      // Through the person's own keymap: their assignments and steals first, the app's
-      // conditional bindings (esc, f, m…) as the fallback — see keys.ts's resolveToken.
-      const command = resolveToken(token, conditions, effKeys);
-      if (!command) return;
-      e.preventDefault();
-      void runCommand(command);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [builder, commandsPage, conditions, docked, effKeys, runCommand]);
+  /**
+   * The command entry a double-Shift opens. Docked, it FOCUSES the bar that is already there;
+   * on the phone it opens the popin palette.
+   */
+  const onDoubleShift = useCallback(() => {
+    if (docked) cmdRef.current?.focus();
+    else
+      setPaletteOpen((o) => {
+        if (!o) pendingPrewrite.current = null;
+        return !o;
+      });
+  }, [docked]);
+
+  /**
+   * Global keys. Every binding names a command and runs through runCommand — hooks/useCommandKeys.ts,
+   * shared with the surface a second device draws so one keyboard cannot become two.
+   *
+   * The two screens that switch it off own the surface outright: the panes these bindings act on
+   * are hidden behind a settings PAGE or the builder, and Esc must not reach past either to close
+   * the slot underneath. The settings PANEL is deliberately not one of them — a docked panel
+   * leaves the panes on screen, so the keys that drive them must keep working.
+   */
+  useCommandKeys({
+    enabled: !commandsPage && !builder,
+    effKeys,
+    conditions,
+    runCommand,
+    onDoubleShift,
+  });
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y — the project-wide undo/redo journal. Captured (not the
   // bubble handler above) so it runs BEFORE CodeMirror's own keymap: while the focused editor
@@ -3639,7 +3492,15 @@ export default function App({
                     ringFor("viewport"),
                   )}
                 >
-                  <ViewportTab doc={videoDoc} error={videoError} />
+                  {/* `trackOrder` is what makes a shader's audio input mean anything: the
+                      engine's `levels` are an array indexed against the compiled track list and
+                      carry no names, so the lane a `#audio` cable came from can only be looked up
+                      by whoever holds both. See src/shaderAudio.ts. */}
+                  <ViewportTab
+                    doc={videoDoc}
+                    error={videoError}
+                    trackIds={trackOrder}
+                  />
                 </div>
               )}
               {/* The ARRANGEMENT, and only when the project asks for one: it is a `split` surface
@@ -3805,6 +3666,35 @@ export default function App({
                   />
                 </div>
               )}
+              {/* The MASTER STRIP, when the project declares one. Last in the column and directly
+                  over the graph, because it is the last thing the signal meets — and because
+                  every knob on it is a param on one module down there. Shorter than the desk:
+                  it is ten sliders, not two decks. */}
+              {masteringSurface && (
+                <div
+                  {...paneProps("mastering")}
+                  className={cn(
+                    "flex min-h-0 min-w-0",
+                    full === "mastering"
+                      ? "flex-1"
+                      : full !== null
+                        ? "hidden"
+                        : // Expanded lanes have asked for the height; the strip stands down for
+                          // them as the desk, the frame and the graph do.
+                          tlView.expanded
+                          ? "hidden"
+                          : "h-1/3 shrink-0 border-b border-border",
+                    ringFor("mastering"),
+                  )}
+                >
+                  <MasteringTab
+                    surface={masteringSurface}
+                    paramsStore={pluginParamsStore}
+                    setPluginParam={setPluginParam}
+                    watchPluginParams={watchPluginParams}
+                  />
+                </div>
+              )}
               <div
                 {...paneProps("chains")}
                 className={cn(
@@ -3847,6 +3737,7 @@ export default function App({
                     // navigation there is. A set does NOT qualify: its desk holds the other half.
                     showList={chainsAlone || full === "chains"}
                     trackOrder={trackOrder}
+                    videoSpans={videoLaneSpans}
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>
@@ -3935,6 +3826,9 @@ export default function App({
                     alignModules={mixerView ? mixerStrips : undefined}
                     // The sockets a live input can be on — the same list the editor's strip uses.
                     inputDevices={inputDevices}
+                    // …and the song's output level, for the fader on the OUT card. The same
+                    // number the header's fader shows, and the same param either one writes.
+                    masterVolume={projectDoc?.masterVolume}
                     midiRef={chainsMidiRef}
                     onMidiStatus={setStatus}
                   />
@@ -4123,6 +4017,7 @@ export default function App({
                     organizeKey={organizeKey}
                     trackId={caret?.trackId ?? null}
                     trackOrder={trackOrder}
+                    videoSpans={videoLaneSpans}
                     project={projectDoc}
                     command={quietCommand}
                     onBypassModule={(mod) =>

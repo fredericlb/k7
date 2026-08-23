@@ -17,7 +17,7 @@ import { useDeckSet } from "@studio/ui-turntables/deck-set";
 import type { Deck } from "@studio/ui-turntables/engine";
 import { Turntables } from "@studio/ui-turntables/surface";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { api, PL8_API } from "../api";
 import { useRevision } from "../hooks/useRevision";
 
 export function SurfaceTab({
@@ -74,7 +74,19 @@ export function SurfaceTab({
    * is the same source every other file call here uses, and a second copy of the base is a
    * second thing to keep pointed at the same machine.
    */
-  const engine = useMemo(() => ({ fileBase: cfg().base }), []);
+  const engine = useMemo(
+    () => ({ fileBase: cfg().base, id: cfg().engineId }),
+    [],
+  );
+
+  /**
+   * …and where the LIBRARY answers, which is a different service and a different credential.
+   *
+   * The desk asks pl8 to separate a record, because pl8 holds the master — the file service used
+   * to, out of a médiathèque cache that no longer exists (apps/pl8/docs/stems.md). Same-origin
+   * under `/pl8` from here, so the session cookie carries it.
+   */
+  const library = useMemo(() => ({ base: PL8_API }), []);
 
   /** The playlist the declaration names — a plain string off the surface, so it needs no
    *  memo of its own; `useDeckSet` takes it as an effect dependency. */
@@ -91,7 +103,7 @@ export function SurfaceTab({
   // the frame. A header here would be a second title bar inside a pane that already has one.
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {drawn(surface, engine, deck, set, mapping, playlist, stems)}
+      {drawn(surface, engine, library, deck, set, mapping, playlist, stems)}
     </div>
   );
 }
@@ -99,7 +111,8 @@ export function SurfaceTab({
 /** Which component draws this type. Split out so the mount above reads as one thing. */
 function drawn(
   surface: ProjectSurface,
-  engine: { fileBase: string },
+  engine: { fileBase: string; id: string },
+  library: { base: string },
   deck: Deck,
   set: ReturnType<typeof useDeckSet>,
   mapping: ProjectSurface["surface"]["mapping"],
@@ -111,6 +124,7 @@ function drawn(
       return (
         <Turntables
           engine={engine}
+          library={library}
           deck={deck}
           set={set}
           mapping={mapping}
@@ -119,10 +133,16 @@ function drawn(
           file={surface.file}
         />
       );
-    // The other two `split` surfaces are drawn by the SHELL, in their own panes — the timeline is
-    // `TimelineTab` and the frame `ViewportTab`, both of which need far more of `App` than a
-    // surface declaration. Only the desk comes through here. The arms exist so the switch covers
-    // every type and says which road a kind takes, rather than falling off the end.
+    // The other three `split` surfaces are drawn by the SHELL, in their own panes — the timeline
+    // is `TimelineTab`, the frame `ViewportTab` and the master strip `MasteringTab`. The first
+    // two need far more of `App` than a surface declaration; the third needs the ENGINE LINK,
+    // which this component has not got and should not grow. Only the desk comes through here.
+    // The arms exist so the switch covers every type and says which road a kind takes, rather
+    // than falling off the end.
+    //
+    // Note the wording: drawn by the shell, not undrawable anywhere else. `ExternalSurface` mounts
+    // all four on a second device, giving each what the shell gives it — which is why that
+    // component holds the mirror image of this switch. See ../docs/external.md.
     case "timeline":
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
@@ -133,6 +153,12 @@ function drawn(
       return (
         <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
           Une surface « viewport » est dessinée par le shell, pas ici.
+        </div>
+      );
+    case "mastering":
+      return (
+        <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+          Une surface « mastering » est dessinée par le shell, pas ici.
         </div>
       );
   }

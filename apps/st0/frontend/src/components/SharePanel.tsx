@@ -54,9 +54,8 @@ export function SharePanel({
   gitStatus: GitStatus | null;
   /** A render is already running — the rows grey out rather than starting a second. */
   busy: boolean;
-  /** The surfaces this project declares that a second device can drive. Empty is the normal
-   *  case — most projects declare a timeline and nothing else — and the section is then absent
-   *  rather than empty. */
+  /** Every surface this project declares — all of them open on a second device. Empty is a
+   *  project that declares none at all, and the section is then absent rather than empty. */
   externals: readonly SurfaceLink[];
   onRun: (command: string) => void;
   onClose: () => void;
@@ -176,8 +175,8 @@ export function SharePanel({
 
             It is not a share, and the two sit apart for that reason: a share is frozen,
             account-less and read-only, while this needs the account, needs an engine, and WRITES.
-            Only the types another device can actually drive are listed; every surface has an
-            address, but a timeline opened this way would only say so. See ../docs/external.md. */}
+            Every declared surface is listed: the four types all draw on a second device, so a
+            filter here would hide an address that works. See ../docs/external.md. */}
         {externals.length ? (
           <>
             <div className="my-1 border-t border-border" />
