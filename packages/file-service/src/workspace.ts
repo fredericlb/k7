@@ -27,19 +27,8 @@ import {
   resolve,
   sep,
 } from "node:path";
-import {
-  type K7Result,
-  MP3_CODEC,
-  readK7Config,
-  renderMixdown,
-  shareToK7,
-  transcode,
-} from "@studio/commands/render";
-import {
-  buildShareBundle,
-  type ShareBundle,
-  uploadShare,
-} from "@studio/commands/share-bundle";
+import type { K7Result } from "@studio/commands/render";
+import type { ShareBundle } from "@studio/commands/share-bundle";
 import { wavSeconds } from "@studio/commands/wavLength";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
 import { scannedPluginNames } from "@studio/engine-client/pluginCache";
@@ -101,6 +90,7 @@ import {
 import { projectSurfaces, surfaceIssues } from "@studio/song/surfaces";
 import { UI_FILE, uiFileText } from "@studio/song/uiLibrary";
 import type { VideoProjectDoc, VideoTrackDoc } from "@studio/song/videoDoc";
+import { ensureVideoRun } from "@studio/song/videoOutputs";
 import { isVideoProject, loadVideoProject } from "@studio/song/videoProject";
 import { videoDuration } from "@studio/song/videoTracks";
 import { GRAPH_FILE } from "@studio/song/yaml/graphSchema";
@@ -141,6 +131,14 @@ import {
 import { mediatekBase, mediatekToken } from "./mediatekLink.ts";
 import { moduleFoldersMoved } from "./moduleWatch.ts";
 import { createProjectIn, importProjectInto } from "./projectLifecycle.ts";
+// Les quatre actes d'export, derrière un hôte de six membres — voir shareOps.ts.
+import {
+  buildShare,
+  exportMix,
+  type ShareHost,
+  shareK7,
+  shareLink,
+} from "./shareOps.ts";
 import {
   AUDIO_EXT,
   DEFAULT_WF_BUCKETS,
@@ -839,9 +837,37 @@ export class Workspace {
       );
     this.activeProject = abs;
     this.writeActiveMarker(abs);
+    this.repairVideoOutputs(abs);
     this.invalidateProjectDoc();
     guard("waveform prewarm", this.prewarmWaveforms());
     return abs;
+  }
+
+  /**
+   * A project that declares a viewport and has no `RENDER: [ VIDEO_OUT ]` run gains one, here.
+   *
+   * The picture's two outputs are ADDED rather than warned about, which is the one place they
+   * differ from `MIX`/`OUT` — those were retrofitted by a script somebody had to run, and the
+   * projects that never got it are still out there. Doing it on OPEN means every project with a
+   * frame has the run by the time anything reads its graph, including the ones written before
+   * either name existed. See packages/song/docs/videoOutputs.md.
+   *
+   * Before `invalidateProjectDoc`, deliberately: the write must land before the doc that reads it
+   * is rebuilt, or the first read of a repaired project is of the file as it was.
+   *
+   * Silent on failure and silent when there is nothing to do. `ensureVideoRun` already leaves a
+   * project alone that has no graph, no `modules:` map, or a read-only checkout — and none of
+   * those is a reason to refuse to open it.
+   */
+  private repairVideoOutputs(abs: string): void {
+    try {
+      const declaresViewport = projectSurfaces(abs).surfaces.some(
+        (s) => s.surface.type === "viewport",
+      );
+      if (declaresViewport) ensureVideoRun(abs);
+    } catch {
+      /* best-effort — a project whose surfaces will not read still opens */
+    }
   }
 
   /**
@@ -2166,96 +2192,36 @@ export class Workspace {
   }
 
   // --- export / share -------------------------------------------------------
+  //
+  // Les quatre actes sont dans `shareOps.ts` et ne passent que par l'hôte ci-dessous — même
+  // couture que `projectLifecycle`, et pour la même raison : `safePath` et `requireActive` n'ont
+  // pas à devenir de l'API publique pour qu'un module voisin rende un mixdown.
 
-  // Render the mixdown ("mp3" transcodes, needing ffmpeg). The caller streams `path`, then runs `cleanup`.
+  private shareHost(): ShareHost {
+    return {
+      root: this.root,
+      requireActive: () => this.requireActive(),
+      cachedProjectDoc: (dir) => this.cachedProjectDoc(dir),
+      projectDoc: () => this.projectDoc(),
+      graphDoc: () => this.graphDoc(),
+      surfaces: () => this.surfaces(),
+    };
+  }
+
+  /** Render the mixdown ("mp3" transcodes, needing ffmpeg) — see shareOps.ts. */
   exportMix(format: "wav" | "mp3"): {
     path: string;
     filename: string;
     mime: string;
     cleanup: () => void;
   } {
-    const dir = this.requireActive();
-    const engine = findEngineBinary();
-    if (!engine)
-      throw new Error("engine binary not found — cannot render the mixdown");
-    const doc = this.cachedProjectDoc(dir);
-    const tmp = mkdtempSync(join(tmpdir(), "tbmix-"));
-    const cleanup = () => {
-      try {
-        rmSync(tmp, { recursive: true, force: true });
-      } catch {
-        /* best-effort */
-      }
-    };
-    try {
-      const manifest = renderMixdown(engine, doc, tmp);
-      const wav = join(tmp, manifest.mix);
-      const name = (doc.name || basename(dir) || "mixdown").replace(
-        /[\\/:*?"<>|]+/g,
-        "_",
-      );
-      if (format === "wav")
-        return {
-          path: wav,
-          filename: `${name}.wav`,
-          mime: "audio/wav",
-          cleanup,
-        };
-      const mp3 = join(tmp, "mix.mp3");
-      if (!transcode(wav, mp3, MP3_CODEC))
-        throw new Error(
-          "mp3 needs ffmpeg on the engine host — install ffmpeg, or use Export WAV",
-        );
-      return {
-        path: mp3,
-        filename: `${name}.mp3`,
-        mime: "audio/mpeg",
-        cleanup,
-      };
-    } catch (e) {
-      cleanup();
-      throw e;
-    }
+    return exportMix(this.shareHost(), format);
   }
 
-  /**
-   * The frozen snapshot `project share link` sends to pl8 — rendered here, uploaded by the caller.
-   *
-   * The three documents are what a BROWSER draws a project from, and each is here for a reason
-   * the next person should not have to re-derive:
-   *
-   * - `project-doc.json` (`WebProject`) is the arrangement. It carries `sourceName` — the audio
-   *   file's NAME and never its path — so it says what a clip is called without saying where
-   *   anything lives on this machine.
-   * - `graph.json` (`WebGraph`) is the chains, the modules and their AUTHORED parameter values.
-   *   That is the feature: "see the modules without editing them" is this document.
-   * - `surfaces.json` is what the project DECLARES, verbatim. A project with a viewport surface
-   *   is shared with that surface still declared and no video beside it; the snapshot says which
-   *   media it carries (`media.video: false`) rather than editing the project's own claims.
-   *
-   * Three documents are deliberately NOT here. `video-doc` carries workspace-relative media paths
-   * (`toWebVideoTracks`) and the share is audio-only anyway; `project-errors` quotes file paths
-   * and lines of YAML; `/tree` and `/file` are the source itself. A share shows the song, not the
-   * folder it was made in.
-   *
-   * Nothing here writes to the project. Freezing a shared copy is a RENDER, not `node freeze` ×N.
-   */
+  /** The frozen snapshot `project share link` sends to pl8 — which three documents it carries,
+   *  and which three it deliberately leaves out, is shareOps.ts. */
   buildShare(): ShareBundle {
-    const dir = this.requireActive();
-    const engine = findEngineBinary();
-    if (!engine)
-      throw new Error("engine binary not found — cannot render the share");
-    const web = this.projectDoc();
-    return buildShareBundle(
-      engine,
-      this.cachedProjectDoc(dir),
-      {
-        "project-doc.json": web,
-        "graph.json": this.graphDoc(),
-        "surfaces.json": this.surfaces(),
-      },
-      { name: web.name || basename(dir) },
-    );
+    return buildShare(this.shareHost());
   }
 
   /**
@@ -2272,42 +2238,13 @@ export class Workspace {
   async shareLink(
     userEmail: string,
   ): Promise<{ token: string; bytes: number }> {
-    const base = mediatekBase();
-    const token = mediatekToken();
-    if (!base)
-      throw new Error("no médiathèque to share to — this machine caches none");
-    if (!token)
-      throw new Error(
-        "no médiathèque token on this machine — run `npm run tokens`",
-      );
-    const dir = this.requireActive();
-    const bundle = this.buildShare();
-    try {
-      const link = await uploadShare(bundle, {
-        base,
-        token,
-        user: userEmail,
-        // Where it came from, for the author's own list. Never served publicly.
-        origin: { repo: basename(this.root), project: basename(dir) },
-      });
-      return { token: link.token, bytes: link.bytes };
-    } finally {
-      // The upload streams from these files, so they live until it is over — and go whether it
-      // ended well or not. A share of a long song is half a gigabyte of temp.
-      bundle.cleanup();
-    }
+    return shareLink(this.shareHost(), userEmail);
   }
 
-  // Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for artist and title.
+  /** Publish to k7. An unknown song throws NEEDS_META, which the route turns into a prompt for
+   *  artist and title — see shareOps.ts. */
   async shareK7(opts: { artist?: string; title?: string }): Promise<K7Result> {
-    const dir = this.requireActive();
-    const engine = findEngineBinary();
-    if (!engine)
-      throw new Error("engine binary not found — cannot render the mixdown");
-    // Credentials sit at the WORKSPACE root — one k7 login serves every project in it.
-    const cfg = readK7Config(this.root);
-    if ("error" in cfg) throw new Error(cfg.error);
-    return shareToK7(engine, dir, cfg, opts);
+    return shareK7(this.shareHost(), opts);
   }
 
   // Resolve a play-button request to a file + window: an absolute path (guarded), else a clip id, else a media path.
@@ -2432,6 +2369,11 @@ export class Workspace {
       })),
       // Shapes carry no media path — each variant's fields pass straight through.
       shapes: t.shapes.map((s) => ({ ...s })),
+      // …and this lane's own video run. Nothing to rewrite: a shader's GLSL travels INLINE
+      // precisely so there is no path here for the browser to fetch back.
+      ...(t.plugins?.length
+        ? { plugins: t.plugins.map((p) => ({ ...p })) }
+        : {}),
     }));
   }
 
@@ -2593,6 +2535,7 @@ export class Workspace {
         duration: 0,
         markers: [],
         videoTracks: [],
+        framePlugins: [],
       };
     const p = this.cachedVideoDoc(dir);
     const videoTracks = this.toWebVideoTracks(p.videoTracks);
@@ -2603,6 +2546,7 @@ export class Workspace {
       duration: videoDuration(p.videoTracks),
       markers: p.markers.map((m) => ({ sec: m.sec, name: m.name, tc: m.tc })),
       videoTracks,
+      framePlugins: p.framePlugins.map((pl) => ({ ...pl })),
     };
   }
 
