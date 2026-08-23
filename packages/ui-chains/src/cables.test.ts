@@ -10,7 +10,10 @@ import {
   cubicSegments,
   insertFor,
   jackRef,
+  liveVideoLanes,
+  MIX_NODE_ID,
   midByArc,
+  RENDER_NODE_ID,
   smoothPath,
   TRACK_NODE_PREFIX,
 } from "./cables";
@@ -110,6 +113,77 @@ describe("computeLive", () => {
       edge("back", "m2", "m1"), // the feedback send
     ];
     expect(computeLive(edges, ["vox"])).toEqual(new Set(["in", "fwd", "back"]));
+  });
+
+  // The master run is drawn standing on its own — nothing arrives at MIX, so nothing could ever
+  // flow into it, and the one cable carrying the whole song was the only still one on a playing
+  // graph. See computeLive's own note.
+  describe("the master run", () => {
+    const edges = [
+      edge("lane", `${TRACK_NODE_PREFIX}melody`, "mod:reverb"),
+      edge("master", MIX_NODE_ID, "mod:comp"),
+      edge("device", "mod:comp", "snk:OUT"),
+    ];
+
+    it("lights when any track is metered, with the master chain behind it", () => {
+      expect(computeLive(edges, ["melody"])).toEqual(
+        new Set(["lane", "master", "device"]),
+      );
+    });
+
+    it("lights for a track whose own cables are not drawn at all", () => {
+      // Every lane ends at the sum, so a lane with no chain still feeds it.
+      expect(computeLive(edges, ["pad"])).toEqual(
+        new Set(["master", "device"]),
+      );
+    });
+
+    it("stays still when nothing is playing", () => {
+      expect(computeLive(edges, [])).toEqual(new Set());
+    });
+  });
+
+  // The picture's half: its lanes arrive on their own list, because they are arrived at their own
+  // way — nothing meters a frame. Past that, the same rule, including the sum's seed.
+  describe("the picture", () => {
+    const edges = [
+      edge("lane", `${TRACK_NODE_PREFIX}cam`, "mod:blur"),
+      edge("master", RENDER_NODE_ID, "snk:VIDEO_OUT"),
+      edge("sound", `${TRACK_NODE_PREFIX}melody`, "mod:reverb"),
+    ];
+
+    it("lights a video lane's cables and the run out of RENDER", () => {
+      expect(computeLive(edges, [], ["cam"])).toEqual(
+        new Set(["lane", "master"]),
+      );
+    });
+
+    it("leaves the frame still while only sound is playing", () => {
+      expect(computeLive(edges, ["melody"])).toEqual(new Set(["sound"]));
+    });
+  });
+});
+
+describe("liveVideoLanes", () => {
+  const spans = {
+    cam: [
+      { from: 0, to: 2 },
+      { from: 4, to: Number.POSITIVE_INFINITY },
+    ],
+    titles: [{ from: 1, to: 3 }],
+  };
+
+  it("names every lane showing a picture at that second", () => {
+    expect(liveVideoLanes(spans, 1.5)).toEqual(["cam", "titles"]);
+    expect(liveVideoLanes(spans, 2.5)).toEqual(["titles"]);
+    expect(liveVideoLanes(spans, 3.5)).toEqual([]);
+    expect(liveVideoLanes(spans, 900)).toEqual(["cam"]);
+  });
+
+  // Half-open, like the compositor's activeAt: a cut belongs to the later shot.
+  it("ends a span before its `to`", () => {
+    expect(liveVideoLanes({ cam: [{ from: 0, to: 2 }] }, 2)).toEqual([]);
+    expect(liveVideoLanes({ cam: [{ from: 0, to: 2 }] }, 0)).toEqual(["cam"]);
   });
 });
 

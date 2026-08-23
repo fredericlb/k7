@@ -349,17 +349,84 @@ named one says so as `WebChain.fromPort`, which is the signal AND the jack the c
 leaving the lane bare falls back to `trackSignals`, which is what the lane HOLDS: midi when every
 event names a sequence, audio otherwise. See @studio/song's docs/trackModules.md.
 
-**The main output is not drawn** — `drawMainOut`, which st0's song graph turns off. Reaching the
-sound card is what the END of a chain means there: a mixer sits at it and its whole job is the
-level going out, so a card saying "OUT" adds a node, an edge and a rank to every chain in the
-song to repeat what the shape already says. Only OUT: any other destination the graph cannot
-account for as a track, a chain or a used module is still drawn as a sink, because that name has
-nowhere else to appear.
+**The main output IS drawn, and it carries a fader** — `drawMainOut`, on by default and now on
+everywhere. `MAIN_OUT_UI` is its panel: one widget, a fader bound to `Volume`, which is the song's
+output level (@studio/song's docs/masterVolume.md). A built-in UI like `TRACK_UI`, because this
+node has no `module.yaml` to declare one in — but with an ORDINARY bind rather than an `@`
+intrinsic, since `node param "OUT" Volume <dB>` is a real command. So the renderer's usual write
+path reaches it with nothing routed specially, and the header's own fader and this one are two
+views of one number.
 
-It stays ON by default, because the other pictures built from this pipeline are not songs. The
-module preview is one module between a source and a sink, with no mixer in it to imply anything,
-and there the sink is what says which way the signal runs. pl8's chain view and m9's graph also
-still draw it — one argument each if they should follow st0.
+The level is not in the graph document — it is a project setting — so it arrives as
+`mainOutVolume`, the same way `inputDevices` does. Absent, the card still draws and its fader reads
+unknown rather than claiming a level nobody supplied.
+
+> **st0's song graph turned it OFF**, and the reason was arithmetic: every lane ended at `OUT`, so
+> drawing it added a card, an edge and a rank to every chain in the song to repeat what the shape
+> already said. Lanes end at `MIX` now and only the master run reaches `OUT`, so the card costs
+> exactly one node — and it is the node the output level lives on.
+
+Only OUT gets the panel. Any other destination the graph cannot account for as a track, a chain or
+a used module is still drawn as a plain sink, because that name has nowhere else to appear.
+
+### The sum is implicit
+
+**No cable is drawn INTO `MIX`.** Every chain in the song ends at the sum — that is what a mixer
+is — so those arrows said nothing the picture did not already say: one per lane, crossing it end
+to end, and tying every run in the song to a single rank. `buildGraph` skips a destination of
+`MIX` (`MIX_OUT` here, `MIX_NODE` in @studio/song) and draws only the run that LEAVES it:
+
+```
+MIX ─ [ the master chain ] ─ OUT
+```
+
+standing on its own, joined to nothing else in the drawing. The routing is untouched: this is the
+picture, and the engine reads the compiled document, where every one of those lanes still arrives
+at the sum.
+
+`MIX` is drawn **once**, as a sink, exactly as `OUT` is. It used to be two cards. The master run
+is written `from: MIX` and is NAMED after the sum, so `c.from !== name` was false and it fell
+through to the track branch — a lane strip with mute, solo, arm, volume and pan, on the one
+built-in node that deliberately carries no parameter at all (@studio/song's docs/masterChain.md),
+whose knobs addressed a track that does not exist. The empty run then added a pass-through card
+beside it, labelled MIX as well. `entryId`/`exitId` answer with the MIX card itself for a master
+run holding no module, and that is what collapses the pair into the one wire above.
+
+**Liveness has to be SEEDED there**, and that is the cost of the rule. A cable ripples when signal
+reaches it, and `computeLive` walks FORWARD from the metered tracks — so a card nothing arrives at
+is a card liveness cannot arrive at either, and the master run, the one cable carrying every note
+in the song, was the only still cable on a playing graph. `cables.ts` starts the walk at `MIX` as
+well as at the tracks whenever any track is metered. Exact rather than a stand-in: every track
+feeds the master bus whatever its chain names (@studio/song's docs/masterChain.md). `RENDER` is
+seeded the same way, off the picture's own list of live lanes — which is derived from the shots
+and the playhead, nothing metering a frame. See `computeLive` and
+@studio/ui-chains-react's docs/liveCables.md.
+
+A project written before `MIX: [ OUT ]` existed declares no master run at all, and its cables into
+the sum are skipped just the same — so the pair is drawn anyway whenever something routed there.
+Not an invention: with no master chain the two ARE one wire. A host that asked for no device card
+(`drawMainOut: false`) gets neither end of it rather than half.
+
+### …and the picture's sum is implicit for the same reason
+
+`RENDER` and `VIDEO_OUT` (`RENDER_NODE` / `VIDEO_OUT_NODE` in @studio/song, whose
+docs/videoOutputs.md is the page) are drawn by **every rule above, unchanged**: no cable into the
+sum, one card each, the sum ranked where a lane is rather than where a sink is, the pair
+synthesised when the file declares no run, and both devices governed together by `drawMainOut` —
+which is what a host asking for it means, "do not draw where the signal leaves", and a picture
+ending nowhere beside a sound ending at a card would be half an answer.
+
+Three things differ, and only three:
+
+- the wire out carries **`video`**, which is what makes the run read as picture across the graph.
+  `exitSignal` answers for a sum by name, because it cannot answer by following `from`: the run is
+  NAMED after the sum, so the recursion re-enters the same chain and stops on `seen`. An EMPTY
+  master run therefore reached its device untyped — the audio one drew as audio by default and got
+  away with it, the video one did not;
+- `VIDEO_OUT` gets **no panel**. `OUT` is the one built-in name with a param on it; a frame has no
+  level, and a fader there would write a value `@studio/ui-eyes` never reads;
+- neither name is ever typed by hand. A project with a viewport gains the run when the surface is
+  created and, failing that, when it is opened.
 
 A cable **plugs in**, and runs **straight**. dagre routes to the node's border, which was the
 right target while a cable ended in an arrowhead pointing at a card; `cablePath` moves both ends

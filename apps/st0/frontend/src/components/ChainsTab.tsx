@@ -14,6 +14,7 @@ import {
   type WebAutomationLane,
 } from "@studio/graph-model";
 import { showToast } from "@studio/project-shell/toast";
+import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { GraphNode, TrackControlValues } from "@studio/ui-chains/graph";
 import {
   alignModuleRank,
@@ -54,6 +55,7 @@ export function ChainsTab({
   showList,
   icons = STUDIO_ICONS,
   trackOrder,
+  videoSpans,
   project,
   command,
   onBypassModule,
@@ -87,6 +89,7 @@ export function ChainsTab({
   onFocused,
   alignModules,
   inputDevices,
+  masterVolume,
   midiRef,
   onMidiStatus,
 }: {
@@ -105,6 +108,10 @@ export function ChainsTab({
   icons?: ChainsIcons;
   // The engine's track order; liveness is derived off the store here, so only the graph re-runs it.
   trackOrder: string[];
+  /** …and the PICTURE's half of the same answer, since nothing meters a frame: when each video
+   *  lane is showing one, in seconds. Computed by the shell off the video doc — see
+   *  ../videoSpans.ts. */
+  videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   /** The compiled doc, for the one thing the graph cannot derive on its own: which notes a lane
    *  plays, which is what lights a rack's pads. Absent until the first one lands. */
   project?: WebProject | null;
@@ -247,6 +254,9 @@ export function ChainsTab({
   // draws. Empty with no engine attached, and the node then shows its width and its monitoring
   // and an empty list — which is the honest picture, not a broken one.
   inputDevices?: readonly { name: string; channels: number[] }[];
+  // The song's output level, for the fader on the OUT card. Not in the graph document — it is a
+  // project setting — so the shell hands it over, the same way it hands over the input devices.
+  masterVolume?: number;
   /**
    * Where the shell reaches MIDI learn from.
    *
@@ -471,15 +481,17 @@ export function ChainsTab({
   const organizeSeen = useRef(organizeKey);
   const laid = useMemo(() => {
     if (!drawn) return null;
-    // No OUT card. Reaching the sound card is what the END of a chain means here — a mixer sits
-    // there and its whole job is the level going out — so a node saying "OUT" would add a card,
-    // an edge and a rank to every chain in the song to repeat what the shape already says.
-    // The routing is untouched: this is the picture, and the engine reads the compiled doc.
-    // …and the interface's inputs, which a live input's node draws its socket dropdown from. The one
-    // thing on a node that is not in the document: which inputs exist is the sound card's to say.
+    // The OUT card IS drawn, and it costs one node: lanes end at `MIX` now, so only the master
+    // run reaches it (`@studio/song`'s docs/masterChain.md). It was left out while every lane
+    // ended there and drawing it added a card, an edge and a rank to every chain in the song.
+    //
+    // Two things it needs that are not in the graph document, and are handed over for the same
+    // reason: the interface's inputs, which a live input's node draws its socket dropdown from,
+    // and the song's output level, which is the OUT card's own fader.
     const { nodes, edges } = buildGraph(drawn, {
-      drawMainOut: false,
+      drawMainOut: true,
       inputDevices,
+      mainOutVolume: masterVolume,
     });
     // The mixer view is an ARRANGEMENT of this same graph: same nodes, same cables. One rank
     // puts the strips on a line, then an even re-spacing gives that line a console's rhythm —
@@ -514,7 +526,7 @@ export function ChainsTab({
         out.nodes.map((n) => [n.id, { x: n.x, y: n.y }]),
       );
     return out;
-  }, [drawn, alignModules, inputDevices, organizeKey]);
+  }, [drawn, alignModules, inputDevices, masterVolume, organizeKey]);
 
   /**
    * The graph writes down where it drew itself — once, and then the FILE is the layout.
@@ -947,6 +959,7 @@ export function ChainsTab({
             graph={shown}
             selected={selected}
             trackOrder={trackOrder}
+            videoSpans={videoSpans}
             onSelect={selectFromGraph}
             onContextMenu={onContextMenu}
             onEdgeInsert={edgeInsert}

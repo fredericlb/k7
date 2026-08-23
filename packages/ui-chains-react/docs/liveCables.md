@@ -55,6 +55,43 @@ dependency — there is no longer a re-render for such an effect to hang off. It
 when nothing carries signal and `rippleRef.current()` restarts it when something does: started
 by a signal, stopped by stillness, which is what `camera.md` says about the pan and the zoom.
 
+## The two SUMS are seeded, not reached
+
+Liveness walks FORWARD from the tracks, and neither sum has anything arriving at it: no cable is
+drawn into `MIX` or into `RENDER`, because every lane ends there and the arrows said nothing the
+picture did not (`@studio/ui-chains`'s docs/graphBuild.md). So the master run — the one cable
+carrying the whole song — was the only still cable on a playing graph.
+
+`computeLive` therefore starts the walk at `MIX` too, whenever any track is metered. That is
+exact rather than a stand-in: every track feeds the master bus whatever its chain names
+(@studio/song's docs/masterChain.md). `RENDER` is seeded the same way, from the picture's own
+list below.
+
+## The picture has no meters, so it is DERIVED
+
+The engine measures sound and knows nothing of the frame, so `activeTrackIds` is silent about a
+video lane — every cable on the picture side of the graph stayed still through a playing song.
+What the browser has instead is the shots and the playhead, which is the same bargain st0 already
+strikes for a rack's lit pads (`apps/st0/frontend/src/rackLit.ts`).
+
+A host passes `videoSpans`: when each video lane is showing a picture, in seconds. A **prop**
+rather than a subscription, and the split is what each thing does — the meters move twenty times
+a second, a lane's shots move when somebody cuts one. The renderer reads the playhead off the
+same engine frame it reads the levels off and answers `liveVideoLanes` itself, so a moving
+playhead still re-renders nothing.
+
+Three rules hold it honest:
+
+- **The interval rule is the compositor's**, not the graph's. st0 builds the spans with
+  `@studio/ui-eyes`'s `activeAt` rule — a cut belongs to the later shot, a shot with no length
+  runs to the next one, a hidden lane shows nothing, a shape lane draws while unhidden — and
+  `videoSpans.test.ts` asserts the two agree point by point rather than restating it. A cable
+  rippling over a black viewport would be worse than one that never ripples.
+- **A lane is live only while the transport RUNS.** A paused frame is a held picture, and nothing
+  travels along a cable to hold it — which is what a stopped meter says about sound.
+- **The two lists stay apart.** Sound reaching `MIX` says nothing about picture reaching
+  `RENDER`, so `computeLive` takes them separately and seeds one sum from each.
+
 ## For a host
 
 There is no `activeTracks` prop any more. Pass `trackOrder` and wrap the graph in an
@@ -62,3 +99,6 @@ There is no `activeTracks` prop any more. Pass `trackOrder` and wrap the graph i
 which is what the médiathèque's module preview wants. One consequence worth naming: any host
 that passes `trackOrder` now gets live cables, `TrackModulesPane` included — it always had live
 meters and was simply never given the matching prop.
+
+`videoSpans` is the same bargain for the frame: a host with no picture passes none and the video
+cables stay still, which is what they did for everybody before it existed.

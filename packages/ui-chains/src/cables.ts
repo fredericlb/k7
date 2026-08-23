@@ -5,10 +5,14 @@
 // DomChains.tsx so it is testable on its own.
 
 import type { EdgeInsert, GraphEdge, GraphNode, Pt } from "./graph";
-import { jackPoint } from "./graph";
+import { jackPoint, MIX_OUT, RENDER_OUT } from "./graph";
 
 // graph.ts's trackId() prefix — liveness seeds from the track nodes.
 export const TRACK_NODE_PREFIX = "trk:";
+
+// …and its sinkId() for the two SUMS, the other nodes liveness starts at — see computeLive.
+export const MIX_NODE_ID = `snk:${MIX_OUT}`;
+export const RENDER_NODE_ID = `snk:${RENDER_OUT}`;
 
 // A cubic bezier segment (Catmull-Rom → Bezier — see cubicSegments).
 export interface Cubic {
@@ -171,14 +175,32 @@ export function midByArc(g: CableGeom): Pt {
  * Which cables carry a signal right now (a Set of edge ids). Liveness starts at the
  * tracks the engine meters above silence and flows FORWARD along edges — a fixpoint
  * loop so a feedback send can't wedge it.
+ *
+ * The SUM is a second seed, and has to be. No cable is drawn INTO `MIX` — the mixer's sum is
+ * implicit (docs/graphBuild.md) — so a forward walk from the tracks arrives nowhere near it, and
+ * the master run was left the one still cable on a playing graph: the one carrying every note in
+ * the song. Seeding it is exact rather than a stand-in, because every track feeds the master bus
+ * whatever its chain names (@studio/song's docs/masterChain.md) — so any metered track means the
+ * sum carries signal, and no metered track means it carries none.
+ *
+ * The PICTURE arrives as its own list, because it is arrived at its own way: nothing METERS a
+ * video lane, so which lanes are showing a frame is derived from the shots and the playhead
+ * (`liveVideoLanes`) rather than read off the engine. Past that the two are the same rule — the
+ * lanes seed their nodes, and `RENDER` is seeded beside them for the reason `MIX` is: no cable is
+ * drawn into the compositor's sum either.
  */
 export function computeLive(
   edges: { id: string; source: string; target: string }[],
   activeTracks: string[],
+  activeVideoTracks: readonly string[] = [],
 ): Set<string> {
   const reached = new Set(
-    activeTracks.map((id) => `${TRACK_NODE_PREFIX}${id}`),
+    [...activeTracks, ...activeVideoTracks].map(
+      (id) => `${TRACK_NODE_PREFIX}${id}`,
+    ),
   );
+  if (activeTracks.length) reached.add(MIX_NODE_ID);
+  if (activeVideoTracks.length) reached.add(RENDER_NODE_ID);
   const live = new Set<string>();
   let changed = true;
   while (changed) {
@@ -192,6 +214,41 @@ export function computeLive(
     }
   }
   return live;
+}
+
+/**
+ * A stretch of time one video lane is putting a picture on screen, in SECONDS — the unit every
+ * time in the picture document is written in, a shot being cut against the wall clock.
+ *
+ * `to` may be `Infinity`: a shot with no length runs until the next one, or forever, and a shape
+ * lane draws for as long as it is unhidden. See `activeAt` in @studio/ui-eyes.
+ */
+export interface LaneSpan {
+  from: number;
+  to: number;
+}
+
+/**
+ * Which VIDEO lanes carry a picture at `t` — the meters' opposite number, and the reason it is
+ * spelled out rather than read off a frame.
+ *
+ * The engine measures sound. It knows nothing of the frame (@studio/song's docs/picture.md), so a
+ * video lane's cables had no way to ripple and stayed still through a playing song — the one part
+ * of the graph that never came alive. What the browser HAS is the shots and the playhead, which is
+ * the same bargain st0 already strikes for a rack's lit pads: derive it rather than observe it.
+ *
+ * Half-open, like the compositor's own `activeAt`: a cut belongs to the LATER shot, so two shots
+ * meeting at a boundary never both count. The spans are the host's to compute, from the same
+ * document the viewport draws.
+ */
+export function liveVideoLanes(
+  spans: Readonly<Record<string, readonly LaneSpan[]>>,
+  t: number,
+): string[] {
+  const ids: string[] = [];
+  for (const id in spans)
+    if (spans[id].some((s) => t >= s.from && t < s.to)) ids.push(id);
+  return ids;
 }
 
 /**

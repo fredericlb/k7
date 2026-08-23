@@ -279,6 +279,100 @@ const build = (
 // What is left for one is to take it out (`graph unlink`) or to write the file it names.
 const SURVIVES_MISSING = new Set(["node bypass", "graph unlink"]);
 
+/** What the ⋮ bubble is opened ON: a lane's node, as the graph and the timeline both hold it. */
+export interface NodeMenuTarget {
+  module?: string;
+  alternatives?: string[];
+  alternative?: string;
+  frozen?: "at" | "inside";
+}
+
+/**
+ * The ⋮ bubble on a node: what it can be, and what it can be replaced BY — its module's other
+ * attribute SETS, and its freeze.
+ *
+ * Not derived from the catalogue like everything else in this file, because the ROWS are the
+ * node's alternatives rather than the commands that apply to it: what you are choosing from is
+ * this project's data. It still answers in `MenuItem`, so the same `ContextMenu` draws it and the
+ * same host rule decides — `complete` runs on the spot, the two that owe a name go to the bar.
+ *
+ * Here rather than in the shell because it has two hosts now: the editor's timeline and graph, and
+ * a timeline surface alone on a second device, which has the same lanes and the same nodes.
+ * Empty for a node with no module — there is nothing to name.
+ *
+ * See packages/song/docs/alternatives.md and packages/song/docs/freeze.md.
+ */
+export function nodeMenu(n: NodeMenuTarget): MenuItem[] {
+  const module = n.module;
+  if (!module) return [];
+  const names = n.alternatives ?? [];
+  const current = n.alternative ?? "1";
+  return [
+    // A dot marks the one that is on. The module's own fields are "1" and are listed like any
+    // other — they ARE an alternative, and hiding them would leave no way back to them.
+    //
+    // The gap on the rows without a dot is two NON-BREAKING spaces, and has to be: this label is
+    // drawn as HTML text, which collapses ordinary ones — the list would go ragged under the dot.
+    ...names.map((name) => ({
+      label: `${name === current ? "• " : "  "}${name === "1" ? "1 (its own settings)" : name}`,
+      description:
+        name === current
+          ? "The settings this node is playing now"
+          : `Play this node with the "${name}" settings instead`,
+      command: `node alternative select ${module} ${name}`,
+      complete: true,
+      verb: "node alternative select",
+    })),
+    {
+      label: "New alternative…",
+      description:
+        "Add another set of settings, starting from the module's own",
+      command: `node alternative create ${module} `,
+      complete: false,
+      verb: "node alternative create",
+    },
+    {
+      label: "Copy this one…",
+      description: "Add another set of settings, copied from the one on",
+      command: `node alternative copy ${module} `,
+      complete: false,
+      verb: "node alternative copy",
+    },
+    // Freeze. One entry, and it runs on the click: the command is a toggle, and which way it will
+    // go is exactly what the label says. A node INSIDE somebody else's render is offered none —
+    // thawing it means thawing the point downstream of it, and an entry here would name the wrong
+    // module. The command refuses that case too; this only stops it being offered.
+    ...(n.frozen === "inside"
+      ? []
+      : [
+          {
+            label:
+              n.frozen === "at"
+                ? "Unfreeze"
+                : "Freeze (bake everything upstream)",
+            description:
+              n.frozen === "at"
+                ? "Go back to playing this node live"
+                : "Render everything upstream to a file, and play that",
+            command: `node freeze ${module}`,
+            complete: true,
+            verb: "node freeze",
+          },
+        ]),
+  ];
+}
+
+/**
+ * A module the ENGINE provides has no file anywhere, and the `@engine/` prefix is exactly what
+ * says so: the namespace is the catalogue's own and nothing on disk declares it. Derived at the
+ * point of use rather than carried as a flag through the graph doc, the graph model and the
+ * renderer — four files for one menu entry is a worse trade than one string test here.
+ */
+export const withAmbient = (ctx: MenuCtx): MenuCtx =>
+  ctx.kind === "module" && ctx.id.startsWith("@engine/")
+    ? { ...ctx, ambient: true }
+    : ctx;
+
 /** The menu for a context; empty means "don't open a menu here". */
 export function contextMenu(
   ctx: MenuCtx,

@@ -133,6 +133,22 @@ profiling** (`?profile=1`, `src/profiling.ts` — the same flag that arms the Re
 is a 5 Hz poll and a 5 Hz re-render of the pane: fair for someone looking at it, and an
 instrument measuring itself for everyone else.
 
+## …and so do the graph's picture cables
+
+A cable ripples while it carries signal, and for sound that comes from the engine's meters. The
+engine measures no frame, so every cable on the picture side of the chains graph stayed still
+through a playing song — the one part of the graph that never came alive.
+
+`videoSpans.ts` derives it instead, the way `rackLit.ts` derives a lit pad: when each lane shows a
+picture, in seconds, out of the video document the viewport already holds. The graph is handed
+those spans and reads the playhead off the engine frame itself, so nothing here re-renders as the
+playhead moves. The interval rule is **the compositor's own** — `activeAt` in `@studio/ui-eyes`,
+pinned by `videoSpans.test.ts` — so a rippling cable and a black viewport cannot disagree, and a
+lane counts only while the transport runs: a paused frame is a held picture, not a travelling one.
+
+The rest is `@studio/ui-chains-react`'s docs/liveCables.md, including why `RENDER` has to be
+seeded rather than reached.
+
 ## The readers strip
 
 For an open `video_tracks/*.yaml`, the editor grows a dock of small `<video>` readers, one per

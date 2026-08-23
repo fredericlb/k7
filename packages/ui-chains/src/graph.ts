@@ -61,6 +61,9 @@ const CARRIED = [
   // `withBaseOptions` turns the LIST into the dropdown's entries, and the renderer needs the
   // chosen name again to know which of those entries is the current one.
   "base",
+  // …and which SHADER a shader node runs, for the same reason `base` is carried: the LIST becomes
+  // the dropdown's entries and the chosen name is what says which of them is on.
+  "shader",
   // The module this node is a USE of. Carried rather than consumed: the header draws it as the
   // card's name and keeps the node's own underneath, so both reach the renderer.
   "uses",
@@ -85,7 +88,9 @@ type Consumed =
   | "automations"
   // The base CHOICES become the dropdown's options in `stepUI` and are not wanted again: what
   // the renderer needs afterwards is `base`, which entry is on, and the options carry the rest.
-  | "bases";
+  | "bases"
+  // …and the shader choices, consumed exactly the same way by the same function.
+  | "shaders";
 
 type Carried = Pick<WebChainStep, (typeof CARRIED)[number]>;
 type Flags = { [K in (typeof FLAGS)[number]]: boolean };
@@ -561,6 +566,29 @@ export interface TrackControlValues {
  */
 export const MAIN_OUT = "OUT";
 
+/**
+ * The mixer's SUM — where every lane's chain ends, and the one destination the graph draws no
+ * cable INTO. See where those are skipped in `buildGraph`.
+ *
+ * Every lane arrives here, so an arrow per lane onto one card repeats what the mixer already is:
+ * the sum is implicit, and what is worth drawing is the run that LEAVES it. Taken literally here
+ * as `MAIN_OUT` is, and spelled out rather than imported — @studio/song owns the name (its
+ * `MIX_NODE`, docs/masterChain.md) and this package deliberately does not depend on it.
+ */
+export const MIX_OUT = "MIX";
+
+/**
+ * The PICTURE's two, drawn by exactly the rules above.
+ *
+ * `RENDER` is the compositor's sum — every video lane arrives there, so no cable is drawn INTO it
+ * and what is drawn is the run that LEAVES it; `VIDEO_OUT` is the frame going out, the twin of
+ * `OUT` minus its fader, because a frame has no level. Spelled out here as the audio pair is:
+ * @studio/song owns both names (its `RENDER_NODE` / `VIDEO_OUT_NODE`, docs/videoOutputs.md) and
+ * this package deliberately does not depend on it.
+ */
+export const RENDER_OUT = "RENDER";
+export const VIDEO_OUT = "VIDEO_OUT";
+
 export const NODE_W = 160;
 export const NODE_H = 70;
 
@@ -799,6 +827,38 @@ export const TRACK_UI: WebModuleUI = {
   },
 };
 
+/**
+ * …and the one the MAIN OUTPUT carries: the song's output level, as the node's own fader.
+ *
+ * A built-in UI like `TRACK_UI` above, and for the same reason — this node has no `module.yaml`
+ * to declare a panel in — but with an ORDINARY bind rather than an `@` intrinsic. `Volume` on
+ * `OUT` is a real param that `node param` answers (`@studio/commands`), so the renderer's usual
+ * `node param OUT "Volume" <dB>` reaches it with nothing routed specially. That is what makes the
+ * header's fader and this one two views of one number rather than two controls.
+ *
+ * -60 at the bottom where the field goes to -100, matching the header's fader: below -60 the
+ * curve is silence, and spending most of the throw on the difference between inaudible and more
+ * inaudible leaves the useful range unusable. +12 at the top is the field's real ceiling — this
+ * gain does not borrow Tracktion's +6 curve. See `@studio/song`'s docs/masterVolume.md.
+ */
+export const MAIN_OUT_UI: WebModuleUI = {
+  cols: 1,
+  rows: 2,
+  widgets: {
+    vol: {
+      type: "fader",
+      col: 0,
+      row: 0,
+      rowSpan: 2,
+      bind: "Volume",
+      label: "out",
+      min: -60,
+      max: 12,
+      step: 0.5,
+    },
+  },
+};
+
 /** The bind prefix a rack pad carries: `@rack:BD` fires the sound `BD`. See `rackUI`. */
 export const RACK_BIND = "@rack:";
 
@@ -961,26 +1021,28 @@ export function inputUI(
  * `none` first and always, because a chosen base has to be undoable: without an entry meaning
  * "back to the module's default" the only way out of a base is editing the file by hand.
  */
-function withBaseOptions(
+function withFolderOptions(
   ui: WebModuleUI,
-  bases: readonly string[] | undefined,
+  bind: string,
+  names: readonly string[] | undefined,
 ): WebModuleUI {
-  const binds = Object.values(ui.widgets ?? {}).some(
-    (w) => w.bind === BASE_BIND,
-  );
+  const binds = Object.values(ui.widgets ?? {}).some((w) => w.bind === bind);
   if (!binds) return ui;
   const options = [
     { label: "none", value: 0 },
-    ...(bases ?? []).map((b, i) => ({ label: b, value: i + 1 })),
+    ...(names ?? []).map((b, i) => ({ label: b, value: i + 1 })),
   ];
   const widgets: Record<string, WebWidget> = {};
   for (const [id, w] of Object.entries(ui.widgets ?? {}))
-    widgets[id] = w.bind === BASE_BIND ? { ...w, options } : w;
+    widgets[id] = w.bind === bind ? { ...w, options } : w;
   return { ...ui, widgets };
 }
 
-/** The bind a base dropdown carries — the intrinsic's name, verbatim, as every bind is. */
+/** The binds a folder-backed dropdown carries — each intrinsic's name, verbatim, as every bind is. */
 const BASE_BIND = "@base";
+/** …and the shader's, which is the same mechanism over a different folder. See @studio/song's
+ *  docs/shaders.md — the panel binds this and says nothing about its entries. */
+const SHADER_BIND = "@shader";
 
 /** The panel a step actually draws — authored first, then the two synthesised ones. One function so the
  *  node's SIZE and the node's `ui` cannot disagree about which panel it is. */
@@ -988,9 +1050,16 @@ function stepUI(
   s: WebChainStep,
   devices: readonly { name: string; channels: number[] }[] | undefined,
 ): WebModuleUI | undefined {
-  // The base list is folded into whichever panel is drawn, authored or synthesised, because a
-  // widget bound to `@base` is a widget wherever it came from.
-  if (s.ui) return withBaseOptions(s.ui, s.bases);
+  // The folder lists are folded into whichever panel is drawn, authored or synthesised, because a
+  // widget bound to `@base` or `@shader` is a widget wherever it came from. Both, and in one
+  // place: a shader module's panel is an ordinary authored `ui.yaml`, so a second fold-in site
+  // would be a second thing to remember.
+  if (s.ui)
+    return withFolderOptions(
+      withFolderOptions(s.ui, BASE_BIND, s.bases),
+      SHADER_BIND,
+      s.shaders,
+    );
   if (s.rack?.length) return rackUI(s.rack);
   return s.monitor !== undefined
     ? inputUI(devices ?? [], s.channel)
@@ -1091,18 +1160,29 @@ export function buildGraph(
   graph: WebGraph,
   opts: {
     /**
-     * Draw a card for the main output. The DEFAULT, and st0's song graph is what turns it off.
+     * Draw a card for the DEVICES the signal leaves by. The DEFAULT.
      *
-     * In a song, reaching the card is what the end of a chain means — a mixer sits there and
-     * its whole job is the level going out — so a node saying "OUT" adds a card, an edge and a
-     * rank to every chain to repeat what the shape already says. st0 therefore asks for it to be
-     * left out (`ChainsTab`).
+     * It used to be OFF in a song, and the reason was arithmetic: every lane ended at `OUT`, so
+     * drawing it added a card, an edge and a rank to every chain in the picture to repeat what
+     * the shape already said. Lanes end at `MIX` now and only the master run reaches `OUT`
+     * (`@studio/song`'s docs/masterChain.md), so the card costs exactly one node — and it is the
+     * node the song's output level lives on, which is worth a card on its own.
      *
-     * On by default all the same, because the other pictures built from this are not songs: the
-     * module preview is one module between a source and a sink, with no mixer in it to imply
-     * anything, and there the sink is what says which way the signal runs.
+     * Named for the main output and governing `VIDEO_OUT` beside it, which is the honest reading
+     * of what a host asks for by turning it off: "do not draw where the signal leaves". A picture
+     * ending nowhere while the sound ended at a card would be half an answer, and the name is
+     * kept because every caller already spells it — see docs/graphBuild.md.
      */
     drawMainOut?: boolean;
+    /**
+     * The song's output level in dB — the `Volume` the main-output card draws as its fader.
+     *
+     * An argument for the same reason `inputDevices` is one: it is not in the graph document.
+     * The level is a project setting (`ProjectDoc.masterVolume`), and the graph is built from the
+     * chains. Absent ⇒ the card still draws, with its fader reading unknown rather than lying
+     * about a level nobody supplied.
+     */
+    mainOutVolume?: number;
     /**
      * How the machine's interface groups its inputs, for the socket dropdown a live input draws.
      *
@@ -1127,15 +1207,37 @@ export function buildGraph(
   const isVideoTrack = (n: string) => !!graph.videoTracks?.includes(n);
   const trackId = (n: string) => `trk:${n}`;
   const sinkId = (n: string) => `snk:${n}`;
+  // The sum's card. A SINK like `OUT`, whatever the run headed by it is written as — see the
+  // `from: MIX` branch below for what reading it as a lane drew instead.
+  const mixId = sinkId(MIX_OUT);
+  // …and the picture's, which is the same card in every respect the drawing cares about.
+  const renderId = sinkId(RENDER_OUT);
+  // Is this name one of the two SUMS? Both are drawn as sinks that stand where a source does,
+  // and every test below that singles one out means both. See `feedsSum`.
+  const isSum = (n: string) => n === MIX_OUT || n === RENDER_OUT;
+  // …and the other end: the two DEVICES the signal leaves by, which `drawMainOut` governs together.
+  const isDevice = (n: string) => n === MAIN_OUT || n === VIDEO_OUT;
   const moduleId = (mod: string) => `mod:${mod}`;
   const chainId = (chain: string) => `chn:${chain}`;
+  // A chain's two ends. The MASTER run's are the MIX card itself while it holds no module: `MIX`
+  // is one node, so an empty master chain is a wire out of that card rather than a second card
+  // beside it — which is what a pass-through node would have been, labelled MIX as well. The
+  // video master run's are the RENDER card, by the same rule.
+  const endId = (chain: string, module: string | undefined) =>
+    module !== undefined
+      ? moduleId(module)
+      : chain === MIX_OUT
+        ? mixId
+        : chain === RENDER_OUT
+          ? renderId
+          : chainId(chain);
   const entryId = (chain: string) => {
     const u = graph.chains[chain].use;
-    return u.length ? moduleId(u[0].module) : chainId(chain);
+    return endId(chain, u[0]?.module);
   };
   const exitId = (chain: string) => {
     const u = graph.chains[chain].use;
-    return u.length ? moduleId(u[u.length - 1].module) : chainId(chain);
+    return endId(chain, u[u.length - 1]?.module);
   };
   // Every node is the plain size unless it says otherwise — only a module carrying a UI does.
   const add = (
@@ -1152,6 +1254,36 @@ export function buildGraph(
     }
     return id;
   };
+  /** A destination with no module behind it — a built-in output, or a name the graph cannot
+   *  account for. One helper because the two built-ins are added from two places each. */
+  const addSink = (name: string, extra: Partial<Omit<RawNode, "id">> = {}) =>
+    add(sinkId(name), {
+      label: name,
+      kind: "sink",
+      dim: false,
+      missing: false,
+      stub: false,
+      notSupported: false,
+      unknownPlugin: false,
+      hasNativePluginUI: false,
+      ...extra,
+    });
+  /**
+   * …and what the MAIN OUTPUT's card carries beyond that: its own fader.
+   *
+   * `OUT` is the one built-in name with a param on it — its `Volume` is the song's output level —
+   * and a card for it is what makes the header's fader a second view of a node rather than a
+   * control of its own. Left out rather than defaulted to 0 when the host supplied none: the
+   * fader draws "unknown" for an absent value, where a 0 would read as a level somebody set.
+   */
+  const mainOutCard = (): Partial<Omit<RawNode, "id">> => ({
+    module: MAIN_OUT,
+    ui: MAIN_OUT_UI,
+    ...(opts.mainOutVolume === undefined
+      ? {}
+      : { params: { Volume: opts.mainOutVolume } }),
+    ...nodeSize(MAIN_OUT_UI),
+  });
   // The maximum step index a module holds across chains, so a shared one ranks after every pipeline it is in.
   const moduleRank = new Map<string, number>();
 
@@ -1222,6 +1354,11 @@ export function buildGraph(
   for (const c of Object.values(graph.chains))
     for (const s of c.use) usedModules.add(s.module);
 
+  // Did anything route to a sum? Only used when the file declares no master run — see below.
+  // One flag per sum: a song with picture has both, and a project written before either name
+  // existed has neither.
+  const feedsSum = { [MIX_OUT]: false, [RENDER_OUT]: false };
+
   // What leaves a chain — its last module, or for a pass-through whatever reached it. `seen` guards the follow,
   // since a graph being drawn is often one the user is still fixing and must not hang on a cycle.
   const exitSignal = (
@@ -1233,6 +1370,11 @@ export function buildGraph(
     seen.add(chain);
     if (c.use.length) return c.use[c.use.length - 1].emits;
     if (!c.from) return undefined;
+    // A run out of a SUM carries what that sum sums, and the recursion below cannot say so: the
+    // run is NAMED after the sum, so following `from` re-enters this chain and hits `seen`. An
+    // EMPTY master run therefore reached its device on an untyped wire — which drew the picture's
+    // as audio, the one place the two pairs must not look alike.
+    if (isSum(c.from)) return c.from === RENDER_OUT ? "video" : "audio";
     // A run that left a lane by a named output carries that output's signal, whatever the lane
     // as a whole holds — see the `fromPort` note below.
     if (c.fromPort === "midi" || c.fromPort === "audio") return c.fromPort;
@@ -1361,7 +1503,10 @@ export function buildGraph(
         }
       }
     });
-    if (!c.use.length)
+    // A pass-through card for a chain holding no module — except either MASTER run, whose two
+    // ends are the sum's card and the device's. A card between them would be a third one
+    // labelled `MIX` (or `RENDER`).
+    if (!c.use.length && !isSum(name))
       add(chainId(name), {
         label: name,
         kind: "chain",
@@ -1377,7 +1522,29 @@ export function buildGraph(
     // A `from` is chain-feeds-chain only when it names a DIFFERENT chain and not a track — both guards matter, and a
     // stale reference used to make the whole track VANISH. See docs/graphBuild.md.
     if (c.from) {
-      if (c.from !== name && isChain(c.from) && !isTrack(c.from))
+      /**
+       * The MASTER run starts at the mixer's sum, which is a built-in output and not a lane.
+       *
+       * Its own branch because both tests below read `from: MIX` as one: the run is NAMED after
+       * the sum, so `c.from !== name` is false and the else drew a lane strip — mute, solo, arm,
+       * volume, pan — for the one node that deliberately carries no parameter at all
+       * (@studio/song's docs/masterChain.md). Two cards said MIX, and the knobs on the first
+       * addressed a track that does not exist.
+       *
+       * `link` drops the edge when the run holds no module: this card is then its entry too, and
+       * the wire worth drawing is the one out to `OUT`.
+       *
+       * `RENDER` shares the branch and every word of that reasoning; only the signal on the wire
+       * differs, which is what makes the video master run read as picture across the graph.
+       */
+      if (isSum(c.from))
+        link(
+          addSink(c.from),
+          entryId(name),
+          undefined,
+          c.from === RENDER_OUT ? "video" : "audio",
+        );
+      else if (c.from !== name && isChain(c.from) && !isTrack(c.from))
         link(exitId(c.from), entryId(name), undefined, exitSignal(c.from));
       else {
         const video = isVideoTrack(c.from);
@@ -1450,14 +1617,26 @@ export function buildGraph(
       // jack. Split before any of the tests below, or a ported ref matches none of them and
       // falls through to `sinkId`, inventing a sink node called "crossfade#b".
       const { node: toNode, port: toPort } = splitPort(o.to);
-      // OUT is not drawn. Reaching the card is what the END of a chain MEANS — a mixer sits
-      // there and its whole job is the level going out — so a card saying "OUT" adds a node,
-      // an edge and a rank to every chain in the song to repeat what the shape already says.
-      // The routing is untouched: this is the picture, and the engine reads the compiled doc.
-      //
-      // Only OUT. A destination that is not a track, a chain or a used module is still drawn as
-      // a sink, because THAT one is a name the graph cannot otherwise account for.
-      if (toNode === MAIN_OUT && opts.drawMainOut === false) continue;
+      /**
+       * A cable into the SUM is not drawn — every chain in the song ends there.
+       *
+       * Seventeen lanes make seventeen arrows onto one card, all of them saying the thing the
+       * mixer IS, and between them they cross the whole picture and give dagre a rank to which
+       * every run is tied. What is drawn instead is the run that LEAVES the sum — `MIX` through
+       * the master chain to `OUT` — standing on its own.
+       *
+       * The routing is untouched: this is the picture, and the engine reads the compiled doc.
+       */
+      if (isSum(toNode)) {
+        feedsSum[toNode] = true;
+        continue;
+      }
+      // A host may ask for the DEVICES to be left out entirely — see `drawMainOut`. Same rule:
+      // the picture is what changes.
+      if (isDevice(toNode) && opts.drawMainOut === false) continue;
+      // …and when OUT is drawn, it is drawn with its own fader. `VIDEO_OUT` gets a bare card:
+      // it carries no param, so there is nothing on it to draw.
+      const mainOut = toNode === MAIN_OUT ? mainOutCard() : {};
       const to = isTrack(toNode)
         ? trackId(toNode)
         : isChain(toNode)
@@ -1466,16 +1645,7 @@ export function buildGraph(
             // target usually is, since one flow feeder keeps it absorbed. It has a node already.
             usedModules.has(toNode)
             ? moduleId(toNode)
-            : add(sinkId(toNode), {
-                label: toNode,
-                kind: "sink",
-                dim: false,
-                missing: false,
-                stub: false,
-                notSupported: false,
-                unknownPlugin: false,
-                hasNativePluginUI: false,
-              });
+            : addSink(toNode, mainOut);
       link(
         exitId(name),
         to,
@@ -1485,6 +1655,33 @@ export function buildGraph(
         o.fromPort,
       );
     }
+  }
+
+  /**
+   * Each sum and the wire out of it, when the file declares no master run of its own.
+   *
+   * Every cable into `MIX` was skipped above, so without this a project written before
+   * `MIX: [ OUT ]` existed loses the card altogether, and with it the picture of where the mix
+   * goes. Nothing is invented by drawing the wire: with no master chain the two ARE one
+   * (@studio/song's docs/masterChain.md), which is exactly what one cable says.
+   *
+   * The picture's pair is written onto every project with a viewport rather than left to a
+   * migration (docs/videoOutputs.md), so this branch should not fire for `RENDER` on a project
+   * the file service has opened. It is here anyway, and not as belt and braces: `buildGraph` also
+   * draws a graph being TYPED — the editor re-parses on every keystroke — and a lane pointed at
+   * `RENDER` a second before the run below it is written must not lose its card in between.
+   */
+  for (const sum of [MIX_OUT, RENDER_OUT] as const) {
+    if (!feedsSum[sum] || isChain(sum)) continue;
+    const card = addSink(sum);
+    if (opts.drawMainOut === false) continue;
+    const video = sum === RENDER_OUT;
+    link(
+      card,
+      video ? addSink(VIDEO_OUT) : addSink(MAIN_OUT, mainOutCard()),
+      undefined,
+      video ? "video" : "audio",
+    );
   }
 
   // Tracks (and video lanes) no chain mentions, drawn as ORPHANS rather than omitted: they still play, and omitting
@@ -1579,7 +1776,10 @@ export function buildGraph(
     // A live INPUT is a SOURCE: nothing plugs into a preamp, and the socket it listens on is a
     // param picked on its card, not a hole on its edge. `monitor` is the marker for the reason
     // `inputUI` gives — the file service sets it for an io "in" step and for nothing else.
-    const source = n.monitor !== undefined;
+    // …and so is the SUM, for a reason of its own: every cable into it is implicit, so it has no
+    // socket to arrive on. A hole there would invite a drag whose cable then vanishes, the write
+    // having said what the mixer already says.
+    const source = n.monitor !== undefined || n.id === mixId;
     n.jacks = {
       // A lane takes a feed like anything else. What it PLAYS is its clips, which was never a
       // reason for nothing to be able to ARRIVE on it. Typed by what the lane puts on the wire,
@@ -1593,9 +1793,11 @@ export function buildGraph(
               (n.kind === "track" ? leaving.get(n.id) : undefined),
             true,
           ),
-      // A sink is the mirror image of a source — somewhere to arrive, nowhere to leave.
+      // A sink is the mirror image of a source — somewhere to arrive, nowhere to leave. The SUM
+      // is drawn as one and is neither: it is where the MASTER RUN BEGINS, so it keeps its
+      // output, and that socket is what a master plugin is dragged out of.
       out:
-        n.kind === "sink"
+        n.kind === "sink" && n.id !== mixId
           ? []
           : jacksFor(
               n.outputs,
@@ -1619,6 +1821,11 @@ export function buildGraph(
   for (const r of moduleRank.values()) maxModRank = Math.max(maxModRank, r);
   for (const n of nodes.values()) {
     if (n.kind === "track") n.rank = 0;
+    // Either SUM is drawn as a sink and ranked where a LANE is: nothing arrives at it — every
+    // cable into it is implicit — and the master run LEAVES it, downward, like any other run.
+    // Past the deepest module with the other sinks, it would have drawn that run climbing back up
+    // the page, its first plugin above the card feeding it.
+    else if (n.id === mixId || n.id === renderId) n.rank = 0;
     else if (n.kind === "module") n.rank = 1 + (moduleRank.get(n.id) ?? 0);
     else if (n.kind === "sink") n.rank = 2 + maxModRank;
     else if (n.kind === "chain") n.rank = 1;
@@ -1666,7 +1873,15 @@ export function alignModuleRank(
   const shared = inRow.reduce((r, n) => Math.max(r, n.rank ?? 0), 0);
   return nodes.map((n) => {
     if (n.module && wanted.has(n.module)) return { ...n, rank: shared };
-    if (n.kind === "sink" && (n.rank ?? 0) <= shared)
+    // …except the SUMS, which are drawn as sinks but stand where a SOURCE does: nothing arrives
+    // at either, and a master run leaves it. Pushed under the strip row like a real sink, one
+    // would sit below the run it feeds — and, with an empty master chain, on OUT's own rank.
+    if (
+      n.kind === "sink" &&
+      n.label !== MIX_OUT &&
+      n.label !== RENDER_OUT &&
+      (n.rank ?? 0) <= shared
+    )
       return { ...n, rank: shared + 1 };
     return n;
   });

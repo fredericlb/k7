@@ -5,6 +5,7 @@
 // The track comes from the caret, so the panel has no selection state of its own.
 
 import type { PluginParamsStore } from "@studio/engine-browser/params";
+import type { LaneSpan } from "@studio/ui-chains/cables";
 import type { TrackControlValues } from "@studio/ui-chains/graph";
 import { buildGraph, layout, subgraphForTrack } from "@studio/ui-chains/graph";
 import { type Cam, DomChains } from "@studio/ui-chains-react";
@@ -22,6 +23,7 @@ export function GraphPanel({
   organizeKey = 0,
   trackId,
   trackOrder,
+  videoSpans,
   project,
   command,
   onBypassModule,
@@ -41,6 +43,9 @@ export function GraphPanel({
   trackId: string | null;
   // The engine's track order; the live-signal set is derived off the store (see ChainsTab).
   trackOrder: string[];
+  /** …and when each video lane shows a picture, which nothing meters — straight through, for the
+   *  panel that happens to be looking at a subgraph holding one. See ../videoSpans.ts. */
+  videoSpans?: Readonly<Record<string, readonly LaneSpan[]>>;
   /** The compiled doc, for the rack pads' lit state — straight through to ChainsTab. */
   project?: WebProject | null;
   command: (line: string) => void | Promise<void>;
@@ -141,6 +146,7 @@ export function GraphPanel({
         graph={laid}
         selected={selected}
         trackOrder={trackOrder}
+        videoSpans={videoSpans}
         rackLit={rackLit}
         onSelect={setSelected}
         onContextMenu={onContextMenu}

@@ -96,6 +96,291 @@ describe("buildGraph", () => {
     });
   });
 
+  // The mixer's sum is IMPLICIT: every lane ends there, so the arrows into it said nothing the
+  // picture did not already say — and tied every run in the song to one rank. What is drawn is
+  // the run that leaves it. See docs/graphBuild.md.
+  describe("the sum", () => {
+    // A song as the scaffolds write one: two lanes into MIX, and the master run declared empty.
+    const song = (): WebGraph =>
+      graph(
+        {
+          melody: {
+            from: "melody",
+            use: [{ module: "lead" }],
+            out: [{ to: "MIX", gain: 1 }],
+          },
+          pad: {
+            from: "pad",
+            use: [{ module: "synth-pad" }],
+            out: [{ to: "MIX", gain: 1 }],
+          },
+          MIX: { from: "MIX", use: [], out: [{ to: "OUT", gain: 1 }] },
+        },
+        ["melody", "pad"],
+      );
+
+    it("draws no cable from a lane's chain into MIX", () => {
+      const { edges } = buildGraph(song());
+      expect(edges.filter((e) => e.target === "snk:MIX")).toEqual([]);
+      expect(edges.map((e) => `${e.source}->${e.target}`).sort()).toEqual([
+        "snk:MIX->snk:OUT",
+        "trk:melody->mod:lead",
+        "trk:pad->mod:synth-pad",
+      ]);
+    });
+
+    // Two cards said MIX before this: `from: MIX` fell through to the track branch — a lane strip
+    // with a volume knob, on the one node that carries no parameter — and the empty run added a
+    // pass-through beside it.
+    it("draws MIX once, as a sink, with the master run leaving it", () => {
+      const { nodes } = buildGraph(song());
+      expect(nodes.filter((n) => n.label === "MIX").map((n) => n.id)).toEqual([
+        "snk:MIX",
+      ]);
+      expect(nodes.find((n) => n.id === "snk:MIX")?.kind).toBe("sink");
+    });
+
+    it("puts the master chain's modules between MIX and OUT", () => {
+      const g = song();
+      g.chains.MIX = {
+        from: "MIX",
+        use: [{ module: "comp" }, { module: "eq" }],
+        out: [{ to: "OUT", gain: 1 }],
+      };
+      const { edges } = buildGraph(g);
+      expect(
+        edges
+          .filter((e) => e.source.startsWith("snk:") || e.target === "snk:OUT")
+          .map((e) => `${e.source}->${e.target}`)
+          .sort(),
+      ).toEqual(["mod:eq->snk:OUT", "snk:MIX->mod:comp"]);
+    });
+
+    // A sink's rank is past the deepest module, which is the wrong end of the page for this one:
+    // the master run LEAVES the sum, so ranked as a sink it drew its first plugin above the card
+    // feeding it.
+    it("ranks MIX where a lane is, not where a sink is", () => {
+      const g = song();
+      g.chains.MIX = {
+        from: "MIX",
+        use: [{ module: "comp" }],
+        out: [{ to: "OUT", gain: 1 }],
+      };
+      const { nodes } = buildGraph(g);
+      const rank = (id: string) => nodes.find((n) => n.id === id)?.rank;
+      expect(rank("snk:MIX")).toBe(0);
+      expect(rank("snk:MIX")).toBeLessThan(rank("mod:comp") ?? 0);
+      expect(rank("mod:comp")).toBeLessThan(rank("snk:OUT") ?? 0);
+    });
+
+    // The mixer view pushes every sink under the strip row so no cable climbs to reach one. The
+    // sum is not one of them: nothing arrives at it, and under the row it would sit below the
+    // master run it feeds — or, with an empty master chain, on OUT's own rank.
+    it("leaves MIX above the row when the strips are aligned", () => {
+      const { nodes } = buildGraph(song());
+      const aligned = alignModuleRank(nodes, ["lead", "synth-pad"]);
+      const rank = (id: string) => aligned.find((n) => n.id === id)?.rank;
+      expect(rank("snk:MIX")).toBe(0);
+      expect(rank("snk:MIX")).toBeLessThan(rank("snk:OUT") ?? 0);
+    });
+
+    // Sockets: nothing may ARRIVE at the sum (a drag there would write what the mixer already
+    // says, and its cable would then not be drawn), and the master run leaves by its output.
+    it("gives MIX an output socket and no input", () => {
+      const { nodes } = buildGraph(song());
+      const mix = nodes.find((n) => n.id === "snk:MIX");
+      expect(mix?.jacks?.in).toEqual([]);
+      expect(mix?.jacks?.out).toHaveLength(1);
+      expect(nodes.find((n) => n.id === "snk:OUT")?.jacks?.out).toEqual([]);
+    });
+
+    // A project written before `MIX: [ OUT ]` existed declares no master run, and the cables into
+    // the sum are skipped all the same — so the card and the wire out of it are drawn here.
+    it("draws MIX -> OUT even when the file declares no master run", () => {
+      const { nodes, edges } = buildGraph(
+        graph(
+          {
+            melody: {
+              from: "melody",
+              use: [{ module: "lead" }],
+              out: [{ to: "MIX", gain: 1 }],
+            },
+          },
+          ["melody"],
+        ),
+      );
+      expect(nodes.find((n) => n.id === "snk:MIX")?.kind).toBe("sink");
+      expect(edges.map((e) => `${e.source}->${e.target}`).sort()).toEqual([
+        "snk:MIX->snk:OUT",
+        "trk:melody->mod:lead",
+      ]);
+    });
+
+    // …and a host that wants no OUT card gets none, sum included: `drawMainOut` is about the
+    // picture, and half a wire is worse than neither end of it.
+    it("leaves OUT out of that pair when drawMainOut is off", () => {
+      const { nodes, edges } = buildGraph(
+        graph({
+          melody: { use: [{ module: "lead" }], out: [{ to: "MIX", gain: 1 }] },
+        }),
+        { drawMainOut: false },
+      );
+      expect(nodes.find((n) => n.id === "snk:OUT")).toBeUndefined();
+      expect(edges.filter((e) => e.source === "snk:MIX")).toEqual([]);
+    });
+  });
+
+  // The PICTURE's pair, which is the same card and the same rules with a different signal on the
+  // wire. What is worth pinning is that nothing about it is a special case — every assertion below
+  // has a twin ten lines up. See @studio/song's docs/videoOutputs.md.
+  describe("the picture's sum", () => {
+    // A video project as the open path leaves one: two lanes of picture into RENDER, the video
+    // master run declared empty, and the song's own pair beside it.
+    const film = (): WebGraph => ({
+      ...graph(
+        {
+          melody: {
+            from: "melody",
+            use: [{ module: "lead" }],
+            out: [{ to: "MIX", gain: 1 }],
+          },
+          pad: {
+            from: "pad",
+            use: [{ module: "synth-pad" }],
+            out: [{ to: "MIX", gain: 1 }],
+          },
+          MIX: { from: "MIX", use: [], out: [{ to: "OUT", gain: 1 }] },
+          main: {
+            from: "main",
+            use: [{ module: "grade" }],
+            out: [{ to: "RENDER", gain: 1 }],
+          },
+          pip: {
+            from: "pip",
+            use: [{ module: "corner" }],
+            out: [{ to: "RENDER", gain: 1 }],
+          },
+          RENDER: {
+            from: "RENDER",
+            use: [],
+            out: [{ to: "VIDEO_OUT", gain: 1 }],
+          },
+        },
+        ["melody", "pad"],
+      ),
+      videoTracks: ["main", "pip"],
+    });
+
+    it("draws no cable from a video lane's chain into RENDER", () => {
+      const { edges } = buildGraph(film());
+      expect(edges.filter((e) => e.target === "snk:RENDER")).toEqual([]);
+      expect(edges.map((e) => `${e.source}->${e.target}`).sort()).toEqual([
+        "snk:MIX->snk:OUT",
+        "snk:RENDER->snk:VIDEO_OUT",
+        "trk:main->mod:grade",
+        "trk:melody->mod:lead",
+        "trk:pad->mod:synth-pad",
+        "trk:pip->mod:corner",
+      ]);
+    });
+
+    it("draws RENDER once, as a sink, with the video master run leaving it", () => {
+      const { nodes } = buildGraph(film());
+      expect(
+        nodes.filter((n) => n.label === "RENDER").map((n) => n.id),
+      ).toEqual(["snk:RENDER"]);
+      expect(nodes.find((n) => n.id === "snk:RENDER")?.kind).toBe("sink");
+    });
+
+    it("carries PICTURE on the wire out of it", () => {
+      // The one thing that differs from the audio pair, and the thing that makes the video run
+      // read as picture right across the graph.
+      const { edges } = buildGraph(film());
+      expect(edges.find((e) => e.source === "snk:RENDER")?.signal).toBe(
+        "video",
+      );
+      expect(edges.find((e) => e.source === "snk:MIX")?.signal).toBe("audio");
+    });
+
+    it("puts the video master chain's modules between RENDER and VIDEO_OUT", () => {
+      const g = film();
+      g.chains.RENDER = {
+        from: "RENDER",
+        use: [{ module: "blur" }],
+        out: [{ to: "VIDEO_OUT", gain: 1 }],
+      };
+      const { edges } = buildGraph(g);
+      expect(
+        edges
+          .filter(
+            (e) => e.source === "snk:RENDER" || e.target === "snk:VIDEO_OUT",
+          )
+          .map((e) => `${e.source}->${e.target}`)
+          .sort(),
+      ).toEqual(["mod:blur->snk:VIDEO_OUT", "snk:RENDER->mod:blur"]);
+    });
+
+    it("gives VIDEO_OUT no fader — a frame has no level", () => {
+      // `OUT` is the one built-in name carrying a param. The symmetry stops exactly here, and a
+      // control drawn on VIDEO_OUT would write a value no renderer reads.
+      const { nodes } = buildGraph(film(), { mainOutVolume: -6 });
+      expect(nodes.find((n) => n.id === "snk:OUT")?.ui).toBeDefined();
+      expect(nodes.find((n) => n.id === "snk:VIDEO_OUT")?.ui).toBeUndefined();
+      expect(
+        nodes.find((n) => n.id === "snk:VIDEO_OUT")?.params,
+      ).toBeUndefined();
+    });
+
+    it("leaves RENDER above the row when the strips are aligned", () => {
+      const { nodes } = buildGraph(film());
+      const aligned = alignModuleRank(nodes, ["lead", "synth-pad"]);
+      const rank = (id: string) => aligned.find((n) => n.id === id)?.rank;
+      expect(rank("snk:RENDER")).toBe(0);
+      expect(rank("snk:RENDER")).toBeLessThan(rank("snk:VIDEO_OUT") ?? 0);
+    });
+
+    // The editor re-parses on every keystroke, so a lane pointed at RENDER a second before the
+    // run below it is written must not lose its card in between.
+    it("draws RENDER -> VIDEO_OUT even when the file declares no video master run", () => {
+      const g = film();
+      delete g.chains.RENDER;
+      const { nodes, edges } = buildGraph(g);
+      expect(nodes.find((n) => n.id === "snk:RENDER")?.kind).toBe("sink");
+      expect(
+        edges.some(
+          (e) => `${e.source}->${e.target}` === "snk:RENDER->snk:VIDEO_OUT",
+        ),
+      ).toBe(true);
+    });
+
+    it("leaves VIDEO_OUT out of that pair when drawMainOut is off", () => {
+      // `drawMainOut` means "do not draw where the signal leaves", and a picture ending nowhere
+      // while the sound ended at a card would be half an answer.
+      const { nodes, edges } = buildGraph(film(), { drawMainOut: false });
+      expect(nodes.find((n) => n.id === "snk:VIDEO_OUT")).toBeUndefined();
+      expect(nodes.find((n) => n.id === "snk:OUT")).toBeUndefined();
+      expect(edges.filter((e) => e.source === "snk:RENDER")).toEqual([]);
+    });
+
+    it("leaves a song with no picture untouched — neither name appears", () => {
+      const { nodes } = buildGraph(
+        graph(
+          {
+            melody: {
+              from: "melody",
+              use: [{ module: "lead" }],
+              out: [{ to: "MIX", gain: 1 }],
+            },
+            MIX: { from: "MIX", use: [], out: [{ to: "OUT", gain: 1 }] },
+          },
+          ["melody"],
+        ),
+      );
+      expect(nodes.some((n) => n.label === "RENDER")).toBe(false);
+      expect(nodes.some((n) => n.label === "VIDEO_OUT")).toBe(false);
+    });
+  });
+
   it("adds a purple curve node + automation edge per binding, targeting a widget", () => {
     const ui = {
       cols: 2,
