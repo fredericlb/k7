@@ -14,7 +14,8 @@
     "@vitejs/plugin-react",
     "@tailwindcss/vite",
     "esbuild",
-    "yaml"
+    "yaml",
+    "onnxruntime-node"
   ],
   "ignoreBinaries": ["cmake", "ctest", "ffmpeg", "tilt", "where.exe"],
   "ignore": ["scripts/dev-hosts.d.mts"],
@@ -36,16 +37,16 @@
       "entry": ["scripts/*.{ts,mjs}"]
     },
     "apps/st0/frontend": {
-      "entry": ["src/main.tsx", "src/docs/examples.ts", "vite.config.ts"]
+      "entry": ["src/docs/examples.ts"]
     },
     "packages/song": {
       "entry": ["src/dspRunner.mjs", "src/benchProject.ts", "scripts/*.ts"]
     },
     "packages/dsp": {
-      "entry": ["src/emit.ts", "modules/**/jsdsp.ts"]
+      "entry": ["modules/**/jsdsp.ts"]
     },
     "packages/file-service": {
-      "entry": ["src/server.ts", "src/separateWorker.ts", "src/render.ts"]
+      "entry": ["src/separateWorker.ts", "src/render.ts"]
     },
     "packages/engine-host": {
       "entry": ["src/main.ts", "src/engineQueries.ts"]
@@ -56,8 +57,6 @@
     "packages/ui-turntables": {
       "entry": ["scripts/*.ts"]
     },
-    "packages/ui-chains-react": {
-      "entry": ["src/DomChains.stories.tsx"]
-    }
+    "packages/ui-chains-react": {}
   }
 }

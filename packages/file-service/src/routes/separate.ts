@@ -5,20 +5,16 @@
 import { existsSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { wrap } from "@frediverse/http/route";
+import { STEMS_DIR } from "@studio/song/stems";
 import { Router } from "express";
 import { separateJob, startSeparate } from "../separateJobs.ts";
 
 export const separateRouter: Router = Router();
 
-/**
- * Where the stems go: `stems/` under the song's own folder, never beside the master.
- *
- * `apps/k7` already writes there and its docs/audio.md says why — `scanSongs` takes the FIRST
- * audio file in a folder as the master and does not descend, so a stem left alongside could be
- * played in place of the mixdown. Following the existing convention also means the médiathèque
- * needs no new idea to hold the result.
- */
-export const STEMS_DIR = "stems";
+// Where the stems go: `stems/` under the song's own folder, never beside the master — the scan
+// takes the FIRST audio file in a folder and does not descend, so a stem left alongside could be
+// played in place of the mixdown. Named ONCE, in @studio/song, because the pass, the scan and the
+// deck all have to agree on the word; it was declared here and in coldPass.ts as well.
 
 /**
  * Start a separation and answer with a job to poll.

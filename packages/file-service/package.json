@@ -19,7 +19,6 @@
   "dependencies": {
     "@studio/song": "*",
     "@studio/commands": "*",
-    "@studio/dsp": "*",
     "@studio/engine-client": "*",
     "@studio/engine-host": "*",
     "@studio/git-repos": "*",

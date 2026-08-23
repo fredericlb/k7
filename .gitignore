@@ -25,6 +25,11 @@ out/
 # engine daemon log (written beside a project / the CLI root at runtime)
 .studio-engine.log
 
+# `npm run dev` tees Tilt's own output here. A journal, not work — and it grows to
+# megabytes in an afternoon, which is why it is named rather than left to be skipped
+# by hand every time.
+.tilt-dev.log
+
 # Real config for every service (see env.example.yaml). Secrets — never commit.
 # The glob covers backups and swap files too: `env.yaml.bak` is the same secrets
 # under a name the bare rule missed. `env.example.yaml` is a different name and

@@ -7,12 +7,16 @@
 import { dirname, join } from "node:path";
 import type { loadModuleRefs } from "@studio/song/loader";
 import { OFFLINE_TYPE } from "@studio/song/project";
+import { STEMS_DIR } from "@studio/song/stems";
 
 // Spelled the way processChain.ts spells it — the resolved module as the loader hands it over.
 type LoadedModule = ReturnType<typeof loadModuleRefs>[string];
 
-/** Where a separation's outputs go — see routes/separate.ts for why not beside the master. */
-export const STEMS_DIR = "stems";
+// The folder a separation writes into, from the one place that names it. It was declared here
+// too, and in routes/separate.ts, which made three spellings of `"stems"` for a word that has to
+// agree across the pass, the scan and the deck. Re-exported so callers of this module are
+// unchanged — see @studio/song's stems.ts for why not beside the master.
+export { STEMS_DIR } from "@studio/song/stems";
 
 /** One step of a chain that produces files instead of processing a buffer. */
 export interface ColdStep {
