@@ -1,0 +1,270 @@
+// picture.ts — the `picture …` verbs: a song's VIDEO placements, as commands.
+//
+// Until these existed, a shot could only be moved by dragging it, and `apps/st0/frontend/docs/
+// picture.md` recorded the consequences: no context menu on a picture lane, nothing in the
+// palette, no CLI, and no entry in the undo journal. Sound had `event move` and picture had a
+// mouse. See docs/picture.md for the three that mirror the three drags.
+
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import {
+  addVideoPlacement,
+  listVideoPlacements,
+  removeVideoPlacementAt,
+  setVideoPlacementFieldAt,
+  type VideoPlacement,
+} from "@studio/song-schema/yaml/videoTrackFile";
+import { parseWallClock } from "@studio/song-video/videoProject";
+import type { CommandHost, SidHandler } from "../commands.ts";
+import { splitWords } from "./shared.ts";
+
+/** Where a song keeps its picture lanes — one file per lane, `packages/song-video/docs/picture.md`. */
+const LANES_DIR = "video_tracks";
+
+/** How close two starts have to be to be the same one — the file is written to the millisecond. */
+const SAME = 5e-4;
+
+/** A lane's file, or a refusal naming the lanes there are. */
+function laneFile(
+  lane: string,
+  h: CommandHost,
+): { rel: string; abs: string; text: string } | null {
+  const name = lane.trim().replace(/\.ya?ml$/i, "");
+  const dir = resolve(h.songPath, LANES_DIR);
+  const abs = join(dir, `${name}.yaml`);
+  // Containment, as every path-taking verb does: a lane name is one segment, never a way out.
+  if (
+    !name ||
+    name.includes("/") ||
+    name.includes("\\") ||
+    !abs.startsWith(dir)
+  ) {
+    h.refuse([`'${lane}' is not a lane name`]);
+    return null;
+  }
+  if (!existsSync(abs)) {
+    h.refuse([
+      `no picture lane '${name}' — this song's lanes are in ${LANES_DIR}/`,
+    ]);
+    return null;
+  }
+  return {
+    rel: `${LANES_DIR}/${name}.yaml`,
+    abs,
+    text: readFileSync(abs, "utf8"),
+  };
+}
+
+/** A wall-clock argument as seconds, or a refusal in the dialect's own words. */
+function seconds(word: string | undefined, h: CommandHost): number | null {
+  const s = word === undefined ? null : parseWallClock(word);
+  if (s === null) {
+    h.refuse([
+      `'${word ?? ""}' is not a time — picture reads seconds (12.5) or m:ss (1:30.5)`,
+    ]);
+    return null;
+  }
+  return s;
+}
+
+/** The one placement starting at `at`, or a refusal — two there is an ambiguity nothing may guess at. */
+function placementAt(
+  list: VideoPlacement[],
+  at: number,
+  rel: string,
+  h: CommandHost,
+): number | null {
+  const hits = list
+    .map((p, i) => ({ p, i }))
+    .filter(({ p }) => Math.abs(p.start - at) < SAME);
+  if (!hits.length) {
+    const starts = list.map((p) => p.start).join(", ");
+    h.refuse([
+      `nothing starts at ${at}s on ${rel}${starts ? ` — there are shots at ${starts}` : " — it holds no shot"}`,
+    ]);
+    return null;
+  }
+  // Two shots on one lane at one instant: the format allows it and no rule picks between them.
+  if (hits.length > 1) {
+    h.refuse([
+      `${hits.length} shots start at ${at}s on ${rel} — move one of them first, they cannot be told apart`,
+    ]);
+    return null;
+  }
+  return (hits[0] as { i: number }).i;
+}
+
+/** Write the lane, snapshotting first so the undo journal has the before — every picture verb ends here. */
+function put(abs: string, next: string, h: CommandHost, verb: string): boolean {
+  try {
+    h.snapshot?.(abs);
+    writeFileSync(abs, next, "utf8");
+    return true;
+  } catch (e) {
+    h.refuse([`picture ${verb}: ${(e as Error).message}`]);
+    return false;
+  }
+}
+
+/** What every verb but `add` opens: the lane, its placements, and which one the time names. */
+function target(
+  a: string,
+  h: CommandHost,
+  verb: string,
+  tail: string,
+): {
+  rel: string;
+  abs: string;
+  text: string;
+  list: VideoPlacement[];
+  at: number;
+  index: number;
+  rest: string[];
+} | null {
+  const [laneArg, atArg, ...rest] = splitWords(a);
+  if (!laneArg || !atArg) {
+    h.refuse([`usage: picture ${verb} <lane> <at> ${tail}`.trimEnd()]);
+    return null;
+  }
+  const found = laneFile(laneArg, h);
+  if (!found) return null;
+  const at = seconds(atArg, h);
+  if (at === null) return null;
+  const list = listVideoPlacements(found.text);
+  const index = placementAt(list, at, found.rel, h);
+  if (index === null) return null;
+  return { ...found, list, at, index, rest };
+}
+
+export const PICTURE_VERBS: Record<string, SidHandler> = {
+  /** `picture move <lane> <at> <to>` — the body drag: `start`, and nothing else. */
+  "picture.move": (a, h) => {
+    const t = target(a, h, "move", "<to>");
+    if (!t) return;
+    const to = seconds(t.rest[0], h);
+    if (to === null) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const next = setVideoPlacementFieldAt(t.text, t.index, "start", to);
+    if (!put(t.abs, next, h, "move")) return;
+    h.log([`${t.rel}: ${shot.ref} ${t.at}s → ${to}s`]);
+    return h.reload();
+  },
+
+  /** `picture length <lane> <at> <seconds>` — the right-edge drag: the extent, 0 meaning "to the end of the source". */
+  "picture.length": (a, h) => {
+    const t = target(a, h, "length", "<seconds>");
+    if (!t) return;
+    const len = seconds(t.rest[0], h);
+    if (len === null) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const next = setVideoPlacementFieldAt(t.text, t.index, "length", len);
+    if (!put(t.abs, next, h, "length")) return;
+    h.log([
+      `${t.rel}: ${shot.ref} lasts ${len ? `${len}s` : "to the end of its source"}`,
+    ]);
+    return h.reload();
+  },
+
+  /** `picture head <lane> <at> <to>` — the left-edge drag, and the only one that writes THREE fields. */
+  "picture.head": (a, h) => {
+    const t = target(a, h, "head", "<to>");
+    if (!t) return;
+    const to = seconds(t.rest[0], h);
+    if (to === null) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const delta = to - shot.start;
+    if (Math.abs(delta) < SAME)
+      return h.log([`${t.rel}: ${shot.ref} unchanged`]);
+    // The head cannot walk back past the source's own first frame.
+    if (shot.sourceFrom + delta < -SAME) {
+      h.refuse([
+        `${shot.ref} starts ${shot.sourceFrom}s into its source, so the head cannot move back more than that`,
+      ]);
+      return;
+    }
+    // A length-0 shot has no measured extent here, so pinning one would invent a number the compiler owns.
+    if (shot.length > 0 && shot.length - delta <= SAME) {
+      h.refuse([
+        `that would leave ${shot.ref} ${Math.round((shot.length - delta) * 1000)}ms long — trim the tail instead`,
+      ]);
+      return;
+    }
+    // Three fields, together: source_from follows the head or the frame changes, and length the other way or the TAIL slides.
+    let next = setVideoPlacementFieldAt(t.text, t.index, "start", to);
+    next = setVideoPlacementFieldAt(
+      next,
+      t.index,
+      "source_from",
+      shot.sourceFrom + delta,
+    );
+    if (shot.length > 0)
+      next = setVideoPlacementFieldAt(
+        next,
+        t.index,
+        "length",
+        shot.length - delta,
+      );
+    if (!put(t.abs, next, h, "head")) return;
+    h.log([
+      `${t.rel}: ${shot.ref} head ${t.at}s → ${to}s` +
+        (shot.length > 0 ? ", tail held" : ", length still the source's"),
+    ]);
+    return h.reload();
+  },
+
+  /** `picture delete <lane> <at>` — the placement goes; the clip it names does not. */
+  "picture.delete": (a, h) => {
+    const t = target(a, h, "delete", "");
+    if (!t) return;
+    const shot = t.list[t.index] as VideoPlacement;
+    const next = removeVideoPlacementAt(t.text, t.index);
+    if (!put(t.abs, next, h, "delete")) return;
+    h.log([
+      `${t.rel}: − ${shot.ref} at ${t.at}s (the clip stays; a lane holds placements)`,
+    ]);
+    return h.reload();
+  },
+
+  /** `picture add <lane> <ref> <at> [length] [sourceFrom]` — a shot on a lane, the clip already existing. */
+  "picture.add": (a, h) => {
+    const [laneArg, ref, atArg, lenArg, fromArg] = splitWords(a);
+    if (!laneArg || !ref || !atArg) {
+      h.refuse([
+        "usage: picture add <lane> <ref> <at> [length] [sourceFrom]  (e.g. picture add main shot_a 12.5 4)",
+      ]);
+      return;
+    }
+    const found = laneFile(laneArg, h);
+    if (!found) return;
+    const at = seconds(atArg, h);
+    if (at === null) return;
+    // Length is optional and 0 is its meaning-bearing default: run to the end of the source.
+    const length = lenArg === undefined ? 0 : seconds(lenArg, h);
+    if (length === null) return;
+    const sourceFrom = fromArg === undefined ? 0 : seconds(fromArg, h);
+    if (sourceFrom === null) return;
+    // The ref names a `clips/` entry, and only the compiler reads those — so this reports rather than refuses.
+    const clip = resolve(h.songPath, "clips", `${ref}.yaml`);
+    const unknown = !existsSync(clip);
+    const next = addVideoPlacement(found.text, {
+      ref,
+      start: at,
+      length,
+      sourceFrom,
+    });
+    if (next === null) {
+      h.refuse([
+        `${found.rel}: the way \`events:\` is written there is not a shape this can extend — add the line by hand`,
+      ]);
+      return;
+    }
+    if (!put(found.abs, next, h, "add")) return;
+    h.log([
+      `${found.rel}: + ${ref} at ${at}s${length ? ` for ${length}s` : ""}`,
+      ...(unknown
+        ? [`no clips/${ref}.yaml — the lane will report it until there is one`]
+        : []),
+    ]);
+    return h.reload();
+  },
+};

@@ -43,6 +43,8 @@ export type MenuCtx =
   | { kind: "marker"; name: string }
   /** Right-click on a STRETCH POINT in the warp view: `src` is the FILE second it pins, already spelled, the rounding being the caller's. */
   | { kind: "warp-point"; clip: string; src: string }
+  /** A SHOT on a picture lane: the lane, and where it starts in SECONDS — the dialect the `picture …` verbs read. */
+  | { kind: "picture-shot"; lane: string; at: string; name: string }
   /** A PAD in the step sequencer — sequence, key and start beat, plus what it ALREADY carries, so a row is offered only when it does something. */
   | {
       kind: "pad";
@@ -131,6 +133,8 @@ const CLICKED_HEAD: Record<MenuCtx["kind"], string> = {
   marker: "project",
   // 'clip': the row reads 'warp remove', which is what the point under the pointer is about.
   "warp-point": "clip",
+  // 'picture': the rows read 'move', 'length', 'head', 'delete' — the shot is what was clicked.
+  "picture-shot": "picture",
   // 'sequence note': a pad's rows are named for the value they set, and the head is what every one of them shares.
   pad: "sequence note",
 };
@@ -393,6 +397,16 @@ export function contextMenu(
       return offer([
         { verb: "clip warp remove", arg: `${ctx.clip} ${ctx.src}` },
       ]);
+    case "picture-shot": {
+      /** The lane and the start address the shot; the three that need a destination go to the bar with it typed. */
+      const where = `${ctx.lane} ${ctx.at}`;
+      return offer([
+        { verb: "picture move", arg: `${where} `, needsMore: true },
+        { verb: "picture head", arg: `${where} `, needsMore: true },
+        { verb: "picture length", arg: `${where} `, needsMore: true },
+        { verb: "picture delete", arg: where },
+      ]);
+    }
     case "pad": {
       /** A pad's effects, written out for the reason a take's two verbs are — one row per VALUE, each named, since two rows share a verb. */
       const where = `${ctx.sequence} ${ctx.note} ${ctx.start}`;

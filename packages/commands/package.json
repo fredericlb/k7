@@ -29,6 +29,7 @@
     "@studio/song": "*",
     "@studio/song-edit": "*",
     "@studio/song-schema": "*",
+    "@studio/song-video": "*",
     "yaml": "^2.5.0"
   },
   "devDependencies": {

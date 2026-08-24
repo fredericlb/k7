@@ -991,6 +991,87 @@
       { name: to, hint: "where it lands, counting from 1" },
     ]
 
+# --- the song's PICTURE (see apps/st0/frontend/docs/picture.md) ---
+# A shot is addressed by the lane and by WHERE IT STARTS, in the wall-clock dialect the lane file
+# itself speaks — seconds (12.5) or m:ss (1:30.5), never bar:beat:tick. The file is in seconds and
+# there is one tempo, so a musical spelling would be a second dialect for the same number.
+# Two shots starting at the same instant on one lane are refused rather than guessed between: the
+# format allows the pair and nothing here may pick one.
+- command: "picture move"
+  sid: picture.move
+  readable:
+    en: "Move a shot along its lane"
+    fr: "Déplacer un plan sur sa piste"
+  help: "move a shot (e.g. picture move main 12.5 20) — writes `start`, the body drag's field"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts now — seconds or m:ss" },
+      { name: to, hint: "where it goes" },
+    ]
+- command: "picture length"
+  sid: picture.length
+  readable:
+    en: "Set how long a shot lasts"
+    fr: "Régler la durée d'un plan"
+  help: "set a shot's extent (e.g. picture length main 12.5 4) — 0 runs to the end of the source"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+      { name: seconds, hint: "how long it lasts; 0 means to the end of its source" },
+    ]
+- command: "picture head"
+  sid: picture.head
+  readable:
+    en: "Trim a shot's head, holding its tail"
+    fr: "Rogner le début d'un plan sans bouger sa fin"
+  help: "trim the head (e.g. picture head main 12.5 14) — moves start, source_from and length together, so the tail stays put"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts now — seconds or m:ss" },
+      { name: to, hint: "where its head goes; the frame under it does not change" },
+    ]
+- command: "picture delete"
+  sid: picture.delete
+  readable:
+    en: "Remove a shot from its lane"
+    fr: "Retirer un plan de sa piste"
+  help: "drop a placement (e.g. picture delete main 12.5) — the clip it names stays, a lane holding only placements"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: at, hint: "where the shot starts — seconds or m:ss" },
+    ]
+- command: "picture add"
+  sid: picture.add
+  readable:
+    en: "Place a shot on a lane"
+    fr: "Poser un plan sur une piste"
+  help: "place a clip (e.g. picture add main shot_a 12.5 4) — the ref is a clips/ entry, reported rather than refused when there is none"
+  surfaces: [cli, timeline]
+  args:
+    [
+      { name: lane, complete: pictureLanes },
+      { name: ref, hint: "a clips/ id whose source is a video file" },
+      { name: at, hint: "where it lands — seconds or m:ss" },
+      {
+        name: length,
+        optional: true,
+        hint: "how long it lasts; omitted, it runs to the end of its source",
+      },
+      {
+        name: sourceFrom,
+        optional: true,
+        hint: "how far into the source the shot starts",
+      },
+    ]
+
 # --- modules / graph ---
 # The module's <category>/<name> is chosen, not derived: a module's folder is its own
 # (it's where its .vstpreset lands), and its category folder decides its kind + ports.

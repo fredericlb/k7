@@ -228,6 +228,7 @@ import {
   switchAlternative,
 } from "./git";
 // The verb groups that left this file; they import erased TYPES from here, so no runtime cycle — docs/verbs.md.
+import { PICTURE_VERBS } from "./verbs/picture.ts";
 import { PLAYLIST_VERBS } from "./verbs/playlist.ts";
 import { splitWords } from "./verbs/shared.ts";
 import { SYSTEM_VERBS } from "./verbs/system.ts";
@@ -2727,6 +2728,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   // --- what this MACHINE is, and what the REPOSITORY holds: the two groups that left, docs/verbs.md
   ...SYSTEM_VERBS,
   ...PLAYLIST_VERBS,
+  // …and the song's PICTURE, which had a mouse and no verbs at all — docs/picture.md.
+  ...PICTURE_VERBS,
 
   // The external UI of ONE INSTANCE — the argument names a node, since a module with no instance has no window.
   "node.externalUi": async (a, h) => {

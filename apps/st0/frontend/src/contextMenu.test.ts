@@ -172,6 +172,44 @@ describe("a pad", () => {
   });
 });
 
+/** A SHOT on a picture lane — the menu picture.md said could not exist, because there was nothing to derive. */
+describe("a picture shot", () => {
+  const menu = contextMenu(
+    { kind: "picture-shot", lane: "main", at: "12.5", name: "shot_a" },
+    [
+      {
+        command: "picture move",
+        help: "move a shot",
+        args: [
+          a("lane", "file", "pictureLanes"),
+          a("at", "text"),
+          a("to", "text"),
+        ],
+      },
+      {
+        command: "picture delete",
+        help: "drop a placement",
+        args: [a("lane", "file", "pictureLanes"), a("at", "text")],
+      },
+    ],
+  );
+
+  it("addresses the shot by its LANE and its START, in seconds", () => {
+    // Not by ref: one source may be placed twice on a lane, and the position is what tells the two apart.
+    expect(lines(menu)).toContain("picture delete main 12.5");
+  });
+
+  it("leaves the destination owed, so the row goes to the bar", () => {
+    // `move` still needs somewhere to go; the trailing space is what puts the caret on that argument.
+    expect(lines(menu)).toContain("picture move main 12.5 ");
+  });
+
+  it("drops the head, so the rows read as what they do", () => {
+    // Written out rather than derived, as `warp-point` and `pad` are: the four are a gesture set, not everything a lane answers.
+    expect(labels(menu)).toEqual(["move", "head", "length", "delete"]);
+  });
+});
+
 describe("a track", () => {
   const menu = contextMenu({ kind: "track", id: "gtr" }, CATALOGUE);
 

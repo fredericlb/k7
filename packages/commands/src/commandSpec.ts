@@ -145,6 +145,20 @@ const PROVIDERS = {
     walk(join(root, PLAYLISTS_DIR), "");
     return out.sort();
   },
+  /** This song's picture LANES, off the folder — a lane the compiler refuses still has a file to name. */
+  pictureLanes: (h) => {
+    if (!h.songPath) return [];
+    try {
+      return readdirSync(join(h.songPath, "video_tracks"), {
+        withFileTypes: true,
+      })
+        .filter((e) => e.isFile() && /\.ya?ml$/i.test(e.name))
+        .map((e) => e.name.replace(/\.ya?ml$/i, ""))
+        .sort();
+    } catch {
+      return []; // a song with no picture has no lanes, which is not an error
+    }
+  },
   // What `clip process` accepts — clips then audio files, and no track. See docs/completions.md.
   clipTargets: (h): string[] => [
     ...new Set(
@@ -309,6 +323,8 @@ const PROVIDER_CLASS: Record<ProviderName, ArgClass> = {
   audioFiles: "file",
   // A playlist IS its file: no marker inside a folder, the extension is the whole rule.
   playlists: "file",
+  // A lane IS its file too, the same way — video_tracks/<id>.yaml, and the id is the stem.
+  pictureLanes: "file",
   // Not "file": the surface's file does not exist yet — naming its type is what creates it.
   surfaceTypes: "choice",
 };
@@ -339,6 +355,7 @@ const PROVIDER_HINT: Record<ProviderName, string> = {
   sequenceFiles: "a sequence of this project (sequences/<name>.yaml)",
   audioFiles: "an audio file of this project (e.g. clips/kick.wav)",
   playlists: "a set list of this repository (_playlists/<name>.yaml)",
+  pictureLanes: "a picture lane of this song (video_tracks/<id>.yaml)",
   surfaceTypes:
     "which view to draw — the arrangement, the frame, or the desk. Its layout follows.",
 };

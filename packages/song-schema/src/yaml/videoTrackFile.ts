@@ -3,6 +3,7 @@
 // other file editor here (trackFile.ts, sequenceFile.ts): these files carry the comments that
 // document the format, and a round trip through the serialiser would delete every one of them.
 // Browser-safe, because the editor's readers strip edits a buffer that has not been saved yet.
+// Two ways in: by REF, which the drag uses, and by INDEX — see docs/videoTrackFile.md.
 
 import { isSeq, parseDocument } from "yaml";
 
@@ -65,6 +66,69 @@ export function setVideoPlacementField(
   if (at < 0) return text;
   // Rounded to milliseconds: a drag's float noise doesn't belong in the file, and cutting needs no more.
   doc.setIn(["events", at, field], Math.round(value * 1000) / 1000);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** Set one numeric field of the placement at `index`. By POSITION, so a ref placed twice is still two placements. */
+export function setVideoPlacementFieldAt(
+  text: string,
+  index: number,
+  field: "source_from" | "length" | "start",
+  value: number,
+): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
+  // The same millisecond rounding the drag writes, so a verb and a gesture leave the same bytes.
+  doc.setIn(["events", index, field], Math.round(value * 1000) / 1000);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** Drop the placement at `index`, or the text unchanged when there is none there. */
+export function removeVideoPlacementAt(text: string, index: number): string {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return text;
+  }
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events) || index < 0 || index >= events.items.length) return text;
+  events.items.splice(index, 1);
+  return doc.toString({ lineWidth: 0 });
+}
+
+/** Append a placement, creating `events:` when the lane has none — a shape a `kind: shape` lane never gets. */
+export function addVideoPlacement(
+  text: string,
+  p: VideoPlacement,
+): string | null {
+  let doc: ReturnType<typeof parseDocument>;
+  try {
+    doc = parseDocument(text, OPTS);
+  } catch {
+    return null; // a half-typed lane is not one to append to
+  }
+  const ms = (n: number) => Math.round(n * 1000) / 1000;
+  const entry: Record<string, string | number> = {
+    ref: p.ref,
+    start: ms(p.start),
+    length: ms(p.length),
+  };
+  if (p.sourceFrom) entry.source_from = ms(p.sourceFrom);
+  const events = doc.getIn(["events"]);
+  if (!isSeq(events)) {
+    // No `events:` at all, or one holding something else — only the absent case is ours to create.
+    if (events !== undefined && events !== null) return null;
+    doc.setIn(["events"], [entry]);
+    return doc.toString({ lineWidth: 0 });
+  }
+  doc.addIn(["events"], entry);
   return doc.toString({ lineWidth: 0 });
 }
 

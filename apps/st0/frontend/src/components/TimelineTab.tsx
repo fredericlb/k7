@@ -2207,6 +2207,21 @@ export function TimelineTab({
                           onPointerMove={onVideoDragMove}
                           onPointerUp={commitVideoDrag}
                           onPointerCancel={commitVideoDrag}
+                          onContextMenu={(e) => {
+                            // The shot's own start, not the pointer's: that is what the `picture …` verbs address it by.
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onContextMenu?.(
+                              {
+                                kind: "picture-shot",
+                                lane: vt.id,
+                                at: String(c.start),
+                                name: c.name || c.id,
+                              },
+                              e.clientX,
+                              e.clientY,
+                            );
+                          }}
                           className={cn(
                             "absolute inset-y-0.5 flex items-center gap-0.5 overflow-hidden rounded-sm px-1 text-[10px] text-white",
                             onVideoEdit ? "cursor-grab" : "",

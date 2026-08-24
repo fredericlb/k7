@@ -77,31 +77,40 @@ it.
 audio clip drag captures `ppb`. A zoom arriving mid-drag would otherwise re-scale the offset
 under the cursor and the shot would slide away from the pointer.
 
-## Not a command, and why
+## The drag is not a command, but the edit is
 
 Every audio edit this shell makes is a **command** — `event move <track> <from> <to>`,
-dispatched through `@studio/commands`, which owns the verb. A picture placement is not: there
-is no verb for one, so `App.applyVideoEdit` reads the lane's file, applies every field of the
-gesture to one buffer with `setVideoPlacementField`, and writes it once.
+dispatched through `@studio/commands`, which owns the verb. The picture DRAG still is not one,
+for the reason every continuous gesture is left out (`shell.md`): a pointer move is not a
+sentence. `App.applyVideoEdit` reads the lane's file, applies every field of the gesture to one
+buffer with `setVideoPlacementField`, and writes it once.
 
-There is no `picture move` in the catalogue to look for. Two consequences follow:
+What changed is that the same five edits now have verbs beside them —
+`picture move | length | head | delete | add`, in `packages/commands/docs/picture.md`. This page
+used to say there was no `picture move` in the catalogue to look for, and list what that cost:
+no context menu on a picture lane, nothing in the palette, no CLI, no undo entry. That list is
+what the verbs are for.
 
-- **no context menu on a picture lane.** The menu is derived from the command catalogue, and
-  an empty menu is worse than none.
-- **the caret reports no track id on one.** A video lane is not an engine track — no level,
-  no arm, no mixer command — so `caretTrackId` is null there and everything downstream
-  refuses it without having to know why. `m` still hides the lane, which is what `mute` means
-  on picture.
+**The caret still reports no track id on a picture lane**, and that is unrelated and unchanged: a
+video lane is not an engine track — no level, no arm, no mixer command — so `caretTrackId` is null
+there and everything downstream refuses it without having to know why. `m` still hides the lane,
+which is what `mute` means on picture.
 
 A surgical rewrite, never a re-serialisation: these files carry the comments that document the
-format. The edit is keyed by `ref`, so a placement that moved in the file between render and
-drop is still the one that was grabbed.
+format. The drag's edit is keyed by `ref`, so a placement that moved in the file between render
+and drop is still the one that was grabbed.
 
 **One limit follows from that key**: a source placed *twice on the same lane* has one ref for
 two placements, and a drag on either writes the first. The format keys them the same way, so it
 is the format's limit and not the component's — the workaround is a second lane, or a second
 `clips/` entry naming the same file. Placing one source on several lanes is fine; that is what
 the scaffold's own picture-in-picture does.
+
+**The verbs do not have that limit**, because they address a shot by where it starts rather than
+by its ref, and `setVideoPlacementFieldAt` writes by index. So the way to separate two placements
+of one source today is `picture move` on the second — after which the drag can tell them apart
+too. What the verbs cannot tell apart is two shots starting at the *same instant* on one lane, and
+they refuse that pair by name rather than picking.
 
 ## The frame follows the engine
 
