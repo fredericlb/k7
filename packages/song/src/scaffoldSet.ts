@@ -209,6 +209,14 @@ export function setProjectFiles(name: string): Record<string, string> {
 }
 
 /** The lane and cut for every stem of every deck; exported for migrateSetStems — docs/setProject.md. */
+/** One deck's fade node, by its letter and which way its gain runs — for the scaffold and the migration. */
+export function fadeNodeFile(
+  letter: string,
+  side: 0 | 1,
+): Record<string, string> {
+  return { [`nodes/fade${letter}.yaml`]: fadeNode(letter, side) };
+}
+
 export function stemNodeFiles(
   decks: readonly string[] = DECKS,
 ): Record<string, string> {
