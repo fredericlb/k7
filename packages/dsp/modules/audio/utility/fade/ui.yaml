@@ -1,0 +1,12 @@
+# panel for @st0/audio/utility/fade
+#
+# The fader is what a desk drives, and it is drawn as a fader for the reason the crossfade beside it
+# is: a fade has two ends and a middle. `Side` sits apart as a knob because it is a NODE's setting —
+# set once when the node is written, never moved while playing.
+cols: 3
+rows: 2
+widgets:
+  mix:
+    { type: fader, col: 0, row: 0, rowSpan: 2, label: Mix, bind: Mix, min: 0, max: 1 }
+  out: { type: label, col: 1, row: 0, label: "0 = sort" }
+  side: { type: knob, col: 2, row: 0, label: Side, bind: Side, min: 0, max: 1 }
