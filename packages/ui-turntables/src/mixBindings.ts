@@ -21,7 +21,9 @@ export interface ResolvedBinding {
   track?: string;
   /** The widget that draws the param, and therefore states its range. Undefined is not fatal. */
   widget?: WebWidget;
-  /** A SECOND param this control drives, taking the same value — ../../song/docs/setProject.md. */
+  /** Mirror the control in its own range before writing — ../../song/docs/setProject.md. */
+  invert?: boolean;
+  /** A SECOND param this control drives — ../../song/docs/setProject.md. */
   also?: Omit<ResolvedBinding, "control" | "also">;
 }
 
@@ -97,6 +99,7 @@ export function resolveBindings(
           param: b.also.param,
           ...(second.step.pluginId ? { pluginId: second.step.pluginId } : {}),
           ...(second.track ? { track: second.track } : {}),
+          ...(b.also.invert ? { invert: true } : {}),
           widget: Object.values(second.step.ui?.widgets ?? {}).find(
             (w) => w.bind === b.also?.param,
           ),
@@ -111,6 +114,7 @@ export function resolveBindings(
       widget: Object.values(step.ui?.widgets ?? {}).find(
         (w) => w.bind === b.param,
       ),
+      ...(b.invert ? { invert: true } : {}),
       ...(also ? { also } : {}),
     });
   }
@@ -206,10 +210,12 @@ export function engineAgrees(
 
 /** What to send for a control at `value` — normalised by the CONTROL, expanded by the WIDGET (docs/controls.md). */
 export function valueFor(b: ResolvedBinding, value: number): number {
-  const w = b.widget;
-  if (w?.min === undefined || w?.max === undefined) return value;
   const [lo, hi] = b.control.range;
-  const unit = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
+  // MIRRORED first, in the CONTROL's own range: two fades driven this way are a crossfader.
+  const v = b.invert ? lo + hi - value : value;
+  const w = b.widget;
+  if (w?.min === undefined || w?.max === undefined) return v;
+  const unit = hi > lo ? Math.min(1, Math.max(0, (v - lo) / (hi - lo))) : 0;
   // The widget half is `widgetDenorm`'s, not ours: a hand-rolled lerp gets `curve` and `step` wrong.
   return widgetDenorm(w, unit);
 }

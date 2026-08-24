@@ -79,8 +79,9 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# not a mute, not a disconnect, not a routing — all four were measured, see\n` +
       `# engine/moteur/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
       `#\n` +
-      `# The two are opposed by their \`Side\`, not by their value: the desk's one control sends\n` +
-      `# the SAME number to both, and \`fadeA\` fades out on it while \`fadeB\` fades in.\n` +
+      `# Each fade's \`Mix\` IS its lane's gain, so its panel reads true on its own: 0 silent, 1\n` +
+      `# full. The desk drives the two in MIRROR — one control, deck A inverted — which is said\n` +
+      `# in \`surfaces/desk.yaml\` rather than by either module knowing about the other.\n` +
       `#\n` +
       `# The names here are NODES, from nodes/ — not modules. The modules themselves\n` +
       `# live in the médiathèque and are not copied in.\n` +
@@ -129,8 +130,8 @@ export function setProjectFiles(name: string): Record<string, string> {
       "Its run FLOWS on into its own fade, opposed to deck A's, and from there to the mixer.",
     ),
 
-    [`nodes/${FADE_A}.yaml`]: fadeNode("A", 0),
-    [`nodes/${FADE_B}.yaml`]: fadeNode("B", 1),
+    [`nodes/${FADE_A}.yaml`]: fadeNode("A", true),
+    [`nodes/${FADE_B}.yaml`]: fadeNode("B", false),
 
     [`nodes/${TEMPO_A}.yaml`]: tempoNode("A"),
     [`nodes/${TEMPO_B}.yaml`]: tempoNode("B"),
@@ -187,7 +188,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# playlist: ete-2026\n` +
       `# stems: true\n` +
       `mapping:\n` +
-      `  crossfade: { module: ${FADE_A}, param: Mix, also: { module: ${FADE_B}, param: Mix } }\n` +
+      `  crossfade: { module: ${FADE_A}, param: Mix, invert: true, also: { module: ${FADE_B}, param: Mix } }\n` +
       `  deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
       `  deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
       `  deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
@@ -212,9 +213,9 @@ export function setProjectFiles(name: string): Record<string, string> {
 /** One deck's fade node, by its letter and which way its gain runs — for the scaffold and the migration. */
 export function fadeNodeFile(
   letter: string,
-  side: 0 | 1,
+  invert: boolean,
 ): Record<string, string> {
-  return { [`nodes/fade${letter}.yaml`]: fadeNode(letter, side) };
+  return { [`nodes/fade${letter}.yaml`]: fadeNode(letter, invert) };
 }
 
 export function stemNodeFiles(
@@ -306,9 +307,8 @@ const FILTER_B = "filterB";
 
 /** One deck's tempo: a node of the médiathèque's cold Tempo module. */
 /** One deck's fade — the same module twice, `Side` deciding which way its gain runs (docs/setProject.md). */
-function fadeNode(letter: string, side: 0 | 1): string {
-  const way =
-    side === 0 ? "OUT as the fader travels" : "IN as the fader travels";
+function fadeNode(letter: string, invert: boolean): string {
+  const way = invert ? "INVERTED" : "as it stands";
   return (
     `# Deck ${letter}'s fade — a NODE of the médiathèque's Fade module, one per deck.\n` +
     `#\n` +
@@ -318,14 +318,17 @@ function fadeNode(letter: string, side: 0 | 1): string {
     `# crossfade would therefore be heard BESIDE it, raw, with no way to take it back — see\n` +
     `# engine/moteur/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
     `#\n` +
+    `#\n` +
+    `# \`Mix\` IS this lane's gain, so the panel reads true on its own: 0 silent, 1 full. The\n` +
+    `# desk drives the two in MIRROR — this one takes the control ${way}, which\n` +
+    `# surfaces/desk.yaml states rather than either module knowing about the other.\n` +
+    `#\n` +
     `# The module is NOT copied into this project: pl8 owns the only editable catalogue, so a\n` +
     `# copy here would be a second Fade nobody maintains — packages/song/docs/nodes.md.\n` +
     `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
     `params:\n` +
-    `  # Both sides take the SAME value from the one control; this is what opposes them.\n` +
-    `  Side: ${side}\n` +
-    `  # 0 is where a set starts: deck A full, deck B silent. This one fades ${way}.\n` +
-    `  Mix: 0\n`
+    `  # Centred, like the fader that drives it: both decks at half, which is where a set starts.\n` +
+    `  Mix: 0.5\n`
   );
 }
 

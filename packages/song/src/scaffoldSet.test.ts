@@ -133,6 +133,7 @@ describe("a scaffolded set", () => {
       crossfade: {
         module: "fadeA",
         param: "Mix",
+        invert: true,
         also: { module: "fadeB", param: "Mix" },
       },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
@@ -265,15 +266,15 @@ describe("a scaffolded set", () => {
     expect(g.chains.eqB.out.map((o) => o.to)).toEqual(["MIX"]);
   });
 
-  it("opposes the two fades by their Side, and starts on deck A", () => {
+  it("gives each fade ONE param, which is its own gain", () => {
     scaffoldSet(dir, "winter");
     const modules = loadGraph(dir).modules;
-    // The one number that makes two identical modules a crossfader.
-    expect(modules.fadeA.params?.Side).toBe(0);
-    expect(modules.fadeB.params?.Side).toBe(1);
-    // Both at 0: with Side 0 that is full and with Side 1 silent, so a set opens on deck A.
-    expect(modules.fadeA.params?.Mix).toBe(0);
-    expect(modules.fadeB.params?.Mix).toBe(0);
+    // No second number to read the first one through: a panel showing 0 is silent, 1 is full.
+    expect(Object.keys(modules.fadeA.params ?? {})).toEqual(["Mix"]);
+    expect(Object.keys(modules.fadeB.params ?? {})).toEqual(["Mix"]);
+    // Centred like the fader that drives them, which is where a set starts.
+    expect(modules.fadeA.params?.Mix).toBe(0.5);
+    expect(modules.fadeB.params?.Mix).toBe(0.5);
   });
 
   it("puts a COLD module on each deck, one node per deck", () => {

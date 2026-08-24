@@ -33,8 +33,9 @@ port, la garde de `geolerp` — est dans `docs/builder.md`.
 ## `fade` et `crossfade` — le même effet, et une seule des deux formes tient sur un pupitre
 
 Les deux fondent entre deux signaux. `crossfade` le fait dans **un** module à deux ports ; `fade`
-le fait avec **deux** modules à un port, `Side` disant à chacun dans quel sens son gain court, et
-la même valeur envoyée aux deux. À 0 le premier est plein et le second muet ; à 1 ils échangent.
+le fait avec **deux** modules à un port, pilotés en **miroir** par le même contrôle. Le paramètre
+d'un `fade` EST son gain — 0 muet, 1 plein — donc son panneau se lit seul, sans second nombre à
+travers lequel le traduire.
 
 L'arithmétique est identique. Ce qui diffère est ce que chaque forme exige du moteur, et c'est là
 que la seconde gagne. Le second port d'un module se câble en **sidechain**, et une sidechain ne
@@ -45,8 +46,8 @@ aucun routage vers un puits ne dénoue ça : tout ce qui la retire du master la 
 
 Deux `fade` n'ont pas ce problème parce qu'ils n'ont pas de second port. Chaque côté reste une
 piste ordinaire, avec sa sortie ordinaire, et la somme se fait au mixeur — là où les sommes se
-font. Le prix est un module de plus dans le graphe et une règle de plus dans le mappage du pupitre
-(un contrôle, deux paramètres — `packages/song/docs/setProject.md`).
+font. Le prix est un module de plus dans le graphe et une règle de plus dans le mappage du pupitre :
+un contrôle, deux paramètres, dont l'un en miroir (`packages/song/docs/setProject.md`).
 
 `crossfade` reste juste, et reste le bon choix partout où ses deux entrées vivent déjà sur la même
 piste. C'est sur un pupitre, où elles n'y vivent pas, qu'il ne peut pas tenir.

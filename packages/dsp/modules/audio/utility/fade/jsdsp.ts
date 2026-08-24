@@ -8,11 +8,7 @@
 import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
-  // What the desk's one control drives, on BOTH sides at once — the opposition is `Side`, not the value.
-  const mix = g.param("Mix", { min: 0, max: 1, default: 0 });
-  // 0 fades OUT as Mix rises, 1 fades IN. A node's own setting, never a control's.
-  const side = g.param("Side", { min: 0, max: 1, default: 0 });
-  // (1−Side)·(1−Mix) + Side·Mix — no branch among the primitives, so the choice is arithmetic.
-  const gain = g.add(g.mul(g.sub(1, side), g.sub(1, mix)), g.mul(side, mix));
-  g.output(g.amul(g.input(0), gain));
+  // The gain itself, so a panel showing 0 means silent and 1 means full — no second number to read it through.
+  const mix = g.param("Mix", { min: 0, max: 1, default: 1 });
+  g.output(g.amul(g.input(0), mix));
 };

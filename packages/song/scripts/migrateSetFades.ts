@@ -97,7 +97,7 @@ for (const dir of roots) {
   }
 
   // Which strip arrived BARE and which on the port: that is which side each fade takes.
-  const sides: { feeder: string; letter: string; side: 0 | 1 }[] = [];
+  const sides: { feeder: string; letter: string; invert: boolean }[] = [];
   for (const item of modules.items) {
     const from = String(
       (item as { key?: { value?: unknown } }).key?.value ?? "",
@@ -110,7 +110,8 @@ for (const dir of roots) {
       console.error(`  ! cannot read a deck letter off \`${from}\``);
       continue;
     }
-    sides.push({ feeder: from, letter, side: to === cross ? 0 : 1 });
+    // The strip that arrived BARE is deck A's, and deck A is the one the control drives INVERTED.
+    sides.push({ feeder: from, letter, invert: to === cross });
   }
   if (sides.length !== 2) {
     console.error(
@@ -120,7 +121,7 @@ for (const dir of roots) {
   }
 
   const files: Record<string, string> = {};
-  for (const { feeder, letter, side } of sides) {
+  for (const { feeder, letter, invert } of sides) {
     const fade = `fade${letter}`;
     // The strip now ends on its own fade…
     const seq = gdoc.createNode([fade]) as YAMLSeq;
@@ -133,19 +134,20 @@ for (const dir of roots) {
       (i) => String((i as { key?: { value?: unknown } }).key?.value) === feeder,
     );
     modules.items.splice(at + 1, 0, gdoc.createPair(fade, dest));
-    Object.assign(files, fadeNodeFile(letter, side));
+    Object.assign(files, fadeNodeFile(letter, invert));
   }
 
   // The crossfade's own line goes: its destination now belongs to the two fades.
   modules.delete(cross);
 
-  const a = sides.find((s) => s.side === 0);
-  const b = sides.find((s) => s.side === 1);
+  const a = sides.find((s) => s.invert);
+  const b = sides.find((s) => !s.invert);
   mapping.set(
     "crossfade",
     sdoc.createNode({
       module: `fade${a?.letter}`,
       param: "Mix",
+      invert: true,
       also: { module: `fade${b?.letter}`, param: "Mix" },
     }),
   );
@@ -154,7 +156,7 @@ for (const dir of roots) {
 
   changed += 1;
   console.log(
-    `  + ${cross} → fade${a?.letter} (Side 0) + fade${b?.letter} (Side 1), both landing on ${after}`,
+    `  + ${cross} → fade${a?.letter} (inverted) + fade${b?.letter}, both landing on ${after}`,
   );
   if (!write) {
     console.log("  (dry run — pass --write to save)");

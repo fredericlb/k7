@@ -36,7 +36,7 @@ shipping its own copy of somebody's modules would be a second source of truth �
 
 **What that costs, and it is deliberate:** a new library is empty, so every `@st0/…` ref resolves
 to nothing until modules are put there — including the four a scaffolded set writes for its decks
-(`@st0/audio/utility/crossfade`, `…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). An unresolved ref
+(`@st0/audio/utility/fade`, `…/tempo`, `@st0/audio/filter/eq3`, `…/sweep`). An unresolved ref
 is **not** a compile error (below), so such a project reads as one whose modules are bypassed. The
 day that needs to be visible, the place to say it is the compile — not a seed putting files in
 somebody's repository so the question never comes up.

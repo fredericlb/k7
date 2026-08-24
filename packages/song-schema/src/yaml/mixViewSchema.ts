@@ -4,15 +4,17 @@
 
 import { z } from "zod";
 
-/** A module the CHAINS file names, and a param as a widget binds it (docs/deskFiles.md). */
+/** A module the CHAINS file names, a param as a widget binds it, and which way it reads (docs/deskFiles.md). */
 const TargetSchema = z
   .object({
     module: z.string().min(1),
     param: z.string().min(1),
+    /** MIRROR the control in its own range before writing — what makes two fades a crossfader. */
+    invert: z.boolean().optional(),
   })
   .strict();
 
-/** What one control drives: a target, and at most one SECOND taking the same value (docs/deskFiles.md). */
+/** What one control drives: a target, and at most one SECOND — see packages/song/docs/setProject.md. */
 export const ViewBindingSchema = TargetSchema.extend({
   also: TargetSchema.optional(),
 }).strict();

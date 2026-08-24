@@ -158,18 +158,24 @@ happens where sums belong — at the mixer. Nothing has to be hidden from the ma
 what makes the shape hold: `bypassed:` above still lists the SOURCE lanes, because those feed
 a bus and would otherwise double, but neither bus is hidden from anything.
 
-The two fades are opposed by their `Side` — `0` fades out as the control travels, `1` fades in
-— and the desk sends both **the same number**. That is why `surfaces/desk.yaml` binds one
-control to two params:
+Each fade has **one** parameter and it IS that lane's gain, so its panel reads true on its own:
+`0` silent, `1` full. The opposition is in the mapping, as a mirror:
 
 ```yaml
-crossfade: { module: fadeA, param: Mix, also: { module: fadeB, param: Mix } }
+crossfade: { module: fadeA, param: Mix, invert: true, also: { module: fadeB, param: Mix } }
 ```
 
-`also` is the one exception to "a control drives at most one param", and it earns it by being
-narrow: the same value, no arithmetic, no second range to reason about. What would be
-unreadable is a mapping where each half could do something different — which is the thing the
-rule was written against, and which `also` still forbids.
+`also` is the one exception to "a control drives at most one param". It earns it by being
+narrow — one second target, and the only transform allowed is `invert`, which mirrors the
+control **in its own range**. What the rule was written against is a mapping whose halves can
+do different things; a mirror cannot.
+
+It was written the other way first: one `Mix` sent unchanged to both, and a `Side` on each
+module deciding which way its gain ran. The sound was identical and the panels lied — `fadeA`
+reading `Mix 100` while deck A was silent, because the number shown was the crossfader's
+position and not the lane's level. A panel a reader has to convert through a second parameter
+is a panel that will be misread, so the arithmetic moved to the one place that already knows
+about both sides.
 
 `@st0/audio/utility/crossfade` is not wrong and is not going away: on a chain where both its
 inputs already live on one track, it is the right module. It is a desk, where they do not,

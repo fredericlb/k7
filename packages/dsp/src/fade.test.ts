@@ -18,10 +18,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 describe("the fade graph", () => {
   const g = fade();
 
-  it("has the control a desk drives and the one a node sets", () => {
-    expect(g.params.map((p) => p.name)).toEqual(["Mix", "Side"]);
-    // Both at 0: a module dropped in alone is FULL, so an unwired fade is not a silence to debug.
-    expect(g.params.every((p) => p.default === 0)).toBe(true);
+  it("has ONE parameter, and it is the gain itself", () => {
+    // Not a position a reader has to convert: a panel showing 0 is silent and 1 is full.
+    expect(g.params.map((p) => p.name)).toEqual(["Mix"]);
+    // Full by default, so a module dropped into a chain alone is not a silence to debug.
+    expect(g.params[0].default).toBe(1);
   });
 
   it("reads ONE port — the whole difference from the crossfade", () => {
@@ -31,15 +32,12 @@ describe("the fade graph", () => {
     expect(ports).toEqual([0]);
   });
 
-  it("runs the gain the opposite way when Side is 1", () => {
-    // (1−Side)·(1−Mix) + Side·Mix, so both subtractions are against 1 and both products meet in an add.
-    const subs = g.nodes.filter((n) => n.type === "sub");
-    expect(subs.map((n) => n.in)).toEqual([
-      [1, "Side"],
-      [1, "Mix"],
-    ]);
-    expect(g.nodes.filter((n) => n.type === "mul")).toHaveLength(2);
-    expect(g.nodes.some((n) => n.type === "add")).toBe(true);
+  it("applies the parameter DIRECTLY, with no arithmetic in between", () => {
+    // The whole point of the last rewrite: nothing between the panel's number and the gain.
+    expect(g.nodes.some((n) => n.type === "sub")).toBe(false);
+    expect(g.nodes.some((n) => n.type === "add")).toBe(false);
+    const [amul] = g.nodes.filter((n) => n.type === "amul");
+    expect(amul.k).toEqual(["Mix"]);
   });
 
   it("is what graphs/fade.json holds — the artifact that actually runs", () => {
