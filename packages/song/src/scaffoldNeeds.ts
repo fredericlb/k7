@@ -5,9 +5,7 @@
 // account's first set open with every module missing, which reads as a broken song rather than as
 // a setup nobody finished. Nothing here SEEDS anything — it only says what is owed, and early.
 
-// The LIBRARIES repository's namespace, and only it: `@project` is the song's own folder,
-// `@workspace` the workspace's `_modules`, `@engine` the plugin scan and `@studio` the built-ins.
-// A new libraries repo is what starts empty, so it is the one that can owe anything.
+/** The LIBRARIES namespace, and only it — the other four need no repository (apps/st0/frontend/docs/projects.md). */
 const LIBRARY = /^@st0\//;
 
 /** Every `extends:` a set of scaffolded FILES names — read off the text, so there is no second list to drift. */
