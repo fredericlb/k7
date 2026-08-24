@@ -6,7 +6,7 @@
 import { type Dirent, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 // Where a separation's four files land, beside the master — shared, because a set's graph names it too.
-import { STEMS_DIR } from "@studio/song-schema/stems";
+import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
 import { parse as parseYaml } from "yaml";
 import { familyDir, SAMPLE_KINDS, toRel } from "./layout.ts";
 import { isAudio, isVideo } from "./media.ts";
@@ -40,6 +40,13 @@ function dirents(abs: string): Dirent[] {
   } catch {
     return [];
   }
+}
+
+/** Separated means the five aligned files, not just a folder — an older stems/ cannot cancel (docs/stemSplit.md). */
+function separated(abs: string, entries: Dirent[]): boolean {
+  if (!entries.some((e) => e.isDirectory() && e.name === STEMS_DIR))
+    return false;
+  return stemsComplete(dirents(join(abs, STEMS_DIR)).map((e) => e.name));
 }
 
 function mtimeOf(abs: string): number {
@@ -138,10 +145,8 @@ function scanSongs(): MediatekEntry[] {
           catalogued: hasSidecar, // false == found on disk, never filed
           // The playable file's NAME inside the folder, since `path` is the folder itself.
           ...(master ? { master: master.name } : {}),
-          // Has this song been SEPARATED? Read off the dirents in hand, so no syscall per song.
-          ...(entries.some((e) => e.isDirectory() && e.name === STEMS_DIR)
-            ? { stems: true }
-            : {}),
+          // Has this song been SEPARATED, COMPLETELY? One readdir, and only for a song that has a stems/.
+          ...(separated(abs, entries) ? { stems: true } : {}),
           ...(artist ? { artist } : {}),
           // Detected at upload and then EDITABLE — see setSongBpm and docs/songs.md.
           ...(num(meta.bpm) ? { bpm: num(meta.bpm) as number } : {}),

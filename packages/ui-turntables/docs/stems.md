@@ -113,6 +113,16 @@ les morceaux qu'on a préparés à la commande.
   `slip` — `withDecks` les remplit en un seul endroit pour ça. Une dérive d'un échantillon ne
   fait pas un instrument plus discret : elle fait un filtre en peigne, et rien à l'écran ne le
   dirait.
+- **La platine ouvre `stems/master.wav`, pas le fichier du catalogue.** Un mp3 porte un délai
+  d'encodage que ffmpeg coupe et que JUCE ne coupe pas : les stems, faites par ffmpeg, tombaient
+  25 ms avant le disque tel que le moteur le joue, et la soustraction rendait le bus **plus fort**
+  que l'original. La séparation écrit donc le disque lui-même à côté de ses stems, du même
+  décodeur, et c'est ce fichier-là que la lane du disque joue — les deux côtés de la soustraction
+  sortent d'un seul décodage. Mesures dans
+  [stem-separation/docs/stemSplit.md](../../stem-separation/docs/stemSplit.md).
+- **Un dossier `stems/` sans ce master ne compte pas comme séparé.** Il tient quatre fichiers qui
+  ne peuvent pas s'annuler ; `stemsComplete` en demande cinq, et un dossier d'avant se relit comme
+  « jamais séparé » plutôt que de laisser des potards qui ajoutent.
 - **Un morceau non séparé laisse ses lanes VIDES.** Une lane vide ne soustrait rien, donc poser un
   disque que personne n'a préparé le joue tel quel. Poser quatre clips sur des fichiers absents
   ferait dépendre « mettre un disque » d'une heure de calcul que personne n'a demandée.

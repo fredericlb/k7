@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
+import { MASTER_FILE } from "@studio/song-schema/stems";
 import { chooseDmlAdapter } from "./dmlAdapters";
 import {
   CHANNELS,
@@ -156,6 +157,41 @@ function writeStem(
         : reject(new Error(`ffmpeg could not write ${path}: ${err.trim()}`)),
     );
     ff.stdin.end(Buffer.from(inter.buffer, inter.byteOffset, inter.byteLength));
+  });
+}
+
+/** The record beside its stems, from the same decoder — what makes the subtraction cancel; docs/stemSplit.md. */
+function writeMaster(
+  source: string,
+  path: string,
+  rate: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-i",
+      source,
+      "-ar",
+      String(rate),
+      "-ac",
+      String(CHANNELS),
+      "-c:a",
+      "pcm_s24le",
+      "-y",
+      path,
+    ]);
+    let err = "";
+    ff.stderr.on("data", (d: Buffer) => {
+      err = (err + d.toString()).slice(-2048);
+    });
+    ff.on("error", reject);
+    ff.on("close", (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`ffmpeg could not write ${path}: ${err.trim()}`)),
+    );
   });
 }
 
@@ -341,6 +377,8 @@ export async function separate({
     await writeStem(path, chans, rate);
     out.push(path);
   }
+  // Last, so a folder holding it holds everything: `stemsComplete` is what reads that.
+  await writeMaster(source, join(outDir, MASTER_FILE), rate);
   return out;
 }
 

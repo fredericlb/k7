@@ -319,7 +319,7 @@ describe("filling the decks into the COMPILED project", () => {
       withStemLanes(),
       loaded({
         deckA: {
-          path: "/m/song/master.wav",
+          path: "/m/song/original.mp3",
           title: "A",
           artist: null,
           id: "songs/a",
@@ -334,8 +334,8 @@ describe("filling the decks into the COMPILED project", () => {
     expect(at(stemLane("deckA", "vocals"))?.clips[0].source).toBe(
       "/m/song/stems/vocals.wav",
     );
-    // The record itself is untouched: it is what the stems are subtracted FROM.
-    expect(at("deckA")?.clips[0].source).toBe("/m/song/master.wav");
+    // The deck plays the separation's OWN decode of the record, never the mp3 beside it.
+    expect(at("deckA")?.clips[0].source).toBe("/m/song/stems/master.wav");
   });
 
   it("gives the record and its stems the SAME start and the same warp", () => {
@@ -370,6 +370,10 @@ describe("filling the decks into the COMPILED project", () => {
       expect(
         doc.tracks.find((t) => t.id === stemLane("deckA", s))?.clips,
       ).toEqual([]);
+    // And it plays the file itself: there is no separation's decode to prefer.
+    expect(doc.tracks.find((t) => t.id === "deckA")?.clips[0].source).toBe(
+      loaded().deckA?.path,
+    );
   });
 
   it("leaves an empty deck's clips alone rather than emptying them", () => {

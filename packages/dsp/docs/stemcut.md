@@ -82,7 +82,11 @@ proportionnellement à ce qu'on demande.
   autrement : le modèle travaille à 44,1 kHz, et un stem écrit à cette fréquence-là face à un master
   à 48 kHz dérive de plusieurs échantillons en une seconde. La soustraction n'annule plus rien, elle
   additionne deux signaux décorrélés — mesuré à +0,9 dB au lieu d'une coupure.
-  `stem-separation` réécrit maintenant les stems à la fréquence du DISQUE
+  `stem-separation` réécrit maintenant les stems à la fréquence du DISQUE.
+- **Et du même décodeur.** Le piège suivant, et le plus coûteux : un mp3 porte un délai
+  d'encodage que ffmpeg coupe et que JUCE ne coupe pas. Les cinq clips avaient beau être posés au
+  même endroit, le disque et ses stems ne venaient pas du même décodage. La séparation écrit donc
+  `stems/master.wav` à côté des quatre, et c'est ce fichier que la platine joue
   (`packages/stem-separation/docs/stemSplit.md`).
 - **La somme doit se faire AVANT l'EQ.** Soustraire un stem brut d'un mix déjà égalisé laisse un
   résidu en forme d'EQ, et l'annulation cesserait dès qu'on touche un potard.

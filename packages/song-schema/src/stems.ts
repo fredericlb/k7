@@ -13,6 +13,15 @@ export const STEMS_DIR = "stems";
 /** One stem's file name, as the pass writes it — a float WAV, since a stem is not a deliverable. */
 export const stemFile = (stem: Stem): string => `${stem}.wav`;
 
+/** The record itself, decoded ONCE beside its stems, so both come from the same decoder (docs/stemSplit.md). */
+export const MASTER_FILE = "master.wav";
+
+/** Usable only with the master beside the four: a folder missing it cannot cancel, so it does not count. */
+export function stemsComplete(names: readonly string[]): boolean {
+  const have = new Set(names);
+  return have.has(MASTER_FILE) && STEMS.every((s) => have.has(stemFile(s)));
+}
+
 /** The `stemcut` param a desk knob drives, spelled once because the module, the scaffold and the desk all name it. */
 export const STEM_PARAM = "Level";
 

@@ -71,11 +71,14 @@ on — five of them per deck, since the mix and its four stems all land together
 the volume saved, paid for at the one moment nobody has time. So the choice is among the
 formats that need no proxy, and there 24 bits is simply the small one:
 
-| | one stem, 4 min stereo | the four | thirty songs |
+| | one file, 4 min stereo | the five | thirty songs |
 |---|---|---|---|
-| float32 | 85 Mo | 339 Mo | ~10 Go |
-| **24-bit** | 64 Mo | 254 Mo | ~7,5 Go |
-| FLAC | ~20 Mo | ~85 Mo | ~2,5 Go — behind a proxy |
+| float32 | 85 Mo | 424 Mo | ~12,5 Go |
+| **24-bit** | 64 Mo | 318 Mo | ~9,5 Go |
+| FLAC | ~20 Mo | ~106 Mo | ~3 Go — behind a proxy |
+
+Five rather than four because the section below puts the record's own decode in `stems/` too: one
+more file of the same size, which is what alignment costs on disk.
 
 What 24 bits costs is a quantisation floor at −144 dBFS, and even that is not paid in full: a
 cut is `mix − k·stem`, so the stem's own noise enters in proportion to `k` and disappears
@@ -88,29 +91,53 @@ reconstructing the mix, so nothing holds its output inside ±1; `peakOf` measure
 before it is written and the job's `lines` say when one was clamped. Silence would be worse:
 the alternative way to learn about it is a click at the loudest moment of the record.
 
-## At the RECORD's rate, not the model's
+## Five files, not four: the record is decoded HERE
 
-The model works at 44.1 kHz and nothing about that is negotiable — `decode()` resamples the
-input to reach the fixed input length. What was missing for a long time is the way **back**:
-`wavPcm24` stamps `SAMPLE_RATE` into the header, so a 48 kHz master produced four 44.1 kHz
-stems, and nothing anywhere said so.
+A cut is `mix - k*stem` ([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md)), and a subtraction
+cancels only while the two signals stay sample-aligned. Two things broke that, and the second is
+the one that survives fixing the first.
 
-That is not a quality question, it is the whole point of the file. A cut is `mix − k·stem`
-([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md)), and a subtraction only cancels while the two
-signals stay sample-aligned. At 44.1 against 48 they drift apart within a few hundred samples and
-the difference is two uncorrelated signals — which **adds**. Measured on the desk, one stem cut
-from full to nothing: −7,5 dB at rest, −6,6 dB with the knob hard left. The control that was
-meant to remove the drums made the bus 0,9 dB louder, and every stem knob on every song did the
-same thing.
+**The rate.** The model works at 44.1 kHz, so `decode()` resamples the input to reach the fixed
+input length. The way BACK was missing: `wavPcm24` stamps `SAMPLE_RATE` into the header, so a
+48 kHz master produced four 44.1 kHz stems and nothing said so. `probeRate()` asks ffprobe what
+the source's rate is and `writeStem()` resamples on the way out when it differs; the rate goes
+into the job's `lines` when it is not the model's. A source ffprobe cannot read falls back to the
+model's rate -- the file it would have written before, and the only case where that was right.
 
-So `probeRate()` asks ffprobe what the source's rate is and `writeStem()` resamples on the way
-out when it differs, through ffmpeg rather than by hand — the rate is written into the job's
-`lines` when it is not the model's, since this is exactly the kind of silence that cost the
-measurement above. A source ffprobe cannot read falls back to the model's rate: the same file it
-would have written before, and the only case where the old behaviour was ever right.
+**The decoder, which is the real one.** Fixing the rate changed nothing audible, because the
+master and its stems were being read by two different decoders that do not agree about where the
+file starts. An mp3 carries an encoder delay in its Xing/LAME `Info` tag -- 1105 samples on the
+record this was measured on. **ffmpeg trims it. JUCE does not**: `juce_MP3AudioFormat.cpp`
+contains no gapless handling at all, and the engine's own `--peak` counts 11 526 192 frames in a
+file ffmpeg decodes to 11 455 983. So the stems began exactly on the music and the record, as the
+engine played it, began 25 ms earlier.
 
-The stems on disk before this are wrong and cannot be fixed in place — they were written from
-resampled audio, so they have to be separated again.
+Measured on that record, `master - sum(stems)` over the same 30 seconds:
+
+| | residual |
+|---|---|
+| aligned | **-46.9 dB** -- it cancels |
+| off by the 1105-sample encoder delay | **-12.8 dB** |
+
+The master itself is -15.9 dB. At 25 ms of drift the subtraction does not merely fail, it makes
+the bus **louder than the record** -- which is exactly what a stem knob turned hard left did.
+
+The fix is to stop having two decoders. `writeMaster()` transcodes the source into
+`stems/master.wav` at the record's own rate, from the same ffmpeg that produced the stems, and
+**the deck plays that file rather than the mp3 beside it**
+([ui-turntables/docs/stems.md](../../ui-turntables/docs/stems.md)). Nothing then depends on what
+JUCE thinks an mp3's first sample is: both sides of the subtraction came out of one decode.
+
+What that does NOT fix is an mp3 played anywhere else -- a song nobody separated still starts
+25 ms late in this engine, which is inaudible alone and matters only between two lanes. Naming
+it here because the next person to measure a mp3 against a wav will find it.
+
+**So `stemsComplete()` asks for five names, not four.** A `stems/` folder written before the
+master is not a separation that failed loudly; it is four files that cannot cancel. Read as done
+-- which `heldStems` and the médiathèque scan both used to do on the folder's mere existence --
+it leaves a desk whose knobs add. Both now ask the shared rule in
+`@studio/song-schema/stems`, so such a folder reads as "never separated": the stem lanes stay
+empty, the deck plays the record, and `playlist stems` redoes it.
 
 ## Windows, and how they are folded back — `separateAudio.ts`
 

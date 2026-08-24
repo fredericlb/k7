@@ -10,7 +10,7 @@ import { pipeline } from "node:stream/promises";
 import type { EngineEntry } from "@studio/engine-registry";
 import { safePath } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
-import { STEMS_DIR } from "@studio/song-schema/stems";
+import { STEMS_DIR, stemsComplete } from "@studio/song-schema/stems";
 import {
   ENGINE_TOKEN_HEADER,
   type SeparateJob,
@@ -64,7 +64,8 @@ export async function cutStems(opts: {
   // `dirname`, not a slice on "/": `safePath` answers in the platform's own separators.
   const outDir = join(dirname(source), STEMS_DIR);
   const held = heldStems(song);
-  if (held.length) return { ready: true, files: held };
+  // COMPLETE, not merely present: a folder from before the aligned master cannot cancel — docs/stemSplit.md.
+  if (stemsComplete(held)) return { ready: true, files: held };
 
   const bases = fileServiceBases(engine);
   if (!bases.length)

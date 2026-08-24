@@ -18,6 +18,7 @@ import type {
   TrackDoc,
 } from "@studio/engine-protocol/project";
 import {
+  MASTER_FILE,
   STEMS_DIR,
   type Stem,
   stemFile,
@@ -206,11 +207,20 @@ export function gainToDb(gain: number): number {
 /** The id of the level at the end of a deck's chain — the thing the crossfader moves. */
 export const levelId = (deck: DeckId): string => `${deck}:level`;
 
-/** One stem's file beside its record — string work, not a path join: the path is the ENGINE machine's. */
-export function stemSource(master: string, stem: Stem): string {
+/** `stems/` beside a record — string work, not a path join: the path is the ENGINE machine's. */
+function stemsFolder(master: string): string {
   const cut = Math.max(master.lastIndexOf("/"), master.lastIndexOf("\\"));
-  const folder = cut < 0 ? "" : master.slice(0, cut + 1);
-  return `${folder}${STEMS_DIR}/${stemFile(stem)}`;
+  return `${cut < 0 ? "" : master.slice(0, cut + 1)}${STEMS_DIR}/`;
+}
+
+/** One stem's file beside its record. */
+export function stemSource(master: string, stem: Stem): string {
+  return `${stemsFolder(master)}${stemFile(stem)}`;
+}
+
+/** The record AS THE SEPARATION DECODED IT, which is the only thing the stems can cancel — docs/stems.md. */
+export function masterSource(master: string): string {
+  return `${stemsFolder(master)}${MASTER_FILE}`;
 }
 
 /** The COMPILED project with the decks' songs filled in — everything else is left ALONE, docs/mix.md. */
@@ -244,7 +254,12 @@ export function withDecks(
             id: `${track.id}-clip`,
             type: "audio",
             name: load.title,
-            source: stem ? stemSource(load.path, stem.stem) : load.path,
+            source: stem
+              ? stemSource(load.path, stem.stem)
+              : // A separated song plays its OWN decode, so both sides of the subtraction agree.
+                load.stems
+                ? masterSource(load.path)
+                : load.path,
             // The headroom, sync's alignment and the fader's slip in one number — see `startSeconds`.
             start: clipStartBeats(tempo),
             ...(warp
