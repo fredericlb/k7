@@ -1,20 +1,26 @@
-# Le stem cut — enlever un instrument d'un mix
+# Le stem cut — doser un instrument dans un mix
 
-`stemcut` prend un stem et le rend **inversé et mis à l'échelle**, pour que la lane qui le porte,
-sommée au morceau d'origine à côté, produise une **soustraction** :
+`stemcut` prend un stem et le rend **mis à l'échelle par un gain signé**, pour que la lane qui le
+porte, sommée au morceau d'origine à côté, ajoute ou retire cet instrument :
 
 ```
-sortie = mix + (−Cut · stem)     Cut = 0 → le mix, échantillon pour échantillon
-                                 Cut = 1 → le mix sans cet instrument
+sortie = mix + (Level · stem)    Level = −1 → le mix sans cet instrument
+                                 Level =  0 → le mix, échantillon pour échantillon
+                                 Level = +1 → le mix avec cet instrument deux fois
 ```
 
-Deux nœuds : `sub(0, Cut)` puis `gain`. Tout le reste de cette page explique pourquoi c'est cette
-forme-là et pas une autre.
+**Un** nœud : `gain(Level)`. Tout le reste de cette page explique pourquoi c'est cette forme-là et
+pas une autre.
 
-`sub(0, Cut)` plutôt que `mul(Cut, -1)` : un nœud dans les deux cas, mais celui-là se lit comme ce
-qu'il est — rien, moins ce qu'on a demandé d'enlever. Et le module existe deux fois, ici et dans
-`packages/dsp/src/stemcut.ts`, parce qu'un module est un dossier qu'on copie ; `packages/dsp/src/stemcut.test.ts`
-tient les deux copies et le `graphs/stemcut.json` committé à la même forme.
+La course a d'abord été `Cut`, de 0 à 1, et ne savait que soustraire — le graphe portait alors un
+`sub(0, Cut)` pour forcer le signe. Ça coûtait un nœud et, plus cher, ça coûtait le neutre : le
+repos se trouvait à une extrémité du potard au lieu d'être sous la main, et la moitié « ajouter de
+l'instrument », que tout remix demande, n'existait pas. Le signe est passé dans le paramètre, et il
+ne reste rien entre le potard et le gain.
+
+Le module existe deux fois, ici et dans `packages/dsp/src/stemcut.ts`, parce qu'un module est un
+dossier qu'on copie ; `packages/dsp/src/stemcut.test.ts` tient les deux copies et le
+`graphs/stemcut.json` committé à la même forme.
 
 ## Pourquoi soustraire, plutôt que jouer les stems
 
@@ -28,7 +34,8 @@ l'overlap-add divise les quatre par **le même** registre de poids
 
 Donc une platine qui jouerait les quatre stems sonnerait déjà autrement que le disque, **avant
 qu'on ait touché quoi que ce soit**. En soustrayant, le cas au repos est exact par construction :
-à `Cut: 0` cette lane est silencieuse, et ce qu'on entend est le fichier d'origine.
+à `Level: 0` cette lane est silencieuse, et ce qu'on entend est le fichier d'origine. Ce zéro est
+au MILIEU de la course, ce qui met le repos sous la main plutôt qu'à une extrémité.
 
 Ce qui reste — et qui ne peut pas être supprimé — ce sont les artefacts **proportionnels à ce
 qu'on retire** : ce qui a fui d'un instrument dans un autre reste quand on coupe le premier. La
@@ -57,9 +64,14 @@ d'une annulation.
 **Aucun `input(n)`.** Le mix n'entre pas ici — il est sommé en sortie, par la lane. Un second port
 ferait de ce module un mélangeur, et la soustraction dépendrait alors de ce qu'on lui a donné.
 
-**`Cut` est une proportion, 0..1, pas des dB.** Ce qu'on demande ici est une part de l'instrument :
-la moitié, c'est −6 dB *de cet instrument-là*. Et l'enlever complètement doit être atteignable, ce
-que −∞ dB n'est pas une position pour faire.
+**`Level` est une proportion signée, −1..1, pas des dB.** Ce qu'on demande ici est une part de
+l'instrument : la moitié, c'est −6 dB *de cet instrument-là*. Et l'enlever complètement doit être
+atteignable, ce que −∞ dB n'est pas une position pour faire.
+
+Le côté positif n'est pas une symétrie gratuite. Ajouter du stem au mix dont il sort **renforce**
+cet instrument sans toucher aux autres, ce qui est la moitié de ce qu'on demande à une séparation —
+et ça coûte exactement le même nœud. Les artefacts y croissent de la même façon qu'à gauche,
+proportionnellement à ce qu'on demande.
 
 ## Ce que le montage exige autour
 

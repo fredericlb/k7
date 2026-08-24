@@ -1,7 +1,8 @@
 # Les stems sur le pupitre — retirer un instrument du disque
 
 Quatre potards par platine, à **gauche** de la platine, au même format que l'EQ : batterie,
-basse, reste, voix. À 0 le disque joue tel quel ; en montant, l'instrument s'en va.
+basse, reste, voix. **Au centre** le disque joue tel quel ; vers la gauche l'instrument s'en va,
+vers la droite il y en a davantage.
 
 Ce que ça fait vraiment est une **soustraction**, et le raisonnement est dans
 [`packages/dsp/docs/stemcut.md`](../../dsp/docs/stemcut.md) : la somme des quatre stems ne
@@ -17,9 +18,14 @@ DISQUE et pas de la géométrie du pupitre, et chercher « la basse de la platin
 pas demander de savoir de quel côté la colonne est posée aujourd'hui.
 
 Même potard, même échelle de tailles, même `justify-center` que la tranche d'à côté
-(`ChannelStrip`) — c'est le même geste sur la même sorte de chose. Ce qui diffère est le sens de
-la course : le milieu d'un potard d'EQ est le neutre et il va des deux côtés, là où une coupe part
-de « rien retiré » et ne monte que dans un sens.
+(`ChannelStrip`) — c'est le même geste sur la même sorte de chose, **et la même course** : le
+milieu est le neutre et il va des deux côtés, comme un potard d'EQ.
+
+Ça n'a pas toujours été le cas. La course allait de « rien retiré » vers « tout retiré », dans un
+seul sens, parce que le module ne savait que soustraire. Un potard qui commence à une extrémité et
+dont le neutre est cette extrémité se lit mal : la main ne trouve pas le repos, et la moitié droite
+de sa course — ajouter de l'instrument, ce qu'un remix demande tout le temps — n'existait pas. Le
+gain du `stemcut` est signé depuis, et le neutre est revenu sous la main.
 
 La colonne **n'a pas d'échelle à elle** : elle prend celle de la tranche, pour que les potards
 d'un même pupitre aient tous une taille. Ce n'est sûr que parce qu'elle est plus COURTE à chaque

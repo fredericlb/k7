@@ -9,7 +9,7 @@
 import type { GraphBuilder } from "@studio/dsp";
 
 export default (g: GraphBuilder) => {
-  const cut = g.param("Cut", { min: 0, max: 1, default: 0 });
-  // A NEGATIVE gain, `mix + (−Cut · stem)` — the one thing no fader and no send can express.
-  g.gain(g.sub(0, cut));
+  const level = g.param("Level", { min: -1, max: 1, default: 0 });
+  // A SIGNED gain, `mix + (Level · stem)` — the one thing no fader and no send can express.
+  g.gain(level);
 };

@@ -1,11 +1,16 @@
 // controls.ts — every control on the Mix desk, by a stable id. What the project's
 // `views/mix.yaml` names to bind one to a module param. See ../../docs/controls.md.
 
-import { STEMS, type Stem, stemControl } from "@studio/song-schema/stems";
+import {
+  STEM_RANGE,
+  STEMS,
+  type Stem,
+  stemControl,
+} from "@studio/song-schema/stems";
 import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
 
-/** How much of an instrument to REMOVE — the `stemcut` module's own `Cut` param, so the range is its. */
-const CUT_RANGE = [0, 1] as const;
+/** How much of an instrument to add or REMOVE — the `stemcut` module's own param, so the range is its. */
+const CUT_RANGE = STEM_RANGE;
 
 /** What each stem is called on the desk — `other` is everything the three named ones are not. */
 const STEM_LABELS: Record<Stem, string> = {
@@ -79,7 +84,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     label: `${STEM_LABELS[stem]} platine ${letter}`,
     kind: "fader" as const,
     range: CUT_RANGE,
-    // 0 is the record untouched — the whole promise of subtracting rather than summing four stems.
+    // 0 is the record untouched, and it is the CENTRE of the travel: left removes, right adds.
     home: 0,
     wants: "stem",
   })),

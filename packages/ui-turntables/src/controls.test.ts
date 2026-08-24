@@ -34,14 +34,15 @@ describe("the desk's controls", () => {
     ]);
   });
 
-  it("gives the stem cuts a PROPORTION, resting at nothing removed", () => {
-    // A proportion and not decibels, resting at 0 so the record is untouched — see ../docs/stems.md.
+  it("gives the stem cuts a SIGNED proportion, resting in the middle", () => {
+    // A proportion and not decibels, and BIPOLAR: left takes the instrument out, right adds more.
     for (const deck of DECKS)
       for (const stem of ["stemDrums", "stemBass", "stemOther", "stemVocals"]) {
         const c = mixControl(`${deck}.${stem}`);
-        expect(c?.range, `${deck}.${stem}`).toEqual([0, 1]);
+        expect(c?.range, `${deck}.${stem}`).toEqual([-1, 1]);
+        // Home is 0, which is now the CENTRE of the travel rather than one end of it.
         expect(c?.home, `${deck}.${stem}`).toBe(0);
-        expect(normalise(c!, 0)).toBe(0);
+        expect(normalise(c!, 0)).toBe(0.5);
       }
   });
 

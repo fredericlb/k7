@@ -1,7 +1,7 @@
-// The stem cut. Two things here would be wrong silently, and both are about the SIGN: a gain that
-// came out positive would add the instrument back instead of removing it — twice as loud, which
-// reads as a broken separation rather than a broken graph — and a default other than 0 would mean
-// loading a deck changes the record before anybody has touched a control.
+// The stem cut. What would be wrong silently here is the CENTRE: a default other than 0 means
+// loading a deck changes the record before anybody has touched a control, and a range that did not
+// straddle 0 would put "the disc as recorded" at one end of a knob instead of under the hand.
+// The sign is no longer the graph's business — it is the param's, which is the point of −1..1.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -9,34 +9,33 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import moduleGraph from "../modules/audio/separation/stemcut/jsdsp";
 import { type GraphJson, graph } from "./index";
-import { DEFAULT_CUT, stemcut } from "./stemcut";
+import { DEFAULT_LEVEL, stemcut } from "./stemcut";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("the stem cut graph", () => {
   const g = stemcut();
 
-  it("has one control, and it starts at NOTHING REMOVED", () => {
-    expect(g.params.map((p) => p.name)).toEqual(["Cut"]);
+  it("has one control, and it starts at THE RECORD UNTOUCHED", () => {
+    expect(g.params.map((p) => p.name)).toEqual(["Level"]);
     // A deck loaded and left alone must sound like the disc, so this lane contributes silence.
-    expect(g.params[0].default).toBe(DEFAULT_CUT);
-    expect(DEFAULT_CUT).toBe(0);
+    expect(g.params[0].default).toBe(DEFAULT_LEVEL);
+    expect(DEFAULT_LEVEL).toBe(0);
   });
 
-  it("is a proportion, 0..1, not a level in dB", () => {
-    // Full removal has to be reachable, and −∞ dB is not a fader position — ../docs/stemcut.md.
-    expect(g.params[0].min).toBe(0);
+  it("is a SIGNED proportion, −1..1, not a level in dB", () => {
+    // Full removal has to be reachable, and −∞ dB is not a knob position — ../docs/stemcut.md.
+    expect(g.params[0].min).toBe(-1);
     expect(g.params[0].max).toBe(1);
+    // 0 sits in the MIDDLE, which is what lets one knob both remove and add.
+    expect(g.params[0].default).toBe(0);
   });
 
-  it("SUBTRACTS: the gain is 0 − Cut, so it is never positive", () => {
-    // The sign is the module. A `mul(Cut, 1)` here would add the instrument a second time.
-    const sub = g.nodes.find((n) => n.type === "sub");
-    expect(sub?.in).toEqual([0, "Cut"]);
+  it("applies the param DIRECTLY, sign and all", () => {
+    // No arithmetic between the knob and the gain: negative subtracts, positive adds, 0 is silence.
+    expect(g.nodes.some((n) => n.type === "sub")).toBe(false);
     const gain = g.nodes.find((n) => n.type === "gain");
-    expect(gain).toBeTruthy();
-    // …and the gain reads the subtraction, not the param itself.
-    expect(gain?.in?.[0]).toBe(sub?.out);
+    expect(gain?.in).toEqual(["Level"]);
   });
 
   it("applies a gain and nothing else — no filter, no envelope, no blend", () => {

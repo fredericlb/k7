@@ -12,6 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+  STEM_PARAM,
   STEMS,
   stemControl,
   stemCut,
@@ -186,7 +187,7 @@ for (const dir of roots) {
     for (const s of STEMS)
       sdoc.setIn(
         ["mapping", stemControl(deck.id, s)],
-        sdoc.createNode({ module: stemCut(deck.id, s), param: "Cut" }),
+        sdoc.createNode({ module: stemCut(deck.id, s), param: STEM_PARAM }),
       );
 
     Object.assign(files, stemNodeFiles([deck.id]));

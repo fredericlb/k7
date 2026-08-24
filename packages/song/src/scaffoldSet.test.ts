@@ -147,14 +147,14 @@ describe("a scaffolded set", () => {
       "deckA.filter": { module: "filterA", param: "Sweep" },
       "deckB.filter": { module: "filterB", param: "Sweep" },
       // Four more a deck, one per stem, in the same shape as the EQ's three.
-      "deckA.stemDrums": { module: "cutDrumsA", param: "Cut" },
-      "deckA.stemBass": { module: "cutBassA", param: "Cut" },
-      "deckA.stemOther": { module: "cutOtherA", param: "Cut" },
-      "deckA.stemVocals": { module: "cutVocalsA", param: "Cut" },
-      "deckB.stemDrums": { module: "cutDrumsB", param: "Cut" },
-      "deckB.stemBass": { module: "cutBassB", param: "Cut" },
-      "deckB.stemOther": { module: "cutOtherB", param: "Cut" },
-      "deckB.stemVocals": { module: "cutVocalsB", param: "Cut" },
+      "deckA.stemDrums": { module: "cutDrumsA", param: "Level" },
+      "deckA.stemBass": { module: "cutBassA", param: "Level" },
+      "deckA.stemOther": { module: "cutOtherA", param: "Level" },
+      "deckA.stemVocals": { module: "cutVocalsA", param: "Level" },
+      "deckB.stemDrums": { module: "cutDrumsB", param: "Level" },
+      "deckB.stemBass": { module: "cutBassB", param: "Level" },
+      "deckB.stemOther": { module: "cutOtherB", param: "Level" },
+      "deckB.stemVocals": { module: "cutVocalsB", param: "Level" },
     });
   });
 

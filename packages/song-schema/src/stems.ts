@@ -13,6 +13,12 @@ export const STEMS_DIR = "stems";
 /** One stem's file name, as the pass writes it — a float WAV, since a stem is not a deliverable. */
 export const stemFile = (stem: Stem): string => `${stem}.wav`;
 
+/** The `stemcut` param a desk knob drives, spelled once because the module, the scaffold and the desk all name it. */
+export const STEM_PARAM = "Level";
+
+/** Its travel: NEGATIVE removes the instrument, 0 leaves the record untouched, positive adds more of it. */
+export const STEM_RANGE = [-1, 1] as const;
+
 // --- what a SET calls them: three names, since a stem you can move is a LANE (docs/stems.md) ---
 
 /** A deck's letter, from `deckA`. */

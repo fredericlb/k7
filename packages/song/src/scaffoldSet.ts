@@ -7,6 +7,7 @@
 
 // The stem vocabulary lives in song-schema because the DESK needs the same names and cannot import a scaffold.
 import {
+  STEM_PARAM,
   STEMS,
   type Stem,
   stemControl,
@@ -203,7 +204,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       DECKS.map((deck) =>
         STEMS.map(
           (s) =>
-            `  ${stemControl(deck, s)}: { module: ${stemCut(deck, s)}, param: Cut }\n`,
+            `  ${stemControl(deck, s)}: { module: ${stemCut(deck, s)}, param: ${STEM_PARAM} }\n`,
         ).join(""),
       ).join(""),
   };
@@ -257,8 +258,9 @@ function stemCutNode(deck: string, stem: Stem): string {
     `# a mix of four stems. See packages/dsp/docs/stemcut.md.\n` +
     `extends: ${q(`${MEDIATEK_SEPARATION}/stemcut`)}\n` +
     `params:\n` +
-    `  # 0 leaves the instrument in, 1 takes it out. What the desk's ${stem} knob moves.\n` +
-    `  Cut: 0\n`
+    `  # −1 takes the instrument out, 0 leaves the record alone, 1 doubles it. The desk's\n` +
+    `  # ${stem} knob moves this, and it starts CENTRED — left removes, right adds.\n` +
+    `  ${STEM_PARAM}: 0\n`
   );
 }
 
