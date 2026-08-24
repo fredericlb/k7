@@ -2,12 +2,9 @@
 // knobs and the filter under them. ROTARY, unlike the tempo fader on the other edge — a knob's
 // neutral is its middle, and a round one shows that at a glance. See ../../docs/eq.md.
 
-import { STEMS, type Stem } from "@studio/song-schema/stems";
+import { STEM_RANGE, STEMS, type Stem } from "@studio/song-schema/stems";
 import { EQ_BANDS, EQ_DB, FILTER_RANGE } from "../deck";
 import type { StripLayout } from "../deskLayout";
-
-/** A cut's travel: none of the instrument removed, to all of it. The `stemcut` module's own. */
-const CUT_RANGE = [0, 1] as const;
 
 /** What each stem is called under its knob — short, because the label sits under a 36 px dial. */
 const STEM_LABELS: Record<Stem, string> = {
@@ -261,14 +258,14 @@ export function StemStrip({
   layout,
   onStem,
 }: {
-  /** 0..1 by stem, what is currently being REMOVED. Absent is none of it. */
+  /** −1..1 by stem: negative removes the instrument, 0 is the record, positive adds. Absent is 0. */
   stems: Partial<Record<Stem, number>>;
   live: boolean;
   ready: boolean;
   /** The separation running for this deck's record, or the reason there will not be one. */
   prep: StemPrep | undefined;
   layout: StripLayout;
-  onStem: (stem: Stem, cut: number) => void;
+  onStem: (stem: Stem, level: number) => void;
 }) {
   if (!live) return null;
   return (
@@ -283,8 +280,8 @@ export function StemStrip({
           key={s}
           label={STEM_LABELS[s]}
           value={stems[s] ?? 0}
-          range={CUT_RANGE}
-          // Percent under the hand, 0..1 on the wire — nobody reads a cut as "0.4".
+          range={STEM_RANGE}
+          // Percent under the hand, −1..1 on the wire — nobody reads a level as "0.4".
           step={0.01}
           size={layout.knob}
           readout={layout.readout}

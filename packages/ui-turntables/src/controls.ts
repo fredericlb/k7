@@ -9,9 +9,6 @@ import {
 } from "@studio/song-schema/stems";
 import { BPM_RANGE, DECKS, EQ_DB, FILTER_RANGE, MIX_CENTRE } from "./deck";
 
-/** How much of an instrument to add or REMOVE — the `stemcut` module's own param, so the range is its. */
-const CUT_RANGE = STEM_RANGE;
-
 /** What each stem is called on the desk — `other` is everything the three named ones are not. */
 const STEM_LABELS: Record<Stem, string> = {
   drums: "Batterie",
@@ -83,7 +80,7 @@ const perDeck = (deck: string, letter: string): MixControl[] => [
     id: stemControl(deck, stem),
     label: `${STEM_LABELS[stem]} platine ${letter}`,
     kind: "fader" as const,
-    range: CUT_RANGE,
+    range: STEM_RANGE,
     // 0 is the record untouched, and it is the CENTRE of the travel: left removes, right adds.
     home: 0,
     wants: "stem",
