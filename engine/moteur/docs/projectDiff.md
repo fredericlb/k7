@@ -24,6 +24,17 @@ reach the engine and change nothing you could hear. The key carries the source s
 a hash of it: the string is already in hand, and a hash collision here would be silent in exactly
 the way this guards against.
 
+**A jsdsp module's GRAPH.** The same argument as Faust's, and it was missing for a long time. A
+`jsdsp` plugin builds its nodes and DECLARES ITS PARAMS from the graph JSON in its constructor, so
+an edited module reaches the engine and changes nothing: the old graph keeps running, under the old
+parameter names, and every value sent to a name the new module introduced lands nowhere.
+
+It is worse than inert, because the document and the engine then disagree about what the plugin
+*is* while agreeing about everything the diff looks at. Editing `stemcut` from a one-way `Cut` to a
+signed `Level` produced exactly that: the knob moved, the value travelled, the log said
+`~ stemBassA: Level = 0`, and the plugin on the track had no `Level` at all. Nothing anywhere
+reported a fault — the only symptom was a control that did nothing.
+
 **A rack's sounds.** They are built at insert time rather than carried as params, so remapping a
 note or a clip would read as "same plugin" and the sampler would never rebuild. Compiled order is
 stable, so concatenating them is enough.

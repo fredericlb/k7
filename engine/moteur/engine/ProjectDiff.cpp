@@ -28,6 +28,8 @@ std::string keyOf(const PluginDoc& p) {
     if (!p.sidechainFrom.empty()) k += "<-" + p.sidechainFrom;
     // A Faust program is compiled in the plugin's CONSTRUCTOR, so its source too — verbatim, since a hash could collide.
     if (!p.faustDsp.empty()) k += "#" + p.faustDsp;
+    // A jsdsp GRAPH is built there too, params and all, so editing a module must read as a replace.
+    if (!p.dspGraph.empty()) k += "~" + p.dspGraph;
     // A rack's sounds are built at insert time, so remapping a note without this reads as "same plugin".
     for (const auto& e : p.rack)
         k += "|" + e.symbol + "=" + std::to_string(e.note) + "@" + e.clip
