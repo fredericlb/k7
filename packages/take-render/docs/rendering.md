@@ -59,6 +59,12 @@ what the lane actually plays — windows and loops folded in — and the caller 
 takes, which is what makes a loop record one take per pass: pass 2 finds pass 1's clip and puts
 it away in its turn.
 
+`displaced` names the clips the pass landed on, by their start in beats, and the take holds THOSE
+and nothing else. The rest of the lane plays on beside the new clip: a pass at bars 3–7 says
+nothing about bar 9, and setting the whole lane aside made every take a copy of the arrangement
+with one bar different. It is one call to `splitUnder`, which `track take select` uses from the
+other side to decide what stays.
+
 The clip is declared BEFORE it is placed: a placement naming no clip fails the compile, so the
 order keeps the project loadable at every instant. `addTakeToTrack` throws when the take's file is
 not where it says, for the same reason — a clip whose wav is missing makes the whole project fail

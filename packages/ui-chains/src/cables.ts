@@ -205,7 +205,7 @@ export function liveVideoLanes(
   return ids;
 }
 
-/** Whether an arrow maps to an insert: offered whenever at least one end is a module. */
+/** Whether an arrow maps to an insert: at least one end a module, or the two built-in ends of a master run. */
 export function insertFor(
   sourceId: string,
   targetId: string,
@@ -214,7 +214,9 @@ export function insertFor(
   const s = byId.get(sourceId);
   const t = byId.get(targetId);
   if (!s || !t) return null;
-  if (s.kind !== "module" && t.kind !== "module") return null;
+  // Sink to sink is `MIX → OUT`, the empty master run — the one line every template writes to be dropped on.
+  const masterRun = s.kind === "sink" && t.kind === "sink";
+  if (s.kind !== "module" && t.kind !== "module" && !masterRun) return null;
   const name = (n: GraphNode) =>
     n.kind === "module" ? (n.module ?? n.label) : n.label;
   return { before: name(s), after: name(t) };

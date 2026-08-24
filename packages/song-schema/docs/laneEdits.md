@@ -51,6 +51,18 @@ becomes the arrangement, which is what makes it reversible by running it again �
 looking at another take. An `n` nothing answers to throws rather than writing, so a stale menu cannot
 empty a lane.
 
+Both take a list of INDICES into what the lane is playing — the placements to set aside, and the
+ones to leave alone — because a take holds what a pass DISPLACED and not the whole lane. Neither
+decides that list: overlap needs how long a placement sounds, which is its material's window times
+`loop`, and nothing in this file may open a material. The caller reads it off the compiled document
+(`packages/song/docs/takes.md`). Absent, `pushEventsToTake` moves everything and `selectTake` keeps
+nothing, which is the whole-lane exchange both did before.
+
+An index out of range is dropped rather than refused: the list is a reading of a document compiled a
+moment ago, and a stale entry should cost that one placement, not the edit. `pushEventsToTake`
+answers the text unchanged when every index was stale — the same answer it gives for an empty lane,
+and it means the same thing.
+
 `removeTake` takes the events it held with it, a take being where they live, and the last one leaves
 no empty list behind: absent is how a lane with no takes reads. `removeAllTakes` is deliberately one
 act rather than a loop of `removeTake` at the call site — "keep this one" is a decision about the

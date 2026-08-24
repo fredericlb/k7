@@ -166,8 +166,8 @@ surface says "event" in its prose (`event resize`, `event remove`, the timeline'
 the file says it too.
 
 `takes:` are kept beside them: each is another list of placements this lane could be playing.
-Recording over what a lane holds does not throw it away — the events that were there move into a
-take, and the new recording becomes `events:`. `track take select <n>` swaps the two back, so the
+Recording over what a lane holds does not throw it away — the events the pass LANDED ON move into
+a take, and the new recording joins `events:`. `track take select <n>` swaps them back, so the
 arrangement on the lane and the takes under it are the same kind of thing looked at from either
 side. A take is unnamed in the ordinary case, known by its number the way an alternative is; a name
 is there for the day one is worth keeping by name. Both `events:` and `takes:` are in `MODULE_FIELDS`,

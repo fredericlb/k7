@@ -1,8 +1,9 @@
 # Takes
 
-A **take** is what a lane was playing, set aside. Record over an event, or record round a loop,
-and the events that were on the lane move into a take rather than being overwritten or stacked
-under the new pass.
+A **take** is what a pass DISPLACED, set aside. Record over an event, or record round a loop,
+and the events the new pass lands on move into a take rather than being overwritten or stacked
+under it. What the pass did not land on keeps playing: a take of bars 3–7 is not a reason to
+stop playing bar 9.
 
 ```yaml
 # nodes/gtr.yaml
@@ -43,12 +44,22 @@ them costs nothing at all.
 ## The swap is what makes a take free
 
 `track take select <track> <n>` does not *load* take `n`. It **exchanges** it with what the lane
-is playing: the arrangement becomes take `n`, and take `n` becomes the arrangement.
+is playing: what take `n` lands ON becomes take `n`, and take `n` goes onto the lane.
+
+Only what it lands on. A clip the take does not cover keeps playing, beside it — the same rule
+recording follows, and for the same reason: take 1 is a second pass at bars 3–7, not a second
+version of the whole song, so listening to it should not silence bar 9. What stays keeps its
+place in the file and the take's own placements land after it.
 
 That is what makes listening to another pass a reversible act — nothing is lost, no take is
 consumed, and running the same command again puts everything back. A "load" verb would have had
 to decide what happens to the arrangement it displaced, and every answer to that is a way to lose
 a take by accident.
+
+Reversible **because the two passes cover the same ground**, which is what recording produces. A
+hand-written take whose clips sit where nothing plays displaces nothing, so selecting it leaves
+the take empty and there is nothing to swap back; an EMPTY take is read as covering everything
+instead, which is the one case where the whole lane is still exchanged.
 
 The numbering is stable through it, because a swap moves contents and not entries: take 2 is
 still take 2 after you have listened to it.
@@ -77,33 +88,44 @@ carry its own, exactly as it carries its own `events:`.
 
 That is not incidental. Two alternatives are two ways of playing the part, and a pass recorded
 against one is not a pass of the other. The writers in `yaml/trackFile.ts` follow the same rule
-every other placement edit follows (`clipsToEdit`): the edit lands on the **selected** set, so
+every other placement edit follows (`eventsToEdit`): the edit lands on the **selected** set, so
 recording over a lane running `loud` sets `loud`'s events aside and leaves the module's own list
 untouched.
 
 ## What recording decides, and how
 
-`addTakeToTrack` makes a take when the finished pass **overlaps** something the lane is playing.
+`addTakeToTrack` makes a take of the events the finished pass **overlaps**, and of those only.
 The overlap is read off the compiled document, so what counts is what the lane actually sounds —
-windows and loops folded in — rather than what its file happens to say.
+windows and loops folded in — rather than what its file happens to say. `splitUnder` does that
+arithmetic once, in `trackTakes.ts`, and both recording and `select` call it.
 
-Two consequences worth knowing:
+Three consequences worth knowing:
 
 - **Merely touching is not overlapping.** A take that starts exactly where the last event ended
   follows it; it does not record over it.
 - **A loop makes one take per pass**, with no loop-specific code. Pass 2 finds pass 1's clip
   under it and sets it aside; pass 3 finds pass 2's. The caller recompiles between takes
   (`engineLink.ts` invalidates the cached doc), which is what keeps that true.
+- **A clip the compiler could not measure counts as its start alone** — `length: 0` is what a
+  clip file with no `to` compiles to, and a point is the only honest extent for it. It is set
+  aside when the pass covers where it begins.
 
-An empty lane makes no take: recording onto nothing is not recording over anything, and an empty
-take is a row that says nothing.
+A lane the pass lands on nothing of makes no take: recording beside something is not recording
+over it, and an empty take is a row that says nothing.
+
+Which placements the writers move is decided **outside** them. `pushEventsToTake` and
+`selectTake` take a list of indices into what the lane is playing, and the lane-level wrappers
+turn a list of START POSITIONS in beats into those indices (`findPlacementAt`). The file has no
+lengths in it — how long a placement sounds is its material's window times `loop` — so only a
+caller holding the compiled document can answer "what is under this".
 
 ## The files stay hand-written
 
-All three writers (`pushClipsToTake`, `selectTake`, `removeTake`) **move YAML nodes** rather than
+All three writers (`pushEventsToTake`, `selectTake`, `removeTake`) **move YAML nodes** rather than
 rebuilding values. A placement carries its own comments and its own spelling, and it should read
 the same after being set aside as it did before — a take is meant to be a record of what you
-played, and a record that has been reformatted is a weaker one.
+played, and a record that has been reformatted is a weaker one. Setting aside a SUBSET changed
+nothing there: the nodes picked out are spliced from one seq and pushed onto the other.
 
 `removeTake` deletes the `takes:` key with the last take, rather than leaving `takes: []`.
 Absent is how a lane with no takes reads.
@@ -114,7 +136,7 @@ Absent is how a lane with no takes reads.
 |---|---|
 | the field | `yaml/moduleSchema.ts` (`MODULE_FIELDS`) |
 | the three writers | `yaml/trackFile.ts` |
-| the lane-level wrappers | `trackMix.ts` |
+| the lane-level wrappers, and `splitUnder` | `trackTakes.ts` |
 | the compile | `nodeProject.ts` → `TakeDoc` (`@studio/engine-protocol/project`) |
 | the strip | `project.ts`'s `withoutTakes`, applied in `engine-client` |
 | the wire to the browser | `WebTake` in `@studio/web-protocol`, filled by `workspace.ts` |

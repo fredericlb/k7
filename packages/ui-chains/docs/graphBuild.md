@@ -500,6 +500,12 @@ that both ends belong to the same CHAIN. `chains.yaml` states its edges outright
 the address; a same-chain rule would quietly refuse a track feeding a bus or a split's branch,
 which are ordinary arrows.
 
+It offers one **between two SINKS** as well, which is the wire above: `MIX → OUT`, the master run
+with nothing on it yet. A module-at-one-end rule refused exactly the line every template writes for
+something to be dropped on (@studio/song's docs/masterChain.md), leaving the one place in the graph
+a master effect belongs as the one place the `+` never appeared. Two TRACKS are still refused, and
+that stays a defence rather than a rule anybody meets — two lanes never share an arrow.
+
 A project that declares no master run at all has its cables into the sum skipped just the same,
 so the pair is drawn anyway whenever something routes there.
 Not an invention: with no master chain the two ARE one wire. A host that asked for no device card

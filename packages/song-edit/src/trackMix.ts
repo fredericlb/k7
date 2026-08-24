@@ -22,14 +22,9 @@ import {
   movePlacementAt,
   placementAt,
   placementValues,
-  pushEventsToTake,
-  removeAllTakes,
   removePlacementAt,
-  removeTake,
-  selectTake,
   setPlacementField,
   setTrackField,
-  takeValues,
 } from "@studio/song-schema/yaml/trackFile";
 import { type MaterialKind, resizeToWindow } from "./clipResize";
 
@@ -480,64 +475,4 @@ export function removeTrackPlacement(
     "remove a clip",
   );
   return removed;
-}
-
-// --- takes: the lane-level face of trackFile's three writers, docs/trackMix.md -------------
-
-/** Set aside what lane `id` is playing, as a new take — false when there was nothing to set aside. */
-export function pushTrackClipsToTake(
-  dir: string,
-  id: string,
-  name?: string,
-): boolean {
-  let pushed = false;
-  editTrackStruct(
-    dir,
-    id,
-    (text) => {
-      const next = pushEventsToTake(text, name);
-      pushed = next !== text;
-      return next;
-    },
-    `set aside track "${id}"'s clips`,
-  );
-  return pushed;
-}
-
-/** Swap take `n` (1-based) with what lane `id` is playing. Throws if there is no take `n`. */
-export function selectTrackTake(dir: string, id: string, n: number): string {
-  return editTrackStruct(
-    dir,
-    id,
-    (text) => selectTake(text, n),
-    `select take ${n} on track "${id}"`,
-  );
-}
-
-/** Delete take `n` (1-based) from lane `id`, and the clips it held. Throws if there is none. */
-export function removeTrackTake(dir: string, id: string, n: number): string {
-  return editTrackStruct(
-    dir,
-    id,
-    (text) => removeTake(text, n),
-    `delete take ${n} on track "${id}"`,
-  );
-}
-
-/** Keep what lane `id` is playing and drop every take. Returns how many went. */
-export function keepTrackTake(dir: string, id: string): number {
-  const had = trackTakes(dir, id).length;
-  if (had)
-    editTrackStruct(dir, id, removeAllTakes, `keep track "${id}"'s take`);
-  return had;
-}
-
-/** The takes lane `id` holds, in order — for a caller counting them or listing them. */
-export function trackTakes(
-  dir: string,
-  id: string,
-): { name?: string; events: unknown[] }[] {
-  const found = entityFileFor(join(dir, "nodes"), "nodes", id);
-  if (!found) return [];
-  return takeValues(readFileSync(found.path, "utf8"));
 }

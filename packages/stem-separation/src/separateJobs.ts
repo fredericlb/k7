@@ -15,6 +15,9 @@ const TIMEOUT_MS = 60 * 60 * 1000;
 
 const jobs = new Map<string, SeparateJob & { at: number; worker?: Worker }>();
 
+/** A provider that lost its device once, for this service's lifetime — see docs/stemSplit.md. */
+let lost: string | null = null;
+
 /** Keyed by the WORK — who, which file, which model — and not by a workspace; docs/stemSplit.md. */
 function idFor(userEmail: string, source: string, model: string): string {
   return createHash("sha256")
@@ -68,7 +71,13 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
   const worker = new Worker(
     fileURLToPath(new URL("./separateWorker.ts", import.meta.url)),
     {
-      workerData: { source, model, outDir },
+      // A song that reset the GPU makes the next one start on the CPU, rather than resetting it again.
+      workerData: {
+        source,
+        model,
+        outDir,
+        providers: lost ? ["cpu"] : undefined,
+      },
     },
   );
   job.worker = worker;
@@ -97,6 +106,8 @@ export function startSeparate(opts: StartSeparate): SeparateJob {
         job.lines.push(p.line);
         if (job.lines.length > MAX_LINES) job.lines.shift();
       }
+    } else if (m.lostProvider) {
+      lost = String(m.lostProvider);
     } else if (m.done) {
       clearTimeout(timer);
       finish({ files: m.done as string[], phase: "done", percent: 100 });

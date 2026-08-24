@@ -6,10 +6,8 @@
 import { existsSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, extname, join } from "node:path";
 import type { ProjectDoc } from "@studio/song/project";
-import {
-  editTrackStruct,
-  pushTrackClipsToTake,
-} from "@studio/song-edit/trackMix";
+import { editTrackStruct } from "@studio/song-edit/trackMix";
+import { pushTrackClipsToTake, splitUnder } from "@studio/song-edit/trackTakes";
 import { beatsToPosition } from "@studio/song-schema/timecode";
 import { addPlacement } from "@studio/song-schema/yaml/trackFile";
 
@@ -48,22 +46,16 @@ function writeClipDecl(
   return path;
 }
 
-// A hair under a tick: two events that merely touch, end to start, are not on top of each other.
-const TOUCHING = 1e-6;
-
-/** Does anything the lane is playing sit under this take's span? What decides a take is made. */
-function overlaps(
+/** Where the clips this take records OVER start, in beats — what the new take holds; docs/rendering.md. */
+function displaced(
   doc: ProjectDoc,
   take: RecordedTake,
   beats: (s: number) => number,
-): boolean {
+): number[] {
   const track = doc.tracks.find((t) => t.id === take.track);
-  if (!track) return false;
-  const from = beats(take.start);
-  const to = from + beats(take.length);
-  return track.clips.some(
-    (c) => c.start < to - TOUCHING && c.start + c.length > from + TOUCHING,
-  );
+  if (!track) return [];
+  const span = { start: beats(take.start), length: beats(take.length) };
+  return splitUnder(track.clips, [span]).under;
 }
 
 /** Declare a finished take and place it on its track; throws if its file is not where it says. */
@@ -93,8 +85,14 @@ export function addTakeToTrack(
 
   writeClipDecl(dir, id, wavName, window);
 
-  // Recording OVER something sets it aside rather than stacking — see docs/rendering.md.
-  if (overlaps(doc, take, beats)) pushTrackClipsToTake(dir, take.track);
+  // Recording OVER something sets THAT aside rather than stacking — see docs/rendering.md.
+  const under = displaced(doc, take, beats);
+  if (under.length)
+    pushTrackClipsToTake(dir, take.track, undefined, {
+      beats: under,
+      num: doc.timeSigNumerator,
+      den: doc.timeSigDenominator,
+    });
 
   // Declare the clip BEFORE placing it: a placement naming no clip fails the compile, so the order keeps it loadable.
   editTrackStruct(

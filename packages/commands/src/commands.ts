@@ -104,20 +104,23 @@ import {
 import {
   addTrackPlacement,
   addTrackPlacements,
-  keepTrackTake,
   movePlacementToTrack,
   moveTrackPlacement,
   moveTrackPlacementsInRange,
   removeTrackPlacement,
-  removeTrackTake,
   resizeTrackPlacement,
-  selectTrackTake,
   setTrackPlacementDisabled,
   setTrackPlacementFade,
   setTrackPlacementWarp,
   setTrackPlacementWindow,
-  trackTakes,
 } from "@studio/song-edit/trackMix";
+import {
+  keepTrackTake,
+  removeTrackTake,
+  selectTrackTake,
+  splitUnder,
+  trackTakes,
+} from "@studio/song-edit/trackTakes";
 import { builtinParamsFor } from "@studio/song-schema/builtinParams";
 import { renamedInstance } from "@studio/song-schema/instanceName";
 import {
@@ -343,23 +346,38 @@ function writeMetronomeLevel(songPath: string, level: number): void {
   setFileValue(join(songPath, "settings.yaml"), ["metronome_level"], level);
 }
 
-/** Why `before → after` is not an arrow in graph.yaml, or null when it is; read off the SEGMENTS, not the chains. */
-function arrowError(
+/** The pair the graph DRAWS whether or not graph.yaml states it: a sum straight to its device — packages/song/docs/masterChain.md. */
+const isMasterRun = (before: string, after: string): boolean =>
+  (before === MIX_NODE && after === OUT_NODE) ||
+  (before === RENDER_NODE && after === VIDEO_OUT_NODE);
+
+/** How `before → after` stands in graph.yaml: an arrow, a line to WRITE first, or why it is neither. */
+function arrowState(
   songPath: string,
   before: string,
   after: string,
-): string | null {
+): { ok: true; write: boolean } | { ok: false; error: string } {
+  // Read off the SEGMENTS, not the chains — those are derived by following exactly these arrows.
   const file = loadChains(songPath, loadProjectRoot(songPath, true), true) as
     | GraphFile
     | undefined;
   const dests = file?.modules?.[before];
+  // A sum feeding nothing yet: the wire to its device is on screen, so it is a wire to splice into.
+  if (!dests?.length && isMasterRun(before, after))
+    return { ok: true, write: true };
   if (!dests)
-    return `no node "${before}" in graph.yaml (nodes: ${
-      Object.keys(file?.modules ?? {}).join(", ") || "none"
-    })`;
+    return {
+      ok: false,
+      error: `no node "${before}" in graph.yaml (nodes: ${
+        Object.keys(file?.modules ?? {}).join(", ") || "none"
+      })`,
+    };
   if (!dests.includes(after))
-    return `'${before}' does not feed '${after}' (it feeds: ${dests.join(", ") || "nothing"})`;
-  return null;
+    return {
+      ok: false,
+      error: `'${before}' does not feed '${after}' (it feeds: ${dests.join(", ") || "nothing"})`,
+    };
+  return { ok: true, write: false };
 }
 
 /** Does the signal ARRIVING at `node` come off a live interface input? Walks UPSTREAM — docs/verbs.md. */
@@ -405,6 +423,21 @@ function takeSpawnAt(parts: string[]): { x: number; y: number } | null {
   if (!m) return null;
   parts.pop();
   return { x: Number(m[1]), y: Number(m[2]) };
+}
+
+/** Where a node WIRED TO NOTHING is born when no cursor said: above the origin, clear of the first lane; docs/verbs.md. */
+const ORPHAN_AT = { x: 0, y: -30 };
+
+/** …and where a SPLICED one is: halfway between the two ends, which is where its cable ran; null when either is unpinned. */
+function midOfArrow(
+  positions: Record<string, { x: number; y: number }> | undefined,
+  before: string,
+  after: string,
+): { x: number; y: number } | null {
+  const a = positions?.[before.split("#")[0]];
+  const b = positions?.[after.split("#")[0]];
+  if (!a || !b) return null;
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
 // `playlistFile` lives in verbs/shared.ts, so the split-out verb files import no cycle — docs/verbs.md.
@@ -658,7 +691,7 @@ function takeTarget(
   a: string,
   h: CommandHost,
   verb: string,
-): { track: { id: string }; n: number } | null {
+): { track: TrackDoc; n: number } | null {
   const [idArg, nArg] = a.trim().split(/\s+/).filter(Boolean);
   if (!idArg || nArg === undefined) {
     h.refuse([`usage: track take ${verb} <track> <n>`]);
@@ -1606,10 +1639,20 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
   "track.take.select": async (a, h) => {
     const t = takeTarget(a, h, "select");
     if (!t) return;
+    const p = h.project();
+    // Only what take `n` lands ON is exchanged; the rest of the lane keeps playing.
+    const held = t.track.takes?.[t.n - 1]?.clips ?? [];
+    // An empty take covers nothing, so it takes the whole lane — docs/takes.md.
+    const kept = held.length ? splitUnder(t.track.clips ?? [], held).clear : [];
     try {
-      selectTrackTake(h.songPath, t.track.id, t.n);
+      selectTrackTake(h.songPath, t.track.id, t.n, {
+        beats: kept,
+        num: p.timeSigNumerator,
+        den: p.timeSigDenominator,
+      });
       h.log([
-        `${t.track.id}: playing take ${t.n} — what was there is now take ${t.n}`,
+        `${t.track.id}: playing take ${t.n} — what it lands on is now take ${t.n}` +
+          (kept.length ? `, ${kept.length} clip(s) kept beside it` : ""),
       ]);
       await h.reload();
     } catch (e) {
@@ -3101,7 +3144,8 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
     try {
       const rel = createNode(h.songPath, category, module, node);
       placeChainNode(h.songPath, node);
-      if (at) setChainNodePosition(h.songPath, node, at);
+      // No cursor behind the line: a fresh layout would drop something wired to nothing anywhere, so this verb answers instead.
+      setChainNodePosition(h.songPath, node, at ?? ORPHAN_AT);
       h.log([`created ${rel} — in the graph, wired to nothing yet`]);
       await h.reload();
     } catch (e) {
@@ -3240,9 +3284,9 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       h.refuse([`node insert: ${(e as Error).message}`]);
       return;
     }
-    const arrow = arrowError(h.songPath, before, after);
-    if (arrow) {
-      h.refuse([arrow]);
+    const arrow = arrowState(h.songPath, before, after);
+    if (!arrow.ok) {
+      h.refuse([arrow.error]);
       return;
     }
     // A real node: a shared module is named by its ref and lives in moduleRefs until a chain uses it.
@@ -3263,9 +3307,12 @@ export const SID_HANDLERS: Record<string, SidHandler> = {
       return;
     }
     try {
+      // The master run drawn but never written: state the line, then splice into it — one command, as the `+` promises.
+      if (arrow.write) connectChainNodes(h.songPath, before, after);
       insertChainStep(h.songPath, before, after, node);
-      // Born where the `+` was clicked, same rule as `node new`.
-      if (at) setChainNodePosition(h.songPath, node, at);
+      // Born where the `+` was clicked; from a typed line, on the cable it was spliced into — the same place, said twice.
+      const born = at ?? midOfArrow(g.positions, before, after);
+      if (born) setChainNodePosition(h.songPath, node, born);
       h.log([`inserted ${node} between ${before} and ${after}`]);
       await h.reload();
     } catch (e) {

@@ -44,6 +44,20 @@ function song(): string {
   return d;
 }
 
+/** …and one holding a clip the takes are nowhere near. */
+const LANE_BESIDE = `extends: "@studio/track"
+events:
+  - { ref: pass3, start: "3:1" }
+  - { ref: verse, start: "9:1" }
+takes:
+  - events:
+      - { ref: pass1, start: "3:1" }
+`;
+
+/** A clip as the compiler reports it — only the two numbers the overlap is read off. */
+const clip = (name: string, start: number, length: number) =>
+  ({ id: `${name}@${start}`, name, start, length }) as never;
+
 const host = () =>
   ({
     songPath: dir,
@@ -58,6 +72,26 @@ const host = () =>
     reload: () => {
       reloaded++;
     },
+  }) as never;
+
+/** The same host, but reporting LANE_BESIDE the way a compile would — with spans and a take. */
+const spannedHost = () =>
+  ({
+    ...(host() as object),
+    project: () => ({
+      timeSigNumerator: 4,
+      timeSigDenominator: 4,
+      tracks: [
+        {
+          id: "gtr",
+          name: "gtr",
+          plugins: [],
+          clips: [clip("pass3", 8, 16), clip("verse", 32, 8)],
+          takes: [{ clips: [clip("pass1", 8, 16)] }],
+        } as unknown as TrackDoc,
+      ],
+      groups: [],
+    }),
   }) as never;
 
 const lane = () =>
@@ -97,6 +131,16 @@ describe("track take select", () => {
     expect(logs.join(" ")).toContain("no take 3");
     expect(readFileSync(join(dir, "nodes", "gtr.yaml"), "utf8")).toBe(before);
     expect(reloaded).toBe(0);
+  });
+
+  it("keeps what the take does not land on, and exchanges the rest", async () => {
+    // 4/4: bar 3 is beat 8, bar 9 is beat 32. `pass1` covers bars 3–7 and nothing else.
+    writeFileSync(join(dir, "nodes", "gtr.yaml"), LANE_BESIDE, "utf8");
+    await runCommand("track take select gtr 1", spannedHost(), "cli");
+    const m = lane();
+    expect(refs(m.events)).toEqual(["verse", "pass1"]);
+    expect(refs(m.takes[0].events)).toEqual(["pass3"]);
+    expect(logs.join(" ")).toContain("1 clip(s) kept beside it");
   });
 
   it("says which mistake it was: the track, the number, or the missing argument", async () => {

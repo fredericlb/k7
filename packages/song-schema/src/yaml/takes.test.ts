@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { ModuleSchema } from "./moduleSchema";
 import {
+  addPlacement,
   pushEventsToTake,
   removeAllTakes,
   removeTake,
@@ -58,6 +59,36 @@ describe("pushEventsToTake", () => {
   });
 });
 
+// A take holds what a pass DISPLACED, so the caller names the placements — docs/laneEdits.md.
+describe("pushEventsToTake, narrowed", () => {
+  const refs = (list: { ref: string }[] | undefined) =>
+    (list ?? []).map((c) => c.ref);
+
+  it("sets aside ONLY the placements named, the rest playing on", () => {
+    const m = parsed(pushEventsToTake(LANE, undefined, [1]));
+    expect(refs(m.events)).toEqual(["gtr_1"]);
+    expect(m.takes[0].events).toEqual([{ ref: "gtr_2", start: "5:1" }]);
+    expect(valid(pushEventsToTake(LANE, undefined, [1]))).toBe(true);
+  });
+
+  it("keeps a set-aside placement on its own line, as the file had it", () => {
+    expect(pushEventsToTake(LANE, undefined, [1])).toContain(
+      '      - { ref: gtr_2, start: "5:1" }',
+    );
+  });
+
+  it("sets them aside in the order the lane played them", () => {
+    const m = parsed(pushEventsToTake(LANE, undefined, [1, 0]));
+    expect(refs(m.takes[0].events)).toEqual(["gtr_1", "gtr_2"]);
+    expect(m.events).toEqual([]);
+  });
+
+  it("makes NO take when nothing was displaced, nor when the index is not there", () => {
+    expect(pushEventsToTake(LANE, undefined, [])).toBe(LANE);
+    expect(pushEventsToTake(LANE, undefined, [7])).toBe(LANE);
+  });
+});
+
 describe("selectTake", () => {
   it("SWAPS the take with what the lane plays, so it is reversible", () => {
     const staged = pushEventsToTake(LANE).replace(
@@ -84,6 +115,24 @@ describe("selectTake", () => {
     const staged = pushEventsToTake(LANE);
     expect(() => selectTake(staged, 2)).toThrow(/no take/);
     expect(() => selectTake(staged, 0)).toThrow(/no take/);
+  });
+
+  it("leaves `keep` on the lane, and exchanges only the rest", () => {
+    // gtr_1 is elsewhere in the song; gtr_3 is the pass that landed on gtr_2's ground.
+    const staged = pushEventsToTake(LANE, undefined, [1]);
+    const withPass = addPlacement(staged, { ref: "gtr_3", start: "5:1" });
+    const after = selectTake(withPass, 1, [0]);
+    const m = parsed(after);
+    expect(m.events.map((c: { ref: string }) => c.ref)).toEqual([
+      "gtr_1",
+      "gtr_2",
+    ]);
+    expect(m.takes[0].events.map((c: { ref: string }) => c.ref)).toEqual([
+      "gtr_3",
+    ]);
+    // Still its own undo, because the two passes cover the same ground.
+    expect(selectTake(after, 1, [0])).toBe(withPass);
+    expect(valid(after)).toBe(true);
   });
 });
 

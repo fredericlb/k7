@@ -200,9 +200,18 @@ both ≤ 0 and both 0 for a graph nobody dragged), and the fit frames that box.
 point into the verb itself — an optional trailing `x,y` on `node new` and `node insert` — and the
 handler pins the node there in the same undo step. On the bare canvas that is the whole of it:
 `node new` both creates and places, so the shell has nothing to run after it unless the pick
-carried a point, in which case it sends one `graph move`. The comma spelling is what makes the token unmistakable
-for a ref or a node name, so a typed line without it still works and still asks the layout;
-dagre is the fallback for a node nobody gave a birthplace, never the boss of one somebody did.
+carried a point, in which case it sends one `graph move`. The comma spelling is what makes the
+token unmistakable for a ref or a node name, and the point is passed through UNCLAMPED — the
+paragraph above is the reason, and a `Math.max(0, …)` on the way out of the shell was quietly
+undoing it for every click above the first lane.
+
+**A typed line has no cursor, and the verb answers for it** rather than handing the node to
+dagre: spliced, it is born halfway along the cable it was spliced into; wired to nothing, at
+`0,-30`, just above the origin. Both are in [verbs.md](../../../../packages/commands/docs/verbs.md),
+and the reason is that a fresh layout has least to say about exactly these two cases — an
+unconnected node has no run to be ranked within, so it lands wherever the pass happens to put it
+and the person who typed the line has to go looking. dagre is still the fallback for anything
+neither the cursor nor the arrow can answer, never the boss of a node somebody placed.
 
 **An edit never reorganizes the picture.** Re-ranking the whole graph on the reload after a
 cable is pulled makes every card jump, which reads as the delete scrambling the view. Both hosts

@@ -218,6 +218,17 @@ describe("insertFor", () => {
     ).toEqual({ before: "a", after: "b" });
   });
 
+  it("offers one on the empty MASTER RUN, whose two ends are both sinks", () => {
+    // `MIX: [ OUT ]` is written by every template to be dropped on — packages/song/docs/masterChain.md.
+    const sink = (name: string): GraphNode => ({
+      ...node(`snk:${name}`, "sink"),
+      label: name,
+    });
+    expect(
+      insertFor(MIX_NODE_ID, "snk:OUT", byId(sink("MIX"), sink("OUT"))),
+    ).toEqual({ before: "MIX", after: "OUT" });
+  });
+
   it("refuses between two non-modules", () => {
     // Two tracks never have an arrow, so a `+` there would address nothing.
     expect(

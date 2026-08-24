@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
+import { chooseDmlAdapter } from "./dmlAdapters";
 import {
   CHANNELS,
   deinterleave,
@@ -23,6 +24,7 @@ export interface SeparateInput {
   source: string; // absolute path to the mix
   model: string; // absolute path to the .onnx
   outDir: string; // where the four stems are written
+  providers?: string[]; // execution providers to try, in order; the platform's own when absent
 }
 
 export interface WorkerProgress {
@@ -88,11 +90,12 @@ const ORT_MODULE = "onnxruntime-node";
 interface OrtTensor {
   data: unknown;
 }
+type OrtProvider = string | { name: string; deviceId?: number };
 interface Ort {
   InferenceSession: {
     create(
       path: string,
-      opts: { executionProviders: string[] },
+      opts: { executionProviders: OrtProvider[] },
     ): Promise<{
       run(feeds: Record<string, OrtTensor>): Promise<Record<string, OrtTensor>>;
     }>;
@@ -100,10 +103,15 @@ interface Ort {
   Tensor: new (type: string, data: Float32Array, dims: number[]) => OrtTensor;
 }
 
+/** CPU last and always: it is the one that cannot be unavailable, and the only one on a Mac. */
+export const defaultProviders = (): string[] =>
+  process.platform === "win32" ? ["dml", "cpu"] : ["cpu"];
+
 /** The session, on the first execution provider that builds, and which one won is LOGGED — docs/stemSplit.md. */
 async function session(
   model: string,
-): Promise<{ run: RunFn; provider: string }> {
+  wanted: string[],
+): Promise<{ run: RunFn; provider: string; adapter: string }> {
   let ort: Ort;
   try {
     // Imported by NAME through a variable, so the native package need not resolve and esbuild leaves it.
@@ -114,16 +122,31 @@ async function session(
         `(${(e as Error).message})`,
     );
   }
-  // CPU last and always: it is the one that cannot be unavailable.
-  const wanted = process.platform === "win32" ? ["dml", "cpu"] : ["cpu"];
   const failures: string[] = [];
   for (const ep of wanted) {
+    // An integrated GPU is not asked at all, and the discrete one is NAMED — docs/stemSplit.md.
+    let asked: OrtProvider = ep;
+    let adapter = "";
+    if (ep === "dml") {
+      const choice = chooseDmlAdapter();
+      if (choice.kind === "integrated-only") {
+        failures.push(
+          `${ep}: ${choice.name} is integrated, so this machine has no GPU for it`,
+        );
+        continue;
+      }
+      if (choice.kind === "adapter") {
+        asked = { name: "dml", deviceId: choice.deviceId };
+        adapter = ` (${choice.name}, deviceId ${choice.deviceId})`;
+      }
+    }
     try {
       const s = await ort.InferenceSession.create(model, {
-        executionProviders: [ep],
+        executionProviders: [asked],
       });
       return {
         provider: ep,
+        adapter,
         run: async (mix) => {
           const out = await s.run({
             mix: new ort.Tensor("float32", mix, [1, CHANNELS, SEGMENT]),
@@ -158,6 +181,7 @@ export async function separate({
   source,
   model,
   outDir,
+  providers,
 }: SeparateInput): Promise<string[]> {
   say({ phase: "decoding", percent: null });
   const chans = await decode(source);
@@ -165,17 +189,41 @@ export async function separate({
   if (!length) throw new Error(`${source} decoded to no audio`);
 
   say({ phase: "loading model", percent: null });
-  const { run, provider } = await session(model);
+  let { run, provider, adapter } = await session(
+    model,
+    providers?.length ? providers : defaultProviders(),
+  );
   say({
     phase: "separating",
     percent: 0,
-    line: `execution provider: ${provider}`,
+    line: `execution provider: ${provider}${adapter}`,
   });
 
   const starts = windowStarts(length);
   const oa = new OverlapAdd(length);
+  let retried = false;
   for (const [i, at] of starts.entries()) {
-    const stems = await run(windowOf(chans, at));
+    let stems: Float32Array | null = null;
+    while (stems === null) {
+      try {
+        stems = await run(windowOf(chans, at));
+      } catch (e) {
+        if (provider === "cpu") throw e;
+        // A device lost kills the SESSION rather than the GPU, so the first answer is a fresh one — docs/stemSplit.md.
+        const next = retried ? ["cpu"] : [provider];
+        if (retried) parentPort?.postMessage({ lostProvider: provider });
+        say({
+          phase: "separating",
+          percent: Math.round((i / starts.length) * 100),
+          line:
+            `${provider} failed at window ${i + 1}/${starts.length}, ` +
+            `${retried ? "finishing on cpu" : "retrying on a fresh session"} — ` +
+            (e as Error).message.split("\n")[0],
+        });
+        retried = true;
+        ({ run, provider, adapter } = await session(model, next));
+      }
+    }
     // `[1, 4, 2, SEGMENT]`, flat, with the stem index outermost — STEMS is that order, not a guess.
     for (let s = 0; s < STEMS.length; s++)
       for (let c = 0; c < CHANNELS; c++) {

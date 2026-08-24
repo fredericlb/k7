@@ -98,6 +98,12 @@ ailleurs :
   pas ;
 - il y a un **endroit où déposer un module master**, écrit d'avance, plutôt qu'une ligne à deviner.
 
+C'est un endroit au sens propre : le `+` du graphe est offert **sur ce fil-là**, entre les deux
+cartes intégrées (`insertFor`, `packages/ui-chains/docs/graphBuild.md`), et le clic écrit
+`node insert MIX OUT <nœud>`. Un projet qui ne porte pas la ligne voit le fil quand même —
+le graphe le dessine dès que quelque chose atteint la somme — et le verbe l'écrit alors avant
+d'y insérer, pour que le `+` tienne sa promesse d'une seule commande.
+
 Les quatre gabarits l'écrivent (`scaffold.ts`, `scaffoldSet.ts`, `scaffoldBench.ts`, et
 `chainToBench` pour une chaîne ouverte sur le banc — qui la retire au retour, puisqu'elle est le
 mobilier du PROJET et non de la chaîne éditée).

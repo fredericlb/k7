@@ -339,6 +339,10 @@ plays reaches the engine. The swap loses nothing and is its own undo, so an audi
 command and no material. The playhead is sent to where that take begins, which is what makes the
 column's ▶ mean "hear this one from the top".
 
+The lane does not go quiet outside the take: only the clips it lands on are exchanged, so the
+rest of the part still plays under the pass you are auditioning
+(`packages/song/docs/takes.md`).
+
 Two consequences worth stating:
 
 - **the row you are looking at is the row you would hear.** There is no second notion of a
@@ -1346,10 +1350,10 @@ command, and the reason is latency: `transport toggle` is a CLI verb, so it trav
 service and back, while the button already holds an open socket to the engine. The command
 exists and does the same thing — it is the button that takes the short way.
 
-Two of the Playlists panel's buttons take a road of their own for a different reason each, and
-both are in [playlists.md](playlists.md): *Ajouter un morceau* writes into the OPEN BUFFER rather
-than the file, because a command writing the file underneath a modified buffer would race the
-autosave; and *Séparer les stems* drives pl8's `POST /api/stems` once per line rather than dispatching
+Two of the Playlists panel's gestures take a road of their own for a different reason each, and
+both are in [playlists.md](playlists.md): adding a song from the SEARCH writes into the OPEN
+BUFFER rather than the file, because a command writing the file underneath a modified buffer
+would race the autosave; and *Séparer les stems* drives pl8's `POST /api/stems` once per line rather than dispatching
 `playlist stems`, because that verb reports its lines when it is finished and finishing takes an
 hour. The rule this bends is worth stating exactly: what must be reachable from the bar is the
 ACT, and it is — the verb does the same work headless. What the button adds is a bar you can

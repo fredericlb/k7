@@ -570,10 +570,34 @@ graph, and `modules: { x: [] }` is what says so. Unnamed, it gets `<module>_<n>`
 an arrow DOES know one and spells the name out (the frontend's `nodeInsert.ts`); this is the bare
 form, for a line somebody typed.
 
+**Where it lands is answered here too, never left to the layout.** With the trailing `x,y` — the
+click, which the graph's create flows carry through unclamped — it is pinned there. Without one it
+is pinned at `0,-30`, just above the origin: this node is wired to nothing, which is precisely the
+case a fresh dagre pass has least to say about, so it goes wherever that pass happens to put it and
+somebody has to go looking for what they just made. A fixed spot is findable, and one drag moves it.
+The cost, stated: type three of these in a row and they stack on each other, which is visible and
+fixable rather than quiet.
+
 `node insert <before> <after> <node> [x,y]` splices a node that EXISTS into an arrow. Creating is
 `module new`'s and `node new`'s; this WIRES, which is what keeps the two acts tellable apart. The
 arrow is validated from `graph.yaml` alone, and a COLD module is refused here rather than halfway
 through: it works only on audio already on disk, so where it sits is the question.
+
+Its birthplace follows the same rule as `node new`, with a better answer available: the trailing
+`x,y` when the `+` sent one, else the **midpoint of the two ends' pins**, which is where the cable
+it was spliced into ran. That works because the drawing writes its own pins down the first time it
+lays a graph out (`graph pin`, above), so both ends have one by the time anybody splices; a project
+no browser has ever drawn has neither, and there the node simply keeps whatever pin `node new` gave
+it. It does NOT re-space the neighbours — two cards already touching leave a midpoint that overlaps
+them both, and `graph organize` is the way out, the same as for any other pin.
+
+One arrow is accepted **before** the file states it: `MIX → OUT`, and the picture's
+`RENDER → VIDEO_OUT`. The graph DRAWS a sum straight to its device whenever anything reaches the
+sum, whether or not a master run is written (`packages/song/docs/masterChain.md`), so a `+` there
+addresses a wire that is on screen and not in the file. The verb writes the run and then splices
+into it, in that order — one command, which is what the `+` promises. Only when the sum feeds
+NOTHING: a sum already running somewhere else is refused as any other non-arrow is, since accepting
+it would silently split the master bus rather than extend it.
 
 `node delete <node>` removes the node's file, its preset and its place in the graph. The splice is
 `graph unlink`'s — what fed it is rejoined to what it fed, so a run does not go quiet — and what

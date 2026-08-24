@@ -177,6 +177,78 @@ only way to find out.
 **Which one won is logged** into the job's `lines`. The difference is minutes per song, and
 a silent fall back to CPU is indistinguishable from a slow machine.
 
+### Which GPU, when there are two — `dmlAdapters.ts`
+
+A machine with an APU and a graphics card has **two** D3D12 adapters, and `onnxruntime-node`'s
+DirectML option is an `deviceId` — an index into DXGI's adapter order — with no way to ask for a
+name, a vendor or a class. The three keys that would say it in ORT's C++ API
+(`performancePreference`, `deviceFilter`, DXGI's own high-performance preference) do not appear
+anywhere in `onnxruntime_binding.node`: `deviceId` is the whole vocabulary. So asking for `dml` and
+nothing else is asking for **whichever adapter is first**, which on a laptop is the integrated one
+driving the panel.
+
+The mapping is therefore rebuilt from Windows' own DirectX cache,
+`HKLM\SOFTWARE\Microsoft\DirectX`, one entry per adapter it has seen, read with `reg query` because
+Node has no registry API and this must not cost a PowerShell spawn. Three `AdapterType` bits carry
+it (`D3DKMT_ADAPTERTYPE`):
+
+| bit | meaning | what it decides |
+|---|---|---|
+| `0x4` `SoftwareDevice` | a rasteriser, not a GPU | dropped, **and it must not shift the indices** — ORT does not enumerate it either |
+| `0x8` `PostDevice` | the adapter that POSTed | this is the one DXGI returns first, so it is index 0 |
+| `0x20` `HybridIntegrated` | an iGPU | never chosen |
+
+An adapter with under a gigabyte of dedicated video memory counts as integrated whatever its flags
+say, since a machine old enough to set neither bit is not one to run a transformer on.
+
+The order past the POST adapter is the registry's, which is a **guess** — DXGI's rule is
+"the primary display's adapter, then the others with outputs, then those without", and only the
+first term is legible from here. It costs little: a wrong index picks another discrete GPU, and
+the run-time fallback below catches the rest. An adapter list with no POST device at all is
+declared `unknown` and asks for `dml` the old way rather than inventing an order.
+
+Verified on the machine this was written for: a Ryzen iGPU plus an RTX 5070 whose display is the
+active one, where the code answers `deviceId 0, NVIDIA GeForce RTX 5070` — and a node process
+holding a DML session on `deviceId` 0 does appear in `nvidia-smi --query-compute-apps`, while the
+same on `deviceId` 1 does not. `dmlAdapters.test.ts` holds that machine's `reg query` output as its
+fixture, plus the laptop shape (the iGPU POSTs, so the card is index 1).
+
+**A machine whose only GPU is integrated gets no DirectML at all** and separates on the CPU. That
+is a choice rather than a fallback: what is asked of an adapter here is one dispatch covering 7.8
+seconds of audio, and the section below is what an iGPU does with it.
+
+### A device lost mid-song
+
+Building a session is not the only way a GPU says no. DirectML also fails *during* a run, and
+the way it does is a **device removal** — Windows resets a graphics device whose work exceeded
+`TdrDelay` (two seconds by default), so ORT's `run()` throws `0x887A0007` and every later call on
+that session throws too. It reads as a malformed command in `FormatMessage`; it is a timeout.
+
+So the fallback is at the run as well as at the create, and it has **two steps rather than one**.
+A device removal kills the *session*, not the GPU: the driver recovers in seconds and the adapter
+is usable again. So the window is retried on a **fresh DirectML session** first, and only a second
+failure moves the song to the CPU. Going straight to the CPU would answer a two-second glitch with
+an hour of arithmetic.
+
+Nothing already folded into `OverlapAdd` is lost either way — the throw happens before the window
+is added, and the windows the GPU did produce are correct. Only the seam between two providers
+differs, by less than the quantisation floor the file is written at.
+
+When the second failure does come, the registry **remembers** for the life of the file service and
+the next job starts on the CPU without asking the GPU again. That is the difference between
+`playlist stems` costing one device reset and costing thirty: a GPU that has now failed twice on
+this model is not having a bad minute. Restarting the service clears it, and it is deliberately not
+a preference — the machine that answers "can this GPU do it" is the one that just tried.
+
+What this is *not* is a slow-GPU story, and the arithmetic says so: one window is a few hundred
+GFLOP, which any discrete card of this generation does in tens of milliseconds against a two-second
+budget. A device reset on such a card points at the driver, or at another application on the same
+adapter, rather than at the size of the work — which is why the first answer is to try again.
+
+Raising `TdrDelay` (`HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers`, a DWORD of seconds,
+reboot required) is the machine-side fix if the GPU is otherwise fast enough — it is a
+system-wide change and nothing in this repo writes it.
+
 ## What fails hard, and why that is not a contradiction
 
 ffmpeg decodes the input, and here it is a **hard** dependency — which looks like it

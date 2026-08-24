@@ -101,11 +101,12 @@ describe("graph move", () => {
     expect(chains()).toContain("verb2n: { x: 120, y: 80 }");
   });
 
-  it("without the token, a new node still asks the layout — no pin appears", async () => {
+  it("without the token, it is born above the origin rather than left to the layout", async () => {
+    // A node wired to nothing is what a fresh layout has least to say about, so the verb answers — docs/verbs.md.
     await runCommand("module new audio/verb3", host(), "cli");
     await runCommand("node new audio/verb3 verb3n", host(), "cli");
     expect(chains()).toContain("verb3n: []");
-    expect(chains()).not.toContain("positions");
+    expect(chains()).toContain("verb3n: { x: 0, y: -30 }");
   });
 
   it("`graph organize` clears every pin in one step", async () => {

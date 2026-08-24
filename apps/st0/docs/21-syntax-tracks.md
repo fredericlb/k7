@@ -177,6 +177,9 @@ Record over an event, or round a loop, and what was there is not lost: it is mov
 **take**, another list of placements on the same lane. The timeline draws each one as a row
 indented under the lane, playing nothing.
 
+A take holds what the new pass landed ON, and nothing else — a clip elsewhere on the lane keeps
+playing, since a pass at bars 3–7 says nothing about bar 9.
+
 ```yaml schema=Module
 extends: "@studio/track"
 events:
@@ -189,9 +192,10 @@ takes:
       - { ref: gtr_3.1_260815T220914, start: "3:1:1" }
 ```
 
-`track take select <track> <n>` **swaps**: take `n` goes onto the lane and what the lane was
-playing becomes take `n`, so listening to another pass loses nothing and running it again puts
-everything back. It is the right-click **Move a take onto the track** on a take's row.
+`track take select <track> <n>` **swaps**: take `n` goes onto the lane and what it lands on
+becomes take `n`, so listening to another pass loses nothing and running it again puts
+everything back. What the take does not cover keeps playing beside it, the same rule recording
+follows. It is the right-click **Move a take onto the track** on a take's row.
 `track take delete <track> <n>` removes one, and the events it held with it. Once you have picked
 the pass you want — by listening round them, which leaves it on the lane — `track take keep
 <track>` deletes all the others.

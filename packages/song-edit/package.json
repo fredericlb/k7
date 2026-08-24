@@ -10,6 +10,7 @@
     "./materialCut": "./src/materialCut.ts",
     "./materialWindow": "./src/materialWindow.ts",
     "./trackMix": "./src/trackMix.ts",
+    "./trackTakes": "./src/trackTakes.ts",
     "./windowDescend": "./src/windowDescend.ts",
     "./onsets": "./src/onsets.ts",
     "./presets": "./src/presets.ts"

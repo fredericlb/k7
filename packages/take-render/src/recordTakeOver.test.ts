@@ -77,6 +77,23 @@ function laneWithRiff(): void {
   );
 }
 
+/** …the same lane with a `tail` from bar 9, two bars, well clear of the riff. */
+function laneWithRiffAndTail(): void {
+  laneWithRiff();
+  wav(join(dir, "clips", "tail.wav"));
+  writeFileSync(
+    join(dir, "clips", "tail.yaml"),
+    'source: clips/tail.wav\nfrom: "1:1"\nto: "3:1"\n',
+    "utf8",
+  );
+  writeFileSync(
+    join(dir, "nodes", "gtr.yaml"),
+    'extends: "@studio/track"\nevents:\n  - { ref: riff, start: "3:1" }\n' +
+      '  - { ref: tail, start: "9:1" }\n',
+    "utf8",
+  );
+}
+
 /** …and an empty one. */
 function bareLane(): void {
   writeFileSync(
@@ -109,6 +126,15 @@ describe("recording over what a lane is playing", () => {
     laneWithRiff();
     addTakeToTrack(dir, doc(), take(12, 8));
     expect(takes()).toHaveLength(0);
+  });
+
+  it("sets aside ONLY what it landed on — the rest of the lane plays on", () => {
+    // The whole point: a pass over bars 3–7 is not a reason to stop playing bar 9.
+    laneWithRiffAndTail();
+    const id = addTakeToTrack(dir, doc(), take(4, 8));
+    expect(takes()).toHaveLength(1);
+    expect(takes()[0].events).toEqual([{ ref: "riff", start: "3:1" }]);
+    expect(playing().map((c) => c.name)).toEqual(["tail", id]);
   });
 
   it("makes no take of an empty lane — there was nothing to record over", () => {

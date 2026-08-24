@@ -107,12 +107,20 @@ Three defaults on the way back out: `loop: 1` is cleared rather than written, a 
 when the material states none, in which case the event's `to` is the only thing giving the
 extent a number and it stays.
 
-## Takes
+## Takes are next door
 
-The take verbs are the lane-level face of `trackFile`'s three writers, on the same terms every
-other mutation here uses: a lane by its id, resolved to `nodes/<id>.yaml`. See
-`packages/song/docs/takes.md`. `pushTrackClipsToTake` answers false when there was nothing to
-set aside — recording onto an empty lane is not recording OVER anything.
+They were here, and they are `trackTakes.ts` now — the lane-level face of `trackFile`'s three
+writers, on the same terms every other mutation here uses: a lane by its id, resolved to
+`nodes/<id>.yaml`. What moved them out is that a take stopped being the whole lane: deciding
+WHICH clips a pass displaced is arithmetic over the compiled document (`splitUnder`), and that has
+nothing to do with rewriting a placement's `start`. See `packages/song/docs/takes.md`.
+
+`pushTrackClipsToTake` still answers false when there was nothing to set aside — recording onto
+an empty lane, or beside everything on it, is not recording OVER anything.
+
+Both it and `selectTrackTake` take their picks as START POSITIONS in beats rather than as indices,
+which is how every other address in this file is spelled: an index would be an offset into a list
+the caller does not hold, and the compiled clip it comes from has a start and no index.
 
 ## What is NOT here
 

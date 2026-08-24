@@ -112,6 +112,17 @@ describe("node new — in the graph, wired to nothing", () => {
     expect(chains()).toContain("gtr: [ amp ]");
     expect(chains()).toContain("amp: [ OUT ]");
   });
+
+  it("puts one nobody placed above the origin rather than wherever the layout would", async () => {
+    await make("audio/wah", "w1");
+    expect(chains()).toContain("w1: { x: 0, y: -30 }");
+  });
+
+  it("…and where the cursor was when there was one, negative Y included", async () => {
+    await runCommand("module new audio/wah", host(), "cli");
+    await runCommand("node new audio/wah w1 -40,-120", host(), "cli");
+    expect(chains()).toContain("w1: { x: -40, y: -120 }");
+  });
 });
 
 describe("node insert", () => {
@@ -135,6 +146,66 @@ describe("node insert", () => {
     const before = chains();
     await runCommand("node insert gtr amp nope", host(), "cli");
     expect(logs.join(" ")).toMatch(/no node "nope"/);
+    expect(chains()).toBe(before);
+  });
+
+  it("lands halfway along the cable when no cursor said where", async () => {
+    // The drawing writes its own pins down (`graph pin`), so by the time anything is spliced the two ends have them.
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ amp ]\n  amp: [ OUT ]\npositions:\n  gtr: { x: 100, y: 40 }\n  amp: { x: 500, y: 140 }\n",
+      "utf8",
+    );
+    await make("audio/gate", "g1");
+    await runCommand("node insert gtr amp g1", host(), "cli");
+    expect(chains()).toContain("g1: { x: 300, y: 90 }");
+  });
+
+  it("keeps the pin it was born with when the two ends have none", async () => {
+    // Nothing to be halfway BETWEEN — a graph.yaml no drawing has ever pinned, which is a CLI-only project.
+    await make("audio/gate", "g1");
+    await runCommand("node insert gtr amp g1", host(), "cli");
+    expect(chains()).toContain("g1: { x: 0, y: -30 }");
+  });
+});
+
+// The master run is the arrow `MIX: [ OUT ]` — packages/song/docs/masterChain.md, and the `+` on it.
+describe("node insert, onto the master run", () => {
+  it("splices into the empty run every template writes", async () => {
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ MIX ]\n  MIX: [ OUT ]\n",
+      "utf8",
+    );
+    await make("audio/comp", "m1");
+    await runCommand("node insert MIX OUT m1", host(), "cli");
+    expect(chains()).toContain("MIX: [ m1 ]");
+    expect(chains()).toContain("m1: [ OUT ]");
+  });
+
+  it("writes the run first when the file never stated it", async () => {
+    // The graph DRAWS `MIX ─ OUT` whenever anything reaches the sum, so the `+` must land on a line that is not there.
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ MIX ]\n",
+      "utf8",
+    );
+    await make("audio/comp", "m1");
+    await runCommand("node insert MIX OUT m1", host(), "cli");
+    expect(chains()).toContain("MIX: [ m1 ]");
+    expect(chains()).toContain("m1: [ OUT ]");
+  });
+
+  it("refuses when the sum already runs somewhere else, rather than splitting it", async () => {
+    writeFileSync(
+      join(dir, "graph.yaml"),
+      "modules:\n  gtr: [ MIX ]\n  MIX: [ amp ]\n  amp: [ OUT ]\n",
+      "utf8",
+    );
+    await make("audio/comp", "m1");
+    const before = chains();
+    await runCommand("node insert MIX OUT m1", host(), "cli");
+    expect(logs.join(" ")).toMatch(/does not feed 'OUT'/);
     expect(chains()).toBe(before);
   });
 });
