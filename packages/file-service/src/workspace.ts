@@ -756,7 +756,10 @@ export class Workspace {
   }
 
   /** Scaffold a NEW project folder at the workspace root — see projectLifecycle.ts. */
-  createProject(shape: ProjectShape, rawName: string): { project: string } {
+  createProject(
+    shape: ProjectShape,
+    rawName: string,
+  ): { project: string; missing: string[] } {
     const r = createProjectIn(this.lifecycleHost(), shape, rawName);
     this.forgetProjects();
     return r;

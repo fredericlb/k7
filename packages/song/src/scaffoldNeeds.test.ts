@@ -1,0 +1,84 @@
+// What a scaffolded project OWES its libraries repository. The `mix` archetype extends shared
+// modules and a new libraries repo is empty on purpose, so a first set opens with all of them
+// missing — the reading `projects.md` says the libraries card exists to prevent. Read off the
+// scaffold's own text rather than a list beside it, which would drift the first time one changed.
+
+import { describe, expect, it } from "vitest";
+import { projectFiles, videoProjectFiles } from "./scaffold";
+import { missingRefs, missingRefsReport, neededRefs } from "./scaffoldNeeds";
+import { setProjectFiles } from "./scaffoldSet";
+
+describe("neededRefs", () => {
+  it("finds the shared modules a SET extends", () => {
+    const refs = neededRefs(setProjectFiles("ete"));
+    // The crossfade is the one every set has; the rest travel with the decks and the stem lanes.
+    expect(refs).toContain("@st0/audio/utility/crossfade");
+    expect(refs.length).toBeGreaterThan(1);
+    expect(refs.every((r) => r.startsWith("@"))).toBe(true);
+  });
+
+  /** Only the LIBRARIES namespace is owed. The others resolve without anyone setting up a repository. */
+  it("ignores every namespace but @st0", () => {
+    expect(
+      neededRefs({
+        bare: 'extends: "instruments/bass"\n', // the project's own folder
+        project: 'extends: "@project/instruments/synth"\n',
+        builtin: 'extends: "@studio/track"\n',
+        engine: 'extends: "@engine/audio/delay/adt"\n',
+        library: 'extends: "@st0/audio/utility/crossfade"\n',
+      }),
+    ).toEqual(["@st0/audio/utility/crossfade"]);
+  });
+
+  it("reads a ref quoted or bare, and drops a trailing comment", () => {
+    expect(
+      neededRefs({
+        a: 'extends: "@st0/audio/utility/tempo"\n',
+        b: "extends: @st0/audio/filter/eq3\n",
+        c: "extends: @st0/audio/filter/sweep   # the one on the desk\n",
+      }),
+    ).toEqual([
+      "@st0/audio/filter/eq3",
+      "@st0/audio/filter/sweep",
+      "@st0/audio/utility/tempo",
+    ]);
+  });
+
+  /** THE asymmetry this whole module is about: two archetypes open on a fresh account, and one does not. */
+  it("owes nothing for the two archetypes that own their modules", () => {
+    // Their nodes extend `@project/…` and the `@studio/…` built-ins, neither of which is a repository.
+    expect(neededRefs(projectFiles("song"))).toEqual([]);
+    expect(neededRefs(videoProjectFiles("clip"))).toEqual([]);
+  });
+});
+
+describe("missingRefs", () => {
+  const needed = ["@st0/audio/filter/eq3", "@st0/audio/utility/crossfade"];
+
+  it("is empty when the library resolves them all", () => {
+    const known = Object.fromEntries(needed.map((r) => [r, {}]));
+    expect(missingRefs(needed, known)).toEqual([]);
+  });
+
+  it("names the ones an EMPTY library cannot answer", () => {
+    expect(missingRefs(needed, {})).toEqual(needed);
+  });
+});
+
+describe("missingRefsReport", () => {
+  it("says nothing when nothing is owed", () => {
+    expect(missingRefsReport([])).toBeNull();
+  });
+
+  it("counts, names them, and says nothing will fetch them", () => {
+    const said = missingRefsReport(["@st0/a", "@st0/b"]) ?? "";
+    expect(said).toMatch(/2 shared modules/);
+    expect(said).toContain("@st0/a, @st0/b");
+    // The no-seed rule is the point: the sentence must not promise a catalogue is coming.
+    expect(said).toMatch(/nothing copies a catalogue in for you/);
+  });
+
+  it("counts one in the singular", () => {
+    expect(missingRefsReport(["@st0/a"])).toMatch(/^1 shared module this/);
+  });
+});

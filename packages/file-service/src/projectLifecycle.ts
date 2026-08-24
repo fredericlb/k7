@@ -6,8 +6,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, extname, join, posix } from "node:path";
 import { findEngineBinary } from "@studio/engine-client/engineBinary";
-import { scaffold } from "@studio/song/scaffold";
-import { scaffoldSet } from "@studio/song/scaffoldSet";
+import { loadModuleRefs } from "@studio/song/loader";
+import {
+  projectFiles,
+  scaffold,
+  videoProjectFiles,
+} from "@studio/song/scaffold";
+import { missingRefs, neededRefs } from "@studio/song/scaffoldNeeds";
+import { scaffoldSet, setProjectFiles } from "@studio/song/scaffoldSet";
 import type { ProjectShape } from "@studio/song-schema/yaml/projectSchema";
 import { parseAls, type SampleRef } from "@studio/translator/ableton";
 import { parseDawproject } from "@studio/translator/dawproject";
@@ -119,12 +125,22 @@ const SCAFFOLD_FOR_SHAPE: Record<
   video: (dir, name) => void scaffold(dir, name, "video"),
 };
 
+/** What each ARCHETYPE's file map is, without writing it — so what it will NEED can be read first. */
+const FILES_FOR_SHAPE: Record<
+  ProjectShape,
+  (name: string) => Record<string, string>
+> = {
+  arrangement: (name) => projectFiles(name),
+  mix: (name) => setProjectFiles(projectLabel(name)),
+  video: (name) => videoProjectFiles(name),
+};
+
 /** Scaffold a NEW `.st0` folder at the workspace root, its ARCHETYPE picking the file map. */
 export function createProjectIn(
   host: LifecycleHost,
   shape: ProjectShape,
   rawName: string,
-): { project: string } {
+): { project: string; missing: string[] } {
   const name = rawName.trim().replace(/[/\\]/g, "_").replace(/^\.+/, "");
   if (!name) throw new Error("project name required");
   const abs = host.safePath(name);
@@ -132,5 +148,15 @@ export function createProjectIn(
   if (existsSync(abs) && readdirSync(abs).length)
     throw new Error(`"${name}" already exists and is not empty`);
   SCAFFOLD_FOR_SHAPE[shape](abs, name);
-  return { project: host.toRel(abs) };
+  // Said HERE because here is where it becomes true; nothing is seeded — see song/src/scaffoldNeeds.ts.
+  let missing: string[] = [];
+  try {
+    missing = missingRefs(
+      neededRefs(FILES_FOR_SHAPE[shape](name)),
+      loadModuleRefs(abs),
+    );
+  } catch {
+    // The project is written and that is what was asked for; an unreadable ref map is not a failed create.
+  }
+  return { project: host.toRel(abs), missing };
 }

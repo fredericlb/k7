@@ -222,6 +222,28 @@ est ensuite rempli par ici, à mesure qu'on y écrit des modules et des chaînes
 > pl8, ou le build — ferait de cet ailleurs une seconde source de vérité sur les modules de
 > quelqu'un d'autre.
 
+### …mais la dette est dite à la création, pas découverte à l'ouverture
+
+Cette règle-là ne bouge pas ; ce qui bougeait, c'est le moment où on l'apprenait. Un `mix`
+échafaudé sur un compte neuf s'ouvrait avec **tous** ses modules partagés manquants — exactement
+la lecture « morceau cassé plutôt que compte pas fini » que la carte plus haut existe pour éviter,
+sauf que la carte ne vérifie que la DÉCLARATION du dépôt, jamais son contenu.
+
+`createProjectIn` répond donc maintenant un `missing[]` à côté du `project` : les refs `@st0/…`
+que l'échafaudage vient d'écrire et que l'espace de travail ne résout pas
+(`packages/song/src/scaffoldNeeds.ts`). Trois choses valent d'être notées :
+
+- **La liste est lue dans le texte que l'échafaudage écrit**, pas tenue à côté de lui. Un
+  archétype dont les nœuds changent de module ne peut pas faire mentir la liste, puisqu'il n'y en
+  a pas d'autre que ses propres fichiers.
+- **Seul `@st0/` compte.** `@project/` est le dossier du morceau, `@workspace/` les `_modules` de
+  l'espace, `@engine/` le scan des greffons et `@studio/` les modules intégrés : aucun de ces
+  quatre n'attend qu'on installe un dépôt. C'est pourquoi `arrangement` et `video` ne doivent
+  rien — ils n'étendent que du `@project/` et du `@studio/` — et pourquoi `mix` est le seul des
+  trois qui s'ouvre cassé sur un compte neuf. L'asymétrie est fixée par un test.
+- **La phrase ne promet aucun catalogue.** Elle nomme les modules dus et dit qu'on les écrit
+  soi-même, précisément pour ne pas laisser croire que quelque chose va les chercher.
+
 **En changer ne touche aucune machine.** Les espaces de travail déjà clonés gardent l'ancien :
 leur sous-module y pointe toujours, et le service de fichiers REFUSE de le réécrire plutôt que
 de le faire en silence. La carte le dit au moment où on change.

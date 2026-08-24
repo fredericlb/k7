@@ -27,6 +27,7 @@
     "./moduleResolve": "./src/moduleResolve.ts",
     "./trackModule": "./src/trackModule.ts",
     "./scaffold": "./src/scaffold.ts",
+    "./scaffoldNeeds": "./src/scaffoldNeeds.ts",
     "./sharedFolders": "./src/sharedFolders.ts",
     "./graph": "./src/graph.ts",
     "./nodeProject": "./src/nodeProject.ts",
