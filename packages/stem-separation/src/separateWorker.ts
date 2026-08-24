@@ -104,8 +104,12 @@ interface Ort {
 }
 
 /** CPU last and always: it is the one that cannot be unavailable, and the only one on a Mac. */
-export const defaultProviders = (): string[] =>
-  process.platform === "win32" ? ["dml", "cpu"] : ["cpu"];
+export const defaultProviders = (): string[] => {
+  // The order below is a guess about the hardware; a machine that measured otherwise says so here.
+  const asked = process.env.STUDIO_ONNX_PROVIDERS?.trim();
+  if (asked) return asked.split(/[,\s]+/).filter(Boolean);
+  return process.platform === "win32" ? ["dml", "cpu"] : ["cpu"];
+};
 
 /** The session, on the first execution provider that builds, and which one won is LOGGED — docs/stemSplit.md. */
 async function session(

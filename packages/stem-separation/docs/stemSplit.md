@@ -177,6 +177,41 @@ only way to find out.
 **Which one won is logged** into the job's `lines`. The difference is minutes per song, and
 a silent fall back to CPU is indistinguishable from a slow machine.
 
+`STUDIO_ONNX_PROVIDERS` overrides that order — a comma-separated list, read by
+`defaultProviders()`. It exists because the order above is a **guess about the hardware**, and
+the section below is a machine where the guess is wrong in the expensive direction.
+
+### When DirectML is the slow one — measured, 2026-08
+
+On a Ryzen 5 7600X with an RTX 5070 (GB205), `onnxruntime-node` 1.27.0, NVIDIA 610.88, one
+window of this model:
+
+| provider | session | per window | a 4-minute song, 41 windows |
+|---|---|---|---|
+| `cpu` | 4.5 s | **2.0 s** — 3.9× real time | **82 s** |
+| `dml` | 4.1 s | never returned | — |
+
+DirectML is not slow here, it **hangs**. Session creation is cheap and costs 800 MB of video
+memory; the first `run()` then pins the GPU at 100 % and 250 W, grows to 11 GB of video memory
+and 26 GB of RSS, and does not come back — observed past forty minutes, and reproduced outside
+the service with the same signature. No `887A0007` is raised, because the fused graph is
+submitted as dispatches each of which fits inside `TdrDelay`; only the total is hopeless.
+
+Two consequences beyond the number.
+
+**The run cannot be interrupted from JavaScript.** A promise raced against a timer never loses
+the race: `sess.run()` blocks the thread, so the timer never fires. `separateJobs.ts`'s hour and
+its `worker.terminate()` are the only things that end such a run, and a job that wedges this way
+holds the worker until then.
+
+**The fallback below does not catch it either.** A device removal is what that code is written
+for, and this is not one — nothing throws, so nothing retries and nothing moves to the CPU. The
+machine has to be told, which is what the variable is for.
+
+What this does *not* establish is whether the fault is DirectML's, this driver's, or this
+architecture's. It was not chased further, because the provider that works is four times faster
+than real time and the question stopped being expensive.
+
 ### Which GPU, when there are two — `dmlAdapters.ts`
 
 A machine with an APU and a graphics card has **two** D3D12 adapters, and `onnxruntime-node`'s
