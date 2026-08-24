@@ -378,7 +378,10 @@ export async function separate({
     out.push(path);
   }
   // Last, so a folder holding it holds everything: `stemsComplete` is what reads that.
-  await writeMaster(source, join(outDir, MASTER_FILE), rate);
+  const master = join(outDir, MASTER_FILE);
+  await writeMaster(source, master, rate);
+  // RETURNED, not merely written: over `/process` the caller collects what this list names — docs/stemSplit.md.
+  out.push(master);
   return out;
 }
 

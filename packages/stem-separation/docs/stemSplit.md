@@ -44,8 +44,12 @@ progress worth reporting.
   retry, a second tab or a remount would otherwise start another hour of arithmetic
   producing byte-identical files.
 - **The job carries `files`.** A clone's product is a directory named by `workspace`, so
-  there is nothing to list. Four stems are the thing the caller came for, and their names
-  come from the model rather than from the request.
+  there is nothing to list. The five files are the thing the caller came for, and their names
+  come from the model rather than from the request. The list is not a report: over `/process`
+  it is what pl8 COLLECTS, one GET per name, so a file produced but left out of it is written
+  on this machine and never reaches the song's folder. That is how the aligned master went
+  missing on its first outing -- the four stems arrived, `stems/` read as incomplete, and the
+  desk greyed its knobs out.
 
 ## Why 24-bit WAV, and not float or FLAC
 
