@@ -12,6 +12,8 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import { Input } from "@frediverse/ui/input";
 import { cn } from "@frediverse/ui/lib/utils";
+import { askConfirm } from "@studio/project-shell/ask";
+import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import { ArrowDown, ArrowUp, Layers, Loader2, RotateCcw } from "lucide-react";
 import {
   lazy,
@@ -80,6 +82,8 @@ export function CommandsSettings({
   /** The edits, held HERE until the Save button — a write-through is a PATCH and a whole-shell re-render per character (docs/shell.md). */
   const [draft, setDraft] = useState<CommandPrefs>(prefs);
   const dirty = draft !== prefs;
+  // `leave` below guards the in-app road; this one guards the reload, which was the way out with no question.
+  useUnsavedGuard(dirty);
   // The saved document changed under us: the first fetch landing, or our own save coming back, which costs a bail-out.
   useEffect(() => {
     setDraft(prefs);
@@ -169,21 +173,21 @@ export function CommandsSettings({
   }, [capturing, dirty, draft, onSave]);
 
   // Leaving with edits nobody asked to keep is the one thing a Save button makes possible, so it is the one thing this stops.
-  const leave = () => {
-    if (
-      dirty &&
-      !window.confirm(
-        "Des modifications ne sont pas enregistrées. Les abandonner ?",
-      )
-    )
-      return;
-    onBack();
+  const leave = async () => {
+    if (!dirty) return onBack();
+    const agreed = await askConfirm({
+      title: "Abandonner les modifications ?",
+      body: "Les raccourcis, noms et icônes changés ici ne seront pas enregistrés.",
+      confirmLabel: "Abandonner",
+      danger: true,
+    });
+    if (agreed) onBack();
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2">
-        <Button size="sm" variant="ghost" onClick={leave}>
+        <Button size="sm" variant="ghost" onClick={() => void leave()}>
           ← retour
         </Button>
         <h2 className="text-sm font-medium">Commandes</h2>

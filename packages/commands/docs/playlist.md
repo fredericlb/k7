@@ -48,6 +48,33 @@ meet.
 spread over lines, say. That refusal is the same one the screen's button wears, and for the same
 reason: inventing a second `items:` key lower down would write a file whose two halves disagree.
 
+## `playlist song remove <playlist> <n>` and `playlist song move <playlist> <from> <to>`
+
+The other two thirds of editing a set list. Until these existed, `PlaylistPane` could append and
+nothing else, so **taking a song out or changing the running order meant opening the YAML** — on the
+one screen whose whole job is the order of an evening, and usually shortly before one.
+
+**They count from 1, and they address a line by POSITION rather than by song.** A set list may name
+the same song twice — an encore, a segue played again — and there is no defensible way to choose
+between the two, so it does not try. The position is what the screen prints beside each line, which
+is what makes the number on the command line and the number under your finger the same number.
+
+Both are TEXT edits over `playlistItemLines`, which answers the line span of each entry, so a
+`variant:` travels with the song it belongs to and a comment somebody wrote under a line moves with
+that line. Two prices, both real:
+
+- **A flow `items: [a, b]` is refused rather than reflowed.** Appending knows that notation and
+  extends it in place; reordering inside it would mean re-emitting the list, which is the
+  re-serialisation this whole family exists to avoid. The stub grows into a block on its first
+  `add`, so the shape only shows up in a hand-written file.
+- **Blank lines BETWEEN entries do not survive a move.** The reorder rewrites the span from the
+  first entry to the last, and a blank inside it has no entry to belong to. Comments do survive,
+  because they attach to the entry above them.
+
+Removing the last line rewrites the key to `items: []`. A bare `items:` reads back as null rather
+than as the empty list the file means, and the next `add` would then be extending a shape that is
+not there.
+
 ## `playlist stems <playlist> [chain]`
 
 Separate every song of a set list, before the evening. This is the preparation half of cutting a

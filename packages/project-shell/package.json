@@ -12,6 +12,7 @@
     "./gate": "./src/ProjectGate.tsx",
     "./idle": "./src/idle.ts",
     "./toast": "./src/toast.tsx",
+    "./ask": "./src/ask.tsx",
     "./undo": "./src/undo.ts"
   },
   "scripts": {

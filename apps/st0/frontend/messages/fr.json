@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "auth.tagline": "Une DAW en mode texte. Connectez-vous pour ouvrir vos projets et choisir un moteur.",
   "auth.signIn": "Se connecter",
+  "auth.unreachable": "Le service de connexion ne répond pas. Se connecter n'y changera rien tant qu'il est absent : c'est lui qui émet la session que tout studio vérifie.",
+  "auth.retry": "Réessayer",
   "common.loading": "Chargement…",
   "common.refresh": "Actualiser",
   "engines.title": "Choisir un moteur",

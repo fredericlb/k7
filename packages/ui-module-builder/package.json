@@ -25,6 +25,7 @@
     "@frediverse/ui": "*",
     "@replit/codemirror-vim": "^6.3.0",
     "@studio/engine-protocol": "*",
+    "@studio/project-shell": "*",
     "@studio/song-schema": "*",
     "@studio/ui-editor": "*",
     "@studio/web-protocol": "*",

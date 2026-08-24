@@ -6,6 +6,7 @@
 // Commit and pull are NOT here: they are `project commit` / `project pull` in the catalogue,
 // and the panel dispatches those rather than calling their routes a second time.
 
+import { askConfirm, askText } from "@studio/project-shell/ask";
 import { shareUrl } from "@studio/web-protocol/projects";
 import { useCallback, useState } from "react";
 import { api } from "../api";
@@ -62,15 +63,31 @@ export function useShare(onStatus: (s: string) => void): Share {
       let res = await api.shareK7();
       // A song k7 doesn't know yet: ask for artist/title, then publish for real.
       if (res.needsMeta) {
-        const artist = window.prompt("Artist (new k7 release):", "")?.trim();
+        const artist = (
+          await askText({
+            title: "Nouvelle sortie k7",
+            body: "k7 ne connaît pas encore ce morceau : il lui faut un artiste et un titre.",
+            placeholder: "l'artiste",
+            confirmLabel: "Continuer",
+            validate: (v) => (v.trim() ? "" : "une sortie nomme son artiste"),
+          })
+        )?.trim();
         if (!artist) {
           onStatus("k7 publish cancelled");
           return;
         }
-        const title =
-          window.prompt("Title:", res.defaultTitle || "")?.trim() ||
-          res.defaultTitle ||
-          "";
+        const asked = await askText({
+          title: "Titre",
+          initial: res.defaultTitle || "",
+          placeholder: "le titre",
+          confirmLabel: "Publier",
+        });
+        // Cancelling the SECOND question abandons too: the first one already started nothing.
+        if (asked === null) {
+          onStatus("k7 publish cancelled");
+          return;
+        }
+        const title = asked.trim() || res.defaultTitle || "";
         onStatus("publishing to k7…");
         res = await api.shareK7({ artist, title });
       }
@@ -89,16 +106,16 @@ export function useShare(onStatus: (s: string) => void): Share {
 
   /** Freeze this project and put its link on the clipboard — it ASKS first, naming what leaves, and the address is built in the browser. */
   const shareLink = useCallback(async () => {
-    if (
-      !window.confirm(
-        "Partager une version gelée de ce projet ?\n\n" +
-          "Toute personne ayant le lien pourra l'écouter et voir les pistes, les chaînes et " +
-          "les paramètres des modules — sans compte. Le nom des pistes, des repères, des " +
-          "modules et le texte des notes en font partie.\n\n" +
-          "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur pl8.",
-      )
-    )
-      return;
+    const agreed = await askConfirm({
+      title: "Partager une version gelée de ce projet ?",
+      body:
+        "Toute personne ayant le lien pourra l'écouter et voir les pistes, les chaînes et " +
+        "les paramètres des modules — sans compte. Le nom des pistes, des repères, des " +
+        "modules et le texte des notes en font partie.\n\n" +
+        "Le lien reste valable jusqu'à ce que vous le révoquiez, dans Projets sur pl8.",
+      confirmLabel: "Publier le lien",
+    });
+    if (!agreed) return;
     setBusy(true);
     onStatus("rendu du partage… (le morceau entier, ça prend un moment)");
     try {

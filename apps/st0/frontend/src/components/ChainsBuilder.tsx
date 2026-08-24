@@ -3,15 +3,17 @@
 // the project's own graph uses, with the same gestures. See docs/chainsBuilder.md.
 
 import { cn } from "@frediverse/ui/lib/utils";
+import { askText } from "@studio/project-shell/ask";
 import { projectApi } from "@studio/project-shell/project";
 import { GRAPH_FILE } from "@studio/song-schema/yaml/graphSchema";
 import { buildGraph, layout } from "@studio/ui-chains/graph";
 import { DomChains } from "@studio/ui-chains-react";
 import { useAutosave } from "@studio/ui-editor/autosave";
 import { YamlPane } from "@studio/ui-module-builder/yaml-pane";
-import { Loader2, Workflow } from "lucide-react";
+import { Loader2, Workflow, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { STUDIO_ICONS } from "../chainsIcons";
+import { needsAttention, saveLabel } from "../saveLabel";
 import type { WebGraph } from "../types";
 
 interface LibraryChain {
@@ -86,6 +88,8 @@ export function ChainsBuilder({
       try {
         // `want: []` because the graph this pane draws is the CHAIN's, fetched by `graphAt` on the `rev` below.
         await projectApi.command(line, { at: chosen.path, want: [] });
+        // A verb that worked answers the one that failed before it, which would otherwise sit over the drawing all session.
+        setError(null);
         setRev((r) => r + 1);
       } catch (e) {
         setError((e as Error).message);
@@ -205,10 +209,23 @@ export function ChainsBuilder({
               type="button"
               // `node new` writes into the chain's own `nodes/`, the verb resolving that folder from the graph file it was pointed at.
               onClick={() => {
-                const name = window.prompt(
-                  "Nouveau nœud — <type>/<module> <nom>",
-                );
-                if (name?.trim()) void command(`node new ${name.trim()}`);
+                void askText({
+                  title: "Nouveau nœud",
+                  body: "Le module, puis le nom du nœud — par exemple audio/reverb hall.",
+                  placeholder: "<type>/<module> <nom>",
+                  confirmLabel: "Créer",
+                  // The line becomes `node new <this>`, so a quote here would become extra arguments there.
+                  validate: (v) =>
+                    !v.trim()
+                      ? "un nœud nomme un module"
+                      : /["']/.test(v)
+                        ? "sans guillemets : ils compteraient comme des arguments"
+                        : !/^\S+\/\S+/.test(v.trim())
+                          ? "le module s'écrit <type>/<module>"
+                          : "",
+                }).then((name) => {
+                  if (name?.trim()) void command(`node new ${name.trim()}`);
+                });
               }}
               className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted"
             >
@@ -226,16 +243,38 @@ export function ChainsBuilder({
               />
             ) : null}
           </div>
-          <p className="shrink-0 border-t px-2 py-1 text-[11px] text-muted-foreground">
-            {text === saved ? "enregistré" : "…"}
+          {/* The same sentence every other text pane says: an ellipsis cannot report a write being HELD. */}
+          <p
+            className={cn(
+              "shrink-0 truncate border-t px-2 py-1 text-[11px]",
+              needsAttention(autosave.status)
+                ? "text-amber-500"
+                : "text-muted-foreground",
+            )}
+            title={autosave.reason ?? undefined}
+          >
+            {saveLabel(autosave.status, autosave.reason)}
           </p>
         </aside>
       ) : null}
       <section className="relative min-w-0 flex-1 basis-0">
         {error && (
-          <p className="absolute inset-x-0 top-0 z-10 bg-destructive/10 p-2 text-xs">
-            {error}
-          </p>
+          <div
+            role="alert"
+            className="absolute inset-x-0 top-0 z-10 flex items-start gap-2 bg-destructive/10 p-2 text-xs"
+          >
+            <p className="min-w-0 flex-1">{error}</p>
+            {/* It covers the top of the drawing, so it has to be closable without running another verb. */}
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              aria-label="fermer"
+              title="fermer"
+              className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
         )}
         {!open ? (
           <p className="grid h-full place-items-center text-sm text-muted-foreground">

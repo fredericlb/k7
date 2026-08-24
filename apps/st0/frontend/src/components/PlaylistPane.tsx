@@ -1,11 +1,10 @@
 // PlaylistPane.tsx — the right half of a playlist's screen: its lines resolved against the
-// songs the médiathèque holds, each one playable, and the two ways of putting another one
-// there — upload a file, or search the catalogue. Named for the pane and not for the lines,
-// which are `@studio/mediatek/playlistItems` — shared with the DJ desk, which resolves the
-// same lines. See ../docs/playlists.md.
+// songs the médiathèque holds, each one playable, and one way of putting another one there —
+// search the catalogue, pl8 being where a song ARRIVES. Named for the pane and not for the
+// lines, which are `@studio/mediatek/playlistItems` — shared with the DJ desk, which resolves
+// the same lines. See ../docs/playlists.md.
 
 import { Button } from "@frediverse/ui/button";
-import { AUDIO_ACCEPT } from "@studio/mediatek/media";
 import {
   itemLabel,
   itemProblem,
@@ -14,27 +13,28 @@ import {
   songMatches,
   songRef,
 } from "@studio/mediatek/playlistItems";
-import { tagsFromFilename } from "@studio/mediatek/song";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import { cfg } from "@studio/project-shell/fileApi";
 import type { PlaylistItem } from "@studio/song-schema/playlist";
 import {
   AudioLines,
+  ChevronDown,
+  ChevronUp,
   Disc3,
   FileQuestion,
+  Library,
   ListMusic,
-  Loader2,
   Pause,
   Play,
   Plus,
   Search,
   Split,
   Square,
-  Upload,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mediatek } from "../api";
+import { pl8Url } from "../projects/api";
 
 /** How many search hits are drawn at once: three hundred morceaux in one scrolling box is not a list you read, so the field is the way through. */
 const MAX_HITS = 40;
@@ -62,8 +62,10 @@ export function PlaylistPane({
   items,
   songs,
   onAdd,
-  onFiled,
   addRefusal,
+  onRemove,
+  onMove,
+  editRefusal,
   onRun,
 }: {
   /** The lines, as the text on the left currently parses. */
@@ -72,10 +74,14 @@ export function PlaylistPane({
   songs: MediatekEntry[] | null;
   /** Put a line at the end of the playlist: a request upwards rather than a write, since the EDITOR owns the text. */
   onAdd: (item: PlaylistItem) => void;
-  /** A song has just landed in the médiathèque: re-read the catalogue, or the line just written sits on 'morceau introuvable'. */
-  onFiled: () => void;
   /** Why `onAdd` would not work right now — the file's `items:` is in a shape the text-level append cannot extend. */
   addRefusal?: string;
+  /** Drop the line at a position — upwards for the same reason `onAdd` is; absent drops the buttons. */
+  onRemove?: (index: number) => void;
+  /** Move a line, both positions 0-based — the pane counts from 1 only where it PRINTS. */
+  onMove?: (from: number, to: number) => void;
+  /** Why those two would not work — the same kind of fact as `addRefusal`, about a shape text cannot reorder. */
+  editRefusal?: string;
   /** Dispatch a command line — the stem bar sends you to the settings with one; absent drops the button and keeps the sentence. */
   onRun?: (line: string) => Promise<void>;
 }) {
@@ -134,7 +140,7 @@ export function PlaylistPane({
 
   // --- adding ----------------------------------------------------------------------
 
-  // Two buttons, because they are two acts: SEARCH is a morceau you already have, UPLOAD a file on your disk — and the search stays OPEN after a click.
+  // One act here — SEARCH, over morceaux pl8 already holds; putting a new one on that volume is pl8's own screen, linked at the foot of the list.
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
   const queryRef = useRef<HTMLInputElement>(null);
@@ -152,35 +158,6 @@ export function PlaylistPane({
       onAdd({ song: songRef(song), ...(variant ? { variant } : {}) });
     },
     [onAdd],
-  );
-
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState("");
-  const [uploadError, setUploadError] = useState("");
-
-  /** A file from the disk: into the médiathèque FIRST, then onto this playlist — the line is written from the path it ANSWERS with. */
-  const upload = useCallback(
-    async (file: File) => {
-      setUploadError("");
-      setUploading(file.name);
-      try {
-        const guess = tagsFromFilename(file.name);
-        const filed = await mediatek.addSong(file, {
-          artist: guess.artist ?? "",
-          album: guess.album ?? "",
-          title: guess.title ?? "",
-        });
-        onAdd({ song: filed.path.replace(/^songs\//, "") });
-        // The catalogue moved under us and this pane noticed: ask for it again, or the new line stays 'morceau introuvable'.
-        onFiled();
-      } catch (e) {
-        // Including the 409: the song is already filed, but without the answer we do not know WHERE, and guessing is that second spelling.
-        setUploadError((e as Error).message);
-      } finally {
-        setUploading("");
-      }
-    },
-    [onAdd, onFiled],
   );
 
   const cannotAdd =
@@ -289,41 +266,6 @@ export function PlaylistPane({
       <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <Button
           size="sm"
-          variant="secondary"
-          disabled={!playable}
-          onClick={() => startAt(0)}
-        >
-          <Play className="mr-1 h-4 w-4" /> Tout jouer
-        </Button>
-        {/* One verb for the file on your disk and one for the catalogue, so neither hides behind the other's menu. */}
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={!!addRefusal || !!uploading}
-          title={addRefusal}
-          onClick={() => fileInput.current?.click()}
-        >
-          {uploading ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="mr-1 h-4 w-4" />
-          )}
-          Ajouter un morceau
-        </Button>
-        <input
-          ref={fileInput}
-          type="file"
-          accept={AUDIO_ACCEPT}
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            // Cleared so the SAME file picked twice fires again — an unchanged value raises no event.
-            e.target.value = "";
-            if (f) void upload(f);
-          }}
-        />
-        <Button
-          size="sm"
           variant={searching ? "default" : "secondary"}
           disabled={!!cannotAdd}
           title={cannotAdd}
@@ -364,17 +306,6 @@ export function PlaylistPane({
           onSettings={onRun && (() => void onRun("ui settings io"))}
           onClose={() => setSeparating(false)}
         />
-      ) : null}
-
-      {uploading ? (
-        <p className="shrink-0 border-b px-3 py-2 text-xs text-muted-foreground">
-          envoi de « {uploading} » à la médiathèque…
-        </p>
-      ) : null}
-      {uploadError ? (
-        <p className="shrink-0 border-b px-3 py-2 text-xs text-destructive">
-          {uploadError}
-        </p>
       ) : null}
 
       {/* The search, above the list and not over it: watching the set list grow as you pick is the only confirmation there is. */}
@@ -465,32 +396,21 @@ export function PlaylistPane({
           <div className="flex flex-col items-start gap-3 p-4">
             <p className="text-sm text-muted-foreground">
               Cette playlist ne nomme aucun morceau. Cherchez-en un dans la
-              médiathèque, déposez-en un depuis le disque, ou écrivez les lignes
-              sous <span className="font-mono">items:</span> à gauche — c'est le
-              même fichier.
+              médiathèque, ou écrivez les lignes sous{" "}
+              <span className="font-mono">items:</span> à gauche — c'est le même
+              fichier.
             </p>
-            {/* The empty state is where the header's buttons are most needed and least findable, so they are offered again here. */}
+            {/* The empty state is where the header's button is most needed and least findable, so it is offered again here. */}
             {searching ? null : (
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!!addRefusal || !!uploading}
-                  title={addRefusal}
-                  onClick={() => fileInput.current?.click()}
-                >
-                  <Upload className="mr-1 h-4 w-4" /> Ajouter un morceau
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!!cannotAdd}
-                  title={cannotAdd}
-                  onClick={() => setSearching(true)}
-                >
-                  <Search className="mr-1 h-4 w-4" /> Chercher un morceau
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!!cannotAdd}
+                title={cannotAdd}
+                onClick={() => setSearching(true)}
+              >
+                <Search className="mr-1 h-4 w-4" /> Chercher un morceau
+              </Button>
             )}
           </div>
         ) : (
@@ -507,7 +427,7 @@ export function PlaylistPane({
 
                   // biome-ignore lint/suspicious/noArrayIndexKey: see above
                   key={i}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+                  className={`group/row flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
                     loadedHere ? "bg-accent/60" : "hover:bg-accent/30"
                   }`}
                 >
@@ -543,6 +463,15 @@ export function PlaylistPane({
                       {String(r.song.meta.artist)}
                     </span>
                   ) : null}
+                  {/* Already separated, so the night-before run will skip it — the catalogue's own flag, a `stems/` folder seen by the scan. */}
+                  {r.song?.meta?.stems ? (
+                    <span
+                      className="shrink-0 text-muted-foreground"
+                      title="déjà séparé en stems — la préparation le sautera"
+                    >
+                      <Split className="h-3.5 w-3.5" />
+                    </span>
+                  ) : null}
                   {/* What the line names when it is not what the row shows, so a ref resolved by NAME still says which path it landed on. */}
                   {problem ? (
                     <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs text-destructive">
@@ -556,11 +485,68 @@ export function PlaylistPane({
                       introuvable
                     </span>
                   ) : null}
+                  {/* The running order and what is on it: the two acts that used to mean opening the YAML. */}
+                  {onMove || onRemove ? (
+                    <span className="flex shrink-0 items-center opacity-0 focus-within:opacity-100 group-hover/row:opacity-100">
+                      {onMove ? (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={i === 0 || !!editRefusal}
+                            title={editRefusal || "monter"}
+                            onClick={() => onMove(i, i - 1)}
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={i === rows.length - 1 || !!editRefusal}
+                            title={editRefusal || "descendre"}
+                            onClick={() => onMove(i, i + 1)}
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : null}
+                      {onRemove ? (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 hover:text-destructive"
+                          disabled={!!editRefusal}
+                          title={editRefusal || "retirer de la playlist"}
+                          onClick={() => {
+                            // The row playing IS this one: silence it before the line under the transport goes.
+                            if (current === i) {
+                              audioRef.current?.pause();
+                              setCurrent(null);
+                            }
+                            onRemove(i);
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : null}
+                    </span>
+                  ) : null}
                 </li>
               );
             })}
           </ol>
         )}
+        {/* Where a morceau ARRIVES, at the foot of the list rather than as a button: this pane names songs, pl8 is the volume that holds them. */}
+        <a
+          href={pl8Url()}
+          className="mt-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+          title="pl8 — la médiathèque : c'est là qu'on dépose un morceau"
+        >
+          <Library className="h-3.5 w-3.5 shrink-0" />
+          Ajouter de nouveaux morceaux
+        </a>
       </div>
 
       <footer className="flex shrink-0 items-center gap-2 border-t px-3 py-1 text-xs text-muted-foreground">

@@ -962,6 +962,34 @@
         hint: "one of that song's versions — only readable after a QUOTED song",
       },
     ]
+# Both of these count from 1, and by POSITION rather than by song: a set list may name one song
+# twice — an encore, a segue played again — and there is no defensible way to pick between them.
+# The position is what the screen shows beside each line, so the two agree without anybody counting.
+- command: "playlist song remove"
+  sid: playlist.song.remove
+  readable:
+    en: "Remove one song from a set list"
+    fr: "Retirer un morceau d'une playlist"
+  help: "drop a line by its position (e.g. playlist song remove ete-2026 3) — the numbers are the ones beside the songs"
+  surfaces: [cli]
+  args:
+    [
+      { name: playlist, complete: playlists },
+      { name: position, hint: "which line, counting from 1" },
+    ]
+- command: "playlist song move"
+  sid: playlist.song.move
+  readable:
+    en: "Move a song to another place in a set list"
+    fr: "Déplacer un morceau dans une playlist"
+  help: "reorder a line (e.g. playlist song move ete-2026 5 1 puts the fifth song first) — both count from 1"
+  surfaces: [cli]
+  args:
+    [
+      { name: playlist, complete: playlists },
+      { name: from, hint: "the line to move, counting from 1" },
+      { name: to, hint: "where it lands, counting from 1" },
+    ]
 
 # --- modules / graph ---
 # The module's <category>/<name> is chosen, not derived: a module's folder is its own

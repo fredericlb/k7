@@ -28,6 +28,7 @@ import {
   JSDSP_FILE,
   JSDSP_TYPE,
 } from "@studio/engine-protocol/build";
+import { askConfirm, askText } from "@studio/project-shell/ask";
 import {
   builtinPluginFor,
   builtinPluginForRef,
@@ -38,6 +39,7 @@ import {
   type ModuleStatus,
 } from "@studio/song-schema/moduleTypes";
 import { loudest, recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
+import { useUnsavedGuard } from "@studio/ui-editor/unsaved";
 import type {
   Hints,
   ModulePresetsFile,
@@ -521,6 +523,20 @@ export function ModuleBuilder({
 
   // What Save has to offer: any of the four differing from disk, derived and never a flag.
   const anyDirty = dirty || uiDirty || presetsDirty || dspDirty;
+  // This screen is MANUAL, so nothing writes behind you: a reload here loses all four files at once.
+  useUnsavedGuard(anyDirty);
+
+  /** Leaving is the other way those four go, and the only one this screen can ask about. */
+  const leave = useCallback(async () => {
+    if (!anyDirty) return onBack();
+    const agreed = await askConfirm({
+      title: "Quitter sans enregistrer ?",
+      body: "Quatre fichiers sont modifiés ici, et Enregistrer les écrit ensemble.",
+      confirmLabel: "Quitter",
+      danger: true,
+    });
+    if (agreed) onBack();
+  }, [anyDirty, onBack]);
 
   /** The store's hints MERGED with the host's live-engine ones, deduped — see docs/builder.md. */
   const completionHints = useMemo(
@@ -618,11 +634,21 @@ export function ModuleBuilder({
   }, [store, path, basesKey]);
 
   const [snapping, setSnapping] = useState(false);
-  const snapBase = useCallback(() => {
+  const snapBase = useCallback(async () => {
     if (!store.snapshotBase || snapping || !nativeUiBase) return;
-    const name = window.prompt(
-      "Nom de la base — l'état actuel du greffon, gardé dans base/",
-    );
+    const name = await askText({
+      title: "Garder l'état actuel du greffon",
+      body: "Il est écrit dans base/, où un paramètre peut ensuite s'y lier.",
+      placeholder: "le nom de la base",
+      confirmLabel: "Garder",
+      // It becomes a FILE name, so the characters a path cannot hold are refused here rather than by the write.
+      validate: (v) =>
+        !v.trim()
+          ? "une base porte un nom"
+          : /[/\\:*?"<>|]/.test(v)
+            ? "sans / \\ : * ? \" < > | — c'est un nom de fichier"
+            : "",
+    });
     if (!name?.trim()) return;
     setSnapping(true);
     setScanNote(null);
@@ -729,7 +755,7 @@ export function ModuleBuilder({
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
       <header className="flex items-center gap-3 border-b border-border px-3 py-2">
-        <Button variant="secondary" size="sm" onClick={onBack}>
+        <Button variant="secondary" size="sm" onClick={() => void leave()}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Back
         </Button>
         <div className="min-w-0">
@@ -979,7 +1005,7 @@ export function ModuleBuilder({
                   openingUi={openingUi}
                   onSnapshotBase={
                     store.snapshotBase && nativeUiBase && !readOnly
-                      ? snapBase
+                      ? () => void snapBase()
                       : undefined
                   }
                   snapping={snapping}

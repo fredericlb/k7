@@ -1,7 +1,7 @@
 // playlist.ts — where a workspace keeps its playlists, and what one says: an ordered list of
 // songs the médiathèque holds, each optionally naming one of that song's variants. Reading one,
-// and adding a line to one AS TEXT. No `node:fs`, so the file service and the browser go by
-// exactly the same rules. See docs/playlists.md.
+// and adding, dropping or reordering a line AS TEXT. No `node:fs`, so the file service and the
+// browser go by exactly the same rules. See docs/playlists.md.
 
 import { parse as parseYaml } from "yaml";
 
@@ -156,5 +156,63 @@ export function appendPlaylistItem(
     }
   }
   lines.splice(last + 1, 0, ...entry(indent));
+  return lines.join("\n");
+}
+
+/** The line span of every entry of a BLOCK `items:`, or null when the file is not in that shape (docs/playlistFile.md). */
+export function playlistItemLines(
+  text: string,
+): { start: number; end: number }[] | null {
+  const lines = text.split("\n");
+  const key = lines.findIndex((l) => ITEMS_LINE.test(l));
+  if (key < 0) return null;
+  // A flow list or a scalar on the key's own line: appending knows those shapes, reordering does not.
+  if ((ITEMS_LINE.exec(lines[key] as string)?.[1] ?? "").trim() !== "")
+    return null;
+  const spans: { start: number; end: number }[] = [];
+  for (let i = key + 1; i < lines.length; i++) {
+    const line = lines[i] as string;
+    if (line.trim() === "") continue;
+    if (!/^[ \t]/.test(line)) break; // a top-level key: the sequence ended above
+    if (/^[ \t]*-\s/.test(line)) spans.push({ start: i, end: i });
+    // A continuation — `variant:`, or a comment somebody wrote under the line it is about.
+    else if (spans.length) (spans[spans.length - 1] as { end: number }).end = i;
+  }
+  return spans;
+}
+
+/** Drop one line of a playlist by its 0-based position, as TEXT. Null when the shape or the index is not one this can take. */
+export function removePlaylistItem(text: string, index: number): string | null {
+  const spans = playlistItemLines(text);
+  if (!spans || index < 0 || index >= spans.length) return null;
+  const lines = text.split("\n");
+  const span = spans[index] as { start: number; end: number };
+  lines.splice(span.start, span.end - span.start + 1);
+  // The last one out leaves a bare `items:`, which reads as null rather than as the empty list it is.
+  if (spans.length === 1) {
+    const key = lines.findIndex((l) => ITEMS_LINE.test(l));
+    if (key >= 0) lines[key] = "items: []";
+  }
+  return lines.join("\n");
+}
+
+/** Move one line to another 0-based position, as TEXT. Blank lines BETWEEN entries do not survive the reorder. */
+export function movePlaylistItem(
+  text: string,
+  from: number,
+  to: number,
+): string | null {
+  const spans = playlistItemLines(text);
+  if (!spans || spans.length < 2) return null;
+  if (from < 0 || from >= spans.length || to < 0 || to >= spans.length)
+    return null;
+  if (from === to) return text;
+  const lines = text.split("\n");
+  const blocks = spans.map((s) => lines.slice(s.start, s.end + 1));
+  const [moved] = blocks.splice(from, 1);
+  blocks.splice(to, 0, moved as string[]);
+  const first = (spans[0] as { start: number }).start;
+  const last = (spans[spans.length - 1] as { end: number }).end;
+  lines.splice(first, last - first + 1, ...blocks.flat());
   return lines.join("\n");
 }

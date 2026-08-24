@@ -10,8 +10,8 @@ import { join } from "node:path";
 export interface PrefsStore<T> {
   /** This user's preferences, or null when they have never saved any. */
   read(sub: string): T | null;
-  /** Replace them wholesale. Silently a no-op if the volume is unwritable — see below. */
-  write(sub: string, value: T): void;
+  /** Replace them wholesale. Never throws; answers whether it landed — see docs/store.md. */
+  write(sub: string, value: T): boolean;
 }
 
 /** The filename for a subject: a readable slug AND a hash, neither being safe alone — docs/store.md. */
@@ -39,8 +39,10 @@ export function prefsStore<T>(dir: string): PrefsStore<T> {
           `${JSON.stringify(value, null, 2)}\n`,
           "utf8",
         );
+        return true;
       } catch {
-        // Deliberately silent: failing the click would take the choice away too (docs/store.md).
+        // Never throws — the choice stands for the session either way; the caller decides what to say (docs/store.md).
+        return false;
       }
     },
   };

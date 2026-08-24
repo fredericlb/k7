@@ -30,10 +30,24 @@ Les morceaux sont **en dessous**, résolus contre la médiathèque et jouables �
 
 ## Le texte reste, à un clic
 
-Le panneau fait 24rem : il n'y a pas la place pour le YAML à côté des morceaux, et le texte est
-le seul moyen d'**enlever** une ligne ou d'en changer l'ordre — `PlaylistPane` sait ajouter et
-rien d'autre. La page plein écran existe donc toujours, un cran plus loin : le bouton ⤢ l'ouvre
-sur la playlist courante, et c'est la sortie de secours pour ce que le panneau ne sait pas faire.
+Le panneau fait 24rem : il n'y a pas la place pour le YAML à côté des morceaux. La page plein
+écran existe donc toujours, un cran plus loin : le bouton ⤢ l'ouvre sur la playlist courante.
+
+**Ce n'est plus la sortie de secours qu'elle était.** `PlaylistPane` a longtemps su *ajouter* et
+rien d'autre, si bien que retirer une ligne ou changer l'ordre voulait dire ouvrir le YAML — sur
+le seul écran dont le sujet EST l'ordre d'une soirée, et généralement peu avant. Chaque ligne
+porte maintenant ses trois boutons : ↑, ↓, ×. La page reste ce qu'elle est — le fichier en
+entier, ses commentaires, son titre — plutôt que le seul endroit où l'on peut agir.
+
+Ces boutons ne sont pas des écritures : ils remontent à `PlaylistEditor` exactement comme la
+recherche, et c'est le TAMPON qui change. Un panneau qui écrirait le fichier pendant que la
+moitié texte tient une version non enregistrée du même ferait deux vérités du même document.
+Les verbes `playlist song remove` et `playlist song move`, eux, écrivent bien le fichier : ils
+servent le CLI et la barre de commandes, où aucun tampon n'est ouvert
+(`packages/commands/docs/playlist.md`).
+
+Une forme que le texte ne sait pas réorganiser — un `items: [a, b]` en ligne — désactive les
+trois boutons avec la raison en infobulle, plutôt que de reformater le fichier de quelqu'un.
 
 C'est le même composant des deux côtés. `PlaylistEditor` prend un `panel`, qui retire son
 en-tête et la moitié YAML ; en dessous tout est identique — même chargement, même tampon, même
@@ -126,8 +140,8 @@ dossiers de la médiathèque (`AC-DC/Back in Black/Hells Bells`) ; **entre guill
 peut le suivre. Une règle, et la seule qui distingue « un morceau avec des espaces » de « un
 morceau et une version ».
 
-**Le bouton « Ajouter un morceau » du volet de droite ne dispatche pas la seconde**, et c'est
-délibéré. Ce bouton écrit dans le **tampon ouvert** à côté — le YamlPane montre le fichier, et
+**L'ajout par la recherche, dans le volet de droite, ne dispatche pas la seconde**, et c'est
+délibéré. Un clic écrit dans le **tampon ouvert** à côté — le YamlPane montre le fichier, et
 l'ajout est une modification comme une frappe, enregistrée par l'autosave quand le texte se lit
 comme une playlist. Une commande qui écrirait le FICHIER pendant qu'un tampon modifié le tient
 courrait contre cet enregistrement. Les deux chemins partagent la seule chose qui doit être
@@ -171,7 +185,7 @@ qu'on ne peut pas voir. Une rangée qui dit « introuvable » est une faute qu'o
 | `ce morceau n'a pas de master` | dossier catalogué sans audio — le scan l'autorise |
 | `introuvable` (sur la rangée) | le sidecar déclare un fichier que le dossier n'a pas |
 
-## Trois boutons, parce que ce sont trois gestes
+## Deux boutons et un lien
 
 **« Chercher un morceau »** ouvre un champ au-dessus de la liste — au-dessus et non par-dessus :
 ce qu'on remplit reste visible, et le voir s'allonger est la seule confirmation qu'il y ait. La
@@ -184,32 +198,31 @@ Une rangée ajoute le **master** ; les pastilles à côté ajoutent une **varian
 mettre `instrumental` dans une setlist voudrait dire aller taper le mapping à la main, alors que
 le format existe précisément pour le porter.
 
-**« Ajouter un morceau »** prend un fichier du disque. La recherche seule suffirait si l'onglet
-Morceaux était à un clic ; d'ici la médiathèque est une autre application, et une setlist qu'on ne
-peut pas finir sans en sortir est une setlist qu'on quitte.
+### « Ajouter de nouveaux morceaux » — un lien, pas un bouton
 
-### L'ordre est la fonctionnalité
+Au **pied de la liste**, et il mène à pl8. Cet écran-ci *nomme* des morceaux ; le volume qui les
+détient est ailleurs, et l'écran où l'on en dépose un est celui de la médiathèque, avec son
+dialogue à trois champs. C'est là qu'on *range* une bibliothèque : les tags y sont demandés
+plutôt que devinés, et un morceau déjà présent y est reconnu au lieu d'être rapporté en 409 à
+quelqu'un qui voulait juste monter une setlist.
 
-Le fichier part **d'abord** à la médiathèque, et la ligne est écrite **ensuite, depuis le chemin
-qu'elle répond**. Jamais depuis les tags envoyés : le dossier est déduit là-bas (`songFolder`), et
-une seconde déduction ici serait une seconde orthographe d'un même morceau — fausse dès le
-premier tag accentué.
+Il y avait ici un troisième bouton, qui prenait un fichier du disque, le filait à la médiathèque
+et écrivait la ligne depuis le chemin qu'elle répondait. Il portait tout un ordre d'opérations —
+le fichier d'abord, la ligne ensuite, jamais depuis les tags envoyés — pour éviter qu'une
+seconde déduction du dossier devienne une seconde orthographe du même morceau. Le lien fait
+disparaître la question : il n'y a plus qu'un endroit où un morceau arrive.
 
-Les tags sont **devinés du nom de fichier** et non demandés. L'upload de pl8 a un dialogue à
-trois champs, et il a raison : c'est l'écran où l'on *range* une bibliothèque. Ici la question
-posée est « mets ça dans mon set », et s'arrêter pour remplir un formulaire au milieu est
-l'interruption. Une devinette fausse se corrige dans pl8, sur le morceau.
+Ce qu'on perd est réel — il faut sortir de l'écran — et c'est le prix accepté : la liste des
+morceaux est repollée toutes les quelques secondes de toute façon, donc au retour le morceau
+déposé est cherchable ici sans rien recharger.
 
-Le catalogue ayant bougé sous nos pieds, le panneau le redemande tout de suite (`onFiled`) — sans
-quoi la ligne qu'il vient d'écrire resterait « morceau introuvable » jusqu'au prochain poll.
-
-Un 409 (« ce morceau y est déjà ») est **rapporté et pas rattrapé** : la moitié utile marcherait,
-sauf qu'on ne sait pas OÙ sans la réponse, et deviner le dossier ici est exactement la seconde
-orthographe que le paragraphe au-dessus refuse.
+**Le pied de liste, et pas la barre du haut** : la barre porte ce qu'on fait *à cette playlist*,
+et partir chez pl8 n'en est pas. En bas, c'est la suite naturelle d'une liste qu'on vient de
+parcourir sans y trouver ce qu'on cherchait.
 
 ### « Séparer les stems » — préparer toute la set list
 
-Le troisième bouton, et le seul qui coûte des heures. Chaque morceau est découpé en batterie /
+Le second bouton, et le seul qui coûte des heures. Chaque morceau est découpé en batterie /
 basse / reste / voix, pour qu'on puisse en **retirer** un sur le pupitre pendant le set
 ([ui-turntables/docs/stems.md](../../../../packages/ui-turntables/docs/stems.md)).
 
@@ -237,6 +250,23 @@ même raison : ce sur quoi elle travaille reste visible en dessous.
 - **Fermer le panneau arrête la boucle, pas le calcul.** Une séparation est un job sur la machine
   et va au bout ; ce que le bouton Arrêter interrompt, c'est l'enchaînement des morceaux suivants.
 
+#### Ce qui est déjà séparé se voit sur la rangée
+
+Une rangée dont le morceau porte des stems affiche l'**icône de séparation** à droite, à côté de
+l'artiste. Ce qu'elle lit est `meta.stems` du catalogue — un dossier `stems/` vu par le scan
+(`packages/mediatek/src/scan.ts`), donc pas un appel de plus par ligne : la liste des morceaux est
+déjà là et déjà repollée.
+
+C'est un **instantané et pas une vérité**, la même réserve que le pupitre s'écrit
+(`packages/ui-turntables/src/views/MixView.tsx`) : ce qui décide vraiment reste la route, qui
+interroge le dossier au moment de séparer. L'icône répond donc à « lesquels me restent à
+préparer ? » avant de lancer, et rien de ce que fait la boucle n'en dépend — elle sauterait ces
+lignes de toute façon, et les compte à part sous « déjà séparé(s) ».
+
+Elle apparaît **au poll suivant** la fin d'une séparation, pas à la seconde où le job rend la
+main : le catalogue est relu sur minuterie, et une invalidation à la ligne près serait un chemin
+d'écriture pour une icône.
+
 Deux natures d'échec, distinguées par le statut HTTP et traitées différemment :
 
 | ce qui échoue | statut | ce que fait la boucle |
@@ -249,8 +279,8 @@ aucun travail fait. Le bouton **Lancer** est d'ailleurs éteint tant qu'aucune c
 avec la phrase qui dit où aller et un raccourci vers les réglages — trouver ça au premier morceau
 serait le trouver trop tard.
 
-**Ce bouton ne dispatche pas `playlist stems`**, et c'est la même exception que « Ajouter un
-morceau » avec une raison à elle. Le verbe existe et fait le même travail — c'est lui qu'on
+**Ce bouton ne dispatche pas `playlist stems`**, et c'est la même exception que l'ajout par la
+recherche, avec une raison à elle. Le verbe existe et fait le même travail — c'est lui qu'on
 utilise depuis la palette ou le CLI. Mais une commande rend ses lignes **quand elle a fini**, et
 finir, pour trente morceaux, c'est une heure d'écran vide. Le bouton fait donc un
 `POST /pl8/api/stems` par ligne et sonde le job entre les deux, ce qui est la seule forme qui ait
@@ -261,6 +291,11 @@ règle exige reste vrai : l'ACTE est atteignable depuis la barre de commandes.
 ## Le transport est à nous, et il est minuscule
 
 Un `<audio>`, une ligne à la fois, sur une URL de même origine.
+
+Il **démarre sur une rangée** et nulle part ailleurs : il n'y a pas de « Tout jouer » dans la
+barre, parce que lire une setlist du début est ce que fait le pupitre, avec le moteur derrière.
+Ce qu'on écoute ici, c'est la ligne qu'on vient d'ajouter — et la suivante s'enchaîne, ce qui
+donne « à partir d'ici » sans qu'un bouton ait à le dire.
 
 pl8 a un `PlaybackProvider` partagé — un mini-lecteur qui survit à l'écran, avec une destination
 navigateur/moteur derrière. Rien de tout ça ici, délibérément : cette machinerie existe parce que

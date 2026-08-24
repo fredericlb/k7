@@ -75,7 +75,13 @@ hand and one moved by a controller are indistinguishable downstream.
 - **Notes.** A CC is what a knob sends. Pads and keys are the recorder's business (`webmidi.ts`),
   which is a different feature with a different destination.
 
-A binding whose param has **no widget** in this project is dropped silently rather than played:
-without min/max there is no way to turn 0–127 into a value, and inventing a range would make the
-knob sweep one nobody chose. The map travels with the module, so meeting a project that draws it
-differently is a normal state, not a broken file.
+A binding whose param has **no widget** in this project is not played: without min/max there is
+no way to turn 0–127 into a value, and inventing a range would make the knob sweep one nobody
+chose. The map travels with the module, so meeting a project that draws it differently is a
+normal state, not a broken file.
+
+It is **not dropped silently**, though, and that is the one thing that changed here. Not playing
+it is right; saying nothing about it is not — you map a CC, the knob never moves, and there is
+nowhere to look. `droppedBindings` collects what the join left behind and `droppedReport` turns
+it into the sentence the status line shows once per graph: *2 CC bindings ignored: filter Cutoff
+(no widget), …*. The join itself is unchanged, so nothing plays that did not play before.

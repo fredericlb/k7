@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "auth.tagline": "A text-based DAW. Sign in to open your projects and pick an engine.",
   "auth.signIn": "Sign in",
+  "auth.unreachable": "The sign-in service is not answering. Signing in cannot help until it is back — every studio service verifies the session it mints.",
+  "auth.retry": "Try again",
   "common.loading": "Loading…",
   "common.refresh": "Refresh",
   "engines.title": "Select an engine",

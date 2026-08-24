@@ -10,6 +10,7 @@ import {
   validateFile,
 } from "@studio/song-schema/yaml/validate";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useUnsavedGuard } from "./unsaved.ts";
 
 /** How long the keystrokes must stop before the buffer is written — a second, and why, in docs/autosave.md. */
 export const AUTOSAVE_DELAY_MS = 1000;
@@ -259,6 +260,9 @@ export function useAutosave({
     },
     [path, run, manual],
   );
+
+  // Anything but `clean` is text this pane holds and the disk does not — the reload has to ask first.
+  useUnsavedGuard(status !== "clean");
 
   const flush = useCallback(async (): Promise<boolean> => {
     disarm();

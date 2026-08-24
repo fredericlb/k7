@@ -44,6 +44,13 @@ export function RackBuilder({
     Array.from({ length: GRID * GRID }, () => null),
   );
   const [busy, setBusy] = useState(false);
+  // Which file of how many, and how far into it — a rack is up to sixteen uploads and a disabled button says none of that.
+  const [up, setUp] = useState<{
+    done: number;
+    total: number;
+    name: string;
+    frac: number;
+  } | null>(null);
   // The base-module refs already taken, so "it exists" is said before any upload runs.
   const [taken, setTaken] = useState<string[]>([]);
   useEffect(() => {
@@ -139,20 +146,41 @@ export function RackBuilder({
     const ap = (activeProject ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
     const prefix = ap && ap !== "." ? `${ap}/` : "";
     const dir = `${prefix}modules/instruments/${name.trim()}`;
+    let done = 0;
     try {
       // The samples first, then the module that names them: a reload between the two finds files nothing reads, never a module with no clips.
-      for (const p of rackPads)
-        await api.upload(dir, p.fileName, await p.pad.file.arrayBuffer());
+      for (const p of rackPads) {
+        setUp({ done, total: rackPads.length, name: p.fileName, frac: 0 });
+        await api.uploadWithProgress(
+          dir,
+          p.fileName,
+          await p.pad.file.arrayBuffer(),
+          (loaded, total) =>
+            setUp({
+              done,
+              total: rackPads.length,
+              name: p.fileName,
+              frac: total ? loaded / total : 0,
+            }),
+        );
+        done++;
+      }
+      setUp({ done, total: rackPads.length, name: "module.yaml", frac: 0 });
       await api.write(
         `${dir}/module.yaml`,
         buildRackModuleYaml(name.trim(), rackPads),
       );
       onCreated(`instruments/${name.trim()}`);
     } catch (e) {
+      // Which file, and what the earlier ones left behind — the samples land before the module by design.
+      const landed = done
+        ? ` — ${done} of ${rackPads.length} sample(s) are already in ${dir}`
+        : "";
       showToast({
-        message: `rack : ${(e as Error).message}`,
+        message: `rack : ${(e as Error).message}${landed}`,
         variant: "error",
       });
+      setUp(null);
       setBusy(false);
     }
   };
@@ -276,6 +304,26 @@ export function RackBuilder({
             }),
           )}
         </div>
+
+        {/* Sixteen uploads deserve a count: which file, how far in, and how many are already on disk. */}
+        {up && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-2 text-xs text-muted-foreground">
+              <span className="truncate">{up.name}</span>
+              <span className="ml-auto shrink-0 tabular-nums">
+                {Math.min(up.done + 1, up.total)}/{up.total}
+              </span>
+            </div>
+            <div className="h-1 overflow-hidden rounded bg-muted">
+              <div
+                className="h-full bg-primary transition-[width]"
+                style={{
+                  width: `${Math.round(((up.done + up.frac) / up.total) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           {/* What blocks the CREATE, said in place rather than on a dead button. */}

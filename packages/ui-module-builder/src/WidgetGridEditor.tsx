@@ -7,6 +7,7 @@
 
 import { Button } from "@frediverse/ui/button";
 import { cn } from "@frediverse/ui/lib/utils";
+import { askConfirm } from "@studio/project-shell/ask";
 import {
   Activity,
   AudioWaveform,
@@ -281,15 +282,17 @@ export function WidgetGridEditor({
   };
 
   /** Replace the whole panel with a proposal, asking first only when there is something to lose — docs/autoLayout.md. */
-  const organize = () => {
+  const organize = async () => {
     if (disabled || !params?.length) return;
-    if (
-      Object.keys(ui.widgets).length &&
-      !window.confirm(
-        "Replace this panel with one organized from the parameter list? What is drawn here now is discarded.",
-      )
-    )
-      return;
+    if (Object.keys(ui.widgets).length) {
+      const agreed = await askConfirm({
+        title: "Réorganiser le panneau ?",
+        body: "Il est remplacé par une disposition tirée de la liste des paramètres ; ce qui est dessiné ici est perdu. Ctrl+Z dans le code le ramène.",
+        confirmLabel: "Réorganiser",
+        danger: true,
+      });
+      if (!agreed) return;
+    }
     onChange(autoOrganize(params));
     enter(null);
   };
@@ -390,7 +393,7 @@ export function WidgetGridEditor({
             size="sm"
             variant="secondary"
             disabled={!!disabled || !params?.length}
-            onClick={organize}
+            onClick={() => void organize()}
             title={
               params?.length
                 ? `Replace the panel with ${params.length} parameters sorted into tabs, guessed from their names`

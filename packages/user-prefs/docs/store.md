@@ -44,9 +44,16 @@ comes back the day the second rule moves. A subject reads perfectly well without
 *this user has no preferences* — the ordinary first-login state the caller already handles.
 A hosted service must not 500 because a volume is missing.
 
-**A write that fails is silent, and the request still succeeds.** What is lost is that the
-choice outlives the session. Failing the click would take the choice away *as well*, which
-is strictly worse from where the user is standing.
+**A write that fails never throws, and says so.** `write` answers a boolean rather than
+raising: the choice the person just made still stands for this session, because taking it away
+*as well* would be strictly worse from where they are standing. What is lost is only that it
+outlives the session — and that is worth one sentence, so the route answers 500 with it rather
+than `{ok:true}`.
+
+The earlier shape here was a silent no-op with a cheerful `{ok:true}`, and it failed the same
+way `droppedKeys` below describes: the gesture works, the page says it saved, and a reload shows
+the old value back with nothing anywhere to point at. Same bug, same answer — refuse in words,
+keep the behaviour.
 
 ## Writes are wholesale
 

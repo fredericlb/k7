@@ -17,14 +17,17 @@ import { Markdown } from "./Markdown";
 
 // The shell's view commands, described here because only this page needs the prose. In display order.
 const VIEW_COMMANDS: { command: string; help: string }[] = [
-  { command: "ui global", help: "the 3-pane view — editor, timeline, chains" },
   {
-    command: "ui video",
-    help: "the 3-pane view with the renderer instead of the graph (video songs)",
+    command: "ui global",
+    help: "leave fullscreen — back to the layout, holding whichever panes the project declares",
   },
   { command: "ui editor", help: "fullscreen the editor pane" },
   { command: "ui timeline", help: "fullscreen the timeline pane" },
   { command: "ui chains", help: "fullscreen the chains (routing) pane" },
+  {
+    command: "ui turntables",
+    help: "fullscreen the DJ desk (projects declaring a turntables surface)",
+  },
   {
     command: "ui mastering",
     help: "fullscreen the master strip (projects declaring a mastering surface)",

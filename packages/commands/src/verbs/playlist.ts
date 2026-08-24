@@ -22,12 +22,77 @@ import { familyDir } from "@studio/mediatek/layout";
 import { isAudio } from "@studio/mediatek/media";
 import {
   appendPlaylistItem,
+  movePlaylistItem,
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
+  removePlaylistItem,
 } from "@studio/song-schema/playlist";
 import type { SidHandler } from "../commands.ts";
 import { playlistFile, splitWords } from "./shared.ts";
+
+/** The same refusal for both editors: the file's `items:` is in a shape a text edit cannot reorder. */
+const shapeRefusal = (rel: string) =>
+  `${rel}: the way \`items:\` is written there is not a shape this can edit — change the line by hand`;
+
+/** A 1-based position from the line, as a 0-based index, or null when it is not one this list has. */
+function position(word: string | undefined, count: number): number | null {
+  const n = Number(word);
+  if (!word || !Number.isInteger(n) || n < 1 || n > count) return null;
+  return n - 1;
+}
+
+/** Write it, or refuse in the verb's own name — the snapshot first, so the undo journal has the before. */
+function write(
+  abs: string,
+  next: string,
+  h: Parameters<SidHandler>[1],
+  verb: string,
+): boolean {
+  try {
+    h.snapshot?.(abs);
+    writeFileSync(abs, next, "utf8");
+    return true;
+  } catch (e) {
+    h.refuse([`${verb}: ${(e as Error).message}`]);
+    return false;
+  }
+}
+
+/** The playlist both editors open: its text, its parsed lines, and whatever words followed its name. */
+function openList(
+  a: string,
+  h: Parameters<SidHandler>[1],
+  verb: string,
+  tail: string,
+): {
+  rel: string;
+  abs: string;
+  text: string;
+  items: PlaylistItem[];
+  args: string[];
+} | null {
+  const m = /^("[^"]*"|\S+)\s+(.+)$/.exec(a.trim());
+  if (!m) {
+    h.refuse([`usage: playlist song ${verb} <playlist> ${tail}`]);
+    return null;
+  }
+  const found = playlistFile(m[1].replace(/^"(.*)"$/s, "$1"), h);
+  if (!found) return null;
+  let text: string;
+  try {
+    text = readFileSync(found.abs, "utf8");
+  } catch {
+    h.refuse([`no playlist ${found.rel} — make one with: playlist new <name>`]);
+    return null;
+  }
+  const parsed = parsePlaylist(text);
+  if (!parsed || !parsed.items.length) {
+    h.refuse([`${found.rel} names no song`]);
+    return null;
+  }
+  return { ...found, text, items: parsed.items, args: splitWords(m[2]) };
+}
 
 export const PLAYLIST_VERBS: Record<string, SidHandler> = {
   "playlist.new": (a, h) => {
@@ -180,5 +245,40 @@ export const PLAYLIST_VERBS: Record<string, SidHandler> = {
     h.log([
       `${rel}: + ${song}${variant ? ` (${variant})` : ""}${count ? ` — ${count} song${count > 1 ? "s" : ""}` : ""}`,
     ]);
+  },
+  /** `playlist song remove <playlist> <n>` — by POSITION, the one thing that cannot name two lines. */
+  "playlist.song.remove": (a, h) => {
+    const read = openList(a, h, "remove", "<n>");
+    if (!read) return;
+    const { rel, abs, text, items, args } = read;
+    const n = position(args[0] as string | undefined, items.length);
+    if (n === null)
+      return h.refuse([
+        `${rel} has ${items.length} song${items.length === 1 ? "" : "s"} — name a position between 1 and ${items.length}`,
+      ]);
+    const gone = items[n] as PlaylistItem;
+    const next = removePlaylistItem(text, n);
+    if (next === null) return h.refuse([shapeRefusal(rel)]);
+    if (!write(abs, next, h, "playlist song remove")) return;
+    h.log([
+      `${rel}: − ${gone.song}${gone.variant ? ` (${gone.variant})` : ""}`,
+    ]);
+  },
+  /** `playlist song move <playlist> <from> <to>` — both 1-based, which is what the screen counts in. */
+  "playlist.song.move": (a, h) => {
+    const read = openList(a, h, "move", "<from> <to>");
+    if (!read) return;
+    const { rel, abs, text, items, args } = read;
+    const from = position(args[0] as string | undefined, items.length);
+    const to = position(args[1] as string | undefined, items.length);
+    if (from === null || to === null)
+      return h.refuse([
+        `${rel} has ${items.length} song${items.length === 1 ? "" : "s"} — both positions go from 1 to ${items.length}`,
+      ]);
+    const next = movePlaylistItem(text, from, to);
+    if (next === null) return h.refuse([shapeRefusal(rel)]);
+    if (!write(abs, next, h, "playlist song move")) return;
+    const moved = items[from] as PlaylistItem;
+    h.log([`${rel}: ${moved.song} → ${to + 1}/${items.length}`]);
   },
 };

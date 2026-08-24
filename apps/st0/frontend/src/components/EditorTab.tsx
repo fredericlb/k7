@@ -15,6 +15,7 @@ import {
 } from "@frediverse/ui/dropdown-menu";
 import type { DroppedFile } from "@frediverse/ui/file-tree";
 import { cn } from "@frediverse/ui/lib/utils";
+import { askConfirm } from "@studio/project-shell/ask";
 import { showToast } from "@studio/project-shell/toast";
 import {
   listVideoPlacements,
@@ -66,6 +67,7 @@ import {
   readScalarField,
 } from "../projectPaths";
 import { movedTheTree, movedTheVocabulary, type Reload } from "../reloadScope";
+import { needsAttention, saveLabel } from "../saveLabel";
 import type { SeqView } from "../sequenceEdit";
 import { rackSliceRanges, scanSlices, setSliceWindow } from "../sliceSymbols";
 import type {
@@ -205,14 +207,6 @@ const gridOf = (p: WebProject | null | undefined) => ({
 });
 
 // What the toolbar says in place of a Save button; 'clean' says nothing, a saved file being the ordinary state.
-const SAVE_LABEL: Record<string, string> = {
-  clean: "",
-  pending: "edited",
-  saving: "saving…",
-  held: "not saved",
-  error: "save failed",
-};
-
 const EMPTY_HINTS: Hints = {
   baseModules: [],
   ioSinks: [],
@@ -740,12 +734,13 @@ export function EditorTab({
   // Delete: recycle the entry (reversible), refresh, and close the open file if it lived under it.
   const deleteEntry = useCallback(
     async (path: string, isDir: boolean) => {
-      if (
-        !window.confirm(
-          `Delete ${isDir ? "folder" : "file"} "${path}"? It moves to the recycle bin.`,
-        )
-      )
-        return;
+      const agreed = await askConfirm({
+        title: `Supprimer ${isDir ? "le dossier" : "le fichier"} « ${path} » ?`,
+        body: "Il part à la corbeille : rien n'est effacé tout de suite.",
+        confirmLabel: "Supprimer",
+        danger: true,
+      });
+      if (!agreed) return;
       try {
         await api.deleteFile(path);
         await refresh();
@@ -1225,7 +1220,7 @@ export function EditorTab({
         <span
           className={cn(
             "flex min-w-0 shrink items-center gap-1 text-xs",
-            autosave.status === "held" || autosave.status === "error"
+            needsAttention(autosave.status)
               ? "text-amber-500"
               : "text-muted-foreground",
           )}
@@ -1235,11 +1230,7 @@ export function EditorTab({
             <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
           )}
           <span className="truncate">
-            {SAVE_LABEL[autosave.status]}
-            {(autosave.status === "held" || autosave.status === "error") &&
-            autosave.reason
-              ? ` — ${autosave.reason}`
-              : ""}
+            {saveLabel(autosave.status, autosave.reason)}
           </span>
         </span>
       </div>

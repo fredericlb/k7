@@ -65,6 +65,26 @@ saying why. It is forgotten when it lands — and only if what landed is what is
 made *while a write was in flight* is not thrown away by that write's completion. Closing a pane
 mid-write hits exactly that case, which is why `settleBuffer` compares rather than deleting.
 
+### …but it does not survive the PAGE
+
+That `Map` is module state, so a reload, an F5 or a closed tab takes it with them, and for a long
+time that happened without a word — the one road out of this mechanism that lost text silently.
+`unsaved.ts` is the answer: `useAutosave` claims a `beforeunload` guard for as long as its status
+is anything but `clean`, so the browser asks before the page goes. One listener however many
+panes are open, released when the pane goes clean or unmounts.
+
+The claim is keyed by the claiming hook's own `useId`, deliberately **not** by path. Two panes
+can show one file — the editor and its popin are the obvious pair — and a Set keyed by path would
+hold one entry for the two of them, so the first to go clean would unbind the guard while the
+second still had unwritten text.
+
+It guards `pending` and `saving` too, not just `held`. A reload 200 ms after a keystroke is
+exactly as lossy as one over an unparseable buffer, and the timer being about to fire is not the
+same as the write having landed.
+
+The two screens with a real Save button — the module builder and st0's commands settings — claim
+the same guard by hand, since their draft is React state rather than a held buffer.
+
 ## Two pairings that must never be confused
 
 The hook takes `path`, `text` and `saved` as separate props, and for one commit after a file

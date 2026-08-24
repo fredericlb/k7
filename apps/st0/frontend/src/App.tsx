@@ -26,6 +26,7 @@ import {
   useStoreState,
 } from "@studio/engine-browser/store";
 import type { PresetInfo, TransportAction } from "@studio/engine-protocol";
+import { AskHost } from "@studio/project-shell/ask";
 import { markActive } from "@studio/project-shell/idle";
 // The address of ONE surface, for another device to open — the same module the launch uses, so both spell a project alike (docs/external.md).
 import { externalUrl, parseLaunch } from "@studio/project-shell/launch";
@@ -1893,7 +1894,8 @@ export default function App({
   // Offer the click into the pre-written line's `at` field, deferred a tick: a same-tick offer reads the bar's old state.
   const offerSpawnAt = useCallback((at?: { x: number; y: number }) => {
     if (!at) return;
-    const v = `${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`;
+    // Negative is kept, not clamped: above the first lane is where a node belongs as readily as below it (`graph move`).
+    const v = `${Math.round(at.x)},${Math.round(at.y)}`;
     setTimeout(() => cmdRef.current?.offer({ at: v }, true), 0);
   }, []);
   // The picker's vocabulary, PREFETCHED once per project — the CATALOGUE and not a list of refs, since only the module says what kind it is.
@@ -1969,9 +1971,7 @@ export default function App({
       const ref = pick.namespace === null ? undefined : pick.ref;
       // A catalogue pick has no local folder, so its `module new` runs ahead of the line below.
       pendingModule.current = ensureModuleCommand(pick.type, pick.name, ref);
-      const spawn = at
-        ? ` ${Math.max(0, Math.round(at.x))},${Math.max(0, Math.round(at.y))}`
-        : "";
+      const spawn = at ? ` ${Math.round(at.x)},${Math.round(at.y)}` : "";
       void runCommandRef.current(
         createForGraphCommand(pick.type, pick.name) +
           nameFor(pick.name) +
@@ -3010,6 +3010,11 @@ export default function App({
             />
             {/* The open menu speaks FIRST and borrows the line rather than writing it, so closing gives back what the app last said. */}
             <span
+              // This line is the shell's whole error channel, so it is also its only live region.
+              role="status"
+              aria-live="polite"
+              // Truncation is the layout's, not the message's: the full text has to stay reachable.
+              title={menuHint || status || project?.root}
               className={cn(
                 "truncate",
                 // Only when the app's OWN last word was a refusal: a menu hint borrows this line and is nobody's verdict.
@@ -3431,6 +3436,8 @@ export default function App({
 
         {/* Global toast notifications — positioned bottom-right, above everything */}
         <Toaster />
+        {/* The app's own confirm/prompt, in place of the OS box that ignored the Escape ladder. */}
+        <AskHost />
       </div>
     </EngineStoreProvider>
   );

@@ -1,7 +1,7 @@
-// The workspace's set lists as verbs: `playlist new` and `playlist song add`. Three things here
-// would be wrong silently — a name that leaves `_playlists/`, an append that RE-SERIALISES the
-// file and eats the comments and order somebody chose, and a "create" that hands back a set list
-// already there.
+// The workspace's set lists as verbs: `playlist new`, and the three that edit its lines. Four
+// things here would be wrong silently — a name that leaves `_playlists/`, an edit that
+// RE-SERIALISES the file and eats the comments and order somebody chose, a "create" that hands
+// back a set list already there, and a position read off by one from what the screen shows.
 
 import {
   existsSync,
@@ -154,5 +154,85 @@ describe("playlist song add", () => {
     );
     expect(refusals.join(" ")).toMatch(/not a shape this can extend/);
     expect(read("_playlists/set.yaml")).toBe(broken);
+  });
+});
+
+// Removing and reordering: TEXT edits counting from 1, so the risks are the ones above plus off-by-one.
+describe("playlist song remove / move", () => {
+  const three = (): void => {
+    mkdirSync(join(root, "_playlists"), { recursive: true });
+    writeFileSync(
+      join(root, "_playlists/set.yaml"),
+      "# ma soirée\ntitle: set\nitems:\n  - a\n  - song: b\n    variant: live\n  - c\n",
+      "utf8",
+    );
+  };
+  const songs = () =>
+    parsePlaylist(read("_playlists/set.yaml"))?.items.map((i) => i.song);
+
+  it("drops the line at a position, keeping the comment", async () => {
+    three();
+    await runCommand("playlist song remove set 1", host(), "cli");
+    expect(songs()).toEqual(["b", "c"]);
+    expect(read("_playlists/set.yaml")).toContain("# ma soirée");
+  });
+
+  it("takes the variant line with the song it belongs to", async () => {
+    three();
+    await runCommand("playlist song remove set 2", host(), "cli");
+    expect(songs()).toEqual(["a", "c"]);
+    expect(read("_playlists/set.yaml")).not.toContain("variant");
+  });
+
+  it("leaves an empty list that still PARSES", async () => {
+    mkdirSync(join(root, "_playlists"), { recursive: true });
+    writeFileSync(join(root, "_playlists/set.yaml"), "items:\n  - a\n", "utf8");
+    await runCommand("playlist song remove set 1", host(), "cli");
+    // A bare `items:` reads as null; the empty list is what the file means.
+    expect(parsePlaylist(read("_playlists/set.yaml"))).toEqual({ items: [] });
+  });
+
+  it("moves a song, carrying its variant with it", async () => {
+    three();
+    await runCommand("playlist song move set 2 1", host(), "cli");
+    expect(parsePlaylist(read("_playlists/set.yaml"))?.items).toEqual([
+      { song: "b", variant: "live" },
+      { song: "a" },
+      { song: "c" },
+    ]);
+  });
+
+  it("moves the last song to the front", async () => {
+    three();
+    await runCommand("playlist song move set 3 1", host(), "cli");
+    expect(songs()).toEqual(["c", "a", "b"]);
+  });
+
+  it("refuses a position the list has not got, and writes nothing", async () => {
+    three();
+    const before = read("_playlists/set.yaml");
+    await runCommand("playlist song remove set 9", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/between 1 and 3/);
+    expect(read("_playlists/set.yaml")).toBe(before);
+  });
+
+  it("refuses 0, since the screen counts from 1", async () => {
+    three();
+    await runCommand("playlist song move set 0 2", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/both positions go from 1 to 3/);
+  });
+
+  it("refuses a flow sequence rather than reflowing it", async () => {
+    mkdirSync(join(root, "_playlists"), { recursive: true });
+    const flow = "title: set\nitems: [a, b]\n";
+    writeFileSync(join(root, "_playlists/set.yaml"), flow, "utf8");
+    await runCommand("playlist song move set 1 2", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/not a shape this can edit/);
+    expect(read("_playlists/set.yaml")).toBe(flow);
+  });
+
+  it("names an unknown playlist rather than making one", async () => {
+    await runCommand("playlist song remove nope 1", host(), "cli");
+    expect(refusals.join(" ")).toMatch(/no playlist _playlists\/nope\.yaml/);
   });
 });

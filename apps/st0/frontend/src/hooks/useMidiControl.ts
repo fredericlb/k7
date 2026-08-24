@@ -24,7 +24,48 @@ interface MappedParam {
   cc: number;
 }
 
-/** Every mapped param in a graph, joined on the widget's `bind` — one with no WIDGET or no PLUGIN ID is dropped, silently (docs/midi.md). */
+/** A binding the join could not honour, and why — reported rather than played (docs/midi.md). */
+export interface DroppedBinding {
+  module: string;
+  param: string;
+  why: "no widget" | "no plugin";
+}
+
+/** The bindings `mappedParams` left behind. Separate so the join itself stays the one thing it is. */
+export function droppedBindings(graph: WebGraph | null): DroppedBinding[] {
+  if (!graph) return [];
+  const out: DroppedBinding[] = [];
+  for (const chain of Object.values(graph.chains)) {
+    for (const step of chain.use) {
+      if (!step.cc) continue;
+      for (const param of Object.keys(step.cc)) {
+        // No plugin means the whole step is unreachable; no widget means this one param has no range to sweep.
+        if (!step.pluginId)
+          out.push({ module: step.module, param, why: "no plugin" });
+        else if (
+          !Object.values(step.ui?.widgets ?? {}).some((w) => w.bind === param)
+        )
+          out.push({ module: step.module, param, why: "no widget" });
+      }
+    }
+  }
+  return out;
+}
+
+/** One sentence naming what was ignored, or null when nothing was — what the status line says. */
+export function droppedReport(dropped: DroppedBinding[]): string | null {
+  if (!dropped.length) return null;
+  const named = dropped
+    .slice(0, 3)
+    .map((d) => `${d.module} ${d.param} (${d.why})`)
+    .join(", ");
+  const rest = dropped.length > 3 ? `, and ${dropped.length - 3} more` : "";
+  const count =
+    dropped.length === 1 ? "1 CC binding" : `${dropped.length} CC bindings`;
+  return `${count} ignored: ${named}${rest}`;
+}
+
+/** Every mapped param in a graph, joined on the widget's `bind` — one with no WIDGET or no PLUGIN ID is left to `droppedBindings`. */
 export function mappedParams(graph: WebGraph | null): MappedParam[] {
   if (!graph) return [];
   const out: MappedParam[] = [];
@@ -64,6 +105,8 @@ export interface MidiControlApi {
   learning: { module: string; param: string } | null;
   /** Cancel an armed learn. */
   cancelLearn: () => void;
+  /** What this project's maps ask for and this graph cannot give — for the status line, not for playing. */
+  dropped: DroppedBinding[];
   /** Would a value echoed to this binding reach the controller? See docs/midi.md. */
   hasFeedback: (module: string, param: string) => boolean;
   /** Echo the engine's current values back to the controllers — called by whoever SUBSCRIBES, so the graph does not re-render per frame. */
@@ -87,6 +130,7 @@ export function useMidiControl({
   const cancelRef = useRef<(() => void) | null>(null);
 
   const mapped = useMemo(() => mappedParams(graph), [graph]);
+  const dropped = useMemo(() => droppedBindings(graph), [graph]);
   // Read by the message handler, which must not be rebound on every graph reload — a rebind between two turns would drop a message.
   const mappedRef = useRef(mapped);
   mappedRef.current = mapped;
@@ -164,7 +208,15 @@ export function useMidiControl({
     [],
   );
 
-  return { ready, learn, learning, cancelLearn, hasFeedback, pushFeedback };
+  return {
+    ready,
+    learn,
+    learning,
+    cancelLearn,
+    dropped,
+    hasFeedback,
+    pushFeedback,
+  };
 }
 
 export type { MappedParam };

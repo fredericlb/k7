@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@frediverse/ui/dialog";
+import { askConfirm } from "@studio/project-shell/ask";
 import type { ShareSummary } from "@studio/web-protocol";
 import { Check, Copy, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -64,17 +65,18 @@ export function ProjectShares({
     );
   };
 
-  const revoke = (s: ShareSummary) => {
+  const revoke = async (s: ShareSummary) => {
     // The sentence names what goes and what stays, because both surprise: the bytes vanish at once, and a link sent cannot be unsent.
-    if (
-      !window.confirm(
-        `Retirer « ${s.name || label} » ?\n\n` +
-          `Le son et le graphe sont effacés du serveur : le lien répondra « introuvable » à ` +
-          `tous ceux qui l'ont, tout de suite et définitivement. La ligne reste ici, datée.\n\n` +
-          `Republier le projet donnera un NOUVEAU lien — celui-ci ne revient pas.`,
-      )
-    )
-      return;
+    const agreed = await askConfirm({
+      title: `Retirer « ${s.name || label} » ?`,
+      body:
+        `Le son et le graphe sont effacés du serveur : le lien répondra « introuvable » à ` +
+        `tous ceux qui l'ont, tout de suite et définitivement. La ligne reste ici, datée.\n\n` +
+        `Republier le projet donnera un NOUVEAU lien — celui-ci ne revient pas.`,
+      confirmLabel: "Retirer",
+      danger: true,
+    });
+    if (!agreed) return;
     setBusy(s.key);
     setError(null);
     void api
@@ -187,7 +189,7 @@ export function ProjectShares({
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
-                        onClick={() => revoke(s)}
+                        onClick={() => void revoke(s)}
                         disabled={busy === s.key}
                       >
                         {busy === s.key ? (

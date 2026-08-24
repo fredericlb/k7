@@ -10,6 +10,7 @@
 // same thing.
 
 import { Button } from "@frediverse/ui/button";
+import { askText } from "@studio/project-shell/ask";
 import {
   ClipboardCopy,
   Download,
@@ -63,12 +64,23 @@ export function SharePanel({
     "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50";
   const head = "px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground";
 
-  // `project commit` takes the message as the rest of its line, so this asks first — an empty prompt is a cancelled commit.
+  // `project commit` takes the message as the rest of its line, so this asks first — an empty answer is a cancelled commit.
   const commit = () => {
-    const message = window
-      .prompt("Commit message (stages + pushes the whole repo):", "")
-      ?.trim();
-    if (message) onRun(`project commit ${message}`);
+    void askText({
+      title: "Message de commit",
+      body: "Indexe et pousse tout le dépôt.",
+      placeholder: "ce que ce commit change",
+      confirmLabel: "Commiter",
+      // The message is the REST of the verb's line, so it stays one line — see packages/commands/docs/verbs.md.
+      validate: (v) =>
+        !v.trim()
+          ? "un commit dit ce qu'il change"
+          : /[\n\r]/.test(v)
+            ? "une seule ligne : le verbe prend la fin de la sienne"
+            : "",
+    }).then((message) => {
+      if (message?.trim()) onRun(`project commit ${message.trim()}`);
+    });
   };
 
   return (

@@ -17,7 +17,8 @@
     "./tracker/notes": "./src/tracker/notes.ts",
     "./tracker/plugin": "./src/tracker/plugin.ts",
     "./lint": "./src/lint.ts",
-    "./autosave": "./src/autosave.ts"
+    "./autosave": "./src/autosave.ts",
+    "./unsaved": "./src/unsaved.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

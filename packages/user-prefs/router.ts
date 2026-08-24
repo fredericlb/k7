@@ -51,7 +51,11 @@ export function preferencesRouter<S extends z.ZodType>(
           error: `this service does not store ${dropped.join(", ")} — declare it in its preferences schema`,
         });
       // Wholesale, not a merge, which would make a field impossible to CLEAR (docs/store.md).
-      store.write(sub, parsed.data as z.infer<S>);
+      if (!store.write(sub, parsed.data as z.infer<S>))
+        return res.status(500).json({
+          error:
+            "the preference was applied but could not be stored — it will not outlive this session",
+        });
       res.json({ ok: true });
     }),
   );

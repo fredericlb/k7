@@ -36,6 +36,7 @@ import { STUDIO_ICONS } from "../chainsIcons";
 import type { MenuCtx } from "../contextMenu";
 import { useDocument } from "../hooks/useDocument";
 import {
+  droppedReport,
   type MappedParam,
   type MidiControlApi,
   useMidiControl,
@@ -543,6 +544,12 @@ export function ChainsTab({
       `MIDI learn: ${midi.learning.module} ${midi.learning.param} — move a control, or run any command to cancel`,
     );
   }, [midi.learning, onMidiStatus]);
+  // A binding that cannot be played is still a binding somebody wrote: say so once per graph rather than dropping it.
+  useEffect(() => {
+    if (!midi.ready) return;
+    const report = droppedReport(midi.dropped);
+    if (report) onMidiStatus?.(report);
+  }, [midi.ready, midi.dropped, onMidiStatus]);
 
   // --- framing a track (a double-click on its timeline header) -----------------------
 

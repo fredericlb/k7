@@ -6,9 +6,11 @@ import { Button } from "@frediverse/ui/button";
 import type { MediatekEntry } from "@studio/mediatek/types";
 import {
   appendPlaylistItem,
+  movePlaylistItem,
   type PlaylistItem,
   parsePlaylist,
   playlistStub,
+  removePlaylistItem,
 } from "@studio/song-schema/playlist";
 import type { Validity } from "@studio/song-schema/yaml/validate";
 import { recallBuffer, useAutosave } from "@studio/ui-editor/autosave";
@@ -159,6 +161,28 @@ export function PlaylistEditor({
       : "";
   }, [content]);
 
+  /** Drop a line, by the position the pane draws — the same TEXT edit `playlist song remove` makes. */
+  const removeItem = useCallback((index: number) => {
+    setContent((cur) =>
+      cur == null ? cur : (removePlaylistItem(cur, index) ?? cur),
+    );
+  }, []);
+
+  /** Reorder, likewise: the buffer is what changes, and the row moves because the text did. */
+  const moveItem = useCallback((from: number, to: number) => {
+    setContent((cur) =>
+      cur == null ? cur : (movePlaylistItem(cur, from, to) ?? cur),
+    );
+  }, []);
+
+  /** Why those two would not work — a flow `items:` the text edit will not reflow (docs/playlists.md). */
+  const editRefusal = useMemo(() => {
+    if (content == null) return "fichier pas encore chargé";
+    return removePlaylistItem(content, 0) === null && items.length
+      ? "l'écriture de `items:` dans ce fichier n'est pas une forme que la réorganisation sait modifier — changez la ligne à la main"
+      : "";
+  }, [content, items.length]);
+
   // No Save button: written as soon as the buffer reads as a playlist.
   const write = useCallback(
     async (next: string) => {
@@ -234,8 +258,10 @@ export function PlaylistEditor({
               items={items}
               songs={songs}
               onAdd={addItem}
-              onFiled={() => void refreshSongs()}
               addRefusal={addRefusal}
+              onRemove={removeItem}
+              onMove={moveItem}
+              editRefusal={editRefusal}
               onRun={onRun}
             />
           </div>
