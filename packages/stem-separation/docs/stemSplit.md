@@ -88,6 +88,30 @@ reconstructing the mix, so nothing holds its output inside ±1; `peakOf` measure
 before it is written and the job's `lines` say when one was clamped. Silence would be worse:
 the alternative way to learn about it is a click at the loudest moment of the record.
 
+## At the RECORD's rate, not the model's
+
+The model works at 44.1 kHz and nothing about that is negotiable — `decode()` resamples the
+input to reach the fixed input length. What was missing for a long time is the way **back**:
+`wavPcm24` stamps `SAMPLE_RATE` into the header, so a 48 kHz master produced four 44.1 kHz
+stems, and nothing anywhere said so.
+
+That is not a quality question, it is the whole point of the file. A cut is `mix − k·stem`
+([dsp/docs/stemcut.md](../../dsp/docs/stemcut.md)), and a subtraction only cancels while the two
+signals stay sample-aligned. At 44.1 against 48 they drift apart within a few hundred samples and
+the difference is two uncorrelated signals — which **adds**. Measured on the desk, one stem cut
+from full to nothing: −7,5 dB at rest, −6,6 dB with the knob hard left. The control that was
+meant to remove the drums made the bus 0,9 dB louder, and every stem knob on every song did the
+same thing.
+
+So `probeRate()` asks ffprobe what the source's rate is and `writeStem()` resamples on the way
+out when it differs, through ffmpeg rather than by hand — the rate is written into the job's
+`lines` when it is not the model's, since this is exactly the kind of silence that cost the
+measurement above. A source ffprobe cannot read falls back to the model's rate: the same file it
+would have written before, and the only case where the old behaviour was ever right.
+
+The stems on disk before this are wrong and cannot be fixed in place — they were written from
+resampled audio, so they have to be separated again.
+
 ## Windows, and how they are folded back — `separateAudio.ts`
 
 The graph's input length is fixed, so a five-minute song is cut into windows of exactly
@@ -320,7 +344,8 @@ fails against a declaration somebody can read instead of somewhere deep in an in
 section above gives: elsewhere a missing ffmpeg costs a format and the wav survives, here it costs
 the only thing the request asked for. Resampling and mono-to-stereo are ffmpeg's job because the
 model's input length is fixed — arriving at 48 kHz is not a quality question, it is the wrong
-number of samples.
+number of samples. The way back OUT is ffmpeg's job too, for the opposite reason — the
+section above.
 
 ## The call site
 

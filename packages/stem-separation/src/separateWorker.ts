@@ -84,6 +84,81 @@ function decode(source: string): Promise<Float32Array[]> {
   });
 }
 
+/** The source's own rate, since a stem is only subtractable at the rate the RECORD plays — docs/stemSplit.md. */
+function probeRate(source: string): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    const p = spawn("ffprobe", [
+      "-v",
+      "error",
+      "-select_streams",
+      "a:0",
+      "-show_entries",
+      "stream=sample_rate",
+      "-of",
+      "csv=p=0",
+      source,
+    ]);
+    let out = "";
+    p.stdout.on("data", (d: Buffer) => {
+      out += d.toString();
+    });
+    p.on("error", () => resolve(undefined));
+    p.on("close", () => {
+      const n = Number.parseInt(out.trim(), 10);
+      resolve(Number.isFinite(n) && n > 0 ? n : undefined);
+    });
+  });
+}
+
+/** Write one stem AT the record's rate, resampling through ffmpeg when the model's differs. */
+function writeStem(
+  path: string,
+  chans: Float32Array[],
+  to: number,
+): Promise<void> {
+  if (to === SAMPLE_RATE) {
+    writeFileSync(path, wavPcm24(chans));
+    return Promise.resolve();
+  }
+  const frames = chans[0]?.length ?? 0;
+  const inter = new Float32Array(frames * chans.length);
+  for (let i = 0; i < frames; i++)
+    for (let c = 0; c < chans.length; c++)
+      inter[i * chans.length + c] = chans[c][i];
+  return new Promise((resolve, reject) => {
+    const ff = spawn("ffmpeg", [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "f32le",
+      "-ar",
+      String(SAMPLE_RATE),
+      "-ac",
+      String(chans.length),
+      "-i",
+      "-",
+      "-ar",
+      String(to),
+      "-c:a",
+      "pcm_s24le",
+      "-y",
+      path,
+    ]);
+    let err = "";
+    ff.stderr.on("data", (d: Buffer) => {
+      err = (err + d.toString()).slice(-2048);
+    });
+    ff.on("error", reject);
+    ff.on("close", (code) =>
+      code === 0
+        ? resolve()
+        : reject(new Error(`ffmpeg could not write ${path}: ${err.trim()}`)),
+    );
+    ff.stdin.end(Buffer.from(inter.buffer, inter.byteOffset, inter.byteLength));
+  });
+}
+
 /** The slice of ONNX Runtime this file uses, declared rather than imported — see docs/stemSplit.md. */
 const ORT_MODULE = "onnxruntime-node";
 
@@ -243,7 +318,16 @@ export async function separate({
 
   say({ phase: "writing", percent: 100 });
   mkdirSync(outDir, { recursive: true });
-  return STEMS.map((name, s) => {
+  // The model works at 44.1 kHz; a stem that stays there cannot CANCEL against a record that does not.
+  const rate = (await probeRate(source)) ?? SAMPLE_RATE;
+  if (rate !== SAMPLE_RATE)
+    say({
+      phase: "writing",
+      percent: 100,
+      line: `writing at ${rate} Hz, the record's own — the model works at ${SAMPLE_RATE}`,
+    });
+  const out: string[] = [];
+  for (const [s, name] of STEMS.entries()) {
     const path = join(outDir, `${name}.wav`);
     const chans = oa.finish(s);
     // An overshoot is CLAMPED and SAID: the other way to find out is a click (docs/stemSplit.md).
@@ -254,9 +338,10 @@ export async function separate({
         percent: 100,
         line: `${name}: peak ${peak.toFixed(3)} — clamped to full scale`,
       });
-    writeFileSync(path, wavPcm24(chans));
-    return path;
-  });
+    await writeStem(path, chans, rate);
+    out.push(path);
+  }
+  return out;
 }
 
 // Worker entry. Guarded so the module can be imported by a test without running anything.
