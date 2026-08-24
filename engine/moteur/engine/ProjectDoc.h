@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -153,5 +154,15 @@ struct ProjectDoc {
     int countIn = 0;
     std::vector<TrackDoc> tracks;
 };
+
+// This translation unit's view of the model's LAYOUT — see AGENTS.md, "a half-rebuilt engine".
+inline std::size_t modelLayoutHere() {
+    return sizeof(ProjectDoc) * 31u + sizeof(TrackDoc) * 17u + sizeof(ClipDoc) * 7u +
+           sizeof(PluginDoc) * 3u + sizeof(SendDoc);
+}
+
+// The same number as seen by the units that READ a document — each compiled separately, docs/projectDiff.md.
+std::size_t modelLayoutInDiff();
+std::size_t modelLayoutInBuilder();
 
 }  // namespace studio

@@ -225,7 +225,7 @@ often locked while the engine is running — stop it before rebuilding.
 `release-gcc`). First configure fetches JUCE + Tracktion (~hundreds of MB). Needs CMake
 ≥ 3.24, C++20, and the JUCE Linux dev deps.
 
-### A half-rebuilt engine crashes on the first project, and nothing says so
+### A half-rebuilt engine now REFUSES to start — it used to crash on the first project
 
 An interrupted Windows build — the dev watcher restarting mid-compile, a PDB collision (see the
 `C1041` note in `docs/dev.md`) — can leave `studio_engine.dir/RelWithDebInfo` with **some** objects
@@ -239,9 +239,30 @@ something walks it — typically `keyOf`, on the first project the engine is han
 sits in a two-second `engine is gone — relaunching` loop and no project can ever be played. Nothing
 in the log names the engine as the culprit; `installCrashHandler` (below) is what does.
 
-Suspect it whenever a fresh-looking build crashes early on a document. To confirm, compare object
-mtimes against the header — and note that "it rebuilt when I touched the header" only proves the
-tlogs are healthy *now*:
+**`main()` now checks this before anything else.** `modelLayoutHere()` in `ProjectDoc.h` is a
+number built out of the model's `sizeof`s; `modelLayoutInDiff()` and `modelLayoutInBuilder()` are
+that same inline function compiled into `ProjectDiff.cpp` and `EditBuilder.cpp`, so a **stale
+object answers with the layout it was built against**. Disagreement means half a rebuild, and the
+engine says so and exits 4 instead of dying later in `keyOf`:
+
+```
+[fatal] this engine is HALF REBUILT: ProjectDoc has a different layout in different objects
+        (server=… diff=… builder=…).
+```
+
+Two readers rather than one, because the seam is not only lib-versus-server: `ProjectDiff.obj`
+stale beside a fresh `EditBuilder.obj` is the same disease and a single stamp would miss it. It is
+not exhaustive — a TU that reads no document is not asked — but it covers the two that walk
+`doc.tracks`, which is where the corruption lands.
+
+The cost of missing it is what earns the check: a two-second `engine is gone — relaunching` loop
+with a `bad_alloc` stack that names `keyOf`, three wrong diagnoses in a row (a project file, then
+the file service's link, then system memory), and an evening. The build was interrupted by
+triggering a second one while the first held `EditBuilder.cpp` open — an `EPERM` on a write is
+the tell, and it is worth stopping for.
+
+To confirm by hand, compare object mtimes against the header — and note that "it rebuilt when I
+touched the header" only proves the tlogs are healthy *now*:
 
 ```powershell
 $h = (Get-Item engine/ProjectDoc.h).LastWriteTime

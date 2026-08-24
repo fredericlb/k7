@@ -285,3 +285,8 @@ std::string describe(const Change& c) {
 }
 
 }  // namespace studio
+
+namespace studio {
+// Compiled HERE, so a stale object answers with the layout it was built against — AGENTS.md.
+std::size_t modelLayoutInDiff() { return modelLayoutHere(); }
+}  // namespace studio

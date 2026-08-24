@@ -602,3 +602,8 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
 }
 
 }  // namespace studio
+
+namespace studio {
+// Compiled HERE, so a stale object answers with the layout it was built against — AGENTS.md.
+std::size_t modelLayoutInBuilder() { return modelLayoutHere(); }
+}  // namespace studio

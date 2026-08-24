@@ -325,6 +325,21 @@ bool readDocArg(const std::string& input, studio::ProjectDoc& out) {
 int main(int argc, char** argv) {
     studio::installCrashHandler();
 
+    // A half-rebuilt engine LINKS and dies later on a garbage `doc.tracks`, so ask each reader what it was built against (AGENTS.md).
+    {
+        const std::size_t here = studio::modelLayoutHere();
+        const std::size_t inDiff = studio::modelLayoutInDiff();
+        const std::size_t inBuilder = studio::modelLayoutInBuilder();
+        if (here != inDiff || here != inBuilder) {
+            std::cerr << "[fatal] this engine is HALF REBUILT: ProjectDoc has a different layout in "
+                      << "different objects (server=" << here << " diff=" << inDiff
+                      << " builder=" << inBuilder << ").\n"
+                      << "        It would crash on the first project, in keyOf, naming nothing.\n"
+                      << "        Delete the objects for engine/*.cpp and rebuild — engine/moteur/AGENTS.md.\n";
+            return 4;
+        }
+    }
+
     // Child-process scan mode: `--scan-plugin <format> <id>` loads one plugin in isolation, before any engine setup and with no port bound.
     if (argc >= 4 && std::string(argv[1]) == "--scan-plugin")
         return studio::runPluginScanChild(argv[2], argv[3]);
