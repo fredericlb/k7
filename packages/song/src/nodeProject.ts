@@ -813,7 +813,8 @@ function compileNodeProjectIn(dir: string): ProjectDoc {
       monitor: "auto",
       inputGain: 0,
       color: "",
-      mute: false,
+      // A bus is mutable like a lane, from the one place a mute is written — see docs/setProject.md.
+      mute: bypassed.has(name),
       // A bus return can be soloed like any lane — it is a strip on the same mixer.
       solo: soloed.has(name),
       disabled: false,
