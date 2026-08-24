@@ -166,8 +166,22 @@ the cancellation would stop cancelling the moment somebody touched a knob.
 
 And `bypassed:` now lists all ten sources rather than deck B alone. `out` is a parallel path, so
 any lane feeding the bus is also heard raw beside it — which for a stem lane is worse than a
-duplicate: it would add its inverted copy straight to the master. Muting still feeds sends and
-sidechains, which is what makes this work.
+duplicate: it would add its inverted copy straight to the master.
+
+**What `bypassed:` means for such a lane is not a mute.** It reads as one, and this page said for
+two days that "muting still feeds sends", which is false: a muted track processes nothing at all,
+so every one of these lanes fed its bus with silence and a set had no sound. The engine now reads
+"muted, and exactly one send" as **route the track's output to that bus** — off the master by
+having somewhere else to go, rather than by being silenced. The measurement is in
+`engine/moteur/docs/editBuilder.md`; the word in this file is unchanged because it still says the
+right thing to a reader of the graph: this lane is heard through its bus only.
+
+The crossfade's second input is the case this does NOT cover. `filterB: [ crossfade#b ]` names a
+port, which compiles to a sidechain rather than a send, and a sidechain source is heard on the
+master like any other track — so deck B arrives beside the crossfade as well as through it, and
+the fade cannot take it away. Taking that track off the device silences the sidechain too. It is
+an open gap rather than a bug in this file: a run consumed by a port has no way, today, to be
+heard only there.
 
 The four files come from `playlist stems` (`@studio/commands`) — or, for a record put on
 unprepared, from the desk itself, which is what `surfaces/desk.yaml`'s `stems:` line is for. What

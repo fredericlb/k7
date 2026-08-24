@@ -253,6 +253,15 @@ void applyTrackParams(te::AudioTrack& track, const TrackDoc& t) {
 }
 
 // Solo is a mixer-wide relationship, so re-apply mute across ALL tracks after a sync — a per-track diff carries only the changed one.
+/** A lane heard through ONE bus and nowhere else: routed to it, never muted-and-sent — docs/editBuilder.md. */
+bool feedsBusOnly(const TrackDoc& t) {
+    if (!t.mute) return false;
+    int enabled = 0;
+    for (const auto& s : t.sends)
+        if (s.enabled) ++enabled;
+    return enabled == 1;
+}
+
 void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
     bool anySolo = false;
     for (const auto& t : doc.tracks)
@@ -260,7 +269,9 @@ void applySoloMute(te::Edit& edit, const ProjectDoc& doc) {
     auto audioTracks = te::getAudioTracks(edit);
     for (size_t i = 0; i < doc.tracks.size() && i < static_cast<size_t>(audioTracks.size()); ++i) {
         const auto& t = doc.tracks[i];
-        audioTracks[static_cast<int>(i)]->setMute(t.mute || (anySolo && !t.solo));
+        // A routed lane carries its mute as an OUTPUT, so muting it here would silence the bus too.
+        const bool mute = t.mute && !feedsBusOnly(t);
+        audioTracks[static_cast<int>(i)]->setMute(mute || (anySolo && !t.solo));
     }
 }
 
@@ -572,6 +583,11 @@ void populateEdit(te::Engine& engine, te::Edit& edit, const ProjectDoc& doc,
             auto* dest = trackById(edit, s.to, doc);
             if (dest == nullptr) {
                 warn("send target track not found: " + s.to);
+                continue;
+            }
+            // Its only destination: ROUTE the output there, since a muted track would send silence (docs/editBuilder.md).
+            if (feedsBusOnly(doc.tracks[i])) {
+                src->getOutput().setOutputToTrack(dest);
                 continue;
             }
             auto found = busForDest.find(s.to);

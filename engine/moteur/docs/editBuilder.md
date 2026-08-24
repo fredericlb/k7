@@ -180,6 +180,27 @@ bus number. The return goes at the FRONT of the destination track, so bus audio 
 track's effects on the way out; each send is appended at the END of its source track, post-FX and
 post-fader. The first sender to name a destination is what wires its return.
 
+### A lane heard through one bus is ROUTED, not muted-and-sent
+
+`feedsBusOnly` — muted, and exactly one enabled send — takes a different path: the track's output
+goes to the destination with `setOutputToTrack`, no `AuxSend` is made, and `applySoloMute` leaves
+it unmuted. That is not a shortcut, it is the only thing that works, and the measurement is worth
+recording because two plausible designs die on it:
+
+**A muted track processes nothing.** Not its plugins, not its sends. Measured on a set whose decks
+were muted to keep them off the master: the bus received silence, so the whole mix was silent.
+Moving the `AuxSend` to the front of the plugin list changes nothing, because the list never runs.
+
+So a lane cannot be both muted and heard through a bus, and `setMute` is the wrong tool for "off
+the master". Routing the output is the right one: the track is not muted, it simply does not go to
+the device — its signal leaves by the bus and only by the bus.
+
+**The same measurement kills `setOutputToDeviceID({})`**, tried for a run consumed by another
+module's port. It takes the track off the device, and takes it off the sidechain with it: in this
+engine a track's signal reaches a sidechain only if that track also reaches a device. A run whose
+signal is consumed by a port and heard nowhere else is therefore **not expressible today** — see
+`packages/song/docs/setProject.md`, where the crossfade's second input needs exactly that.
+
 ## Two small ones worth keeping
 
 `applyTrackParams` leaves the track's own fader at unity on purpose: what a track sounds like is
