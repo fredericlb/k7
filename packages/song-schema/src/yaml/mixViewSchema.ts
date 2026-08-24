@@ -4,13 +4,18 @@
 
 import { z } from "zod";
 
-/** What one control drives: a module the CHAINS file names, and a param as a widget binds it (docs/deskFiles.md). */
-export const ViewBindingSchema = z
+/** A module the CHAINS file names, and a param as a widget binds it (docs/deskFiles.md). */
+const TargetSchema = z
   .object({
     module: z.string().min(1),
     param: z.string().min(1),
   })
   .strict();
+
+/** What one control drives: a target, and at most one SECOND taking the same value (docs/deskFiles.md). */
+export const ViewBindingSchema = TargetSchema.extend({
+  also: TargetSchema.optional(),
+}).strict();
 
 /** The file: control id -> what it drives, `null` being a REAL value for one not wired yet (docs/deskFiles.md). */
 export const MixViewSchema = z.record(

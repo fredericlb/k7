@@ -311,6 +311,13 @@ export function useDeckSet(
       const b = bindingFor(control);
       if (!b || !hasPlugin(b, plugins) || !b.pluginId) return false;
       deck.engine.setPluginParam(b.pluginId, b.param, valueFor(b, value));
+      // The SAME value to the second target: the opposition lives in the modules, not here.
+      if (b.also?.pluginId && plugins.has(b.also.pluginId))
+        deck.engine.setPluginParam(
+          b.also.pluginId,
+          b.also.param,
+          valueFor({ ...b.also, control: b.control }, value),
+        );
       return true;
     },
     [deck.engine, bindingFor, plugins],

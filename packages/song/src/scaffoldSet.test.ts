@@ -39,7 +39,7 @@ beforeEach(() => {
   const catalogue = join(import.meta.dirname, "..", "..", "dsp", "modules");
   for (const at of [
     "audio/utility/tempo",
-    "audio/utility/crossfade",
+    "audio/utility/fade",
     // The stem cut, copied like the others: a renamed `Cut` param is eight dead controls.
     "audio/separation/stemcut",
     "audio/filter/sweep",
@@ -88,7 +88,6 @@ describe("a scaffolded set", () => {
       // The CUE SHEET at the root: the set's own file, the song list living in the playlist.
       "mix.yaml",
       "nodes",
-      "nodes/crossfade.yaml",
       // One CUT per stem per deck: the fader that takes an instrument out of the record.
       "nodes/cutBassA.yaml",
       "nodes/cutBassB.yaml",
@@ -103,6 +102,9 @@ describe("a scaffolded set", () => {
       "nodes/deckB.yaml",
       "nodes/eqA.yaml",
       "nodes/eqB.yaml",
+      // ONE FADE PER DECK, opposed by their `Side` — two of them are the crossfader.
+      "nodes/fadeA.yaml",
+      "nodes/fadeB.yaml",
       "nodes/filterA.yaml",
       "nodes/filterB.yaml",
       // …and one LANE per stem: a stem that fades on its own has to be a track of its own.
@@ -127,7 +129,12 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     // Each tempo fader names its deck's NODE, which a module-owned controller.yaml could not say.
     expect(deskMapping(dir)).toEqual({
-      crossfade: { module: "crossfade", param: "Mix" },
+      // ONE control, TWO params: the opposition is each fade's `Side`, not the value sent.
+      crossfade: {
+        module: "fadeA",
+        param: "Mix",
+        also: { module: "fadeB", param: "Mix" },
+      },
       "deckA.tempo": { module: "tempoA", param: "Target BPM" },
       "deckB.tempo": { module: "tempoB", param: "Target BPM" },
       "deckA.eqLow": { module: "eqA", param: "Low-shelf gain" },
@@ -176,7 +183,8 @@ describe("a scaffolded set", () => {
     scaffoldSet(dir, "winter");
     const ext = (f: string) =>
       /extends:\s*"([^"]+)"/.exec(readFileSync(join(dir, f), "utf8"))?.[1];
-    expect(ext("nodes/crossfade.yaml")).toBe("@st0/audio/utility/crossfade");
+    expect(ext("nodes/fadeA.yaml")).toBe("@st0/audio/utility/fade");
+    expect(ext("nodes/fadeB.yaml")).toBe("@st0/audio/utility/fade");
     expect(ext("nodes/tempoA.yaml")).toBe("@st0/audio/utility/tempo");
     expect(ext("nodes/tempoB.yaml")).toBe("@st0/audio/utility/tempo");
   });
@@ -189,7 +197,7 @@ describe("a scaffolded set", () => {
       "@st0/audio/filter/sweep",
       // Under `separation/`, beside the `stemsplit` that writes the files it takes back out.
       "@st0/audio/separation/stemcut",
-      "@st0/audio/utility/crossfade",
+      "@st0/audio/utility/fade",
       "@st0/audio/utility/tempo",
     ]);
   });
@@ -234,32 +242,38 @@ describe("a scaffolded set", () => {
     expect(g.chains.eqA.use.map((s) => s.module)).toEqual([
       "eqA",
       "filterA",
-      "crossfade",
+      "fadeA",
     ]);
     expect(g.chains.eqA.out.map((o) => o.to)).toEqual(["MIX"]);
     // The blend then leaves by the master run, which is what a limiter on a set would go on.
     expect(g.chains.MIX.out.map((o) => o.to)).toEqual(["OUT"]);
   });
 
-  it("lands deck B's BUS on the crossfade's second port", () => {
+  it("gives each deck its OWN bus, neither feeding the other", () => {
     scaffoldSet(dir, "winter");
-    const use = loadGraph(dir).chains.eqA.use;
-    // `#b` makes two decks expressible: losing it silently compiles to deck B feeding nothing.
-    const cross = use.at(-1);
-    expect(cross?.module).toBe("crossfade");
-    // `filterB` and not `deckB`: deck B arrives through its whole strip, already summed and EQ'd.
-    expect(cross?.in).toEqual(["filterB"]);
-    // And nothing lands on the others, which each take one signal.
-    for (const step of use.slice(0, -1)) expect(step.in ?? []).toEqual([]);
+    const g = loadGraph(dir);
+    // No port anywhere: the two strips never meet before the mixer, which is the whole point.
+    for (const chain of Object.values(g.chains))
+      for (const step of chain.use) expect(step.in ?? []).toEqual([]);
+    expect(g.chains.eqB.use.map((s) => s.module)).toEqual([
+      "eqB",
+      "filterB",
+      "fadeB",
+    ]);
+    // Both land on the mixer's sum, as two ordinary runs — no sidechain, nothing to keep audible.
+    expect(g.chains.eqA.out.map((o) => o.to)).toEqual(["MIX"]);
+    expect(g.chains.eqB.out.map((o) => o.to)).toEqual(["MIX"]);
   });
 
-  it("inherits the crossfade's two ports without restating them", () => {
+  it("opposes the two fades by their Side, and starts on deck A", () => {
     scaffoldSet(dir, "winter");
-    // The node says only `extends` and a `Mix`, and the loader resolves `mandatory` on BOTH ports.
-    expect(loadGraph(dir).modules.crossfade.inputs).toEqual([
-      { name: "a", type: "audio", mandatory: true },
-      { name: "b", type: "audio", mandatory: false },
-    ]);
+    const modules = loadGraph(dir).modules;
+    // The one number that makes two identical modules a crossfader.
+    expect(modules.fadeA.params?.Side).toBe(0);
+    expect(modules.fadeB.params?.Side).toBe(1);
+    // Both at 0: with Side 0 that is full and with Side 1 silent, so a set opens on deck A.
+    expect(modules.fadeA.params?.Mix).toBe(0);
+    expect(modules.fadeB.params?.Mix).toBe(0);
   });
 
   it("puts a COLD module on each deck, one node per deck", () => {
@@ -295,7 +309,7 @@ describe("a scaffolded set", () => {
     });
   });
 
-  it("COMPILES with deck B's bus reaching the crossfade's second input", () => {
+  it("COMPILES to two buses that reach the master on their own", () => {
     scaffoldSet(dir, "winter");
     const doc = compileNodeProject(dir);
     // Ten source lanes and two bus returns: a record and its four stems per deck, then the bus.
@@ -313,10 +327,12 @@ describe("a scaffolded set", () => {
       "stemVocalsA",
       "stemVocalsB",
     ]);
-    const busA = doc.tracks.find((t) => t.id === "eqA");
-    const cross = busA?.plugins.find((p) => p.id === "eqA:crossfade");
-    // With a tempo in front, `chainsGraph` must not name the feeder, or the side input dies.
-    expect(cross?.sidechainFrom).toBe("eqB");
+    // NOTHING sidechains: the mechanism that cost the crossfade its sound is simply not used.
+    for (const t of doc.tracks)
+      for (const p of t.plugins) expect(p.sidechainFrom ?? "").toBe("");
+    // And neither bus is muted, so neither needs to be heard through something else to exist.
+    for (const id of ["eqA", "eqB"])
+      expect(doc.tracks.find((t) => t.id === id)?.mute).toBe(false);
   });
 
   it("puts the EQ on the BUS, after the five sources have met", () => {
@@ -324,8 +340,8 @@ describe("a scaffolded set", () => {
     const doc = (scaffoldSet(dir, "winter"), compileNodeProject(dir));
     const ids = (t: string) =>
       doc.tracks.find((x) => x.id === t)?.plugins.map((p) => p.id) ?? [];
-    expect(ids("eqA")).toEqual(["eqA:eqA", "eqA:filterA", "eqA:crossfade"]);
-    expect(ids("eqB")).toEqual(["eqB:eqB", "eqB:filterB"]);
+    expect(ids("eqA")).toEqual(["eqA:eqA", "eqA:filterA", "eqA:fadeA"]);
+    expect(ids("eqB")).toEqual(["eqB:eqB", "eqB:filterB", "eqB:fadeB"]);
     // The record's own lane carries NOTHING: a plugin here is one the stems never went through.
     expect(ids("deckA")).toEqual([]);
     // …and a stem lane carries its cut, which is the negative gain doing the subtracting.

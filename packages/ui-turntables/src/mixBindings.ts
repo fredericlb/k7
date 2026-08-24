@@ -21,6 +21,8 @@ export interface ResolvedBinding {
   track?: string;
   /** The widget that draws the param, and therefore states its range. Undefined is not fatal. */
   widget?: WebWidget;
+  /** A SECOND param this control drives, taking the same value — ../../song/docs/setProject.md. */
+  also?: Omit<ResolvedBinding, "control" | "also">;
 }
 
 /** A binding that could not be resolved, and the sentence saying why. */
@@ -80,6 +82,26 @@ export function resolveBindings(
       });
       continue;
     }
+    // The SECOND target, resolved the same way; an unresolvable one is reported, never silently dropped.
+    let also: ResolvedBinding["also"];
+    if (b.also) {
+      const second = steps.get(b.also.module);
+      if (!second || (!second.step.pluginId && !second.track))
+        problems.push({
+          control: id,
+          message: `le second module « ${b.also.module} » n'a ni plugin ni piste à faire bouger`,
+        });
+      else
+        also = {
+          module: b.also.module,
+          param: b.also.param,
+          ...(second.step.pluginId ? { pluginId: second.step.pluginId } : {}),
+          ...(second.track ? { track: second.track } : {}),
+          widget: Object.values(second.step.ui?.widgets ?? {}).find(
+            (w) => w.bind === b.also?.param,
+          ),
+        };
+    }
     bindings.push({
       control,
       module: b.module,
@@ -89,6 +111,7 @@ export function resolveBindings(
       widget: Object.values(step.ui?.widgets ?? {}).find(
         (w) => w.bind === b.param,
       ),
+      ...(also ? { also } : {}),
     });
   }
   return { bindings, problems };

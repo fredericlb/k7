@@ -1,0 +1,13 @@
+# One input, one gain, and a `Side` that says which way the gain runs. Two of these facing opposite
+# ways are a crossfade — without the second port a crossfade needs, so each side stays an ordinary
+# track with an ordinary output and the blend happens where they meet at the mixer.
+#
+# `plugin: {type: jsdsp}` says the sound comes from the `jsdsp.ts` beside this file.
+plugin: { type: jsdsp, name: Fade }
+params:
+  # What a desk's ONE control drives, on both sides at once — the opposition is `Side`, not the value.
+  Mix: 0
+  # 0 fades OUT as Mix rises, 1 fades IN. Set in the NODE file, never bound to a control.
+  Side: 0
+# A fader. Mix at 0 is full with Side 0 and silent with Side 1; at 1 the two swap.
+# (To say this on the GRAPH, wire this module into a node of `@studio/doc`.)

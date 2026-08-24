@@ -133,20 +133,50 @@ modules:
   cutBassA: [ eqA ]         #    through the cut that SUBTRACTS it, into the same bus
   # …drums, other, vocals alike, ×2 decks
   eqA: [ filterA ]          # the bus carries the strip
-  filterA: [ crossfade ]    # …and flows into the crossfade's first input
-  filterB: [ crossfade#b ]  # deck B's bus lands on the port called `b`
-  crossfade: [ OUT ]
+  filterA: [ fadeA ]        # …and ends on this deck's own fade
+  fadeA: [ MIX ]            # which lands on the mixer's sum, like deck B's
+  fadeB: [ MIX ]
 bypassed: [ deckA, deckB, stemBassA, … ]   # every source is heard through its bus only
 ```
 
-`#b` is what makes the second deck expressible; without it `filterB` would claim the module
-as its own next step and its real input would go unnoticed. The full rule is
-[ports.md](ports.md). The crossfade declares its own two inputs with `mandatory: false` on
-the second, because one deck loaded and the other silent is the normal state of a set, not
-a half-built chain.
+### The crossfader is TWO modules, and the engine is why
+
+A fade is `signal × gain`, and a crossfader is two of them facing opposite ways. It reads
+like an odd way to write one module — and it was one module, `@st0/audio/utility/crossfade`,
+with two declared inputs and deck B arriving on the port called `#b`.
+
+That shape **cannot be heard**. A module's second port compiles to a Tracktion sidechain, and
+a sidechain reads a track only while that track also reaches an audible output. So a deck
+feeding nothing but a crossfade is heard **beside** it, raw, at full level, with the fader
+unable to take it away — and every way of removing it from the master removes it from the
+crossfade too. Muting the lane, moving the send, disconnecting the device, muting the bus,
+routing to a silent sink: five mechanisms, five measurements, one result, all in
+[engine/moteur/docs/sidechain.md](../../../engine/moteur/docs/sidechain.md).
+
+So each deck keeps its own fade, its own track and its own ordinary output, and the blend
+happens where sums belong — at the mixer. Nothing has to be hidden from the master, which is
+what makes the shape hold: `bypassed:` above still lists the SOURCE lanes, because those feed
+a bus and would otherwise double, but neither bus is hidden from anything.
+
+The two fades are opposed by their `Side` — `0` fades out as the control travels, `1` fades in
+— and the desk sends both **the same number**. That is why `surfaces/desk.yaml` binds one
+control to two params:
+
+```yaml
+crossfade: { module: fadeA, param: Mix, also: { module: fadeB, param: Mix } }
+```
+
+`also` is the one exception to "a control drives at most one param", and it earns it by being
+narrow: the same value, no arithmetic, no second range to reason about. What would be
+unreadable is a mapping where each half could do something different — which is the thing the
+rule was written against, and which `also` still forbids.
+
+`@st0/audio/utility/crossfade` is not wrong and is not going away: on a chain where both its
+inputs already live on one track, it is the right module. It is a desk, where they do not,
+that it cannot serve.
 
 **The tempo comes before the fade**, and the order is the signal path: a deck whose tempo
-were applied after the crossfade would be stretched post-mix, along with the other deck.
+were applied after the fade would be stretched post-mix, along with the other deck.
 
 ### Each deck is FIVE lanes, meeting at a bus
 

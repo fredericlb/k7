@@ -1,4 +1,4 @@
-// scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at a crossfade, an
+// scaffoldSet.ts — the file map + writer for a new SET: two decks meeting at the mixer, an
 // empty set list, and the desk that plays them. An `.st0` folder like every other, and that is
 // the whole of what a set is — a project with no arrangement that declares a `turntables`
 // surface. Hand-authored like scaffold.ts and for the same reason — the `#` comments ship to
@@ -29,7 +29,7 @@ const letterOf = (deck: string) => deck.replace(/^deck/, "");
 export function setProjectFiles(name: string): Record<string, string> {
   return {
     "project.yaml":
-      `# A SET: two decks meeting at a crossfade, and a list of songs to play through them.\n` +
+      `# A SET: two decks meeting at the mixer, and a list of songs to play through them.\n` +
       `#\n` +
       `# There is no arrangement, and nothing here says so: a project draws what it DECLARES,\n` +
       `# and this one declares no \`surfaces/timeline.yaml\`. What makes it a set rather than a\n` +
@@ -70,17 +70,22 @@ export function setProjectFiles(name: string): Record<string, string> {
       `cues: []\n`,
 
     [GRAPH_FILE]:
-      `# Each deck through its own tempo, EQ and filter, then both meeting at one crossfade —\n` +
-      `# the shape a single chain cannot express, because a chain carries ONE signal.\n` +
+      `# Each deck through its own tempo, EQ, filter and FADE, and the two meeting at \`MIX\`.\n` +
       `#\n` +
-      `# \`deckA\` FLOWS into its tempo and on into the crossfade: a bare destination is the\n` +
-      `# flow. \`deckB\`'s run ends on a PORT, \`#b\`, so it lands on the crossfade's second\n` +
-      `# input without claiming the module as its own next step.\n` +
+      `# The fade is what a crossfader is here, and it is TWO modules rather than one because\n` +
+      `# a module's second port is wired as a sidechain, and a sidechain reads a track only\n` +
+      `# while that track also reaches an audible output. A deck feeding nothing but a\n` +
+      `# crossfade would therefore be heard BESIDE it, raw, with nothing able to take it back:\n` +
+      `# not a mute, not a disconnect, not a routing — all four were measured, see\n` +
+      `# engine/moteur/docs/sidechain.md. One input each, and the blend at the mixer.\n` +
+      `#\n` +
+      `# The two are opposed by their \`Side\`, not by their value: the desk's one control sends\n` +
+      `# the SAME number to both, and \`fadeA\` fades out on it while \`fadeB\` fades in.\n` +
       `#\n` +
       `# The names here are NODES, from nodes/ — not modules. The modules themselves\n` +
       `# live in the médiathèque and are not copied in.\n` +
       `#\n` +
-      `# The EQ and the filter sit AFTER the tempo and BEFORE the crossfade, which is where a\n` +
+      `# The EQ and the filter sit AFTER the tempo and BEFORE the fade, which is where a\n` +
       `# mixing desk puts them: a channel strip is shaped on its way to the fader, so cutting a\n` +
       `# deck's bass is a property of that deck and not of the blend.\n` +
       `#\n` +
@@ -97,20 +102,19 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# See packages/dsp/docs/stemcut.md.\n` +
       `#\n` +
       `# Five feeders is what makes \`eq*\` a MEETING POINT, and a meeting point breaks a run:\n` +
-      `# the EQ, the filter and the crossfade become a chain of their own — a bus — and each of\n` +
+      `# the EQ, the filter and the fade become a chain of their own — a bus — and each of\n` +
       `# the five lanes reaches it as a send. Which is exactly what the subtraction needs, since\n` +
       `# it has to happen BEFORE the EQ: taking a raw stem out of an already equalised mix would\n` +
       `# leave a residue shaped like the EQ, and the cancellation would stop cancelling the\n` +
       `# moment somebody touched a knob.\n` +
       `#\n` +
-      `# The crossfade lands on \`MIX\`, the mixer's sum, and \`MIX -> OUT\` is the run out to the\n` +
+      `# Both fades land on \`MIX\`, the mixer's sum, and \`MIX -> OUT\` is the run out to the\n` +
       `# interface — the MASTER CHAIN. A module named on that line processes the whole blend,\n` +
       `# which on a set is where a limiter belongs. \`OUT\` carries the output level itself, as\n` +
       `# its \`Volume\`.\n` +
       `\n` +
       `modules:\n` +
       DECKS.map((deck) => graphForDeck(deck)).join("") +
-      `  ${CROSSFADE}: [ MIX ]\n` +
       `  MIX: [ OUT ]\n` +
       `\n` +
       // Every source lane's mute lives HERE, since a lane's mute is its module's bypass.
@@ -118,27 +122,15 @@ export function setProjectFiles(name: string): Record<string, string> {
 
     "nodes/deckA.yaml": deckTrack(
       "A",
-      "Its run FLOWS on into the crossfade, so it fills the module's first port.",
+      "Its run FLOWS on into its own fade, and from there to the mixer.",
     ),
     "nodes/deckB.yaml": deckTrack(
       "B",
-      "Its run ends on `#b`, the crossfade's second port.",
+      "Its run FLOWS on into its own fade, opposed to deck A's, and from there to the mixer.",
     ),
 
-    [`nodes/${CROSSFADE}.yaml`]:
-      `# The crossfader, as a NODE of the médiathèque's module.\n` +
-      `#\n` +
-      `# The module is NOT copied into this project, and that is the point: pl8 owns the only\n` +
-      `# editable catalogue, so a copy here would be a second crossfade nobody maintains and\n` +
-      `# nobody would notice drifting. A use of a module you do not own needs no local folder\n` +
-      `# for it — see packages/song/docs/nodes.md.\n` +
-      `#\n` +
-      `# \`kind\`, \`inputs\` and \`category\` are inherited by NOT being stated: the two audio\n` +
-      `# inputs, the second one optional, come from what this extends.\n` +
-      `extends: ${q(`${MEDIATEK_UTILITY}/crossfade`)}\n` +
-      `params:\n` +
-      `  # Centred: both decks at once, which is where a set starts.\n` +
-      `  Mix: 0.5\n`,
+    [`nodes/${FADE_A}.yaml`]: fadeNode("A", 0),
+    [`nodes/${FADE_B}.yaml`]: fadeNode("B", 1),
 
     [`nodes/${TEMPO_A}.yaml`]: tempoNode("A"),
     [`nodes/${TEMPO_B}.yaml`]: tempoNode("B"),
@@ -195,7 +187,7 @@ export function setProjectFiles(name: string): Record<string, string> {
       `# playlist: ete-2026\n` +
       `# stems: true\n` +
       `mapping:\n` +
-      `  crossfade: { module: ${CROSSFADE}, param: Mix }\n` +
+      `  crossfade: { module: ${FADE_A}, param: Mix, also: { module: ${FADE_B}, param: Mix } }\n` +
       `  deckA.tempo: { module: ${TEMPO_A}, param: Target BPM }\n` +
       `  deckB.tempo: { module: ${TEMPO_B}, param: Target BPM }\n` +
       `  deckA.eqLow: { module: ${EQ_A}, param: Low-shelf gain }\n` +
@@ -265,7 +257,6 @@ function stemCutNode(deck: string, stem: Stem): string {
 function graphForDeck(deck: string): string {
   const l = letterOf(deck);
   const eq = `eq${l}`;
-  const port = deck === DECKS[0] ? CROSSFADE : `${CROSSFADE}#b`;
   return (
     `  ${deck}: [ tempo${l} ]\n` +
     `  tempo${l}: [ ${eq} ]\n` +
@@ -275,7 +266,8 @@ function graphForDeck(deck: string): string {
         `  ${stemCut(deck, s)}: [ ${eq} ]\n`,
     ).join("") +
     `  ${eq}: [ filter${l} ]\n` +
-    `  filter${l}: [ ${port} ]\n`
+    `  filter${l}: [ fade${l} ]\n` +
+    `  fade${l}: [ MIX ]\n`
   );
 }
 
@@ -294,7 +286,9 @@ const MEDIATEK_FILTER = "@st0/audio/filter";
 /** …and the two stem modules under `separation/`: `stemsplit` writes the four files, `stemcut` removes one. */
 const MEDIATEK_SEPARATION = "@st0/audio/separation";
 /** The node names the chains file wires — short on purpose, since the ref is one line away in nodes/. */
-const CROSSFADE = "crossfade";
+/** One per deck, facing opposite ways — TWO of them are the crossfade, docs/setProject.md. */
+const FADE_A = "fadeA";
+const FADE_B = "fadeB";
 const TEMPO_A = "tempoA";
 const TEMPO_B = "tempoB";
 const EQ_A = "eqA";
@@ -303,6 +297,30 @@ const FILTER_A = "filterA";
 const FILTER_B = "filterB";
 
 /** One deck's tempo: a node of the médiathèque's cold Tempo module. */
+/** One deck's fade — the same module twice, `Side` deciding which way its gain runs (docs/setProject.md). */
+function fadeNode(letter: string, side: 0 | 1): string {
+  const way =
+    side === 0 ? "OUT as the fader travels" : "IN as the fader travels";
+  return (
+    `# Deck ${letter}'s fade — a NODE of the médiathèque's Fade module, one per deck.\n` +
+    `#\n` +
+    `# Two of these ARE the crossfade, and they are two rather than one for a reason the\n` +
+    `# engine imposes: a module's second port is wired as a SIDECHAIN, and a sidechain reads a\n` +
+    `# track only while that track also reaches an audible output. A deck feeding nothing but a\n` +
+    `# crossfade would therefore be heard BESIDE it, raw, with no way to take it back — see\n` +
+    `# engine/moteur/docs/sidechain.md. One input each, and the blend happens at the mixer.\n` +
+    `#\n` +
+    `# The module is NOT copied into this project: pl8 owns the only editable catalogue, so a\n` +
+    `# copy here would be a second Fade nobody maintains — packages/song/docs/nodes.md.\n` +
+    `extends: ${q(`${MEDIATEK_UTILITY}/fade`)}\n` +
+    `params:\n` +
+    `  # Both sides take the SAME value from the one control; this is what opposes them.\n` +
+    `  Side: ${side}\n` +
+    `  # 0 is where a set starts: deck A full, deck B silent. This one fades ${way}.\n` +
+    `  Mix: 0\n`
+  );
+}
+
 function tempoNode(letter: string): string {
   return (
     `# Deck ${letter}'s tempo — a NODE of the médiathèque's Tempo module, one per deck\n` +

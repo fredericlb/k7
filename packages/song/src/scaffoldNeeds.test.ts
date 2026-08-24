@@ -11,8 +11,8 @@ import { setProjectFiles } from "./scaffoldSet";
 describe("neededRefs", () => {
   it("finds the shared modules a SET extends", () => {
     const refs = neededRefs(setProjectFiles("ete"));
-    // The crossfade is the one every set has; the rest travel with the decks and the stem lanes.
-    expect(refs).toContain("@st0/audio/utility/crossfade");
+    // The fade is the one every set has — twice, one per deck; the rest travel with the lanes.
+    expect(refs).toContain("@st0/audio/utility/fade");
     expect(refs.length).toBeGreaterThan(1);
     expect(refs.every((r) => r.startsWith("@"))).toBe(true);
   });

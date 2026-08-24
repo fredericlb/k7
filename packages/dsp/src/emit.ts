@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { autoWah } from "./autowah";
 import { crossfade } from "./crossfade";
 import { echo } from "./echo";
+import { fade } from "./fade";
 import { flanger } from "./flanger";
 import { normalize } from "./normalize";
 import { stemcut } from "./stemcut";
@@ -18,6 +19,7 @@ for (const [name, g] of [
   ["echo", echo()],
   ["flanger", flanger()],
   ["crossfade", crossfade()],
+  ["fade", fade()],
   ["normalize", normalize()],
   ["stemcut", stemcut()],
 ] as const) {
